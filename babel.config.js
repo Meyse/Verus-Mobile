@@ -1,3 +1,6 @@
+/**
+ * Update: Added NativeWind Babel plugin before Reanimated to enable `className`.
+ */
 module.exports = function (api) {
   api.cache(true)
   return {
@@ -5,6 +8,7 @@ module.exports = function (api) {
       'module:metro-react-native-babel-preset'
     ],
     "plugins": [
+      "nativewind/babel",
       "react-native-reanimated/plugin",
     ],
   }
