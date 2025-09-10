@@ -1,0 +1,47 @@
+---
+globs: src/**/*.js,App.js
+description: Frontend UI kit conventions (Tailwind/NativeWind) and responsive usage guidelines
+---
+
+## UI Kit location and naming
+
+- New Tailwind/NativeWind UI primitives MUST live in [`src/components/ui/`](mdc:src/components/ui/index.js).
+- Name primitives with the `App` prefix to signal shared UI (e.g., `AppButton`, `AppInput`, `AppToggle`).
+- Each primitive gets its own file (e.g., [`Button.js`](mdc:src/components/ui/Button.js)) and is re-exported via the barrel [`index.js`](mdc:src/components/ui/index.js).
+- Props should be minimal and consistent across primitives:
+  - `size`: 'sm' | 'md' (defaults to 'md').
+  - `variant`: component-specific, but include 'primary' at minimum.
+  - `className` and optional text-specific `textClassName` pass-throughs.
+  - `disabled` where applicable.
+
+## Tailwind usage
+
+- Prefer Tailwind classes for structure and color; use inline numeric styles for calculated sizes only (heights, paddings derived from screen size).
+- Avoid swapping many Tailwind classes at runtime; instead compute a small set of numeric values.
+- Keep visual tokens (radii, spacing, colors) consistent with existing UI kit components.
+
+## Responsive rules (useResponsive)
+
+- Use [`useResponsive`](mdc:src/hooks/useResponsive.js) on screens that need size adaptations. Do NOT re-implement thresholds.
+- Semantics from the hook:
+  - `isVerySmallHeight` (≤568), `isSmallHeight` (≤667), plus `height` and `scale`.
+  - Prefer a single small/very-small branch rather than many breakpoints.
+- Pattern to follow (see [`LandingScreen.js`](mdc:src/containers/Onboard/Welcome/LandingScreen.js)):
+  - Compute numeric paddings/heights from `height` with clamping.
+  - Keep header typography stable per design (allow font scaling unless specified).
+  - Use `ScrollView` only on very small heights to guarantee reachability.
+  - Keep CTA button size consistent across devices unless explicitly required.
+
+## Example usage (high level)
+
+- Import primitives from the UI barrel:
+  `import { AppButton } from 'src/components/ui';`
+- In a screen: derive `topPadding`, `imageHeight`, etc., from `height` and clamp to sensible bounds. Apply via inline style while keeping Tailwind for layout/colors.
+
+## Review checklist (PRs touching frontend)
+
+- New primitives live under `src/components/ui/` and are exported from the barrel.
+- Screens use `useResponsive` (not ad-hoc `Dimensions` logic) for size adaptations.
+- Calculated sizes are numeric and clamped; minimal Tailwind class switching.
+- No unnecessary `ScrollView` on large/medium sizes; enabled on very small heights only.
+

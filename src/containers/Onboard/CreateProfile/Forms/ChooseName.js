@@ -1,14 +1,21 @@
-import React from 'react';
-import {View, Dimensions, TouchableWithoutFeedback, Keyboard} from 'react-native';
-import {Text, Paragraph, TextInput} from 'react-native-paper';
-import { createAlert } from '../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../components/LargerButton';
-import Colors from '../../../../globals/colors';
+/**
+ * Update: Redesign ChooseName with UI kit components and responsive layout.
+ * - Uses AppBackButton, AppTextField, AppButton from ui kit
+ * - Adds SoftSpotlightBackground and SafeArea + keyboard handling
+ * - Numeric spacing based on screen height (useResponsive)
+ */
+import React, { useEffect, useState } from 'react';
+import { View, Dimensions, TouchableWithoutFeedback, Keyboard, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
+import { AppButton, AppTextField } from '../../../../components/ui';
+import { useHeaderHeight } from '@react-navigation/elements';
+import SoftSpotlightBackground from '../../../../components/SoftSpotlightBackground';
+import useResponsive from '../../../../hooks/useResponsive';
 
 export default function ChooseName({ profileName, setProfileName, navigation }) {
-  const {height} = Dimensions.get('window');
+  const { height } = Dimensions.get('window');
   const accounts = useObjectSelector(state => state.authentication.accounts)
 
   const isDuplicateAccount = (accountID) => {
@@ -28,95 +35,92 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
     }
   };
 
-  const validate = () => {
-    const res = { valid: false, message: "" }
+  const [touched, setTouched] = useState(false);
+  const [duplicate, setDuplicate] = useState(false);
 
-    if (!profileName || profileName.length < 1) {
-      res.message = "Please enter a profile name."
-      return res
-    } else if (profileName.length > 50) {
-      res.message = "Please enter a profile name shorter than 50 characters."
-      return res
-    } else if (isDuplicateAccount(profileName)) {
-      res.message = "A profile with this name already exists."
-      return res
-    }
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDuplicate(isDuplicateAccount(profileName.trim()))
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [profileName, accounts]);
 
-    res.valid = true
-    return res
-  }
+  const getErrorText = () => {
+    if (!touched) return '';
+    if (profileName.trim().length === 0) return 'Please enter a profile name.';
+    if (duplicate) return 'A profile with this name already exists.';
+    return '';
+  };
 
   const next = () => {
-    const { valid, message } = validate()
-
-    if (!valid) createAlert("Error", message)
-    else navigation.navigate("CreatePassword")
+    if (!touched) setTouched(true);
+    const error = getErrorText();
+    if (error) return;
+    navigation.navigate("CreatePassword")
   }
 
+  const { isVerySmallHeight, isSmallHeight, height: screenHeight } = useResponsive();
+  const headerHeight = useHeaderHeight();
+  const topPadding = headerHeight; // content sits directly under native header
+  const titleSizeClass = isVerySmallHeight ? "text-2xl" : isSmallHeight ? "text-3xl" : "text-4xl";
+  const subtitleLineHeight = isSmallHeight || isVerySmallHeight ? 20 : 22;
+
   return (
-    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-      <View
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          flex: 1,
-          alignItems: 'center',
-          backgroundColor: Colors.secondaryColor
-        }}>
-        <View
-          style={{
-            alignItems: 'center',
-            position: 'absolute',
-            top: height < SMALL_DEVICE_HEGHT ? 60 : height / 2 - 250,
-            top: height < SMALL_DEVICE_HEGHT ? 60 : height / 2 - 250,
-          }}>
-          <Text
-            style={{
-              textAlign: 'center',
-              color: Colors.primaryColor,
-              fontSize: 28,
-              fontWeight: 'bold',
-            }}>
-            {"Choose Name"}
-          </Text>
-          <Paragraph
-            style={{
-              textAlign: 'center',
-              width: '75%',
-              marginTop: 24,
-              width: 280
-            }}>
-            {"Give your profile a name. You can have multiple profiles."}
-          </Paragraph>
-          <TextInput
-            returnKeyType="done"
-            label="Choose name"          
-            value={profileName}
-            mode={"outlined"}
-            style={{
-              width: '75%',
-              marginTop: 48,
-              width: 280
-            }}
-            placeholder="Enter name"
-            dense={true}
-            onChangeText={(text) => setProfileName(text)}
-          />
-        </View>
-        <TallButton
-          onPress={next}
-          mode="contained"
-          labelStyle={{fontWeight: "bold"}}
-          disabled={profileName.length == 0}
-          style={{
-            position: "absolute",
-            bottom: 80,
-            width: 280
-          }}>
-          {"Next"}
-        </TallButton>
-      </View>
-    </TouchableWithoutFeedback>
+    <SafeAreaView className="flex-1">
+      <SoftSpotlightBackground pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0" />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          {isVerySmallHeight ? (
+            <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', paddingTop: topPadding }} className="px-5 pb-4">
+              <View>
+                <View>
+                  <Text className={"text-zinc-800 font-bold " + titleSizeClass}>{"Name your profile"}</Text>
+                  <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>{"Give your profile a name. You can create multiple profiles. Your password (next step) will protect and encrypt your wallet on this device."}</Text>
+                </View>
+                <View className="mt-8">
+                  <Text className="text-sm text-zinc-700 mb-2">{"Name"}</Text>
+                  <AppTextField
+                    placeholder="e.g., Personal wallet"
+                    value={profileName}
+                    onChangeText={(text) => setProfileName(text)}
+                    maxLength={50}
+                    returnKeyType="done"
+                    onSubmitEditing={next}
+                    onBlur={() => setTouched(true)}
+                    helperText={!touched ? '' : undefined}
+                    errorText={getErrorText()}
+                  />
+                </View>
+              </View>
+              <AppButton onPress={next} disabled={profileName.length == 0}>{"Next"}</AppButton>
+            </ScrollView>
+          ) : (
+            <View className="flex-1 px-5 pb-6 justify-between" style={{ paddingTop: topPadding }}>
+              <View>
+                <View>
+                  <Text className={"text-zinc-800 font-bold " + titleSizeClass}>{"Name your profile"}</Text>
+                  <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>{"Give your profile a name. You can create multiple profiles. Your password (next step) will protect and encrypt your wallet on this device."}</Text>
+                </View>
+                <View className="mt-10">
+                  <Text className="text-sm text-zinc-700 mb-2">{"Name"}</Text>
+                  <AppTextField
+                    placeholder="e.g., Personal wallet"
+                    value={profileName}
+                    onChangeText={(text) => setProfileName(text)}
+                    maxLength={50}
+                    returnKeyType="done"
+                    onSubmitEditing={next}
+                    onBlur={() => setTouched(true)}
+                    helperText={!touched ? '' : undefined}
+                    errorText={getErrorText()}
+                  />
+                </View>
+              </View>
+              <AppButton onPress={next} disabled={profileName.length == 0}> {"Next"} </AppButton>
+            </View>
+          )}
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
