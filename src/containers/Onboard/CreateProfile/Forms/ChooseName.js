@@ -5,13 +5,11 @@
  * - Numeric spacing based on screen height (useResponsive)
  */
 import React, { useEffect, useState } from 'react';
-import { View, Dimensions, TouchableWithoutFeedback, Keyboard, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Dimensions, Text } from 'react-native';
 import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
-import { AppButton, AppTextField } from '../../../../components/ui';
-import { useHeaderHeight } from '@react-navigation/elements';
-import SoftSpotlightBackground from '../../../../components/SoftSpotlightBackground';
+import { AppTextField } from '../../../../components/ui';
+import OnboardScreen from '../../../../components/layout/OnboardScreen';
 import useResponsive from '../../../../hooks/useResponsive';
 
 export default function ChooseName({ profileName, setProfileName, navigation }) {
@@ -60,67 +58,31 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
   }
 
   const { isVerySmallHeight, isSmallHeight, height: screenHeight } = useResponsive();
-  const headerHeight = useHeaderHeight();
-  const topPadding = headerHeight; // content sits directly under native header
   const titleSizeClass = isVerySmallHeight ? "text-2xl" : isSmallHeight ? "text-3xl" : "text-4xl";
   const subtitleLineHeight = isSmallHeight || isVerySmallHeight ? 20 : 22;
 
   return (
-    <SafeAreaView className="flex-1">
-      <SoftSpotlightBackground pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-          {isVerySmallHeight ? (
-            <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', paddingTop: topPadding }} className="px-5 pb-4">
-              <View>
-                <View>
-                  <Text className={"text-zinc-800 font-bold " + titleSizeClass}>{"Name your profile"}</Text>
-                  <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>{"Give your profile a name. You can create multiple profiles. Your password (next step) will protect and encrypt your wallet on this device."}</Text>
-                </View>
-                <View className="mt-8">
-                  <Text className="text-sm text-zinc-700 mb-2">{"Name"}</Text>
-                  <AppTextField
-                    placeholder="e.g., Personal wallet"
-                    value={profileName}
-                    onChangeText={(text) => setProfileName(text)}
-                    maxLength={50}
-                    returnKeyType="done"
-                    onSubmitEditing={next}
-                    onBlur={() => setTouched(true)}
-                    helperText={!touched ? '' : undefined}
-                    errorText={getErrorText()}
-                  />
-                </View>
-              </View>
-              <AppButton onPress={next} disabled={profileName.length == 0}>{"Next"}</AppButton>
-            </ScrollView>
-          ) : (
-            <View className="flex-1 px-5 pb-6 justify-between" style={{ paddingTop: topPadding }}>
-              <View>
-                <View>
-                  <Text className={"text-zinc-800 font-bold " + titleSizeClass}>{"Name your profile"}</Text>
-                  <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>{"Give your profile a name. You can create multiple profiles. Your password (next step) will protect and encrypt your wallet on this device."}</Text>
-                </View>
-                <View className="mt-10">
-                  <Text className="text-sm text-zinc-700 mb-2">{"Name"}</Text>
-                  <AppTextField
-                    placeholder="e.g., Personal wallet"
-                    value={profileName}
-                    onChangeText={(text) => setProfileName(text)}
-                    maxLength={50}
-                    returnKeyType="done"
-                    onSubmitEditing={next}
-                    onBlur={() => setTouched(true)}
-                    helperText={!touched ? '' : undefined}
-                    errorText={getErrorText()}
-                  />
-                </View>
-              </View>
-              <AppButton onPress={next} disabled={profileName.length == 0}> {"Next"} </AppButton>
-            </View>
-          )}
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <OnboardScreen
+      title={"Name your profile"}
+      subtitle={"Give your profile a name. You can create multiple profiles. Your password (next step) will protect and encrypt your wallet on this device."}
+      ctaLabel={"Next"}
+      ctaDisabled={profileName.length == 0}
+      onCtaPress={next}
+    >
+      <View className="mt-8">
+        <Text className="text-sm text-zinc-700 mb-2">{"Name"}</Text>
+        <AppTextField
+          placeholder="e.g., Personal wallet"
+          value={profileName}
+          onChangeText={(text) => setProfileName(text)}
+          maxLength={50}
+          returnKeyType="done"
+          onSubmitEditing={next}
+          onBlur={() => setTouched(true)}
+          helperText={!touched ? '' : undefined}
+          errorText={getErrorText()}
+        />
+      </View>
+    </OnboardScreen>
   );
 }
