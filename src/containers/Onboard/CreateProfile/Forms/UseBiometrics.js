@@ -1,85 +1,53 @@
-import React from 'react';
-import {View, Dimensions, TouchableWithoutFeedback, Keyboard} from 'react-native';
-import {Text, Paragraph, Button, TextInput} from 'react-native-paper';
+import React, { useState } from 'react';
+import { View, Image, Text } from 'react-native';
 import Colors from '../../../../globals/colors';
 import { canEnableBiometry } from '../../../../actions/actions/channels/dlight/dispatchers/AlertManager';
-import { Biometrics } from '../../../../images/customIcons';
-import TallButton from '../../../../components/LargerButton';
 import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
+import OnboardScreen from '../../../../components/layout/OnboardScreen';
+import useResponsive from '../../../../hooks/useResponsive';
+import { AppButton } from '../../../../components/ui';
+import biometricImg from '../../../../images/customIcons/biometric-img.png';
 
-export default function UseBiometrics({ setUseBiometrics, navigation }) {
-  const {height} = Dimensions.get('window');
+export default function UseBiometrics({ setUseBiometrics, navigation, walletType }) {
+  const [notAvailable, setNotAvailable] = useState(false);
+  const { isVerySmallHeight, isSmallHeight } = useResponsive();
 
-  const next = async (useBiometrics) => {
-    if (useBiometrics && await canEnableBiometry()) {
-      setUseBiometrics(useBiometrics)
-      navigation.navigate("CreateWallet")
-    } else if (!useBiometrics) {
-      setUseBiometrics(useBiometrics)
-      navigation.navigate("CreateWallet")
+  const next = async (enable) => {
+    if (enable) {
+      const ok = await canEnableBiometry();
+      if (!ok) {
+        setNotAvailable(true);
+        return;
+      }
     }
-  }
+    setUseBiometrics(enable);
+    if (walletType === 'import') {
+      navigation.navigate('ImportWallet');
+    } else {
+      navigation.navigate('CreateWallet');
+    }
+  };
 
   return (
-    <View
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        flex: 1,
-        alignItems: 'center',
-        backgroundColor: Colors.secondaryColor
-      }}>
-      {height >= SMALL_DEVICE_HEGHT && <Biometrics
-        width={180}
-        style={{ top: height / 2 - 260, position: 'absolute' }}
-      />}
-      <View
-        style={{
-          alignItems: 'center',
-          position: 'absolute',
-          top: height / 2 - 130,
-        }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}>
-          {"Biometric Authentication"}
-        </Text>
-        <Paragraph
-          style={{
-            textAlign: 'center',
-            width: '60%',
-            marginTop: 24
-          }}>
-          {"Sign into your profile with biometric authentication. You can always change this later."}
-        </Paragraph>
+    <OnboardScreen
+      title={'Biometric authentication'}
+      subtitle={notAvailable ? 'Biometrics not available on this device.' : 'Sign into your profile with biometric authentication. You can always change this later.'}
+      ctaLabel={'Enable'}
+      ctaDisabled={false}
+      onCtaPress={() => next(true)}
+      secondaryCtaLabel={'Skip'}
+      secondaryCtaVariant={'secondary'}
+      onSecondaryCtaPress={() => next(false)}
+      forceScroll={true}
+      reverseLayout={true}
+    >
+      <View className="mb-8 items-center">
+        <Image 
+          source={biometricImg} 
+          resizeMode="contain" 
+          style={{ width: '100%', height: isVerySmallHeight ? 140 : isSmallHeight ? 180 : 220 }} 
+        />
       </View>
-      <TallButton
-        onPress={() => next(true)}
-        mode="contained"
-        labelStyle={{fontWeight: "bold"}}
-        style={{
-          position: "absolute",
-          bottom: 96,
-          width: 280
-        }}>
-        {"Enable"}
-      </TallButton>
-      <TallButton
-        onPress={() => next(false)}
-        mode="text"
-        labelStyle={{fontWeight: "bold", color: Colors.primaryColor}}
-        style={{
-          position: "absolute",
-          bottom: 40,
-          width: 280
-        }}>
-        {"Skip"}
-      </TallButton>
-    </View>
+    </OnboardScreen>
   );
 }

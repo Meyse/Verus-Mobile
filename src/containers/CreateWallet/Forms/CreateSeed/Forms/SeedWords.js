@@ -1,270 +1,260 @@
-import React, {useEffect, useState} from 'react';
+/**
+ * Update: Redesign SeedWords to show 12 words per screen with card styling.
+ */
+import React, {useState, useEffect} from 'react';
 import {
   View,
-  Dimensions,
-  Keyboard,
-  TextInput as NativeTextInput,
-  TouchableWithoutFeedback,
-  Alert,
+  Text,
+  SafeAreaView,
+  ScrollView,
 } from 'react-native';
-import {Text, Button, TextInput} from 'react-native-paper';
-import TallButton from '../../../../../components/LargerButton';
-import Colors from '../../../../../globals/colors';
-import {DEFAULT_SEED_PHRASE_LENGTH} from '../../../../../utils/constants/constants';
+import SoftSpotlightBackground from '../../../../../components/SoftSpotlightBackground';
+import useResponsive from '../../../../../hooks/useResponsive';
+import { AppButton, AppTextField } from '../../../../../components/ui';
 
 export default function SeedWords({navigation, newSeed, onComplete}) {
-  const {height} = Dimensions.get('window');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [showVerification, setShowVerification] = useState(false);
+  const [randomIndices, setRandomIndices] = useState([]);
+  const [wordGuesses, setWordGuesses] = useState(['', '', '']);
+  const [touched, setTouched] = useState(false);
+  
+  if (!newSeed) {
+    return (
+      <SafeAreaView className="flex-1">
+        <SoftSpotlightBackground pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0" />
+        <View className="flex-1 items-center justify-center px-5">
+          <Text className="text-zinc-600">Preparing your seed…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const [formStep, setFormStep] = useState(0);
-  const [seedWords, setSeedWords] = useState(newSeed.split(' '));
-
-  const [isAtEnd, setIsAtEnd] = useState(formStep >= seedWords.length / 8);
-  const [firstIndex, setFirstIndex] = useState(formStep * 8);
-  const [displayWords, setDisplayWords] = useState(
-    !isAtEnd ? seedWords.slice(firstIndex, firstIndex + 8) : [],
+  const seedWords = newSeed.split(' ');
+  
+  const wordsPerPage = 12;
+  const totalPages = Math.ceil(seedWords.length / wordsPerPage);
+  const isLastPage = currentPage >= totalPages - 1;
+  
+  const displayWords = seedWords.slice(
+    currentPage * wordsPerPage, 
+    (currentPage + 1) * wordsPerPage
   );
 
-  const [randomIndices, setRandomIndices] = useState([0, 0, 0]);
+  const { isVerySmallHeight, isSmallHeight, height: screenHeight } = useResponsive();
+  const titleSizeClass = isVerySmallHeight ? 'text-2xl' : isSmallHeight ? 'text-3xl' : 'text-4xl';
+  const subtitleLineHeight = isSmallHeight || isVerySmallHeight ? 20 : 22;
+  const topPadding = isSmallHeight ? 12 : 40;
 
-  const [wordGuesses, setWordGuesses] = useState(['', '', '']);
-  const [wordErrors, setWordErrors] = useState([false, false, false]);
-
-  const resetForm = () => {
-    setFormStep(0);
-    setSeedWords(newSeed.split(' '));
-  };
-
-  const getRandIndex = (exclusions = []) => {
-    let rand = Math.round(Math.random() * (DEFAULT_SEED_PHRASE_LENGTH - 1));
-
-    while (exclusions.includes(rand)) {
-      rand = Math.round(Math.random() * (DEFAULT_SEED_PHRASE_LENGTH - 1));
-    }
-
-    return rand;
-  };
-
-  const verifySeed = () => {
-    setWordErrors([false, false, false]);
-
-    let errors = false;
-    let guessErrors = [false, false, false];
-
-    wordGuesses.map((wordGuess, index) => {
-      if (wordGuess !== seedWords[randomIndices[index]]) {
-        errors = true;
-        guessErrors[index] = true;
+  const generateRandomIndices = () => {
+    const indices = [];
+    while (indices.length < 3) {
+      const rand = Math.floor(Math.random() * seedWords.length);
+      if (!indices.includes(rand)) {
+        indices.push(rand);
       }
-    });
-
-    if (errors) {
-      Alert.alert('Incorrect', 'One or more words do not match.');
     }
-
-    setWordErrors(guessErrors);
-
-    if (!errors) {
-      onComplete();
-    }
+    return indices.sort((a, b) => a - b);
   };
 
-  const next = () => {
-    if (isAtEnd) {
-      verifySeed();
+  useEffect(() => {
+    if (showVerification && randomIndices.length === 0) {
+      const indices = generateRandomIndices();
+      setRandomIndices(indices);
+    }
+  }, [showVerification]);
+
+  const nextPage = () => {
+    if (isLastPage) {
+      setShowVerification(true);
     } else {
-      setFormStep(formStep + 1);
+      setCurrentPage(currentPage + 1);
     }
   };
 
-  const back = () => {
-    if (formStep > 0) {
-      setFormStep(formStep - 1);
+  const getPageTitle = () => {
+    if (showVerification) return 'Verify your recovery phrase';
+    const start = currentPage * wordsPerPage + 1;
+    const end = Math.min((currentPage + 1) * wordsPerPage, seedWords.length);
+    return `Your ${start}-${end} word recovery phrase`;
+  };
+
+  const getNextButtonLabel = () => {
+    if (isLastPage) return 'Next';
+    const start = (currentPage + 1) * wordsPerPage + 1;
+    const end = Math.min((currentPage + 2) * wordsPerPage, seedWords.length);
+    return `Show words ${start}-${end}`;
+  };
+
+  const getErrorText = (index) => {
+    if (!touched) return '';
+    const guess = wordGuesses[index].trim().toLowerCase();
+    const actual = seedWords[randomIndices[index]].toLowerCase();
+    if (!guess) return 'Please enter the word.';
+    if (guess !== actual) return 'Incorrect word.';
+    return '';
+  };
+
+  const verify = () => {
+    setTouched(true);
+    const hasErrors = randomIndices.some((_, index) => getErrorText(index));
+    if (!hasErrors) {
+      // Navigate to inline setup screen instead of modal flow
+      navigation.navigate('SetupWallet');
     }
   };
 
-  useEffect(() => {
-    resetForm();
-  }, [newSeed]);
-
-  useEffect(() => {
-    setIsAtEnd(formStep >= seedWords.length / 8);
-    setFirstIndex(formStep * 8);
-  }, [formStep, newSeed]);
-
-  useEffect(() => {
-    setDisplayWords(
-      !isAtEnd ? seedWords.slice(firstIndex, firstIndex + 8) : [],
-    );
-  }, [firstIndex, isAtEnd]);
-
-  useEffect(() => {
-    if (isAtEnd) {
-      const first = getRandIndex();
-      const second = getRandIndex([first]);
-      const third = getRandIndex([first, second]);
-
-      setRandomIndices([first, second, third]);
-    }
-  }, [isAtEnd]);
-
-  useEffect(() => {
-    setWordErrors([false, false, false]);
-  }, [wordGuesses, randomIndices]);
+  console.log('Render - showVerification:', showVerification, 'randomIndices:', randomIndices);
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          flex: 1,
-          alignItems: 'center',
-          backgroundColor: Colors.secondaryColor,
-        }}>
-        <View
-          style={{
-            alignItems: 'center',
-            position: 'absolute',
-            top: height / 2 - 200,
-          }}>
-          {isAtEnd ? (
-            <View
-              style={{
-                alignSelf: 'center',
-                width: '75%',
-                justifyContent: 'center',
-              }}>
-              {randomIndices.map((randomI, index) => {
-                return (
-                  <View
-                    key={index}
-                    style={{
-                      width: '100%',
-                      alignItems: 'center',
-                      paddingVertical: 8,
-                      justifyContent: 'center',
-                      flexDirection: 'row',
-                    }}>
-                    <TextInput
-                      returnKeyType="done"
-                      dense
-                      style={{width: '100%'}}
-                      onChangeText={text => {
-                        let newGuesses = [...wordGuesses];
-
-                        newGuesses[index] = text;
-                        setWordGuesses(newGuesses);
-                      }}
-                      label={`Enter word ${randomI + 1}:`}
-                      underlineColor={Colors.primaryColor}
-                      selectionColor={Colors.primaryColor}
-                      mode="outlined"
-                      render={props => (
-                        <NativeTextInput
-                          autoCapitalize={'none'}
-                          autoCorrect={false}
-                          autoComplete="off"
-                          {...props}
-                        />
-                      )}
-                      error={wordErrors[index]}
-                    />
-                  </View>
-                );
-              })}
+    <SafeAreaView className="flex-1">
+      <SoftSpotlightBackground pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0" />
+      
+      {isVerySmallHeight ? (
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', paddingTop: topPadding }} className="flex-1 px-5 pb-4">
+          {/* Content */}
+          <View>
+            <View>
+              <Text className={'text-zinc-800 font-bold ' + titleSizeClass}>
+                {getPageTitle()}
+              </Text>
+              <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>
+                {showVerification ? 'Enter the requested words to verify you wrote them down correctly' : 'Keep this offline and never share it with anyone'}
+              </Text>
             </View>
-          ) : (
-            <View
-              style={{
-                alignSelf: 'center',
-                width: '75%',
-                justifyContent: 'center',
-              }}>
-              <View
-                style={{
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                {displayWords.map((word, index) => {
-                  return (
-                    <View
-                      key={index}
-                      style={{
-                        flex: 1,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        width: '100%',
-                        paddingTop: 8,
-                      }}>
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          paddingTop: 2,
-                          paddingRight: 8,
-                        }}>{`Word ${firstIndex + index + 1}:`}</Text>
-                      <Text
-                        style={{
-                          fontSize: 20,
-                          color: Colors.primaryColor,
-                          textAlign: 'left',
-                          fontWeight: 'bold',
-                        }}>
+            
+            {/* Words Grid or Verification */}
+            <View className="mt-8" key={showVerification ? 'verification' : 'words'}>
+              {showVerification ? (
+                <View>
+                  {randomIndices.length === 0 ? (
+                    <Text className="text-zinc-600">Preparing verification…</Text>
+                  ) : (
+                    randomIndices.map((wordIndex, index) => (
+                      <View key={`verify-${index}`} className="mb-4">
+                        <Text className="text-sm text-zinc-700 mb-2">
+                          {`Enter word ${wordIndex + 1}:`}
+                        </Text>
+                        <AppTextField
+                          placeholder={`Word ${wordIndex + 1}`}
+                          value={wordGuesses[index]}
+                          onChangeText={(text) => {
+                            const newGuesses = [...wordGuesses];
+                            newGuesses[index] = text;
+                            setWordGuesses(newGuesses);
+                          }}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          returnKeyType={index === 2 ? "done" : "next"}
+                          errorText={getErrorText(index)}
+                          onBlur={() => setTouched(true)}
+                        />
+                      </View>
+                    ))
+                  )}
+                </View>
+              ) : (
+                <View className="flex-row flex-wrap justify-between">
+                  {displayWords.map((word, index) => (
+                    <View key={`word-${currentPage}-${index}`} className="w-[30%] mb-4 bg-white/60 border border-white/40 rounded-xl p-3 items-center">
+                      <Text className="text-xs text-zinc-500 mb-1">
+                        {currentPage * wordsPerPage + index + 1}
+                      </Text>
+                      <Text className="text-base font-semibold text-zinc-800">
                         {word}
                       </Text>
                     </View>
-                  );
-                })}
-              </View>
+                  ))}
+                </View>
+              )}
             </View>
-          )}
-        </View>
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 40,
-            width: 280,
-          }}>
-          <Text style={{textAlign: 'center', paddingBottom: 8}}>
-            {isAtEnd
-              ? 'Please verify the listed words.'
-              : "When you've written them down, press next."}
-          </Text>
-          <View style={{flexDirection: "row"}}>
-            {formStep > 0 && (
-              <TallButton
-                onPress={back}
-                mode="text"
-                labelStyle={{
-                  fontWeight: 'bold',
-                  color: Colors.warningButtonColor,
-                }}
-                style={{
-                  marginTop: 8,
-                  flex: 1
-                }}>
-                {'Back'}
-              </TallButton>
-            )}
-            <TallButton
-              onPress={next}
-              mode="contained"
-              disabled={
-                isAtEnd &&
-                (wordGuesses[0].length == 0 ||
-                  wordGuesses[1].length == 0 ||
-                  wordGuesses[2].length == 0)
-              }
-              labelStyle={{fontWeight: 'bold'}}
-              style={{
-                marginTop: 8,
-                flex: 1
-              }}>
-              {isAtEnd ? 'Complete' : 'Next'}
-            </TallButton>
+          </View>
+          
+          {/* Bottom text and CTA */}
+          <View>
+            {!showVerification ? (
+              <Text className="text-center text-xs text-zinc-600 mb-4">
+                {"Once you've written down the words you can go to the next words"}
+              </Text>
+            ) : null}
+            <AppButton onPress={showVerification ? verify : nextPage} disabled={showVerification && wordGuesses.some(guess => !guess.trim())}>
+              {showVerification ? 'Complete' : getNextButtonLabel()}
+            </AppButton>
+          </View>
+        </ScrollView>
+      ) : (
+        <View className="flex-1 px-5 pb-6 justify-between" style={{ paddingTop: topPadding }}>
+          {/* Content */}
+          <View>
+            <View>
+              <Text className={'text-zinc-800 font-bold ' + titleSizeClass}>
+                {getPageTitle()}
+              </Text>
+              <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>
+                {showVerification ? 'Enter the requested words to verify you wrote them down correctly' : 'Keep this offline and never share it with anyone'}
+              </Text>
+            </View>
+            
+            {/* Words Grid or Verification */}
+            <View className="mt-10" key={showVerification ? 'verification' : 'words'}>
+              {showVerification ? (
+                <View>
+                  {randomIndices.length === 0 ? (
+                    <Text className="text-zinc-600">Preparing verification…</Text>
+                  ) : (
+                    randomIndices.map((wordIndex, index) => (
+                      <View key={`verify-${index}`} className="mb-4">
+                        <Text className="text-sm text-zinc-700 mb-2">
+                          {`Enter word ${wordIndex + 1}:`}
+                        </Text>
+                        <AppTextField
+                          placeholder={`Word ${wordIndex + 1}`}
+                          value={wordGuesses[index]}
+                          onChangeText={(text) => {
+                            const newGuesses = [...wordGuesses];
+                            newGuesses[index] = text;
+                            setWordGuesses(newGuesses);
+                          }}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          returnKeyType={index === 2 ? "done" : "next"}
+                          errorText={getErrorText(index)}
+                          onBlur={() => setTouched(true)}
+                        />
+                      </View>
+                    ))
+                  )}
+                </View>
+              ) : (
+                <View className="flex-row flex-wrap justify-between">
+                  {displayWords.map((word, index) => (
+                    <View key={`word-${currentPage}-${index}`} className="w-[30%] mb-4 bg-white/60 border border-white/40 rounded-xl p-3 items-center">
+                      <Text className="text-xs text-zinc-500 mb-1">
+                        {currentPage * wordsPerPage + index + 1}
+                      </Text>
+                      <Text className="text-base font-semibold text-zinc-800">
+                        {word}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+          
+          {/* Bottom text and CTA */}
+          <View>
+            {!showVerification ? (
+              <Text className="text-center text-xs text-zinc-600 mb-4">
+                {"Once you've written down the words you can go to the next words"}
+              </Text>
+            ) : null}
+            <AppButton onPress={showVerification ? verify : nextPage} disabled={showVerification && wordGuesses.some(guess => !guess.trim())}>
+              {showVerification ? 'Complete' : getNextButtonLabel()}
+            </AppButton>
           </View>
         </View>
-      </View>
-    </TouchableWithoutFeedback>
+      )}
+    </SafeAreaView>
   );
 }

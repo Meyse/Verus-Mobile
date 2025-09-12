@@ -5,7 +5,7 @@ import ImportWalletStackScreens from './Forms/ImportWallet/ImportWallet';
 import WalletIntro from './Forms/WalletIntro';
 const CreateWalletStack = createStackNavigator();
 
-export default function CreateWalletStackScreens({ navigation, createProfile }) {
+export default function CreateWalletStackScreens({ navigation, createProfile, walletType = 'new' }) {
   const [newSeed, setNewSeed] = useState(null)
   const [testProfile, setTestProfile] = useState(false)
   const [importedSeed, setImportedSeed] = useState(null)
@@ -14,8 +14,10 @@ export default function CreateWalletStackScreens({ navigation, createProfile }) 
     createProfile(asNew ? newSeed : importedSeed, testProfile)
   }
 
+  const initialRouteName = walletType === 'import' ? 'ImportWallet' : 'CreateSeed';
+
   return (
-    <CreateWalletStack.Navigator>
+    <CreateWalletStack.Navigator initialRouteName={initialRouteName}>
       <CreateWalletStack.Screen
         name="WalletIntro"
         options={{
@@ -41,6 +43,8 @@ export default function CreateWalletStackScreens({ navigation, createProfile }) 
             navigation={navigation}
             newSeed={newSeed}
             setNewSeed={setNewSeed}
+            testProfile={testProfile}
+            createProfile={createProfile}
             onComplete={() => completeSeedSetup(true)}
           />
         )}

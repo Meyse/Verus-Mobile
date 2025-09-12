@@ -21,6 +21,7 @@ export const initializeAccountData = async (
   password,
   makeDefault = false,
   setInitStep = () => {},
+  deferSignIn = false,
 ) => {
   setInitStep(VALIDATING_ACCOUNT);
   const accountAuthenticator = await validateLogin(account, password);
@@ -98,7 +99,7 @@ export const initializeAccountData = async (
     activateServiceLifecycle();
     await initPersonalDataForUser(account.accountHash);
     await initAttestationDataForUser(account.accountHash);
-    store.dispatch(signIntoAuthenticatedAccount());
+    if (!deferSignIn) store.dispatch(signIntoAuthenticatedAccount());
   } else {
     throw new Error(
       `Failed to validate and initialize account "${account.id}"`,

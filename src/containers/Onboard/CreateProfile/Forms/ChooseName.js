@@ -63,8 +63,8 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
 
   return (
     <OnboardScreen
-      title={"Name your profile"}
-      subtitle={"Give your profile a name. You can create multiple profiles. Your password (next step) will protect and encrypt your wallet on this device."}
+      title={"Name your wallet"}
+      subtitle={"Give your wallet a name. You can create multiple wallets on this device. Your password (next step) will protect and encrypt your wallet on this device only."}
       ctaLabel={"Next"}
       ctaDisabled={profileName.length == 0}
       onCtaPress={next}

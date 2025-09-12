@@ -86,7 +86,7 @@ export default function CreatePassword({password, setPassword, navigation}) {
   return (
     <OnboardScreen
       title={'Create password'}
-      subtitle={'Create a secure password for your profile. Your password will be used to encrypt your wallet.'}
+      subtitle={'Create a secure password for your wallet. Your password will be used to encrypt your wallet.'}
       ctaLabel={'Next'}
       ctaDisabled={!firstBox || passwordStrength < MIN_PASS_SCORE}
       onCtaPress={next}

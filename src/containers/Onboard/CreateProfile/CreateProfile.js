@@ -29,6 +29,7 @@ export default function CreateProfileStackScreens(props) {
   const [profileName, setProfileName] = useState('');
   const [password, setPassword] = useState('');
   const [useBiometrics, setUseBiometrics] = useState(false);
+  const [walletType, setWalletType] = useState(props.route?.params?.walletType || 'new');
   const dispatch = useDispatch();
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -50,8 +51,9 @@ export default function CreateProfileStackScreens(props) {
     }
   };
 
-  const createProfile = async (seed, testProfile) => {
-    openLoadingModal('Setting up your new profile...');
+  const createProfile = async (seed, testProfile, options = {}) => {
+    const uiMode = options.uiMode || 'modal';
+    if (uiMode === 'modal') openLoadingModal('Setting up your new profile...');
 
     try {
       const _userName = profileName;
@@ -116,14 +118,17 @@ export default function CreateProfileStackScreens(props) {
       }
 
       //Log in new user
-      await initializeAccountData(newAccount, _pin);
-      createAlert('Profile created!', `Your '${_userName}' profile has been created and is ready to use.`);
+      // In inline mode, we defer sign-in so UI can show success and the user can tap Next
+      await initializeAccountData(newAccount, _pin, false, () => {}, uiMode === 'inline');
+      if (uiMode === 'modal') {
+        createAlert('Profile created!', `Your '${_userName}' profile has been created and is ready to use.`);
+      }
     } catch (e) {
       console.error(e)
       createAlert('Error', e.message);
     }
 
-    closeLoadingModal();
+    if (uiMode === 'modal') closeLoadingModal();
   };
 
   return (
@@ -137,6 +142,7 @@ export default function CreateProfileStackScreens(props) {
           headerBackTitleVisible: false,
           headerTintColor: '#111827',
           headerShadowVisible: false,
+          headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
         {() => (
           <ChooseName
@@ -155,6 +161,7 @@ export default function CreateProfileStackScreens(props) {
           headerBackTitleVisible: false,
           headerTintColor: '#111827',
           headerShadowVisible: false,
+          headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
         {() => (
           <CreatePassword
@@ -167,13 +174,20 @@ export default function CreateProfileStackScreens(props) {
       <CreateProfileStack.Screen
         name="UseBiometrics"
         options={{
-          headerShown: false,
+          headerShown: true,
+          headerTransparent: true,
+          headerTitle: '',
+          headerBackTitleVisible: false,
+          headerTintColor: '#111827',
+          headerShadowVisible: false,
+          headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
         {() => (
           <UseBiometrics
             useBiometrics={useBiometrics}
             setUseBiometrics={setUseBiometrics}
             navigation={props.navigation}
+            walletType={walletType}
           />
         )}
       </CreateProfileStack.Screen>
@@ -186,6 +200,7 @@ export default function CreateProfileStackScreens(props) {
           headerBackTitleVisible: false,
           headerTintColor: '#111827',
           headerShadowVisible: false,
+          headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
         {() => (
           <ConfirmPassword
@@ -203,6 +218,7 @@ export default function CreateProfileStackScreens(props) {
           <CreateWalletStackScreens
             navigation={props.navigation}
             createProfile={createProfile}
+            walletType={walletType}
           />
         )}
       </CreateProfileStack.Screen>

@@ -10,11 +10,16 @@ const AppButton = ({ onPress, children, className, textClassName, size = "md", v
   const isCompact = size === 'sm' || size === 'compact';
   const base = "rounded-2xl items-center justify-center ";
   const heights = isCompact ? "h-12 " : "h-14 ";
-  const palette = variant === 'primary'
-    ? (disabled ? "bg-neutral-300 " : "bg-neutral-700 ")
-    : variant === 'ghost'
-      ? "bg-transparent "
-      : "bg-neutral-700 ";
+  let palette = "";
+  if (variant === 'primary') {
+    palette = disabled ? "bg-neutral-300 " : "bg-neutral-700 ";
+  } else if (variant === 'secondary') {
+    palette = "bg-transparent border border-neutral-700/30 ";
+  } else if (variant === 'ghost') {
+    palette = "bg-transparent ";
+  } else {
+    palette = "bg-neutral-700 ";
+  }
 
   return (
     <Pressable
@@ -23,7 +28,7 @@ const AppButton = ({ onPress, children, className, textClassName, size = "md", v
       style={({ pressed }) => ({ opacity: pressed && !disabled ? 0.9 : 1 })}
       android_ripple={disabled ? undefined : { color: "#ffffff22", borderless: false }}
     >
-      <Text className={(isCompact ? "text-base " : "text-lg ") + (variant === 'ghost' ? "text-neutral-800 " : "text-white ") + "font-semibold " + (textClassName || "")}>
+      <Text className={(isCompact ? "text-base " : "text-lg ") + (variant === 'secondary' || variant === 'ghost' ? "text-neutral-800 " : "text-white ") + "font-semibold " + (textClassName || "")}>
         {children}
       </Text>
     </Pressable>

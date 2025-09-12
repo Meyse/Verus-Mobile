@@ -63,13 +63,13 @@ export default function LandingScreen(props) {
 
           {/* CTA */}
           <View>
-            <AppButton onPress={() => props.navigation.navigate('CreateProfile')} className="mx-1">
-              {"Get Started!"}
+            <AppButton onPress={() => props.navigation.navigate('CreateProfile', { walletType: 'new' })} className="mx-1">
+              {"Get started"}
             </AppButton>
-            <View className="mt-3 items-center">
-              <Text className="text-zinc-600">{'Already have a wallet? '}
-                <Text className="text-zinc-800 font-semibold" onPress={() => props.navigation.navigate('Login')}> {'Log in'}</Text>
-              </Text>
+            <View className="mt-3">
+              <AppButton variant="secondary" onPress={() => props.navigation.navigate('CreateProfile', { walletType: 'import' })} className="mx-1">
+                {"I already have a wallet"}
+              </AppButton>
             </View>
           </View>
         </ScrollView>
@@ -96,13 +96,13 @@ export default function LandingScreen(props) {
 
           {/* CTA */}
           <View>
-            <AppButton onPress={() => props.navigation.navigate('CreateProfile')} className="mx-1">
-              {"Get Started!"}
+            <AppButton onPress={() => props.navigation.navigate('CreateProfile', { walletType: 'new' })} className="mx-1">
+              {"Get started"}
             </AppButton>
-            <View className="mt-3 items-center">
-              <Text className="text-zinc-600">{'Already have a wallet? '}
-                <Text className="text-zinc-800 font-semibold" onPress={() => props.navigation.navigate('Login')}> {'Log in'}</Text>
-              </Text>
+            <View className="mt-3">
+              <AppButton variant="secondary" onPress={() => props.navigation.navigate('CreateProfile', { walletType: 'import' })} className="mx-1">
+                {"I already have a wallet"}
+              </AppButton>
             </View>
           </View>
         </View>

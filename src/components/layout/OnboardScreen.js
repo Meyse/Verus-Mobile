@@ -17,8 +17,14 @@ const OnboardScreen = ({
   ctaLabel,
   ctaDisabled,
   onCtaPress,
+  secondaryCtaLabel,
+  secondaryCtaVariant = 'secondary',
+  secondaryCtaDisabled,
+  onSecondaryCtaPress,
   children,
   headerGap = 32,
+  forceScroll = false,
+  reverseLayout = false,
 }) => {
   const headerHeight = useHeaderHeight();
   const { isVerySmallHeight, isSmallHeight } = useResponsive();
@@ -26,15 +32,45 @@ const OnboardScreen = ({
   const subtitleLineHeight = isSmallHeight || isVerySmallHeight ? 20 : 22;
   const topPad = headerHeight + (headerGap || 0);
 
+  const TitleBlock = (
+    <View>
+      {title ? <Text className={'text-zinc-800 font-bold ' + titleSizeClass}>{title}</Text> : null}
+      {subtitle ? (
+        <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>{subtitle}</Text>
+      ) : null}
+    </View>
+  );
+
   const Content = (
     <View>
-      <View>
-        {title ? <Text className={'text-zinc-800 font-bold ' + titleSizeClass}>{title}</Text> : null}
-        {subtitle ? (
-          <Text className="text-zinc-600 mt-2" style={{ lineHeight: subtitleLineHeight }}>{subtitle}</Text>
-        ) : null}
-      </View>
-      {children}
+      {reverseLayout ? (
+        <>
+          {children}
+          {TitleBlock}
+        </>
+      ) : (
+        <>
+          {TitleBlock}
+          {children}
+        </>
+      )}
+    </View>
+  );
+
+  const CTAArea = (
+    <View>
+      <AppButton onPress={onCtaPress} disabled={ctaDisabled}>{ctaLabel}</AppButton>
+      {secondaryCtaLabel ? (
+        <View className="mt-3">
+          <AppButton 
+            variant={secondaryCtaVariant} 
+            onPress={onSecondaryCtaPress} 
+            disabled={secondaryCtaDisabled}
+          >
+            {secondaryCtaLabel}
+          </AppButton>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -43,15 +79,15 @@ const OnboardScreen = ({
       <SoftSpotlightBackground pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-          {isVerySmallHeight ? (
+          {isVerySmallHeight || forceScroll ? (
             <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', paddingTop: topPad }} className="px-5 pb-4">
               {Content}
-              <AppButton onPress={onCtaPress} disabled={ctaDisabled}>{ctaLabel}</AppButton>
+              {CTAArea}
             </ScrollView>
           ) : (
             <View className="flex-1 px-5 pb-6 justify-between" style={{ paddingTop: topPad }}>
               {Content}
-              <AppButton onPress={onCtaPress} disabled={ctaDisabled}>{ctaLabel}</AppButton>
+              {CTAArea}
             </View>
           )}
         </TouchableWithoutFeedback>

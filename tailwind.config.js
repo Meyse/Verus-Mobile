@@ -1,6 +1,6 @@
 /**
- * New file: Tailwind CSS config with NativeWind preset and React Native globs.
- * Enables Tailwind className usage across ./src and App.
+ * Update: Fixed object braces/commas and ensured NativeWind plugin placement.
+ * Tailwind CSS config for React Native with NativeWind.
  * @type {import('tailwindcss').Config}
  */
 module.exports = {
@@ -11,11 +11,10 @@ module.exports = {
   theme: {
     extend: {
       fontSize: {
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }], 
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }],
         '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.015em' }],
       },
     },
   },
   plugins: [require("nativewind/tailwind/native")],
-}
-
+};
