@@ -1,6 +1,6 @@
 import {createStackNavigator} from '@react-navigation/stack';
 import React, {useEffect, useState} from 'react';
-import {addCoin, addUser} from '../../../actions/actionCreators';
+import {addCoin, addUser, setProfileCreationInProgress} from '../../../actions/actionCreators';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {CHANNELS, ELECTRUM} from '../../../utils/constants/intervalConstants';
 import {hashAccountId} from '../../../utils/crypto/hash';
@@ -54,6 +54,7 @@ export default function CreateProfileStackScreens(props) {
   const createProfile = async (seed, testProfile, options = {}) => {
     const uiMode = options.uiMode || 'modal';
     if (uiMode === 'modal') openLoadingModal('Setting up your new profile...');
+    else dispatch(setProfileCreationInProgress(true));
 
     try {
       const _userName = profileName;

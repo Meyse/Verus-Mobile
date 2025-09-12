@@ -13,9 +13,9 @@ export default function CreateSeedStackScreens({ navigation, newSeed, setNewSeed
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <SeedIntro
-            navigation={navigation}
+            navigation={stackNavigation}
             setNewSeed={setNewSeed}
           />
         )}
@@ -25,9 +25,9 @@ export default function CreateSeedStackScreens({ navigation, newSeed, setNewSeed
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <SeedWords
-            navigation={navigation}
+            navigation={stackNavigation}
             newSeed={newSeed}
             onComplete={onComplete}
           />
@@ -39,9 +39,9 @@ export default function CreateSeedStackScreens({ navigation, newSeed, setNewSeed
           headerShown: false,
         }}
       >
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <SetupWallet
-            navigation={navigation}
+            navigation={stackNavigation}
             createProfile={createProfile}
             seed={newSeed}
             testProfile={testProfile}

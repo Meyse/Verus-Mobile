@@ -135,6 +135,12 @@ export const signOut = () => {
   }
 }
 
+// Reducer Name: authentication
+export const setProfileCreationInProgress = (inProgress) => ({
+  type: 'SET_PROFILE_CREATION_IN_PROGRESS',
+  payload: { inProgress }
+});
+
 //Reducer Name: coins
 export const setActiveCoin = (activeCoin) => {
   return {

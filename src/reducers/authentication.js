@@ -43,7 +43,8 @@ export const authentication = (
     },
     signedIn: false,
     selectDefaultAccount: true,
-    authModalUsed: false
+    authModalUsed: false,
+    profileCreationInProgress: false
   },
   action
 ) => {
@@ -124,6 +125,11 @@ export const authentication = (
         ...state,
         activeAccount: null,
         sessionKey: null
+      };
+    case 'SET_PROFILE_CREATION_IN_PROGRESS':
+      return {
+        ...state,
+        profileCreationInProgress: action.payload.inProgress
       };
     case SIGN_OUT:
       return {

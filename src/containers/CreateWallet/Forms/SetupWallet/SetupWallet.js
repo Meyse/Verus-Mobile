@@ -5,15 +5,21 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, SafeAreaView, ActivityIndicator, Pressable, Animated, Image } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SoftSpotlightBackground from '../../../../components/SoftSpotlightBackground';
 import useResponsive from '../../../../hooks/useResponsive';
 import { AppButton } from '../../../../components/ui';
 import { useDispatch } from 'react-redux';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
-import selectAddresses from '../../../../selectors/address';
+import { signIntoAuthenticatedAccount, setProfileCreationInProgress } from '../../../../actions/actionCreators';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import valuWhite from '../../../../images/customIcons/valu-white.png';
 import { copyToClipboard } from '../../../../utils/clipboard/clipboard';
+import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
+import { VRPC } from '../../../../utils/constants/intervalConstants';
+import { getAddressBalances as vrpcGetAddressBalances } from '../../../../utils/api/channels/vrpc/callCreators';
+import BigNumber from 'bignumber.js';
+import { satsToCoins } from '../../../../utils/math';
 
 export default function SetupWallet({ navigation, createProfile, seed, testProfile }) {
   const dispatch = useDispatch();
@@ -25,13 +31,28 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
   const fade = useRef(new Animated.Value(0)).current;
   const dots = useRef(new Animated.Value(0)).current;
 
-  const addresses = useObjectSelector(state => selectAddresses(state));
+  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const firstAddress = useMemo(() => {
-    if (addresses && addresses.results && addresses.results.length > 0) {
-      return addresses.results[0]?.address || addresses.results[0];
-    }
+    // Derive VRSC transparent address from keys; prefer 'R' addresses
+    try {
+      const vrscEntry = activeAccount?.keys?.VRSC;
+      if (vrscEntry) {
+        let fallback = null;
+        for (const ch of Object.keys(vrscEntry)) {
+          const entry = vrscEntry[ch];
+          if (entry && Array.isArray(entry.addresses) && entry.addresses.length > 0) {
+            const candidate = entry.addresses[0]?.address || entry.addresses[0];
+            if (typeof candidate === 'string') {
+              if (candidate.startsWith('R')) return candidate;
+              if (!fallback) fallback = candidate;
+            }
+          }
+        }
+        return fallback;
+      }
+    } catch {}
     return null;
-  }, [addresses]);
+  }, [activeAccount]);
 
   useEffect(() => {
     // Start inline setup
@@ -65,13 +86,32 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
   };
 
   const onNext = () => {
-    // Now that setup completed and user confirmed, sign in user to move app to signed-in stack
-    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    // User confirms; allow root to switch to signed-in stack
+    dispatch(signIntoAuthenticatedAccount());
+    dispatch(setProfileCreationInProgress(false));
   };
 
   const onRetry = () => {
     setStatus('loading');
   };
+
+  // Local balance state; fetch native VRSC balance once address is available
+  const [balance, setBalance] = useState('0');
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        if (!firstAddress) return;
+        const coinObj = CoinDirectory.findCoinObj('VRSC');
+        const res = await vrpcGetAddressBalances(coinObj.system_id, [firstAddress]);
+        if (res && res.result && typeof res.result.balance !== 'undefined') {
+          setBalance(satsToCoins(BigNumber(res.result.balance)).toString());
+        }
+      } catch (e) {
+        console.warn('Balance fetch error', e);
+      }
+    };
+    fetchBalance();
+  }, [firstAddress]);
 
   const renderDots = () => {
     const value = dots.__getValue ? dots.__getValue() : 0; // RN Animated fallback
@@ -113,12 +153,13 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
               {status === 'success' && (
                 <Animated.View style={{ opacity: fade }} className="flex-1 justify-between">
                   <View className="flex-row justify-between items-start">
-                    <Image source={valuWhite} style={{ width: 24, height: 24 }} resizeMode="contain" />
-                    <Pressable accessibilityRole="button" accessibilityLabel="Copy address" onPress={() => firstAddress && copyToClipboard(firstAddress)}>
-                      <Text className="text-white font-semibold">{short(firstAddress)}</Text>
+                    <Image source={valuWhite} style={{ width: 32, height: 32 }} resizeMode="contain" />
+                    <Pressable accessibilityRole="button" accessibilityLabel="Copy address" onPress={() => firstAddress && copyToClipboard(firstAddress)} className="flex-row items-center">
+                      <Text className="text-white font-semibold mr-2">{short(firstAddress)}</Text>
+                      <Icon name="content-copy" size={18} color="#ffffff" />
                     </Pressable>
                   </View>
-                  <Text className="text-white/90">0 Verus</Text>
+                  <Text className="text-white/90">{balance} Verus</Text>
                 </Animated.View>
               )}
               {status === 'error' && (
@@ -141,9 +182,14 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
               </View>
             </View>
           ) : (
-            <AppButton onPress={onNext} disabled={status !== 'success'}>
-              Next
-            </AppButton>
+            <View>
+              {status === 'success' ? (
+                <Text className="text-center text-xs text-zinc-600 mb-6">Congratulations! Your wallet has been successfully set up and is now ready for use.</Text>
+              ) : null}
+              <AppButton onPress={onNext} disabled={status !== 'success'}>
+                Next
+              </AppButton>
+            </View>
           )}
         </View>
       </View>

@@ -180,7 +180,7 @@ class VerusMobile extends React.Component {
           {this.props.loadingModal.visible && <LoadingModal />}
           <NavigationContainer>
             <RootStackScreens
-              hasAccount={this.props.accountsLength > 0}
+              hasAccount={this.props.accountsLength > 0 && !this.props.profileCreationInProgress}
               loading={this.state.loading}
               signedIn={this.props.signedIn}
             />
@@ -215,6 +215,7 @@ class VerusMobile extends React.Component {
 const mapStateToProps = (state) => {
   return {
     accountsLength: state.authentication.accounts.length,
+    profileCreationInProgress: state.authentication.profileCreationInProgress,
     signedIn: state.authentication.signedIn,
     sendModal: state.sendModal,
     loadingModal: state.loadingModal
