@@ -29,7 +29,7 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
 
   const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
   const fade = useRef(new Animated.Value(0)).current;
-  const dots = useRef(new Animated.Value(0)).current;
+  // Removed animated dots
 
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const firstAddress = useMemo(() => {
@@ -67,10 +67,7 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
       }
     };
     run();
-    // Animated dots loop
-    Animated.loop(
-      Animated.timing(dots, { toValue: 3, duration: 1200, useNativeDriver: false })
-    ).start();
+    // no-op
   }, []);
 
   useEffect(() => {
@@ -113,11 +110,7 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
     fetchBalance();
   }, [firstAddress]);
 
-  const renderDots = () => {
-    const value = dots.__getValue ? dots.__getValue() : 0; // RN Animated fallback
-    const count = Math.floor(value) % 4; // 0..3
-    return '.'.repeat(count);
-  };
+  const renderDots = () => '';
 
   return (
     <SafeAreaView className="flex-1">
@@ -126,10 +119,10 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
       <View className="flex-1 px-5 pb-6 justify-between" style={{ paddingTop: topPadding }}>
         <View>
           <Text className={'text-zinc-800 font-bold ' + titleSizeClass}>
-            {status === 'success' ? 'Congratulations! Your wallet is ready' : `Please wait${renderDots()}`}
+            {status === 'success' ? 'Congratulations! Your wallet is ready' : 'Almost ready.'}
           </Text>
           {status !== 'success' ? (
-            <Text className="text-zinc-600 mt-2">The system is doing complicated math to get you started, please wait a moment</Text>
+            <Text className="text-zinc-600 mt-2">Finalizing your secure wallet setup. This takes a few moments.</Text>
           ) : null}
 
           {/* Gradient Wallet Card */}

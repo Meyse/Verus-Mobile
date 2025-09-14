@@ -1,3 +1,7 @@
+/**
+ * Update: Fix navigation to nested CreateWallet stack.
+ * - Navigate to 'CreateWallet' and let initialRouteName drive Import vs Create
+ */
 import React, { useState } from 'react';
 import { View, Image, Text } from 'react-native';
 import Colors from '../../../../globals/colors';
@@ -21,11 +25,8 @@ export default function UseBiometrics({ setUseBiometrics, navigation, walletType
       }
     }
     setUseBiometrics(enable);
-    if (walletType === 'import') {
-      navigation.navigate('ImportWallet');
-    } else {
-      navigation.navigate('CreateWallet');
-    }
+    // Always navigate to CreateWallet; it will choose initial route based on walletType
+    navigation.navigate('CreateWallet');
   };
 
   return (

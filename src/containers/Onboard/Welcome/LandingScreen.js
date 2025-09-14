@@ -57,7 +57,7 @@ export default function LandingScreen(props) {
           {/* Terms */}
           {normalDevice ? (
             <Text className="text-center text-xs text-zinc-600 px-4" style={{ marginTop: termsMarginTop }}>
-              {'By using Verus wallet you agree to\nthe terms and the privacy policy'}
+              {'By continuing, you agree to the Valu Wallet\nTerms of Service and Privacy Policy.'}
             </Text>
           ) : null}
 
@@ -89,8 +89,8 @@ export default function LandingScreen(props) {
 
           {/* Terms */}
           {normalDevice ? (
-            <Text className="text-center text-xs text-zinc-600 px-4" style={{ marginTop: termsMarginTop }}>
-              {'By using Verus wallet you agree to\nthe terms and the privacy policy'}
+            <Text className="text-center text-xs text-zinc-600 px-4 mb-3" style={{ marginTop: termsMarginTop }}>
+              {'By continuing, you agree to the Valu Wallet\nTerms of Service and Privacy Policy.'}
             </Text>
           ) : null}
 

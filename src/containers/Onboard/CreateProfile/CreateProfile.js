@@ -1,3 +1,7 @@
+/**
+ * Update: Fix navigation passed to child screens to use stack navigation.
+ * - Ensures in-stack navigation works (e.g., UseBiometrics -> CreateWallet)
+ */
 import {createStackNavigator} from '@react-navigation/stack';
 import React, {useEffect, useState} from 'react';
 import {addCoin, addUser, setProfileCreationInProgress} from '../../../actions/actionCreators';
@@ -145,11 +149,11 @@ export default function CreateProfileStackScreens(props) {
           headerShadowVisible: false,
           headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <ChooseName
             profileName={profileName}
             setProfileName={setProfileName}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>
@@ -164,11 +168,11 @@ export default function CreateProfileStackScreens(props) {
           headerShadowVisible: false,
           headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <CreatePassword
             password={password}
             setPassword={setPassword}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>
@@ -183,11 +187,11 @@ export default function CreateProfileStackScreens(props) {
           headerShadowVisible: false,
           headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <UseBiometrics
             useBiometrics={useBiometrics}
             setUseBiometrics={setUseBiometrics}
-            navigation={props.navigation}
+            navigation={stackNavigation}
             walletType={walletType}
           />
         )}
@@ -203,17 +207,23 @@ export default function CreateProfileStackScreens(props) {
           headerShadowVisible: false,
           headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
-        {() => (
+        {({ navigation: stackNavigation }) => (
           <ConfirmPassword
             password={password}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>
       <CreateProfileStack.Screen
         name="CreateWallet"
         options={{
-          headerShown: false,
+          headerShown: true,
+          headerTransparent: true,
+          headerTitle: '',
+          headerBackTitleVisible: false,
+          headerTintColor: '#111827',
+          headerShadowVisible: false,
+          headerLeftContainerStyle: { paddingLeft: 16 },
         }}>
         {() => (
           <CreateWalletStackScreens
