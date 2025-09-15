@@ -45,7 +45,7 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
 
   const getErrorText = () => {
     if (!touched) return '';
-    if (profileName.trim().length === 0) return 'Please enter a profile name.';
+    if (profileName.trim().length === 0) return 'Please enter a wallet name.';
     if (duplicate) return 'A profile with this name already exists.';
     return '';
   };

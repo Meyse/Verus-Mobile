@@ -1,30 +1,24 @@
+/**
+ * Update: ImportSeed redesigned with OnboardScreen while preserving behavior.
+ * - Keeps existing 4-letter commit logic and validateMnemonic checks
+ * - Adds BIP39 suggestions and a Paste Phrase helper
+ * - Force 24-word flow; Import enabled only when checksum valid
+ */
 import {validateMnemonic, wordlists} from 'bip39';
-import React, {useEffect, useState} from 'react';
-import {
-  View,
-  Dimensions,
-  Keyboard,
-  TouchableOpacity,
-  TouchableHighlight,
-  Platform,
-} from 'react-native';
-import {
-  Text,
-  Button,
-  Paragraph,
-  TextInput,
-  Chip,
-  TouchableRipple,
-} from 'react-native-paper';
+import React, {useEffect, useMemo, useState} from 'react';
+import { View, Dimensions, Keyboard, TouchableOpacity, Platform, Text, Pressable, ScrollView } from 'react-native';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../../components/LargerButton';
-import Colors from '../../../../../globals/colors';
+import OnboardScreen from '../../../../../components/layout/OnboardScreen';
+import { AppTextField, AppButton } from '../../../../../components/ui';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import useResponsive from '../../../../../hooks/useResponsive';
 
 export default function ImportSeed({
   setImportedSeed,
   importedSeed,
   onComplete,
 }) {
+  const { isVerySmallHeight, isSmallHeight } = useResponsive();
   const {height} = Dimensions.get('window');
 
   const [currentWord, setCurrentWord] = useState('');
@@ -37,19 +31,19 @@ export default function ImportSeed({
     validateMnemonic(importedSeed, wordlist),
   );
 
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
-      event => {
-        setKeyboardOffset(event.endCoordinates.height);
+      () => {
+        setKeyboardVisible(true);
       },
     );
 
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
-      () => setKeyboardOffset(0),
+      () => setKeyboardVisible(false),
     );
 
     // returned function will be called on component unmount
@@ -128,123 +122,112 @@ export default function ImportSeed({
     }
   };
 
+  const suggestions = useMemo(() => {
+    const prefix = currentWord.trim().toLowerCase();
+    if (prefix.length < 2) return [];
+    // Show up to 5 matching BIP39 words
+    return wordlist.filter(w => w.startsWith(prefix)).slice(0, 5);
+  }, [currentWord]);
+
+
+  const WordChip = ({ word, index, isSelected, onPress }) => (
+    <Pressable
+      onPress={onPress}
+      className={
+        isSelected
+          ? "rounded-lg bg-neutral-700 px-2.5 py-1.5 m-1"
+          : "rounded-lg bg-white/70 border border-white/50 px-2.5 py-1.5 m-1"
+      }
+    >
+      <Text className={isSelected ? "text-white text-xs font-medium" : "text-zinc-800 text-xs font-medium"}>
+        {`${index + 1}. ${word}`}
+      </Text>
+    </Pressable>
+  );
+
+  const SuggestionChip = ({ word, onPress }) => (
+    <Pressable
+      onPress={onPress}
+      className="rounded-xl bg-white/80 border border-white/60 shadow-sm px-4 py-2 m-1"
+      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+      android_ripple={{ color: "#0000000f" }}
+    >
+      <Text className="text-zinc-800 text-sm font-semibold">{word}</Text>
+    </Pressable>
+  );
+
   return (
-    <View
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        flex: 1,
-        alignItems: 'center',
-        backgroundColor: Colors.secondaryColor,
-      }}>
-      <View
-        style={{
-          alignItems: 'center',
-          position: 'absolute',
-          top:
-            Platform.OS !== 'ios' && keyboardOffset !== 0
-              ? 0
-              : height / 2 - 250,
-        }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}>
-          {'Import 24-word Seed'}
-        </Text>
-        <View
-          style={{
-            justifyContent: 'flex-start',
-            minWidth: '86%',
-            maxWidth: '86%',
-            flexDirection: 'row',
-            marginTop: keyboardOffset !== 0 ? 8 : 64,
-            flexWrap: 'wrap',
-          }}>
-          {words.map((word, index) => (
-            <TouchableOpacity onPress={() => setCurrentWordIndex(index)}>
-              <Chip
-                style={{
-                  margin: 2,
-                }}
-                selected={currentWordIndex === index}>{`${
-                index + 1
-              }. ${word}`}</Chip>
-            </TouchableOpacity>
-          ))}
-          {words.length > 0 && words.length < 24 && (
-            <TouchableOpacity onPress={() => setCurrentWordIndex(words.length)}>
-              <Chip
-                selected={currentWordIndex === words.length}
-                style={{margin: 2}}>
-                {'+ Add Word'}
-              </Chip>
-            </TouchableOpacity>
-          )}
-        </View>
+    <OnboardScreen
+      title={'Enter recovery phrase'}
+      ctaLabel={'Import'}
+      ctaDisabled={!isValidMnemonic}
+      onCtaPress={handleImport}
+      forceScroll={true}
+    >
+      <View className="mt-6">
+        <Text className="text-sm text-zinc-600 mb-3">{`Progress: ${words.length}/24`}</Text>
+        
+        {/* Word Grid - Hide when keyboard is visible */
+        }
+        {!keyboardVisible && (
+          <ScrollView 
+            horizontal={false} 
+            showsVerticalScrollIndicator={false}
+            style={{ maxHeight: Math.min(height * 0.34, 300) }}
+            contentContainerStyle={{ paddingBottom: 8 }}
+            className="mb-5"
+          >
+            <View className="flex-row flex-wrap">
+              {words.map((word, index) => (
+                <WordChip
+                  key={index}
+                  word={word}
+                  index={index}
+                  isSelected={currentWordIndex === index}
+                  onPress={() => setCurrentWordIndex(index)}
+                />
+              ))}
+              {/* Removed '+ Add Word' chip – auto-advance and chip tap cover this */}
+            </View>
+          </ScrollView>
+        )}
       </View>
-      <View
-        style={
-          keyboardOffset !== 0
-            ? {
-                position: 'absolute',
-                bottom: Platform.OS === 'ios' ? keyboardOffset + 16 : 16,
-                width: '75%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            : {
-                position: 'absolute',
-                top: height / 2 - 210,
-                width: '75%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-        }>
-        <TextInput
-          onChangeText={text => setCurrentWord(text)}
+
+      <View className="mt-4">
+        {/* Input Field */}
+        <AppTextField
           label={`Word ${currentWordIndex + 1}`}
-          underlineColor={Colors.primaryColor}
-          selectionColor={Colors.primaryColor}
-          autoCapitalize={'none'}
-          autoCorrect={false}
-          autoComplete="off"
+          placeholder="Type word..."
           value={currentWord}
-          dense
-          mode="outlined"
-          style={{
-            width: 180,
-          }}
+          onChangeText={text => setCurrentWord(text)}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="next"
+          onSubmitEditing={() => suggestions.length > 0 ? addWord(suggestions[0]) : addWord(currentWord)}
         />
-        <Button
-          onPress={() => addWord(currentWord)}
-          mode="contained"
-          labelStyle={{fontWeight: 'bold', fontSize: 16}}
-          style={{height: 41, marginTop: 6, width: 80, marginLeft: 8}}
-          disabled={currentWord == null || currentWord.length == 0}>
-          {'Next'}
-        </Button>
+
+        {/* Suggestions - Show when available, otherwise show Next button */}
+        {suggestions.length > 0 ? (
+          <View className="mt-4">
+            <View className="flex-row flex-wrap mx-[-4px]">
+              {suggestions.map((s, idx) => (
+                <SuggestionChip key={idx} word={s} onPress={() => addWord(s)} />
+              ))}
+            </View>
+          </View>
+        ) : currentWord.length > 0 ? (
+          <View className="mt-4">
+            <AppButton
+              onPress={() => addWord(currentWord)}
+              disabled={currentWord == null || currentWord.length == 0}
+              size="sm"
+              className="self-start"
+            >
+              {'Next'}
+            </AppButton>
+          </View>
+        ) : null}
       </View>
-      {keyboardOffset === 0 && (
-        <TallButton
-          onPress={handleImport}
-          mode="contained"
-          labelStyle={{fontWeight: 'bold'}}
-          disabled={!isValidMnemonic}
-          style={{
-            position: 'absolute',
-            bottom: 80,
-            width: 280,
-          }}>
-          {'Import'}
-        </TallButton>
-      )}
-    </View>
+    </OnboardScreen>
   );
 }

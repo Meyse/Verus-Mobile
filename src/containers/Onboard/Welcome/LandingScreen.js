@@ -45,7 +45,7 @@ export default function LandingScreen(props) {
           {/* Card */}
           <View className="rounded-3xl bg-white/60 border border-white/30 shadow-xl overflow-hidden">
             <View className="px-6 pt-6 pb-2">
-              <Text className={"text-zinc-800 font-bold text-3xl" + titleSizeClass}>
+              <Text className={"text-zinc-800 font-bold text-3xl " + titleSizeClass}>
                 {'Easily manage\nyour wallet for\nthe Verus\necosystem'}
               </Text>
             </View>

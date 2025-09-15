@@ -11,8 +11,13 @@ module.exports = {
   theme: {
     extend: {
       fontSize: {
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.015em' }],
+        // React Native requires numeric font sizes; avoid CSS units like rem
+        // Approximate Tailwind web sizes with numeric values compatible with RN
+        // 2xl ~ 24px, lineHeight ~ 32px
+        // NativeWind expects lineHeight as string with units for array form
+        '2xl': [24, { lineHeight: '32px', letterSpacing: -0.24 }],
+        // 3xl ~ 30px, lineHeight ~ 36px
+        '3xl': [30, { lineHeight: '36px', letterSpacing: -0.24 }],
       },
     },
   },

@@ -60,6 +60,8 @@ export default function CreateWalletStackScreens({ navigation, createProfile, wa
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
             onComplete={() => completeSeedSetup(false)}
+            createProfile={createProfile}
+            testProfile={testProfile}
           />
         )}
       </CreateWalletStack.Screen>

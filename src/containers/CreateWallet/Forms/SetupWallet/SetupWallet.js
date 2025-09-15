@@ -116,7 +116,7 @@ export default function SetupWallet({ navigation, createProfile, seed, testProfi
     <SafeAreaView className="flex-1">
       <SoftSpotlightBackground pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0" />
 
-      <View className="flex-1 px-5 pb-6 justify-between" style={{ paddingTop: topPadding }}>
+      <View className="flex-1 px-5 pb-6 mt-4 justify-between" style={{ paddingTop: topPadding }}>
         <View>
           <Text className={'text-zinc-800 font-bold ' + titleSizeClass}>
             {status === 'success' ? 'Congratulations! Your wallet is ready' : 'Almost ready.'}
