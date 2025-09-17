@@ -5,6 +5,7 @@ import RecoverSeed from '../../Settings/ProfileSettings/RecoverSeed/RecoverSeed'
 import DeleteProfile from '../../Settings/ProfileSettings/DeleteProfile/DeleteProfile';
 import SecureLoading from '../../SecureLoading/SecureLoading';
 import Login from '../../Login/Login';
+import LandingScreen from '../../Onboard/Welcome/LandingScreen';
 import SignUp from '../../SignUp/SignUp';
 import {useDispatch, useSelector} from 'react-redux';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
@@ -31,6 +32,14 @@ const SignedOutStackScreens = props => {
       <SignedOutStack.Screen
         name="Login"
         component={Login}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <SignedOutStack.Screen
+        name="LandingScreen"
+        component={LandingScreen}
         options={{
           headerShown: false,
         }}
