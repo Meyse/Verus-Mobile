@@ -171,6 +171,7 @@ export const RenderCircleCoinLogo = (chainTicker, style = {}, width = 40, height
 };
 
 export const RenderPlainCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
+  if (!chainTicker) return null; // Safety check
   const { Logo } = getSimpleLogo(chainTicker, 'dark');
 
   return <Logo

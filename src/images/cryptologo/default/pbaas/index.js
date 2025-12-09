@@ -16,6 +16,7 @@ import CHIPS_LIGHT from './chips/chips_light.svg'
 
 const RenderPbaasCurrencyLogo = (iAddr) => {
   function hashCode(str) {
+    if (!str) return 0; // Safety check
     var hash = 0;
     for (var i = 0; i < str.length; i++) {
       hash = str.charCodeAt(i) + ((hash << 5) - hash);

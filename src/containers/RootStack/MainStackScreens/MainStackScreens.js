@@ -14,6 +14,7 @@ import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
 import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
 import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
 import ValuSocialScreen from '../../ValuSocial/ValuSocialScreen';
+import SendWizardNavigator from '../../SendWizard';
 
 const MainStack = createStackNavigator();
 
@@ -85,6 +86,11 @@ const MainStackScreens = props => {
         options={{
           title: "Valu Social",
         }}
+      />
+      <MainStack.Screen
+        name="SendWizard"
+        component={SendWizardNavigator}
+        options={{ headerShown: false }}
       />
     </MainStack.Navigator>
   );
