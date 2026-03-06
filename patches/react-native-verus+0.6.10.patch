@@ -20,3 +20,41 @@ index 3ac9a6f..8f0ea1d 100644
  
      echo "Transpiling TS -> JS (with imports->CJS) ..."
      rm -rf ./scripts-built
+diff --git a/node_modules/react-native-verus/ios/zcashlc.h b/node_modules/react-native-verus/ios/zcashlc.h
+--- a/node_modules/react-native-verus/ios/zcashlc.h
++++ b/node_modules/react-native-verus/ios/zcashlc.h
+@@ -407,7 +407,7 @@ typedef struct FfiScanRanges {
+  */
+ void zcashlc_free_binary_key(struct FFIBinaryKey *ptr);
+ 
+-void zcashlc_free_channel_keys(struct FFIChannelKeys(struct FFIChannelKeys *ptr);
++void zcashlc_free_channel_keys(struct FFIChannelKeys *ptr);
+ 
+ /**
+  * Adds the next available account-level spend authority, given the current set of [ZIP 316]
+diff --git a/node_modules/react-native-verus/package.json b/node_modules/react-native-verus/package.json
+--- a/node_modules/react-native-verus/package.json
++++ b/node_modules/react-native-verus/package.json
+@@ -40,8 +40,8 @@
+     "precommit": "lint-staged && npm run prepare",
+     "prepack": "npm run update-checkpoints && npm run update-sources",
+     "prepare": "husky install && rimraf lib && rollup -c && tsc",
+-    "update-checkpoints": "node -r sucrase/register scripts/updateCheckpoints.ts",
+-    "update-sources": "node -r sucrase/register ./scripts/updateSources.ts"
++    "update-checkpoints": "./node_modules/.bin/sucrase ./scripts --transforms typescript,imports --out-dir ./scripts-built && node ./scripts-built/updateCheckpoints.js",
++    "update-sources": "./node_modules/.bin/sucrase ./scripts --transforms typescript,imports --out-dir ./scripts-built && node ./scripts-built/updateSources.js"
+   },
+   "lint-staged": {
+     "*.{js,ts}": "eslint"
+diff --git a/node_modules/react-native-verus/scripts/copyCheckpoints.ts b/node_modules/react-native-verus/scripts/copyCheckpoints.ts
+--- a/node_modules/react-native-verus/scripts/copyCheckpoints.ts
++++ b/node_modules/react-native-verus/scripts/copyCheckpoints.ts
+@@ -7,7 +7,7 @@ export async function copyCheckpoints(disklet: Disklet): Promise<void> {
+   console.log('Copying checkpoints...')
+   const fromDisklet = navigateDisklet(
+     disklet,
+-    'android/src/main/assets/co.electriccoin.zcash/checkpoint/vrsc'
++    'android/src/main/assets/co.electriccoin.zcash/checkpoint/mainnet'
+   )
+   const toDisklet = navigateDisklet(
+     disklet,
