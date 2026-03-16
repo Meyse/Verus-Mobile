@@ -15,15 +15,15 @@ import MissingInfoRedirect from "../../components/MissingInfoRedirect/MissingInf
 import AnimatedActivityIndicatorBox from "../../components/AnimatedActivityIndicatorBox";
 import { useObjectSelector } from "../../hooks/useObjectSelector";
 
-const FundSourceSelectList = ({ 
-    coinObjs, 
-    allSubWallets, 
-    sourceOptions: rawSourceOptions, 
-    testnet, 
-    allowAnyAmount, 
+const FundSourceSelectList = ({
+    coinObjs,
+    allSubWallets,
+  sourceOptions: rawSourceOptions = {},
+    testnet,
+    allowAnyAmount,
     allowConversion,
-    expires, 
-    allowNonVerusSystems, 
+    expires,
+    allowNonVerusSystems,
     acceptedSystems,
     requestedCurrency,
     amount,
@@ -74,21 +74,22 @@ const FundSourceSelectList = ({
       if (coinObj.tags.includes(IS_PBAAS)) {
         displayedCoinObjsMap.set(coinObj.currency_id, coinObj);
       }
-      
+
       for (const wallet of subWallets) {
         const network = wallet.network;
         const rootNetwork = testnet ? coinsList.VRSCTEST : coinsList.VRSC;
         const rootNetworkId = rootNetwork.currency_id
 
-        if (network && 
-            ((allowNonVerusSystems && acceptedSystems.includes(network)) || 
-              (network === rootNetworkId && !excludeVerusBlockchain) || 
+        if (network &&
+            ((allowNonVerusSystems && acceptedSystems.includes(network)) ||
+              (network === rootNetworkId && !excludeVerusBlockchain) ||
               (!expires && !allowConversion)
             )
         ) {
           displayedCoinObjsMap.set(network, CoinDirectory.findCoinObj(network));
-          const newNetworkSourceOptionMap = new Map(sourceOptionsMap.get(network));
-          
+          const existingNetworkOptions = sourceOptionsMap.get(network);
+          const newNetworkSourceOptionMap = new Map(existingNetworkOptions ? existingNetworkOptions : []);
+
           const acceptedNonVerusSystems = allowNonVerusSystems ? acceptedSystems : [];
           const exportTo =
             !expires &&
@@ -99,10 +100,14 @@ const FundSourceSelectList = ({
               : null;
 
           if (coinObj.currency_id === requestedCurrency) {
+            const requestedAmount = allowAnyAmount
+              ? 0
+              : satsToCoins(BigNumber(amount == null ? 0 : amount)).toNumber();
+
             // Accept cross-network sends if no conversion or expiry
             if (!allowConversion && !expires) {
               newNetworkSourceOptionMap.set(getNetworkSourceOptionKey(coinObj.currency_id, wallet.id), {
-                amount: satsToCoins(BigNumber(amount)).toNumber(),
+                amount: requestedAmount,
                 network: network,
                 conversion: false,
                 wallet,
@@ -110,12 +115,12 @@ const FundSourceSelectList = ({
                 exportTo
               });
             } else if (
-              (testnet && network === coinsList.VRSCTEST.system_id) || 
-              (!testnet && network === coinsList.VRSC.system_id) || 
+              (testnet && network === coinsList.VRSCTEST.system_id) ||
+              (!testnet && network === coinsList.VRSC.system_id) ||
               (allowNonVerusSystems && acceptedSystems.includes(network))
             ) {
               newNetworkSourceOptionMap.set(getNetworkSourceOptionKey(coinObj.currency_id, wallet.id), {
-                amount: satsToCoins(BigNumber(amount)).toNumber(),
+                amount: requestedAmount,
                 network: network,
                 conversion: false,
                 wallet,
@@ -123,15 +128,17 @@ const FundSourceSelectList = ({
                 exportTo
               });
             }
-          } else if (rawSourceOptions[network]) {
+          } else if (Array.isArray(rawSourceOptions?.[network])) {
             for (const sourceOption of rawSourceOptions[network]) {
-              if (sourceOption.sourceamounts[coinObj.currency_id]) {
-                const viaCurrencyId = sourceOption.lastnotarization.currencyid;
+              const sourceAmount = sourceOption?.sourceamounts?.[coinObj.currency_id];
+
+              if (sourceAmount != null) {
+                const viaCurrencyId = sourceOption?.lastnotarization?.currencyid;
                 const isDirect = viaCurrencyId === coinObj.currency_id;
 
-                if (sourceOption[viaCurrencyId].systemid === wallet.network) {
+                if (viaCurrencyId && sourceOption?.[viaCurrencyId]?.systemid === wallet.network) {
                   newNetworkSourceOptionMap.set(getNetworkSourceOptionKey(coinObj.currency_id, wallet.id, viaCurrencyId), {
-                    amount: sourceOption.sourceamounts[coinObj.currency_id],
+                    amount: sourceAmount,
                     via: isDirect ? null : sourceOption.fullyqualifiedname,
                     viaCurrencyId: isDirect ? null : viaCurrencyId,
                     network: network,
@@ -143,7 +150,7 @@ const FundSourceSelectList = ({
                 }
               }
             }
-          } 
+          }
 
           sourceOptionsMap.set(network, newNetworkSourceOptionMap);
 
@@ -240,7 +247,7 @@ const FundSourceSelectList = ({
     }))
   }
 
-  return noValidCards ? 
+  return noValidCards ?
     showLoadingInsteadOfError ? (
       <AnimatedActivityIndicatorBox />
     ) : (

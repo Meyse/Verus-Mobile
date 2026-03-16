@@ -82,7 +82,6 @@ const GenericRequestHome = props => {
 
     if (detail) {
       const iaddr = detail.getIAddressKey();
-      console.log("Processing detail with iaddr " + iaddr + " at index " + index);
       if (detailHandlers.has(iaddr)) {
         setDetailIndex(index);
         return await detailHandlers.get(iaddr)(request, response, index);
@@ -179,6 +178,11 @@ const GenericRequestHome = props => {
         setDisplayProps({});
         processNextDetail();
       } else {
+        // Ensure flags reflect current details count before serialisation
+        if (typeof response.setFlags === 'function') {
+          response.setFlags();
+        }
+
         const responseBufferString = response.details && response.details.length > 0
           ? response.toBuffer().toString('hex')
           : '';

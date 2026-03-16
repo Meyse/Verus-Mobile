@@ -3,7 +3,6 @@ import { connect } from 'react-redux'
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert"
 import { LoginReceiveAttestationRender } from "./LoginReceiveAttestation.render"
 import { primitives } from "verusid-ts-client"
-import { AttestationDetails } from "verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails";
 import { verifyHash } from "../../../utils/api/channels/vrpc/requests/verifyHash";
 import { getSignatureInfo } from "../../../utils/api/channels/vrpc/requests/getSignatureInfo";
 import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
@@ -16,6 +15,8 @@ import { getIdentity } from "../../../utils/api/channels/verusid/callCreators"
 import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
 import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
+import { serializeStoredAttestation } from '../../../utils/attestations/serializedAttestation';
+import { MMRDescriptor, SignatureData } from 'verus-typescript-primitives';
 
 const { ATTESTATION_NAME, DataDescriptorKey } = primitives;
 class LoginReceiveAttestation extends Component {
@@ -42,6 +43,47 @@ class LoginReceiveAttestation extends Component {
     }
   }
 
+
+  parseAttestationDetailsFromJson = (attestationResponse) => {
+    if (!attestationResponse || typeof attestationResponse !== 'object') {
+      throw new Error("Invalid attestation details payload");
+    }
+
+    const rawAttestations = Array.isArray(attestationResponse.attestations)
+      ? attestationResponse.attestations
+      : (attestationResponse.mmrdescriptor && attestationResponse.signaturedata)
+        ? [{
+          mmrdescriptor: attestationResponse.mmrdescriptor,
+          signaturedata: attestationResponse.signaturedata,
+        }]
+        : [];
+
+    const parsedAttestations = rawAttestations.map((attestationPair) => {
+      const mmrDescriptor = MMRDescriptor.fromJson(attestationPair.mmrdescriptor);
+      const signatureData = SignatureData.fromJson(attestationPair.signaturedata);
+
+      return {
+        mmrdescriptor: mmrDescriptor.toJson(),
+        signaturedata: signatureData.toJson(),
+      };
+    });
+
+    const version = Number.isFinite(attestationResponse.version)
+      ? attestationResponse.version
+      : 1;
+
+    return {
+      version,
+      flags: Number.isFinite(attestationResponse.flags) ? attestationResponse.flags : 0,
+      label: attestationResponse.label,
+      id: attestationResponse.id,
+      timestamp: Number.isFinite(attestationResponse.timestamp)
+        ? attestationResponse.timestamp
+        : Date.now(),
+      attestations: parsedAttestations,
+    };
+  }
+
   handleDownloadAttestation = async () => {
     try {
       this.setState({ loading: true });
@@ -52,28 +94,14 @@ class LoginReceiveAttestation extends Component {
       }
 
       const attestationResponse = await downloadAttestationUtil(downloadUrl);
-      const attestationDetails = AttestationDetails.fromJson(attestationResponse);
+      const attestationDetails = this.parseAttestationDetailsFromJson(attestationResponse);
 
-      if (!attestationDetails.isValid() || attestationDetails.attestations.length === 0) {
+      if (!this.isValidParsedAttestationDetails(attestationDetails)) {
         throw new Error("Invalid or empty attestation details");
       }
 
-      // Format for processing
-      const formattedAttestationDetails = {
-        version: attestationDetails.version.toNumber(),
-        attestations: attestationDetails.attestations.map((attestationPair, index) => ({
-          mmrdescriptor: attestationPair.mmrDescriptor.toJson(),
-          signaturedata: attestationPair.signatureData.toJson(),
-          index: index
-        })),
-        flags: attestationDetails.flags.toNumber(),
-        label: attestationDetails.label,
-        id: attestationDetails.id,
-        timestamp: attestationDetails.timestamp ? attestationDetails.timestamp.toNumber() : Date.now()
-      };
-
       // Process the downloaded attestation
-      await this.processDownloadedAttestations(formattedAttestationDetails);
+      await this.processDownloadedAttestations(attestationDetails);
 
     } catch (error) {
       console.error('Download error details:', error);
@@ -107,23 +135,22 @@ class LoginReceiveAttestation extends Component {
       for (let index = 0; index < downloadedAttestations.attestations.length; index++) {
         const attestationPair = downloadedAttestations.attestations[index];
 
-        // Recreate AttestationPair objects from the JSON data
-        const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
-        const recreatedPair = AttestationPair.fromJson(attestationPair);
+        const recreatedMmrDescriptor = MMRDescriptor.fromJson(attestationPair.mmrdescriptor);
+        const recreatedSignatureData = SignatureData.fromJson(attestationPair.signaturedata);
 
         // Validate the attestation pair
         const isValid = await this.validateAttestation(
-          recreatedPair.signatureData,
-          recreatedPair.mmrDescriptor
+          recreatedSignatureData,
+          recreatedMmrDescriptor
         );
 
         validationResults.push({ isValid });
 
         // Extract attestation name and MMR hash
-        const attestationName = isValid ? this.extractAttestationName(recreatedPair.mmrDescriptor) : null;
-        const mmrHash = this.extractMmrHash(recreatedPair.mmrDescriptor);
-        const extractedId = this.extractAttestationId(recreatedPair.mmrDescriptor);
-        const recipientId = this.extractRecipientId(recreatedPair.mmrDescriptor);
+        const attestationName = isValid ? this.extractAttestationName(recreatedMmrDescriptor) : null;
+        const mmrHash = this.extractMmrHash(recreatedMmrDescriptor);
+        const extractedId = this.extractAttestationId(recreatedMmrDescriptor);
+        const recipientId = this.extractRecipientId(recreatedMmrDescriptor);
 
         // Store processed data
         processedData[mmrHash] = {
@@ -132,8 +159,8 @@ class LoginReceiveAttestation extends Component {
           issuer: this.state.signerFqn,
           timestamp: downloadedAttestations.timestamp || Date.now(),
           index: index,
-          identityId: recreatedPair.signatureData.identity_ID,
-          systemId: recreatedPair.signatureData.system_ID,
+          identityId: recreatedSignatureData.identity_ID,
+          systemId: recreatedSignatureData.system_ID,
           internal_id: extractedId
         };
 
@@ -142,7 +169,7 @@ class LoginReceiveAttestation extends Component {
           completeAttestationObjects[mmrHash] = {
             name: attestationName || `Attestation ${index + 1}`,
             signer: this.state.signerFqn,
-            data: recreatedPair.toBuffer().toString('hex'),
+            data: serializeStoredAttestation(recreatedMmrDescriptor, recreatedSignatureData).toString('hex'),
             downloaded: true,
             timestamp: downloadedAttestations.timestamp || Date.now(),
             metadata: {
@@ -384,15 +411,17 @@ class LoginReceiveAttestation extends Component {
     const checkAttestation = loginConsent.challenge.attestations[0];
 
     try {
-      // Parse the AttestationDetails from buffer
-      const attestationDetails = new AttestationDetails();
-      attestationDetails.fromBuffer(Buffer.from(checkAttestation.data, "base64"));
+      // Parse the serialized attestation payload from base64.
+      const attestationBuffer = Buffer.from(checkAttestation.data, "base64");
+      const mmrDescriptor = new MMRDescriptor();
+      let offset = mmrDescriptor.fromBuffer(attestationBuffer, 0);
 
-      if (!attestationDetails.isValid() || attestationDetails.attestations.length === 0) {
-        createAlert("Error", "Invalid attestation details.");
-        this.cancel();
-        return;
-      }
+      const signatureData = new SignatureData();
+      offset = signatureData.fromBuffer(attestationBuffer, offset);
+
+      const attestationDetails = {
+        attestations: [{ mmrDescriptor, signatureData }],
+      };
 
       const completeAttestationObjects = {};
       let attestationName = attestationDetails.label || "Received Attestation";
@@ -445,8 +474,8 @@ class LoginReceiveAttestation extends Component {
         completeAttestationObjects[mmrHash] = {
           name: extractedName || `${attestationName} ${i + 1}`,
           signer: this.state.signerFqn,
-          data: attestationPair.toBuffer().toString('hex'),
-          timestamp: attestationDetails.timestamp ? attestationDetails.timestamp.toNumber() : Date.now(),
+          data: serializeStoredAttestation(mmrData, signatureData).toString('hex'),
+          timestamp: attestationDetails.timestamp || Date.now(),
           id: attestationDetails.id || undefined,
           validated: true,
           internal_id: extractedId,
