@@ -132,15 +132,15 @@ const callZGetEncryptionAddress = async (systemID, params) => {
     return mock_z_getencryptionaddress(systemID, params);
   }
 
-    return z_getencryptionaddress(systemID, params);
+  return z_getencryptionaddress(systemID, params);
 };
 
 const callEncryptData = async (systemID, toAddress, data, returnSsk) => {
   if (USE_MOCK_Z_FUNCTIONS) {
     return mock_encryptData(systemID, toAddress, data, returnSsk);
   }
-    console.log("Calling encryptData with", { systemID, toAddress, data, returnSsk });
-    return encryptData(systemID, toAddress, data, returnSsk);
+
+  return encryptData(systemID, toAddress, data, returnSsk);
 };
 
 
@@ -515,5 +515,4 @@ export default {
   handleAppEncryptionRequestVDXFObject,
   processAppEncryptionRequest
 };
-
 

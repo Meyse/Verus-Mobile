@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-verus/react-native-verus.podspec b/node_modules/react-native-verus/react-native-verus.podspec
-index 3ac9a6f..8f0ea1d 100644
+index 8dccf153..9d00145c 100644
 --- a/node_modules/react-native-verus/react-native-verus.podspec
 +++ b/node_modules/react-native-verus/react-native-verus.podspec
 @@ -25,8 +25,15 @@ Pod::Spec.new do |s|
@@ -23,16 +23,17 @@ index 3ac9a6f..8f0ea1d 100644
 diff --git a/node_modules/react-native-verus/ios/zcashlc.h b/node_modules/react-native-verus/ios/zcashlc.h
 --- a/node_modules/react-native-verus/ios/zcashlc.h
 +++ b/node_modules/react-native-verus/ios/zcashlc.h
-@@ -407,7 +407,7 @@ typedef struct FfiScanRanges {
+@@ -423,7 +423,7 @@
   */
  void zcashlc_free_binary_key(struct FFIBinaryKey *ptr);
  
--void zcashlc_free_channel_keys(struct FFIChannelKeys(struct FFIChannelKeys *ptr);
+-void zcashlc_free_channel_keys(struct FFIChannelKeys(struct FFIChannelKeys *ptr));
 +void zcashlc_free_channel_keys(struct FFIChannelKeys *ptr);
  
- /**
-  * Adds the next available account-level spend authority, given the current set of [ZIP 316]
+ void zcashlc_free_encrypted_payload(struct FFIEncryptedPayload *payload);
+ 
 diff --git a/node_modules/react-native-verus/package.json b/node_modules/react-native-verus/package.json
+index e9177162..9f25f454 100644
 --- a/node_modules/react-native-verus/package.json
 +++ b/node_modules/react-native-verus/package.json
 @@ -40,8 +40,8 @@
@@ -47,9 +48,10 @@ diff --git a/node_modules/react-native-verus/package.json b/node_modules/react-n
    "lint-staged": {
      "*.{js,ts}": "eslint"
 diff --git a/node_modules/react-native-verus/scripts/copyCheckpoints.ts b/node_modules/react-native-verus/scripts/copyCheckpoints.ts
+index 957dea23..6fc77926 100644
 --- a/node_modules/react-native-verus/scripts/copyCheckpoints.ts
 +++ b/node_modules/react-native-verus/scripts/copyCheckpoints.ts
-@@ -7,7 +7,7 @@ export async function copyCheckpoints(disklet: Disklet): Promise<void> {
+@@ -7,7 +7,7 @@
    console.log('Copying checkpoints...')
    const fromDisklet = navigateDisklet(
      disklet,
@@ -58,3 +60,145 @@ diff --git a/node_modules/react-native-verus/scripts/copyCheckpoints.ts b/node_m
    )
    const toDisklet = navigateDisklet(
      disklet,
+diff --git a/node_modules/react-native-verus/scripts/updateSources.ts b/node_modules/react-native-verus/scripts/updateSources.ts
+index e8a6e619..78a6437a 100644
+--- a/node_modules/react-native-verus/scripts/updateSources.ts
++++ b/node_modules/react-native-verus/scripts/updateSources.ts
+@@ -3,15 +3,17 @@
+ // It will download third-party source code, modify it,
+ // and install it into the correct locations.
+
+-import { execSync } from 'child_process'
++import { execFileSync, execSync } from 'child_process'
+ import { deepList, justFiles, makeNodeDisklet, navigateDisklet } from 'disklet'
+-import { existsSync, mkdirSync } from 'fs'
++import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+ import { join, basename, dirname } from 'path'
+
+ import { copyCheckpoints } from './copyCheckpoints'
+
+ const disklet = makeNodeDisklet(join(__dirname, '../'))
+ const tmp = join(__dirname, '../tmp')
++const STABLE_ZCASH_COMMIT = '4ef29fa0cf7f0880d05d566d03875bbb019540a1'
++const VERUS_ZFUNC_COMMIT = '92aef9571d6eb34605242692f8b20637c4900360'
+
+ async function main(): Promise<void> {
+   if (!existsSync(tmp)) mkdirSync(tmp)
+@@ -24,16 +26,15 @@
+ function downloadSources(): void {
+   getRepo(
+     'ZcashLightClientKit',
+-    'https://github.com/VerusCoin/verus-swift-wallet-sdk.git',
+-    // 2.0.3:
+-    'cff08420094044f2fc7a04bb98b2b7b2d7b2d9f0'
++    'https://github.com/who-biz/verus-swift-wallet-sdk.git',
++    '9de00f3893f782cb0bcac109c67185626c8b98c0'
+   )
+   getRepo(
+     'zcash-light-client-ffi',
+-    'https://github.com/VerusCoin/verus-lightclient-ffi.git',
+-    // 0.4.0:
+-    '69bce9b3d7409867e9c51bf505fd316cc4991516'
++    'https://github.com/who-biz/verus-lightclient-ffi.git',
++    'cee9fdd17c7b0aa0264c75e207288dfca4a1454c'
+   )
++  patchZcashLightClientFfi(join(tmp, 'zcash-light-client-ffi'))
+ }
+
+ async function rebuildXcframework(): Promise<void> {
+@@ -167,11 +168,41 @@
+   })
+ }
+
++function patchZcashLightClientFfi(path: string): void {
++  const cargoTomlPath = join(path, 'rust', 'Cargo.toml')
++  const cargoLockPath = join(path, 'rust', 'Cargo.lock')
++  const cargoToml = readFileSync(cargoTomlPath, 'utf8')
++
++  const replacements: Array<[string, string]> = [
++    ['zcash_address', STABLE_ZCASH_COMMIT],
++    ['zcash_client_backend', STABLE_ZCASH_COMMIT],
++    ['zcash_client_sqlite', STABLE_ZCASH_COMMIT],
++    ['zcash_primitives', STABLE_ZCASH_COMMIT],
++    ['zcash_proofs', STABLE_ZCASH_COMMIT],
++    ['verus_zfunc', VERUS_ZFUNC_COMMIT]
++  ]
++
++  let patchedCargoToml = cargoToml
++  for (const [name, rev] of replacements) {
++    const from = `${name} = { git = "https://github.com/who-biz/librustzcash", branch = "ka_agree-security-fixes" }`
++    const to = `${name} = { git = "https://github.com/who-biz/librustzcash", rev = "${rev}" }`
++    patchedCargoToml = patchedCargoToml.replace(from, to)
++  }
++
++  if (patchedCargoToml === cargoToml) {
++    throw new Error('Expected to pin zcash-light-client-ffi Rust dependencies')
++  }
++
++  writeFileSync(cargoTomlPath, patchedCargoToml)
++  if (existsSync(cargoLockPath)) rmSync(cargoLockPath)
++}
++
+ /**
+  * Runs a command and returns its results.
+  */
+ function quietExec(argv: string[]): string {
+-  return execSync(argv.join(' '), {
++  const [command, ...args] = argv
++  return execFileSync(command, args, {
+     cwd: tmp,
+     encoding: 'utf8'
+   }).replace(/\n$/, '')
+@@ -183,7 +212,8 @@ function quietExec(argv: string[]): string {
+  * Runs a command and displays its results.
+  */
+ function loudExec(path: string, argv: string[]): void {
+-  execSync(argv.join(' '), {
++  const [command, ...args] = argv
++  execFileSync(command, args, {
+     cwd: path,
+     stdio: 'inherit',
+     encoding: 'utf8'
+@@ -194,4 +224,3 @@ main().catch(error => {
+   console.log(error)
+   process.exit(1)
+ })
+-
+diff --git a/node_modules/react-native-verus/lib/veruslightclient.rn.js b/node_modules/react-native-verus/lib/veruslightclient.rn.js
+index d32c251..1d29ae8 100644
+--- a/node_modules/react-native-verus/lib/veruslightclient.rn.js
++++ b/node_modules/react-native-verus/lib/veruslightclient.rn.js
+@@ -322,10 +322,10 @@ var Synchronizer = /*#__PURE__*/function () {
+       onTransactionsChanged = _ref.onTransactionsChanged,
+       onUpdate = _ref.onUpdate;
+     this.setListener('BalanceEvent', function (event) {
+-      var transparentAvailableZatoshi = event.transparentAvailableZatoshi,
+-        transparentTotalZatoshi = event.transparentTotalZatoshi,
+-        saplingAvailableZatoshi = event.saplingAvailableZatoshi,
+-        saplingTotalZatoshi = event.saplingTotalZatoshi;
++      var transparentAvailableZatoshi = event.transparentAvailableZatoshi || '0',
++        transparentTotalZatoshi = event.transparentTotalZatoshi || '0',
++        saplingAvailableZatoshi = event.saplingAvailableZatoshi || '0',
++        saplingTotalZatoshi = event.saplingTotalZatoshi || '0';
+       event.availableZatoshi = biggystring.add(transparentAvailableZatoshi, saplingAvailableZatoshi);
+       event.totalZatoshi = biggystring.add(transparentTotalZatoshi, saplingTotalZatoshi);
+       onBalanceChanged(event);
+diff --git a/node_modules/react-native-verus/src/react-native.ts b/node_modules/react-native-verus/src/react-native.ts
+index 489f4f4..8705482 100644
+--- a/node_modules/react-native-verus/src/react-native.ts
++++ b/node_modules/react-native-verus/src/react-native.ts
+@@ -273,10 +273,10 @@ export class Synchronizer {
+   }: SynchronizerCallbacks): void {
+     this.setListener('BalanceEvent', event => {
+       const {
+-        transparentAvailableZatoshi,
+-        transparentTotalZatoshi,
+-        saplingAvailableZatoshi,
+-        saplingTotalZatoshi
++        transparentAvailableZatoshi = '0',
++        transparentTotalZatoshi = '0',
++        saplingAvailableZatoshi = '0',
++        saplingTotalZatoshi = '0'
+       } = event
+
+       event.availableZatoshi = add(
