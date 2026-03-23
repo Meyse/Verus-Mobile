@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, StatusBar, Platform } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  StatusBar,
+  Platform,
+} from 'react-native';
 import { Button, Portal, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import {
-  UserDataRequestDetails,
-  DataDescriptor,
-  DataResponseDetails,
-  DataResponseOrdinalVDXFObject,
-  GenericResponse,
-  VerifiableSignatureData,
-  CompactAddressObject,
-} from 'verus-typescript-primitives';
+import { UserDataRequestDetails } from 'verus-typescript-primitives';
 import * as VDXF_Data from 'verus-typescript-primitives/dist/vdxf/vdxfdatakeys';
-import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import Colors from '../../../globals/colors';
@@ -24,383 +23,266 @@ import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispat
 import { unixToDate } from '../../../utils/math';
 import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
-import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
-import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
-import { createAttestationResponseBuffer } from '../../../utils/attestations/createAttestationResponse';
-import { BN } from 'bn.js';
-
-// ── Helpers ──
+import { buildUserDataResponse } from '../../../utils/deeplink/userDataResponseBuilder';
+import { getFriendlyLabel } from '../../../utils/dataDescriptor/dataDescriptorDisplay';
 
 const truncateAddress = (addr) => {
   if (!addr || addr.length <= 14) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
 };
 
-const DATA_TYPE_LABELS = {
-  1: 'Full data',
-  2: 'Partial data',
-  3: 'Collection',
+const SHARE_MODE_HELPERS = {
+  1: 'All details in this record will be shared.',
+  2: 'Only these details will be shared.',
+  3: 'These records will be shared.',
 };
 
-const REQUEST_TYPE_LABELS = {
-  1: 'Attestation',
-  2: 'Claim',
-  3: 'Credential',
+const ATTESTATION_NAME_VDXFID = 'i4GC1YGEVD21afWudGoFJVdnfjJ8bfCoct';
+
+const friendlyKeyLabel = (vdxfKey) => getFriendlyLabel(vdxfKey);
+
+const getDescriptorLabel = (descriptor) => {
+  const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
+  const json = descriptor?.toJson?.();
+  const nested = json?.objectdata?.[descriptorKeyId];
+
+  return nested?.label || json?.label || null;
 };
 
-const DATA_TYPE_DESCRIPTIONS = {
-  1: 'The requesting application wants to receive ALL data in this object. Review the contents carefully before approving.',
-  2: 'The requesting application wants only specific fields. Other fields will be sent as cryptographic hashes only.',
-  3: 'The requesting application wants multiple data objects. Review each before approving.',
+const getDescriptorValue = (descriptor) => {
+  const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
+  const json = descriptor?.toJson?.();
+  const nested = json?.objectdata?.[descriptorKeyId];
+  const source = nested || json;
+  const objectdata = source?.objectdata;
+
+  if (objectdata == null) return null;
+
+  if (typeof objectdata === 'object' && objectdata.message != null) {
+    if (typeof objectdata.message === 'boolean') {
+      return objectdata.message ? 'Yes' : 'No';
+    }
+
+    if (
+      typeof objectdata.message === 'string' ||
+      typeof objectdata.message === 'number'
+    ) {
+      return String(objectdata.message);
+    }
+  }
+
+  if (typeof objectdata === 'boolean') {
+    return objectdata ? 'Yes' : 'No';
+  }
+
+  if (
+    typeof objectdata === 'string' ||
+    typeof objectdata === 'number'
+  ) {
+    return String(objectdata);
+  }
+
+  return null;
 };
 
-const REQUEST_TYPE_DESCRIPTIONS = {
-  1: 'Requesting an attestation (third-party signed statement about you)',
-  2: 'Requesting a claim (your self-asserted data)',
-  3: 'Requesting a verifiable credential',
+const extractFieldDescriptors = (descriptors) => {
+  if (!Array.isArray(descriptors)) return [];
+
+  const seen = new Set();
+  const fields = [];
+
+  descriptors.forEach((descriptor) => {
+    const key = getDescriptorLabel(descriptor);
+
+    if (!key || seen.has(key) || key === ATTESTATION_NAME_VDXFID) return;
+
+    seen.add(key);
+    fields.push({
+      key,
+      label: friendlyKeyLabel(key),
+      value: getDescriptorValue(descriptor),
+    });
+  });
+
+  return fields;
 };
 
-// ── Detail Row Component ──
-
-const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder, singleLine, isError }) => {
-  const Wrapper = onPress ? TouchableOpacity : View;
-  const wrapperProps = onPress ? { onPress, activeOpacity: 0.7 } : {};
+const RecordPreviewCard = ({ record, showBorder }) => {
   return (
-    <Wrapper
+    <View
       style={[
-        styles.detailRow,
+        styles.recordCard,
         showBorder && styles.detailRowBorder,
-        onPress && styles.detailRowPressable,
-        isError && styles.detailRowError,
       ]}
-      {...wrapperProps}
     >
-      <View style={styles.detailLeft}>
-        <Text style={[styles.detailTitle, isError && styles.detailTitleError]} numberOfLines={singleLine ? 1 : undefined}>{title}</Text>
-        {subtitle ? <Text style={[styles.detailSubtitle, isError && styles.detailSubtitleError]}>{subtitle}</Text> : null}
-      </View>
-      {rightIcon ? (
-        <MaterialCommunityIcons name={rightIcon} size={18} color={isError ? "#C62828" : "#888"} />
-      ) : null}
-    </Wrapper>
+      <Text style={styles.recordName}>{record.name}</Text>
+      {record.fields.length > 0 ? (
+        <View style={styles.recordFieldList}>
+          {record.fields.map((field) => (
+            <View key={`${record.id}-${field.key}`} style={styles.recordFieldRow}>
+              <MaterialCommunityIcons
+                name="check-circle"
+                size={16}
+                color={Colors.verusGreenColor}
+              />
+              <View style={styles.recordFieldTextBlock}>
+                {field.value && field.value !== field.label ? (
+                  <>
+                    <Text style={styles.recordFieldLabelText}>{field.label}</Text>
+                    <Text style={styles.recordFieldValueText}>{field.value}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.recordFieldValueText}>{field.label}</Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.noFieldsText}>No details available</Text>
+      )}
+    </View>
   );
 };
 
-// ── Friendly label for a VDXF key ──
-
-const friendlyKeyLabel = (vdxfKey) => {
-  return IdentityVdxfidMap[vdxfKey]?.EN || vdxfKey;
-};
-
-// ── Extract field labels from an attestation's data descriptors ──
-
-const extractFieldLabels = (attestationDetails) => {
-  const labels = [];
-  try {
-    const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
-    if (attestationDetails?.mmrDescriptor?.dataDescriptors) {
-      for (const dd of attestationDetails.mmrDescriptor.dataDescriptors) {
-        const json = dd.toJson?.();
-        // Handle nested format: objectdata[DataDescriptorKey] = { label, ... }
-        const nested = json?.objectdata?.[descriptorKeyId];
-        // Handle flat format: { label, objectdata: { message } }
-        const label = nested?.label || json?.label;
-        if (label) {
-          labels.push(friendlyKeyLabel(label));
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Error extracting field labels:', e);
-  }
-  return labels;
-};
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Main Component
-// ══════════════════════════════════════════════════════════════════════════════
-
 const UserDataRequestInfo = (props) => {
   const {
-    // From displayProps (handler output)
-    detailsBufferString,
     requestSignerFqn,
     requestSignerIdentityID,
     requestSignerSystemID,
     requestSigtime,
-    coinObj,
-    chainInfo,
     dataType,
-    requestType,
-    searchDataKey,
-    signerIAddress,
-    signerFqn,
-    requestIDDisplay,
     requestedKeys,
     matchingAttestations,
-    hasResponseURIs,
-    // Standard props from GenericRequestHome
     cancel,
-    navigation,
     next,
     response,
     request,
     detailIndex,
   } = props;
 
-  // ── Redux state ──
   const signedIn = useSelector(state => state.authentication.signedIn);
-  const sendModalType = useSelector(state => state.sendModal.type);
-  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
   const requestIsTestnet = request != null ? request.isTestnet() : false;
 
-  // ── Local state ──
   const [loading, setLoading] = useState(false);
   const [waitingForSignin, setWaitingForSignin] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
 
-  // ── Derived values ──
   const isPartialData = dataType === UserDataRequestDetails.PARTIAL_DATA.toNumber();
-  const isFullData = dataType === UserDataRequestDetails.FULL_DATA.toNumber();
   const isCollection = dataType === UserDataRequestDetails.COLLECTION.toNumber();
-
-  const isSigned = !!(requestSignerFqn || requestSignerIdentityID);
   const requesterLabel = requestSignerFqn || requestSignerIdentityID || 'Unknown requester';
-  const requesterAddress = requestSignerFqn ? requestSignerIdentityID : null;
+  const requesterAddress = requestSignerIdentityID || null;
   const requestSigDateString = requestSigtime ? unixToDate(requestSigtime) : null;
   const requestChainId = requestSignerSystemID
     ? getSystemNameFromSystemId(requestSignerSystemID) || requestSignerSystemID
     : null;
+  const shareModeHelper = SHARE_MODE_HELPERS[dataType] || 'Review what will be shared before continuing.';
+  const matchingRecordCount = matchingAttestations?.length || 0;
+  const continueDisabled = matchingRecordCount === 0;
 
-  // ── Attestation field preview ──
-  const attestationFieldLabels = useMemo(() => {
-    if (!matchingAttestations || matchingAttestations.length === 0) return [];
+  const sharedFieldKeys = useMemo(() => requestedKeys || [], [requestedKeys]);
 
-    if (isCollection) {
-      return matchingAttestations.map(att => ({
-        name: att.name,
-        fields: extractFieldLabels(att.attestationDetails),
-      }));
+  const requestDetails = useMemo(() => {
+    const detail =
+      typeof request?.getDetails === 'function'
+        ? request.getDetails(detailIndex)
+        : request?.details?.[detailIndex];
+
+    return detail?.data || null;
+  }, [detailIndex, request]);
+
+  const requestID = useMemo(() => {
+    if (requestDetails?.hasRequestID?.() && requestDetails.requestID) {
+      return requestDetails.requestID;
     }
 
-    // Single attestation — show its fields
-    const att = matchingAttestations[0];
-    return [{
-      name: att.name,
-      fields: extractFieldLabels(att.attestationDetails),
-    }];
-  }, [matchingAttestations, isCollection]);
+    return undefined;
+  }, [requestDetails]);
 
-  // Which fields will be shared (for PARTIAL_DATA)
-  const sharedFieldLabels = useMemo(() => {
-    if (!isPartialData || !requestedKeys) return [];
-    return requestedKeys.map(k => friendlyKeyLabel(k));
-  }, [isPartialData, requestedKeys]);
+  const previewRecords = useMemo(() => {
+    if (!Array.isArray(matchingAttestations) || matchingAttestations.length === 0) {
+      return [];
+    }
 
-  // ── isWrongRequestType check (testnet/mainnet mismatch) ──
-  const isWrongRequestType = useMemo(() => {
-    if (!activeAccount) return false;
-    // If testnet request but no testnet profiles, or vice versa
-    return false; // simplified — the validator already checks this
-  }, [activeAccount, requestIsTestnet]);
+    return matchingAttestations.map((record) => {
+      const allFields = extractFieldDescriptors(
+        record?.attestationDetails?.mmrDescriptor?.dataDescriptors,
+      );
+      let visibleFields = allFields;
 
-  // ── Auth modal callback ──
+      if (isPartialData) {
+        visibleFields = allFields.filter((field) => sharedFieldKeys.includes(field.key));
+      }
+
+      return {
+        id: record.id,
+        name: record.name || 'Record',
+        fields: visibleFields,
+      };
+    });
+  }, [isPartialData, matchingAttestations, sharedFieldKeys]);
+
+  const primaryRecord = previewRecords[0] || null;
+  const primaryShareTitle = useMemo(() => {
+    if (matchingRecordCount === 0) return null;
+    if (isPartialData) return null;
+    if (isCollection) {
+      return `${matchingRecordCount} ${matchingRecordCount === 1 ? 'record' : 'records'}`;
+    }
+
+    return primaryRecord?.name || '1 record';
+  }, [
+    isCollection,
+    isPartialData,
+    matchingRecordCount,
+    primaryRecord,
+  ]);
+
+  const primaryShareSubtitle = useMemo(() => {
+    if (matchingRecordCount === 0) return 'This request cannot be completed on this device';
+    if (isPartialData) {
+      return primaryRecord?.name ? `From ${primaryRecord.name}` : 'From 1 record';
+    }
+    if (isCollection) return 'Review these records before sharing';
+
+    return 'Full record';
+  }, [isCollection, isPartialData, matchingRecordCount, primaryRecord]);
+
+  const primaryActionLabel = useMemo(() => {
+    if (continueDisabled) return 'Continue';
+    if (isPartialData) return 'Share details';
+    if (isCollection) {
+      return matchingRecordCount === 1 ? 'Share record' : 'Share records';
+    }
+
+    return 'Share record';
+  }, [
+    continueDisabled,
+    isCollection,
+    isPartialData,
+    matchingRecordCount,
+  ]);
+
   useEffect(() => {
     if (waitingForSignin && signedIn) {
       setWaitingForSignin(false);
     }
   }, [signedIn, waitingForSignin]);
 
-  // ── Build detail rows ──
-  const detailRows = useMemo(() => {
-    const rows = [];
-
-    // Data type
-    rows.push({
-      key: 'data-type',
-      title: DATA_TYPE_LABELS[dataType] || `Data type ${dataType}`,
-      subtitle: DATA_TYPE_DESCRIPTIONS[dataType] || '',
-      rightIcon: isFullData ? 'file-document' : isPartialData ? 'file-document-edit' : 'file-document-multiple',
-    });
-
-    // Request type
-    rows.push({
-      key: 'request-type',
-      title: REQUEST_TYPE_LABELS[requestType] || `Request type ${requestType}`,
-      subtitle: REQUEST_TYPE_DESCRIPTIONS[requestType] || '',
-      rightIcon: requestType === 1 ? 'certificate' : requestType === 2 ? 'account-voice' : 'shield-check',
-    });
-
-    // Search data key (what is being looked up)
-    if (searchDataKey && searchDataKey.length > 0) {
-      const labels = searchDataKey.map(entry => {
-        const key = Object.keys(entry)[0];
-        const val = entry[key];
-        return val ? `${friendlyKeyLabel(key)}: ${val}` : friendlyKeyLabel(key);
-      });
-      rows.push({
-        key: 'search-data',
-        title: 'Searching for',
-        subtitle: labels.join('\n'),
-        rightIcon: 'magnify',
-      });
-    }
-
-    // Signer constraint
-    if (signerFqn || signerIAddress) {
-      rows.push({
-        key: 'signer',
-        title: `Data signed by: ${signerFqn || signerIAddress}`,
-        subtitle: signerFqn ? signerIAddress : undefined,
-        rightIcon: 'account-key',
-        onPress: signerIAddress ? () => copyToClipboard(signerIAddress, {
-          title: 'Signer address copied',
-          message: `${signerIAddress} copied to clipboard.`,
-        }) : undefined,
-      });
-    }
-
-    // Request ID
-    if (requestIDDisplay) {
-      rows.push({
-        key: 'request-id',
-        title: requestIDDisplay,
-        subtitle: 'Request ID',
-        rightIcon: 'content-copy',
-        onPress: () => copyToClipboard(requestIDDisplay, {
-          title: 'Request ID copied',
-          message: `${requestIDDisplay} copied to clipboard.`,
-        }),
-      });
-    }
-
-    // Requested keys (PARTIAL_DATA)
-    if (isPartialData && sharedFieldLabels.length > 0) {
-      rows.push({
-        key: 'requested-keys',
-        title: 'Fields to share',
-        subtitle: sharedFieldLabels.join(', '),
-        rightIcon: 'format-list-checks',
-      });
-    }
-
-    // Full data warning
-    if (isFullData) {
-      rows.push({
-        key: 'full-data-warning',
-        title: 'All data will be shared',
-        subtitle: 'The entire signed data object will be returned to the requester.',
-        rightIcon: 'alert-circle-outline',
-        isError: true,
-      });
-    }
-
-    // No matching attestations warning
-    if (!matchingAttestations || matchingAttestations.length === 0) {
-      rows.push({
-        key: 'no-match',
-        title: 'No matching data found',
-        subtitle: signerIAddress
-          ? `No data signed by ${signerFqn || signerIAddress} was found on this device.`
-          : 'No data matching this request was found on this device.',
-        rightIcon: 'alert-circle-outline',
-        isError: true,
-      });
-    }
-
-    return rows;
-  }, [dataType, requestType, searchDataKey, signerFqn, signerIAddress,
-      requestIDDisplay, isPartialData, isFullData, sharedFieldLabels,
-      matchingAttestations]);
-
-  // ── Continue disabled ──
-  const continueDisabled = useMemo(() => {
-    if (!matchingAttestations || matchingAttestations.length === 0) return true;
-    if (!hasResponseURIs) return true;
-    return false;
-  }, [matchingAttestations, hasResponseURIs]);
-
-  // ── Build and send response ──
   const buildAndSendResponse = async () => {
     try {
       setLoading(true);
 
-      const att = isCollection ? matchingAttestations[0] : matchingAttestations[0];
-      if (!att || !att.raw || !att.raw.data) {
-        throw new Error('Selected attestation is missing raw data');
-      }
-
-      // Build the response payload from the raw stored attestation hex.
-      // For PARTIAL_DATA, filter the MMR descriptors to only include
-      // the requested keys, then re-serialise the filtered attestation.
-      const responseBuffer = createAttestationResponseBuffer(
-        att.raw.data,
-        isPartialData ? requestedKeys : null,
-      );
-
-      // Wrap the binary attestation payload in a DataDescriptor
-      const dataDescriptor = new DataDescriptor({
-        version: new BN(1),
-        objectdata: responseBuffer,
+      return await buildUserDataResponse({
+        matchingRecords: matchingAttestations,
+        response,
+        requestedKeys: isPartialData ? requestedKeys : null,
+        requestID,
       });
-
-      // Wrap in DataResponseDetails
-      const responseDetails = new DataResponseDetails({
-        data: dataDescriptor,
-      });
-
-      // Wrap in DataResponseOrdinalVDXFObject
-      const responseOrdinal = new DataResponseOrdinalVDXFObject({
-        data: responseDetails,
-      });
-
-      // Attach to the GenericResponse
-      const baseResponse = response || new GenericResponse();
-      if (baseResponse.details == null) baseResponse.details = [];
-      baseResponse.details = [...baseResponse.details, responseOrdinal];
-
-      // Ensure the multi-details flag is set when there are 2+ details
-      if (baseResponse.details.length > 1 && typeof baseResponse.setHasMultiDetails === 'function') {
-        baseResponse.setHasMultiDetails();
-      }
-
-      // Set signature using the attestation recipient identity so
-      // GenericRequestComplete can sign and deliver the response.
-      if (baseResponse.signature == null) {
-        let recipientIAddress = att.raw?.recipientId;
-        const systemID = att.attestationDetails?.signatureData?.system_ID;
-
-        if (!recipientIAddress || !systemID) {
-          throw new Error(
-            'Attestation is missing recipient identity or system information. ' +
-            'Cannot sign the response.',
-          );
-        }
-
-        // recipientId may be an FQN (e.g. "name@") rather than an i-address.
-        // Resolve it to an i-address via getIdentity if needed.
-        if (!recipientIAddress.startsWith('i')) {
-          const idResult = await getIdentity(systemID, recipientIAddress);
-          if (idResult.error || !idResult.result?.identity?.identityaddress) {
-            throw new Error(
-              `Could not resolve recipient identity "${recipientIAddress}" to an i-address.`,
-            );
-          }
-          recipientIAddress = idResult.result.identity.identityaddress;
-        }
-
-        baseResponse.signature = new VerifiableSignatureData({
-          systemID: CompactAddressObject.fromIAddress(systemID),
-          identityID: CompactAddressObject.fromIAddress(recipientIAddress),
-        });
-        baseResponse.setSigned();
-      }
-
-      return baseResponse;
     } catch (e) {
       console.error('Error building user data response:', e);
       createAlert('Error', `Failed to build response: ${e.message}`);
@@ -410,21 +292,26 @@ const UserDataRequestInfo = (props) => {
     }
   };
 
-  // ── Handle approve ──
   const handleContinue = async () => {
     if (signedIn) {
       if (!matchingAttestations || matchingAttestations.length === 0) {
-        createAlert('No data', 'No matching data was found on this device.');
+        createAlert('No data', 'No matching records were found on this device.');
         return;
       }
 
-      // Show confirmation dialog
-      const dataTypeLabel = DATA_TYPE_LABELS[dataType] || 'data';
-      const requestTypeLabel = REQUEST_TYPE_LABELS[requestType]?.toLowerCase() || 'data';
+      let confirmationBody;
+
+      if (isCollection) {
+        confirmationBody = `Are you sure you want to share ${matchingRecordCount} matching records with ${requesterLabel}?`;
+      } else if (isPartialData) {
+        confirmationBody = `Are you sure you want to share the selected details from this record with ${requesterLabel}?`;
+      } else {
+        confirmationBody = `Are you sure you want to share all details in this record with ${requesterLabel}?`;
+      }
 
       createAlert(
-        `Share ${requestTypeLabel} data`,
-        `Are you sure you want to share your ${dataTypeLabel.toLowerCase()} ${requestTypeLabel} data with ${requesterLabel}?`,
+        'Share data',
+        confirmationBody,
         [
           {
             text: 'No',
@@ -446,24 +333,23 @@ const UserDataRequestInfo = (props) => {
         { cancelable: false },
       );
     } else {
-      // Need to sign in first
       setWaitingForSignin(true);
 
-      // Build allowlist from linked IDs
       const allowList = [];
       if (encryptedIds) {
         try {
           const storedIds = await requestServiceStoredData(VERUSID_SERVICE_ID);
           if (storedIds) {
-            for (const [iAddr, idData] of Object.entries(storedIds)) {
-              if (idData) {
-                const chainId = idData.chainId || (requestIsTestnet ? 'VRSCTEST' : 'VRSC');
-                const coinObj = CoinDirectory.findCoinObj(chainId, null, true);
-                if (coinObj && coinObj.testnet === requestIsTestnet) {
-                  allowList.push(iAddr);
-                }
+            Object.entries(storedIds).forEach(([iAddr, idData]) => {
+              if (!idData) return;
+
+              const chainId = idData.chainId || (requestIsTestnet ? 'VRSCTEST' : 'VRSC');
+              const coinObj = CoinDirectory.findCoinObj(chainId, null, true);
+
+              if (coinObj && coinObj.testnet === requestIsTestnet) {
+                allowList.push(iAddr);
               }
-            }
+            });
           }
         } catch (e) {
           console.warn('Error building allowlist:', e);
@@ -475,13 +361,12 @@ const UserDataRequestInfo = (props) => {
       } else {
         createAlert(
           'Cannot continue',
-          `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profiles found, cannot respond to user data request.`,
+          `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profiles found, cannot respond to this request.`,
         );
       }
     }
   };
 
-  // ── Handle signer details press ──
   const handleSignerDetailsPress = () => {
     if (requestSignerIdentityID && requestSignerSystemID) {
       setVerusIdDetailsModalProps({
@@ -494,20 +379,6 @@ const UserDataRequestInfo = (props) => {
   };
 
   const canOpenSignerModal = !!(requestSignerIdentityID && requestSignerSystemID);
-
-  // ── Hero title / subtitle ──
-  const getHeroTitle = () => {
-    if (isCollection) return `${searchDataKey?.length || 0} objects`;
-    return DATA_TYPE_LABELS[dataType] || 'Data request';
-  };
-
-  const getHeroSubtitle = () => {
-    return REQUEST_TYPE_LABELS[requestType] || 'Unknown type';
-  };
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // Render
-  // ══════════════════════════════════════════════════════════════════════════
 
   return loading ? (
     <AnimatedActivityIndicatorBox />
@@ -525,182 +396,114 @@ const UserDataRequestInfo = (props) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>User data request</Text>
+          <Text style={styles.mainTitle}>Share data</Text>
         </View>
 
-        {/* Requester card */}
-        {isSigned ? (
-          <TouchableOpacity
-            style={styles.requesterCard}
-            onPress={canOpenSignerModal ? handleSignerDetailsPress : undefined}
-            activeOpacity={canOpenSignerModal ? 0.7 : 1}
-          >
-            <View style={styles.requesterHeaderRow}>
-              <View style={styles.requesterIconContainer}>
-                <MaterialCommunityIcons
-                  name="account-lock"
-                  size={28}
-                  color={Colors.verusGreenColor}
-                />
-              </View>
-              <View style={styles.requesterTextContainer}>
-                <Text style={styles.requesterLabel}>Request from</Text>
-                <Text style={styles.requesterName}>{requesterLabel}</Text>
-                {requesterAddress ? (
-                  <Text style={styles.requesterAddress}>{truncateAddress(requesterAddress)}</Text>
-                ) : null}
-              </View>
-              {canOpenSignerModal ? (
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={24}
-                  color={Colors.verusDarkGray}
-                />
+        <TouchableOpacity
+          style={styles.requesterCard}
+          onPress={canOpenSignerModal ? handleSignerDetailsPress : undefined}
+          activeOpacity={canOpenSignerModal ? 0.7 : 1}
+        >
+          <View style={styles.requesterHeaderRow}>
+            <View style={styles.requesterIconContainer}>
+              <MaterialCommunityIcons
+                name="account-lock"
+                size={28}
+                color={Colors.verusGreenColor}
+              />
+            </View>
+            <View style={styles.requesterTextContainer}>
+              <Text style={styles.requesterLabel}>Request from</Text>
+              <Text style={styles.requesterName}>{requesterLabel}</Text>
+              {requesterAddress ? (
+                <Text style={styles.requesterAddress}>{truncateAddress(requesterAddress)}</Text>
               ) : null}
             </View>
+            {canOpenSignerModal ? (
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color={Colors.verusDarkGray}
+              />
+            ) : null}
+          </View>
+          {(requestChainId || requestSigDateString) ? (
             <View style={styles.requesterDetailsRow}>
               {requestChainId ? (
-                <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{requestChainId}</Text>
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaChipText}>{requestChainId}</Text>
                 </View>
               ) : null}
               {requestSigDateString ? (
-                <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{requestSigDateString}</Text>
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaChipText}>{requestSigDateString}</Text>
                 </View>
               ) : null}
             </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.unsignedCard}>
-            <View style={styles.unsignedIconContainer}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#B45309" />
-            </View>
-            <View style={styles.unsignedTextContainer}>
-              <Text style={styles.unsignedTitle}>Unsigned request</Text>
-              <Text style={styles.unsignedSubtitle}>
-                This user data request does not include a verified signer identity.
+          ) : null}
+        </TouchableOpacity>
+
+        <View style={styles.primaryShareCard}>
+          <Text style={styles.primaryShareEyebrow}>You are sharing</Text>
+          {primaryShareTitle ? (
+            <Text style={styles.primaryShareTitle}>{primaryShareTitle}</Text>
+          ) : null}
+          <Text style={styles.primaryShareSubtitle}>{primaryShareSubtitle}</Text>
+          {matchingRecordCount === 0 ? (
+            <View style={styles.primaryEmptyState}>
+              <Text style={styles.emptyStateTitle}>No matching data found</Text>
+              <Text style={styles.emptyStateBody}>
+                This device does not have data that matches this request.
               </Text>
             </View>
-          </View>
-        )}
-
-        {/* Hero section */}
-        <View style={styles.heroContainer}>
-          <Text style={styles.heroAmount}>{getHeroTitle()}</Text>
-          <Text style={styles.heroCurrency}>{getHeroSubtitle()}</Text>
-        </View>
-
-        {/* Request details section */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <MaterialCommunityIcons name="information-outline" size={20} color="#666" />
-              <Text style={styles.sectionTitle}>Request details</Text>
-            </View>
-          </View>
-          <View style={styles.sectionContent}>
-            {detailRows.length === 0 ? (
-              <View style={styles.emptyRow}>
-                <Text style={styles.emptyText}>No additional details.</Text>
-              </View>
-            ) : (
-              detailRows.map((row, index) => (
-                <DetailRow
-                  key={row.key}
-                  title={row.title}
-                  subtitle={row.subtitle}
-                  onPress={row.onPress}
-                  rightIcon={row.rightIcon}
-                  showBorder={index > 0}
-                  singleLine={row.singleLine}
-                  isError={row.isError}
-                />
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* Matching attestations section */}
-        {matchingAttestations && matchingAttestations.length > 0 && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons name="shield-check-outline" size={20} color="#666" />
-                <Text style={styles.sectionTitle}>
-                  {isCollection ? 'Matching objects' : 'Matching data'}
-                </Text>
-              </View>
-              {isCollection && (
-                <View style={styles.objectCountBadge}>
-                  <Text style={styles.objectCountText}>{matchingAttestations.length}</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.sectionContent}>
-              {attestationFieldLabels.map((att, attIdx) => (
-                <View
-                  key={`att-${attIdx}`}
-                  style={[
-                    styles.attestationItem,
-                    attIdx > 0 && styles.detailRowBorder,
-                  ]}
-                >
-                  <Text style={styles.attestationName}>{att.name}</Text>
-                  {att.fields.length > 0 ? (
-                    att.fields.map((field, fIdx) => {
-                      const isShared = !isPartialData || (requestedKeys && requestedKeys.some(
-                        k => friendlyKeyLabel(k) === field
-                      ));
-                      return (
-                        <View key={`field-${fIdx}`} style={styles.fieldRow}>
-                          <MaterialCommunityIcons
-                            name={isShared ? 'eye' : 'eye-off'}
-                            size={14}
-                            color={isShared ? Colors.verusGreenColor : '#BBB'}
-                          />
-                          <Text
-                            style={[
-                              styles.fieldLabel,
-                              !isShared && styles.fieldLabelHashed,
-                            ]}
-                          >
-                            {field}
-                          </Text>
-                          {isPartialData && !isShared && (
-                            <Text style={styles.hashBadge}>hash only</Text>
+          ) : (
+            <>
+              {!isCollection && primaryRecord ? (
+                <View style={styles.primaryDetailSection}>
+                  <View style={styles.primaryFieldList}>
+                    {primaryRecord.fields.map((field) => (
+                      <View
+                        key={`${primaryRecord.id}-${field.key}`}
+                        style={styles.primaryFieldRow}
+                      >
+                        <MaterialCommunityIcons
+                          name="check-circle"
+                          size={18}
+                          color={Colors.verusGreenColor}
+                        />
+                        <View style={styles.primaryFieldTextBlock}>
+                          {field.value && field.value !== field.label ? (
+                            <>
+                              <Text style={styles.primaryFieldLabelText}>{field.label}</Text>
+                              <Text style={styles.primaryFieldValueText}>{field.value}</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.primaryFieldValueText}>{field.label}</Text>
                           )}
                         </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={styles.noFieldsText}>No fields available</Text>
-                  )}
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
+              ) : (
+                <View style={styles.primaryShareList}>
+                  {previewRecords.map((record, index) => (
+                    <RecordPreviewCard
+                      key={record.id || `${record.name}-${index}`}
+                      record={record}
+                      showBorder={index > 0}
+                    />
+                  ))}
+                </View>
+              )}
+              <Text style={styles.primaryShareHelper}>{shareModeHelper}</Text>
+            </>
+          )}
+        </View>
 
-        {/* No response URIs warning */}
-        {!hasResponseURIs && (
-          <View style={styles.unsignedCard}>
-            <View style={styles.unsignedIconContainer}>
-              <MaterialCommunityIcons name="link-off" size={24} color="#B45309" />
-            </View>
-            <View style={styles.unsignedTextContainer}>
-              <Text style={styles.unsignedTitle}>No response URI</Text>
-              <Text style={styles.unsignedSubtitle}>
-                This request does not include a response URI. Your data cannot be returned to the requester.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        <View style={{ height: 24 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Footer buttons */}
       <View style={styles.footer}>
         <View style={styles.ctaCol}>
           <Button
@@ -722,17 +525,13 @@ const UserDataRequestInfo = (props) => {
             style={styles.primaryCta}
             disabled={continueDisabled}
           >
-            Continue
+            {primaryActionLabel}
           </GradientButton>
         </View>
       </View>
     </SafeAreaView>
   );
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Styles
-// ══════════════════════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
   container: {
@@ -748,24 +547,22 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   header: {
-    marginBottom: 20,
     marginTop: 8,
+    marginBottom: 20,
   },
   mainTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     letterSpacing: -0.2,
     color: '#1A1A1A',
-    marginBottom: 4,
   },
   requesterCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E8E8E8',
-    zIndex: 2,
   },
   requesterHeaderRow: {
     flexDirection: 'row',
@@ -784,7 +581,7 @@ const styles = StyleSheet.create({
   },
   requesterLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#666666',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -797,7 +594,7 @@ const styles = StyleSheet.create({
   },
   requesterAddress: {
     fontSize: 12,
-    color: '#888',
+    color: '#888888',
     marginTop: 2,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -806,202 +603,155 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  chipContainer: {
-    backgroundColor: '#F5F5F5',
+  metaChip: {
+    backgroundColor: '#F5F7FA',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  chipText: {
+  metaChipText: {
     fontSize: 11,
-    color: '#666',
+    color: '#5B6F82',
     fontWeight: '600',
   },
-  unsignedCard: {
-    backgroundColor: '#FFF7ED',
+  primaryShareCard: {
+    backgroundColor: '#F8FBFD',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  unsignedIconContainer: {
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-  },
-  unsignedTextContainer: {
-    flex: 1,
-  },
-  unsignedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 4,
-  },
-  unsignedSubtitle: {
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  heroContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-  },
-  heroAmount: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -1,
-    textAlign: 'center',
-  },
-  heroCurrency: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    padding: 18,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#D7E7F2',
+  },
+  primaryShareEyebrow: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: '#5B6F82',
+  },
+  primaryShareTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#183247',
+    marginTop: 8,
+  },
+  primaryShareSubtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#36566C',
+    marginTop: 8,
+  },
+  primaryShareHelper: {
+    fontSize: 13,
+    color: '#4A6477',
+    lineHeight: 19,
+    marginTop: 16,
+  },
+  primaryShareList: {
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D7E7F2',
     overflow: 'hidden',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
+  primaryDetailSection: {
+    marginTop: 16,
   },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  primaryFieldList: {
+    gap: 10,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  objectCountBadge: {
-    backgroundColor: Colors.primaryColor + '15',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  objectCountText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primaryColor,
-  },
-  sectionContent: {
-    padding: 0,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+  primaryFieldRow: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#D7E7F2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  primaryFieldTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  primaryFieldLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5B6F82',
+  },
+  primaryFieldValueText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#183247',
+    flex: 1,
+  },
+  primaryEmptyState: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D7E7F2',
+    padding: 18,
+    marginTop: 16,
   },
   detailRowBorder: {
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },
-  detailRowPressable: {},
-  detailLeft: {
-    flex: 1,
-    marginRight: 12,
+  emptyStateTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#183247',
+    marginBottom: 6,
   },
-  detailTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1A1A1A',
-    marginBottom: 2,
+  emptyStateBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#4A6477',
   },
-  detailSubtitle: {
-    fontSize: 12,
-    color: '#888',
-    lineHeight: 16,
-  },
-  emptyRow: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  emptyText: {
-    fontSize: 12,
-    color: '#888',
-  },
-  detailRowError: {
-    backgroundColor: '#FFEBEE',
-    borderLeftWidth: 3,
-    borderLeftColor: '#C62828',
-  },
-  detailTitleError: {
-    color: '#C62828',
-    fontWeight: '600',
-  },
-  detailSubtitleError: {
-    color: '#D32F2F',
-  },
-  // Attestation items
-  attestationItem: {
+  recordCard: {
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  attestationName: {
+  recordName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1A1A1A',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-    paddingLeft: 4,
+  recordFieldList: {
     gap: 8,
   },
-  fieldLabel: {
-    fontSize: 13,
-    color: '#333',
+  recordFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recordFieldTextBlock: {
     flex: 1,
+    gap: 2,
   },
-  fieldLabelHashed: {
-    color: '#AAA',
-  },
-  hashBadge: {
-    fontSize: 10,
-    color: '#AAA',
+  recordFieldLabelText: {
+    fontSize: 11,
+    color: '#6C7A86',
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  },
+  recordFieldValueText: {
+    fontSize: 13,
+    color: '#334A5C',
+    fontWeight: '600',
+    flex: 1,
   },
   noFieldsText: {
     fontSize: 12,
-    color: '#AAA',
-    fontStyle: 'italic',
+    color: '#8C8C8C',
   },
-  // Footer
+  bottomSpacer: {
+    height: 24,
+  },
   footer: {
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     width: '100%',
     flexDirection: 'row',
     paddingHorizontal: 16,
