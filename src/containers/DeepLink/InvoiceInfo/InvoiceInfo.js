@@ -498,14 +498,18 @@ const InvoiceInfo = props => {
             contentStyle={styles.secondaryCtaContent}
             uppercase={false}
             buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
+            textColor={Colors.genericRequestPrimaryButtonColor}
             labelStyle={styles.secondaryCtaLabel}
           >
             Cancel
           </Button>
         </View>
         <View style={styles.ctaCol}>
-          <GradientButton onPress={() => handleContinue()} style={styles.primaryCta}>
+          <GradientButton
+            onPress={() => handleContinue()}
+            style={styles.primaryCta}
+            buttonColor={Colors.genericRequestPrimaryButtonColor}
+          >
             Continue
           </GradientButton>
         </View>
@@ -727,7 +731,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   secondaryCtaLabel: {
-    color: Colors.primaryColor,
+    color: Colors.genericRequestPrimaryButtonColor,
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0,

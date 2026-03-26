@@ -19,6 +19,7 @@ const GradientButton = ({
   labelStyle,
   topColor = '#53C6F4',
   bottomColor = '#30A1CE',
+  buttonColor,
   mode = 'contained',
   leftIcon,
   rightIcon,
@@ -28,6 +29,8 @@ const GradientButton = ({
   holdingText,
 }) => {
   const isOutlined = mode === 'outlined';
+  const resolvedTopColor = buttonColor || topColor;
+  const resolvedBottomColor = buttonColor || bottomColor;
   const [isHolding, setIsHolding] = useState(false);
   const holdProgress = useRef(new Animated.Value(0)).current;
   const holdTimer = useRef(null);
@@ -127,8 +130,8 @@ const GradientButton = ({
       <Text 
         style={[
           styles.gradientButtonLabel, 
-          isOutlined && { 
-            color: bottomColor, 
+          isOutlined && {
+            color: resolvedBottomColor,
             textShadowColor: 'transparent',
             textShadowOffset: { width: 0, height: 0 },
             textShadowRadius: 0
@@ -172,10 +175,10 @@ const GradientButton = ({
         isOutlined ? {
           backgroundColor: 'transparent',
           borderWidth: 1,
-          borderColor: bottomColor,
+          borderColor: resolvedBottomColor,
         } : {
           borderWidth: 1,
-          borderColor: bottomColor,
+          borderColor: resolvedBottomColor,
         },
         style,
       ]}
@@ -189,8 +192,8 @@ const GradientButton = ({
         >
           <Defs>
             <LinearGradient id="gradientButton" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={topColor} />
-              <Stop offset="1" stopColor={bottomColor} />
+              <Stop offset="0" stopColor={resolvedTopColor} />
+              <Stop offset="1" stopColor={resolvedBottomColor} />
             </LinearGradient>
           </Defs>
           <Rect

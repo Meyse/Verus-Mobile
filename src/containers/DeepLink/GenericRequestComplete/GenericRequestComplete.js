@@ -286,6 +286,7 @@ const GenericRequestComplete = props => {
         <GradientButton
           onPress={onComplete}
           style={styles.completeButton}
+          buttonColor={Colors.genericRequestPrimaryButtonColor}
         >
           Complete
         </GradientButton>

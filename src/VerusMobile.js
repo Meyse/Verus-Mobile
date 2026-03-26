@@ -5,8 +5,7 @@ import {
   AppState,
   Platform,
   View,
-  Linking,
-  Image
+  Linking
 } from "react-native";
 import Modal from './components/Modal'
 import RootStackScreens from './containers/RootStack/RootStackScreens';
@@ -33,8 +32,6 @@ import { connect } from 'react-redux';
 import { ENABLE_VERUS_IDENTITIES } from '../env/index'
 import AlertModal from "./components/Alert";
 import { activateKeyboardListener, updateDeeplinkUrl } from "./actions/actionDispatchers";
-import Colors from "./globals/colors";
-import { CoinLogos } from "./utils/CoinData/CoinData";
 import { Portal } from 'react-native-paper';
 import SendModal from "./components/SendModal/SendModal";
 import { NavigationContainer } from "@react-navigation/native";
@@ -44,8 +41,7 @@ import { removeInactiveCurrencyDefinitions } from "./utils/asyncStore/currencyDe
 import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDefinitionStorage";
 import { initInstance } from "./utils/auth/authBox";
 import { SecureStorage } from "./utils/keychain/secureStore";
-import { VerusLogo, ValuLogo, ValuSeperator } from "./images/customIcons";
-import Styles from "./styles/index";
+import { VerusLogo } from "./images/customIcons";
 class VerusMobile extends React.Component {
   constructor(props) {
     super(props);
@@ -180,8 +176,6 @@ class VerusMobile extends React.Component {
   }
 
   render() {    
-    const VrscLogo = CoinLogos.VRSC.light
-
     return (
       <View style={{ flex: 1 }}>
         <Portal.Host>
@@ -214,7 +208,9 @@ class VerusMobile extends React.Component {
               },
             ]}
           >
-            <Image source={ValuLogo} style={Styles.valuSplashLogo} />
+            <View style={{ width: '60%', height: '20%' }}>
+              <VerusLogo width="100%" height="100%" />
+            </View>
           </View>
         </Modal>
       </View>

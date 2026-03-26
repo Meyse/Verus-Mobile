@@ -347,7 +347,7 @@ const ConfirmPayStep = ({
             contentStyle={parentStyles.secondaryCtaContent}
             uppercase={false}
             buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
+            textColor={Colors.genericRequestPrimaryButtonColor}
             labelStyle={parentStyles.secondaryCtaLabel}
           >
             Back
@@ -358,6 +358,7 @@ const ConfirmPayStep = ({
             onPress={handleUpdate}
             style={parentStyles.primaryCta}
             disabled={!hasFee}
+            buttonColor={Colors.genericRequestPrimaryButtonColor}
           >
             Update
           </GradientButton>

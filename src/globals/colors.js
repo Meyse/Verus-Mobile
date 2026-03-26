@@ -1,6 +1,7 @@
 
 const Colors = {
     primaryColor: '#00a3ce', // verus blue
+    genericRequestPrimaryButtonColor: '#3165D4',
     secondaryColor: '#FFFFFF', // white
     tertiaryColor: '#D6D6D6', //grey white
     verusDarkGray: '#959595',

@@ -8,6 +8,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import SemiModal from '../../../../components/SemiModal';
 import GradientButton from '../../../../components/GradientButton';
+import Colors from '../../../../globals/colors';
 
 const CONTENT = {
   revocation: {
@@ -50,7 +51,10 @@ const AuthorityInfoSheet = ({ visible, onClose, type = 'revocation' }) => {
         {content.paragraphs.map((text, idx) => (
           <Text key={idx} style={styles.paragraph}>{text}</Text>
         ))}
-        <GradientButton onPress={onClose}>
+        <GradientButton
+          onPress={onClose}
+          buttonColor={Colors.genericRequestPrimaryButtonColor}
+        >
           {'Got it'}
         </GradientButton>
       </View>

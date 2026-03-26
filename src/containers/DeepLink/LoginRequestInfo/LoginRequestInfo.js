@@ -727,7 +727,7 @@ const LoginRequestInfo = props => {
             contentStyle={styles.secondaryCtaContent}
             uppercase={false}
             buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
+            textColor={Colors.genericRequestPrimaryButtonColor}
             labelStyle={styles.secondaryCtaLabel}
           >
             Cancel
@@ -737,6 +737,7 @@ const LoginRequestInfo = props => {
           <GradientButton
             onPress={() => handleContinue()}
             style={styles.primaryCta}
+            buttonColor={Colors.genericRequestPrimaryButtonColor}
           >
             Choose identity
           </GradientButton>
@@ -949,7 +950,7 @@ const LoginRequestInfo = props => {
             contentStyle={styles.secondaryCtaContent}
             uppercase={false}
             buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
+            textColor={Colors.genericRequestPrimaryButtonColor}
             labelStyle={styles.secondaryCtaLabel}
           >
             Cancel
@@ -960,6 +961,7 @@ const LoginRequestInfo = props => {
             onPress={() => handleContinue()}
             style={styles.primaryCta}
             disabled={!isReady}
+            buttonColor={Colors.genericRequestPrimaryButtonColor}
           >
             Continue
           </GradientButton>
@@ -1364,7 +1366,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   secondaryCtaLabel: {
-    color: Colors.primaryColor,
+    color: Colors.genericRequestPrimaryButtonColor,
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0,

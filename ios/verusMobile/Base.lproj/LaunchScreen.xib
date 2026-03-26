@@ -25,6 +25,6 @@
         </view>
     </objects>
     <resources>
-        <image name="ValuBrand.png" width="1821" height="1025"/>
+        <image name="ValuBrand.png" width="2048" height="1024"/>
     </resources>
 </document>

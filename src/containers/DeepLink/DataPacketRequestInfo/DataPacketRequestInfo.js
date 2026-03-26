@@ -138,7 +138,7 @@ const StatementModal = ({ visible, statement, onClose }) => {
             })}
             style={styles.statementCopyButton}
             buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
+            textColor={Colors.genericRequestPrimaryButtonColor}
           >
             Copy to clipboard
           </Button>
@@ -407,20 +407,28 @@ const UrlDownloadModal = ({
 
         <View style={styles.downloadModalActions}>
           {!downloadedContent && !downloading && (
-            <GradientButton onPress={onDownload} style={styles.downloadButton}>
+            <GradientButton
+              onPress={onDownload}
+              style={styles.downloadButton}
+              buttonColor={Colors.genericRequestPrimaryButtonColor}
+            >
               Download
             </GradientButton>
           )}
           {isAttestation && downloadedContent && hashVerified === true && !attestationAccepted && (
             <>
-              <GradientButton onPress={onAcceptAttestation} style={styles.downloadButton}>
+              <GradientButton
+                onPress={onAcceptAttestation}
+                style={styles.downloadButton}
+                buttonColor={Colors.genericRequestPrimaryButtonColor}
+              >
                 Accept attestation
               </GradientButton>
               <Button
                 mode="contained"
                 onPress={onRejectAttestation || onClose}
                 buttonColor="#EBF6FF"
-                textColor={Colors.primaryColor}
+                textColor={Colors.genericRequestPrimaryButtonColor}
                 style={styles.rejectDownloadButton}
                 contentStyle={styles.rejectDownloadButtonContent}
               >
@@ -429,7 +437,11 @@ const UrlDownloadModal = ({
             </>
           )}
           {downloadedContent && hashVerified === true && (!isAttestation || attestationAccepted) && (
-            <GradientButton onPress={onClose} style={styles.downloadButton}>
+            <GradientButton
+              onPress={onClose}
+              style={styles.downloadButton}
+              buttonColor={Colors.genericRequestPrimaryButtonColor}
+            >
               Continue
             </GradientButton>
           )}
@@ -438,7 +450,7 @@ const UrlDownloadModal = ({
               mode="contained"
               onPress={onClose}
               buttonColor="#EBF6FF"
-              textColor={Colors.primaryColor}
+              textColor={Colors.genericRequestPrimaryButtonColor}
               style={styles.cancelDownloadButton}
             >
               Cancel
@@ -1874,7 +1886,7 @@ const DataPacketRequestInfo = props => {
             contentStyle={styles.secondaryCtaContent}
             uppercase={false}
             buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
+            textColor={Colors.genericRequestPrimaryButtonColor}
             labelStyle={styles.secondaryCtaLabel}
           >
             Cancel
@@ -1885,6 +1897,7 @@ const DataPacketRequestInfo = props => {
             onPress={() => handleContinue()}
             style={styles.primaryCta}
             disabled={continueDisabled}
+            buttonColor={Colors.genericRequestPrimaryButtonColor}
           >
             Continue
           </GradientButton>
@@ -2128,7 +2141,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   secondaryCtaLabel: {
-    color: Colors.primaryColor,
+    color: Colors.genericRequestPrimaryButtonColor,
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0,

@@ -604,6 +604,7 @@ const AppEncryptionRequestInfo = (props) => {
             <GradientButton
               onPress={handleSendResponse}
               style={styles.primaryCta}
+              buttonColor={Colors.genericRequestPrimaryButtonColor}
             >
               Send Response
             </GradientButton>
@@ -815,6 +816,7 @@ const AppEncryptionRequestInfo = (props) => {
             onPress={handleApprove} 
             style={styles.primaryCta}
             disabled={isWrongRequestType || !selectedIdentity}
+            buttonColor={Colors.genericRequestPrimaryButtonColor}
           >
             Approve
           </GradientButton>
@@ -1001,7 +1003,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   secondaryCtaLabel: {
-    color: Colors.primaryColor,
+    color: Colors.genericRequestPrimaryButtonColor,
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0,
