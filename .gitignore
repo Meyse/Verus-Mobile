@@ -36,6 +36,11 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Local Codex and redesign artifacts
+/docs/
+/AGENTS.md
+/agents.md
+
 # BUCK
 buck-out/
 \.buckd/
