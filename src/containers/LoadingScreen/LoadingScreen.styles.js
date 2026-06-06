@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import Colors from '../../globals/colors';
+import {fontStyle} from '../../globals/fonts';
 
 export default styles = StyleSheet.create({
   loadingRoot: {
@@ -14,7 +15,7 @@ export default styles = StyleSheet.create({
     textAlign: "center",
     color: Colors.quinaryColor,
     width: "70%",
-    fontFamily: 'Avenir-Book',
+    ...fontStyle('regular'),
     fontWeight: 'normal'
   },
 });

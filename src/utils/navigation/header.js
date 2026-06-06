@@ -3,6 +3,7 @@ import React from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import {Icon} from 'react-native-elements';
 import Colors from '../../globals/colors';
+import {fontStyle} from '../../globals/fonts';
 import styles from '../../styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
@@ -79,8 +80,7 @@ export const defaultHeaderOptions = ({navigation, params, route}) => ({
     backgroundColor: Colors.primaryColor,
   },
   headerTitleStyle: {
-    fontFamily: 'Avenir-Black',
-    fontWeight: 'normal',
+    ...fontStyle('black'),
     fontSize: 22,
     color: Colors.secondaryColor,
   },

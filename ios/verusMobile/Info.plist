@@ -116,6 +116,24 @@
 		<string>SourceSansPro-Regular.ttf</string>
 		<string>SourceSansPro-SemiBold.ttf</string>
 		<string>SourceSansPro-SemiBoldItalic.ttf</string>
+		<string>Inter18pt-Thin.ttf</string>
+		<string>Inter18pt-ThinItalic.ttf</string>
+		<string>Inter18pt-ExtraLight.ttf</string>
+		<string>Inter18pt-ExtraLightItalic.ttf</string>
+		<string>Inter18pt-Light.ttf</string>
+		<string>Inter18pt-LightItalic.ttf</string>
+		<string>Inter18pt-Regular.ttf</string>
+		<string>Inter18pt-Italic.ttf</string>
+		<string>Inter18pt-Medium.ttf</string>
+		<string>Inter18pt-MediumItalic.ttf</string>
+		<string>Inter18pt-SemiBold.ttf</string>
+		<string>Inter18pt-SemiBoldItalic.ttf</string>
+		<string>Inter18pt-Bold.ttf</string>
+		<string>Inter18pt-BoldItalic.ttf</string>
+		<string>Inter18pt-ExtraBold.ttf</string>
+		<string>Inter18pt-ExtraBoldItalic.ttf</string>
+		<string>Inter18pt-Black.ttf</string>
+		<string>Inter18pt-BlackItalic.ttf</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

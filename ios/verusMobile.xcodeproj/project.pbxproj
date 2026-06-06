@@ -26,7 +26,7 @@
 		4E9EA99B23BB63A800B9FA10 /* main.jsbundle in Resources */ = {isa = PBXBuildFile; fileRef = 008F07F21AC5B25A0029DE68 /* main.jsbundle */; };
 		4E9EA99D23BB985300B9FA10 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 4E9EA99C23BB985200B9FA10 /* assets */; };
 		4EAA00012F3A000100000001 /* VerusKeepAwake.m in Sources */ = {isa = PBXBuildFile; fileRef = 4EAA00032F3A000100000001 /* VerusKeepAwake.m */; };
-		4EAC77502411690900A7D427 /* (null) in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		4EAC77502411690900A7D427 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5E192C160435467282AA50EC /* SourceSansPro-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3D75763453624C50830E810F /* SourceSansPro-LightItalic.ttf */; };
 		7575623222F346C1998DBA73 /* SourceSansPro-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */; };
 		81602464E283406280F9ADAE /* SourceSansPro-BlackItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CC50E27923FC4379A9C3F9AD /* SourceSansPro-BlackItalic.ttf */; };
@@ -36,6 +36,24 @@
 		B46C523B6F814306BB98FE97 /* SourceSansPro-ExtraLight.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 25892E8D04D14F4D9D56BB7A /* SourceSansPro-ExtraLight.ttf */; };
 		B99FA08CBA3F486F9EBDD929 /* SourceSansPro-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1FDCBCD1026441C7B868F375 /* SourceSansPro-Regular.ttf */; };
 		C3F0F1EC224C38D900279E92 /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3F0F1EB224C38D900279E92 /* JavaScriptCore.framework */; };
+		F18000000000000000000001 /* Inter18pt-Thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000001 /* Inter18pt-Thin.ttf */; };
+		F18000000000000000000002 /* Inter18pt-ThinItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000002 /* Inter18pt-ThinItalic.ttf */; };
+		F18000000000000000000003 /* Inter18pt-ExtraLight.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000003 /* Inter18pt-ExtraLight.ttf */; };
+		F18000000000000000000004 /* Inter18pt-ExtraLightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000004 /* Inter18pt-ExtraLightItalic.ttf */; };
+		F18000000000000000000005 /* Inter18pt-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000005 /* Inter18pt-Light.ttf */; };
+		F18000000000000000000006 /* Inter18pt-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000006 /* Inter18pt-LightItalic.ttf */; };
+		F18000000000000000000007 /* Inter18pt-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000007 /* Inter18pt-Regular.ttf */; };
+		F18000000000000000000008 /* Inter18pt-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000008 /* Inter18pt-Italic.ttf */; };
+		F18000000000000000000009 /* Inter18pt-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000009 /* Inter18pt-Medium.ttf */; };
+		F1800000000000000000000A /* Inter18pt-MediumItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1810000000000000000000A /* Inter18pt-MediumItalic.ttf */; };
+		F1800000000000000000000B /* Inter18pt-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1810000000000000000000B /* Inter18pt-SemiBold.ttf */; };
+		F1800000000000000000000C /* Inter18pt-SemiBoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1810000000000000000000C /* Inter18pt-SemiBoldItalic.ttf */; };
+		F1800000000000000000000D /* Inter18pt-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1810000000000000000000D /* Inter18pt-Bold.ttf */; };
+		F1800000000000000000000E /* Inter18pt-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1810000000000000000000E /* Inter18pt-BoldItalic.ttf */; };
+		F1800000000000000000000F /* Inter18pt-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1810000000000000000000F /* Inter18pt-ExtraBold.ttf */; };
+		F18000000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf */; };
+		F18000000000000000000011 /* Inter18pt-Black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000011 /* Inter18pt-Black.ttf */; };
+		F18000000000000000000012 /* Inter18pt-BlackItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000012 /* Inter18pt-BlackItalic.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,7 +80,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				4EAC77502411690900A7D427 /* (null) in Embed Frameworks */,
+				4EAC77502411690900A7D427 /* BuildFile in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -143,6 +161,24 @@
 		DFF57B3EB4F24D3E91E7F92C /* ReactNativePermissions.xcodeproj */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = "wrapper.pb-project"; name = ReactNativePermissions.xcodeproj; path = "../node_modules/react-native-permissions/ios/ReactNativePermissions.xcodeproj"; sourceTree = "<group>"; };
 		E7CAC9CBB65F47A6B883FBD2 /* SourceSansPro-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-SemiBold.ttf"; path = "../assets/fonts/SourceSansPro-SemiBold.ttf"; sourceTree = "<group>"; };
 		F9BEFF74016C4E76B8E3F8E8 /* SourceSansPro-Black.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-Black.ttf"; path = "../assets/fonts/SourceSansPro-Black.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000001 /* Inter18pt-Thin.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Thin.ttf"; path = "../assets/fonts/Inter18pt-Thin.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000002 /* Inter18pt-ThinItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-ThinItalic.ttf"; path = "../assets/fonts/Inter18pt-ThinItalic.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000003 /* Inter18pt-ExtraLight.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-ExtraLight.ttf"; path = "../assets/fonts/Inter18pt-ExtraLight.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000004 /* Inter18pt-ExtraLightItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-ExtraLightItalic.ttf"; path = "../assets/fonts/Inter18pt-ExtraLightItalic.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000005 /* Inter18pt-Light.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Light.ttf"; path = "../assets/fonts/Inter18pt-Light.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000006 /* Inter18pt-LightItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-LightItalic.ttf"; path = "../assets/fonts/Inter18pt-LightItalic.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000007 /* Inter18pt-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Regular.ttf"; path = "../assets/fonts/Inter18pt-Regular.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000008 /* Inter18pt-Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Italic.ttf"; path = "../assets/fonts/Inter18pt-Italic.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000009 /* Inter18pt-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Medium.ttf"; path = "../assets/fonts/Inter18pt-Medium.ttf"; sourceTree = "<group>"; };
+		F1810000000000000000000A /* Inter18pt-MediumItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-MediumItalic.ttf"; path = "../assets/fonts/Inter18pt-MediumItalic.ttf"; sourceTree = "<group>"; };
+		F1810000000000000000000B /* Inter18pt-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-SemiBold.ttf"; path = "../assets/fonts/Inter18pt-SemiBold.ttf"; sourceTree = "<group>"; };
+		F1810000000000000000000C /* Inter18pt-SemiBoldItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-SemiBoldItalic.ttf"; path = "../assets/fonts/Inter18pt-SemiBoldItalic.ttf"; sourceTree = "<group>"; };
+		F1810000000000000000000D /* Inter18pt-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Bold.ttf"; path = "../assets/fonts/Inter18pt-Bold.ttf"; sourceTree = "<group>"; };
+		F1810000000000000000000E /* Inter18pt-BoldItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-BoldItalic.ttf"; path = "../assets/fonts/Inter18pt-BoldItalic.ttf"; sourceTree = "<group>"; };
+		F1810000000000000000000F /* Inter18pt-ExtraBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-ExtraBold.ttf"; path = "../assets/fonts/Inter18pt-ExtraBold.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-ExtraBoldItalic.ttf"; path = "../assets/fonts/Inter18pt-ExtraBoldItalic.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000011 /* Inter18pt-Black.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Black.ttf"; path = "../assets/fonts/Inter18pt-Black.ttf"; sourceTree = "<group>"; };
+		F18100000000000000000012 /* Inter18pt-BlackItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-BlackItalic.ttf"; path = "../assets/fonts/Inter18pt-BlackItalic.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -328,6 +364,24 @@
 				1FDCBCD1026441C7B868F375 /* SourceSansPro-Regular.ttf */,
 				E7CAC9CBB65F47A6B883FBD2 /* SourceSansPro-SemiBold.ttf */,
 				1BBB92052F164D6388DFCB56 /* SourceSansPro-SemiBoldItalic.ttf */,
+				F18100000000000000000001 /* Inter18pt-Thin.ttf */,
+				F18100000000000000000002 /* Inter18pt-ThinItalic.ttf */,
+				F18100000000000000000003 /* Inter18pt-ExtraLight.ttf */,
+				F18100000000000000000004 /* Inter18pt-ExtraLightItalic.ttf */,
+				F18100000000000000000005 /* Inter18pt-Light.ttf */,
+				F18100000000000000000006 /* Inter18pt-LightItalic.ttf */,
+				F18100000000000000000007 /* Inter18pt-Regular.ttf */,
+				F18100000000000000000008 /* Inter18pt-Italic.ttf */,
+				F18100000000000000000009 /* Inter18pt-Medium.ttf */,
+				F1810000000000000000000A /* Inter18pt-MediumItalic.ttf */,
+				F1810000000000000000000B /* Inter18pt-SemiBold.ttf */,
+				F1810000000000000000000C /* Inter18pt-SemiBoldItalic.ttf */,
+				F1810000000000000000000D /* Inter18pt-Bold.ttf */,
+				F1810000000000000000000E /* Inter18pt-BoldItalic.ttf */,
+				F1810000000000000000000F /* Inter18pt-ExtraBold.ttf */,
+				F18100000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf */,
+				F18100000000000000000011 /* Inter18pt-Black.ttf */,
+				F18100000000000000000012 /* Inter18pt-BlackItalic.ttf */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -495,6 +549,24 @@
 				B99FA08CBA3F486F9EBDD929 /* SourceSansPro-Regular.ttf in Resources */,
 				11D3A4425840432AADAC830C /* SourceSansPro-SemiBold.ttf in Resources */,
 				4D8F8BC85DF4453FBF0515FE /* SourceSansPro-SemiBoldItalic.ttf in Resources */,
+				F18000000000000000000001 /* Inter18pt-Thin.ttf in Resources */,
+				F18000000000000000000002 /* Inter18pt-ThinItalic.ttf in Resources */,
+				F18000000000000000000003 /* Inter18pt-ExtraLight.ttf in Resources */,
+				F18000000000000000000004 /* Inter18pt-ExtraLightItalic.ttf in Resources */,
+				F18000000000000000000005 /* Inter18pt-Light.ttf in Resources */,
+				F18000000000000000000006 /* Inter18pt-LightItalic.ttf in Resources */,
+				F18000000000000000000007 /* Inter18pt-Regular.ttf in Resources */,
+				F18000000000000000000008 /* Inter18pt-Italic.ttf in Resources */,
+				F18000000000000000000009 /* Inter18pt-Medium.ttf in Resources */,
+				F1800000000000000000000A /* Inter18pt-MediumItalic.ttf in Resources */,
+				F1800000000000000000000B /* Inter18pt-SemiBold.ttf in Resources */,
+				F1800000000000000000000C /* Inter18pt-SemiBoldItalic.ttf in Resources */,
+				F1800000000000000000000D /* Inter18pt-Bold.ttf in Resources */,
+				F1800000000000000000000E /* Inter18pt-BoldItalic.ttf in Resources */,
+				F1800000000000000000000F /* Inter18pt-ExtraBold.ttf in Resources */,
+				F18000000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf in Resources */,
+				F18000000000000000000011 /* Inter18pt-Black.ttf in Resources */,
+				F18000000000000000000012 /* Inter18pt-BlackItalic.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -997,7 +1069,10 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 			};
@@ -1050,7 +1125,10 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

@@ -1,4 +1,5 @@
 import Colors from '../globals/colors';
+import {fontStyle} from '../globals/fonts';
 
 export default buttons = {
   fullWidthButton: {
@@ -22,8 +23,7 @@ export default buttons = {
   },
   fullWidthButtonTitle: {
     fontSize: 16,
-    fontFamily: 'Avenir-Black',
-    fontWeight: '600',
+    ...fontStyle('black'),
   },
   inlineXButton: {
     marginRight: 16,

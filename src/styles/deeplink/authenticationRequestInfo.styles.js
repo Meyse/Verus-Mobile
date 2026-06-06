@@ -63,7 +63,7 @@ export default StyleSheet.create({
   },
   requesterName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#1A1A1A',
   },
   requesterDetailsRow: {
@@ -152,7 +152,7 @@ export default StyleSheet.create({
   },
   targetName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#1A1A1A',
   },
   targetAddress: {

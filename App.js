@@ -11,76 +11,35 @@ import {
   configureFonts,
   MD2LightTheme
 } from 'react-native-paper';
-import {
-  Text,
-  TextInput
-} from 'react-native';
 import BigNumber from 'bignumber.js';
 import Colors from './src/globals/colors';
+import {fontStyle} from './src/globals/fonts';
+import applyGlobalTypography from './src/utils/applyGlobalTypography';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
-Text.defaultProps = Text.defaultProps || {};
-Text.defaultProps.allowFontScaling = false;
-TextInput.defaultProps = Text.defaultProps || {};
-TextInput.defaultProps.allowFontScaling = false;
+applyGlobalTypography();
 
 BigNumber.set({ EXPONENTIAL_AT: 1000000, ROUNDING_MODE: BigNumber.ROUND_FLOOR });
 
 const fontConfig = {
   default: {
-    regular: {
-      fontFamily: 'SourceSansPro-Regular',
-      fontWeight: 'normal',
-    },
-    medium: {
-      fontFamily: 'SourceSansPro-SemiBold',
-      fontWeight: 'normal',
-    },
-    light: {
-      fontFamily: 'SourceSansPro-Light',
-      fontWeight: 'normal',
-    },
-    thin: {
-      fontFamily: 'SourceSansPro-ExtraLight',
-      fontWeight: 'normal',
-    },
+    regular: fontStyle('regular'),
+    medium: fontStyle('semiBold'),
+    light: fontStyle('light'),
+    thin: fontStyle('extraLight'),
   },
   ios: {
-    regular: {
-      fontFamily: 'SourceSansPro-Regular',
-      fontWeight: 'normal',
-    },
-    medium: {
-      fontFamily: 'SourceSansPro-SemiBold',
-      fontWeight: 'normal',
-    },
-    light: {
-      fontFamily: 'SourceSansPro-Light',
-      fontWeight: 'normal',
-    },
-    thin: {
-      fontFamily: 'SourceSansPro-ExtraLight',
-      fontWeight: 'normal',
-    },
+    regular: fontStyle('regular'),
+    medium: fontStyle('semiBold'),
+    light: fontStyle('light'),
+    thin: fontStyle('extraLight'),
   },
   android: {
-    regular: {
-      fontFamily: 'SourceSansPro-Regular',
-      fontWeight: 'normal',
-    },
-    medium: {
-      fontFamily: 'SourceSansPro-SemiBold',
-      fontWeight: 'normal',
-    },
-    light: {
-      fontFamily: 'SourceSansPro-Light',
-      fontWeight: 'normal',
-    },
-    thin: {
-      fontFamily: 'SourceSansPro-ExtraLight',
-      fontWeight: 'normal',
-    },
+    regular: fontStyle('regular'),
+    medium: fontStyle('semiBold'),
+    light: fontStyle('light'),
+    thin: fontStyle('extraLight'),
   },
 };
 
@@ -91,7 +50,7 @@ const theme = {
     primary: Colors.primaryColor,
     accent: Colors.verusGreenColor,
   },
-  fonts: configureFonts(fontConfig),
+  fonts: configureFonts({config: fontConfig, isV3: false}),
   version: 2
 };
 

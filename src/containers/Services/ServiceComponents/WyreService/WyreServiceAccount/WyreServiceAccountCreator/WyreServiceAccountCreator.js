@@ -314,7 +314,7 @@ class WyreServiceAccountCreator extends Component {
           <Text style={{ textAlign: "center", width: "75%", marginTop: 20, marginBottom: 20 }}>
             {`Your chosen country must be a residence country of yours. Countries not shown are currently not supported.`}
             <Text
-              style={{ color: Colors.primaryColor, fontWeight: "800" }}
+              style={{ color: Colors.primaryColor, fontWeight: "600" }}
               onPress={() => {
                 openUrl(this.WYRE_SUPPORTED_COUNTRIES_INFO);
               }}

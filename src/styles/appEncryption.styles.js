@@ -302,7 +302,7 @@ export default styles = StyleSheet.create({
   },
   identitySelectName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#666',
   },
   identitySelectNameSelected: {

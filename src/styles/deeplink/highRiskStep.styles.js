@@ -63,7 +63,7 @@ export default StyleSheet.create({
   },
   authorityTarget: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#1A1A1A',
     marginTop: 2,
   },
@@ -94,7 +94,7 @@ export default StyleSheet.create({
   },
   outcomeTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#1A1A1A',
   },
   outcomeDesc: {

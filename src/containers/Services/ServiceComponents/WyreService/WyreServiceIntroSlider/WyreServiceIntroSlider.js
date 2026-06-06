@@ -244,7 +244,7 @@ class WyreServiceIntroSlider extends Component {
         >
           {"By linking your wallet with Wyre, you agree to Wyre's"}
           <Text
-            style={{ color: Colors.primaryColor, fontWeight: "800" }}
+            style={{ color: Colors.primaryColor, fontWeight: "600" }}
             onPress={() => {
               openUrl(this.WYRE_USER_AGREEMENT);
             }}
@@ -253,7 +253,7 @@ class WyreServiceIntroSlider extends Component {
           </Text>
           {"and"}
           <Text
-            style={{ color: Colors.primaryColor, fontWeight: "800" }}
+            style={{ color: Colors.primaryColor, fontWeight: "600" }}
             onPress={() => {
               openUrl(this.WYRE_PRIVACY_POLICY);
             }}
