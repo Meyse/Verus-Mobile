@@ -7,11 +7,11 @@
   login, creates a new update heartbeat interval.
 */
 
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Alert, View, Dimensions, SafeAreaView} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import Styles from '../../styles/index';
 import Colors from '../../globals/colors';
+import {fontStyle} from '../../globals/fonts';
 import {VerusLogo} from '../../images/customIcons';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
@@ -20,33 +20,40 @@ import {
   SEND_MODAL_USER_TO_AUTHENTICATE,
 } from '../../utils/constants/sendModal';
 import {useSelector} from 'react-redux';
-import TallButton from '../../components/LargerButton';
-import SignedOutDropdown from '../SignedOutDropdown/SignedOutDropdown';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import AppButton from '../../components/AppButton';
+import SafeBottomActionStack from '../../components/SafeBottomActionStack';
+import WelcomeBackgroundVideo from '../../components/WelcomeBackgroundVideo';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { selectHasAuthenticatedSession } from '../../selectors/authentication';
 import {readDeeplinkFromNfc} from '../../actions/actionDispatchers';
-import {
-  clearPendingDeeplinkRequests,
-  getPendingDeeplinkRequestCount,
-} from '../../utils/deeplink/pendingDeeplinkStorage';
+import StartSomethingNewSheet from './components/StartSomethingNewSheet';
 
-const {height} = Dimensions.get('window');
+const LOGO_ASPECT_RATIO = 464 / 1280;
+const LOGO_TOP_MARGIN = 22;
 
 const Login = props => {
+  const {width} = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const defaultAccount = useSelector(
     state => state.settings.generalWalletSettings.defaultAccount,
   );
   const authModalUsed = useSelector(
     state => state.authentication.authModalUsed,
   );
-  const modalVisible = useSelector(
-    state => state.sendModal.visible,
-  );
-  
+
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const hasAuthenticatedSession = useSelector(selectHasAuthenticatedSession);
-  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const autoOpenTimeoutRef = useRef(null);
+  const [startSomethingNewVisible, setStartSomethingNewVisible] =
+    useState(false);
+
+  const clearAutoOpenTimeout = () => {
+    if (autoOpenTimeoutRef.current != null) {
+      clearTimeout(autoOpenTimeoutRef.current);
+      autoOpenTimeoutRef.current = null;
+    }
+  };
 
   const openAuthModal = ignoreDefault => {
     if (hasAuthenticatedSession) {
@@ -70,10 +77,7 @@ const Login = props => {
   };
 
   useEffect(() => {
-    if (autoOpenTimeoutRef.current != null) {
-      clearTimeout(autoOpenTimeoutRef.current);
-      autoOpenTimeoutRef.current = null;
-    }
+    clearAutoOpenTimeout();
 
     if (
       !hasAuthenticatedSession &&
@@ -87,12 +91,14 @@ const Login = props => {
     }
 
     return () => {
-      if (autoOpenTimeoutRef.current != null) {
-        clearTimeout(autoOpenTimeoutRef.current);
-        autoOpenTimeoutRef.current = null;
-      }
+      clearAutoOpenTimeout();
     };
   }, [accounts, authModalUsed, defaultAccount, hasAuthenticatedSession]);
+
+  const handleStartSomethingNew = () => {
+    clearAutoOpenTimeout();
+    setStartSomethingNewVisible(true);
+  };
 
   const handleAddUser = () => {
     props.navigation.navigate('CreateProfile');
@@ -106,131 +112,82 @@ const Login = props => {
     props.navigation.navigate('RecoverSeeds');
   };
 
-  const handlePendingRequests = () => {
+  const handleProvisioningRequests = () => {
     props.navigation.navigate('ProvisioningDeeplinks');
   };
 
-  const handleClearPendingRequests = () => {
-    Alert.alert(
-      'Clear pending requests?',
-      'This will remove saved pending deeplink requests from this device.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearPendingDeeplinkRequests();
-              setPendingRequestCount(0);
-            } catch (e) {
-              console.warn('Unable to clear pending deeplink requests', e);
-            }
-          },
-        },
-      ],
-      {cancelable: true},
-    );
-  };
-
-  const loadPendingRequestCount = useCallback(async () => {
-    try {
-      setPendingRequestCount(await getPendingDeeplinkRequestCount());
-    } catch (e) {
-      console.warn('Unable to load pending deeplink request count', e);
-      setPendingRequestCount(0);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPendingRequestCount();
-
-    const unsubscribe = props.navigation.addListener(
-      'focus',
-      loadPendingRequestCount,
-    );
-
-    return unsubscribe;
-  }, [loadPendingRequestCount, props.navigation]);
+  const logoWidth = width * 0.3;
 
   return (
-    <SafeAreaView
-      style={{
-        backgroundColor: Colors.secondaryColor,
-        ...Styles.focalCenter,
-      }}>
+    <View style={styles.container}>
+      <WelcomeBackgroundVideo />
       <View
-        pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          zIndex: 20,
-          elevation: 20,
-        }}>
-        {!modalVisible && <SignedOutDropdown
-          handleRecoverSeed={() => handleRecoverSeed()}
-          handleRevokeRecover={() => handleRevokeRecover()}
-          handlePendingRequests={() => handlePendingRequests()}
-          handleClearPendingRequests={() => handleClearPendingRequests()}
-          handleReadDeeplinkFromNfc={readDeeplinkFromNfc}
-          pendingRequestCount={pendingRequestCount}
-          hasAccount={true}
-        />}
+        style={[
+          styles.logoContainer,
+          {
+            paddingTop: insets.top + LOGO_TOP_MARGIN,
+          },
+        ]}>
+        <VerusLogo
+          width={logoWidth}
+          height={logoWidth * LOGO_ASPECT_RATIO}
+        />
       </View>
-      <VerusLogo
-        width={180}
-        height={'15%'}
-        style={{top: 100, position: 'absolute'}}
+      <View style={styles.content}>
+        <Text style={styles.headline}>
+          {'With Verus you own your identity, data, and money'}
+        </Text>
+      </View>
+      <SafeBottomActionStack>
+        <AppButton
+          onPress={() => openAuthModal()}
+          variant="primary"
+          height={56}>
+          {'Unlock wallet'}
+        </AppButton>
+        <AppButton
+          onPress={() => handleStartSomethingNew()}
+          variant="text"
+          height={52}
+          textColor={Colors.secondaryColor}>
+          {'Start something new'}
+        </AppButton>
+      </SafeBottomActionStack>
+      <StartSomethingNewSheet
+        visible={startSomethingNewVisible}
+        onClose={() => setStartSomethingNewVisible(false)}
+        onCreateWallet={handleAddUser}
+        onInitializeFromNfc={readDeeplinkFromNfc}
+        onRecoverProfileSeed={handleRecoverSeed}
+        onRevokeRecoverVerusId={handleRevokeRecover}
+        onProvisioningRequests={handleProvisioningRequests}
       />
-      <View
-        style={{
-          alignItems: 'center',
-          position: 'absolute',
-          top: height / 2 - 40,
-        }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}>
-          {'Welcome to Verus'}
-        </Text>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 20,
-          }}>
-          {'Truth and Privacy for All'}
-        </Text>
-      </View>
-      <TallButton
-        onPress={() => openAuthModal()}
-        mode="contained"
-        labelStyle={{fontWeight: 'bold'}}
-        style={{
-          position: 'absolute',
-          bottom: 86, // Adjusted position
-          width: 280,
-        }}>
-        {'Login'}
-      </TallButton>
-      <TallButton
-        onPress={() => handleAddUser()}
-        mode="text"
-        labelStyle={{fontWeight: 'bold'}}
-        style={{
-          position: 'absolute',
-          bottom: 30, // Adjusted position
-          width: 280,
-        }}>
-        {'Add a profile'}
-      </TallButton>
-    </SafeAreaView>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.secondaryColor,
+  },
+  logoContainer: {
+    paddingHorizontal: 32,
+    alignItems: 'flex-start',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingRight: 48,
+  },
+  headline: {
+    textAlign: 'left',
+    color: Colors.quinaryColor,
+    fontSize: 28,
+    ...fontStyle('semiBold'),
+    lineHeight: 36,
+  },
+});
 
 export default Login;

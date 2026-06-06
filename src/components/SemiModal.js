@@ -68,7 +68,7 @@ class SemiModal extends Component {
 
     return (
       <React.Fragment>
-        {this.props.visible && (
+        {this.props.visible && this.props.showOverlay !== false && (
           <Animated.View
             style={{
               ...Styles.flexBackgroundDark,
@@ -88,16 +88,17 @@ class SemiModal extends Component {
           <TouchableWithoutFeedback onPress={effectiveOnRequestClose}>
             <View style={{ flex: 1 }} />
           </TouchableWithoutFeedback>
-          <View
-            style={{
-              flex: flexHeight,
-              backgroundColor: Colors.secondaryColor,
-              borderRadius: 10,
-              paddingTop: showHeader ? 0 : 10,
-              ...(this.props.contentContainerStyle
-                ? this.props.contentContainerStyle
-                : {}),
-            }}
+          <Animated.View
+            style={[
+              {
+                flex: flexHeight,
+                backgroundColor: Colors.secondaryColor,
+                borderRadius: 10,
+                paddingTop: showHeader ? 0 : 10,
+              },
+              this.props.contentContainerStyle,
+              this.props.sheetAnimatedStyle,
+            ]}
           >
             {showHeader && (
               <View
@@ -173,7 +174,7 @@ class SemiModal extends Component {
               </View>
             )}
             {this.props.children}
-          </View>
+          </Animated.View>
         </Modal>
       </React.Fragment>
     );
