@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Check, FlaskConical} from 'lucide-react-native';
+import {Check, Network} from 'lucide-react-native';
 import BottomSheetModal from './BottomSheetModal';
 import {fontStyle} from '../globals/fonts';
 import {useOnboardingTheme} from '../theme/onboarding';
@@ -57,7 +57,7 @@ const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
             right: insets.right + 22,
           },
         ]}>
-        <FlaskConical color={iconColor} size={24} strokeWidth={2.2} />
+        <Network color={iconColor} size={24} strokeWidth={2.2} />
       </TouchableOpacity>
 
       <BottomSheetModal
