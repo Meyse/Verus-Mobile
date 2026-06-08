@@ -1,38 +1,31 @@
 import React from 'react';
-import {View, Dimensions} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {Text, Button} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {TwentyFourWordIcon, ScanQrIcon, EnterKeyIcon} from '../../../../../images/customIcons';
 import Colors from '../../../../../globals/colors';
+import {fontStyle} from '../../../../../globals/fonts';
 
-export default function ImportIntro({navigation, label}) {
-  const {height} = Dimensions.get('window');
+export default function ImportIntro({navigation, label, onSelectMethod}) {
+  const routeByMethod = {
+    seed: 'ImportSeed',
+    qr: 'ScanQr',
+    nfc: 'ImportNfc',
+    text: 'ImportText',
+  };
+
+  const selectMethod = method => {
+    if (onSelectMethod) {
+      onSelectMethod(method);
+    } else {
+      navigation.navigate(routeByMethod[method]);
+    }
+  };
 
   return (
-    <View
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        flex: 1,
-        alignItems: 'center',
-        backgroundColor: Colors.secondaryColor,
-      }}>
-      <View
-        style={{
-          alignItems: 'center',
-          position: 'absolute',
-          top: height / 2 - 220
-        }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-            marginBottom: 48,
-            maxWidth: "90%"
-          }}>
+    <View style={styles.container}>
+      <View style={styles.form}>
+        <Text style={styles.title}>
           {label ? label : 'Import Wallet'}
         </Text>
         <Button
@@ -57,7 +50,7 @@ export default function ImportIntro({navigation, label}) {
             marginTop: 8
           }}
           mode="outlined"
-          onPress={() => navigation.navigate("ImportSeed")}>
+          onPress={() => selectMethod('seed')}>
           {"Import 24-word seed"}
         </Button>
         <Button
@@ -82,7 +75,7 @@ export default function ImportIntro({navigation, label}) {
             marginTop: 8
           }}
           mode="outlined"
-          onPress={() => navigation.navigate("ScanQr")}>
+          onPress={() => selectMethod('qr')}>
           {"Scan QR-Code"}
         </Button>
         <Button
@@ -108,7 +101,7 @@ export default function ImportIntro({navigation, label}) {
             marginTop: 8
           }}
           mode="outlined"
-          onPress={() => navigation.navigate("ImportNfc")}>
+          onPress={() => selectMethod('nfc')}>
           {"Import using NFC"}
         </Button>
         <Button
@@ -133,10 +126,34 @@ export default function ImportIntro({navigation, label}) {
             marginTop: 8
           }}
           mode="outlined"
-          onPress={() => navigation.navigate("ImportText")}>
-          {"Enter Key/Seed"}
+          onPress={() => selectMethod('text')}>
+          {"Enter private key or seed"}
         </Button>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.secondaryColor,
+    paddingHorizontal: 32,
+  },
+  form: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+  },
+  title: {
+    marginBottom: 40,
+    maxWidth: '90%',
+    textAlign: 'center',
+    color: Colors.primaryColor,
+    fontSize: 28,
+    lineHeight: 35,
+    ...fontStyle('bold'),
+  },
+});

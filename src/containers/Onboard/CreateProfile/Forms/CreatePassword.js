@@ -1,73 +1,217 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
-  View,
-  Dimensions,
-  TouchableWithoutFeedback,
+  AccessibilityInfo,
+  Animated,
+  Easing,
   Keyboard,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
-import {Text, Paragraph, Button, TextInput} from 'react-native-paper';
+import {Text} from 'react-native-paper';
+import {Info} from 'lucide-react-native';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../components/LargerButton';
+import AppButton from '../../../../components/AppButton';
+import BottomSheetModal from '../../../../components/BottomSheetModal';
+import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import Colors from '../../../../globals/colors';
-import { getSupportedBiometryType } from '../../../../utils/keychain/keychain';
+import {fontStyle} from '../../../../globals/fonts';
 import scorePassword from '../../../../utils/auth/scorePassword';
-import { MIN_PASS_LENGTH, MIN_PASS_SCORE, PASS_SCORE_LIMIT, SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
+import {
+  MIN_PASS_LENGTH,
+  MIN_PASS_SCORE,
+  PASS_SCORE_LIMIT,
+} from '../../../../utils/constants/constants';
+import AppTextInput from '../../../../components/AppTextInput';
+import {signedOutFlowStyles, signedOutSheetStyles} from '../../../../styles';
 
-const passwordAutofillProps = {
-  autoComplete: 'off',
-  importantForAutofill: 'no',
-  textContentType: 'none',
+const passwordAutofillProps = Platform.select({
+  ios: {
+    textContentType: 'oneTimeCode',
+    spellCheck: false,
+  },
+  default: {
+    autoComplete: 'off',
+    importantForAutofill: 'no',
+    textContentType: 'none',
+    spellCheck: false,
+  },
+});
+
+const strengthLabels = {
+  2: 'Weak',
+  3: 'Mediocre',
+  4: 'Good',
+  5: 'Excellent',
 };
+const CONTENT_ANIMATION_DURATION = 320;
 
-export default function CreatePassword({password, setPassword, navigation}) {
-  const {height} = Dimensions.get('window');
+const PasswordStrengthMeter = ({color, label, level}) => (
+  <View style={styles.strengthContainer}>
+    <View style={styles.strengthBars}>
+      {[0, 1, 2, 3, 4].map(index => (
+        <View
+          key={index}
+          style={[
+            styles.strengthBar,
+            index < level && {
+              backgroundColor: color,
+            },
+          ]}
+        />
+      ))}
+    </View>
+    {label ? (
+      <Text style={[styles.strengthLabel, {color}]}>{label}</Text>
+    ) : null}
+  </View>
+);
 
-  const [firstBox, setFirstBox] = useState('');
-  const [secondBox, setSecondBox] = useState('');
-  const [passwordAffixDetails, setPasswordAffixDetails] = useState({
-    text: "strength",
-    color: Colors.tertiaryColor
-  });
-  
+export default function CreatePassword({
+  password,
+  setPassword,
+  confirmPassword,
+  setConfirmPassword,
+  onNext,
+}) {
+  const [passwordScore, setPasswordScore] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordInfoVisible, setPasswordInfoVisible] = useState(false);
+  const confirmPasswordRef = useRef(null);
+  const contentProgress = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    calculatePasswordAffix()
-  }, [firstBox])
-
-  const calculatePasswordAffix = () => {
-    if (!firstBox) {
-      setPasswordAffixDetails({
-        text: "strength",
-        color: Colors.tertiaryColor
-      })
+    if (!password) {
+      setPasswordScore(0);
     } else {
-      const passScore = scorePassword(firstBox, MIN_PASS_LENGTH, PASS_SCORE_LIMIT);
-
-      if (passScore < MIN_PASS_SCORE) {
-        setPasswordAffixDetails({
-          text: "weak",
-          color: Colors.warningButtonColor
-        })
-      } else if (passScore < PASS_SCORE_LIMIT - ((PASS_SCORE_LIMIT - MIN_PASS_SCORE) / 2)) {
-        setPasswordAffixDetails({
-          text: "mediocre",
-          color: Colors.infoButtonColor
-        })
-      } else {
-        setPasswordAffixDetails({
-          text: "strong",
-          color: Colors.verusGreenColor
-        })
-      }
+      setPasswordScore(
+        scorePassword(password, MIN_PASS_LENGTH, PASS_SCORE_LIMIT),
+      );
     }
-  }
+  }, [password]);
+
+  useEffect(() => {
+    let active = true;
+    let animation;
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(reduceMotionEnabled => {
+        if (!active) return;
+
+        contentProgress.stopAnimation();
+
+        if (reduceMotionEnabled) {
+          contentProgress.setValue(1);
+          return;
+        }
+
+        contentProgress.setValue(0);
+        animation = Animated.timing(contentProgress, {
+          toValue: 1,
+          duration: CONTENT_ANIMATION_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        });
+        animation.start();
+      })
+      .catch(() => {
+        if (active) {
+          contentProgress.setValue(1);
+        }
+      });
+
+    return () => {
+      active = false;
+
+      if (animation) {
+        animation.stop();
+      }
+
+      contentProgress.stopAnimation();
+    };
+  }, [contentProgress]);
+
+  const strengthLevel = useMemo(() => {
+    if (!password) return 0;
+    if (passwordScore < MIN_PASS_SCORE) return 2;
+
+    const passableRange = PASS_SCORE_LIMIT - MIN_PASS_SCORE;
+    const adjustedScore = Math.max(
+      0,
+      Math.min(1, (passwordScore - MIN_PASS_SCORE) / passableRange),
+    );
+
+    return Math.min(5, 3 + Math.ceil(adjustedScore * 2));
+  }, [password, passwordScore]);
+
+  const strengthColor = useMemo(() => {
+    if (strengthLevel <= 2) return Colors.warningButtonColor;
+    if (strengthLevel === 3) return Colors.infoButtonColor;
+    if (strengthLevel === 4) return Colors.primaryColor;
+    return Colors.verusGreenColor;
+  }, [strengthLevel]);
+
+  const strengthLabel = password ? strengthLabels[strengthLevel] : null;
+  const passwordsMatch = password === confirmPassword;
+  const passwordStrongEnough =
+    password.length > 0 && passwordScore >= MIN_PASS_SCORE;
+  const confirmPasswordVisible = passwordStrongEnough;
+  const canContinue =
+    passwordStrongEnough && confirmPassword.length > 0 && passwordsMatch;
+  const confirmError =
+    confirmPasswordVisible && confirmPassword.length > 0 && !passwordsMatch
+      ? 'Passwords do not match.'
+      : null;
+
+  useEffect(() => {
+    if (!confirmPasswordVisible) {
+      setShowConfirmPassword(false);
+    }
+  }, [confirmPasswordVisible]);
+
+  const focusConfirmPassword = () => {
+    if (confirmPasswordVisible) {
+      confirmPasswordRef.current?.focus();
+    }
+  };
+  const openPasswordInfo = () => {
+    Keyboard.dismiss();
+    setPasswordInfoVisible(true);
+  };
+  const contentAnimatedStyle = {
+    opacity: contentProgress,
+    transform: [
+      {
+        translateY: contentProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [18, 0],
+        }),
+      },
+      {
+        scale: contentProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.985, 1],
+        }),
+      },
+    ],
+  };
 
   const validate = () => {
     const res = {valid: false, message: ''};
 
-    if (!firstBox || firstBox.length < 1) {
+    if (!password || password.length < 1) {
       res.message = 'Please enter a password.';
       return res;
-    } else if (firstBox !== secondBox) {
+    } else if (passwordScore < MIN_PASS_SCORE) {
+      res.message = 'Please enter a stronger password.';
+      return res;
+    } else if (!confirmPassword || confirmPassword.length < 1) {
+      res.message = 'Please confirm your password.';
+      return res;
+    } else if (!passwordsMatch) {
       res.message = 'Password and confirm password do not match.';
       return res;
     }
@@ -82,104 +226,179 @@ export default function CreatePassword({password, setPassword, navigation}) {
     if (!valid) {
       createAlert('Error', message);
     } else {
-      setPassword(firstBox);
-
-      if ((await getSupportedBiometryType()).biometry) {
-        navigation.navigate('UseBiometrics');
-      } else {
-        navigation.navigate('CreateWallet');
+      if (onNext) {
+        await onNext();
       }
     }
   };
 
   return (
-    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-      <View
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          flex: 1,
-          alignItems: 'center',
-          backgroundColor: Colors.secondaryColor,
-        }}>
-        <View
-          style={{
-            alignItems: 'center',
-            position: 'absolute',
-            top: height < SMALL_DEVICE_HEGHT ? 60 : height / 2 - 250,
-          }}>
-          <Text
-            style={{
-              textAlign: 'center',
-              color: Colors.primaryColor,
-              fontSize: 28,
-              fontWeight: 'bold',
-            }}>
-            {'Create Password'}
-          </Text>
-          <Paragraph
-            style={{
-              textAlign: 'center',
-              width: '75%',
-              marginTop: 24,
-              width: 280,
-            }}>
-            {
-              'Create a secure password for your profile. Your password will be used to encrypt your wallet.'
-            }
-          </Paragraph>
-          <TextInput
-            returnKeyType="done"
-            label="Create password"
-            value={firstBox}
-            mode={'outlined'}
-            style={{
-              width: '75%',
-              marginTop: 24,
-              width: 280,
-            }}
-            placeholder="Enter password"
-            dense={true}
-            onChangeText={text => setFirstBox(text)}
-            autoCapitalize={'none'}
-            autoCorrect={false}
-            {...passwordAutofillProps}
-            secureTextEntry={true}
-            right={<TextInput.Affix text={passwordAffixDetails.text} textStyle={{color: passwordAffixDetails.color}}/>}
-          />
-          <TextInput
-            returnKeyType="done"
-            label="Confirm password"
-            value={secondBox}
-            mode={'outlined'}
-            style={{
-              width: '75%',
-              marginTop: 8,
-              width: 280,
-            }}
-            placeholder="Enter password"
-            dense={true}
-            onChangeText={text => setSecondBox(text)}
-            autoCapitalize={'none'}
-            autoCorrect={false}
-            {...passwordAutofillProps}
-            secureTextEntry={true}
-          />
+    <View style={signedOutFlowStyles.container}>
+      <TouchableWithoutFeedback
+        accessible={false}
+        onPress={() => Keyboard.dismiss()}>
+        <View style={signedOutFlowStyles.content}>
+          <Animated.View
+            style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
+            <View style={styles.titleRow}>
+              <Text style={[signedOutFlowStyles.title, styles.title]}>
+                {'Create password'}
+              </Text>
+              <TouchableOpacity
+                accessibilityLabel="About this password"
+                accessibilityRole="button"
+                accessibilityHint="Opens information about wallet password recovery"
+                activeOpacity={0.72}
+                hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
+                onPress={openPasswordInfo}
+                style={styles.helpButton}>
+                <Info
+                  color={Colors.verusDarkGray}
+                  size={23}
+                  strokeWidth={2.2}
+                />
+              </TouchableOpacity>
+            </View>
+            <AppTextInput
+              {...passwordAutofillProps}
+              label="Password"
+              blurOnSubmit={false}
+              enablesReturnKeyAutomatically
+              onChangeText={setPassword}
+              onSubmitEditing={focusConfirmPassword}
+              placeholder="Enter password"
+              returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
+              rightAccessibilityLabel={
+                showPassword ? 'Hide password' : 'Show password'
+              }
+              rightIcon={showPassword ? 'eye-off' : 'eye'}
+              secureTextEntry={!showPassword}
+              value={password}
+              onRightPress={() => setShowPassword(value => !value)}
+            />
+            <PasswordStrengthMeter
+              color={strengthColor}
+              label={strengthLabel}
+              level={strengthLevel}
+            />
+            {confirmPasswordVisible ? (
+              <View style={styles.confirmInput}>
+                <AppTextInput
+                  {...passwordAutofillProps}
+                  ref={confirmPasswordRef}
+                  errorText={confirmError}
+                  label="Confirm password"
+                  enablesReturnKeyAutomatically
+                  onChangeText={setConfirmPassword}
+                  onSubmitEditing={canContinue ? next : undefined}
+                  placeholder="Re-enter password"
+                  returnKeyType="done"
+                  rightAccessibilityLabel={
+                    showConfirmPassword
+                      ? 'Hide confirm password'
+                      : 'Show confirm password'
+                  }
+                  rightIcon={showConfirmPassword ? 'eye-off' : 'eye'}
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onRightPress={() => setShowConfirmPassword(value => !value)}
+                />
+              </View>
+            ) : null}
+          </Animated.View>
         </View>
-        <TallButton
+      </TouchableWithoutFeedback>
+      <SafeBottomActionStack>
+        <AppButton
+          disabled={!canContinue}
+          height={56}
           onPress={next}
-          mode="contained"
-          labelStyle={{fontWeight: 'bold'}}
-          disabled={firstBox.length == 0 || secondBox.length == 0}
-          style={{
-            position: 'absolute',
-            bottom: 80,
-            width: 280,
-          }}>
+          variant="primary">
           {'Next'}
-        </TallButton>
-      </View>
-    </TouchableWithoutFeedback>
+        </AppButton>
+      </SafeBottomActionStack>
+      <BottomSheetModal
+        visible={passwordInfoVisible}
+        onClose={() => setPasswordInfoVisible(false)}
+        maxHeight="58%">
+        <View style={styles.infoSheetBody}>
+          <Text
+            style={[signedOutSheetStyles.bodyText, styles.infoSheetTextFirst]}>
+            {'This password encrypts your wallet locally on this device.'}
+          </Text>
+          <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
+            {
+              'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your recovery phrase, which you will see in the next steps.'
+            }
+          </Text>
+          <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
+            {'Keep your recovery phrase private and stored somewhere safe.'}
+          </Text>
+          <AppButton
+            height={52}
+            onPress={() => setPasswordInfoVisible(false)}
+            style={styles.infoSheetButton}
+            variant="primary">
+            {'I understand'}
+          </AppButton>
+        </View>
+      </BottomSheetModal>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  titleRow: {
+    marginBottom: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  title: {
+    flexShrink: 1,
+    marginBottom: 0,
+    ...fontStyle('bold'),
+  },
+  helpButton: {
+    width: 40,
+    height: 40,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  strengthContainer: {
+    marginTop: 12,
+  },
+  strengthBars: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  strengthBar: {
+    height: 5,
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: '#E0E4EA',
+  },
+  strengthLabel: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('semiBold'),
+  },
+  confirmInput: {
+    marginTop: 22,
+  },
+  infoSheetBody: {
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 20,
+  },
+  infoSheetText: {
+    marginTop: 12,
+  },
+  infoSheetTextFirst: {
+    marginTop: 0,
+  },
+  infoSheetButton: {
+    marginTop: 22,
+  },
+});

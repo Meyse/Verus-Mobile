@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import SignUp from '../../SignUp/SignUp';
 import LandingScreen from '../../Onboard/Welcome/LandingScreen';
@@ -13,6 +13,7 @@ const SignedOutNoKeyStackScreens = props => {
   const deeplinkId = useSelector(state => state.deeplink.id);
   const deeplinkUrl = useSelector(state => state.deeplink.url);
   const dispatch = useDispatch();
+  const [testProfile, setTestProfile] = useState(false);
 
   useEffect(() => {
     if (deeplinkId != null && deeplinkUrl != null) {
@@ -25,11 +26,17 @@ const SignedOutNoKeyStackScreens = props => {
     <SignedOutNoKeyStack.Navigator>
       <SignedOutNoKeyStack.Screen
         name="LandingScreen"
-        component={LandingScreen}
         options={{
           headerShown: false,
-        }}
-      />
+        }}>
+        {screenProps => (
+          <LandingScreen
+            {...screenProps}
+            testProfile={testProfile}
+            setTestProfile={setTestProfile}
+          />
+        )}
+      </SignedOutNoKeyStack.Screen>
       <SignedOutNoKeyStack.Screen
         name="WelcomeSlider"
         component={WelcomeSlider}
@@ -39,11 +46,16 @@ const SignedOutNoKeyStackScreens = props => {
       />
       <SignedOutNoKeyStack.Screen
         name="CreateProfile"
-        component={CreateProfile}
         options={{
           headerShown: false,
-        }}
-      />
+        }}>
+        {screenProps => (
+          <CreateProfile
+            {...screenProps}
+            testProfile={testProfile}
+          />
+        )}
+      </SignedOutNoKeyStack.Screen>
       <SignedOutNoKeyStack.Screen
         name="SignIn"
         component={SignUp}

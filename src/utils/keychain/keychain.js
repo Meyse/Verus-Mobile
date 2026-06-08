@@ -254,31 +254,37 @@ export const getSupportedBiometryType = async () => {
   switch (biometryType) {
     case Keychain.BIOMETRY_TYPE.TOUCH_ID:
       return {
+        type: biometryType,
         display_name: "Touch ID",
         biometry: await passesSecurityThreshold()
       }
     case Keychain.BIOMETRY_TYPE.FACE_ID:
       return {
+        type: biometryType,
         display_name: "Face ID",
         biometry: await passesSecurityThreshold()
       }
     case Keychain.BIOMETRY_TYPE.FINGERPRINT:
       return {
+        type: biometryType,
         display_name: "Fingerprint",
         biometry: await passesSecurityThreshold()
       }
     case Keychain.BIOMETRY_TYPE.IRIS:
       return {
+        type: biometryType,
         display_name: "Iris Recognition",
         biometry: await passesSecurityThreshold()
       }
     case Keychain.BIOMETRY_TYPE.FACE:
       return {
+        type: biometryType,
         display_name: "Facial Recognition",
         biometry: await passesSecurityThreshold()
       }
     default:
       return {
+        type: null,
         display_name: "None",
         biometry: false
       }

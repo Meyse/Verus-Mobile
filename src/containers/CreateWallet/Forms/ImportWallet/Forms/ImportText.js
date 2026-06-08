@@ -1,129 +1,158 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
-  View,
-  Dimensions,
-  TouchableWithoutFeedback,
-  TextInput as NativeTextInput,
-  Platform,
+  AccessibilityInfo,
+  Animated,
+  Easing,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
-import {Text, Button, Paragraph, TextInput} from 'react-native-paper';
-import { createAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../../components/LargerButton';
-import ScanSeed from '../../../../../components/ScanSeed';
-import Colors from '../../../../../globals/colors';
-import Styles from '../../../../../styles';
+import {Text} from 'react-native-paper';
+import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
+import AppButton from '../../../../../components/AppButton';
+import AppTextInput from '../../../../../components/AppTextInput';
+import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
+import {signedOutFlowStyles} from '../../../../../styles';
+
+const CONTENT_ANIMATION_DURATION = 320;
 
 export default function ImportText({
-  qr,
-  setImportedSeed,
   importedSeed,
-  onComplete
+  onComplete,
+  setImportedSeed,
 }) {
-  const {height} = Dimensions.get('window');
-
   const [showSeed, setShowSeed] = useState(false);
-  const [scanQr, setScanQr] = useState(qr === true);
+  const contentProgress = useRef(new Animated.Value(0)).current;
 
-  const handleScan = (seed) => {
-    setScanQr(false)
-    setImportedSeed(seed)
-  }
+  useEffect(() => {
+    let active = true;
+    let animation;
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(reduceMotionEnabled => {
+        if (!active) return;
+
+        contentProgress.stopAnimation();
+
+        if (reduceMotionEnabled) {
+          contentProgress.setValue(1);
+          return;
+        }
+
+        contentProgress.setValue(0);
+        animation = Animated.timing(contentProgress, {
+          toValue: 1,
+          duration: CONTENT_ANIMATION_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        });
+        animation.start();
+      })
+      .catch(() => {
+        if (active) {
+          contentProgress.setValue(1);
+        }
+      });
+
+    return () => {
+      active = false;
+
+      if (animation) {
+        animation.stop();
+      }
+
+      contentProgress.stopAnimation();
+    };
+  }, [contentProgress]);
 
   const handleImport = () => {
     if (!importedSeed || importedSeed.length < 1) {
-      createAlert("Error", "Please enter a seed, WIF key or spending key.");
-    } else onComplete()
-  }
+      createAlert('Error', 'Please enter a seed, WIF key or spending key.');
+    } else {
+      onComplete();
+    }
+  };
 
-  return scanQr ? (
-    <ScanSeed
-      cancel={() => setScanQr(false)}
-      onScan={(seed) => handleScan(seed)}
-    />
-  ) : (
-    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-      <View
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          flex: 1,
-          alignItems: 'center',
-          backgroundColor: Colors.secondaryColor,
-        }}>
-        <View
-          style={{
-            alignItems: 'center',
-            position: 'absolute',
-            top: height / 2 - 250,
-          }}>
-          <Text
-            style={{
-              textAlign: 'center',
-              color: Colors.primaryColor,
-              fontSize: 28,
-              fontWeight: 'bold',
-            }}>
-            {'Import Seed/Key'}
-          </Text>
-          <Paragraph
-            style={{
-              textAlign: 'center',
-              width: '75%',
-              marginTop: 24,
-              width: 280,
-            }}>
-            {
-              "Enter your key or mnemonic seed into the text box below, then press 'import'."
-            }
-          </Paragraph>
-          <View style={Styles.wideCenterBlock}>
-            <TextInput
-              onChangeText={text => setImportedSeed(text)}
-              label={'Seed/Key'}
-              underlineColor={Colors.primaryColor}
-              selectionColor={Colors.primaryColor}
-              value={importedSeed}
-              mode="outlined"
-              multiline={!showSeed || Platform.OS === 'ios' ? false : true}
-              render={props => (
-                <NativeTextInput
-                  secureTextEntry={!showSeed}
-                  autoCapitalize={'none'}
-                  autoCorrect={false}
-                  autoComplete="off"
-                  {...props}
-                />
-              )}
-            />
-          </View>
-          <Button
-            textColor={Colors.primaryColor}
-            onPress={() => setShowSeed(!showSeed)}
-            disabled={importedSeed == null || importedSeed.length == 0}>{`${
-            showSeed ? 'Hide' : 'Show'
-          } Seed`}</Button>
-          <Button
-            textColor={Colors.primaryColor}
-            style={{marginTop: 8}}
-            onPress={() => setScanQr(true)}>
-            {'Scan QR'}
-          </Button>
+  const contentAnimatedStyle = {
+    opacity: contentProgress,
+    transform: [
+      {
+        translateY: contentProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [18, 0],
+        }),
+      },
+      {
+        scale: contentProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.985, 1],
+        }),
+      },
+    ],
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={signedOutFlowStyles.container}>
+      <TouchableWithoutFeedback
+        accessible={false}
+        onPress={() => Keyboard.dismiss()}>
+        <View style={styles.content}>
+          <ScrollView
+            contentContainerStyle={signedOutFlowStyles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <Animated.View
+              style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
+              <Text style={signedOutFlowStyles.title}>
+                {'Import private key or seed'}
+              </Text>
+              <AppTextInput
+                autoComplete="off"
+                importantForAutofill="no"
+                inputStyle={styles.seedInputText}
+                label="Private key or seed"
+                multiline={showSeed && Platform.OS !== 'ios'}
+                onChangeText={setImportedSeed}
+                onRightPress={() => setShowSeed(value => !value)}
+                rightAccessibilityLabel={
+                  showSeed
+                    ? 'Hide private key or seed'
+                    : 'Show private key or seed'
+                }
+                rightIcon={showSeed ? 'eye-off' : 'eye'}
+                secureTextEntry={!showSeed}
+                textContentType="none"
+                value={importedSeed}
+              />
+            </Animated.View>
+          </ScrollView>
         </View>
-        <TallButton
+      </TouchableWithoutFeedback>
+      <SafeBottomActionStack>
+        <AppButton
+          disabled={importedSeed == null || importedSeed.length === 0}
+          height={56}
           onPress={handleImport}
-          mode="contained"
-          labelStyle={{fontWeight: 'bold'}}
-          disabled={importedSeed == null || importedSeed.length == 0}
-          style={{
-            position: 'absolute',
-            bottom: 80,
-            width: 280,
-          }}>
+          variant="primary">
           {'Import'}
-        </TallButton>
-      </View>
-    </TouchableWithoutFeedback>
+        </AppButton>
+      </SafeBottomActionStack>
+    </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+    paddingHorizontal: 32,
+  },
+  seedInputText: {
+    minHeight: 54,
+  },
+});

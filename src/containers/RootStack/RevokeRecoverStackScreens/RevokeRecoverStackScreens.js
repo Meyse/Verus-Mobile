@@ -43,9 +43,9 @@ const RevokeRecoverStackScreens = props => {
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {screenProps => (
           <ImportWalletStackScreens
-            navigation={props.navigation}
+            navigation={screenProps.navigation}
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
             onComplete={completeImport}

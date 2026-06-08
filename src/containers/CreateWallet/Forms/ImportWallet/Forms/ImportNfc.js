@@ -1,7 +1,6 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   Keyboard,
-  SafeAreaView,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
@@ -27,7 +26,7 @@ import {
 const fieldWidth = 300;
 
 export default function ImportNfc({
-  navigation,
+  autoStart = false,
   setImportedSeed,
   onComplete,
 }) {
@@ -37,6 +36,7 @@ export default function ImportNfc({
   const [backupPassword, setBackupPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
+  const autoStartHandled = useRef(false);
 
   const waitForSpinnerFrame = () => {
     return new Promise(resolve => setTimeout(resolve, 0));
@@ -137,6 +137,13 @@ export default function ImportNfc({
     await importWalletBackup(scannedBackupOrdinal, null);
   };
 
+  useEffect(() => {
+    if (!autoStart || autoStartHandled.current) return;
+
+    autoStartHandled.current = true;
+    scanCard();
+  }, [autoStart]);
+
   const importEncryptedBackup = async () => {
     Keyboard.dismiss();
     await importWalletBackup(walletBackupOrdinal, backupPassword, true);
@@ -144,7 +151,7 @@ export default function ImportNfc({
 
   if (loading) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
+      <View style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
         <View
           style={{
             flex: 1,
@@ -178,13 +185,13 @@ export default function ImportNfc({
             </Text>
           )}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
+      <View style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
         <View
           style={{
             flex: 1,
@@ -294,25 +301,7 @@ export default function ImportNfc({
             </View>
           )}
         </View>
-
-        <View
-          style={{
-            position: 'absolute',
-            left: 24,
-            right: 24,
-            bottom: 32,
-            flexDirection: 'row',
-            justifyContent: 'center',
-          }}>
-          <Button
-            mode="text"
-            textColor={Colors.primaryColor}
-            disabled={decrypting}
-            onPress={() => navigation.goBack()}>
-            {'Back'}
-          </Button>
-        </View>
-      </SafeAreaView>
+      </View>
     </TouchableWithoutFeedback>
   );
 }

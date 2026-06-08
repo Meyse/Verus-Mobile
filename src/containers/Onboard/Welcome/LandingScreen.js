@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -8,24 +8,32 @@ import Colors from '../../../globals/colors';
 import {fontStyle} from '../../../globals/fonts';
 import {VerusLogo} from '../../../images/customIcons';
 import WelcomeBackgroundVideo from '../../../components/WelcomeBackgroundVideo';
-import {readDeeplinkFromNfc} from '../../../actions/actionDispatchers';
+import OnboardingStartSheet from './OnboardingStartSheet';
+import SignedOutNetworkSelector from '../../../components/SignedOutNetworkSelector';
+import {normalizeSetupSelection} from '../onboardingSetupFlow';
 
-const LOGO_ASPECT_RATIO = 464 / 1280;
+const LOGO_ASPECT_RATIO = 2084 / 7305;
 const LOGO_TOP_MARGIN = 22;
 
 export default function LandingScreen(props) {
   const {width} = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [startSheetVisible, setStartSheetVisible] = useState(false);
   const logoWidth = width * 0.3;
 
-  const handleInitializeFromNfc = () =>
-    readDeeplinkFromNfc({
-      onWalletBackupDetected: () => props.navigation.navigate('WelcomeSlider'),
-    });
+  const handleSetupSelection = selection =>
+    props.navigation.navigate(
+      'CreateProfile',
+      normalizeSetupSelection(selection),
+    );
 
   return (
     <View style={styles.container}>
       <WelcomeBackgroundVideo />
+      <SignedOutNetworkSelector
+        testProfile={props.testProfile}
+        setTestProfile={props.setTestProfile}
+      />
       <View
         style={[
           styles.logoContainer,
@@ -33,10 +41,7 @@ export default function LandingScreen(props) {
             paddingTop: insets.top + LOGO_TOP_MARGIN,
           },
         ]}>
-        <VerusLogo
-          width={logoWidth}
-          height={logoWidth * LOGO_ASPECT_RATIO}
-        />
+        <VerusLogo width={logoWidth} height={logoWidth * LOGO_ASPECT_RATIO} />
       </View>
       <View style={styles.content}>
         <Text style={styles.headline}>
@@ -45,19 +50,17 @@ export default function LandingScreen(props) {
       </View>
       <SafeBottomActionStack>
         <AppButton
-          onPress={() => props.navigation.navigate('WelcomeSlider')}
+          onPress={() => setStartSheetVisible(true)}
           variant="primary"
           height={56}>
           {'Get started'}
         </AppButton>
-        <AppButton
-          onPress={handleInitializeFromNfc}
-          variant="text"
-          height={52}
-          textColor={Colors.secondaryColor}>
-          {'Initialize from NFC'}
-        </AppButton>
       </SafeBottomActionStack>
+      <OnboardingStartSheet
+        visible={startSheetVisible}
+        onClose={() => setStartSheetVisible(false)}
+        onSelectSetup={handleSetupSelection}
+      />
     </View>
   );
 }
