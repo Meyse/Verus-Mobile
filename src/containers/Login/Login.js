@@ -7,102 +7,111 @@
   login, creates a new update heartbeat interval.
 */
 
-import React, {useEffect, useRef, useState} from 'react';
-import {StyleSheet, useWindowDimensions, View} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {Text} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../../globals/colors';
 import {fontStyle} from '../../globals/fonts';
 import {VerusLogo} from '../../images/customIcons';
-import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
-import {
-  SEND_MODAL_FORM_STEP_CONFIRM,
-  SEND_MODAL_FORM_STEP_FORM,
-  SEND_MODAL_USER_TO_AUTHENTICATE,
-} from '../../utils/constants/sendModal';
-import {useSelector} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../components/AppButton';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import WelcomeBackgroundVideo from '../../components/WelcomeBackgroundVideo';
-import { useObjectSelector } from '../../hooks/useObjectSelector';
-import { selectHasAuthenticatedSession } from '../../selectors/authentication';
-import {readDeeplinkFromNfc} from '../../actions/actionDispatchers';
-import StartSomethingNewSheet from './components/StartSomethingNewSheet';
+import WalletAvatar from '../../components/WalletAvatar';
+import {useObjectSelector} from '../../hooks/useObjectSelector';
+import ChooseWalletSheet from './components/ChooseWalletSheet';
+import OtherOptionsSheet from './components/OtherOptionsSheet';
+import SignedOutNetworkSelector from '../../components/SignedOutNetworkSelector';
+import {
+  formatLastOpenedLabel,
+  normalizeLastOpenedAccountTimestamps,
+  sortAccountsByLoginPriority,
+} from '../../utils/account/accountActivity';
+import {
+  filterAccountsForNetwork,
+  getDefaultAccountForNetwork,
+  getWalletNetworkKey,
+  getWalletNetworkLabel,
+} from '../../utils/account/accountNetwork';
+import UnlockWalletSheet from './components/UnlockWalletSheet';
+import {normalizeWalletAvatar} from '../../utils/walletAvatar';
+import OnboardingStartSheet from '../Onboard/Welcome/OnboardingStartSheet';
+import {normalizeSetupSelection} from '../Onboard/onboardingSetupFlow';
 
-const LOGO_ASPECT_RATIO = 464 / 1280;
+const LOGO_ASPECT_RATIO = 2084 / 7305;
 const LOGO_TOP_MARGIN = 22;
+const WALLET_PREVIEW_LIMIT = 3;
+const WALLET_CARD_MIN_HEIGHT = 74;
+const WALLET_CARD_SPACING = 10;
+const DEFAULT_STAR_COLOR = '#F7B500';
 
 const Login = props => {
   const {width} = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const defaultAccount = useSelector(
-    state => state.settings.generalWalletSettings.defaultAccount,
-  );
-  const authModalUsed = useSelector(
-    state => state.authentication.authModalUsed,
-  );
-
   const accounts = useObjectSelector(state => state.authentication.accounts);
-  const hasAuthenticatedSession = useSelector(selectHasAuthenticatedSession);
-  const autoOpenTimeoutRef = useRef(null);
-  const [startSomethingNewVisible, setStartSomethingNewVisible] =
-    useState(false);
+  const generalWalletSettings = useObjectSelector(
+    state => state.settings.generalWalletSettings,
+  );
+  const [addWalletVisible, setAddWalletVisible] = useState(false);
+  const [chooseWalletVisible, setChooseWalletVisible] = useState(false);
+  const [otherOptionsVisible, setOtherOptionsVisible] = useState(false);
+  const [unlockAccount, setUnlockAccount] = useState(null);
+  const [pendingUnlockAccount, setPendingUnlockAccount] = useState(null);
 
-  const clearAutoOpenTimeout = () => {
-    if (autoOpenTimeoutRef.current != null) {
-      clearTimeout(autoOpenTimeoutRef.current);
-      autoOpenTimeoutRef.current = null;
-    }
-  };
-
-  const openAuthModal = ignoreDefault => {
-    if (hasAuthenticatedSession) {
-      return;
-    }
-
-    if (ignoreDefault) {
-      openAuthenticateUserModal();
-    } else {
-      openAuthenticateUserModal(
-        {
-          [SEND_MODAL_USER_TO_AUTHENTICATE]: defaultAccount,
-        },
-        defaultAccount != null &&
-          !authModalUsed &&
-          accounts.find(x => x.accountHash === defaultAccount) != null
-          ? SEND_MODAL_FORM_STEP_CONFIRM
-          : SEND_MODAL_FORM_STEP_FORM,
-      );
-    }
-  };
+  const selectedNetworkKey = getWalletNetworkKey(props.testProfile === true);
+  const selectedNetworkLabel = getWalletNetworkLabel(selectedNetworkKey);
+  const networkAccounts = useMemo(
+    () => filterAccountsForNetwork(accounts, selectedNetworkKey),
+    [accounts, selectedNetworkKey],
+  );
+  const lastOpenedAccountTimestamps = useMemo(
+    () =>
+      normalizeLastOpenedAccountTimestamps(
+        generalWalletSettings.lastOpenedAccountTimestamps,
+      ),
+    [generalWalletSettings.lastOpenedAccountTimestamps],
+  );
+  const defaultAccountForNetwork = useMemo(
+    () =>
+      getDefaultAccountForNetwork(
+        accounts,
+        generalWalletSettings,
+        selectedNetworkKey,
+      ),
+    [accounts, generalWalletSettings, selectedNetworkKey],
+  );
+  const defaultAccountHash = defaultAccountForNetwork
+    ? defaultAccountForNetwork.accountHash
+    : null;
+  const sortedDisplayNetworkAccounts = useMemo(
+    () =>
+      sortAccountsByLoginPriority(
+        networkAccounts,
+        defaultAccountHash,
+        lastOpenedAccountTimestamps,
+      ),
+    [networkAccounts, defaultAccountHash, lastOpenedAccountTimestamps],
+  );
 
   useEffect(() => {
-    clearAutoOpenTimeout();
+    setAddWalletVisible(false);
+    setChooseWalletVisible(false);
+    setOtherOptionsVisible(false);
+    setUnlockAccount(null);
+    setPendingUnlockAccount(null);
+  }, [selectedNetworkKey]);
 
-    if (
-      !hasAuthenticatedSession &&
-      !authModalUsed &&
-      defaultAccount != null &&
-      accounts.find(x => x.accountHash === defaultAccount) != null
-    ) {
-      autoOpenTimeoutRef.current = setTimeout(() => {
-        openAuthModal();
-      }, 700);
-    }
-
-    return () => {
-      clearAutoOpenTimeout();
-    };
-  }, [accounts, authModalUsed, defaultAccount, hasAuthenticatedSession]);
-
-  const handleStartSomethingNew = () => {
-    clearAutoOpenTimeout();
-    setStartSomethingNewVisible(true);
-  };
-
-  const handleAddUser = () => {
-    props.navigation.navigate('CreateProfile');
-  };
+  const handleSetupSelection = selection =>
+    props.navigation.navigate(
+      'CreateProfile',
+      normalizeSetupSelection(selection),
+    );
 
   const handleRevokeRecover = () => {
     props.navigation.navigate('RevokeRecover');
@@ -116,11 +125,77 @@ const Login = props => {
     props.navigation.navigate('ProvisioningDeeplinks');
   };
 
+  const handleChooseWalletAccount = account => {
+    setChooseWalletVisible(false);
+    setPendingUnlockAccount(account);
+  };
+
+  const handleChooseWalletClosed = () => {
+    if (pendingUnlockAccount != null) {
+      setUnlockAccount(pendingUnlockAccount);
+      setPendingUnlockAccount(null);
+    }
+  };
+
   const logoWidth = width * 0.3;
+
+  const renderWalletContent = () => {
+    if (sortedDisplayNetworkAccounts.length > 1) {
+      return (
+        <LoginWalletList
+          accounts={sortedDisplayNetworkAccounts}
+          defaultAccountHash={defaultAccountHash}
+          lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
+          onSelectAccount={setUnlockAccount}
+          onOpenAllWallets={() => setChooseWalletVisible(true)}
+        />
+      );
+    }
+
+    if (sortedDisplayNetworkAccounts.length === 1) {
+      const isDefault =
+        sortedDisplayNetworkAccounts[0].accountHash === defaultAccountHash;
+
+      return (
+        <LoginWalletCard
+          account={sortedDisplayNetworkAccounts[0]}
+          isDefault={isDefault}
+          lastOpenedAt={
+            lastOpenedAccountTimestamps[
+              sortedDisplayNetworkAccounts[0].accountHash
+            ]
+          }
+          onPress={() => setUnlockAccount(sortedDisplayNetworkAccounts[0])}
+        />
+      );
+    }
+
+    return (
+      <View style={styles.summaryBlock}>
+        <View style={styles.summaryIcon}>
+          <MaterialCommunityIcons
+            name="wallet-plus-outline"
+            size={30}
+            color={Colors.primaryColor}
+          />
+        </View>
+        <Text style={styles.summaryTitle}>
+          {`No ${selectedNetworkLabel} wallets yet`}
+        </Text>
+        <Text style={styles.summaryText}>
+          {'Create a wallet for this network to continue.'}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <WelcomeBackgroundVideo />
+      <SignedOutNetworkSelector
+        testProfile={props.testProfile}
+        setTestProfile={props.setTestProfile}
+      />
       <View
         style={[
           styles.logoContainer,
@@ -128,41 +203,152 @@ const Login = props => {
             paddingTop: insets.top + LOGO_TOP_MARGIN,
           },
         ]}>
-        <VerusLogo
-          width={logoWidth}
-          height={logoWidth * LOGO_ASPECT_RATIO}
-        />
+        <VerusLogo width={logoWidth} height={logoWidth * LOGO_ASPECT_RATIO} />
       </View>
-      <View style={styles.content}>
-        <Text style={styles.headline}>
-          {'With Verus you own your identity, data, and money'}
-        </Text>
-      </View>
-      <SafeBottomActionStack>
+      <View style={styles.content}>{renderWalletContent()}</View>
+      <SafeBottomActionStack gap={10}>
         <AppButton
-          onPress={() => openAuthModal()}
-          variant="primary"
-          height={56}>
-          {'Unlock wallet'}
+          onPress={() => setAddWalletVisible(true)}
+          variant="secondary"
+          height={56}
+          buttonColor="rgba(255, 255, 255, 0.72)">
+          {'Add a new wallet'}
         </AppButton>
         <AppButton
-          onPress={() => handleStartSomethingNew()}
+          onPress={() => setOtherOptionsVisible(true)}
           variant="text"
           height={52}
           textColor={Colors.secondaryColor}>
-          {'Start something new'}
+          {'Other options'}
         </AppButton>
       </SafeBottomActionStack>
-      <StartSomethingNewSheet
-        visible={startSomethingNewVisible}
-        onClose={() => setStartSomethingNewVisible(false)}
-        onCreateWallet={handleAddUser}
-        onInitializeFromNfc={readDeeplinkFromNfc}
+      <OnboardingStartSheet
+        visible={addWalletVisible}
+        onClose={() => setAddWalletVisible(false)}
+        onSelectSetup={handleSetupSelection}
+      />
+      <OtherOptionsSheet
+        visible={otherOptionsVisible}
+        onClose={() => setOtherOptionsVisible(false)}
         onRecoverProfileSeed={handleRecoverSeed}
         onRevokeRecoverVerusId={handleRevokeRecover}
         onProvisioningRequests={handleProvisioningRequests}
       />
+      <ChooseWalletSheet
+        visible={chooseWalletVisible}
+        onClose={() => setChooseWalletVisible(false)}
+        onClosed={handleChooseWalletClosed}
+        accounts={sortedDisplayNetworkAccounts}
+        defaultAccountHash={defaultAccountHash}
+        lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
+        networkLabel={selectedNetworkLabel}
+        onSelectAccount={handleChooseWalletAccount}
+      />
+      <UnlockWalletSheet
+        visible={unlockAccount != null}
+        account={unlockAccount}
+        isDefaultAccount={
+          unlockAccount != null &&
+          unlockAccount.accountHash === defaultAccountHash
+        }
+        onClose={() => setUnlockAccount(null)}
+      />
     </View>
+  );
+};
+
+const LoginWalletList = ({
+  accounts,
+  defaultAccountHash,
+  lastOpenedAccountTimestamps,
+  onSelectAccount,
+  onOpenAllWallets,
+}) => {
+  const previewAccounts = accounts.slice(0, WALLET_PREVIEW_LIMIT);
+  const hiddenWalletCount = Math.max(
+    0,
+    accounts.length - previewAccounts.length,
+  );
+
+  return (
+    <View style={styles.walletPreviewList}>
+      {previewAccounts.map((account, index) => {
+        const isDefault = account.accountHash === defaultAccountHash;
+        const isLastPreviewCard =
+          hiddenWalletCount === 0 && index === previewAccounts.length - 1;
+
+        return (
+          <LoginWalletCard
+            key={account.accountHash || account.id}
+            account={account}
+            isDefault={isDefault}
+            lastOpenedAt={lastOpenedAccountTimestamps[account.accountHash]}
+            onPress={() => onSelectAccount(account)}
+            style={isLastPreviewCard && styles.walletCardLast}
+          />
+        );
+      })}
+      {hiddenWalletCount > 0 && (
+        <ViewAllWalletsButton
+          walletCount={accounts.length}
+          onPress={onOpenAllWallets}
+        />
+      )}
+    </View>
+  );
+};
+
+const ViewAllWalletsButton = ({walletCount, onPress}) => (
+  <TouchableOpacity
+    accessibilityRole="button"
+    activeOpacity={0.78}
+    onPress={onPress}
+    style={styles.viewAllWalletsButton}>
+    <Text numberOfLines={1} style={styles.viewAllWalletsText}>
+      {`View all ${walletCount === 1 ? 'wallet' : 'wallets'} (${walletCount})`}
+    </Text>
+  </TouchableOpacity>
+);
+
+const LoginWalletCard = ({account, isDefault, lastOpenedAt, onPress, style}) => {
+  const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
+  const lastOpenedLabel = formatLastOpenedLabel(lastOpenedAt);
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.78}
+      onPress={onPress}
+      style={[styles.walletCard, style]}>
+      <View style={styles.walletCardIcon}>
+        {walletAvatar ? (
+          <WalletAvatar
+            walletAvatar={walletAvatar}
+            size={36}
+            emojiSize={19}
+          />
+        ) : (
+          <MaterialCommunityIcons
+            name="wallet-outline"
+            size={26}
+            color={Colors.verusDarkGray}
+          />
+        )}
+      </View>
+      <View style={styles.walletCardText}>
+        <Text numberOfLines={1} style={styles.walletCardName}>
+          {account.id}
+        </Text>
+        <Text numberOfLines={1} style={styles.walletCardMeta}>
+          {lastOpenedLabel}
+        </Text>
+      </View>
+      <MaterialCommunityIcons
+        name={isDefault ? 'star' : 'chevron-right'}
+        size={isDefault ? 22 : 24}
+        color={isDefault ? DEFAULT_STAR_COLOR : Colors.tertiaryColor}
+      />
+    </TouchableOpacity>
   );
 };
 
@@ -179,14 +365,81 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
-    paddingRight: 48,
+    minHeight: 0,
   },
-  headline: {
-    textAlign: 'left',
+  walletPreviewList: {
+    width: '100%',
+  },
+  walletCard: {
+    minHeight: WALLET_CARD_MIN_HEIGHT,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: WALLET_CARD_SPACING,
+  },
+  walletCardLast: {
+    marginBottom: 0,
+  },
+  walletCardIcon: {
+    width: 36,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  walletCardText: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  walletCardName: {
     color: Colors.quinaryColor,
-    fontSize: 28,
+    fontSize: 19,
     ...fontStyle('semiBold'),
-    lineHeight: 36,
+  },
+  walletCardMeta: {
+    marginTop: 3,
+    color: Colors.verusDarkGray,
+    fontSize: 12,
+    ...fontStyle('regular'),
+  },
+  viewAllWalletsButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  viewAllWalletsText: {
+    color: Colors.quinaryColor,
+    fontSize: 16,
+    ...fontStyle('semiBold'),
+  },
+  summaryBlock: {
+    alignItems: 'center',
+  },
+  summaryIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    color: Colors.quinaryColor,
+    fontSize: 22,
+    textAlign: 'center',
+    ...fontStyle('semiBold'),
+  },
+  summaryText: {
+    marginTop: 8,
+    maxWidth: 260,
+    color: Colors.quaternaryColor,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    ...fontStyle('regular'),
   },
 });
 

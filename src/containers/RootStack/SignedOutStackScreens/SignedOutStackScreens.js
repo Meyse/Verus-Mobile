@@ -19,6 +19,7 @@ const SignedOutStackScreens = props => {
   const deeplinkId = useSelector(state => state.deeplink.id);
   const deeplinkUrl = useSelector(state => state.deeplink.url);
   const dispatch = useDispatch();
+  const [testProfile, setTestProfile] = useState(false);
 
   useEffect(() => {
     if (deeplinkId != null && deeplinkUrl != null) {
@@ -31,11 +32,17 @@ const SignedOutStackScreens = props => {
     <SignedOutStack.Navigator>
       <SignedOutStack.Screen
         name="Login"
-        component={Login}
         options={{
           headerShown: false,
-        }}
-      />
+        }}>
+        {screenProps => (
+          <Login
+            {...screenProps}
+            testProfile={testProfile}
+            setTestProfile={setTestProfile}
+          />
+        )}
+      </SignedOutStack.Screen>
 
       <SignedOutStack.Screen
         name="SignIn"
@@ -82,11 +89,16 @@ const SignedOutStackScreens = props => {
 
       <SignedOutStack.Screen
         name="CreateProfile"
-        component={CreateProfile}
         options={{
           headerShown: false,
-        }}
-      />
+        }}>
+        {screenProps => (
+          <CreateProfile
+            {...screenProps}
+            testProfile={testProfile}
+          />
+        )}
+      </SignedOutStack.Screen>
 
       <SignedOutStack.Screen
         name="RevokeRecover"
