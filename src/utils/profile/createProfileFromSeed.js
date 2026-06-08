@@ -49,6 +49,7 @@ export const createProfileFromSeed = async ({
   testProfile = false,
   includeDlightSeed = false,
   useBiometrics = false,
+  walletAvatar = null,
 }) => {
   const seeds = buildProfileSeeds(seed, includeDlightSeed);
 
@@ -96,6 +97,7 @@ export const createProfileFromSeed = async ({
     KEY_DERIVATION_VERSION,
     SERVICES_DISABLED_DEFAULT,
     overrides,
+    walletAvatar,
   );
 
   dispatch(action);

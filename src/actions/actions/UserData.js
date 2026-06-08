@@ -52,6 +52,7 @@ import {clearEncryptedPersonalDataForUser} from './personal/dispatchers/personal
 import {clearEncryptedServiceStoredDataForUser} from './services/dispatchers/services';
 import {clearActiveAccountLifecycles} from './account/dispatchers/account';
 import {WYRE_SERVICE_ID} from '../../utils/constants/services';
+import {normalizeWalletAvatar} from '../../utils/walletAvatar';
 
 export const addUser = async (
   userName,
@@ -62,6 +63,7 @@ export const addUser = async (
   keyDerivationVersion = KEY_DERIVATION_VERSION,
   disabledServices = SERVICES_DISABLED_DEFAULT,
   testnetOverrides = {},
+  walletAvatar = null,
 ) => {
   const res = await storeUser(
     {
@@ -72,6 +74,7 @@ export const addUser = async (
       keyDerivationVersion,
       disabledServices,
       testnetOverrides,
+      walletAvatar,
     },
     users,
   )
@@ -332,33 +335,40 @@ export const authenticateAccount = async (account, password) => {
           }
         }
 
+        const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
+        const accountData = {
+          id: account.id,
+          accountHash: account.accountHash
+            ? account.accountHash
+            : hashAccountId(account.id),
+          seeds,
+          keys: _keys,
+          paymentMethods: {},
+          biometry: account.biometry ? true : false,
+          hideSeedWarnings: !!(account.hideSeedWarnings),
+          keyDerivationVersion:
+            account.keyDerivationVersion == null
+              ? 0
+              : account.keyDerivationVersion,
+          disabledServices:
+            account.disabledServices == null
+              ? account.encryptedKeys && account.encryptedKeys[WYRE_SERVICE]
+                ? {}
+                : {[WYRE_SERVICE_ID]: true}
+              : account.disabledServices,
+          testnetOverrides:
+            account.testnetOverrides == null
+              ? {}
+              : account.testnetOverrides,
+        };
+
+        if (walletAvatar != null) {
+          accountData.walletAvatar = walletAvatar;
+        }
+
         resolve(
           authenticateUser(
-            {
-              id: account.id,
-              accountHash: account.accountHash
-                ? account.accountHash
-                : hashAccountId(account.id),
-              seeds,
-              keys: _keys,
-              paymentMethods: {},
-              biometry: account.biometry ? true : false,
-              hideSeedWarnings: !!(account.hideSeedWarnings),
-              keyDerivationVersion:
-                account.keyDerivationVersion == null
-                  ? 0
-                  : account.keyDerivationVersion,
-              disabledServices:
-                account.disabledServices == null
-                  ? account.encryptedKeys && account.encryptedKeys[WYRE_SERVICE]
-                    ? {}
-                    : {[WYRE_SERVICE_ID]: true}
-                  : account.disabledServices,
-              testnetOverrides:
-                account.testnetOverrides == null
-                  ? {}
-                  : account.testnetOverrides,
-            },
+            accountData,
             await initSession(password),
           ),
         );

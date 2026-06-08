@@ -1,4 +1,4 @@
-import { ADDRESS_BLOCKLIST_FROM_WEBSERVER, LOADING_ACCOUNT, VALIDATING_ACCOUNT } from "../../../../utils/constants/constants";
+import { LOADING_ACCOUNT, VALIDATING_ACCOUNT } from "../../../../utils/constants/constants";
 import { signIntoAuthenticatedAccount } from "../../../actionCreators";
 import { COIN_MANAGER_MAP, fetchActiveCoins, setUserCoins } from "../../coins/Coins";
 import {
@@ -14,6 +14,8 @@ import { initSettings, saveGeneralSettings } from "../../WalletSettings";
 import { DISABLED_CHANNELS } from '../../../../../env/index'
 import store from "../../../../store";
 import { getAddressBlocklistFromServer } from "../../../../utils/api/channels/general/addressBlocklist/getAddressBlocklist";
+import { normalizeLastOpenedAccountTimestamps } from "../../../../utils/account/accountActivity";
+import { buildDefaultAccountSettingsForAccount } from "../../../../utils/account/accountNetwork";
 
 export const initializeAccountData = async (
   account,
@@ -28,11 +30,22 @@ export const initializeAccountData = async (
     setInitStep(LOADING_ACCOUNT);
     await initServiceStoredDataForUser(account.accountHash);
 
-    if (makeDefault) {
-      await saveGeneralSettings({
-        defaultAccount: account.accountHash,
-      });
-    }
+    const generalWalletSettings =
+      store.getState().settings.generalWalletSettings;
+    const lastOpenedAccountTimestamps = {
+      ...normalizeLastOpenedAccountTimestamps(
+        generalWalletSettings.lastOpenedAccountTimestamps,
+      ),
+      [account.accountHash]: Date.now(),
+    };
+    const accountSettings = makeDefault
+      ? buildDefaultAccountSettingsForAccount(account, generalWalletSettings)
+      : {};
+
+    await saveGeneralSettings({
+      ...accountSettings,
+      lastOpenedAccountTimestamps,
+    });
 
     const coinList = await fetchActiveCoins();
     const setUserCoinsAction = setUserCoins(
@@ -45,8 +58,6 @@ export const initializeAccountData = async (
     store.dispatch(settingsAction);
 
     try {
-      const { addressBlocklist } = store.getState().settings.generalWalletSettings;
-
       const fetchedBlocklist = await getAddressBlocklistFromServer();
       const currentBlocklist = [];
 
@@ -107,7 +118,13 @@ export const initializeAccountData = async (
 
 export const clearActiveAccountLifecycles = async () => {
   const state = store.getState();
+  const activeAccount = state.authentication.activeAccount;
   const activeCoinsForUser = state.coins.activeCoinsForUser;
+
+  if (activeAccount == null || !Array.isArray(activeCoinsForUser)) {
+    clearServiceIntervals();
+    return;
+  }
 
   for (let i = 0; i < activeCoinsForUser.length; i++) {
     const coinObj = activeCoinsForUser[i];
@@ -150,7 +167,7 @@ export const refreshAccountData = async (
   return await initializeAccountData(
     newAccount,
     password,
-    (makeDefault = false),
-    (setInitStep = () => {})
+    makeDefault,
+    setInitStep
   );
 };

@@ -8,6 +8,10 @@ import {
   loadSettings,
   storeSettings
 } from '../../utils/asyncStore/asyncStore';
+import {
+  normalizeGeneralWalletSettings,
+  normalizeSettings,
+} from '../../utils/settings/settingsDefaults';
 import store from '../../store/index'
 //TODO: Maybe dispatch from here instead of VerusMobile main file
 
@@ -19,7 +23,7 @@ export const initSettings = () => {
   return new Promise((resolve, reject) => {
     loadSettings()
     .then(res => {
-      resolve(setAllSettings(res))
+      resolve(setAllSettings(normalizeSettings(res)))
     })
     .catch(err => reject(err))
   })
@@ -31,11 +35,14 @@ export const initSettings = () => {
  * @param {Object} stateChanges State changes to be made to settings
  */
 export const saveAllSettings = (stateChanges) => {
-  const settings = {...store.getState().settings, ...stateChanges}
+  const settings = normalizeSettings({
+    ...store.getState().settings,
+    ...stateChanges,
+  })
   return new Promise((resolve, reject) => {
     storeSettings(settings)
     .then(res => {
-      resolve(setAllSettings(res))
+      resolve(setAllSettings(normalizeSettings(res)))
     })
     .catch(err => reject(err))
   })
@@ -88,7 +95,10 @@ export const saveBuySellSettings = (stateChanges, userID) => {
  */
 export const saveGeneralSettings = (stateChanges) => {
   const settingsState = store.getState().settings
-  const generalWalletSettings = {...settingsState.generalWalletSettings, ...stateChanges}
+  const generalWalletSettings = normalizeGeneralWalletSettings({
+    ...settingsState.generalWalletSettings,
+    ...stateChanges,
+  })
 
   return new Promise((resolve, reject) => {
     storeSettings({...settingsState, generalWalletSettings})

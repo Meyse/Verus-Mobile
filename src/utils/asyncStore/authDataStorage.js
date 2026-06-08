@@ -16,6 +16,7 @@ import { SecureStorage } from '../keychain/secureStore';
 import { Alert } from 'react-native';
 import { SUSPICIOUS_UNICODE_CHARACTER_TEST } from '../constants/regex';
 import { INCORRECT_PASSWORD_DELAY_ERROR_MS } from '../constants/errors';
+import { normalizeWalletAvatar } from '../walletAvatar';
 
 //Set storage to hold encrypted user data
 export const storeUser = (authData, users) => {
@@ -31,6 +32,8 @@ export const storeUser = (authData, users) => {
         );
       }
     }
+
+    const walletAvatar = normalizeWalletAvatar(authData.walletAvatar);
 
     let userObj = {
       id: authData.userName,
@@ -50,6 +53,10 @@ export const storeUser = (authData, users) => {
           : authData.disabledServices,
       testnetOverrides: authData.testnetOverrides
     };
+
+    if (walletAvatar != null) {
+      userObj.walletAvatar = walletAvatar;
+    }
 
     let _users = users ? users.slice() : [];
     _users.push(userObj);
