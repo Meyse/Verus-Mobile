@@ -1,6 +1,9 @@
-import {StyleSheet} from 'react-native';
+import {Platform, StyleSheet} from 'react-native';
 import Colors from '../../globals/colors';
 import {fontStyle} from '../../globals/fonts';
+
+const androidFontPaddingFix =
+  Platform.OS === 'android' ? {includeFontPadding: false} : {};
 
 export default StyleSheet.create({
   container: {
@@ -22,6 +25,12 @@ export default StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#F3F5F8',
   },
+  singleLineInputShell: {
+    height: 56,
+  },
+  multilineInputShell: {
+    alignItems: 'flex-start',
+  },
   inputShellFocused: {
     borderColor: Colors.primaryColor,
     backgroundColor: Colors.secondaryColor,
@@ -38,16 +47,27 @@ export default StyleSheet.create({
     borderColor: Colors.warningButtonColor,
   },
   input: {
-    minHeight: 54,
     flex: 1,
     paddingHorizontal: 16,
     color: Colors.quinaryColor,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 17,
     ...fontStyle('regular'),
   },
-  leftAccessory: {
+  singleLineInput: {
+    height: 30,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+    ...androidFontPaddingFix,
+  },
+  multilineInput: {
     minHeight: 54,
+    paddingVertical: 13,
+    lineHeight: 24,
+    textAlignVertical: 'top',
+    ...androidFontPaddingFix,
+  },
+  leftAccessory: {
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 10,

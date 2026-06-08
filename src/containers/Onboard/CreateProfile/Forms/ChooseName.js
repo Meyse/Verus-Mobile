@@ -24,6 +24,9 @@ import {createSignedOutFlowStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const CONTENT_ANIMATION_DURATION = 320;
+const WALLET_AVATAR_SIZE = 56;
+const WALLET_AVATAR_EMOJI_SIZE = 28;
+const WALLET_AVATAR_INPUT_OFFSET = 27;
 
 export default function ChooseName({
   profileName,
@@ -183,30 +186,30 @@ export default function ChooseName({
             <Text style={signedOutFlowStyles.title}>
               {'Personalize your wallet'}
             </Text>
-            <AppTextInput
-              returnKeyType="done"
-              errorText={nameError}
-              label="Wallet name"
-              value={profileName}
-              placeholder="Enter wallet name"
-              inputStyle={styles.inputWithAvatar}
-              leftAccessory={
-                <TouchableOpacity
-                  accessibilityLabel="Choose wallet icon and color"
-                  accessibilityRole="button"
-                  activeOpacity={0.74}
-                  onPress={openAvatarSheet}
-                  style={styles.avatarButton}>
-                  <WalletAvatar
-                    walletAvatar={selectedWalletAvatar}
-                    size={40}
-                    emojiSize={21}
-                  />
-                </TouchableOpacity>
-              }
-              onSubmitEditing={next}
-              onChangeText={updateProfileName}
-            />
+            <View style={styles.walletNameRow}>
+              <TouchableOpacity
+                accessibilityLabel="Choose wallet icon and color"
+                accessibilityRole="button"
+                activeOpacity={0.74}
+                onPress={openAvatarSheet}
+                style={styles.avatarButton}>
+                <WalletAvatar
+                  walletAvatar={selectedWalletAvatar}
+                  size={WALLET_AVATAR_SIZE}
+                  emojiSize={WALLET_AVATAR_EMOJI_SIZE}
+                />
+              </TouchableOpacity>
+              <AppTextInput
+                returnKeyType="done"
+                containerStyle={styles.walletNameInput}
+                errorText={nameError}
+                label="Wallet name"
+                value={profileName}
+                placeholder="Enter wallet name"
+                onSubmitEditing={next}
+                onChangeText={updateProfileName}
+              />
+            </View>
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
@@ -230,12 +233,19 @@ export default function ChooseName({
 }
 
 const styles = StyleSheet.create({
-  inputWithAvatar: {
-    paddingLeft: 8,
+  walletNameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  walletNameInput: {
+    flex: 1,
+    width: 0,
   },
   avatarButton: {
-    width: 42,
-    height: 54,
+    width: WALLET_AVATAR_SIZE,
+    height: WALLET_AVATAR_SIZE,
+    marginTop: WALLET_AVATAR_INPUT_OFFSET,
+    marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

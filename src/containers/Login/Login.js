@@ -179,18 +179,8 @@ const Login = props => {
 
     return (
       <View style={styles.summaryBlock}>
-        <View style={styles.summaryIcon}>
-          <MaterialCommunityIcons
-            name="wallet-plus-outline"
-            size={30}
-            color={theme.colors.primary}
-          />
-        </View>
         <Text style={styles.summaryTitle}>
-          {`No ${selectedNetworkLabel} wallets yet`}
-        </Text>
-        <Text style={styles.summaryText}>
-          {'Create a wallet for this network to continue.'}
+          {`No ${selectedNetworkLabel.toLowerCase()} wallets yet`}
         </Text>
       </View>
     );
@@ -450,31 +440,11 @@ const createStyles = theme => StyleSheet.create({
   summaryBlock: {
     alignItems: 'center',
   },
-  summaryIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.isDark
-      ? theme.colors.surfaceMuted
-      : 'rgba(255, 255, 255, 0.72)',
-    marginBottom: 16,
-  },
   summaryTitle: {
     color: theme.colors.textPrimary,
     fontSize: 22,
     textAlign: 'center',
     ...fontStyle('semiBold'),
-  },
-  summaryText: {
-    marginTop: 8,
-    maxWidth: 260,
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    ...fontStyle('regular'),
   },
 });
 

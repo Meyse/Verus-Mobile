@@ -46,6 +46,7 @@ const AppTextInput = forwardRef(function AppTextInput(
   const resolvedPlaceholderTextColor =
     placeholderTextColor || theme.colors.textSubtle;
   const resolvedRightIconColor = rightIconColor || theme.colors.textSubtle;
+  const isMultiline = inputProps.multiline === true;
 
   const handleBlur = event => {
     setFocused(false);
@@ -72,6 +73,9 @@ const AppTextInput = forwardRef(function AppTextInput(
       <View
         style={[
           styles.inputShell,
+          isMultiline
+            ? styles.multilineInputShell
+            : styles.singleLineInputShell,
           {
             backgroundColor: theme.colors.input,
           },
@@ -104,6 +108,7 @@ const AppTextInput = forwardRef(function AppTextInput(
           ref={ref}
           style={[
             styles.input,
+            isMultiline ? styles.multilineInput : styles.singleLineInput,
             {color: theme.colors.textPrimary},
             inputStyle,
           ]}

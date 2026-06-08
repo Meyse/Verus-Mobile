@@ -45,6 +45,11 @@ const shared = {
       lineHeight: 24,
       ...fontStyle('regular'),
     },
+    inputValue: {
+      fontSize: 17,
+      lineHeight: 24,
+      ...fontStyle('regular'),
+    },
     labelMd: {
       fontSize: 14,
       lineHeight: 19,
@@ -105,7 +110,7 @@ const darkColors = {
   border: '#263A58',
   borderStrong: '#38527A',
   input: '#111F31',
-  inputFocused: '#162944',
+  inputFocused: '#07111F',
   sheet: '#0F1B2C',
   scrim: '#000000',
   scrimOpacity: 0.66,

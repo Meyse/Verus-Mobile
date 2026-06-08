@@ -26,11 +26,7 @@ const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
   const [sheetVisible, setSheetVisible] = useState(false);
-  const iconColor = testProfile
-    ? theme.colors.success
-    : theme.isDark
-      ? theme.colors.textSubtle
-      : MAINNET_ICON_COLOR;
+  const iconColor = theme.isDark ? theme.colors.textSubtle : MAINNET_ICON_COLOR;
   const selectedNetwork = testProfile ? 'Testnet' : 'Mainnet';
 
   const handleSelectNetwork = nextTestProfile => {
@@ -57,7 +53,14 @@ const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
             right: insets.right + 22,
           },
         ]}>
-        <Network color={iconColor} size={24} strokeWidth={2.2} />
+        <View style={styles.triggerContent}>
+          <Network color={iconColor} size={24} strokeWidth={2.2} />
+          {testProfile && (
+            <Text style={[styles.testnetIndicator, {color: iconColor}]}>
+              {'T'}
+            </Text>
+          )}
+        </View>
       </TouchableOpacity>
 
       <BottomSheetModal
@@ -121,6 +124,21 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  triggerContent: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testnetIndicator: {
+    position: 'absolute',
+    left: -2,
+    fontSize: 17,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   sheetBody: {
     paddingHorizontal: 20,
