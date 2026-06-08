@@ -32,8 +32,6 @@ import { connect } from 'react-redux';
 import { ENABLE_VERUS_IDENTITIES } from '../env/index'
 import AlertModal from "./components/Alert";
 import { activateKeyboardListener, updateDeeplinkUrl } from "./actions/actionDispatchers";
-import Colors from "./globals/colors";
-import { CoinLogos } from "./utils/CoinData/CoinData";
 import { Portal } from 'react-native-paper';
 import SendModal from "./components/SendModal/SendModal";
 import { NavigationContainer } from "@react-navigation/native";
@@ -43,13 +41,16 @@ import { removeInactiveCurrencyDefinitions } from "./utils/asyncStore/currencyDe
 import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDefinitionStorage";
 import { initInstance } from "./utils/auth/authBox";
 import { SecureStorage } from "./utils/keychain/secureStore";
+import StartupCover from "./components/StartupCover";
+import { OnboardingThemeProvider } from "./theme/onboarding";
 
 class VerusMobile extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       loading: true,
-      securityCover: false
+      securityCover: false,
+      startupError: null
     };
   }
 
@@ -146,6 +147,10 @@ class VerusMobile extends React.Component {
     } catch (err) {
       console.error(err)
 
+      this.setState({
+        startupError: err.message || 'Startup failed'
+      })
+
       Alert.alert("Error", err.message)
     }
   }
@@ -191,8 +196,6 @@ class VerusMobile extends React.Component {
   }
 
   render() {    
-    const VrscLogo = CoinLogos.VRSC.light
-
     return (
       <View style={{ flex: 1 }}>
         <Portal.Host>
@@ -210,23 +213,19 @@ class VerusMobile extends React.Component {
         <Modal
           animationType={this.state.loading ? "fade" : "none"}
           transparent={false}
-          visible={this.state.securityCover || this.state.loading}
+          visible={
+            this.state.securityCover ||
+            this.state.loading ||
+            this.state.startupError != null
+          }
         >
-          <View
-            style={[
-              {
-                width: "100%",
-                height: "100%",
-                backgroundColor: Colors.primaryColor,
-              },
-              {
-                alignItems: "center",
-                justifyContent: "center",
-              },
-            ]}
-          >
-            <VrscLogo height={100} width={100} />
-          </View>
+          <OnboardingThemeProvider>
+            <StartupCover
+              loading={this.state.loading}
+              securityCover={this.state.securityCover}
+              startupError={this.state.startupError}
+            />
+          </OnboardingThemeProvider>
         </Modal>
       </View>
     );
