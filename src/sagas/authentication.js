@@ -1,6 +1,6 @@
 import { all, takeEvery, put, call } from "redux-saga/effects";
 import { initAccountWidgets, setWidgets } from "../actions/actionCreators";
-import { resetServices } from "../actions/actionDispatchers";
+import { clearActiveAccountLifecycles, resetServices } from "../actions/actionDispatchers";
 import { AUTHENTICATE_USER, SIGN_OUT, SIGN_OUT_COMPLETE } from "../utils/constants/storeType";
 
 export default function * authenticationSaga() {
@@ -11,6 +11,12 @@ export default function * authenticationSaga() {
 }
 
 function * handleFinishSignOut() {
+  try {
+    yield call(clearActiveAccountLifecycles)
+  } catch(e) {
+    console.warn(e)
+  }
+
   try {
     yield call(resetServices)
   } catch(e) {

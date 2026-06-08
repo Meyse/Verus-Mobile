@@ -154,24 +154,25 @@ export const closeDlightWallet = async (coinObj, clearDb) => {
   const State = getState()
 
   const { channelStore_dlight_private, authentication } = State
-  const { dlightSockets, dlightSyncing } = channelStore_dlight_private
+  const { dlightSockets } = channelStore_dlight_private
   const { activeAccount } = authentication
+
+  if (activeAccount == null) return Promise.resolve()
+
   const { accountHash } = activeAccount
   const { id, proto } = coinObj
 
-  if (activeAccount.seeds.dlight_private == null) return Promise.resolve()
+  if (dlightSockets[id] !== true) {
+    return Promise.resolve()
+  }
 
   let closePromises = []
   try {
-    if (dlightSockets[id] === true) {
-      closePromises = [
-        Promise.resolve(clearDb
-          ? eraseWallet(id, accountHash, proto)
-          : closeWallet(id, accountHash, proto))
-       ];
-    } else  {
-      throw new Error(id + "'s dlight wallet cannot be stopped if it was never started.")
-    }
+    closePromises = [
+      Promise.resolve(clearDb
+        ? eraseWallet(id, accountHash, proto)
+        : closeWallet(id, accountHash, proto))
+    ];
   } catch (e) {
     console.warn(e)
   }
