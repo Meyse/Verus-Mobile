@@ -23,7 +23,6 @@ import {
   closeLoadingModal,
   openLoadingModal,
 } from '../../../actions/actionDispatchers';
-import {canEnableBiometry} from '../../../actions/actions/channels/dlight/dispatchers/AlertManager';
 import {
   createAlert,
   resolveAlert,
@@ -272,10 +271,10 @@ const WalletBackupRequestInfo = props => {
     }
   };
 
-  const toggleUseBiometrics = async () => {
+  const toggleUseBiometrics = () => {
     if (useBiometrics) {
       setUseBiometrics(false);
-    } else if (await canEnableBiometry()) {
+    } else {
       setUseBiometrics(true);
     }
   };

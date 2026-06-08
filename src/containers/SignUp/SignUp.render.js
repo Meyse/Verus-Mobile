@@ -20,7 +20,6 @@ import {
   ELECTRUM,
 } from "../../utils/constants/intervalConstants";
 import { ENABLE_DLIGHT } from "../../../env/index";
-import { canEnableBiometry } from "../../actions/actions/channels/dlight/dispatchers/AlertManager";
 
 const passwordAutofillProps = {
   autoComplete: "off",
@@ -184,15 +183,10 @@ export const SignUpRender = function() {
                       status={
                         this.state.enableBiometry ? "checked" : "unchecked"
                       }
-                      onPress={async () => {
-                        if (
-                          !this.state.enableBiometry &&
-                          (await canEnableBiometry())
-                        ) {
-                          this.setState({
-                            enableBiometry: true,
-                          });
-                        } else this.setState({ enableBiometry: false });
+                      onPress={() => {
+                        this.setState({
+                          enableBiometry: !this.state.enableBiometry,
+                        });
                       }}
                       mode="android"
                     />

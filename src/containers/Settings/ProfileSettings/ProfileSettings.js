@@ -30,7 +30,6 @@ import {
 } from "../../../actions/actionCreators";
 import PasswordCheck from "../../../components/PasswordCheck";
 import {
-  canEnableBiometry,
   canShowSeed,
 } from "../../../actions/actions/channels/dlight/dispatchers/AlertManager";
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert";
@@ -561,11 +560,8 @@ class ProfileSettings extends Component {
         {(this.props.activeAccount.biometry ||
           this.state.supportedBiometryType.biometry) && (
           <TouchableOpacity
-            onPress={async () => {
-              if (this.props.activeAccount.biometry) {
-                this.openPasswordCheck(this.toggleBiometry);
-              } else if (await canEnableBiometry())
-                this.openPasswordCheck(this.toggleBiometry);
+            onPress={() => {
+              this.openPasswordCheck(this.toggleBiometry);
             }}
           >
             <List.Item

@@ -1,4 +1,3 @@
-import { BIOMETRY_WARNING } from "../../../../../utils/constants/constants"
 import { createAlert, resolveAlert } from "../../../alert/dispatchers/alert"
 
 export const canRetryDlightInitialization = (chainTicker) => {
@@ -17,24 +16,6 @@ export const canRetryDlightInitialization = (chainTicker) => {
     {
       cancelable: false,
     },
-  )
-}
-
-export const canEnableBiometry = () => {
-  return createAlert(
-    "Enable biometric authentication?",
-    BIOMETRY_WARNING,
-    [
-      {
-        text: "No",
-        onPress: () => resolveAlert(false),
-        style: "cancel",
-      },
-      { text: "Yes", onPress: () => resolveAlert(true) },
-    ],
-    {
-      cancelable: false,
-    }
   )
 }
 
