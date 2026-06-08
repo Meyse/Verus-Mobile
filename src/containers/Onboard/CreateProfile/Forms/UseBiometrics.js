@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useMemo, useRef} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -10,8 +10,8 @@ import {Text} from 'react-native-paper';
 import {FingerprintPattern, ScanFace} from 'lucide-react-native';
 import AppButton from '../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
-import Colors from '../../../../globals/colors';
-import {signedOutFlowStyles} from '../../../../styles';
+import {createSignedOutFlowStyles} from '../../../../styles';
+import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const CONTENT_ANIMATION_DURATION = 320;
 
@@ -60,6 +60,11 @@ export default function UseBiometrics({
   setUseBiometrics,
   onNext,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
   const presentation =
     BIOMETRY_PRESENTATION[supportedBiometryType?.type] || DEFAULT_PRESENTATION;
   const BiometryIcon = presentation.icon;
@@ -137,7 +142,7 @@ export default function UseBiometrics({
         <Animated.View
           style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
           <BiometryIcon
-            color={Colors.quinaryColor}
+            color={theme.colors.textPrimary}
             size={72}
             strokeWidth={1.8}
             style={styles.icon}

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -11,9 +11,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import WalletAvatar from '../../../components/WalletAvatar';
-import Colors from '../../../globals/colors';
 import {fontStyle} from '../../../globals/fonts';
-import {signedOutSheetStyles} from '../../../styles';
+import {createSignedOutSheetStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 import {formatLastOpenedLabel} from '../../../utils/account/accountActivity';
 import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
 
@@ -34,6 +34,12 @@ const ChooseWalletSheet = ({
   onSelectAccount,
   onSetDefaultAccount,
 }) => {
+  const theme = useOnboardingTheme();
+  const signedOutSheetStyles = useMemo(
+    () => createSignedOutSheetStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const {height} = useWindowDimensions();
   const [showScrollCue, setShowScrollCue] = useState(false);
   const walletCount = Array.isArray(accounts) ? accounts.length : 0;
@@ -96,24 +102,26 @@ const ChooseWalletSheet = ({
                     ? () => onSetDefaultAccount(item)
                     : null
                 }
+                styles={styles}
+                theme={theme}
               />
             )}
           />
-          {showScrollCue && <ScrollCue />}
+          {showScrollCue && <ScrollCue styles={styles} theme={theme} />}
         </View>
       </View>
     </BottomSheetModal>
   );
 };
 
-const ScrollCue = () => (
+const ScrollCue = ({styles, theme}) => (
   <View pointerEvents="none" style={styles.scrollCue}>
     <Svg width="100%" height="100%">
       <Defs>
         <LinearGradient id="walletScrollCue" x1="0" x2="0" y1="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-          <Stop offset="0.72" stopColor="#FFFFFF" stopOpacity="0.92" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
+          <Stop offset="0" stopColor={theme.colors.sheet} stopOpacity="0" />
+          <Stop offset="0.72" stopColor={theme.colors.sheet} stopOpacity="0.92" />
+          <Stop offset="1" stopColor={theme.colors.sheet} stopOpacity="1" />
         </LinearGradient>
       </Defs>
       <Rect width="100%" height="100%" fill="url(#walletScrollCue)" />
@@ -127,6 +135,8 @@ const WalletRow = ({
   lastOpenedAt,
   onSelect,
   onSetDefault,
+  styles,
+  theme,
 }) => {
   const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
   const showDefaultAction = typeof onSetDefault === 'function';
@@ -150,7 +160,7 @@ const WalletRow = ({
             <MaterialCommunityIcons
               name="wallet-outline"
               size={22}
-              color={Colors.primaryColor}
+              color={theme.colors.primary}
             />
           )}
         </View>
@@ -170,7 +180,7 @@ const WalletRow = ({
         <MaterialCommunityIcons
           name="chevron-right"
           size={22}
-          color={Colors.tertiaryColor}
+          color={theme.colors.textSubtle}
         />
       </TouchableOpacity>
       {showDefaultAction && (
@@ -187,7 +197,7 @@ const WalletRow = ({
           <MaterialCommunityIcons
             name={isDefault ? 'star' : 'star-outline'}
             size={17}
-            color={isDefault ? Colors.secondaryColor : Colors.primaryColor}
+            color={isDefault ? theme.colors.onPrimary : theme.colors.primary}
           />
           <Text
             style={[
@@ -202,7 +212,8 @@ const WalletRow = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   listFrame: {
     overflow: 'hidden',
   },
@@ -231,7 +242,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF3FF',
+    backgroundColor: theme.colors.surfaceMuted,
     marginRight: 12,
   },
   rowText: {
@@ -239,12 +250,12 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   walletName: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 16,
     ...fontStyle('semiBold'),
   },
   defaultText: {
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
     fontSize: 12,
     ...fontStyle('semiBold'),
   },
@@ -258,7 +269,7 @@ const styles = StyleSheet.create({
   lastOpenedText: {
     minWidth: 0,
     flexShrink: 1,
-    color: Colors.verusDarkGray,
+    color: theme.colors.textSubtle,
     fontSize: 12,
     ...fontStyle('regular'),
   },
@@ -267,7 +278,7 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: '#D9E3FA',
+    borderColor: theme.colors.borderStrong,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -275,16 +286,16 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   defaultButtonActive: {
-    backgroundColor: Colors.primaryColor,
-    borderColor: Colors.primaryColor,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   defaultButtonText: {
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
     fontSize: 12,
     ...fontStyle('semiBold'),
   },
   defaultButtonTextActive: {
-    color: Colors.secondaryColor,
+    color: theme.colors.onPrimary,
   },
 });
 

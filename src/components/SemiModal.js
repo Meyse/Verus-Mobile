@@ -59,6 +59,16 @@ class SemiModal extends Component {
 
     const closeDisabled = !!this.props.closeDisabled;
     const onRequestClose = this.props.onRequestClose;
+    const modalTheme = this.props.modalTheme;
+    const modalColors = modalTheme ? modalTheme.colors : null;
+    const sheetBackgroundColor = modalColors
+      ? modalColors.sheet
+      : Colors.secondaryColor;
+    const sheetTextColor = modalColors ? modalColors.textPrimary : '#1A1A1A';
+    const closeButtonBackgroundColor = modalColors
+      ? modalColors.surfaceMuted
+      : '#EEF0F3';
+    const closeIconColor = modalColors ? modalColors.textPrimary : '#111';
     const effectiveOnRequestClose = closeDisabled
       ? () => {}
       : onRequestClose;
@@ -94,7 +104,7 @@ class SemiModal extends Component {
             style={[
               {
                 flex: flexHeight,
-                backgroundColor: Colors.secondaryColor,
+                backgroundColor: sheetBackgroundColor,
                 borderRadius: 10,
                 paddingTop: showHeader ? 0 : 10,
               },
@@ -128,7 +138,7 @@ class SemiModal extends Component {
                       style={{
                         fontSize: 16,
                         fontWeight: '600',
-                        color: '#1A1A1A',
+                        color: sheetTextColor,
                       }}
                       numberOfLines={1}
                     >
@@ -160,7 +170,7 @@ class SemiModal extends Component {
                       width: closeButtonSize,
                       height: closeButtonSize,
                       borderRadius: closeButtonSize / 2,
-                      backgroundColor: '#EEF0F3',
+                      backgroundColor: closeButtonBackgroundColor,
                       alignItems: 'center',
                       justifyContent: 'center',
                       opacity: closeDisabled ? 0.5 : 1,
@@ -169,7 +179,7 @@ class SemiModal extends Component {
                     <MaterialCommunityIcons
                       name="close"
                       size={18}
-                      color="#111"
+                      color={closeIconColor}
                     />
                   </TouchableOpacity>
                 </View>

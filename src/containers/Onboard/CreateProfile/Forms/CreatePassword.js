@@ -16,7 +16,6 @@ import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
-import Colors from '../../../../globals/colors';
 import {fontStyle} from '../../../../globals/fonts';
 import scorePassword from '../../../../utils/auth/scorePassword';
 import {
@@ -25,7 +24,11 @@ import {
   PASS_SCORE_LIMIT,
 } from '../../../../utils/constants/constants';
 import AppTextInput from '../../../../components/AppTextInput';
-import {signedOutFlowStyles, signedOutSheetStyles} from '../../../../styles';
+import {
+  createSignedOutFlowStyles,
+  createSignedOutSheetStyles,
+} from '../../../../styles';
+import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const passwordAutofillProps = Platform.select({
   ios: {
@@ -48,7 +51,7 @@ const strengthLabels = {
 };
 const CONTENT_ANIMATION_DURATION = 320;
 
-const PasswordStrengthMeter = ({color, label, level}) => (
+const PasswordStrengthMeter = ({color, label, level, styles}) => (
   <View style={styles.strengthContainer}>
     <View style={styles.strengthBars}>
       {[0, 1, 2, 3, 4].map(index => (
@@ -76,6 +79,16 @@ export default function CreatePassword({
   setConfirmPassword,
   onNext,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
+  const signedOutSheetStyles = useMemo(
+    () => createSignedOutSheetStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [passwordScore, setPasswordScore] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -148,11 +161,11 @@ export default function CreatePassword({
   }, [password, passwordScore]);
 
   const strengthColor = useMemo(() => {
-    if (strengthLevel <= 2) return Colors.warningButtonColor;
-    if (strengthLevel === 3) return Colors.infoButtonColor;
-    if (strengthLevel === 4) return Colors.primaryColor;
-    return Colors.verusGreenColor;
-  }, [strengthLevel]);
+    if (strengthLevel <= 2) return theme.colors.warning;
+    if (strengthLevel === 3) return theme.colors.textSecondary;
+    if (strengthLevel === 4) return theme.colors.primary;
+    return theme.colors.success;
+  }, [strengthLevel, theme]);
 
   const strengthLabel = password ? strengthLabels[strengthLevel] : null;
   const passwordsMatch = password === confirmPassword;
@@ -253,7 +266,7 @@ export default function CreatePassword({
                 onPress={openPasswordInfo}
                 style={styles.helpButton}>
                 <Info
-                  color={Colors.verusDarkGray}
+                  color={theme.colors.textSubtle}
                   size={23}
                   strokeWidth={2.2}
                 />
@@ -280,6 +293,7 @@ export default function CreatePassword({
               color={strengthColor}
               label={strengthLabel}
               level={strengthLevel}
+              styles={styles}
             />
             {confirmPasswordVisible ? (
               <View style={styles.confirmInput}>
@@ -347,7 +361,8 @@ export default function CreatePassword({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   titleRow: {
     marginBottom: 28,
     flexDirection: 'row',
@@ -376,7 +391,7 @@ const styles = StyleSheet.create({
     height: 5,
     flex: 1,
     borderRadius: 999,
-    backgroundColor: '#E0E4EA',
+    backgroundColor: theme.colors.border,
   },
   strengthLabel: {
     marginTop: 8,

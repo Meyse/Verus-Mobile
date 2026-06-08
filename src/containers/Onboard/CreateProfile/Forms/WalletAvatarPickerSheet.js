@@ -1,10 +1,10 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
-import Colors from '../../../../globals/colors';
 import {fontStyle} from '../../../../globals/fonts';
-import {signedOutSheetStyles} from '../../../../styles';
+import {createSignedOutSheetStyles} from '../../../../styles';
+import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
   DEFAULT_WALLET_AVATAR,
   WALLET_AVATAR_COLORS,
@@ -18,6 +18,12 @@ const WalletAvatarPickerSheet = ({
   onChange,
   onClose,
 }) => {
+  const theme = useOnboardingTheme();
+  const signedOutSheetStyles = useMemo(
+    () => createSignedOutSheetStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const selectedAvatar = normalizeWalletAvatar(
     walletAvatar,
     DEFAULT_WALLET_AVATAR,
@@ -107,7 +113,8 @@ const WalletAvatarPickerSheet = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   header: {
     minHeight: 36,
     flexDirection: 'row',
@@ -121,7 +128,7 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
   },
   doneText: {
-    color: Colors.quaternaryColor,
+    color: theme.colors.textSecondary,
     fontSize: 14,
     ...fontStyle('semiBold'),
   },
@@ -139,13 +146,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F2',
+    borderColor: theme.colors.border,
     borderRadius: 12,
-    backgroundColor: Colors.secondaryColor,
+    backgroundColor: theme.colors.surface,
   },
   choiceActive: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: '#F5F8FF',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surfaceMuted,
   },
   iconEmoji: {
     fontSize: 28,
@@ -163,16 +170,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F2',
+    borderColor: theme.colors.border,
     borderRadius: 12,
-    backgroundColor: Colors.secondaryColor,
+    backgroundColor: theme.colors.surface,
   },
   swatch: {
     width: 32,
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: Colors.secondaryColor,
+    borderColor: theme.colors.sheet,
   },
 });
 

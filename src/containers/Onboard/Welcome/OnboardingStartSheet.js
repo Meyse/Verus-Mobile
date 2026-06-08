@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -18,8 +18,8 @@ import {
 } from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../components/BottomSheetModal';
-import Colors from '../../../globals/colors';
-import {signedOutSheetStyles as styles} from '../../../styles';
+import {createSignedOutSheetStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
   IMPORT_METHODS,
   SETUP_PATHS,
@@ -87,6 +87,8 @@ const IMPORT_ACTIONS = [
 ];
 
 const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const [sheetMode, setSheetMode] = useState(SHEET_MODES.START);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const pendingActionRef = useRef(null);
@@ -321,7 +323,7 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
                   disabled={isTransitioning}
                   onPress={() => transitionToMode(SHEET_MODES.START)}
                   style={localStyles.backButton}>
-                  <ChevronLeft size={22} color={Colors.quinaryColor} />
+                  <ChevronLeft size={22} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
               </Animated.View>
             ) : null}
@@ -334,6 +336,8 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
               label={action.label}
               iconSize={action.iconSize}
               IconComponent={action.IconComponent}
+              styles={styles}
+              theme={theme}
               onPress={
                 action.nextMode
                   ? () => transitionToMode(action.nextMode)
@@ -353,6 +357,8 @@ const StartActionRow = ({
   label,
   IconComponent,
   iconSize = 24,
+  styles,
+  theme,
   onPress,
 }) => {
   const animatedStyle = animatedValue
@@ -378,13 +384,13 @@ const StartActionRow = ({
         onPress={onPress}
         style={styles.actionRow}>
         <View style={[styles.actionIconContainer, styles.actionIcon]}>
-          <IconComponent size={iconSize} color={Colors.quinaryColor} />
+          <IconComponent size={iconSize} color={theme.colors.textPrimary} />
         </View>
         <Text style={styles.actionLabel}>{label}</Text>
         <MaterialCommunityIcons
           name="chevron-right"
           size={22}
-          color={Colors.tertiaryColor}
+          color={theme.colors.textSubtle}
         />
       </TouchableOpacity>
     </Animated.View>

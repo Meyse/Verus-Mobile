@@ -2,48 +2,56 @@ import React from 'react';
 import {Button} from 'react-native-paper';
 import Colors from '../globals/colors';
 import {appButtonStyles as styles} from '../styles';
+import {
+  resolveOnboardingTheme,
+  useOnboardingTheme,
+} from '../theme/onboarding';
 
 const TONAL_ON_DARK_COLOR = 'rgba(255, 255, 255, 0.16)';
 const DISABLED_BUTTON_COLOR = '#E4E8EF';
 const DISABLED_TEXT_COLOR = '#9AA3AF';
 
-const variantStyles = {
+const createVariantStyles = theme => ({
   primary: {
-    buttonColor: Colors.primaryColor,
-    textColor: Colors.secondaryColor,
+    buttonColor: theme.colors.primary,
+    textColor: theme.colors.onPrimary,
   },
   secondary: {
-    buttonColor: '#EEF2F8',
-    textColor: Colors.primaryColor,
+    buttonColor: theme.isDark ? theme.colors.surfaceMuted : '#EEF2F8',
+    textColor: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
   },
   tonal: {
-    buttonColor: TONAL_ON_DARK_COLOR,
-    textColor: Colors.secondaryColor,
+    buttonColor: theme.isDark
+      ? theme.colors.surfaceMuted
+      : TONAL_ON_DARK_COLOR,
+    textColor: theme.isDark ? theme.colors.textPrimary : Colors.secondaryColor,
   },
   text: {
     buttonColor: 'transparent',
-    textColor: Colors.primaryColor,
+    textColor: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
   },
-};
+});
 
-const disabledVariantStyles = {
+const createDisabledVariantStyles = theme => ({
   primary: {
-    buttonColor: DISABLED_BUTTON_COLOR,
-    textColor: DISABLED_TEXT_COLOR,
+    buttonColor: theme.colors.disabledButton || DISABLED_BUTTON_COLOR,
+    textColor: theme.colors.disabledText || DISABLED_TEXT_COLOR,
   },
   secondary: {
-    buttonColor: '#F1F3F6',
-    textColor: DISABLED_TEXT_COLOR,
+    buttonColor: theme.isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F3F6',
+    textColor: theme.colors.disabledText || DISABLED_TEXT_COLOR,
   },
   tonal: {
-    buttonColor: 'rgba(255, 255, 255, 0.08)',
-    textColor: 'rgba(255, 255, 255, 0.42)',
+    buttonColor: theme.isDark
+      ? 'rgba(255, 255, 255, 0.08)'
+      : 'rgba(255, 255, 255, 0.08)',
+    textColor: theme.colors.disabledText || 'rgba(255, 255, 255, 0.42)',
   },
   text: {
     buttonColor: 'transparent',
-    textColor: DISABLED_TEXT_COLOR,
+    textColor: theme.colors.disabledText || DISABLED_TEXT_COLOR,
   },
-};
+});
 
 const AppButton = ({
   children,
@@ -54,11 +62,18 @@ const AppButton = ({
   disabled = false,
   buttonColor,
   textColor,
+  themeMode,
   contentStyle,
   labelStyle,
   style,
   ...props
 }) => {
+  const onboardingTheme = useOnboardingTheme();
+  const theme = themeMode
+    ? resolveOnboardingTheme(themeMode)
+    : onboardingTheme;
+  const variantStyles = createVariantStyles(theme);
+  const disabledVariantStyles = createDisabledVariantStyles(theme);
   const variantStyle = variantStyles[variant] || variantStyles.primary;
   const disabledVariantStyle =
     disabledVariantStyles[variant] || disabledVariantStyles.primary;
@@ -87,7 +102,7 @@ const AppButton = ({
       labelStyle={[
         styles.label,
         labelStyle,
-        disabled && {
+        {
           color: resolvedTextColor,
         },
       ]}

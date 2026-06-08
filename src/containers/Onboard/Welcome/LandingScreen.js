@@ -1,16 +1,16 @@
-import React, {useState} from 'react';
-import {StyleSheet, useWindowDimensions, View} from 'react-native';
+import React, {useMemo, useState} from 'react';
+import {StatusBar, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
-import Colors from '../../../globals/colors';
 import {fontStyle} from '../../../globals/fonts';
 import {VerusLogo} from '../../../images/customIcons';
 import WelcomeBackgroundVideo from '../../../components/WelcomeBackgroundVideo';
 import OnboardingStartSheet from './OnboardingStartSheet';
 import SignedOutNetworkSelector from '../../../components/SignedOutNetworkSelector';
 import {normalizeSetupSelection} from '../onboardingSetupFlow';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const LOGO_ASPECT_RATIO = 2084 / 7305;
 const LOGO_TOP_MARGIN = 22;
@@ -18,8 +18,11 @@ const LOGO_TOP_MARGIN = 22;
 export default function LandingScreen(props) {
   const {width} = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [startSheetVisible, setStartSheetVisible] = useState(false);
   const logoWidth = width * 0.3;
+  const logoVariant = theme.isDark ? 'monochrome' : 'default';
 
   const handleSetupSelection = selection =>
     props.navigation.navigate(
@@ -29,6 +32,11 @@ export default function LandingScreen(props) {
 
   return (
     <View style={styles.container}>
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       <WelcomeBackgroundVideo />
       <SignedOutNetworkSelector
         testProfile={props.testProfile}
@@ -41,7 +49,11 @@ export default function LandingScreen(props) {
             paddingTop: insets.top + LOGO_TOP_MARGIN,
           },
         ]}>
-        <VerusLogo width={logoWidth} height={logoWidth * LOGO_ASPECT_RATIO} />
+        <VerusLogo
+          width={logoWidth}
+          height={logoWidth * LOGO_ASPECT_RATIO}
+          variant={logoVariant}
+        />
       </View>
       <View style={styles.content}>
         <Text style={styles.headline}>
@@ -65,10 +77,10 @@ export default function LandingScreen(props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = theme => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.secondaryColor,
+    backgroundColor: theme.colors.backgroundVideo,
   },
   logoContainer: {
     paddingHorizontal: 32,
@@ -82,7 +94,7 @@ const styles = StyleSheet.create({
   },
   headline: {
     textAlign: 'left',
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 28,
     ...fontStyle('semiBold'),
     lineHeight: 36,

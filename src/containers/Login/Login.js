@@ -9,6 +9,7 @@
 
 import React, {useEffect, useMemo, useState} from 'react';
 import {
+  StatusBar,
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
@@ -16,7 +17,6 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Colors from '../../globals/colors';
 import {fontStyle} from '../../globals/fonts';
 import {VerusLogo} from '../../images/customIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -43,17 +43,19 @@ import UnlockWalletSheet from './components/UnlockWalletSheet';
 import {normalizeWalletAvatar} from '../../utils/walletAvatar';
 import OnboardingStartSheet from '../Onboard/Welcome/OnboardingStartSheet';
 import {normalizeSetupSelection} from '../Onboard/onboardingSetupFlow';
+import {useOnboardingTheme} from '../../theme/onboarding';
 
 const LOGO_ASPECT_RATIO = 2084 / 7305;
 const LOGO_TOP_MARGIN = 22;
 const WALLET_PREVIEW_LIMIT = 3;
 const WALLET_CARD_MIN_HEIGHT = 74;
 const WALLET_CARD_SPACING = 10;
-const DEFAULT_STAR_COLOR = '#F7B500';
 
 const Login = props => {
   const {width} = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const generalWalletSettings = useObjectSelector(
     state => state.settings.generalWalletSettings,
@@ -63,6 +65,7 @@ const Login = props => {
   const [otherOptionsVisible, setOtherOptionsVisible] = useState(false);
   const [unlockAccount, setUnlockAccount] = useState(null);
   const [pendingUnlockAccount, setPendingUnlockAccount] = useState(null);
+  const logoVariant = theme.isDark ? 'monochrome' : 'default';
 
   const selectedNetworkKey = getWalletNetworkKey(props.testProfile === true);
   const selectedNetworkLabel = getWalletNetworkLabel(selectedNetworkKey);
@@ -148,6 +151,8 @@ const Login = props => {
           lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
           onSelectAccount={setUnlockAccount}
           onOpenAllWallets={() => setChooseWalletVisible(true)}
+          styles={styles}
+          theme={theme}
         />
       );
     }
@@ -166,6 +171,8 @@ const Login = props => {
             ]
           }
           onPress={() => setUnlockAccount(sortedDisplayNetworkAccounts[0])}
+          styles={styles}
+          theme={theme}
         />
       );
     }
@@ -176,7 +183,7 @@ const Login = props => {
           <MaterialCommunityIcons
             name="wallet-plus-outline"
             size={30}
-            color={Colors.primaryColor}
+            color={theme.colors.primary}
           />
         </View>
         <Text style={styles.summaryTitle}>
@@ -191,6 +198,11 @@ const Login = props => {
 
   return (
     <View style={styles.container}>
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       <WelcomeBackgroundVideo />
       <SignedOutNetworkSelector
         testProfile={props.testProfile}
@@ -203,22 +215,28 @@ const Login = props => {
             paddingTop: insets.top + LOGO_TOP_MARGIN,
           },
         ]}>
-        <VerusLogo width={logoWidth} height={logoWidth * LOGO_ASPECT_RATIO} />
+        <VerusLogo
+          width={logoWidth}
+          height={logoWidth * LOGO_ASPECT_RATIO}
+          variant={logoVariant}
+        />
       </View>
       <View style={styles.content}>{renderWalletContent()}</View>
       <SafeBottomActionStack gap={10}>
         <AppButton
           onPress={() => setAddWalletVisible(true)}
-          variant="secondary"
+          variant={theme.isDark ? 'tonal' : 'secondary'}
           height={56}
-          buttonColor="rgba(255, 255, 255, 0.72)">
+          buttonColor={theme.isDark ? undefined : 'rgba(255, 255, 255, 0.72)'}>
           {'Add a new wallet'}
         </AppButton>
         <AppButton
           onPress={() => setOtherOptionsVisible(true)}
           variant="text"
           height={52}
-          textColor={Colors.secondaryColor}>
+          textColor={
+            theme.isDark ? theme.colors.textPrimary : theme.colors.onPrimary
+          }>
           {'Other options'}
         </AppButton>
       </SafeBottomActionStack>
@@ -263,6 +281,8 @@ const LoginWalletList = ({
   lastOpenedAccountTimestamps,
   onSelectAccount,
   onOpenAllWallets,
+  styles,
+  theme,
 }) => {
   const previewAccounts = accounts.slice(0, WALLET_PREVIEW_LIMIT);
   const hiddenWalletCount = Math.max(
@@ -285,6 +305,8 @@ const LoginWalletList = ({
             lastOpenedAt={lastOpenedAccountTimestamps[account.accountHash]}
             onPress={() => onSelectAccount(account)}
             style={isLastPreviewCard && styles.walletCardLast}
+            styles={styles}
+            theme={theme}
           />
         );
       })}
@@ -292,13 +314,14 @@ const LoginWalletList = ({
         <ViewAllWalletsButton
           walletCount={accounts.length}
           onPress={onOpenAllWallets}
+          styles={styles}
         />
       )}
     </View>
   );
 };
 
-const ViewAllWalletsButton = ({walletCount, onPress}) => (
+const ViewAllWalletsButton = ({walletCount, onPress, styles}) => (
   <TouchableOpacity
     accessibilityRole="button"
     activeOpacity={0.78}
@@ -310,7 +333,15 @@ const ViewAllWalletsButton = ({walletCount, onPress}) => (
   </TouchableOpacity>
 );
 
-const LoginWalletCard = ({account, isDefault, lastOpenedAt, onPress, style}) => {
+const LoginWalletCard = ({
+  account,
+  isDefault,
+  lastOpenedAt,
+  onPress,
+  style,
+  styles,
+  theme,
+}) => {
   const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
   const lastOpenedLabel = formatLastOpenedLabel(lastOpenedAt);
 
@@ -331,7 +362,7 @@ const LoginWalletCard = ({account, isDefault, lastOpenedAt, onPress, style}) => 
           <MaterialCommunityIcons
             name="wallet-outline"
             size={26}
-            color={Colors.verusDarkGray}
+            color={theme.colors.textSubtle}
           />
         )}
       </View>
@@ -346,16 +377,16 @@ const LoginWalletCard = ({account, isDefault, lastOpenedAt, onPress, style}) => 
       <MaterialCommunityIcons
         name={isDefault ? 'star' : 'chevron-right'}
         size={isDefault ? 22 : 24}
-        color={isDefault ? DEFAULT_STAR_COLOR : Colors.tertiaryColor}
+        color={isDefault ? theme.colors.star : theme.colors.textSubtle}
       />
     </TouchableOpacity>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = theme => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.secondaryColor,
+    backgroundColor: theme.colors.backgroundVideo,
   },
   logoContainer: {
     paddingHorizontal: 32,
@@ -373,7 +404,9 @@ const styles = StyleSheet.create({
   walletCard: {
     minHeight: WALLET_CARD_MIN_HEIGHT,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    backgroundColor: theme.colors.walletCard,
+    borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
+    borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -394,13 +427,13 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   walletCardName: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 19,
     ...fontStyle('semiBold'),
   },
   walletCardMeta: {
     marginTop: 3,
-    color: Colors.verusDarkGray,
+    color: theme.colors.textSubtle,
     fontSize: 12,
     ...fontStyle('regular'),
   },
@@ -410,7 +443,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   viewAllWalletsText: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 16,
     ...fontStyle('semiBold'),
   },
@@ -423,11 +456,13 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: theme.isDark
+      ? theme.colors.surfaceMuted
+      : 'rgba(255, 255, 255, 0.72)',
     marginBottom: 16,
   },
   summaryTitle: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 22,
     textAlign: 'center',
     ...fontStyle('semiBold'),
@@ -435,7 +470,7 @@ const styles = StyleSheet.create({
   summaryText: {
     marginTop: 8,
     maxWidth: 260,
-    color: Colors.quaternaryColor,
+    color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',

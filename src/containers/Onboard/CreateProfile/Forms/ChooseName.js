@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -20,7 +20,8 @@ import {
   normalizeWalletAvatar,
 } from '../../../../utils/walletAvatar';
 import WalletAvatarPickerSheet from './WalletAvatarPickerSheet';
-import {signedOutFlowStyles} from '../../../../styles';
+import {createSignedOutFlowStyles} from '../../../../styles';
+import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const CONTENT_ANIMATION_DURATION = 320;
 
@@ -32,6 +33,11 @@ export default function ChooseName({
   navigation,
   onNext,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
   const [nameError, setNameError] = useState(null);
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const contentProgress = useRef(new Animated.Value(0)).current;

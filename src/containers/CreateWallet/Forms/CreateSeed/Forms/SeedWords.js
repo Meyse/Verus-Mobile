@@ -16,9 +16,9 @@ import {Text} from 'react-native-paper';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
-import Colors from '../../../../../globals/colors';
 import {fontStyle} from '../../../../../globals/fonts';
-import {signedOutFlowStyles} from '../../../../../styles';
+import {createSignedOutFlowStyles} from '../../../../../styles';
+import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
 
 export const WORDS_PER_STEP = 8;
@@ -50,6 +50,12 @@ export default function SeedWords({
   setFormStep: controlledSetFormStep,
   showHeader = true,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const seedWords = useMemo(
     () => (newSeed ? newSeed.split(' ').filter(Boolean) : []),
     [newSeed],
@@ -450,14 +456,15 @@ export default function SeedWords({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 32,
   },
   contextText: {
     marginTop: 10,
-    color: Colors.quaternaryColor,
+    color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 21,
     ...fontStyle('regular'),
@@ -474,20 +481,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    backgroundColor: '#F3F5F8',
+    backgroundColor: theme.colors.surfaceMuted,
     paddingHorizontal: 14,
     marginBottom: 12,
   },
   wordIndex: {
     width: 32,
-    color: '#7A828D',
+    color: theme.colors.textSubtle,
     fontSize: 14,
     lineHeight: 20,
     ...fontStyle('bold'),
   },
   wordText: {
     flex: 1,
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 17,
     lineHeight: 23,
     ...fontStyle('semiBold'),
@@ -505,14 +512,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#DCE1EA',
+    borderColor: theme.colors.border,
     borderRadius: 8,
-    backgroundColor: '#F3F5F8',
+    backgroundColor: theme.colors.surfaceMuted,
   },
   verifyStepChipActive: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: Colors.secondaryColor,
-    shadowColor: Colors.primaryColor,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+    shadowColor: theme.colors.primary,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -522,43 +529,43 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   verifyStepChipComplete: {
-    borderColor: '#D4E1FB',
-    backgroundColor: '#EDF3FF',
+    borderColor: theme.colors.borderStrong,
+    backgroundColor: theme.colors.surfaceRaised,
   },
   verifyStepChipError: {
-    borderColor: Colors.warningButtonColor,
-    backgroundColor: '#FFF1F2',
+    borderColor: theme.colors.danger,
+    backgroundColor: theme.colors.surfaceRaised,
   },
   verifyStepChipText: {
-    color: '#7A828D',
+    color: theme.colors.textSubtle,
     fontSize: 15,
     lineHeight: 20,
     ...fontStyle('semiBold'),
   },
   verifyStepChipTextActive: {
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
   },
   verifyStepChipTextComplete: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
   },
   verifyStepChipTextError: {
-    color: Colors.warningButtonColor,
+    color: theme.colors.danger,
   },
   verifyStepChipWord: {
     maxWidth: '100%',
     marginTop: 1,
     paddingHorizontal: 6,
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 12,
     lineHeight: 16,
     ...fontStyle('semiBold'),
   },
   verifyStepChipWordActive: {
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
   },
   verifyProgressText: {
     marginTop: 14,
-    color: Colors.verusDarkGray,
+    color: theme.colors.textSubtle,
     fontSize: 13,
     lineHeight: 18,
     ...fontStyle('semiBold'),

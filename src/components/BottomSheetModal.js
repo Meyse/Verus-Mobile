@@ -4,6 +4,7 @@ import {Portal} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Colors from '../globals/colors';
 import SemiModal from './SemiModal';
+import {useOnboardingTheme} from '../theme/onboarding';
 
 const OPEN_ANIMATION_DURATION = 230;
 const CLOSE_ANIMATION_DURATION = 160;
@@ -19,6 +20,7 @@ const BottomSheetModal = ({
   ...modalProps
 }) => {
   const insets = useSafeAreaInsets();
+  const theme = useOnboardingTheme();
   const animation = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const renderVisibleRef = useRef(visible);
   const onClosedRef = useRef(onClosed);
@@ -78,13 +80,17 @@ const BottomSheetModal = ({
       marginBottom: bottomSpacing,
       paddingBottom: safeAreaPadding,
       maxHeight,
+      backgroundColor: theme.colors.sheet,
+      borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
+      borderColor: theme.colors.border,
+      shadowColor: theme.colors.shadow,
     },
     contentContainerStyle,
   ]);
   const overlayAnimatedStyle = {
     opacity: animation.interpolate({
       inputRange: [0, 1],
-      outputRange: [0, 0.6],
+      outputRange: [0, theme.colors.scrimOpacity],
     }),
   };
   const sheetAnimatedStyle = {
@@ -110,7 +116,11 @@ const BottomSheetModal = ({
       {renderVisible && (
         <Animated.View
           pointerEvents="none"
-          style={[styles.overlay, overlayAnimatedStyle]}
+          style={[
+            styles.overlay,
+            {backgroundColor: theme.colors.scrim},
+            overlayAnimatedStyle,
+          ]}
         />
       )}
       <SemiModal
@@ -121,6 +131,7 @@ const BottomSheetModal = ({
         flexHeight={0.01}
         contentContainerStyle={sheetStyle}
         sheetAnimatedStyle={sheetAnimatedStyle}
+        modalTheme={theme}
         {...modalProps}
         showHeader={false}
         showOverlay={false}>

@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {View} from 'react-native';
+import {StatusBar, View} from 'react-native';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import ChooseName from './Forms/ChooseName';
 import CreatePassword from './Forms/CreatePassword';
@@ -24,7 +24,8 @@ import ImportSeed from '../../CreateWallet/Forms/ImportWallet/Forms/ImportSeed';
 import ImportText from '../../CreateWallet/Forms/ImportWallet/Forms/ImportText';
 import CompactSetupHeader from '../components/CompactSetupHeader';
 import {DEFAULT_WALLET_AVATAR} from '../../../utils/walletAvatar';
-import {signedOutFlowStyles as styles} from '../../../styles';
+import {createSignedOutFlowStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
   IMPORT_METHODS,
   SETUP_PATHS,
@@ -66,6 +67,8 @@ const shouldCollectImportBeforeProfile = setupSelection =>
     setupSelection.importMethod === IMPORT_METHODS.NFC);
 
 export default function CreateProfileStackScreens(props) {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createSignedOutFlowStyles(theme), [theme]);
   const setupSelection = useMemo(
     () => normalizeSetupSelection(props.route?.params),
     [props.route?.params],
@@ -482,6 +485,10 @@ export default function CreateProfileStackScreens(props) {
 
   return (
     <View style={styles.container}>
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
       <CompactSetupHeader onBack={goBack} progress={progress} />
       {renderStep()}
     </View>

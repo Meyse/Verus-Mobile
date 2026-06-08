@@ -19,9 +19,9 @@ import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
-import Colors from '../../../../../globals/colors';
 import {fontStyle} from '../../../../../globals/fonts';
-import {signedOutFlowStyles} from '../../../../../styles';
+import {createSignedOutFlowStyles} from '../../../../../styles';
+import {useOnboardingTheme} from '../../../../../theme/onboarding';
 
 const SEED_WORD_COUNT = 24;
 const ENGLISH_WORDLIST = wordlists.EN;
@@ -103,7 +103,7 @@ const getNextEditableIndex = (words, invalidIndexes) => {
   return SEED_WORD_COUNT - 1;
 };
 
-const ScrollFade = ({position}) => {
+const ScrollFade = ({position, styles, theme}) => {
   const isTop = position === 'top';
   const gradientId = isTop
     ? 'reviewWordListTopFade'
@@ -121,12 +121,12 @@ const ScrollFade = ({position}) => {
           <LinearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
             <Stop
               offset="0"
-              stopColor={Colors.secondaryColor}
+              stopColor={theme.colors.background}
               stopOpacity={isTop ? 1 : 0}
             />
             <Stop
               offset="1"
-              stopColor={Colors.secondaryColor}
+              stopColor={theme.colors.background}
               stopOpacity={isTop ? 0 : 1}
             />
           </LinearGradient>
@@ -142,6 +142,12 @@ export default function ImportSeed({
   onComplete,
   onImportProgressChange,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [currentWord, setCurrentWord] = useState('');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [entryMessage, setEntryMessage] = useState(null);
@@ -600,8 +606,16 @@ export default function ImportSeed({
                   showsVerticalScrollIndicator={false}>
                   {renderWordGrid()}
                 </ScrollView>
-                {showReviewTopFade ? <ScrollFade position="top" /> : null}
-                {showReviewBottomFade ? <ScrollFade position="bottom" /> : null}
+                {showReviewTopFade ? (
+                  <ScrollFade position="top" styles={styles} theme={theme} />
+                ) : null}
+                {showReviewBottomFade ? (
+                  <ScrollFade
+                    position="bottom"
+                    styles={styles}
+                    theme={theme}
+                  />
+                ) : null}
               </View>
             </Animated.View>
           ) : (
@@ -723,7 +737,8 @@ export default function ImportSeed({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 32,
@@ -776,13 +791,13 @@ const styles = StyleSheet.create({
   },
   contextText: {
     marginTop: 2,
-    color: Colors.quaternaryColor,
+    color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 21,
     ...fontStyle('regular'),
   },
   contextTextWarning: {
-    color: Colors.warningButtonColor,
+    color: theme.colors.danger,
   },
   wordGrid: {
     flexDirection: 'row',
@@ -806,9 +821,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#DCE1EA',
+    borderColor: theme.colors.border,
     borderRadius: 8,
-    backgroundColor: '#F3F5F8',
+    backgroundColor: theme.colors.surfaceMuted,
     paddingHorizontal: 6,
   },
   wordSlotCompact: {
@@ -824,13 +839,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   wordSlotComplete: {
-    borderColor: '#D4E1FB',
-    backgroundColor: '#EDF3FF',
+    borderColor: theme.colors.borderStrong,
+    backgroundColor: theme.colors.surfaceRaised,
   },
   wordSlotActive: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: Colors.secondaryColor,
-    shadowColor: Colors.primaryColor,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+    shadowColor: theme.colors.primary,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -840,22 +855,22 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   wordSlotInvalid: {
-    borderColor: Colors.warningButtonColor,
-    backgroundColor: '#FFF1F2',
+    borderColor: theme.colors.danger,
+    backgroundColor: theme.colors.surfaceRaised,
   },
   wordSlotIndex: {
     width: 28,
-    color: '#7A828D',
+    color: theme.colors.textSubtle,
     fontSize: 13,
     lineHeight: 18,
     ...fontStyle('bold'),
   },
   wordSlotIndexInvalid: {
-    color: Colors.warningButtonColor,
+    color: theme.colors.danger,
   },
   wordSlotText: {
     maxWidth: '100%',
-    color: '#7A828D',
+    color: theme.colors.textSubtle,
     fontSize: 13,
     lineHeight: 18,
     ...fontStyle('semiBold'),
@@ -866,19 +881,19 @@ const styles = StyleSheet.create({
   },
   wordSlotTextReview: {
     flex: 1,
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 14,
     lineHeight: 19,
     ...fontStyle('semiBold'),
   },
   wordSlotTextComplete: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
   },
   wordSlotTextActive: {
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
   },
   wordSlotTextInvalid: {
-    color: Colors.warningButtonColor,
+    color: theme.colors.danger,
   },
   entryPanel: {
     marginTop: 18,
@@ -888,7 +903,7 @@ const styles = StyleSheet.create({
   },
   entryLabel: {
     marginBottom: 10,
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 14,
     lineHeight: 19,
     ...fontStyle('semiBold'),
@@ -914,11 +929,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   suggestionChip: {
-    borderColor: '#D4E1FB',
-    backgroundColor: Colors.secondaryColor,
+    borderColor: theme.colors.borderStrong,
+    backgroundColor: theme.colors.surface,
   },
   suggestionText: {
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
     fontSize: 14,
     ...fontStyle('semiBold'),
   },

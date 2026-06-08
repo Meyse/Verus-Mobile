@@ -2,8 +2,11 @@ import React, {forwardRef, useState} from 'react';
 import {TextInput, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Colors from '../globals/colors';
 import {appTextInputStyles as styles} from '../styles';
+import {
+  resolveOnboardingTheme,
+  useOnboardingTheme,
+} from '../theme/onboarding';
 
 const AppTextInput = forwardRef(function AppTextInput(
   {
@@ -22,19 +25,27 @@ const AppTextInput = forwardRef(function AppTextInput(
     onFocus,
     onRightPress,
     placeholder,
-    placeholderTextColor = '#8E939B',
+    placeholderTextColor,
     rightAccessibilityLabel,
     rightIcon,
-    rightIconColor = Colors.verusDarkGray,
+    rightIconColor,
     secureTextEntry = false,
     supportingTextStyle,
+    themeMode,
     value,
     ...inputProps
   },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  const onboardingTheme = useOnboardingTheme();
+  const theme = themeMode
+    ? resolveOnboardingTheme(themeMode)
+    : onboardingTheme;
   const supportingText = errorText || helperText;
+  const resolvedPlaceholderTextColor =
+    placeholderTextColor || theme.colors.textSubtle;
+  const resolvedRightIconColor = rightIconColor || theme.colors.textSubtle;
 
   const handleBlur = event => {
     setFocused(false);
@@ -48,12 +59,32 @@ const AppTextInput = forwardRef(function AppTextInput(
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label ? <Text style={[styles.label, labelStyle]}>{label}</Text> : null}
+      {label ? (
+        <Text
+          style={[
+            styles.label,
+            {color: theme.colors.textSecondary},
+            labelStyle,
+          ]}>
+          {label}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.inputShell,
+          {
+            backgroundColor: theme.colors.input,
+          },
           focused && styles.inputShellFocused,
+          focused && {
+            borderColor: theme.colors.primary,
+            backgroundColor: theme.colors.inputFocused,
+            shadowColor: theme.colors.primary,
+          },
           errorText && styles.inputShellError,
+          errorText && {
+            borderColor: theme.colors.danger,
+          },
           inputShellStyle,
         ]}>
         {leftAccessory ? (
@@ -67,11 +98,15 @@ const AppTextInput = forwardRef(function AppTextInput(
           onChangeText={onChangeText}
           onFocus={handleFocus}
           placeholder={placeholder}
-          placeholderTextColor={placeholderTextColor}
+          placeholderTextColor={resolvedPlaceholderTextColor}
           secureTextEntry={secureTextEntry}
-          selectionColor={Colors.primaryColor}
+          selectionColor={theme.colors.primary}
           ref={ref}
-          style={[styles.input, inputStyle]}
+          style={[
+            styles.input,
+            {color: theme.colors.textPrimary},
+            inputStyle,
+          ]}
           value={value}
         />
         {rightIcon ? (
@@ -82,7 +117,7 @@ const AppTextInput = forwardRef(function AppTextInput(
             onPress={onRightPress}
             style={styles.rightAction}>
             <MaterialCommunityIcons
-              color={rightIconColor}
+              color={resolvedRightIconColor}
               name={rightIcon}
               size={22}
             />
@@ -93,7 +128,11 @@ const AppTextInput = forwardRef(function AppTextInput(
         <Text
           style={[
             styles.supportingText,
+            {color: theme.colors.textSubtle},
             errorText && styles.errorText,
+            errorText && {
+              color: theme.colors.danger,
+            },
             supportingTextStyle,
           ]}>
           {supportingText}

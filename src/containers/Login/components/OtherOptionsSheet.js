@@ -1,11 +1,11 @@
-import React, {useRef} from 'react';
+import React, {useMemo, useRef} from 'react';
 import {TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {FileClock, KeyRound, ShieldCheck} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../components/BottomSheetModal';
-import Colors from '../../../globals/colors';
-import {signedOutSheetStyles as styles} from '../../../styles';
+import {createSignedOutSheetStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const OTHER_ACTIONS = [
   {
@@ -32,6 +32,8 @@ const OtherOptionsSheet = ({
   onRevokeRecoverVerusId,
   onProvisioningRequests,
 }) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const pendingActionRef = useRef(null);
   const actionHandlers = {
     onRecoverProfileSeed,
@@ -65,6 +67,8 @@ const OtherOptionsSheet = ({
             key={label}
             label={label}
             IconComponent={IconComponent}
+            styles={styles}
+            theme={theme}
             onPress={() => handleAction(actionHandlers[actionKey])}
           />
         ))}
@@ -73,20 +77,20 @@ const OtherOptionsSheet = ({
   );
 };
 
-const OtherActionRow = ({label, IconComponent, onPress}) => (
+const OtherActionRow = ({label, IconComponent, styles, theme, onPress}) => (
   <TouchableOpacity
     accessibilityRole="button"
     activeOpacity={0.74}
     onPress={onPress}
     style={styles.actionRow}>
     <View style={[styles.actionIconContainer, styles.actionIcon]}>
-      <IconComponent size={24} color={Colors.quinaryColor} />
+      <IconComponent size={24} color={theme.colors.textPrimary} />
     </View>
     <Text style={styles.actionLabel}>{label}</Text>
     <MaterialCommunityIcons
       name="chevron-right"
       size={22}
-      color={Colors.tertiaryColor}
+      color={theme.colors.textSubtle}
     />
   </TouchableOpacity>
 );

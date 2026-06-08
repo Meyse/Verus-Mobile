@@ -12,6 +12,7 @@ import CreateProfile from '../../Onboard/CreateProfile/CreateProfile';
 import RevokeRecoverStackScreens from '../RevokeRecoverStackScreens/RevokeRecoverStackScreens';
 import RecoverSeedsStackScreens from '../RecoverSeedsStackScreens/RecoverSeedsStackScreens';
 import ProvisioningDeeplinkList from '../../ProvisioningDeeplinkList/ProvisioningDeeplinkList';
+import {OnboardingThemeProvider} from '../../../theme/onboarding';
 
 const SignedOutStack = createStackNavigator();
 
@@ -36,11 +37,13 @@ const SignedOutStackScreens = props => {
           headerShown: false,
         }}>
         {screenProps => (
-          <Login
-            {...screenProps}
-            testProfile={testProfile}
-            setTestProfile={setTestProfile}
-          />
+          <OnboardingThemeProvider>
+            <Login
+              {...screenProps}
+              testProfile={testProfile}
+              setTestProfile={setTestProfile}
+            />
+          </OnboardingThemeProvider>
         )}
       </SignedOutStack.Screen>
 
@@ -93,10 +96,12 @@ const SignedOutStackScreens = props => {
           headerShown: false,
         }}>
         {screenProps => (
-          <CreateProfile
-            {...screenProps}
-            testProfile={testProfile}
-          />
+          <OnboardingThemeProvider>
+            <CreateProfile
+              {...screenProps}
+              testProfile={testProfile}
+            />
+          </OnboardingThemeProvider>
         )}
       </SignedOutStack.Screen>
 

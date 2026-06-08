@@ -6,6 +6,7 @@ import WelcomeSlider from '../../Onboard/Welcome/WelcomeSlider';
 import CreateProfile from '../../Onboard/CreateProfile/CreateProfile';
 import {useDispatch, useSelector} from 'react-redux';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
+import {OnboardingThemeProvider} from '../../../theme/onboarding';
 
 const SignedOutNoKeyStack = createStackNavigator();
 
@@ -30,11 +31,13 @@ const SignedOutNoKeyStackScreens = props => {
           headerShown: false,
         }}>
         {screenProps => (
-          <LandingScreen
-            {...screenProps}
-            testProfile={testProfile}
-            setTestProfile={setTestProfile}
-          />
+          <OnboardingThemeProvider>
+            <LandingScreen
+              {...screenProps}
+              testProfile={testProfile}
+              setTestProfile={setTestProfile}
+            />
+          </OnboardingThemeProvider>
         )}
       </SignedOutNoKeyStack.Screen>
       <SignedOutNoKeyStack.Screen
@@ -50,10 +53,12 @@ const SignedOutNoKeyStackScreens = props => {
           headerShown: false,
         }}>
         {screenProps => (
-          <CreateProfile
-            {...screenProps}
-            testProfile={testProfile}
-          />
+          <OnboardingThemeProvider>
+            <CreateProfile
+              {...screenProps}
+              testProfile={testProfile}
+            />
+          </OnboardingThemeProvider>
         )}
       </SignedOutNoKeyStack.Screen>
       <SignedOutNoKeyStack.Screen

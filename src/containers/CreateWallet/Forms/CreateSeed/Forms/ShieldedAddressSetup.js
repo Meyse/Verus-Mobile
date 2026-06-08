@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -10,9 +10,9 @@ import {Switch, Text} from 'react-native-paper';
 import {ShieldCheck} from 'lucide-react-native';
 import AppButton from '../../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
-import Colors from '../../../../../globals/colors';
 import {fontStyle} from '../../../../../globals/fonts';
-import {signedOutFlowStyles} from '../../../../../styles';
+import {createSignedOutFlowStyles} from '../../../../../styles';
+import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
 
 const CONTENT_ANIMATION_DURATION = 240;
@@ -29,6 +29,12 @@ export default function ShieldedAddressSetup({
   showHeader = true,
   title = 'Create shielded address',
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [createShieldedAddress, setCreateShieldedAddress] = useState(true);
   const contentProgress = useRef(new Animated.Value(0)).current;
 
@@ -101,7 +107,7 @@ export default function ShieldedAddressSetup({
       <Animated.View style={[signedOutFlowStyles.content, animatedStyle]}>
         <View style={signedOutFlowStyles.form}>
           <ShieldCheck
-            color={Colors.quinaryColor}
+            color={theme.colors.textPrimary}
             size={72}
             strokeWidth={1.8}
             style={styles.icon}
@@ -113,7 +119,7 @@ export default function ShieldedAddressSetup({
           <View style={styles.enabledRow}>
             <Text style={styles.enabledText}>{optionLabel}</Text>
             <Switch
-              color={Colors.verusGreenColor}
+              color={theme.colors.success}
               onValueChange={setCreateShieldedAddress}
               value={createShieldedAddress}
             />
@@ -132,7 +138,8 @@ export default function ShieldedAddressSetup({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   icon: {
     marginBottom: 24,
   },
@@ -146,7 +153,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   enabledText: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 16,
     lineHeight: 22,
     ...fontStyle('semiBold'),

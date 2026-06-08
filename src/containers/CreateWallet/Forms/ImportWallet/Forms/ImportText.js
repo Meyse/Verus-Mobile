@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -16,7 +16,8 @@ import {createAlert} from '../../../../../actions/actions/alert/dispatchers/aler
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
-import {signedOutFlowStyles} from '../../../../../styles';
+import {createSignedOutFlowStyles} from '../../../../../styles';
+import {useOnboardingTheme} from '../../../../../theme/onboarding';
 
 const CONTENT_ANIMATION_DURATION = 320;
 
@@ -25,6 +26,11 @@ export default function ImportText({
   onComplete,
   setImportedSeed,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
   const [showSeed, setShowSeed] = useState(false);
   const contentProgress = useRef(new Animated.Value(0)).current;
 

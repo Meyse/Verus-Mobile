@@ -4,8 +4,8 @@ import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Check, FlaskConical} from 'lucide-react-native';
 import BottomSheetModal from './BottomSheetModal';
-import Colors from '../globals/colors';
 import {fontStyle} from '../globals/fonts';
+import {useOnboardingTheme} from '../theme/onboarding';
 
 const NETWORK_OPTIONS = [
   {
@@ -24,8 +24,13 @@ const MAINNET_ICON_COLOR = '#C6CBD3';
 
 const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
   const insets = useSafeAreaInsets();
+  const theme = useOnboardingTheme();
   const [sheetVisible, setSheetVisible] = useState(false);
-  const iconColor = testProfile ? Colors.verusGreenColor : MAINNET_ICON_COLOR;
+  const iconColor = testProfile
+    ? theme.colors.success
+    : theme.isDark
+      ? theme.colors.textSubtle
+      : MAINNET_ICON_COLOR;
   const selectedNetwork = testProfile ? 'Testnet' : 'Mainnet';
 
   const handleSelectNetwork = nextTestProfile => {
@@ -60,35 +65,49 @@ const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
         onClose={() => setSheetVisible(false)}
         maxHeight="52%">
         <View style={styles.sheetBody}>
-          <Text style={styles.sheetTitle}>{'Wallet network'}</Text>
+          <Text style={[styles.sheetTitle, {color: theme.colors.textPrimary}]}>
+            {'Wallet network'}
+          </Text>
           <View style={styles.options}>
             {NETWORK_OPTIONS.map(option => (
               <NetworkOption
                 key={option.label}
                 label={option.label}
                 selected={testProfile === option.testProfile}
+                theme={theme}
                 onPress={() => handleSelectNetwork(option.testProfile)}
               />
             ))}
           </View>
-          <Text style={styles.warning}>{TESTNET_WARNING}</Text>
+          <Text style={[styles.warning, {color: theme.colors.textSubtle}]}>
+            {TESTNET_WARNING}
+          </Text>
         </View>
       </BottomSheetModal>
     </>
   );
 };
 
-const NetworkOption = ({label, selected, onPress}) => (
+const NetworkOption = ({label, selected, theme, onPress}) => (
   <TouchableOpacity
     accessibilityRole="button"
     accessibilityState={{selected}}
     activeOpacity={0.74}
     onPress={onPress}
-    style={[styles.optionRow, selected && styles.selectedOptionRow]}>
-    <Text style={styles.optionLabel}>{label}</Text>
+    style={[
+      styles.optionRow,
+      {
+        backgroundColor: selected
+          ? theme.colors.successBackground
+          : theme.colors.surfaceMuted,
+      },
+    ]}>
+    <Text style={[styles.optionLabel, {color: theme.colors.textPrimary}]}>
+      {label}
+    </Text>
     <View style={styles.checkContainer}>
       {selected && (
-        <Check color={Colors.verusGreenColor} size={20} strokeWidth={2.4} />
+        <Check color={theme.colors.success} size={20} strokeWidth={2.4} />
       )}
     </View>
   </TouchableOpacity>
@@ -109,7 +128,6 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
   },
   sheetTitle: {
-    color: Colors.quaternaryColor,
     fontSize: 18,
     ...fontStyle('semiBold'),
     marginBottom: 12,
@@ -125,12 +143,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F4F6FA',
   },
-  selectedOptionRow: {
-    backgroundColor: '#EEF7F0',
-  },
   optionLabel: {
     flex: 1,
-    color: Colors.quaternaryColor,
     fontSize: 16,
     ...fontStyle('semiBold'),
   },
@@ -142,7 +156,6 @@ const styles = StyleSheet.create({
   },
   warning: {
     marginTop: 16,
-    color: Colors.verusDarkGray,
     fontSize: 13,
     lineHeight: 18,
     ...fontStyle('regular'),

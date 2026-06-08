@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -8,16 +8,15 @@ import AppTextInput from '../../../components/AppTextInput';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import WalletAvatar from '../../../components/WalletAvatar';
-import Colors from '../../../globals/colors';
 import {fontStyle} from '../../../globals/fonts';
-import {signedOutSheetStyles} from '../../../styles';
+import {createSignedOutSheetStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 import {getBiometricPassword} from '../../../utils/keychain/biometrics';
 import {getSupportedBiometryType} from '../../../utils/keychain/keychain';
 import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
 
 const BIOMETRY_UNAVAILABLE_MESSAGE =
   'Biometric unlock is unavailable. Enter your password to continue.';
-const DEFAULT_STAR_COLOR = '#F7B500';
 const PASSWORD_AUTO_FOCUS_DELAY_MS = 260;
 
 const formatErrorMessage = error => {
@@ -56,6 +55,12 @@ const UnlockWalletSheet = ({
   onClose,
   onUnlocked,
 }) => {
+  const theme = useOnboardingTheme();
+  const signedOutSheetStyles = useMemo(
+    () => createSignedOutSheetStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [password, setPassword] = useState('');
   const [makeDefaultAccount, setMakeDefaultAccount] =
     useState(isDefaultAccount);
@@ -244,7 +249,7 @@ const UnlockWalletSheet = ({
                 <MaterialCommunityIcons
                   name="wallet-outline"
                   size={26}
-                  color={Colors.primaryColor}
+                  color={theme.colors.primary}
                 />
               )}
             </View>
@@ -267,7 +272,7 @@ const UnlockWalletSheet = ({
               name={defaultStarActive ? 'star' : 'star-outline'}
               size={28}
               color={
-                defaultStarActive ? DEFAULT_STAR_COLOR : Colors.verusDarkGray
+                defaultStarActive ? theme.colors.star : theme.colors.textSubtle
               }
             />
           </TouchableOpacity>
@@ -315,7 +320,7 @@ const UnlockWalletSheet = ({
                 <MaterialCommunityIcons
                   name="fingerprint"
                   size={24}
-                  color={Colors.primaryColor}
+                  color={theme.colors.primary}
                 />
                 <Text style={styles.biometryActionText}>
                   {getBiometryLabel(supportedBiometryType)}
@@ -339,7 +344,8 @@ const UnlockWalletSheet = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   header: {
     minHeight: 50,
     flexDirection: 'row',
@@ -361,11 +367,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    backgroundColor: '#EEF3FF',
+    backgroundColor: theme.colors.surfaceMuted,
   },
   walletName: {
     flex: 1,
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 22,
     ...fontStyle('semiBold'),
   },
@@ -377,7 +383,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     marginTop: 8,
-    color: Colors.warningButtonColor,
+    color: theme.colors.danger,
     fontSize: 13,
     ...fontStyle('regular'),
   },
@@ -392,7 +398,7 @@ const styles = StyleSheet.create({
   },
   biometryActionText: {
     marginLeft: 10,
-    color: Colors.primaryColor,
+    color: theme.colors.primary,
     fontSize: 15,
     ...fontStyle('semiBold'),
   },

@@ -9,10 +9,11 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import Colors from '../../../globals/colors';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const CompactSetupHeader = ({onBack, progress = 0.25}) => {
   const insets = useSafeAreaInsets();
+  const theme = useOnboardingTheme();
   const clampedProgress = Math.max(0, Math.min(progress, 1));
   const animatedProgress = useRef(new Animated.Value(clampedProgress)).current;
   const progressWidth = useMemo(
@@ -70,6 +71,8 @@ const CompactSetupHeader = ({onBack, progress = 0.25}) => {
           paddingTop: insets.top + 16,
           paddingLeft: insets.left + 24,
           paddingRight: insets.right + 24,
+          backgroundColor: theme.colors.background,
+          borderBottomColor: theme.colors.border,
         },
       ]}>
       <View style={styles.actionRow}>
@@ -80,14 +83,26 @@ const CompactSetupHeader = ({onBack, progress = 0.25}) => {
           onPress={onBack}
           style={styles.backButton}>
           <MaterialCommunityIcons
-            color={Colors.quaternaryColor}
+            color={theme.colors.textPrimary}
             name="arrow-left"
             size={24}
           />
         </TouchableOpacity>
       </View>
-      <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, {width: progressWidth}]} />
+      <View
+        style={[
+          styles.progressTrack,
+          {backgroundColor: theme.colors.surfaceMuted},
+        ]}>
+        <Animated.View
+          style={[
+            styles.progressFill,
+            {
+              width: progressWidth,
+              backgroundColor: theme.colors.primary,
+            },
+          ]}
+        />
       </View>
     </View>
   );
@@ -96,9 +111,7 @@ const CompactSetupHeader = ({onBack, progress = 0.25}) => {
 const styles = StyleSheet.create({
   container: {
     paddingBottom: 14,
-    backgroundColor: Colors.secondaryColor,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F3',
   },
   actionRow: {
     flexDirection: 'row',
@@ -121,7 +134,6 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: Colors.primaryColor,
   },
 });
 

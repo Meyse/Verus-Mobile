@@ -1,32 +1,40 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import Video from 'react-native-video';
-import Colors from '../globals/colors';
+import {useOnboardingTheme} from '../theme/onboarding';
 
 const welcomeWavesBackground = require('../../assets/videos/verus-waves-blur-slower-smooth.mp4');
 
-const WelcomeBackgroundVideo = () => (
-  <View pointerEvents="none" style={styles.container}>
-    <Video
-      source={welcomeWavesBackground}
-      style={StyleSheet.absoluteFill}
-      resizeMode="cover"
-      repeat
-      muted
-      paused={false}
-      playInBackground={false}
-      playWhenInactive={false}
-      ignoreSilentSwitch="obey"
-      disableFocus
-    />
-    <View style={styles.veil} />
-  </View>
-);
+const WelcomeBackgroundVideo = () => {
+  const theme = useOnboardingTheme();
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.container,
+        {backgroundColor: theme.colors.backgroundVideo},
+      ]}>
+      <Video
+        source={welcomeWavesBackground}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        repeat
+        muted
+        paused={false}
+        playInBackground={false}
+        playWhenInactive={false}
+        ignoreSilentSwitch="obey"
+        disableFocus
+      />
+      <View style={[styles.veil, {backgroundColor: theme.colors.videoVeil}]} />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.secondaryColor,
   },
   veil: {
     ...StyleSheet.absoluteFillObject,

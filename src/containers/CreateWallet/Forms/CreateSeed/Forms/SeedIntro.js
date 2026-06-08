@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -11,12 +11,12 @@ import {ClipboardCheck, ShieldCheck} from 'lucide-react-native';
 import AppButton from '../../../../../components/AppButton';
 import BottomSheetModal from '../../../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
-import Colors from '../../../../../globals/colors';
 import {fontStyle} from '../../../../../globals/fonts';
 import {
-  signedOutFlowStyles,
-  signedOutSheetStyles,
+  createSignedOutFlowStyles,
+  createSignedOutSheetStyles,
 } from '../../../../../styles';
+import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
 
 const GUIDANCE = [
@@ -40,6 +40,16 @@ export default function SeedIntro({
   onBack,
   showHeader = true,
 }) {
+  const theme = useOnboardingTheme();
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
+    [theme],
+  );
+  const signedOutSheetStyles = useMemo(
+    () => createSignedOutSheetStyles(theme),
+    [theme],
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [loading, setLoading] = useState(false);
   const [warningVisible, setWarningVisible] = useState(false);
   const contentProgress = useRef(new Animated.Value(0)).current;
@@ -175,7 +185,7 @@ export default function SeedIntro({
             {GUIDANCE.map(item => (
               <View key={item.key} style={styles.guidanceRow}>
                 <item.IconComponent
-                  color={Colors.verusDarkGray}
+                  color={theme.colors.textSubtle}
                   size={28}
                   strokeWidth={2.1}
                 />
@@ -225,7 +235,8 @@ export default function SeedIntro({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = theme =>
+  StyleSheet.create({
   title: {
     marginBottom: 24,
   },
@@ -239,13 +250,13 @@ const styles = StyleSheet.create({
   },
   guidanceText: {
     flex: 1,
-    color: Colors.quaternaryColor,
+    color: theme.colors.textSecondary,
     fontSize: 16,
     lineHeight: 24,
     ...fontStyle('regular'),
   },
   guidanceTextEmphasis: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     ...fontStyle('semiBold'),
   },
   warningSheet: {
@@ -254,7 +265,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   warningTitle: {
-    color: Colors.quinaryColor,
+    color: theme.colors.textPrimary,
     fontSize: 21,
     lineHeight: 27,
     ...fontStyle('semiBold'),
