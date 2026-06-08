@@ -84,6 +84,8 @@ class SemiModal extends Component {
           visible={this.props.visible}
           onRequestClose={effectiveOnRequestClose}
           onDismiss={effectiveOnRequestClose}
+          avoidKeyboard={this.props.avoidKeyboard}
+          keyboardVerticalOffset={this.props.keyboardVerticalOffset}
         >
           <TouchableWithoutFeedback onPress={effectiveOnRequestClose}>
             <View style={{ flex: 1 }} />

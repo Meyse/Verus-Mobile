@@ -7,11 +7,13 @@ const SafeBottomActionStack = ({
   bottomSpacing = 30,
   gap = 4,
   horizontalSpacing = 32,
+  includeBottomInset = true,
   safeAreaSpacing = 12,
   style,
 }) => {
   const insets = useSafeAreaInsets();
-  const paddingBottom = Math.max(insets.bottom + safeAreaSpacing, bottomSpacing);
+  const bottomInset = includeBottomInset ? insets.bottom : 0;
+  const paddingBottom = Math.max(bottomInset + safeAreaSpacing, bottomSpacing);
 
   return (
     <View

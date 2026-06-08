@@ -1,0 +1,152 @@
+import React, {useState} from 'react';
+import {StyleSheet, TouchableOpacity, View} from 'react-native';
+import {Text} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {Check, FlaskConical} from 'lucide-react-native';
+import BottomSheetModal from './BottomSheetModal';
+import Colors from '../globals/colors';
+import {fontStyle} from '../globals/fonts';
+
+const NETWORK_OPTIONS = [
+  {
+    label: 'Mainnet',
+    testProfile: false,
+  },
+  {
+    label: 'Testnet',
+    testProfile: true,
+  },
+];
+
+const TESTNET_WARNING =
+  'Testnet assets have no value and may disappear when networks reset.';
+const MAINNET_ICON_COLOR = '#C6CBD3';
+
+const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
+  const insets = useSafeAreaInsets();
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const iconColor = testProfile ? Colors.verusGreenColor : MAINNET_ICON_COLOR;
+  const selectedNetwork = testProfile ? 'Testnet' : 'Mainnet';
+
+  const handleSelectNetwork = nextTestProfile => {
+    if (typeof setTestProfile === 'function') {
+      setTestProfile(nextTestProfile);
+    }
+
+    setSheetVisible(false);
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Wallet network: ${selectedNetwork}`}
+        accessibilityHint="Open wallet network selector"
+        activeOpacity={0.72}
+        hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+        onPress={() => setSheetVisible(true)}
+        style={[
+          styles.trigger,
+          {
+            top: insets.top + 16,
+            right: insets.right + 22,
+          },
+        ]}>
+        <FlaskConical color={iconColor} size={24} strokeWidth={2.2} />
+      </TouchableOpacity>
+
+      <BottomSheetModal
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        maxHeight="52%">
+        <View style={styles.sheetBody}>
+          <Text style={styles.sheetTitle}>{'Wallet network'}</Text>
+          <View style={styles.options}>
+            {NETWORK_OPTIONS.map(option => (
+              <NetworkOption
+                key={option.label}
+                label={option.label}
+                selected={testProfile === option.testProfile}
+                onPress={() => handleSelectNetwork(option.testProfile)}
+              />
+            ))}
+          </View>
+          <Text style={styles.warning}>{TESTNET_WARNING}</Text>
+        </View>
+      </BottomSheetModal>
+    </>
+  );
+};
+
+const NetworkOption = ({label, selected, onPress}) => (
+  <TouchableOpacity
+    accessibilityRole="button"
+    accessibilityState={{selected}}
+    activeOpacity={0.74}
+    onPress={onPress}
+    style={[styles.optionRow, selected && styles.selectedOptionRow]}>
+    <Text style={styles.optionLabel}>{label}</Text>
+    <View style={styles.checkContainer}>
+      {selected && (
+        <Check color={Colors.verusGreenColor} size={20} strokeWidth={2.4} />
+      )}
+    </View>
+  </TouchableOpacity>
+);
+
+const styles = StyleSheet.create({
+  trigger: {
+    position: 'absolute',
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBody: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 22,
+  },
+  sheetTitle: {
+    color: Colors.quaternaryColor,
+    fontSize: 18,
+    ...fontStyle('semiBold'),
+    marginBottom: 12,
+  },
+  options: {
+    gap: 8,
+  },
+  optionRow: {
+    minHeight: 56,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F6FA',
+  },
+  selectedOptionRow: {
+    backgroundColor: '#EEF7F0',
+  },
+  optionLabel: {
+    flex: 1,
+    color: Colors.quaternaryColor,
+    fontSize: 16,
+    ...fontStyle('semiBold'),
+  },
+  checkContainer: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warning: {
+    marginTop: 16,
+    color: Colors.verusDarkGray,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
+  },
+});
+
+export default SignedOutNetworkSelector;

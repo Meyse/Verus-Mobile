@@ -5,7 +5,11 @@
 
 import React, { Component } from "react";
 import { connect } from 'react-redux';
-import { Modal as NativeModal } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Modal as NativeModal,
+  Platform
+} from 'react-native'
 import getUid from '../utils/uid'
 import { PUSH_MODAL, REMOVE_MODAL } from "../utils/constants/storeType";
 
@@ -48,15 +52,31 @@ class Modal extends Component {
   }
 
   render() {
+    const {
+      avoidKeyboard,
+      children,
+      keyboardVerticalOffset,
+      ...modalProps
+    } = this.props;
+    const modalChildren = avoidKeyboard ? (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={keyboardVerticalOffset || 0}
+        style={{ flex: 1 }}
+      >
+        {children}
+      </KeyboardAvoidingView>
+    ) : children;
+
     return (
       <NativeModal
-        {...this.props}
+        {...modalProps}
         visible={
           this.props.visible &&
           this.props.modalStack[this.props.modalStack.length - 1] === this.uid
         }
       >
-        {this.props.children}
+        {modalChildren}
       </NativeModal>
     );
   }
