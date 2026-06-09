@@ -22,9 +22,14 @@ export const initializeAccountData = async (
   password,
   makeDefault = false,
   setInitStep = () => {},
+  alertOnFail = true,
 ) => {
   setInitStep(VALIDATING_ACCOUNT);
-  const accountAuthenticator = await validateLogin(account, password);
+  const accountAuthenticator = await validateLogin(
+    account,
+    password,
+    alertOnFail,
+  );
 
   if (accountAuthenticator) {
     setInitStep(LOADING_ACCOUNT);
@@ -153,7 +158,8 @@ export const refreshAccountData = async (
   accountHash,
   password,
   makeDefault = false,
-  setInitStep = () => {}
+  setInitStep = () => {},
+  alertOnFail = true,
 ) => {
   await clearActiveAccountLifecycles();
   store.dispatch(await fetchUsers())
@@ -168,6 +174,7 @@ export const refreshAccountData = async (
     newAccount,
     password,
     makeDefault,
-    setInitStep
+    setInitStep,
+    alertOnFail,
   );
 };

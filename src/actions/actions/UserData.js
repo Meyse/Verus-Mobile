@@ -377,9 +377,9 @@ export const authenticateAccount = async (account, password) => {
   });
 };
 
-export const validateLogin = (account, password) => {
+export const validateLogin = (account, password, alertOnFail = true) => {
   return new Promise((resolve, reject) => {
-    checkPinForUser(password, account.id, true, true)
+    checkPinForUser(password, account.id, alertOnFail, true)
       .then(() => {
         return authenticateAccount(account, password);
       })
@@ -388,7 +388,9 @@ export const validateLogin = (account, password) => {
       })
       .catch(err => {
         reject(err);
-        console.warn(err);
+        if (alertOnFail || !err || err.message !== 'Incorrect password') {
+          console.warn(err);
+        }
       });
   });
 };

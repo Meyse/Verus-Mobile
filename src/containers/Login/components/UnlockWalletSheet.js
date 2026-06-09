@@ -13,23 +13,23 @@ import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
-import {LOADING_ACCOUNT} from '../../../utils/constants/constants';
 import {getBiometricPassword} from '../../../utils/keychain/biometrics';
 import {getSupportedBiometryType} from '../../../utils/keychain/keychain';
 import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
 
 const BIOMETRY_UNAVAILABLE_MESSAGE =
   'Biometric unlock is unavailable. Enter your password to continue.';
-const PASSWORD_UNLOCK_LOADING_TITLE = 'Opening wallet';
-const BIOMETRIC_UNLOCK_LOADING_TITLE = 'Unlocking with biometrics';
-const ACCOUNT_DATA_LOADING_TITLE = 'Loading wallet data';
-const DEFAULT_LOADING_SUBTITLE =
-  'Keep this screen open while Verus Mobile prepares your wallet.';
 const PASSWORD_AUTO_FOCUS_DELAY_MS = 260;
-const UNLOCK_METHOD = {
-  PASSWORD: 'password',
-  BIOMETRICS: 'biometrics',
-};
+const PASSWORD_FIELD_HEIGHT = 83;
+const UNLOCK_BUTTON_HEIGHT = 56;
+const PASSWORD_BUTTON_TOP_MARGIN = 16;
+const BIOMETRY_ACTION_TOTAL_HEIGHT = 78;
+const PASSWORD_ONLY_CONTENT_HEIGHT =
+  PASSWORD_FIELD_HEIGHT + PASSWORD_BUTTON_TOP_MARGIN + UNLOCK_BUTTON_HEIGHT;
+const BIOMETRY_CONTENT_HEIGHT =
+  PASSWORD_FIELD_HEIGHT + BIOMETRY_ACTION_TOTAL_HEIGHT + UNLOCK_BUTTON_HEIGHT;
+const LOADING_DOT_INTERVAL_MS = 300;
+const LOADING_MESSAGE = 'Unlocking your wallet';
 
 const formatErrorMessage = error => {
   const message =
@@ -37,6 +37,9 @@ const formatErrorMessage = error => {
 
   return /[.!?]$/.test(message) ? message : `${message}.`;
 };
+
+const isIncorrectPasswordError = error =>
+  error && error.message === 'Incorrect password';
 
 const getBiometryLabel = supportedBiometryType => {
   const displayName = supportedBiometryType
@@ -60,26 +63,12 @@ const getDefaultAccessibilityLabel = (isDefaultAccount, defaultStarActive) => {
   return 'Make default after unlock';
 };
 
-const getLoadingTitle = (initStep, unlockMethod, loadingTitle) => {
-  if (initStep === LOADING_ACCOUNT) {
-    return ACCOUNT_DATA_LOADING_TITLE;
-  }
-
-  if (unlockMethod === UNLOCK_METHOD.BIOMETRICS) {
-    return BIOMETRIC_UNLOCK_LOADING_TITLE;
-  }
-
-  return loadingTitle || PASSWORD_UNLOCK_LOADING_TITLE;
-};
-
 const UnlockWalletSheet = ({
   visible,
   account,
   isDefaultAccount,
   title,
   requestLabel,
-  loadingTitle,
-  loadingSubtitle = DEFAULT_LOADING_SUBTITLE,
   makeDefaultAllowed = true,
   useRefreshAccountData = false,
   closeOnUnlocked = true,
@@ -96,8 +85,7 @@ const UnlockWalletSheet = ({
   const [makeDefaultAccount, setMakeDefaultAccount] =
     useState(isDefaultAccount);
   const [loading, setLoading] = useState(false);
-  const [initStep, setInitStep] = useState(null);
-  const [unlockMethod, setUnlockMethod] = useState(null);
+  const [loadingDotCount, setLoadingDotCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
   const [biometryAttempted, setBiometryAttempted] = useState(false);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
@@ -125,9 +113,9 @@ const UnlockWalletSheet = ({
   useEffect(() => {
     if (visible) {
       setPassword('');
+      setLoading(false);
+      setLoadingDotCount(0);
       setErrorMessage(null);
-      setInitStep(null);
-      setUnlockMethod(null);
       setMakeDefaultAccount(isDefaultAccount);
       setBiometryAttempted(false);
       setSupportedBiometryType(null);
@@ -135,20 +123,27 @@ const UnlockWalletSheet = ({
     }
   }, [account ? account.accountHash : null, isDefaultAccount, visible]);
 
+  useEffect(() => {
+    if (!loading || !visible) {
+      setLoadingDotCount(0);
+      return undefined;
+    }
+
+    const dotInterval = setInterval(() => {
+      setLoadingDotCount(value => (value + 1) % 4);
+    }, LOADING_DOT_INTERVAL_MS);
+
+    return () => clearInterval(dotInterval);
+  }, [loading, visible]);
+
   const tryUnlockAccount = useCallback(
-    async (
-      key,
-      nextMakeDefault = makeDefaultAccount,
-      nextUnlockMethod = UNLOCK_METHOD.PASSWORD,
-    ) => {
+    async (key, nextMakeDefault = makeDefaultAccount) => {
       if (!account || !key || loading) {
         return;
       }
 
       setLoading(true);
       setErrorMessage(null);
-      setInitStep(null);
-      setUnlockMethod(nextUnlockMethod);
       Keyboard.dismiss();
 
       try {
@@ -157,18 +152,18 @@ const UnlockWalletSheet = ({
             account.accountHash,
             key,
             nextMakeDefault,
-            setInitStep,
+            undefined,
+            false,
           );
         } else {
           await initializeAccountData(
             account,
             key,
             nextMakeDefault,
-            setInitStep,
+            undefined,
+            false,
           );
         }
-
-        setLoading(false);
 
         if (typeof onUnlocked === 'function') {
           onUnlocked(account);
@@ -178,10 +173,11 @@ const UnlockWalletSheet = ({
           onClose();
         }
       } catch (e) {
-        console.warn(e);
+        if (!isIncorrectPasswordError(e)) {
+          console.warn(e);
+        }
+
         setLoading(false);
-        setInitStep(null);
-        setUnlockMethod(null);
         setErrorMessage(formatErrorMessage(e));
       }
     },
@@ -223,11 +219,7 @@ const UnlockWalletSheet = ({
 
         if (biometricPassword != null) {
           setPassword(biometricPassword);
-          await tryUnlockAccount(
-            biometricPassword,
-            makeDefaultAccount,
-            UNLOCK_METHOD.BIOMETRICS,
-          );
+          await tryUnlockAccount(biometricPassword, makeDefaultAccount);
         } else {
           if (showFailureMessage) {
             setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
@@ -305,11 +297,9 @@ const UnlockWalletSheet = ({
   );
   const disabled = password.length === 0 || loading || !account;
   const showBiometryAction = !!(displayAccount && displayAccount.biometry);
-  const resolvedLoadingTitle = getLoadingTitle(
-    initStep,
-    unlockMethod,
-    loadingTitle,
-  );
+  const loadingContentHeight = showBiometryAction
+    ? BIOMETRY_CONTENT_HEIGHT
+    : PASSWORD_ONLY_CONTENT_HEIGHT;
 
   return (
     <BottomSheetModal
@@ -372,18 +362,20 @@ const UnlockWalletSheet = ({
           )}
         </View>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <View style={styles.loadingPanel}>
-              <View style={styles.loadingSpinnerContainer}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              </View>
-              <View style={styles.loadingTextContainer}>
-                <Text style={styles.loadingTitle}>{resolvedLoadingTitle}</Text>
-                {loadingSubtitle ? (
-                  <Text style={styles.loadingSubtitle}>
-                    {loadingSubtitle}
-                  </Text>
-                ) : null}
+          <View
+            style={[
+              styles.loadingContainer,
+              {height: loadingContentHeight},
+            ]}>
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="small" color={theme.colors.textSubtle} />
+              <View style={styles.loadingMessageRow}>
+                <Text numberOfLines={1} style={styles.loadingMessage}>
+                  {LOADING_MESSAGE}
+                </Text>
+                <Text style={styles.loadingDots}>
+                  {'.'.repeat(loadingDotCount)}
+                </Text>
               </View>
             </View>
           </View>
@@ -391,6 +383,7 @@ const UnlockWalletSheet = ({
           <>
             <AppTextInput
               ref={passwordInputRef}
+              themeMode={theme.mode}
               returnKeyType="done"
               label="Password"
               value={password}
@@ -434,6 +427,7 @@ const UnlockWalletSheet = ({
               </TouchableOpacity>
             )}
             <AppButton
+              themeMode={theme.mode}
               onPress={() => tryUnlockAccount(password)}
               disabled={disabled}
               height={56}
@@ -531,47 +525,32 @@ const createStyles = theme =>
     marginTop: 16,
   },
   loadingContainer: {
-    minHeight: 136,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingPanel: {
-    width: '100%',
-    minHeight: 82,
-    borderRadius: 14,
-    borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceRaised,
+  loadingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  loadingMessageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    marginTop: 12,
   },
-  loadingSpinnerContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    backgroundColor: theme.colors.surfaceMuted,
+  loadingMessage: {
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'center',
+    ...fontStyle('semiBold'),
   },
-  loadingTextContainer: {
-    minWidth: 0,
-    flex: 1,
-  },
-  loadingTitle: {
+  loadingDots: {
+    width: 18,
     color: theme.colors.textPrimary,
     fontSize: 15,
     lineHeight: 20,
     ...fontStyle('semiBold'),
-  },
-  loadingSubtitle: {
-    marginTop: 3,
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    ...fontStyle('regular'),
   },
 });
 
