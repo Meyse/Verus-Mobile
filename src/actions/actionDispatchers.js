@@ -28,3 +28,4 @@ export * from './actions/widgets/dispatchers/widgets'
 
 // Loading modal
 export * from './actions/loadingModal/dispatchers/loadingModal'
+export * from './actions/walletUnlock/dispatchers/walletUnlock'

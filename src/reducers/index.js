@@ -34,6 +34,7 @@ import { sendModal } from './sendModal';
 import { loadingModal } from './loadingModal';
 import { secureLoading } from './secureLoading';
 import { deeplink } from './deeplink';
+import { walletUnlock } from './walletUnlock';
 
 
 export default combineReducers({
@@ -71,5 +72,6 @@ export default combineReducers({
   sendModal,
   loadingModal,
   secureLoading,
-  deeplink
+  deeplink,
+  walletUnlock
 });

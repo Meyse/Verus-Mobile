@@ -43,6 +43,7 @@ import { initInstance } from "./utils/auth/authBox";
 import { SecureStorage } from "./utils/keychain/secureStore";
 import StartupCover from "./components/StartupCover";
 import { OnboardingThemeProvider } from "./theme/onboarding";
+import WalletUnlockCoordinator from "./components/WalletUnlockCoordinator";
 
 class VerusMobile extends React.Component {
   constructor(props) {
@@ -202,6 +203,9 @@ class VerusMobile extends React.Component {
           <AlertModal />
           {this.props.sendModal.type != null && <SendModal />}
           {this.props.loadingModal.visible && <LoadingModal />}
+          <OnboardingThemeProvider>
+            <WalletUnlockCoordinator />
+          </OnboardingThemeProvider>
           <NavigationContainer>
             <RootStackScreens
               hasAccount={this.props.accountsLength > 0}
