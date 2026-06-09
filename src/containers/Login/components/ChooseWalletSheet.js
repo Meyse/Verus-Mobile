@@ -9,6 +9,7 @@ import {
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
+import BiometricAffordanceIcon from '../../../components/BiometricAffordanceIcon';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
@@ -30,6 +31,7 @@ const ChooseWalletSheet = ({
   accounts,
   defaultAccountHash,
   lastOpenedAccountTimestamps = {},
+  supportedBiometryType,
   networkLabel,
   onSelectAccount,
   onSetDefaultAccount,
@@ -96,6 +98,7 @@ const ChooseWalletSheet = ({
                 account={item}
                 isDefault={item.accountHash === defaultAccountHash}
                 lastOpenedAt={lastOpenedAccountTimestamps[item.accountHash]}
+                supportedBiometryType={supportedBiometryType}
                 onSelect={() => onSelectAccount(item)}
                 onSetDefault={
                   typeof onSetDefaultAccount === 'function'
@@ -133,6 +136,7 @@ const WalletRow = ({
   account,
   isDefault,
   lastOpenedAt,
+  supportedBiometryType,
   onSelect,
   onSetDefault,
   styles,
@@ -141,6 +145,10 @@ const WalletRow = ({
   const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
   const showDefaultAction = typeof onSetDefault === 'function';
   const lastOpenedLabel = formatLastOpenedLabel(lastOpenedAt);
+  const showBiometryAffordance =
+    account.biometry &&
+    supportedBiometryType != null &&
+    supportedBiometryType.biometry;
 
   return (
     <View style={styles.row}>
@@ -177,11 +185,13 @@ const WalletRow = ({
             </Text>
           </View>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={22}
-          color={theme.colors.textSubtle}
-        />
+        {showBiometryAffordance && (
+          <BiometricAffordanceIcon
+            supportedBiometryType={supportedBiometryType}
+            color={theme.colors.textSecondary}
+            size={22}
+          />
+        )}
       </TouchableOpacity>
       {showDefaultAction && (
         <TouchableOpacity

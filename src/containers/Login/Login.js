@@ -21,6 +21,7 @@ import {fontStyle} from '../../globals/fonts';
 import {VerusLogo} from '../../images/customIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../components/AppButton';
+import BiometricAffordanceIcon from '../../components/BiometricAffordanceIcon';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import WelcomeBackgroundVideo from '../../components/WelcomeBackgroundVideo';
 import WalletAvatar from '../../components/WalletAvatar';
@@ -44,6 +45,7 @@ import {normalizeWalletAvatar} from '../../utils/walletAvatar';
 import OnboardingStartSheet from '../Onboard/Welcome/OnboardingStartSheet';
 import {normalizeSetupSelection} from '../Onboard/onboardingSetupFlow';
 import {useOnboardingTheme} from '../../theme/onboarding';
+import {getSupportedBiometryType} from '../../utils/keychain/keychain';
 
 const LOGO_ASPECT_RATIO = 2084 / 7305;
 const LOGO_TOP_MARGIN = 22;
@@ -65,6 +67,7 @@ const Login = props => {
   const [otherOptionsVisible, setOtherOptionsVisible] = useState(false);
   const [unlockAccount, setUnlockAccount] = useState(null);
   const [pendingUnlockAccount, setPendingUnlockAccount] = useState(null);
+  const [supportedBiometryType, setSupportedBiometryType] = useState(null);
   const logoVariant = theme.isDark ? 'monochrome' : 'default';
 
   const selectedNetworkKey = getWalletNetworkKey(props.testProfile === true);
@@ -110,6 +113,26 @@ const Login = props => {
     setPendingUnlockAccount(null);
   }, [selectedNetworkKey]);
 
+  useEffect(() => {
+    let active = true;
+
+    getSupportedBiometryType()
+      .then(result => {
+        if (active) {
+          setSupportedBiometryType(result);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSupportedBiometryType(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSetupSelection = selection =>
     props.navigation.navigate(
       'CreateProfile',
@@ -149,6 +172,7 @@ const Login = props => {
           accounts={sortedDisplayNetworkAccounts}
           defaultAccountHash={defaultAccountHash}
           lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
+          supportedBiometryType={supportedBiometryType}
           onSelectAccount={setUnlockAccount}
           onOpenAllWallets={() => setChooseWalletVisible(true)}
           styles={styles}
@@ -170,6 +194,7 @@ const Login = props => {
               sortedDisplayNetworkAccounts[0].accountHash
             ]
           }
+          supportedBiometryType={supportedBiometryType}
           onPress={() => setUnlockAccount(sortedDisplayNetworkAccounts[0])}
           styles={styles}
           theme={theme}
@@ -249,6 +274,7 @@ const Login = props => {
         accounts={sortedDisplayNetworkAccounts}
         defaultAccountHash={defaultAccountHash}
         lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
+        supportedBiometryType={supportedBiometryType}
         networkLabel={selectedNetworkLabel}
         onSelectAccount={handleChooseWalletAccount}
       />
@@ -269,6 +295,7 @@ const LoginWalletList = ({
   accounts,
   defaultAccountHash,
   lastOpenedAccountTimestamps,
+  supportedBiometryType,
   onSelectAccount,
   onOpenAllWallets,
   styles,
@@ -293,6 +320,7 @@ const LoginWalletList = ({
             account={account}
             isDefault={isDefault}
             lastOpenedAt={lastOpenedAccountTimestamps[account.accountHash]}
+            supportedBiometryType={supportedBiometryType}
             onPress={() => onSelectAccount(account)}
             style={isLastPreviewCard && styles.walletCardLast}
             styles={styles}
@@ -327,6 +355,7 @@ const LoginWalletCard = ({
   account,
   isDefault,
   lastOpenedAt,
+  supportedBiometryType,
   onPress,
   style,
   styles,
@@ -334,6 +363,10 @@ const LoginWalletCard = ({
 }) => {
   const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
   const lastOpenedLabel = formatLastOpenedLabel(lastOpenedAt);
+  const showBiometryAffordance =
+    account.biometry &&
+    supportedBiometryType != null &&
+    supportedBiometryType.biometry;
 
   return (
     <TouchableOpacity
@@ -364,11 +397,19 @@ const LoginWalletCard = ({
           {lastOpenedLabel}
         </Text>
       </View>
-      <MaterialCommunityIcons
-        name={isDefault ? 'star' : 'chevron-right'}
-        size={isDefault ? 22 : 24}
-        color={isDefault ? theme.colors.star : theme.colors.textSubtle}
-      />
+      {isDefault ? (
+        <MaterialCommunityIcons
+          name="star"
+          size={22}
+          color={theme.colors.star}
+        />
+      ) : showBiometryAffordance ? (
+        <BiometricAffordanceIcon
+          supportedBiometryType={supportedBiometryType}
+          color={theme.colors.textSecondary}
+          size={22}
+        />
+      ) : null}
     </TouchableOpacity>
   );
 };
