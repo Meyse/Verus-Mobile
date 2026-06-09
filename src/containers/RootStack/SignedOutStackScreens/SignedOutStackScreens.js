@@ -13,14 +13,18 @@ import RevokeRecoverStackScreens from '../RevokeRecoverStackScreens/RevokeRecove
 import RecoverSeedsStackScreens from '../RecoverSeedsStackScreens/RecoverSeedsStackScreens';
 import ProvisioningDeeplinkList from '../../ProvisioningDeeplinkList/ProvisioningDeeplinkList';
 import {OnboardingThemeProvider} from '../../../theme/onboarding';
+import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 
 const SignedOutStack = createStackNavigator();
 
 const SignedOutStackScreens = props => {
   const deeplinkId = useSelector(state => state.deeplink.id);
   const deeplinkUrl = useSelector(state => state.deeplink.url);
+  const activeAccount = useSelector(state => state.authentication.activeAccount);
   const dispatch = useDispatch();
-  const [testProfile, setTestProfile] = useState(false);
+  const [testProfile, setTestProfile] = useState(() =>
+    accountIsTestnet(activeAccount),
+  );
 
   useEffect(() => {
     if (deeplinkId != null && deeplinkUrl != null) {

@@ -14,7 +14,6 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Platform,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   View,
@@ -22,21 +21,24 @@ import {
 import {Button, Portal, Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {CommonActions} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import Colors from '../../../globals/colors';
 import {
-  openAuthenticateUserModal,
   openLinkIdentityModal,
   openProvisionIdentityModal,
 } from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import {
-  AUTHENTICATE_USER_SEND_MODAL,
   LINK_IDENTITY_SEND_MODAL,
   SEND_MODAL_IDENTITY_TO_LINK_FIELD,
-  SEND_MODAL_USER_ALLOWLIST,
 } from '../../../utils/constants/sendModal';
+import {
+  requestWalletUnlock,
+  WALLET_UNLOCK_CANCELLED,
+} from '../../../actions/actionDispatchers';
 import {
   createAlert,
   resolveAlert,
@@ -71,6 +73,7 @@ import VerusIdAtIcon from '../../../images/customIcons/verusid-at-icon.svg';
 import { authenticationRequestInfoStyles as styles } from '../../../styles';
 import IdentityPickerSheet from './components/IdentityPickerSheet';
 import { markPendingDeeplinkComplete } from '../../../utils/deeplink/pendingDeeplinkStorage';
+import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 
 const truncateAddress = addr => {
   if (!addr || addr.length <= 14) return addr;
@@ -137,9 +140,7 @@ const AuthenticationRequestInfo = props => {
   } = props;
 
   const [details, setDetails] = useState(new AuthenticationRequestDetails());
-  const [loading, setLoading] = useState(false);
   const [sigDateString, setSigDateString] = useState(null);
-  const [waitingForSignin, setWaitingForSignin] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] =
     useState(null);
   const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({});
@@ -180,13 +181,14 @@ const AuthenticationRequestInfo = props => {
     Platform.OS === 'android' ? 24 : 0,
   );
   const footerBottomPadding = 16 + bottomNavigationInset;
-  const isTestAccount =
-    activeAccount && Object.keys(activeAccount.testnetOverrides).length > 0;
+  const isTestAccount = accountIsTestnet(activeAccount);
   const encryptedIds = useObjectSelector(
     state => state.services.stored[VERUSID_SERVICE_ID],
   );
 
   const requestIsTestnet = request != null && request.isTestnet();
+  const activeAccountMatchesRequest =
+    signedIn && activeAccount != null && isTestAccount === requestIsTestnet;
   const defaultRootChainId = requestIsTestnet
     ? ROOT_CHAIN_BY_NETWORK.testnet
     : ROOT_CHAIN_BY_NETWORK.mainnet;
@@ -594,7 +596,7 @@ const AuthenticationRequestInfo = props => {
   };
 
   const handleContinue = async () => {
-    if (signedIn) {
+    if (activeAccountMatchesRequest) {
       if (!selectedIdentity) {
         handleOpenIdentitySheet();
         return;
@@ -607,64 +609,40 @@ const AuthenticationRequestInfo = props => {
       }
 
       return;
-    } else {
-      setWaitingForSignin(true);
-      const allowList = getAllowList();
+    }
 
-      if (allowList.length > 0) {
-        const data = {
-          [SEND_MODAL_USER_ALLOWLIST]: allowList,
-        };
+    const allowList = getAllowList();
 
-        openAuthenticateUserModal(data);
-      } else {
+    if (allowList.length === 0) {
+      createAlert(
+        'Cannot continue',
+        `No ${
+          requestIsTestnet ? 'testnet' : 'mainnet'
+        } profiles found, cannot respond to authentication request.`,
+      );
+      return;
+    }
+
+    try {
+      await requestWalletUnlock({
+        reason: 'authentication-request',
+        title: signedIn
+          ? 'Switch wallet to continue'
+          : 'Unlock wallet to continue',
+        requestLabel: 'Authentication request',
+        accountHashes: allowList.map(account => account.accountHash),
+        makeDefaultAllowed: true,
+        networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
+      });
+    } catch (e) {
+      if (e?.code !== WALLET_UNLOCK_CANCELLED) {
         createAlert(
           'Cannot continue',
-          `No ${
-            requestIsTestnet ? 'testnet' : 'mainnet'
-          } profiles found, cannot respond to authentication request.`,
+          e?.message || 'Unable to unlock wallet.',
         );
       }
     }
   };
-
-  const wrongRequestType = isTestRequest => {
-    createAlert(
-      isTestRequest ? 'Testnet Request' : 'Mainnet Request',
-      `This request was created for ${
-        isTestRequest ? 'testnet' : 'mainnet'
-      }, but you are using a ${
-        isTestRequest ? 'mainnet' : 'testnet'
-      } profile. Please logout, select a ${
-        isTestRequest ? 'testnet' : 'mainnet'
-      } profile, and retry this request to continue.`,
-      [
-        {
-          text: 'Ok',
-          onPress: () => {
-            cancel();
-            resolveAlert(true);
-          },
-        },
-      ],
-      {
-        cancelable: false,
-      },
-    );
-  };
-
-  useEffect(() => {
-    // After unlocking via auth modal, return to this screen and wait for
-    // explicit user action (tap "Select VerusID") instead of auto-opening
-    // the picker sheet.
-    if (
-      signedIn &&
-      waitingForSignin &&
-      sendModalType !== AUTHENTICATE_USER_SEND_MODAL
-    ) {
-      setWaitingForSignin(false);
-    }
-  }, [signedIn, waitingForSignin, sendModalType]);
 
   useEffect(() => {
     if (!idProvisionSuccess && sendModal.data?.success) {
@@ -728,23 +706,6 @@ const AuthenticationRequestInfo = props => {
     pendingDeeplinkId,
     props.navigation,
   ]);
-
-  useEffect(() => {
-    if (sendModalType != AUTHENTICATE_USER_SEND_MODAL) {
-      setLoading(false);
-    } else setLoading(true);
-  }, [sendModalType]);
-
-  useEffect(() => {
-    if (signedIn && request != null) {
-      if (
-        (isTestAccount && !requestIsTestnet) ||
-        (!isTestAccount && requestIsTestnet)
-      ) {
-        wrongRequestType(requestIsTestnet);
-      }
-    }
-  }, [signedIn, requestIsTestnet, isTestAccount]);
 
   const expiryLabel = getExpiryLabel();
   const constraints =
@@ -996,6 +957,7 @@ const AuthenticationRequestInfo = props => {
   useEffect(() => {
     if (passthroughHandled) return;
     if (!signedIn) return;
+    if (!activeAccountMatchesRequest) return;
     if (!(passthrough && passthrough.fqnToAutoLink)) return;
     if (requiredSystemIds.length > 0 && !requiredSystemsResolved) return;
 
@@ -1010,6 +972,7 @@ const AuthenticationRequestInfo = props => {
   }, [
     passthroughHandled,
     signedIn,
+    activeAccountMatchesRequest,
     passthrough,
     responseUris,
     linkChainId,
@@ -1107,7 +1070,7 @@ const AuthenticationRequestInfo = props => {
 
   const hasRequirements = constraintRows.length > 0;
   const hasTechnicalDetails = technicalRows.length > 0;
-  const showIdentityPrompt = signedIn && !selectedIdentity;
+  const showIdentityPrompt = activeAccountMatchesRequest && !selectedIdentity;
   const hasAnyLinkedIdentity = useMemo(() => {
     return Object.keys(linkedIds).some(
       chainId => Object.keys(linkedIds[chainId] || {}).length > 0,
@@ -1137,21 +1100,22 @@ const AuthenticationRequestInfo = props => {
     (requiredSystemIds.length === 0 || requiredSystemsResolved) &&
     (requiredParentIds.size === 0 || linkedIdentityParentsLoaded);
   const shouldShowRequestNewAsPrimary =
-    signedIn &&
+    activeAccountMatchesRequest &&
     eligibilityReady &&
     !selectedIdentity &&
     canProvision &&
     !hasMatchingIdentity;
   const shouldShowLinkAsPrimary =
-    signedIn &&
+    activeAccountMatchesRequest &&
     eligibilityReady &&
     !selectedIdentity &&
     !canProvision &&
     !hasMatchingIdentity;
   const showRequestAsSecondaryAction =
     canProvision && !shouldShowRequestNewAsPrimary;
-  const showSecondaryActionRail = signedIn && !selectedIdentity;
-  const primaryActionLabel = signedIn
+  const showSecondaryActionRail =
+    activeAccountMatchesRequest && !selectedIdentity;
+  const primaryActionLabel = activeAccountMatchesRequest
     ? selectedIdentity
       ? 'Continue'
       : shouldShowRequestNewAsPrimary
@@ -1159,7 +1123,9 @@ const AuthenticationRequestInfo = props => {
       : shouldShowLinkAsPrimary
       ? 'Link VerusID'
       : 'Select VerusID'
-    : 'Sign in';
+    : signedIn
+    ? 'Switch wallet'
+    : 'Unlock wallet';
   const primaryActionHandler = shouldShowRequestNewAsPrimary
     ? openProvisionIdentityModalFromChain
     : shouldShowLinkAsPrimary
@@ -1170,11 +1136,9 @@ const AuthenticationRequestInfo = props => {
       ? 'Accept or create your new VerusID'
       : getMainTitle();
   const hideIdentitySelector =
-    (linkedIdsLoaded && !hasAnyLinkedIdentity) || !signedIn;
+    (linkedIdsLoaded && !hasAnyLinkedIdentity) || !activeAccountMatchesRequest;
 
-  return loading ? (
-    <AnimatedActivityIndicatorBox />
-  ) : (
+  return (
     <SafeAreaView style={styles.container}>
       <Portal>
         {verusIdDetailsModalProps != null && (
@@ -1253,9 +1217,11 @@ const AuthenticationRequestInfo = props => {
                 showIdentityPrompt && styles.targetCardActionNeeded,
                 selectedIdentity && styles.targetCardSelected,
               ]}
-              onPress={signedIn ? handleOpenIdentitySheet : undefined}
-              activeOpacity={signedIn ? 0.7 : 1}
-              disabled={!signedIn}>
+              onPress={
+                activeAccountMatchesRequest ? handleOpenIdentitySheet : undefined
+              }
+              activeOpacity={activeAccountMatchesRequest ? 0.7 : 1}
+              disabled={!activeAccountMatchesRequest}>
               <View style={styles.targetRow}>
                 <View style={styles.targetIconContainer}>
                   <VerusIdAtIcon width={24} height={24} fill="#3165D4" />
@@ -1270,12 +1236,12 @@ const AuthenticationRequestInfo = props => {
                   <Text style={styles.targetAddress}>
                     {selectedIdentity
                       ? truncateAddress(selectedIdentity.iAddress)
-                      : signedIn
+                      : activeAccountMatchesRequest
                       ? 'Required to continue'
-                      : 'Sign in to select identity'}
+                      : 'Unlock wallet to select identity'}
                   </Text>
                 </View>
-                {signedIn && (
+                {activeAccountMatchesRequest && (
                   <MaterialCommunityIcons
                     name="chevron-right"
                     size={22}
@@ -1288,7 +1254,12 @@ const AuthenticationRequestInfo = props => {
         )}
 
         {hasRequirements && (
-          <View style={ hideIdentitySelector ? { ...styles.sectionCard, marginTop: 12 } : styles.sectionCard }>
+          <View
+            style={
+              hideIdentitySelector
+                ? {...styles.sectionCard, marginTop: 12}
+                : styles.sectionCard
+            }>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
                 <MaterialCommunityIcons
@@ -1372,7 +1343,7 @@ const AuthenticationRequestInfo = props => {
             </Text>
           </View>
         )}
-        {!signedIn && (
+        {!activeAccountMatchesRequest && (
           <View style={styles.simpleInfoRow}>
             <MaterialCommunityIcons
               name="information-outline"
@@ -1380,13 +1351,13 @@ const AuthenticationRequestInfo = props => {
               color="#6B7280"
             />
             <Text style={styles.simpleInfoText}>
-              Sign in first, then select identity.
+              {signedIn
+                ? 'Switch wallet first, then select identity.'
+                : 'Unlock wallet first, then select identity.'}
             </Text>
           </View>
         )}
-        {!signedIn && (
-          <View style={{height: 8}} />
-        )}
+        {!activeAccountMatchesRequest && <View style={{height: 8}} />}
         <View style={{height: 24}} />
       </ScrollView>
 
@@ -1429,7 +1400,9 @@ const AuthenticationRequestInfo = props => {
           </Button>
         </View>
         <View style={styles.ctaCol}>
-          <GradientButton onPress={primaryActionHandler} style={styles.primaryCta}>
+          <GradientButton
+            onPress={primaryActionHandler}
+            style={styles.primaryCta}>
             {primaryActionLabel}
           </GradientButton>
         </View>
