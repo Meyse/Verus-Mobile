@@ -8,6 +8,7 @@ import {
   SET_PENDING_VERUSIDS,
 } from '../../utils/constants/storeType';
 import VrpcProvider from '../../utils/vrpc/vrpcInterface';
+import { ENABLE_VRPC } from '../../../env/index';
 
 export default function* verusidSaga() {
   yield all([
@@ -34,6 +35,8 @@ function* handleVerusidChannelClose(action) {
 }
 
 function* handleSignOut() {
+  if (ENABLE_VRPC) return;
+
   VrpcProvider.deleteAllEndpoints();
   
   setImmediate(() => {

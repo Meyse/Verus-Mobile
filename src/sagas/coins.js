@@ -70,7 +70,7 @@ function* handleFinishSetUserCoins(action) {
         ? setVrpcChannels(Object.keys(watchedAddresses[coinObj.id]), false)
         : [];
       
-      allNewChannels = [...(new Set([...verusIdChannels, ...vrpcChannels]))];
+      allNewChannels.push(...verusIdChannels, ...vrpcChannels);
 
       coinStatus[coinObj.id] = PRE_DATA;
       allSubWallets[coinObj.id] = getDefaultSubWallets(
@@ -94,7 +94,7 @@ function* handleFinishSetUserCoins(action) {
   yield put({
     type: LOG_NEW_CHANNELS,
     payload: {
-      channels: allNewChannels
+      channels: [...new Set(allNewChannels)]
     },
   });
 }

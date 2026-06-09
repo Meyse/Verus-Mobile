@@ -294,13 +294,10 @@ class VrpcInterface {
     const id = VrpcInterface.getEndpointId(systemId, endpoint);
 
     try {
-      if (!endpoints[id])
-        throw new Error(
-          'Cannot delete uninitialized endpoint ' +
-            endpoint +
-            ' for systemId ' +
-            systemId,
-        );
+      if (!endpoints[id]) {
+        delete this.endpointConnections[id];
+        return;
+      }
 
       this.endEndpointConnection(id);
 
@@ -324,6 +321,7 @@ class VrpcInterface {
     Store.dispatch({type: CLEAR_VRPC_ENDPOINTS});
     this.systemEndpointIds = {};
     this.cacheInterfaces = {};
+    this.endpointConnections = {};
   };
 
   getEndpoint = systemId => {

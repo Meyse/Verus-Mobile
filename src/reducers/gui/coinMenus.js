@@ -15,6 +15,28 @@ import {
   SIGN_OUT_COMPLETE
 } from '../../utils/constants/storeType'
 
+const reconcileActiveSubWallets = (activeSubWallets, allSubWallets) => {
+  const nextActiveSubWallets = {};
+  const subWalletsByChain = allSubWallets || {};
+
+  for (const chainTicker of Object.keys(activeSubWallets)) {
+    const selectedSubWallet = activeSubWallets[chainTicker];
+
+    if (selectedSubWallet == null) {
+      nextActiveSubWallets[chainTicker] = selectedSubWallet;
+      continue;
+    }
+
+    const matchingSubWallet = (subWalletsByChain[chainTicker] || []).find(
+      subWallet => subWallet.id === selectedSubWallet.id,
+    );
+
+    nextActiveSubWallets[chainTicker] = matchingSubWallet || null;
+  }
+
+  return nextActiveSubWallets;
+};
+
 export const coinMenus = (state = {
   activeSubWallets: {},
   allSubWallets: {},
@@ -29,7 +51,11 @@ export const coinMenus = (state = {
     case SET_USER_COINS_COMPLETE:
       return {
         ...state,
-        allSubWallets: action.payload.allSubWallets,
+        allSubWallets: action.payload.allSubWallets || {},
+        activeSubWallets: reconcileActiveSubWallets(
+          state.activeSubWallets,
+          action.payload.allSubWallets,
+        ),
       };
     case DISABLE_CLAIM_BUTTON:
       return {

@@ -18,7 +18,7 @@ import {
  } from '../../actions/actionCreators'
 import { getKeyByValue } from '../../utils/objectManip'
 import { CommonActions } from '@react-navigation/native';
-import { clearActiveAccountLifecycles, clearAllCoinIntervals } from "../../actions/actionDispatchers";
+import { clearAllCoinIntervals } from "../../actions/actionDispatchers";
 import { renderSideMenu } from "./SideMenu.render";
 import { createAlert, resolveAlert } from "../../actions/actions/alert/dispatchers/alert";
 
@@ -204,7 +204,6 @@ class SideMenu extends Component {
         // TODO: Find a more elegant solution
         return new Promise((resolve, reject) => {
           setTimeout(async () => {
-            await clearActiveAccountLifecycles()
             this.props.dispatch(signOut())
             resolve()
           }, 1000)

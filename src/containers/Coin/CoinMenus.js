@@ -27,7 +27,7 @@ class CoinMenus extends Component {
   constructor(props) {
     super(props);
     let stateObj = this.generateTabs();
-    const subWallets = props.allSubWallets;
+    const subWallets = Array.isArray(props.allSubWallets) ? props.allSubWallets : [];
 
     //CoinMenus can be passed data, which will be passed to
     //the app section components as props
@@ -37,8 +37,7 @@ class CoinMenus extends Component {
       tabs: stateObj.tabs,
       activeTab: stateObj.activeTab,
       activeTabIndex: stateObj.activeTabIndex,
-      subWallets,
-      filteredSubWallets: null,
+      filteredTabKey: null,
     };
 
     if (subWallets.length == 1)
@@ -63,15 +62,40 @@ class CoinMenus extends Component {
     }
 
     if (
+      lastProps.allSubWallets !== this.props.allSubWallets ||
+      lastProps.selectedSubWallet !== this.props.selectedSubWallet
+    ) {
+      this.selectOnlySubWallet();
+    }
+
+    if (
       lastProps.selectedSubWallet != this.props.selectedSubWallet &&
-      this.state.filteredSubWallets != null &&
+      this.state.filteredTabKey != null &&
       this.props.selectedSubWallet != null
     ) {
       this.setState({
-        filteredSubWallets: null,
+        filteredTabKey: null,
       });
     }
   }
+
+  getSubWallets = () => {
+    return Array.isArray(this.props.allSubWallets) ? this.props.allSubWallets : [];
+  };
+
+  getSubWalletsForTab = (tabKey) => {
+    return this.getSubWallets().filter((wallet) =>
+      wallet.compatible_apps.includes(tabKey)
+    );
+  };
+
+  selectOnlySubWallet = () => {
+    const subWallets = this.getSubWallets();
+
+    if (this.props.selectedSubWallet == null && subWallets.length == 1) {
+      this.props.dispatch(setCoinSubWallet(this.props.activeCoin.id, subWallets[0]));
+    }
+  };
 
   generateTabs = () => {
     let tabArray = [];
@@ -148,14 +172,12 @@ class CoinMenus extends Component {
   };
 
   findCompatibleSubwallet = (tabKey) => {
-    const subwalletsForTab = this.state.subWallets.filter((wallet) =>
-      wallet.compatible_apps.includes(tabKey)
-    );
+    const subwalletsForTab = this.getSubWalletsForTab(tabKey);
 
     if (subwalletsForTab.length > 0) {
       this.setState(
         {
-          filteredSubWallets: subwalletsForTab,
+          filteredTabKey: tabKey,
         },
         () => this.props.dispatch(setCoinSubWallet(this.props.activeCoin.id, null))
       );
@@ -182,7 +204,11 @@ class CoinMenus extends Component {
   //bug comes up and it seems like a bug in rn
   render() {
     const { selectedSubWallet, activeCoin } = this.props;
-    const { subWallets, filteredSubWallets } = this.state;
+    const subWallets = this.getSubWallets();
+    const filteredSubWallets =
+      this.state.filteredTabKey == null
+        ? null
+        : this.getSubWalletsForTab(this.state.filteredTabKey);
 
     return (
       <Portal.Host>
@@ -223,10 +249,9 @@ const mapStateToProps = (state) => {
     coinMenuFocused: state.coins.coinMenuFocused,
     selectedSubWallet:
       state.coinMenus.activeSubWallets[state.coins.activeCoin.id],
-    allSubWallets: state.coinMenus.allSubWallets[state.coins.activeCoin.id],
+    allSubWallets: state.coinMenus.allSubWallets[state.coins.activeCoin.id] || [],
     services: state.services
   };
 };
 
 export default connect(mapStateToProps)(withNavigationFocus(CoinMenus));
-

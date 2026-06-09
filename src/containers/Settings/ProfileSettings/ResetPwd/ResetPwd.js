@@ -24,7 +24,6 @@ import Styles from '../../../../styles/index'
 import Colors from '../../../../globals/colors';
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import { CommonActions } from "@react-navigation/native";
-import { clearActiveAccountLifecycles } from "../../../../actions/actionDispatchers";
 import { removeBiometricPassword } from "../../../../utils/keychain/biometrics";
 
 const passwordAutofillProps = {
@@ -115,7 +114,6 @@ class ResetPwd extends Component {
         // TODO: Find a more elegant solution
         return new Promise((resolve, reject) => {
           setTimeout(async () => {
-            await clearActiveAccountLifecycles()
             this.props.dispatch(signOut())
             resolve()
           }, 1000)
