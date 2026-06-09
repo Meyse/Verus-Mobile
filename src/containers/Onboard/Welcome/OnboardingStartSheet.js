@@ -323,7 +323,9 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
                   disabled={isTransitioning}
                   onPress={() => transitionToMode(SHEET_MODES.START)}
                   style={localStyles.backButton}>
-                  <ChevronLeft size={22} color={theme.colors.textPrimary} />
+                  <View style={styles.actionIcon}>
+                    <ChevronLeft size={22} color={theme.colors.textPrimary} />
+                  </View>
                 </TouchableOpacity>
               </Animated.View>
             ) : null}
