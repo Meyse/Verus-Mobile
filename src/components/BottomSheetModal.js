@@ -4,7 +4,10 @@ import {Portal} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Colors from '../globals/colors';
 import SemiModal from './SemiModal';
-import {useOnboardingTheme} from '../theme/onboarding';
+import {
+  OnboardingThemeProvider,
+  useOnboardingTheme,
+} from '../theme/onboarding';
 
 const OPEN_ANIMATION_DURATION = 230;
 const CLOSE_ANIMATION_DURATION = 160;
@@ -135,7 +138,9 @@ const BottomSheetModal = ({
         {...modalProps}
         showHeader={false}
         showOverlay={false}>
-        {children}
+        <OnboardingThemeProvider modeOverride={theme.mode}>
+          {children}
+        </OnboardingThemeProvider>
       </SemiModal>
     </Portal>
   );

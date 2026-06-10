@@ -93,7 +93,7 @@ class SemiModal extends Component {
           transparent={true}
           visible={this.props.visible}
           onRequestClose={effectiveOnRequestClose}
-          onDismiss={effectiveOnRequestClose}
+          onDismiss={this.props.onDismiss}
           avoidKeyboard={this.props.avoidKeyboard}
           keyboardVerticalOffset={this.props.keyboardVerticalOffset}
         >

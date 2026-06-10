@@ -17,6 +17,24 @@ import {
 } from '../utils/account/accountNetwork';
 import {getSupportedBiometryType} from '../utils/keychain/keychain';
 
+const FLOW_IDLE = 'idle';
+const FLOW_CHOOSING = 'choosing';
+const FLOW_UNLOCKING = 'unlocking';
+
+const createWalletUnlockDisplaySnapshot = walletUnlock => ({
+  requestId: walletUnlock.requestId,
+  title: walletUnlock.title,
+  requestLabel: walletUnlock.requestLabel,
+  accountHashes: Array.isArray(walletUnlock.accountHashes)
+    ? [...walletUnlock.accountHashes]
+    : walletUnlock.accountHashes,
+  preferredAccountHash: walletUnlock.preferredAccountHash,
+  makeDefaultAllowed: walletUnlock.makeDefaultAllowed,
+  loadingTitle: walletUnlock.loadingTitle,
+  loadingSubtitle: walletUnlock.loadingSubtitle,
+  networkLabel: walletUnlock.networkLabel,
+});
+
 const WalletUnlockCoordinator = () => {
   const walletUnlock = useObjectSelector(state => state.walletUnlock);
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -27,10 +45,16 @@ const WalletUnlockCoordinator = () => {
     state => state.settings.generalWalletSettings,
   );
   const signedIn = useSelector(state => state.authentication.signedIn);
+  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [flowStep, setFlowStep] = useState(FLOW_IDLE);
   const [chooseWalletVisible, setChooseWalletVisible] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [pendingUnlockAccount, setPendingUnlockAccount] = useState(null);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
+  const [walletUnlockSnapshot, setWalletUnlockSnapshot] = useState(null);
+  const displayWalletUnlock = walletUnlock.visible
+    ? walletUnlock
+    : walletUnlockSnapshot || walletUnlock;
 
   const lastOpenedAccountTimestamps = useMemo(
     () =>
@@ -40,7 +64,7 @@ const WalletUnlockCoordinator = () => {
     [generalWalletSettings.lastOpenedAccountTimestamps],
   );
   const eligibleAccounts = useMemo(() => {
-    const accountHashes = walletUnlock.accountHashes;
+    const accountHashes = displayWalletUnlock.accountHashes;
 
     if (!Array.isArray(accountHashes) || accountHashes.length === 0) {
       return accounts;
@@ -51,18 +75,19 @@ const WalletUnlockCoordinator = () => {
         accounts.find(account => account.accountHash === accountHash),
       )
       .filter(Boolean);
-  }, [accounts, walletUnlock.accountHashes]);
+  }, [accounts, displayWalletUnlock.accountHashes]);
   const preferredAccount = useMemo(() => {
-    if (!walletUnlock.preferredAccountHash) {
+    if (!displayWalletUnlock.preferredAccountHash) {
       return null;
     }
 
     return (
       eligibleAccounts.find(
-        account => account.accountHash === walletUnlock.preferredAccountHash,
+        account =>
+          account.accountHash === displayWalletUnlock.preferredAccountHash,
       ) || null
     );
-  }, [eligibleAccounts, walletUnlock.preferredAccountHash]);
+  }, [displayWalletUnlock.preferredAccountHash, eligibleAccounts]);
   const walletNetworkKey = selectedAccount
     ? getAccountNetworkKey(selectedAccount)
     : eligibleAccounts.length > 0
@@ -118,27 +143,70 @@ const WalletUnlockCoordinator = () => {
   }, []);
 
   useEffect(() => {
+    if (!walletUnlock.visible || !walletUnlock.requestId) {
+      return;
+    }
+
+    setWalletUnlockSnapshot(createWalletUnlockDisplaySnapshot(walletUnlock));
+  }, [walletUnlock]);
+
+  useEffect(() => {
     if (!walletUnlock.visible) {
+      setActiveRequestId(null);
+      setFlowStep(FLOW_IDLE);
       setChooseWalletVisible(false);
       setSelectedAccount(null);
       setPendingUnlockAccount(null);
       return;
     }
 
+    if (!walletUnlock.requestId) {
+      return;
+    }
+
+    if (activeRequestId === walletUnlock.requestId) {
+      if (eligibleAccounts.length === 0) {
+        cancelWalletUnlock(walletUnlock.requestId);
+        return;
+      }
+
+      if (
+        flowStep === FLOW_UNLOCKING &&
+        selectedAccount != null &&
+        !eligibleAccounts.some(
+          account => account.accountHash === selectedAccount.accountHash,
+        )
+      ) {
+        cancelWalletUnlock(walletUnlock.requestId);
+      }
+
+      return;
+    }
+
     if (sortedEligibleAccounts.length === 1) {
+      setActiveRequestId(walletUnlock.requestId);
+      setFlowStep(FLOW_UNLOCKING);
       setChooseWalletVisible(false);
       setSelectedAccount(sortedEligibleAccounts[0]);
+      setPendingUnlockAccount(null);
       return;
     }
 
     if (sortedEligibleAccounts.length > 1) {
+      setActiveRequestId(walletUnlock.requestId);
+      setFlowStep(FLOW_CHOOSING);
       setSelectedAccount(null);
+      setPendingUnlockAccount(null);
       setChooseWalletVisible(true);
       return;
     }
 
     cancelWalletUnlock(walletUnlock.requestId);
   }, [
+    activeRequestId,
+    eligibleAccounts,
+    flowStep,
+    selectedAccount,
     sortedEligibleAccounts,
     walletUnlock.requestId,
     walletUnlock.visible,
@@ -156,9 +224,21 @@ const WalletUnlockCoordinator = () => {
   };
 
   const handleChooseWalletClosed = () => {
-    if (pendingUnlockAccount != null) {
+    if (walletUnlock.visible && pendingUnlockAccount != null) {
+      setFlowStep(FLOW_UNLOCKING);
       setSelectedAccount(pendingUnlockAccount);
       setPendingUnlockAccount(null);
+      return;
+    }
+
+    if (!walletUnlock.visible) {
+      setWalletUnlockSnapshot(null);
+    }
+  };
+
+  const handleUnlockWalletClosed = () => {
+    if (!walletUnlock.visible) {
+      setWalletUnlockSnapshot(null);
     }
   };
 
@@ -171,31 +251,40 @@ const WalletUnlockCoordinator = () => {
   return (
     <>
       <ChooseWalletSheet
-        visible={walletUnlock.visible && chooseWalletVisible}
+        visible={
+          walletUnlock.visible &&
+          flowStep === FLOW_CHOOSING &&
+          chooseWalletVisible
+        }
         onClose={handleCancelUnlock}
         onClosed={handleChooseWalletClosed}
         accounts={sortedEligibleAccounts}
         defaultAccountHash={defaultAccountHash}
         lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
         supportedBiometryType={supportedBiometryType}
-        networkLabel={walletUnlock.networkLabel || 'matching'}
+        networkLabel={displayWalletUnlock.networkLabel || 'matching'}
         onSelectAccount={handleChooseWalletAccount}
       />
       <UnlockWalletSheet
-        visible={walletUnlock.visible && selectedAccount != null}
+        visible={
+          walletUnlock.visible &&
+          flowStep === FLOW_UNLOCKING &&
+          selectedAccount != null
+        }
         account={selectedAccount}
         isDefaultAccount={
           selectedAccount != null &&
           selectedAccount.accountHash === defaultAccountHash
         }
-        title={walletUnlock.title}
-        requestLabel={walletUnlock.requestLabel}
-        loadingTitle={walletUnlock.loadingTitle}
-        loadingSubtitle={walletUnlock.loadingSubtitle || undefined}
-        makeDefaultAllowed={walletUnlock.makeDefaultAllowed}
+        title={displayWalletUnlock.title}
+        requestLabel={displayWalletUnlock.requestLabel}
+        loadingTitle={displayWalletUnlock.loadingTitle}
+        loadingSubtitle={displayWalletUnlock.loadingSubtitle || undefined}
+        makeDefaultAllowed={displayWalletUnlock.makeDefaultAllowed}
         useRefreshAccountData={useRefreshAccountData}
         closeOnUnlocked={false}
         onClose={handleCancelUnlock}
+        onClosed={handleUnlockWalletClosed}
         onUnlocked={handleUnlocked}
       />
     </>

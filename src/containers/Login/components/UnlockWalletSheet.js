@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, StyleSheet, TouchableOpacity, View} from 'react-native';
-import {ActivityIndicator, Text} from 'react-native-paper';
+import LottieView from 'lottie-react-native';
+import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   initializeAccountData,
@@ -28,6 +29,7 @@ const PASSWORD_ONLY_CONTENT_HEIGHT =
   PASSWORD_FIELD_HEIGHT + PASSWORD_BUTTON_TOP_MARGIN + UNLOCK_BUTTON_HEIGHT;
 const BIOMETRY_CONTENT_HEIGHT =
   PASSWORD_FIELD_HEIGHT + BIOMETRY_ACTION_TOTAL_HEIGHT + UNLOCK_BUTTON_HEIGHT;
+const UNLOCK_LOADING_ANIMATION_SIZE = 96;
 const LOADING_DOT_INTERVAL_MS = 300;
 const LOADING_MESSAGE = 'Unlocking your wallet';
 
@@ -73,6 +75,7 @@ const UnlockWalletSheet = ({
   useRefreshAccountData = false,
   closeOnUnlocked = true,
   onClose,
+  onClosed,
   onUnlocked,
 }) => {
   const theme = useOnboardingTheme();
@@ -305,6 +308,7 @@ const UnlockWalletSheet = ({
     <BottomSheetModal
       visible={visible}
       onClose={loading ? () => {} : onClose}
+      onClosed={onClosed}
       avoidKeyboard
       maxHeight="64%">
       <View style={signedOutSheetStyles.body}>
@@ -368,7 +372,13 @@ const UnlockWalletSheet = ({
               {height: loadingContentHeight},
             ]}>
             <View style={styles.loadingContent}>
-              <ActivityIndicator size="small" color={theme.colors.textSubtle} />
+              <LottieView
+                accessibilityLabel={LOADING_MESSAGE}
+                autoPlay
+                loop
+                source={require('../../../animations/loading_7bars.json')}
+                style={styles.loadingAnimation}
+              />
               <View style={styles.loadingMessageRow}>
                 <Text numberOfLines={1} style={styles.loadingMessage}>
                   {LOADING_MESSAGE}
@@ -532,6 +542,10 @@ const createStyles = theme =>
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
+  },
+  loadingAnimation: {
+    width: UNLOCK_LOADING_ANIMATION_SIZE,
+    height: UNLOCK_LOADING_ANIMATION_SIZE,
   },
   loadingMessageRow: {
     flexDirection: 'row',
