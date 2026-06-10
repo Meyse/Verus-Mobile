@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import AnimatedActivityIndicatorBox from '../../components/AnimatedActivityIndicatorBox';
+import GenericRequestLoading, {
+  GENERIC_REQUEST_LOADING_STEPS,
+} from './GenericRequestLoading';
 import Styles from '../../styles/index';
 import { primitives } from "verusid-ts-client"
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
@@ -56,6 +59,9 @@ const DeepLink = (props) => {
   const [displayProps, setDisplayProps] = useState({})
   const [waitingForSignin, setWaitingForSignin] = useState(false)
   const [authModalOpened, setAuthModalOpened] = useState(false)
+  const [genericRequestLoadingStep, setGenericRequestLoadingStep] = useState(
+    GENERIC_REQUEST_LOADING_STEPS.READ
+  )
   const dispatch = useDispatch()
 
   const cancel = () => {
@@ -82,8 +88,11 @@ const DeepLink = (props) => {
   }
 
   const processGenericRequest = async () => {
+    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.READ);
+
     const request = new primitives.GenericRequest();
     request.fromBuffer(Buffer.from(deeplinkData, 'hex'));
+    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
 
     const requiresDelegatedUserCheck =
       request.isSigned() &&
@@ -105,6 +114,8 @@ const DeepLink = (props) => {
         throw new Error("This type of request is currently experimental and disabled in your general wallet settings.");
       }
     }
+
+    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
 
     if (requiresDelegatedUserCheck && !signedIn) {
       setWaitingForSignin(true);
@@ -135,6 +146,7 @@ const DeepLink = (props) => {
     }
 
     await validateGenericRequest(request);
+    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW);
 
     setDisplayProps({
       deeplinkData
@@ -629,10 +641,24 @@ const DeepLink = (props) => {
       />
     )
   };
+
+  const showGenericRequestOpening =
+    deeplinkId === primitives.GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid &&
+    displayKey == null &&
+    !loading;
   
   return (
     <View style={Styles.flexBackground}>
-      {displayKey == null || loading ? <AnimatedActivityIndicatorBox /> : screens[displayKey]()}
+      {showGenericRequestOpening ? (
+        <GenericRequestLoading
+          activeStep={genericRequestLoadingStep}
+          onCancel={cancel}
+        />
+      ) : displayKey == null || loading ? (
+        <AnimatedActivityIndicatorBox />
+      ) : (
+        screens[displayKey]()
+      )}
     </View>
   );
 };

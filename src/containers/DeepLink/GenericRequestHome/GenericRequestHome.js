@@ -11,6 +11,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import GenericRequestLoading, {
+  GENERIC_REQUEST_LOADING_STEPS,
+} from '../GenericRequestLoading';
 import {
   AUTHENTICATION_REQUEST_VDXF_KEY,
   APP_ENCRYPTION_REQUEST_VDXF_KEY,
@@ -355,7 +358,14 @@ const GenericRequestHome = props => {
 
   return (
     <View style={Styles.flexBackground}>
-      {(displayKey == null || props.loading) ? <AnimatedActivityIndicatorBox /> : (
+      {displayKey == null ? (
+        <GenericRequestLoading
+          activeStep={GENERIC_REQUEST_LOADING_STEPS.REVIEW}
+          onCancel={props.cancel}
+        />
+      ) : props.loading ? (
+        <AnimatedActivityIndicatorBox />
+      ) : (
         <View style={{ flex: 1, marginTop: valuInstalled ? 100 : 0 }}>
           {screens[displayKey]()}
         </View>
