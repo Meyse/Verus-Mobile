@@ -11,28 +11,26 @@
     - Resolved constraint i-addresses to friendly names via getIdentity
   - 2026-03-11: Fixed auth constraint system resolution and offline parent derivation .
 */
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
-  Platform,
   ScrollView,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {Button, Portal, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {CommonActions} from '@react-navigation/native';
 import {
   SafeAreaView,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
-import Colors from '../../../globals/colors';
 import {
   openLinkIdentityModal,
   openProvisionIdentityModal,
 } from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import {
   LINK_IDENTITY_SEND_MODAL,
+  PROVISION_IDENTITY_SEND_MODAL,
   SEND_MODAL_IDENTITY_TO_LINK_FIELD,
 } from '../../../utils/constants/sendModal';
 import {
@@ -67,13 +65,23 @@ import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {requestServiceStoredData} from '../../../utils/auth/authBox';
 import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
-import GradientButton from '../../../components/GradientButton';
+import AppButton from '../../../components/AppButton';
+import BottomSheetModal from '../../../components/BottomSheetModal';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import VerusIdAtIcon from '../../../images/customIcons/verusid-at-icon.svg';
-import { authenticationRequestInfoStyles as styles } from '../../../styles';
-import IdentityPickerSheet from './components/IdentityPickerSheet';
+import {Check, Info} from 'lucide-react-native';
+import {
+  authenticationRequestInfoStyles as createAuthenticationRequestInfoStyles,
+} from '../../../styles';
+import IdentityPickerSheet, {
+  VERUSID_SHEET_MODES,
+} from './components/IdentityPickerSheet';
 import { markPendingDeeplinkComplete } from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
+import {
+  OnboardingThemeProvider,
+  useOnboardingTheme,
+} from '../../../theme/onboarding';
 
 const truncateAddress = addr => {
   if (!addr || addr.length <= 14) return addr;
@@ -113,16 +121,40 @@ const getOfflineSystemName = systemId => {
   }
 };
 
-const Connector = () => {
-  return (
-    <View style={styles.connectorContainer}>
-      <View style={styles.connectorLine} />
-      <View style={styles.connectorArrow} />
-    </View>
-  );
+const getUriDisplayHost = uri => {
+  if (!uri || typeof uri.getUriString !== 'function') return null;
+
+  const uriString = uri.getUriString();
+  if (!uriString) return null;
+  const hostMatch = uriString.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i);
+
+  return hostMatch ? hostMatch[1] : uriString;
 };
 
-const AuthenticationRequestInfo = props => {
+const getRequestIdDisplay = details => {
+  if (
+    !details ||
+    typeof details.hasRequestID !== 'function' ||
+    !details.hasRequestID()
+  ) {
+    return null;
+  }
+
+  try {
+    return typeof details.requestID?.toAddress === 'function'
+      ? details.requestID.toAddress()
+      : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const AuthenticationRequestInfoContent = props => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(
+    () => createAuthenticationRequestInfoStyles(theme),
+    [theme],
+  );
   const {
     detailsBufferString,
     sigtime,
@@ -145,7 +177,7 @@ const AuthenticationRequestInfo = props => {
     useState(null);
   const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({});
   const [passthroughHandled, setPassthroughHandled] = useState(false);
-  const [technicalDetailsExpanded, setTechnicalDetailsExpanded] =
+  const [requestDetailsSheetVisible, setRequestDetailsSheetVisible] =
     useState(false);
   const [resolvedSystemNames, setResolvedSystemNames] = useState({});
   const attemptedSystemNameLookupsRef = useRef(new Set());
@@ -158,8 +190,15 @@ const AuthenticationRequestInfo = props => {
     useState(false);
   const [sortedIds, setSortedIds] = useState({});
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+  const [identitySheetInitialMode, setIdentitySheetInitialMode] = useState(
+    VERUSID_SHEET_MODES.CHOOSE,
+  );
   const [selectedIdentity, setSelectedIdentity] = useState(null); // { chainId, iAddress, friendlyName }
+  const [openIdentityAfterUnlock, setOpenIdentityAfterUnlock] =
+    useState(false);
   const [idProvisionSuccess, setIdProvisionSuccess] = useState(false);
+  const launchedSendModalRef = useRef(null);
+  const sendModalWasVisibleRef = useRef(false);
   const successfulSendModalTypeRef = useRef(null);
   const successNavigationStartedRef = useRef(false);
 
@@ -175,16 +214,27 @@ const AuthenticationRequestInfo = props => {
   const activeAccount = useObjectSelector(
     state => state.authentication.activeAccount,
   );
-  const insets = useSafeAreaInsets();
-  const bottomNavigationInset = Math.max(
-    insets.bottom,
-    Platform.OS === 'android' ? 24 : 0,
-  );
-  const footerBottomPadding = 16 + bottomNavigationInset;
   const isTestAccount = accountIsTestnet(activeAccount);
   const encryptedIds = useObjectSelector(
     state => state.services.stored[VERUSID_SERVICE_ID],
   );
+
+  const loadLinkedIds = useCallback(async () => {
+    try {
+      const verusIdServiceData = await requestServiceStoredData(
+        VERUSID_SERVICE_ID,
+      );
+      const nextLinkedIds = verusIdServiceData.linked_ids || {};
+
+      setLinkedIds(nextLinkedIds);
+      return nextLinkedIds;
+    } catch (e) {
+      setLinkedIds({});
+      return {};
+    } finally {
+      setLinkedIdsLoaded(true);
+    }
+  }, []);
 
   const requestIsTestnet = request != null && request.isTestnet();
   const activeAccountMatchesRequest =
@@ -225,6 +275,7 @@ const AuthenticationRequestInfo = props => {
 
     return [];
   }, [request]);
+  const websiteLabel = getUriDisplayHost(responseUris[0]);
 
   useEffect(() => {
     let cancelled = false;
@@ -406,6 +457,116 @@ const AuthenticationRequestInfo = props => {
     return true;
   };
 
+  const isLinkedIdentityAllowed = useCallback(
+    (sourceLinkedIds, chainId, iAddr) => {
+      if (requiredSystemIds.length > 0 && !requiredSystemsResolved) {
+        return false;
+      }
+      if (requiredIds.size > 0 && !requiredIds.has(iAddr)) return false;
+      if (
+        allowedSystems.size > 0 &&
+        !allowedSystems.has(String(chainId).toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (requiredParentIds.size > 0) {
+        const friendlyName = sourceLinkedIds?.[chainId]?.[iAddr];
+
+        if (!friendlyName) return false;
+
+        try {
+          const parentAddress = fqnToParentAddress(friendlyName, chainId);
+          if (
+            parentAddress == null ||
+            !requiredParentIds.has(parentAddress)
+          ) {
+            return false;
+          }
+        } catch (e) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [
+      allowedSystems,
+      requiredIds,
+      requiredParentIds,
+      requiredSystemIds.length,
+      requiredSystemsResolved,
+    ],
+  );
+
+  const getAllowedIdentityFromLinkedIds = useCallback(
+    (sourceLinkedIds, preferredIAddress) => {
+      const preferredKey = preferredIAddress
+        ? preferredIAddress.toLowerCase()
+        : null;
+      const identities = Object.keys(sourceLinkedIds || {}).flatMap(chainId =>
+        Object.keys(sourceLinkedIds[chainId] || {}).map(iAddress => ({
+          chainId,
+          iAddress,
+          friendlyName: sourceLinkedIds[chainId][iAddress],
+        })),
+      );
+
+      identities.sort((left, right) => {
+        if (preferredKey) {
+          const leftPreferred =
+            left.iAddress.toLowerCase() === preferredKey ? 0 : 1;
+          const rightPreferred =
+            right.iAddress.toLowerCase() === preferredKey ? 0 : 1;
+
+          if (leftPreferred !== rightPreferred) {
+            return leftPreferred - rightPreferred;
+          }
+        }
+
+        return (left.friendlyName || '').localeCompare(
+          right.friendlyName || '',
+        );
+      });
+
+      return (
+        identities.find(identity =>
+          isLinkedIdentityAllowed(
+            sourceLinkedIds,
+            identity.chainId,
+            identity.iAddress,
+          ),
+        ) || null
+      );
+    },
+    [isLinkedIdentityAllowed],
+  );
+
+  const reloadLinkedIdsAndSelect = useCallback(
+    async ({preferredIAddress = null, reopenIdentitySheet = false} = {}) => {
+      setLinkedIdsLoaded(false);
+
+      const nextLinkedIds = await loadLinkedIds();
+      const nextIdentity = getAllowedIdentityFromLinkedIds(
+        nextLinkedIds,
+        preferredIAddress,
+      );
+
+      if (nextIdentity) {
+        setSelectedIdentity(nextIdentity);
+        setIdentitySheetVisible(false);
+        return true;
+      }
+
+      if (reopenIdentitySheet) {
+        setIdentitySheetVisible(true);
+      }
+
+      return false;
+    },
+    [getAllowedIdentityFromLinkedIds, loadLinkedIds],
+  );
+
   const getConstraintAddress = constraint => {
     if (constraint == null || constraint.identity == null) return null;
     return toAddressString(constraint.identity);
@@ -505,18 +666,6 @@ const AuthenticationRequestInfo = props => {
       iAddress,
       chain,
     });
-  };
-
-  const getMainTitle = () => {
-    if (responseUris.length > 0) {
-      return 'Sign-in request';
-    }
-
-    if (passthrough?.fqnToAutoLink) {
-      return 'Identity link request';
-    }
-
-    return 'Identity request';
   };
 
   const getAllowList = () => {
@@ -624,6 +773,7 @@ const AuthenticationRequestInfo = props => {
     }
 
     try {
+      setOpenIdentityAfterUnlock(false);
       await requestWalletUnlock({
         reason: 'authentication-request',
         title: signedIn
@@ -634,6 +784,7 @@ const AuthenticationRequestInfo = props => {
         makeDefaultAllowed: true,
         networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
       });
+      setOpenIdentityAfterUnlock(true);
     } catch (e) {
       if (e?.code !== WALLET_UNLOCK_CANCELLED) {
         createAlert(
@@ -654,11 +805,32 @@ const AuthenticationRequestInfo = props => {
     if (
       idProvisionSuccess &&
       !sendModal.visible &&
+      sendModalType == null &&
       !successNavigationStartedRef.current
     ) {
       successNavigationStartedRef.current = true;
 
       const finishSuccessfulModal = async () => {
+        const launchedModal = launchedSendModalRef.current;
+
+        if (
+          launchedModal?.intent === 'user' &&
+          successfulSendModalTypeRef.current === PROVISION_IDENTITY_SEND_MODAL
+        ) {
+          const selectedLinkedIdentity = await reloadLinkedIdsAndSelect({
+            preferredIAddress: launchedModal.identityAddress,
+          });
+
+          launchedSendModalRef.current = null;
+
+          if (selectedLinkedIdentity) {
+            successfulSendModalTypeRef.current = null;
+            successNavigationStartedRef.current = false;
+            setIdProvisionSuccess(false);
+            return;
+          }
+        }
+
         if (
           successfulSendModalTypeRef.current === LINK_IDENTITY_SEND_MODAL &&
           pendingDeeplinkId
@@ -705,7 +877,36 @@ const AuthenticationRequestInfo = props => {
     sendModalType,
     pendingDeeplinkId,
     props.navigation,
+    reloadLinkedIdsAndSelect,
   ]);
+
+  useEffect(() => {
+    const sendModalClosed =
+      sendModalWasVisibleRef.current && !sendModal.visible && sendModalType == null;
+
+    sendModalWasVisibleRef.current = sendModal.visible;
+
+    if (!sendModalClosed) return;
+
+    const launchedModal = launchedSendModalRef.current;
+
+    if (
+      launchedModal?.intent !== 'user' ||
+      launchedModal.type !== LINK_IDENTITY_SEND_MODAL
+    ) {
+      return;
+    }
+
+    launchedSendModalRef.current = null;
+
+    reloadLinkedIdsAndSelect({
+      preferredIAddress: launchedModal.identityAddress,
+      reopenIdentitySheet: true,
+    }).catch(e => {
+      console.warn('Unable to reload linked identities after linking', e);
+      setIdentitySheetVisible(true);
+    });
+  }, [reloadLinkedIdsAndSelect, sendModal.visible, sendModalType]);
 
   const expiryLabel = getExpiryLabel();
   const constraints =
@@ -726,29 +927,7 @@ const AuthenticationRequestInfo = props => {
     return rows;
   }, [constraints, constraintFriendlyNames]);
 
-  const technicalRows = useMemo(() => {
-    const rows = [];
-
-    if (responseUris.length > 0) {
-      responseUris.forEach((uri, index) => {
-        rows.push({
-          key: `response-${index}`,
-          title: uri.getUriString(),
-          subtitle: 'Response URI',
-        });
-      });
-    }
-
-    if (expiryLabel != null) {
-      rows.push({
-        key: 'expiry',
-        title: expiryLabel,
-        subtitle: 'Expires at',
-      });
-    }
-
-    return rows;
-  }, [responseUris, expiryLabel]);
+  const requestIdLabel = getRequestIdDisplay(details);
 
   useEffect(() => {
     if (detailsBufferString) {
@@ -846,31 +1025,14 @@ const AuthenticationRequestInfo = props => {
 
   // Load linked identities when encrypted IDs change (user signs in / links ID)
   useEffect(() => {
-    const loadLinkedIds = async () => {
-      try {
-        const verusIdServiceData = await requestServiceStoredData(
-          VERUSID_SERVICE_ID,
-        );
-        if (verusIdServiceData.linked_ids) {
-          setLinkedIds(verusIdServiceData.linked_ids);
-        } else {
-          setLinkedIds({});
-        }
-      } catch (e) {
-        // Silently handle — identities will show as empty
-        setLinkedIds({});
-      } finally {
-        setLinkedIdsLoaded(true);
-      }
-    };
-
     if (signedIn) {
       setLinkedIdsLoaded(false);
       loadLinkedIds();
     } else {
+      setLinkedIds({});
       setLinkedIdsLoaded(false);
     }
-  }, [encryptedIds, signedIn]);
+  }, [encryptedIds, loadLinkedIds, signedIn]);
 
   // Sort identities alphabetically by friendly name per chain
   useEffect(() => {
@@ -967,6 +1129,11 @@ const AuthenticationRequestInfo = props => {
       noLogin,
     };
 
+    launchedSendModalRef.current = {
+      type: LINK_IDENTITY_SEND_MODAL,
+      intent: 'passthrough',
+      identityAddress: passthrough.fqnToAutoLink,
+    };
     openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
     setPassthroughHandled(true);
   }, [
@@ -980,8 +1147,26 @@ const AuthenticationRequestInfo = props => {
     requiredSystemsResolved,
   ]);
 
-  const openLinkIdentityModalFromChain = () => {
-    openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId));
+  const handleOpenLinkExistingSheet = () => {
+    if (!eligibilityReady) return;
+
+    setIdentitySheetInitialMode(VERUSID_SHEET_MODES.LINK);
+    setIdentitySheetVisible(true);
+  };
+
+  const openLinkIdentityModalFromChain = identityAddress => {
+    const data = identityAddress
+      ? {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityAddress}
+      : undefined;
+
+    launchedSendModalRef.current = {
+      type: LINK_IDENTITY_SEND_MODAL,
+      intent: 'user',
+      identityAddress: identityAddress || null,
+    };
+
+    setIdentitySheetVisible(false);
+    openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
   };
 
   const openProvisionIdentityModalFromChain = () => {
@@ -1012,6 +1197,15 @@ const AuthenticationRequestInfo = props => {
         ? request.toBuffer().toString('hex')
         : '';
 
+      launchedSendModalRef.current = {
+        type: PROVISION_IDENTITY_SEND_MODAL,
+        intent: 'user',
+        identityAddress: provisioningDetails.identityID
+          ? provisioningDetails.identityID.toAddress()
+          : null,
+      };
+
+      setIdentitySheetVisible(false);
       openProvisionIdentityModal(
         provisioningCoinObj,
         {
@@ -1060,6 +1254,7 @@ const AuthenticationRequestInfo = props => {
   // Identity sheet handlers
   const handleOpenIdentitySheet = () => {
     if (!eligibilityReady) return;
+    setIdentitySheetInitialMode(VERUSID_SHEET_MODES.CHOOSE);
     setIdentitySheetVisible(true);
   };
 
@@ -1069,16 +1264,9 @@ const AuthenticationRequestInfo = props => {
   };
 
   const hasRequirements = constraintRows.length > 0;
-  const hasTechnicalDetails = technicalRows.length > 0;
-  const showIdentityPrompt = activeAccountMatchesRequest && !selectedIdentity;
-  const hasAnyLinkedIdentity = useMemo(() => {
-    return Object.keys(linkedIds).some(
-      chainId => Object.keys(linkedIds[chainId] || {}).length > 0,
-    );
-  }, [linkedIds]);
   const hasMatchingIdentity = useMemo(() => {
-    for (const chainId of Object.keys(sortedIds)) {
-      const chainIdentityAddresses = sortedIds[chainId] || [];
+    for (const chainId of Object.keys(linkedIds)) {
+      const chainIdentityAddresses = Object.keys(linkedIds[chainId] || {});
       for (const iAddress of chainIdentityAddresses) {
         if (isIdentityAllowed(chainId, iAddress)) {
           return true;
@@ -1088,8 +1276,10 @@ const AuthenticationRequestInfo = props => {
 
     return false;
   }, [
-    sortedIds,
+    linkedIds,
     requiredIds,
+    requiredSystemIds,
+    requiredSystemsResolved,
     allowedSystems,
     requiredParentIds,
     linkedIdentityParentIds,
@@ -1099,62 +1289,157 @@ const AuthenticationRequestInfo = props => {
     linkedIdsLoaded &&
     (requiredSystemIds.length === 0 || requiredSystemsResolved) &&
     (requiredParentIds.size === 0 || linkedIdentityParentsLoaded);
-  const shouldShowRequestNewAsPrimary =
-    activeAccountMatchesRequest &&
-    eligibilityReady &&
-    !selectedIdentity &&
-    canProvision &&
-    !hasMatchingIdentity;
+
+  useEffect(() => {
+    if (!openIdentityAfterUnlock) return;
+    if (!activeAccountMatchesRequest) return;
+    if (!eligibilityReady) return;
+
+    setOpenIdentityAfterUnlock(false);
+
+    if (hasMatchingIdentity || canProvision) {
+      setIdentitySheetInitialMode(VERUSID_SHEET_MODES.CHOOSE);
+      setIdentitySheetVisible(true);
+    } else {
+      setIdentitySheetInitialMode(VERUSID_SHEET_MODES.LINK);
+      setIdentitySheetVisible(true);
+    }
+  }, [
+    activeAccountMatchesRequest,
+    canProvision,
+    eligibilityReady,
+    hasMatchingIdentity,
+    openIdentityAfterUnlock,
+  ]);
+
   const shouldShowLinkAsPrimary =
     activeAccountMatchesRequest &&
     eligibilityReady &&
     !selectedIdentity &&
     !canProvision &&
     !hasMatchingIdentity;
-  const showRequestAsSecondaryAction =
-    canProvision && !shouldShowRequestNewAsPrimary;
-  const showSecondaryActionRail =
-    activeAccountMatchesRequest && !selectedIdentity;
   const primaryActionLabel = activeAccountMatchesRequest
     ? selectedIdentity
       ? 'Continue'
-      : shouldShowRequestNewAsPrimary
-      ? 'Request VerusID'
       : shouldShowLinkAsPrimary
       ? 'Link VerusID'
-      : 'Select VerusID'
+      : 'Choose VerusID'
     : signedIn
     ? 'Switch wallet'
     : 'Unlock wallet';
-  const primaryActionHandler = shouldShowRequestNewAsPrimary
-    ? openProvisionIdentityModalFromChain
-    : shouldShowLinkAsPrimary
-    ? openLinkIdentityModalFromChain
+  const primaryActionHandler = activeAccountMatchesRequest
+    ? selectedIdentity
+      ? handleContinue
+      : shouldShowLinkAsPrimary
+      ? handleOpenLinkExistingSheet
+      : handleOpenIdentitySheet
     : handleContinue;
-  const mainTitle =
-    primaryActionLabel === 'Request VerusID'
-      ? 'Accept or create your new VerusID'
-      : getMainTitle();
-  const hideIdentitySelector =
-    (linkedIdsLoaded && !hasAnyLinkedIdentity) || !activeAccountMatchesRequest;
+  const linkExistingCoinObj = CoinDirectory.findCoinObj(linkChainId);
+  const mainTitle = 'Sign in with VerusID';
+  const activeAccountInstruction = !activeAccountMatchesRequest
+    ? signedIn
+      ? 'Switch wallet first, then select identity.'
+      : 'Unlock wallet first, then select identity.'
+    : null;
+  const requesterMetadataRows = [
+    systemLabel ? {label: 'Network', value: systemLabel} : null,
+    sigDateString ? {label: 'Signed', value: sigDateString} : null,
+    websiteLabel ? {label: 'Website', value: websiteLabel} : null,
+  ].filter(Boolean);
+  const requestDetailsSections = useMemo(() => {
+    const sourceRows = [
+      requesterLabel ? {label: 'Requester', value: requesterLabel} : null,
+      signerIdentityID
+        ? {label: 'Signer identity', value: signerIdentityID}
+        : null,
+      systemLabel ? {label: 'Network', value: systemLabel} : null,
+      sigDateString ? {label: 'Signed', value: sigDateString} : null,
+      websiteLabel ? {label: 'Website', value: websiteLabel} : null,
+    ].filter(Boolean);
+    const responseRows = [
+      ...responseUris.map((uri, index) => ({
+        label:
+          responseUris.length > 1
+            ? `Response URI ${index + 1}`
+            : 'Response URI',
+        value: uri.getUriString(),
+      })),
+      expiryLabel ? {label: 'Expires', value: expiryLabel} : null,
+      requestIdLabel ? {label: 'Request ID', value: requestIdLabel} : null,
+    ].filter(Boolean);
+    const requirementRows = constraintRows.map(row => ({
+      label: row.label,
+      value: row.value,
+    }));
+    const walletRows = [
+      {
+        label: 'Wallet state',
+        value: activeAccountMatchesRequest
+          ? 'Ready for this request'
+          : signedIn
+          ? 'Switch wallet required'
+          : 'Unlock wallet required',
+      },
+      selectedIdentity
+        ? {
+            label: 'Selected identity',
+            value: `${selectedIdentity.friendlyName} (${selectedIdentity.iAddress})`,
+          }
+        : {label: 'Selected identity', value: 'Not selected'},
+    ];
+
+    return [
+      {title: 'Source', rows: sourceRows},
+      {title: 'Response', rows: responseRows},
+      {title: 'Requirements', rows: requirementRows},
+      {title: 'Wallet', rows: walletRows},
+    ].filter(section => section.rows.length > 0);
+  }, [
+    activeAccountMatchesRequest,
+    constraintRows,
+    expiryLabel,
+    requestIdLabel,
+    requesterLabel,
+    responseUris,
+    selectedIdentity,
+    signedIn,
+    sigDateString,
+    signerIdentityID,
+    systemLabel,
+    websiteLabel,
+  ]);
+  const showRequestDetailsLink = requestDetailsSections.length > 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Portal>
-        {verusIdDetailsModalProps != null && (
-          <VerusIdDetailsModal {...verusIdDetailsModalProps} />
-        )}
-        <IdentityPickerSheet
-          visible={identitySheetVisible}
-          linkedIds={linkedIds}
-          sortedIds={sortedIds}
-          isIdentityAllowed={isIdentityAllowed}
-          selectedIdentity={selectedIdentity}
-          onClose={() => setIdentitySheetVisible(false)}
-          onSelect={handleSelectIdentity}
-        />
-      </Portal>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+      {verusIdDetailsModalProps != null && (
+        <VerusIdDetailsModal {...verusIdDetailsModalProps} />
+      )}
+      <IdentityPickerSheet
+        visible={identitySheetVisible}
+        coinObj={linkExistingCoinObj}
+        linkedIds={linkedIds}
+        sortedIds={sortedIds}
+        isIdentityAllowed={isIdentityAllowed}
+        selectedIdentity={selectedIdentity}
+        canProvision={canProvision}
+        initialMode={identitySheetInitialMode}
+        onClose={() => setIdentitySheetVisible(false)}
+        onLinkCandidate={openLinkIdentityModalFromChain}
+        onManualLink={() => openLinkIdentityModalFromChain()}
+        onRequestVerusId={openProvisionIdentityModalFromChain}
+        onSelect={handleSelectIdentity}
+        requestIsTestnet={requestIsTestnet}
+      />
+      <RequestDetailsSheet
+        visible={requestDetailsSheetVisible}
+        onClose={() => setRequestDetailsSheetVisible(false)}
+        sections={requestDetailsSections}
+        styles={styles}
+      />
       <ScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
@@ -1163,109 +1448,79 @@ const AuthenticationRequestInfo = props => {
         </View>
 
         {(signerFqn || sigDateString || systemLabel) && (
-          <TouchableOpacity
-            style={styles.requesterCard}
-            onPress={
-              canOpenSignerModal
-                ? () =>
-                    openVerusIdDetailsModal(signerChainId, signerIdentityID)
-                : undefined
-            }
-            activeOpacity={canOpenSignerModal ? 0.7 : 1}>
-            <View style={styles.requesterHeaderRow}>
-              <View style={styles.requesterIconContainer}>
-                <MaterialCommunityIcons
-                  name="shield-check"
-                  size={28}
-                  color={Colors.verusGreenColor}
-                />
-              </View>
+          <View style={styles.requesterCard}>
+            <Text style={styles.requesterLabel}>Request from</Text>
+            <TouchableOpacity
+              accessibilityHint={
+                canOpenSignerModal ? 'View identity details' : undefined
+              }
+              accessibilityLabel={`Request from ${requesterLabel}`}
+              accessibilityRole="button"
+              style={styles.requesterIdentityPanel}
+              onPress={
+                canOpenSignerModal
+                  ? () =>
+                      openVerusIdDetailsModal(signerChainId, signerIdentityID)
+                  : undefined
+              }
+              activeOpacity={canOpenSignerModal ? 0.74 : 1}
+              disabled={!canOpenSignerModal}>
               <View style={styles.requesterTextContainer}>
-                <Text style={styles.requesterLabel}>Request from</Text>
-                <Text style={styles.requesterName}>{requesterLabel}</Text>
+                <Text numberOfLines={1} style={styles.requesterName}>
+                  {requesterLabel}
+                </Text>
               </View>
               {canOpenSignerModal && (
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={22}
-                  color={Colors.verusDarkGray}
+                  color={theme.colors.textSubtle}
                 />
               )}
-            </View>
-            <View style={styles.requesterDetailsRow}>
-              {systemLabel ? (
-                <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{systemLabel}</Text>
-                </View>
-              ) : null}
-              {sigDateString ? (
-                <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{sigDateString}</Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {!hideIdentitySelector && (
-          <>
-            <Connector />
-
-            <TouchableOpacity
-              style={[
-                styles.targetCard,
-                showIdentityPrompt && styles.targetCardActionNeeded,
-                selectedIdentity && styles.targetCardSelected,
-              ]}
-              onPress={
-                activeAccountMatchesRequest ? handleOpenIdentitySheet : undefined
-              }
-              activeOpacity={activeAccountMatchesRequest ? 0.7 : 1}
-              disabled={!activeAccountMatchesRequest}>
-              <View style={styles.targetRow}>
-                <View style={styles.targetIconContainer}>
-                  <VerusIdAtIcon width={24} height={24} fill="#3165D4" />
-                </View>
-                <View style={styles.targetInfo}>
-                  <Text style={styles.targetLabel}>Identity</Text>
-                  <Text style={styles.targetName}>
-                    {selectedIdentity
-                      ? selectedIdentity.friendlyName
-                      : 'Select VerusID'}
-                  </Text>
-                  <Text style={styles.targetAddress}>
-                    {selectedIdentity
-                      ? truncateAddress(selectedIdentity.iAddress)
-                      : activeAccountMatchesRequest
-                      ? 'Required to continue'
-                      : 'Unlock wallet to select identity'}
-                  </Text>
-                </View>
-                {activeAccountMatchesRequest && (
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={22}
-                    color={Colors.verusDarkGray}
-                  />
-                )}
-              </View>
             </TouchableOpacity>
-          </>
+            {requesterMetadataRows.length > 0 && (
+              <View style={styles.requesterDetailsList}>
+                {requesterMetadataRows.map((row, index) => (
+                  <View
+                    key={row.label}
+                    style={[
+                      styles.requesterDetailRow,
+                      index > 0 && styles.requesterDetailRowDivider,
+                    ]}>
+                    <Text style={styles.requesterDetailLabel}>
+                      {row.label}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={styles.requesterDetailValue}>
+                      {row.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {showRequestDetailsLink && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.78}
+                onPress={() => setRequestDetailsSheetVisible(true)}
+                style={styles.requestDetailsLinkTouch}>
+                <Text numberOfLines={1} style={styles.requestDetailsLinkText}>
+                  View request details
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {hasRequirements && (
-          <View
-            style={
-              hideIdentitySelector
-                ? {...styles.sectionCard, marginTop: 12}
-                : styles.sectionCard
-            }>
+          <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
                 <MaterialCommunityIcons
                   name="shield-account-outline"
                   size={20}
-                  color="#666"
+                  color={theme.colors.textSecondary}
                 />
                 <Text style={styles.sectionTitle}>Request requirements</Text>
               </View>
@@ -1285,130 +1540,121 @@ const AuthenticationRequestInfo = props => {
           </View>
         )}
 
-        {hasTechnicalDetails && (
-          <View style={styles.sectionCard}>
-            <TouchableOpacity
-              style={styles.sectionHeader}
-              onPress={() =>
-                setTechnicalDetailsExpanded(expanded => !expanded)
-              }
-              activeOpacity={0.7}>
-              <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons
-                  name="information-outline"
-                  size={20}
-                  color="#666"
-                />
-                <Text style={styles.sectionTitle}>Technical details</Text>
-              </View>
-              <MaterialCommunityIcons
-                name={
-                  technicalDetailsExpanded
-                    ? 'chevron-up'
-                    : 'chevron-down'
-                }
-                size={20}
-                color="#999"
-              />
-            </TouchableOpacity>
-            {technicalDetailsExpanded && (
-              <View style={styles.sectionContent}>
-                {technicalRows.map((row, index) => (
-                  <View
-                    key={row.key}
-                    style={[
-                      styles.detailRow,
-                      index > 0 && styles.detailRowBorder,
-                    ]}>
-                    <View style={styles.detailLeft}>
-                      <Text style={styles.detailTitle}>{row.title}</Text>
-                      <Text style={styles.detailSubtitle}>{row.subtitle}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {!hasRequirements && !hasTechnicalDetails && (
+        {!hasRequirements && !showRequestDetailsLink && (
           <View style={styles.simpleInfoRow}>
             <MaterialCommunityIcons
               name="information-outline"
               size={16}
-              color="#6B7280"
+              color={theme.colors.textSubtle}
             />
             <Text style={styles.simpleInfoText}>
               No additional data will be shared.
             </Text>
           </View>
         )}
-        {!activeAccountMatchesRequest && (
-          <View style={styles.simpleInfoRow}>
-            <MaterialCommunityIcons
-              name="information-outline"
-              size={16}
-              color="#6B7280"
-            />
-            <Text style={styles.simpleInfoText}>
-              {signedIn
-                ? 'Switch wallet first, then select identity.'
-                : 'Unlock wallet first, then select identity.'}
-            </Text>
-          </View>
-        )}
-        {!activeAccountMatchesRequest && <View style={{height: 8}} />}
         <View style={{height: 24}} />
       </ScrollView>
 
-      {showSecondaryActionRail && (
-        <View style={styles.identityActionLinksRow}>
-          <TouchableOpacity
-            style={styles.identityActionLinkTouch}
-            onPress={openLinkIdentityModalFromChain}
-            activeOpacity={0.75}>
-            <Text style={styles.identityActionLinkText}>Link VerusID</Text>
-          </TouchableOpacity>
-          {showRequestAsSecondaryAction && (
-            <>
-              <Text style={styles.identityActionLinksDivider}>·</Text>
-              <TouchableOpacity
-                style={styles.identityActionLinkTouch}
-                onPress={openProvisionIdentityModalFromChain}
-                activeOpacity={0.75}>
-                <Text style={styles.identityActionLinkText}>
-                  Request VerusID
+      <SafeBottomActionStack
+        gap={10}
+        horizontalSpacing={24}
+        style={styles.footer}>
+        {activeAccountInstruction && (
+          <View style={styles.footerInfoRow}>
+            <View style={styles.footerInfoIcon}>
+              <Info
+                size={16}
+                strokeWidth={2.1}
+                color={theme.colors.textSubtle}
+              />
+            </View>
+            <Text style={styles.footerInfoText}>
+              {activeAccountInstruction}
+            </Text>
+          </View>
+        )}
+        {selectedIdentity && activeAccountMatchesRequest && (
+          <View>
+            <Text style={styles.selectedIdentityLabel}>Sign with</Text>
+            <TouchableOpacity
+              accessibilityHint="Open VerusID options"
+              accessibilityLabel={`Selected identity ${selectedIdentity.friendlyName}`}
+              accessibilityRole="button"
+              activeOpacity={0.78}
+              onPress={handleOpenIdentitySheet}
+              style={styles.selectedIdentityCard}>
+              <View style={styles.selectedIdentityText}>
+                <Text numberOfLines={1} style={styles.selectedIdentityName}>
+                  {selectedIdentity.friendlyName}
                 </Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      )}
-
-      <View style={[styles.footer, {paddingBottom: footerBottomPadding}]}>
-        <View style={styles.ctaCol}>
-          <Button
-            mode="contained"
-            onPress={() => cancel()}
-            style={styles.secondaryCta}
-            contentStyle={styles.secondaryCtaContent}
-            uppercase={false}
-            buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
-            labelStyle={styles.secondaryCtaLabel}>
-            Cancel
-          </Button>
-        </View>
-        <View style={styles.ctaCol}>
-          <GradientButton
-            onPress={primaryActionHandler}
-            style={styles.primaryCta}>
-            {primaryActionLabel}
-          </GradientButton>
-        </View>
-      </View>
+                <Text numberOfLines={1} style={styles.selectedIdentityAddress}>
+                  {truncateAddress(selectedIdentity.iAddress)}
+                </Text>
+              </View>
+              <View style={styles.selectedIdentityCheck}>
+                <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+        <AppButton
+          height={56}
+          onPress={primaryActionHandler}
+          themeMode={theme.mode}
+          variant="primary">
+          {primaryActionLabel}
+        </AppButton>
+        <AppButton
+          buttonColor={theme.colors.surfaceMuted}
+          height={56}
+          onPress={() => cancel()}
+          themeMode={theme.mode}
+          textColor={
+            theme.isDark ? theme.colors.textPrimary : theme.colors.primary
+          }
+          variant="secondary">
+          {'Cancel'}
+        </AppButton>
+      </SafeBottomActionStack>
     </SafeAreaView>
   );
 };
+
+const RequestDetailsSheet = ({visible, onClose, sections, styles}) => (
+  <BottomSheetModal visible={visible} onClose={onClose} maxHeight="78%">
+    <View style={styles.requestDetailsSheetBody}>
+      <Text style={styles.requestDetailsSheetTitle}>Request details</Text>
+      <ScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
+        contentContainerStyle={styles.requestDetailsSheetContent}
+        showsVerticalScrollIndicator={false}>
+        {sections.map(section => (
+          <View key={section.title} style={styles.requestDetailsSection}>
+            <Text style={styles.requestDetailsSectionTitle}>
+              {section.title}
+            </Text>
+            {section.rows.map((row, index) => (
+              <View
+                key={`${section.title}-${row.label}-${index}`}
+                style={styles.requestDetailsRow}>
+                <Text style={styles.requestDetailsLabel}>{row.label}</Text>
+                <Text selectable style={styles.requestDetailsValue}>
+                  {row.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  </BottomSheetModal>
+);
+
+const AuthenticationRequestInfo = props => (
+  <OnboardingThemeProvider>
+    <AuthenticationRequestInfoContent {...props} />
+  </OnboardingThemeProvider>
+);
 
 export default AuthenticationRequestInfo;
