@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
-  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -11,7 +10,7 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Check, ChevronLeft, CirclePlus} from 'lucide-react-native';
+import {BadgePlus, Check, ChevronLeft, Link2} from 'lucide-react-native';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
@@ -29,11 +28,6 @@ const ENTER_ANIMATION_DURATION = 170;
 const ROW_ENTER_ANIMATION_DURATION = 180;
 const ROW_STAGGER_DURATION = 24;
 const TRANSITION_DISTANCE = 14;
-
-const truncateAddress = addr => {
-  if (!addr || addr.length <= 14) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
-};
 
 const getMatchingIdentities = ({
   linkedIds,
@@ -68,7 +62,6 @@ const IdentityPickerSheet = ({
   onManualLink,
   onRequestVerusId,
   onSelect,
-  requestIsTestnet,
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -312,7 +305,6 @@ const IdentityPickerSheet = ({
               coinObj={coinObj}
               isCandidateAllowed={isCandidateAllowed}
               linkedIds={linkedIds}
-              requestIsTestnet={requestIsTestnet}
               onLinkCandidate={onLinkCandidate}
               onManualLink={onManualLink}
             />
@@ -375,18 +367,6 @@ const ChooseRows = ({
 
   return (
     <>
-      {canProvision && (
-        <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
-          <ActionRow
-            disabled={disabled}
-            IconComponent={CirclePlus}
-            label="Request VerusID"
-            signedOutSheetStyles={signedOutSheetStyles}
-            onPress={onRequestVerusId}
-            theme={theme}
-          />
-        </Animated.View>
-      )}
       {matchingIdentities.map(identity => (
         <Animated.View
           key={`${identity.chainId}:${identity.iAddress}`}
@@ -420,10 +400,22 @@ const ChooseRows = ({
           </View>
         </Animated.View>
       )}
+      {canProvision && (
+        <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
+          <ActionRow
+            disabled={disabled}
+            IconComponent={BadgePlus}
+            label="Request new VerusID"
+            signedOutSheetStyles={signedOutSheetStyles}
+            onPress={onRequestVerusId}
+            theme={theme}
+          />
+        </Animated.View>
+      )}
       <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
         <ActionRow
           disabled={disabled}
-          IconComponent={CirclePlus}
+          IconComponent={Link2}
           label="Link existing VerusID"
           signedOutSheetStyles={signedOutSheetStyles}
           onPress={onLinkExisting}
@@ -485,9 +477,6 @@ const IdentityRow = ({disabled, identity, isSelected, onSelect, styles, theme}) 
       <Text numberOfLines={1} style={styles.identityName}>
         {identity.friendlyName}
       </Text>
-      <Text numberOfLines={1} style={styles.identityAddress}>
-        {truncateAddress(identity.iAddress)}
-      </Text>
     </View>
     <View style={styles.checkContainer}>
       {isSelected && (
@@ -523,8 +512,8 @@ const createStyles = theme =>
       ...fontStyle('regular'),
     },
     identityRow: {
-      minHeight: 72,
-      borderRadius: 14,
+      height: 56,
+      borderRadius: 18,
       paddingHorizontal: 16,
       marginVertical: 4,
       flexDirection: 'row',
@@ -539,16 +528,6 @@ const createStyles = theme =>
       color: theme.colors.textPrimary,
       fontSize: 16,
       ...fontStyle('semiBold'),
-    },
-    identityAddress: {
-      marginTop: 3,
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      fontFamily: Platform.select({
-        ios: 'Menlo',
-        android: 'monospace',
-        default: 'monospace',
-      }),
     },
     checkContainer: {
       width: 22,

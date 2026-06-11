@@ -6,7 +6,6 @@
     - Continue builds response in-place instead of navigating to separate screen
     - Fixed connector arrow to attach flush to top card
     - Changed selection accent from blue to verusGreenColor
-    - Truncated i-address display to first 6 + last 6 chars
     - Disabled Continue until identity is selected
     - Resolved constraint i-addresses to friendly names via getIdentity
   - 2026-03-11: Fixed auth constraint system resolution and offline parent derivation .
@@ -91,11 +90,6 @@ import {
   OnboardingThemeProvider,
   useOnboardingTheme,
 } from '../../../theme/onboarding';
-
-const truncateAddress = addr => {
-  if (!addr || addr.length <= 14) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
-};
 
 const toAddressString = addressObj => {
   if (addressObj == null || typeof addressObj.toAddress !== 'function') {
@@ -1496,7 +1490,7 @@ const AuthenticationRequestInfoContent = props => {
       selectedIdentity
         ? {
             label: 'Selected identity',
-            value: `${selectedIdentity.friendlyName} (${selectedIdentity.iAddress})`,
+            value: selectedIdentity.friendlyName,
           }
         : {label: 'Selected identity', value: 'Not selected'},
     ];
@@ -1543,7 +1537,6 @@ const AuthenticationRequestInfoContent = props => {
         onManualLink={() => openLinkIdentityModalFromChain()}
         onRequestVerusId={openProvisionIdentityModalFromChain}
         onSelect={handleSelectIdentity}
-        requestIsTestnet={requestIsTestnet}
       />
       <RequestDetailsSheet
         visible={requestDetailsSheetVisible}
@@ -1700,9 +1693,6 @@ const AuthenticationRequestInfoContent = props => {
               <View style={styles.selectedIdentityText}>
                 <Text numberOfLines={1} style={styles.selectedIdentityName}>
                   {selectedIdentity.friendlyName}
-                </Text>
-                <Text numberOfLines={1} style={styles.selectedIdentityAddress}>
-                  {truncateAddress(selectedIdentity.iAddress)}
                 </Text>
               </View>
               <View style={styles.selectedIdentityCheck}>

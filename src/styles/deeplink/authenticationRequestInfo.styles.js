@@ -2,7 +2,7 @@
   AuthenticationRequestInfo.styles
   - Theme-aware flat layout styles for the authentication request screen.
 */
-import {Platform, StyleSheet} from 'react-native';
+import {StyleSheet} from 'react-native';
 import {fontStyle} from '../../globals/fonts';
 
 const createAuthenticationRequestInfoStyles = theme =>
@@ -222,10 +222,10 @@ const createAuthenticationRequestInfoStyles = theme =>
       ...fontStyle('semiBold'),
     },
     selectedIdentityCard: {
-      minHeight: 76,
+      height: 56,
       borderRadius: 18,
       paddingHorizontal: theme.spacing.md,
-      paddingVertical: 14,
+      paddingVertical: 0,
       backgroundColor: theme.colors.successBackground,
       flexDirection: 'row',
       alignItems: 'center',
@@ -241,18 +241,6 @@ const createAuthenticationRequestInfoStyles = theme =>
       lineHeight: 22,
       letterSpacing: 0,
       ...fontStyle('semiBold'),
-    },
-    selectedIdentityAddress: {
-      marginTop: 5,
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      lineHeight: 16,
-      letterSpacing: 0,
-      fontFamily: Platform.select({
-        ios: 'Menlo',
-        android: 'monospace',
-        default: 'monospace',
-      }),
     },
     selectedIdentityCheck: {
       width: 24,
