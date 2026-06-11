@@ -56,6 +56,7 @@ const getMatchingIdentities = ({
 const IdentityPickerSheet = ({
   visible,
   coinObj,
+  isCandidateAllowed,
   linkedIds,
   sortedIds,
   isIdentityAllowed,
@@ -309,6 +310,7 @@ const IdentityPickerSheet = ({
             <LinkExistingVerusIdSheet
               active={visible && sheetMode === VERUSID_SHEET_MODES.LINK}
               coinObj={coinObj}
+              isCandidateAllowed={isCandidateAllowed}
               linkedIds={linkedIds}
               requestIsTestnet={requestIsTestnet}
               onLinkCandidate={onLinkCandidate}

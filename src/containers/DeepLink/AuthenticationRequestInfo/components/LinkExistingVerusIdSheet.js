@@ -1,15 +1,15 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
-  ActivityIndicator,
-  Platform,
-  ScrollView,
+  FlatList,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Pencil} from 'lucide-react-native';
+import LottieView from 'lottie-react-native';
+import {Pencil, Plus} from 'lucide-react-native';
 import AppTextInput from '../../../../components/AppTextInput';
 import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
@@ -23,9 +23,42 @@ import {ELECTRUM} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {deriveKeyPair} from '../../../../utils/keys';
 
-const truncateAddress = addr => {
-  if (!addr || addr.length <= 14) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+const GET_IDENTITIES_WITH_ADDRESS_METHOD = 'getidentitieswithaddress';
+const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
+const LIST_CONTENT_VERTICAL_PADDING = 4;
+const MIN_VISIBLE_CANDIDATE_ROWS = 4;
+
+const getErrorText = value => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+
+  try {
+    return JSON.stringify(value);
+  } catch (e) {
+    return String(value);
+  }
+};
+
+const isGetIdentitiesWithAddressUnsupported = error => {
+  if (!error) return false;
+  if (error.code === -32601) return true;
+
+  const errorText = `${getErrorText(error.message)} ${getErrorText(
+    error.data,
+  )}`.toLowerCase();
+  const hasUnsupportedMessage =
+    errorText.includes('not found') ||
+    errorText.includes('not supported') ||
+    errorText.includes('unsupported') ||
+    errorText.includes('unknown method') ||
+    errorText.includes('method not found') ||
+    errorText.includes('not a function');
+
+  return (
+    hasUnsupportedMessage &&
+    (errorText.includes(GET_IDENTITIES_WITH_ADDRESS_METHOD) ||
+      errorText.includes('method'))
+  );
 };
 
 const normalizeDiscoveryResult = result => {
@@ -47,20 +80,16 @@ const getCandidateDisplayName = candidate => {
   const displaySource =
     candidate.fullyQualifiedName || candidate.friendlyName || candidate.name;
 
-  if (displaySource) {
-    return convertFqnToDisplayFormat(displaySource);
-  }
-
-  return truncateAddress(candidate.identityAddress);
+  return displaySource ? convertFqnToDisplayFormat(displaySource) : null;
 };
 
 const toSearchValue = candidate => {
   return [
     candidate.identityAddress,
+    candidate.displayName,
     candidate.name,
     candidate.friendlyName,
     candidate.fullyQualifiedName,
-    candidate.status,
   ]
     .filter(Boolean)
     .join(' ')
@@ -82,8 +111,8 @@ const buildLinkedAddressSet = linkedIds => {
 const LinkExistingVerusIdSheet = ({
   active,
   coinObj,
+  isCandidateAllowed,
   linkedIds,
-  requestIsTestnet,
   onLinkCandidate,
   onManualLink,
 }) => {
@@ -93,12 +122,15 @@ const LinkExistingVerusIdSheet = ({
     [theme],
   );
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const {height} = useWindowDimensions();
   const requestIdRef = useRef(0);
   const coinId = coinObj?.id;
   const systemId = coinObj?.system_id;
   const [candidates, setCandidates] = useState([]);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [linking, setLinking] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lookupUnsupported, setLookupUnsupported] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -106,15 +138,9 @@ const LinkExistingVerusIdSheet = ({
       requestIdRef.current += 1;
       setCandidates([]);
       setErrorMessage(null);
+      setLinking(false);
       setLoading(false);
-      setSearchQuery('');
-      return;
-    }
-
-    if (requestIsTestnet) {
-      setCandidates([]);
-      setErrorMessage(null);
-      setLoading(false);
+      setLookupUnsupported(false);
       setSearchQuery('');
       return;
     }
@@ -126,6 +152,7 @@ const LinkExistingVerusIdSheet = ({
       setCandidates([]);
       setErrorMessage(null);
       setLoading(true);
+      setLookupUnsupported(false);
 
       try {
         if (!systemId) {
@@ -153,6 +180,16 @@ const LinkExistingVerusIdSheet = ({
         );
 
         if (discoveryRes.error) {
+          if (isGetIdentitiesWithAddressUnsupported(discoveryRes.error)) {
+            if (requestIdRef.current === requestId) {
+              setLookupUnsupported(true);
+              setErrorMessage(
+                'Automatic VerusID lookup is unavailable for this chain.',
+              );
+            }
+            return;
+          }
+
           throw new Error(discoveryRes.error.message);
         }
 
@@ -164,35 +201,29 @@ const LinkExistingVerusIdSheet = ({
 
               if (!identityAddress) return null;
 
-              let enrichedResult = null;
+              let identityRes;
 
               try {
-                const identityRes = await getIdentity(
-                  systemId,
-                  identityAddress,
-                );
-
-                if (!identityRes.error) {
-                  enrichedResult = identityRes.result;
-                }
+                identityRes = await getIdentity(systemId, identityAddress);
               } catch (e) {
-                enrichedResult = null;
+                return null;
               }
 
+              if (identityRes.error) return null;
+
+              const enrichedResult = identityRes.result;
               const enrichedIdentity = enrichedResult?.identity || {};
-              const discoveryIdentity = discoveryResult?.identity || {};
               const finalIdentityAddress =
                 enrichedIdentity.identityaddress ||
                 getIdentityAddress(enrichedResult) ||
                 identityAddress;
-
-              return {
+              const candidate = {
+                chainId: coinId,
+                displayName: null,
+                identity: enrichedIdentity,
                 identityAddress: finalIdentityAddress,
-                name:
-                  enrichedIdentity.name ||
-                  discoveryIdentity.name ||
-                  discoveryResult?.name ||
-                  null,
+                identityResult: enrichedResult,
+                name: enrichedIdentity.name || discoveryResult?.name || null,
                 friendlyName:
                   enrichedResult?.friendlyname ||
                   enrichedResult?.friendlyName ||
@@ -205,9 +236,29 @@ const LinkExistingVerusIdSheet = ({
                   discoveryResult?.fullyqualifiedname ||
                   discoveryResult?.fullyQualifiedName ||
                   null,
+                primaryAddress,
                 status: enrichedResult?.status || discoveryResult?.status || null,
-                linked: linkedAddressSet.has(finalIdentityAddress.toLowerCase()),
+                systemId,
               };
+
+              candidate.displayName = getCandidateDisplayName(candidate);
+
+              if (
+                candidate.status !== 'active' ||
+                !candidate.displayName ||
+                linkedAddressSet.has(finalIdentityAddress.toLowerCase())
+              ) {
+                return null;
+              }
+
+              if (
+                typeof isCandidateAllowed === 'function' &&
+                !isCandidateAllowed(candidate)
+              ) {
+                return null;
+              }
+
+              return candidate;
             },
           ),
         );
@@ -225,21 +276,23 @@ const LinkExistingVerusIdSheet = ({
           deduped.push(candidate);
         }
 
-        deduped.sort((left, right) => {
-          if (left.linked !== right.linked) return left.linked ? 1 : -1;
-          return getCandidateDisplayName(left).localeCompare(
-            getCandidateDisplayName(right),
-          );
-        });
+        deduped.sort((left, right) =>
+          left.displayName.localeCompare(right.displayName),
+        );
 
         if (requestIdRef.current === requestId) {
           setCandidates(deduped);
         }
       } catch (e) {
         if (requestIdRef.current === requestId) {
-          setErrorMessage(
-            'Automatic VerusID lookup is unavailable. You can still enter a VerusID manually.',
-          );
+          if (isGetIdentitiesWithAddressUnsupported(e)) {
+            setLookupUnsupported(true);
+            setErrorMessage(
+              'Automatic VerusID lookup is unavailable for this chain.',
+            );
+          } else {
+            setErrorMessage('Unable to find VerusIDs right now.');
+          }
         }
       } finally {
         if (requestIdRef.current === requestId) {
@@ -249,7 +302,7 @@ const LinkExistingVerusIdSheet = ({
     };
 
     discover();
-  }, [active, coinId, linkedIds, requestIsTestnet, systemId]);
+  }, [active, coinId, coinObj, isCandidateAllowed, linkedIds, systemId]);
 
   const filteredCandidates = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -260,6 +313,41 @@ const LinkExistingVerusIdSheet = ({
       toSearchValue(candidate).includes(query),
     );
   }, [candidates, searchQuery]);
+
+  const handleLinkCandidate = async candidate => {
+    if (linking) return;
+
+    setLinking(true);
+
+    try {
+      await onLinkCandidate(candidate);
+    } catch (e) {
+      // Parent surfaces the actionable error. Keep the sheet stable.
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  if (loading || linking) {
+    return (
+      <LoadingState
+        label={linking ? 'Linking VerusID' : 'Finding VerusIDs'}
+        styles={styles}
+      />
+    );
+  }
+
+  const candidateListMaxHeight = Math.max(220, height * 0.48);
+  const visibleCandidateRows = Math.max(
+    MIN_VISIBLE_CANDIDATE_ROWS,
+    Math.floor(candidateListMaxHeight / CANDIDATE_ROW_TOTAL_HEIGHT),
+  );
+  const candidateListScrollable =
+    filteredCandidates.length > visibleCandidateRows;
+  const candidateListHeight =
+    Math.min(filteredCandidates.length, visibleCandidateRows) *
+      CANDIDATE_ROW_TOTAL_HEIGHT +
+    LIST_CONTENT_VERTICAL_PADDING;
 
   return (
     <>
@@ -285,111 +373,92 @@ const LinkExistingVerusIdSheet = ({
           value={searchQuery}
         />
       )}
-      <ScrollView
-        alwaysBounceVertical={false}
-        bounces={false}
-        contentContainerStyle={signedOutSheetStyles.listContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        {loading && (
+      {errorMessage && (
+        <View style={styles.statusState}>
+          <Text style={styles.statusText}>{errorMessage}</Text>
+        </View>
+      )}
+      {!errorMessage && candidates.length === 0 && (
+        <View style={styles.statusState}>
+          <Text style={styles.statusText}>
+            {'No VerusIDs were found for this wallet.'}
+          </Text>
+        </View>
+      )}
+      {!errorMessage &&
+        candidates.length > 0 &&
+        filteredCandidates.length === 0 && (
           <View style={styles.statusState}>
-            <ActivityIndicator color={theme.colors.primary} />
             <Text style={styles.statusText}>
-              {'Checking this wallet for VerusIDs...'}
+              {'No VerusIDs match that search.'}
             </Text>
           </View>
         )}
-        {!loading && errorMessage && (
-          <View style={styles.statusState}>
-            <Text style={styles.statusText}>{errorMessage}</Text>
-          </View>
-        )}
-        {!loading &&
-          !requestIsTestnet &&
-          !errorMessage &&
-          candidates.length === 0 && (
-            <View style={styles.statusState}>
-              <Text style={styles.statusText}>
-                {'No VerusIDs were found for this wallet address.'}
-              </Text>
-            </View>
-          )}
-        {!loading &&
-          !errorMessage &&
-          candidates.length > 0 &&
-          filteredCandidates.length === 0 && (
-            <View style={styles.statusState}>
-              <Text style={styles.statusText}>
-                {'No VerusIDs match that search.'}
-              </Text>
-            </View>
-          )}
-        {!loading &&
-          filteredCandidates.map(candidate => (
-            <CandidateRow
-              candidate={candidate}
-              key={candidate.identityAddress}
-              onPress={() => onLinkCandidate(candidate.identityAddress)}
-              styles={styles}
-              theme={theme}
-            />
-          ))}
+      {filteredCandidates.length > 0 && (
+        <View style={[styles.listFrame, {height: candidateListHeight}]}>
+          <FlatList
+            alwaysBounceVertical={false}
+            bounces={false}
+            contentContainerStyle={signedOutSheetStyles.listContent}
+            data={filteredCandidates}
+            keyExtractor={candidate => candidate.identityAddress}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({item}) => (
+              <CandidateRow
+                candidate={item}
+                onPress={() => handleLinkCandidate(item)}
+                styles={styles}
+                theme={theme}
+              />
+            )}
+            scrollEnabled={candidateListScrollable}
+            showsVerticalScrollIndicator={candidateListScrollable}
+          />
+        </View>
+      )}
+      {lookupUnsupported && (
         <ManualLinkRow
           onPress={onManualLink}
           signedOutSheetStyles={signedOutSheetStyles}
           theme={theme}
         />
-      </ScrollView>
+      )}
     </>
   );
 };
 
-const CandidateRow = ({candidate, onPress, styles, theme}) => {
-  const disabled = candidate.linked;
-  const displayName = getCandidateDisplayName(candidate);
-  const addressLabel = truncateAddress(candidate.identityAddress);
+const LoadingState = ({label, styles}) => (
+  <View
+    accessibilityLabel={label}
+    accessibilityRole="progressbar"
+    style={styles.loadingState}>
+    <LottieView
+      autoPlay
+      loop
+      source={require('../../../../animations/loading_7bars.json')}
+      style={styles.loadingAnimation}
+    />
+    <Text style={styles.statusText}>{label}</Text>
+  </View>
+);
 
-  return (
-    <View style={styles.row}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={disabled ? 1 : 0.74}
-        disabled={disabled}
-        onPress={onPress}
-        style={styles.rowMain}>
-        <View style={styles.rowText}>
-          <Text numberOfLines={1} style={styles.identityName}>
-            {displayName}
-          </Text>
-          {candidate.status ? (
-            <Text numberOfLines={1} style={styles.identityMeta}>
-              {`${candidate.status} - `}
-              <Text style={styles.identityAddress}>{addressLabel}</Text>
-            </Text>
-          ) : (
-            <Text numberOfLines={1} style={styles.identityAddress}>
-              {addressLabel}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={disabled ? 1 : 0.74}
-        disabled={disabled}
-        onPress={onPress}
-        style={[styles.linkButton, disabled && styles.linkButtonDisabled]}>
-        <Text
-          style={[
-            styles.linkButtonText,
-            disabled && styles.linkButtonTextDisabled,
-          ]}>
-          {disabled ? 'Linked' : 'Link'}
-        </Text>
-      </TouchableOpacity>
+const CandidateRow = ({candidate, onPress, styles, theme}) => (
+  <TouchableOpacity
+    accessibilityLabel={`Link ${candidate.displayName}`}
+    accessibilityRole="button"
+    activeOpacity={0.74}
+    onPress={onPress}
+    style={styles.identityRow}>
+    <View style={styles.identityText}>
+      <Text numberOfLines={1} style={styles.identityName}>
+        {candidate.displayName}
+      </Text>
     </View>
-  );
-};
+    <View pointerEvents="none" style={styles.plusContainer}>
+      <Plus color={theme.colors.primary} size={20} strokeWidth={2.4} />
+    </View>
+  </TouchableOpacity>
+);
 
 const ManualLinkRow = ({onPress, signedOutSheetStyles, theme}) => (
   <TouchableOpacity
@@ -425,6 +494,17 @@ const createStyles = theme =>
       minHeight: 50,
       borderRadius: 12,
     },
+    loadingState: {
+      minHeight: 156,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+      gap: 8,
+    },
+    loadingAnimation: {
+      width: 96,
+      height: 70,
+    },
     statusState: {
       minHeight: 78,
       alignItems: 'center',
@@ -439,64 +519,33 @@ const createStyles = theme =>
       textAlign: 'center',
       ...fontStyle('regular'),
     },
-    row: {
-      minHeight: 72,
+    listFrame: {
+      width: '100%',
+    },
+    identityRow: {
+      height: 56,
+      borderRadius: 18,
+      paddingHorizontal: 16,
+      marginVertical: 4,
       flexDirection: 'row',
       alignItems: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
     },
-    rowMain: {
-      flex: 1,
-      minHeight: 72,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingRight: 12,
-    },
-    rowText: {
+    identityText: {
       flex: 1,
       minWidth: 0,
+      paddingRight: 10,
     },
     identityName: {
       color: theme.colors.textPrimary,
       fontSize: 16,
       ...fontStyle('semiBold'),
     },
-    identityMeta: {
-      marginTop: 3,
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      ...fontStyle('regular'),
-    },
-    identityAddress: {
-      marginTop: 3,
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      fontFamily: Platform.select({
-        ios: 'Menlo',
-        android: 'monospace',
-        default: 'monospace',
-      }),
-    },
-    linkButton: {
-      minWidth: 74,
-      height: 34,
-      borderRadius: 17,
-      borderWidth: 1,
-      borderColor: theme.colors.borderStrong,
+    plusContainer: {
+      width: 28,
+      height: 28,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 12,
-    },
-    linkButtonDisabled: {
-      backgroundColor: theme.colors.surfaceMuted,
-      borderColor: theme.colors.surfaceMuted,
-    },
-    linkButtonText: {
-      color: theme.colors.primary,
-      fontSize: 12,
-      ...fontStyle('semiBold'),
-    },
-    linkButtonTextDisabled: {
-      color: theme.colors.textSubtle,
     },
   });
 

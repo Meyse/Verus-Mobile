@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {CommonActions} from '@react-navigation/native';
 import {
   SafeAreaView,
@@ -37,10 +37,19 @@ import {
   requestWalletUnlock,
   WALLET_UNLOCK_CANCELLED,
 } from '../../../actions/actionDispatchers';
+import {setUserCoins} from '../../../actions/actionCreators';
+import {
+  updateVerusIdWallet,
+} from '../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
+import {
+  clearChainLifecycle,
+  refreshActiveChainLifecycles,
+} from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {
   createAlert,
   resolveAlert,
 } from '../../../actions/actions/alert/dispatchers/alert';
+import {linkVerusId} from '../../../actions/actions/services/dispatchers/verusid/verusid';
 import {unixToDate} from '../../../utils/math';
 import {
   AuthenticationRequestDetails,
@@ -150,6 +159,7 @@ const getRequestIdDisplay = details => {
 };
 
 const AuthenticationRequestInfoContent = props => {
+  const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const styles = useMemo(
     () => createAuthenticationRequestInfoStyles(theme),
@@ -203,6 +213,7 @@ const AuthenticationRequestInfoContent = props => {
   const successNavigationStartedRef = useRef(false);
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
+  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
   const signedIn = useSelector(state => state.authentication.signedIn);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const pendingDeeplinkId =
@@ -504,6 +515,9 @@ const AuthenticationRequestInfoContent = props => {
       const preferredKey = preferredIAddress
         ? preferredIAddress.toLowerCase()
         : null;
+      const preferredDisplayKey = preferredIAddress
+        ? convertFqnToDisplayFormat(preferredIAddress).toLowerCase()
+        : null;
       const identities = Object.keys(sourceLinkedIds || {}).flatMap(chainId =>
         Object.keys(sourceLinkedIds[chainId] || {}).map(iAddress => ({
           chainId,
@@ -514,10 +528,17 @@ const AuthenticationRequestInfoContent = props => {
 
       identities.sort((left, right) => {
         if (preferredKey) {
-          const leftPreferred =
-            left.iAddress.toLowerCase() === preferredKey ? 0 : 1;
-          const rightPreferred =
-            right.iAddress.toLowerCase() === preferredKey ? 0 : 1;
+          const isPreferred = identity => {
+            const friendlyName = (identity.friendlyName || '').toLowerCase();
+
+            return (
+              identity.iAddress.toLowerCase() === preferredKey ||
+              friendlyName === preferredKey ||
+              friendlyName === preferredDisplayKey
+            );
+          };
+          const leftPreferred = isPreferred(left) ? 0 : 1;
+          const rightPreferred = isPreferred(right) ? 0 : 1;
 
           if (leftPreferred !== rightPreferred) {
             return leftPreferred - rightPreferred;
@@ -540,6 +561,27 @@ const AuthenticationRequestInfoContent = props => {
       );
     },
     [isLinkedIdentityAllowed],
+  );
+
+  const isAutoLinkCandidateAllowed = useCallback(
+    candidate => {
+      const chainId = candidate?.chainId || linkChainId;
+      const identityAddress = candidate?.identityAddress;
+      const fullyQualifiedName = candidate?.fullyQualifiedName;
+
+      if (!chainId || !identityAddress || !fullyQualifiedName) return false;
+
+      return isLinkedIdentityAllowed(
+        {
+          [chainId]: {
+            [identityAddress]: fullyQualifiedName,
+          },
+        },
+        chainId,
+        identityAddress,
+      );
+    },
+    [isLinkedIdentityAllowed, linkChainId],
   );
 
   const reloadLinkedIdsAndSelect = useCallback(
@@ -811,25 +853,7 @@ const AuthenticationRequestInfoContent = props => {
       successNavigationStartedRef.current = true;
 
       const finishSuccessfulModal = async () => {
-        const launchedModal = launchedSendModalRef.current;
-
-        if (
-          launchedModal?.intent === 'user' &&
-          successfulSendModalTypeRef.current === PROVISION_IDENTITY_SEND_MODAL
-        ) {
-          const selectedLinkedIdentity = await reloadLinkedIdsAndSelect({
-            preferredIAddress: launchedModal.identityAddress,
-          });
-
-          launchedSendModalRef.current = null;
-
-          if (selectedLinkedIdentity) {
-            successfulSendModalTypeRef.current = null;
-            successNavigationStartedRef.current = false;
-            setIdProvisionSuccess(false);
-            return;
-          }
-        }
+        launchedSendModalRef.current = null;
 
         if (
           successfulSendModalTypeRef.current === LINK_IDENTITY_SEND_MODAL &&
@@ -877,7 +901,6 @@ const AuthenticationRequestInfoContent = props => {
     sendModalType,
     pendingDeeplinkId,
     props.navigation,
-    reloadLinkedIdsAndSelect,
   ]);
 
   useEffect(() => {
@@ -891,8 +914,8 @@ const AuthenticationRequestInfoContent = props => {
     const launchedModal = launchedSendModalRef.current;
 
     if (
-      launchedModal?.intent !== 'user' ||
-      launchedModal.type !== LINK_IDENTITY_SEND_MODAL
+      launchedModal?.type !== LINK_IDENTITY_SEND_MODAL ||
+      !['user', 'passthrough'].includes(launchedModal.intent)
     ) {
       return;
     }
@@ -1123,7 +1146,8 @@ const AuthenticationRequestInfoContent = props => {
     if (!(passthrough && passthrough.fqnToAutoLink)) return;
     if (requiredSystemIds.length > 0 && !requiredSystemsResolved) return;
 
-    const noLogin = responseUris.length === 0;
+    // Ready provisioning notifications resume this auth request after linking.
+    const noLogin = false;
     const data = {
       [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: passthrough.fqnToAutoLink,
       noLogin,
@@ -1141,7 +1165,6 @@ const AuthenticationRequestInfoContent = props => {
     signedIn,
     activeAccountMatchesRequest,
     passthrough,
-    responseUris,
     linkChainId,
     requiredSystemIds,
     requiredSystemsResolved,
@@ -1168,6 +1191,96 @@ const AuthenticationRequestInfoContent = props => {
     setIdentitySheetVisible(false);
     openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
   };
+
+  const linkAutoFoundIdentity = useCallback(
+    async candidate => {
+      try {
+        const candidateChainId = candidate?.chainId || linkChainId;
+        const identityAddress = candidate?.identityAddress;
+        const fullyQualifiedName = candidate?.fullyQualifiedName;
+        const primaryAddresses =
+          candidate?.identity?.primaryaddresses ||
+          candidate?.identity?.primaryAddresses ||
+          [];
+        const displayName =
+          candidate?.displayName ||
+          (fullyQualifiedName
+            ? convertFqnToDisplayFormat(fullyQualifiedName)
+            : null);
+
+        if (!activeAccount?.id) {
+          throw new Error('You must be signed in to link VerusIDs.');
+        }
+
+        if (
+          !candidate ||
+          !identityAddress ||
+          !fullyQualifiedName ||
+          !displayName
+        ) {
+          throw new Error('Unable to link this VerusID.');
+        }
+
+        if (candidate.status !== 'active') {
+          throw new Error('Only active VerusIDs can be linked.');
+        }
+
+        if (
+          !candidate.primaryAddress ||
+          !primaryAddresses.includes(candidate.primaryAddress)
+        ) {
+          throw new Error(
+            'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+          );
+        }
+
+        if (!isAutoLinkCandidateAllowed(candidate)) {
+          throw new Error(
+            'This VerusID does not match the request requirements.',
+          );
+        }
+
+        const coinObj = CoinDirectory.findCoinObj(candidateChainId);
+
+        await linkVerusId(identityAddress, displayName, coinObj.id);
+        await updateVerusIdWallet();
+        clearChainLifecycle(coinObj.id);
+
+        const setUserCoinsAction = setUserCoins(
+          activeCoinList,
+          activeAccount.id,
+        );
+        dispatch(setUserCoinsAction);
+        refreshActiveChainLifecycles(
+          setUserCoinsAction.payload.activeCoinsForUser,
+        );
+
+        const selectedLinkedIdentity = await reloadLinkedIdsAndSelect({
+          preferredIAddress: identityAddress,
+        });
+
+        if (!selectedLinkedIdentity) {
+          setSelectedIdentity({
+            chainId: coinObj.id,
+            iAddress: identityAddress,
+            friendlyName: displayName,
+          });
+          setIdentitySheetVisible(false);
+        }
+      } catch (e) {
+        createAlert('Error', e?.message || 'Unable to link VerusID.');
+        throw e;
+      }
+    },
+    [
+      activeAccount,
+      activeCoinList,
+      dispatch,
+      isAutoLinkCandidateAllowed,
+      linkChainId,
+      reloadLinkedIdsAndSelect,
+    ],
+  );
 
   const openProvisionIdentityModalFromChain = () => {
     if (!provisioningDetailsBufferString) return;
@@ -1418,6 +1531,7 @@ const AuthenticationRequestInfoContent = props => {
       <IdentityPickerSheet
         visible={identitySheetVisible}
         coinObj={linkExistingCoinObj}
+        isCandidateAllowed={isAutoLinkCandidateAllowed}
         linkedIds={linkedIds}
         sortedIds={sortedIds}
         isIdentityAllowed={isIdentityAllowed}
@@ -1425,7 +1539,7 @@ const AuthenticationRequestInfoContent = props => {
         canProvision={canProvision}
         initialMode={identitySheetInitialMode}
         onClose={() => setIdentitySheetVisible(false)}
-        onLinkCandidate={openLinkIdentityModalFromChain}
+        onLinkCandidate={linkAutoFoundIdentity}
         onManualLink={() => openLinkIdentityModalFromChain()}
         onRequestVerusId={openProvisionIdentityModalFromChain}
         onSelect={handleSelectIdentity}
