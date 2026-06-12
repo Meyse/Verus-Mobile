@@ -3,13 +3,13 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LottieView from 'lottie-react-native';
 import {Pencil, Plus} from 'lucide-react-native';
+import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppTextInput from '../../../../components/AppTextInput';
 import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
@@ -26,7 +26,10 @@ import {deriveKeyPair} from '../../../../utils/keys';
 const GET_IDENTITIES_WITH_ADDRESS_METHOD = 'getidentitieswithaddress';
 const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
 const LIST_CONTENT_VERTICAL_PADDING = 4;
-const MIN_VISIBLE_CANDIDATE_ROWS = 4;
+const DEFAULT_CANDIDATE_LIST_HEIGHT =
+  4 * CANDIDATE_ROW_TOTAL_HEIGHT + LIST_CONTENT_VERTICAL_PADDING;
+const SCROLL_CUE_HEIGHT = 42;
+const SCROLL_END_THRESHOLD = 8;
 
 const getErrorText = value => {
   if (value == null) return '';
@@ -110,6 +113,7 @@ const buildLinkedAddressSet = linkedIds => {
 
 const LinkExistingVerusIdSheet = ({
   active,
+  candidateListHeight = DEFAULT_CANDIDATE_LIST_HEIGHT,
   coinObj,
   isCandidateAllowed,
   linkedIds,
@@ -122,7 +126,7 @@ const LinkExistingVerusIdSheet = ({
     [theme],
   );
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const {height} = useWindowDimensions();
+  const listRef = useRef(null);
   const requestIdRef = useRef(0);
   const coinId = coinObj?.id;
   const systemId = coinObj?.system_id;
@@ -132,6 +136,8 @@ const LinkExistingVerusIdSheet = ({
   const [loading, setLoading] = useState(false);
   const [lookupUnsupported, setLookupUnsupported] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showBottomScrollCue, setShowBottomScrollCue] = useState(false);
+  const [showTopScrollCue, setShowTopScrollCue] = useState(false);
 
   useEffect(() => {
     if (!active) {
@@ -142,6 +148,8 @@ const LinkExistingVerusIdSheet = ({
       setLoading(false);
       setLookupUnsupported(false);
       setSearchQuery('');
+      setShowBottomScrollCue(false);
+      setShowTopScrollCue(false);
       return;
     }
 
@@ -313,6 +321,38 @@ const LinkExistingVerusIdSheet = ({
       toSearchValue(candidate).includes(query),
     );
   }, [candidates, searchQuery]);
+  const listViewportHeight = Math.max(
+    CANDIDATE_ROW_TOTAL_HEIGHT + LIST_CONTENT_VERTICAL_PADDING,
+    candidateListHeight,
+  );
+  const candidateContentHeight =
+    filteredCandidates.length * CANDIDATE_ROW_TOTAL_HEIGHT +
+    LIST_CONTENT_VERTICAL_PADDING;
+  const candidateListScrollable =
+    candidateContentHeight > listViewportHeight + SCROLL_END_THRESHOLD;
+
+  useEffect(() => {
+    listRef.current?.scrollToOffset?.({offset: 0, animated: false});
+    setShowTopScrollCue(false);
+    setShowBottomScrollCue(candidateListScrollable);
+  }, [
+    candidateListScrollable,
+    filteredCandidates.length,
+    listViewportHeight,
+    searchQuery,
+  ]);
+
+  useEffect(() => {
+    if (!active || !candidateListScrollable || filteredCandidates.length === 0) {
+      return undefined;
+    }
+
+    const timeout = setTimeout(() => {
+      listRef.current?.flashScrollIndicators?.();
+    }, 260);
+
+    return () => clearTimeout(timeout);
+  }, [active, candidateListScrollable, filteredCandidates.length, searchQuery]);
 
   const handleLinkCandidate = async candidate => {
     if (linking) return;
@@ -328,26 +368,32 @@ const LinkExistingVerusIdSheet = ({
     }
   };
 
+  const handleCandidateListScroll = event => {
+    const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
+    const isAtTop = contentOffset.y <= SCROLL_END_THRESHOLD;
+    const isAtEnd =
+      contentOffset.y + layoutMeasurement.height >=
+      contentSize.height - SCROLL_END_THRESHOLD;
+
+    setShowTopScrollCue(current => {
+      const next = candidateListScrollable && !isAtTop;
+      return current === next ? current : next;
+    });
+    setShowBottomScrollCue(current => {
+      const next = candidateListScrollable && !isAtEnd;
+      return current === next ? current : next;
+    });
+  };
+
   if (loading || linking) {
     return (
       <LoadingState
         label={linking ? 'Linking VerusID' : 'Finding VerusIDs'}
+        minHeight={listViewportHeight}
         styles={styles}
       />
     );
   }
-
-  const candidateListMaxHeight = Math.max(220, height * 0.48);
-  const visibleCandidateRows = Math.max(
-    MIN_VISIBLE_CANDIDATE_ROWS,
-    Math.floor(candidateListMaxHeight / CANDIDATE_ROW_TOTAL_HEIGHT),
-  );
-  const candidateListScrollable =
-    filteredCandidates.length > visibleCandidateRows;
-  const candidateListHeight =
-    Math.min(filteredCandidates.length, visibleCandidateRows) *
-      CANDIDATE_ROW_TOTAL_HEIGHT +
-    LIST_CONTENT_VERTICAL_PADDING;
 
   return (
     <>
@@ -374,12 +420,12 @@ const LinkExistingVerusIdSheet = ({
         />
       )}
       {errorMessage && (
-        <View style={styles.statusState}>
+        <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
           <Text style={styles.statusText}>{errorMessage}</Text>
         </View>
       )}
       {!errorMessage && candidates.length === 0 && (
-        <View style={styles.statusState}>
+        <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
           <Text style={styles.statusText}>
             {'No VerusIDs were found for this wallet.'}
           </Text>
@@ -388,21 +434,23 @@ const LinkExistingVerusIdSheet = ({
       {!errorMessage &&
         candidates.length > 0 &&
         filteredCandidates.length === 0 && (
-          <View style={styles.statusState}>
+          <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
             <Text style={styles.statusText}>
               {'No VerusIDs match that search.'}
             </Text>
           </View>
         )}
       {filteredCandidates.length > 0 && (
-        <View style={[styles.listFrame, {height: candidateListHeight}]}>
+        <View style={[styles.listFrame, {height: listViewportHeight}]}>
           <FlatList
+            ref={listRef}
             alwaysBounceVertical={false}
             bounces={false}
             contentContainerStyle={signedOutSheetStyles.listContent}
             data={filteredCandidates}
             keyExtractor={candidate => candidate.identityAddress}
             keyboardShouldPersistTaps="handled"
+            onScroll={handleCandidateListScroll}
             renderItem={({item}) => (
               <CandidateRow
                 candidate={item}
@@ -411,9 +459,16 @@ const LinkExistingVerusIdSheet = ({
                 theme={theme}
               />
             )}
+            scrollEventThrottle={16}
             scrollEnabled={candidateListScrollable}
             showsVerticalScrollIndicator={candidateListScrollable}
           />
+          {showTopScrollCue && (
+            <ScrollCue position="top" styles={styles} theme={theme} />
+          )}
+          {showBottomScrollCue && (
+            <ScrollCue position="bottom" styles={styles} theme={theme} />
+          )}
         </View>
       )}
       {lookupUnsupported && (
@@ -427,11 +482,11 @@ const LinkExistingVerusIdSheet = ({
   );
 };
 
-const LoadingState = ({label, styles}) => (
+const LoadingState = ({label, minHeight, styles}) => (
   <View
     accessibilityLabel={label}
     accessibilityRole="progressbar"
-    style={styles.loadingState}>
+    style={[styles.loadingState, {minHeight}]}>
     <LottieView
       autoPlay
       loop
@@ -441,6 +496,44 @@ const LoadingState = ({label, styles}) => (
     <Text style={styles.statusText}>{label}</Text>
   </View>
 );
+
+const ScrollCue = ({position, styles, theme}) => {
+  if (position === 'top') {
+    return (
+      <View
+        pointerEvents="none"
+        style={[styles.scrollCue, styles.scrollCueTop]}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id="identityTopScrollCue" x1="0" x2="0" y1="0" y2="1">
+              <Stop offset="0" stopColor={theme.colors.sheet} stopOpacity="1" />
+              <Stop offset="0.28" stopColor={theme.colors.sheet} stopOpacity="0.92" />
+              <Stop offset="1" stopColor={theme.colors.sheet} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#identityTopScrollCue)" />
+        </Svg>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.scrollCue, styles.scrollCueBottom]}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <LinearGradient id="identityBottomScrollCue" x1="0" x2="0" y1="0" y2="1">
+            <Stop offset="0" stopColor={theme.colors.sheet} stopOpacity="0" />
+            <Stop offset="0.72" stopColor={theme.colors.sheet} stopOpacity="0.92" />
+            <Stop offset="1" stopColor={theme.colors.sheet} stopOpacity="1" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#identityBottomScrollCue)" />
+      </Svg>
+    </View>
+  );
+};
 
 const CandidateRow = ({candidate, onPress, styles, theme}) => (
   <TouchableOpacity
@@ -521,6 +614,19 @@ const createStyles = theme =>
     },
     listFrame: {
       width: '100%',
+      overflow: 'hidden',
+    },
+    scrollCue: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: SCROLL_CUE_HEIGHT,
+    },
+    scrollCueTop: {
+      top: 0,
+    },
+    scrollCueBottom: {
+      bottom: 0,
     },
     identityRow: {
       height: 56,

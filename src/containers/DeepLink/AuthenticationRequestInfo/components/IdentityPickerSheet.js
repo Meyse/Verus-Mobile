@@ -3,14 +3,18 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BadgePlus, Check, ChevronLeft, Link2} from 'lucide-react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
@@ -28,6 +32,62 @@ const ENTER_ANIMATION_DURATION = 170;
 const ROW_ENTER_ANIMATION_DURATION = 180;
 const ROW_STAGGER_DURATION = 24;
 const TRANSITION_DISTANCE = 14;
+const LINK_SHEET_MAX_HEIGHT_RATIO = 0.76;
+const LINK_SHEET_SIDE_MARGIN = 12;
+const LINK_SHEET_INTERNAL_TOP_PADDING = 10;
+const LINK_SHEET_BODY_VERTICAL_PADDING = 26;
+const LINK_SHEET_SEARCH_HEIGHT = 50;
+const LINK_SHEET_SEARCH_MARGIN_BOTTOM = 10;
+const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
+const LIST_CONTENT_VERTICAL_PADDING = 4;
+const TARGET_VISIBLE_ROWS = 6;
+const TARGET_VISIBLE_ROWS_WITH_KEYBOARD = 4;
+const MIN_VISIBLE_ROWS_WITH_KEYBOARD = 1;
+
+const getLinkSheetMetrics = ({
+  height,
+  insets,
+  keyboardHeight,
+  keyboardVisible,
+}) => {
+  const targetRows = keyboardVisible
+    ? TARGET_VISIBLE_ROWS_WITH_KEYBOARD
+    : TARGET_VISIBLE_ROWS;
+  const desiredListHeight =
+    targetRows * CANDIDATE_ROW_TOTAL_HEIGHT + LIST_CONTENT_VERTICAL_PADDING;
+  const sheetChromeHeight =
+    LINK_SHEET_INTERNAL_TOP_PADDING +
+    LINK_SHEET_BODY_VERTICAL_PADDING +
+    HEADER_ROW_HEIGHT +
+    LINK_SHEET_SEARCH_HEIGHT +
+    LINK_SHEET_SEARCH_MARGIN_BOTTOM;
+  const defaultMaxSheetHeight = height * LINK_SHEET_MAX_HEIGHT_RATIO;
+  const availableSheetHeight = keyboardVisible
+    ? height -
+      keyboardHeight -
+      insets.top -
+      Math.max(insets.bottom, LINK_SHEET_SIDE_MARGIN) -
+      LINK_SHEET_SIDE_MARGIN
+    : defaultMaxSheetHeight;
+  const minimumSheetHeight =
+    sheetChromeHeight +
+    MIN_VISIBLE_ROWS_WITH_KEYBOARD * CANDIDATE_ROW_TOTAL_HEIGHT +
+    LIST_CONTENT_VERTICAL_PADDING;
+  const maxSheetHeight = Math.max(
+    minimumSheetHeight,
+    Math.min(defaultMaxSheetHeight, availableSheetHeight),
+  );
+  const availableListHeight = Math.max(
+    CANDIDATE_ROW_TOTAL_HEIGHT + LIST_CONTENT_VERTICAL_PADDING,
+    maxSheetHeight - sheetChromeHeight,
+  );
+  const candidateListHeight = Math.min(desiredListHeight, availableListHeight);
+
+  return {
+    candidateListHeight,
+    sheetHeight: sheetChromeHeight + candidateListHeight,
+  };
+};
 
 const getMatchingIdentities = ({
   linkedIds,
@@ -64,6 +124,8 @@ const IdentityPickerSheet = ({
   onSelect,
 }) => {
   const theme = useOnboardingTheme();
+  const insets = useSafeAreaInsets();
+  const {height} = useWindowDimensions();
   const signedOutSheetStyles = useMemo(
     () => createSignedOutSheetStyles(theme),
     [theme],
@@ -76,6 +138,10 @@ const IdentityPickerSheet = ({
   const headerProgress = useRef(new Animated.Value(0)).current;
   const reduceMotionRef = useRef(false);
   const rowAnimations = useRef([]).current;
+  const [keyboardMetrics, setKeyboardMetrics] = useState({
+    height: 0,
+    visible: false,
+  });
   const matchingIdentities = useMemo(
     () => getMatchingIdentities({linkedIds, sortedIds, isIdentityAllowed}),
     [linkedIds, sortedIds, isIdentityAllowed],
@@ -85,6 +151,12 @@ const IdentityPickerSheet = ({
     initialMode === VERUSID_SHEET_MODES.LINK
       ? VERUSID_SHEET_MODES.LINK
       : VERUSID_SHEET_MODES.CHOOSE;
+  const linkSheetMetrics = getLinkSheetMetrics({
+    height,
+    insets,
+    keyboardHeight: keyboardMetrics.height,
+    keyboardVisible: keyboardMetrics.visible,
+  });
 
   useEffect(() => {
     if (visible) {
@@ -105,6 +177,32 @@ const IdentityPickerSheet = ({
     rowAnimations,
     visible,
   ]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardMetrics({height: 0, visible: false});
+      return undefined;
+    }
+
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, event => {
+      setKeyboardMetrics({
+        height: event?.endCoordinates?.height || 0,
+        visible: true,
+      });
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardMetrics({height: 0, visible: false});
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [visible]);
 
   useEffect(() => {
     let active = true;
@@ -270,7 +368,20 @@ const IdentityPickerSheet = ({
   };
 
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} maxHeight="76%">
+    <BottomSheetModal
+      avoidKeyboard={sheetMode === VERUSID_SHEET_MODES.LINK}
+      contentContainerStyle={
+        sheetMode === VERUSID_SHEET_MODES.LINK
+          ? {height: linkSheetMetrics.sheetHeight}
+          : null
+      }
+      visible={visible}
+      onClose={onClose}
+      maxHeight={
+        sheetMode === VERUSID_SHEET_MODES.LINK
+          ? linkSheetMetrics.sheetHeight
+          : '76%'
+      }>
       <View style={[signedOutSheetStyles.body, signedOutSheetStyles.bodyShort]}>
         <Animated.View
           style={[
@@ -302,6 +413,7 @@ const IdentityPickerSheet = ({
           {sheetMode === VERUSID_SHEET_MODES.LINK ? (
             <LinkExistingVerusIdSheet
               active={visible && sheetMode === VERUSID_SHEET_MODES.LINK}
+              candidateListHeight={linkSheetMetrics.candidateListHeight}
               coinObj={coinObj}
               isCandidateAllowed={isCandidateAllowed}
               linkedIds={linkedIds}
