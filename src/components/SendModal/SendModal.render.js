@@ -1,5 +1,6 @@
 import React, { Component } from "react";
-import { Platform, SafeAreaView, View } from "react-native";
+import { Platform, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, Portal, Button } from "react-native-paper";
 import Colors from "../../globals/colors";
 import {
@@ -21,6 +22,7 @@ import {
   WITHDRAW_SEND_MODAL,
 } from "../../utils/constants/sendModal";
 import SemiModal from "../SemiModal";
+import { OnboardingThemeProvider } from "../../theme/onboarding";
 import TraditionalCryptoSendForm from "./TraditionalCryptoSend/TraditionalCryptoSendForm/TraditionalCryptoSendForm";
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { NavigationContainer } from "@react-navigation/native";
@@ -46,6 +48,7 @@ import AuthenticateUserResult from "./AuthenticateUser/AuthenticateUserResult/Au
 import ProvisionIdentityForm from "./ProvisionIdentity/ProvisionIdentityForm/ProvisionIdentityForm";
 import ProvisionIdentityConfirm from "./ProvisionIdentity/ProvisionIdentityConfirm/ProvisionIdentityConfirm";
 import ProvisionIdentityResult from "./ProvisionIdentity/ProvisionIdentityResult/ProvisionIdentityResult";
+import ProvisionIdentityBottomSheet from "./ProvisionIdentity/ProvisionIdentityBottomSheet";
 import AddPbaasCurrencyForm from "./AddPbaasCurrency/AddPbaasCurrencyForm/AddPbaasCurrencyForm";
 import AddPbaasCurrencyConfirm from "./AddPbaasCurrency/AddPbaasCurrencyConfirm/AddPbaasCurrencyConfirm";
 import AddPbaasCurrencyResult from "./AddPbaasCurrency/AddPbaasCurrencyResult/AddPbaasCurrencyResult";
@@ -123,6 +126,26 @@ export const SendModalRender = function () {
     ? this.props.keyboard.height + modalStarterHeight
     : modalStarterHeight;
 
+  if (this.props.sendModal.type === PROVISION_IDENTITY_SEND_MODAL) {
+    return (
+      <OnboardingThemeProvider>
+        <ProvisionIdentityBottomSheet
+          visible={visible}
+          onClose={() => this.cancel()}
+          preventExit={this.state.preventExit}
+          loading={this.state.loading}
+          sendModal={this.props.sendModal}
+          setLoading={(loading, preventExit) =>
+            this.setLoading(loading, preventExit)
+          }
+          setPreventExit={preventExit => this.setPreventExit(preventExit)}
+          updateSendFormData={(key, value) =>
+            this.updateSendFormData(key, value)
+          }
+        />
+      </OnboardingThemeProvider>
+    );
+  }
 
   return (
     <Portal>
