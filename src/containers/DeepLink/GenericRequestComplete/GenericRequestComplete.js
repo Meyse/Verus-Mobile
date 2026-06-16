@@ -11,37 +11,30 @@
   fails so users can leave the screen after at least one delivery attempt.
 */
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Platform, SafeAreaView, View, TouchableOpacity, Clipboard } from 'react-native';
+import { Platform, View, TouchableOpacity, Clipboard } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import base64url from 'base64url';
-import axios from 'axios';
-import { URL } from 'react-native-url-polyfill';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
 import { resetDeeplinkData } from '../../../actions/actionCreators';
-import { openUrl } from '../../../utils/linking';
-import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
-import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
-import { signGenericResponse } from '../../../utils/api/channels/vrpc/callCreators';
 import {
-  BigNumber,
   GenericRequest,
   GenericResponse,
-  GENERIC_RESPONSE_DEEPLINK_VDXF_KEY,
   IDENTITY_UPDATE_RESPONSE_VDXF_KEY,
-  ResponseURI,
-  VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID,
 } from 'verus-typescript-primitives';
-import { verifyGenericResponse } from '../../../utils/api/channels/vrpc/requests/verifyGenericResponse';
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { genericRequestCompleteStyles as styles } from '../../../styles';
 import { markPendingDeeplinkComplete } from '../../../utils/deeplink/pendingDeeplinkStorage';
+import {
+  completeGenericResponseDelivery,
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericRequestDeliveryInfo,
+} from '../../../utils/deeplink/genericRequestDelivery';
 
 const GenericRequestComplete = props => {
   const { requestBufferString, responseBufferString } = props.route.params;
@@ -83,66 +76,6 @@ const GenericRequestComplete = props => {
     }
   };
 
-  const isPostUri = (uri) => {
-    if (uri == null || uri.type == null) return false;
-    if (uri.type.eq) return uri.type.eq(ResponseURI.TYPE_POST);
-    return Number(uri.type) === ResponseURI.TYPE_POST.toNumber();
-  };
-
-  const isRedirectUri = (uri) => {
-    if (uri == null || uri.type == null) return false;
-    if (uri.type.eq) return uri.type.eq(ResponseURI.TYPE_REDIRECT);
-    return Number(uri.type) === ResponseURI.TYPE_REDIRECT.toNumber();
-  };
-
-  const getResponseUri = (responseUris) => {
-    if (responseUris == null || responseUris.length === 0) return null;
-
-    const postUri = responseUris.find(uri => isPostUri(uri));
-    if (postUri) return postUri;
-
-    const redirectUri = responseUris.find(uri => isRedirectUri(uri));
-    return redirectUri || null;
-  };
-
-  const handleResponseUri = async (request, response) => {
-    if (!request) return;
-
-    const responseUris = request.responseURIs || [];
-    const responseUri = getResponseUri(responseUris);
-
-    if (responseUri == null) return;
-
-    if (isPostUri(responseUri)) {
-      const responseBuffer = response.toBuffer();
-      try {
-        await axios.post(
-          responseUri.getUriString(),
-          responseBuffer,
-          { headers: { 'Content-Type': 'application/octet-stream' } }
-        );
-      } catch (error) {
-        const status = error?.response?.status;
-        const statusSuffix = status != null ? ` (HTTP ${status})` : '';
-        const postError = new Error(
-          `Failed to send the response to the requester${statusSuffix}.`
-        );
-
-        postError.isResponsePostError = true;
-        postError.cause = error;
-        throw postError;
-      }
-    } else if (isRedirectUri(responseUri)) {
-      const url = new URL(responseUri.getUriString());
-      url.searchParams.set(
-        GENERIC_RESPONSE_DEEPLINK_VDXF_KEY.vdxfid,
-        base64url(response.toBuffer())
-      );
-
-      openUrl(url.toString());
-    }
-  };
-
   const responseNotice = useMemo(() => {
     if (!requestBufferString || !responseBufferString) return null;
 
@@ -150,16 +83,14 @@ const GenericRequestComplete = props => {
       const request = new GenericRequest();
       request.fromBuffer(Buffer.from(requestBufferString, 'hex'), 0);
 
-      const responseUri = getResponseUri(request.responseURIs || []);
-      if (!responseUri) return null;
+      const deliveryInfo = getGenericRequestDeliveryInfo(request);
 
-      if (isPostUri(responseUri)) {
+      if (deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
         return "Your response will be sent to the requester";
       }
 
-      if (isRedirectUri(responseUri)) {
-        const url = new URL(responseUri.getUriString());
-        return `You'll be redirected to ${url.protocol}//${url.host} to finish`;
+      if (deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT) {
+        return `You'll be redirected to ${deliveryInfo.destinationHost} to finish`;
       }
     } catch (e) {
       return null;
@@ -252,42 +183,10 @@ const GenericRequestComplete = props => {
     try {
       setLoading(true);
 
-      if (!requestBufferString || !responseBufferString) {
-        await markSavedPendingRequestComplete();
-        setLoading(false);
-        completeRequest();
-        return;
-      }
-
-      const request = new GenericRequest();
-      request.fromBuffer(Buffer.from(requestBufferString, 'hex'), 0);
-
-      const response = new GenericResponse();
-      response.fromBuffer(Buffer.from(responseBufferString, 'hex'), 0);
-
-      response.createdAt = new BigNumber((Date.now() / 1000).toFixed(0));
-      response.handledBy = VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID;
-
-      response.setFlags();
-      if (response.signature == null) {
-        await markSavedPendingRequestComplete();
-        setLoading(false);
-        completeRequest();
-        return;
-      }
-
-      const signerSystemID = response.signature.systemID.toIAddress();
-      const signerSystemName = getSystemNameFromSystemId(signerSystemID);
-      const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
-
-      const signedResponse = await signGenericResponse(coinObj, response);
-      const verification = await verifyGenericResponse(coinObj, signedResponse);
-
-      if (!verification) {
-        throw new Error('Response failed verification, ensure the identity you selected is still under your control.');
-      }
-
-      await handleResponseUri(request, signedResponse);
+      await completeGenericResponseDelivery({
+        requestBufferString,
+        responseBufferString,
+      });
       await markSavedPendingRequestComplete();
     } catch (e) {
       if (e?.isResponsePostError) {
