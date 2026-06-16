@@ -20,6 +20,7 @@ export {default as appTextInputStyles} from './components/appTextInput.styles';
 export {default as authenticationRequestInfoStyles} from './deeplink/authenticationRequestInfo.styles';
 export {default as authorityInfoSheetStyles} from './deeplink/authorityInfoSheet.styles';
 export {default as confirmPayStepStyles} from './deeplink/confirmPayStep.styles';
+export {default as deepLinkRequestReviewStyles} from './components/deepLinkRequestReview.styles';
 export {default as genericRequestCompleteStyles} from './deeplink/genericRequestComplete.styles';
 export {default as gradientButtonStyles} from './components/gradientButton.styles';
 export {default as highRiskStepStyles} from './deeplink/highRiskStep.styles';

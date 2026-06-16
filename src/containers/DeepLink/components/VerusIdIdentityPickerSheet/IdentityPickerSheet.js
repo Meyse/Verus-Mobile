@@ -116,6 +116,7 @@ const IdentityPickerSheet = ({
   sortedIds,
   isIdentityAllowed,
   selectedIdentity,
+  provisioningEnabled = true,
   provisioningRequestState,
   initialMode = VERUSID_SHEET_MODES.CHOOSE,
   onClose,
@@ -438,6 +439,7 @@ const IdentityPickerSheet = ({
                 onRequestVerusId={onRequestVerusId}
                 onSelect={onSelect}
                 onUseProvisionedIdentity={onUseProvisionedIdentity}
+                provisioningEnabled={provisioningEnabled}
                 provisioningRequestState={provisioningRequestState}
                 selectedIdentity={selectedIdentity}
                 signedOutSheetStyles={signedOutSheetStyles}
@@ -473,6 +475,7 @@ const ChooseRows = ({
   onRequestVerusId,
   onSelect,
   onUseProvisionedIdentity,
+  provisioningEnabled,
   provisioningRequestState,
   selectedIdentity,
   signedOutSheetStyles,
@@ -481,15 +484,21 @@ const ChooseRows = ({
 }) => {
   let rowIndex = 0;
   const provisioningStatus =
-    provisioningRequestState?.status ||
-    PROVISIONING_REQUEST_STATUSES.REQUESTABLE;
+    provisioningEnabled
+      ? provisioningRequestState?.status ||
+        PROVISIONING_REQUEST_STATUSES.REQUESTABLE
+      : null;
   const canProvision =
+    provisioningEnabled &&
     provisioningStatus === PROVISIONING_REQUEST_STATUSES.REQUESTABLE;
   const showPendingProvisioningRow =
+    provisioningEnabled &&
     provisioningStatus === PROVISIONING_REQUEST_STATUSES.PENDING;
   const showReadyProvisioningRow =
+    provisioningEnabled &&
     provisioningStatus === PROVISIONING_REQUEST_STATUSES.READY;
   const showFailedProvisioningRow =
+    provisioningEnabled &&
     provisioningStatus === PROVISIONING_REQUEST_STATUSES.FAILED;
   const showProvisioningStatusRow =
     showPendingProvisioningRow ||

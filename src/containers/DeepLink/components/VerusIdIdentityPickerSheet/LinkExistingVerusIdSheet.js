@@ -530,6 +530,13 @@ const ScrollCue = ({position, styles, theme}) => {
         </Defs>
         <Rect width="100%" height="100%" fill="url(#identityBottomScrollCue)" />
       </Svg>
+      <View style={styles.scrollCueChevron}>
+        <MaterialCommunityIcons
+          name="chevron-down"
+          size={15}
+          color={theme.colors.textSubtle}
+        />
+      </View>
     </View>
   );
 };
@@ -626,6 +633,15 @@ const createStyles = theme =>
     },
     scrollCueBottom: {
       bottom: 0,
+    },
+    scrollCueChevron: {
+      position: 'absolute',
+      bottom: 2,
+      alignSelf: 'center',
+      width: 20,
+      height: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     identityRow: {
       height: 56,

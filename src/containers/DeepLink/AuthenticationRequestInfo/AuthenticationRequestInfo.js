@@ -13,7 +13,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   DeviceEventEmitter,
-  ScrollView,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,7 +23,6 @@ import LottieView from 'lottie-react-native';
 import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
-import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import {
   openLinkIdentityModal,
   openProvisionIdentityModal,
@@ -98,7 +96,13 @@ import {
 } from '../../../styles';
 import IdentityPickerSheet, {
   VERUSID_SHEET_MODES,
-} from './components/IdentityPickerSheet';
+} from '../components/VerusIdIdentityPickerSheet/IdentityPickerSheet';
+import {
+  DeepLinkRequestDetailsSheet,
+  DeepLinkRequestSourceCard,
+  DeepLinkReviewScrollView,
+  DeepLinkVerusIdDetailsSheet,
+} from '../components/RequestReview';
 import {markPendingDeeplinkComplete} from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {
@@ -192,10 +196,10 @@ const AuthenticationRequestInfoContent = props => {
 
   const [details, setDetails] = useState(new AuthenticationRequestDetails());
   const [sigDateString, setSigDateString] = useState(null);
-  const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] =
-    useState(null);
   const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({});
   const [requestDetailsSheetVisible, setRequestDetailsSheetVisible] =
+    useState(false);
+  const [verusIdDetailsSheetVisible, setVerusIdDetailsSheetVisible] =
     useState(false);
   const [resolvedSystemNames, setResolvedSystemNames] = useState({});
   const attemptedSystemNameLookupsRef = useRef(new Set());
@@ -401,7 +405,7 @@ const AuthenticationRequestInfoContent = props => {
     return requiredSystemIds.every(systemId => resolvedSystemNames[systemId]);
   }, [requiredSystemIds, resolvedSystemNames]);
   const signerChainId = resolvedSystemNames[signerSystemID] || signerSystemName;
-  const canOpenSignerModal = signerChainId && signerIdentityID;
+  const canOpenSignerDetails = signerChainId && signerIdentityID;
   const systemLabel = signerChainId || signerSystemID;
 
   const requiredIds = useMemo(() => {
@@ -719,40 +723,43 @@ const AuthenticationRequestInfoContent = props => {
   };
 
   const getVerusId = async (chain, iAddrOrName) => {
-    const identity = await getIdentity(
-      CoinDirectory.getBasicCoinObj(chain).system_id,
-      iAddrOrName,
-    );
+    const coinObj = CoinDirectory.getBasicCoinObj(chain);
+    if (!coinObj) throw new Error('Signer network is not available');
+
+    const identity = await getIdentity(coinObj.system_id, iAddrOrName);
 
     if (identity.error) throw new Error(identity.error.message);
     else return identity.result;
   };
 
-  const openVerusIdDetailsModal = (chain, iAddress) => {
-    setVerusIdDetailsModalProps({
-      loadVerusId: () => getVerusId(chain, iAddress),
-      visible: true,
-      animationType: 'slide',
-      cancel: () => setVerusIdDetailsModalProps(null),
-      loadFriendlyNames: async () => {
-        try {
-          const identityObj = await getVerusId(chain, iAddress);
+  const loadSignerVerusId = useCallback(() => {
+    if (!canOpenSignerDetails) {
+      throw new Error('Signer identity is not available');
+    }
 
-          return getFriendlyNameMap(
-            CoinDirectory.getBasicCoinObj(chain).system_id,
-            identityObj,
-          );
-        } catch (e) {
-          return {
-            ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
-            ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
-          };
-        }
-      },
-      iAddress,
-      chain,
-    });
-  };
+    return getVerusId(signerChainId, signerIdentityID);
+  }, [canOpenSignerDetails, signerChainId, signerIdentityID]);
+  const loadSignerFriendlyNames = useCallback(
+    async identityObj => {
+      try {
+        const coinObj = CoinDirectory.getBasicCoinObj(signerChainId);
+        if (!coinObj) throw new Error('Signer network is not available');
+
+        return getFriendlyNameMap(coinObj.system_id, identityObj);
+      } catch (e) {
+        return {
+          ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
+          ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
+        };
+      }
+    },
+    [signerChainId],
+  );
+  const openSignerDetailsSheet = useCallback(() => {
+    if (!canOpenSignerDetails) return;
+
+    setVerusIdDetailsSheetVisible(true);
+  }, [canOpenSignerDetails]);
 
   const getAllowList = () => {
     if (requestIsTestnet) {
@@ -1762,15 +1769,6 @@ const AuthenticationRequestInfoContent = props => {
     websiteLabel ? {label: 'Website', value: websiteLabel} : null,
   ].filter(Boolean);
   const requestDetailsSections = useMemo(() => {
-    const sourceRows = [
-      requesterLabel ? {label: 'Requester', value: requesterLabel} : null,
-      signerIdentityID
-        ? {label: 'Signer identity', value: signerIdentityID}
-        : null,
-      systemLabel ? {label: 'Network', value: systemLabel} : null,
-      sigDateString ? {label: 'Signed', value: sigDateString} : null,
-      websiteLabel ? {label: 'Website', value: websiteLabel} : null,
-    ].filter(Boolean);
     const responseRows = [
       ...responseUris.map((uri, index) => ({
         label:
@@ -1804,7 +1802,6 @@ const AuthenticationRequestInfoContent = props => {
     ];
 
     return [
-      {title: 'Source', rows: sourceRows},
       {title: 'Response', rows: responseRows},
       {title: 'Requirements', rows: requirementRows},
       {title: 'Wallet', rows: walletRows},
@@ -1814,22 +1811,14 @@ const AuthenticationRequestInfoContent = props => {
     constraintRows,
     expiryLabel,
     requestIdLabel,
-    requesterLabel,
     responseUris,
     selectedIdentity,
     signedIn,
-    sigDateString,
-    signerIdentityID,
-    systemLabel,
-    websiteLabel,
   ]);
   const showRequestDetailsLink = requestDetailsSections.length > 0;
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
-      {verusIdDetailsModalProps != null && (
-        <VerusIdDetailsModal {...verusIdDetailsModalProps} />
-      )}
       <IdentityPickerSheet
         visible={identitySheetVisible}
         coinObj={linkExistingCoinObj}
@@ -1847,87 +1836,34 @@ const AuthenticationRequestInfoContent = props => {
         onSelect={handleSelectIdentity}
         onUseProvisionedIdentity={handleUseProvisionedIdentity}
       />
-      <RequestDetailsSheet
+      <DeepLinkRequestDetailsSheet
         visible={requestDetailsSheetVisible}
         onClose={() => setRequestDetailsSheetVisible(false)}
         sections={requestDetailsSections}
-        styles={styles}
+      />
+      <DeepLinkVerusIdDetailsSheet
+        visible={verusIdDetailsSheetVisible}
+        onClose={() => setVerusIdDetailsSheetVisible(false)}
+        loadVerusId={loadSignerVerusId}
+        loadFriendlyNames={loadSignerFriendlyNames}
       />
       <AutoLinkingSheet visible={autoLinkingVisible} styles={styles} />
-      <ScrollView
-        alwaysBounceVertical={false}
-        bounces={false}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+      <DeepLinkReviewScrollView>
         <View style={styles.header}>
           <Text style={styles.mainTitle}>{mainTitle}</Text>
         </View>
 
         {(signerFqn || sigDateString || systemLabel) && (
-          <View style={styles.requesterCard}>
-            <Text style={styles.requesterLabel}>Request from</Text>
-            <TouchableOpacity
-              accessibilityHint={
-                canOpenSignerModal ? 'View identity details' : undefined
-              }
-              accessibilityLabel={`Request from ${requesterLabel}`}
-              accessibilityRole="button"
-              style={styles.requesterIdentityPanel}
-              onPress={
-                canOpenSignerModal
-                  ? () =>
-                      openVerusIdDetailsModal(signerChainId, signerIdentityID)
-                  : undefined
-              }
-              activeOpacity={canOpenSignerModal ? 0.74 : 1}
-              disabled={!canOpenSignerModal}>
-              <View style={styles.requesterTextContainer}>
-                <Text numberOfLines={1} style={styles.requesterName}>
-                  {requesterLabel}
-                </Text>
-              </View>
-              {canOpenSignerModal && (
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={22}
-                  color={theme.colors.textSubtle}
-                />
-              )}
-            </TouchableOpacity>
-            {requesterMetadataRows.length > 0 && (
-              <View style={styles.requesterDetailsList}>
-                {requesterMetadataRows.map((row, index) => (
-                  <View
-                    key={row.label}
-                    style={[
-                      styles.requesterDetailRow,
-                      index > 0 && styles.requesterDetailRowDivider,
-                    ]}>
-                    <Text style={styles.requesterDetailLabel}>
-                      {row.label}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={styles.requesterDetailValue}>
-                      {row.value}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            {showRequestDetailsLink && (
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.78}
-                onPress={() => setRequestDetailsSheetVisible(true)}
-                style={styles.requestDetailsLinkTouch}>
-                <Text numberOfLines={1} style={styles.requestDetailsLinkText}>
-                  View request details
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <DeepLinkRequestSourceCard
+            metadataRows={requesterMetadataRows}
+            onPressRequestDetails={() => setRequestDetailsSheetVisible(true)}
+            onPressRequester={
+              canOpenSignerDetails ? openSignerDetailsSheet : undefined
+            }
+            requesterAccessibilityHint="View VerusID details"
+            requesterLabel={requesterLabel}
+            showRequestDetailsLink={showRequestDetailsLink}
+          />
         )}
 
         {hasRequirements && (
@@ -1970,7 +1906,7 @@ const AuthenticationRequestInfoContent = props => {
           </View>
         )}
         <View style={{height: 24}} />
-      </ScrollView>
+      </DeepLinkReviewScrollView>
 
       <SafeBottomActionStack
         gap={10}
@@ -2033,37 +1969,6 @@ const AuthenticationRequestInfoContent = props => {
     </SafeAreaView>
   );
 };
-
-const RequestDetailsSheet = ({visible, onClose, sections, styles}) => (
-  <BottomSheetModal visible={visible} onClose={onClose} maxHeight="78%">
-    <View style={styles.requestDetailsSheetBody}>
-      <Text style={styles.requestDetailsSheetTitle}>Request details</Text>
-      <ScrollView
-        alwaysBounceVertical={false}
-        bounces={false}
-        contentContainerStyle={styles.requestDetailsSheetContent}
-        showsVerticalScrollIndicator={false}>
-        {sections.map(section => (
-          <View key={section.title} style={styles.requestDetailsSection}>
-            <Text style={styles.requestDetailsSectionTitle}>
-              {section.title}
-            </Text>
-            {section.rows.map((row, index) => (
-              <View
-                key={`${section.title}-${row.label}-${index}`}
-                style={styles.requestDetailsRow}>
-                <Text style={styles.requestDetailsLabel}>{row.label}</Text>
-                <Text selectable style={styles.requestDetailsValue}>
-                  {row.value}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  </BottomSheetModal>
-);
 
 const AutoLinkingSheet = ({visible, styles}) => (
   <BottomSheetModal
