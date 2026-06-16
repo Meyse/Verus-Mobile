@@ -827,7 +827,9 @@ const AuthenticationRequestInfoContent = props => {
       handledIndices.push(provisioningDetailIndex);
     }
 
-    await next(baseResponse, handledIndices);
+    await next(baseResponse, handledIndices, {
+      autoDeliverOnComplete: true,
+    });
   };
 
   const handleContinue = async () => {
@@ -1733,7 +1735,7 @@ const AuthenticationRequestInfoContent = props => {
     !hasMatchingIdentity;
   const primaryActionLabel = activeAccountMatchesRequest
     ? selectedIdentity
-      ? 'Continue'
+      ? 'Sign in with VerusID'
       : shouldShowLinkAsPrimary
       ? 'Link VerusID'
       : 'Choose VerusID'

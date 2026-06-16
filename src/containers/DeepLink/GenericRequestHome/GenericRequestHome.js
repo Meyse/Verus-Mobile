@@ -3,14 +3,19 @@
   - Coordinates generic request detail handlers, chooses the matching deeplink
     screen, and forwards completed responses through the request flow.
 */
-import React, {useCallback, useState, useEffect} from 'react';
-import {Linking, TouchableOpacity, View} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
 import { Portal, Text } from 'react-native-paper';
-import {useSelector} from 'react-redux';
+import {CommonActions} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LottieView from 'lottie-react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
+import AppButton from '../../../components/AppButton';
+import BottomSheetModal from '../../../components/BottomSheetModal';
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
@@ -18,8 +23,6 @@ import {
   AUTHENTICATION_REQUEST_VDXF_KEY,
   APP_ENCRYPTION_REQUEST_VDXF_KEY,
   DEEPLINK_PROTOCOL_URL_STRING,
-  GenericRequest,
-  GenericResponse,
   IDENTITY_UPDATE_REQUEST_VDXF_KEY,
   PROVISION_IDENTITY_DETAILS_VDXF_KEY,
   CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY,
@@ -36,6 +39,7 @@ import { handleAppEncryptionRequestVDXFObject } from '../../../utils/deeplink/ha
 import { handleCreateWalletBackupDetailsVDXFObject } from '../../../utils/deeplink/handlers/createWalletBackupDetailsHandler';
 import { handleSpendableKeyDetailsVDXFObject } from '../../../utils/deeplink/handlers/spendableKeyDetailsHandler';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
+import {resetDeeplinkData} from '../../../actions/actionCreators';
 import AuthenticationRequestInfo from '../AuthenticationRequestInfo/AuthenticationRequestInfo';
 import IdentityUpdateRequestInfo from '../IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
 import AppEncryptionRequestInfo from '../AppEncryptionRequestInfo/AppEncryptionRequestInfo';
@@ -49,7 +53,228 @@ import {
   getFriendlyNameMap,
   getIdentity,
 } from '../../../utils/api/channels/verusid/callCreators';
+import {markPendingDeeplinkComplete} from '../../../utils/deeplink/pendingDeeplinkStorage';
+import {
+  completeGenericResponseDelivery,
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericRequestDeliveryInfo,
+} from '../../../utils/deeplink/genericRequestDelivery';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
+const AUTO_DELIVERY_STATUS = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  SUCCESS: 'success',
+  ERROR: 'error',
+};
+
+const POST_SUCCESS_DELAY_MS = 900;
+const AUTO_DELIVERY_SHEET_HEIGHT = 280;
+
+const autoDeliverySheetStyles = StyleSheet.create({
+  sheet: {
+    height: AUTO_DELIVERY_SHEET_HEIGHT,
+    paddingTop: 0,
+  },
+  body: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 8,
+  },
+  visualSlot: {
+    height: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingAnimation: {
+    width: 96,
+    height: 70,
+  },
+  successAnimation: {
+    width: 84,
+    height: 84,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  message: {
+    fontSize: 14,
+    letterSpacing: 0,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  actions: {
+    alignSelf: 'stretch',
+    gap: 10,
+    marginTop: 8,
+  },
+});
+
+const getAutoDeliverySheetTitle = ({
+  destination,
+  isError,
+  isPost,
+  isRedirect,
+  isSuccess,
+}) => {
+  if (isError) return 'Response not sent';
+  if (isSuccess) return 'Response sent';
+  if (isRedirect) return `Returning to ${destination}`;
+  if (isPost) return 'Sending response';
+
+  return 'Completing request';
+};
+
+const getAutoDeliverySheetMessage = ({
+  destination,
+  error,
+  isError,
+  isPost,
+  isRedirect,
+  isSuccess,
+}) => {
+  if (isError) {
+    if (error?.isResponsePostError) {
+      return `We couldn't send the response to ${destination}.`;
+    }
+
+    return (
+      error?.message || 'Verus Mobile could not complete this sign-in request.'
+    );
+  }
+
+  if (isSuccess) {
+    return null;
+  }
+
+  if (isPost) {
+    return null;
+  }
+
+  if (isRedirect) {
+    return null;
+  }
+
+  return 'Finishing this sign-in request.';
+};
+
+const AutoDeliverySheetContent = ({
+  deliveryInfo,
+  error,
+  onLeaveWithoutSending,
+  onRetry,
+  status,
+}) => {
+  const theme = useOnboardingTheme();
+  const destination = deliveryInfo?.destinationHost || 'the requester';
+  const isPost = deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST;
+  const isRedirect =
+    deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT;
+  const isLoading = status === AUTO_DELIVERY_STATUS.LOADING;
+  const isSuccess = status === AUTO_DELIVERY_STATUS.SUCCESS;
+  const isError = status === AUTO_DELIVERY_STATUS.ERROR;
+
+  const title = getAutoDeliverySheetTitle({
+    destination,
+    isError,
+    isPost,
+    isRedirect,
+    isSuccess,
+  });
+  const message = getAutoDeliverySheetMessage({
+    destination,
+    error,
+    isError,
+    isPost,
+    isRedirect,
+    isSuccess,
+  });
+
+  return (
+    <View style={autoDeliverySheetStyles.body}>
+      {(isSuccess || isLoading) && (
+        <View style={autoDeliverySheetStyles.visualSlot}>
+          {isSuccess ? (
+            <AnimatedSuccessCheckmark
+              style={autoDeliverySheetStyles.successAnimation}
+            />
+          ) : (
+            <LottieView
+              autoPlay
+              loop
+              source={require('../../../animations/loading_7bars.json')}
+              style={autoDeliverySheetStyles.loadingAnimation}
+            />
+          )}
+        </View>
+      )}
+      <Text
+        accessibilityRole={isLoading ? 'progressbar' : undefined}
+        style={[
+          autoDeliverySheetStyles.title,
+          {color: theme.colors.textPrimary},
+        ]}>
+        {title}
+      </Text>
+      {message && (
+        <Text
+          style={[
+            autoDeliverySheetStyles.message,
+            {color: theme.colors.textSecondary},
+          ]}>
+          {message}
+        </Text>
+      )}
+      {isError && (
+        <View style={autoDeliverySheetStyles.actions}>
+          <AppButton height={52} onPress={onRetry} variant="primary">
+            Try again
+          </AppButton>
+          <AppButton
+            height={52}
+            onPress={onLeaveWithoutSending}
+            variant="secondary">
+            Leave without sending
+          </AppButton>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const AutoDeliverySheet = ({
+  deliveryInfo,
+  error,
+  onLeaveWithoutSending,
+  onRetry,
+  status,
+}) => {
+  const visible = status !== AUTO_DELIVERY_STATUS.IDLE;
+
+  return (
+    <BottomSheetModal
+      closeDisabled
+      contentContainerStyle={autoDeliverySheetStyles.sheet}
+      maxHeight={AUTO_DELIVERY_SHEET_HEIGHT}
+      onClose={() => {}}
+      visible={visible}>
+      <AutoDeliverySheetContent
+        deliveryInfo={deliveryInfo}
+        error={error}
+        onLeaveWithoutSending={onLeaveWithoutSending}
+        onRetry={onRetry}
+        status={status}
+      />
+    </BottomSheetModal>
+  );
+};
 
 const GenericRequestHome = props => {
   const {
@@ -61,6 +286,7 @@ const GenericRequestHome = props => {
    */
   const [request, setRequest] = useState(null);
   const [response, setResponse] = useState(new primitives.GenericResponse());
+  const responseRef = useRef(response);
 
   const [displayProps, setDisplayProps] = useState({});
 
@@ -72,7 +298,16 @@ const GenericRequestHome = props => {
   const [openInAnotherAppVisible, setOpenInAnotherAppVisible] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] =
     useState(null);
+  const [autoDeliveryRequested, setAutoDeliveryRequested] = useState(false);
+  const [autoDeliveryState, setAutoDeliveryState] = useState({
+    status: AUTO_DELIVERY_STATUS.IDLE,
+    deliveryInfo: null,
+    error: null,
+  });
+  const autoDeliverySuccessTimeoutRef = useRef(null);
   const passthrough = useSelector(state => state.deeplink.passthrough);
+  const signedIn = useSelector(state => state.authentication.signedIn);
+  const dispatch = useDispatch();
 
   /**
    * @type {[number, (number) => {}]}
@@ -106,6 +341,7 @@ const GenericRequestHome = props => {
    */
   const processDetailAtIndex = async (index) => {
     const detail = request.getDetails(index);
+    const currentResponse = responseRef.current;
 
     if (detail) {
       const iaddr = detail.getIAddressKey();
@@ -116,13 +352,13 @@ const GenericRequestHome = props => {
           iaddr === CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid
         ) {
           return {
-            response,
+            response: currentResponse,
             handledIndices: [index],
           };
         }
 
         setDetailIndex(index);
-        return await detailHandlers.get(iaddr)(request, response, index);
+        return await detailHandlers.get(iaddr)(request, currentResponse, index);
       }
     } else throw new Error("Unable to find detail at index " + index);
   }
@@ -144,6 +380,7 @@ const GenericRequestHome = props => {
               }
             }
 
+            responseRef.current = res.response;
             setResponse(res.response);
             setProcessedDetailIndices(newIndices);
 
@@ -173,14 +410,99 @@ const GenericRequestHome = props => {
     }
   }
 
+  const completeRequest = useCallback(() => {
+    const resetAction = CommonActions.reset({
+      index: 0,
+      routes: [{name: signedIn ? 'SignedInStack' : 'SignedOutStack'}],
+    });
+
+    dispatch(resetDeeplinkData());
+    props.navigation.dispatch(resetAction);
+  }, [dispatch, props.navigation, signedIn]);
+
+  const markSavedPendingRequestComplete = useCallback(async () => {
+    const pendingRequestId =
+      passthrough?.pendingDeeplinkId ||
+      passthrough?.pendingProvisioningDeeplinkId;
+
+    if (pendingRequestId) {
+      try {
+        await markPendingDeeplinkComplete(pendingRequestId);
+      } catch (e) {
+        console.warn('Unable to mark pending deeplink complete', e);
+      }
+    }
+  }, [passthrough]);
+
+  const runAutoDelivery = useCallback(async () => {
+    if (request == null) return;
+    if (autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING) return;
+
+    const requestBufferString = request.toBuffer().toString('hex');
+    const currentResponse = responseRef.current;
+    const responseBufferString =
+      currentResponse.details && currentResponse.details.length > 0
+        ? currentResponse.toBuffer().toString('hex')
+        : '';
+    const deliveryInfo = getGenericRequestDeliveryInfo(request);
+
+    setAutoDeliveryState({
+      status: AUTO_DELIVERY_STATUS.LOADING,
+      deliveryInfo,
+      error: null,
+    });
+
+    try {
+      const result = await completeGenericResponseDelivery({
+        requestBufferString,
+        responseBufferString,
+      });
+
+      await markSavedPendingRequestComplete();
+
+      if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+        setAutoDeliveryState({
+          status: AUTO_DELIVERY_STATUS.SUCCESS,
+          deliveryInfo: result,
+          error: null,
+        });
+
+        autoDeliverySuccessTimeoutRef.current = setTimeout(() => {
+          autoDeliverySuccessTimeoutRef.current = null;
+          completeRequest();
+        }, POST_SUCCESS_DELAY_MS);
+        return;
+      }
+
+      completeRequest();
+    } catch (e) {
+      console.warn(e);
+      setAutoDeliveryState({
+        status: AUTO_DELIVERY_STATUS.ERROR,
+        deliveryInfo: e?.deliveryInfo || deliveryInfo,
+        error: e,
+      });
+    }
+  }, [
+    autoDeliveryState.status,
+    completeRequest,
+    markSavedPendingRequestComplete,
+    request,
+  ]);
+
   /**
    * Function passed to GUI elements that allows them to update handled
    * indices and response when done
-   * @param {GenericResponse} response 
+   * @param {GenericResponse} updatedResponse
    * @param {Array<number>} handledIndices
+   * @param {{autoDeliverOnComplete?: boolean}} options
    */
-  const next = async (response, handledIndices) => {
+  const next = async (updatedResponse, handledIndices, options = {}) => {
     let newDetailsProcessed = detailsProcessed;
+
+    if (options.autoDeliverOnComplete) {
+      setAutoDeliveryRequested(true);
+    }
 
     for (const handledIndex of handledIndices) {
       if (!processedDetailIndices.includes(handledIndex)) {
@@ -203,7 +525,8 @@ const GenericRequestHome = props => {
       }
     }
 
-    setResponse(response);
+    responseRef.current = updatedResponse;
+    setResponse(updatedResponse);
     setProcessedDetailIndices([...processedDetailIndices, ...handledIndices]);
     setDetailsProcessed(newDetailsProcessed);
   }
@@ -256,12 +579,28 @@ const GenericRequestHome = props => {
   }, [deeplinkData]);
 
   useEffect(() => {
+    return () => {
+      if (autoDeliverySuccessTimeoutRef.current) {
+        clearTimeout(autoDeliverySuccessTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (request != null) {
       if (detailsProcessed < request.details.length && detailsProcessed >= 0) {
         setDisplayKey(null);
         setDisplayProps({});
         processNextDetail();
       } else {
+        if (autoDeliveryRequested) {
+          if (autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE) {
+            runAutoDelivery();
+          }
+
+          return;
+        }
+
         const responseBufferString = response.details && response.details.length > 0
           ? response.toBuffer().toString('hex')
           : '';
@@ -273,7 +612,14 @@ const GenericRequestHome = props => {
         });
       }
     }
-  }, [detailsProcessed]);
+  }, [
+    autoDeliveryRequested,
+    autoDeliveryState.status,
+    detailsProcessed,
+    request,
+    runAutoDelivery,
+    response,
+  ]);
 
   const insets = useSafeAreaInsets();
 
@@ -398,6 +744,13 @@ const GenericRequestHome = props => {
           <Text style={{ color: Colors.secondaryColor, fontSize: 12 }}>Open in another app</Text>
         </TouchableOpacity>
       )}
+      <AutoDeliverySheet
+        deliveryInfo={autoDeliveryState.deliveryInfo}
+        error={autoDeliveryState.error}
+        onLeaveWithoutSending={completeRequest}
+        onRetry={runAutoDelivery}
+        status={autoDeliveryState.status}
+      />
       <Portal>
         {verusIdDetailsModalProps != null && (
           <VerusIdDetailsModal {...verusIdDetailsModalProps} />
