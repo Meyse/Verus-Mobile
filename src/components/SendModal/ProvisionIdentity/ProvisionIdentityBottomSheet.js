@@ -22,14 +22,24 @@ import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {dispatchAddNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
 import {fontStyle} from '../../../globals/fonts';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
+import {requestServiceStoredData} from '../../../utils/auth/authBox';
 import {getIdentity} from '../../../utils/api/channels/verusid/callCreators';
 import {getVdxfId} from '../../../utils/api/channels/vrpc/requests/getVdxfid';
 import {handleProvisioningResponse} from '../../../utils/api/channels/vrpc/requests/handleProvisioningResponse';
 import {signIdProvisioningRequest} from '../../../utils/api/channels/vrpc/requests/signIdProvisioningRequest';
 import {NOTIFICATION_ICON_VERUSID} from '../../../utils/constants/notifications';
+import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 import {SEND_MODAL_IDENTITY_TO_PROVISION_FIELD} from '../../../utils/constants/sendModal';
 import {LoadingNotification} from '../../../utils/notification';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {
+  getProvisioningRequestState,
+  getStoredProvisioningRequestKey,
+  isProvisioningResponseMismatchError,
+  PROVISIONING_REQUEST_ALREADY_USED_MESSAGE,
+  PROVISIONING_REQUEST_ALREADY_USED_TITLE,
+  shouldBlockProvisioningRequest,
+} from '../../../utils/verusid/provisioningRequestState';
 
 const SHEET_STEPS = {
   NAME: 'name',
@@ -41,6 +51,7 @@ const PROVISIONING_WAIT_LABEL = 'About 5 minutes';
 const PROVISIONING_HANDOFF_COPY =
   "After you tap Request VerusID, you'll return to the wallet home screen. A notification will appear when the VerusID is ready.";
 const AVAILABILITY_DEBOUNCE_MS = 450;
+const NAME_STEP_BACK_ACCESSIBILITY_LABEL = 'Back to VerusID options';
 const REVIEW_BACK_ACCESSIBILITY_LABEL = 'Back to setup options';
 const HEADER_ROW_HEIGHT = 36;
 
@@ -204,6 +215,8 @@ const getPreviewAvailabilityLabel = availabilityStatus => {
 const ProvisionIdentityBottomSheet = ({
   visible,
   onClose,
+  onClosed,
+  onBack,
   preventExit,
   loading,
   sendModal,
@@ -520,6 +533,7 @@ const ProvisionIdentityBottomSheet = ({
 
   const handleSubmitRequest = async () => {
     if (reviewData == null) return;
+    let existingProvisioningRequestState = null;
 
     await setLoading(true, true);
     await setPreventExit(true);
@@ -622,6 +636,40 @@ const ProvisionIdentityBottomSheet = ({
         coinObj,
         provisionRequest,
       );
+      const requestPayload =
+        provisioningRequestType === 'generic'
+          ? sendModal.data.provisioningRequestBufferString
+          : loginRequest.toBuffer().toString('base64');
+
+      if (provisioningRequestType === 'generic' && !requestPayload) {
+        throw new Error('This VerusID request is missing request data.');
+      }
+
+      const requestKey = getStoredProvisioningRequestKey({
+        loginRequest: requestPayload,
+        requestType: provisioningRequestType,
+      });
+      const verusIdServiceData = await requestServiceStoredData(
+        VERUSID_SERVICE_ID,
+      );
+
+      existingProvisioningRequestState = getProvisioningRequestState({
+        completedProvisioningRequests:
+          verusIdServiceData.completed_provisioning_requests || {},
+        linkedIds: verusIdServiceData.linked_ids || {},
+        pendingIds: verusIdServiceData.pending_ids || {},
+        requestKey,
+      });
+
+      if (shouldBlockProvisioningRequest(existingProvisioningRequestState)) {
+        const alreadyRequestedError = new Error(
+          PROVISIONING_REQUEST_ALREADY_USED_MESSAGE,
+        );
+        alreadyRequestedError.title = PROVISIONING_REQUEST_ALREADY_USED_TITLE;
+        alreadyRequestedError.code = 'PROVISIONING_REQUEST_ALREADY_USED';
+        throw alreadyRequestedError;
+      }
+
       const res = await axios.post(webhookUrl, signedRequest);
       const provisioningSignerId =
         sendModal.data.provisioningSignerId ||
@@ -635,15 +683,6 @@ const ProvisionIdentityBottomSheet = ({
         await getIdentity(coinObj.system_id, provisioningSignerId)
       ).result.identity.name;
       const newLoadingNotification = new LoadingNotification();
-      const requestPayload =
-        provisioningRequestType === 'generic'
-          ? sendModal.data.provisioningRequestBufferString
-          : loginRequest.toBuffer().toString('base64');
-
-      if (provisioningRequestType === 'generic' && !requestPayload) {
-        throw new Error('This VerusID request is missing request data.');
-      }
-
       const hasResponseUris =
         sendModal.data.provisioningRequestHasResponseUris ||
         (loginRequest &&
@@ -704,7 +743,20 @@ const ProvisionIdentityBottomSheet = ({
       setStep(SHEET_STEPS.REVIEW);
       await setLoading(false);
       await setPreventExit(false);
-      Alert.alert('Error', e.message);
+
+      if (
+        e?.code === 'PROVISIONING_REQUEST_ALREADY_USED' ||
+        (existingProvisioningRequestState &&
+          shouldBlockProvisioningRequest(existingProvisioningRequestState) &&
+          isProvisioningResponseMismatchError(e))
+      ) {
+        Alert.alert(
+          PROVISIONING_REQUEST_ALREADY_USED_TITLE,
+          PROVISIONING_REQUEST_ALREADY_USED_MESSAGE,
+        );
+      } else {
+        Alert.alert('Error', e.message);
+      }
     }
   };
 
@@ -712,6 +764,7 @@ const ProvisionIdentityBottomSheet = ({
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
+      onClosed={onClosed}
       avoidKeyboard
       closeDisabled={preventExit}
       maxHeight={sheetMaxHeight}>
@@ -724,7 +777,9 @@ const ProvisionIdentityBottomSheet = ({
               availabilityLabel={previewAvailabilityLabel}
               availabilityState={previewAvailabilityState}
               continueDisabled={continueDisabled}
+              disableBack={disableActions}
               loading={loading}
+              onBack={onBack}
               onChangeIdentity={text => {
                 if (assignedIdentity == null && !text.endsWith('@')) {
                   updateSendFormData(
@@ -765,9 +820,11 @@ const NameStep = ({
   availabilityLabel,
   availabilityState,
   continueDisabled,
+  disableBack,
   displayedIdentity,
   editable,
   loading,
+  onBack,
   onChangeIdentity,
   onContinue,
   onTrim,
@@ -777,7 +834,24 @@ const NameStep = ({
   theme,
 }) => (
   <View>
-    <Text style={styles.title}>Request VerusID</Text>
+    {onBack ? (
+      <View style={styles.stepHeader}>
+        <TouchableOpacity
+          accessibilityLabel={NAME_STEP_BACK_ACCESSIBILITY_LABEL}
+          accessibilityRole="button"
+          activeOpacity={disableBack ? 1 : 0.74}
+          disabled={disableBack}
+          onPress={onBack}
+          style={styles.backButton}>
+          <View style={styles.backIcon}>
+            <ChevronLeft size={22} color={theme.colors.textPrimary} />
+          </View>
+        </TouchableOpacity>
+        <Text style={styles.title}>Request VerusID</Text>
+      </View>
+    ) : (
+      <Text style={styles.title}>Request VerusID</Text>
+    )}
     <View style={styles.formBlock}>
       <AppTextInput
         autoCapitalize="none"
@@ -853,7 +927,7 @@ const ReviewStep = ({
 
   return (
     <View>
-      <View style={styles.reviewHeader}>
+      <View style={styles.stepHeader}>
         <TouchableOpacity
           accessibilityLabel={REVIEW_BACK_ACCESSIBILITY_LABEL}
           accessibilityRole="button"
@@ -1034,7 +1108,7 @@ const createStyles = theme =>
     previewAvailabilityTextUnavailable: {
       color: theme.colors.danger,
     },
-    reviewHeader: {
+    stepHeader: {
       minHeight: HEADER_ROW_HEIGHT,
       flexDirection: 'row',
       alignItems: 'center',

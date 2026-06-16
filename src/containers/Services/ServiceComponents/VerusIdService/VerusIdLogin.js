@@ -5,7 +5,14 @@ import {
   savePendingDeeplinkRequest,
 } from '../../../../utils/deeplink/pendingDeeplinkStorage';
 
-export const processVerusId = async (props, requestPayload, fromService = null, fqnToAutoLink = null, requestType = 'loginconsent') => {
+export const processVerusId = async (
+  props,
+  requestPayload,
+  fromService = null,
+  fqnToAutoLink = null,
+  requestType = 'loginconsent',
+  notificationUid = null,
+) => {
   if (requestType === 'generic') {
     let savedPendingRequest = null;
 
@@ -22,6 +29,7 @@ export const processVerusId = async (props, requestPayload, fromService = null, 
 
     const passthrough = {
       fqnToAutoLink,
+      notificationUid,
       ...(getPendingDeeplinkPassthrough(savedPendingRequest) || {}),
     };
 
@@ -47,7 +55,7 @@ export const processVerusId = async (props, requestPayload, fromService = null, 
       id: primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid,
       data: req.toJson(),
       fromService: fromService,
-      passthrough: { fqnToAutoLink }
+      passthrough: { fqnToAutoLink, notificationUid }
     },
   });
   props.navigation.navigate('DeepLink');

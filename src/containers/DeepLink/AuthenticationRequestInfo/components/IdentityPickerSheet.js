@@ -19,6 +19,7 @@ import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
+import {PROVISIONING_REQUEST_STATUSES} from '../../../../utils/verusid/provisioningRequestState';
 import LinkExistingVerusIdSheet from './LinkExistingVerusIdSheet';
 
 export const VERUSID_SHEET_MODES = {
@@ -115,13 +116,14 @@ const IdentityPickerSheet = ({
   sortedIds,
   isIdentityAllowed,
   selectedIdentity,
-  canProvision,
+  provisioningRequestState,
   initialMode = VERUSID_SHEET_MODES.CHOOSE,
   onClose,
   onLinkCandidate,
   onManualLink,
   onRequestVerusId,
   onSelect,
+  onUseProvisionedIdentity,
 }) => {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
@@ -428,7 +430,6 @@ const IdentityPickerSheet = ({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
               <ChooseRows
-                canProvision={canProvision}
                 disabled={isTransitioning}
                 getRowAnimation={getRowAnimation}
                 matchingCount={matchingCount}
@@ -436,6 +437,8 @@ const IdentityPickerSheet = ({
                 onLinkExisting={handleLinkExisting}
                 onRequestVerusId={onRequestVerusId}
                 onSelect={onSelect}
+                onUseProvisionedIdentity={onUseProvisionedIdentity}
+                provisioningRequestState={provisioningRequestState}
                 selectedIdentity={selectedIdentity}
                 signedOutSheetStyles={signedOutSheetStyles}
                 styles={styles}
@@ -462,7 +465,6 @@ const getRowAnimatedStyle = animatedValue => ({
 });
 
 const ChooseRows = ({
-  canProvision,
   disabled,
   getRowAnimation,
   matchingCount,
@@ -470,12 +472,31 @@ const ChooseRows = ({
   onLinkExisting,
   onRequestVerusId,
   onSelect,
+  onUseProvisionedIdentity,
+  provisioningRequestState,
   selectedIdentity,
   signedOutSheetStyles,
   styles,
   theme,
 }) => {
   let rowIndex = 0;
+  const provisioningStatus =
+    provisioningRequestState?.status ||
+    PROVISIONING_REQUEST_STATUSES.REQUESTABLE;
+  const canProvision =
+    provisioningStatus === PROVISIONING_REQUEST_STATUSES.REQUESTABLE;
+  const showPendingProvisioningRow =
+    provisioningStatus === PROVISIONING_REQUEST_STATUSES.PENDING;
+  const showReadyProvisioningRow =
+    provisioningStatus === PROVISIONING_REQUEST_STATUSES.READY;
+  const showFailedProvisioningRow =
+    provisioningStatus === PROVISIONING_REQUEST_STATUSES.FAILED;
+  const showProvisioningStatusRow =
+    showPendingProvisioningRow ||
+    showReadyProvisioningRow ||
+    showFailedProvisioningRow;
+  const provisioningDisplayName =
+    provisioningRequestState?.displayName || 'VerusID';
 
   return (
     <>
@@ -503,13 +524,52 @@ const ChooseRows = ({
           />
         </Animated.View>
       ))}
-      {matchingCount === 0 && !canProvision && (
+      {matchingCount === 0 && !canProvision && !showProvisioningStatusRow && (
         <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
               {'No linked VerusIDs match this request.'}
             </Text>
           </View>
+        </Animated.View>
+      )}
+      {showPendingProvisioningRow && (
+        <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
+          <ProvisioningStatusRow
+            icon="progress-clock"
+            title={provisioningDisplayName}
+            body="A VerusID request is already in progress for this sign-in request. A notification will appear when it is ready."
+            styles={styles}
+            theme={theme}
+          />
+        </Animated.View>
+      )}
+      {showReadyProvisioningRow && (
+        <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
+          <ActionRow
+            description={`${provisioningDisplayName} is ready. Use it to select this VerusID, then continue signing in.`}
+            disabled={disabled || !onUseProvisionedIdentity}
+            IconComponent={Check}
+            label="Use"
+            signedOutSheetStyles={signedOutSheetStyles}
+            styles={styles}
+            onPress={onUseProvisionedIdentity}
+            theme={theme}
+          />
+        </Animated.View>
+      )}
+      {showFailedProvisioningRow && (
+        <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
+          <ActionRow
+            description={`${provisioningDisplayName} could not be created.`}
+            disabled={disabled}
+            IconComponent={BadgePlus}
+            label="Retry request"
+            signedOutSheetStyles={signedOutSheetStyles}
+            styles={styles}
+            onPress={onRequestVerusId}
+            theme={theme}
+          />
         </Animated.View>
       )}
       {canProvision && (
@@ -519,6 +579,7 @@ const ChooseRows = ({
             IconComponent={BadgePlus}
             label="Request new VerusID"
             signedOutSheetStyles={signedOutSheetStyles}
+            styles={styles}
             onPress={onRequestVerusId}
             theme={theme}
           />
@@ -530,6 +591,7 @@ const ChooseRows = ({
           IconComponent={Link2}
           label="Link existing VerusID"
           signedOutSheetStyles={signedOutSheetStyles}
+          styles={styles}
           onPress={onLinkExisting}
           theme={theme}
         />
@@ -539,11 +601,13 @@ const ChooseRows = ({
 };
 
 const ActionRow = ({
+  description,
   disabled,
   IconComponent,
   label,
   onPress,
   signedOutSheetStyles,
+  styles,
   theme,
 }) => (
   <TouchableOpacity
@@ -559,15 +623,40 @@ const ActionRow = ({
       ]}>
       <IconComponent size={24} color={theme.colors.textPrimary} />
     </View>
-    <Text numberOfLines={1} style={signedOutSheetStyles.actionLabel}>
-      {label}
-    </Text>
+    <View style={styles.actionText}>
+      <Text numberOfLines={1} style={styles.actionLabel}>
+        {label}
+      </Text>
+      {description ? (
+        <Text numberOfLines={2} style={styles.actionDescription}>
+          {description}
+        </Text>
+      ) : null}
+    </View>
     <MaterialCommunityIcons
       name="chevron-right"
       size={22}
       color={theme.colors.textSubtle}
     />
   </TouchableOpacity>
+);
+
+const ProvisioningStatusRow = ({body, icon, styles, theme, title}) => (
+  <View style={styles.provisioningStatusRow}>
+    <View style={styles.provisioningStatusIcon}>
+      <MaterialCommunityIcons
+        name={icon}
+        size={23}
+        color={theme.colors.textPrimary}
+      />
+    </View>
+    <View style={styles.provisioningStatusText}>
+      <Text numberOfLines={1} style={styles.provisioningStatusTitle}>
+        {title}
+      </Text>
+      <Text style={styles.provisioningStatusBody}>{body}</Text>
+    </View>
+  </View>
 );
 
 const IdentityRow = ({disabled, identity, isSelected, onSelect, styles, theme}) => (
@@ -621,6 +710,53 @@ const createStyles = theme =>
     emptyText: {
       color: theme.colors.textSubtle,
       fontSize: 13,
+      ...fontStyle('regular'),
+    },
+    actionText: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: 12,
+    },
+    actionLabel: {
+      color: theme.colors.textPrimary,
+      fontSize: 16,
+      ...fontStyle('semiBold'),
+    },
+    actionDescription: {
+      marginTop: 3,
+      color: theme.colors.textSubtle,
+      fontSize: 12,
+      lineHeight: 17,
+      ...fontStyle('regular'),
+    },
+    provisioningStatusRow: {
+      minHeight: 78,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    provisioningStatusIcon: {
+      width: 30,
+      height: 36,
+      marginRight: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      opacity: 0.42,
+    },
+    provisioningStatusText: {
+      flex: 1,
+      minWidth: 0,
+    },
+    provisioningStatusTitle: {
+      color: theme.colors.textPrimary,
+      fontSize: 15,
+      ...fontStyle('semiBold'),
+    },
+    provisioningStatusBody: {
+      marginTop: 4,
+      color: theme.colors.textSubtle,
+      fontSize: 12,
+      lineHeight: 17,
       ...fontStyle('regular'),
     },
     identityRow: {

@@ -118,7 +118,14 @@ export class VerusIdProvisioningNotification extends DeeplinkNotification {
   }
 
   onAction(props = null) {
-    return this.reopen(props, this.uri, this.fromService, this.fqn, this.requestType)
+    return this.reopen(
+      props,
+      this.uri,
+      this.fromService,
+      this.fqn,
+      this.requestType,
+      this.uid,
+    )
   }
 
   toJson() {

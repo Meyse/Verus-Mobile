@@ -12,6 +12,7 @@
 */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  DeviceEventEmitter,
   ScrollView,
   TouchableOpacity,
   View,
@@ -19,6 +20,7 @@ import {
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {CommonActions} from '@react-navigation/native';
+import LottieView from 'lottie-react-native';
 import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
@@ -31,6 +33,8 @@ import {
   LINK_IDENTITY_SEND_MODAL,
   PROVISION_IDENTITY_SEND_MODAL,
   SEND_MODAL_IDENTITY_TO_LINK_FIELD,
+  SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET,
+  SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
 } from '../../../utils/constants/sendModal';
 import {
   requestWalletUnlock,
@@ -39,6 +43,7 @@ import {
 import {setUserCoins} from '../../../actions/actionCreators';
 import {
   updateVerusIdWallet,
+  updatePendingVerusIds,
 } from '../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
 import {
   clearChainLifecycle,
@@ -48,7 +53,11 @@ import {
   createAlert,
   resolveAlert,
 } from '../../../actions/actions/alert/dispatchers/alert';
-import {linkVerusId} from '../../../actions/actions/services/dispatchers/verusid/verusid';
+import {
+  deleteProvisionedIds,
+  linkVerusId,
+} from '../../../actions/actions/services/dispatchers/verusid/verusid';
+import {dispatchRemoveNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
 import {unixToDate} from '../../../utils/math';
 import {
   AuthenticationRequestDetails,
@@ -73,6 +82,12 @@ import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {requestServiceStoredData} from '../../../utils/auth/authBox';
 import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
+import {VRPC} from '../../../utils/constants/intervalConstants';
+import {
+  getGenericProvisioningRequestKey,
+  getProvisioningRequestState,
+  PROVISIONING_REQUEST_STATUSES,
+} from '../../../utils/verusid/provisioningRequestState';
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -84,7 +99,7 @@ import {
 import IdentityPickerSheet, {
   VERUSID_SHEET_MODES,
 } from './components/IdentityPickerSheet';
-import { markPendingDeeplinkComplete } from '../../../utils/deeplink/pendingDeeplinkStorage';
+import {markPendingDeeplinkComplete} from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {
   OnboardingThemeProvider,
@@ -180,14 +195,18 @@ const AuthenticationRequestInfoContent = props => {
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] =
     useState(null);
   const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({});
-  const [passthroughHandled, setPassthroughHandled] = useState(false);
   const [requestDetailsSheetVisible, setRequestDetailsSheetVisible] =
     useState(false);
   const [resolvedSystemNames, setResolvedSystemNames] = useState({});
   const attemptedSystemNameLookupsRef = useRef(new Set());
+  const authRequestMountedRef = useRef(true);
+  const passthroughAutoLinkStartedRef = useRef(false);
 
   // Identity picker state
   const [linkedIds, setLinkedIds] = useState({});
+  const [pendingIds, setPendingIds] = useState({});
+  const [completedProvisioningRequests, setCompletedProvisioningRequests] =
+    useState({});
   const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
   const [linkedIdentityParentIds, setLinkedIdentityParentIds] = useState({});
   const [linkedIdentityParentsLoaded, setLinkedIdentityParentsLoaded] =
@@ -201,6 +220,7 @@ const AuthenticationRequestInfoContent = props => {
   const [openIdentityAfterUnlock, setOpenIdentityAfterUnlock] =
     useState(false);
   const [idProvisionSuccess, setIdProvisionSuccess] = useState(false);
+  const [autoLinkingVisible, setAutoLinkingVisible] = useState(false);
   const launchedSendModalRef = useRef(null);
   const sendModalWasVisibleRef = useRef(false);
   const successfulSendModalTypeRef = useRef(null);
@@ -224,17 +244,32 @@ const AuthenticationRequestInfoContent = props => {
     state => state.services.stored[VERUSID_SERVICE_ID],
   );
 
+  useEffect(() => {
+    authRequestMountedRef.current = true;
+
+    return () => {
+      authRequestMountedRef.current = false;
+    };
+  }, []);
+
   const loadLinkedIds = useCallback(async () => {
     try {
       const verusIdServiceData = await requestServiceStoredData(
         VERUSID_SERVICE_ID,
       );
       const nextLinkedIds = verusIdServiceData.linked_ids || {};
+      const nextPendingIds = verusIdServiceData.pending_ids || {};
+      const nextCompletedProvisioningRequests =
+        verusIdServiceData.completed_provisioning_requests || {};
 
       setLinkedIds(nextLinkedIds);
+      setPendingIds(nextPendingIds);
+      setCompletedProvisioningRequests(nextCompletedProvisioningRequests);
       return nextLinkedIds;
     } catch (e) {
       setLinkedIds({});
+      setPendingIds({});
+      setCompletedProvisioningRequests({});
       return {};
     } finally {
       setLinkedIdsLoaded(true);
@@ -280,6 +315,21 @@ const AuthenticationRequestInfoContent = props => {
 
     return [];
   }, [request]);
+  const requestBufferString = useMemo(() => {
+    try {
+      return request ? request.toBuffer().toString('hex') : null;
+    } catch (e) {
+      return null;
+    }
+  }, [request]);
+  const provisioningRequestKey = useMemo(
+    () =>
+      getGenericProvisioningRequestKey({
+        request,
+        requestBufferString,
+      }),
+    [request, requestBufferString],
+  );
   const websiteLabel = getUriDisplayHost(responseUris[0]);
 
   useEffect(() => {
@@ -832,6 +882,26 @@ const AuthenticationRequestInfoContent = props => {
   };
 
   useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
+      () => {
+        if (
+          launchedSendModalRef.current?.type !== PROVISION_IDENTITY_SEND_MODAL ||
+          launchedSendModalRef.current?.intent !== 'user'
+        ) {
+          return;
+        }
+
+        launchedSendModalRef.current = null;
+        setIdentitySheetInitialMode(VERUSID_SHEET_MODES.CHOOSE);
+        setIdentitySheetVisible(true);
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     if (!idProvisionSuccess && sendModal.data?.success) {
       successfulSendModalTypeRef.current = sendModalType;
       setIdProvisionSuccess(true);
@@ -1047,6 +1117,8 @@ const AuthenticationRequestInfoContent = props => {
       loadLinkedIds();
     } else {
       setLinkedIds({});
+      setPendingIds({});
+      setCompletedProvisioningRequests({});
       setLinkedIdsLoaded(false);
     }
   }, [encryptedIds, loadLinkedIds, signedIn]);
@@ -1133,37 +1205,6 @@ const AuthenticationRequestInfoContent = props => {
     };
   }, [linkedIds, signedIn, requiredParentIds]);
 
-  useEffect(() => {
-    if (passthroughHandled) return;
-    if (!signedIn) return;
-    if (!activeAccountMatchesRequest) return;
-    if (!(passthrough && passthrough.fqnToAutoLink)) return;
-    if (requiredSystemIds.length > 0 && !requiredSystemsResolved) return;
-
-    // Ready provisioning notifications resume this auth request after linking.
-    const noLogin = false;
-    const data = {
-      [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: passthrough.fqnToAutoLink,
-      noLogin,
-    };
-
-    launchedSendModalRef.current = {
-      type: LINK_IDENTITY_SEND_MODAL,
-      intent: 'passthrough',
-      identityAddress: passthrough.fqnToAutoLink,
-    };
-    openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
-    setPassthroughHandled(true);
-  }, [
-    passthroughHandled,
-    signedIn,
-    activeAccountMatchesRequest,
-    passthrough,
-    linkChainId,
-    requiredSystemIds,
-    requiredSystemsResolved,
-  ]);
-
   const handleOpenLinkExistingSheet = () => {
     if (!eligibilityReady) return;
 
@@ -1186,8 +1227,27 @@ const AuthenticationRequestInfoContent = props => {
     openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
   };
 
-  const linkAutoFoundIdentity = useCallback(
-    async candidate => {
+  const openPassthroughLinkFallback = useCallback(
+    identityAddress => {
+      const data = {
+        [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityAddress,
+        noLogin: false,
+      };
+
+      launchedSendModalRef.current = {
+        type: LINK_IDENTITY_SEND_MODAL,
+        intent: 'passthrough',
+        identityAddress: identityAddress || null,
+      };
+
+      setIdentitySheetVisible(false);
+      openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
+    },
+    [linkChainId],
+  );
+
+  const linkIdentityCandidate = useCallback(
+    async (candidate, {showError = true} = {}) => {
       try {
         const candidateChainId = candidate?.chainId || linkChainId;
         const identityAddress = candidate?.identityAddress;
@@ -1262,7 +1322,10 @@ const AuthenticationRequestInfoContent = props => {
           setIdentitySheetVisible(false);
         }
       } catch (e) {
-        createAlert('Error', e?.message || 'Unable to link VerusID.');
+        if (showError) {
+          createAlert('Error', e?.message || 'Unable to link VerusID.');
+        }
+
         throw e;
       }
     },
@@ -1275,6 +1338,167 @@ const AuthenticationRequestInfoContent = props => {
       reloadLinkedIdsAndSelect,
     ],
   );
+
+  const linkAutoFoundIdentity = useCallback(
+    candidate => linkIdentityCandidate(candidate),
+    [linkIdentityCandidate],
+  );
+
+  const getProvisioningIdentityCandidate = useCallback(
+    async identityToLink => {
+      const coinObj = CoinDirectory.findCoinObj(linkChainId);
+      const identityRes = await getIdentity(coinObj.system_id, identityToLink);
+
+      if (identityRes.error) {
+        throw new Error(identityRes.error.message);
+      }
+
+      const identityResult = identityRes.result || {};
+      const identity = identityResult.identity || {};
+      const identityAddress =
+        identity.identityaddress ||
+        identity.identityAddress ||
+        identityResult.identityaddress ||
+        identityResult.identityAddress ||
+        null;
+      const fullyQualifiedName =
+        identityResult.fullyqualifiedname ||
+        identityResult.fullyQualifiedName ||
+        null;
+      const displayName = fullyQualifiedName
+        ? convertFqnToDisplayFormat(fullyQualifiedName)
+        : null;
+      const primaryAddresses =
+        identity.primaryaddresses || identity.primaryAddresses || [];
+      const walletAddresses =
+        activeAccount?.keys?.[coinObj.id]?.[VRPC]?.addresses || [];
+      const ownedPrimaryAddress = primaryAddresses.find(address =>
+        walletAddresses.includes(address),
+      );
+
+      if (!ownedPrimaryAddress) {
+        throw new Error(
+          'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+        );
+      }
+
+      return {
+        chainId: coinObj.id,
+        displayName,
+        fullyQualifiedName,
+        identity,
+        identityAddress,
+        primaryAddress: ownedPrimaryAddress,
+        status: identityResult.status,
+        systemId: coinObj.system_id,
+      };
+    },
+    [activeAccount, linkChainId],
+  );
+
+  const cleanupProvisioningState = useCallback(
+    async (coinObj, identityAddress, notificationUid = null) => {
+      if (pendingDeeplinkId) {
+        try {
+          await markPendingDeeplinkComplete(pendingDeeplinkId);
+        } catch (e) {
+          console.warn('Unable to mark pending deeplink complete', e);
+        }
+      }
+
+      if (identityAddress) {
+        try {
+          await deleteProvisionedIds(identityAddress, coinObj.id, true);
+          await updatePendingVerusIds();
+        } catch (e) {
+          console.warn(
+            'Unable to remove pending VerusID provisioning state',
+            e,
+          );
+        }
+      }
+
+      if (notificationUid) {
+        try {
+          await dispatchRemoveNotification(notificationUid);
+        } catch (e) {
+          console.warn('Unable to remove VerusID ready notification', e);
+        }
+      }
+    },
+    [pendingDeeplinkId],
+  );
+
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    if (!activeAccountMatchesRequest) return undefined;
+    if (!(passthrough && passthrough.fqnToAutoLink)) return undefined;
+    if (requiredSystemIds.length > 0 && !requiredSystemsResolved) {
+      return undefined;
+    }
+    if (passthroughAutoLinkStartedRef.current) return undefined;
+
+    passthroughAutoLinkStartedRef.current = true;
+
+    const identityToAutoLink = passthrough.fqnToAutoLink;
+    const notificationUid = passthrough.notificationUid;
+
+    const autoLinkPassthroughIdentity = async () => {
+      setAutoLinkingVisible(true);
+
+      try {
+        const candidate = await getProvisioningIdentityCandidate(
+          identityToAutoLink,
+        );
+        const coinObj = CoinDirectory.findCoinObj(candidate.chainId);
+        await linkIdentityCandidate(candidate, {showError: false});
+        await cleanupProvisioningState(
+          coinObj,
+          candidate.identityAddress,
+          notificationUid,
+        );
+      } catch (e) {
+        console.warn(
+          'Unable to auto-link passthrough VerusID',
+          e?.message ?? e,
+        );
+
+        if (authRequestMountedRef.current) {
+          setAutoLinkingVisible(false);
+          await createAlert(
+            'Automatic link failed',
+            `${
+              e?.message || 'Unable to link this VerusID automatically.'
+            } Please review and link it manually.`,
+          );
+
+          if (authRequestMountedRef.current) {
+            openPassthroughLinkFallback(identityToAutoLink);
+          }
+        }
+
+        return;
+      }
+
+      if (authRequestMountedRef.current) {
+        setAutoLinkingVisible(false);
+      }
+    };
+
+    autoLinkPassthroughIdentity();
+
+    return undefined;
+  }, [
+    activeAccountMatchesRequest,
+    cleanupProvisioningState,
+    getProvisioningIdentityCandidate,
+    linkIdentityCandidate,
+    openPassthroughLinkFallback,
+    passthrough,
+    requiredSystemIds.length,
+    requiredSystemsResolved,
+    signedIn,
+  ]);
 
   const openProvisionIdentityModalFromChain = () => {
     if (!provisioningDetailsBufferString) return;
@@ -1300,10 +1524,6 @@ const AuthenticationRequestInfoContent = props => {
         (request && request.signature
           ? request.signature.identityID.toIAddress()
           : null);
-      const requestBufferString = request
-        ? request.toBuffer().toString('hex')
-        : '';
-
       launchedSendModalRef.current = {
         type: PROVISION_IDENTITY_SEND_MODAL,
         intent: 'user',
@@ -1319,9 +1539,11 @@ const AuthenticationRequestInfoContent = props => {
           provisioningDetailsBufferString,
           provisioningRequestID: requestId,
           provisioningSignerId: requestSignerId,
-          provisioningRequestBufferString: requestBufferString,
+          provisioningRequestBufferString: requestBufferString || '',
           provisioningRequestType: 'generic',
           provisioningRequestHasResponseUris: responseUris.length > 0,
+          [SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET]:
+            SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
         },
         fromService,
       );
@@ -1330,8 +1552,8 @@ const AuthenticationRequestInfoContent = props => {
     }
   };
 
-  const canProvision = useMemo(() => {
-    if (!provisioningDetailsBufferString) return false;
+  const provisioningTargetIdentityAddress = useMemo(() => {
+    if (!provisioningDetailsBufferString) return null;
 
     try {
       const provisioningDetails = new ProvisionIdentityDetails();
@@ -1340,23 +1562,107 @@ const AuthenticationRequestInfoContent = props => {
         0,
       );
 
-      if (provisioningDetails.identityID) {
-        const targetId = provisioningDetails.identityID.toAddress();
-        for (const chainId of Object.keys(linkedIds)) {
-          if (
-            linkedIds[chainId] &&
-            Object.keys(linkedIds[chainId]).includes(targetId)
-          ) {
-            return false;
-          }
-        }
-      }
-
-      return true;
+      return provisioningDetails.identityID
+        ? provisioningDetails.identityID.toAddress()
+        : null;
     } catch (e) {
-      return false;
+      return null;
     }
-  }, [provisioningDetailsBufferString, linkedIds]);
+  }, [provisioningDetailsBufferString]);
+
+  const linkedProvisioningTarget = useMemo(() => {
+    if (!provisioningTargetIdentityAddress) return null;
+
+    for (const chainId of Object.keys(linkedIds)) {
+      const friendlyName = linkedIds[chainId]?.[provisioningTargetIdentityAddress];
+
+      if (friendlyName) {
+        return {
+          chainId,
+          displayName: friendlyName,
+          iAddress: provisioningTargetIdentityAddress,
+          requestKey: provisioningRequestKey,
+          status: PROVISIONING_REQUEST_STATUSES.LINKED,
+        };
+      }
+    }
+
+    return null;
+  }, [linkedIds, provisioningRequestKey, provisioningTargetIdentityAddress]);
+
+  const provisioningRequestState = useMemo(() => {
+    if (!provisioningDetailsBufferString) {
+      return {
+        requestKey: provisioningRequestKey,
+        status: PROVISIONING_REQUEST_STATUSES.REQUESTABLE,
+      };
+    }
+
+    if (linkedProvisioningTarget) return linkedProvisioningTarget;
+
+    return getProvisioningRequestState({
+      completedProvisioningRequests,
+      linkedIds,
+      pendingIds,
+      requestKey: provisioningRequestKey,
+    });
+  }, [
+    completedProvisioningRequests,
+    linkedIds,
+    linkedProvisioningTarget,
+    pendingIds,
+    provisioningDetailsBufferString,
+    provisioningRequestKey,
+  ]);
+
+  const shouldShowProvisioningInChooser =
+    Boolean(provisioningDetailsBufferString) &&
+    provisioningRequestState.status !== PROVISIONING_REQUEST_STATUSES.LINKED;
+
+  const handleUseProvisionedIdentity = useCallback(async () => {
+    if (
+      provisioningRequestState.status !==
+        PROVISIONING_REQUEST_STATUSES.READY ||
+      !provisioningRequestState.iAddress
+    ) {
+      return;
+    }
+
+    setIdentitySheetVisible(false);
+    setAutoLinkingVisible(true);
+
+    try {
+      const candidate = await getProvisioningIdentityCandidate(
+        provisioningRequestState.iAddress,
+      );
+      const coinObj = CoinDirectory.findCoinObj(candidate.chainId);
+
+      await linkIdentityCandidate(candidate, {showError: false});
+      await cleanupProvisioningState(
+        coinObj,
+        candidate.identityAddress,
+        provisioningRequestState.storedEntry?.notificationUid,
+      );
+    } catch (e) {
+      if (authRequestMountedRef.current) {
+        await createAlert(
+          'Unable to use VerusID',
+          e?.message || 'Unable to link this VerusID.',
+        );
+        setIdentitySheetInitialMode(VERUSID_SHEET_MODES.CHOOSE);
+        setIdentitySheetVisible(true);
+      }
+    } finally {
+      if (authRequestMountedRef.current) {
+        setAutoLinkingVisible(false);
+      }
+    }
+  }, [
+    cleanupProvisioningState,
+    getProvisioningIdentityCandidate,
+    linkIdentityCandidate,
+    provisioningRequestState,
+  ]);
 
   // Identity sheet handlers
   const handleOpenIdentitySheet = () => {
@@ -1404,7 +1710,7 @@ const AuthenticationRequestInfoContent = props => {
 
     setOpenIdentityAfterUnlock(false);
 
-    if (hasMatchingIdentity || canProvision) {
+    if (hasMatchingIdentity || shouldShowProvisioningInChooser) {
       setIdentitySheetInitialMode(VERUSID_SHEET_MODES.CHOOSE);
       setIdentitySheetVisible(true);
     } else {
@@ -1413,17 +1719,17 @@ const AuthenticationRequestInfoContent = props => {
     }
   }, [
     activeAccountMatchesRequest,
-    canProvision,
     eligibilityReady,
     hasMatchingIdentity,
     openIdentityAfterUnlock,
+    shouldShowProvisioningInChooser,
   ]);
 
   const shouldShowLinkAsPrimary =
     activeAccountMatchesRequest &&
     eligibilityReady &&
     !selectedIdentity &&
-    !canProvision &&
+    !shouldShowProvisioningInChooser &&
     !hasMatchingIdentity;
   const primaryActionLabel = activeAccountMatchesRequest
     ? selectedIdentity
@@ -1530,13 +1836,14 @@ const AuthenticationRequestInfoContent = props => {
         sortedIds={sortedIds}
         isIdentityAllowed={isIdentityAllowed}
         selectedIdentity={selectedIdentity}
-        canProvision={canProvision}
+        provisioningRequestState={provisioningRequestState}
         initialMode={identitySheetInitialMode}
         onClose={() => setIdentitySheetVisible(false)}
         onLinkCandidate={linkAutoFoundIdentity}
         onManualLink={() => openLinkIdentityModalFromChain()}
         onRequestVerusId={openProvisionIdentityModalFromChain}
         onSelect={handleSelectIdentity}
+        onUseProvisionedIdentity={handleUseProvisionedIdentity}
       />
       <RequestDetailsSheet
         visible={requestDetailsSheetVisible}
@@ -1544,6 +1851,7 @@ const AuthenticationRequestInfoContent = props => {
         sections={requestDetailsSections}
         styles={styles}
       />
+      <AutoLinkingSheet visible={autoLinkingVisible} styles={styles} />
       <ScrollView
         alwaysBounceVertical={false}
         bounces={false}
@@ -1751,6 +2059,28 @@ const RequestDetailsSheet = ({visible, onClose, sections, styles}) => (
           </View>
         ))}
       </ScrollView>
+    </View>
+  </BottomSheetModal>
+);
+
+const AutoLinkingSheet = ({visible, styles}) => (
+  <BottomSheetModal
+    closeDisabled
+    contentContainerStyle={styles.autoLinkingSheetContainer}
+    maxHeight={180}
+    onClose={() => {}}
+    visible={visible}>
+    <View
+      accessibilityLabel="Linking VerusID"
+      accessibilityRole="progressbar"
+      style={styles.autoLinkingSheetBody}>
+      <LottieView
+        autoPlay
+        loop
+        source={require('../../../animations/loading_7bars.json')}
+        style={styles.autoLinkingAnimation}
+      />
+      <Text style={styles.autoLinkingTitle}>Linking VerusID</Text>
     </View>
   </BottomSheetModal>
 );

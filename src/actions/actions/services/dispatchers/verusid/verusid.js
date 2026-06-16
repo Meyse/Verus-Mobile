@@ -16,6 +16,7 @@ import {deriveKeyPair} from '../../../../../utils/keys';
 import {ELECTRUM} from '../../../../../utils/constants/intervalConstants';
 import { dispatchRemoveNotification } from '../../../../actions/notifications/dispatchers/notifications';
 import { verifyIdProvisioningResponse } from "../../../../../utils/api/channels/vrpc/requests/verifyIdProvisioningResponse";
+import { getStoredProvisioningRequestKey } from '../../../../../utils/verusid/provisioningRequestState';
 
 export const linkVerusId = async (iAddress, fqn, chain) => {
   const state = store.getState();
@@ -100,7 +101,7 @@ export const setRequestedVerusId = async (iAddress, provisioningDetails, chain) 
   );
 };
 
-export const deleteProvisionedIds = async (iAddress, chain) => {
+export const deleteProvisionedIds = async (iAddress, chain, completed = false) => {
   const state = store.getState();
 
   if (state.authentication.activeAccount == null) {
@@ -110,6 +111,29 @@ export const deleteProvisionedIds = async (iAddress, chain) => {
   const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
   const currentPendingIdentities =
     serviceData.pending_ids == null ? {} : serviceData.pending_ids;
+  const currentCompletedProvisioningRequests =
+    serviceData.completed_provisioning_requests == null
+      ? {}
+      : serviceData.completed_provisioning_requests;
+  const pendingIdentity = currentPendingIdentities[chain]?.[iAddress];
+  let completedProvisioningRequests = currentCompletedProvisioningRequests;
+
+  if (completed && pendingIdentity) {
+    const requestKey = getStoredProvisioningRequestKey(pendingIdentity);
+
+    if (requestKey) {
+      completedProvisioningRequests = {
+        ...currentCompletedProvisioningRequests,
+        [requestKey]: {
+          chainId: chain,
+          completedAt: Math.floor(Date.now() / 1000),
+          fqn: pendingIdentity.fqn,
+          iAddress,
+          requestKey,
+        },
+      };
+    }
+  }
 
   if (currentPendingIdentities[chain]) {
     delete currentPendingIdentities[chain][iAddress];
@@ -118,6 +142,7 @@ export const deleteProvisionedIds = async (iAddress, chain) => {
   return await modifyServiceStoredDataForUser(
     {
       ...serviceData,
+      completed_provisioning_requests: completedProvisioningRequests,
       pending_ids: currentPendingIdentities,
     },
     VERUSID_SERVICE_ID,
@@ -137,6 +162,7 @@ export const deleteAllProvisionedIds = async () => {
   return await modifyServiceStoredDataForUser(
     {
       ...serviceData,
+      completed_provisioning_requests: {},
       pending_ids: {},
     },
     VERUSID_SERVICE_ID,
@@ -176,7 +202,7 @@ export const checkVerusIdNotificationsForUpdates = async () => {
       // once an ID is linked, remove it from pending IDs, or if the server has rejected it delete.
       if (pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_READY) {
         if (currentLinkedIdentities.indexOf(iaddress) > -1 || pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_FAILED) {
-          await deleteProvisionedIds(iaddress, ticker);
+          await deleteProvisionedIds(iaddress, ticker, true);
           await updatePendingVerusIds();
           await dispatchRemoveNotification(pendingIds[ticker][iaddress].notificationUid);
         }
@@ -286,7 +312,7 @@ export const checkVerusIdNotificationsForUpdates = async () => {
         }
 
         const newVerusIdProvisioningNotification = new VerusIdProvisioningNotification (
-          hasResponseUris ? "link and login" : "link VerusID",
+          hasResponseUris ? "Use" : "Link VerusID",
           [`${identity.result.fullyqualifiedname.substring(0, identity.result.fullyqualifiedname.lastIndexOf('.'))}@`, ` is ready`],
           null,
           pendingIds[ticker][iaddress].notificationUid,

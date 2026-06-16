@@ -14,6 +14,12 @@ import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { SEND_MODAL_IDENTITY_TO_LINK_FIELD } from '../../../utils/constants/sendModal';
 import Styles from '../../../styles/index';
+import {
+  getGenericProvisioningRequestKey,
+  getProvisioningRequestState,
+  PROVISIONING_REQUEST_STATUSES,
+  shouldBlockProvisioningRequest,
+} from '../../../utils/verusid/provisioningRequestState';
 
 const AuthenticationRequestIdentity = props => {
   const {
@@ -29,6 +35,9 @@ const AuthenticationRequestIdentity = props => {
 
   const [loading, setLoading] = useState(false);
   const [linkedIds, setLinkedIds] = useState({});
+  const [pendingIds, setPendingIds] = useState({});
+  const [completedProvisioningRequests, setCompletedProvisioningRequests] =
+    useState({});
   const [sortedIds, setSortedIds] = useState({});
   const [details, setDetails] = useState(new AuthenticationRequestDetails());
   const [provisioningDetails, setProvisioningDetails] = useState(null);
@@ -82,6 +91,14 @@ const AuthenticationRequestIdentity = props => {
     req.fromBuffer(Buffer.from(requestBufferString, 'hex'), 0);
     return req;
   }, [requestBufferString]);
+  const provisioningRequestKey = useMemo(
+    () =>
+      getGenericProvisioningRequestKey({
+        request,
+        requestBufferString,
+      }),
+    [request, requestBufferString],
+  );
 
   const requestIsTestnet = request.isTestnet();
   const linkChainId = allowedSystems.size > 0
@@ -111,7 +128,23 @@ const AuthenticationRequestIdentity = props => {
       } else {
         setLinkedIds({});
       }
+
+      if (verusIdServiceData.pending_ids) {
+        setPendingIds(verusIdServiceData.pending_ids);
+      } else {
+        setPendingIds({});
+      }
+
+      if (verusIdServiceData.completed_provisioning_requests) {
+        setCompletedProvisioningRequests(
+          verusIdServiceData.completed_provisioning_requests,
+        );
+      } else {
+        setCompletedProvisioningRequests({});
+      }
     } catch (e) {
+      setPendingIds({});
+      setCompletedProvisioningRequests({});
       createAlert('Error Loading Linked VerusIDs', e.message);
     }
 
@@ -237,8 +270,12 @@ const AuthenticationRequestIdentity = props => {
     next(updatedResponse, handledIndices);
   };
 
-  const openLinkIdentityModalFromChain = () => {
-    return openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId));
+  const openLinkIdentityModalFromChain = (identityAddress = null) => {
+    const data = identityAddress
+      ? {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityAddress}
+      : undefined;
+
+    return openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
   };
 
   const openProvisionIdentityModalFromChain = () => {
@@ -270,8 +307,19 @@ const AuthenticationRequestIdentity = props => {
     return sortedIds[chainId].some(iAddr => isIdentityAllowed(chainId, iAddr));
   });
 
+  const provisioningRequestState = getProvisioningRequestState({
+    completedProvisioningRequests,
+    linkedIds,
+    pendingIds,
+    requestKey: provisioningRequestKey,
+  });
+
   const canProvision = (() => {
     if (!provisioningDetails) return false;
+
+    if (shouldBlockProvisioningRequest(provisioningRequestState)) {
+      return false;
+    }
 
     if (provisioningDetails.identityID) {
       const targetId = provisioningDetails.identityID.toAddress();
@@ -329,10 +377,34 @@ const AuthenticationRequestIdentity = props => {
         onPress={() => openLinkIdentityModalFromChain()}
       />
       <Divider />
+      {provisioningRequestState.status === PROVISIONING_REQUEST_STATUSES.PENDING && (
+        <React.Fragment>
+          <List.Item
+            title={'VerusID request in progress'}
+            description={'A VerusID request is already in progress for this sign-in request. A notification will appear when it is ready.'}
+            left={props => <List.Icon {...props} icon={'progress-clock'} />}
+          />
+          <Divider />
+        </React.Fragment>
+      )}
+      {provisioningRequestState.status === PROVISIONING_REQUEST_STATUSES.READY && (
+        <React.Fragment>
+          <List.Item
+            title={'Use'}
+            description={`${provisioningRequestState.displayName || 'VerusID'} is ready. Use it to select this VerusID, then continue signing in.`}
+            left={props => <List.Icon {...props} icon={'check'} />}
+            right={props => (
+              <List.Icon {...props} icon={'chevron-right'} size={20} />
+            )}
+            onPress={() => openLinkIdentityModalFromChain(provisioningRequestState.iAddress)}
+          />
+          <Divider />
+        </React.Fragment>
+      )}
       {canProvision && (
         <React.Fragment>
           <List.Item
-            title={'Request VerusID'}
+            title={provisioningRequestState.status === PROVISIONING_REQUEST_STATUSES.FAILED ? 'Retry request' : 'Request VerusID'}
             right={props => (
               <List.Icon {...props} icon={'plus'} size={20} />
             )}

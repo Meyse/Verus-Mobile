@@ -3,6 +3,7 @@ import { verifyIdProvisioningResponse } from "./verifyIdProvisioningResponse";
 import { NOTIFICATION_TYPE_VERUSID_PENDING } from '../../../../constants/services';
 import { updatePendingVerusIds } from "../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager"
 import { setRequestedVerusId } from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
+import { getStoredProvisioningRequestKey } from '../../../../verusid/provisioningRequestState';
 
 export const handleProvisioningResponse = async (
   coinObj,
@@ -45,6 +46,10 @@ export const handleProvisioningResponse = async (
       status: NOTIFICATION_TYPE_VERUSID_PENDING,
       fqn: requestedFqn,
       loginRequest: loginRequestBase64,
+      requestKey: getStoredProvisioningRequestKey({
+        loginRequest: loginRequestBase64,
+        requestType,
+      }),
       requestType,
       signingId,
       hasResponseUris,

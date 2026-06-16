@@ -12,16 +12,15 @@ import {Pencil, Plus} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppTextInput from '../../../../components/AppTextInput';
 import {fontStyle} from '../../../../globals/fonts';
+import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
   getIdentitiesWithAddress,
   getIdentity,
 } from '../../../../utils/api/channels/verusid/callCreators';
-import {requestSeeds} from '../../../../utils/auth/authBox';
-import {ELECTRUM} from '../../../../utils/constants/intervalConstants';
+import {VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
-import {deriveKeyPair} from '../../../../utils/keys';
 
 const GET_IDENTITIES_WITH_ADDRESS_METHOD = 'getidentitieswithaddress';
 const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
@@ -130,6 +129,12 @@ const LinkExistingVerusIdSheet = ({
   const requestIdRef = useRef(0);
   const coinId = coinObj?.id;
   const systemId = coinObj?.system_id;
+  const primaryAddress = useObjectSelector(state =>
+    coinId
+      ? state.authentication.activeAccount?.keys?.[coinId]?.[VRPC]
+          ?.addresses?.[0] || null
+      : null,
+  );
   const [candidates, setCandidates] = useState([]);
   const [errorMessage, setErrorMessage] = useState(null);
   const [linking, setLinking] = useState(false);
@@ -167,18 +172,8 @@ const LinkExistingVerusIdSheet = ({
           throw new Error('Missing VerusID network.');
         }
 
-        const seeds = await requestSeeds();
-        const seed = seeds[ELECTRUM];
-
-        if (!seed) {
-          throw new Error('No wallet seed found for this account.');
-        }
-
-        const keyObj = await deriveKeyPair(seed, coinObj, ELECTRUM);
-        const primaryAddress = keyObj?.addresses?.[0];
-
         if (!primaryAddress) {
-          throw new Error('No primary address found for this wallet.');
+          throw new Error('No wallet R-address found for this account.');
         }
 
         const discoveryRes = await getIdentitiesWithAddress(
@@ -310,7 +305,11 @@ const LinkExistingVerusIdSheet = ({
     };
 
     discover();
-  }, [active, coinId, coinObj, isCandidateAllowed, linkedIds, systemId]);
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [active, coinId, isCandidateAllowed, linkedIds, primaryAddress, systemId]);
 
   const filteredCandidates = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

@@ -1,5 +1,6 @@
 import BigNumber from "bignumber.js";
 import { Component } from "react"
+import { DeviceEventEmitter } from "react-native";
 import { connect } from 'react-redux'
 import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
 import {
@@ -15,6 +16,7 @@ import {
   LINK_IDENTITY_SEND_MODAL,
   AUTHENTICATE_USER_SEND_MODAL,
   PROVISION_IDENTITY_SEND_MODAL,
+  SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
   ADD_PBAAS_CURRENCY_MODAL,
   CONVERT_OR_CROSS_CHAIN_SEND_MODAL,
   ADD_ERC20_TOKEN_MODAL,
@@ -56,6 +58,7 @@ class SendModal extends Component {
       persistFormDataOnClose: false,
       loading: false,
       preventExit: false,
+      returnToAuthenticationIdentityPickerOnClosed: false,
       modalHeight: this.DEFAULT_MODAL_HEIGHTS[props.sendModal.type]
     };
   }
@@ -145,6 +148,39 @@ class SendModal extends Component {
         }
       );
     });
+  }
+
+  backToAuthenticationIdentityPicker() {
+    if (this.state.loading || this.state.preventExit) return;
+
+    this.setState(
+      {
+        persistFormDataOnClose: true,
+        returnToAuthenticationIdentityPickerOnClosed: true,
+      },
+      () => {
+        setSendModalVisible(false);
+      },
+    );
+  }
+
+  handleProvisionIdentitySheetClosed() {
+    if (!this.state.returnToAuthenticationIdentityPickerOnClosed) return;
+
+    this.setState(
+      {
+        persistFormDataOnClose: false,
+        returnToAuthenticationIdentityPickerOnClosed: false,
+      },
+      () => {
+        closeSendModal();
+        requestAnimationFrame(() => {
+          DeviceEventEmitter.emit(
+            SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
+          );
+        });
+      },
+    );
   }
 
   cancel() {

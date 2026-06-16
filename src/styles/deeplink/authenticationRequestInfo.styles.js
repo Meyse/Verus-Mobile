@@ -294,6 +294,28 @@ const createAuthenticationRequestInfoStyles = theme =>
       letterSpacing: 0,
       ...fontStyle('regular'),
     },
+    autoLinkingSheetContainer: {
+      paddingTop: 0,
+    },
+    autoLinkingSheetBody: {
+      minHeight: 148,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.sheetPadding,
+      paddingVertical: theme.spacing.lg,
+      gap: 8,
+    },
+    autoLinkingAnimation: {
+      width: 96,
+      height: 70,
+    },
+    autoLinkingTitle: {
+      color: theme.colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 22,
+      letterSpacing: 0,
+      ...fontStyle('semiBold'),
+    },
   });
 
 export default createAuthenticationRequestInfoStyles;

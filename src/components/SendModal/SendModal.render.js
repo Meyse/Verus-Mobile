@@ -17,6 +17,8 @@ import {
   SEND_MODAL_FORM_STEP_CONFIRM,
   SEND_MODAL_FORM_STEP_FORM,
   SEND_MODAL_FORM_STEP_RESULT,
+  SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET,
+  SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
   TRADITIONAL_CRYPTO_SEND_MODAL,
   UPDATE_IDENTITY_SEND_MODAL,
   WITHDRAW_SEND_MODAL,
@@ -127,11 +129,21 @@ export const SendModalRender = function () {
     : modalStarterHeight;
 
   if (this.props.sendModal.type === PROVISION_IDENTITY_SEND_MODAL) {
+    const shouldReturnToIdentityPicker =
+      this.props.sendModal.data?.[SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET] ===
+      SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER;
+
     return (
       <OnboardingThemeProvider>
         <ProvisionIdentityBottomSheet
           visible={visible}
           onClose={() => this.cancel()}
+          onClosed={() => this.handleProvisionIdentitySheetClosed()}
+          onBack={
+            shouldReturnToIdentityPicker
+              ? () => this.backToAuthenticationIdentityPicker()
+              : null
+          }
           preventExit={this.state.preventExit}
           loading={this.state.loading}
           sendModal={this.props.sendModal}
