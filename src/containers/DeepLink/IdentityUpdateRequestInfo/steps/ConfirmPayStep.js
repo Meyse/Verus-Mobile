@@ -2,25 +2,24 @@
   ConfirmPayStep (Step 4 / final step)
   - 2026-02-05: Created. Replaces IdentityUpdatePaymentConfiguration and the
     UpdateIdentity SendModal (Form/Confirm/Result).
-  - 2026-02-05: Refactored to always render the confirm layout. Fund source
-    selection is now triggered via a tappable card that opens a SemiModal sheet.
-  - 2026-02-06: Replaced FundSourceSelectList with custom grey-card source list
-    matching SendSourceSubwalletSheet visual style.
-  - 2026-02-06: Cleaned up icons -- removed heavy icons from fee card and recap
-    rows, kept wallet icon on payment source card. Added fiat fee display below
-    crypto fee using Redux rates (WYRE_SERVICE -> GENERAL fallback).
+  - 2026-06-18: Payment source selection is driven by the primary action. The
+    selected source is shown only in the footer, and the source sheet uses
+    iconless filled rows.
   - 2026-03-11: Tightened fee validation and post-broadcast error handling .
 */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
-import { Button, Portal, Text } from 'react-native-paper';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import { formatCurrency } from 'react-native-format-currency';
-import Colors from '../../../../globals/colors';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AnimatedActivityIndicatorBox from '../../../../components/AnimatedActivityIndicatorBox';
-import GradientButton from '../../../../components/GradientButton';
-import SemiModal from '../../../../components/SemiModal';
+import { Check } from 'lucide-react-native';
+import LottieView from 'lottie-react-native';
+import AnimatedSuccessCheckmark from '../../../../components/AnimatedSuccessCheckmark';
+import AppButton from '../../../../components/AppButton';
+import BottomSheetModal from '../../../../components/BottomSheetModal';
+import CopyAction from '../../../../components/CopyAction';
+import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
+import { useOnboardingTheme } from '../../../../theme/onboarding';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import { coinsList } from '../../../../utils/CoinData/CoinsList';
 import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
@@ -28,6 +27,7 @@ import { createUpdateIdentityTx, pushUpdateIdentityTx } from '../../../../utils/
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { satsToCoins, truncateDecimal } from '../../../../utils/math';
 import { API_GET_BALANCES, API_SEND, GENERAL, WYRE_SERVICE, USD } from '../../../../utils/constants/intervalConstants';
+import { GENERIC_REQUEST_DELIVERY_TYPES } from '../../../../utils/deeplink/genericRequestDelivery';
 import BigNumber from 'bignumber.js';
 import {
   CompactAddressObject,
@@ -37,7 +37,81 @@ import {
   VerifiableSignatureData,
 } from 'verus-typescript-primitives';
 import { processEncryptedKeys } from '../../../../utils/crypto/encryptCredentials';
-import { confirmPayStepStyles as localStyles } from '../../../../styles';
+import { confirmPayStepStyles as createConfirmPayStepStyles } from '../../../../styles';
+
+const IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT = 360;
+const COMPLETION_SHEET_STAGE = {
+  IDLE: 'idle',
+  BROADCASTING: 'broadcasting',
+  READY: 'ready',
+  DELIVERING: 'delivering',
+  SUCCESS: 'success',
+  ERROR: 'error',
+};
+
+const truncateAddress = value => {
+  if (!value) return '';
+  const text = String(value);
+  if (text.includes('...') || text.length <= 15) return text;
+  return `${text.slice(0, 6)}...${text.slice(-6)}`;
+};
+
+const truncateTxid = value => {
+  if (!value) return '';
+  const text = String(value);
+  if (text.length <= 23) return text;
+  return `${text.slice(0, 10)}...${text.slice(-10)}`;
+};
+
+const getSourceAddress = source => source?.wallet?.channel?.split('.')?.[1];
+
+const isAddressLikeSourceName = value => {
+  if (!value) return false;
+
+  const text = String(value);
+  if (text.includes('@')) return false;
+  if (text.includes('...')) return true;
+
+  return /^[A-Za-z0-9]{20,}$/.test(text);
+};
+
+const getSourceDisplayName = source => {
+  if (!source) return '';
+
+  const displayName =
+    source.wallet?.name ||
+    source.wallet?.id ||
+    getSourceAddress(source) ||
+    'Wallet';
+
+  return isAddressLikeSourceName(displayName)
+    ? truncateAddress(displayName)
+    : displayName;
+};
+
+const getDeliveryTitle = deliveryInfo => {
+  const destination = deliveryInfo?.destinationHost || 'the requester';
+
+  if (deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT) {
+    return `Returning to ${destination}`;
+  }
+
+  if (deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+    return 'Sending response';
+  }
+
+  return 'Completing request';
+};
+
+const getDeliveryErrorMessage = (error, deliveryInfo) => {
+  if (error?.isResponsePostError) {
+    return `We couldn't send the response to ${
+      deliveryInfo?.destinationHost || 'the requester'
+    }.`;
+  }
+
+  return error?.message || 'Verus Mobile could not complete this request.';
+};
 
 const ConfirmPayStep = ({
   details,
@@ -49,22 +123,38 @@ const ConfirmPayStep = ({
   coinObj,
   responseBufferString,
   detailIndex,
+  deliverIdentityUpdateResponse,
+  identityUpdateDeliveryInfo,
+  completeIdentityUpdateWithoutDelivery,
   next,
   cancel,
-  onGoBack,
   highRiskCount,
   contentCount,
   hasEncryptedKeys,
+  onBroadcastingChange,
   styles: parentStyles,
 }) => {
+  const theme = useOnboardingTheme();
+  const localStyles = useMemo(
+    () => createConfirmPayStepStyles(theme),
+    [theme],
+  );
   const [selectedSource, setSelectedSource] = useState(null);
   const [fee, setFee] = useState(null);
   const [feeCurrency, setFeeCurrency] = useState(null);
   const [txHex, setTxHex] = useState(null);
   const [utxos, setUtxos] = useState(null);
   const [calculating, setCalculating] = useState(false);
-  const [broadcasting, setBroadcasting] = useState(false);
+  const [completionSheetStage, setCompletionSheetStage] = useState(
+    COMPLETION_SHEET_STAGE.IDLE,
+  );
+  const [broadcastTxid, setBroadcastTxid] = useState(null);
+  const [pendingResponse, setPendingResponse] = useState(null);
+  const [completionError, setCompletionError] = useState(null);
+  const [completionDeliveryInfo, setCompletionDeliveryInfo] = useState(null);
   const [sourceSheetVisible, setSourceSheetVisible] = useState(false);
+  const feeCalculationIdRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const allSubWallets = useObjectSelector(state => state.coinMenus.allSubWallets);
@@ -126,6 +216,31 @@ const ConfirmPayStep = ({
     }
   }, [fee, feeCurrency, rates, displayCurrency]);
 
+  useEffect(() => {
+    if (typeof onBroadcastingChange === 'function') {
+      onBroadcastingChange(
+        completionSheetStage !== COMPLETION_SHEET_STAGE.IDLE,
+      );
+    }
+  }, [completionSheetStage, onBroadcastingChange]);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      feeCalculationIdRef.current += 1;
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      if (typeof onBroadcastingChange === 'function') {
+        onBroadcastingChange(false);
+      }
+    },
+    [onBroadcastingChange],
+  );
+
   // --- Build available payment sources ---
   const paymentSources = useMemo(() => {
     const sources = [];
@@ -161,11 +276,16 @@ const ConfirmPayStep = ({
   // --- Handlers ---
 
   const handleSelectSource = useCallback(async (source) => {
+    const calculationId = feeCalculationIdRef.current + 1;
+    feeCalculationIdRef.current = calculationId;
+
     setSourceSheetVisible(false);
     setSelectedSource(source);
     setCalculating(true);
     setFee(null);
     setFeeCurrency(null);
+    setTxHex(null);
+    setUtxos(null);
 
     try {
       const [, address, systemId] = source.wallet.channel.split('.');
@@ -201,21 +321,58 @@ const ConfirmPayStep = ({
         throw new Error('Unexpected fee currency');
       }
 
+      if (
+        !mountedRef.current ||
+        calculationId !== feeCalculationIdRef.current
+      ) {
+        return;
+      }
+
+      setSelectedSource(source);
       setFee(satsToCoins(BigNumber(updateIdentityTx.deltas.get(currency).abs().toString())).toString());
       setFeeCurrency(currency);
       setTxHex(updateIdentityTx.hex);
       setUtxos(updateIdentityTx.utxos);
     } catch (e) {
-      setSelectedSource(null);
-      Alert.alert('Error', e.message || 'Failed to calculate fee');
-    }
+      if (
+        !mountedRef.current ||
+        calculationId !== feeCalculationIdRef.current
+      ) {
+        return;
+      }
 
-    setCalculating(false);
-  }, [details, subjectIdTxHex, subjectIdentity, updateIdTxHex, requestIsTestnet]);
+      setSelectedSource(null);
+      setTxHex(null);
+      setUtxos(null);
+      Alert.alert('Error', e.message || 'Failed to calculate fee');
+    } finally {
+      if (
+        mountedRef.current &&
+        calculationId === feeCalculationIdRef.current
+      ) {
+        setCalculating(false);
+      }
+    }
+  }, [
+    coinObj,
+    details,
+    hasEncryptedKeys,
+    requestedCurrency,
+    requestIsTestnet,
+    subjectIdTxHex,
+    subjectIdentity,
+  ]);
 
   const handleUpdate = useCallback(async () => {
-    setBroadcasting(true);
-    let broadcastTxid = null;
+    if (typeof onBroadcastingChange === 'function') {
+      onBroadcastingChange(true);
+    }
+    setBroadcastTxid(null);
+    setPendingResponse(null);
+    setCompletionError(null);
+    setCompletionDeliveryInfo(null);
+    setCompletionSheetStage(COMPLETION_SHEET_STAGE.BROADCASTING);
+    let resultTxid = null;
 
     try {
       const { wallet, coinObj: sourceCoinObj } = selectedSource;
@@ -232,7 +389,7 @@ const ConfirmPayStep = ({
 
       if (result.error) throw new Error(result.error.message);
 
-      broadcastTxid = result.result;
+      resultTxid = result.result;
 
       // Build response (mirrored from IdentityUpdatePaymentConfiguration)
       const baseResponse = new GenericResponse();
@@ -243,8 +400,8 @@ const ConfirmPayStep = ({
       const responseDetail = new IdentityUpdateResponseOrdinalVDXFObject({
         data: new IdentityUpdateResponseDetails({
           requestID: details.containsRequestID() ? details.requestID : undefined,
-          txid: broadcastTxid
-            ? Buffer.from(broadcastTxid, 'hex').reverse()
+          txid: resultTxid
+            ? Buffer.from(resultTxid, 'hex').reverse()
             : undefined,
         }),
       });
@@ -261,31 +418,153 @@ const ConfirmPayStep = ({
       }
 
       if (next) {
-        next(baseResponse, [detailIndex]);
+        setBroadcastTxid(resultTxid);
+        setPendingResponse(baseResponse);
+        setCompletionSheetStage(COMPLETION_SHEET_STAGE.READY);
       } else {
         cancel();
       }
     } catch (e) {
-      const errorMessage = broadcastTxid
-        ? `Your identity update transaction was already broadcast${broadcastTxid ? ` (${broadcastTxid})` : ''}. ${e.message || 'A later step failed after the broadcast completed.'}`
+      const errorMessage = resultTxid
+        ? `Your identity update transaction was already broadcast (${resultTxid}). ${e.message || 'A later step failed after the broadcast completed.'}`
         : e.message || 'Failed to broadcast transaction';
       // once a txid exists, surface that funds were spent instead of implying a failed broadcast.
       Alert.alert('Error', errorMessage);
-      setBroadcasting(false);
+      if (typeof onBroadcastingChange === 'function') {
+        onBroadcastingChange(false);
+      }
+      setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
     }
-  }, [selectedSource, txHex, utxos, details, responseBufferString, coinObj, signerIdentityAddress, next, detailIndex, cancel]);
+  }, [selectedSource, txHex, utxos, details, responseBufferString, coinObj, signerIdentityAddress, next, detailIndex, cancel, onBroadcastingChange]);
 
-  // --- Full-screen broadcasting state ---
-  if (broadcasting) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <AnimatedActivityIndicatorBox />
-        <Text style={{ marginTop: 16, fontSize: 14, color: '#666' }}>
-          Broadcasting transaction...
-        </Text>
-      </View>
-    );
-  }
+  const deliverPendingResponse = useCallback(async () => {
+    if (!pendingResponse || !next) return;
+
+    setCompletionError(null);
+    setCompletionDeliveryInfo(identityUpdateDeliveryInfo || null);
+    setCompletionSheetStage(COMPLETION_SHEET_STAGE.DELIVERING);
+
+    try {
+      if (typeof deliverIdentityUpdateResponse === 'function') {
+        const deliveryResult = await deliverIdentityUpdateResponse(
+          pendingResponse,
+          [detailIndex],
+        );
+
+        if (deliveryResult?.skippedInlineDelivery) {
+          setPendingResponse(null);
+          setBroadcastTxid(null);
+          setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
+          return;
+        }
+
+        setCompletionDeliveryInfo(deliveryResult || identityUpdateDeliveryInfo);
+
+        if (deliveryResult?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+          setCompletionSheetStage(COMPLETION_SHEET_STAGE.SUCCESS);
+        }
+
+        return;
+      }
+
+      setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
+      await next(pendingResponse, [detailIndex], {
+        autoDeliverOnComplete: true,
+      });
+    } catch (e) {
+      setCompletionDeliveryInfo(e?.deliveryInfo || identityUpdateDeliveryInfo);
+      setCompletionError(e);
+      setCompletionSheetStage(COMPLETION_SHEET_STAGE.ERROR);
+    }
+  }, [
+    deliverIdentityUpdateResponse,
+    detailIndex,
+    identityUpdateDeliveryInfo,
+    next,
+    pendingResponse,
+  ]);
+
+  const handleCompleteUpdate = useCallback(() => {
+    deliverPendingResponse();
+  }, [deliverPendingResponse]);
+
+  const handleRetryDelivery = useCallback(() => {
+    deliverPendingResponse();
+  }, [deliverPendingResponse]);
+
+  const handleLeaveWithoutSending = useCallback(() => {
+    if (typeof completeIdentityUpdateWithoutDelivery === 'function') {
+      completeIdentityUpdateWithoutDelivery();
+      return;
+    }
+
+    cancel();
+  }, [cancel, completeIdentityUpdateWithoutDelivery]);
+
+  const handlePrimaryAction = useCallback(() => {
+    if (!selectedSource) {
+      setSourceSheetVisible(true);
+      return;
+    }
+
+    if (hasFee && !calculating) {
+      handleUpdate();
+    }
+  }, [calculating, handleUpdate, hasFee, selectedSource]);
+
+  const primaryActionLabel = selectedSource
+    ? calculating
+      ? 'Calculating fee'
+      : 'Update'
+    : 'Select payment source';
+  const primaryActionDisabled = !!selectedSource && !hasFee;
+  const recapRows = [
+    highRiskCount > 0
+      ? {label: 'High-risk acknowledgements', value: highRiskCount}
+      : null,
+    contentCount > 0 ? {label: 'Content changes', value: contentCount} : null,
+  ].filter(Boolean);
+  const selectedSourceDisplay = getSourceDisplayName(selectedSource);
+  const selectedSourceDisplayIsAddress =
+    isAddressLikeSourceName(selectedSourceDisplay);
+  const completionSheetVisible =
+    completionSheetStage !== COMPLETION_SHEET_STAGE.IDLE;
+  const effectiveDeliveryInfo =
+    completionDeliveryInfo || identityUpdateDeliveryInfo;
+  const completionIsBroadcasting =
+    completionSheetStage === COMPLETION_SHEET_STAGE.BROADCASTING;
+  const completionIsReady =
+    completionSheetStage === COMPLETION_SHEET_STAGE.READY;
+  const completionIsDelivering =
+    completionSheetStage === COMPLETION_SHEET_STAGE.DELIVERING;
+  const completionIsSuccess =
+    completionSheetStage === COMPLETION_SHEET_STAGE.SUCCESS;
+  const completionIsError =
+    completionSheetStage === COMPLETION_SHEET_STAGE.ERROR;
+  const completionTitle = completionIsBroadcasting
+    ? 'Broadcasting update'
+    : completionIsReady
+      ? 'Identity update broadcast'
+      : completionIsDelivering
+        ? getDeliveryTitle(effectiveDeliveryInfo)
+        : completionIsSuccess
+          ? 'Response sent'
+          : 'Response not sent';
+  const completionMessage = completionIsBroadcasting
+    ? 'This may take a moment.'
+    : completionIsError
+      ? getDeliveryErrorMessage(completionError, effectiveDeliveryInfo)
+      : null;
+  const showLoadingAnimation = completionIsBroadcasting || completionIsDelivering;
+  const showSuccessAnimation = completionIsReady || completionIsSuccess;
+  const showTxidCard =
+    !completionIsBroadcasting && !completionIsDelivering && !!broadcastTxid;
+  const redirectCompleteHint =
+    completionIsReady &&
+    effectiveDeliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT &&
+    effectiveDeliveryInfo?.destinationHost
+      ? `You'll return to ${effectiveDeliveryInfo.destinationHost} when you tap Complete.`
+      : null;
 
   // --- Always render confirm layout ---
   return (
@@ -300,72 +579,56 @@ const ConfirmPayStep = ({
           <Text style={parentStyles.subtitle}>Select a payment source and confirm the identity update</Text>
         </View>
 
-        {/* Payment source card -- tappable to open sheet */}
-        <TouchableOpacity
-          style={localStyles.sourceSelectCard}
-          onPress={() => setSourceSheetVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={localStyles.sourceSelectRow}>
-            <MaterialCommunityIcons
-              name={selectedSource ? 'wallet-outline' : 'wallet-plus-outline'}
-              size={22}
-              color={selectedSource ? Colors.primaryColor : '#888'}
-              style={{ marginRight: 10 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={localStyles.sourceSelectLabel}>
-                {selectedSource ? 'PAYING FROM' : 'PAYMENT SOURCE'}
-              </Text>
-              <Text style={localStyles.sourceSelectValue}>
-                {selectedSource
-                  ? `${selectedSource.coinObj.display_ticker} - ${selectedSource.wallet.name}`
-                  : 'Select payment source'}
-              </Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#CCC" />
-          </View>
-        </TouchableOpacity>
-
-        {/* Fee card */}
+        {/* Fee */}
         <View style={localStyles.feeCard}>
           <Text style={localStyles.feeLabel}>Transaction fee</Text>
-          {calculating ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-              <ActivityIndicator size="small" color={Colors.primaryColor} style={{ marginRight: 8 }} />
-              <Text style={localStyles.feeCalculating}>Calculating...</Text>
-            </View>
-          ) : hasFee ? (
-            <View>
-              <Text style={localStyles.feeValue}>{fee} {feeCurrencyDisplay}</Text>
-              {feeFiatDisplay && (
-                <Text style={localStyles.feeFiat}>{feeFiatDisplay}</Text>
-              )}
-            </View>
-          ) : (
-            <Text style={localStyles.feePlaceholder}>Select a payment source to see fee</Text>
-          )}
+          <View style={localStyles.feeContent}>
+            {calculating ? (
+              <View
+                accessibilityLabel="Calculating transaction fee"
+                accessibilityRole="progressbar"
+                style={localStyles.feeCalculatingRow}>
+                <LottieView
+                  autoPlay
+                  loop
+                  source={require('../../../../animations/loading_7bars.json')}
+                  style={localStyles.feeLoadingAnimation}
+                />
+                <Text style={localStyles.feeCalculating}>Calculating fee</Text>
+              </View>
+            ) : hasFee ? (
+              <View>
+                <Text style={localStyles.feeValue}>{fee} {feeCurrencyDisplay}</Text>
+                {feeFiatDisplay && (
+                  <Text style={localStyles.feeFiat}>{feeFiatDisplay}</Text>
+                )}
+              </View>
+            ) : (
+              <Text style={localStyles.feePlaceholder}>
+                Select a payment source to see fee
+              </Text>
+            )}
+          </View>
         </View>
 
-        {/* Recap card */}
+        {/* Recap */}
         <View style={localStyles.recapCard}>
           <Text style={localStyles.recapTitle}>Changes recap</Text>
-          {highRiskCount > 0 && (
-            <View style={localStyles.recapRow}>
-              <Text style={localStyles.recapText}>{highRiskCount} high-risk {highRiskCount === 1 ? 'change' : 'changes'} acknowledged</Text>
+          {recapRows.map((row, index) => (
+            <View
+              key={row.label}
+              style={[
+                localStyles.recapRow,
+                index > 0 && localStyles.recapRowDivider,
+              ]}>
+              <Text style={localStyles.recapLabel}>{row.label}</Text>
+              <Text style={localStyles.recapValue} numberOfLines={1}>
+                {row.value}
+              </Text>
             </View>
-          )}
-          <View style={localStyles.recapRow}>
-            <Text style={localStyles.recapText}>{contentCount} content {contentCount === 1 ? 'change' : 'changes'}</Text>
-          </View>
+          ))}
           {hasEncryptedKeys && (
             <View style={localStyles.encryptedKeyRecapRow}>
-              <MaterialCommunityIcons
-                name="shield-lock-outline"
-                size={14}
-                color={Colors.primaryColor}
-                style={{ marginRight: 6, marginTop: 1 }}
-              />
               <Text style={localStyles.encryptedKeyRecapText}>
                 Credential data will be encrypted with a key derived from your identity so that neither the credential type nor its contents are publicly visible on-chain. Your account's shielded (Z) seed must match the identity's z-address.
               </Text>
@@ -376,77 +639,92 @@ const ConfirmPayStep = ({
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Footer: Back + Update */}
-      <View style={parentStyles.footer}>
-        <View style={parentStyles.ctaCol}>
-          <Button
-            mode="contained"
-            onPress={onGoBack}
-            style={parentStyles.secondaryCta}
-            contentStyle={parentStyles.secondaryCtaContent}
-            uppercase={false}
-            buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
-            labelStyle={parentStyles.secondaryCtaLabel}
-          >
-            Back
-          </Button>
-        </View>
-        <View style={parentStyles.ctaCol}>
-          <GradientButton
-            onPress={handleUpdate}
-            style={parentStyles.primaryCta}
-            disabled={!hasFee}
-          >
-            Update
-          </GradientButton>
-        </View>
-      </View>
-
-      {/* Fund source selection sheet -- grey card style */}
-      <Portal>
-        <SemiModal
-          animationType="slide"
-          transparent={true}
-          visible={sourceSheetVisible}
-          onRequestClose={() => setSourceSheetVisible(false)}
-          title="Select payment source"
-          flexHeight={0.01}
-          contentContainerStyle={{
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            flex: 0,
-            width: '100%',
-            alignSelf: 'flex-end',
-            paddingBottom: 32,
-            maxHeight: '70%',
-          }}
-        >
-          <View style={localStyles.sheetDescription}>
-            <Text style={localStyles.sheetDescriptionText}>
-              Choose a wallet to pay the identity update fee from.
-            </Text>
+      <SafeBottomActionStack
+        gap={10}
+        horizontalSpacing={24}
+        style={parentStyles.footer}>
+        {selectedSource && (
+          <View>
+            <Text style={localStyles.selectedSourceLabel}>Paying from</Text>
+            <TouchableOpacity
+              accessibilityHint="Open payment source options"
+              accessibilityLabel={`Selected payment source ${selectedSourceDisplay}`}
+              accessibilityRole="button"
+              activeOpacity={0.78}
+              onPress={() => setSourceSheetVisible(true)}
+              style={localStyles.selectedSourceCard}>
+              <View style={localStyles.selectedSourceText}>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    localStyles.selectedSourceName,
+                    selectedSourceDisplayIsAddress &&
+                      localStyles.selectedSourceNameMono,
+                  ]}>
+                  {selectedSourceDisplay}
+                </Text>
+              </View>
+              <View style={localStyles.selectedSourceCheck}>
+                <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
+              </View>
+            </TouchableOpacity>
           </View>
-          <ScrollView>
-            <View style={localStyles.sheetListContainer}>
-              {paymentSources.length === 0 ? (
-                <View style={localStyles.sheetEmpty}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#999" style={{ marginBottom: 8 }} />
-                  <Text style={localStyles.sheetEmptyText}>
-                    No wallets with sufficient balance found.
-                  </Text>
-                </View>
-              ) : (
-                paymentSources.map((source, index) => (
+        )}
+        <AppButton
+          disabled={primaryActionDisabled}
+          height={56}
+          onPress={handlePrimaryAction}
+          themeMode={theme.mode}
+          variant="primary">
+          {primaryActionLabel}
+        </AppButton>
+      </SafeBottomActionStack>
+
+      <BottomSheetModal
+        visible={sourceSheetVisible}
+        onClose={() => setSourceSheetVisible(false)}
+        maxHeight="70%">
+        <View style={localStyles.sheetBody}>
+          <Text style={localStyles.sheetTitle}>Select payment source</Text>
+          <ScrollView
+            alwaysBounceVertical={false}
+            bounces={false}
+            contentContainerStyle={localStyles.sheetListContainer}
+            showsVerticalScrollIndicator={false}>
+            {paymentSources.length === 0 ? (
+              <View style={localStyles.sheetEmpty}>
+                <Text style={localStyles.sheetEmptyText}>
+                  No wallets with sufficient balance found.
+                </Text>
+              </View>
+            ) : (
+              paymentSources.map((source, index) => {
+                const selected =
+                  selectedSource &&
+                  selectedSource.coinObj.id === source.coinObj.id &&
+                  selectedSource.wallet.id === source.wallet.id;
+                const sourceDisplayName = getSourceDisplayName(source);
+                const sourceDisplayNameIsAddress =
+                  isAddressLikeSourceName(sourceDisplayName);
+
+                return (
                   <TouchableOpacity
                     key={`${source.coinObj.id}-${source.wallet.id}-${index}`}
-                    style={localStyles.walletCard}
+                    style={[
+                      localStyles.walletCard,
+                      selected && localStyles.walletCardSelected,
+                    ]}
                     onPress={() => handleSelectSource(source)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={localStyles.walletAddressSection}>
-                      <Text style={localStyles.walletAddressText} numberOfLines={1}>
-                        {source.wallet.name || source.wallet.id}
+                    activeOpacity={0.74}>
+                    <View style={localStyles.walletTextSection}>
+                      <Text
+                        style={[
+                          localStyles.walletNameText,
+                          sourceDisplayNameIsAddress &&
+                            localStyles.walletNameMonoText,
+                        ]}
+                        numberOfLines={1}>
+                        {sourceDisplayName}
                       </Text>
                     </View>
                     <View style={localStyles.walletBalanceSection}>
@@ -457,19 +735,114 @@ const ConfirmPayStep = ({
                         {source.coinObj.display_ticker}
                       </Text>
                     </View>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={20}
-                      color="#CCC"
-                      style={{ marginLeft: 4 }}
-                    />
                   </TouchableOpacity>
-                ))
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        closeDisabled
+        contentContainerStyle={localStyles.broadcastSheet}
+        maxHeight={IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT}
+        onClose={() => {}}
+        visible={completionSheetVisible}>
+        <View style={localStyles.broadcastSheetBody}>
+          {(showLoadingAnimation || showSuccessAnimation) && (
+            <View
+              accessibilityLabel={
+                showLoadingAnimation
+                  ? completionTitle
+                  : undefined
+              }
+              accessibilityRole={showLoadingAnimation ? 'progressbar' : undefined}
+              style={localStyles.broadcastVisualSlot}>
+              {showLoadingAnimation ? (
+                <LottieView
+                  autoPlay
+                  loop
+                  source={require('../../../../animations/loading_7bars.json')}
+                  style={localStyles.broadcastLoadingAnimation}
+                />
+              ) : (
+                <AnimatedSuccessCheckmark
+                  style={localStyles.broadcastSuccessAnimation}
+                />
               )}
             </View>
-          </ScrollView>
-        </SemiModal>
-      </Portal>
+          )}
+          <Text style={localStyles.broadcastTitle}>
+            {completionTitle}
+          </Text>
+          {completionMessage && (
+            <Text style={localStyles.broadcastMessage}>
+              {completionMessage}
+            </Text>
+          )}
+          {showTxidCard && (
+            <View style={localStyles.txidCard}>
+              <Text style={localStyles.txidLabel}>
+                Identity update txid
+              </Text>
+              <View style={localStyles.txidRow}>
+                <Text
+                  numberOfLines={1}
+                  selectable
+                  style={localStyles.txidValue}>
+                  {truncateTxid(broadcastTxid)}
+                </Text>
+                <CopyAction
+                  accessibilityLabel="Copy transaction ID"
+                  copiedAccessibilityLabel="Transaction ID copied"
+                  color={theme.colors.textSubtle}
+                  copiedColor={theme.colors.success}
+                  style={localStyles.txidCopyButton}
+                  value={broadcastTxid}
+                />
+              </View>
+            </View>
+          )}
+          {completionIsReady && (
+            <>
+              {redirectCompleteHint && (
+                <Text style={localStyles.redirectCompleteHint}>
+                  {redirectCompleteHint}
+                </Text>
+              )}
+              <AppButton
+                height={52}
+                onPress={handleCompleteUpdate}
+                style={localStyles.completeButton}
+                themeMode={theme.mode}
+                variant="primary">
+                Complete
+              </AppButton>
+            </>
+          )}
+          {completionIsError && (
+            <View style={localStyles.deliveryActions}>
+              <AppButton
+                height={52}
+                onPress={handleRetryDelivery}
+                style={localStyles.deliveryActionButton}
+                themeMode={theme.mode}
+                variant="primary">
+                Try again
+              </AppButton>
+              <AppButton
+                height={52}
+                onPress={handleLeaveWithoutSending}
+                style={localStyles.deliveryActionButton}
+                themeMode={theme.mode}
+                variant="secondary">
+                Leave without sending
+              </AppButton>
+            </View>
+          )}
+        </View>
+      </BottomSheetModal>
     </View>
   );
 };

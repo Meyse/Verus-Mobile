@@ -196,7 +196,6 @@ const AutoDeliverySheetContent = ({
     isRedirect,
     isSuccess,
   });
-
   return (
     <View style={autoDeliverySheetStyles.body}>
       {(isSuccess || isLoading) && (
@@ -304,6 +303,8 @@ const GenericRequestHome = props => {
     deliveryInfo: null,
     error: null,
   });
+  const [inlineDeliveryInProgress, setInlineDeliveryInProgress] =
+    useState(false);
   const autoDeliverySuccessTimeoutRef = useRef(null);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const signedIn = useSelector(state => state.authentication.signedIn);
@@ -490,22 +491,13 @@ const GenericRequestHome = props => {
     request,
   ]);
 
-  /**
-   * Function passed to GUI elements that allows them to update handled
-   * indices and response when done
-   * @param {GenericResponse} updatedResponse
-   * @param {Array<number>} handledIndices
-   * @param {{autoDeliverOnComplete?: boolean}} options
-   */
-  const next = async (updatedResponse, handledIndices, options = {}) => {
+  const commitResponseProgress = (updatedResponse, handledIndices) => {
     let newDetailsProcessed = detailsProcessed;
-
-    if (options.autoDeliverOnComplete) {
-      setAutoDeliveryRequested(true);
-    }
+    const newProcessedDetailIndices = [...processedDetailIndices];
 
     for (const handledIndex of handledIndices) {
-      if (!processedDetailIndices.includes(handledIndex)) {
+      if (!newProcessedDetailIndices.includes(handledIndex)) {
+        newProcessedDetailIndices.push(handledIndex);
         newDetailsProcessed++;
       }
     }
@@ -527,8 +519,63 @@ const GenericRequestHome = props => {
 
     responseRef.current = updatedResponse;
     setResponse(updatedResponse);
-    setProcessedDetailIndices([...processedDetailIndices, ...handledIndices]);
+    setProcessedDetailIndices(newProcessedDetailIndices);
     setDetailsProcessed(newDetailsProcessed);
+
+    return newDetailsProcessed;
+  };
+
+  /**
+   * Function passed to GUI elements that allows them to update handled
+   * indices and response when done
+   * @param {GenericResponse} updatedResponse
+   * @param {Array<number>} handledIndices
+   * @param {{autoDeliverOnComplete?: boolean}} options
+   */
+  const next = async (updatedResponse, handledIndices, options = {}) => {
+    if (options.autoDeliverOnComplete) {
+      setAutoDeliveryRequested(true);
+    }
+
+    commitResponseProgress(updatedResponse, handledIndices);
+  }
+
+  const deliverIdentityUpdateResponse = async (updatedResponse, handledIndices) => {
+    setInlineDeliveryInProgress(true);
+
+    const newDetailsProcessed = commitResponseProgress(
+      updatedResponse,
+      handledIndices,
+    );
+
+    if (request == null || newDetailsProcessed < request.details.length) {
+      setInlineDeliveryInProgress(false);
+      return {skippedInlineDelivery: true};
+    }
+
+    const requestBufferString = request.toBuffer().toString('hex');
+    const responseBufferString =
+      updatedResponse.details && updatedResponse.details.length > 0
+        ? updatedResponse.toBuffer().toString('hex')
+        : '';
+
+    const result = await completeGenericResponseDelivery({
+      requestBufferString,
+      responseBufferString,
+    });
+
+    await markSavedPendingRequestComplete();
+
+    if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+      autoDeliverySuccessTimeoutRef.current = setTimeout(() => {
+        autoDeliverySuccessTimeoutRef.current = null;
+        completeRequest();
+      }, POST_SUCCESS_DELAY_MS);
+      return result;
+    }
+
+    completeRequest();
+    return result;
   }
 
   const getVerusId = useCallback(async (systemId, iAddrOrName) => {
@@ -588,19 +635,26 @@ const GenericRequestHome = props => {
 
   useEffect(() => {
     if (request != null) {
+      if (inlineDeliveryInProgress) {
+        return;
+      }
+
+      if (autoDeliveryRequested) {
+        if (
+          detailsProcessed >= request.details.length &&
+          autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE
+        ) {
+          runAutoDelivery();
+        }
+
+        return;
+      }
+
       if (detailsProcessed < request.details.length && detailsProcessed >= 0) {
         setDisplayKey(null);
         setDisplayProps({});
         processNextDetail();
       } else {
-        if (autoDeliveryRequested) {
-          if (autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE) {
-            runAutoDelivery();
-          }
-
-          return;
-        }
-
         const responseBufferString = response.details && response.details.length > 0
           ? response.toBuffer().toString('hex')
           : '';
@@ -616,6 +670,7 @@ const GenericRequestHome = props => {
     autoDeliveryRequested,
     autoDeliveryState.status,
     detailsProcessed,
+    inlineDeliveryInProgress,
     request,
     runAutoDelivery,
     response,
@@ -649,6 +704,9 @@ const GenericRequestHome = props => {
             : ''
         }
         detailIndex={detailIndex}
+        deliverIdentityUpdateResponse={deliverIdentityUpdateResponse}
+        identityUpdateDeliveryInfo={getGenericRequestDeliveryInfo(request)}
+        completeIdentityUpdateWithoutDelivery={completeRequest}
         next={next}
       />
     ),
