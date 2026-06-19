@@ -6,17 +6,11 @@
 import React, { Component } from "react";
 import {
   View,
-  StyleSheet,
   Alert,
-  TouchableOpacity,
-  Text
 } from "react-native";
-import {
-  Button
-} from "react-native-paper";
-import Colors from "../globals/colors";
 import Styles from '../styles/index'
 import BarcodeReader from "./BarcodeReader/BarcodeReader";
+import AppButton from "./AppButton";
 
 const FORMAT_UNKNOWN = "QR Data format unrecognized."
 
@@ -50,19 +44,35 @@ class ScanSeed extends Component {
     return (
       <View style={Styles.blackRoot}>
         <BarcodeReader
-          prompt="Scan a QR seed or private key"
+          prompt="Scan private key QR"
+          promptPlacement="top"
+          safeBottomButton
+          maskProps={{
+            width: 248,
+            height: 248,
+            edgeWidth: 28,
+            edgeHeight: 28,
+            edgeColor: '#F4F7FB',
+            edgeBorderWidth: 5,
+            edgeRadius: 2,
+            backgroundColor: '#07111F',
+            outerMaskOpacity: 0.78,
+            showAnimatedLine: true,
+            animatedLineColor: '#64C875',
+            animatedLineHeight: 1,
+            animatedLineWidth: 200,
+            lineAnimationDuration: 3600,
+          }}
           onScan={(codes) => this.onSuccess(codes)}
           button={() => (
-            <Button
-              mode="contained"
-              buttonColor={Colors.warningButtonColor}
+            <AppButton
+              height={56}
               onPress={this.cancelHandler}
-              style={{
-                marginBottom: 48
-              }}
+              themeMode="dark"
+              variant="secondary"
             >
               {"Cancel"}
-            </Button>
+            </AppButton>
           )}
         />
       </View>
@@ -71,23 +81,3 @@ class ScanSeed extends Component {
 }
 
 export default ScanSeed;
-
-const styles = StyleSheet.create({
-  root: {
-    backgroundColor: "#232323",
-    flex: 1,
-    alignItems: "center"
-  },
-  singleButtonContainer: {
-    width: "75%",
-    backgroundColor: "transparent",
-    flexDirection: "row",
-    justifyContent: "center",
-  },
-  cancelBtn: {
-    height: 46,
-    backgroundColor: "rgba(206,68,70,1)",
-    marginTop: 15,
-    marginBottom: 40
-  },
-});

@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, ScrollView, AppState, Platform} from 'react-native';
+import {View, ScrollView, AppState, Platform, StyleSheet} from 'react-native';
 import {Text, Button} from 'react-native-paper';
 import { Camera, useCameraDevice, useCodeScanner } from 'react-native-vision-camera';
 import Colors from '../../globals/colors';
@@ -10,11 +10,14 @@ import {openSettings, RESULTS, PERMISSIONS, request} from 'react-native-permissi
 import BarcodeMask from 'react-native-barcode-mask';
 import AnimatedActivityIndicator from '../AnimatedActivityIndicator';
 import {triggerHapticSuccess} from '../../utils/haptics/haptics';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {fontStyle} from '../../globals/fonts';
 
 const BarcodeReader = props => {
   const cameraProps = props.cameraProps == null ? {} : props.cameraProps;
   const maskProps = props.maskProps == null ? {} : props.maskProps;
   const appState = useRef(AppState.currentState);
+  const insets = useSafeAreaInsets();
 
   const componentIsMounted = useRef(true);
   const [appStateVisible, setAppStateVisible] = useState(appState.current);
@@ -23,8 +26,30 @@ const BarcodeReader = props => {
   const [loading, setLoading] = useState(false);
   const device = useCameraDevice('back')
   
-  const {prompt, button, onScan, cameraOn} = props;
+  const {
+    prompt,
+    button,
+    onScan,
+    cameraOn,
+    promptPlacement,
+    promptContainerStyle,
+    promptTextStyle,
+    buttonContainerStyle,
+    safeBottomButton,
+  } = props;
   const cameraOff = cameraOn != null && !cameraOn;
+  const promptText = prompt ? prompt : 'Scan a QR code';
+  const promptAtTop = promptPlacement === 'top';
+  const buttonContainerStyles = safeBottomButton
+    ? [
+        barcodeReaderStyles.safeButtonContainer,
+        {
+          paddingLeft: 32 + insets.left,
+          paddingRight: 32 + insets.right,
+          paddingBottom: Math.max(insets.bottom + 12, 36),
+        },
+      ]
+    : barcodeReaderStyles.buttonContainer;
 
   const maskHeight =
     props.maskProps == null || props.maskProps.height == null
@@ -111,36 +136,40 @@ const BarcodeReader = props => {
           isActive={appStateVisible === 'active' && !props.cameraDisabled}
           {...cameraProps} 
         />
-        <View style={{ 
-          position: "absolute", 
-          alignSelf: "center", 
-          bottom: 0, 
-          paddingBottom: 32,
-          width: "100%",
-          height: "100%"
-        }}>
+        <View style={barcodeReaderStyles.maskOverlay}>
           <BarcodeMask
             showAnimatedLine={false}
             height={maskHeight}
             width={maskWidth}
             {...maskProps}
           />
-          <Text
-            style={{
-              fontSize: 20,
-              color: Colors.secondaryColor,
-              marginTop: 24,
-              textAlign: 'center',
-            }}>
-            {prompt ? prompt : 'Scan a QR code'}
-          </Text>
+          {!promptAtTop && (
+            <Text style={[barcodeReaderStyles.promptText, promptTextStyle]}>
+              {promptText}
+            </Text>
+          )}
         </View>
-        <View style={{ 
-          position: "absolute", 
-          alignSelf: "center", 
-          bottom: 0, 
-          paddingBottom: 8 
-        }}>{button ? button() : null}</View>
+        {promptAtTop && (
+          <View
+            style={[
+              barcodeReaderStyles.topPromptContainer,
+              {
+                paddingTop: Math.max(insets.top + 12, 40),
+                paddingLeft: 24 + insets.left,
+                paddingRight: 24 + insets.right,
+              },
+              promptContainerStyle,
+            ]}>
+            <Text style={[barcodeReaderStyles.topPromptText, promptTextStyle]}>
+              {promptText}
+            </Text>
+          </View>
+        )}
+        {button ? (
+          <View style={[buttonContainerStyles, buttonContainerStyle]}>
+            {button()}
+          </View>
+        ) : null}
       </>
   ) : (
     <ScrollView
@@ -171,3 +200,44 @@ const BarcodeReader = props => {
 };
 
 export default BarcodeReader;
+
+const barcodeReaderStyles = StyleSheet.create({
+  maskOverlay: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 0,
+    paddingBottom: 32,
+    width: '100%',
+    height: '100%',
+  },
+  promptText: {
+    fontSize: 20,
+    color: Colors.secondaryColor,
+    marginTop: 24,
+    textAlign: 'center',
+  },
+  topPromptContainer: {
+    position: 'absolute',
+    top: 0,
+    width: '100%',
+    alignItems: 'center',
+  },
+  topPromptText: {
+    fontSize: 24,
+    lineHeight: 30,
+    color: Colors.secondaryColor,
+    textAlign: 'center',
+    ...fontStyle('semiBold'),
+  },
+  buttonContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 0,
+    paddingBottom: 8,
+  },
+  safeButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+  },
+});
