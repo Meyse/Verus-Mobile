@@ -1,6 +1,9 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {ActivityIndicator, View} from 'react-native';
+import {View} from 'react-native';
 import {Text} from 'react-native-paper';
+import SkeletonLoader, {
+  SkeletonSection,
+} from '../../../../components/SkeletonLoader';
 import {
   deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles,
 } from '../../../../styles';
@@ -122,6 +125,39 @@ const buildVerusIdSections = (verusId, friendlyNames) => {
   ].filter(section => section.rows.some(row => row.value != null));
 };
 
+const VERUS_ID_DETAILS_SKELETON_SECTIONS = [
+  {
+    titleWidth: '24%',
+    rows: [
+      {labelWidth: '14%', valueWidth: '16%'},
+      {labelWidth: '38%', valueWidth: '34%'},
+      {labelWidth: '18%', valueWidth: '88%'},
+      {labelWidth: '16%', valueWidth: '28%'},
+      {labelWidth: '14%', valueWidth: '18%'},
+    ],
+  },
+  {
+    titleWidth: '30%',
+    rows: [
+      {labelWidth: '38%', valueWidth: '34%'},
+      {labelWidth: '34%', valueWidth: '34%'},
+      {labelWidth: '30%', valueWidth: '88%'},
+    ],
+  },
+];
+
+const VerusIdDetailsSkeleton = () => (
+  <SkeletonLoader accessibilityLabel="Loading VerusID details">
+    {VERUS_ID_DETAILS_SKELETON_SECTIONS.map((section, index) => (
+      <SkeletonSection
+        key={index}
+        rows={section.rows}
+        titleWidth={section.titleWidth}
+      />
+    ))}
+  </SkeletonLoader>
+);
+
 const DeepLinkVerusIdDetailsSheet = ({
   loadFriendlyNames,
   loadVerusId,
@@ -188,10 +224,7 @@ const DeepLinkVerusIdDetailsSheet = ({
       maxHeight="82%"
       title="VerusID details">
       {loading ? (
-        <View style={styles.requestSheetState}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.requestSheetStateText}>Loading VerusID</Text>
-        </View>
+        <VerusIdDetailsSkeleton />
       ) : failedMessage ? (
         <View style={styles.requestSheetState}>
           <Text style={styles.requestSheetStateTitle}>
