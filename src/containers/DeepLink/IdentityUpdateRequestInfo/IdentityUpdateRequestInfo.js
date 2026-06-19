@@ -10,24 +10,22 @@
     Confirm+Pay. Content changes got their own dedicated step with full-screen
     VerusIdObjectData. Fund source selection moved to a SemiModal sheet inside
     the Confirm step instead of a separate screen.
-  - 2026-02-06: High-risk step shows primary-address deltas (add/remove), uses a
-    single acknowledgment checkbox, and flags new addresses not in wallet.
-    Adds a post-update primary-address ownership summary ("In wallet" vs "External")
-    so users can clearly see whether they retain control when adding external addresses.
+  - 2026-02-06: High-risk step shows primary-address deltas (add/remove) and
+    flags new addresses not in wallet.
   - 2026-02-06: Fixed wallet address derivation ordering so "in wallet" matching
     is reliable during the High-risk step.
-  - 2026-02-07: Fixed misleading HighRiskStep display. primaryAddressAfterUpdateInfo
-    is now only passed when primary addresses are actually changing, preventing the
-    "You will share control" message from appearing for authority-only changes.
-  - 2026-02-07: Authority-only changes now show a dedicated card with prominent ID
-    name and info icon (AuthorityInfoSheet) instead of generic outcome messaging.
   - 2026-03-06: Clarified current-content removal copy  and added remove-action
     detail content that explains historical on-chain visibility.
+  - 2026-06-17: High-risk acknowledgement moved from inline checkbox to a
+    bottom sheet, with row-level detail sheets for primary/recovery/revocation.
 */
 import React, {useMemo, useState, useEffect, useCallback} from 'react';
-import {Platform, SafeAreaView, View} from 'react-native';
+import {ScrollView, TouchableOpacity, View} from 'react-native';
 import {primitives} from 'verusid-ts-client';
-import {Button, Portal, Text} from 'react-native-paper';
+import {Portal, Text} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import CopyAction from '../../../components/CopyAction';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import {
   getFriendlyNameMap,
@@ -35,8 +33,6 @@ import {
 } from '../../../utils/api/channels/verusid/callCreators';
 import {blocksToTime, unixToDate} from '../../../utils/math';
 import {useSelector} from 'react-redux';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import Colors from '../../../globals/colors';
 import {openAuthenticateUserModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import {
   AUTHENTICATE_USER_SEND_MODAL,
@@ -66,7 +62,6 @@ import {
   VERUSID_STATUS,
 } from '../../../utils/constants/verusidObjectData';
 import {getCmmDataLabel} from '../../../utils/vdxf/cmmDataLabel';
-import VdxfUniValueModal from '../../../components/VdxfUniValueModal/VdxfUniValueModal';
 import {getVDXFKeyLabel} from '../../../utils/vdxf/vdxfTypeLabels';
 import {capitalizeString} from '../../../utils/stringUtils';
 import {
@@ -77,7 +72,9 @@ import {
   IdentityUpdateRequestDetails,
   KvMap,
 } from 'verus-typescript-primitives';
-import GradientButton from '../../../components/GradientButton';
+import AppButton from '../../../components/AppButton';
+import BottomSheetModal from '../../../components/BottomSheetModal';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 
 import ReviewStep from './steps/ReviewStep';
 import ContentStep from './steps/ContentStep';
@@ -85,7 +82,13 @@ import HighRiskStep from './steps/HighRiskStep';
 import ConfirmPayStep from './steps/ConfirmPayStep';
 import {classifyChanges} from './utils/classifyChanges';
 import {buildContentMultiMapRemoveUi} from './utils/contentMultiMapRemoveUi';
-import {identityUpdateRequestInfoStyles as styles} from '../../../styles';
+import {
+  identityUpdateRequestInfoStyles as createIdentityUpdateRequestInfoStyles,
+} from '../../../styles';
+import {
+  OnboardingThemeProvider,
+  useOnboardingTheme,
+} from '../../../theme/onboarding';
 
 // Step identifiers
 const STEP_REVIEW = 0;
@@ -94,7 +97,100 @@ const STEP_HIGH_RISK = 2;
 const STEP_CONFIRM_PAY = 3;
 const CMM_CLEAR_MAP_SENTINEL = '__CMM_CLEAR__';
 
-const IdentityUpdateRequestInfo = props => {
+const formatRawData = value => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+};
+
+const RawDataSheet = ({
+  visible,
+  title,
+  rawData,
+  onClose,
+  onClosed,
+  styles,
+  theme,
+}) => {
+  const rawText = useMemo(
+    () => (rawData != null ? formatRawData(rawData) : ''),
+    [rawData],
+  );
+
+  return (
+    <BottomSheetModal
+      visible={visible}
+      onClose={onClose}
+      onClosed={onClosed}
+      maxHeight="70%">
+      <View style={styles.rawDataSheetContent}>
+        <Text style={styles.rawDataSheetTitle}>{title || 'Raw data'}</Text>
+        <View style={styles.rawDataSheetHeader}>
+          <Text style={styles.rawDataSheetLabel}>Raw data</Text>
+          <CopyAction
+            accessibilityLabel="Copy raw data"
+            copiedAccessibilityLabel="Raw data copied"
+            color={theme.colors.textSubtle}
+            copiedColor={theme.colors.success}
+            style={styles.rawDataSheetCopyButton}
+            value={rawText}
+          />
+        </View>
+        <ScrollView
+          style={styles.rawDataSheetScroll}
+          contentContainerStyle={styles.rawDataSheetScrollContent}>
+          <Text selectable style={styles.rawDataSheetValue}>
+            {rawText}
+          </Text>
+        </ScrollView>
+        <AppButton
+          height={56}
+          onPress={onClose}
+          style={styles.rawDataSheetDone}
+          themeMode={theme.mode}
+          variant="secondary">
+          Done
+        </AppButton>
+      </View>
+    </BottomSheetModal>
+  );
+};
+
+const buildChangeSummaryItems = (highRiskCount, contentCount) => {
+  const items = [];
+
+  if (highRiskCount > 0) {
+    items.push({
+      key: 'high-risk',
+      tone: 'danger',
+      label: `${highRiskCount} high-risk ${
+        highRiskCount === 1 ? 'change' : 'changes'
+      }`,
+    });
+  }
+
+  if (contentCount > 0) {
+    items.push({
+      key: 'content',
+      tone: 'normal',
+      label: `${contentCount} content ${
+        contentCount === 1 ? 'change' : 'changes'
+      }`,
+    });
+  }
+
+  return items;
+};
+
+const IdentityUpdateRequestInfoContent = props => {
   const {
     detailsBufferString,
     requestBufferString,
@@ -108,37 +204,61 @@ const IdentityUpdateRequestInfo = props => {
     coinObj,
     chainInfo,
     subjectIdentity,
+    subjectIdentityContent,
     identityUpdates,
     friendlyNames,
     cmmDataKeys,
     detailIndex,
+    deliverIdentityUpdateResponse,
+    identityUpdateDeliveryInfo,
+    completeIdentityUpdateWithoutDelivery,
     next,
     subjectIdTxHex,
     updateIdTxHex,
     hasEncryptedKeys,
   } = props;
-  const insets = useSafeAreaInsets();
-  const bottomNavigationInset = Math.max(
-    insets.bottom,
-    Platform.OS === 'android' ? 24 : 0,
+  const theme = useOnboardingTheme();
+  const styles = useMemo(
+    () => createIdentityUpdateRequestInfoStyles(theme),
+    [theme],
   );
-  const footerBottomPadding = 16 + bottomNavigationInset;
 
   const {fullyqualifiedname, identity} = subjectIdentity;
+  const activeContentMultiMap = useMemo(
+    () =>
+      subjectIdentityContent && subjectIdentityContent.identity
+        ? subjectIdentityContent.identity.contentmultimap || {}
+        : {},
+    [subjectIdentityContent],
+  );
+  const activeContentSubjectIdentity = useMemo(
+    () => ({
+      ...subjectIdentity,
+      identity: {
+        ...(subjectIdentity.identity || {}),
+        contentmultimap: activeContentMultiMap,
+      },
+    }),
+    [activeContentMultiMap, subjectIdentity],
+  );
 
   // --- Core state ---
-  const [subject, setSubject] = useState(
+  const [subject] = useState(
     primitives.Identity.fromJson(subjectIdentity),
   );
   const [details, setDetails] = useState(new IdentityUpdateRequestDetails());
   const [stepIndex, setStepIndex] = useState(STEP_REVIEW);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [highRiskAckSheetVisible, setHighRiskAckSheetVisible] =
+    useState(false);
+  const [confirmBroadcasting, setConfirmBroadcasting] = useState(false);
 
   // --- Modal state ---
-  const [vdxfInspectorItems, setVdxfInspectorItems] = useState([]);
-  const [vdxfUniValueModalTitle, setVdxfUniValueModalTitle] = useState('Data');
-  const [vdxfUniValueModalVisible, setVdxfUniValueModalVisible] =
-    useState(false);
+  const [rawDataSheet, setRawDataSheet] = useState({
+    visible: false,
+    title: 'Raw data',
+    rawData: null,
+  });
   const [isListSelectionModalVisible, setIsListSelectionModalVisible] =
     useState(false);
   const [listData, setListData] = useState([]);
@@ -217,61 +337,6 @@ const IdentityUpdateRequestInfo = props => {
     return [updates];
   };
 
-  const toCmmModalObjects = (updates, fallbackKey = null) => {
-    const normalizedUpdates = normalizeCmmUpdates(updates);
-    return normalizedUpdates.map((entry, index) => {
-      if (entry != null && typeof entry === 'object' && !Array.isArray(entry)) {
-        const keys = Object.keys(entry);
-        const removeMeta = extractContentMultiMapRemoveMeta(entry);
-
-        if (removeMeta && keys.length > 0) {
-          const key = keys[0];
-          const detailUi = removeMeta
-            ? buildContentMultiMapRemoveUi({
-                removeMeta,
-                fallbackKey,
-                currentContentMultiMap: identity.contentmultimap,
-                getKeyLabel: getCmmDataKey,
-                definedKeyVdxfId: DATA_TYPE_DEFINEDKEY.vdxfid,
-              })
-            : null;
-
-          return {
-            kind: removeMeta ? 'content-remove' : 'vdxf-value',
-            key,
-            data: entry[key],
-            rawData: entry,
-            meta: detailUi,
-          };
-        }
-
-        if (keys.length === 1) {
-          const key = keys[0];
-          return {
-            kind: 'vdxf-value',
-            key,
-            data: entry[key],
-            rawData: entry,
-          };
-        }
-      }
-
-      return {
-        kind: 'raw-value',
-        key: `raw:${index + 1}`,
-        data: entry,
-        rawData: entry,
-      };
-    });
-  };
-
-  const toSignDataInspectorItem = signData => ({
-    kind: 'sign-data',
-    key: 'sign-data',
-    data: signData,
-    rawData: getSignDataRawValue(signData),
-  });
-
   const extractContentMultiMapRemoveMeta = value => {
     if (value == null || typeof value !== 'object' || Array.isArray(value))
       return null;
@@ -324,6 +389,7 @@ const IdentityUpdateRequestInfo = props => {
           identityUpdates.recoveryauthority !== identity.recoveryauthority
             ? {
                 data: displayIdentityAddress(identityUpdates.recoveryauthority),
+                rawData: identityUpdates.recoveryauthority,
                 onPress: () =>
                   openVerusIdDetailsModal(
                     coinObj.system_id,
@@ -338,6 +404,7 @@ const IdentityUpdateRequestInfo = props => {
                 data: displayIdentityAddress(
                   identityUpdates.revocationauthority,
                 ),
+                rawData: identityUpdates.revocationauthority,
                 onPress: () =>
                   openVerusIdDetailsModal(
                     coinObj.system_id,
@@ -352,6 +419,7 @@ const IdentityUpdateRequestInfo = props => {
           identityUpdates.privateaddress !== identity.privateaddress
             ? {
                 data: displayIdentityAddress(identityUpdates.privateaddress),
+                rawData: identityUpdates.privateaddress,
                 onPress: () =>
                   copyToClipboard(identityUpdates.privateaddress, {
                     message: `${identityUpdates.privateaddress} copied to clipboard.`,
@@ -372,7 +440,8 @@ const IdentityUpdateRequestInfo = props => {
         displayUpdates[VERUSID_AUTH_INFO.key][
           `${VERUSID_PRIMARY_ADDRESS.key}:${i}`
         ] = {
-          data: identityUpdates.primaryaddresses[i],
+          data: displayIdentityAddress(identityUpdates.primaryaddresses[i]),
+          rawData: identityUpdates.primaryaddresses[i],
           onPress: () =>
             copyToClipboard(identityUpdates.primaryaddresses[i], {
               message: `${identityUpdates.primaryaddresses[i]} copied to clipboard.`,
@@ -403,8 +472,8 @@ const IdentityUpdateRequestInfo = props => {
             data: getSignDataLabel(signData),
             isEncrypted: true,
             onPress: () =>
-              openVdxfUniValueModal(
-                [toSignDataInspectorItem(signData)],
+              openRawDataSheet(
+                getSignDataRawValue(signData),
                 getCmmDataKey(key),
               ),
           };
@@ -426,7 +495,7 @@ const IdentityUpdateRequestInfo = props => {
               const removeUi = buildContentMultiMapRemoveUi({
                 removeMeta,
                 fallbackKey: key,
-                currentContentMultiMap: identity.contentmultimap,
+                currentContentMultiMap: activeContentMultiMap,
                 getKeyLabel: getCmmDataKey,
                 definedKeyVdxfId: DATA_TYPE_DEFINEDKEY.vdxfid,
               });
@@ -435,10 +504,7 @@ const IdentityUpdateRequestInfo = props => {
                   ? CMM_CLEAR_MAP_SENTINEL
                   : removeMeta.entryKey || key;
               const baseUpdateKey = `${VERUSID_CMM_DATA.key}:${targetKey}`;
-              const updateKey =
-                displayUpdates[VERUSID_CMM_INFO.key][baseUpdateKey] == null
-                  ? baseUpdateKey
-                  : `${baseUpdateKey}:remove:${index}`;
+              const updateKey = `${baseUpdateKey}:remove:${key}:${index}`;
 
               // derive remove-action copy from the current identity state, not from chain permanence.
               displayUpdates[VERUSID_CMM_INFO.key][updateKey] = {
@@ -448,12 +514,18 @@ const IdentityUpdateRequestInfo = props => {
                   ...removeMeta,
                   entryLabel: removeUi.targetLabel,
                 },
+                ackRows: [
+                  ['Action', removeUi.summary],
+                  ['Target', removeUi.targetLabel],
+                  ['Active content keys', String(removeUi.currentKeyCount)],
+                  ['Active content values', String(removeUi.currentValueCount)],
+                ],
                 highRisk: removeMeta.action === 4,
                 highRiskType:
                   removeMeta.action === 4 ? 'content-clear' : undefined,
                 highRiskTitle:
                   removeMeta.action === 4
-                    ? 'Clear current identity content'
+                    ? 'Clear active identity content'
                     : undefined,
                 highRiskWarning:
                   removeMeta.action === 4
@@ -461,10 +533,7 @@ const IdentityUpdateRequestInfo = props => {
                     : undefined,
                 displayTitle: removeUi.displayTitle,
                 onPress: () =>
-                  openVdxfUniValueModal(
-                    toCmmModalObjects([update], key),
-                    removeUi.modalTitle,
-                  ),
+                  openRawDataSheet([update], removeUi.modalTitle),
               };
             });
           }
@@ -480,8 +549,10 @@ const IdentityUpdateRequestInfo = props => {
               rawData: nonRemoveUpdates,
               isEncryptedKey: isCredentialKey,
               onPress: () =>
-                openVdxfUniValueModal(
-                  toCmmModalObjects(nonRemoveUpdates),
+                openRawDataSheet(
+                  nonRemoveUpdates.length === 1
+                    ? nonRemoveUpdates[0]
+                    : nonRemoveUpdates,
                   getCmmDataKey(key),
                 ),
             };
@@ -502,6 +573,31 @@ const IdentityUpdateRequestInfo = props => {
   };
 
   // --- Modal helpers ---
+  const loadSignerVerusId = useCallback(async () => {
+    if (!canOpenSignerModal) {
+      throw new Error('Signer identity is not available');
+    }
+
+    return getVerusId(chainId, signerIdentityID);
+  }, [canOpenSignerModal, chainId, signerIdentityID]);
+
+  const loadSignerFriendlyNames = useCallback(
+    async identityObj => {
+      try {
+        return getFriendlyNameMap(
+          CoinDirectory.getBasicCoinObj(chainId).system_id,
+          identityObj,
+        );
+      } catch (e) {
+        return {
+          ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
+          ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
+        };
+      }
+    },
+    [chainId],
+  );
+
   const openVerusIdDetailsModal = (chain, iAddress) => {
     setVerusIdDetailsModalProps({
       loadVerusId: () => getVerusId(chain, iAddress),
@@ -527,16 +623,27 @@ const IdentityUpdateRequestInfo = props => {
     });
   };
 
-  const openVdxfUniValueModal = (items, title) => {
-    setVdxfUniValueModalTitle(title);
-    setVdxfInspectorItems(items);
-    setVdxfUniValueModalVisible(true);
+  const openRawDataSheet = (rawData, title) => {
+    setRawDataSheet({
+      visible: true,
+      title: title || 'Raw data',
+      rawData,
+    });
   };
 
-  const closeVdxfUniValueModal = () => {
-    setVdxfUniValueModalVisible(false);
-    setVdxfUniValueModalTitle('Data');
-    setVdxfInspectorItems([]);
+  const closeRawDataSheet = () => {
+    setRawDataSheet(previous => ({
+      ...previous,
+      visible: false,
+    }));
+  };
+
+  const clearRawDataSheet = () => {
+    setRawDataSheet({
+      visible: false,
+      title: 'Raw data',
+      rawData: null,
+    });
   };
 
   // --- Computed state ---
@@ -643,6 +750,7 @@ const IdentityUpdateRequestInfo = props => {
           ? 'This address is not in your wallet. Adding it shares control of this ID with someone else. Your wallet will still control this ID.'
           : 'This address is not in your wallet. After this update, none of the primary addresses are in your wallet. You will lose control of this ID.',
         data: displayIdentityAddress(addr),
+        rawData: addr,
         valueLabel: 'New value',
         type: 'primary-add',
         walletMatch: inWallet,
@@ -655,6 +763,7 @@ const IdentityUpdateRequestInfo = props => {
         title: 'Remove primary address',
         warning: 'Removing a primary address changes who can control this ID.',
         data: displayIdentityAddress(addr),
+        rawData: addr,
         valueLabel: 'Removed value',
         type: 'primary-remove',
       });
@@ -677,25 +786,38 @@ const IdentityUpdateRequestInfo = props => {
   );
 
   const hasHighRisk = highRiskChanges.length > 0;
-  const hasUnownedPrimaryAddress = useMemo(
-    () =>
-      primaryAddressChanges.some(
-        change => change.type === 'primary-add' && change.walletMatch === false,
-      ),
-    [primaryAddressChanges],
+  const contentReviewCount = useMemo(() => {
+    const highRiskContentCount = highRiskChanges.reduce((count, change) => {
+      if (
+        change.groupKey !== VERUSID_CMM_INFO.key &&
+        change.groupKey !== VERUSID_PRIVATE_INFO.key
+      ) {
+        return count;
+      }
+
+      if (change.highRiskType === 'content-clear') {
+        return count + Math.max(Object.keys(activeContentMultiMap).length, 1);
+      }
+
+      return count + 1;
+    }, 0);
+
+    return contentChanges.length + highRiskContentCount;
+  }, [activeContentMultiMap, contentChanges, highRiskChanges]);
+
+  const hasContent = contentReviewCount > 0;
+  const requesterLabel = signerFqn || signerIdentityID || 'Unknown signer';
+  const requesterMetadataRows = [
+    chainId ? {label: 'Network', value: chainId} : null,
+    sigDateString ? {label: 'Signed', value: sigDateString} : null,
+    details.expires() && expiryLabel
+      ? {label: 'Expires', value: expiryLabel}
+      : null,
+  ].filter(Boolean);
+  const reviewChangeItems = buildChangeSummaryItems(
+    highRiskChanges.length,
+    contentReviewCount,
   );
-
-  // Check if all high-risk items are acknowledged
-  const allHighRiskAcknowledged = useMemo(() => {
-    if (!hasHighRisk) return true;
-    return acknowledged;
-  }, [hasHighRisk, acknowledged]);
-
-  const toggleAcknowledgment = useCallback(() => {
-    setAcknowledged(prev => !prev);
-  }, []);
-
-  const hasContent = contentChanges.length > 0 || highRiskChanges.length > 0;
 
   // --- Stepper navigation ---
   // Build the ordered list of steps (skip content/high-risk if none)
@@ -708,8 +830,12 @@ const IdentityUpdateRequestInfo = props => {
   }, [hasContent, hasHighRisk]);
 
   const currentStepId = steps[stepIndex] ?? STEP_REVIEW;
-  const isLastStep = stepIndex === steps.length - 1;
-  const isFirstStep = stepIndex === 0;
+
+  useEffect(() => {
+    if (currentStepId !== STEP_CONFIRM_PAY && confirmBroadcasting) {
+      setConfirmBroadcasting(false);
+    }
+  }, [confirmBroadcasting, currentStepId]);
 
   const goNext = useCallback(() => {
     if (stepIndex < steps.length - 1) setStepIndex(stepIndex + 1);
@@ -718,6 +844,16 @@ const IdentityUpdateRequestInfo = props => {
   const goBack = useCallback(() => {
     if (stepIndex > 0) setStepIndex(stepIndex - 1);
   }, [stepIndex]);
+
+  const closeHighRiskAckSheet = useCallback(() => {
+    setHighRiskAckSheetVisible(false);
+  }, []);
+
+  const understandHighRiskChanges = useCallback(() => {
+    setAcknowledged(true);
+    setHighRiskAckSheetVisible(false);
+    goNext();
+  }, [goNext]);
 
   // --- Sign-in handling (kept from original) ---
   const handleContinue = () => {
@@ -794,7 +930,7 @@ const IdentityUpdateRequestInfo = props => {
 
   useEffect(() => {
     setDisplayUpdates(getDisplayUpdates());
-  }, [details, identityUpdates, friendlyNames, cmmDataKeys]);
+  }, [details, identityUpdates, friendlyNames, cmmDataKeys, activeContentMultiMap]);
 
   useEffect(() => {
     if (detailsBufferString) {
@@ -815,37 +951,25 @@ const IdentityUpdateRequestInfo = props => {
 
   // --- Footer button logic ---
   const getFooterButtonLabel = () => {
-    if (currentStepId === STEP_CONFIRM_PAY) return 'Update';
+    if (currentStepId === STEP_REVIEW) return 'Review changes';
     return 'Next';
-  };
-
-  const getFooterLeftLabel = () => {
-    if (isFirstStep) return 'Cancel';
-    return 'Back';
   };
 
   const isNextDisabled = () => {
     if (isWrongRequestType) return true;
-    if (currentStepId === STEP_HIGH_RISK && !allHighRiskAcknowledged)
-      return true;
     return false;
-  };
-
-  const handleFooterLeft = () => {
-    if (isFirstStep) {
-      cancel();
-    } else {
-      goBack();
-    }
   };
 
   const handleFooterRight = () => {
     if (currentStepId === STEP_REVIEW) {
       handleContinue();
-    } else if (
-      currentStepId === STEP_CONTENT ||
-      currentStepId === STEP_HIGH_RISK
-    ) {
+    } else if (currentStepId === STEP_HIGH_RISK) {
+      if (acknowledged) {
+        goNext();
+      } else {
+        setHighRiskAckSheetVisible(true);
+      }
+    } else if (currentStepId === STEP_CONTENT) {
       goNext();
     }
     // For STEP_CONFIRM_PAY, the ConfirmPayStep handles its own buttons
@@ -857,21 +981,15 @@ const IdentityUpdateRequestInfo = props => {
   }
 
   const showFooter = currentStepId !== STEP_CONFIRM_PAY;
+  const showTopBackButton =
+    stepIndex > 0 &&
+    !(currentStepId === STEP_CONFIRM_PAY && confirmBroadcasting);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <Portal>
         {verusIdDetailsModalProps != null && (
           <VerusIdDetailsModal {...verusIdDetailsModalProps} />
-        )}
-        {vdxfInspectorItems.length > 0 && (
-          <VdxfUniValueModal
-            items={vdxfInspectorItems}
-            visible={vdxfUniValueModalVisible}
-            title={vdxfUniValueModalTitle}
-            setVisible={x => setVdxfUniValueModalVisible(x)}
-            cancel={closeVdxfUniValueModal}
-          />
         )}
         {isListSelectionModalVisible && (
           <ListSelectionModal
@@ -884,28 +1002,48 @@ const IdentityUpdateRequestInfo = props => {
           />
         )}
       </Portal>
+      <RawDataSheet
+        visible={rawDataSheet.visible}
+        title={rawDataSheet.title}
+        rawData={rawDataSheet.rawData}
+        onClose={closeRawDataSheet}
+        onClosed={clearRawDataSheet}
+        styles={styles}
+        theme={theme}
+      />
+
+      {showTopBackButton && (
+        <View style={styles.stepHeader}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            activeOpacity={0.74}
+            onPress={goBack}
+            style={styles.backButton}>
+            <MaterialCommunityIcons
+              color={theme.colors.textPrimary}
+              name="arrow-left"
+              size={24}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Step content */}
       {currentStepId === STEP_REVIEW && (
         <ReviewStep
-          signerFqn={signerFqn}
-          canOpenSignerModal={canOpenSignerModal}
-          chainId={chainId}
-          sigDateString={sigDateString}
-          expiryLabel={expiryLabel}
-          details={details}
-          fullyqualifiedname={fullyqualifiedname}
-          highRiskCount={highRiskChanges.length}
-          contentCount={contentChanges.length}
-          openVerusIdDetailsModal={openVerusIdDetailsModal}
-          signerIdentityID={signerIdentityID}
+          canOpenSignerDetails={canOpenSignerModal}
+          loadSignerFriendlyNames={loadSignerFriendlyNames}
+          loadSignerVerusId={loadSignerVerusId}
+          requesterLabel={requesterLabel}
+          requesterMetadataRows={requesterMetadataRows}
           styles={styles}
         />
       )}
 
       {currentStepId === STEP_CONTENT && (
         <ContentStep
-          subjectIdentity={subjectIdentity}
+          subjectIdentity={activeContentSubjectIdentity}
           friendlyNames={friendlyNames}
           displayUpdates={displayUpdates}
           chainInfo={chainInfo}
@@ -923,15 +1061,21 @@ const IdentityUpdateRequestInfo = props => {
               ? primaryAddressAfterUpdateInfo
               : null
           }
-          acknowledged={acknowledged}
-          onToggle={toggleAcknowledgment}
-          hasUnownedPrimaryAddress={hasUnownedPrimaryAddress}
+          ackSheetVisible={highRiskAckSheetVisible}
+          onCloseAckSheet={closeHighRiskAckSheet}
+          onUnderstandAck={understandHighRiskChanges}
           currentAuthorities={{
             revocation: identity.revocationauthority
-              ? displayIdentityAddress(identity.revocationauthority)
+              ? {
+                  display: displayIdentityAddress(identity.revocationauthority),
+                  raw: identity.revocationauthority,
+                }
               : null,
             recovery: identity.recoveryauthority
-              ? displayIdentityAddress(identity.recoveryauthority)
+              ? {
+                  display: displayIdentityAddress(identity.recoveryauthority),
+                  raw: identity.recoveryauthority,
+                }
               : null,
           }}
           styles={styles}
@@ -949,44 +1093,89 @@ const IdentityUpdateRequestInfo = props => {
           coinObj={coinObj}
           responseBufferString={responseBufferString}
           detailIndex={detailIndex}
+          deliverIdentityUpdateResponse={deliverIdentityUpdateResponse}
+          identityUpdateDeliveryInfo={identityUpdateDeliveryInfo}
+          completeIdentityUpdateWithoutDelivery={completeIdentityUpdateWithoutDelivery}
           next={next}
           cancel={cancel}
-          onGoBack={goBack}
           highRiskCount={highRiskChanges.length}
-          contentCount={contentChanges.length}
+          contentCount={contentReviewCount}
           hasEncryptedKeys={hasEncryptedKeys}
+          onBroadcastingChange={setConfirmBroadcasting}
           styles={styles}
         />
       )}
 
       {/* Footer - hidden on ConfirmPayStep (it has its own buttons) */}
       {showFooter && (
-        <View style={[styles.footer, {paddingBottom: footerBottomPadding}]}>
-          <View style={styles.ctaCol}>
-            <Button
-              mode="contained"
-              onPress={handleFooterLeft}
-              style={styles.secondaryCta}
-              contentStyle={styles.secondaryCtaContent}
-              uppercase={false}
-              buttonColor="#EBF6FF"
-              textColor={Colors.primaryColor}
-              labelStyle={styles.secondaryCtaLabel}>
-              {getFooterLeftLabel()}
-            </Button>
-          </View>
-          <View style={styles.ctaCol}>
-            <GradientButton
-              onPress={handleFooterRight}
-              style={styles.primaryCta}
-              disabled={isNextDisabled()}>
-              {getFooterButtonLabel()}
-            </GradientButton>
-          </View>
-        </View>
+        <SafeBottomActionStack
+          gap={10}
+          horizontalSpacing={24}
+          style={styles.footer}>
+          {currentStepId === STEP_REVIEW && (
+            <View style={styles.footerDetailsList}>
+              <View style={styles.footerDetailRow}>
+                <Text style={styles.footerDetailLabel}>Updating identity</Text>
+                <Text
+                  numberOfLines={1}
+                  style={styles.footerDetailValue}>
+                  {fullyqualifiedname}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.footerDetailRow,
+                  styles.footerDetailRowDivider,
+                ]}>
+                <Text style={styles.footerDetailLabel}>Changes</Text>
+                <View style={styles.footerChangeValueStack}>
+                  {reviewChangeItems.map(item => (
+                    <Text
+                      key={item.key}
+                      numberOfLines={1}
+                      style={[
+                        styles.footerStackedDetailValue,
+                        item.tone === 'danger' &&
+                          styles.footerDetailValueDanger,
+                      ]}>
+                      {item.label}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
+          <AppButton
+            disabled={isNextDisabled()}
+            height={56}
+            onPress={handleFooterRight}
+            themeMode={theme.mode}
+            variant="primary">
+            {getFooterButtonLabel()}
+          </AppButton>
+          {currentStepId === STEP_REVIEW && (
+            <AppButton
+              buttonColor={theme.colors.surfaceMuted}
+              height={56}
+              onPress={cancel}
+              themeMode={theme.mode}
+              textColor={
+                theme.isDark ? theme.colors.textPrimary : theme.colors.primary
+              }
+              variant="secondary">
+              Cancel
+            </AppButton>
+          )}
+        </SafeBottomActionStack>
       )}
     </SafeAreaView>
   );
 };
+
+const IdentityUpdateRequestInfo = props => (
+  <OnboardingThemeProvider>
+    <IdentityUpdateRequestInfoContent {...props} />
+  </OnboardingThemeProvider>
+);
 
 export default IdentityUpdateRequestInfo;
