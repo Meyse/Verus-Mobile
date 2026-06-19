@@ -33,16 +33,13 @@ import {
 } from '../../../utils/api/channels/verusid/callCreators';
 import {blocksToTime, unixToDate} from '../../../utils/math';
 import {useSelector} from 'react-redux';
-import {openAuthenticateUserModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import {
-  AUTHENTICATE_USER_SEND_MODAL,
-  SEND_MODAL_USER_ALLOWLIST,
-} from '../../../utils/constants/sendModal';
-import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+  requestWalletUnlock,
+  WALLET_UNLOCK_CANCELLED,
+} from '../../../actions/actionDispatchers';
 import {getSystemNameFromSystemId} from '../../../utils/CoinData/CoinData';
 import {
   createAlert,
-  resolveAlert,
 } from '../../../actions/actions/alert/dispatchers/alert';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
@@ -89,6 +86,7 @@ import {
   OnboardingThemeProvider,
   useOnboardingTheme,
 } from '../../../theme/onboarding';
+import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 
 // Step identifiers
 const STEP_REVIEW = 0;
@@ -278,7 +276,8 @@ const IdentityUpdateRequestInfoContent = props => {
     req.fromBuffer(Buffer.from(requestBufferString, 'hex'), 0);
     return req;
   }, [requestBufferString]);
-  const requestIsTestnet = request != null ? request.isTestnet() : false;
+  const requestIsTestnet =
+    request != null ? request.isTestnet() : !!coinObj?.testnet;
 
   // --- Helper functions ---
   const getVerusId = async (chain, iAddrOrName) => {
@@ -648,9 +647,7 @@ const IdentityUpdateRequestInfoContent = props => {
 
   // --- Computed state ---
   const [expiryLabel, setExpiryLabel] = useState(getExpiryLabel());
-  const [loading, setLoading] = useState(false);
   const [sigDateString, setSigDateString] = useState(unixToDate(sigtime));
-  const [waitingForSignin, setWaitingForSignin] = useState(false);
   const [displayUpdates, setDisplayUpdates] = useState(getDisplayUpdates());
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -658,18 +655,10 @@ const IdentityUpdateRequestInfoContent = props => {
     state => state.authentication.activeAccount,
   );
   const signedIn = useSelector(state => state.authentication.signedIn);
-  const sendModalType = useSelector(state => state.sendModal.type);
-  const isWrongRequestType = useSelector(state => {
-    const isTestAccount =
-      state.authentication.activeAccount &&
-      Object.keys(state.authentication.activeAccount.testnetOverrides).length >
-        0;
-    return (
-      state.authentication.signedIn &&
-      ((isTestAccount && !requestIsTestnet) ||
-        (!isTestAccount && requestIsTestnet))
-    );
-  });
+  const activeAccountMatchesRequest =
+    signedIn &&
+    activeAccount != null &&
+    accountIsTestnet(activeAccount) === requestIsTestnet;
 
   const walletAddresses = useMemo(() => {
     const normalize = addresses => {
@@ -855,75 +844,50 @@ const IdentityUpdateRequestInfoContent = props => {
     goNext();
   }, [goNext]);
 
-  // --- Sign-in handling (kept from original) ---
-  const handleContinue = () => {
-    if (signedIn) {
+  // --- Wallet unlock handling ---
+  const handleContinue = async () => {
+    if (activeAccountMatchesRequest) {
       goNext();
-    } else {
-      setWaitingForSignin(true);
-      const allowList = requestIsTestnet
-        ? accounts.filter(x => {
-            return (
-              x.testnetOverrides &&
-              x.testnetOverrides[coinObj.mainnet_id] === coinObj.id
-            );
-          })
-        : accounts.filter(x => {
-            return !(
-              x.testnetOverrides && x.testnetOverrides[coinObj.id] != null
-            );
-          });
+      return;
+    }
 
-      if (allowList.length > 0) {
-        openAuthenticateUserModal({[SEND_MODAL_USER_ALLOWLIST]: allowList});
-      } else {
+    const allowList = (accounts || []).filter(
+      account => accountIsTestnet(account) === requestIsTestnet,
+    );
+
+    if (allowList.length === 0) {
+      createAlert(
+        'Cannot continue',
+        `No ${
+          requestIsTestnet ? 'testnet' : 'mainnet'
+        } profiles found, cannot respond to this VerusID update request.`,
+      );
+      return;
+    }
+
+    try {
+      await requestWalletUnlock({
+        reason: 'identity-update-request',
+        title: signedIn
+          ? 'Switch wallet to continue'
+          : 'Unlock wallet to continue',
+        requestLabel: 'VerusID update request',
+        accountHashes: allowList.map(account => account.accountHash),
+        makeDefaultAllowed: true,
+        networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
+      });
+      goNext();
+    } catch (e) {
+      if (e?.code !== WALLET_UNLOCK_CANCELLED) {
         createAlert(
           'Cannot continue',
-          `No ${
-            requestIsTestnet ? 'testnet' : 'mainnet'
-          } profiles found, cannot respond to ${
-            requestIsTestnet ? 'testnet' : 'mainnet'
-          } login request.`,
+          e?.message || 'Unable to unlock wallet.',
         );
       }
     }
   };
 
-  const wrongRequestType = isTestRequest => {
-    createAlert(
-      isTestRequest ? 'Testnet Request' : 'Mainnet Request',
-      `This request was created for ${
-        isTestRequest ? 'testnet' : 'mainnet'
-      }, but you are using a ${
-        isTestRequest ? 'mainnet' : 'testnet'
-      } profile. Please logout, select a ${
-        isTestRequest ? 'testnet' : 'mainnet'
-      } profile, and retry this request to continue.`,
-      [
-        {
-          text: 'Ok',
-          onPress: () => {
-            cancel();
-            resolveAlert(true);
-          },
-        },
-      ],
-      {cancelable: false},
-    );
-  };
-
   // --- Effects ---
-  useEffect(() => {
-    if (isWrongRequestType) wrongRequestType(requestIsTestnet);
-  }, []);
-
-  useEffect(() => {
-    if (signedIn && waitingForSignin) {
-      setWaitingForSignin(false);
-      goNext();
-    }
-  }, [signedIn, waitingForSignin]);
-
   useEffect(() => {
     setExpiryLabel(getExpiryLabel());
   }, [details]);
@@ -944,20 +908,17 @@ const IdentityUpdateRequestInfoContent = props => {
     setSigDateString(unixToDate(sigtime));
   }, [sigtime]);
 
-  useEffect(() => {
-    if (sendModalType != AUTHENTICATE_USER_SEND_MODAL) setLoading(false);
-    else setLoading(true);
-  }, [sendModalType]);
-
   // --- Footer button logic ---
   const getFooterButtonLabel = () => {
-    if (currentStepId === STEP_REVIEW) return 'Review changes';
-    return 'Next';
-  };
+    if (currentStepId === STEP_REVIEW) {
+      return activeAccountMatchesRequest
+        ? 'Review changes'
+        : signedIn
+        ? 'Switch wallet'
+        : 'Unlock wallet';
+    }
 
-  const isNextDisabled = () => {
-    if (isWrongRequestType) return true;
-    return false;
+    return 'Next';
   };
 
   const handleFooterRight = () => {
@@ -976,10 +937,6 @@ const IdentityUpdateRequestInfoContent = props => {
   };
 
   // --- Render ---
-  if (loading) {
-    return <AnimatedActivityIndicatorBox />;
-  }
-
   const showFooter = currentStepId !== STEP_CONFIRM_PAY;
   const showTopBackButton =
     stepIndex > 0 &&
@@ -1146,7 +1103,6 @@ const IdentityUpdateRequestInfoContent = props => {
             </View>
           )}
           <AppButton
-            disabled={isNextDisabled()}
             height={56}
             onPress={handleFooterRight}
             themeMode={theme.mode}
