@@ -1599,13 +1599,10 @@ const AuthenticationRequestInfoContent = props => {
     return null;
   }, [linkedIds, provisioningRequestKey, provisioningTargetIdentityAddress]);
 
+  const hasProvisioningDetails = Boolean(provisioningDetailsBufferString);
+
   const provisioningRequestState = useMemo(() => {
-    if (!provisioningDetailsBufferString) {
-      return {
-        requestKey: provisioningRequestKey,
-        status: PROVISIONING_REQUEST_STATUSES.REQUESTABLE,
-      };
-    }
+    if (!hasProvisioningDetails) return null;
 
     if (linkedProvisioningTarget) return linkedProvisioningTarget;
 
@@ -1617,22 +1614,22 @@ const AuthenticationRequestInfoContent = props => {
     });
   }, [
     completedProvisioningRequests,
+    hasProvisioningDetails,
     linkedIds,
     linkedProvisioningTarget,
     pendingIds,
-    provisioningDetailsBufferString,
     provisioningRequestKey,
   ]);
 
   const shouldShowProvisioningInChooser =
-    Boolean(provisioningDetailsBufferString) &&
-    provisioningRequestState.status !== PROVISIONING_REQUEST_STATUSES.LINKED;
+    hasProvisioningDetails &&
+    provisioningRequestState?.status !== PROVISIONING_REQUEST_STATUSES.LINKED;
 
   const handleUseProvisionedIdentity = useCallback(async () => {
     if (
-      provisioningRequestState.status !==
+      provisioningRequestState?.status !==
         PROVISIONING_REQUEST_STATUSES.READY ||
-      !provisioningRequestState.iAddress
+      !provisioningRequestState?.iAddress
     ) {
       return;
     }
@@ -1650,7 +1647,7 @@ const AuthenticationRequestInfoContent = props => {
       await cleanupProvisioningState(
         coinObj,
         candidate.identityAddress,
-        provisioningRequestState.storedEntry?.notificationUid,
+        provisioningRequestState?.storedEntry?.notificationUid,
       );
     } catch (e) {
       if (authRequestMountedRef.current) {
@@ -1827,12 +1824,17 @@ const AuthenticationRequestInfoContent = props => {
         sortedIds={sortedIds}
         isIdentityAllowed={isIdentityAllowed}
         selectedIdentity={selectedIdentity}
+        provisioningEnabled={shouldShowProvisioningInChooser}
         provisioningRequestState={provisioningRequestState}
         initialMode={identitySheetInitialMode}
         onClose={() => setIdentitySheetVisible(false)}
         onLinkCandidate={linkAutoFoundIdentity}
         onManualLink={() => openLinkIdentityModalFromChain()}
-        onRequestVerusId={openProvisionIdentityModalFromChain}
+        onRequestVerusId={
+          shouldShowProvisioningInChooser
+            ? openProvisionIdentityModalFromChain
+            : undefined
+        }
         onSelect={handleSelectIdentity}
         onUseProvisionedIdentity={handleUseProvisionedIdentity}
       />
