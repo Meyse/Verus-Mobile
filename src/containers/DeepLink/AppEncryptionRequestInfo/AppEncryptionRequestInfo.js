@@ -45,7 +45,6 @@ import {
 } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {
   createAlert,
-  resolveAlert,
 } from '../../../actions/actions/alert/dispatchers/alert';
 import {
   linkVerusId,
@@ -746,24 +745,6 @@ const AppEncryptionRequestInfoContent = props => {
     );
   }, [dispatch, navigation]);
 
-  const handleCancel = () => {
-    createAlert(
-      'Cancel request',
-      'This will close the encryption request without sharing an address.',
-      [
-        {text: 'Keep reviewing', style: 'cancel', onPress: () => resolveAlert()},
-        {
-          text: 'Cancel request',
-          style: 'destructive',
-          onPress: () => {
-            resolveAlert();
-            cancel();
-          },
-        },
-      ],
-    );
-  };
-
   const primaryActionLabel = !activeAccountMatchesRequest
     ? signedIn
       ? 'Switch wallet'
@@ -1023,7 +1004,7 @@ const AppEncryptionRequestInfoContent = props => {
         <AppButton
           buttonColor={theme.colors.surfaceMuted}
           height={56}
-          onPress={handleCancel}
+          onPress={cancel}
           themeMode={theme.mode}
           textColor={
             theme.isDark ? theme.colors.textPrimary : theme.colors.primary
