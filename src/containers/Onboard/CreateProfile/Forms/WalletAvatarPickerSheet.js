@@ -1,8 +1,8 @@
 import React, {useMemo} from 'react';
 import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
-import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
@@ -48,13 +48,6 @@ const WalletAvatarPickerSheet = ({
       <View style={signedOutSheetStyles.body}>
         <View style={styles.header}>
           <Text style={signedOutSheetStyles.title}>{'Wallet icon'}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.74}
-            onPress={onClose}
-            style={styles.doneButton}>
-            <Text style={styles.doneText}>{'Done'}</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -108,6 +101,15 @@ const WalletAvatarPickerSheet = ({
             })}
           </View>
         </View>
+
+        <AppButton
+          accessibilityLabel="Done"
+          height={56}
+          onPress={onClose}
+          style={styles.doneButton}
+          variant="secondary">
+          Done
+        </AppButton>
       </View>
     </BottomSheetModal>
   );
@@ -123,14 +125,7 @@ const createStyles = theme =>
     marginBottom: 14,
   },
   doneButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    paddingLeft: 16,
-  },
-  doneText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    ...fontStyle('semiBold'),
+    marginTop: 22,
   },
   section: {
     marginTop: 12,

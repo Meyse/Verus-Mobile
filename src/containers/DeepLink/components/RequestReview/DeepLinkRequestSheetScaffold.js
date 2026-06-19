@@ -1,13 +1,13 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ScrollView,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {
   deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles,
@@ -143,14 +143,6 @@ const DeepLinkRequestSheetScaffold = ({
               <Text style={styles.requestSheetSubtitle}>{subtitle}</Text>
             ) : null}
           </View>
-          <TouchableOpacity
-            accessibilityLabel="Done"
-            accessibilityRole="button"
-            activeOpacity={0.74}
-            onPress={onClose}
-            style={styles.requestSheetDoneButton}>
-            <Text style={styles.requestSheetDoneText}>Done</Text>
-          </TouchableOpacity>
         </View>
         <View style={styles.requestSheetScrollFrame}>
           <ScrollView
@@ -176,6 +168,14 @@ const DeepLinkRequestSheetScaffold = ({
             <RequestSheetScrollCue styles={styles} theme={theme} />
           )}
         </View>
+        <AppButton
+          accessibilityLabel="Done"
+          height={56}
+          onPress={onClose}
+          style={styles.requestSheetActionButton}
+          variant="secondary">
+          Done
+        </AppButton>
       </View>
     </BottomSheetModal>
   );

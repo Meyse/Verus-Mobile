@@ -117,16 +117,6 @@ const createDeepLinkRequestReviewStyles = theme =>
       marginTop: 4,
       ...fontStyle('regular'),
     },
-    requestSheetDoneButton: {
-      minHeight: 36,
-      justifyContent: 'center',
-      paddingLeft: 16,
-    },
-    requestSheetDoneText: {
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      ...fontStyle('semiBold'),
-    },
     requestSheetScrollFrame: {
       position: 'relative',
       flexGrow: 0,
@@ -139,6 +129,9 @@ const createDeepLinkRequestReviewStyles = theme =>
     },
     requestSheetContent: {
       paddingBottom: theme.spacing.xs,
+    },
+    requestSheetActionButton: {
+      marginTop: 22,
     },
     requestSheetScrollCue: {
       position: 'absolute',

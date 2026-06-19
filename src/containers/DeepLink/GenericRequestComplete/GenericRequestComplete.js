@@ -10,16 +10,16 @@
   - 2026-04-08: Reintroduced a guarded cancel escape hatch after a POST response URI
   fails so users can leave the screen after at least one delivery attempt.
 */
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Platform, View, TouchableOpacity, Clipboard } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import CopyAction from '../../../components/CopyAction';
 import GradientButton from '../../../components/GradientButton';
-import Colors from '../../../globals/colors';
 import { resetDeeplinkData } from '../../../actions/actionCreators';
 import {
   GenericRequest,
@@ -49,8 +49,6 @@ const GenericRequestComplete = props => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [postFailed, setPostFailed] = useState(false);
-  const [txidCopied, setTxidCopied] = useState(false);
-  const txidCopyTimeoutRef = useRef(null);
 
   const completeRequest = () => {
     const resetAction = CommonActions.reset({
@@ -129,19 +127,6 @@ const GenericRequestComplete = props => {
     return null;
   }, [responseBufferString]);
 
-  const copyTxid = () => {
-    if (!identityUpdateTxid) return;
-
-    if (txidCopyTimeoutRef.current) clearTimeout(txidCopyTimeoutRef.current);
-    setTxidCopied(true);
-    txidCopyTimeoutRef.current = setTimeout(() => {
-      setTxidCopied(false);
-      txidCopyTimeoutRef.current = null;
-    }, 2000);
-
-    Clipboard.setString(identityUpdateTxid);
-  };
-
   const onCancel = async () => {
     const shouldCancel = await createAlert(
       'Cancel response?',
@@ -165,12 +150,6 @@ const GenericRequestComplete = props => {
       completeRequest();
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (txidCopyTimeoutRef.current) clearTimeout(txidCopyTimeoutRef.current);
-    };
-  }, []);
 
   const truncate = (value, start = 8, end = 6) => {
     if (!value) return '';
@@ -227,25 +206,20 @@ const GenericRequestComplete = props => {
 
         {identityUpdateTxid && (
           <View style={styles.txidCard}>
-            <TouchableOpacity
-              style={styles.txidRow}
-              onPress={copyTxid}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Copy transaction ID"
-            >
+            <View style={styles.txidRow}>
               <Text style={styles.txidLabel}>Identity update txid</Text>
               <View style={styles.txidValueRow}>
                 <Text style={styles.txidValue} numberOfLines={1}>
                   {truncate(identityUpdateTxid)}
                 </Text>
-                {txidCopied ? (
-                  <Text style={styles.copiedLabel}>Copied</Text>
-                ) : (
-                  <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} style={{ marginLeft: 6 }} />
-                )}
+                <CopyAction
+                  accessibilityLabel="Copy transaction ID"
+                  copiedAccessibilityLabel="Transaction ID copied"
+                  style={styles.txidCopyButton}
+                  value={identityUpdateTxid}
+                />
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
         )}
 

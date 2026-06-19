@@ -72,11 +72,8 @@ export default StyleSheet.create({
     maxWidth: 170,
     textAlign: 'right',
   },
-  copiedLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primaryColor,
-    marginLeft: 6,
+  txidCopyButton: {
+    marginRight: -12,
   },
   loadingText: {
     marginTop: 16,
