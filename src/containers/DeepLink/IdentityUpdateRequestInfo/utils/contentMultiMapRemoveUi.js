@@ -39,7 +39,7 @@ export const buildContentMultiMapRemoveUi = ({
       ? currentContentMultiMap
       : {};
   const targetKey = removeMeta.action === 4 ? null : (removeMeta.entryKey || fallbackKey);
-  const rawTargetLabel = targetKey ? getKeyLabel(targetKey) : 'Current identity content';
+  const rawTargetLabel = targetKey ? getKeyLabel(targetKey) : 'Active identity content';
   const targetLabel = formatDisplayLabel(rawTargetLabel);
   const currentValueCount = targetKey
     ? normalizeContentMultiMapValues(currentMap[targetKey]).length
@@ -59,13 +59,13 @@ export const buildContentMultiMapRemoveUi = ({
   switch (removeMeta.action) {
     case 4:
       return {
-        summary: isNoOp ? 'No current identity content found' : 'Clear all current identity content',
-        modalTitle: 'Clear current identity content',
-        detailTitle: 'Clear current identity content',
-        detailBody: 'This request clears all current content keys and values from your identity.',
-        effectNote: 'Apps that read your current identity content will no longer receive any of these entries after you confirm.',
+        summary: isNoOp ? 'No active identity content found' : 'Clear all active identity content',
+        modalTitle: 'Clear active identity content',
+        detailTitle: 'Clear active identity content',
+        detailBody: 'This request clears all active content keys and values from your identity.',
+        effectNote: 'Apps that read your active identity content will no longer receive any of these entries after you confirm.',
         emptyStateNote: isNoOp
-          ? 'No current content was found on this identity. Confirming this request may have no visible effect.'
+          ? 'No active content was found on this identity. Confirming this request may have no visible effect.'
           : null,
         historyNote,
         metadataNote,
@@ -77,19 +77,19 @@ export const buildContentMultiMapRemoveUi = ({
         isMetadataTarget,
         isNoOp,
         actionLabel: 'Will clear',
-        currentLabel: 'Current',
-        displayTitle: 'Current identity content',
-        highRiskWarning: 'This request removes all current content keys and values from your identity. Apps that read your current identity content will no longer receive them after you confirm. Earlier on-chain versions may still be publicly retrievable.',
+        currentLabel: 'Active',
+        displayTitle: 'Active identity content',
+        highRiskWarning: 'This request removes all active content keys and values from your identity. Apps that read your active identity content will no longer receive them after you confirm. Earlier on-chain versions may still be publicly retrievable.',
       };
     case 3:
       return {
-        summary: isNoOp ? `No current values found under ${targetLabel}` : `Remove all current values under ${targetLabel}`,
+        summary: isNoOp ? `No active values found under ${targetLabel}` : `Remove all active values under ${targetLabel}`,
         modalTitle: `Remove ${targetLabel}`,
         detailTitle: `Remove ${targetLabel}`,
-        detailBody: `This request removes all current values under ${targetLabel} from your identity.`,
-        effectNote: 'Apps that read your current identity content will no longer receive these values after you confirm.',
+        detailBody: `This request removes all active values under ${targetLabel} from your identity.`,
+        effectNote: 'Apps that read your active identity content will no longer receive these values after you confirm.',
         emptyStateNote: isNoOp
-          ? 'No current values were found under this key. Confirming this request may have no visible effect.'
+          ? 'No active values were found under this key. Confirming this request may have no visible effect.'
           : null,
         historyNote,
         metadataNote,
@@ -101,16 +101,16 @@ export const buildContentMultiMapRemoveUi = ({
         isMetadataTarget,
         isNoOp,
         actionLabel: 'Will remove',
-        currentLabel: 'Current',
+        currentLabel: 'Active',
         displayTitle: targetLabel,
       };
     case 2:
       return {
-        summary: `Remove all current matching values under ${targetLabel}`,
+        summary: `Remove all active matching values under ${targetLabel}`,
         modalTitle: `Remove matching values from ${targetLabel}`,
         detailTitle: `Remove matching values from ${targetLabel}`,
-        detailBody: `This request removes all current matching values under ${targetLabel} from your identity.`,
-        effectNote: 'Apps that read your current identity content will no longer receive the matching values after you confirm.',
+        detailBody: `This request removes all active matching values under ${targetLabel} from your identity.`,
+        effectNote: 'Apps that read your active identity content will no longer receive the matching values after you confirm.',
         emptyStateNote: null,
         historyNote,
         metadataNote,
@@ -122,17 +122,17 @@ export const buildContentMultiMapRemoveUi = ({
         isMetadataTarget,
         isNoOp,
         actionLabel: 'Will remove',
-        currentLabel: 'Current',
+        currentLabel: 'Active',
         displayTitle: targetLabel,
       };
     case 1:
     default:
       return {
-        summary: `Remove one current value under ${targetLabel}`,
+        summary: `Remove one active value under ${targetLabel}`,
         modalTitle: `Remove a value from ${targetLabel}`,
         detailTitle: `Remove a value from ${targetLabel}`,
-        detailBody: `This request removes one current value under ${targetLabel} from your identity.`,
-        effectNote: 'Apps that read your current identity content will no longer receive that value after you confirm.',
+        detailBody: `This request removes one active value under ${targetLabel} from your identity.`,
+        effectNote: 'Apps that read your active identity content will no longer receive that value after you confirm.',
         emptyStateNote: null,
         historyNote,
         metadataNote,
@@ -144,7 +144,7 @@ export const buildContentMultiMapRemoveUi = ({
         isMetadataTarget,
         isNoOp,
         actionLabel: 'Will remove',
-        currentLabel: 'Current',
+        currentLabel: 'Active',
         displayTitle: targetLabel,
       };
   }

@@ -27,6 +27,7 @@ import { getKnownVDXFKeyName } from "../../vdxf/vdxfTypeLabels";
  *    coinObj: any;
  *    chainInfo: any;
  *    subjectIdentity: any;
+ *    subjectIdentityContent: any;
  *    identityUpdates: any;
  *    friendlyNames: any;
  *    cmmDataKeys: any;
@@ -63,6 +64,14 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
   if (subjectIdentityRes.error) throw new Error(subjectIdentityRes.error.message);
 
   const subjectIdentity = subjectIdentityRes.result;
+  const subjectIdentityContentRes = await getIdentityContent(coinObj.system_id, identityAddress);
+  if (subjectIdentityContentRes.error) {
+    throw new Error(
+      `Unable to load active identity content: ${subjectIdentityContentRes.error.message}`,
+    );
+  }
+
+  const subjectIdentityContent = subjectIdentityContentRes.result;
   const updatableIdentity = await getUpdatableIdentity(coinObj.system_id, subjectIdentity);
   const subjectIdClass = updatableIdentity.identity;
   const subjectIdTxHex = updatableIdentity.tx;
@@ -263,6 +272,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
       signerSystemName,
       signerIdentityID,
       subjectIdentity,
+      subjectIdentityContent,
       identityUpdates,
       updateIdTxHex,
       coinObj,

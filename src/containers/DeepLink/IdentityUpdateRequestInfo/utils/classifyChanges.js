@@ -93,6 +93,8 @@ export const classifyChanges = displayUpdates => {
           key: itemKey,
           groupKey,
           data: entry.data,
+          rawData: entry.rawData,
+          ackRows: entry.ackRows,
           title: label.title,
           warning: label.warning,
           highRiskType: entry.highRiskType,
@@ -102,6 +104,7 @@ export const classifyChanges = displayUpdates => {
           key: itemKey,
           groupKey,
           data: entry.data,
+          rawData: entry.rawData,
         });
       }
     }
