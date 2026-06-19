@@ -231,6 +231,12 @@ export default StyleSheet.create({
   contentSummaryChipDark: {
     backgroundColor: 'rgba(100, 200, 117, 0.18)',
   },
+  contentSummaryChipRemove: {
+    backgroundColor: '#FFF2F2',
+  },
+  contentSummaryChipRemoveDark: {
+    backgroundColor: 'rgba(255, 107, 117, 0.18)',
+  },
   contentSummaryChipText: {
     color: '#3C9449',
     fontSize: 13,
@@ -240,6 +246,12 @@ export default StyleSheet.create({
   },
   contentSummaryChipTextDark: {
     color: '#64C875',
+  },
+  contentSummaryChipRemoveText: {
+    color: '#D92A33',
+  },
+  contentSummaryChipRemoveTextDark: {
+    color: '#FF6B75',
   },
   contentReviewScroll: {
     flex: 1,

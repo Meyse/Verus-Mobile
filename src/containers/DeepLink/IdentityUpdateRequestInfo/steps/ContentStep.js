@@ -70,16 +70,22 @@ const SummaryTile = ({darkMode, label, tone, value}) => (
   </View>
 );
 
-const SummaryChip = ({darkMode, label}) => (
+const SummaryChip = ({darkMode, label, tone}) => (
   <View
     style={[
       contentStyles.contentSummaryChip,
       darkMode && contentStyles.contentSummaryChipDark,
+      tone === 'remove' && contentStyles.contentSummaryChipRemove,
+      darkMode && tone === 'remove' && contentStyles.contentSummaryChipRemoveDark,
     ]}>
     <Text
       style={[
         contentStyles.contentSummaryChipText,
         darkMode && contentStyles.contentSummaryChipTextDark,
+        tone === 'remove' && contentStyles.contentSummaryChipRemoveText,
+        darkMode &&
+          tone === 'remove' &&
+          contentStyles.contentSummaryChipRemoveTextDark,
       ]}>
       {label}
     </Text>
@@ -353,6 +359,10 @@ const ContentStep = ({
     totalContentCount === 1
       ? getSingleChangeSummaryLabel(cmmItems, privateInfoItems)
       : null;
+  const singleChangeSummaryTone =
+    totalContentCount === 1 && cmmItems[0]?.changeType === 'removed'
+      ? 'remove'
+      : null;
 
   return (
     <View style={contentStyles.contentReviewRoot}>
@@ -363,7 +373,11 @@ const ContentStep = ({
             : 'Review content changes'}
         </Text>
         {singleChangeSummaryLabel ? (
-          <SummaryChip darkMode={darkMode} label={singleChangeSummaryLabel} />
+          <SummaryChip
+            darkMode={darkMode}
+            label={singleChangeSummaryLabel}
+            tone={singleChangeSummaryTone}
+          />
         ) : (
           <View style={contentStyles.contentSummaryRow}>
             <SummaryTile
