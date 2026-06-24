@@ -12,6 +12,7 @@ import AppButton from '../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import {createSignedOutFlowStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const CONTENT_ANIMATION_DURATION = 320;
 
@@ -69,6 +70,7 @@ export default function UseBiometrics({
     BIOMETRY_PRESENTATION[supportedBiometryType?.type] || DEFAULT_PRESENTATION;
   const BiometryIcon = presentation.icon;
   const contentProgress = useRef(new Animated.Value(0)).current;
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     let active = true;
@@ -138,7 +140,11 @@ export default function UseBiometrics({
 
   return (
     <View style={signedOutFlowStyles.container}>
-      <View style={signedOutFlowStyles.content}>
+      <View
+        style={[
+          signedOutFlowStyles.content,
+          smallDevice && signedOutFlowStyles.contentSmallDevice,
+        ]}>
         <Animated.View
           style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
           <BiometryIcon
@@ -147,7 +153,12 @@ export default function UseBiometrics({
             strokeWidth={1.8}
             style={styles.icon}
           />
-          <Text style={[signedOutFlowStyles.title, styles.title]}>
+          <Text
+            style={[
+              signedOutFlowStyles.title,
+              smallDevice && signedOutFlowStyles.titleSmallDevice,
+              styles.title,
+            ]}>
             {presentation.title}
           </Text>
           <Text style={signedOutFlowStyles.body}>{presentation.body}</Text>
@@ -157,12 +168,14 @@ export default function UseBiometrics({
         <AppButton
           height={56}
           onPress={() => continueToWalletSetup(true)}
+          testID="onboarding.biometrics.enable"
           variant="primary">
           {presentation.action}
         </AppButton>
         <AppButton
           height={56}
           onPress={() => continueToWalletSetup(false)}
+          testID="onboarding.biometrics.skip"
           variant="secondary">
           {'Skip for now'}
         </AppButton>

@@ -22,11 +22,14 @@ import SafeBottomActionStack from '../../../../../components/SafeBottomActionSta
 import {fontStyle} from '../../../../../globals/fonts';
 import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {
+  ONBOARDING_KEYBOARD_FOOTER_SPACING,
+  useOnboardingSmallDeviceLayout,
+} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const SEED_WORD_COUNT = 24;
 const ENGLISH_WORDLIST = wordlists.EN;
 const SUGGESTION_LIMIT = 8;
-const KEYBOARD_FOOTER_SPACING = 8;
 const INPUT_FOCUS_DELAY = 80;
 const PAGE_ANIMATION_DURATION = 320;
 const SCROLL_FADE_HEIGHT = 28;
@@ -151,8 +154,8 @@ export default function ImportSeed({
   const [currentWord, setCurrentWord] = useState('');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [entryMessage, setEntryMessage] = useState(null);
+  const [entryMode, setEntryMode] = useState(false);
   const [invalidWordIndexes, setInvalidWordIndexes] = useState([]);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
   const [reviewScroll, setReviewScroll] = useState({
     contentHeight: 0,
@@ -162,6 +165,7 @@ export default function ImportSeed({
   const [words, setWords] = useState(createEmptyWords);
   const inputRef = useRef(null);
   const pageProgress = useRef(new Animated.Value(0)).current;
+  const {keyboardVisible, smallDevice} = useOnboardingSmallDeviceLayout();
 
   const invalidWordIndexSet = useMemo(
     () => new Set(invalidWordIndexes),
@@ -234,24 +238,6 @@ export default function ImportSeed({
   };
 
   useEffect(() => {
-    const showEvent =
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent =
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSubscription = Keyboard.addListener(showEvent, () => {
-      setKeyboardVisible(true);
-    });
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      setKeyboardVisible(false);
-    });
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
-
-  useEffect(() => {
     const parsedSeed = parseSeedText(importedSeed);
     const firstEmptyIndex = parsedSeed.words.findIndex(word => word.length === 0);
     const nextIndex = getNextEditableIndex(
@@ -274,6 +260,12 @@ export default function ImportSeed({
   useEffect(() => {
     setCurrentWord(words[currentWordIndex] || '');
   }, [currentWordIndex, words]);
+
+  useEffect(() => {
+    if (keyboardVisible && !reviewMode) {
+      setEntryMode(true);
+    }
+  }, [keyboardVisible, reviewMode]);
 
   useEffect(() => {
     if (onImportProgressChange) {
@@ -357,6 +349,7 @@ export default function ImportSeed({
     const nextIndex = Math.max(0, Math.min(index, SEED_WORD_COUNT - 1));
 
     setReviewMode(false);
+    setEntryMode(true);
     setCurrentWordIndex(nextIndex);
     focusInput();
   };
@@ -381,8 +374,10 @@ export default function ImportSeed({
     );
 
     if (firstEmptyIndex < 0 && parsedSeed.invalidIndexes.length === 0) {
+      setEntryMode(false);
       Keyboard.dismiss();
     } else {
+      setEntryMode(true);
       focusInput();
     }
   };
@@ -422,11 +417,13 @@ export default function ImportSeed({
     setEntryMessage(null);
 
     if (nextIndex >= 0) {
+      setEntryMode(true);
       setCurrentWordIndex(nextIndex);
       focusInput();
       return;
     }
 
+    setEntryMode(false);
     setReviewMode(true);
     Keyboard.dismiss();
   };
@@ -448,6 +445,7 @@ export default function ImportSeed({
 
   const handleImport = () => {
     if (!isValidMnemonic) {
+      setEntryMode(false);
       setReviewMode(true);
       Keyboard.dismiss();
       return;
@@ -483,12 +481,20 @@ export default function ImportSeed({
     });
   };
 
+  const wordEntryActive = !reviewMode && (entryMode || keyboardVisible);
+  const compactEntryLayout = !reviewMode && (smallDevice || keyboardVisible);
+  const handleDismissKeyboard = () => {
+    Keyboard.dismiss();
+    if (!reviewMode) {
+      setEntryMode(false);
+    }
+  };
+
   const renderWordSlot = (word, index) => {
     const isActive = index === currentWordIndex && !reviewMode;
     const isInvalid = invalidWordIndexSet.has(index);
     const isComplete = word.length > 0 && !isInvalid;
-    const label =
-      keyboardVisible && !reviewMode ? `${index + 1}` : word || `${index + 1}`;
+    const label = wordEntryActive ? `${index + 1}` : word || `${index + 1}`;
 
     return (
       <TouchableOpacity
@@ -497,9 +503,10 @@ export default function ImportSeed({
         activeOpacity={0.78}
         key={index}
         onPress={() => goToWord(index)}
+        testID={`onboarding.importSeed.wordSlot.${index + 1}`}
         style={[
           styles.wordSlot,
-          keyboardVisible && !reviewMode && styles.wordSlotCompact,
+          compactEntryLayout && styles.wordSlotCompact,
           reviewMode && styles.wordSlotReview,
           isComplete && styles.wordSlotComplete,
           isActive && styles.wordSlotActive,
@@ -519,7 +526,7 @@ export default function ImportSeed({
           numberOfLines={1}
           style={[
             styles.wordSlotText,
-            keyboardVisible && !reviewMode && styles.wordSlotTextCompact,
+            compactEntryLayout && styles.wordSlotTextCompact,
             reviewMode && styles.wordSlotTextReview,
             isComplete && styles.wordSlotTextComplete,
             isActive && styles.wordSlotTextActive,
@@ -531,7 +538,7 @@ export default function ImportSeed({
     );
   };
 
-  const shouldShowFooter = !keyboardVisible || reviewMode;
+  const shouldShowFooter = !wordEntryActive || reviewMode;
   const getFooterLabel = () => {
     if (reviewMode) return 'Import wallet';
     if (allWordsFilled) return 'Review seed';
@@ -544,9 +551,15 @@ export default function ImportSeed({
 
     return handlePasteFromClipboard;
   };
+  const getFooterTestID = () => {
+    if (reviewMode) return 'onboarding.importSeed.import';
+    if (allWordsFilled) return 'onboarding.importSeed.review';
+
+    return 'onboarding.importSeed.paste';
+  };
   const getTitle = () => {
     if (reviewMode) return 'Review seed words';
-    if (keyboardVisible) return `Word ${currentWordIndex + 1} of ${SEED_WORD_COUNT}`;
+    if (wordEntryActive) return `Word ${currentWordIndex + 1} of ${SEED_WORD_COUNT}`;
 
     return 'Import 24-word seed';
   };
@@ -555,7 +568,7 @@ export default function ImportSeed({
     <View
       style={[
         styles.wordGrid,
-        keyboardVisible && !reviewMode && styles.wordGridCompact,
+        compactEntryLayout && styles.wordGridCompact,
         reviewMode && styles.wordGridReview,
       ]}>
       {words.map(renderWordSlot)}
@@ -568,12 +581,17 @@ export default function ImportSeed({
       style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
         accessible={false}
-        onPress={() => Keyboard.dismiss()}>
+        onPress={handleDismissKeyboard}>
         <View style={styles.content}>
           {reviewMode ? (
             <Animated.View style={[styles.reviewContent, pageAnimatedStyle]}>
               <View style={styles.reviewHeader}>
-                <Text style={[signedOutFlowStyles.title, styles.reviewTitle]}>
+                <Text
+                  style={[
+                    signedOutFlowStyles.title,
+                    smallDevice && signedOutFlowStyles.titleSmallDevice,
+                    styles.reviewTitle,
+                  ]}>
                   {getTitle()}
                 </Text>
                 {reviewMessage ? (
@@ -623,7 +641,13 @@ export default function ImportSeed({
               bounces={false}
               contentContainerStyle={[
                 signedOutFlowStyles.scrollContent,
-                keyboardVisible && styles.scrollContentKeyboardOpen,
+                smallDevice &&
+                  !reviewMode &&
+                  signedOutFlowStyles.scrollContentSmallDevice,
+                !smallDevice &&
+                  keyboardVisible &&
+                  !reviewMode &&
+                  styles.scrollContentKeyboardOpen,
               ]}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'on-drag'
@@ -632,85 +656,93 @@ export default function ImportSeed({
               showsVerticalScrollIndicator={false}>
               <Animated.View
                 style={[signedOutFlowStyles.form, pageAnimatedStyle]}>
-              <Text
-                style={[
-                  signedOutFlowStyles.title,
-                  keyboardVisible && !reviewMode && styles.titleCompact,
-                ]}>
-                {getTitle()}
-              </Text>
-              {!keyboardVisible || reviewMode ? (
                 <Text
                   style={[
-                    styles.contextText,
-                    (checksumError || invalidWordIndexes.length > 0) &&
-                      styles.contextTextWarning,
+                    signedOutFlowStyles.title,
+                    smallDevice &&
+                      !reviewMode &&
+                      signedOutFlowStyles.titleSmallDevice,
+                    !smallDevice &&
+                      keyboardVisible &&
+                      !reviewMode &&
+                      styles.titleCompact,
                   ]}>
-                  {reviewMode
-                    ? reviewMessage
-                    : `${completedWordCount} of ${SEED_WORD_COUNT} words complete.`}
+                  {getTitle()}
                 </Text>
-              ) : null}
-              {renderWordGrid()}
-              {!reviewMode ? (
-                <View
-                  style={[
-                    styles.entryPanel,
-                    keyboardVisible && styles.entryPanelKeyboardOpen,
-                  ]}>
-                  <Text style={styles.entryLabel}>
-                    {`Word ${currentWordIndex + 1} of ${SEED_WORD_COUNT}`}
+                {(!smallDevice && !wordEntryActive) || reviewMode ? (
+                  <Text
+                    style={[
+                      styles.contextText,
+                      (checksumError || invalidWordIndexes.length > 0) &&
+                        styles.contextTextWarning,
+                    ]}>
+                    {reviewMode
+                      ? reviewMessage
+                      : `${completedWordCount} of ${SEED_WORD_COUNT} words complete.`}
                   </Text>
-                  <View style={styles.inputRow}>
-                    <AppTextInput
-                      autoCapitalize="none"
-                      autoComplete="off"
-                      autoCorrect={false}
-                      blurOnSubmit={false}
-                      containerStyle={styles.wordInput}
-                      enablesReturnKeyAutomatically
-                      errorText={currentWordError}
-                      helperText={entryMessage}
-                      importantForAutofill="no"
-                      inputStyle={styles.wordInputText}
-                      onChangeText={handleCurrentWordChange}
-                      onSubmitEditing={() => commitWord(currentWord)}
-                      placeholder="Enter word"
-                      ref={inputRef}
-                      returnKeyType="next"
-                      spellCheck={false}
-                      textContentType="none"
-                      value={currentWord}
-                    />
-                    <AppButton
-                      disabled={currentResolvedWord == null}
-                      height={48}
-                      onPress={() => commitWord(currentWord)}
-                      style={styles.nextButton}
-                      variant="primary">
-                      {'Next'}
-                    </AppButton>
+                ) : null}
+                {renderWordGrid()}
+                {!reviewMode && (!smallDevice || wordEntryActive) ? (
+                  <View
+                    style={[
+                      styles.entryPanel,
+                      compactEntryLayout && styles.entryPanelCompact,
+                    ]}>
+                    <Text style={styles.entryLabel}>
+                      {`Word ${currentWordIndex + 1} of ${SEED_WORD_COUNT}`}
+                    </Text>
+                    <View style={styles.inputRow}>
+                      <AppTextInput
+                        autoCapitalize="none"
+                        autoComplete="off"
+                        autoCorrect={false}
+                        blurOnSubmit={false}
+                        containerStyle={styles.wordInput}
+                        enablesReturnKeyAutomatically
+                        errorText={currentWordError}
+                        helperText={entryMessage}
+                        importantForAutofill="no"
+                        inputStyle={styles.wordInputText}
+                        onChangeText={handleCurrentWordChange}
+                        onSubmitEditing={() => commitWord(currentWord)}
+                        placeholder="Enter word"
+                        ref={inputRef}
+                        returnKeyType="next"
+                        spellCheck={false}
+                        testID="onboarding.importSeed.wordInput"
+                        textContentType="none"
+                        value={currentWord}
+                      />
+                      <AppButton
+                        disabled={currentResolvedWord == null}
+                        height={48}
+                        onPress={() => commitWord(currentWord)}
+                        style={styles.nextButton}
+                        testID="onboarding.importSeed.wordNext"
+                        variant="primary">
+                        {'Next'}
+                      </AppButton>
+                    </View>
+                    {suggestions.length > 0 ? (
+                      <ScrollView
+                        contentContainerStyle={styles.suggestions}
+                        horizontal
+                        keyboardShouldPersistTaps="handled"
+                        showsHorizontalScrollIndicator={false}>
+                        {suggestions.map(suggestion => (
+                          <Chip
+                            key={suggestion}
+                            mode="outlined"
+                            onPress={() => commitWord(suggestion)}
+                            style={styles.suggestionChip}
+                            textStyle={styles.suggestionText}>
+                            {suggestion}
+                          </Chip>
+                        ))}
+                      </ScrollView>
+                    ) : null}
                   </View>
-                  {suggestions.length > 0 ? (
-                    <ScrollView
-                      contentContainerStyle={styles.suggestions}
-                      horizontal
-                      keyboardShouldPersistTaps="handled"
-                      showsHorizontalScrollIndicator={false}>
-                      {suggestions.map(suggestion => (
-                        <Chip
-                          key={suggestion}
-                          mode="outlined"
-                          onPress={() => commitWord(suggestion)}
-                          style={styles.suggestionChip}
-                          textStyle={styles.suggestionText}>
-                          {suggestion}
-                        </Chip>
-                      ))}
-                    </ScrollView>
-                  ) : null}
-                </View>
-              ) : null}
+                ) : null}
               </Animated.View>
             </ScrollView>
           )}
@@ -718,16 +750,19 @@ export default function ImportSeed({
       </TouchableWithoutFeedback>
       {shouldShowFooter ? (
         <SafeBottomActionStack
-          bottomSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30}
+          bottomSpacing={
+            keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30
+          }
           gap={10}
           includeBottomInset={!keyboardVisible}
           safeAreaSpacing={
-            keyboardVisible ? KEYBOARD_FOOTER_SPACING : 12
+            keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
           }>
           <AppButton
             disabled={reviewMode && !isValidMnemonic}
             height={56}
             onPress={getFooterAction()}
+            testID={getFooterTestID()}
             variant={reviewMode ? 'primary' : 'secondary'}>
             {getFooterLabel()}
           </AppButton>
@@ -898,7 +933,7 @@ const createStyles = theme =>
   entryPanel: {
     marginTop: 18,
   },
-  entryPanelKeyboardOpen: {
+  entryPanelCompact: {
     marginTop: 10,
   },
   entryLabel: {

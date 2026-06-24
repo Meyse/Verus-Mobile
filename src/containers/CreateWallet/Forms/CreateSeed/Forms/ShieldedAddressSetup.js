@@ -13,6 +13,7 @@ import SafeBottomActionStack from '../../../../../components/SafeBottomActionSta
 import {fontStyle} from '../../../../../globals/fonts';
 import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
 
 const CONTENT_ANIMATION_DURATION = 240;
@@ -37,6 +38,7 @@ export default function ShieldedAddressSetup({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [createShieldedAddress, setCreateShieldedAddress] = useState(true);
   const contentProgress = useRef(new Animated.Value(0)).current;
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     let active = true;
@@ -104,7 +106,12 @@ export default function ShieldedAddressSetup({
       {showHeader ? (
         <CompactSetupHeader onBack={back} progress={progress} />
       ) : null}
-      <Animated.View style={[signedOutFlowStyles.content, animatedStyle]}>
+      <Animated.View
+        style={[
+          signedOutFlowStyles.content,
+          smallDevice && signedOutFlowStyles.contentSmallDevice,
+          animatedStyle,
+        ]}>
         <View style={signedOutFlowStyles.form}>
           <ShieldCheck
             color={theme.colors.textPrimary}
@@ -112,7 +119,12 @@ export default function ShieldedAddressSetup({
             strokeWidth={1.8}
             style={styles.icon}
           />
-          <Text style={[signedOutFlowStyles.title, styles.title]}>
+          <Text
+            style={[
+              signedOutFlowStyles.title,
+              smallDevice && signedOutFlowStyles.titleSmallDevice,
+              styles.title,
+            ]}>
             {title}
           </Text>
           <Text style={signedOutFlowStyles.body}>{body}</Text>
@@ -130,6 +142,7 @@ export default function ShieldedAddressSetup({
         <AppButton
           height={56}
           onPress={() => onComplete(createShieldedAddress)}
+          testID="onboarding.shielded.complete"
           variant="primary">
           {actionLabel}
         </AppButton>

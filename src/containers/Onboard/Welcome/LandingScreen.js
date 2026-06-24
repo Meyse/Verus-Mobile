@@ -63,6 +63,7 @@ export default function LandingScreen(props) {
       <SafeBottomActionStack>
         <AppButton
           onPress={() => setStartSheetVisible(true)}
+          testID="onboarding.landing.getStarted"
           variant="primary"
           height={56}>
           {'Get started'}

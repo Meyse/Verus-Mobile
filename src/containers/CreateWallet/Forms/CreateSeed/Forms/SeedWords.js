@@ -19,13 +19,16 @@ import SafeBottomActionStack from '../../../../../components/SafeBottomActionSta
 import {fontStyle} from '../../../../../globals/fonts';
 import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {
+  ONBOARDING_KEYBOARD_FOOTER_SPACING,
+  useOnboardingSmallDeviceLayout,
+} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
 
 export const WORDS_PER_STEP = 8;
 const VERIFY_WORD_COUNT = 3;
 const PAGE_ANIMATION_DURATION = 320;
 const VERIFY_INPUT_FOCUS_DELAY = 80;
-const KEYBOARD_FOOTER_SPACING = 8;
 
 const getRandomIndices = length => {
   const indices = [];
@@ -64,11 +67,12 @@ export default function SeedWords({
   const [internalFormStep, setInternalFormStep] = useState(0);
   const [randomIndices, setRandomIndices] = useState([]);
   const [activeVerifyIndex, setActiveVerifyIndex] = useState(0);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [wordGuesses, setWordGuesses] = useState(['', '', '']);
   const [wordErrors, setWordErrors] = useState([false, false, false]);
   const pageProgress = useRef(new Animated.Value(0)).current;
   const verifyInputRef = useRef(null);
+  const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
+    useOnboardingSmallDeviceLayout();
   const formStep =
     controlledFormStep == null ? internalFormStep : controlledFormStep;
   const setActiveFormStep = controlledSetFormStep || setInternalFormStep;
@@ -175,24 +179,6 @@ export default function SeedWords({
   useEffect(() => {
     setWordErrors(new Array(randomIndices.length).fill(false));
   }, [wordGuesses, randomIndices.length]);
-
-  useEffect(() => {
-    const showEvent =
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent =
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSubscription = Keyboard.addListener(showEvent, () => {
-      setKeyboardVisible(true);
-    });
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      setKeyboardVisible(false);
-    });
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   const updateGuess = (index, text) => {
     const nextGuesses = [...wordGuesses];
@@ -320,7 +306,13 @@ export default function SeedWords({
         <View style={styles.content}>
           <ScrollView
             bounces={false}
-            contentContainerStyle={signedOutFlowStyles.scrollContent}
+            contentContainerStyle={[
+              signedOutFlowStyles.scrollContent,
+              smallDevice && signedOutFlowStyles.scrollContentSmallDevice,
+              smallDeviceKeyboardVisible &&
+                isAtEnd &&
+                signedOutFlowStyles.scrollContentKeyboardFooterClearance,
+            ]}
             keyboardDismissMode={
               Platform.OS === 'ios' ? 'interactive' : 'on-drag'
             }
@@ -328,19 +320,33 @@ export default function SeedWords({
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, pageAnimatedStyle]}>
-              <Text style={signedOutFlowStyles.title}>
+              <Text
+                style={[
+                  signedOutFlowStyles.title,
+                  smallDevice && signedOutFlowStyles.titleSmallDevice,
+                ]}>
                 {isAtEnd ? 'Verify recovery phrase' : 'Write down these words'}
               </Text>
-              <Text style={styles.contextText}>
-                {isAtEnd
-                  ? 'Enter the requested words to confirm your backup.'
-                  : `Words ${firstIndex + 1}-${
-                      firstIndex + displayWords.length
-                    } of ${seedWords.length}`}
-              </Text>
+              {isAtEnd && smallDevice ? null : (
+                <Text style={styles.contextText}>
+                  {isAtEnd
+                    ? 'Enter the requested words to confirm your backup.'
+                    : `Words ${firstIndex + 1}-${
+                        firstIndex + displayWords.length
+                      } of ${seedWords.length}`}
+                </Text>
+              )}
               {isAtEnd ? (
-                <View style={styles.verifyForm}>
-                  <View style={styles.verifyStepper}>
+                <View
+                  style={[
+                    styles.verifyForm,
+                    smallDevice && styles.verifyFormSmallDevice,
+                  ]}>
+                  <View
+                    style={[
+                      styles.verifyStepper,
+                      smallDevice && styles.verifyStepperSmallDevice,
+                    ]}>
                     {randomIndices.map((randomIndex, index) => {
                       const isActive = index === activeVerifyIndex;
                       const hasValue = wordGuesses[index]?.trim().length > 0;
@@ -354,6 +360,7 @@ export default function SeedWords({
                           activeOpacity={0.78}
                           key={randomIndex}
                           onPress={() => goToVerifyIndex(index)}
+                          testID={`onboarding.seedWords.verifyChip.${index + 1}`}
                           style={[
                             styles.verifyStepChip,
                             hasValue && styles.verifyStepChipComplete,
@@ -385,7 +392,11 @@ export default function SeedWords({
                       );
                     })}
                   </View>
-                  <Text style={styles.verifyProgressText}>
+                  <Text
+                    style={[
+                      styles.verifyProgressText,
+                      smallDevice && styles.verifyProgressTextSmallDevice,
+                    ]}>
                     {`${activeVerifyIndex + 1} of ${randomIndices.length}`}
                   </Text>
                   <AppTextInput
@@ -393,7 +404,10 @@ export default function SeedWords({
                     autoComplete="off"
                     autoCorrect={false}
                     blurOnSubmit={false}
-                    containerStyle={styles.verifyInput}
+                    containerStyle={[
+                      styles.verifyInput,
+                      smallDevice && styles.verifyInputSmallDevice,
+                    ]}
                     enablesReturnKeyAutomatically
                     errorText={
                       activeVerifyInputError ? 'Does not match.' : null
@@ -414,6 +428,7 @@ export default function SeedWords({
                     ref={verifyInputRef}
                     returnKeyType={verifyActionCompletes ? 'done' : 'next'}
                     spellCheck={false}
+                    testID="onboarding.seedWords.verifyInput"
                     textContentType="none"
                     value={activeWordGuess}
                   />
@@ -430,7 +445,13 @@ export default function SeedWords({
                       <Text style={styles.wordIndex}>
                         {firstIndex + index + 1}
                       </Text>
-                      <Text style={styles.wordText}>{word}</Text>
+                      <Text
+                        style={styles.wordText}
+                        testID={`onboarding.seedWords.word.${
+                          firstIndex + index + 1
+                        }`}>
+                        {word}
+                      </Text>
                     </Animated.View>
                   ))}
                 </View>
@@ -440,14 +461,17 @@ export default function SeedWords({
         </View>
       </TouchableWithoutFeedback>
       <SafeBottomActionStack
-        bottomSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30}
+        bottomSpacing={keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30}
         gap={10}
         includeBottomInset={!keyboardVisible}
-        safeAreaSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 12}>
+        safeAreaSpacing={
+          keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
+        }>
         <AppButton
           disabled={!canContinue}
           height={56}
           onPress={next}
+          testID="onboarding.seedWords.next"
           variant="primary">
           {getPrimaryLabel()}
         </AppButton>
@@ -502,9 +526,15 @@ const createStyles = theme =>
   verifyForm: {
     marginTop: 26,
   },
+  verifyFormSmallDevice: {
+    marginTop: 12,
+  },
   verifyStepper: {
     flexDirection: 'row',
     gap: 8,
+  },
+  verifyStepperSmallDevice: {
+    gap: 6,
   },
   verifyStepChip: {
     flex: 1,
@@ -570,7 +600,13 @@ const createStyles = theme =>
     lineHeight: 18,
     ...fontStyle('semiBold'),
   },
+  verifyProgressTextSmallDevice: {
+    marginTop: 8,
+  },
   verifyInput: {
     marginTop: 12,
+  },
+  verifyInputSmallDevice: {
+    marginTop: 8,
   },
 });

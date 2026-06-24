@@ -4,6 +4,9 @@ import {
   Animated,
   Easing,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -22,6 +25,10 @@ import {
 import WalletAvatarPickerSheet from './WalletAvatarPickerSheet';
 import {createSignedOutFlowStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
+import {
+  ONBOARDING_KEYBOARD_FOOTER_SPACING,
+  useOnboardingSmallDeviceLayout,
+} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const CONTENT_ANIMATION_DURATION = 320;
 const WALLET_AVATAR_SIZE = 56;
@@ -49,6 +56,8 @@ export default function ChooseName({
     walletAvatar,
     DEFAULT_WALLET_AVATAR,
   );
+  const {smallDevice, smallDeviceKeyboardVisible} =
+    useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     let active = true;
@@ -175,42 +184,121 @@ export default function ChooseName({
     ],
   };
 
+  if (!smallDevice) {
+    return (
+      <View style={signedOutFlowStyles.container}>
+        <TouchableWithoutFeedback
+          onPress={() => Keyboard.dismiss()}
+          accessible={false}>
+          <View style={signedOutFlowStyles.content}>
+            <Animated.View
+              style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
+              <Text style={signedOutFlowStyles.title}>
+                {'Personalize your wallet'}
+              </Text>
+              <View style={styles.walletNameRow}>
+                <TouchableOpacity
+                  accessibilityLabel="Choose wallet icon and color"
+                  accessibilityRole="button"
+                  activeOpacity={0.74}
+                  onPress={openAvatarSheet}
+                  style={styles.avatarButton}>
+                  <WalletAvatar
+                    walletAvatar={selectedWalletAvatar}
+                    size={WALLET_AVATAR_SIZE}
+                    emojiSize={WALLET_AVATAR_EMOJI_SIZE}
+                  />
+                </TouchableOpacity>
+                <AppTextInput
+                  returnKeyType="done"
+                  containerStyle={styles.walletNameInput}
+                  errorText={nameError}
+                  label="Wallet name"
+                  value={profileName}
+                  placeholder="Enter wallet name"
+                  onSubmitEditing={next}
+                  onChangeText={updateProfileName}
+                  testID="onboarding.name.input"
+                />
+              </View>
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+        <WalletAvatarPickerSheet
+          visible={avatarSheetVisible}
+          walletAvatar={selectedWalletAvatar}
+          onChange={updateWalletAvatar}
+          onClose={() => setAvatarSheetVisible(false)}
+        />
+        <SafeBottomActionStack>
+          <AppButton
+            onPress={next}
+            disabled={profileName.length == 0}
+            testID="onboarding.name.next"
+            variant="primary"
+            height={56}>
+            {'Next'}
+          </AppButton>
+        </SafeBottomActionStack>
+      </View>
+    );
+  }
+
   return (
-    <View style={signedOutFlowStyles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
         onPress={() => Keyboard.dismiss()}
         accessible={false}>
-        <View style={signedOutFlowStyles.content}>
-          <Animated.View
-            style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-            <Text style={signedOutFlowStyles.title}>
-              {'Personalize your wallet'}
-            </Text>
-            <View style={styles.walletNameRow}>
-              <TouchableOpacity
-                accessibilityLabel="Choose wallet icon and color"
-                accessibilityRole="button"
-                activeOpacity={0.74}
-                onPress={openAvatarSheet}
-                style={styles.avatarButton}>
-                <WalletAvatar
-                  walletAvatar={selectedWalletAvatar}
-                  size={WALLET_AVATAR_SIZE}
-                  emojiSize={WALLET_AVATAR_EMOJI_SIZE}
+        <View style={styles.content}>
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={[
+              signedOutFlowStyles.scrollContent,
+              signedOutFlowStyles.scrollContentSmallDevice,
+            ]}
+            keyboardDismissMode={
+              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            }
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <Animated.View
+              style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
+              <Text
+                style={[
+                  signedOutFlowStyles.title,
+                  signedOutFlowStyles.titleSmallDevice,
+                ]}>
+                {'Personalize your wallet'}
+              </Text>
+              <View style={styles.walletNameRow}>
+                <TouchableOpacity
+                  accessibilityLabel="Choose wallet icon and color"
+                  accessibilityRole="button"
+                  activeOpacity={0.74}
+                  onPress={openAvatarSheet}
+                  style={styles.avatarButton}>
+                  <WalletAvatar
+                    walletAvatar={selectedWalletAvatar}
+                    size={WALLET_AVATAR_SIZE}
+                    emojiSize={WALLET_AVATAR_EMOJI_SIZE}
+                  />
+                </TouchableOpacity>
+                <AppTextInput
+                  returnKeyType="done"
+                  containerStyle={styles.walletNameInput}
+                  errorText={nameError}
+                  label="Wallet name"
+                  value={profileName}
+                  placeholder="Enter wallet name"
+                  onSubmitEditing={next}
+                  onChangeText={updateProfileName}
+                  testID="onboarding.name.input"
                 />
-              </TouchableOpacity>
-              <AppTextInput
-                returnKeyType="done"
-                containerStyle={styles.walletNameInput}
-                errorText={nameError}
-                label="Wallet name"
-                value={profileName}
-                placeholder="Enter wallet name"
-                onSubmitEditing={next}
-                onChangeText={updateProfileName}
-              />
-            </View>
-          </Animated.View>
+              </View>
+            </Animated.View>
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
       <WalletAvatarPickerSheet
@@ -219,20 +307,32 @@ export default function ChooseName({
         onChange={updateWalletAvatar}
         onClose={() => setAvatarSheetVisible(false)}
       />
-      <SafeBottomActionStack>
+      <SafeBottomActionStack
+        bottomSpacing={
+          smallDeviceKeyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30
+        }
+        includeBottomInset={!smallDeviceKeyboardVisible}
+        safeAreaSpacing={
+          smallDeviceKeyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
+        }>
         <AppButton
           onPress={next}
           disabled={profileName.length == 0}
+          testID="onboarding.name.next"
           variant="primary"
           height={56}>
           {'Next'}
         </AppButton>
       </SafeBottomActionStack>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+    paddingHorizontal: 32,
+  },
   walletNameRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -18,6 +18,7 @@ import AppTextInput from '../../../../../components/AppTextInput';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const CONTENT_ANIMATION_DURATION = 320;
 
@@ -33,6 +34,8 @@ export default function ImportText({
   );
   const [showSeed, setShowSeed] = useState(false);
   const contentProgress = useRef(new Animated.Value(0)).current;
+  const {smallDevice, smallDeviceKeyboardVisible} =
+    useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     let active = true;
@@ -110,12 +113,24 @@ export default function ImportText({
         onPress={() => Keyboard.dismiss()}>
         <View style={styles.content}>
           <ScrollView
-            contentContainerStyle={signedOutFlowStyles.scrollContent}
+            contentContainerStyle={[
+              signedOutFlowStyles.scrollContent,
+              smallDevice && signedOutFlowStyles.scrollContentSmallDevice,
+              smallDeviceKeyboardVisible &&
+                signedOutFlowStyles.scrollContentKeyboardFooterClearance,
+            ]}
+            keyboardDismissMode={
+              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            }
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-              <Text style={signedOutFlowStyles.title}>
+              <Text
+                style={[
+                  signedOutFlowStyles.title,
+                  smallDevice && signedOutFlowStyles.titleSmallDevice,
+                ]}>
                 {'Import private key or seed'}
               </Text>
               <AppTextInput
@@ -133,6 +148,7 @@ export default function ImportText({
                 }
                 rightIcon={showSeed ? 'eye-off' : 'eye'}
                 secureTextEntry={!showSeed}
+                testID="onboarding.importText.input"
                 textContentType="none"
                 value={importedSeed}
               />
@@ -145,6 +161,7 @@ export default function ImportText({
           disabled={importedSeed == null || importedSeed.length === 0}
           height={56}
           onPress={handleImport}
+          testID="onboarding.importText.import"
           variant="primary">
           {'Import'}
         </AppButton>

@@ -16,6 +16,11 @@ const shared = {
     screenPadding: 32,
     sheetPadding: 20,
     bottomActionMin: 30,
+    stepTop: 54,
+    stepTopSmallDevice: 20,
+    stepTitleMargin: 28,
+    stepTitleMarginSmallDevice: 12,
+    keyboardFooterClearance: 96,
   },
   rounded: {
     sm: 8,
@@ -33,6 +38,11 @@ const shared = {
     headlineMd: {
       fontSize: 28,
       lineHeight: 36,
+      ...fontStyle('semiBold'),
+    },
+    headlineCompact: {
+      fontSize: 26,
+      lineHeight: 32,
       ...fontStyle('semiBold'),
     },
     titleSheet: {

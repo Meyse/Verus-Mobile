@@ -40,6 +40,7 @@ const START_ACTIONS = [
   {
     label: 'Create a new wallet',
     IconComponent: CirclePlus,
+    testID: 'onboarding.startSheet.createWallet',
     selection: {
       setupPath: SETUP_PATHS.CREATE,
     },
@@ -47,11 +48,13 @@ const START_ACTIONS = [
   {
     label: 'Import an existing wallet',
     IconComponent: ArrowDownToLine,
+    testID: 'onboarding.startSheet.importWallet',
     nextMode: SHEET_MODES.IMPORT,
   },
   {
     label: 'Restore from NFC backup',
     IconComponent: SmartphoneNfc,
+    testID: 'onboarding.startSheet.importNfc',
     selection: {
       setupPath: SETUP_PATHS.IMPORT,
       importMethod: IMPORT_METHODS.NFC,
@@ -63,6 +66,7 @@ const IMPORT_ACTIONS = [
   {
     label: 'Import 24-word recovery phrase',
     IconComponent: ArrowDownToLine,
+    testID: 'onboarding.startSheet.importSeed',
     selection: {
       setupPath: SETUP_PATHS.IMPORT,
       importMethod: IMPORT_METHODS.SEED,
@@ -71,6 +75,7 @@ const IMPORT_ACTIONS = [
   {
     label: 'Scan QR code',
     IconComponent: QrCode,
+    testID: 'onboarding.startSheet.importQr',
     selection: {
       setupPath: SETUP_PATHS.IMPORT,
       importMethod: IMPORT_METHODS.QR,
@@ -79,6 +84,7 @@ const IMPORT_ACTIONS = [
   {
     label: 'Enter private key or seed',
     IconComponent: KeyRound,
+    testID: 'onboarding.startSheet.importText',
     selection: {
       setupPath: SETUP_PATHS.IMPORT,
       importMethod: IMPORT_METHODS.TEXT,
@@ -338,6 +344,7 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
               label={action.label}
               iconSize={action.iconSize}
               IconComponent={action.IconComponent}
+              testID={action.testID}
               styles={styles}
               theme={theme}
               onPress={
@@ -359,6 +366,7 @@ const StartActionRow = ({
   label,
   IconComponent,
   iconSize = 24,
+  testID,
   styles,
   theme,
   onPress,
@@ -384,6 +392,7 @@ const StartActionRow = ({
         activeOpacity={disabled ? 1 : 0.74}
         disabled={disabled}
         onPress={onPress}
+        testID={testID}
         style={styles.actionRow}>
         <View style={[styles.actionIconContainer, styles.actionIcon]}>
           <IconComponent size={iconSize} color={theme.colors.textPrimary} />

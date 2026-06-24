@@ -17,6 +17,7 @@ import {
   createSignedOutSheetStyles,
 } from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
 
 const GUIDANCE = [
@@ -55,6 +56,7 @@ export default function SeedIntro({
   const contentProgress = useRef(new Animated.Value(0)).current;
   const pendingSeedRef = useRef(null);
   const warningConfirmedRef = useRef(false);
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     let active = true;
@@ -176,9 +178,18 @@ export default function SeedIntro({
         />
       ) : null}
       <Animated.View
-        style={[signedOutFlowStyles.content, contentAnimatedStyle]}>
+        style={[
+          signedOutFlowStyles.content,
+          smallDevice && signedOutFlowStyles.contentSmallDevice,
+          contentAnimatedStyle,
+        ]}>
         <View style={signedOutFlowStyles.form}>
-          <Text style={[signedOutFlowStyles.title, styles.title]}>
+          <Text
+            style={[
+              signedOutFlowStyles.title,
+              smallDevice && signedOutFlowStyles.titleSmallDevice,
+              styles.title,
+            ]}>
             {'Back up your recovery phrase'}
           </Text>
           <View style={styles.guidanceList}>
@@ -201,6 +212,7 @@ export default function SeedIntro({
           height={56}
           loading={loading}
           onPress={showRecoveryPhrase}
+          testID="onboarding.seedIntro.showPhrase"
           variant="primary">
           {'Show recovery phrase'}
         </AppButton>
@@ -226,6 +238,7 @@ export default function SeedIntro({
             height={56}
             onPress={confirmWarning}
             style={styles.warningButton}
+            testID="onboarding.recoveryWarning.confirm"
             variant="primary">
             {'I understand'}
           </AppButton>

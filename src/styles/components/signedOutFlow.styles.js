@@ -10,13 +10,22 @@ export const createSignedOutFlowStyles = theme =>
     },
     content: {
       flex: 1,
-      paddingHorizontal: 32,
-      paddingTop: 54,
+      paddingHorizontal: theme.spacing.screenPadding,
+      paddingTop: theme.spacing.stepTop,
+    },
+    contentSmallDevice: {
+      paddingTop: theme.spacing.stepTopSmallDevice,
     },
     scrollContent: {
       flexGrow: 1,
-      paddingTop: 54,
+      paddingTop: theme.spacing.stepTop,
       paddingBottom: 24,
+    },
+    scrollContentSmallDevice: {
+      paddingTop: theme.spacing.stepTopSmallDevice,
+    },
+    scrollContentKeyboardFooterClearance: {
+      paddingBottom: theme.spacing.keyboardFooterClearance,
     },
     form: {
       width: '100%',
@@ -24,11 +33,13 @@ export const createSignedOutFlowStyles = theme =>
       alignSelf: 'center',
     },
     title: {
-      marginBottom: 28,
+      marginBottom: theme.spacing.stepTitleMargin,
       color: theme.colors.textPrimary,
-      fontSize: 31,
-      lineHeight: 38,
-      ...fontStyle('semiBold'),
+      ...theme.typography.headlineLg,
+    },
+    titleSmallDevice: {
+      marginBottom: theme.spacing.stepTitleMarginSmallDevice,
+      ...theme.typography.headlineCompact,
     },
     body: {
       color: theme.colors.textSecondary,
@@ -48,10 +59,19 @@ export default StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 54,
   },
+  contentSmallDevice: {
+    paddingTop: 28,
+  },
   scrollContent: {
     flexGrow: 1,
     paddingTop: 54,
     paddingBottom: 24,
+  },
+  scrollContentSmallDevice: {
+    paddingTop: 20,
+  },
+  scrollContentKeyboardFooterClearance: {
+    paddingBottom: 96,
   },
   form: {
     width: '100%',
@@ -64,6 +84,11 @@ export default StyleSheet.create({
     fontSize: 31,
     lineHeight: 38,
     ...fontStyle('semiBold'),
+  },
+  titleSmallDevice: {
+    marginBottom: 12,
+    fontSize: 26,
+    lineHeight: 32,
   },
   body: {
     color: Colors.quaternaryColor,

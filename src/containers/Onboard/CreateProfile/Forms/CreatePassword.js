@@ -4,7 +4,9 @@ import {
   Animated,
   Easing,
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -29,6 +31,7 @@ import {
   createSignedOutSheetStyles,
 } from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const passwordAutofillProps = Platform.select({
   ios: {
@@ -95,6 +98,8 @@ export default function CreatePassword({
   const [passwordInfoVisible, setPasswordInfoVisible] = useState(false);
   const confirmPasswordRef = useRef(null);
   const contentProgress = useRef(new Animated.Value(0)).current;
+  const {smallDevice, smallDeviceKeyboardVisible} =
+    useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     if (!password) {
@@ -245,92 +250,248 @@ export default function CreatePassword({
     }
   };
 
+  if (!smallDevice) {
+    return (
+      <View style={signedOutFlowStyles.container}>
+        <TouchableWithoutFeedback
+          accessible={false}
+          onPress={() => Keyboard.dismiss()}>
+          <View style={signedOutFlowStyles.content}>
+            <Animated.View
+              style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
+              <View style={styles.titleRow}>
+                <Text style={[signedOutFlowStyles.title, styles.title]}>
+                  {'Create password'}
+                </Text>
+                <TouchableOpacity
+                  accessibilityLabel="About this password"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens information about wallet password recovery"
+                  activeOpacity={0.72}
+                  hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
+                  onPress={openPasswordInfo}
+                  style={styles.helpButton}>
+                  <Info
+                    color={theme.colors.textSubtle}
+                    size={23}
+                    strokeWidth={2.2}
+                  />
+                </TouchableOpacity>
+              </View>
+              <AppTextInput
+                {...passwordAutofillProps}
+                label="Password"
+                blurOnSubmit={false}
+                enablesReturnKeyAutomatically
+                onChangeText={setPassword}
+                onSubmitEditing={focusConfirmPassword}
+                placeholder="Enter password"
+                returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
+                rightAccessibilityLabel={
+                  showPassword ? 'Hide password' : 'Show password'
+                }
+                rightIcon={showPassword ? 'eye-off' : 'eye'}
+                secureTextEntry={!showPassword}
+                testID="onboarding.password.input"
+                value={password}
+                onRightPress={() => setShowPassword(value => !value)}
+              />
+              <PasswordStrengthMeter
+                color={strengthColor}
+                label={strengthLabel}
+                level={strengthLevel}
+                styles={styles}
+              />
+              {confirmPasswordVisible ? (
+                <View style={styles.confirmInput}>
+                  <AppTextInput
+                    {...passwordAutofillProps}
+                    ref={confirmPasswordRef}
+                    errorText={confirmError}
+                    label="Confirm password"
+                    enablesReturnKeyAutomatically
+                    onChangeText={setConfirmPassword}
+                    onSubmitEditing={canContinue ? next : undefined}
+                    placeholder="Re-enter password"
+                    returnKeyType="done"
+                    rightAccessibilityLabel={
+                      showConfirmPassword
+                        ? 'Hide confirm password'
+                        : 'Show confirm password'
+                    }
+                    rightIcon={showConfirmPassword ? 'eye-off' : 'eye'}
+                    secureTextEntry={!showConfirmPassword}
+                    testID="onboarding.password.confirmInput"
+                    value={confirmPassword}
+                    onRightPress={() => setShowConfirmPassword(value => !value)}
+                  />
+                </View>
+              ) : null}
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+        <SafeBottomActionStack>
+          <AppButton
+            disabled={!canContinue}
+            height={56}
+            onPress={next}
+            testID="onboarding.password.next"
+            variant="primary">
+            {'Next'}
+          </AppButton>
+        </SafeBottomActionStack>
+        <BottomSheetModal
+          visible={passwordInfoVisible}
+          onClose={() => setPasswordInfoVisible(false)}
+          maxHeight="58%">
+          <View style={styles.infoSheetBody}>
+            <Text
+              style={[
+                signedOutSheetStyles.bodyText,
+                styles.infoSheetTextFirst,
+              ]}>
+              {'This password encrypts your wallet locally on this device.'}
+            </Text>
+            <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
+              {
+                'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your recovery phrase, which you will see in the next steps.'
+              }
+            </Text>
+            <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
+              {'Keep your recovery phrase private and stored somewhere safe.'}
+            </Text>
+            <AppButton
+              height={52}
+              onPress={() => setPasswordInfoVisible(false)}
+              style={styles.infoSheetButton}
+              variant="primary">
+              {'I understand'}
+            </AppButton>
+          </View>
+        </BottomSheetModal>
+      </View>
+    );
+  }
+
   return (
-    <View style={signedOutFlowStyles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
         accessible={false}
         onPress={() => Keyboard.dismiss()}>
-        <View style={signedOutFlowStyles.content}>
-          <Animated.View
-            style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-            <View style={styles.titleRow}>
-              <Text style={[signedOutFlowStyles.title, styles.title]}>
-                {'Create password'}
-              </Text>
-              <TouchableOpacity
-                accessibilityLabel="About this password"
-                accessibilityRole="button"
-                accessibilityHint="Opens information about wallet password recovery"
-                activeOpacity={0.72}
-                hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
-                onPress={openPasswordInfo}
-                style={styles.helpButton}>
-                <Info
-                  color={theme.colors.textSubtle}
-                  size={23}
-                  strokeWidth={2.2}
-                />
-              </TouchableOpacity>
-            </View>
-            <AppTextInput
-              {...passwordAutofillProps}
-              label="Password"
-              blurOnSubmit={false}
-              enablesReturnKeyAutomatically
-              onChangeText={setPassword}
-              onSubmitEditing={focusConfirmPassword}
-              placeholder="Enter password"
-              returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
-              rightAccessibilityLabel={
-                showPassword ? 'Hide password' : 'Show password'
-              }
+        <View style={styles.content}>
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={[
+              signedOutFlowStyles.scrollContent,
+              signedOutFlowStyles.scrollContentSmallDevice,
+              smallDeviceKeyboardVisible &&
+                signedOutFlowStyles.scrollContentKeyboardFooterClearance,
+            ]}
+            keyboardDismissMode={
+              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            }
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <Animated.View
+              style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
+              <View
+                style={[
+                  styles.titleRow,
+                  styles.titleRowSmallDevice,
+                ]}>
+                <Text
+                  style={[
+                    signedOutFlowStyles.title,
+                    signedOutFlowStyles.titleSmallDevice,
+                    styles.title,
+                  ]}>
+                  {'Create password'}
+                </Text>
+                <TouchableOpacity
+                  accessibilityLabel="About this password"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens information about wallet password recovery"
+                  activeOpacity={0.72}
+                  hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
+                  onPress={openPasswordInfo}
+                  style={styles.helpButton}>
+                  <Info
+                    color={theme.colors.textSubtle}
+                    size={23}
+                    strokeWidth={2.2}
+                  />
+                </TouchableOpacity>
+              </View>
+              <AppTextInput
+                {...passwordAutofillProps}
+                label="Password"
+                blurOnSubmit={false}
+                enablesReturnKeyAutomatically
+                onChangeText={setPassword}
+                onSubmitEditing={focusConfirmPassword}
+                placeholder="Enter password"
+                returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
+                rightAccessibilityLabel={
+                  showPassword ? 'Hide password' : 'Show password'
+                }
               rightIcon={showPassword ? 'eye-off' : 'eye'}
               secureTextEntry={!showPassword}
+              testID="onboarding.password.input"
               value={password}
               onRightPress={() => setShowPassword(value => !value)}
             />
-            <PasswordStrengthMeter
-              color={strengthColor}
-              label={strengthLabel}
-              level={strengthLevel}
-              styles={styles}
-            />
-            {confirmPasswordVisible ? (
-              <View style={styles.confirmInput}>
-                <AppTextInput
-                  {...passwordAutofillProps}
-                  ref={confirmPasswordRef}
-                  errorText={confirmError}
-                  label="Confirm password"
-                  enablesReturnKeyAutomatically
-                  onChangeText={setConfirmPassword}
-                  onSubmitEditing={canContinue ? next : undefined}
-                  placeholder="Re-enter password"
-                  returnKeyType="done"
-                  rightAccessibilityLabel={
-                    showConfirmPassword
-                      ? 'Hide confirm password'
-                      : 'Show confirm password'
-                  }
-                  rightIcon={showConfirmPassword ? 'eye-off' : 'eye'}
-                  secureTextEntry={!showConfirmPassword}
-                  value={confirmPassword}
-                  onRightPress={() => setShowConfirmPassword(value => !value)}
-                />
-              </View>
-            ) : null}
-          </Animated.View>
+              <PasswordStrengthMeter
+                color={strengthColor}
+                label={strengthLabel}
+                level={strengthLevel}
+                styles={styles}
+              />
+              {confirmPasswordVisible ? (
+                <View
+                  style={[
+                    styles.confirmInput,
+                  ]}>
+                  <AppTextInput
+                    {...passwordAutofillProps}
+                    ref={confirmPasswordRef}
+                    errorText={confirmError}
+                    label="Confirm password"
+                    enablesReturnKeyAutomatically
+                    onChangeText={setConfirmPassword}
+                    onSubmitEditing={canContinue ? next : undefined}
+                    placeholder="Re-enter password"
+                    returnKeyType="done"
+                    rightAccessibilityLabel={
+                      showConfirmPassword
+                        ? 'Hide confirm password'
+                        : 'Show confirm password'
+                    }
+                    rightIcon={showConfirmPassword ? 'eye-off' : 'eye'}
+                    secureTextEntry={!showConfirmPassword}
+                    testID="onboarding.password.confirmInput"
+                    value={confirmPassword}
+                    onRightPress={() => setShowConfirmPassword(value => !value)}
+                  />
+                </View>
+              ) : null}
+            </Animated.View>
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
-      <SafeBottomActionStack>
-        <AppButton
-          disabled={!canContinue}
-          height={56}
-          onPress={next}
-          variant="primary">
-          {'Next'}
-        </AppButton>
-      </SafeBottomActionStack>
+      {smallDeviceKeyboardVisible ? null : (
+        <SafeBottomActionStack>
+          <AppButton
+            disabled={!canContinue}
+            height={56}
+            onPress={next}
+            testID="onboarding.password.next"
+            variant="primary">
+            {'Next'}
+          </AppButton>
+        </SafeBottomActionStack>
+      )}
       <BottomSheetModal
         visible={passwordInfoVisible}
         onClose={() => setPasswordInfoVisible(false)}
@@ -357,63 +518,69 @@ export default function CreatePassword({
           </AppButton>
         </View>
       </BottomSheetModal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const createStyles = theme =>
   StyleSheet.create({
-  titleRow: {
-    marginBottom: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    flexShrink: 1,
-    marginBottom: 0,
-    ...fontStyle('bold'),
-  },
-  helpButton: {
-    width: 40,
-    height: 40,
-    marginLeft: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  strengthContainer: {
-    marginTop: 12,
-  },
-  strengthBars: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  strengthBar: {
-    height: 5,
-    flex: 1,
-    borderRadius: 999,
-    backgroundColor: theme.colors.border,
-  },
-  strengthLabel: {
-    marginTop: 8,
-    fontSize: 13,
-    lineHeight: 18,
-    ...fontStyle('semiBold'),
-  },
-  confirmInput: {
-    marginTop: 22,
-  },
-  infoSheetBody: {
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 20,
-  },
-  infoSheetText: {
-    marginTop: 12,
-  },
-  infoSheetTextFirst: {
-    marginTop: 0,
-  },
-  infoSheetButton: {
-    marginTop: 22,
-  },
-});
+    content: {
+      flex: 1,
+      paddingHorizontal: 32,
+    },
+    titleRow: {
+      marginBottom: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    titleRowSmallDevice: {
+      marginBottom: 18,
+    },
+    title: {
+      flexShrink: 1,
+      marginBottom: 0,
+    },
+    helpButton: {
+      width: 40,
+      height: 40,
+      marginLeft: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    strengthContainer: {
+      marginTop: 12,
+    },
+    strengthBars: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    strengthBar: {
+      height: 5,
+      flex: 1,
+      borderRadius: 999,
+      backgroundColor: theme.colors.border,
+    },
+    strengthLabel: {
+      marginTop: 8,
+      fontSize: 13,
+      lineHeight: 18,
+      ...fontStyle('semiBold'),
+    },
+    confirmInput: {
+      marginTop: 22,
+    },
+    infoSheetBody: {
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 20,
+    },
+    infoSheetText: {
+      marginTop: 12,
+    },
+    infoSheetTextFirst: {
+      marginTop: 0,
+    },
+    infoSheetButton: {
+      marginTop: 22,
+    },
+  });
