@@ -15,6 +15,7 @@ buildscript {
         google()
     }
     dependencies {
+        classpath("com.android.tools:r8:8.3.37")
         classpath("com.android.tools.build:gradle:7.4.2")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("de.undercouch:gradle-download-task:4.1.2")
@@ -85,7 +86,7 @@ subprojects {
         }
 
         if (details.requested.group == 'com.google.guava' && details.requested.name == 'guava') {
-            details.useVersion '30.0-jre'
+            details.useVersion '33.0.0-android'
             details.because 'https://snyk.io/vuln/SNYK-JAVA-COMGOOGLEGUAVA-1015415'
         }
 
@@ -107,6 +108,11 @@ subprojects {
         if (details.requested.group == 'com.google.code.gson' && details.requested.name == 'gson') {
             details.useVersion '2.8.9'
             details.because 'https://security.snyk.io/vuln/SNYK-JAVA-COMGOOGLECODEGSON-1730327'
+        }
+
+        if (details.requested.group == 'androidx.media3') {
+            details.useVersion '1.4.1'
+            details.because 'AGP 7.4.2/R8 cannot dex Media3 1.8.0 from react-native-video 6.19.2 on this project.'
         }
      }
   }
