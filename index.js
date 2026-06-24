@@ -10,6 +10,8 @@ const IGNORED_LOGS = [
   'Require cycle',
   'long period',
   'Material Top Tab Navigator:',
+  'Module TcpSockets requires main queue setup',
+  'Sending `onAnimatedValueUpdate` with no listeners registered',
   'ViewPropTypes will be removed from React Native.',
   'Non-serializable values were found in the navigation state.'
 ];
