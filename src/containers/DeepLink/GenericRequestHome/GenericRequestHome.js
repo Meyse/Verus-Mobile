@@ -60,6 +60,12 @@ import {
   getGenericRequestDeliveryInfo,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {
+  alignGenericResponseNetwork,
+  createGenericRequestDeliverySingleFlight,
+  GENERIC_REQUEST_COMPLETION_ACTIONS,
+  getGenericRequestCompletionAction,
+} from './genericRequestCompletionFlow';
 
 const AUTO_DELIVERY_STATUS = {
   IDLE: 'idle',
@@ -146,7 +152,7 @@ const getAutoDeliverySheetMessage = ({
     }
 
     return (
-      error?.message || 'Verus Mobile could not complete this sign-in request.'
+      error?.message || 'Verus Mobile could not complete this request.'
     );
   }
 
@@ -162,7 +168,7 @@ const getAutoDeliverySheetMessage = ({
     return null;
   }
 
-  return 'Finishing this sign-in request.';
+  return 'Finishing this request.';
 };
 
 const AutoDeliverySheetContent = ({
@@ -305,6 +311,13 @@ const GenericRequestHome = props => {
   });
   const [inlineDeliveryInProgress, setInlineDeliveryInProgress] =
     useState(false);
+  const autoDeliverySingleFlightRef = useRef(null);
+
+  if (autoDeliverySingleFlightRef.current == null) {
+    autoDeliverySingleFlightRef.current =
+      createGenericRequestDeliverySingleFlight();
+  }
+
   const autoDeliverySuccessTimeoutRef = useRef(null);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const signedIn = useSelector(state => state.authentication.signedIn);
@@ -447,6 +460,8 @@ const GenericRequestHome = props => {
         : '';
     const deliveryInfo = getGenericRequestDeliveryInfo(request);
 
+    if (!autoDeliverySingleFlightRef.current.tryStart()) return;
+
     setAutoDeliveryState({
       status: AUTO_DELIVERY_STATUS.LOADING,
       deliveryInfo,
@@ -477,6 +492,7 @@ const GenericRequestHome = props => {
 
       completeRequest();
     } catch (e) {
+      autoDeliverySingleFlightRef.current.clear();
       console.warn(e);
       setAutoDeliveryState({
         status: AUTO_DELIVERY_STATUS.ERROR,
@@ -539,6 +555,17 @@ const GenericRequestHome = props => {
 
     commitResponseProgress(updatedResponse, handledIndices);
   }
+
+  /**
+   * Shared completion adapter for detail screens that should use the
+   * centralized POST/redirect delivery sheet instead of the legacy
+   * GenericRequestComplete route.
+   */
+  const completeWithDelivery = async (updatedResponse, handledIndices) => {
+    return next(updatedResponse, handledIndices, {
+      autoDeliverOnComplete: true,
+    });
+  };
 
   const deliverIdentityUpdateResponse = async (updatedResponse, handledIndices) => {
     setInlineDeliveryInProgress(true);
@@ -619,7 +646,13 @@ const GenericRequestHome = props => {
     if (request == null) {
       const req = new primitives.GenericRequest();
       req.fromBuffer(Buffer.from(deeplinkData, 'hex'));
+      const initializedResponse = alignGenericResponseNetwork(
+        req,
+        new primitives.GenericResponse(),
+      );
 
+      responseRef.current = initializedResponse;
+      setResponse(initializedResponse);
       setRequest(req);
       setDetailsProcessed(0);
     }
@@ -635,36 +668,45 @@ const GenericRequestHome = props => {
 
   useEffect(() => {
     if (request != null) {
-      if (inlineDeliveryInProgress) {
+      const completionAction = getGenericRequestCompletionAction({
+        autoDeliveryRequested,
+        autoDeliveryStatus: autoDeliveryState.status,
+        detailCount: request.details.length,
+        detailsProcessed,
+        inlineDeliveryInProgress,
+      });
+
+      if (completionAction === GENERIC_REQUEST_COMPLETION_ACTIONS.WAIT) {
         return;
       }
 
-      if (autoDeliveryRequested) {
-        if (
-          detailsProcessed >= request.details.length &&
-          autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE
-        ) {
-          runAutoDelivery();
-        }
-
-        return;
-      }
-
-      if (detailsProcessed < request.details.length && detailsProcessed >= 0) {
+      if (
+        completionAction ===
+        GENERIC_REQUEST_COMPLETION_ACTIONS.PROCESS_NEXT_DETAIL
+      ) {
         setDisplayKey(null);
         setDisplayProps({});
         processNextDetail();
-      } else {
-        const responseBufferString = response.details && response.details.length > 0
-          ? response.toBuffer().toString('hex')
-          : '';
-        const requestBufferString = request.toBuffer().toString('hex');
-
-        props.navigation.navigate('GenericRequestComplete', {
-          requestBufferString,
-          responseBufferString
-        });
+        return;
       }
+
+      if (
+        completionAction ===
+        GENERIC_REQUEST_COMPLETION_ACTIONS.RUN_AUTO_DELIVERY
+      ) {
+        runAutoDelivery();
+        return;
+      }
+
+      const responseBufferString = response.details && response.details.length > 0
+        ? response.toBuffer().toString('hex')
+        : '';
+      const requestBufferString = request.toBuffer().toString('hex');
+
+      props.navigation.navigate('GenericRequestComplete', {
+        requestBufferString,
+        responseBufferString
+      });
     }
   }, [
     autoDeliveryRequested,
@@ -750,6 +792,7 @@ const GenericRequestHome = props => {
       <SpendableKeyRequestInfo
         {...displayProps}
         cancel={props.cancel}
+        completeWithDelivery={completeWithDelivery}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}

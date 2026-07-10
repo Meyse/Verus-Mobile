@@ -1,22 +1,24 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
-  Platform,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {Button, Text, TextInput} from 'react-native-paper';
+import {Text, TextInput} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import AppButton from '../../../components/AppButton';
 import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
-import GradientButton from '../../../components/GradientButton';
+import CopyAction from '../../../components/CopyAction';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
-import {openAuthenticateUserModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import {
+  requestWalletUnlock,
+  WALLET_UNLOCK_CANCELLED,
+} from '../../../actions/actions/walletUnlock/dispatchers/walletUnlock';
 import {addCoin, addKeypairs, setUserCoins} from '../../../actions/actionCreators';
 import {updateVerusIdWallet} from '../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
 import {
@@ -24,7 +26,6 @@ import {
   refreshActiveChainLifecycles,
 } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {linkVerusId} from '../../../actions/actions/services/dispatchers/verusid/verusid';
-import Colors from '../../../globals/colors';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {
   broadcastSpendableKeyClaim,
@@ -34,22 +35,24 @@ import {
 } from '../../../utils/spendableKey/spendableKey';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {VRPC} from '../../../utils/constants/intervalConstants';
-import {SEND_MODAL_USER_ALLOWLIST} from '../../../utils/constants/sendModal';
-import {spendableKeyRequestInfoStyles as styles} from '../../../styles';
+import {
+  spendableKeyRequestInfoStyles as createSpendableKeyRequestInfoStyles,
+} from '../../../styles';
 import {explorers} from '../../../utils/CoinData/CoinData';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import {getCurrency} from '../../../utils/api/channels/verusid/callCreators';
 import {openUrl} from '../../../utils/linking';
-import {copyToClipboard} from '../../../utils/clipboard/clipboard';
+import {accountIsTestnet} from '../../../utils/account/accountNetwork';
+import {
+  OnboardingThemeProvider,
+  useOnboardingTheme,
+} from '../../../theme/onboarding';
+import {DeepLinkReviewScrollView} from '../components/RequestReview';
 
 const truncate = (value, start = 8, end = 6) => {
   if (!value) return '';
   if (value.length <= start + end + 3) return value;
   return `${value.slice(0, start)}...${value.slice(-end)}`;
-};
-
-const isTestProfile = account => {
-  return Object.keys(account?.testnetOverrides || {}).length > 0;
 };
 
 const getSystemDestinationMap = (claimPlan, activeAccount) => {
@@ -76,6 +79,32 @@ const getClaimTitle = totals => {
   if (hasFunds && hasIdentities) return 'Claim identity and funds';
   if (hasIdentities) return 'Claim identity';
   return 'Claim funds';
+};
+
+const getPrimaryActionLabel = ({
+  activeAccountMatchesRequest,
+  signedIn,
+  status,
+}) => {
+  if (status === 'error') return 'Retry';
+  if (!activeAccountMatchesRequest) {
+    return signedIn ? 'Switch profile' : 'Sign in';
+  }
+  if (status === 'empty' || status === 'complete') return 'Done';
+  return 'Claim';
+};
+
+const getStatusSubtitle = ({claimResult, status}) => {
+  if (status === 'error') return 'Retry when your connection is available.';
+  if (status === 'complete') {
+    return claimResult?.partialError
+      ? 'Some claim transactions were submitted before an error.'
+      : 'The claim transactions were submitted.';
+  }
+  if (status === 'empty') {
+    return 'No transparent funds or VerusIDs were found.';
+  }
+  return 'Review the transparent funds and VerusIDs found on this key.';
 };
 
 const getErrorMessage = (error, fallback) => {
@@ -302,9 +331,10 @@ const getTransactionLabel = transaction => {
   return `${ticker} funds claim`;
 };
 
-const SpendableKeyRequestInfo = props => {
+const SpendableKeyRequestInfoContent = props => {
   const {
     cancel = () => {},
+    completeWithDelivery,
     detailIndex,
     next = async () => {},
     openVerusIdDetailsModal = () => {},
@@ -314,10 +344,10 @@ const SpendableKeyRequestInfo = props => {
   } = props;
 
   const dispatch = useDispatch();
-  const insets = useSafeAreaInsets();
-  const bottomNavigationInset = Math.max(
-    insets.bottom,
-    Platform.OS === 'android' ? 24 : 0,
+  const theme = useOnboardingTheme();
+  const styles = useMemo(
+    () => createSpendableKeyRequestInfoStyles(theme),
+    [theme],
   );
   const signedIn = useSelector(state => state.authentication.signedIn);
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -329,11 +359,11 @@ const SpendableKeyRequestInfo = props => {
   const activeAccountMatchesRequest = !!(
     signedIn &&
     activeAccount &&
-    isTestProfile(activeAccount) === requestIsTestnet
+    accountIsTestnet(activeAccount) === requestIsTestnet
   );
   const matchingAccounts = useMemo(() => {
     return (accounts || []).filter(
-      account => isTestProfile(account) === requestIsTestnet,
+      account => accountIsTestnet(account) === requestIsTestnet,
     );
   }, [accounts, requestIsTestnet]);
   const activeScanKey = useMemo(() => {
@@ -354,6 +384,7 @@ const SpendableKeyRequestInfo = props => {
   const [claimPlanScanKey, setClaimPlanScanKey] = useState(null);
   const [claimResult, setClaimResult] = useState(null);
   const [requestError, setRequestError] = useState(null);
+  const [finishing, setFinishing] = useState(false);
   const scanStartedRef = useRef(false);
   const scanCacheRef = useRef(null);
 
@@ -523,7 +554,7 @@ const SpendableKeyRequestInfo = props => {
     activeAccountMatchesRequest &&
     claimPlanScanKey !== activeScanKey;
 
-  const openLogin = useCallback(() => {
+  const openLogin = useCallback(async () => {
     if (matchingAccounts.length === 0) {
       createAlert(
         'No profile found',
@@ -532,10 +563,26 @@ const SpendableKeyRequestInfo = props => {
       return;
     }
 
-    openAuthenticateUserModal({
-      [SEND_MODAL_USER_ALLOWLIST]: matchingAccounts,
-    });
-  }, [matchingAccounts, requestIsTestnet]);
+    try {
+      await requestWalletUnlock({
+        reason: 'spendable-key-claim',
+        title: signedIn
+          ? 'Switch wallet to continue'
+          : 'Unlock wallet to continue',
+        requestLabel: 'Spendable key',
+        accountHashes: matchingAccounts.map(account => account.accountHash),
+        makeDefaultAllowed: true,
+        networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
+      });
+    } catch (e) {
+      if (e?.code !== WALLET_UNLOCK_CANCELLED) {
+        createAlert(
+          'Cannot continue',
+          e?.message || 'Unable to unlock wallet.',
+        );
+      }
+    }
+  }, [matchingAccounts, requestIsTestnet, signedIn]);
 
   const linkClaimedIdentities = useCallback(async results => {
     const identityResults = results.filter(result => result.type === 'identity');
@@ -767,42 +814,55 @@ const SpendableKeyRequestInfo = props => {
     }
   }, [claimPlanNeedsAccountRefresh, scanClaims, status]);
 
-  const renderLoading = label => (
-    <SafeAreaView style={styles.container}>
+  const renderLoading = (label, description) => (
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={styles.container}>
       <View style={styles.centerContent}>
         <AnimatedActivityIndicatorBox />
         <Text style={styles.loadingText}>{label}</Text>
+        <Text style={styles.loadingDescription}>{description}</Text>
       </View>
     </SafeAreaView>
   );
 
   if (status === 'scanning') {
-    return renderLoading('Scanning spendable key...');
+    return renderLoading(
+      'Scanning spendable key',
+      'Checking supported networks for transparent balances and VerusIDs.',
+    );
   }
 
   if (status === 'decrypting') {
-    return renderLoading('Decrypting spendable key...');
+    return renderLoading(
+      'Decrypting spendable key',
+      'Opening the key locally before checking its claimable contents.',
+    );
   }
 
   if (status === 'claiming') {
-    return renderLoading('Claiming spendable key...');
+    return renderLoading(
+      'Submitting claim transactions',
+      'Keep Verus Mobile open while each transaction is prepared and broadcast.',
+    );
   }
 
   if (status === 'passwordScanner') {
     return (
-      <SafeAreaView style={styles.scannerContainer}>
+      <SafeAreaView
+        edges={['top', 'bottom', 'left', 'right']}
+        style={styles.scannerContainer}>
         <BarcodeReader
           prompt="Scan the claim password QR"
           onScan={handlePasswordQrScan}
+          safeBottomButton
           button={() => (
-            <Button
-              mode="contained"
-              buttonColor={Colors.warningButtonColor}
+            <AppButton
+              height={52}
               onPress={() => setStatus('password')}
-              style={styles.scannerCancelButton}
-            >
-              {'Cancel'}
-            </Button>
+              variant="secondary">
+              Cancel
+            </AppButton>
           )}
         />
       </SafeAreaView>
@@ -811,22 +871,24 @@ const SpendableKeyRequestInfo = props => {
 
   if (status === 'password') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView
+        edges={['top', 'left', 'right']}
+        style={styles.container}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.centerContent}>
-            <View style={styles.passwordCard}>
+          <View style={styles.passwordScreen}>
+            <DeepLinkReviewScrollView
+              contentContainerStyle={styles.passwordScrollContent}>
               <View style={styles.iconWrap}>
                 <MaterialCommunityIcons
                   name="key-outline"
-                  size={54}
-                  color={Colors.primaryColor}
+                  size={42}
+                  color={theme.colors.primary}
                 />
               </View>
-              <Text style={[styles.mainTitle, {textAlign: 'center'}]}>
-                {'Decrypt spendable key'}
-              </Text>
+              <Text style={styles.passwordTitle}>Decrypt spendable key</Text>
               <Text style={styles.passwordDescription}>
-                {'This spendable key is encrypted and needs to be decrypted before you can redeem its funds or VerusIDs.'}
+                This key is encrypted. Enter or scan its claim password to review
+                the funds and VerusIDs it can claim.
               </Text>
               <TextInput
                 returnKeyType="done"
@@ -837,6 +899,7 @@ const SpendableKeyRequestInfo = props => {
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={setPassword}
+                onSubmitEditing={password.length > 0 ? scanClaims : undefined}
                 right={
                   <TextInput.Icon
                     icon={showPassword ? 'eye-off' : 'eye'}
@@ -845,112 +908,130 @@ const SpendableKeyRequestInfo = props => {
                 }
                 style={styles.passwordInput}
               />
-              <Button
-                mode="outlined"
-                icon="qrcode-scan"
-                onPress={scanPasswordQr}
-                style={styles.passwordQrButton}
-                contentStyle={styles.passwordQrButtonContent}
-                labelStyle={styles.passwordQrButtonLabel}
-              >
-                {'Scan QR'}
-              </Button>
-              <GradientButton
-                onPress={scanClaims}
+            </DeepLinkReviewScrollView>
+            <SafeBottomActionStack
+              gap={10}
+              horizontalSpacing={24}
+              style={styles.footer}>
+              <AppButton
                 disabled={password.length === 0}
-                style={styles.primaryCta}
-              >
-                {'Decrypt'}
-              </GradientButton>
-            </View>
+                height={56}
+                onPress={scanClaims}
+                variant="primary">
+                Decrypt
+              </AppButton>
+              <AppButton
+                icon="qrcode-scan"
+                height={56}
+                onPress={scanPasswordQr}
+                variant="secondary">
+                Scan password QR
+              </AppButton>
+              <AppButton height={48} onPress={cancel} variant="text">
+                Cancel
+              </AppButton>
+            </SafeBottomActionStack>
           </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>
     );
   }
 
-  const primaryActionLabel = status === 'error'
-    ? 'Retry'
-    : !activeAccountMatchesRequest
-    ? signedIn
-      ? 'Switch profile'
-      : 'Sign in'
-    : status === 'empty' || status === 'complete'
-    ? 'Done'
-    : 'Claim';
-  const primaryAction = () => {
+  const primaryActionLabel = getPrimaryActionLabel({
+    activeAccountMatchesRequest,
+    signedIn,
+    status,
+  });
+  const statusSubtitle = getStatusSubtitle({claimResult, status});
+  const primaryAction = async () => {
     if (status === 'error') {
       if (requestError?.retry === 'claim' && claimPlan != null) {
-        claim();
+        await claim();
       } else {
-        scanClaims();
+        await scanClaims();
       }
     } else if (!activeAccountMatchesRequest) {
-      openLogin();
+      await openLogin();
     } else if (status === 'empty' || status === 'complete') {
-      next(response, [detailIndex]);
+      if (finishing) return;
+
+      setFinishing(true);
+
+      try {
+        if (typeof completeWithDelivery === 'function') {
+          await completeWithDelivery(response, [detailIndex]);
+        } else {
+          await next(response, [detailIndex], {autoDeliverOnComplete: true});
+        }
+      } catch (e) {
+        setFinishing(false);
+        createAlert(
+          'Cannot finish request',
+          e?.message || 'Unable to continue to response delivery.',
+        );
+      }
     } else {
-      claim();
+      await claim();
     }
   };
   const showCancelAction = status !== 'complete';
 
   const footer = (
-    <View style={[styles.footer, {paddingBottom: 14 + bottomNavigationInset}]}>
-      {showCancelAction && (
-        <View style={styles.ctaCol}>
-          <Button
-            mode="outlined"
-            onPress={cancel}
-            style={styles.secondaryCta}
-            contentStyle={styles.secondaryCtaContent}
-            labelStyle={styles.secondaryCtaLabel}
-          >
-            {'Cancel'}
-          </Button>
-        </View>
-      )}
-      <View style={styles.ctaCol}>
-        <GradientButton
-          onPress={primaryAction}
-          disabled={
-            status === 'review' &&
+    <SafeBottomActionStack
+      gap={10}
+      horizontalSpacing={24}
+      style={styles.footer}>
+      <AppButton
+        disabled={
+          finishing ||
+          (status === 'review' &&
             activeAccountMatchesRequest &&
             (!claimPlan ||
               totals.unsupported > 0 ||
               !claimPlan.hasClaims ||
-              claimPlanNeedsAccountRefresh)
-          }
-          style={styles.primaryCta}
-        >
-          {primaryActionLabel}
-        </GradientButton>
-      </View>
-    </View>
+              claimPlanNeedsAccountRefresh))
+        }
+        height={56}
+        onPress={primaryAction}
+        variant="primary">
+        {primaryActionLabel}
+      </AppButton>
+      {showCancelAction && (
+        <AppButton height={56} onPress={cancel} variant="secondary">
+          Cancel
+        </AppButton>
+      )}
+    </SafeBottomActionStack>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={styles.container}>
+      <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.mainTitle}>
             {status === 'error' ? requestError?.title || 'Network error' : claimTitle}
           </Text>
           <Text style={styles.subtitle}>
-            {status === 'error'
-              ? 'Retry when your connection is available.'
-              : status === 'complete'
-              ? claimResult?.partialError
-                ? 'Some claim transactions were submitted before an error.'
-                : 'The claim transactions were submitted.'
-              : status === 'empty'
-              ? 'No transparent funds or VerusIDs were found.'
-              : 'Review the transparent funds and VerusIDs found on this key.'}
+            {statusSubtitle}
           </Text>
+        </View>
+
+        <View style={styles.requestCard}>
+          <View style={styles.requestCardIcon}>
+            <MaterialCommunityIcons
+              name="key-variant"
+              size={24}
+              color={theme.colors.primary}
+            />
+          </View>
+          <View style={styles.requestCardText}>
+            <Text style={styles.requestCardLabel}>Spendable key</Text>
+            <Text style={styles.requestCardValue}>
+              {requestIsTestnet ? 'Testnet claim' : 'Mainnet claim'}
+            </Text>
+          </View>
         </View>
 
         {!activeAccountMatchesRequest && (
@@ -958,7 +1039,7 @@ const SpendableKeyRequestInfo = props => {
             <MaterialCommunityIcons
               name="information-outline"
               size={18}
-              color={Colors.primaryColor}
+              color={theme.colors.primary}
             />
             <Text style={styles.infoText}>
               {signedIn
@@ -973,7 +1054,7 @@ const SpendableKeyRequestInfo = props => {
             <MaterialCommunityIcons
               name="wifi-alert"
               size={22}
-              color="#991B1B"
+              color={theme.colors.danger}
               style={{marginTop: 1}}
             />
             <View style={styles.criticalWarningContent}>
@@ -1011,32 +1092,20 @@ const SpendableKeyRequestInfo = props => {
                       {getTransactionLabel(transaction)}
                     </Text>
                     <View style={styles.txidActions}>
-                      <Button
-                        compact
-                        icon="content-copy"
-                        mode="outlined"
-                        onPress={() =>
-                          copyToClipboard(transaction.txid, {
-                            title: 'Copied',
-                            message: 'Transaction ID copied to clipboard.',
-                          })
-                        }
-                        contentStyle={styles.explorerButtonContent}
-                        labelStyle={styles.explorerButtonLabel}
-                      >
-                        {'Copy'}
-                      </Button>
+                      <CopyAction
+                        accessibilityLabel="Copy transaction ID"
+                        copiedAccessibilityLabel="Transaction ID copied"
+                        value={transaction.txid}
+                      />
                       {explorerUrl && (
-                        <Button
-                          compact
+                        <AppButton
                           icon="open-in-new"
-                          mode="outlined"
+                          height={44}
                           onPress={() => openUrl(explorerUrl)}
-                          contentStyle={styles.explorerButtonContent}
-                          labelStyle={styles.explorerButtonLabel}
-                        >
-                          {'Explorer'}
-                        </Button>
+                          style={styles.explorerButton}
+                          variant="text">
+                          Explorer
+                        </AppButton>
                       )}
                     </View>
                   </View>
@@ -1070,7 +1139,7 @@ const SpendableKeyRequestInfo = props => {
             <MaterialCommunityIcons
               name="alert-outline"
               size={18}
-              color="#9A3412"
+              color={theme.colors.warning}
             />
             <Text style={styles.warningText}>
               {'One or more VerusIDs cannot be claimed. No transactions will be sent until all discovered items can be claimed.'}
@@ -1083,7 +1152,7 @@ const SpendableKeyRequestInfo = props => {
             <MaterialCommunityIcons
               name="alert-octagon-outline"
               size={22}
-              color="#991B1B"
+              color={theme.colors.danger}
               style={{marginTop: 1}}
             />
             <View style={styles.criticalWarningContent}>
@@ -1110,7 +1179,7 @@ const SpendableKeyRequestInfo = props => {
                   <MaterialCommunityIcons
                     name="link-variant"
                     size={22}
-                    color={Colors.primaryColor}
+                    color={theme.colors.primary}
                   />
                   <View style={{flex: 1, minWidth: 0}}>
                     <Text style={styles.systemTitle} numberOfLines={1}>
@@ -1127,7 +1196,7 @@ const SpendableKeyRequestInfo = props => {
                     <MaterialCommunityIcons
                       name="cash-multiple"
                       size={20}
-                      color="#555"
+                      color={theme.colors.textSecondary}
                       style={{marginRight: 10}}
                     />
                     <View style={styles.rowText}>
@@ -1187,7 +1256,7 @@ const SpendableKeyRequestInfo = props => {
                               <MaterialCommunityIcons
                                 name="card-account-details-outline"
                                 size={16}
-                                color="#9A3412"
+                                color={theme.colors.warning}
                                 style={styles.authorityLineIcon}
                               />
                               <View style={styles.authorityLineText}>
@@ -1204,7 +1273,7 @@ const SpendableKeyRequestInfo = props => {
                               <MaterialCommunityIcons
                                 name="chevron-right"
                                 size={18}
-                                color="#9A3412"
+                                color={theme.colors.warning}
                               />
                             </TouchableOpacity>
                           ))}
@@ -1215,10 +1284,17 @@ const SpendableKeyRequestInfo = props => {
               </View>
             );
           })}
-      </ScrollView>
+        <View style={styles.scrollEndSpacer} />
+      </DeepLinkReviewScrollView>
       {footer}
     </SafeAreaView>
   );
 };
+
+const SpendableKeyRequestInfo = props => (
+  <OnboardingThemeProvider>
+    <SpendableKeyRequestInfoContent {...props} />
+  </OnboardingThemeProvider>
+);
 
 export default SpendableKeyRequestInfo;
