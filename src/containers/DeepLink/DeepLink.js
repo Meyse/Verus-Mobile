@@ -39,26 +39,27 @@ import { capitalizeString } from '../../utils/stringUtils';
 import { createUpdateIdentityTx, getUpdatableIdentity } from '../../utils/api/channels/verusid/requests/updateIdentity';
 import { validateGenericRequest } from '../../utils/deeplink/validator/envelopeValidator';
 import GenericRequestHome from './GenericRequestHome/GenericRequestHome';
-import { openAuthenticateUserModal } from '../../actions/actions/sendModal/dispatchers/sendModal';
-import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../utils/constants/sendModal';
 import store from '../../store';
-import { selectHasAuthenticatedSession } from '../../selectors/authentication';
+import {
+  requestWalletUnlock,
+  WALLET_UNLOCK_CANCELLED,
+} from '../../actions/actions/walletUnlock/dispatchers/walletUnlock';
+import {
+  DELEGATED_SIGNER_GATE_OUTCOMES,
+  isDelegatedSignerRequest,
+  requestDelegatedSignerWallet,
+  validateWithDelegatedSignerGate,
+} from '../../utils/deeplink/delegatedSignerGate';
 
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkData = useObjectSelector((state) => state.deeplink.data)
 
   const signedIn = useSelector((state) => state.authentication.signedIn)
-  const hasAuthenticatedSession = useSelector(selectHasAuthenticatedSession)
-  const alertActive = useSelector(state => state.alert.active);
-  const sendModalVisible = useSelector(state => state.sendModal.visible);
-  const sendModalType = useSelector(state => state.sendModal.type);
   const accounts = useObjectSelector(state => state.authentication.accounts)
   const [displayKey, setDisplayKey] = useState(null)
   const [loading, setLoading] = useState(false)
   const [displayProps, setDisplayProps] = useState({})
-  const [waitingForSignin, setWaitingForSignin] = useState(false)
-  const [authModalOpened, setAuthModalOpened] = useState(false)
   const [genericRequestLoadingStep, setGenericRequestLoadingStep] = useState(
     GENERIC_REQUEST_LOADING_STEPS.READ
   )
@@ -94,10 +95,7 @@ const DeepLink = (props) => {
     request.fromBuffer(Buffer.from(deeplinkData, 'hex'));
     setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
 
-    const requiresDelegatedUserCheck =
-      request.isSigned() &&
-      request.hasAppOrDelegatedID() &&
-      request.appOrDelegatedID.toAddress() !== request.signature.identityID.toAddress();
+    const requiresDelegatedUserCheck = isDelegatedSignerRequest(request);
     
     const experimentalRequestsAllowed = store.getState().settings.generalWalletSettings.enableExperimentalGenericRequests === true;
 
@@ -117,26 +115,34 @@ const DeepLink = (props) => {
 
     setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
 
-    if (requiresDelegatedUserCheck && !signedIn) {
-      setWaitingForSignin(true);
+    const unlockForDelegatedSigner = () =>
+      requestDelegatedSignerWallet({
+        accounts,
+        requestIsTestnet: request.isTestnet(),
+        requestUnlock: requestWalletUnlock,
+        unlockCancelledCode: WALLET_UNLOCK_CANCELLED,
+        unlockOptions: {
+          reason: 'delegated-signer-verification',
+          title: signedIn
+            ? 'Switch wallet to verify signer'
+            : 'Unlock wallet to verify signer',
+          requestLabel: 'Generic request',
+          makeDefaultAllowed: true,
+          networkLabel: request.isTestnet() ? 'Testnet' : 'Mainnet',
+        },
+      });
 
-      const allowList = request.isTestnet()
-        ? accounts.filter(x => x.testnetOverrides && Object.keys(x.testnetOverrides).length > 0)
-        : accounts.filter(x => !x.testnetOverrides || Object.keys(x.testnetOverrides).length === 0);
+    const validationResult = await validateWithDelegatedSignerGate({
+      requiresDelegatedSignerCheck: requiresDelegatedUserCheck,
+      signedIn,
+      validateRequest: () => validateGenericRequest(request),
+      unlockForDelegatedSigner,
+    });
 
-      if (allowList.length > 0) {
-        const data = {
-          [SEND_MODAL_USER_ALLOWLIST]: allowList
-        };
-
-        // Unfortunate hack to prevent screen from locking with gray overlay if deeplink is 
-        // called when app is closed
-        setTimeout(() => {
-          openAuthenticateUserModal(data);
-        }, 1000)
-        return;
-      }
-
+    if (
+      validationResult.outcome ===
+      DELEGATED_SIGNER_GATE_OUTCOMES.NO_MATCHING_PROFILES
+    ) {
       createAlert(
         "Cannot continue",
         `No ${request.isTestnet() ? 'testnet' : 'mainnet'} profiles found, cannot verify delegated request signer.`,
@@ -145,7 +151,13 @@ const DeepLink = (props) => {
       return;
     }
 
-    await validateGenericRequest(request);
+    if (
+      validationResult.outcome === DELEGATED_SIGNER_GATE_OUTCOMES.CANCELLED
+    ) {
+      cancel();
+      return;
+    }
+
     setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW);
 
     setDisplayProps({
@@ -562,50 +574,6 @@ const DeepLink = (props) => {
   useEffect(() => {
     processDeeplink()
   }, [])
-
-  useEffect(() => {
-    if (signedIn && waitingForSignin) {
-      setWaitingForSignin(false);
-      setAuthModalOpened(false);
-      processDeeplink();
-    }
-  }, [signedIn, waitingForSignin]);
-
-  useEffect(() => {
-    if (
-      waitingForSignin &&
-      !authModalOpened &&
-      sendModalVisible &&
-      sendModalType === AUTHENTICATE_USER_SEND_MODAL
-    ) {
-      setAuthModalOpened(true);
-    }
-  }, [waitingForSignin, authModalOpened, sendModalVisible, sendModalType]);
-
-  useEffect(() => {
-    if (authModalOpened && !hasAuthenticatedSession && waitingForSignin) {
-      const authModalClosed =
-        !alertActive &&
-        (
-          sendModalType !== AUTHENTICATE_USER_SEND_MODAL ||
-          !sendModalVisible
-        );
-
-      if (authModalClosed) {
-        setWaitingForSignin(false);
-        setAuthModalOpened(false);
-        createAlert('Error', 'You must be signed in to verify this deeplink request.');
-        cancel();
-      }
-    }
-  }, [
-    alertActive,
-    authModalOpened,
-    hasAuthenticatedSession,
-    waitingForSignin,
-    sendModalVisible,
-    sendModalType,
-  ]);
 
   const screens = {
     [LOGIN_CONSENT_INFO]: () => (

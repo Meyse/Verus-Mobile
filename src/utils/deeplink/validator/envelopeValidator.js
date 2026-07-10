@@ -16,6 +16,7 @@ import store from "../../../store";
 import { coinsList } from "../../CoinData/CoinsList";
 import { VRPC } from "../../constants/intervalConstants";
 import { VerusIdInterface } from "verusid-ts-client";
+import { createDelegatedSignerAccountError } from "../delegatedSignerGate";
 
 /**
  * Checks if a generic envelope has anything in its details that requires
@@ -79,7 +80,9 @@ export const validateGenericRequest = async (request) => {
         const activeAccount = state.authentication.activeAccount;
 
         if (activeAccount == null) {
-          throw new Error("Active account required to validate delegated request signer");
+          throw createDelegatedSignerAccountError(
+            "Active account required to validate delegated request signer"
+          );
         }
 
         const vrscSystem = request.isTestnet() ? coinsList.VRSCTEST : coinsList.VRSC;
@@ -95,7 +98,7 @@ export const validateGenericRequest = async (request) => {
           signerPrimaryAddresses.some((address) => userVrscAddresses.includes(address));
 
         if (!signerMatchesUser) {
-          throw new Error("Request not signed by appOrDelegatedID or a user-controlled VerusID.");
+          throw createDelegatedSignerAccountError();
         }
       }
     }
