@@ -38,6 +38,7 @@ yarn-error.log
 
 # Local Codex and redesign artifacts
 /docs/
+/artifacts/
 /AGENTS.md
 /agents.md
 /DESIGN.md
