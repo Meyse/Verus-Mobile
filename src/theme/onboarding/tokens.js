@@ -1,6 +1,7 @@
 import {fontStyle} from '../../globals/fonts';
 
 export const ONBOARDING_THEME_MODE = {
+  SYSTEM: 'system',
   LIGHT: 'light',
   DARK: 'dark',
 };

@@ -4,6 +4,7 @@ import SideMenu from '../../SideMenu/SideMenu';
 import MainStackScreens from '../MainStackScreens/MainStackScreens';
 import { useDispatch, useSelector } from 'react-redux';
 import { setDeeplinkUrl } from '../../../actions/actionCreators';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
 
 const MainDrawer = createDrawerNavigator()
 
@@ -20,6 +21,9 @@ const SignedInStackScreens = props => {
   }, [deeplinkId, deeplinkUrl]);
 
   return (
+    ENABLE_SIGNED_IN_REDESIGN ? (
+      <MainStackScreens />
+    ) : (
     <MainDrawer.Navigator
       drawerWidth={250}
       drawerContent={props => <SideMenu {...props} />}
@@ -30,6 +34,7 @@ const SignedInStackScreens = props => {
       }}>
       <MainDrawer.Screen name="MainStack" component={MainStackScreens} />
     </MainDrawer.Navigator>
+    )
   );
 };
 

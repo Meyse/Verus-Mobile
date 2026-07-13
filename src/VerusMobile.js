@@ -42,8 +42,19 @@ import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDe
 import { initInstance } from "./utils/auth/authBox";
 import { SecureStorage } from "./utils/keychain/secureStore";
 import StartupCover from "./components/StartupCover";
-import { OnboardingThemeProvider } from "./theme/onboarding";
 import WalletUnlockCoordinator from "./components/WalletUnlockCoordinator";
+import {useOnboardingTheme} from './theme/onboarding';
+import {createNavigationTheme} from './theme/app/navigationTheme';
+
+const ThemedNavigationContainer = ({children}) => {
+  const theme = useOnboardingTheme();
+
+  return (
+    <NavigationContainer theme={createNavigationTheme(theme)}>
+      {children}
+    </NavigationContainer>
+  );
+};
 
 class VerusMobile extends React.Component {
   constructor(props) {
@@ -203,16 +214,14 @@ class VerusMobile extends React.Component {
           <AlertModal />
           {this.props.sendModal.type != null && <SendModal />}
           {this.props.loadingModal.visible && <LoadingModal />}
-          <OnboardingThemeProvider>
-            <WalletUnlockCoordinator />
-          </OnboardingThemeProvider>
-          <NavigationContainer>
+          <WalletUnlockCoordinator />
+          <ThemedNavigationContainer>
             <RootStackScreens
               hasAccount={this.props.accountsLength > 0}
               loading={this.state.loading}
               signedIn={this.props.signedIn}
             />
-          </NavigationContainer>
+          </ThemedNavigationContainer>
         </Portal.Host>
         <Modal
           animationType={this.state.loading ? "fade" : "none"}
@@ -223,13 +232,11 @@ class VerusMobile extends React.Component {
             this.state.startupError != null
           }
         >
-          <OnboardingThemeProvider>
-            <StartupCover
-              loading={this.state.loading}
-              securityCover={this.state.securityCover}
-              startupError={this.state.startupError}
-            />
-          </OnboardingThemeProvider>
+          <StartupCover
+            loading={this.state.loading}
+            securityCover={this.state.securityCover}
+            startupError={this.state.startupError}
+          />
         </Modal>
       </View>
     );

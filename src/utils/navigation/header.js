@@ -87,3 +87,39 @@ export const defaultHeaderOptions = ({navigation, params, route}) => ({
   headerRight: () => <Header />,
   headerTintColor: Colors.secondaryColor,
 });
+
+const RedesignedHeaderRight = ({color}) => {
+  const dispatch = useDispatch();
+  const showBalance = useSelector(state => state.coins.showBalance);
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={showBalance ? 'Hide balances' : 'Show balances'}
+      onPress={() => dispatch({type: 'SET_BALANCE_SHOW'})}
+      style={{paddingHorizontal: 16, minHeight: 44, justifyContent: 'center'}}>
+      <MaterialCommunityIcons
+        name={showBalance ? 'eye-off-outline' : 'eye-outline'}
+        size={24}
+        color={color}
+      />
+    </TouchableOpacity>
+  );
+};
+
+export const createRedesignedHeaderOptions = theme => ({
+  headerShown: true,
+  headerMode: 'screen',
+  headerStyle: {
+    backgroundColor: theme.colors.background,
+    shadowColor: 'transparent',
+    elevation: 0,
+  },
+  headerTitleStyle: {
+    ...fontStyle('semiBold'),
+    fontSize: 20,
+    color: theme.colors.textPrimary,
+  },
+  headerTintColor: theme.colors.textPrimary,
+  headerRight: () => <RedesignedHeaderRight color={theme.colors.textPrimary} />,
+});

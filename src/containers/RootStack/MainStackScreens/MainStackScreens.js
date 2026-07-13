@@ -18,13 +18,26 @@ import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
 import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
 import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
 import NfcBackup from '../../Settings/WalletSettings/NfcBackup/NfcBackup';
+import ProfileSettings from '../../Settings/ProfileSettings/ProfileSettings';
+import WalletSettings from '../../Settings/WalletSettings/WalletSettings';
+import AppInfo from '../../Settings/AppInfo/AppInfo';
+import Appearance from '../../Settings/Appearance/Appearance';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
+import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const MainStack = createStackNavigator();
 
 const MainStackScreens = props => {
+  const theme = useOnboardingTheme();
+
   return (
     <MainStack.Navigator
-      screenOptions={defaultHeaderOptions}
+      screenOptions={
+        ENABLE_SIGNED_IN_REDESIGN
+          ? createRedesignedHeaderOptions(theme)
+          : defaultHeaderOptions
+      }
     >
       <MainStack.Screen
         name="Home"
@@ -60,6 +73,30 @@ const MainStackScreens = props => {
       <MainStack.Screen name="CoinMenus" component={CoinMenus} />
 
       <MainStack.Screen name="SettingsMenus" component={SettingsMenus} />
+
+      <MainStack.Screen
+        name="ProfileSettings"
+        component={ProfileSettings}
+        options={{title: 'Profile and security'}}
+      />
+
+      <MainStack.Screen
+        name="WalletSettings"
+        component={WalletSettings}
+        options={{title: 'Wallet settings'}}
+      />
+
+      <MainStack.Screen
+        name="Appearance"
+        component={Appearance}
+        options={{title: 'Appearance'}}
+      />
+
+      <MainStack.Screen
+        name="AppInfo"
+        component={AppInfo}
+        options={{title: 'App information'}}
+      />
 
       <MainStack.Screen
         name="ProfileInfo"

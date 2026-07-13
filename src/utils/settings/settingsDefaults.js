@@ -7,6 +7,7 @@ export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   maxTxCount: 10,
   minGasPriceGwei: 1,
   displayCurrency: USD,
+  appearance: 'system',
   defaultAccount: null,
   defaultAccountsByNetwork: normalizeDefaultAccountsByNetwork(),
   lastOpenedAccountTimestamps: {},

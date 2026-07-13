@@ -7,10 +7,83 @@ import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import ServicesStackScreens from '../ServicesStackScreens/ServicesStackScreens';
 import VerusPay from '../../VerusPay/VerusPay';
 import ConvertStackScreens from '../ConvertStackScreens/ConvertStackScreens';
+import SettingsStackScreens from '../SettingsStackScreens/SettingsStackScreens';
+import IdentityStackScreens from '../IdentityStackScreens/IdentityStackScreens';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
+import {useOnboardingTheme} from '../../../theme/onboarding';
+import signedInCopy from '../../../copy/signedIn';
 
 const HomeTabs = createMaterialBottomTabNavigator()
 
 const HomeTabScreens = props => {
+  const theme = useOnboardingTheme();
+
+  if (ENABLE_SIGNED_IN_REDESIGN) {
+    return (
+      <HomeTabs.Navigator
+        barStyle={{
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
+        }}
+        activeColor={theme.colors.primary}
+        inactiveColor={theme.colors.textSubtle}
+        shifting={false}
+        labeled>
+        <HomeTabs.Screen
+          name="WalletHome"
+          component={WalletStackScreens}
+          options={{
+            title: signedInCopy.navigation.wallet,
+            tabBarIcon: ({color}) => (
+              <MaterialCommunityIcons name="wallet-outline" color={color} size={25} />
+            ),
+          }}
+        />
+        <HomeTabs.Screen
+          name="ServicesHome"
+          component={ServicesStackScreens}
+          options={{
+            title: signedInCopy.navigation.services,
+            tabBarIcon: ({color}) => (
+              <MaterialCommunityIcons name="view-grid-outline" color={color} size={25} />
+            ),
+          }}
+        />
+        <HomeTabs.Screen
+          name="IdentityHome"
+          component={IdentityStackScreens}
+          options={{
+            title: signedInCopy.navigation.identity,
+            tabBarIcon: ({color}) => (
+              <MaterialCommunityIcons name="account-key-outline" color={color} size={25} />
+            ),
+          }}
+        />
+        <HomeTabs.Screen
+          name="SettingsHome"
+          component={SettingsStackScreens}
+          options={{
+            title: signedInCopy.navigation.settings,
+            tabBarIcon: ({color}) => (
+              <MaterialCommunityIcons name="cog-outline" color={color} size={25} />
+            ),
+          }}
+        />
+        <HomeTabs.Screen
+          name="VerusPay"
+          component={VerusPay}
+          options={{
+            title: signedInCopy.navigation.scan,
+            tabBarIcon: ({color}) => (
+              <MaterialCommunityIcons name="line-scan" color={color} size={25} />
+            ),
+          }}
+        />
+      </HomeTabs.Navigator>
+    );
+  }
+
   return (
     <HomeTabs.Navigator
       barStyle={{ backgroundColor: Colors.primaryColor }}
