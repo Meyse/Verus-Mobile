@@ -1,4 +1,6 @@
 import React from 'react';
+import {TouchableOpacity} from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import Services from '../../Services/Services'
@@ -37,7 +39,23 @@ const ServicesStackScreens = props => {
       <ServicesStack.Screen
         name="AddressBook"
         component={AddressBook}
-        options={{title: 'Address Book'}}
+        options={({navigation}) => ({
+          title: 'Address Book',
+          headerLeft: ({tintColor}) => (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Back to Services"
+              style={{paddingHorizontal: 12, minHeight: 44, justifyContent: 'center'}}
+              onPress={() => navigation.goBack()}
+            >
+              <MaterialCommunityIcons
+                name="chevron-left"
+                size={32}
+                color={tintColor}
+              />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <ServicesStack.Screen
         name="Service"

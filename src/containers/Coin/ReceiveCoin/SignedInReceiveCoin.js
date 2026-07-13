@@ -10,6 +10,27 @@ import {createSignedInStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {coinsList} from '../../../utils/CoinData/CoinsList';
 
+const getSupportedNetworks = (subWallet, networkName) => {
+  const isVerusNetwork =
+    subWallet.network === coinsList.VRSC.currency_id ||
+    subWallet.network === coinsList.VRSCTEST.currency_id;
+  return isVerusNetwork ? networkName : networkName + ', VRSC';
+};
+
+const getAmountLabel = ({
+  amountFiat,
+  displayCurrency,
+  fiatEnabled,
+  price,
+  selectedCoin,
+}) => {
+  if (!fiatEnabled || price === 0) return 'Amount';
+  const estimateTicker = amountFiat
+    ? selectedCoin.display_ticker
+    : displayCurrency;
+  return 'Amount (~' + price + ' ' + estimateTicker + ')';
+};
+
 const SignedInReceiveCoin = ({controller}) => {
   const theme = useOnboardingTheme();
   const styles = createSignedInStyles(theme);
@@ -115,10 +136,7 @@ const SignedInReceiveCoin = ({controller}) => {
             ]}>
             <Text style={styles.rowDescription}>Supported networks</Text>
             <Text style={styles.rowTitle}>
-              {subWallet.network !== coinsList.VRSC.currency_id &&
-              subWallet.network !== coinsList.VRSCTEST.currency_id
-                ? networkName + ', VRSC'
-                : networkName}
+              {getSupportedNetworks(subWallet, networkName)}
             </Text>
           </TouchableOpacity>
         )}
@@ -170,16 +188,13 @@ const SignedInReceiveCoin = ({controller}) => {
         </Text>
         <TouchableOpacity onPress={() => controller.openNumberInputModal('amount')}>
           <TextInput
-            label={
-              'Amount' +
-              (fiatEnabled && price !== 0
-                ? ' (~' +
-                  price +
-                  ' ' +
-                  (amountFiat ? selectedCoin.display_ticker : displayCurrency) +
-                  ')'
-                : '')
-            }
+            label={getAmountLabel({
+              amountFiat,
+              displayCurrency,
+              fiatEnabled,
+              price,
+              selectedCoin,
+            })}
             mode="outlined"
             value={amount}
             editable={false}

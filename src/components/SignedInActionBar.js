@@ -6,7 +6,13 @@ import {useOnboardingTheme} from '../theme/onboarding';
 import {createSignedInStyles} from '../styles';
 import signedInCopy from '../copy/signedIn';
 
-const SignedInActionBar = ({onReceive, onSendOrConvert, includeBottomInset = false}) => {
+const SignedInActionBar = ({
+  onReceive,
+  onSendOrConvert,
+  receiveDisabled = false,
+  sendOrConvertDisabled = false,
+  includeBottomInset = false,
+}) => {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
   const styles = createSignedInStyles(theme);
@@ -22,6 +28,7 @@ const SignedInActionBar = ({onReceive, onSendOrConvert, includeBottomInset = fal
         icon="arrow-down"
         uppercase={false}
         accessibilityLabel={signedInCopy.actions.receive}
+        disabled={receiveDisabled}
         style={styles.actionButton}
         contentStyle={{minHeight: 52}}
         onPress={onReceive}>
@@ -32,6 +39,7 @@ const SignedInActionBar = ({onReceive, onSendOrConvert, includeBottomInset = fal
         icon="arrow-top-right"
         uppercase={false}
         accessibilityLabel={signedInCopy.actions.sendOrConvert}
+        disabled={sendOrConvertDisabled}
         style={styles.actionButton}
         contentStyle={{minHeight: 52}}
         onPress={onSendOrConvert}>

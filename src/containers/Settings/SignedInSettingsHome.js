@@ -34,7 +34,7 @@ const SignedInSettingsHome = ({navigation}) => {
   const styles = createSignedInStyles(theme);
 
   return (
-    <SafeAreaView edges={['left', 'right']} style={styles.safeScreen}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeScreen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>{signedInCopy.settings.title}</Text>
         <View style={[styles.surface, {marginTop: theme.spacing.lg}]}>

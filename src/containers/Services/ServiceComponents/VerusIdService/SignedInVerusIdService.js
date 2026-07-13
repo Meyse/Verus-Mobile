@@ -2,6 +2,7 @@ import React from 'react';
 import {ScrollView, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import SkeletonLoader, {SkeletonSection} from '../../../../components/SkeletonLoader';
 import signedInCopy from '../../../../copy/signedIn';
 import {createSignedInStyles} from '../../../../styles';
@@ -23,7 +24,7 @@ const SignedInVerusIdService = ({controller}) => {
   const loading = controller.props.loading || linkedIds == null;
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeScreen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>{signedInCopy.identity.title}</Text>
         <Text style={styles.subtitle}>{signedInCopy.identity.description}</Text>
@@ -68,7 +69,7 @@ const SignedInVerusIdService = ({controller}) => {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

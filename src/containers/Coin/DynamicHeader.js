@@ -291,6 +291,7 @@ const DynamicHeader = ({ switchTab }) => {
 
     return (
       <Animated.View
+        key={item.id}
         style={{
           opacity: fadeAnimation,
           width:

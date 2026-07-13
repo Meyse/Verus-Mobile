@@ -61,9 +61,16 @@ import { useObjectSelector } from '../../hooks/useObjectSelector';
 import SignedInWalletHome from './SignedInWalletHome';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../env/index';
 import {
+  WALLET_APP_CONVERT,
   WALLET_APP_RECEIVE,
   WALLET_APP_SEND,
 } from '../../utils/constants/apps';
+
+const getAssetStatusDescription = coin => {
+  if (coin.mapped_to) return `Mapped · ${coin.display_ticker}`;
+  if (coin.testnet) return 'Testnet';
+  return coin.display_ticker;
+};
 
 const Home = () => {
   const dispatch = useDispatch();
@@ -399,26 +406,33 @@ const Home = () => {
 
   const actionSources = useCallback(
     action => {
-      const sectionKey =
-        action === 'wallet-receive' ? WALLET_APP_RECEIVE : WALLET_APP_SEND;
+      const sectionKeys =
+        action === 'wallet-receive'
+          ? [WALLET_APP_RECEIVE]
+          : [WALLET_APP_SEND, WALLET_APP_CONVERT];
 
       return activeCoinsForUser.flatMap(coinObj => {
-        const section = findSection(coinObj, sectionKey);
-
-        if (!section) return [];
-
         return (allSubWallets[coinObj.id] || [])
-          .filter(card => card.compatible_apps.includes(sectionKey))
-          .map(card => ({
-            key: `${coinObj.id}:${card.id}`,
-            title: `${coinObj.display_name} · ${card.name}`,
-            description: card.network
-              ? `${coinObj.display_ticker} on ${card.network}`
-              : coinObj.display_ticker,
-            coinObj,
-            card,
-            ...section,
-          }));
+          .map(card => {
+            const sectionKey = sectionKeys.find(key =>
+              card.compatible_apps.includes(key),
+            );
+            const section = sectionKey && findSection(coinObj, sectionKey);
+
+            if (!section) return null;
+
+            return {
+              key: `${coinObj.id}:${card.id}`,
+              title: `${coinObj.display_name} · ${card.name}`,
+              description: card.network
+                ? `${coinObj.display_ticker} on ${card.network}`
+                : coinObj.display_ticker,
+              coinObj,
+              card,
+              ...section,
+            };
+          })
+          .filter(Boolean);
       });
     },
     [activeCoinsForUser, allSubWallets],
@@ -444,11 +458,7 @@ const Home = () => {
             const cardBalance = balances[coin.id]?.[card.id]?.total;
             return cardBalance != null && BigNumber(cardBalance).isGreaterThan(0);
           }) || cards[0];
-        const statusDescription = coin.mapped_to
-          ? `Mapped · ${coin.display_ticker}`
-          : coin.testnet
-          ? 'Testnet'
-          : coin.display_ticker;
+        const statusDescription = getAssetStatusDescription(coin);
 
         return {
           coin,

@@ -48,6 +48,13 @@ const normalizeAppearance = appearance => {
   return ONBOARDING_THEME_MODE.SYSTEM;
 };
 
+const resolveAppearance = (preference, systemColorScheme) => {
+  if (preference !== ONBOARDING_THEME_MODE.SYSTEM) return preference;
+  return systemColorScheme === ONBOARDING_THEME_MODE.DARK
+    ? ONBOARDING_THEME_MODE.DARK
+    : ONBOARDING_THEME_MODE.LIGHT;
+};
+
 const createPaperTheme = semanticTheme => {
   const baseTheme = semanticTheme.isDark ? MD2DarkTheme : MD2LightTheme;
 
@@ -76,12 +83,7 @@ const AppThemeProvider = ({children}) => {
     state => state.settings?.generalWalletSettings?.appearance,
   );
   const preference = normalizeAppearance(appearance);
-  const resolvedMode =
-    preference === ONBOARDING_THEME_MODE.SYSTEM
-      ? systemColorScheme === ONBOARDING_THEME_MODE.DARK
-        ? ONBOARDING_THEME_MODE.DARK
-        : ONBOARDING_THEME_MODE.LIGHT
-      : preference;
+  const resolvedMode = resolveAppearance(preference, systemColorScheme);
   const semanticTheme = useMemo(
     () => resolveOnboardingTheme(resolvedMode),
     [resolvedMode],

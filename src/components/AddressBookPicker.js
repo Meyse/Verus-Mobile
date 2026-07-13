@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {TouchableOpacity, View} from 'react-native';
+import {ScrollView, TouchableOpacity, View} from 'react-native';
 import {Button, List, Modal, Portal, Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {createSignedInStyles} from '../styles';
@@ -86,7 +86,7 @@ const AddressBookPicker = ({asset, disabled = false, network, onSelect}) => {
               No saved addresses match this Asset and network.
             </Text>
           ) : (
-            <View style={{marginTop: theme.spacing.md}}>
+            <ScrollView style={{marginTop: theme.spacing.md}}>
               {compatibleRecords.map((record, index) => (
                 <React.Fragment key={record.id}>
                   <TouchableOpacity
@@ -115,7 +115,7 @@ const AddressBookPicker = ({asset, disabled = false, network, onSelect}) => {
                   )}
                 </React.Fragment>
               ))}
-            </View>
+            </ScrollView>
           )}
         </Modal>
       </Portal>

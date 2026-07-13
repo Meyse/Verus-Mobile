@@ -1,4 +1,3 @@
-import BigNumber from 'bignumber.js';
 import React, {useMemo, useState} from 'react';
 import {FlatList, Pressable, View} from 'react-native';
 import {Avatar, IconButton, Portal, Text} from 'react-native-paper';
@@ -14,6 +13,17 @@ import {truncateDecimal} from '../../utils/math';
 
 const formatFiat = (amount, currency) =>
   formatCurrency({amount: Number(amount || 0), code: currency})[0];
+
+const getAssetValueText = (item, showBalance, displayCurrency) => {
+  if (!showBalance) return '••••••';
+  if (item.fiatValue == null) return signedInCopy.wallet.priceUnavailable;
+  return formatFiat(item.fiatValue, displayCurrency);
+};
+
+const getAssetDescription = item => {
+  if (item.cardCount > 1) return `${item.cardCount} Cards`;
+  return item.statusDescription;
+};
 
 const SignedInWalletHome = ({
   assets,
@@ -39,6 +49,8 @@ const SignedInWalletHome = ({
     () => (sourceAction ? actionSources(sourceAction) : []),
     [actionSources, sourceAction],
   );
+  const receiveAvailable = actionSources('wallet-receive').length > 0;
+  const transferAvailable = actionSources('wallet-transfer').length > 0;
 
   const manageOptions = [
     {
@@ -112,18 +124,12 @@ const SignedInWalletHome = ({
             {item.coin.display_name}
           </Text>
           <Text numberOfLines={1} style={styles.rowDescription}>
-            {item.cardCount > 1
-              ? `${item.cardCount} Cards`
-              : item.statusDescription}
+            {getAssetDescription(item)}
           </Text>
         </View>
         <View style={{alignItems: 'flex-end', maxWidth: '46%'}}>
           <Text numberOfLines={1} style={styles.rowTitle}>
-            {showBalance
-              ? item.fiatValue == null
-                ? signedInCopy.wallet.priceUnavailable
-                : formatFiat(item.fiatValue, displayCurrency)
-              : '••••••'}
+            {getAssetValueText(item, showBalance, displayCurrency)}
           </Text>
           <Text numberOfLines={1} style={styles.rowDescription}>
             {showBalance ? balanceText : 'Balance hidden'}
@@ -217,7 +223,7 @@ const SignedInWalletHome = ({
             data={sourceOptions}
             onSelect={item => {
               setSourceAction(null);
-              onOpenActionSource(item, sourceAction);
+              onOpenActionSource(item);
             }}
             cancel={() => setSourceAction(null)}
           />
@@ -256,8 +262,10 @@ const SignedInWalletHome = ({
         }}
       />
       <SignedInActionBar
+        receiveDisabled={!receiveAvailable}
+        sendOrConvertDisabled={!transferAvailable}
         onReceive={() => openAction('wallet-receive')}
-        onSendOrConvert={() => openAction('wallet-send')}
+        onSendOrConvert={() => openAction('wallet-transfer')}
       />
     </SafeAreaView>
   );

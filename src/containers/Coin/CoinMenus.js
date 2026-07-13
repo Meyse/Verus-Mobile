@@ -25,6 +25,9 @@ import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
 import SignedInActionBar from "../../components/SignedInActionBar";
 import {ENABLE_SIGNED_IN_REDESIGN} from "../../../env/index";
 
+const SIGNED_IN_TRANSFER = "signed-in-transfer";
+const TRANSFER_SECTION_KEYS = [WALLET_APP_SEND, WALLET_APP_CONVERT];
+
 class CoinMenus extends Component {
   constructor(props) {
     super(props);
@@ -39,6 +42,8 @@ class CoinMenus extends Component {
       tabs: stateObj.tabs,
       activeTab: stateObj.activeTab,
       activeTabIndex: stateObj.activeTabIndex,
+      transferSections: stateObj.transferSections,
+      transferMode: stateObj.transferMode,
       filteredTabKey: null,
     };
 
@@ -104,20 +109,47 @@ class CoinMenus extends Component {
     let activeTab;
     let activeTabIndex;
     let options = this.props.activeCoin.apps[this.props.activeApp].data;
+    const transferSections = ENABLE_SIGNED_IN_REDESIGN
+      ? options.filter(option => TRANSFER_SECTION_KEYS.includes(option.key))
+      : [];
+    let transferTabAdded = false;
 
     for (let i = 0; i < options.length; i++) {
-      let _tab = {
-        key: options[i].key,
-        focusedIcon: options[i].icon,
-        unfocusedIcon: options[i].icon,
-        title: options[i].name,
-        //color: options[i].color, // Disregarded for now
-        activeSection: options[i],
-      };
+      const option = options[i];
+      const isTransferSection = transferSections.includes(option);
 
-      if (options[i].key === this.props.activeSection.key) {
+      if (ENABLE_SIGNED_IN_REDESIGN && isTransferSection && transferTabAdded) {
+        continue;
+      }
+
+      const _tab = ENABLE_SIGNED_IN_REDESIGN && isTransferSection
+        ? {
+            key: SIGNED_IN_TRANSFER,
+            focusedIcon: option.icon,
+            unfocusedIcon: option.icon,
+            title: "Transfer",
+            activeSection: option,
+          }
+        : {
+            key: option.key,
+            focusedIcon: option.icon,
+            unfocusedIcon: option.icon,
+            title: option.name,
+            activeSection: option,
+          };
+
+      if (ENABLE_SIGNED_IN_REDESIGN && isTransferSection) {
+        transferTabAdded = true;
+      }
+
+      if (
+        option.key === this.props.activeSection.key ||
+        (ENABLE_SIGNED_IN_REDESIGN &&
+          isTransferSection &&
+          TRANSFER_SECTION_KEYS.includes(this.props.activeSection.key))
+      ) {
         activeTab = _tab;
-        activeTabIndex = i;
+        activeTabIndex = tabArray.length;
       }
 
       tabArray.push(_tab);
@@ -133,6 +165,10 @@ class CoinMenus extends Component {
       tabs: tabArray,
       activeTab: activeTab,
       activeTabIndex,
+      transferSections,
+      transferMode: TRANSFER_SECTION_KEYS.includes(this.props.activeSection.key)
+        ? this.props.activeSection.key
+        : transferSections[0]?.key,
     };
   };
 
@@ -144,12 +180,16 @@ class CoinMenus extends Component {
   }
 
   renderScene = ({ route, jumpTo }) => {
-    if (this.Routes[route.key] == null) return null;
+    const routeKey = route.key === SIGNED_IN_TRANSFER
+      ? this.state.transferMode
+      : route.key;
+
+    if (this.Routes[routeKey] == null) return null;
     else {
-      const Route = this.Routes[route.key];
+      const Route = this.Routes[routeKey];
       const { placeholder, active } = subWalletActivity(this.props.selectedSubWallet.id);
 
-      return this.props.selectedSubWallet.compatible_apps.includes(route.key) ? (
+      return this.props.selectedSubWallet.compatible_apps.includes(routeKey) ? (
         active(this.props.services) ? (
           <Route navigation={this.props.navigation} data={this.passthrough} jumpTo={jumpTo} />
         ) : (
@@ -167,7 +207,7 @@ class CoinMenus extends Component {
             this.props.selectedSubWallet.name
           } card.`}
           buttonLabel="Switch cards"
-          onPress={() => this.findCompatibleSubwallet(route.key)}
+          onPress={() => this.findCompatibleSubwallet(routeKey)}
         />
       );
     }
@@ -190,16 +230,48 @@ class CoinMenus extends Component {
 
   switchTab = (index) => {
     const newTab = this.state.tabs[index];
+    const activeSection = newTab.key === SIGNED_IN_TRANSFER
+      ? this.state.transferSections.find(
+          section => section.key === this.state.transferMode,
+        ) || this.state.transferSections[0]
+      : newTab.activeSection;
 
     this.props.navigation.setOptions({ title: newTab.title });
-    this.props.dispatch(setActiveSection(newTab.activeSection));
+    this.props.dispatch(setActiveSection(activeSection));
     this.setState({ activeTab: newTab, activeTabIndex: index });
   };
 
   switchToSection = (sectionKey) => {
-    const index = this.state.tabs.findIndex(tab => tab.key === sectionKey);
+    const tabKey = TRANSFER_SECTION_KEYS.includes(sectionKey)
+      ? SIGNED_IN_TRANSFER
+      : sectionKey;
+    const index = this.state.tabs.findIndex(tab => tab.key === tabKey);
 
-    if (index >= 0) this.switchTab(index);
+    if (index < 0) return;
+
+    if (tabKey === SIGNED_IN_TRANSFER) {
+      const activeSection = this.state.transferSections.find(
+        section => section.key === sectionKey,
+      );
+
+      this.props.navigation.setOptions({title: "Transfer"});
+      this.props.dispatch(setActiveSection(activeSection));
+      this.setState({
+        activeTab: this.state.tabs[index],
+        activeTabIndex: index,
+        transferMode: sectionKey,
+      });
+    } else {
+      this.switchTab(index);
+    }
+  };
+
+  openTransfer = (transferSections) => {
+    const transferSection = transferSections.find(
+      section => section.key === WALLET_APP_SEND,
+    ) || transferSections[0];
+
+    if (transferSection) this.switchToSection(transferSection.key);
   };
 
   goBack = () => {
@@ -217,6 +289,14 @@ class CoinMenus extends Component {
       this.state.filteredTabKey == null
         ? null
         : this.getSubWalletsForTab(this.state.filteredTabKey);
+    const activeCardApps = selectedSubWallet?.compatible_apps || [];
+    const tabKeys = this.state.tabs.map(tab => tab.key);
+    const canReceive =
+      activeCardApps.includes(WALLET_APP_RECEIVE) &&
+      tabKeys.includes(WALLET_APP_RECEIVE);
+    const transferSections = this.state.transferSections.filter(
+      section => activeCardApps.includes(section.key),
+    );
 
     return (
       <Portal.Host>
@@ -245,8 +325,10 @@ class CoinMenus extends Component {
               />
               {ENABLE_SIGNED_IN_REDESIGN && (
                 <SignedInActionBar
+                  receiveDisabled={!canReceive}
+                  sendOrConvertDisabled={transferSections.length === 0}
                   onReceive={() => this.switchToSection(WALLET_APP_RECEIVE)}
-                  onSendOrConvert={() => this.switchToSection(WALLET_APP_SEND)}
+                  onSendOrConvert={() => this.openTransfer(transferSections)}
                 />
               )}
             </View>
