@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {StatusBar, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -24,11 +24,26 @@ export default function LandingScreen(props) {
   const logoWidth = width * 0.3;
   const logoVariant = theme.isDark ? 'monochrome' : 'default';
 
+  const resumePendingDeeplinkId =
+    props.route?.params?.resumePendingDeeplinkId || null;
+  const claimRequestIsTestnet =
+    props.route?.params?.claimRequestIsTestnet;
+  const openSetupSheet = props.route?.params?.openSetupSheet === true;
+
+  useEffect(() => {
+    if (!openSetupSheet) return;
+
+    if (typeof claimRequestIsTestnet === 'boolean') {
+      props.setTestProfile(claimRequestIsTestnet);
+    }
+    setStartSheetVisible(true);
+  }, [claimRequestIsTestnet, openSetupSheet, props.setTestProfile]);
+
   const handleSetupSelection = selection =>
-    props.navigation.navigate(
-      'CreateProfile',
-      normalizeSetupSelection(selection),
-    );
+    props.navigation.navigate('CreateProfile', {
+      ...normalizeSetupSelection(selection),
+      resumePendingDeeplinkId,
+    });
 
   return (
     <View style={styles.container}>

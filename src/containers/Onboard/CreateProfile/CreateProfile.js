@@ -9,6 +9,7 @@ import {
   closeLoadingModal,
   openLoadingModal,
 } from '../../../actions/actionDispatchers';
+import {setDeeplinkUrl} from '../../../actions/actionCreators';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {createProfileFromSeed} from '../../../utils/profile/createProfileFromSeed';
 import {getKey} from '../../../utils/keyGenerator/keyGenerator';
@@ -32,6 +33,7 @@ import {
   normalizeSetupSelection,
   shouldOfferImportShieldedRestore,
 } from '../onboardingSetupFlow';
+import {getPendingDeeplinkReplay} from '../../../utils/deeplink/pendingDeeplinkStorage';
 
 const DEFAULT_SEED_WORD_COUNT = 24;
 const IMPORT_SEED_PROGRESS_WEIGHT = 0.75;
@@ -158,6 +160,7 @@ export default function CreateProfileStackScreens(props) {
 
   const createProfile = async (seed, createAsTestProfile, useSeedAsZ) => {
     openLoadingModal('Setting up your new profile...');
+    let profileCreated = false;
 
     try {
       await createProfileFromSeed({
@@ -172,14 +175,31 @@ export default function CreateProfileStackScreens(props) {
         useBiometrics,
         walletAvatar,
       });
+      profileCreated = true;
+      const resumePendingDeeplinkId =
+        props.route?.params?.resumePendingDeeplinkId;
 
-      createAlert(
-        'Profile created!',
-        `Your '${profileName}' profile has been created and is ready to use.`,
-      );
+      if (resumePendingDeeplinkId) {
+        const replay = await getPendingDeeplinkReplay(
+          resumePendingDeeplinkId,
+        );
+
+        if (!replay) {
+          throw new Error(
+            'Your wallet is ready, but the saved claim could not be reopened. Open it from Pending Requests.',
+          );
+        }
+
+        dispatch(setDeeplinkUrl(replay.url, replay.passthrough));
+      } else {
+        createAlert(
+          'Profile created!',
+          `Your '${profileName}' profile has been created and is ready to use.`,
+        );
+      }
     } catch (e) {
       console.error(e);
-      createAlert('Error', e.message);
+      createAlert(profileCreated ? 'Wallet ready' : 'Error', e.message);
     }
 
     closeLoadingModal();

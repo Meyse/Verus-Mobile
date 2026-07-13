@@ -69,6 +69,10 @@ const Login = props => {
   const [pendingUnlockAccount, setPendingUnlockAccount] = useState(null);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
   const logoVariant = theme.isDark ? 'monochrome' : 'default';
+  const resumePendingDeeplinkId =
+    props.route?.params?.resumePendingDeeplinkId || null;
+  const claimRequestIsTestnet = props.route?.params?.claimRequestIsTestnet;
+  const openSetupSheet = props.route?.params?.openSetupSheet === true;
 
   const selectedNetworkKey = getWalletNetworkKey(props.testProfile === true);
   const selectedNetworkLabel = getWalletNetworkLabel(selectedNetworkKey);
@@ -114,6 +118,20 @@ const Login = props => {
   }, [selectedNetworkKey]);
 
   useEffect(() => {
+    if (!openSetupSheet) return;
+
+    if (typeof claimRequestIsTestnet === 'boolean') {
+      props.setTestProfile(claimRequestIsTestnet);
+    }
+    setAddWalletVisible(true);
+  }, [
+    claimRequestIsTestnet,
+    openSetupSheet,
+    props.setTestProfile,
+    selectedNetworkKey,
+  ]);
+
+  useEffect(() => {
     let active = true;
 
     getSupportedBiometryType()
@@ -134,10 +152,10 @@ const Login = props => {
   }, []);
 
   const handleSetupSelection = selection =>
-    props.navigation.navigate(
-      'CreateProfile',
-      normalizeSetupSelection(selection),
-    );
+    props.navigation.navigate('CreateProfile', {
+      ...normalizeSetupSelection(selection),
+      resumePendingDeeplinkId,
+    });
 
   const handleRevokeRecover = () => {
     props.navigation.navigate('RevokeRecover');

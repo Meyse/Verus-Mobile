@@ -796,6 +796,7 @@ const GenericRequestHome = props => {
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
+        pendingDeeplinkId={passthrough?.pendingDeeplinkId || null}
         response={response}
         request={request}
         detailIndex={detailIndex}

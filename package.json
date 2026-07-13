@@ -16,6 +16,7 @@
     "test": "jest",
     "lint": "eslint .",
     "check:safe-areas": "node scripts/check-safe-area.js",
+    "check:spendable-key-review": "node scripts/check-spendable-key-review.js",
     "update-verus-libs": "pnpm remove verus-typescript-primitives && pnpm add 'git+https://github.com/VerusCoin/verus-typescript-primitives.git' && pnpm remove @bitgo/utxo-lib && pnpm add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && pnpm remove verusd-rpc-ts-client && pnpm add 'git+https://github.com/VerusCoin/verusd-rpc-ts-client.git' && pnpm remove verusid-ts-client && pnpm add 'git+https://github.com/VerusCoin/verusid-ts-client.git'"
   },
   "dependencies": {

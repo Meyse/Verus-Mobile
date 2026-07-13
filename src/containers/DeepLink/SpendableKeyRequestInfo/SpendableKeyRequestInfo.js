@@ -33,6 +33,13 @@ import {
   preflightSpendableKeyClaim,
   spendableKeyDetailsOrdinalToMnemonic,
 } from '../../../utils/spendableKey/spendableKey';
+import {
+  getSpendableKeyClaimLabel,
+  getSpendableKeyReviewModel,
+  getSpendableKeyReviewSubtitle,
+  getSpendableKeySummaryLabel,
+  getSpendableKeyWalletGate,
+} from '../../../utils/spendableKey/spendableKeyReview';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {VRPC} from '../../../utils/constants/intervalConstants';
 import {
@@ -47,13 +54,11 @@ import {
   OnboardingThemeProvider,
   useOnboardingTheme,
 } from '../../../theme/onboarding';
+import GenericRequestLoading, {
+  GENERIC_REQUEST_LOADING_STEPS,
+} from '../GenericRequestLoading';
 import {DeepLinkReviewScrollView} from '../components/RequestReview';
-
-const truncate = (value, start = 8, end = 6) => {
-  if (!value) return '';
-  if (value.length <= start + end + 3) return value;
-  return `${value.slice(0, start)}...${value.slice(-end)}`;
-};
+import {savePendingDeeplinkRequest} from '../../../utils/deeplink/pendingDeeplinkStorage';
 
 const getSystemDestinationMap = (claimPlan, activeAccount) => {
   const destinations = {};
@@ -72,39 +77,28 @@ const getSystemDestinationMap = (claimPlan, activeAccount) => {
   return destinations;
 };
 
-const getClaimTitle = totals => {
-  const hasFunds = totals.currencies > 0;
-  const hasIdentities = totals.identities > 0;
-
-  if (hasFunds && hasIdentities) return 'Claim identity and funds';
-  if (hasIdentities) return 'Claim identity';
-  return 'Claim funds';
-};
-
-const getPrimaryActionLabel = ({
-  activeAccountMatchesRequest,
-  signedIn,
-  status,
-}) => {
-  if (status === 'error') return 'Retry';
-  if (!activeAccountMatchesRequest) {
-    return signedIn ? 'Switch profile' : 'Sign in';
-  }
-  if (status === 'empty' || status === 'complete') return 'Done';
-  return 'Claim';
-};
-
 const getStatusSubtitle = ({claimResult, status}) => {
   if (status === 'error') return 'Retry when your connection is available.';
   if (status === 'complete') {
-    return claimResult?.partialError
-      ? 'Some claim transactions were submitted before an error.'
+    if (claimResult?.partialError) {
+      return 'Some claim transactions were submitted before an error.';
+    }
+
+    return claimResult?.results?.length === 1
+      ? 'The claim transaction was submitted.'
       : 'The claim transactions were submitted.';
   }
   if (status === 'empty') {
     return 'No transparent funds or VerusIDs were found.';
   }
   return 'Review the transparent funds and VerusIDs found on this key.';
+};
+
+const getScreenTitle = ({claimResult, requestError, status}) => {
+  if (status === 'error') return requestError?.title || 'Network error';
+  if (status !== 'complete') return 'Claim funds';
+  if (claimResult?.partialError) return 'Claim partially submitted';
+  return 'Claim submitted';
 };
 
 const getErrorMessage = (error, fallback) => {
@@ -201,6 +195,9 @@ const getIdentityDisplay = identity => {
     ? convertFqnToDisplayFormat(identity.fullyQualifiedName)
     : identity.identityAddress;
 };
+
+const getSystemLabel = system =>
+  `${system.coinObj.display_ticker || system.coinObj.id} Chain`;
 
 const getExplorerBase = coinObj => {
   if (!coinObj) return null;
@@ -337,7 +334,9 @@ const SpendableKeyRequestInfoContent = props => {
     completeWithDelivery,
     detailIndex,
     next = async () => {},
+    navigation,
     openVerusIdDetailsModal = () => {},
+    pendingDeeplinkId,
     request,
     response,
     requiresPassword,
@@ -425,31 +424,32 @@ const SpendableKeyRequestInfoContent = props => {
     requiresPassword,
   ]);
 
-  const totals = useMemo(() => {
-    if (!claimPlan) return {currencies: 0, identities: 0, unsupported: 0};
-
-    return claimPlan.systems.reduce(
-      (acc, system) => {
-        acc.currencies += system.currencies.length;
-        acc.identities += system.identities.length;
-        acc.unsupported += system.identities.filter(
-          identity => identity.unsupportedReason,
-        ).length;
-        return acc;
-      },
-      {currencies: 0, identities: 0, unsupported: 0},
-    );
-  }, [claimPlan]);
-  const hasIdentityAuthorityWarnings = useMemo(() => {
-    if (!claimPlan) return false;
-
-    return claimPlan.systems.some(system =>
-      system.identities.some(
-        identity => getIdentityAuthorityIssues(identity).length > 0,
+  const reviewModel = useMemo(
+    () => getSpendableKeyReviewModel(claimPlan),
+    [claimPlan],
+  );
+  const unsupportedIdentityCount = useMemo(
+    () =>
+      reviewModel.identities.filter(({identity}) => identity.unsupportedReason)
+        .length,
+    [reviewModel],
+  );
+  const hasIdentityAuthorityWarnings = useMemo(
+    () =>
+      reviewModel.identities.some(
+        ({identity}) => getIdentityAuthorityIssues(identity).length > 0,
       ),
-    );
-  }, [claimPlan]);
-  const claimTitle = getClaimTitle(totals);
+    [reviewModel],
+  );
+  const walletGate = useMemo(
+    () =>
+      getSpendableKeyWalletGate({
+        activeAccountMatchesRequest,
+        matchingAccountCount: matchingAccounts.length,
+        signedIn,
+      }),
+    [activeAccountMatchesRequest, matchingAccounts.length, signedIn],
+  );
 
   const scanClaims = useCallback(async () => {
     Keyboard.dismiss();
@@ -555,14 +555,6 @@ const SpendableKeyRequestInfoContent = props => {
     claimPlanScanKey !== activeScanKey;
 
   const openLogin = useCallback(async () => {
-    if (matchingAccounts.length === 0) {
-      createAlert(
-        'No profile found',
-        `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profile is available for this request.`,
-      );
-      return;
-    }
-
     try {
       await requestWalletUnlock({
         reason: 'spendable-key-claim',
@@ -583,6 +575,50 @@ const SpendableKeyRequestInfoContent = props => {
       }
     }
   }, [matchingAccounts, requestIsTestnet, signedIn]);
+
+  const openWalletSetup = useCallback(async () => {
+    let savedPendingDeeplinkId = pendingDeeplinkId;
+
+    try {
+      if (!savedPendingDeeplinkId) {
+        const savedRequest = await savePendingDeeplinkRequest({
+          requestBufferString: request.toBuffer().toString('hex'),
+          uri: request.toWalletDeeplinkUri(),
+        });
+        savedPendingDeeplinkId = savedRequest?.id;
+      }
+
+      if (!savedPendingDeeplinkId) {
+        throw new Error('Unable to save this claim before wallet setup.');
+      }
+
+      const rootNavigation =
+        navigation?.getParent?.() || navigation?.dangerouslyGetParent?.();
+
+      if (!rootNavigation) {
+        throw new Error('Unable to open wallet setup.');
+      }
+
+      const hasAnyWallets = (accounts || []).length > 0;
+
+      rootNavigation.navigate(
+        hasAnyWallets ? 'SignedOutStack' : 'SignedOutNoKeyStack',
+        {
+          screen: hasAnyWallets ? 'Login' : 'LandingScreen',
+          params: {
+            claimRequestIsTestnet: requestIsTestnet,
+            openSetupSheet: true,
+            resumePendingDeeplinkId: savedPendingDeeplinkId,
+          },
+        },
+      );
+    } catch (e) {
+      createAlert(
+        'Cannot continue',
+        e?.message || 'Unable to save this claim before wallet setup.',
+      );
+    }
+  }, [accounts, navigation, pendingDeeplinkId, request, requestIsTestnet]);
 
   const linkClaimedIdentities = useCallback(async results => {
     const identityResults = results.filter(result => result.type === 'identity');
@@ -826,17 +862,12 @@ const SpendableKeyRequestInfoContent = props => {
     </SafeAreaView>
   );
 
-  if (status === 'scanning') {
-    return renderLoading(
-      'Scanning spendable key',
-      'Checking supported networks for transparent balances and VerusIDs.',
-    );
-  }
-
-  if (status === 'decrypting') {
-    return renderLoading(
-      'Decrypting spendable key',
-      'Opening the key locally before checking its claimable contents.',
+  if (status === 'scanning' || status === 'decrypting') {
+    return (
+      <GenericRequestLoading
+        activeStep={GENERIC_REQUEST_LOADING_STEPS.REVIEW}
+        onCancel={cancel}
+      />
     );
   }
 
@@ -937,12 +968,19 @@ const SpendableKeyRequestInfoContent = props => {
     );
   }
 
-  const primaryActionLabel = getPrimaryActionLabel({
-    activeAccountMatchesRequest,
-    signedIn,
-    status,
-  });
-  const statusSubtitle = getStatusSubtitle({claimResult, status});
+  let primaryActionLabel = getSpendableKeyClaimLabel(reviewModel);
+
+  if (status === 'error') primaryActionLabel = 'Retry';
+  else if (walletGate) primaryActionLabel = walletGate.actionLabel;
+  else if (status === 'empty' || status === 'complete') {
+    primaryActionLabel = 'Done';
+  }
+
+  const statusSubtitle =
+    status === 'review'
+      ? getSpendableKeyReviewSubtitle(reviewModel)
+      : getStatusSubtitle({claimResult, status});
+  const mainTitle = getScreenTitle({claimResult, requestError, status});
   const primaryAction = async () => {
     if (status === 'error') {
       if (requestError?.retry === 'claim' && claimPlan != null) {
@@ -950,7 +988,9 @@ const SpendableKeyRequestInfoContent = props => {
       } else {
         await scanClaims();
       }
-    } else if (!activeAccountMatchesRequest) {
+    } else if (walletGate?.type === 'setup') {
+      await openWalletSetup();
+    } else if (walletGate) {
       await openLogin();
     } else if (status === 'empty' || status === 'complete') {
       if (finishing) return;
@@ -981,13 +1021,24 @@ const SpendableKeyRequestInfoContent = props => {
       gap={10}
       horizontalSpacing={24}
       style={styles.footer}>
+      {walletGate?.helper && status !== 'complete' && (
+        <View style={styles.footerInfoRow}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={16}
+            color={theme.colors.textSubtle}
+            style={styles.footerInfoIcon}
+          />
+          <Text style={styles.footerInfoText}>{walletGate.helper}</Text>
+        </View>
+      )}
       <AppButton
         disabled={
           finishing ||
           (status === 'review' &&
             activeAccountMatchesRequest &&
             (!claimPlan ||
-              totals.unsupported > 0 ||
+              unsupportedIdentityCount > 0 ||
               !claimPlan.hasClaims ||
               claimPlanNeedsAccountRefresh))
         }
@@ -1010,44 +1061,9 @@ const SpendableKeyRequestInfoContent = props => {
       style={styles.container}>
       <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>
-            {status === 'error' ? requestError?.title || 'Network error' : claimTitle}
-          </Text>
-          <Text style={styles.subtitle}>
-            {statusSubtitle}
-          </Text>
+          <Text style={styles.mainTitle}>{mainTitle}</Text>
+          <Text style={styles.subtitle}>{statusSubtitle}</Text>
         </View>
-
-        <View style={styles.requestCard}>
-          <View style={styles.requestCardIcon}>
-            <MaterialCommunityIcons
-              name="key-variant"
-              size={24}
-              color={theme.colors.primary}
-            />
-          </View>
-          <View style={styles.requestCardText}>
-            <Text style={styles.requestCardLabel}>Spendable key</Text>
-            <Text style={styles.requestCardValue}>
-              {requestIsTestnet ? 'Testnet claim' : 'Mainnet claim'}
-            </Text>
-          </View>
-        </View>
-
-        {!activeAccountMatchesRequest && (
-          <View style={styles.infoCard}>
-            <MaterialCommunityIcons
-              name="information-outline"
-              size={18}
-              color={theme.colors.primary}
-            />
-            <Text style={styles.infoText}>
-              {signedIn
-                ? `Switch to a ${requestIsTestnet ? 'testnet' : 'mainnet'} profile to claim this key.`
-                : `Sign in to a ${requestIsTestnet ? 'testnet' : 'mainnet'} profile to claim this key.`}
-            </Text>
-          </View>
-        )}
 
         {status === 'error' && requestError != null && (
           <View style={styles.criticalWarningCard}>
@@ -1069,9 +1085,9 @@ const SpendableKeyRequestInfoContent = props => {
         )}
 
         {claimResult != null && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Submitted transactions</Text>
-            <Text style={styles.subtitle}>
+          <View style={styles.transactionSection}>
+            <Text style={styles.sectionTitle}>Submitted transactions</Text>
+            <Text style={styles.transactionSummary}>
               {`${claimResult.results.length} transaction${claimResult.results.length === 1 ? '' : 's'} submitted.`}
             </Text>
             {claimResult.partialError && (
@@ -1118,23 +1134,7 @@ const SpendableKeyRequestInfoContent = props => {
           </View>
         )}
 
-        {claimPlan && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Found</Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryCount}>{totals.currencies}</Text>
-                <Text style={styles.summaryLabel}>Balances</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryCount}>{totals.identities}</Text>
-                <Text style={styles.summaryLabel}>VerusIDs</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {totals.unsupported > 0 && (
+        {claimResult == null && unsupportedIdentityCount > 0 && (
           <View style={styles.warningCard}>
             <MaterialCommunityIcons
               name="alert-outline"
@@ -1147,7 +1147,7 @@ const SpendableKeyRequestInfoContent = props => {
           </View>
         )}
 
-        {hasIdentityAuthorityWarnings && (
+        {claimResult == null && hasIdentityAuthorityWarnings && (
           <View style={styles.criticalWarningCard}>
             <MaterialCommunityIcons
               name="alert-octagon-outline"
@@ -1166,124 +1166,170 @@ const SpendableKeyRequestInfoContent = props => {
           </View>
         )}
 
-        {claimPlan &&
-          claimPlan.systems.map(system => {
-            const hasRows =
-              system.currencies.length > 0 || system.identities.length > 0;
-
-            if (!hasRows) return null;
-
-            return (
-              <View style={styles.systemCard} key={system.systemId}>
-                <View style={styles.systemHeader}>
-                  <MaterialCommunityIcons
-                    name="link-variant"
-                    size={22}
-                    color={theme.colors.primary}
-                  />
-                  <View style={{flex: 1, minWidth: 0}}>
-                    <Text style={styles.systemTitle} numberOfLines={1}>
-                      {`${system.coinObj.display_ticker || system.coinObj.id} Chain`}
-                    </Text>
-                  </View>
+        {claimPlan && claimResult == null && reviewModel.itemCount > 0 && (
+          <>
+            {reviewModel.singleBalance ? (
+              <View style={styles.amountHero}>
+                <Text style={styles.chainLabel}>
+                  {getSystemLabel(reviewModel.singleBalance.system)}
+                </Text>
+                <View style={styles.amountHeroRow}>
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.62}
+                    numberOfLines={1}
+                    style={styles.amountHeroValue}>
+                    {reviewModel.singleBalance.currency.amount}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    style={styles.amountHeroCurrency}>
+                    {reviewModel.singleBalance.currency.display?.name ||
+                      reviewModel.singleBalance.currency.currencyId}
+                  </Text>
                 </View>
+              </View>
+            ) : (
+              <View style={styles.countHero}>
+                <Text style={styles.chainLabel}>
+                  {reviewModel.hasMultipleSystems
+                    ? `Across ${reviewModel.systems.length} chains`
+                    : getSystemLabel(reviewModel.systems[0])}
+                </Text>
+                <Text style={styles.countHeroValue}>
+                  {getSpendableKeySummaryLabel(reviewModel)}
+                </Text>
+              </View>
+            )}
 
-                {system.currencies.map(currency => (
-                  <View
-                    style={styles.row}
-                    key={`${system.systemId}:${currency.currencyId}`}
-                  >
-                    <MaterialCommunityIcons
-                      name="cash-multiple"
-                      size={20}
-                      color={theme.colors.textSecondary}
-                      style={{marginRight: 10}}
-                    />
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {currency.display.name}
-                      </Text>
-                      <Text style={styles.rowSubtitle} numberOfLines={1}>
-                        {truncate(currency.currencyId)}
-                      </Text>
-                    </View>
-                    <Text style={styles.rowAmount} numberOfLines={1}>
-                      {currency.amount}
-                    </Text>
-                  </View>
-                ))}
-
-                {system.identities.map(identity => {
-                  const authorityIssues = getIdentityAuthorityIssues(identity);
-                  const hasAuthorityWarning = authorityIssues.length > 0;
+            {!reviewModel.singleBalance && reviewModel.balanceCount > 0 && (
+              <View style={styles.itemSection}>
+                <Text style={styles.sectionTitle}>Balances</Text>
+                {reviewModel.systems.map(system => {
+                  if (system.currencies.length === 0) return null;
 
                   return (
-                    <View
-                      style={styles.row}
-                      key={`${system.systemId}:${identity.identityAddress}`}
-                    >
-                      <View style={styles.rowText}>
-                        <Text style={styles.rowTitle} numberOfLines={1}>
-                          {getIdentityDisplay(identity)}
+                    <View style={styles.systemGroup} key={system.systemId}>
+                      {reviewModel.hasMultipleSystems && (
+                        <Text style={styles.systemGroupLabel}>
+                          {getSystemLabel(system)}
                         </Text>
-                        <Text
-                          style={[
-                            styles.rowSubtitle,
-                            hasAuthorityWarning && styles.rowWarningSubtitle,
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {identity.unsupportedReason ||
-                            (hasAuthorityWarning
-                              ? 'Revocation or recovery authority is external'
-                              : truncate(identity.identityAddress))}
-                        </Text>
-                        {hasAuthorityWarning &&
-                          authorityIssues.map(issue => (
-                            <TouchableOpacity
-                              key={`${identity.identityAddress}:${issue.label}`}
-                              accessibilityRole="button"
-                              accessibilityLabel={`View ${issue.label} details`}
-                              activeOpacity={0.75}
-                              onPress={() =>
-                                openVerusIdDetailsModal(
-                                  system.systemId,
-                                  issue.authority,
-                                )
-                              }
-                              style={styles.authorityLineItem}
-                            >
-                              <MaterialCommunityIcons
-                                name="card-account-details-outline"
-                                size={16}
-                                color={theme.colors.warning}
-                                style={styles.authorityLineIcon}
-                              />
-                              <View style={styles.authorityLineText}>
-                                <Text style={styles.authorityLineLabel}>
-                                  {issue.label}
-                                </Text>
-                                <Text
-                                  style={styles.authorityLineName}
-                                  numberOfLines={1}
-                                >
-                                  {issue.authorityDisplay}
-                                </Text>
-                              </View>
-                              <MaterialCommunityIcons
-                                name="chevron-right"
-                                size={18}
-                                color={theme.colors.warning}
-                              />
-                            </TouchableOpacity>
-                          ))}
+                      )}
+                      <View style={styles.flatRows}>
+                        {system.currencies.map((currency, index) => (
+                          <View
+                            style={[
+                              styles.flatRow,
+                              index > 0 && styles.flatRowBorder,
+                            ]}
+                            key={`${system.systemId}:${currency.currencyId}`}>
+                            <Text numberOfLines={2} style={styles.rowTitle}>
+                              {currency.display?.name || currency.currencyId}
+                            </Text>
+                            <Text numberOfLines={2} style={styles.rowAmount}>
+                              {currency.amount}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
                     </View>
                   );
                 })}
               </View>
-            );
-          })}
+            )}
+
+            {reviewModel.identityCount > 0 && (
+              <View style={styles.itemSection}>
+                <Text style={styles.sectionTitle}>
+                  {reviewModel.identityCount === 1 ? 'VerusID' : 'VerusIDs'}
+                </Text>
+                {reviewModel.systems.map(system => {
+                  if (system.identities.length === 0) return null;
+
+                  return (
+                    <View style={styles.systemGroup} key={system.systemId}>
+                      {reviewModel.hasMultipleSystems && (
+                        <Text style={styles.systemGroupLabel}>
+                          {getSystemLabel(system)}
+                        </Text>
+                      )}
+                      <View style={styles.flatRows}>
+                        {system.identities.map((identity, index) => {
+                          const authorityIssues =
+                            getIdentityAuthorityIssues(identity);
+                          const hasAuthorityWarning = authorityIssues.length > 0;
+
+                          return (
+                            <View
+                              style={[
+                                styles.identityRow,
+                                index > 0 && styles.flatRowBorder,
+                              ]}
+                              key={`${system.systemId}:${identity.identityAddress}`}>
+                              <Text numberOfLines={2} style={styles.rowTitle}>
+                                {getIdentityDisplay(identity)}
+                              </Text>
+                              {(identity.unsupportedReason ||
+                                hasAuthorityWarning) && (
+                                <Text
+                                  numberOfLines={2}
+                                  style={[
+                                    styles.rowSubtitle,
+                                    hasAuthorityWarning &&
+                                      styles.rowWarningSubtitle,
+                                  ]}>
+                                  {identity.unsupportedReason ||
+                                    'Revocation or recovery authority is external'}
+                                </Text>
+                              )}
+                              {hasAuthorityWarning &&
+                                authorityIssues.map(issue => (
+                                  <TouchableOpacity
+                                    accessibilityLabel={`View ${issue.label} details`}
+                                    accessibilityRole="button"
+                                    activeOpacity={0.75}
+                                    key={`${identity.identityAddress}:${issue.label}`}
+                                    onPress={() =>
+                                      openVerusIdDetailsModal(
+                                        system.systemId,
+                                        issue.authority,
+                                      )
+                                    }
+                                    style={styles.authorityLineItem}>
+                                    <MaterialCommunityIcons
+                                      name="card-account-details-outline"
+                                      size={16}
+                                      color={theme.colors.warning}
+                                      style={styles.authorityLineIcon}
+                                    />
+                                    <View style={styles.authorityLineText}>
+                                      <Text style={styles.authorityLineLabel}>
+                                        {issue.label}
+                                      </Text>
+                                      <Text
+                                        numberOfLines={1}
+                                        style={styles.authorityLineName}>
+                                        {issue.authorityDisplay}
+                                      </Text>
+                                    </View>
+                                    <MaterialCommunityIcons
+                                      name="chevron-right"
+                                      size={18}
+                                      color={theme.colors.warning}
+                                    />
+                                  </TouchableOpacity>
+                                ))}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
         <View style={styles.scrollEndSpacer} />
       </DeepLinkReviewScrollView>
       {footer}
