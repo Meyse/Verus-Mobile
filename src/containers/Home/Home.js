@@ -8,7 +8,7 @@
   if they are flagged to be updated in the redux store.
 */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   setActiveCoin,
   setActiveApp,
@@ -58,6 +58,12 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import SignedInWalletHome from './SignedInWalletHome';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../env/index';
+import {
+  WALLET_APP_RECEIVE,
+  WALLET_APP_SEND,
+} from '../../utils/constants/apps';
 
 const Home = () => {
   const dispatch = useDispatch();
@@ -83,6 +89,7 @@ const Home = () => {
   const displayCurrency = useSelector(
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
+  const showBalance = useSelector(state => state.coins.showBalance);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(0);
   const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
@@ -278,6 +285,17 @@ const Home = () => {
   );
 
   const resetToScreen = (route, title, data) => {
+    if (ENABLE_SIGNED_IN_REDESIGN) {
+      if (route === 'CoinMenus') {
+        navigation.navigate(route, {title, data});
+        return;
+      }
+
+      const mainNavigation = navigation.getParent()?.getParent();
+      (mainNavigation || navigation).navigate(route, {title, data});
+      return;
+    }
+
     const resetAction = CommonActions.reset({
       index: 1,
       routes: [
@@ -286,7 +304,7 @@ const Home = () => {
       ],
     });
 
-    navigation.closeDrawer();
+    if (navigation.closeDrawer) navigation.closeDrawer();
     navigation.dispatch(resetAction);
   };
 
@@ -369,6 +387,98 @@ const Home = () => {
     resetToScreen('CoinMenus', 'Overview');
   };
 
+  const findSection = (coinObj, sectionKey) => {
+    for (const [appKey, app] of Object.entries(coinObj.apps || {})) {
+      const section = (app.data || []).find(item => item.key === sectionKey);
+
+      if (section) return {appKey, section};
+    }
+
+    return null;
+  };
+
+  const actionSources = useCallback(
+    action => {
+      const sectionKey =
+        action === 'wallet-receive' ? WALLET_APP_RECEIVE : WALLET_APP_SEND;
+
+      return activeCoinsForUser.flatMap(coinObj => {
+        const section = findSection(coinObj, sectionKey);
+
+        if (!section) return [];
+
+        return (allSubWallets[coinObj.id] || [])
+          .filter(card => card.compatible_apps.includes(sectionKey))
+          .map(card => ({
+            key: `${coinObj.id}:${card.id}`,
+            title: `${coinObj.display_name} · ${card.name}`,
+            description: card.network
+              ? `${coinObj.display_ticker} on ${card.network}`
+              : coinObj.display_ticker,
+            coinObj,
+            card,
+            ...section,
+          }));
+      });
+    },
+    [activeCoinsForUser, allSubWallets],
+  );
+
+  const openActionSource = (source) => {
+    dispatch(setCoinSubWallet(source.coinObj.id, source.card));
+    dispatch(setActiveCoin(source.coinObj));
+    dispatch(setActiveApp(source.appKey));
+    dispatch(setActiveSection(source.section));
+    resetToScreen('CoinMenus', source.section.name);
+  };
+
+  const signedInAssets = useMemo(() => {
+    return activeCoinsForUser
+      .map(coin => {
+        const cards = allSubWallets[coin.id] || [];
+        const balance = BigNumber(totalCryptoBalances[coin.id] || 0);
+        const rate = getRate(coin.id, displayCurrency);
+        const fiatValue = rate == null ? null : balance.multipliedBy(rate).toNumber();
+        const preferredCard =
+          activeSubWallets[coin.id] || cards.find(card => {
+            const cardBalance = balances[coin.id]?.[card.id]?.total;
+            return cardBalance != null && BigNumber(cardBalance).isGreaterThan(0);
+          }) || cards[0];
+        const statusDescription = coin.mapped_to
+          ? `Mapped · ${coin.display_ticker}`
+          : coin.testnet
+          ? 'Testnet'
+          : coin.display_ticker;
+
+        return {
+          coin,
+          balance,
+          fiatValue,
+          cardCount: cards.length,
+          preferredCard,
+          statusDescription,
+        };
+      })
+      .sort((a, b) => {
+        const fundedOrder = Number(b.balance.isGreaterThan(0)) - Number(a.balance.isGreaterThan(0));
+        if (fundedOrder !== 0) return fundedOrder;
+        if (a.fiatValue != null && b.fiatValue != null && a.fiatValue !== b.fiatValue) {
+          return b.fiatValue - a.fiatValue;
+        }
+        if (a.fiatValue != null && b.fiatValue == null) return -1;
+        if (a.fiatValue == null && b.fiatValue != null) return 1;
+        return a.coin.display_name.localeCompare(b.coin.display_name);
+      });
+  }, [
+    activeCoinsForUser,
+    activeSubWallets,
+    allSubWallets,
+    balances,
+    displayCurrency,
+    rates,
+    totalCryptoBalances,
+  ]);
+
   const _addCoin = () => {
     navigation.navigate('AddCoin', { refresh: refresh });
   };
@@ -384,6 +494,26 @@ const Home = () => {
       CoinDirectory.findCoinObj(testnetOverrides.ETH ? testnetOverrides.ETH : 'ETH'),
     );
   };
+
+  if (ENABLE_SIGNED_IN_REDESIGN) {
+    return (
+      <SignedInWalletHome
+        assets={signedInAssets}
+        displayCurrency={displayCurrency}
+        loading={loading}
+        showBalance={showBalance}
+        totalFiatBalance={totalFiatBalance}
+        onToggleBalance={() => dispatch({type: 'SET_BALANCE_SHOW'})}
+        onRefresh={forceUpdate}
+        onOpenAsset={openCoin}
+        actionSources={actionSources}
+        onOpenActionSource={openActionSource}
+        onAddCoin={_addCoin}
+        onAddPbaasCurrency={_addPbaasCurrency}
+        onAddErc20Token={_addErc20Token}
+      />
+    );
+  }
 
   return (
     <HomeRender

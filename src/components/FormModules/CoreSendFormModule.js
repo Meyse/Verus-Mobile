@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Button, TextInput , Text} from 'react-native-paper';
 import Colors from '../../globals/colors';
 import Styles from '../../styles';
+import AddressBookPicker from '../AddressBookPicker';
 
 const CoreSendFormModule = ({
   sendingFromLabel = "Sending from",
@@ -19,7 +20,9 @@ const CoreSendFormModule = ({
   estimatedResultSubtitle = null,
   networkName,
   destDisabled,
-  amountDisabled
+  amountDisabled,
+  recipientAsset,
+  recipientNetwork,
 }) => {
   return (
     <React.Fragment>
@@ -39,6 +42,15 @@ const CoreSendFormModule = ({
         }
       </View>
       <View style={{ ...Styles.wideBlockDense, paddingTop: 0, paddingBottom: 2 }}>
+        {!destDisabled && (
+          <View style={{alignItems: 'flex-end'}}>
+            <AddressBookPicker
+              asset={recipientAsset}
+              network={recipientNetwork}
+              onSelect={record => onRecipientAddressChange(record.address)}
+            />
+          </View>
+        )}
         <View style={Styles.flexRow}>
           <TextInput
             returnKeyType="done"

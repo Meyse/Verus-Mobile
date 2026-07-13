@@ -17,6 +17,7 @@ import { CoinDirectory } from "../../../../utils/CoinData/CoinDirectory";
 import { selectAddressBlocklist } from "../../../../selectors/settings";
 import { addressIsBlocked } from "../../../../utils/addressBlocklist";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
+import AddressBookPicker from '../../../AddressBookPicker';
 
 const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation }) => {
   const { height } = Dimensions.get("window");
@@ -259,6 +260,15 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
           }
         </View>
         <View style={{...Styles.wideBlock, paddingTop: 0}}>
+          <View style={{alignItems: 'flex-end'}}>
+            <AddressBookPicker
+              asset={sendModal.coinObj.display_ticker}
+              network={networkName}
+              onSelect={record =>
+                updateSendFormData(SEND_MODAL_TO_ADDRESS_FIELD, record.address)
+              }
+            />
+          </View>
           <TextInput
             returnKeyType="done"
             label="Recipient address"

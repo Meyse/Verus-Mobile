@@ -22,6 +22,8 @@ import { subWalletActivity } from "../../utils/subwallet/subWalletStatus";
 import MissingInfoRedirect from "../../components/MissingInfoRedirect/MissingInfoRedirect";
 import { WALLET_APP_CONVERT, WALLET_APP_MANAGE, WALLET_APP_OVERVIEW, WALLET_APP_RECEIVE, WALLET_APP_SEND } from "../../utils/constants/apps";
 import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
+import SignedInActionBar from "../../components/SignedInActionBar";
+import {ENABLE_SIGNED_IN_REDESIGN} from "../../../env/index";
 
 class CoinMenus extends Component {
   constructor(props) {
@@ -194,6 +196,12 @@ class CoinMenus extends Component {
     this.setState({ activeTab: newTab, activeTabIndex: index });
   };
 
+  switchToSection = (sectionKey) => {
+    const index = this.state.tabs.findIndex(tab => tab.key === sectionKey);
+
+    if (index >= 0) this.switchTab(index);
+  };
+
   goBack = () => {
     this.props.navigation.dispatch(NavigationActions.back());
   };
@@ -225,15 +233,23 @@ class CoinMenus extends Component {
           )}
           {selectedSubWallet != null && <DynamicHeader switchTab={this.switchTab} />}
           {selectedSubWallet != null && (
-            <BottomNavigation
-              shifting={false}
-              navigationState={{
-                index: this.state.activeTabIndex,
-                routes: this.state.tabs,
-              }}
-              onIndexChange={this.switchTab}
-              renderScene={this.renderScene}
-            />
+            <View style={{flex: 1}}>
+              <BottomNavigation
+                shifting={false}
+                navigationState={{
+                  index: this.state.activeTabIndex,
+                  routes: this.state.tabs,
+                }}
+                onIndexChange={this.switchTab}
+                renderScene={this.renderScene}
+              />
+              {ENABLE_SIGNED_IN_REDESIGN && (
+                <SignedInActionBar
+                  onReceive={() => this.switchToSection(WALLET_APP_RECEIVE)}
+                  onSendOrConvert={() => this.switchToSection(WALLET_APP_SEND)}
+                />
+              )}
+            </View>
           )}
         </View>
       </Portal.Host>

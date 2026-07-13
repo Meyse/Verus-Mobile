@@ -15,8 +15,14 @@ import NumberPadModal from "../../../components/NumberPadModal/NumberPadModal"
 import ListSelectionModal from "../../../components/ListSelectionModal/ListSelectionModal";
 import AnimatedActivityIndicatorBox from "../../../components/AnimatedActivityIndicatorBox";
 import { coinsList } from "../../../utils/CoinData/CoinsList";
+import SignedInReceiveCoin from './SignedInReceiveCoin';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
 
 export const RenderReceiveCoin = function() {
+  if (ENABLE_SIGNED_IN_REDESIGN) {
+    return <SignedInReceiveCoin controller={this} />;
+  }
+
   const _price = this.getPrice();
   const {
     state,

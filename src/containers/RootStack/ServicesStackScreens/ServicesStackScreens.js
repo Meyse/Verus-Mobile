@@ -8,20 +8,36 @@ import WyreServiceAddPaymentMethod from '../../Services/ServiceComponents/WyreSe
 import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceEditPaymentMethod/WyreServiceEditPaymentMethod';
 import GiftCardCreate from '../../Services/ServiceComponents/GiftCardService/GiftCardCreate/GiftCardCreate';
 import GiftCardFund from '../../Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
+import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
+import {useOnboardingTheme} from '../../../theme/onboarding';
+import AddressBook from '../../Services/AddressBook/AddressBook';
 
 const ServicesStack = createStackNavigator();
 
 const ServicesStackScreens = props => {
+  const theme = useOnboardingTheme();
+
   return (
     <ServicesStack.Navigator
-      screenOptions={defaultHeaderOptions}
+      screenOptions={
+        ENABLE_SIGNED_IN_REDESIGN
+          ? createRedesignedHeaderOptions(theme)
+          : defaultHeaderOptions
+      }
     >
       <ServicesStack.Screen
         name="Services"
         component={Services}
         options={{
           title: "Services",
+          headerShown: !ENABLE_SIGNED_IN_REDESIGN,
         }}
+      />
+      <ServicesStack.Screen
+        name="AddressBook"
+        component={AddressBook}
+        options={{title: 'Address Book'}}
       />
       <ServicesStack.Screen
         name="Service"

@@ -1205,6 +1205,8 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
                 onMaxPress={() => maxAmount()}
                 maxButtonDisabled={localBalances == null}
                 networkName={networkName}
+                recipientAsset={sendModal.coinObj.display_ticker}
+                recipientNetwork={networkName}
                 estimatedResultSubtitle={
                   isConversion &&
                   !isExport &&

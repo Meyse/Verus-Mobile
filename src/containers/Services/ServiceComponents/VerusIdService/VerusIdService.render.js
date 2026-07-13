@@ -4,8 +4,14 @@ import styles from "../../../../styles";
 import AnimatedActivityIndicator from "../../../../components/AnimatedActivityIndicator";
 import VerusIdServiceOverview from "./VerusIdServiceOverview/VerusIdServiceOverview";
 import VerusIdServiceIntroSlider from "./VerusIdServiceIntroSlider/VerusIdServiceIntroSlider";
+import SignedInVerusIdService from './SignedInVerusIdService';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../../env/index';
 
 export const VerusIdServiceRender = function () {
+  if (ENABLE_SIGNED_IN_REDESIGN) {
+    return <SignedInVerusIdService controller={this} />;
+  }
+
   return (
     <React.Fragment>
       {(this.props.loading || this.state.linkedIds == null) && (

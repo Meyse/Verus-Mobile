@@ -26,6 +26,7 @@ import { createAlert } from "../../../actions/actions/alert/dispatchers/alert";
 const GENERAL_WALLET_SETTINGS = "GeneralWalletSettings"
 const COIN_SETTINGS = "CoinSettings"
 const VRPC_OVERRIDES = "VrpcOverrides"
+const ADDRESS_BLOCKLIST = "AddressBlocklist"
 
 const WalletSettings = ({ navigation, dispatch, activeCoinsForUser }) => {
   const [usingKeychainEncryption, setUsingKeychainEncryption] = useState(SecureStorage.isEncrypted());
@@ -153,15 +154,14 @@ const WalletSettings = ({ navigation, dispatch, activeCoinsForUser }) => {
           <Divider />
         </TouchableOpacity>
 
-        {/* Uncomment if needed */}
-        {/* <TouchableOpacity onPress={() => openSettings(ADDRESS_BLOCKLIST)}>
+        <TouchableOpacity onPress={() => openSettings(ADDRESS_BLOCKLIST)}>
           <List.Item
             title={"Address Blocklist"}
             left={(props) => <List.Icon {...props} icon={"block-helper"} />}
             right={(props) => <List.Icon {...props} icon={"chevron-right"} />}
           />
           <Divider />
-        </TouchableOpacity> */}
+        </TouchableOpacity>
 
         <TouchableOpacity onPress={() => openSettings(VRPC_OVERRIDES)}>
           <List.Item

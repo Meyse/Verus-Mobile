@@ -4,8 +4,14 @@ import styles from "../../../../../styles";
 import { List, Divider, Portal, Button } from "react-native-paper";
 import VerusIdDetailsModal from "../../../../../components/VerusIdDetailsModal/VerusIdDetailsModal";
 import Colors from "../../../../../globals/colors";
+import SignedInVerusIdOverview from './SignedInVerusIdOverview';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../../../env/index';
 
 export const VerusIdServiceOverviewRender = function () {
+  if (ENABLE_SIGNED_IN_REDESIGN) {
+    return <SignedInVerusIdOverview controller={this} />;
+  }
+
   const {linkedIds} = this.props;
   const sortedIdKeysPerChain = {};
 
