@@ -1,28 +1,68 @@
-import React, {useMemo, useState} from 'react';
-import {FlatList, Pressable, View} from 'react-native';
-import {Avatar, IconButton, Portal, Text} from 'react-native-paper';
+import React, {useRef, useState} from 'react';
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import ListSelectionModal from '../../components/ListSelectionModal/ListSelectionModal';
 import SignedInActionBar from '../../components/SignedInActionBar';
-import signedInCopy from '../../copy/signedIn';
-import {createSignedInStyles} from '../../styles';
+import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {getCoinLogo} from '../../utils/CoinData/CoinData';
-import {truncateDecimal} from '../../utils/math';
+import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {
+  DisplayCurrencySheet,
+  ManageAssetsSheet,
+} from './components/SignedInWalletSheets';
+import NotificationWidget from './HomeWidgets/NotificationWidget';
 
-const formatFiat = (amount, currency) =>
-  formatCurrency({amount: Number(amount || 0), code: currency})[0];
+const HEADER_DIVIDER_THRESHOLD = 1;
+const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
 
-const getAssetValueText = (item, showBalance, displayCurrency) => {
-  if (!showBalance) return '••••••';
-  if (item.fiatValue == null) return signedInCopy.wallet.priceUnavailable;
-  return formatFiat(item.fiatValue, displayCurrency);
+const getCurrencyParts = (amount, currency) => {
+  const rounded = BigNumber(amount || 0).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+  const [, valueWithoutSymbol, symbol] = formatCurrency({
+    amount: rounded.toFixed(2),
+    code: currency,
+  });
+
+  return {
+    symbol: symbol || currency,
+    value: valueWithoutSymbol.trim(),
+  };
 };
 
-const getAssetDescription = item => {
-  if (item.cardCount > 1) return `${item.cardCount} Cards`;
-  return item.statusDescription;
+const formatFiat = (amount, currency) => {
+  const rounded = BigNumber(amount || 0).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+  return formatCurrency({amount: rounded.toFixed(2), code: currency})[0];
+};
+
+const PortfolioBalance = ({amount, currency, showBalance, theme}) => {
+  const value = getCurrencyParts(amount, currency);
+
+  if (!showBalance) {
+    return <Text style={[styles.heroMask, {color: theme.colors.textPrimary}]}>***</Text>;
+  }
+
+  return (
+    <View style={styles.heroValueRow}>
+      <Text style={[styles.heroSymbol, {color: theme.colors.textPrimary}]}>
+        {value.symbol}
+      </Text>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.35}
+        style={[styles.heroAmount, {color: theme.colors.textPrimary}]}>
+        {value.value}
+      </Text>
+    </View>
+  );
 };
 
 const SignedInWalletHome = ({
@@ -32,243 +72,196 @@ const SignedInWalletHome = ({
   showBalance,
   totalFiatBalance,
   onToggleBalance,
+  onSelectDisplayCurrency,
   onRefresh,
   onOpenAsset,
-  actionSources,
-  onOpenActionSource,
+  receiveAvailable,
+  transferAvailable,
+  onReceive,
+  onSendOrConvert,
   onAddCoin,
   onAddPbaasCurrency,
   onAddErc20Token,
 }) => {
   const theme = useOnboardingTheme();
-  const styles = createSignedInStyles(theme);
-  const [sourceAction, setSourceAction] = useState(null);
   const [manageAssetsOpen, setManageAssetsOpen] = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [showHeaderDivider, setShowHeaderDivider] = useState(false);
+  const dividerRef = useRef(false);
 
-  const sourceOptions = useMemo(
-    () => (sourceAction ? actionSources(sourceAction) : []),
-    [actionSources, sourceAction],
-  );
-  const receiveAvailable = actionSources('wallet-receive').length > 0;
-  const transferAvailable = actionSources('wallet-transfer').length > 0;
-
-  const manageOptions = [
-    {
-      key: 'add-asset',
-      title: 'Browse assets',
-      description: 'Enable or remove supported wallet assets',
-    },
-    {
-      key: 'add-pbaas',
-      title: 'Add PBaaS currency',
-      description: 'Add a currency from a Verus PBaaS network',
-    },
-    {
-      key: 'add-erc20',
-      title: 'Add ERC-20 token',
-      description: 'Add a supported Ethereum token',
-    },
-  ];
-
-  const handleManageSelection = item => {
-    setManageAssetsOpen(false);
-
-    if (item.key === 'add-pbaas') onAddPbaasCurrency();
-    else if (item.key === 'add-erc20') onAddErc20Token();
-    else onAddCoin();
-  };
-
-  const openAction = action => {
-    const options = actionSources(action);
-
-    if (options.length === 1) {
-      onOpenActionSource(options[0], action);
-    } else {
-      setSourceAction(action);
+  const handleScroll = event => {
+    const next = (event?.nativeEvent?.contentOffset?.y || 0) > HEADER_DIVIDER_THRESHOLD;
+    if (next !== dividerRef.current) {
+      dividerRef.current = next;
+      setShowHeaderDivider(next);
     }
   };
 
   const renderAsset = ({item}) => {
-    const Logo = getCoinLogo(item.coin.id, item.coin.proto);
-    const balanceText = `${truncateDecimal(item.balance.toString(), 8)} ${
+    const crypto = BigNumber(item.balance || 0);
+    const hasBalance = crypto.isGreaterThan(0);
+    const cryptoText = `${crypto.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)} ${
       item.coin.display_ticker
     }`;
+    const rateText = item.rate == null ? null : formatFiat(item.rate, displayCurrency);
+    const fiatText =
+      item.fiatValue != null
+        ? formatFiat(item.fiatValue, displayCurrency)
+        : hasBalance
+        ? 'N/A'
+        : formatFiat(0, displayCurrency);
 
     return (
-      <Pressable
+      <TouchableOpacity
+        activeOpacity={0.76}
         accessibilityRole="button"
         accessibilityLabel={`${item.coin.display_name}, ${
-          showBalance ? balanceText : 'balance hidden'
+          showBalance ? cryptoText : 'balance hidden'
         }`}
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
-        style={({pressed}) => [
-          styles.row,
-          {opacity: pressed ? 0.72 : 1},
-        ]}>
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: theme.spacing.md,
-          }}>
-          {Logo ? (
-            <Logo width={40} height={40} />
-          ) : (
-            <Avatar.Icon size={40} icon="wallet-outline" />
-          )}
+        style={styles.assetRow}>
+        <View style={styles.logoWrap}>
+          {RenderSquareCoinLogo(item.coin.id, {}, 38, 38)}
         </View>
-        <View style={{flex: 1, minWidth: 0}}>
-          <Text numberOfLines={1} style={styles.rowTitle}>
-            {item.coin.display_name}
-          </Text>
-          <Text numberOfLines={1} style={styles.rowDescription}>
-            {getAssetDescription(item)}
-          </Text>
+        <View style={styles.assetCopy}>
+          <View style={styles.assetLine}>
+            <Text
+              numberOfLines={1}
+              style={[styles.assetName, {color: theme.colors.textPrimary}]}>
+              {item.coin.display_name}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                fiatText === 'N/A' ? styles.fiatUnavailable : styles.fiatValue,
+                {color: fiatText === 'N/A' ? theme.colors.textSubtle : theme.colors.textPrimary},
+              ]}>
+              {showBalance ? fiatText : '*****'}
+            </Text>
+          </View>
+          <View style={[styles.assetLine, styles.assetSecondaryLine]}>
+            <Text numberOfLines={1} style={[styles.cryptoValue, {color: theme.colors.textSecondary}]}>
+              {showBalance ? cryptoText : `*** ${item.coin.display_ticker}`}
+            </Text>
+            {rateText ? (
+              <Text numberOfLines={1} style={[styles.fiatRate, {color: theme.colors.textSubtle}]}>
+                {rateText}
+              </Text>
+            ) : null}
+          </View>
         </View>
-        <View style={{alignItems: 'flex-end', maxWidth: '46%'}}>
-          <Text numberOfLines={1} style={styles.rowTitle}>
-            {getAssetValueText(item, showBalance, displayCurrency)}
-          </Text>
-          <Text numberOfLines={1} style={styles.rowDescription}>
-            {showBalance ? balanceText : 'Balance hidden'}
-          </Text>
-        </View>
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 
-  const header = (
-    <View>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-        <Text style={styles.title}>{signedInCopy.wallet.title}</Text>
-        <IconButton
-          icon="plus"
-          accessibilityLabel={signedInCopy.actions.manageAssets}
-          iconColor={theme.colors.primary}
-          onPress={() => setManageAssetsOpen(true)}
-        />
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={showBalance ? 'Hide portfolio balance' : 'Show portfolio balance'}
-        onPress={onToggleBalance}
-        style={[
-          styles.surface,
-          {
-            marginTop: theme.spacing.lg,
-            padding: theme.spacing.lg,
-            backgroundColor: theme.colors.surfaceRaised,
-          },
-        ]}>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          <View style={{flex: 1}}>
-            <Text style={styles.sectionTitle}>{signedInCopy.wallet.portfolio}</Text>
-            <Text
-              accessibilityLabel={
-                showBalance
-                  ? formatFiat(totalFiatBalance, displayCurrency)
-                  : 'Portfolio balance hidden'
-              }
-              style={[
-                theme.typography.headlineLg,
-                {color: theme.colors.textPrimary},
-              ]}>
-              {showBalance
-                ? formatFiat(totalFiatBalance, displayCurrency)
-                : '••••••••'}
-            </Text>
-          </View>
-          <IconButton
-            icon={showBalance ? 'eye-off-outline' : 'eye-outline'}
-            accessibilityLabel={showBalance ? 'Hide balances' : 'Show balances'}
-            iconColor={theme.colors.textSecondary}
-            onPress={onToggleBalance}
-          />
-        </View>
-      </Pressable>
-      <View
-        style={{
-          marginTop: theme.spacing.xl,
-          marginBottom: theme.spacing.sm,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-        <Text style={styles.sectionTitle}>{signedInCopy.wallet.assets}</Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setManageAssetsOpen(true)}>
-          <Text style={[styles.rowDescription, {color: theme.colors.primary}]}>
-            {signedInCopy.actions.manageAssets}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeScreen}>
-      <Portal>
-        {sourceAction && (
-          <ListSelectionModal
-            title={signedInCopy.wallet.selectSource}
-            visible
-            data={sourceOptions}
-            onSelect={item => {
-              setSourceAction(null);
-              onOpenActionSource(item);
-            }}
-            cancel={() => setSourceAction(null)}
-          />
-        )}
-        {manageAssetsOpen && (
-          <ListSelectionModal
-            title={signedInCopy.actions.manageAssets}
-            visible
-            data={manageOptions}
-            onSelect={handleManageSelection}
-            cancel={() => setManageAssetsOpen(false)}
-          />
-        )}
-      </Portal>
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+      <View
+        style={[
+          styles.header,
+          {backgroundColor: theme.colors.background},
+          showHeaderDivider && {borderBottomColor: theme.colors.border, borderBottomWidth: StyleSheet.hairlineWidth},
+        ]}>
+        <View style={styles.balanceRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change display currency"
+            onPress={() => setCurrencyOpen(true)}
+            style={styles.balanceTouchable}>
+            <PortfolioBalance
+              amount={totalFiatBalance}
+              currency={displayCurrency}
+              showBalance={showBalance}
+              theme={theme}
+            />
+          </Pressable>
+          <View style={styles.balanceActions}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={showBalance ? 'Hide balances' : 'Show balances'}
+              hitSlop={ICON_HIT_SLOP}
+              onPress={onToggleBalance}
+              style={[styles.iconButton, styles.balanceToggle]}>
+              <MaterialCommunityIcons
+                name={showBalance ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={theme.colors.textSubtle}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Manage assets"
+              hitSlop={ICON_HIT_SLOP}
+              onPress={() => setManageAssetsOpen(true)}
+              style={styles.iconButton}>
+              <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSubtle} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <NotificationWidget />
+      </View>
+
       <FlatList
         data={assets}
         keyExtractor={item => item.coin.id}
         renderItem={renderAsset}
         refreshing={loading}
         onRefresh={onRefresh}
-        ListHeaderComponent={header}
-        ListEmptyComponent={
-          <View style={{paddingVertical: theme.spacing.xl, alignItems: 'center'}}>
-            <Text style={styles.rowTitle}>{signedInCopy.wallet.noAssets}</Text>
-            <Text style={[styles.rowDescription, {textAlign: 'center'}]}>
-              {signedInCopy.wallet.noAssetsDescription}
-            </Text>
-          </View>
-        }
-        ItemSeparatorComponent={() => <View style={styles.divider} />}
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingHorizontal: theme.spacing.lg,
-          paddingTop: theme.spacing.md,
-          paddingBottom: theme.spacing.md,
-        }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={styles.listContent}
       />
+
       <SignedInActionBar
         receiveDisabled={!receiveAvailable}
         sendOrConvertDisabled={!transferAvailable}
-        onReceive={() => openAction('wallet-receive')}
-        onSendOrConvert={() => openAction('wallet-transfer')}
+        onReceive={onReceive}
+        onSendOrConvert={onSendOrConvert}
+      />
+      <ManageAssetsSheet
+        visible={manageAssetsOpen}
+        onClose={() => setManageAssetsOpen(false)}
+        onAddCoin={onAddCoin}
+        onAddPbaasCurrency={onAddPbaasCurrency}
+        onAddErc20Token={onAddErc20Token}
+      />
+      <DisplayCurrencySheet
+        visible={currencyOpen}
+        displayCurrency={displayCurrency}
+        onClose={() => setCurrencyOpen(false)}
+        onSelect={onSelectDisplayCurrency}
       />
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  screen: {flex: 1},
+  header: {paddingHorizontal: 20, paddingTop: 10, paddingBottom: 8},
+  balanceRow: {flexDirection: 'row', alignItems: 'flex-start', width: '100%', marginBottom: 8},
+  balanceTouchable: {flex: 1},
+  balanceActions: {flexDirection: 'row', alignItems: 'center', marginLeft: 8, marginTop: 12},
+  balanceToggle: {marginRight: 6},
+  iconButton: {padding: 6},
+  heroValueRow: {flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12},
+  heroSymbol: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 24, marginRight: 4, marginTop: 2},
+  heroAmount: {...fontStyle('bold'), flexShrink: 1, fontSize: 40, lineHeight: 44, letterSpacing: -0.5},
+  heroMask: {...fontStyle('bold'), paddingVertical: 12, fontSize: 40, lineHeight: 44, letterSpacing: 1},
+  listContent: {paddingBottom: 16},
+  assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row'},
+  logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},
+  assetCopy: {flex: 1, minWidth: 0, justifyContent: 'center'},
+  assetLine: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  assetSecondaryLine: {marginTop: 6},
+  assetName: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 21, flexShrink: 1, marginRight: 12},
+  fiatValue: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20, textAlign: 'right'},
+  fiatUnavailable: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, textAlign: 'right'},
+  cryptoValue: {...fontStyle('medium'), fontSize: 16, lineHeight: 20, flexShrink: 1, marginRight: 12},
+  fiatRate: {...fontStyle('regular'), fontSize: 12, lineHeight: 16, textAlign: 'right'},
+});
 
 export default SignedInWalletHome;

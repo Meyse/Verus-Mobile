@@ -463,6 +463,7 @@ const Home = () => {
         return {
           coin,
           balance,
+          rate,
           fiatValue,
           cardCount: cards.length,
           preferredCard,
@@ -506,6 +507,10 @@ const Home = () => {
   };
 
   if (ENABLE_SIGNED_IN_REDESIGN) {
+    const mainNavigation = navigation.getParent()?.getParent();
+    const receiveAvailable = actionSources('wallet-receive').length > 0;
+    const transferAvailable = actionSources('wallet-transfer').length > 0;
+
     return (
       <SignedInWalletHome
         assets={signedInAssets}
@@ -514,10 +519,13 @@ const Home = () => {
         showBalance={showBalance}
         totalFiatBalance={totalFiatBalance}
         onToggleBalance={() => dispatch({type: 'SET_BALANCE_SHOW'})}
+        onSelectDisplayCurrency={setDisplayCurrencyFunc}
         onRefresh={forceUpdate}
         onOpenAsset={openCoin}
-        actionSources={actionSources}
-        onOpenActionSource={openActionSource}
+        receiveAvailable={receiveAvailable}
+        transferAvailable={transferAvailable}
+        onReceive={() => (mainNavigation || navigation).navigate('ReceiveAssetsList')}
+        onSendOrConvert={() => (mainNavigation || navigation).navigate('SendWizard')}
         onAddCoin={_addCoin}
         onAddPbaasCurrency={_addPbaasCurrency}
         onAddErc20Token={_addErc20Token}

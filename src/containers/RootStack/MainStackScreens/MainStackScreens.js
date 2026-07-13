@@ -22,6 +22,9 @@ import ProfileSettings from '../../Settings/ProfileSettings/ProfileSettings';
 import WalletSettings from '../../Settings/WalletSettings/WalletSettings';
 import AppInfo from '../../Settings/AppInfo/AppInfo';
 import Appearance from '../../Settings/Appearance/Appearance';
+import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
+import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
+import SendWizardNavigator from '../../SendWizard/SendWizardNavigator';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
 import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -71,6 +74,30 @@ const MainStackScreens = props => {
       />
 
       <MainStack.Screen name="CoinMenus" component={CoinMenus} />
+
+      {ENABLE_SIGNED_IN_REDESIGN && (
+        <MainStack.Screen
+          name="ReceiveAssetsList"
+          component={ReceiveAssetsList}
+          options={{title: 'Receive assets'}}
+        />
+      )}
+
+      {ENABLE_SIGNED_IN_REDESIGN && (
+        <MainStack.Screen
+          name="ReceiveAssetDetails"
+          component={ReceiveAssetDetails}
+          options={{title: 'Receive'}}
+        />
+      )}
+
+      {ENABLE_SIGNED_IN_REDESIGN && (
+        <MainStack.Screen
+          name="SendWizard"
+          component={SendWizardNavigator}
+          options={{headerShown: false}}
+        />
+      )}
 
       <MainStack.Screen name="SettingsMenus" component={SettingsMenus} />
 

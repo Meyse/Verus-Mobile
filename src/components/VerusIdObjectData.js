@@ -69,7 +69,8 @@ export default function VerusIdObjectData(props) {
     coinObj,
     cmmDataKeys,
     extraListItems,
-    showChangeBadges
+    showChangeBadges,
+    semanticTheme,
   } = props;
   
   const [listData, setListData] = useState([]);
@@ -83,12 +84,24 @@ export default function VerusIdObjectData(props) {
   const getAccordionStyle = (group) =>
     isIdentityContentGroup(group)
       ? LocalStyles.contentAccordion
-      : { backgroundColor: Colors.secondaryBackground };
+      : {
+          backgroundColor:
+            semanticTheme?.colors.surfaceMuted || Colors.secondaryBackground,
+        };
 
   const getAccordionTitleStyle = (group) =>
     isIdentityContentGroup(group)
       ? LocalStyles.contentAccordionTitle
-      : { color: Colors.quinaryColor };
+      : {
+          color: semanticTheme?.colors.textPrimary || Colors.quinaryColor,
+        };
+
+  const itemTextColor =
+    semanticTheme?.colors.textPrimary || Colors.quinaryColor;
+  const itemDescriptionColor =
+    semanticTheme?.colors.textSecondary || Colors.verusDarkGray;
+  const itemBackgroundColor = semanticTheme?.colors.surface;
+  const dividerColor = semanticTheme?.colors.border;
 
   const getDisplayUpdates = () => {
     const updateFrame = {
@@ -357,8 +370,9 @@ export default function VerusIdObjectData(props) {
                       titleStyle={
                         displayUpdates[group.key][item.key]
                           ? { color: 'green' }
-                          : {}
+                          : {color: itemTextColor}
                       }
+                      style={itemBackgroundColor ? {backgroundColor: itemBackgroundColor} : undefined}
                       titleNumberOfLines={100}
                       description={() =>
                         displayUpdates[group.key][item.key] ? (
@@ -367,10 +381,10 @@ export default function VerusIdObjectData(props) {
                               item.data != null && !item.hideOldData && 
                               (<Text style={{ color: Colors.warningButtonColor }}>{item.dataInDescription ? item.title : item.data}</Text>)
                             }
-                            <Text style={{ color: Colors.verusDarkGray }}>{item.dataInDescription ? displayUpdates[group.key][item.key].data : item.title}</Text>
+                            <Text style={{color: itemDescriptionColor}}>{item.dataInDescription ? displayUpdates[group.key][item.key].data : item.title}</Text>
                           </>
                         ) : (
-                          <Text style={{ color: Colors.verusDarkGray }}>{item.dataInDescription ? item.data : item.title}</Text>
+                          <Text style={{color: itemDescriptionColor}}>{item.dataInDescription ? item.data : item.title}</Text>
                         )
                       }
                       onPress={
@@ -381,7 +395,7 @@ export default function VerusIdObjectData(props) {
                           item.onPress
                       }
                     />
-                    <Divider />
+                    <Divider style={dividerColor ? {backgroundColor: dividerColor} : undefined} />
                   </React.Fragment>
                 )
               })}
@@ -425,8 +439,9 @@ export default function VerusIdObjectData(props) {
                         titleStyle={
                           displayUpdates[group.key][item.key]
                             ? { color: 'green' }
-                            : {}
+                            : {color: itemTextColor}
                         }
+                        style={itemBackgroundColor ? {backgroundColor: itemBackgroundColor} : undefined}
                         titleNumberOfLines={100}
                         description={() =>
                           displayUpdates[group.key][item.key] ? (
@@ -435,10 +450,10 @@ export default function VerusIdObjectData(props) {
                                 item.data != null && !item.hideOldData && 
                                 (<Text style={{ color: Colors.warningButtonColor }}>{item.dataInDescription ? item.title : item.data}</Text>)
                               }
-                              <Text style={{ color: Colors.verusDarkGray }}>{item.dataInDescription ? item.data : item.title}</Text>
+                              <Text style={{color: itemDescriptionColor}}>{item.dataInDescription ? item.data : item.title}</Text>
                             </>
                           ) : (
-                            <Text style={{ color: Colors.verusDarkGray }}>{item.dataInDescription ? item.data : item.title}</Text>
+                            <Text style={{color: itemDescriptionColor}}>{item.dataInDescription ? item.data : item.title}</Text>
                           )
                         }
                         onPress={
@@ -449,7 +464,7 @@ export default function VerusIdObjectData(props) {
                             item.onPress
                         }
                       />
-                      <Divider />
+                      <Divider style={dividerColor ? {backgroundColor: dividerColor} : undefined} />
                     </React.Fragment>
                   );
                 })}

@@ -1,6 +1,4 @@
 import React from 'react';
-import {TouchableOpacity} from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import Services from '../../Services/Services'
@@ -14,6 +12,8 @@ import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
 import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import AddressBook from '../../Services/AddressBook/AddressBook';
+import SignedInVerusIdDetails from '../../Services/ServiceComponents/VerusIdService/SignedInVerusIdDetails';
+import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 
 const ServicesStack = createStackNavigator();
 
@@ -39,27 +39,28 @@ const ServicesStackScreens = props => {
       <ServicesStack.Screen
         name="AddressBook"
         component={AddressBook}
-        options={({navigation}) => ({
-          title: 'Address Book',
-          headerLeft: ({tintColor}) => (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Back to Services"
-              style={{paddingHorizontal: 12, minHeight: 44, justifyContent: 'center'}}
-              onPress={() => navigation.goBack()}
-            >
-              <MaterialCommunityIcons
-                name="chevron-left"
-                size={32}
-                color={tintColor}
-              />
-            </TouchableOpacity>
-          ),
-        })}
+        options={{
+          title: '',
+          headerBackTitle: 'Back',
+          headerRight: () => null,
+          headerShadowVisible: false,
+        }}
       />
       <ServicesStack.Screen
         name="Service"
         component={Service}
+        options={({route}) => ({
+          title: '',
+          headerShown: !(
+            ENABLE_SIGNED_IN_REDESIGN &&
+            route.params?.service === VERUSID_SERVICE_ID
+          ),
+        })}
+      />
+      <ServicesStack.Screen
+        name="VerusIdDetails"
+        component={SignedInVerusIdDetails}
+        options={{title: ''}}
       />
       <ServicesStack.Screen
         name="WyreServiceAccountData"

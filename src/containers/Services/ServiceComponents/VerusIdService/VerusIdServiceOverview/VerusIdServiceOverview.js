@@ -45,17 +45,7 @@ class VerusIdServiceOverview extends Component {
   }
 
   openVerusIdDetailsModal(chain, iAddress) {
-    this.setState({
-      verusIdDetailsModalProps: {
-        loadVerusId: () => this.getVerusId(chain, iAddress),
-        visible: true,
-        animationType: 'slide',
-        cancel: () => this.closeVerusIdDetailsModal(),
-        loadFriendlyNames: () => this.loadFriendlyNameMap(chain, iAddress),
-        iAddress,
-        chain
-      },
-    });
+    this.props.navigation.navigate('VerusIdDetails', {chain, iAddress});
   }
 
   closeVerusIdDetailsModal() {

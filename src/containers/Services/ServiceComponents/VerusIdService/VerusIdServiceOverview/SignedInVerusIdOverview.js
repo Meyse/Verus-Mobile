@@ -1,95 +1,73 @@
 import React from 'react';
-import {TouchableOpacity, View} from 'react-native';
-import {Button, List, Portal, Text} from 'react-native-paper';
-import VerusIdDetailsModal from '../../../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
-import {createSignedInStyles} from '../../../../../styles';
+import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {fontStyle} from '../../../../../globals/fonts';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
 
 const SignedInVerusIdOverview = ({controller}) => {
   const theme = useOnboardingTheme();
-  const styles = createSignedInStyles(theme);
-  const {linkedIds} = controller.props;
-  const chainIds = Object.keys(linkedIds).sort();
+  const {linkedIds, onScrollChange} = controller.props;
+  const identities = Object.keys(linkedIds)
+    .flatMap(chain =>
+      Object.keys(linkedIds[chain] || {}).map(iAddress => ({
+        chain,
+        iAddress,
+        name: linkedIds[chain][iAddress],
+      })),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <View>
-      <Portal>
-        {controller.state.verusIdDetailsModalProps != null && (
-          <VerusIdDetailsModal
-            {...controller.state.verusIdDetailsModalProps}
-            StickyFooterComponent={
-              <View style={{paddingHorizontal: theme.spacing.md}}>
-                <Button
-                  mode="outlined"
-                  textColor={theme.colors.danger}
-                  onPress={() =>
-                    controller.tryUnlinkIdentity(
-                      controller.state.verusIdDetailsModalProps.iAddress,
-                      controller.state.verusIdDetailsModalProps.chain,
-                    )
-                  }>
-                  Unlink VerusID
-                </Button>
-              </View>
-            }
-          />
-        )}
-      </Portal>
-      {chainIds.map(chainId => {
-        const identityAddresses = Object.keys(linkedIds[chainId]).sort((a, b) =>
-          linkedIds[chainId][a].localeCompare(linkedIds[chainId][b]),
-        );
-
-        return (
-          <View key={chainId} style={{marginBottom: theme.spacing.lg}}>
-            <Text style={styles.sectionTitle}>{chainId} VerusIDs</Text>
-            <View style={styles.surface}>
-              {identityAddresses.map((iAddress, index) => (
-                <React.Fragment key={iAddress}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() =>
-                      controller.openVerusIdDetailsModal(chainId, iAddress)
-                    }>
-                    <List.Item
-                      title={linkedIds[chainId][iAddress]}
-                      description={iAddress}
-                      titleStyle={styles.rowTitle}
-                      descriptionStyle={styles.rowDescription}
-                      style={styles.row}
-                      left={props => (
-                        <List.Icon
-                          {...props}
-                          icon="account-key-outline"
-                          color={theme.colors.primary}
-                        />
-                      )}
-                      right={props => (
-                        <List.Icon
-                          {...props}
-                          icon="chevron-right"
-                          color={theme.colors.textSubtle}
-                        />
-                      )}
-                    />
-                  </TouchableOpacity>
-                  {index < identityAddresses.length - 1 && (
-                    <View style={styles.divider} />
-                  )}
-                </React.Fragment>
-              ))}
+    <ScrollView
+      contentContainerStyle={styles.content}
+      onScroll={event => onScrollChange?.(event.nativeEvent.contentOffset.y > 1)}
+      scrollEventThrottle={16}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>Your VerusIDs</Text>
+        <View style={[styles.countPill, {backgroundColor: theme.colors.surfaceMuted}]}>
+          <Text style={[styles.countText, {color: theme.colors.textSecondary}]}>{identities.length}</Text>
+        </View>
+      </View>
+      {identities.map(identity => (
+        <TouchableOpacity
+          key={`${identity.chain}:${identity.iAddress}`}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          onPress={() => controller.openVerusIdDetailsModal(identity.chain, identity.iAddress)}
+          style={[
+            styles.row,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            },
+          ]}>
+          <View style={styles.rowCopy}>
+            <Text numberOfLines={1} style={[styles.name, {color: theme.colors.textPrimary}]}>
+              {identity.name}
+            </Text>
+            <View style={[styles.networkPill, {backgroundColor: theme.colors.surfaceMuted}]}>
+              <Text style={[styles.networkText, {color: theme.colors.primary}]}>{identity.chain}</Text>
             </View>
-            <Button
-              mode="text"
-              icon="plus"
-              onPress={() => controller.openLinkIdentityModalFromChain(chainId)}>
-              Link another VerusID
-            </Button>
           </View>
-        );
-      })}
-    </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.textSubtle} />
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  content: {paddingHorizontal: 20, paddingTop: 8, paddingBottom: 64},
+  sectionHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 12},
+  sectionTitle: {...fontStyle('bold'), fontSize: 16, lineHeight: 20},
+  countPill: {marginLeft: 8, minWidth: 24, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7},
+  countText: {...fontStyle('semiBold'), fontSize: 12, lineHeight: 16},
+  row: {minHeight: 76, borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center', shadowOpacity: 0.03, shadowRadius: 8, shadowOffset: {width: 0, height: 4}, elevation: 2},
+  rowCopy: {flex: 1, minWidth: 0},
+  name: {...fontStyle('bold'), fontSize: 18, lineHeight: 23},
+  networkPill: {alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginTop: 7},
+  networkText: {...fontStyle('bold'), fontSize: 10, lineHeight: 12},
+});
 
 export default SignedInVerusIdOverview;

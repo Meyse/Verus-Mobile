@@ -17,13 +17,14 @@ import { setActiveSection, setCoinSubWallet, setIsCoinMenuFocused } from "../../
 import { NavigationActions, withNavigationFocus } from '@react-navigation/compat';
 import SubWalletSelectorModal from "../SubWalletSelect/SubWalletSelectorModal";
 import DynamicHeader from "./DynamicHeader";
-import { Portal, BottomNavigation } from "react-native-paper";
+import { BottomNavigation } from "react-native-paper";
 import { subWalletActivity } from "../../utils/subwallet/subWalletStatus";
 import MissingInfoRedirect from "../../components/MissingInfoRedirect/MissingInfoRedirect";
 import { WALLET_APP_CONVERT, WALLET_APP_MANAGE, WALLET_APP_OVERVIEW, WALLET_APP_RECEIVE, WALLET_APP_SEND } from "../../utils/constants/apps";
 import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
 import SignedInActionBar from "../../components/SignedInActionBar";
 import {ENABLE_SIGNED_IN_REDESIGN} from "../../../env/index";
+import SignedInCoinDetail from './SignedInCoinDetail';
 
 const SIGNED_IN_TRANSFER = "signed-in-transfer";
 const TRANSFER_SECTION_KEYS = [WALLET_APP_SEND, WALLET_APP_CONVERT];
@@ -159,7 +160,9 @@ class CoinMenus extends Component {
       throw new Error("Tab not found for active section " + this.props.activeSection.key);
     }
 
-    this.props.navigation.setOptions({ title: activeTab.title });
+    this.props.navigation.setOptions({
+      title: ENABLE_SIGNED_IN_REDESIGN ? '' : activeTab.title,
+    });
 
     return {
       tabs: tabArray,
@@ -283,6 +286,15 @@ class CoinMenus extends Component {
   //"Cannot Add a child that doesn't have a YogaNode to a parent with out a measure function"
   //bug comes up and it seems like a bug in rn
   render() {
+    if (ENABLE_SIGNED_IN_REDESIGN) {
+      return (
+        <SignedInCoinDetail
+          navigation={this.props.navigation}
+          route={this.props.route}
+        />
+      );
+    }
+
     const { selectedSubWallet, activeCoin } = this.props;
     const subWallets = this.getSubWallets();
     const filteredSubWallets =
@@ -299,8 +311,7 @@ class CoinMenus extends Component {
     );
 
     return (
-      <Portal.Host>
-        <View style={{ flex: 1, display: "flex" }}>
+      <View style={{ flex: 1, display: "flex" }}>
           {selectedSubWallet == null && (
             <SubWalletSelectorModal
               visible={selectedSubWallet == null}
@@ -333,8 +344,7 @@ class CoinMenus extends Component {
               )}
             </View>
           )}
-        </View>
-      </Portal.Host>
+      </View>
     );
   }
 }

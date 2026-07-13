@@ -34,7 +34,11 @@ const WalletStackScreens = props => {
         component={Service}
       />
       {ENABLE_SIGNED_IN_REDESIGN && (
-        <WalletStack.Screen name="CoinMenus" component={CoinMenus} />
+        <WalletStack.Screen
+          name="CoinMenus"
+          component={CoinMenus}
+          options={{title: '', headerShadowVisible: false}}
+        />
       )}
     </WalletStack.Navigator>
   );

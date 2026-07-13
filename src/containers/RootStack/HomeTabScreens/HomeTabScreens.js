@@ -1,115 +1,87 @@
-import React from 'react';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
-import Colors from '../../../globals/colors';
+import React, {useMemo, useState} from 'react';
+import {StyleSheet, View} from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {useDispatch} from 'react-redux';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
-import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
+import IdentityStackScreens from '../IdentityStackScreens/IdentityStackScreens';
 import ServicesStackScreens from '../ServicesStackScreens/ServicesStackScreens';
 import VerusPay from '../../VerusPay/VerusPay';
-import ConvertStackScreens from '../ConvertStackScreens/ConvertStackScreens';
 import SettingsStackScreens from '../SettingsStackScreens/SettingsStackScreens';
-import IdentityStackScreens from '../IdentityStackScreens/IdentityStackScreens';
-import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
+import VerusIdAtIcon from '../../../images/customIcons/verusid-at-icon.svg';
+import {setConfigSection} from '../../../actions/actionCreators';
+import {useObjectSelector} from '../../../hooks/useObjectSelector';
+import {
+  NOTIFICATION_TYPE_VERUSID_ERROR,
+  NOTIFICATION_TYPE_VERUSID_READY,
+} from '../../../utils/constants/services';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import signedInCopy from '../../../copy/signedIn';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
+import LegacyHomeTabScreens from './LegacyHomeTabScreens';
 
-const HomeTabs = createMaterialBottomTabNavigator()
+const HomeTabs = createBottomTabNavigator();
 
-const HomeTabScreens = props => {
+const isActionableIdentityStatus = status =>
+  status === NOTIFICATION_TYPE_VERUSID_READY ||
+  status === NOTIFICATION_TYPE_VERUSID_ERROR;
+
+const HomeTabScreens = () => {
+  const dispatch = useDispatch();
   const theme = useOnboardingTheme();
+  const pendingIds = useObjectSelector(
+    state => state.channelStore_verusid?.pendingIds || {},
+  );
+  const [lastSeenPendingIdentityKey, setLastSeenPendingIdentityKey] = useState('');
 
-  if (ENABLE_SIGNED_IN_REDESIGN) {
-    return (
-      <HomeTabs.Navigator
-        barStyle={{
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: 1,
-        }}
-        activeColor={theme.colors.primary}
-        inactiveColor={theme.colors.textSubtle}
-        shifting={false}
-        labeled>
-        <HomeTabs.Screen
-          name="WalletHome"
-          component={WalletStackScreens}
-          options={{
-            title: signedInCopy.navigation.wallet,
-            tabBarIcon: ({color}) => (
-              <MaterialCommunityIcons name="wallet-outline" color={color} size={25} />
-            ),
-          }}
-        />
-        <HomeTabs.Screen
-          name="ServicesHome"
-          component={ServicesStackScreens}
-          options={{
-            title: signedInCopy.navigation.services,
-            tabBarIcon: ({color}) => (
-              <MaterialCommunityIcons name="view-grid-outline" color={color} size={25} />
-            ),
-          }}
-        />
-        <HomeTabs.Screen
-          name="IdentityHome"
-          component={IdentityStackScreens}
-          options={{
-            title: signedInCopy.navigation.identity,
-            tabBarIcon: ({color}) => (
-              <MaterialCommunityIcons name="account-key-outline" color={color} size={25} />
-            ),
-          }}
-        />
-        <HomeTabs.Screen
-          name="SettingsHome"
-          component={SettingsStackScreens}
-          options={{
-            title: signedInCopy.navigation.settings,
-            tabBarIcon: ({color}) => (
-              <MaterialCommunityIcons name="cog-outline" color={color} size={25} />
-            ),
-          }}
-        />
-        <HomeTabs.Screen
-          name="VerusPay"
-          component={VerusPay}
-          options={{
-            title: signedInCopy.navigation.scan,
-            tabBarIcon: ({color}) => (
-              <MaterialCommunityIcons name="line-scan" color={color} size={25} />
-            ),
-          }}
-        />
-      </HomeTabs.Navigator>
-    );
-  }
+  const pendingIdentityMeta = useMemo(() => {
+    const actionable = [];
+
+    for (const chainId of Object.keys(pendingIds)) {
+      const chainMap = pendingIds[chainId] || {};
+      for (const iAddress of Object.keys(chainMap)) {
+        const details = chainMap[iAddress] || {};
+        if (!isActionableIdentityStatus(details.status)) continue;
+
+        actionable.push(
+          `${chainId}:${iAddress}:${details.status || ''}:` +
+            `${details.notificationUid || ''}:${details.createdAt || ''}`,
+        );
+      }
+    }
+
+    actionable.sort();
+    return {count: actionable.length, key: actionable.join('|')};
+  }, [pendingIds]);
+
+  if (!ENABLE_SIGNED_IN_REDESIGN) return <LegacyHomeTabScreens />;
+
+  const hasUnseenIdentityPending =
+    pendingIdentityMeta.count > 0 &&
+    pendingIdentityMeta.key !== lastSeenPendingIdentityKey;
 
   return (
     <HomeTabs.Navigator
-      barStyle={{ backgroundColor: Colors.primaryColor }}
-      shifting={false}
-    >
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSubtle,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: 'transparent',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+      }}>
       <HomeTabs.Screen
         name="WalletHome"
         component={WalletStackScreens}
         options={{
-          title: "Wallets",
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="wallet" color={color} size={26} />
-          ),
-        }}
-      />
-      <HomeTabs.Screen
-        name="PersonalHome"
-        component={ProfileStackScreens}
-        options={{
-          title: "Personal",
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="fingerprint"
-              color={color}
-              size={26}
-            />
+          title: signedInCopy.navigation.wallet,
+          tabBarIcon: ({color}) => (
+            <Feather name="credit-card" color={color} size={22} style={styles.icon} />
           ),
         }}
       />
@@ -117,41 +89,58 @@ const HomeTabScreens = props => {
         name="ServicesHome"
         component={ServicesStackScreens}
         options={{
-          title: "Services",
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="room-service"
-              color={color}
-              size={26}
-            />
+          title: signedInCopy.navigation.services,
+          tabBarIcon: ({color}) => (
+            <Feather name="compass" color={color} size={22} style={styles.icon} />
           ),
         }}
       />
-      {/* <HomeTabs.Screen
-        name="Convert"
-        component={ConvertStackScreens}
+      <HomeTabs.Screen
+        name="IdentityTab"
+        component={IdentityStackScreens}
+        listeners={{
+          focus: () => setLastSeenPendingIdentityKey(pendingIdentityMeta.key),
+        }}
         options={{
-          title: "Convert",
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="swap-horizontal"
-              color={color}
-              size={26}
-            />
+          title: signedInCopy.navigation.identity,
+          tabBarIcon: ({color, focused}) => (
+            <View style={styles.identityIconWrap}>
+              <VerusIdAtIcon width={22} height={22} fill={color} style={styles.icon} />
+              {hasUnseenIdentityPending && !focused && (
+                <View
+                  style={[
+                    styles.identityAlertDot,
+                    {
+                      backgroundColor: theme.colors.danger,
+                      borderColor: theme.colors.surface,
+                    },
+                  ]}
+                />
+              )}
+            </View>
           ),
         }}
-      /> */}
+      />
+      <HomeTabs.Screen
+        name="SettingsHome"
+        component={SettingsStackScreens}
+        listeners={{
+          focus: () => dispatch(setConfigSection('settings-profile')),
+        }}
+        options={{
+          title: signedInCopy.navigation.settings,
+          tabBarIcon: ({color}) => (
+            <Feather name="settings" color={color} size={22} style={styles.icon} />
+          ),
+        }}
+      />
       <HomeTabs.Screen
         name="VerusPay"
         component={VerusPay}
         options={{
-          title: "Scan",
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="camera"
-              color={color}
-              size={26}
-            />
+          title: signedInCopy.navigation.scan,
+          tabBarIcon: ({color}) => (
+            <Feather name="maximize" color={color} size={24} style={styles.icon} />
           ),
         }}
       />
@@ -159,4 +148,26 @@ const HomeTabScreens = props => {
   );
 };
 
-export default HomeTabScreens
+const styles = StyleSheet.create({
+  icon: {
+    marginBottom: 2,
+  },
+  identityIconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  identityAlertDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+});
+
+export default HomeTabScreens;

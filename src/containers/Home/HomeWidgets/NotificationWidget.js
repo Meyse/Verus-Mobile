@@ -1,279 +1,138 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Dimensions, TouchableOpacity, Alert, Text } from 'react-native';
-import { Card, Paragraph, Button, IconButton } from 'react-native-paper';
-import { useSelector } from 'react-redux';
-import Colors from '../../../globals/colors';
+import React, {useMemo} from 'react';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
 import {
-  NOTIFICATION_TYPE_BASIC,
-  NOTIFICATION_TYPE_DEEPLINK,
-  NOTIFICATION_TYPE_LOADING,
-  NOTIFICATION_ICON_TX,
-  NOTIFICATION_ICON_VERUSID,
   NOTIFICATION_ICON_ERROR,
-  NOTIFICATION_TYPE_VERUS_ID_PROVISIONING
+  NOTIFICATION_ICON_VERUSID,
+  NOTIFICATION_TYPE_LOADING,
+  NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
 } from '../../../utils/constants/notifications';
-import { VerusIdAtIcon, ReceivedIcon, VerusIdErrorIcon } from "../../../images/customIcons";
-import { DeeplinkNotification, BasicNotification, LoadingNotification, VerusIdProvisioningNotification } from '../../../utils/notification';
-import { processVerusId } from '../../../containers/Services/ServiceComponents/VerusIdService/VerusIdLogin';
-import { dispatchRemoveNotification, dispatchClearNotifications } from '../../../actions/actions/notifications/dispatchers/notifications';
-import { useObjectSelector } from '../../../hooks/useObjectSelector';
-// has the state changed hook
-const useCompare = (val) => {
-  const prevVal = usePrevious(val)
-  return prevVal !== val
-}
+import {dispatchRemoveNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
+import {useObjectSelector} from '../../../hooks/useObjectSelector';
+import {useOnboardingTheme} from '../../../theme/onboarding';
+import {fontStyle} from '../../../globals/fonts';
+import {VerusIdProvisioningNotification} from '../../../utils/notification';
+import {processVerusId} from '../../Services/ServiceComponents/VerusIdService/VerusIdLogin';
 
-// Helper hook
-const usePrevious = (value) => {
-  const ref = useRef();
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-  return ref.current;
-}
-
-const createNotificationText = (text, icon, index) => {
-  return (
-    <View
-      style={{
-        flex: 1,
-        flexDirection: 'row',
-        width: "70%",
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        marginRight: 20
-      }}>
-      {icon}
-      <Text style={{ flexShrink: 1, marginLeft: 7 }}>
-        <Text style={{ fontSize: 12, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>
-          {typeof (text) === 'object' ? text[0] : ''}
-        </Text>
-        <Text style={{ fontSize: 12, color: "black", marginVertical: 5 }}>
-          {typeof (text) === 'object' ? text[1] : text}
-        </Text>
-        <Text style={{ fontSize: 12, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>
-          {typeof (text) === 'object' ? text[2] : ''}
-        </Text>
-        <Text style={{ fontSize: 12, color: "black", marginVertical: 5 }}>
-          {typeof (text) === 'object' ? text[3] : ''}
-        </Text>
-      </Text>
-    </View>
-  )
-}
-
-const getIcon = (type, index) => {
-  switch (type) {
-    case NOTIFICATION_ICON_VERUSID:
-      return (<VerusIdAtIcon
-        index={index}
-        width={20}
-        height={20}
-        marginLeft={7}
-        style={{
-          alignSelf: 'center',
-        }} />);
-    case NOTIFICATION_ICON_ERROR:
-      return (<VerusIdErrorIcon
-        index={index}
-        width={23}
-        height={20}
-        marginLeft={6}
-        style={{
-          alignSelf: 'center',
-        }} />);
-    case NOTIFICATION_ICON_TX:
-    default:
-      return (<ReceivedIcon
-        index={index}
-        width={20}
-        height={20}
-        marginLeft={7}
-        style={{
-          alignSelf: 'center',
-        }} />);
+const getStateColors = (theme, notification) => {
+  if (notification.iconType === NOTIFICATION_ICON_ERROR) {
+    return {
+      background: theme.isDark ? 'rgba(255, 107, 117, 0.18)' : '#FEE2E2',
+      text: theme.colors.danger,
+    };
   }
-}
-
-const getNotifications = (notifications, acchash) => {
-  const { directory } = notifications;
-  let tempNotificaions = [];
-  const keys = Object.keys(directory || {});
-
-  keys.forEach((uid, index) => {
-
-    if (directory[uid].acchash === acchash) {
-      if (directory[uid].type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING) {
-        const tempVerusIdNotification = VerusIdProvisioningNotification.fromJson(directory[uid], processVerusId);
-        tempVerusIdNotification.icon = getIcon(directory[uid].icon, index);
-        tempNotificaions.push(tempVerusIdNotification);
-      } else if (directory[uid].type === NOTIFICATION_TYPE_BASIC) {
-        const tempBasicNotification = BasicNotification.fromJson(directory[uid]);
-        tempBasicNotification.icon = getIcon(directory[uid].icon, index);
-        tempNotificaions.push(tempBasicNotification);
-      } else if (directory[uid].type === NOTIFICATION_TYPE_LOADING) {
-        const tempLoadingNotification = LoadingNotification.fromJson(directory[uid]);
-        tempLoadingNotification.icon = getIcon(directory[uid].icon, index);
-        tempNotificaions.push(tempLoadingNotification);
-      }
-      //TODO: add deeplink notification type 
-    }
-  });
-  return tempNotificaions;
-}
-
-const NotificationWidget = (props) => {
-  const { width } = Dimensions.get('window');
-  const [collapsed, setCollapsed] = useState(false);
-  const [traynotifications, setTrayNotifications] = useState([]);
-  const notifications = useObjectSelector(state =>
-    state.notifications
-  );
-  const acchash = useSelector(state =>
-    state.authentication.activeAccount
-  ).accountHash;
-
-  const hasItemIdChanged = useCompare(notifications);
-
-  useEffect(() => {
-    if (notifications.directory) {
-      setTrayNotifications(getNotifications(notifications, acchash));
-    }
-
-  }, [hasItemIdChanged])
-
-  if (Object.keys(traynotifications).length === 0) {
-    return (<View />);
+  if (notification.type === NOTIFICATION_TYPE_LOADING) {
+    return {
+      background: theme.isDark ? 'rgba(255, 178, 92, 0.18)' : '#FFF4E5',
+      text: theme.colors.warning,
+    };
   }
+  return {
+    background: theme.isDark ? 'rgba(49, 101, 212, 0.2)' : '#EBF6FF',
+    text: theme.colors.primary,
+  };
+};
+
+const formatCtaLabel = body => {
+  if (typeof body !== 'string' || body.trim().length === 0) return 'Continue';
+  const trimmed = body.trim();
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+};
+
+const NotificationWidget = () => {
+  const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const theme = useOnboardingTheme();
+  const notifications = useObjectSelector(state => state.notifications);
+  const activeAccount = useSelector(state => state.authentication.activeAccount);
+  const accountHash = activeAccount?.accountHash ?? null;
+
+  const actionableNotifications = useMemo(() => {
+    if (!notifications?.directory || !accountHash) return [];
+    return Object.entries(notifications.directory)
+      .filter(
+        ([, value]) =>
+          value.acchash === accountHash &&
+          value.type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
+      )
+      .map(([uid, value]) => {
+        const notification = VerusIdProvisioningNotification.fromJson(
+          value,
+          processVerusId,
+        );
+        notification.uid = uid;
+        notification.iconType = value.icon ?? NOTIFICATION_ICON_VERUSID;
+        return notification;
+      })
+      .filter(notification =>
+        typeof notification.isActionable === 'function'
+          ? notification.isActionable()
+          : false,
+      );
+  }, [accountHash, notifications]);
+
+  if (actionableNotifications.length === 0) return null;
 
   return (
-    <View
-      style={{
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'visible',
-        padding: 10,
-      }}>
-      <Card
-        style={{
-          width: width - 20,
-          borderRadius: 10,
-          backgroundColor: '#F1F1F1'
-        }}
-        mode="elevated"
-        elevation={5}>
-        <Card.Content>
+    <View style={styles.container}>
+      {actionableNotifications.map((notification, index) => {
+        const segments = Array.isArray(notification.title)
+          ? notification.title
+          : [notification.title];
+        const highlight = segments[0]?.trim() ?? '';
+        const remainder = segments.slice(1).join(' ').replace(/\s+/g, ' ').trim();
+        const stateColors = getStateColors(theme, notification);
+        return (
           <View
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              width: width - 30,
-              height: 10,
-              alignItems: 'center',
-              marginBottom: collapsed ? 0 : 15,
-            }}>
-            <View style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}>
-              <View
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: '#56B73E',  // Set the background color to green
-                  borderRadius: 5,  // Set the border radius for rounded corners
-                  height: 24,  // Set the height
-                  width: 55,  // Set the width
-                  marginRight: 2
-                }}>
-                <IconButton
-                  icon="bell"
-                  iconColor="white"
-                  size={15}
-                  style={{ marginRight: 3 }}
-                />
-                <View style={{ justifyContent: 'center', alignItems: 'center', borderColor: 'white', borderWidth: 1, borderRadius: 15, width: 16, height: 16 }}>
-                  <Text style={{ color: "white", textAlign: 'center', fontSize: 10 }}>
-                    {traynotifications.length}
-                  </Text>
-                </View>
+            key={notification.uid}
+            style={[
+              styles.card,
+              {backgroundColor: theme.colors.surfaceMuted},
+              index < actionableNotifications.length - 1 && styles.cardSpacing,
+            ]}>
+            <View style={styles.contentRow}>
+              <View style={styles.textContent}>
+                <Text numberOfLines={2} style={[styles.title, {color: theme.colors.textPrimary}]}>
+                  <Text style={styles.highlight}>{highlight}</Text>
+                  {remainder.length > 0 ? ` ${remainder}` : ''}
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.8}
+                  onPress={() => notification.onAction({navigation, dispatch})}
+                  style={[styles.ctaButton, {backgroundColor: stateColors.background}]}>
+                  <Text style={[styles.ctaText, {color: stateColors.text}]}>{formatCtaLabel(notification.body)}</Text>
+                </TouchableOpacity>
               </View>
-              {collapsed && traynotifications.map((notification) =>
-                notification.icon)}
-            </View>
-            <View style={{
-              display: 'flex',
-              flexDirection: 'row',
-
-            }}>
               <TouchableOpacity
-                onPress={() => {
-                  Alert.alert("Clear Notifications", "Are you sure you want to clear all notifications?",
-                    [{ text: "Cancel", onPress: () => { } }, { text: "OK", onPress: () => { dispatchClearNotifications(); } }])
-                }}
-              >
-                {!collapsed && <Paragraph style={{ fontSize: 12, textDecorationLine: 'underline', marginVertical: 17 }}>
-                  clear all
-                </Paragraph>}
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => { setCollapsed(!collapsed) }}>
-                <IconButton
-                  icon={collapsed ? "chevron-down" : "chevron-up"}
-                  iconColor="grey"
-                  size={28}
-                  style={{ marginRight: 10 }}
-                />
+                accessibilityLabel="Dismiss notification"
+                accessibilityRole="button"
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                onPress={() => dispatchRemoveNotification(notification.uid)}
+                style={[styles.dismissButton, {backgroundColor: theme.colors.surface}]}>
+                <Text style={[styles.dismissText, {color: theme.colors.textSubtle}]}>×</Text>
               </TouchableOpacity>
             </View>
           </View>
-          {!collapsed && traynotifications.map((notification, index) => {
-            return (
-              <View
-                key={index}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  width: width - 30,
-                  alignItems: 'center',
-                }}>
-                {createNotificationText(notification.title, notification.icon, index)}
-                <View
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-
-                  }}>
-                  <TouchableOpacity onPress={() => notification.isActionable() ? notification.onAction(props) : () => { }}>
-                    <Paragraph style={{ fontSize: 12, color: "black", textDecorationLine: 'underline' }}>
-                      {notification.body}
-                    </Paragraph>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => {
-                    Alert.alert("Clear Notification", "Are you sure you want to clear the notification?",
-                      [{ text: "Cancel", onPress: () => { } }, { text: "OK", onPress: () => { dispatchRemoveNotification(notification.uid); } }])
-                  }}>
-                    <IconButton
-                      icon="close"
-                      iconColor="grey"
-                      size={20}
-                      style={{ marginRight: 16, marginLeft: 12 }}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-            )
-          })}
-        </Card.Content>
-      </Card>
-    </View>);
+        );
+      })}
+    </View>
+  );
 };
+
+const styles = StyleSheet.create({
+  container: {paddingTop: 4, paddingBottom: 6},
+  card: {width: '100%', borderRadius: 12, overflow: 'hidden'},
+  cardSpacing: {marginBottom: 10},
+  contentRow: {flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12, paddingLeft: 14, paddingRight: 10},
+  textContent: {flex: 1, marginRight: 8},
+  title: {fontSize: 15, lineHeight: 21, marginBottom: 8, ...fontStyle('semiBold')},
+  highlight: {...fontStyle('semiBold')},
+  ctaButton: {alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16},
+  ctaText: {fontSize: 13, lineHeight: 18, ...fontStyle('bold')},
+  dismissButton: {width: 26, height: 26, borderRadius: 13, marginTop: -2, alignItems: 'center', justifyContent: 'center'},
+  dismissText: {fontSize: 18, lineHeight: 18},
+});
 
 export default NotificationWidget;
