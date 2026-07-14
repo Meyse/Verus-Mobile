@@ -16,6 +16,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {ethers} from 'ethers';
 import {fromBase58Check} from 'verus-typescript-primitives';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
+import AppButton from '../../components/AppButton';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -241,12 +242,13 @@ const SendWizardRecipient = () => {
           onScan={handleScan}
           safeBottomButton
           button={() => (
-            <Pressable
-              accessibilityRole="button"
+            <AppButton
+              buttonColor={theme.colors.danger}
               onPress={() => setScannerOpen(false)}
-              style={[styles.cancelScan, {backgroundColor: theme.colors.danger}]}>
-              <Text style={[styles.cancelScanText, {color: theme.colors.onPrimary}]}>Cancel</Text>
-            </Pressable>
+              style={styles.cancelScan}
+              textColor={theme.colors.onPrimary}>
+              Cancel
+            </AppButton>
           )}
         />
       </View>
@@ -416,8 +418,7 @@ const styles = StyleSheet.create({
   quickDescription: {fontSize: 11, lineHeight: 15, marginTop: 2, textAlign: 'center', ...fontStyle('medium')},
   pressed: {opacity: 0.7},
   scanner: {flex: 1, backgroundColor: 'black'},
-  cancelScan: {minWidth: 160, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center'},
-  cancelScanText: {fontSize: 16, lineHeight: 22, ...fontStyle('bold')},
+  cancelScan: {minWidth: 180},
 });
 
 export default SendWizardRecipient;

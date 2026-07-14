@@ -6,8 +6,8 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDispatch} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AnimatedActivityIndicatorBox from '../../../../components/AnimatedActivityIndicatorBox';
+import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
-import GradientButton from '../../../../components/GradientButton';
 import MissingInfoRedirect from '../../../../components/MissingInfoRedirect/MissingInfoRedirect';
 import VerusIdObjectData from '../../../../components/VerusIdObjectData';
 import {fontStyle} from '../../../../globals/fonts';
@@ -245,14 +245,14 @@ const SignedInVerusIdDetails = () => {
         {unlinkError ? (
           <Text style={[styles.unlinkError, {color: theme.colors.danger}]}>{unlinkError}</Text>
         ) : null}
-        <GradientButton
+        <AppButton
+          buttonColor={theme.colors.danger}
           disabled={unlinking}
           onPress={unlinkIdentity}
-          topColor={theme.colors.danger}
-          bottomColor={theme.colors.danger}
-          style={styles.unlinkAction}>
+          style={styles.unlinkAction}
+          textColor={theme.colors.onPrimary}>
           {unlinking ? 'Unlinking...' : 'Unlink identity'}
-        </GradientButton>
+        </AppButton>
       </BottomSheetModal>
     </View>
   );
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   sheetBody: {...fontStyle('regular'), fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 24},
   unlinkError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginTop: -12, marginBottom: 16},
-  unlinkAction: {width: '100%', height: 44, borderRadius: 22},
+  unlinkAction: {width: '100%'},
 });
 
 export default SignedInVerusIdDetails;

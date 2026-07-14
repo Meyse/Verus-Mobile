@@ -34,6 +34,7 @@ import {
   setCoinSubWallet,
 } from '../../actions/actionCreators';
 import BottomSheetModal from '../../components/BottomSheetModal';
+import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
 import GradientButton from '../../components/GradientButton';
 import SkeletonLoader, {SkeletonBlock, SkeletonText} from '../../components/SkeletonLoader';
@@ -466,9 +467,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             This Asset needs an explicit receive-compatible Card.
           </Text>
           <View style={{width: '100%', marginTop: 24}}>
-            <GradientButton onPress={() => setCardSheetVisible(true)}>
+            <AppButton onPress={() => setCardSheetVisible(true)}>
               Choose Card
-            </GradientButton>
+            </AppButton>
           </View>
         </View>
         <ReceiveSubwalletSheet
@@ -539,13 +540,13 @@ const ReceiveAssetDetails = ({navigation, route}) => {
       </View>
       {error ? <Text style={[styles.error, styles.amountError]}>{error}</Text> : null}
       <View style={styles.amountStepFooter}>
-        <GradientButton
+        <AppButton
           disabled={!amountValid}
           onPress={() =>
             conversionEligible ? setStep('subject') : createInvoice()
           }>
           Next
-        </GradientButton>
+        </AppButton>
       </View>
     </View>
   );
@@ -565,7 +566,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           value={subject}
         />
         <View style={styles.subjectFooter}>
-          <GradientButton onPress={() => setStep('settings')}>Next</GradientButton>
+          <AppButton onPress={() => setStep('settings')}>Next</AppButton>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -613,9 +614,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.settingsFooter}>
-          <GradientButton disabled={loading} onPress={createInvoice}>
+          <AppButton disabled={loading} onPress={createInvoice}>
             {loading ? 'Creating…' : 'Create payment link'}
-          </GradientButton>
+          </AppButton>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -671,8 +672,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
               ? 'QR image saved'
               : 'Save QR to camera roll'}
         </GradientButton>
-        <GradientButton
-          mode="outlined"
+        <AppButton
           onPress={() => {
             setAmount('');
             setSubject('');
@@ -681,9 +681,10 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             setQrSaved(false);
             setStep('amount');
           }}
-          style={styles.resultSecondaryButton}>
+          style={styles.resultSecondaryButton}
+          variant="secondary">
           New payment request
-        </GradientButton>
+        </AppButton>
       </View>
     </View>
   );
@@ -841,7 +842,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             styles.footer,
             {paddingBottom: Math.max(insets.bottom, 32)},
           ]}>
-          <GradientButton onPress={() => navigation.navigate('Home')}>Done</GradientButton>
+          <AppButton onPress={() => navigation.navigate('Home')}>Done</AppButton>
         </View>
       </View>
 
@@ -932,9 +933,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
               </View>
             ))}
           </View>
-          <GradientButton onPress={() => setNetworksVisible(false)}>
+          <AppButton onPress={() => setNetworksVisible(false)}>
             Got it
-          </GradientButton>
+          </AppButton>
         </View>
       </BottomSheetModal>
 

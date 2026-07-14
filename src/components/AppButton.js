@@ -6,6 +6,7 @@ import {
   resolveOnboardingTheme,
   useOnboardingTheme,
 } from '../theme/onboarding';
+import {APP_BUTTON_HEIGHT} from '../styles/components/appButton.styles';
 
 const TONAL_ON_DARK_COLOR = 'rgba(255, 255, 255, 0.16)';
 const DISABLED_BUTTON_COLOR = '#E4E8EF';
@@ -56,7 +57,7 @@ const createDisabledVariantStyles = theme => ({
 const AppButton = ({
   children,
   variant = 'primary',
-  height = 56,
+  height = APP_BUTTON_HEIGHT,
   mode = 'text',
   uppercase = false,
   disabled = false,

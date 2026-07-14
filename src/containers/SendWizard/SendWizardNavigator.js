@@ -4,6 +4,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BigNumber from 'bignumber.js';
+import AppButton from '../../components/AppButton';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -98,12 +99,12 @@ const SendWizardNavigator = () => {
         <Text style={[styles.errorBody, {color: theme.colors.textSecondary}]}>
           This Asset is no longer available in your wallet.
         </Text>
-        <TouchableOpacity
-          accessibilityRole="button"
+        <AppButton
           onPress={() => navigation.goBack()}
-          style={[styles.errorAction, {backgroundColor: theme.colors.surfaceMuted}]}>
-          <Text style={[styles.errorActionText, {color: theme.colors.primary}]}>Close</Text>
-        </TouchableOpacity>
+          style={styles.errorAction}
+          variant="secondary">
+          Close
+        </AppButton>
       </View>
     );
   }
@@ -168,8 +169,7 @@ const styles = StyleSheet.create({
   errorState: {flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center'},
   errorTitle: {fontSize: 20, lineHeight: 26, textAlign: 'center', ...fontStyle('bold')},
   errorBody: {fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: 'center', ...fontStyle('regular')},
-  errorAction: {minWidth: 120, height: 44, borderRadius: 22, marginTop: 24, alignItems: 'center', justifyContent: 'center'},
-  errorActionText: {fontSize: 15, lineHeight: 20, ...fontStyle('semiBold')},
+  errorAction: {minWidth: 160, marginTop: 24},
   closeButton: {
     width: 44,
     height: 44,

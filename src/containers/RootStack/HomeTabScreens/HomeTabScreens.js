@@ -67,7 +67,7 @@ const HomeTabScreens = () => {
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSubtle,
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.background,
           borderTopColor: 'transparent',
         },
         tabBarLabelStyle: {

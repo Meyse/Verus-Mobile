@@ -14,7 +14,7 @@ import {primitives} from 'verusid-ts-client';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
-import GradientButton from '../../../../components/GradientButton';
+import AppButton from '../../../../components/AppButton';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
@@ -435,9 +435,9 @@ const SignedInVerusIdService = ({controller}) => {
           <Text style={[styles.emptyDescription, {color: theme.colors.textSecondary}]}>
             {controller.state.loadError}
           </Text>
-          <GradientButton onPress={() => controller.getLinkedIds()} style={styles.emptyPrimaryCta}>
+          <AppButton onPress={() => controller.getLinkedIds()} style={styles.emptyPrimaryCta}>
             Try again
-          </GradientButton>
+          </AppButton>
         </View>
       ) : hasContent ? (
         <SectionList
@@ -484,17 +484,17 @@ const SignedInVerusIdService = ({controller}) => {
           <Text style={[styles.emptyDescription, {color: theme.colors.textSecondary}]}>
             Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands.
           </Text>
-          <GradientButton
+          <AppButton
             onPress={() => setCreateInfoVisible(true)}
-            style={styles.emptyPrimaryCta}
-            labelStyle={styles.emptyPrimaryLabel}>
+            style={styles.emptyPrimaryCta}>
             Create free VerusID
-          </GradientButton>
-          <TouchableOpacity
+          </AppButton>
+          <AppButton
             onPress={() => openLink()}
-            style={[styles.emptySecondaryCta, {backgroundColor: theme.colors.surfaceMuted}]}>
-            <Text style={[styles.emptySecondaryLabel, {color: theme.colors.primary}]}>Link VerusID</Text>
-          </TouchableOpacity>
+            style={styles.emptySecondaryCta}
+            variant="secondary">
+            Link VerusID
+          </AppButton>
           <TouchableOpacity
             onPress={() => setInfoVisible(true)}
             activeOpacity={0.75}
@@ -565,14 +565,14 @@ const SignedInVerusIdService = ({controller}) => {
           This wallet can create a VerusID when a compatible app sends a secure
           provisioning request. You can link an existing VerusID now.
         </Text>
-        <GradientButton
+        <AppButton
           onPress={() => {
             setCreateInfoVisible(false);
             openLink();
           }}
           style={styles.sheetPrimaryAction}>
           Link VerusID
-        </GradientButton>
+        </AppButton>
       </BottomSheetModal>
 
       <BottomSheetModal
@@ -599,32 +599,30 @@ const SignedInVerusIdService = ({controller}) => {
             : 'This request is still being processed. You can refresh or remove it from your list.'}
         </Text>
         {pendingError ? <Text style={[styles.pendingError, {color: theme.colors.danger}]}>{pendingError}</Text> : null}
-        <TouchableOpacity
+        <AppButton
           disabled={Boolean(pendingAction)}
           onPress={() => runPendingAction('refresh')}
-          style={[styles.sheetAction, {backgroundColor: theme.colors.surfaceMuted}]}>
-          <Text style={[styles.actionLabel, {color: theme.colors.primary}]}>
-            {pendingAction === 'refresh' ? 'Refreshing...' : 'Refresh now'}
-          </Text>
-        </TouchableOpacity>
+          style={styles.sheetAction}
+          variant="secondary">
+          {pendingAction === 'refresh' ? 'Refreshing...' : 'Refresh now'}
+        </AppButton>
         {selectedPending?.status === NOTIFICATION_TYPE_VERUSID_ERROR && selectedPending?.details?.loginRequest ? (
-          <TouchableOpacity
+          <AppButton
             disabled={Boolean(pendingAction)}
             onPress={() => runPendingAction('retry')}
-            style={[styles.sheetAction, {backgroundColor: theme.colors.surfaceMuted}]}>
-            <Text style={[styles.actionLabel, {color: theme.colors.primary}]}>
-              {pendingAction === 'retry' ? 'Retrying...' : 'Retry request'}
-            </Text>
-          </TouchableOpacity>
+            style={styles.sheetAction}
+            variant="secondary">
+            {pendingAction === 'retry' ? 'Retrying...' : 'Retry request'}
+          </AppButton>
         ) : null}
-        <GradientButton
+        <AppButton
+          buttonColor={theme.colors.danger}
           disabled={Boolean(pendingAction)}
           onPress={() => runPendingAction('remove')}
-          topColor={theme.colors.danger}
-          bottomColor={theme.colors.danger}
-          style={styles.removeAction}>
+          style={styles.removeAction}
+          textColor={theme.colors.onPrimary}>
           {pendingAction === 'remove' ? 'Removing...' : 'Remove from list'}
-        </GradientButton>
+        </AppButton>
         {selectedPending?.status === NOTIFICATION_TYPE_VERUSID_ERROR && !selectedPending?.details?.loginRequest ? (
           <Text style={[styles.helperText, {color: theme.colors.textSecondary}]}>
             Retry is unavailable because the original request payload is missing.
@@ -718,17 +716,11 @@ const styles = StyleSheet.create({
   emptyImage: {width: 170, height: 140, marginBottom: 32},
   emptyTitle: {...fontStyle('bold'), fontSize: 20, lineHeight: 25, textAlign: 'center', marginBottom: 8},
   emptyDescription: {...fontStyle('regular'), fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 32},
-  emptyPrimaryCta: {width: 200, height: 44, borderRadius: 22, marginBottom: 16},
-  emptyPrimaryLabel: {marginTop: -1},
+  emptyPrimaryCta: {width: 200, marginBottom: 16},
   emptySecondaryCta: {
     width: 200,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
   },
-  emptySecondaryLabel: {...fontStyle('bold'), fontSize: 16, lineHeight: 20},
   learnMoreRow: {flexDirection: 'row', alignItems: 'center'},
   learnMoreIcon: {marginRight: 6},
   learnMoreText: {...fontStyle('semiBold'), fontSize: 13, lineHeight: 17, letterSpacing: -0.1},
@@ -759,10 +751,9 @@ const styles = StyleSheet.create({
   pendingStatus: {...fontStyle('regular'), fontSize: 13, lineHeight: 17, marginTop: 2, marginBottom: 12},
   sheetBody: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 14},
   pendingError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginBottom: 2},
-  sheetAction: {width: '100%', height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 10},
-  actionLabel: {...fontStyle('bold'), fontSize: 16, lineHeight: 20},
-  removeAction: {width: '100%', height: 44, borderRadius: 22, marginTop: 2},
-  sheetPrimaryAction: {width: '100%', height: 44, borderRadius: 22},
+  sheetAction: {width: '100%', marginBottom: 10},
+  removeAction: {width: '100%', marginTop: 2},
+  sheetPrimaryAction: {width: '100%'},
   helperText: {...fontStyle('regular'), marginTop: 10, fontSize: 12, lineHeight: 16},
 });
 

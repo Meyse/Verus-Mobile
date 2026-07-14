@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import GradientButton from '../../../components/GradientButton';
+import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -182,21 +183,28 @@ export const WizardFooter = ({
   onPress,
 }) => {
   const theme = useOnboardingTheme();
+  const buttonLabel = loading ? loadingText : children;
   return (
     <SafeBottomActionStack
       horizontalSpacing={horizontalSpacing}
       bottomSpacing={bottomSpacing}
       style={styles.footer}>
-      <GradientButton
-        disabled={disabled || loading}
-        holdDuration={2500}
-        holdToConfirm={holdToConfirm}
-        holdingText={holdingText}
-        onPress={onPress}
-        topColor={theme.colors.primary}
-        bottomColor={theme.colors.primary}>
-        {loading ? loadingText : children}
-      </GradientButton>
+      {holdToConfirm ? (
+        <GradientButton
+          disabled={disabled || loading}
+          holdDuration={2500}
+          holdToConfirm
+          holdingText={holdingText}
+          onPress={onPress}
+          topColor={theme.colors.primary}
+          bottomColor={theme.colors.primary}>
+          {buttonLabel}
+        </GradientButton>
+      ) : (
+        <AppButton disabled={disabled || loading} onPress={onPress}>
+          {buttonLabel}
+        </AppButton>
+      )}
     </SafeBottomActionStack>
   );
 };

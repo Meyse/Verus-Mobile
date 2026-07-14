@@ -12,6 +12,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
 import CopyAction from '../../../components/CopyAction';
+import AppButton from '../../../components/AppButton';
 import SkeletonLoader, {
   SkeletonBlock,
   SkeletonText,
@@ -299,12 +300,9 @@ const AddressBook = () => {
           </View>
           <Text style={styles.emptyTitle}>Address Book unavailable</Text>
           <Text style={styles.emptyDescription}>{error}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={refresh}
-            style={styles.emptyPrimaryButton}>
-            <Text style={styles.emptyPrimaryLabel}>{signedInCopy.actions.retry}</Text>
-          </TouchableOpacity>
+          <AppButton onPress={refresh} style={styles.emptyPrimaryButton}>
+            {signedInCopy.actions.retry}
+          </AppButton>
         </View>
       ) : !hasRecords ? (
         <View style={styles.emptyState}>
@@ -319,12 +317,11 @@ const AddressBook = () => {
           <Text style={styles.emptyDescription}>
             Save frequently used addresses for quick access when sending
           </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
+          <AppButton
             onPress={() => openEditor(EMPTY_RECORD)}
             style={styles.emptyPrimaryButton}>
-            <Text style={styles.emptyPrimaryLabel}>Add your first address</Text>
-          </TouchableOpacity>
+            Add your first address
+          </AppButton>
         </View>
       ) : (
         <ScrollView
@@ -573,17 +570,6 @@ const createStyles = theme =>
     },
     emptyPrimaryButton: {
       width: 240,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 22,
-      backgroundColor: theme.colors.primary,
-    },
-    emptyPrimaryLabel: {
-      ...fontStyle('bold'),
-      color: theme.colors.onPrimary,
-      fontSize: 16,
-      lineHeight: 20,
     },
     noResults: {
       alignItems: 'center',

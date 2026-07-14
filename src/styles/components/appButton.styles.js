@@ -1,9 +1,13 @@
 import {StyleSheet} from 'react-native';
 import {fontStyle} from '../../globals/fonts';
 
+export const APP_BUTTON_HEIGHT = 56;
+export const APP_BUTTON_RADIUS = 18;
+export const APP_BUTTON_LABEL_SIZE = 17;
+
 export default StyleSheet.create({
   button: {
-    borderRadius: 18,
+    borderRadius: APP_BUTTON_RADIUS,
     shadowColor: 'transparent',
     shadowOpacity: 0,
     shadowRadius: 0,
@@ -18,7 +22,7 @@ export default StyleSheet.create({
   },
   label: {
     ...fontStyle('semiBold'),
-    fontSize: 17,
+    fontSize: APP_BUTTON_LABEL_SIZE,
     letterSpacing: 0,
   },
 });

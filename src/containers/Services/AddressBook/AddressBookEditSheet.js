@@ -12,7 +12,7 @@ import {ActivityIndicator, Portal, Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {ethers} from 'ethers';
-import GradientButton from '../../../components/GradientButton';
+import AppButton from '../../../components/AppButton';
 import SemiModal from '../../../components/SemiModal';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -227,12 +227,10 @@ const AddressBookEditSheet = ({
           </View>
 
           <View style={styles.buttonContainer}>
-            <GradientButton
-              bottomColor={theme.colors.primary}
+            <AppButton
               disabled={!valid || saving}
               onPress={save}
-              style={styles.saveButton}
-              topColor={theme.colors.primary}>
+              style={styles.saveButton}>
               {saving ? (
                 <ActivityIndicator color={theme.colors.onPrimary} size={18} />
               ) : editMode ? (
@@ -240,7 +238,7 @@ const AddressBookEditSheet = ({
               ) : (
                 'Save'
               )}
-            </GradientButton>
+            </AppButton>
           </View>
         </View>
       </SemiModal>
