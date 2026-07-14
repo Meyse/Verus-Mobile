@@ -69,7 +69,32 @@ const getAddressType = (sourceCoin, path, exportName) => {
     : ADDRESS_TYPE.GENERIC;
 };
 
-const buildRoute = (sourceCoin, path, index) => {
+const getSourceNetworkId = (sourceCoin, sourceNetworkId) =>
+  sourceNetworkId || sourceCoin?.system_id || sourceCoin?.id || null;
+
+const getRouteNetwork = (sourceCoin, sourceNetworkId, route) => {
+  const sourceNetwork = getSourceNetworkId(sourceCoin, sourceNetworkId);
+  const networkKey =
+    route.addressType === ADDRESS_TYPE.ETHEREUM
+      ? '.eth'
+      : route.exportTo || sourceNetwork;
+  const networkDisplay = getCurrencyDisplay(
+    networkKey,
+    route.exportToFqn || sourceCoin?.display_name || networkKey,
+  );
+
+  return {
+    networkKey,
+    networkName:
+      networkKey === '.eth'
+        ? 'Ethereum'
+        : route.exportToFqn || networkDisplay.name,
+    networkIcon: networkKey === '.eth' ? 'ETH' : networkDisplay.coinId,
+    isSameNetwork: networkKey === sourceNetwork,
+  };
+};
+
+const buildRoute = (sourceCoin, sourceNetworkId, path) => {
   const exportTo = getDefinitionId(path?.exportto);
   const exportToFqn = getDefinitionName(path?.exportto);
   const via = getDefinitionId(path?.via);
@@ -86,14 +111,14 @@ const buildRoute = (sourceCoin, path, index) => {
   if (exportTo) parts.push(`to ${exportToFqn || exportTo}`);
   if (parts.length === 0) parts.push('Same network');
 
-  return {
+  const route = {
     key: `${
       getDefinitionId(path?.destination) ||
       getDefinitionName(path?.destination) ||
       'same'
     }:${exportTo || 'local'}:${via || 'direct'}:${mapTo || 'native'}:${
       preconvert ? 'pre' : 'live'
-    }:${index}`,
+    }`,
     label: parts.join(' · '),
     exportTo,
     exportToFqn,
@@ -106,17 +131,177 @@ const buildRoute = (sourceCoin, path, index) => {
     isCrossChain: Boolean(exportTo),
     addressType: getAddressType(sourceCoin, path, exportToFqn),
   };
+
+  return {
+    ...route,
+    ...getRouteNetwork(sourceCoin, sourceNetworkId, route),
+  };
+};
+
+const getCanonicalAssetKey = option => {
+  const fullyqualifiedname = String(option?.fullyqualifiedname || '');
+  let ticker = String(option?.ticker || option?.name || option?.id || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s*\[ERC20\]\s*/g, '');
+  const fqnParts = fullyqualifiedname.toUpperCase().split('.');
+
+  if (
+    fqnParts.length > 1 &&
+    ticker === fqnParts[fqnParts.length - 1]
+  ) {
+    ticker = fqnParts.slice(0, -1).join('.');
+  }
+
+  if (ticker.endsWith('.VETH')) {
+    ticker = ticker.slice(0, -5);
+    if (ticker.startsWith('V') && ticker.length > 1) ticker = ticker.slice(1);
+  }
+  if (ticker === 'VETH') ticker = 'ETH';
+
+  return ticker || option.id;
+};
+
+const getCanonicalAssetDisplay = canonicalKey => {
+  const display = {
+    BRIDGE: {name: 'Bridge.vETH', ticker: 'Bridge.vETH'},
+    ETH: {name: 'Ethereum', ticker: 'ETH'},
+    MKR: {name: 'Maker', ticker: 'MKR'},
+    TBTC: {name: 'tBTC', ticker: 'tBTC'},
+  }[canonicalKey];
+
+  return display || {name: canonicalKey, ticker: canonicalKey};
+};
+
+const buildNetworkOptions = (option, sourceCoin, sourceNetworkId) => {
+  const networks = new Map();
+
+  option.routes.forEach(route => {
+    const network = networks.get(route.networkKey) || {
+      ...option,
+      networkKey: route.networkKey,
+      networkName: route.networkName,
+      networkIcon: route.networkIcon,
+      isSameNetwork: route.isSameNetwork,
+      routes: [],
+    };
+
+    if (!network.routes.some(existing => existing.key === route.key)) {
+      network.routes.push(route);
+    }
+    networks.set(route.networkKey, network);
+  });
+
+  if (networks.size === 0) {
+    const sourceNetwork = getSourceNetworkId(sourceCoin, sourceNetworkId);
+    const display = getCurrencyDisplay(sourceNetwork, sourceCoin?.display_name);
+    networks.set(sourceNetwork, {
+      ...option,
+      networkKey: sourceNetwork,
+      networkName: display.name,
+      networkIcon: display.coinId,
+      isSameNetwork: true,
+      routes: [],
+    });
+  }
+
+  return [...networks.values()].map(network => ({
+    ...network,
+    selectionTitle:
+      network.isConversion && network.routes.length > 1
+        ? 'Select conversion route'
+        : null,
+  }));
+};
+
+const groupConversionOptions = (options, sourceCoin, sourceNetworkId) => {
+  const groups = new Map();
+
+  options.forEach(option => {
+    const canonicalKey = getCanonicalAssetKey(option);
+    const networkOptions = buildNetworkOptions(
+      option,
+      sourceCoin,
+      sourceNetworkId,
+    );
+    const group = groups.get(canonicalKey) || [];
+    group.push(...networkOptions);
+    groups.set(canonicalKey, group);
+  });
+
+  return [...groups.entries()].map(([canonicalKey, networkOptions]) => {
+    const deduplicatedNetworks = [];
+    networkOptions.forEach(network => {
+      const existing = deduplicatedNetworks.find(
+        option =>
+          option.networkKey === network.networkKey &&
+          option.transactionCurrency === network.transactionCurrency,
+      );
+      if (existing) {
+        network.routes.forEach(route => {
+          if (!existing.routes.some(candidate => candidate.key === route.key)) {
+            existing.routes.push(route);
+          }
+        });
+      } else {
+        deduplicatedNetworks.push({...network, routes: [...network.routes]});
+      }
+    });
+
+    if (deduplicatedNetworks.length === 1) {
+      const [onlyNetwork] = deduplicatedNetworks;
+      return {...onlyNetwork, networkOptions: [onlyNetwork]};
+    }
+
+    const preferredDisplay =
+      deduplicatedNetworks.find(option => option.networkKey === '.eth') ||
+      deduplicatedNetworks[0];
+    const canonicalDisplay = getCanonicalAssetDisplay(canonicalKey);
+
+    return {
+      id: canonicalKey,
+      name: canonicalDisplay.name,
+      ticker: canonicalDisplay.ticker,
+      coinId:
+        deduplicatedNetworks.find(
+          option => !String(option.coinId || '').startsWith('0x'),
+        )?.coinId || preferredDisplay.coinId,
+      isConversion: true,
+      isGrouped: true,
+      networkOptions: deduplicatedNetworks,
+      routes: [],
+    };
+  });
 };
 
 export const buildTargetOptions = (
   conversionPaths,
   sourceCoin,
   conversionDisabled,
+  sourceNetworkId,
 ) => {
   if (!sourceCoin) return [];
 
   const sourceCurrencyId = sourceCoin.currency_id || sourceCoin.id;
   const sourceDisplay = getCurrencyDisplay(sourceCoin.id, sourceCoin.display_name);
+  const directRoute = {
+    key: 'local:direct:live:send',
+    label: 'Same network',
+    exportTo: null,
+    exportToFqn: null,
+    via: null,
+    viaFqn: null,
+    mapTo: null,
+    price: null,
+    preconvert: false,
+    bridgePrelaunch: false,
+    isCrossChain: false,
+    addressType: ['eth', 'erc20'].includes(sourceCoin.proto)
+      ? ADDRESS_TYPE.ETHEREUM
+      : sourceCoin.proto === 'vrsc'
+      ? ADDRESS_TYPE.VERUS
+      : ADDRESS_TYPE.GENERIC,
+  };
   const sourceOption = {
     id: sourceCurrencyId,
     transactionCurrency: sourceCurrencyId,
@@ -128,22 +313,8 @@ export const buildTargetOptions = (
     isConversion: false,
     routes: [
       {
-        key: 'local:direct:live:send',
-        label: 'Same network',
-        exportTo: null,
-        exportToFqn: null,
-        via: null,
-        viaFqn: null,
-        mapTo: null,
-        price: null,
-        preconvert: false,
-        bridgePrelaunch: false,
-        isCrossChain: false,
-        addressType: ['eth', 'erc20'].includes(sourceCoin.proto)
-          ? ADDRESS_TYPE.ETHEREUM
-          : sourceCoin.proto === 'vrsc'
-          ? ADDRESS_TYPE.VERUS
-          : ADDRESS_TYPE.GENERIC,
+        ...directRoute,
+        ...getRouteNetwork(sourceCoin, sourceNetworkId, directRoute),
       },
     ],
     ...sourceDisplay,
@@ -156,15 +327,14 @@ export const buildTargetOptions = (
   for (const [destinationKey, paths] of Object.entries(conversionPaths || {})) {
     if (!Array.isArray(paths)) continue;
 
-    paths.forEach((path, index) => {
-      if (path?.prelaunch) return;
+    paths.forEach(path => {
       const destination = path?.destination;
       if (!destination) return;
 
       const displayCurrencyId = getDefinitionId(destination) || destinationKey;
       const sameCurrency = displayCurrencyId === sourceCurrencyId;
       const mappingSend = Boolean(path.mapping && path.exportto);
-      const route = buildRoute(sourceCoin, path, index);
+      const route = buildRoute(sourceCoin, sourceNetworkId, path);
 
       if (sameCurrency || mappingSend) {
         const routeWithMapping = mappingSend
@@ -205,14 +375,23 @@ export const buildTargetOptions = (
         routes: [],
       };
 
-      option.routes.push(route);
+      if (!option.routes.some(existing => existing.key === route.key)) {
+        option.routes.push(route);
+      }
       optionMap.set(displayCurrencyId, option);
     });
   }
 
-  const conversions = [...optionMap.values()].sort((first, second) =>
-    first.name.localeCompare(second.name),
+  sourceOption.networkOptions = buildNetworkOptions(
+    sourceOption,
+    sourceCoin,
+    sourceNetworkId,
   );
+  const conversions = groupConversionOptions(
+    [...optionMap.values()],
+    sourceCoin,
+    sourceNetworkId,
+  ).sort((first, second) => first.name.localeCompare(second.name));
   return [sourceOption, ...conversions];
 };
 
