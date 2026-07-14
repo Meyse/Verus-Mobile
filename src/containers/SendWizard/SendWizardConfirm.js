@@ -55,6 +55,7 @@ import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
   WizardFooter,
+  WizardHeading,
   WizardScreen,
 } from './components/WizardUI';
 import {getCurrencyDisplay} from './wizardUtils';
@@ -98,46 +99,11 @@ const SendWizardConfirm = () => {
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
 
   useLayoutEffect(() => {
-    const closeWizard = () => {
-      const parent = navigation.getParent?.();
-      if (parent?.goBack) parent.goBack();
-      else navigation.goBack();
-    };
-
     navigation.setOptions({
       gestureEnabled: !sending,
-      headerLeft: () => (
-        <TouchableOpacity
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-          accessibilityState={{disabled: sending}}
-          disabled={sending}
-          onPress={() => navigation.goBack()}
-          style={[styles.headerControl, sending && styles.headerDisabled]}>
-          <MaterialCommunityIcons
-            name="chevron-left"
-            size={30}
-            color={theme.colors.textPrimary}
-          />
-        </TouchableOpacity>
-      ),
-      headerRight: () => (
-        <TouchableOpacity
-          accessibilityLabel="Close transfer"
-          accessibilityRole="button"
-          accessibilityState={{disabled: sending}}
-          disabled={sending}
-          onPress={closeWizard}
-          style={[styles.headerControl, sending && styles.headerDisabled]}>
-          <MaterialCommunityIcons
-            name="close"
-            size={22}
-            color={theme.colors.textPrimary}
-          />
-        </TouchableOpacity>
-      ),
+      wizardNavigationDisabled: sending,
     });
-  }, [navigation, sending, theme.colors.textPrimary]);
+  }, [navigation, sending]);
 
   const simpleSend = Boolean(
     target && !target.isConversion && !route?.isCrossChain,
@@ -493,8 +459,11 @@ const SendWizardConfirm = () => {
   return (
     <WizardScreen scroll={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.mainTitle, {color: theme.colors.textPrimary}]}>Confirm</Text>
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>Review your transaction</Text>
+        <WizardHeading
+          style={styles.headingInset}
+          subtitle="Review your transaction">
+          Confirm
+        </WizardHeading>
         <View style={[styles.amountSection, {backgroundColor: theme.colors.surfaceMuted}]}>
           <View style={styles.amountBlock}>
             <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>YOU’RE SENDING</Text>
@@ -608,11 +577,8 @@ const SendWizardConfirm = () => {
 };
 
 const styles = StyleSheet.create({
-  headerControl: {width: 44, height: 44, marginHorizontal: 4, alignItems: 'center', justifyContent: 'center'},
-  headerDisabled: {opacity: 0.4},
-  content: {paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20},
-  mainTitle: {fontSize: 28, lineHeight: 34, marginTop: 8, marginBottom: 4, ...fontStyle('bold')},
-  subtitle: {fontSize: 14, lineHeight: 20, marginBottom: 24, ...fontStyle('regular')},
+  content: {paddingHorizontal: 16, paddingBottom: 20},
+  headingInset: {marginHorizontal: -16},
   amountSection: {borderRadius: 12, padding: 16, marginBottom: 16},
   amountBlock: {paddingVertical: 4, position: 'relative'},
   amountLabel: {fontSize: 11, lineHeight: 15, marginBottom: 6, letterSpacing: 0.3, ...fontStyle('medium')},

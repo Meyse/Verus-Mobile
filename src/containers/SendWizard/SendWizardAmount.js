@@ -266,7 +266,7 @@ const SendWizardAmount = () => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <View style={styles.inner}>
+          <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
           <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
           <View style={styles.amountBlock}>
             <TextInput
@@ -354,7 +354,6 @@ const SendWizardAmount = () => {
               )}
             </View>
           ) : null}
-          </View>
         </ScrollView>
         <WizardFooter disabled={!validAmount || estimateLoading} onPress={continueToRecipient}>
           Continue
@@ -381,9 +380,9 @@ const SendWizardAmount = () => {
 
 const styles = StyleSheet.create({
   flex: {flex: 1},
-  content: {flexGrow: 1, paddingTop: 8, paddingBottom: 12},
-  inner: {paddingHorizontal: 16},
-  contextLine: {fontSize: 14, lineHeight: 20, marginTop: 8, marginBottom: 8, ...fontStyle('regular')},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12},
+  headingInset: {marginHorizontal: -16},
+  contextLine: {fontSize: 14, lineHeight: 20, marginBottom: 8, ...fontStyle('regular')},
   amountBlock: {alignItems: 'center', marginTop: 8, marginBottom: 8},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},

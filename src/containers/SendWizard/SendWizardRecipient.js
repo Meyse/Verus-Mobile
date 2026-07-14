@@ -262,10 +262,11 @@ const SendWizardRecipient = () => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <View style={styles.heading}>
-            <Text style={[styles.mainTitle, {color: theme.colors.textPrimary}]}>Recipient</Text>
-            <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>Enter the destination address</Text>
-          </View>
+          <WizardHeading
+            style={styles.headingInset}
+            subtitle="Enter the destination address">
+            Recipient
+          </WizardHeading>
           <View
             style={[
               styles.inputShell,
@@ -399,10 +400,8 @@ const SendWizardRecipient = () => {
 
 const styles = StyleSheet.create({
   flex: {flex: 1},
-  content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20},
-  heading: {marginTop: 8},
-  mainTitle: {fontSize: 28, lineHeight: 34, marginBottom: 4, ...fontStyle('bold')},
-  subtitle: {fontSize: 14, lineHeight: 20, marginBottom: 24, ...fontStyle('regular')},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 20},
+  headingInset: {marginHorizontal: -16},
   inputShell: {minHeight: 56, marginBottom: 12, borderRadius: 12, borderWidth: 1, position: 'relative', flexDirection: 'row', alignItems: 'center'},
   input: {flex: 1, minHeight: 56, maxHeight: 96, paddingLeft: 16, paddingRight: 90, paddingTop: 19, paddingBottom: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
   inputActions: {position: 'absolute', right: 8, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center'},

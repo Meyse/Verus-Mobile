@@ -181,41 +181,38 @@ const SendWizardSelectTarget = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <View style={styles.header}>
-        <Text style={[styles.mainTitle, {color: theme.colors.textPrimary}]}>
-          What should the recipient receive?
-        </Text>
-        <View
-          style={[
-            styles.search,
-            {
-              backgroundColor: searchFocused
-                ? theme.colors.background
-                : theme.colors.input,
-              borderColor: searchFocused
-                ? theme.colors.primary
-                : 'transparent',
-            },
-          ]}>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={() => setSearchFocused(false)}
-            onChangeText={setQuery}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search currencies"
-            placeholderTextColor={theme.colors.textSubtle}
-            returnKeyType="search"
-            style={[styles.searchInput, {color: theme.colors.textPrimary}]}
-            value={query}
-          />
-          <MaterialCommunityIcons
-            name="magnify"
-            size={20}
-            color={theme.colors.textSubtle}
-            style={styles.searchIcon}
-          />
-        </View>
+      <WizardHeading>What should the recipient receive?</WizardHeading>
+      <View
+        style={[
+          styles.search,
+          {
+            marginHorizontal: theme.spacing.screenPadding,
+            backgroundColor: searchFocused
+              ? theme.colors.background
+              : theme.colors.input,
+            borderColor: searchFocused
+              ? theme.colors.primary
+              : 'transparent',
+          },
+        ]}>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          onBlur={() => setSearchFocused(false)}
+          onChangeText={setQuery}
+          onFocus={() => setSearchFocused(true)}
+          placeholder="Search currencies"
+          placeholderTextColor={theme.colors.textSubtle}
+          returnKeyType="search"
+          style={[styles.searchInput, {color: theme.colors.textPrimary}]}
+          value={query}
+        />
+        <MaterialCommunityIcons
+          name="magnify"
+          size={20}
+          color={theme.colors.textSubtle}
+          style={styles.searchIcon}
+        />
       </View>
       {loading ? (
         <SkeletonLoader accessibilityLabel="Loading transfer options" style={styles.skeleton}>
@@ -322,18 +319,9 @@ const SendWizardSelectTarget = () => {
 const styles = StyleSheet.create({
   content: {paddingBottom: 32},
   skeleton: {paddingHorizontal: 20, paddingTop: 20},
-  header: {paddingHorizontal: 20, paddingBottom: 16},
-  mainTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-    marginTop: 8,
-    marginBottom: 4,
-    letterSpacing: -0.2,
-    ...fontStyle('bold'),
-  },
   search: {
     height: 52,
-    marginTop: 16,
+    marginBottom: 14,
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
