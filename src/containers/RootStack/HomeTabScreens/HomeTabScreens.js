@@ -64,7 +64,9 @@ const HomeTabScreens = () => {
     <HomeTabs.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
+        tabBarActiveTintColor: theme.isDark
+          ? theme.colors.onPrimary
+          : theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSubtle,
         tabBarStyle: {
           backgroundColor: theme.colors.background,
