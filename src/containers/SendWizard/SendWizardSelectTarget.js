@@ -23,7 +23,7 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {useSendWizard} from './SendWizardContext';
 import {ErrorMessage, WizardHeading, WizardScreen} from './components/WizardUI';
-import {RouteSheet} from './components/SelectionSheets';
+import {TargetNetworkSheet} from './components/SelectionSheets';
 import {
   buildTargetOptions,
   isPopularTarget,
@@ -42,6 +42,10 @@ const SendWizardSelectTarget = () => {
   const [query, setQuery] = useState('');
   const [pendingTarget, setPendingTarget] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const channelType = channel?.split('.')[0];
+  const sourceNetworkId =
+    channel?.split('.')[2] || sourceCoin?.system_id || sourceCoin?.id;
+  const conversionSupported = PATH_CHANNELS.includes(channelType);
 
   useEffect(() => {
     if (!sourceCoin || !channel) {
@@ -49,7 +53,6 @@ const SendWizardSelectTarget = () => {
       return undefined;
     }
 
-    const channelType = channel.split('.')[0];
     if (!PATH_CHANNELS.includes(channelType)) {
       setPaths({});
       setLoading(false);
@@ -78,17 +81,35 @@ const SendWizardSelectTarget = () => {
     return () => {
       active = false;
     };
-  }, [channel, sourceCoin]);
+  }, [channel, channelType, sourceCoin]);
 
   const options = useMemo(
-    () => buildTargetOptions(paths, sourceCoin, CONVERSION_DISABLED),
-    [paths, sourceCoin],
+    () =>
+      buildTargetOptions(
+        paths,
+        sourceCoin,
+        CONVERSION_DISABLED,
+        sourceNetworkId,
+      ),
+    [paths, sourceCoin, sourceNetworkId],
   );
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return options;
     return options.filter(option =>
-      [option.name, option.ticker, option.id, option.fullyqualifiedname]
+      [
+        option.name,
+        option.ticker,
+        option.id,
+        option.fullyqualifiedname,
+        ...(option.networkOptions || []).flatMap(network => [
+          network.name,
+          network.ticker,
+          network.id,
+          network.fullyqualifiedname,
+          network.networkName,
+        ]),
+      ]
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(normalized)),
     );
@@ -103,17 +124,19 @@ const SendWizardSelectTarget = () => {
     navigation.navigate('SendWizardAmount');
   };
 
+  const chooseNetwork = target => {
+    const directRoute = target.routes.find(route => !route.via) || target.routes[0];
+    chooseRoute(target, directRoute);
+  };
+
   const chooseTarget = target => {
-    if (target.routes.length > 1) {
+    const networkOptions = target.networkOptions || [target];
+    if (networkOptions.length > 1) {
       setPendingTarget(target);
       return;
     }
 
-    const directRoute =
-      target.routes.find(route => !route.isCrossChain && !route.via) ||
-      target.routes.find(route => !route.isCrossChain) ||
-      target.routes[0];
-    chooseRoute(target, directRoute);
+    chooseNetwork(networkOptions[0]);
   };
 
   const chooseDirectSend = target => {
@@ -137,7 +160,7 @@ const SendWizardSelectTarget = () => {
         style={[styles.optionName, {color: theme.colors.textPrimary}]}>
         {option.name}
       </Text>
-      {option.routes.length > 1 || option.routes.some(route => route.isCrossChain) ? (
+      {(option.networkOptions || []).length > 1 ? (
         <MaterialCommunityIcons
           name="chevron-right"
           size={22}
@@ -230,7 +253,14 @@ const SendWizardSelectTarget = () => {
                   onPress={() =>
                     setPendingTarget({
                       ...sendOption,
-                      routes: sendOption.routes.filter(route => route.isCrossChain),
+                      networkOptions: sendOption.networkOptions
+                        .map(option => ({
+                          ...option,
+                          routes: option.routes.filter(
+                            route => route.isCrossChain,
+                          ),
+                        }))
+                        .filter(option => option.routes.length > 0),
                     })
                   }
                   style={({pressed}) => [styles.crossChain, pressed && styles.pressed]}>
@@ -246,6 +276,16 @@ const SendWizardSelectTarget = () => {
                     color={theme.colors.textSubtle}
                   />
                 </Pressable>
+              ) : null}
+              {!conversionSupported ? (
+                <Text
+                  style={[
+                    styles.cardCapability,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  Conversions aren’t available from this Card. Choose another
+                  Card with conversion support to convert this asset.
+                </Text>
               ) : null}
             </View>
           ) : null}
@@ -268,13 +308,12 @@ const SendWizardSelectTarget = () => {
           ) : null}
         </ScrollView>
       )}
-      <RouteSheet
-        title="Select network"
+      <TargetNetworkSheet
         target={pendingTarget}
-        routes={pendingTarget?.routes || []}
+        options={pendingTarget?.networkOptions || []}
         visible={Boolean(pendingTarget)}
         onClose={() => setPendingTarget(null)}
-        onSelect={route => chooseRoute(pendingTarget, route)}
+        onSelect={chooseNetwork}
       />
     </WizardScreen>
   );
@@ -336,6 +375,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   crossChainText: {flex: 1, marginLeft: 8, fontSize: 14, lineHeight: 19, ...fontStyle('regular')},
+  cardCapability: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
+  },
   optionRow: {paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center'},
   optionLogo: {width: 40, height: 40, marginRight: 28},
   optionCopy: {flex: 1},

@@ -36,7 +36,14 @@ const SendWizardAmount = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const {state, setAmount, setEstimate, setRoute} = useSendWizard();
-  const {sourceCoin, sourceSubWallet, sourceBalance, target, route} = state;
+  const {
+    channel,
+    sourceCoin,
+    sourceSubWallet,
+    sourceBalance,
+    target,
+    route,
+  } = state;
   const [input, setInput] = useState(state.amountInput || state.amount || '');
   const [fiatMode, setFiatMode] = useState(Boolean(state.fiatMode));
   const [estimateLoading, setEstimateLoading] = useState(false);
@@ -114,7 +121,7 @@ const SendWizardAmount = () => {
           routes.map(async candidate => {
             try {
               const result = await estimateConversion(
-                sourceCoin.system_id || sourceCoin.id,
+                channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
                 sourceCoin.currency_id || sourceCoin.id,
                 target.transactionCurrency,
                 cryptoAmount.toString(),
@@ -178,6 +185,7 @@ const SendWizardAmount = () => {
       clearTimeout(timeout);
     };
   }, [
+    channel,
     cryptoAmountValue,
     preferredRouteKey,
     setEstimate,

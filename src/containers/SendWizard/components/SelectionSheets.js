@@ -47,7 +47,7 @@ export const SourceCardSheet = ({cards, onClose, onSelect, selectedId, visible})
   return (
     <BottomSheetModal floating={false} maxHeight="70%" onClose={onClose} visible={visible}>
       <SheetHeader title="Select source" onClose={onClose} />
-      <Text style={[styles.description, {color: theme.colors.textSecondary}]}>Your asset is on multiple networks. Select where to send from.</Text>
+      <Text style={[styles.description, {color: theme.colors.textSecondary}]}>Your asset has multiple Cards. Select which Card to send from.</Text>
       <ScrollView contentContainerStyle={styles.list}>
         {groups.map(([network, sources]) => (
           <View key={network} style={styles.networkGroup}>
@@ -86,6 +86,84 @@ export const SourceCardSheet = ({cards, onClose, onSelect, selectedId, visible})
   );
 };
 
+export const TargetNetworkSheet = ({
+  onClose,
+  onSelect,
+  options,
+  target,
+  visible,
+}) => {
+  const theme = useOnboardingTheme();
+
+  return (
+    <BottomSheetModal
+      floating={false}
+      maxHeight="70%"
+      onClose={onClose}
+      visible={visible}>
+      <SheetHeader title="Select network" onClose={onClose} />
+      <Text style={[styles.description, {color: theme.colors.textSecondary}]}>{`${
+        target?.ticker || target?.name || 'This asset'
+      } is available on multiple networks. Choose where the recipient should receive it.`}</Text>
+      <FlatList
+        data={options}
+        keyExtractor={item => `${item.networkKey}:${item.transactionCurrency}`}
+        renderItem={({item}) => (
+          <TouchableOpacity
+            onPress={() => onSelect(item)}
+            style={[
+              styles.routeCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}>
+            <View
+              style={[
+                styles.routeAccent,
+                {backgroundColor: theme.colors.primary},
+              ]}
+            />
+            <View
+              style={[
+                styles.routeIcon,
+                {backgroundColor: theme.colors.surfaceMuted},
+              ]}>
+              {RenderSquareCoinLogo(
+                item.networkIcon || item.coinId || item.id,
+                {},
+                28,
+                28,
+              )}
+            </View>
+            <View style={styles.routeCopy}>
+              <View style={styles.routeBadgeRow}>
+                {item.isSameNetwork ? (
+                  <Text style={[styles.routeBadge, {color: theme.colors.primary}]}>SAME NETWORK</Text>
+                ) : null}
+              </View>
+              <Text
+                style={[
+                  styles.routeTitle,
+                  {color: theme.colors.textPrimary},
+                ]}>{`${item.networkName} network`}</Text>
+              <Text style={[styles.routeDetail, {color: theme.colors.textSecondary}]}>{`Receive as ${
+                item.ticker || item.name
+              }`}</Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={theme.colors.textSubtle}
+            />
+          </TouchableOpacity>
+        )}
+        contentContainerStyle={styles.list}
+      />
+    </BottomSheetModal>
+  );
+};
+
 export const RouteSheet = ({
   estimates = {},
   onClose,
@@ -93,7 +171,7 @@ export const RouteSheet = ({
   routes,
   selectedKey,
   target,
-  title = 'Select network',
+  title = 'Select conversion route',
   visible,
 }) => {
   const theme = useOnboardingTheme();
@@ -138,31 +216,71 @@ export const RouteSheet = ({
                     : theme.colors.border,
                 },
               ]}>
-            <View style={[styles.routeAccent, {backgroundColor: theme.colors.primary}]} />
-            <View style={[styles.routeIcon, {backgroundColor: theme.colors.surfaceMuted}]}>
-              <MaterialCommunityIcons name={item.isCrossChain ? 'swap-horizontal' : 'link-variant'} size={22} color={theme.colors.textPrimary} />
-            </View>
-            <View style={styles.routeCopy}>
-              <View style={styles.routeBadgeRow}>
-                {!item.isCrossChain ? (
-                  <Text style={[styles.routeBadge, {color: theme.colors.primary}]}>SAME NETWORK</Text>
-                ) : null}
-                {item.key === bestRouteKey ? (
-                  <Text style={[styles.bestBadge, {backgroundColor: theme.colors.primary}]}>BEST</Text>
+              <View
+                style={[
+                  styles.routeAccent,
+                  {backgroundColor: theme.colors.primary},
+                ]}
+              />
+              <View
+                style={[
+                  styles.routeIcon,
+                  {backgroundColor: theme.colors.surfaceMuted},
+                ]}>
+                <MaterialCommunityIcons
+                  name={
+                    item.isCrossChain ? 'swap-horizontal' : 'link-variant'
+                  }
+                  size={22}
+                  color={theme.colors.textPrimary}
+                />
+              </View>
+              <View style={styles.routeCopy}>
+                <View style={styles.routeBadgeRow}>
+                  {item.key === bestRouteKey ? (
+                    <Text
+                      style={[
+                        styles.bestBadge,
+                        {backgroundColor: theme.colors.primary},
+                      ]}>
+                      BEST
+                    </Text>
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.routeTitle,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  {item.label}
+                </Text>
+                <Text
+                  style={[
+                    styles.routeDetail,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {item.via
+                    ? 'Conversion through an intermediate currency'
+                    : 'Direct conversion route'}
+                </Text>
+                {estimate != null ? (
+                  <Text
+                    style={[
+                      styles.routeEstimate,
+                      {color: theme.colors.textPrimary},
+                    ]}>{`≈ ${truncateDecimal(BigNumber(estimate), 8)} ${
+                    target?.ticker || ''
+                  }`}</Text>
                 ) : null}
               </View>
-              <Text style={[styles.routeTitle, {color: theme.colors.textPrimary}]}>{item.label}</Text>
-              <Text style={[styles.routeDetail, {color: theme.colors.textSecondary}]}>{item.isCrossChain ? 'Receive on another supported network' : 'Receive on the current network'}</Text>
-              {estimate != null ? (
-                <Text style={[styles.routeEstimate, {color: theme.colors.textPrimary}]}>{`≈ ${truncateDecimal(BigNumber(estimate), 8)} ${target?.ticker || ''}`}</Text>
-              ) : null}
-            </View>
-            <MaterialCommunityIcons
-              name={selected ? 'check-circle' : 'chevron-right'}
-              size={20}
-              color={selected ? theme.colors.primary : theme.colors.textSubtle}
-            />
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name={selected ? 'check-circle' : 'chevron-right'}
+                size={20}
+                color={
+                  selected ? theme.colors.primary : theme.colors.textSubtle
+                }
+              />
+            </TouchableOpacity>
           );
         }}
         contentContainerStyle={styles.list}
