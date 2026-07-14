@@ -1,8 +1,7 @@
-import React, {useMemo} from 'react';
-import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useMemo, useRef} from 'react';
+import {Animated, StyleSheet, Text, View} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BigNumber from 'bignumber.js';
 import AppButton from '../../components/AppButton';
 import {fontStyle} from '../../globals/fonts';
@@ -22,8 +21,17 @@ import SendWizardAmount from './SendWizardAmount';
 import SendWizardRecipient from './SendWizardRecipient';
 import SendWizardConfirm from './SendWizardConfirm';
 import SendWizardSuccess from './SendWizardSuccess';
+import SendWizardHeader, {
+  getSendWizardProgress,
+} from './components/SendWizardHeader';
 
 const Stack = createStackNavigator();
+
+const closeWizard = navigation => {
+  const parent = navigation.getParent?.();
+  if (parent?.goBack) parent.goBack();
+  else navigation.goBack();
+};
 
 const SendWizardNavigator = () => {
   const navigation = useNavigation();
@@ -89,6 +97,10 @@ const SendWizardNavigator = () => {
     initialCoinId,
     initialSubWalletId,
   ]);
+  const progressAnimation = useRef({
+    generation: 0,
+    value: new Animated.Value(initialSource ? 0.4 : 0.2),
+  }).current;
 
   if (invalidInitialCoin) {
     return (
@@ -121,33 +133,21 @@ const SendWizardNavigator = () => {
         initialRouteName={
           initialSource ? 'SendWizardSelectTarget' : 'SendWizardSelectSource'
         }
-        screenOptions={({navigation}) => ({
+        screenOptions={() => ({
           title: '',
-          headerBackTitle: 'Back',
-          headerStyle: {
-            backgroundColor: theme.colors.background,
-            elevation: 0,
-            shadowOpacity: 0,
-          },
-          headerTintColor: theme.colors.textPrimary,
           cardStyle: {backgroundColor: theme.colors.background},
-          headerRight: () => (
-            <TouchableOpacity
-              accessibilityLabel="Close transfer"
-              accessibilityRole="button"
-              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-              onPress={() => {
-                const parent = navigation.getParent?.();
-                if (parent?.goBack) parent.goBack();
-                else navigation.goBack();
-              }}
-              style={styles.closeButton}>
-              <MaterialCommunityIcons
-                name="close"
-                size={22}
-                color={theme.colors.textPrimary}
-              />
-            </TouchableOpacity>
+          header: ({navigation, options, route: headerRoute}) => (
+            <SendWizardHeader
+              disabled={Boolean(options.wizardNavigationDisabled)}
+              onBack={
+                headerRoute.name === 'SendWizardSuccess'
+                  ? undefined
+                  : () => navigation.goBack()
+              }
+              onClose={() => closeWizard(navigation)}
+              progress={getSendWizardProgress(headerRoute.name)}
+              progressAnimation={progressAnimation}
+            />
           ),
         })}>
         <Stack.Screen name="SendWizardSelectSource" component={SendWizardSelectSource} />
@@ -158,7 +158,7 @@ const SendWizardNavigator = () => {
         <Stack.Screen
           name="SendWizardSuccess"
           component={SendWizardSuccess}
-          options={{headerShown: false, gestureEnabled: false}}
+          options={{gestureEnabled: false}}
         />
       </Stack.Navigator>
     </SendWizardProvider>
@@ -170,13 +170,6 @@ const styles = StyleSheet.create({
   errorTitle: {fontSize: 20, lineHeight: 26, textAlign: 'center', ...fontStyle('bold')},
   errorBody: {fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: 'center', ...fontStyle('regular')},
   errorAction: {minWidth: 160, marginTop: 24},
-  closeButton: {
-    width: 44,
-    height: 44,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });
 
 export default SendWizardNavigator;

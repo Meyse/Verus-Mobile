@@ -19,7 +19,7 @@ import {
 import {USD} from '../../utils/constants/currencies';
 import {truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
-import {WizardScreen} from './components/WizardUI';
+import {WizardHeading, WizardScreen} from './components/WizardUI';
 import {SourceCardSheet} from './components/SelectionSheets';
 
 const SendWizardSelectSource = () => {
@@ -115,30 +115,36 @@ const SendWizardSelectSource = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <View style={styles.header}>
-        <Text style={[styles.mainTitle, {color: theme.colors.textPrimary}]}>Select asset to send or convert</Text>
-        <View
-          style={[
-            styles.search,
-            {
-              backgroundColor: searchFocused ? theme.colors.inputFocused : theme.colors.input,
-              borderColor: searchFocused ? theme.colors.primary : 'transparent',
-            },
-          ]}>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={() => setSearchFocused(false)}
-            onChangeText={setQuery}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search currencies"
-            placeholderTextColor={theme.colors.textSubtle}
-            returnKeyType="search"
-            style={[styles.searchInput, {color: theme.colors.textPrimary}]}
-            value={query}
-          />
-          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.textSubtle} style={styles.searchIcon} />
-        </View>
+      <WizardHeading>Select asset to send or convert</WizardHeading>
+      <View
+        style={[
+          styles.search,
+          {
+            marginHorizontal: theme.spacing.screenPadding,
+            backgroundColor: searchFocused
+              ? theme.colors.inputFocused
+              : theme.colors.input,
+            borderColor: searchFocused ? theme.colors.primary : 'transparent',
+          },
+        ]}>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          onBlur={() => setSearchFocused(false)}
+          onChangeText={setQuery}
+          onFocus={() => setSearchFocused(true)}
+          placeholder="Search currencies"
+          placeholderTextColor={theme.colors.textSubtle}
+          returnKeyType="search"
+          style={[styles.searchInput, {color: theme.colors.textPrimary}]}
+          value={query}
+        />
+        <MaterialCommunityIcons
+          name="magnify"
+          size={20}
+          color={theme.colors.textSubtle}
+          style={styles.searchIcon}
+        />
       </View>
       <FlatList
         data={filteredAssets}
@@ -195,9 +201,7 @@ const SendWizardSelectSource = () => {
 
 const styles = StyleSheet.create({
   list: {paddingBottom: 24},
-  header: {paddingHorizontal: 16, paddingBottom: 12},
-  mainTitle: {fontSize: 28, lineHeight: 34, marginTop: 8, marginBottom: 4, letterSpacing: -0.2, ...fontStyle('bold')},
-  search: {height: 52, marginTop: 16, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center'},
+  search: {height: 52, marginBottom: 14, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center'},
   searchInput: {flex: 1, height: 52, paddingHorizontal: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
   searchIcon: {marginHorizontal: 16},
   assetRow: {paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center'},

@@ -12,6 +12,7 @@ import GradientButton from '../../../components/GradientButton';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../globals/fonts';
+import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {RenderSquareCoinLogo} from '../../../utils/CoinData/Graphics';
 
@@ -36,15 +37,39 @@ export const WizardScreen = ({children, contentContainerStyle, scroll = true}) =
   );
 };
 
-export const WizardHeading = ({children, subtitle}) => {
+export const WizardHeading = ({children, style, subtitle}) => {
   const theme = useOnboardingTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   return (
-    <View style={styles.headingBlock}>
-      <Text style={[styles.heading, {color: theme.colors.textPrimary}]}>
+    <View
+      style={[
+        {
+          paddingHorizontal: theme.spacing.screenPadding,
+          paddingTop: smallDevice
+            ? theme.spacing.stepTopSmallDevice
+            : theme.spacing.stepTop,
+          paddingBottom: smallDevice
+            ? theme.spacing.stepTitleMarginSmallDevice
+            : theme.spacing.stepTitleMargin,
+        },
+        style,
+      ]}>
+      <Text
+        style={[
+          smallDevice
+            ? theme.typography.headlineCompact
+            : theme.typography.headlineLg,
+          {color: theme.colors.textPrimary},
+        ]}>
         {children}
       </Text>
       {subtitle ? (
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
+        <Text
+          style={[
+            styles.subtitle,
+            theme.typography.bodyMd,
+            {color: theme.colors.textSecondary},
+          ]}>
           {subtitle}
         </Text>
       ) : null}
@@ -231,9 +256,7 @@ const styles = StyleSheet.create({
   footer: {paddingTop: 16},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
-  headingBlock: {paddingHorizontal: 20, paddingTop: 18, paddingBottom: 18},
-  heading: {fontSize: 28, lineHeight: 34, ...fontStyle('bold')},
-  subtitle: {fontSize: 15, lineHeight: 22, marginTop: 8, ...fontStyle('regular')},
+  subtitle: {marginTop: 8},
   search: {
     height: 52,
     marginHorizontal: 20,
