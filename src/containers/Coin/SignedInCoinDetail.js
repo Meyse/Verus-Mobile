@@ -97,7 +97,6 @@ const SignedInCoinDetail = ({navigation, route}) => {
       <SignedInAssetHeader />
       <View style={styles.transactions}>{overviewContent}</View>
       <SignedInActionBar
-        secondaryRight
         sendOrConvertLabel="Send / convert"
         receiveDisabled={!canReceive}
         sendOrConvertDisabled={!canTransfer}

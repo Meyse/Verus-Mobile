@@ -12,7 +12,6 @@ const SignedInActionBar = ({
   receiveDisabled = false,
   sendOrConvertDisabled = false,
   includeBottomInset = true,
-  secondaryRight = false,
   sendOrConvertLabel = signedInCopy.actions.sendOrConvert,
 }) => {
   const theme = useOnboardingTheme();
@@ -46,7 +45,7 @@ const SignedInActionBar = ({
           disabled={sendOrConvertDisabled}
           onPress={onSendOrConvert}
           style={styles.button}
-          variant={secondaryRight ? 'secondary' : 'primary'}>
+          variant="secondary">
           {sendOrConvertLabel}
         </AppButton>
       </View>
@@ -67,7 +66,7 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    maxWidth: 160,
+    maxWidth: 176,
   },
 });
 
