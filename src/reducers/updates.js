@@ -495,7 +495,7 @@ export const updates = (state = {
             [dataType]: {
               ...state.coinUpdateTracker[chainTicker][dataType],
               busy: {
-                ...state.coinUpdateTracker[chainTicker][API_GET_FIATPRICE].busy,
+                ...state.coinUpdateTracker[chainTicker][dataType].busy,
                 ...channels
               }
             }}}
