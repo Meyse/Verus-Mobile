@@ -1,19 +1,26 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
-  FlatList,
+  AccessibilityInfo,
+  Platform,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import {PanGestureHandler} from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  Extrapolate,
+  cancelAnimation,
+  interpolate,
+  runOnJS,
+  useAnimatedGestureHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {Network} from 'lucide-react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -29,29 +36,78 @@ import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
-import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {coinsList} from '../../utils/CoinData/CoinsList';
 import {CONNECTION_ERROR} from '../../utils/api/errors/errorMessages';
 import {USD} from '../../utils/constants/currencies';
 import {
-  API_GET_ADDRESSES,
   API_GET_BALANCES,
   API_GET_FIATPRICE,
-  API_GET_INFO,
 } from '../../utils/constants/intervalConstants';
 import {
   extractErrorData,
   extractLedgerData,
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
+import {
+  getLedgerConfirmed,
+  getNetworkTicker,
+  getSubWalletCardType,
+  getSubWalletDisplayIdentifier,
+  isVerusIdWallet,
+  sortSubWalletsByBalance,
+  truncateMiddle,
+} from '../../utils/subwallet/cardPresentation';
 
-const CARD_SPACING = 12;
 const CONTAINER_PADDING = 20;
-const CARD_WIDTH_OFFSET = 72;
+const CARD_WIDTH_RATIO = 0.78;
+const MAX_CARD_WIDTH = 314;
 const CARD_HEIGHT = 206;
+const CARD_PERSPECTIVE = 1100;
+const NEIGHBOR_SCALE = 0.88;
+const NEIGHBOR_OPACITY = 0.82;
+const NEIGHBOR_CENTER_OFFSET = 0.6;
+const NEIGHBOR_ROTATE_Y = 18;
+const NEIGHBOR_ROTATE_Z = 3.5;
+const SWIPE_DISTANCE_THRESHOLD = 39;
+const KINETIC_SNAP_DURATION = 480;
+const KINETIC_SNAP_CONFIG = {
+  duration: KINETIC_SNAP_DURATION,
+  easing: Easing.bezier(0.22, 0.8, 0.18, 1),
+};
+const CIRCULAR_RAIL_MIN_CARDS = 3;
+const RAIL_DOT_COLOR = '#CCD2DF';
+const RAIL_DOT_ACTIVE_COLOR = '#3165D4';
+const MAGICPATH_CARD_ACCENTS = {
+  verusId: ['#6B7CFF', '#00A6A8'],
+  address: ['#4F8CEB', '#00A6A8', '#6B7CFF'],
+  private: '#6F7788',
+};
+const MONOSPACE_FONT = Platform.select({
+  ios: 'Menlo',
+  android: 'monospace',
+  default: 'monospace',
+});
 
 const clamp = (number, minimum, maximum) =>
   Math.max(minimum, Math.min(maximum, number));
+
+const getLogicalCardIndex = (railPosition, itemCount) => {
+  if (itemCount === 0) return 0;
+
+  const roundedPosition = Math.round(railPosition);
+  return ((roundedPosition % itemCount) + itemCount) % itemCount;
+};
+
+const getNearestRailPosition = (
+  currentPosition,
+  logicalIndex,
+  itemCount,
+  circular,
+) => {
+  if (!circular || itemCount === 0) return logicalIndex;
+
+  const cycle = Math.round((currentPosition - logicalIndex) / itemCount);
+  return logicalIndex + cycle * itemCount;
+};
 
 const normalizeHex = value => {
   if (typeof value !== 'string') return null;
@@ -94,7 +150,8 @@ const mixHex = (first, second, weight = 0.5) => {
 
   const normalizedWeight = clamp(weight, 0, 1);
   return rgbToHex({
-    red: firstRgb.red * (1 - normalizedWeight) + secondRgb.red * normalizedWeight,
+    red:
+      firstRgb.red * (1 - normalizedWeight) + secondRgb.red * normalizedWeight,
     green:
       firstRgb.green * (1 - normalizedWeight) +
       secondRgb.green * normalizedWeight,
@@ -111,65 +168,112 @@ const withAlpha = (value, alpha) => {
   return `rgba(${rgb.red},${rgb.green},${rgb.blue},${alpha})`;
 };
 
-const isLightColor = value => {
-  const rgb = hexToRgb(value);
-  if (!rgb) return false;
+const getCardTheme = accent => {
+  const text = '#FFFFFF';
 
-  const luma =
-    (0.299 * rgb.red + 0.587 * rgb.green + 0.114 * rgb.blue) / 255;
-  return luma > 0.72;
+  return {
+    top: mixHex(accent, '#182442', 0.28),
+    middle: mixHex(accent, '#1B2333', 0.55),
+    bottom: '#1B2333',
+    highlight: mixHex(accent, text, 0.32),
+    text,
+    mutedText: withAlpha(text, 0.72),
+    border: withAlpha(text, 0.14),
+    watermark: withAlpha(text, 0.84),
+  };
 };
 
-const truncateMiddle = (value, start = 8, end = 8) => {
-  if (typeof value !== 'string') return '';
-  if (value.length <= start + end + 3) return value;
+const KineticRailCard = ({
+  cardWidth,
+  carouselPadding,
+  children,
+  circular,
+  index,
+  itemCount,
+  railPosition,
+  reduceMotionEnabled,
+  selected,
+  style,
+}) => {
+  const neighborCenterOffset = cardWidth * NEIGHBOR_CENTER_OFFSET;
+  const animatedStyle = useAnimatedStyle(() => {
+    let itemPosition = index;
 
-  return `${value.slice(0, start)}...${value.slice(value.length - end)}`;
-};
+    if (circular && itemCount > 0) {
+      const cycle = Math.round((railPosition.value - index) / itemCount);
+      itemPosition += cycle * itemCount;
+    }
 
-const getNetworkTicker = systemId => {
-  if (!systemId) return '';
-  if (systemId === '.eth') return 'ETH';
-  if (coinsList[systemId]?.display_ticker) {
-    return coinsList[systemId].display_ticker;
-  }
+    const delta = itemPosition - railPosition.value;
+    const absoluteDelta = Math.abs(delta);
+    const clampedDelta = Math.max(-1, Math.min(1, delta));
+    const translateX = delta * neighborCenterOffset;
+    const opacity = interpolate(
+      absoluteDelta,
+      [0, 1, 1.35],
+      [1, NEIGHBOR_OPACITY, 0],
+      Extrapolate.CLAMP,
+    );
+    const layer = Math.max(1, Math.round(100 - absoluteDelta * 10));
 
-  try {
-    const coin = CoinDirectory.findCoinObj(systemId);
-    if (coin?.display_ticker) return coin.display_ticker;
-  } catch (error) {
-    // The Card can reference a system that is not enabled in CoinDirectory.
-  }
+    if (reduceMotionEnabled) {
+      return {
+        opacity,
+        zIndex: layer,
+        elevation: Math.max(1, Math.round(5 - absoluteDelta * 2)),
+        transform: [{translateX}],
+      };
+    }
 
-  if (
-    typeof systemId === 'string' &&
-    systemId.startsWith('i') &&
-    systemId.length > 30
-  ) {
-    return '';
-  }
+    return {
+      opacity,
+      zIndex: layer,
+      elevation: Math.max(1, Math.round(5 - absoluteDelta * 2)),
+      transform: [
+        {perspective: CARD_PERSPECTIVE},
+        {translateX},
+        {rotateY: `${-clampedDelta * NEIGHBOR_ROTATE_Y}deg`},
+        {rotateZ: `${clampedDelta * NEIGHBOR_ROTATE_Z}deg`},
+        {
+          scale: interpolate(
+            absoluteDelta,
+            [0, 1],
+            [1, NEIGHBOR_SCALE],
+            Extrapolate.CLAMP,
+          ),
+        },
+      ],
+    };
+  }, [cardWidth, circular, index, itemCount, reduceMotionEnabled]);
 
-  return systemId;
-};
-
-const getLedgerConfirmed = ledgerEntry => {
-  if (ledgerEntry == null) return null;
-  return BigNumber.isBigNumber(ledgerEntry)
-    ? ledgerEntry
-    : ledgerEntry.confirmed;
-};
-
-const getLedgerPending = ledgerEntry => {
-  if (ledgerEntry == null || BigNumber.isBigNumber(ledgerEntry)) return null;
-  return ledgerEntry.pending;
+  return (
+    <Animated.View
+      accessibilityElementsHidden={!selected}
+      importantForAccessibility={selected ? 'yes' : 'no-hide-descendants'}
+      pointerEvents={selected ? 'auto' : 'none'}
+      style={[
+        style,
+        {
+          left: carouselPadding,
+          position: 'absolute',
+          top: 0,
+          width: cardWidth,
+        },
+        animatedStyle,
+      ]}>
+      {children}
+    </Animated.View>
+  );
 };
 
 const SignedInAssetHeader = () => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const {width: screenWidth} = useWindowDimensions();
-  const flatListRef = useRef(null);
   const activeWalletIdRef = useRef(null);
+  const internalSelectionIdRef = useRef(null);
+  const railPosition = useSharedValue(0);
+  const selectedRailPosition = useSharedValue(0);
 
   const activeCoin = useObjectSelector(state => state.coins.activeCoin);
   const chainTicker = activeCoin?.id;
@@ -182,77 +286,61 @@ const SignedInAssetHeader = () => {
   );
   const balances = useObjectSelector(state =>
     chainTicker
-      ? extractLedgerData(
-          state,
-          'balances',
-          API_GET_BALANCES,
-          chainTicker,
-        )
-      : {},
-  );
-  const info = useObjectSelector(state =>
-    chainTicker
-      ? extractLedgerData(state, 'info', API_GET_INFO, chainTicker)
+      ? extractLedgerData(state, 'balances', API_GET_BALANCES, chainTicker)
       : {},
   );
   const balanceErrors = useObjectSelector(state =>
     chainTicker ? extractErrorData(state, API_GET_BALANCES, chainTicker) : {},
   );
   const rates = useObjectSelector(state => state.ledger.rates);
-  const activeAccount = useSelector(state => state.authentication.activeAccount);
+  const activeAccount = useSelector(
+    state => state.authentication.activeAccount,
+  );
   const showBalance = useSelector(state => state.coins.showBalance);
   const displayCurrency = useSelector(
-    state =>
-      state.settings.generalWalletSettings.displayCurrency || USD,
+    state => state.settings.generalWalletSettings.displayCurrency || USD,
   );
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const cardWidth = screenWidth - CARD_WIDTH_OFFSET;
+  const [frozenWalletItems, setFrozenWalletItems] = useState(null);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const cardWidth = Math.min(screenWidth * CARD_WIDTH_RATIO, MAX_CARD_WIDTH);
+  const carouselPadding = Math.max((screenWidth - cardWidth) / 2, 0);
 
-  const cardTheme = useMemo(() => {
-    const base = normalizeHex(activeCoin?.theme_color) || theme.colors.primary;
-    const light = isLightColor(base);
-    const darkCardText = theme.isDark
-      ? theme.colors.background
-      : theme.colors.textPrimary;
-    const text = light ? darkCardText : theme.colors.onPrimary;
+  const cardAccents = useMemo(() => {
+    let verusIdIndex = 0;
+    let addressIndex = 0;
 
-    return {
-      top: mixHex(base, theme.colors.primary, 0.55),
-      middle: mixHex(base, theme.colors.primary, 0.25),
-      bottom: mixHex(base, darkCardText, 0.18),
-      highlight: mixHex(base, theme.colors.onPrimary, 0.35),
-      text,
-      mutedText: withAlpha(text, 0.78),
-      border: withAlpha(text, 0.1),
-      addressBorder: withAlpha(text, light ? 0.1 : 0.18),
-      watermark: withAlpha(text, 0.22),
-    };
-  }, [activeCoin?.theme_color, theme]);
+    return allSubWallets.reduce((accents, wallet) => {
+      if (wallet.id === 'PRIVATE_WALLET') {
+        accents[wallet.id] = MAGICPATH_CARD_ACCENTS.private;
+      } else if (isVerusIdWallet(wallet)) {
+        accents[wallet.id] =
+          MAGICPATH_CARD_ACCENTS.verusId[
+            verusIdIndex % MAGICPATH_CARD_ACCENTS.verusId.length
+          ];
+        verusIdIndex += 1;
+      } else if (wallet.id === 'MAIN_WALLET') {
+        accents[wallet.id] = MAGICPATH_CARD_ACCENTS.address[0];
+      } else {
+        accents[wallet.id] =
+          MAGICPATH_CARD_ACCENTS.address[
+            addressIndex % MAGICPATH_CARD_ACCENTS.address.length
+          ];
+        addressIndex += 1;
+      }
 
-  const walletItems = useMemo(() => {
-    const items = allSubWallets.map((wallet, originalIndex) => {
-      const confirmed = getLedgerConfirmed(balances?.[wallet.id]);
+      return accents;
+    }, {});
+  }, [allSubWallets]);
 
-      return {
-        ...wallet,
-        originalIndex,
-        confirmedSortValue:
-          confirmed == null ? BigNumber(0) : BigNumber(confirmed),
-      };
-    });
-
-    items.sort((first, second) => {
-      const balanceOrder = second.confirmedSortValue.comparedTo(
-        first.confirmedSortValue,
-      );
-      return balanceOrder === 0
-        ? first.originalIndex - second.originalIndex
-        : balanceOrder;
-    });
-
-    return items;
-  }, [allSubWallets, balances]);
+  const sortedWalletItems = useMemo(
+    () => sortSubWalletsByBalance(allSubWallets, balances),
+    [allSubWallets, balances],
+  );
+  const walletItems = frozenWalletItems || sortedWalletItems;
+  const itemCount = walletItems.length;
+  const circularRail = itemCount >= CIRCULAR_RAIL_MIN_CARDS;
 
   const totalConfirmedBalance = useMemo(
     () =>
@@ -264,10 +352,32 @@ const SignedInAssetHeader = () => {
   );
 
   useEffect(() => {
-    if (walletItems.length === 0) {
+    let active = true;
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(enabled => {
+        if (active) setReduceMotionEnabled(enabled);
+      })
+      .catch(() => {});
+
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled,
+    );
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (itemCount === 0) {
       activeWalletIdRef.current = null;
       setActiveIndex(0);
-      return undefined;
+      railPosition.value = 0;
+      selectedRailPosition.value = 0;
+      return;
     }
 
     const selectedIndex = selectedSubWallet
@@ -275,21 +385,47 @@ const SignedInAssetHeader = () => {
       : -1;
     const nextIndex = selectedIndex >= 0 ? selectedIndex : 0;
     const selectedItem = walletItems[nextIndex];
+    const previousWalletId = activeWalletIdRef.current;
+    const targetRailPosition = getNearestRailPosition(
+      railPosition.value,
+      nextIndex,
+      itemCount,
+      circularRail,
+    );
+    const isInternalSelection =
+      internalSelectionIdRef.current === selectedItem?.id;
 
+    internalSelectionIdRef.current = null;
     activeWalletIdRef.current = selectedItem?.id || null;
     setActiveIndex(currentIndex =>
       currentIndex === nextIndex ? currentIndex : nextIndex,
     );
+    selectedRailPosition.value = targetRailPosition;
 
-    const frame = requestAnimationFrame(() => {
-      flatListRef.current?.scrollToOffset({
-        offset: nextIndex * (cardWidth + CARD_SPACING),
-        animated: false,
-      });
-    });
+    if (isInternalSelection) return;
 
-    return () => cancelAnimationFrame(frame);
-  }, [cardWidth, selectedSubWallet, walletItems]);
+    cancelAnimation(railPosition);
+    if (
+      reduceMotionEnabled ||
+      previousWalletId == null ||
+      previousWalletId === selectedItem?.id
+    ) {
+      railPosition.value = targetRailPosition;
+    } else {
+      railPosition.value = withTiming(
+        targetRailPosition,
+        KINETIC_SNAP_CONFIG,
+      );
+    }
+  }, [
+    circularRail,
+    itemCount,
+    railPosition,
+    reduceMotionEnabled,
+    selectedRailPosition,
+    selectedSubWallet,
+    walletItems,
+  ]);
 
   const getWalletFiatDisplay = useCallback(
     (wallet, confirmedBalance) => {
@@ -315,61 +451,225 @@ const SignedInAssetHeader = () => {
     [chainTicker, displayCurrency, rates],
   );
 
-  const getDisplayAddress = useCallback(
-    wallet => {
-      if (!wallet) return '-';
-      if (wallet.name?.endsWith('@')) return wallet.name;
+  const totalFiatDisplay = useMemo(() => {
+    for (const wallet of allSubWallets) {
+      const fiatDisplay = getWalletFiatDisplay(wallet, totalConfirmedBalance);
+      if (fiatDisplay != null) return fiatDisplay;
+    }
 
-      const addressChannel = wallet.api_channels?.[API_GET_ADDRESSES];
-      const addresses =
-        addressChannel == null
-          ? null
-          : activeAccount?.keys?.[chainTicker]?.[addressChannel]?.addresses;
+    return null;
+  }, [allSubWallets, getWalletFiatDisplay, totalConfirmedBalance]);
 
-      return addresses?.[0] || wallet.name || '-';
-    },
+  const getDisplayIdentifier = useCallback(
+    wallet =>
+      getSubWalletDisplayIdentifier(wallet, activeAccount, chainTicker),
     [activeAccount, chainTicker],
   );
 
-  const handleMomentumScrollEnd = useCallback(
-    event => {
-      if (walletItems.length === 0) return;
+  const activateCard = useCallback(
+    nextIndex => {
+      if (itemCount === 0) return;
 
-      const offset = event.nativeEvent.contentOffset.x;
-      const nextIndex = clamp(
-        Math.round(offset / (cardWidth + CARD_SPACING)),
-        0,
-        walletItems.length - 1,
-      );
       const nextItem = walletItems[nextIndex];
+      const sourceWallet = nextItem
+        ? allSubWallets.find(wallet => wallet.id === nextItem.id)
+        : null;
 
       setActiveIndex(nextIndex);
-      activeWalletIdRef.current = nextItem?.id || null;
 
-      if (nextItem && nextItem.id !== selectedSubWallet?.id) {
-        const sourceWallet = allSubWallets.find(
-          wallet => wallet.id === nextItem.id,
+      if (sourceWallet && sourceWallet.id !== activeWalletIdRef.current) {
+        activeWalletIdRef.current = sourceWallet.id;
+        internalSelectionIdRef.current = sourceWallet.id;
+        dispatch(setCoinSubWallet(chainTicker, sourceWallet));
+      }
+    },
+    [allSubWallets, chainTicker, dispatch, itemCount, walletItems],
+  );
+
+  const beginRailInteraction = useCallback(() => {
+    setFrozenWalletItems(currentItems => currentItems || sortedWalletItems);
+  }, [sortedWalletItems]);
+
+  const finishRailInteraction = useCallback(() => {
+    setFrozenWalletItems(null);
+  }, []);
+
+  const animateToRailPosition = useCallback(
+    targetRailPosition => {
+      const nextIndex = getLogicalCardIndex(
+        targetRailPosition,
+        itemCount,
+      );
+
+      selectedRailPosition.value = targetRailPosition;
+      activateCard(nextIndex);
+      cancelAnimation(railPosition);
+
+      if (reduceMotionEnabled) {
+        railPosition.value = targetRailPosition;
+        finishRailInteraction();
+      } else {
+        railPosition.value = withTiming(
+          targetRailPosition,
+          KINETIC_SNAP_CONFIG,
+          finished => {
+            if (finished) runOnJS(finishRailInteraction)();
+          },
         );
-        if (sourceWallet) {
-          dispatch(setCoinSubWallet(chainTicker, sourceWallet));
-        }
       }
     },
     [
-      allSubWallets,
+      activateCard,
+      finishRailInteraction,
+      itemCount,
+      railPosition,
+      reduceMotionEnabled,
+      selectedRailPosition,
+    ],
+  );
+
+  const selectRelativeCard = useCallback(
+    direction => {
+      if (itemCount <= 1) return;
+
+      const currentPosition = selectedRailPosition.value;
+      const targetPosition = circularRail
+        ? currentPosition + direction
+        : clamp(
+            Math.round(currentPosition) + direction,
+            0,
+            itemCount - 1,
+          );
+
+      if (targetPosition === currentPosition) return;
+
+      beginRailInteraction();
+      animateToRailPosition(targetPosition);
+    },
+    [
+      animateToRailPosition,
+      beginRailInteraction,
+      circularRail,
+      itemCount,
+      selectedRailPosition,
+    ],
+  );
+
+  const handleAccessibilityAction = useCallback(
+    event => {
+      if (event.nativeEvent.actionName === 'increment') {
+        selectRelativeCard(1);
+      } else if (event.nativeEvent.actionName === 'decrement') {
+        selectRelativeCard(-1);
+      }
+    },
+    [selectRelativeCard],
+  );
+
+  const gestureHandler = useAnimatedGestureHandler(
+    {
+      onStart: (_, context) => {
+        cancelAnimation(railPosition);
+        context.startPosition = railPosition.value;
+        context.selectedPosition = selectedRailPosition.value;
+        runOnJS(beginRailInteraction)();
+      },
+      onActive: (event, context) => {
+        const centerOffset = cardWidth * NEIGHBOR_CENTER_OFFSET;
+        let nextPosition =
+          context.startPosition - event.translationX / centerOffset;
+
+        if (!circularRail) {
+          nextPosition = Math.max(
+            0,
+            Math.min(itemCount - 1, nextPosition),
+          );
+        }
+
+        railPosition.value = nextPosition;
+      },
+      onEnd: (event, context) => {
+        let direction = 0;
+        if (event.translationX <= -SWIPE_DISTANCE_THRESHOLD) direction = 1;
+        if (event.translationX >= SWIPE_DISTANCE_THRESHOLD) direction = -1;
+
+        let targetPosition = context.selectedPosition + direction;
+        if (!circularRail) {
+          targetPosition = Math.max(
+            0,
+            Math.min(itemCount - 1, targetPosition),
+          );
+        }
+
+        const roundedPosition = Math.round(targetPosition);
+        const nextIndex =
+          itemCount === 0
+            ? 0
+            : ((roundedPosition % itemCount) + itemCount) % itemCount;
+
+        selectedRailPosition.value = targetPosition;
+        runOnJS(activateCard)(nextIndex);
+
+        if (reduceMotionEnabled) {
+          railPosition.value = targetPosition;
+          runOnJS(finishRailInteraction)();
+        } else {
+          railPosition.value = withTiming(
+            targetPosition,
+            KINETIC_SNAP_CONFIG,
+            finished => {
+              if (finished) runOnJS(finishRailInteraction)();
+            },
+          );
+        }
+      },
+      onCancel: (_, context) => {
+        const targetPosition =
+          context.selectedPosition == null
+            ? selectedRailPosition.value
+            : context.selectedPosition;
+        railPosition.value = reduceMotionEnabled
+          ? targetPosition
+          : withTiming(targetPosition, KINETIC_SNAP_CONFIG, finished => {
+              if (finished) runOnJS(finishRailInteraction)();
+            });
+        if (reduceMotionEnabled) runOnJS(finishRailInteraction)();
+      },
+      onFail: (_, context) => {
+        const targetPosition =
+          context.selectedPosition == null
+            ? selectedRailPosition.value
+            : context.selectedPosition;
+        railPosition.value = reduceMotionEnabled
+          ? targetPosition
+          : withTiming(targetPosition, KINETIC_SNAP_CONFIG, finished => {
+              if (finished) runOnJS(finishRailInteraction)();
+            });
+        if (reduceMotionEnabled) runOnJS(finishRailInteraction)();
+      },
+    },
+    [
+      activateCard,
+      beginRailInteraction,
       cardWidth,
-      chainTicker,
-      dispatch,
-      selectedSubWallet?.id,
-      walletItems,
+      circularRail,
+      finishRailInteraction,
+      itemCount,
+      reduceMotionEnabled,
     ],
   );
 
   const renderWalletCard = useCallback(
-    ({item, index}) => {
-      const displayAddress = getDisplayAddress(item);
+    (item, index) => {
+      const displayIdentifier = getDisplayIdentifier(item);
+      const cardType = getSubWalletCardType(item);
+      const isVerusIdCard = cardType === 'VerusID';
+      const cardTheme = getCardTheme(
+        cardAccents[item.id] || MAGICPATH_CARD_ACCENTS.address[0],
+      );
       const networkTicker = getNetworkTicker(item.network);
-      const safeId = String(item.id || index).replace(
+      const systemLabel = networkTicker || displayTicker;
+      const safeId = String(`${item.id || index}:${index}`).replace(
         /[^a-zA-Z0-9_-]/g,
         '',
       );
@@ -377,9 +677,7 @@ const SignedInAssetHeader = () => {
       const highlightId = `signedInCardHighlight_${safeId}`;
       const ledgerEntry = balances?.[item.id];
       const walletBalance = getLedgerConfirmed(ledgerEntry);
-      const walletPending = getLedgerPending(ledgerEntry);
       const walletHasError = Boolean(balanceErrors?.[item.id]);
-      const walletSync = info?.[item.id]?.percent;
 
       let amountText = truncateDecimal(walletBalance, 8);
       let fiatText = getWalletFiatDisplay(item, walletBalance);
@@ -393,35 +691,20 @@ const SignedInAssetHeader = () => {
         amountText = '—';
       }
 
-      let pendingText = null;
-      if (
-        showBalance &&
-        walletPending != null &&
-        !BigNumber(walletPending).isEqualTo(0)
-      ) {
-        const pendingPrefix = BigNumber(walletPending).isGreaterThan(0)
-          ? '+'
-          : '';
-        pendingText = `${pendingPrefix}${truncateDecimal(
-          walletPending,
-          8,
-        )} pending`;
-      }
-      const syncText =
-        walletSync != null && walletSync !== 100 && walletSync !== -1
-          ? `Syncing ${Number(walletSync).toFixed(0)}%`
-          : null;
-      const statusText =
-        pendingText && syncText
-          ? `${pendingText} • ${syncText}`
-          : pendingText || syncText;
-
       return (
-        <View
+        <KineticRailCard
+          key={String(item.id)}
+          cardWidth={cardWidth}
+          carouselPadding={carouselPadding}
+          circular={circularRail}
+          index={index}
+          itemCount={itemCount}
+          railPosition={railPosition}
+          reduceMotionEnabled={reduceMotionEnabled}
+          selected={index === activeIndex}
           style={[
             styles.walletCard,
             {
-              width: cardWidth,
               borderColor: cardTheme.border,
               shadowColor: theme.colors.shadow,
             },
@@ -467,24 +750,25 @@ const SignedInAssetHeader = () => {
             />
           </Svg>
 
-          {networkTicker ? (
-            <View pointerEvents="none" style={styles.networkWatermark}>
+          <View style={styles.cardTopline}>
+            <View style={styles.cardSystem}>
+              <Network
+                size={16}
+                strokeWidth={2.2}
+                color={cardTheme.watermark}
+              />
               <Text
                 numberOfLines={1}
-                style={[
-                  styles.networkWatermarkText,
-                  {color: cardTheme.watermark},
-                ]}>
-                {networkTicker}
+                style={[styles.cardSystemText, {color: cardTheme.watermark}]}>
+                {systemLabel}
               </Text>
-              <MaterialCommunityIcons
-                name="link-variant"
-                size={22}
-                color={cardTheme.watermark}
-                style={styles.networkWatermarkIcon}
-              />
             </View>
-          ) : null}
+            <View style={styles.cardTypeBadge}>
+              <Text style={[styles.cardTypeText, {color: cardTheme.text}]}>
+                {cardType}
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.amountSection}>
             <View style={styles.amountRow}>
@@ -508,52 +792,57 @@ const SignedInAssetHeader = () => {
                 {fiatText}
               </Text>
             ) : null}
-            {statusText ? (
-              <Text
-                numberOfLines={1}
-                style={[styles.statusText, {color: cardTheme.mutedText}]}>
-                {statusText}
-              </Text>
-            ) : null}
           </View>
 
-          <View
-            style={[
-              styles.cardAddressRow,
-              {borderTopColor: cardTheme.addressBorder},
-            ]}>
+          <View style={styles.cardAddressRow}>
             <Text
               selectable
-              ellipsizeMode="middle"
+              ellipsizeMode={isVerusIdCard ? 'tail' : 'middle'}
               numberOfLines={1}
-              style={[styles.addressText, {color: cardTheme.text}]}>
-              {truncateMiddle(displayAddress)}
+              style={[
+                styles.addressText,
+                isVerusIdCard && styles.verusIdText,
+                {color: cardTheme.text},
+              ]}>
+              {isVerusIdCard
+                ? displayIdentifier
+                : truncateMiddle(displayIdentifier)}
             </Text>
             <View style={styles.copyLane}>
               <CopyAction
-                accessibilityLabel={`Copy ${item.name || 'Card'} address`}
-                copiedAccessibilityLabel="Address copied"
+                accessibilityLabel={
+                  cardType === 'VerusID'
+                    ? `Copy ${displayIdentifier} VerusID`
+                    : 'Copy address'
+                }
+                copiedAccessibilityLabel={
+                  cardType === 'VerusID' ? 'VerusID copied' : 'Address copied'
+                }
                 color={cardTheme.text}
                 copiedColor={cardTheme.text}
                 iconSize={16}
                 strokeWidth={2}
-                value={displayAddress === '-' ? '' : displayAddress}
-                style={styles.copyAction}
+                value={displayIdentifier === '-' ? '' : displayIdentifier}
               />
             </View>
           </View>
-        </View>
+        </KineticRailCard>
       );
     },
     [
+      activeIndex,
       balanceErrors,
       balances,
-      cardTheme,
+      cardAccents,
       cardWidth,
+      carouselPadding,
+      circularRail,
       displayTicker,
-      getDisplayAddress,
+      getDisplayIdentifier,
       getWalletFiatDisplay,
-      info,
+      itemCount,
+      railPosition,
+      reduceMotionEnabled,
       showBalance,
       theme.colors.shadow,
     ],
@@ -561,65 +850,84 @@ const SignedInAssetHeader = () => {
 
   if (!activeCoin) return null;
 
-  const tickerText =
-    allSubWallets.length > 1 && showBalance
-      ? `Total (all addresses): ${truncateDecimal(
-          totalConfirmedBalance,
-          4,
-        )} ${displayTicker}`
-      : displayTicker;
+  const totalAmountText = showBalance
+    ? truncateDecimal(totalConfirmedBalance, 4)
+    : '*****';
+  const shouldShowTotalFiat = totalFiatDisplay != null || activeCoin.testnet;
+  let totalFiatText = null;
+  if (shouldShowTotalFiat) {
+    totalFiatText = showBalance ? totalFiatDisplay ?? '—' : '***';
+  }
 
   return (
-    <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
+    <View
+      style={[styles.container, {backgroundColor: theme.colors.background}]}>
       <View style={styles.assetIdentity}>
-        <View style={styles.titleRow}>
+        <View style={styles.coinIdentity}>
           {RenderSquareCoinLogo(activeCoin.id, {}, 28, 28)}
           <Text
             numberOfLines={1}
-            style={[styles.assetTitle, {color: theme.colors.textPrimary}]}>
-            {activeCoin.display_name}
-          </Text>
-        </View>
-        <View style={styles.tickerRow}>
-          <Text
-            numberOfLines={1}
             style={[styles.assetTicker, {color: theme.colors.textSecondary}]}>
-            {tickerText}
+            {displayTicker}
           </Text>
+        </View>
+        <View style={styles.totalBalance}>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            numberOfLines={1}
+            style={[styles.totalAmount, {color: theme.colors.textPrimary}]}>
+            {totalAmountText}
+          </Text>
+          {totalFiatText != null ? (
+            <Text
+              numberOfLines={1}
+              style={[styles.totalFiat, {color: theme.colors.textSecondary}]}>
+              {totalFiatText}
+            </Text>
+          ) : null}
         </View>
       </View>
 
-      <View style={styles.selectorHeader}>
-        <Text style={[styles.selectorText, {color: theme.colors.textSecondary}]}>
-          Addresses
-        </Text>
-        {walletItems.length > 1 ? (
-          <Text
-            style={[styles.selectorText, {color: theme.colors.textSecondary}]}>
-            {`${activeIndex + 1}/${walletItems.length}`}
-          </Text>
-        ) : null}
-      </View>
+      <PanGestureHandler
+        activeOffsetX={[-8, 8]}
+        enabled={itemCount > 1}
+        failOffsetY={[-16, 16]}
+        onGestureEvent={gestureHandler}>
+        <Animated.View style={styles.carouselContent}>
+          {walletItems.map(renderWalletCard)}
+        </Animated.View>
+      </PanGestureHandler>
 
-      <FlatList
-        ref={flatListRef}
-        horizontal
-        data={walletItems}
-        decelerationRate="fast"
-        getItemLayout={(_, index) => ({
-          length: cardWidth + CARD_SPACING,
-          offset: (cardWidth + CARD_SPACING) * index,
-          index,
-        })}
-        ItemSeparatorComponent={() => <View style={styles.cardSeparator} />}
-        keyExtractor={item => String(item.id)}
-        onMomentumScrollEnd={handleMomentumScrollEnd}
-        renderItem={renderWalletCard}
-        showsHorizontalScrollIndicator={false}
-        snapToAlignment="start"
-        snapToInterval={cardWidth + CARD_SPACING}
-        contentContainerStyle={styles.carouselContent}
-      />
+      {itemCount > 0 ? (
+        <View
+          accessible
+          accessibilityActions={[
+            {name: 'decrement', label: 'Show previous Card'},
+            {name: 'increment', label: 'Show next Card'},
+          ]}
+          accessibilityHint="Swipe up or down to change Cards"
+          accessibilityLabel={`Card ${activeIndex + 1} of ${itemCount}`}
+          accessibilityRole="adjustable"
+          accessibilityValue={{
+            min: 1,
+            max: itemCount,
+            now: activeIndex + 1,
+          }}
+          onAccessibilityAction={handleAccessibilityAction}
+          style={styles.railDots}>
+          {walletItems.map((wallet, index) => (
+            <View
+              accessible={false}
+              key={String(wallet.id)}
+              style={[
+                styles.railDot,
+                index === activeIndex && styles.railDotActive,
+              ]}
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -630,54 +938,74 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   assetIdentity: {
+    minHeight: 52,
     marginTop: 8,
     marginBottom: 8,
     paddingHorizontal: CONTAINER_PADDING,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  assetTitle: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 22,
-    lineHeight: 28,
-    ...fontStyle('bold'),
-  },
-  tickerRow: {
-    marginLeft: 38,
-  },
-  assetTicker: {
-    fontSize: 14,
-    lineHeight: 19,
-    ...fontStyle('medium'),
-  },
-  selectorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: CONTAINER_PADDING,
-    paddingBottom: 8,
   },
-  selectorText: {
-    fontSize: 13,
-    lineHeight: 18,
+  coinIdentity: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  assetTicker: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  totalBalance: {
+    flexShrink: 1,
+    maxWidth: '48%',
+    alignItems: 'flex-end',
+  },
+  totalAmount: {
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.4,
+    textAlign: 'right',
+    ...fontStyle('bold'),
+  },
+  totalFiat: {
+    marginTop: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'right',
     ...fontStyle('semiBold'),
   },
   carouselContent: {
-    paddingHorizontal: CONTAINER_PADDING,
+    height: CARD_HEIGHT + 8,
     paddingBottom: 8,
+    overflow: 'visible',
   },
-  cardSeparator: {
-    width: CARD_SPACING,
+  railDots: {
+    height: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  railDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: RAIL_DOT_COLOR,
+  },
+  railDotActive: {
+    width: 17,
+    borderRadius: 4,
+    backgroundColor: RAIL_DOT_ACTIVE_COLOR,
   },
   walletCard: {
     height: CARD_HEIGHT,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 23,
+    padding: 18,
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
@@ -689,27 +1017,42 @@ const styles = StyleSheet.create({
   cardBackground: {
     ...StyleSheet.absoluteFillObject,
   },
-  networkWatermark: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
+  cardTopline: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  networkWatermarkText: {
-    fontSize: 20,
-    lineHeight: 25,
-    letterSpacing: 0.8,
+  cardSystem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  cardSystemText: {
+    flex: 1,
+    marginLeft: 7,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0.9,
     ...fontStyle('bold'),
   },
-  networkWatermarkIcon: {
-    marginLeft: 8,
-    marginTop: 2,
+  cardTypeBadge: {
+    minHeight: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  cardTypeText: {
+    fontSize: 10,
+    lineHeight: 14,
+    ...fontStyle('semiBold'),
   },
   amountSection: {
     flex: 1,
     justifyContent: 'center',
-    paddingRight: 8,
+    paddingRight: 4,
+    paddingBottom: 24,
   },
   amountRow: {
     flexDirection: 'row',
@@ -729,42 +1072,39 @@ const styles = StyleSheet.create({
     ...fontStyle('semiBold'),
   },
   fiatText: {
-    marginTop: 4,
-    fontSize: 14,
-    lineHeight: 19,
-    ...fontStyle('semiBold'),
-  },
-  statusText: {
-    marginTop: 8,
+    marginTop: 1,
     fontSize: 12,
     lineHeight: 16,
     ...fontStyle('semiBold'),
   },
   cardAddressRow: {
-    minHeight: 30,
+    height: 44,
+    position: 'absolute',
+    left: 18,
+    right: 4,
+    bottom: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
   },
   addressText: {
     flex: 1,
+    minWidth: 0,
     marginRight: 12,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     textAlign: 'left',
-    ...fontStyle('semiBold'),
+    fontFamily: MONOSPACE_FONT,
+  },
+  verusIdText: {
+    marginRight: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
   },
   copyLane: {
-    width: 50,
-    height: 18,
-    position: 'relative',
-  },
-  copyAction: {
-    position: 'absolute',
-    top: -13,
-    right: -14,
+    width: 44,
+    height: 44,
   },
 });
 

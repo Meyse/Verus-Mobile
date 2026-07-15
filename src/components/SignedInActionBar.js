@@ -12,6 +12,7 @@ const SignedInActionBar = ({
   receiveDisabled = false,
   sendOrConvertDisabled = false,
   includeBottomInset = true,
+  showFade = false,
   sendOrConvertLabel = signedInCopy.actions.sendOrConvert,
 }) => {
   const theme = useOnboardingTheme();
@@ -19,17 +20,14 @@ const SignedInActionBar = ({
   const bottomPadding = includeBottomInset ? Math.max(insets.bottom, 20) : 20;
 
   return (
-    <View style={{backgroundColor: theme.colors.background}}>
-      <Svg height={48} width="100%" style={styles.fade}>
-        <Defs>
-          <LinearGradient id="signedInActionFade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={theme.colors.background} stopOpacity="0" />
-            <Stop offset="0.3" stopColor={theme.colors.background} stopOpacity="0.1" />
-            <Stop offset="1" stopColor={theme.colors.background} stopOpacity="1" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="48" fill="url(#signedInActionFade)" />
-      </Svg>
+    <View
+      style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      <SignedInEdgeFade
+        edge="bottom"
+        height={40}
+        style={styles.bottomFade}
+        visible={showFade}
+      />
       <View style={[styles.row, {paddingBottom: bottomPadding}]}>
         <AppButton
           accessibilityLabel={signedInCopy.actions.receive}
@@ -53,9 +51,61 @@ const SignedInActionBar = ({
   );
 };
 
+export const SignedInEdgeFade = ({
+  edge = 'bottom',
+  height = 32,
+  style,
+  visible = true,
+}) => {
+  const theme = useOnboardingTheme();
+  const fadesFromTop = edge === 'top';
+  const gradientId = `signedIn${fadesFromTop ? 'Top' : 'Bottom'}Fade`;
+
+  return (
+    <Svg
+      height={height}
+      pointerEvents="none"
+      width="100%"
+      style={[style, {height, opacity: visible ? 1 : 0}]}>
+      <Defs>
+        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <Stop
+            offset="0"
+            stopColor={theme.colors.background}
+            stopOpacity={fadesFromTop ? 1 : 0}
+          />
+          <Stop
+            offset="0.45"
+            stopColor={theme.colors.background}
+            stopOpacity={0.45}
+          />
+          <Stop
+            offset="1"
+            stopColor={theme.colors.background}
+            stopOpacity={fadesFromTop ? 0 : 1}
+          />
+        </LinearGradient>
+      </Defs>
+      <Rect
+        x="0"
+        y="0"
+        width="100%"
+        height={height}
+        fill={`url(#${gradientId})`}
+      />
+    </Svg>
+  );
+};
+
 const styles = StyleSheet.create({
-  fade: {
-    marginBottom: -1,
+  container: {
+    zIndex: 2,
+  },
+  bottomFade: {
+    position: 'absolute',
+    top: -40,
+    left: 0,
+    right: 0,
   },
   row: {
     flexDirection: 'row',
