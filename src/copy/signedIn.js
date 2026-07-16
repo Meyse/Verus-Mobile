@@ -2,7 +2,7 @@ const signedInCopy = {
   navigation: {
     wallet: 'Wallet',
     services: 'Services',
-    identity: 'Identity',
+    identity: 'VerusID',
     settings: 'Settings',
     scan: 'Scan',
   },

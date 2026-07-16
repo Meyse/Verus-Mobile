@@ -413,7 +413,18 @@ const SignedInVerusIdService = ({controller}) => {
           {backgroundColor: theme.colors.background},
           scrolled && {borderBottomColor: theme.colors.border, borderBottomWidth: StyleSheet.hairlineWidth},
         ]}>
-        <Text style={[styles.heading, {color: theme.colors.textPrimary}]}>Identity</Text>
+        <View style={styles.headerTitle}>
+          <Text style={[styles.heading, {color: theme.colors.textPrimary}]}>VerusID</Text>
+          {hasContent ? (
+            <Text
+              style={[
+                styles.countPill,
+                {backgroundColor: theme.colors.surfaceMuted, color: theme.colors.textSecondary},
+              ]}>
+              {linked.length}
+            </Text>
+          ) : null}
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => setInfoVisible(true)} hitSlop={10} style={styles.headerIcon}>
             <MaterialCommunityIcons name="information-variant" size={20} color={theme.colors.textSecondary} />
@@ -458,9 +469,6 @@ const SignedInVerusIdService = ({controller}) => {
               {renderPendingGroup('In progress', groups.progress)}
             </View>
           }
-          renderSectionHeader={() => (
-            <SectionHeading count={linked.length} title="Your VerusIDs" theme={theme} />
-          )}
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
           renderItem={({item}) => (
             <IdentityRow
@@ -642,7 +650,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  heading: {...fontStyle('bold'), flex: 1, fontSize: 28, lineHeight: 34},
+  headerTitle: {flex: 1, flexDirection: 'row', alignItems: 'center'},
+  heading: {...fontStyle('bold'), fontSize: 28, lineHeight: 34},
   headerActions: {flexDirection: 'row', alignItems: 'center', columnGap: 6},
   headerIcon: {padding: 6},
   listContent: {paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40},
