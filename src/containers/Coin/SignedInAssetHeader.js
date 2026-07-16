@@ -24,6 +24,7 @@ import {Network} from 'lucide-react-native';
 import Svg, {
   Defs,
   LinearGradient,
+  Path,
   RadialGradient,
   Rect,
   Stop,
@@ -52,7 +53,6 @@ import {
   getNetworkTicker,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
-  isVerusIdWallet,
   sortSubWalletsByBalance,
   truncateMiddle,
 } from '../../utils/subwallet/cardPresentation';
@@ -76,10 +76,25 @@ const KINETIC_SNAP_CONFIG = {
 const CIRCULAR_RAIL_MIN_CARDS = 3;
 const RAIL_DOT_COLOR = '#CCD2DF';
 const RAIL_DOT_ACTIVE_COLOR = '#3165D4';
-const MAGICPATH_CARD_ACCENTS = {
-  verusId: ['#6B7CFF', '#00A6A8'],
-  address: ['#4F8CEB', '#00A6A8', '#6B7CFF'],
-  private: '#6F7788',
+const CARD_TEXT_COLOR = '#FFFFFF';
+const CARD_DARK_BASE = '#07111F';
+const MIN_CARD_TEXT_CONTRAST = 4.5;
+const VERUS_ID_MATERIAL_PALETTES = [
+  ['#596CFF', '#00A6A8'],
+  ['#6A58E2', '#118DA6'],
+  ['#465FE8', '#168F7F'],
+  ['#7156D8', '#1A7EAF'],
+];
+const TRANSPARENT_MATERIAL_PALETTES = [
+  ['#3E7EE8', '#182442'],
+  ['#2E82B5', '#172B42'],
+  ['#4B72C7', '#1B2840'],
+  ['#2D7698', '#15263C'],
+];
+const CARD_LABEL_SHADOW = {
+  textShadowColor: 'rgba(0,0,0,0.44)',
+  textShadowOffset: {width: 0, height: 1},
+  textShadowRadius: 2,
 };
 const MONOSPACE_FONT = Platform.select({
   ios: 'Menlo',
@@ -168,19 +183,357 @@ const withAlpha = (value, alpha) => {
   return `rgba(${rgb.red},${rgb.green},${rgb.blue},${alpha})`;
 };
 
-const getCardTheme = accent => {
-  const text = '#FFFFFF';
+const getRelativeLuminance = value => {
+  const rgb = hexToRgb(value);
+  if (!rgb) return 0;
+
+  const channels = [rgb.red, rgb.green, rgb.blue].map(component => {
+    const channel = component / 255;
+    return channel <= 0.03928
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+};
+
+const getContrastRatio = (first, second) => {
+  const firstLuminance = getRelativeLuminance(first);
+  const secondLuminance = getRelativeLuminance(second);
+  const lighter = Math.max(firstLuminance, secondLuminance);
+  const darker = Math.min(firstLuminance, secondLuminance);
+
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
+const ensureWhiteTextContrast = value => {
+  let color = value;
+
+  for (
+    let attempt = 0;
+    attempt < 8 &&
+    getContrastRatio(CARD_TEXT_COLOR, color) < MIN_CARD_TEXT_CONTRAST;
+    attempt += 1
+  ) {
+    color = mixHex(color, CARD_DARK_BASE, 0.12);
+  }
+
+  return color;
+};
+
+const getStableWalletHash = wallet => {
+  const stableWalletId = String(wallet?.id || wallet?.name || 'wallet');
+  let hash = 2166136261;
+
+  for (let index = 0; index < stableWalletId.length; index += 1) {
+    hash ^= stableWalletId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+};
+
+const getHashFraction = (hash, shift) => ((hash >>> shift) & 0xff) / 255;
+
+const getCardMaterial = (wallet, cardType) => {
+  const walletHash = getStableWalletHash(wallet);
+
+  if (cardType === 'Private') {
+    return {
+      id: 'private_midnight_glass',
+      kind: 'glass',
+      seed: 0x172034,
+      top: '#172034',
+      middle: '#101625',
+      bottom: '#080B12',
+      spectralColor: '#8A9CFF',
+      highlightX: 0.72,
+      highlightY: 0.12,
+      text: CARD_TEXT_COLOR,
+      mutedText: withAlpha(CARD_TEXT_COLOR, 0.76),
+      systemText: withAlpha(CARD_TEXT_COLOR, 0.86),
+      border: withAlpha(CARD_TEXT_COLOR, 0.28),
+      innerBorder: withAlpha(CARD_TEXT_COLOR, 0.13),
+      shineOpacity: 0.13,
+      shineRestOffset: 0.08,
+      shineAngle: '-16deg',
+      radius: 25,
+      shadowOpacity: 0.28,
+      shadowRadius: 24,
+      shadowDepth: 18,
+    };
+  }
+
+  const holographic = cardType === 'VerusID';
+  const palettes = holographic
+    ? VERUS_ID_MATERIAL_PALETTES
+    : TRANSPARENT_MATERIAL_PALETTES;
+  const palette = palettes[walletHash % palettes.length];
+  const firstVariation = getHashFraction(walletHash, 8);
+  const secondVariation = getHashFraction(walletHash, 16);
+  const base = mixHex(palette[0], palette[1], firstVariation * 0.08);
+  const secondary = mixHex(palette[1], palette[0], secondVariation * 0.08);
+  const top = ensureWhiteTextContrast(
+    mixHex(base, CARD_DARK_BASE, holographic ? 0.18 : 0.24),
+  );
+  const middle = ensureWhiteTextContrast(
+    mixHex(base, '#111B2E', holographic ? 0.48 : 0.54),
+  );
+  const bottom = ensureWhiteTextContrast(
+    mixHex(secondary, CARD_DARK_BASE, holographic ? 0.46 : 0.58),
+  );
 
   return {
-    top: mixHex(accent, '#182442', 0.28),
-    middle: mixHex(accent, '#1B2333', 0.55),
-    bottom: '#1B2333',
-    highlight: mixHex(accent, text, 0.32),
-    text,
-    mutedText: withAlpha(text, 0.72),
-    border: withAlpha(text, 0.14),
-    watermark: withAlpha(text, 0.84),
+    id: `${holographic ? 'holographic' : 'brushed'}_${walletHash.toString(16)}`,
+    kind: holographic ? 'holographic' : 'brushed',
+    seed: walletHash,
+    top,
+    middle,
+    bottom,
+    spectralColor: holographic ? '#EF93D3' : mixHex(base, '#FFFFFF', 0.46),
+    highlightX: 0.64 + getHashFraction(walletHash, 16) * 0.28,
+    highlightY: 0.08 + getHashFraction(walletHash, 24) * 0.16,
+    text: CARD_TEXT_COLOR,
+    mutedText: withAlpha(CARD_TEXT_COLOR, 0.76),
+    systemText: withAlpha(CARD_TEXT_COLOR, 0.86),
+    border: withAlpha(CARD_TEXT_COLOR, holographic ? 0.21 : 0.26),
+    innerBorder: withAlpha(CARD_TEXT_COLOR, holographic ? 0.11 : 0.16),
+    shineOpacity: holographic ? 0.15 : 0.17,
+    shineRestOffset: (firstVariation - 0.5) * 0.18,
+    shineAngle: holographic ? '-18deg' : '-14deg',
+    radius: 23,
+    shadowOpacity: holographic ? 0.2 : 0.23,
+    shadowRadius: holographic ? 20 : 22,
+    shadowDepth: holographic ? 14 : 16,
   };
+};
+
+const getSeededFraction = (seed, offset) => {
+  let value = Math.imul(seed ^ offset, 2654435761);
+  value ^= value >>> 16;
+  return (value >>> 0) / 4294967295;
+};
+
+const CardMaterial = ({
+  cardWidth,
+  circular,
+  index,
+  itemCount,
+  material,
+  railPosition,
+  reduceMotionEnabled,
+}) => {
+  const materialId = `${material.id}_${index}`;
+  const baseGradientId = `cardBase_${materialId}`;
+  const highlightGradientId = `cardHighlight_${materialId}`;
+  const holographicGradientId = `cardHolographic_${materialId}`;
+  const legibilityGradientId = `cardLegibility_${materialId}`;
+  const shineGradientId = `cardShine_${materialId}`;
+  const surfacePaths = useMemo(() => {
+    const offset = getSeededFraction(material.seed, 31) * 4;
+    const brush = Array.from({length: 35}, (_, lineIndex) => {
+      const y = lineIndex * 6 + offset;
+      return `M 0 ${y.toFixed(2)} H ${cardWidth}`;
+    }).join(' ');
+    const grain = Array.from({length: 24}, (_, pointIndex) => {
+      const x = getSeededFraction(material.seed, pointIndex * 2 + 101);
+      const y = getSeededFraction(material.seed, pointIndex * 2 + 102);
+      const length = 0.4 + getSeededFraction(material.seed, pointIndex + 151);
+
+      return `M ${(x * cardWidth).toFixed(2)} ${(y * CARD_HEIGHT).toFixed(
+        2,
+      )} h ${length.toFixed(2)}`;
+    }).join(' ');
+
+    return {brush, grain};
+  }, [cardWidth, material.seed]);
+  const shineStyle = useAnimatedStyle(() => {
+    let itemPosition = index;
+
+    if (circular && itemCount > 0) {
+      const cycle = Math.round((railPosition.value - index) / itemCount);
+      itemPosition += cycle * itemCount;
+    }
+
+    const delta = Math.max(-1, Math.min(1, itemPosition - railPosition.value));
+    const travel = reduceMotionEnabled
+      ? material.shineRestOffset
+      : material.shineRestOffset - delta * 0.9;
+    const motionOpacity = reduceMotionEnabled
+      ? material.shineOpacity * 0.7
+      : material.shineOpacity * (1 - Math.abs(delta) * 0.35);
+
+    return {
+      opacity: motionOpacity,
+      transform: [
+        {translateX: travel * cardWidth * 0.42},
+        {rotate: material.shineAngle},
+      ],
+    };
+  }, [
+    cardWidth,
+    circular,
+    index,
+    itemCount,
+    material.shineAngle,
+    material.shineOpacity,
+    material.shineRestOffset,
+    reduceMotionEnabled,
+  ]);
+  let grainOpacity = 0.04;
+  if (material.kind === 'holographic') grainOpacity = 0.08;
+  if (material.kind === 'brushed') grainOpacity = 0.12;
+
+  return (
+    <>
+      <Svg
+        width={cardWidth}
+        height={CARD_HEIGHT}
+        viewBox={`0 0 ${cardWidth} ${CARD_HEIGHT}`}
+        pointerEvents="none"
+        style={styles.cardBackground}>
+        <Defs>
+          <LinearGradient id={baseGradientId} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={material.top} />
+            <Stop offset="0.52" stopColor={material.middle} />
+            <Stop offset="1" stopColor={material.bottom} />
+          </LinearGradient>
+          <RadialGradient
+            id={highlightGradientId}
+            cx={material.highlightX}
+            cy={material.highlightY}
+            r="0.92">
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.42" />
+            <Stop
+              offset="0.28"
+              stopColor={material.spectralColor}
+              stopOpacity={material.kind === 'glass' ? '0.14' : '0.2'}
+            />
+            <Stop
+              offset="1"
+              stopColor={material.spectralColor}
+              stopOpacity="0"
+            />
+          </RadialGradient>
+          <LinearGradient
+            id={holographicGradientId}
+            x1="0"
+            y1="1"
+            x2="1"
+            y2="0">
+            <Stop offset="0" stopColor="#FF4E91" stopOpacity="0.04" />
+            <Stop offset="0.2" stopColor="#FFD65C" stopOpacity="0.34" />
+            <Stop offset="0.42" stopColor="#50EECE" stopOpacity="0.3" />
+            <Stop offset="0.64" stopColor="#5894FF" stopOpacity="0.34" />
+            <Stop offset="0.84" stopColor="#B064FF" stopOpacity="0.3" />
+            <Stop offset="1" stopColor="#FF4E91" stopOpacity="0.04" />
+          </LinearGradient>
+          <LinearGradient id={legibilityGradientId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#030812" stopOpacity="0.04" />
+            <Stop offset="0.5" stopColor="#030812" stopOpacity="0.02" />
+            <Stop offset="1" stopColor="#030812" stopOpacity="0.2" />
+          </LinearGradient>
+        </Defs>
+
+        <Rect
+          x="0"
+          y="0"
+          width={cardWidth}
+          height={CARD_HEIGHT}
+          fill={`url(#${baseGradientId})`}
+        />
+        {material.kind === 'holographic' ? (
+          <Rect
+            x="-18"
+            y="-18"
+            width={cardWidth + 36}
+            height={CARD_HEIGHT + 36}
+            fill={`url(#${holographicGradientId})`}
+            opacity="0.42"
+          />
+        ) : null}
+        {material.kind === 'brushed' ? (
+          <>
+            <Path
+              d={surfacePaths.brush}
+              stroke="#FFFFFF"
+              strokeOpacity="0.18"
+              strokeWidth="0.42"
+            />
+            <Path
+              d={surfacePaths.brush}
+              stroke="#07111F"
+              strokeDasharray="20 13"
+              strokeDashoffset="7"
+              strokeOpacity="0.18"
+              strokeWidth="0.22"
+            />
+          </>
+        ) : null}
+        <Rect
+          x="0"
+          y="0"
+          width={cardWidth}
+          height={CARD_HEIGHT}
+          fill={`url(#${highlightGradientId})`}
+          opacity={material.kind === 'glass' ? '0.72' : '0.54'}
+        />
+        <Path
+          d={surfacePaths.grain}
+          stroke="#FFFFFF"
+          strokeOpacity={grainOpacity}
+          strokeWidth="0.7"
+        />
+        <Rect
+          x="0"
+          y="0"
+          width={cardWidth}
+          height={CARD_HEIGHT}
+          fill={`url(#${legibilityGradientId})`}
+        />
+        <Rect
+          x="1.5"
+          y="1.5"
+          width={cardWidth - 3}
+          height={CARD_HEIGHT - 3}
+          rx={material.radius - 1.5}
+          fill="none"
+          stroke={material.innerBorder}
+          strokeWidth="1"
+        />
+      </Svg>
+
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.cardShine,
+          {
+            height: CARD_HEIGHT * 1.46,
+            left: cardWidth * 0.2,
+            top: -CARD_HEIGHT * 0.24,
+            width: cardWidth * 0.46,
+          },
+          shineStyle,
+        ]}>
+        <Svg width="100%" height="100%" pointerEvents="none">
+          <Defs>
+            <LinearGradient id={shineGradientId} x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+              <Stop offset="0.34" stopColor="#FFFFFF" stopOpacity="0.08" />
+              <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.78" />
+              <Stop
+                offset="0.62"
+                stopColor={material.spectralColor}
+                stopOpacity="0.22"
+              />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${shineGradientId})`} />
+        </Svg>
+      </Animated.View>
+    </>
+  );
 };
 
 const KineticRailCard = ({
@@ -307,30 +660,13 @@ const SignedInAssetHeader = () => {
   const cardWidth = Math.min(screenWidth * CARD_WIDTH_RATIO, MAX_CARD_WIDTH);
   const carouselPadding = Math.max((screenWidth - cardWidth) / 2, 0);
 
-  const cardAccents = useMemo(() => {
-    let verusIdIndex = 0;
-    let addressIndex = 0;
-
-    return allSubWallets.reduce((accents, wallet) => {
-      if (wallet.id === 'PRIVATE_WALLET') {
-        accents[wallet.id] = MAGICPATH_CARD_ACCENTS.private;
-      } else if (isVerusIdWallet(wallet)) {
-        accents[wallet.id] =
-          MAGICPATH_CARD_ACCENTS.verusId[
-            verusIdIndex % MAGICPATH_CARD_ACCENTS.verusId.length
-          ];
-        verusIdIndex += 1;
-      } else if (wallet.id === 'MAIN_WALLET') {
-        accents[wallet.id] = MAGICPATH_CARD_ACCENTS.address[0];
-      } else {
-        accents[wallet.id] =
-          MAGICPATH_CARD_ACCENTS.address[
-            addressIndex % MAGICPATH_CARD_ACCENTS.address.length
-          ];
-        addressIndex += 1;
-      }
-
-      return accents;
+  const cardMaterials = useMemo(() => {
+    return allSubWallets.reduce((materials, wallet) => {
+      materials[wallet.id] = getCardMaterial(
+        wallet,
+        getSubWalletCardType(wallet),
+      );
+      return materials;
     }, {});
   }, [allSubWallets]);
 
@@ -664,17 +1000,10 @@ const SignedInAssetHeader = () => {
       const displayIdentifier = getDisplayIdentifier(item);
       const cardType = getSubWalletCardType(item);
       const isVerusIdCard = cardType === 'VerusID';
-      const cardTheme = getCardTheme(
-        cardAccents[item.id] || MAGICPATH_CARD_ACCENTS.address[0],
-      );
+      const cardMaterial =
+        cardMaterials[item.id] || getCardMaterial(item, cardType);
       const networkTicker = getNetworkTicker(item.network);
       const systemLabel = networkTicker || displayTicker;
-      const safeId = String(`${item.id || index}:${index}`).replace(
-        /[^a-zA-Z0-9_-]/g,
-        '',
-      );
-      const gradientId = `signedInCardGradient_${safeId}`;
-      const highlightId = `signedInCardHighlight_${safeId}`;
       const ledgerEntry = balances?.[item.id];
       const walletBalance = getLedgerConfirmed(ledgerEntry);
       const walletHasError = Boolean(balanceErrors?.[item.id]);
@@ -705,66 +1034,42 @@ const SignedInAssetHeader = () => {
           style={[
             styles.walletCard,
             {
-              borderColor: cardTheme.border,
+              borderColor: cardMaterial.border,
+              borderRadius: cardMaterial.radius,
               shadowColor: theme.colors.shadow,
+              shadowOffset: {width: 0, height: cardMaterial.shadowDepth},
+              shadowOpacity: cardMaterial.shadowOpacity,
+              shadowRadius: cardMaterial.shadowRadius,
             },
           ]}>
-          <Svg
-            width={cardWidth}
-            height={CARD_HEIGHT}
-            viewBox={`0 0 ${cardWidth} ${CARD_HEIGHT}`}
-            pointerEvents="none"
-            style={styles.cardBackground}>
-            <Defs>
-              <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={cardTheme.top} />
-                <Stop offset="0.6" stopColor={cardTheme.middle} />
-                <Stop offset="1" stopColor={cardTheme.bottom} />
-              </LinearGradient>
-              <RadialGradient id={highlightId} cx="0.9" cy="0.15" r="1">
-                <Stop
-                  offset="0"
-                  stopColor={cardTheme.highlight}
-                  stopOpacity="0.35"
-                />
-                <Stop
-                  offset="1"
-                  stopColor={cardTheme.highlight}
-                  stopOpacity="0"
-                />
-              </RadialGradient>
-            </Defs>
-            <Rect
-              x="0"
-              y="0"
-              width={cardWidth}
-              height={CARD_HEIGHT}
-              fill={`url(#${gradientId})`}
-            />
-            <Rect
-              x="0"
-              y="0"
-              width={cardWidth}
-              height={CARD_HEIGHT}
-              fill={`url(#${highlightId})`}
-            />
-          </Svg>
+          <CardMaterial
+            cardWidth={cardWidth}
+            circular={circularRail}
+            index={index}
+            itemCount={itemCount}
+            material={cardMaterial}
+            railPosition={railPosition}
+            reduceMotionEnabled={reduceMotionEnabled}
+          />
 
           <View style={styles.cardTopline}>
             <View style={styles.cardSystem}>
               <Network
                 size={16}
                 strokeWidth={2.2}
-                color={cardTheme.watermark}
+                color={cardMaterial.systemText}
               />
               <Text
                 numberOfLines={1}
-                style={[styles.cardSystemText, {color: cardTheme.watermark}]}>
+                style={[
+                  styles.cardSystemText,
+                  {color: cardMaterial.systemText},
+                ]}>
                 {systemLabel}
               </Text>
             </View>
             <View style={styles.cardTypeBadge}>
-              <Text style={[styles.cardTypeText, {color: cardTheme.text}]}>
+              <Text style={[styles.cardTypeText, {color: cardMaterial.text}]}>
                 {cardType}
               </Text>
             </View>
@@ -774,13 +1079,13 @@ const SignedInAssetHeader = () => {
             <View style={styles.amountRow}>
               <Text
                 numberOfLines={1}
-                style={[styles.amountText, {color: cardTheme.text}]}>
+                style={[styles.amountText, {color: cardMaterial.text}]}>
                 {amountText}
               </Text>
               {!walletHasError ? (
                 <Text
                   numberOfLines={1}
-                  style={[styles.tickerText, {color: cardTheme.mutedText}]}>
+                  style={[styles.tickerText, {color: cardMaterial.mutedText}]}>
                   {` ${displayTicker}`}
                 </Text>
               ) : null}
@@ -788,7 +1093,7 @@ const SignedInAssetHeader = () => {
             {fiatText != null ? (
               <Text
                 numberOfLines={1}
-                style={[styles.fiatText, {color: cardTheme.mutedText}]}>
+                style={[styles.fiatText, {color: cardMaterial.mutedText}]}>
                 {fiatText}
               </Text>
             ) : null}
@@ -802,7 +1107,7 @@ const SignedInAssetHeader = () => {
               style={[
                 styles.addressText,
                 isVerusIdCard && styles.verusIdText,
-                {color: cardTheme.text},
+                {color: cardMaterial.text},
               ]}>
               {isVerusIdCard
                 ? displayIdentifier
@@ -818,8 +1123,8 @@ const SignedInAssetHeader = () => {
                 copiedAccessibilityLabel={
                   cardType === 'VerusID' ? 'VerusID copied' : 'Address copied'
                 }
-                color={cardTheme.text}
-                copiedColor={cardTheme.text}
+                color={cardMaterial.text}
+                copiedColor={cardMaterial.text}
                 iconSize={16}
                 strokeWidth={2}
                 value={displayIdentifier === '-' ? '' : displayIdentifier}
@@ -833,7 +1138,7 @@ const SignedInAssetHeader = () => {
       activeIndex,
       balanceErrors,
       balances,
-      cardAccents,
+      cardMaterials,
       cardWidth,
       carouselPadding,
       circularRail,
@@ -1017,6 +1322,9 @@ const styles = StyleSheet.create({
   cardBackground: {
     ...StyleSheet.absoluteFillObject,
   },
+  cardShine: {
+    position: 'absolute',
+  },
   cardTopline: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1034,6 +1342,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     letterSpacing: 0.9,
+    ...CARD_LABEL_SHADOW,
     ...fontStyle('bold'),
   },
   cardTypeBadge: {
@@ -1046,6 +1355,7 @@ const styles = StyleSheet.create({
   cardTypeText: {
     fontSize: 10,
     lineHeight: 14,
+    ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
   amountSection: {
@@ -1064,17 +1374,20 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 37,
     letterSpacing: -0.4,
+    ...CARD_LABEL_SHADOW,
     ...fontStyle('bold'),
   },
   tickerText: {
     fontSize: 16,
     lineHeight: 22,
+    ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
   fiatText: {
     marginTop: 1,
     fontSize: 12,
     lineHeight: 16,
+    ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
   cardAddressRow: {
@@ -1095,6 +1408,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: 'left',
     fontFamily: MONOSPACE_FONT,
+    ...CARD_LABEL_SHADOW,
   },
   verusIdText: {
     marginRight: 4,
