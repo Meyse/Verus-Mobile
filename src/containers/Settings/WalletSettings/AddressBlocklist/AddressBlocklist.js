@@ -143,7 +143,7 @@ class AddressBlocklist extends Component {
         this.setState({
           addBlockedAddressModal: {
             open: true,
-            label: "Edit Blocked Address",
+            label: "Edit blocked address",
             index: this.state.editPropertyModal.index
           }
         })
@@ -200,7 +200,7 @@ class AddressBlocklist extends Component {
     this.setState({
       addBlockedAddressModal: {
         open: true,
-        label: "Block Address",
+        label: "Block address",
         index: null
       }
     })
@@ -210,7 +210,7 @@ class AddressBlocklist extends Component {
     this.setState({
       editBlockDefinitionDataModal: {
         open: true,
-        label: "Edit Blocklist Details",
+        label: "Edit blocklist details",
         index: null
       }
     })

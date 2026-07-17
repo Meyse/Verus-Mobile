@@ -5,24 +5,14 @@
 */
 
 import React, {useState, useEffect, useRef} from 'react';
-import {
-  View,
-  ScrollView,
-  Keyboard,
-  ActivityIndicator,
-  TouchableOpacity,
-  Platform,
-  Alert,
-} from 'react-native';
+import {Keyboard, Alert} from 'react-native';
 import {useDispatch} from 'react-redux';
-import Styles from '../../../../styles/index';
-import Colors from '../../../../globals/colors';
 import {
   CURRENCY_NAMES,
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../../../utils/constants/currencies';
 import NumberPadModal from '../../../../components/NumberPadModal/NumberPadModal';
-import {Divider, List, Portal, Text, Button, Switch} from 'react-native-paper';
+import {Portal} from 'react-native-paper';
 import ListSelectionModal from '../../../../components/ListSelectionModal/ListSelectionModal';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
@@ -30,6 +20,14 @@ import {NavigationActions} from '@react-navigation/compat';
 import { ADDRESS_BLOCKLIST_FROM_WEBSERVER } from '../../../../utils/constants/constants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import { MINIMUM_GAS_PRICE_GWEI } from '../../../../utils/constants/web3Constants';
+import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../../env/index';
+import {
+  SettingsActionFooter,
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+  SettingsSwitchRow,
+} from '../../components/SettingsScaffold';
 
 const NO_DEFAULT = 'None';
 
@@ -206,7 +204,7 @@ const WalletSettings = props => {
   const defaultAccountName = defaultAccount == null ? null : defaultAccount.id;
 
   return (
-    <View style={Styles.defaultRoot}>
+    <>
       <Portal>
         {currentNumberInputModal != null && (
           <NumberPadModal
@@ -277,202 +275,97 @@ const WalletSettings = props => {
           />
         )}
       </Portal>
-      <ScrollView style={Styles.fullWidth}>
-        <List.Subheader>{'Display Settings'}</List.Subheader>
-        <TouchableOpacity
-          onPress={() => openNumberInputModal('maxTxCount')}
-          style={{...Styles.flex}}>
-          <Divider />
-          <List.Item
-            title={'Max. Display TXs'}
-            description="Max. displayed Electrum transactions"
-            right={() => (
-              <Text style={Styles.listItemTableCell}>
-                {settings.maxTxCount}
-              </Text>
-            )}
+      <SettingsScreen
+        footer={
+          <SettingsActionFooter
+            busy={loading}
+            busyLabel="Saving wallet settings…"
+            primaryDisabled={!hasChanges}
+            primaryLabel="Confirm"
+            primaryOnPress={handleSubmit}
+            primaryTestID="settings.general.confirm"
+            secondaryDisabled={loading}
+            secondaryLabel="Back"
+            secondaryOnPress={back}
           />
-          <Divider />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => openDisplayCurrencyModal()}
-          style={{...Styles.flex}}>
-          <List.Item
-            title={'Universal Display Currency'}
-            description="The currency used to display value"
-            right={() => (
-              <Text style={Styles.listItemTableCell}>
-                {settings.displayCurrency}
-              </Text>
-            )}
+        }
+        testID="settings.general">
+        <SettingsSection title="Display">
+          <SettingsRow
+            description="Maximum displayed Electrum transactions"
+            icon="format-list-numbered"
+            onPress={() => openNumberInputModal('maxTxCount')}
+            title="Max. display TXs"
+            value={settings.maxTxCount}
           />
-          <Divider />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            setHomeCardDragDetection(!homeCardDragDetection);
-          }}
-        >
-          <List.Item
-            title="Automatic Drag Detection"
-            description="Move home screen cards when dragged"
-            right={() => (
-              <View
-                style={{
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'flex-end',
-                }}
-              >
-                <Switch
-                  value={homeCardDragDetection}
-                  onValueChange={() => {
-                    setHomeCardDragDetection(!homeCardDragDetection);
-                  }}
-                  color={Colors.primaryColor}
-                />
-              </View>
-            )}
+          <SettingsRow
+            description="Currency used to display wallet value"
+            icon="currency-usd"
+            onPress={openDisplayCurrencyModal}
+            title="Universal display currency"
+            value={settings.displayCurrency}
           />
-          <Divider />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={toggleAllowSettingVerusPaySlippage}
-        >
-          <List.Item
+          {!ENABLE_SIGNED_IN_REDESIGN && (
+            <SettingsSwitchRow
+              description="Move home screen cards when dragged"
+              icon="gesture-swipe"
+              onValueChange={setHomeCardDragDetection}
+              title="Automatic drag detection"
+              value={homeCardDragDetection}
+            />
+          )}
+          <SettingsSwitchRow
+            description="Show maximum slippage when creating a converted VerusPay invoice"
+            icon="chart-bell-curve"
+            onValueChange={toggleAllowSettingVerusPaySlippage}
             title="Edit max VerusPay invoice slippage"
-            description="Show the option to edit maximum slippage when creating a VerusPay invoice with conversion"
-            right={() => (
-              <View
-                style={{
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'flex-end',
-                }}
-              >
-                <Switch
-                  value={allowSettingVerusPaySlippage}
-                  onValueChange={toggleAllowSettingVerusPaySlippage}
-                  color={Colors.primaryColor}
-                />
-              </View>
-            )}
+            value={allowSettingVerusPaySlippage}
           />
-          <Divider />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={toggleEnableSendCoinCameraToggle}
-        >
-          <List.Item
+          <SettingsSwitchRow
+            description="Keep the send QR scanner off until its toggle is pressed"
+            icon="qrcode-scan"
+            onValueChange={toggleEnableSendCoinCameraToggle}
             title="Add toggle button for QR scanner"
-            description="Keep the QR scanner under the send tab off by default, and add a button to toggle it"
-            right={() => (
-              <View
-                style={{
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'flex-end',
-                }}
-              >
-                <Switch
-                  value={enableSendCoinCameraToggle}
-                  onValueChange={toggleEnableSendCoinCameraToggle}
-                  color={Colors.primaryColor}
-                />
-              </View>
-            )}
+            value={enableSendCoinCameraToggle}
           />
-          <Divider />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={toggleEnableExperimentalGenericRequests}
-        >
-          <List.Item
+          <SettingsSwitchRow
+            description="Allow deeplinks for identity update, app encryption, and other experimental features"
+            icon="link-variant"
+            last
+            onValueChange={toggleEnableExperimentalGenericRequests}
             title="Enable experimental deeplinks"
-            description="Allow deeplinks that include experimental features (identity update, app encryption, etc.)"
-            titleNumberOfLines={100}
-            right={() => (
-              <View
-                style={{
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'flex-end',
-                }}
-              >
-                <Switch
-                  value={enableExperimentalGenericRequests}
-                  onValueChange={toggleEnableExperimentalGenericRequests}
-                  color={Colors.primaryColor}
-                />
-              </View>
-            )}
+            value={enableExperimentalGenericRequests}
           />
-          <Divider />
-        </TouchableOpacity>
-        <List.Subheader>{'Start Settings'}</List.Subheader>
-        <TouchableOpacity
-          onPress={() => openDefaultProfileModal()}
-          style={{...Styles.flex}}>
-          <Divider />
-          <List.Item
-            title={'Default Profile'}
+        </SettingsSection>
+
+        <SettingsSection title="Startup">
+          <SettingsRow
             description="Automatically selected profile on app start"
-            right={() => (
-              <Text style={Styles.listItemTableCell}>
-                {defaultAccountName == null ? NO_DEFAULT : defaultAccountName}
-              </Text>
-            )}
+            icon="account-arrow-right-outline"
+            last
+            onPress={openDefaultProfileModal}
+            title="Default profile"
+            value={defaultAccountName == null ? NO_DEFAULT : defaultAccountName}
           />
-          <Divider />
-        </TouchableOpacity>
-        <List.Subheader>{'Other Settings'}</List.Subheader>
-        <TouchableOpacity
-          onPress={() => openNumberInputModal('minGasPriceGwei')}
-          style={{...Styles.flex}}>
-          <Divider />
-          <List.Item
-            title={'Min. ETH Gas Price (Gwei)'}
-            description="Min. gas price in Gwei when creating simple transfers on the Ethereum network (ETH/ERC20)"
-            descriptionNumberOfLines={10}
-            right={() => (
-              <Text style={Styles.listItemTableCell}>
-                {settings.minGasPriceGwei == null ? Number(MINIMUM_GAS_PRICE_GWEI) : settings.minGasPriceGwei}
-              </Text>
-            )}
+        </SettingsSection>
+
+        <SettingsSection title="Ethereum">
+          <SettingsRow
+            description="Minimum Gwei used for simple ETH and ERC20 transfers"
+            descriptionNumberOfLines={3}
+            icon="gas-station-outline"
+            last
+            onPress={() => openNumberInputModal('minGasPriceGwei')}
+            title="Min. ETH gas price"
+            value={
+              settings.minGasPriceGwei == null
+                ? Number(MINIMUM_GAS_PRICE_GWEI)
+                : settings.minGasPriceGwei
+            }
           />
-          <Divider />
-        </TouchableOpacity>
-      </ScrollView>
-      <View style={{...Styles.highFooterContainer, flex: 0, height: 100}}>
-        {loading ? (
-          <ActivityIndicator
-            animating={loading}
-            style={{
-              paddingTop: 32
-            }}
-            size="large"
-          />
-        ) : (
-          <View style={Styles.standardWidthSpaceBetweenBlock}>
-            <Button
-              textColor={Colors.warningButtonColor}
-              onPress={back}
-              style={{ padding: 0, height: 36 }}
-            >
-              {"Back"}
-            </Button>
-            <Button
-              mode='contained'
-              onPress={handleSubmit}
-              disabled={!hasChanges}
-              style={{ padding: 0, height: 36 }}
-            >
-              {"Confirm"}
-            </Button>
-          </View>
-        )}
-      </View>
-    </View>
+        </SettingsSection>
+      </SettingsScreen>
+    </>
   );
 };
 

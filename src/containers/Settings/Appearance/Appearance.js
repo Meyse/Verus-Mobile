@@ -1,13 +1,16 @@
 import React from 'react';
-import {ScrollView, TouchableOpacity, View} from 'react-native';
-import {List, RadioButton, Text} from 'react-native-paper';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {StyleSheet, View} from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch, useSelector} from 'react-redux';
 import {saveGeneralSettings} from '../../../actions/actionCreators';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import signedInCopy from '../../../copy/signedIn';
-import {createSignedInStyles} from '../../../styles';
 import {ONBOARDING_THEME_MODE, useOnboardingTheme} from '../../../theme/onboarding';
+import {
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+} from '../components/SettingsScaffold';
 
 const OPTIONS = [
   {
@@ -30,10 +33,18 @@ const OPTIONS = [
   },
 ];
 
+const styles = StyleSheet.create({
+  radioSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
 const Appearance = () => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
-  const styles = createSignedInStyles(theme);
   const appearance = useSelector(
     state =>
       state.settings.generalWalletSettings.appearance ||
@@ -49,46 +60,39 @@ const Appearance = () => {
   };
 
   return (
-    <SafeAreaView edges={['left', 'right']} style={styles.safeScreen}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.subtitle}>
-          {signedInCopy.settings.appearanceDescription}
-        </Text>
-        <View style={[styles.surface, {marginTop: theme.spacing.lg}]}>
-          {OPTIONS.map((option, index) => (
-            <React.Fragment key={option.value}>
-              <TouchableOpacity
-                accessibilityRole="radio"
-                accessibilityState={{selected: appearance === option.value}}
-                onPress={() => selectAppearance(option.value)}>
-                <List.Item
-                  title={option.title}
-                  description={option.description}
-                  titleStyle={styles.rowTitle}
-                  descriptionStyle={styles.rowDescription}
-                  style={styles.row}
-                  left={props => (
-                    <List.Icon
-                      {...props}
-                      icon={option.icon}
-                      color={theme.colors.textSecondary}
-                    />
-                  )}
-                  right={() => (
-                    <RadioButton
-                      value={option.value}
-                      status={appearance === option.value ? 'checked' : 'unchecked'}
-                      onPress={() => selectAppearance(option.value)}
-                    />
-                  )}
-                />
-              </TouchableOpacity>
-              {index < OPTIONS.length - 1 && <View style={styles.divider} />}
-            </React.Fragment>
-          ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <SettingsScreen testID="settings.appearance">
+      <SettingsSection title="Theme">
+        {OPTIONS.map((option, index) => {
+          const selected = appearance === option.value;
+
+          return (
+            <SettingsRow
+              accessibilityRole="radio"
+              accessibilityState={{selected}}
+              choice
+              description={option.description}
+              icon={option.icon}
+              key={option.value}
+              last={index === OPTIONS.length - 1}
+              onPress={() => selectAppearance(option.value)}
+              testID={`settings.appearance.${option.value}`}
+              title={option.title}
+              trailing={
+                <View style={styles.radioSlot}>
+                  <MaterialCommunityIcons
+                    color={
+                      selected ? theme.colors.primary : theme.colors.textSubtle
+                    }
+                    name={selected ? 'radiobox-marked' : 'radiobox-blank'}
+                    size={20}
+                  />
+                </View>
+              }
+            />
+          );
+        })}
+      </SettingsSection>
+    </SettingsScreen>
   );
 };
 

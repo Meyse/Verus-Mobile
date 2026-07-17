@@ -52,6 +52,7 @@ export default function SeedWords({
   formStep: controlledFormStep,
   setFormStep: controlledSetFormStep,
   showHeader = true,
+  completionLabel = 'Create wallet',
 }) {
   const theme = useOnboardingTheme();
   const signedOutFlowStyles = useMemo(
@@ -260,7 +261,7 @@ export default function SeedWords({
 
   const getPrimaryLabel = () => {
     if (isAtEnd) {
-      return verifyActionCompletes ? 'Create wallet' : 'Next word';
+      return verifyActionCompletes ? completionLabel : 'Next word';
     }
 
     if (formStep === totalWordSteps - 1) return 'Verify phrase';

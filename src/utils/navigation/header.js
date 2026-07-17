@@ -8,6 +8,7 @@ import styles from '../../styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
+import OnboardingBackButton from '../../components/OnboardingBackButton';
 
 const Header = () => {
   const navigation = useNavigation(); // Use the hook here
@@ -122,4 +123,14 @@ export const createRedesignedHeaderOptions = theme => ({
   },
   headerTintColor: theme.colors.textPrimary,
   headerRight: () => <RedesignedHeaderRight color={theme.colors.textPrimary} />,
+});
+
+export const createSettingsHeaderOptions = theme => ({
+  ...createRedesignedHeaderOptions(theme),
+  headerBackTitleVisible: false,
+  headerLeft: ({onPress}) => <OnboardingBackButton onPress={onPress} />,
+  headerLeftContainerStyle: {
+    paddingLeft: 16,
+  },
+  headerRight: () => null,
 });

@@ -7,24 +7,21 @@
 */
 
 import React, { Component } from "react";
-import StandardButton from "../../../../components/StandardButton";
-import { 
-  View, 
-  Alert,
-  ScrollView, 
-  Keyboard,
-  TextInput as NativeTextInput
-} from "react-native";
+import {Keyboard} from "react-native";
 import { NavigationActions } from '@react-navigation/compat';
 import { resetPwd, setBiometry, signOut } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import AlertAsync from "react-native-alert-async";
-import { TextInput, Button } from "react-native-paper";
-import Styles from '../../../../styles/index'
-import Colors from '../../../../globals/colors';
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import { CommonActions } from "@react-navigation/native";
 import { removeBiometricPassword } from "../../../../utils/keychain/biometrics";
+import AppTextInput from '../../../../components/AppTextInput';
+import {
+  SettingsActionFooter,
+  SettingsNotice,
+  SettingsScreen,
+  SettingsSection,
+} from '../../components/SettingsScaffold';
 
 const passwordAutofillProps = {
   autoComplete: "off",
@@ -192,94 +189,60 @@ class ResetPwd extends Component {
 
   render() {
     return (
-      <View style={Styles.defaultRoot}>
-        <ScrollView
-          style={Styles.fullWidth}
-          contentContainerStyle={{
-            ...Styles.innerHeaderFooterContainerCentered,
-            ...Styles.fullHeight,
-          }}
-        >
-          <View style={Styles.wideBlock}>
-            <TextInput
-              returnKeyType="done"
-              dense
-              onChangeText={(text) => this.setState({ oldPwd: text })}
-              label="Current password"
-              underlineColor={Colors.primaryColor}
-              selectionColor={Colors.primaryColor}
-              render={(props) => (
-                <NativeTextInput
-                  {...props}
-                  autoCapitalize={"none"}
-                  autoCorrect={false}
-                  {...passwordAutofillProps}
-                  secureTextEntry={true}
-                />
-              )}
-              error={this.state.errors.oldPwd}
-            />
-          </View>
-          <View style={Styles.wideBlock}>
-            <TextInput
-              returnKeyType="done"
-              dense
-              onChangeText={(text) => this.setState({ newPwd: text })}
-              label="New password"
-              underlineColor={Colors.primaryColor}
-              selectionColor={Colors.primaryColor}
-              render={(props) => (
-                <NativeTextInput
-                  {...props}
-                  autoCapitalize={"none"}
-                  autoCorrect={false}
-                  {...passwordAutofillProps}
-                  secureTextEntry={true}
-                />
-              )}
-              error={this.state.errors.newPwd}
-            />
-          </View>
-          <View style={Styles.wideBlock}>
-            <TextInput
-              returnKeyType="done"
-              dense
-              onChangeText={(text) =>
-                this.setState({ confirmNewPwd: text })
-              }
-              label="Confirm new password"
-              underlineColor={Colors.primaryColor}
-              selectionColor={Colors.primaryColor}
-              render={(props) => (
-                <NativeTextInput
-                  {...props}
-                  autoCapitalize={"none"}
-                  autoCorrect={false}
-                  {...passwordAutofillProps}
-                  secureTextEntry={true}
-                />
-              )}
-              error={this.state.errors.confirmNewPwd}
-            />
-          </View>
-        </ScrollView>
-        <View style={Styles.highFooterContainer}>
-          <View style={Styles.standardWidthSpaceBetweenBlock}>
-            <Button 
-              textColor={Colors.warningButtonColor} 
-              onPress={this.cancel}
-            >
-              {"Cancel"}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={this._handleSubmit}
-            >
-              {"Reset"}
-            </Button>
-          </View>
-        </View>
-      </View>
+      <SettingsScreen
+        avoidKeyboard
+        footer={
+          <SettingsActionFooter
+            busy={this.state.loading}
+            busyLabel="Preparing password reset…"
+            primaryLabel="Reset password"
+            primaryOnPress={this._handleSubmit}
+            primaryTestID="settings.changePassword.submit"
+            secondaryDisabled={this.state.loading}
+            secondaryLabel="Cancel"
+            secondaryOnPress={this.cancel}
+          />
+        }
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        testID="settings.changePassword">
+        <SettingsSection title="Password">
+          <AppTextInput
+            {...passwordAutofillProps}
+            errorText={this.state.errors.oldPwd}
+            label="Current password"
+            onChangeText={oldPwd => this.setState({oldPwd})}
+            returnKeyType="next"
+            secureTextEntry
+            value={this.state.oldPwd || ''}
+          />
+          <AppTextInput
+            {...passwordAutofillProps}
+            containerStyle={{marginTop: 16}}
+            errorText={this.state.errors.newPwd}
+            label="New password"
+            onChangeText={newPwd => this.setState({newPwd})}
+            returnKeyType="next"
+            secureTextEntry
+            value={this.state.newPwd || ''}
+          />
+          <AppTextInput
+            {...passwordAutofillProps}
+            containerStyle={{marginTop: 16}}
+            errorText={this.state.errors.confirmNewPwd}
+            label="Confirm new password"
+            onChangeText={confirmNewPwd => this.setState({confirmNewPwd})}
+            returnKeyType="done"
+            secureTextEntry
+            value={this.state.confirmNewPwd || ''}
+          />
+        </SettingsSection>
+        <SettingsNotice
+          body="Changing this password re-encrypts the profile, removes its saved biometric credential, and signs you out."
+          icon="shield-key-outline"
+          title="Security step"
+        />
+      </SettingsScreen>
     );
   }
 }

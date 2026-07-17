@@ -1,24 +1,22 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
-  TouchableOpacity,
+  StyleSheet,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import {
   ActivityIndicator,
-  Button,
   Checkbox,
   Menu,
   Text,
-  TextInput,
 } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch, useSelector} from 'react-redux';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {
   closeLoadingModal,
   openLoadingModal,
@@ -58,8 +56,12 @@ import {
   endWalletBackupNfcSession,
   writeWalletBackupToNfc,
 } from '../../../utils/walletBackup/walletBackupNfc';
+import {useOnboardingTheme} from '../../../theme/onboarding';
+import AppButton from '../../../components/AppButton';
+import AppTextInput from '../../../components/AppTextInput';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import {fontStyle} from '../../../globals/fonts';
 
-const fieldWidth = 300;
 const passwordAutofillProps = {
   autoComplete: 'off',
   importantForAutofill: 'no',
@@ -118,13 +120,9 @@ const WalletBackupRequestInfo = props => {
     showSpendableKeyBackupChoice = false,
   } = props;
 
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const dispatch = useDispatch();
-  const insets = useSafeAreaInsets();
-  const bottomNavigationInset = Math.max(
-    insets.bottom,
-    Platform.OS === 'android' ? 24 : 0,
-  );
-  const footerBottomOffset = 24 + bottomNavigationInset;
   const signedIn = useSelector(state => state.authentication.signedIn);
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
@@ -141,6 +139,17 @@ const WalletBackupRequestInfo = props => {
       : signedIn &&
         activeAccount &&
         activeAccountIsTestnet === requestIsTestnet;
+  let backupDescription;
+
+  if (requestIsTestnet) {
+    backupDescription = profileBackup
+      ? 'This will create a testnet wallet backup for the current profile on an NFC card.'
+      : 'This request will create a testnet wallet backup on an NFC card.';
+  } else {
+    backupDescription = profileBackup
+      ? 'This will create a wallet backup for the current profile on an NFC card.'
+      : 'This request will create a wallet backup on an NFC card.';
+  }
 
   const matchingAccounts = useMemo(() => {
     return accounts.filter(account => isTestProfile(account) === requestIsTestnet);
@@ -440,64 +449,43 @@ const WalletBackupRequestInfo = props => {
 
   if (!backupChoiceMade) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
+      <SafeAreaView style={styles.screen}>
         <ScrollView
-          style={{flex: 1}}
-          contentContainerStyle={{
-            alignItems: 'center',
-            flexGrow: 1,
-            justifyContent: 'center',
-            paddingHorizontal: 24,
-            paddingVertical: 48,
-          }}>
-          <View style={{alignItems: 'center', width: fieldWidth}}>
+          bounces={false}
+          contentContainerStyle={styles.choiceContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.form}>
             <MaterialCommunityIcons
+              color={theme.colors.primary}
               name="credit-card-wireless-outline"
               size={58}
-              color={Colors.primaryColor}
-              style={{marginBottom: 18}}
+              style={styles.heroIcon}
             />
-            <Text
-              style={{
-                color: Colors.primaryColor,
-                fontSize: 26,
-                fontWeight: 'bold',
-                textAlign: 'center',
-              }}>
+            <Text style={styles.title}>
               Choose NFC Card Action
             </Text>
-            <Text
-              style={{
-                color: Colors.verusDarkGray,
-                fontSize: 14,
-                lineHeight: 20,
-                marginTop: 12,
-                marginBottom: 24,
-                textAlign: 'center',
-              }}>
+            <Text style={styles.body}>
               This NFC card can back up a wallet seed and redeem a spendable key. You can claim the spendable key to an existing matching profile, or back up a profile to the card first and then claim to that backed-up profile.
             </Text>
-            <Button
-              mode="contained"
+            <AppButton
+              height={56}
               icon="wallet-outline"
               onPress={skipBackupAndClaimSpendableKey}
-              labelStyle={{fontWeight: 'bold'}}
-              style={{alignSelf: 'stretch', marginBottom: 12}}>
+              style={styles.stackedButton}
+              variant="primary">
               Claim to Existing Profile
-            </Button>
-            <Button
-              mode="outlined"
+            </AppButton>
+            <AppButton
+              height={52}
               icon="backup-restore"
               onPress={() => setBackupChoiceMade(true)}
-              labelStyle={{fontWeight: 'bold'}}
-              style={{alignSelf: 'stretch', marginBottom: 18}}>
+              style={styles.stackedButton}
+              variant="secondary">
               Back Up Then Claim
-            </Button>
-            <TouchableOpacity onPress={cancel} style={{padding: 12}}>
-              <Text style={{color: Colors.warningButtonColor, fontWeight: 'bold'}}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
+            </AppButton>
+            <AppButton onPress={cancel} variant="text">
+              Cancel
+            </AppButton>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -506,36 +494,22 @@ const WalletBackupRequestInfo = props => {
 
   if (loading) {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 32,
-          }}>
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.loadingContent}>
           <MaterialCommunityIcons
+            color={theme.colors.primary}
             name="credit-card-wireless"
             size={64}
-            color={Colors.primaryColor}
-            style={{marginBottom: 24}}
+            style={styles.loadingIcon}
           />
           <ActivityIndicator
             animating
-            color={Colors.primaryColor}
+            color={theme.colors.primary}
             size="large"
-            style={{marginVertical: 8}}
+            style={styles.loadingSpinner}
           />
           {nfcStatus && (
-            <Text
-              style={{
-                color: Colors.verusDarkGray,
-                fontSize: 24,
-                fontWeight: 'bold',
-                lineHeight: 32,
-                marginTop: 24,
-                textAlign: 'center',
-              }}>
+            <Text style={styles.loadingStatus}>
               {nfcStatus}
             </Text>
           )}
@@ -546,305 +520,339 @@ const WalletBackupRequestInfo = props => {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
-        <ScrollView
-          style={{flex: 1}}
-          contentContainerStyle={{
-            alignItems: 'center',
-            paddingHorizontal: 24,
-            paddingTop: 32,
-            paddingBottom: 120,
-          }}>
-          <View style={{alignItems: 'center', marginBottom: 24}}>
-            <MaterialCommunityIcons
-              name="credit-card-wireless"
-              size={48}
-              color={Colors.primaryColor}
-            />
-            <Text
-              style={{
-                color: Colors.primaryColor,
-                fontSize: 26,
-                fontWeight: 'bold',
-                marginTop: 12,
-                textAlign: 'center',
-              }}>
-              {!activeAccountMatchesRequest && showCreateProfile
-                ? 'Create & Backup Wallet'
-                : 'Backup Wallet'}
-            </Text>
-            <Text
-              style={{
-                color: Colors.verusDarkGray,
-                fontSize: 14,
-                marginTop: 8,
-                textAlign: 'center',
-                width: fieldWidth,
-              }}>
-              {requestIsTestnet
-                ? profileBackup
-                  ? 'This will create a testnet wallet backup for the current profile on an NFC card.'
-                  : 'This request will create a testnet wallet backup on an NFC card.'
-                : profileBackup
-                ? 'This will create a wallet backup for the current profile on an NFC card.'
-                : 'This request will create a wallet backup on an NFC card.'}
-            </Text>
-          </View>
-
-          {!activeAccountMatchesRequest ? (
-            <View style={{width: fieldWidth}}>
-              {matchingAccounts.length > 0 && (
-                <Button
-                  mode="contained"
-                  onPress={openLogin}
-                  style={{marginBottom: 12}}
-                  labelStyle={{fontWeight: 'bold'}}>
-                  Login to Profile
-                </Button>
-              )}
-
-              {matchingAccounts.length > 0 && (
-                <Button
-                  mode="text"
-                  onPress={() => setShowCreateProfile(!showCreateProfile)}
-                  textColor={Colors.primaryColor}
-                  style={{marginBottom: 12}}>
-                  {showCreateProfile ? 'Hide New Profile' : 'Create New Profile'}
-                </Button>
-              )}
-
-              {showCreateProfile && (
-                <View>
-                  <TextInput
-                    returnKeyType="done"
-                    label="Profile name"
-                    value={profileName}
-                    mode="outlined"
-                    dense
-                    style={{marginBottom: 8}}
-                    onChangeText={setProfileName}
-                  />
-                  <TextInput
-                    returnKeyType="done"
-                    label="Profile password"
-                    value={profilePassword}
-                    mode="outlined"
-                    dense
-                    style={{marginBottom: 8}}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    {...passwordAutofillProps}
-                    onChangeText={setProfilePassword}
-                    right={
-                      <TextInput.Affix
-                        text={profilePasswordDetails.text}
-                        textStyle={{color: profilePasswordDetails.color}}
-                      />
-                    }
-                  />
-                  <TextInput
-                    returnKeyType="done"
-                    label="Confirm profile password"
-                    value={profilePasswordConfirm}
-                    mode="outlined"
-                    dense
-                    style={{marginBottom: 12}}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    {...passwordAutofillProps}
-                    onChangeText={setProfilePasswordConfirm}
-                  />
-                  {supportedBiometryType && supportedBiometryType.biometry && (
-                    <Checkbox.Item
-                      color={Colors.primaryColor}
-                      label={`Enable ${supportedBiometryType.display_name} login`}
-                      labelStyle={{fontSize: 14}}
-                      status={useBiometrics ? 'checked' : 'unchecked'}
-                      onPress={toggleUseBiometrics}
-                      mode="android"
-                      position="leading"
-                      style={{paddingLeft: 0}}
-                    />
-                  )}
-                  <Button
-                    mode="contained"
-                    onPress={createProfile}
-                    labelStyle={{fontWeight: 'bold'}}
-                    disabled={
-                      !profileName ||
-                      !profilePassword ||
-                      !profilePasswordConfirm
-                    }>
-                    Create Profile
-                  </Button>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={{width: fieldWidth}}>
-              <View
-                style={{
-                  borderWidth: 1,
-                  borderColor: Colors.lightGrey,
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 12,
-                }}>
-                <Text style={{fontWeight: 'bold', color: Colors.verusDarkGray}}>
-                  {activeAccount.id}
+      <SafeAreaView style={styles.screen}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.screen}>
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.form}>
+              <View style={styles.header}>
+                <MaterialCommunityIcons
+                  color={theme.colors.primary}
+                  name="credit-card-wireless"
+                  size={48}
+                />
+                <Text style={styles.title}>
+                  {!activeAccountMatchesRequest && showCreateProfile
+                    ? 'Create & Backup Wallet'
+                    : 'Backup Wallet'}
                 </Text>
-                <Text style={{color: Colors.verusDarkGray, marginTop: 4}}>
-                  {requestIsTestnet ? 'Testnet profile' : 'Mainnet profile'}
+                <Text style={styles.body}>
+                  {backupDescription}
                 </Text>
               </View>
 
-              <Checkbox.Item
-                color={Colors.primaryColor}
-                label="Encrypt backup with password"
-                labelStyle={{fontSize: 14}}
-                status={encryptBackup ? 'checked' : 'unchecked'}
-                onPress={() => setEncryptBackup(!encryptBackup)}
-                mode="android"
-                position="leading"
-                style={{paddingLeft: 0}}
-              />
-
-              {encryptBackup && (
+              {!activeAccountMatchesRequest ? (
                 <View>
-                  <Checkbox.Item
-                    color={Colors.primaryColor}
-                    label="Use profile password for backup"
-                    labelStyle={{fontSize: 14}}
-                    status={useProfilePasswordForBackup ? 'checked' : 'unchecked'}
-                    onPress={() =>
-                      setUseProfilePasswordForBackup(
-                        !useProfilePasswordForBackup,
-                      )
-                    }
-                    mode="android"
-                    position="leading"
-                    style={{paddingLeft: 0}}
-                  />
-                  {!useProfilePasswordForBackup && (
-                    <View>
-                      <TextInput
+                  {matchingAccounts.length > 0 ? (
+                    <AppButton
+                      onPress={openLogin}
+                      style={styles.stackedButton}
+                      variant="primary">
+                      Login to Profile
+                    </AppButton>
+                  ) : null}
+                  {matchingAccounts.length > 0 ? (
+                    <AppButton
+                      onPress={() => setShowCreateProfile(!showCreateProfile)}
+                      style={styles.stackedButton}
+                      variant="text">
+                      {showCreateProfile ? 'Hide New Profile' : 'Create New Profile'}
+                    </AppButton>
+                  ) : null}
+                  {showCreateProfile ? (
+                    <View style={styles.inputStack}>
+                      <AppTextInput
+                        label="Profile name"
+                        onChangeText={setProfileName}
                         returnKeyType="done"
-                        label="Backup password"
-                        value={backupPassword}
-                        mode="outlined"
-                        dense
-                        style={{marginBottom: 8}}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
+                        value={profileName}
+                      />
+                      <AppTextInput
                         {...passwordAutofillProps}
-                        onChangeText={setBackupPassword}
-                        right={
-                          <TextInput.Affix
-                            text={backupPasswordDetails.text}
-                            textStyle={{color: backupPasswordDetails.color}}
-                          />
+                        helperText={`Password strength: ${profilePasswordDetails.text}`}
+                        label="Profile password"
+                        onChangeText={setProfilePassword}
+                        returnKeyType="done"
+                        secureTextEntry
+                        supportingTextStyle={{color: profilePasswordDetails.color}}
+                        value={profilePassword}
+                      />
+                      <AppTextInput
+                        {...passwordAutofillProps}
+                        label="Confirm profile password"
+                        onChangeText={setProfilePasswordConfirm}
+                        returnKeyType="done"
+                        secureTextEntry
+                        value={profilePasswordConfirm}
+                      />
+                      {supportedBiometryType && supportedBiometryType.biometry ? (
+                        <Checkbox.Item
+                          color={theme.colors.primary}
+                          label={`Enable ${supportedBiometryType.display_name} login`}
+                          labelStyle={styles.checkboxLabel}
+                          mode="android"
+                          onPress={toggleUseBiometrics}
+                          position="leading"
+                          status={useBiometrics ? 'checked' : 'unchecked'}
+                          style={styles.checkbox}
+                        />
+                      ) : null}
+                      <AppButton
+                        disabled={
+                          !profileName ||
+                          !profilePassword ||
+                          !profilePasswordConfirm
                         }
-                      />
-                      <TextInput
-                        returnKeyType="done"
-                        label="Confirm backup password"
-                        value={backupPasswordConfirm}
-                        mode="outlined"
-                        dense
-                        style={{marginBottom: 12}}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        {...passwordAutofillProps}
-                        onChangeText={setBackupPasswordConfirm}
-                      />
+                        onPress={createProfile}
+                        variant="primary">
+                        Create Profile
+                      </AppButton>
                     </View>
-                  )}
-                  <Menu
-                    visible={backupKdfMenuVisible}
-                    onDismiss={() => setBackupKdfMenuVisible(false)}
-                    anchor={
-                      <View>
-                        <Text
-                          style={{
-                            color: Colors.verusDarkGray,
-                            fontSize: 13,
-                            fontWeight: 'bold',
-                            marginBottom: 6,
-                          }}>
-                          {"Brute-force resistance (iterations)"}
-                        </Text>
-                        <Button
-                          mode="outlined"
-                          icon="shield-key-outline"
-                          onPress={() => setBackupKdfMenuVisible(true)}
-                          contentStyle={{height: 46}}
-                          labelStyle={{fontWeight: 'bold'}}
-                          style={{marginBottom: 8}}>
-                          {formatBackupKdfOptionLabel(selectedBackupKdfOption)}
-                        </Button>
-                      </View>
-                    }>
-                    {WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS.map(option => (
-                      <Menu.Item
-                        key={option.key}
-                        onPress={() => {
-                          setBackupKdfIters(option.iterations);
-                          setBackupKdfMenuVisible(false);
-                        }}
-                        title={formatBackupKdfOptionLabel(option)}
+                  ) : null}
+                </View>
+              ) : (
+                <View>
+                  <View style={styles.profileCard}>
+                    <Text style={styles.profileName}>{activeAccount.id}</Text>
+                    <Text style={styles.profileNetwork}>
+                      {requestIsTestnet ? 'Testnet profile' : 'Mainnet profile'}
+                    </Text>
+                  </View>
+                  <Checkbox.Item
+                    color={theme.colors.primary}
+                    label="Encrypt backup with password"
+                    labelStyle={styles.checkboxLabel}
+                    mode="android"
+                    onPress={() => setEncryptBackup(!encryptBackup)}
+                    position="leading"
+                    status={encryptBackup ? 'checked' : 'unchecked'}
+                    style={styles.checkbox}
+                  />
+                  {encryptBackup ? (
+                    <View>
+                      <Checkbox.Item
+                        color={theme.colors.primary}
+                        label="Use profile password for backup"
+                        labelStyle={styles.checkboxLabel}
+                        mode="android"
+                        onPress={() =>
+                          setUseProfilePasswordForBackup(
+                            !useProfilePasswordForBackup,
+                          )
+                        }
+                        position="leading"
+                        status={
+                          useProfilePasswordForBackup ? 'checked' : 'unchecked'
+                        }
+                        style={styles.checkbox}
                       />
-                    ))}
-                  </Menu>
-                  <Text
-                    style={{
-                      color: Colors.verusDarkGray,
-                      fontSize: 13,
-                      lineHeight: 19,
-                      marginBottom: 12,
-                      textAlign: 'center',
-                    }}>
-                    Higher resistance takes longer to encrypt and decrypt.
-                  </Text>
+                      {!useProfilePasswordForBackup ? (
+                        <View style={styles.inputStack}>
+                          <AppTextInput
+                            {...passwordAutofillProps}
+                            helperText={`Password strength: ${backupPasswordDetails.text}`}
+                            label="Backup password"
+                            onChangeText={setBackupPassword}
+                            returnKeyType="done"
+                            secureTextEntry
+                            supportingTextStyle={{color: backupPasswordDetails.color}}
+                            value={backupPassword}
+                          />
+                          <AppTextInput
+                            {...passwordAutofillProps}
+                            label="Confirm backup password"
+                            onChangeText={setBackupPasswordConfirm}
+                            returnKeyType="done"
+                            secureTextEntry
+                            value={backupPasswordConfirm}
+                          />
+                        </View>
+                      ) : null}
+                      <Menu
+                        anchor={
+                          <View style={styles.kdfAnchor}>
+                            <Text style={styles.fieldLabel}>
+                              Brute-force resistance (iterations)
+                            </Text>
+                            <AppButton
+                              icon="shield-key-outline"
+                              onPress={() => setBackupKdfMenuVisible(true)}
+                              variant="secondary">
+                              {formatBackupKdfOptionLabel(selectedBackupKdfOption)}
+                            </AppButton>
+                          </View>
+                        }
+                        onDismiss={() => setBackupKdfMenuVisible(false)}
+                        visible={backupKdfMenuVisible}>
+                        {WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS.map(option => (
+                          <Menu.Item
+                            key={option.key}
+                            onPress={() => {
+                              setBackupKdfIters(option.iterations);
+                              setBackupKdfMenuVisible(false);
+                            }}
+                            title={formatBackupKdfOptionLabel(option)}
+                          />
+                        ))}
+                      </Menu>
+                      <Text style={styles.helperText}>
+                        Higher resistance takes longer to encrypt and decrypt.
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               )}
-
-              <Button
-                mode="contained"
-                onPress={writeBackup}
-                labelStyle={{fontWeight: 'bold'}}
+            </View>
+          </ScrollView>
+          <SafeBottomActionStack gap={10}>
+            {activeAccountMatchesRequest ? (
+              <AppButton
                 disabled={
                   encryptBackup &&
                   !useProfilePasswordForBackup &&
                   (!backupPassword || !backupPasswordConfirm)
-                }>
+                }
+                height={56}
+                onPress={writeBackup}
+                variant="primary">
                 Write NFC Backup
-              </Button>
-            </View>
-          )}
-        </ScrollView>
-
-        <View
-          style={{
-            position: 'absolute',
-            left: 24,
-            right: 24,
-            bottom: footerBottomOffset,
-            flexDirection: 'row',
-            justifyContent: 'center',
-          }}>
-          <TouchableOpacity onPress={cancel} style={{padding: 12}}>
-            <Text style={{color: Colors.warningButtonColor, fontWeight: 'bold'}}>
+              </AppButton>
+            ) : null}
+            <AppButton onPress={cancel} variant="text">
               Cancel
-            </Text>
-          </TouchableOpacity>
-        </View>
+            </AppButton>
+          </SafeBottomActionStack>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 };
+
+const createStyles = theme =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 22,
+      paddingTop: 24,
+      paddingBottom: 32,
+    },
+    choiceContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 22,
+      paddingVertical: 48,
+    },
+    form: {
+      width: '100%',
+      maxWidth: 430,
+      alignSelf: 'center',
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    heroIcon: {
+      alignSelf: 'center',
+      marginBottom: 18,
+    },
+    title: {
+      marginTop: 12,
+      color: theme.colors.textPrimary,
+      fontSize: 24,
+      lineHeight: 31,
+      textAlign: 'center',
+      ...fontStyle('semiBold'),
+    },
+    body: {
+      marginTop: 10,
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 21,
+      textAlign: 'center',
+      ...fontStyle('regular'),
+    },
+    stackedButton: {
+      marginTop: 12,
+    },
+    inputStack: {
+      gap: 12,
+      marginTop: 12,
+    },
+    profileCard: {
+      marginBottom: 8,
+      padding: 14,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: 12,
+    },
+    profileName: {
+      color: theme.colors.textPrimary,
+      fontSize: 14,
+      lineHeight: 20,
+      ...fontStyle('semiBold'),
+    },
+    profileNetwork: {
+      marginTop: 3,
+      color: theme.colors.textSecondary,
+      fontSize: 12,
+      lineHeight: 17,
+      ...fontStyle('regular'),
+    },
+    checkbox: {
+      paddingLeft: 0,
+    },
+    checkboxLabel: {
+      color: theme.colors.textPrimary,
+      fontSize: 14,
+    },
+    kdfAnchor: {
+      marginTop: 14,
+    },
+    fieldLabel: {
+      marginBottom: 6,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+      ...fontStyle('semiBold'),
+    },
+    helperText: {
+      marginTop: 8,
+      marginBottom: 12,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'center',
+      ...fontStyle('regular'),
+    },
+    loadingContent: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    loadingIcon: {
+      marginBottom: 24,
+    },
+    loadingSpinner: {
+      marginVertical: 8,
+    },
+    loadingStatus: {
+      marginTop: 24,
+      color: theme.colors.textPrimary,
+      fontSize: 22,
+      lineHeight: 30,
+      textAlign: 'center',
+      ...fontStyle('semiBold'),
+    },
+  });
 
 export default WalletBackupRequestInfo;

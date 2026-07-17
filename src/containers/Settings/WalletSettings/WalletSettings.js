@@ -4,24 +4,20 @@
   active coin.
 */
 
-import React, { useState, useCallback, useEffect } from "react";
-import { ListItem } from "react-native-elements";
-import { 
-  View, 
-  TouchableOpacity,
-  ScrollView,
-  Alert
-} from "react-native";
+import React, {useCallback, useState} from 'react';
 import AlertAsync from "react-native-alert-async";
 import { connect } from 'react-redux';
 import { CommonActions } from '@react-navigation/native';
 import { clearCacheData } from '../../../actions/actionCreators';
-import Styles from '../../../styles/index'
 import { ELECTRUM } from "../../../utils/constants/intervalConstants";
-import { Divider, List } from "react-native-paper"
 import { RenderSquareCoinLogo } from "../../../utils/CoinData/Graphics";
 import { SecureStorage } from "../../../utils/keychain/secureStore";
 import { createAlert } from "../../../actions/actions/alert/dispatchers/alert";
+import {
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+} from '../components/SettingsScaffold';
 
 const GENERAL_WALLET_SETTINGS = "GeneralWalletSettings"
 const COIN_SETTINGS = "CoinSettings"
@@ -135,90 +131,65 @@ const WalletSettings = ({ navigation, dispatch, activeCoinsForUser }) => {
     })
   }, [canToggleKeychainEncryption, dispatch, resetToScreen]);
 
-  const renderSettingsList = () => {
-    const electrumCoins = activeCoinsForUser.filter((coin) => 
-      coin.compatible_channels.includes(ELECTRUM)
-    );
-
-    return (
-      <ScrollView style={Styles.fullWidth}>
-        <List.Subheader>{"Wallet Settings"}</List.Subheader>
-
-        <TouchableOpacity onPress={() => openSettings(GENERAL_WALLET_SETTINGS)}>
-          <Divider />
-          <List.Item
-            title={"General Settings"}
-            left={(props) => <List.Icon {...props} icon={"card-bulleted-settings"} />}
-            right={(props) => <List.Icon {...props} icon={"chevron-right"} />}
-          />
-          <Divider />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => openSettings(ADDRESS_BLOCKLIST)}>
-          <List.Item
-            title={"Address Blocklist"}
-            left={(props) => <List.Icon {...props} icon={"block-helper"} />}
-            right={(props) => <List.Icon {...props} icon={"chevron-right"} />}
-          />
-          <Divider />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => openSettings(VRPC_OVERRIDES)}>
-          <List.Item
-            title={"Custom RPC Servers"}
-            left={(props) => <List.Icon {...props} icon={"server"} />}
-            right={(props) => <List.Icon {...props} icon={"chevron-right"} />}
-          />
-          <Divider />
-        </TouchableOpacity>
-
-        <List.Subheader>{"Wallet Actions"}</List.Subheader>
-        <TouchableOpacity onPress={clearCache}>
-          <Divider />
-          <List.Item
-            title={"Clear Cache"}
-            left={(props) => <List.Icon {...props} icon={"notification-clear-all"} />}
-          />
-          <Divider />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={toggleKeychainEncryption}>
-          <Divider />
-          <List.Item
-            title={usingKeychainEncryption ? "Disable Keychain Encryption" : "Enable Keychain Encryption"}
-            left={(props) => <List.Icon {...props} icon={"key"} />}
-          />
-          <Divider />
-        </TouchableOpacity>
-
-        {electrumCoins.length > 0 && (
-          <>
-            <List.Subheader>{"Electrum Coin Settings"}</List.Subheader>
-            <Divider />
-          </>
-        )}
-
-        {electrumCoins.map((coin, index) => (
-          <TouchableOpacity
-            onPress={() => openSettings(COIN_SETTINGS, coin.id, coin.display_name)}
-            key={index}
-          >
-            <List.Item
-              title={`${coin.display_name} Settings`}
-              left={(props) => <View {...props}>{RenderSquareCoinLogo(coin.id)}</View>}
-              right={(props) => <List.Icon {...props} icon={"chevron-right"} />}
-            />
-            <Divider />
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    );
-  }
+  const electrumCoins = activeCoinsForUser.filter(coin =>
+    coin.compatible_channels.includes(ELECTRUM),
+  );
 
   return (
-    <View style={Styles.defaultRoot}>
-      {renderSettingsList()}
-    </View>
+    <SettingsScreen testID="settings.wallet">
+      <SettingsSection title="Preferences">
+        <SettingsRow
+          description="Currency, display and requests"
+          icon="tune"
+          onPress={() => openSettings(GENERAL_WALLET_SETTINGS)}
+          title="General settings"
+        />
+        <SettingsRow
+          icon="block-helper"
+          onPress={() => openSettings(ADDRESS_BLOCKLIST)}
+          title="Address blocklist"
+        />
+        <SettingsRow
+          icon="server"
+          last
+          onPress={() => openSettings(VRPC_OVERRIDES)}
+          title="Custom RPC servers"
+        />
+      </SettingsSection>
+      <SettingsSection title="Storage & encryption">
+        <SettingsRow
+          description="Wallet data will resync"
+          icon="database-refresh"
+          onPress={clearCache}
+          showChevron={false}
+          title="Clear cache"
+        />
+        <SettingsRow
+          description="Extra protection for stored wallet data"
+          icon="shield-key-outline"
+          last
+          onPress={toggleKeychainEncryption}
+          showChevron={false}
+          title={`${usingKeychainEncryption ? 'Disable' : 'Enable'} keychain encryption`}
+        />
+      </SettingsSection>
+      {electrumCoins.length > 0 ? (
+        <SettingsSection title="Electrum coin settings">
+          {electrumCoins.map((coin, index) => (
+            <SettingsRow
+              description="Transaction verification"
+              key={coin.id}
+              last={index === electrumCoins.length - 1}
+              leading={RenderSquareCoinLogo(coin.id)}
+              onPress={() =>
+                openSettings(COIN_SETTINGS, coin.id, coin.display_name)
+              }
+              title={`${coin.display_name} settings`}
+            />
+          ))}
+        </SettingsSection>
+      ) : null}
+    </SettingsScreen>
   );
 };
 

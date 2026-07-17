@@ -17,6 +17,7 @@ import Colors from "../globals/colors";
 import Styles from "../styles/index";
 import Modal from './Modal'
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useOnboardingTheme} from '../theme/onboarding';
 
 class SemiModal extends Component {
   constructor(props) {
@@ -193,4 +194,10 @@ class SemiModal extends Component {
   }
 }
 
-export default SemiModal;
+const ThemedSemiModal = props => {
+  const modalTheme = useOnboardingTheme();
+
+  return <SemiModal {...props} modalTheme={props.modalTheme || modalTheme} />;
+};
+
+export default ThemedSemiModal;

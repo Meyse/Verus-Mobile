@@ -1,19 +1,22 @@
 import React from "react";
-import { SafeAreaView, ScrollView } from "react-native";
-import { Divider, List, Portal } from "react-native-paper";
+import {Portal} from "react-native-paper";
 import ListSelectionModal from "../../../../components/ListSelectionModal/ListSelectionModal";
 import TextInputModal from "../../../../components/TextInputModal/TextInputModal";
-import Styles from "../../../../styles";
 import { unixToDate } from "../../../../utils/math";
 import { ADDRESS_BLOCKLIST_MANUAL, DEFAULT_ADDRESS_BLOCKLIST_WEBSERVER } from "../../../../utils/constants/constants";
+import {
+  SettingsNotice,
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+} from '../../components/SettingsScaffold';
 
 export const AddressBlocklistRender = function () {
   const blocklistType = this.state.addressBlocklistSettings.addressBlocklistDefinition.type;
   const { title: blocklistTypeTitle, description: blocklistTypeDescription } = this.ADDRESS_BLOCKLIST_TYPE_DESCRIPTORS[blocklistType];
   
   return (
-    <SafeAreaView style={Styles.defaultRoot}>
-      <ScrollView style={Styles.fullWidth}>
+    <>
         <Portal>
           {this.state.addBlockedAddressModal.open && (
             <TextInputModal
@@ -63,67 +66,69 @@ export const AddressBlocklistRender = function () {
             />
           )}
         </Portal>
-        <Divider />
-        <List.Subheader>{"Address Blocklist Details"}</List.Subheader>
-        <Divider />
-        <List.Item
-          title={blocklistTypeTitle}
+      <SettingsScreen testID="settings.addressBlocklist">
+        <SettingsSection title="Blocklist source">
+          <SettingsRow
           description={blocklistTypeDescription}
+          icon="format-list-bulleted-type"
+          last={blocklistType === ADDRESS_BLOCKLIST_MANUAL}
           onPress={() =>
             this.openSelectBlockTypeModal(
               `Blocklist Type`
             )
           }
-        />
-        <Divider />
+          title={blocklistTypeTitle}
+          value="Type"
+          />
         {
           blocklistType !== ADDRESS_BLOCKLIST_MANUAL && (
-            <React.Fragment>
-              <List.Item
+              <SettingsRow
+                description="Address blocklist source"
+                descriptionNumberOfLines={3}
+                icon="server-network"
+                last
+                onPress={() => this.openEditBlockDefinitionDataModal()}
                 title={
                   this.state.addressBlocklistSettings.addressBlocklistDefinition.data
                     ? this.state.addressBlocklistSettings.addressBlocklistDefinition
                         .data
                     : DEFAULT_ADDRESS_BLOCKLIST_WEBSERVER
                 }
-                description={'Address blocklist source'}
-                onPress={() => this.openEditBlockDefinitionDataModal()}
               />
-              <Divider />
-            </React.Fragment>
           )
         }
-        <List.Subheader>{"Blocked Addresses"}</List.Subheader>
-        <Divider />
-        <List.Item
-          title={"Add blocked address"}
-          right={(props) => <List.Icon {...props} icon={"plus"} size={20} />}
-          onPress={() => this.openAddBlockedAddressModal()}
-        />
-        <Divider />
+        </SettingsSection>
+        <SettingsSection title="Blocked addresses">
+          <SettingsRow
+            icon="plus-circle-outline"
+            last={this.state.addressBlocklistSettings.addressBlocklist.length === 0}
+            onPress={() => this.openAddBlockedAddressModal()}
+            title="Add blocked address"
+          />
         {this.state.addressBlocklistSettings.addressBlocklist.map((blockedAddress, index) => {
             return (
-              <React.Fragment key={index}>
-                <List.Item
-                  key={index}
-                  title={blockedAddress.address}
-                  description={`Last modified ${unixToDate(blockedAddress.lastModified)}`}
-                  right={(props) => (
-                    <List.Icon {...props} icon={"account-edit"} size={20} />
-                  )}
-                  onPress={() =>
-                    this.openEditPropertyModal(
-                      `Address ${index + 1}`,
-                      index
-                    )
-                  }
-                />
-                <Divider />
-              </React.Fragment>
+              <SettingsRow
+                description={`Last modified ${unixToDate(blockedAddress.lastModified)}`}
+                icon="shield-remove-outline"
+                key={`${blockedAddress.address}-${index}`}
+                last={index === this.state.addressBlocklistSettings.addressBlocklist.length - 1}
+                onPress={() =>
+                  this.openEditPropertyModal(
+                    `Address ${index + 1}`,
+                    index
+                  )
+                }
+                title={blockedAddress.address}
+              />
             );
           }) 
         }
-      </ScrollView>
-    </SafeAreaView>
+        </SettingsSection>
+        <SettingsNotice
+          body="Addresses in this list remain blocked by the wallet's send flow. Editing a server source changes where the list is loaded from."
+          title="Send protection"
+        />
+      </SettingsScreen>
+    </>
   );
 };

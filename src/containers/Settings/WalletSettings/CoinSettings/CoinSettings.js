@@ -5,14 +5,8 @@
 */
 
 import React, { Component } from "react";
-import StandardButton from "../../../../components/StandardButton";
-import { 
-  View, 
-  ScrollView, 
-  Keyboard,
-  ActivityIndicator,
-} from "react-native";
-import { List, Button, RadioButton, Divider, Paragraph } from 'react-native-paper'
+import {Keyboard} from "react-native";
+import {RadioButton} from 'react-native-paper'
 import { NavigationActions } from '@react-navigation/compat';
 import { saveCoinSettings } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
@@ -25,9 +19,14 @@ import {
   MAX_VERIFICATION_DESC,
   VERIFICATION_LOCKED
 } from '../../../../utils/constants/constants'
-import Styles from '../../../../styles/index'
-import Colors from '../../../../globals/colors';
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
+import {
+  SettingsActionFooter,
+  SettingsNotice,
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+} from '../../components/SettingsScaffold';
 
 class CoinSettings extends Component {
   constructor(props) {
@@ -113,75 +112,71 @@ class CoinSettings extends Component {
   }
 
   render() {
-    const utxoVerificationBtns = ['Low', 'Mid', 'High']
+    const verificationOptions = [
+      {label: 'Low', value: NO_VERIFICATION},
+      {label: 'Mid', value: MID_VERIFICATION},
+      {label: 'High', value: MAX_VERIFICATION},
+    ];
+    const description = this.verificationLock
+      ? VERIFICATION_LOCKED
+      : this.state.verificationLvl === NO_VERIFICATION
+      ? NO_VERIFICATION_DESC
+      : this.state.verificationLvl === MID_VERIFICATION
+      ? MID_VERIFICATION_DESC
+      : MAX_VERIFICATION_DESC;
 
     return (
-      <View style={Styles.defaultRoot}>
-        <ScrollView
-          style={Styles.fullWidth}
-          contentContainerStyle={{
-            ...Styles.innerHeaderFooterContainerCentered,
-          }}
-        >
-          <View style={Styles.fullWidth}>
-            <List.Subheader>{"Electrum Transaction Verification"}</List.Subheader>
-            <Divider />
-              <RadioButton.Group
-                onValueChange={
-                  this.verificationLock
-                    ? () => {}
-                    : (newValue) => this.updateIndex(newValue)
+      <SettingsScreen
+        footer={
+          <SettingsActionFooter
+            busy={this.state.loading}
+            busyLabel="Saving verification level…"
+            primaryLabel="Confirm"
+            primaryOnPress={this._handleSubmit}
+            secondaryDisabled={this.state.loading}
+            secondaryLabel="Back"
+            secondaryOnPress={this.back}
+          />
+        }
+        testID="settings.coin">
+        <SettingsSection title="Electrum transaction verification">
+          {verificationOptions.map((option, index) => {
+            const selected = this.state.verificationLvl === option.value;
+
+            return (
+              <SettingsRow
+                accessibilityRole="radio"
+                accessibilityState={{checked: selected}}
+                choice
+                disabled={this.verificationLock}
+                hideDivider={
+                  selected ||
+                  this.state.verificationLvl === verificationOptions[index + 1]?.value
                 }
-                value={this.state.verificationLvl}
-              >
-                <RadioButton.Item
-                  color={Colors.primaryColor}
-                  label={utxoVerificationBtns[0]}
-                  value={0}
-                  mode="android"
-                />
-                <RadioButton.Item
-                  color={Colors.primaryColor}
-                  label={utxoVerificationBtns[1]}
-                  value={1}
-                  mode="android"
-                />
-                <RadioButton.Item
-                  color={Colors.primaryColor}
-                  label={utxoVerificationBtns[2]}
-                  value={2}
-                  mode="android"
-                />
-              </RadioButton.Group>
-            <Divider />
-            <View style={Styles.wideCenterBlock}>
-              <Paragraph>
-                {this.verificationLock
-                  ? VERIFICATION_LOCKED
-                  : this.state.verificationLvl === NO_VERIFICATION
-                  ? NO_VERIFICATION_DESC
-                  : this.state.verificationLvl === MID_VERIFICATION
-                  ? MID_VERIFICATION_DESC
-                  : MAX_VERIFICATION_DESC}
-              </Paragraph>
-            </View>
-          </View>
-        </ScrollView>
-        <View style={Styles.highFooterContainer}>
-          <View style={Styles.standardWidthSpaceBetweenBlock}>
-            <Button
-              textColor={Colors.warningButtonColor}
-              onPress={this.back}
-              disabled={this.state.loading}
-            >{"Back"}</Button>
-            <Button
-              mode="contained"
-              onPress={this._handleSubmit}
-              disabled={this.state.loading}
-            >{"Confirm"}</Button>
-          </View>
-        </View>
-      </View>
+                icon="shield-check-outline"
+                key={option.value}
+                last={index === verificationOptions.length - 1}
+                onPress={() => this.updateIndex(option.value)}
+                selected={selected}
+                title={option.label}
+                trailing={
+                  <RadioButton
+                    disabled={this.verificationLock}
+                    onPress={() => this.updateIndex(option.value)}
+                    status={selected ? 'checked' : 'unchecked'}
+                    value={option.value}
+                  />
+                }
+              />
+            );
+          })}
+        </SettingsSection>
+        <SettingsNotice
+          body={description}
+          icon={this.verificationLock ? 'lock-outline' : 'information-outline'}
+          title={this.verificationLock ? 'Verification locked' : 'What this changes'}
+        />
+      </SettingsScreen>
     );
   }
 }
@@ -193,4 +188,3 @@ const mapStateToProps = (state) => {
 };
 
 export default connect(mapStateToProps)(CoinSettings);
-

@@ -1,14 +1,14 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { TouchableOpacity, View, Animated } from 'react-native';
-import { Text } from 'react-native-paper';
+import {Text, withTheme} from 'react-native-paper';
 
 import NumberPadContext from './NumberPadContext';
 import styles from './styles';
 
 const inputs = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
 
-export default class Input extends Component {
+class Input extends Component {
   static contextType = NumberPadContext;
 
   static propTypes = {
@@ -94,7 +94,7 @@ export default class Input extends Component {
   render() {
     return (
       <Animated.View style={[this.getStyle(), this.props.style]}>
-        <View style={styles.input}>
+        <View style={[styles.input, {backgroundColor: this.props.theme.colors.surface}]}>
           <View style={styles.pad}>
             {inputs.map((value, index) => {
               return (
@@ -103,7 +103,7 @@ export default class Input extends Component {
                   style={styles.button}
                   onPress={() => this.context.onInputEvent(value)}
                 >
-                  <Text style={styles.buttonText}>{value}</Text>
+                  <Text style={[styles.buttonText, {color: this.props.theme.colors.text}]}>{value}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -115,7 +115,7 @@ export default class Input extends Component {
               {this.props.backspaceIcon ? (
                 this.props.backspaceIcon
               ) : (
-                <Text style={styles.buttonText}>←</Text>
+                <Text style={[styles.buttonText, {color: this.props.theme.colors.text}]}>←</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -123,7 +123,7 @@ export default class Input extends Component {
             {this.props.hideIcon ? (
               this.props.hideIcon
             ) : (
-              <Text style={styles.buttonText}>⌄</Text>
+              <Text style={[styles.buttonText, {color: this.props.theme.colors.text}]}>⌄</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -131,3 +131,8 @@ export default class Input extends Component {
     );
   }
 }
+
+const ThemedInput = withTheme(Input);
+ThemedInput.iconStyle = Input.iconStyle;
+
+export default ThemedInput;

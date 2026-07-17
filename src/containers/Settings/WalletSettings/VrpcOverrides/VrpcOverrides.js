@@ -84,7 +84,7 @@ class VrpcOverrides extends Component {
         this.setState({
           addVrpcOverrideModal: {
             open: true,
-            label: "Edit RPC Server",
+            label: "Edit RPC server",
             systemid: this.state.editPropertyModal.systemid
           }
         })
@@ -172,7 +172,7 @@ class VrpcOverrides extends Component {
     this.setState({
       addVrpcOverrideModal: {
         open: true,
-        label: "Add RPC Server",
+        label: "Add RPC server",
         systemid: null
       }
     })

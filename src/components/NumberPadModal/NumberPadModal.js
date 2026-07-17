@@ -5,7 +5,7 @@
 import React, { Component } from "react";
 import NumberPad, { Input, Display } from '../NumberPad/index';
 import SemiModal from "../SemiModal";
-import { IconButton } from "react-native-paper"
+import {IconButton, withTheme} from "react-native-paper"
 import { triggerLightHaptic } from "../../utils/haptics/haptics";
 
 class NumberPadModal extends Component {
@@ -29,7 +29,10 @@ class NumberPadModal extends Component {
         visible={visible}
         onRequestClose={() => cancel(this.props.value)}
         flexHeight={3}
-        contentContainerStyle={{ maxHeight: 384, backgroundColor: "#F8F8F8" }}
+        contentContainerStyle={{
+          maxHeight: 384,
+          backgroundColor: this.props.theme.colors.surface,
+        }}
       >
         <NumberPad>
           <Display
@@ -59,4 +62,4 @@ class NumberPadModal extends Component {
   }
 }
 
-export default NumberPadModal;
+export default withTheme(NumberPadModal);

@@ -26,13 +26,17 @@ import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
 import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
 import SendWizardNavigator from '../../SendWizard/SendWizardNavigator';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
-import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
+import {
+  createRedesignedHeaderOptions,
+  createSettingsHeaderOptions,
+} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const MainStack = createStackNavigator();
 
 const MainStackScreens = props => {
   const theme = useOnboardingTheme();
+  const settingsHeaderOptions = createSettingsHeaderOptions(theme);
 
   return (
     <MainStack.Navigator
@@ -68,8 +72,8 @@ const MainStackScreens = props => {
         name="DisplaySeed"
         component={DisplaySeed}
         options={{
+          ...settingsHeaderOptions,
           title: "Seed",
-          headerRight: () => null,
         }}
       />
 
@@ -99,36 +103,41 @@ const MainStackScreens = props => {
         />
       )}
 
-      <MainStack.Screen name="SettingsMenus" component={SettingsMenus} />
+      <MainStack.Screen
+        name="SettingsMenus"
+        component={SettingsMenus}
+        options={settingsHeaderOptions}
+      />
 
       <MainStack.Screen
         name="ProfileSettings"
         component={ProfileSettings}
-        options={{title: 'Profile and security'}}
+        options={{...settingsHeaderOptions, title: 'Profile and security'}}
       />
 
       <MainStack.Screen
         name="WalletSettings"
         component={WalletSettings}
-        options={{title: 'Wallet settings'}}
+        options={{...settingsHeaderOptions, title: 'Wallet settings'}}
       />
 
       <MainStack.Screen
         name="Appearance"
         component={Appearance}
-        options={{title: 'Appearance'}}
+        options={{...settingsHeaderOptions, title: 'Appearance'}}
       />
 
       <MainStack.Screen
         name="AppInfo"
         component={AppInfo}
-        options={{title: 'App information'}}
+        options={{...settingsHeaderOptions, title: 'App information'}}
       />
 
       <MainStack.Screen
         name="ProfileInfo"
         component={ProfileInfo}
         options={{
+          ...settingsHeaderOptions,
           title: "Info",
         }}
       />
@@ -137,6 +146,7 @@ const MainStackScreens = props => {
         name="ResetPwd"
         component={ResetPwd}
         options={{
+          ...settingsHeaderOptions,
           title: "Reset",
         }}
       />
@@ -145,6 +155,7 @@ const MainStackScreens = props => {
         name="RecoverSeed"
         component={RecoverSeed}
         options={{
+          ...settingsHeaderOptions,
           title: "Recover",
         }}
       />
@@ -153,6 +164,7 @@ const MainStackScreens = props => {
         name="GeneralWalletSettings"
         component={GeneralWalletSettings}
         options={{
+          ...settingsHeaderOptions,
           title: "General",
         }}
       />
@@ -161,7 +173,8 @@ const MainStackScreens = props => {
         name="AddressBlocklist"
         component={AddressBlocklist}
         options={{
-          title: "Blocked Addresses",
+          ...settingsHeaderOptions,
+          title: "Blocked addresses",
         }}
       />
 
@@ -169,7 +182,8 @@ const MainStackScreens = props => {
         name="VrpcOverrides"
         component={VrpcOverrides}
         options={{
-          title: "Custom RPC Servers",
+          ...settingsHeaderOptions,
+          title: "Custom RPC servers",
         }}
       />  
 
@@ -177,8 +191,8 @@ const MainStackScreens = props => {
         name="NfcBackup"
         component={NfcBackup}
         options={{
-          title: "NFC Backup",
-          headerRight: () => null,
+          ...settingsHeaderOptions,
+          title: "NFC backup",
         }}
       />
 
@@ -186,6 +200,7 @@ const MainStackScreens = props => {
         name="CoinSettings"
         component={CoinSettings}
         options={({ route }) => ({
+          ...settingsHeaderOptions,
           title: route.params != null ? route.params.title : null,
         })}
       />
@@ -194,6 +209,7 @@ const MainStackScreens = props => {
         name="DeleteProfile"
         component={DeleteProfile}
         options={{
+          ...settingsHeaderOptions,
           title: "Delete",
         }}
       />

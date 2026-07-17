@@ -8,22 +8,23 @@
 */
 
 import React, { Component } from "react";
-import { 
-  View, 
-  ScrollView, 
-  Keyboard,
-  TextInput as NativeTextInput
-} from "react-native";
-import { TextInput, Button, Checkbox } from 'react-native-paper'
+import {Keyboard, View} from "react-native";
+import {Checkbox} from 'react-native-paper'
 import { NavigationActions } from '@react-navigation/compat';
 import { CommonActions } from '@react-navigation/native';
 import { deleteProfile } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import { checkPinForUser } from '../../../../utils/asyncStore/asyncStore'
-import Colors from '../../../../globals/colors';
-import Styles from '../../../../styles/index'
 import { createAlert, resolveAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import { removeBiometricPassword } from "../../../../utils/keychain/biometrics";
+import AppTextInput from '../../../../components/AppTextInput';
+import {
+  SettingsActionFooter,
+  SettingsNotice,
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+} from '../../components/SettingsScaffold';
 
 class DeleteProfile extends Component {
   constructor() {
@@ -136,22 +137,16 @@ class DeleteProfile extends Component {
 
   authenticatePwd = () => {
     return (
-      <TextInput
-        dense
+      <AppTextInput
+        autoComplete="off"
+        errorText={this.state.errors.pwd}
+        importantForAutofill="no"
+        label="Profile password"
+        onChangeText={pwd => this.setState({pwd})}
         returnKeyType="done"
-        onChangeText={(text) => this.setState({ pwd: text })}
-        label="Profile Password"
-        underlineColor={Colors.primaryColor}
-        selectionColor={Colors.primaryColor}
-        render={(props) => (
-          <NativeTextInput
-            autoCapitalize={"none"}
-            autoCorrect={false}
-            secureTextEntry={true}
-            {...props}
-          />
-        )}
-        error={this.state.errors.pwd}
+        secureTextEntry
+        textContentType="none"
+        value={this.state.pwd || ''}
       />
     );
   }
@@ -170,39 +165,54 @@ class DeleteProfile extends Component {
 
   render() {
     return (
-      <View style={Styles.defaultRoot}>
-        <ScrollView style={Styles.fullWidth}
-          contentContainerStyle={{...Styles.innerHeaderFooterContainerCentered, ...Styles.fullHeight}}>
-          <View style={Styles.wideBlock}>
+      <SettingsScreen
+        avoidKeyboard
+        footer={
+          <SettingsActionFooter
+            busy={this.state.loading}
+            busyLabel="Preparing profile deletion…"
+            primaryLabel="Delete profile"
+            primaryOnPress={this._handleSubmit}
+            primaryTestID="settings.deleteProfile.submit"
+            primaryVariant="danger"
+            secondaryDisabled={this.state.loading}
+            secondaryLabel="Cancel"
+            secondaryOnPress={this.cancel}
+          />
+        }
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        testID="settings.deleteProfile">
+        <SettingsNotice
+          body="This permanently removes the profile and its saved biometric credential from this device. It cannot be undone."
+          danger
+          icon="alert-octagon-outline"
+          title="Irreversible action"
+        />
+        <SettingsSection title="Authorization">
+          <View style={{marginTop: 22}}>
             {this.authenticatePwd()}
           </View>
-            <View style={Styles.wideBlock}>
-              <Checkbox.Item
-                color={Colors.primaryColor}
-                label={"I confirm that I would like to delete my profile, and acknowledge that this action cannot be reversed."}
-                status={
-                  this.state.confirmSwitch
-                    ? "checked"
-                    : "unchecked"
-                }
-                onPress={() => this.setState({confirmSwitch: !this.state.confirmSwitch})}
-                mode="android"
-              />
-            </View>
-        </ScrollView>
-        <View style={Styles.highFooterContainer}>
-          <View style={Styles.standardWidthSpaceBetweenBlock}>
-            <Button
-              textColor={Colors.warningButtonColor}
-              onPress={this.cancel}
-            >{"Cancel"}</Button>
-            <Button 
-              mode="contained"
-              onPress={this._handleSubmit}
-            >{"Delete"}</Button>
-          </View>
-        </View>
-      </View>
+          <SettingsRow
+            accessibilityRole="checkbox"
+            accessibilityState={{checked: this.state.confirmSwitch}}
+            description="I understand that deleting this profile cannot be reversed."
+            descriptionNumberOfLines={3}
+            icon="delete-alert-outline"
+            last
+            onPress={() => this.setState({confirmSwitch: !this.state.confirmSwitch})}
+            showChevron={false}
+            title="Acknowledge permanent deletion"
+            trailing={
+              <View pointerEvents="none">
+                <Checkbox
+                  status={this.state.confirmSwitch ? 'checked' : 'unchecked'}
+                />
+              </View>
+            }
+          />
+        </SettingsSection>
+      </SettingsScreen>
     );
   }
 }

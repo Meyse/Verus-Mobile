@@ -1,0 +1,637 @@
+import React from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {Switch, Text} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import AppButton from '../../../components/AppButton';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import {fontStyle} from '../../../globals/fonts';
+import {useOnboardingTheme} from '../../../theme/onboarding';
+
+const createStyles = theme =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    content: {
+      width: '100%',
+      maxWidth: 430,
+      alignSelf: 'center',
+      paddingHorizontal: 22,
+      paddingTop: 3,
+      paddingBottom: 34,
+    },
+    homeContent: {
+      paddingTop: 24,
+      paddingBottom: 16,
+    },
+    title: {
+      color: theme.colors.textPrimary,
+      fontSize: 24,
+      lineHeight: 31,
+      ...fontStyle('semiBold'),
+    },
+    subtitle: {
+      marginTop: 6,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+      ...fontStyle('regular'),
+    },
+    titleSpacing: {
+      marginBottom: 23,
+    },
+    section: {
+      marginBottom: 22,
+    },
+    compactSection: {
+      marginBottom: 18,
+    },
+    sectionTitle: {
+      marginBottom: 5,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+      ...fontStyle('semiBold'),
+    },
+    row: {
+      position: 'relative',
+      minHeight: 54,
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 7,
+      borderRadius: 10,
+    },
+    choiceRow: {
+      minHeight: 58,
+    },
+    rowDisabled: {
+      opacity: 0.5,
+    },
+    rowSelected: {
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    rowIcon: {
+      width: 23,
+      height: 28,
+      marginRight: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowCopy: {
+      minWidth: 0,
+      flex: 1,
+    },
+    rowTitle: {
+      color: theme.colors.textPrimary,
+      fontSize: 14.5,
+      lineHeight: 19,
+      ...fontStyle('semiBold'),
+    },
+    rowDescription: {
+      marginTop: 1,
+      color: theme.colors.textSecondary,
+      fontSize: 11.5,
+      lineHeight: 16,
+      ...fontStyle('regular'),
+    },
+    rowValue: {
+      flexShrink: 1,
+      maxWidth: 110,
+      marginLeft: 10,
+      color: theme.colors.textSecondary,
+      fontSize: 11.5,
+      lineHeight: 16,
+      textAlign: 'right',
+      ...fontStyle('regular'),
+    },
+    rowTrailing: {
+      flexShrink: 0,
+      marginLeft: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowChevron: {
+      flexShrink: 0,
+      marginLeft: 6,
+    },
+    divider: {
+      position: 'absolute',
+      right: 0,
+      bottom: 0,
+      left: 37,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: theme.colors.border,
+    },
+    dangerText: {
+      color: theme.colors.danger,
+    },
+    lockAction: {
+      minHeight: 56,
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingHorizontal: 18,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: 18,
+    },
+    lockActionText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      lineHeight: 22,
+      ...fontStyle('semiBold'),
+    },
+    profile: {
+      minHeight: 62,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      marginBottom: 22,
+    },
+    profileCopy: {
+      minWidth: 0,
+      flex: 1,
+    },
+    profileName: {
+      color: theme.colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 21,
+      ...fontStyle('semiBold'),
+    },
+    profileMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 2,
+    },
+    profileMeta: {
+      color: theme.colors.textSubtle,
+      fontSize: 11.5,
+      lineHeight: 16,
+      ...fontStyle('regular'),
+    },
+    appSummary: {
+      minHeight: 54,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      marginTop: 1,
+      marginBottom: 20,
+    },
+    appLogo: {
+      width: 42,
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      borderRadius: 14,
+      backgroundColor: theme.colors.primary,
+    },
+    appLogoImage: {
+      width: 42,
+      height: 42,
+    },
+    appSummaryCopy: {
+      minWidth: 0,
+      flex: 1,
+    },
+    appSummaryName: {
+      color: theme.colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 21,
+      ...fontStyle('semiBold'),
+    },
+    appSummaryMeta: {
+      marginTop: 2,
+      color: theme.colors.textSubtle,
+      fontSize: 11.5,
+      lineHeight: 16,
+      ...fontStyle('regular'),
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      marginRight: 6,
+      borderRadius: 3,
+      backgroundColor: theme.colors.success,
+    },
+    notice: {
+      flexDirection: 'row',
+      gap: 12,
+      padding: 14,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: 12,
+    },
+    dangerNotice: {
+      backgroundColor: theme.isDark
+        ? 'rgba(255, 107, 117, 0.12)'
+        : 'rgba(242, 45, 55, 0.08)',
+    },
+    noticeCopy: {
+      minWidth: 0,
+      flex: 1,
+    },
+    noticeTitle: {
+      color: theme.colors.textPrimary,
+      fontSize: 13,
+      lineHeight: 18,
+      ...fontStyle('semiBold'),
+    },
+    noticeBody: {
+      marginTop: 3,
+      color: theme.colors.textSecondary,
+      fontSize: 12,
+      lineHeight: 18,
+      ...fontStyle('regular'),
+    },
+    footer: {
+      paddingTop: 10,
+      backgroundColor: theme.colors.background,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.colors.border,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    footerButton: {
+      flex: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    loadingText: {
+      marginTop: 14,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'center',
+      ...fontStyle('regular'),
+    },
+  });
+
+const stylesByTheme = new WeakMap();
+const getStyles = theme => {
+  if (!stylesByTheme.has(theme)) {
+    stylesByTheme.set(theme, createStyles(theme));
+  }
+
+  return stylesByTheme.get(theme);
+};
+
+export const SettingsScreen = ({
+  avoidKeyboard = false,
+  children,
+  contentContainerStyle,
+  footer,
+  home = false,
+  keyboardDismissMode,
+  keyboardShouldPersistTaps,
+  testID,
+}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+  const Container = avoidKeyboard ? KeyboardAvoidingView : View;
+  const containerProps = avoidKeyboard
+    ? {
+        behavior: Platform.OS === 'ios' ? 'padding' : undefined,
+        keyboardVerticalOffset: 68,
+      }
+    : {};
+
+  return (
+    <SafeAreaView
+      edges={home ? ['top', 'left', 'right'] : ['left', 'right']}
+      style={styles.screen}
+      testID={testID}>
+      <Container
+        {...containerProps}
+        style={styles.screen}>
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={[
+            styles.content,
+            home && styles.homeContent,
+            contentContainerStyle,
+          ]}
+          keyboardDismissMode={keyboardDismissMode}
+          keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          showsVerticalScrollIndicator={false}
+          style={styles.scroll}>
+          {children}
+        </ScrollView>
+        {footer}
+      </Container>
+    </SafeAreaView>
+  );
+};
+
+export const SettingsTitle = ({children, subtitle}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <View style={styles.titleSpacing}>
+      <Text accessibilityRole="header" style={styles.title}>
+        {children}
+      </Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+    </View>
+  );
+};
+
+export const SettingsSection = ({children, compact = false, title}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <View style={[styles.section, compact && styles.compactSection]}>
+      {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
+      <View>{children}</View>
+    </View>
+  );
+};
+
+export const SettingsRow = ({
+  accessibilityLabel,
+  accessibilityRole,
+  accessibilityState,
+  choice = false,
+  danger = false,
+  description,
+  descriptionNumberOfLines = 2,
+  disabled = false,
+  external = false,
+  hideDivider = false,
+  icon,
+  iconColor,
+  last = false,
+  leading,
+  onPress,
+  selected = false,
+  showChevron,
+  testID,
+  title,
+  trailing,
+  value,
+}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+  const resolvedIconColor = danger
+    ? theme.colors.danger
+    : iconColor || theme.colors.textSubtle;
+  const resolvedShowChevron =
+    showChevron == null ? onPress && !trailing : showChevron;
+
+  return (
+    <TouchableOpacity
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole || (onPress ? 'button' : undefined)}
+      accessibilityState={{disabled, ...accessibilityState}}
+      activeOpacity={0.72}
+      disabled={!onPress || disabled}
+      onPress={onPress}
+      style={[
+        styles.row,
+        choice && styles.choiceRow,
+        selected && styles.rowSelected,
+        disabled && styles.rowDisabled,
+      ]}
+      testID={testID}>
+      {leading ? <View style={styles.rowIcon}>{leading}</View> : null}
+      {!leading && icon ? (
+        <View style={styles.rowIcon}>
+          <MaterialCommunityIcons
+            color={resolvedIconColor}
+            name={icon}
+            size={19}
+          />
+        </View>
+      ) : null}
+      <View style={styles.rowCopy}>
+        <Text style={[styles.rowTitle, danger && styles.dangerText]}>
+          {title}
+        </Text>
+        {description ? (
+          <Text
+            numberOfLines={descriptionNumberOfLines}
+            style={styles.rowDescription}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
+      {value != null ? (
+        <Text numberOfLines={1} style={styles.rowValue}>
+          {value}
+        </Text>
+      ) : null}
+      {trailing ? <View style={styles.rowTrailing}>{trailing}</View> : null}
+      {onPress && !disabled && resolvedShowChevron ? (
+        <MaterialCommunityIcons
+          color={theme.colors.textSubtle}
+          name={external ? 'open-in-new' : 'chevron-right'}
+          size={external ? 15 : 18}
+          style={styles.rowChevron}
+        />
+      ) : null}
+      {!last && !hideDivider ? <View style={styles.divider} /> : null}
+    </TouchableOpacity>
+  );
+};
+
+export const SettingsSwitchRow = ({onValueChange, value, ...rowProps}) => (
+  <SettingsRow
+    {...rowProps}
+    accessibilityRole="switch"
+    accessibilityState={{checked: value}}
+    choice
+    onPress={() => onValueChange(!value)}
+    trailing={
+      <View pointerEvents="none">
+        <Switch onValueChange={onValueChange} value={value} />
+      </View>
+    }
+  />
+);
+
+export const SettingsLockAction = ({onPress}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.72}
+      onPress={onPress}
+      style={styles.lockAction}
+      testID="settings.lockWallet">
+      <MaterialCommunityIcons
+        color={theme.colors.primary}
+        name="lock-outline"
+        size={19}
+      />
+      <Text style={styles.lockActionText}>Lock wallet</Text>
+    </TouchableOpacity>
+  );
+};
+
+export const SettingsProfileSummary = ({name, status = 'Logged in'}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <View style={styles.profile}>
+      <MaterialCommunityIcons
+        color={theme.colors.textSecondary}
+        name="account-outline"
+        size={29}
+      />
+      <View style={styles.profileCopy}>
+        <Text numberOfLines={1} style={styles.profileName}>
+          {name}
+        </Text>
+        <View style={styles.profileMetaRow}>
+          <View style={styles.statusDot} />
+          <Text style={styles.profileMeta}>{status}</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+export const SettingsAppSummary = ({Logo, logoSource, name, subtitle}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <View style={styles.appSummary}>
+      <View style={styles.appLogo}>
+        {logoSource ? (
+          <Image source={logoSource} style={styles.appLogoImage} />
+        ) : Logo ? (
+          <Logo height={30} width={30} />
+        ) : null}
+      </View>
+      <View style={styles.appSummaryCopy}>
+        <Text style={styles.appSummaryName}>{name}</Text>
+        <Text style={styles.appSummaryMeta}>{subtitle}</Text>
+      </View>
+    </View>
+  );
+};
+
+export const SettingsNotice = ({
+  body,
+  danger = false,
+  icon = 'information-outline',
+  title,
+}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <View style={[styles.notice, danger && styles.dangerNotice]}>
+      <MaterialCommunityIcons
+        color={danger ? theme.colors.danger : theme.colors.textSecondary}
+        name={icon}
+        size={20}
+      />
+      <View style={styles.noticeCopy}>
+        {title ? <Text style={styles.noticeTitle}>{title}</Text> : null}
+        <Text style={styles.noticeBody}>{body}</Text>
+      </View>
+    </View>
+  );
+};
+
+export const SettingsActionFooter = ({
+  busy = false,
+  busyLabel,
+  primaryDisabled = false,
+  primaryLabel,
+  primaryOnPress,
+  primaryTestID,
+  primaryVariant = 'primary',
+  secondaryDisabled = false,
+  secondaryLabel,
+  secondaryOnPress,
+}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <SafeBottomActionStack
+      bottomSpacing={12}
+      gap={10}
+      horizontalSpacing={22}
+      safeAreaSpacing={12}
+      style={styles.footer}>
+      {busy ? (
+        <View style={{alignItems: 'center'}}>
+          <ActivityIndicator color={theme.colors.primary} size="small" />
+          {busyLabel ? <Text style={styles.loadingText}>{busyLabel}</Text> : null}
+        </View>
+      ) : (
+        <View style={styles.footerRow}>
+          {secondaryLabel ? (
+            <AppButton
+              disabled={secondaryDisabled}
+              height={52}
+              onPress={secondaryOnPress}
+              style={styles.footerButton}
+              variant="secondary">
+              {secondaryLabel}
+            </AppButton>
+          ) : null}
+          <AppButton
+            disabled={primaryDisabled}
+            height={52}
+            onPress={primaryOnPress}
+            style={styles.footerButton}
+            testID={primaryTestID}
+            buttonColor={
+              primaryVariant === 'danger' ? theme.colors.danger : undefined
+            }
+            textColor={
+              primaryVariant === 'danger' ? theme.colors.onPrimary : undefined
+            }
+            variant={primaryVariant === 'danger' ? 'primary' : primaryVariant}>
+            {primaryLabel}
+          </AppButton>
+        </View>
+      )}
+    </SafeBottomActionStack>
+  );
+};
+
+export const SettingsLoadingState = ({label}) => {
+  const theme = useOnboardingTheme();
+  const styles = getStyles(theme);
+
+  return (
+    <SafeAreaView edges={['left', 'right']} style={styles.screen}>
+      <View style={styles.centered}>
+        <ActivityIndicator color={theme.colors.primary} size="large" />
+        {label ? <Text style={styles.loadingText}>{label}</Text> : null}
+      </View>
+    </SafeAreaView>
+  );
+};

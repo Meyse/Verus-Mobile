@@ -6,10 +6,9 @@
 
 import React, { Component } from "react";
 import SemiModal from "../SemiModal";
-import { List } from "react-native-paper"
+import {List, withTheme} from "react-native-paper"
 import { TouchableOpacity, FlatList, View, TextInput as RNTextInput, KeyboardAvoidingView, Platform } from "react-native"
 import { listSelectionModalStyles as styles } from "../../styles";
-import Colors from "../../globals/colors";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 class ListSelectionModal extends Component {
@@ -70,6 +69,7 @@ class ListSelectionModal extends Component {
     } = this.props;
     const { searchQuery, searchFocused } = this.state;
     const filteredData = this.getFilteredData();
+    const {theme} = this.props;
 
     return (
       <SemiModal
@@ -99,7 +99,13 @@ class ListSelectionModal extends Component {
                 <View
                   style={[
                     styles.searchInputContainer,
+                    {backgroundColor: theme.colors.background},
                     searchFocused && styles.searchInputFocused,
+                    searchFocused && {
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.primary,
+                      shadowColor: theme.colors.primary,
+                    },
                   ]}
                 >
                   <RNTextInput
@@ -108,14 +114,14 @@ class ListSelectionModal extends Component {
                     onFocus={() => this.setState({ searchFocused: true })}
                     onBlur={() => this.setState({ searchFocused: false })}
                     placeholder={searchPlaceholder}
-                    placeholderTextColor="#999"
+                    placeholderTextColor={theme.colors.placeholder}
                     autoCorrect={false}
                     autoCapitalize="none"
                     returnKeyType="search"
-                    style={styles.searchInput}
+                    style={[styles.searchInput, {color: theme.colors.text}]}
                   />
                   <View style={styles.searchIcon}>
-                    <MaterialCommunityIcons name="magnify" size={20} color="#999" />
+                    <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.placeholder} />
                   </View>
                 </View>
               </View>
@@ -137,16 +143,16 @@ class ListSelectionModal extends Component {
                     <List.Item
                       title={item.title}
                       description={item.description}
-                      titleStyle={styles.itemTitle}
-                      descriptionStyle={styles.itemDescription}
+                      titleStyle={[styles.itemTitle, {color: theme.colors.text}]}
+                      descriptionStyle={[styles.itemDescription, {color: theme.colors.placeholder}]}
                       right={(props) => (
                         <List.Icon 
                           {...props} 
                           icon="check" 
-                          color={isSelected ? Colors.primaryColor : 'transparent'}
+                          color={isSelected ? theme.colors.primary : 'transparent'}
                         />
                       )}
-                      style={styles.listItem}
+                      style={[styles.listItem, {backgroundColor: theme.colors.surface}]}
                     />
                   </TouchableOpacity>
                 );
@@ -163,4 +169,4 @@ class ListSelectionModal extends Component {
   }
 }
 
-export default ListSelectionModal;
+export default withTheme(ListSelectionModal);

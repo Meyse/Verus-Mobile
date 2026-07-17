@@ -4,11 +4,10 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const CompactSetupHeader = ({onBack, progress = 0.25}) => {
@@ -76,18 +75,10 @@ const CompactSetupHeader = ({onBack, progress = 0.25}) => {
         },
       ]}>
       <View style={styles.actionRow}>
-        <TouchableOpacity
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-          activeOpacity={0.74}
+        <OnboardingBackButton
           onPress={onBack}
-          style={styles.backButton}>
-          <MaterialCommunityIcons
-            color={theme.colors.textPrimary}
-            name="arrow-left"
-            size={24}
-          />
-        </TouchableOpacity>
+          style={styles.backButtonOffset}
+        />
       </View>
       <View
         style={[
@@ -117,12 +108,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  backButtonOffset: {
     marginLeft: -8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   progressTrack: {
     height: 5,

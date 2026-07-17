@@ -8,15 +8,8 @@
 
 import React, { Component } from "react";
 import { CommonActions } from '@react-navigation/native';
-import { ActivityIndicator, Divider, List, Portal } from "react-native-paper"
-import { 
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
-import { Text } from "react-native-paper"
+import {ActivityIndicator, Portal} from 'react-native-paper';
 import { connect } from 'react-redux';
-import Styles from '../../../styles/index'
 import {
   getSupportedBiometryType
 } from "../../../utils/keychain/keychain";
@@ -34,16 +27,23 @@ import {
 } from "../../../actions/actions/channels/dlight/dispatchers/AlertManager";
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert";
 import { checkPinForUser } from "../../../utils/asyncStore/asyncStore";
-import { ENABLE_DLIGHT, APP_VERSION, WYRE_ACCESSIBLE } from '../../../../env/index'
+import {ENABLE_DLIGHT, WYRE_ACCESSIBLE} from '../../../../env/index';
 import { dlightEnabled } from "../../../utils/enabledChannels";
 import SetupSeedModal from "../../../components/SetupSeedModal/SetupSeedModal";
 import { DLIGHT_PRIVATE, ELECTRUM } from "../../../utils/constants/intervalConstants";
 import ListSelectionModal from "../../../components/ListSelectionModal/ListSelectionModal";
 import { WYRE_SERVICE_ID } from "../../../utils/constants/services";
-import Colors from "../../../globals/colors";
 import { removeBiometricPassword, storeBiometricPassword } from "../../../utils/keychain/biometrics";
 import { requestSeeds } from "../../../utils/auth/authBox";
 import { isSeedPhrase } from "../../../utils/keys";
+import {
+  SettingsNotice,
+  SettingsProfileSummary,
+  SettingsRow,
+  SettingsScreen,
+  SettingsSection,
+  SettingsSwitchRow,
+} from '../components/SettingsScaffold';
 
 const RESET_PWD = "ResetPwd"
 const REMOVE_PROFILE = "DeleteProfile"
@@ -469,25 +469,34 @@ class ProfileSettings extends Component {
     });
 
   renderSettingsList = () => {
-    const zSetupComplete = dlightEnabled()
+    const zSetupComplete = dlightEnabled();
+    const showBiometry =
+      this.props.activeAccount.biometry ||
+      this.state.supportedBiometryType.biometry;
+    const showSeedWarning =
+      this.props.activeAccount.hideSeedWarnings ||
+      this.props.showHideSeedCorruptionSetting;
 
     return (
-      <ScrollView style={Styles.fullWidth}>
+      <SettingsScreen testID="settings.profile">
         <Portal>
-          <SetupSeedModal
-            animationType="slide"
-            transparent={false}
-            visible={this.state.privateSeedModalOpen}
-            cancel={() => {
-              this.setState({ privateSeedModalOpen: false });
-            }}
-            setSeed={(seed, channel) => this.addZSeed(seed, channel)}
-            channel={DLIGHT_PRIVATE}
-          />
+          {this.state.privateSeedModalOpen ? (
+            <SetupSeedModal
+              animationType="slide"
+              channel={DLIGHT_PRIVATE}
+              cancel={() => {
+                this.setState({privateSeedModalOpen: false});
+              }}
+              redesigned
+              setSeed={(seed, channel) => this.addZSeed(seed, channel)}
+              transparent={false}
+              visible
+            />
+          ) : null}
           {this.state.keyDerivationVersionModalOpen && (
             <ListSelectionModal
               flexHeight={1}
-              title="Key Derivation Versions"
+              title="Key derivation versions"
               selectedKey={this.props.activeAccount.keyDerivationVersion}
               visible={this.state.keyDerivationVersionModalOpen}
               onSelect={(item) => this.setUserKeyDerivationVersion(item.key)}
@@ -503,109 +512,111 @@ class ProfileSettings extends Component {
             />
           )}
         </Portal>
-        {/* TODO: Add back in when more interesting profile data and/or settings are implemented
-          <TouchableOpacity onPress={() => this._openSettings(PROFILE_INFO)}>
-            <ListItem                       
-              title={<Text style={styles.coinItemLabel}>Profile Info</Text>}
-              leftIcon={{name: 'info'}}
-              containerStyle={{ borderBottomWidth: 0 }} 
-            />
-          </TouchableOpacity>*/}
-        <List.Subheader>{"Current Profile"}</List.Subheader>
-        <Divider />
-        <List.Item
-          title={this.props.activeAccount.id}
-          description={"Logged In"}
-          left={(props) => <List.Icon {...props} icon={"account"} />}
+        <SettingsProfileSummary
+          name={this.props.activeAccount.id}
+          status={
+            this.props.testAccount ? 'Logged in · Test profile' : 'Logged in'
+          }
         />
-        <Divider />
-        {
-          this.props.testAccount && (
-            <React.Fragment>
-              <List.Item
-                title={"Test Profile"}
-                description={'All testnet coins/currencies have no value and will disappear whenever their testnet is reset.'}
-                left={props => <List.Icon {...props} icon={'alert'} color={Colors.infoButtonColor}/>}
-              />
-              <Divider />
-            </React.Fragment>
-          )
-        }
-        <List.Subheader>{"Security Settings"}</List.Subheader>
-        <TouchableOpacity
-          onPress={async () => {
-            if (await canShowSeed()) this.openPasswordCheck(this.showSeed);
-          }}
-        >
-          <Divider />
-          <List.Item
-            title={"Recover Seed"}
-            left={(props) => <List.Icon {...props} icon={"lock-open"} />}
-            right={(props) => (
-              <List.Icon {...props} icon={"chevron-right"} size={20} />
-            )}
-          />
-          <Divider />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => this._openSettings(RESET_PWD)}>
-          <List.Item
-            title={"Change Password"}
-            left={(props) => <List.Icon {...props} icon={"lock-reset"} />}
-            right={(props) => (
-              <List.Icon {...props} icon={"chevron-right"} size={20} />
-            )}
-          />
-          <Divider />
-        </TouchableOpacity>
-        {(this.props.activeAccount.biometry ||
-          this.state.supportedBiometryType.biometry) && (
-          <TouchableOpacity
-            onPress={() => {
-              this.openPasswordCheck(this.toggleBiometry);
+        {this.props.testAccount ? (
+          <SettingsSection title="Profile information">
+            <SettingsNotice
+              body="All testnet coins/currencies have no value and will disappear whenever their testnet is reset."
+              icon="alert-outline"
+              title="Test profile information"
+            />
+          </SettingsSection>
+        ) : null}
+        <SettingsSection title="Security">
+          <SettingsRow
+            description="View your recovery phrase and derived keys"
+            icon="key-outline"
+            onPress={async () => {
+              if (await canShowSeed()) this.openPasswordCheck(this.showSeed);
             }}
-          >
-            <List.Item
+            testID="settings.profile.recoverSeed"
+            title="Recover seed"
+          />
+          <SettingsRow
+            icon="lock-reset"
+            last={!showBiometry && !showSeedWarning}
+            onPress={() => this._openSettings(RESET_PWD)}
+            testID="settings.profile.changePassword"
+            title="Change password"
+          />
+          {showBiometry ? (
+            <SettingsRow
+              icon="fingerprint"
+              last={!showSeedWarning}
+              onPress={() => {
+                this.openPasswordCheck(this.toggleBiometry);
+              }}
               title={`${
                 this.props.activeAccount.biometry ? "Disable" : "Setup"
-              } Biometric Authentication`}
-              left={(props) => <List.Icon {...props} icon={"lock"} />}
+              } biometric authentication`}
+              value={this.props.activeAccount.biometry ? 'On' : 'Off'}
             />
-            <Divider />
-          </TouchableOpacity>
-        )}
-        {(this.props.activeAccount.hideSeedWarnings || this.props.showHideSeedCorruptionSetting) && <TouchableOpacity
-          onPress={() => this.toggleSeedCorruptionWarning()}
-        >
-          <List.Item
-            title={`${this.props.activeAccount.hideSeedWarnings ? "Show" : "Hide"} Seed Corruption Warnings`}
-            left={(props) => <List.Icon {...props} icon={"information"} />}
-            description={`On login, you ${this.props.activeAccount.hideSeedWarnings ? "will not" : "will"} be alerted if non-standard characters are detected in your profile seed, indicating potential seed corruption`}
-            descriptionNumberOfLines={100}
+          ) : null}
+          {showSeedWarning ? (
+            <SettingsSwitchRow
+              description="Alert on login when non-standard seed characters may indicate corruption"
+              icon="alert-circle-outline"
+              last
+              onValueChange={() => this.toggleSeedCorruptionWarning()}
+              title="Seed corruption warnings"
+              value={!this.props.activeAccount.hideSeedWarnings}
+            />
+          ) : null}
+        </SettingsSection>
+        <SettingsSection title="Keys & backup">
+          <SettingsRow
+            icon="source-branch"
+            onPress={() => this.openKeyDerivationVersionModal()}
+            title="Key derivation version"
+            value={
+              this.KEY_DERIVATION_VERSION_LABELS[
+                this.props.activeAccount.keyDerivationVersion
+              ]
+            }
           />
-          <Divider />
-        </TouchableOpacity>}
-        <List.Subheader>{"Key Settings"}</List.Subheader>
-        <TouchableOpacity
-          onPress={() => this.openKeyDerivationVersionModal()}
-          style={{ ...Styles.flex }}
-        >
-          <Divider />
-          <List.Item
-            title={"Key Derivation Version"}
-            right={() => (
-              <Text style={Styles.listItemTableCell}>
-                {
-                  this.KEY_DERIVATION_VERSION_LABELS[
-                    this.props.activeAccount.keyDerivationVersion
-                  ]
-                }
-              </Text>
-            )}
+          <SettingsRow
+            description="Requires a 24-word mnemonic seed"
+            disabled={this.state.checkingNfcBackupSeed}
+            icon="credit-card-wireless-outline"
+            last={!ENABLE_DLIGHT}
+            onPress={this.openNfcBackup}
+            testID="settings.profile.nfcBackup"
+            title="Backup current profile to NFC"
+            trailing={
+              this.state.checkingNfcBackupSeed ? (
+                <ActivityIndicator size="small" />
+              ) : null
+            }
           />
-          <Divider />
-        </TouchableOpacity>
+          {ENABLE_DLIGHT ? (
+            <SettingsRow
+              description={
+                zSetupComplete
+                  ? undefined
+                  : 'Adds private-transaction support after restart and login'
+              }
+              disabled={zSetupComplete}
+              icon="shield-key-outline"
+              last
+              onPress={this.handleZSeedSetup}
+              testID="settings.profile.zSeed"
+              title={
+                zSetupComplete
+                  ? 'Z seed setup complete'
+                  : 'Setup Z (shielded address) seed'
+              }
+              value={zSetupComplete ? 'Complete' : null}
+            />
+          ) : null}
+        </SettingsSection>
         <PasswordCheck
           cancel={() => this.closePasswordDialog()}
+          redesigned
           submit={(result) => this.state.onPasswordCorrect(result)}
           visible={this.state.passwordDialogOpen}
           title={this.state.passwordDialogTitle}
@@ -613,83 +624,42 @@ class ProfileSettings extends Component {
           account={this.props.activeAccount}
           allowBiometry={true}
         />
-        <List.Subheader>{"Profile Actions"}</List.Subheader>
-        <TouchableOpacity
-          onPress={this.openNfcBackup}
-          disabled={this.state.checkingNfcBackupSeed}
-        >
-          <Divider />
-          <List.Item
-            title={"Backup Current Profile to NFC"}
-            description={"Requires a 24-word mnemonic seed"}
-            left={(props) => <List.Icon {...props} icon={"credit-card-wireless"} />}
-            right={(props) =>
-              this.state.checkingNfcBackupSeed ? (
-                <ActivityIndicator {...props} size="small" />
-              ) : (
-                <List.Icon {...props} icon={"chevron-right"} />
-              )
-            }
-          />
-        </TouchableOpacity>
-        {ENABLE_DLIGHT && (
-          <TouchableOpacity
-            onPress={this.handleZSeedSetup}
-            disabled={zSetupComplete}
-          >
-            <Divider />
-            <List.Item
-              title={
-                zSetupComplete
-                  ? "Z Seed Setup Complete"
-                  : "Setup Z (Shielded Address) Seed"
-              }
+        {WYRE_ACCESSIBLE && !this.props.testAccount ? (
+          <SettingsSection title="Deprecated services">
+            <SettingsRow
               description={
-                zSetupComplete
-                  ? ""
-                  : "Setting up a Z Seed will allow you to use private transactions on compatible coins (after a restart)"
+                this.props.wyreEnabled
+                  ? 'Existing Wyre account access is visible in Services'
+                  : 'Enable access to an existing Wyre account in Services'
               }
-              left={(props) => <List.Icon {...props} icon={"shield-key"} />}
-              descriptionNumberOfLines={100}
+              icon="account-cash-outline"
+              last
+              onPress={() => this.toggleWyreEnabled()}
+              title={
+                this.props.wyreEnabled
+                  ? 'Wyre enabled'
+                  : 'Enable deprecated Wyre features'
+              }
+              value={this.props.wyreEnabled ? 'On' : 'Off'}
             />
-          </TouchableOpacity>
-        )}
-        {
-          WYRE_ACCESSIBLE && !this.props.testAccount && (
-            <TouchableOpacity onPress={() => this.toggleWyreEnabled()}>
-              <Divider />
-              <List.Item
-                title={
-                  this.props.wyreEnabled
-                    ? 'Wyre Enabled'
-                    : 'Enable Deprecated Wyre Features'
-                }
-                description={
-                  this.props.wyreEnabled
-                    ? ''
-                    : 'Enabling deprecated Wyre features will allow you to access your existing Wyre account from the services tab'
-                }
-                left={props => <List.Icon {...props} icon={'account-cash'} />}
-                descriptionNumberOfLines={100}
-              />
-            </TouchableOpacity>
-          )
-        }
-        <TouchableOpacity onPress={() => this._openSettings(REMOVE_PROFILE)}>
-          <Divider />
-          <List.Item
-            title={"Delete Profile"}
-            left={(props) => <List.Icon {...props} icon={"trash-can"} />}
-            right={(props) => <List.Icon {...props} icon={"chevron-right"} />}
+          </SettingsSection>
+        ) : null}
+        <SettingsSection title="Profile actions">
+          <SettingsRow
+            danger
+            icon="trash-can-outline"
+            last
+            onPress={() => this._openSettings(REMOVE_PROFILE)}
+            testID="settings.profile.delete"
+            title="Delete profile"
           />
-          <Divider />
-        </TouchableOpacity>
-      </ScrollView>
+        </SettingsSection>
+      </SettingsScreen>
     );
   };
 
   render() {
-    return <View style={Styles.defaultRoot}>{this.renderSettingsList()}</View>;
+    return this.renderSettingsList();
   }
 }
 
