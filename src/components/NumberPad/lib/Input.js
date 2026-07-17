@@ -17,6 +17,7 @@ class Input extends Component {
     style: PropTypes.object,
     backspaceIcon: PropTypes.element,
     hideIcon: PropTypes.element,
+    onSubmit: PropTypes.func,
     onWillHide: PropTypes.func,
     onDidHide: PropTypes.func,
     onWillShow: PropTypes.func,
@@ -70,6 +71,12 @@ class Input extends Component {
     }).start();
   }
 
+  handleSubmit = () => {
+    if (!this.props.onSubmit || this.props.onSubmit() !== false) {
+      this.context.blur();
+    }
+  };
+
   getStyle = () => {
     const interpolation = this.animation.interpolate({
       inputRange: [0, this.props.height],
@@ -119,7 +126,7 @@ class Input extends Component {
               )}
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.hide} onPress={this.context.blur}>
+          <TouchableOpacity style={styles.hide} onPress={this.handleSubmit}>
             {this.props.hideIcon ? (
               this.props.hideIcon
             ) : (

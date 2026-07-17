@@ -305,6 +305,7 @@ export const SettingsScreen = ({
   home = false,
   keyboardDismissMode,
   keyboardShouldPersistTaps,
+  safeAreaEdges,
   testID,
 }) => {
   const theme = useOnboardingTheme();
@@ -316,10 +317,12 @@ export const SettingsScreen = ({
         keyboardVerticalOffset: 68,
       }
     : {};
+  const edges =
+    safeAreaEdges || (home ? ['top', 'left', 'right'] : ['left', 'right']);
 
   return (
     <SafeAreaView
-      edges={home ? ['top', 'left', 'right'] : ['left', 'right']}
+      edges={edges}
       style={styles.screen}
       testID={testID}>
       <Container
@@ -457,20 +460,39 @@ export const SettingsRow = ({
   );
 };
 
-export const SettingsSwitchRow = ({onValueChange, value, ...rowProps}) => (
-  <SettingsRow
-    {...rowProps}
-    accessibilityRole="switch"
-    accessibilityState={{checked: value}}
-    choice
-    onPress={() => onValueChange(!value)}
-    trailing={
-      <View pointerEvents="none">
-        <Switch onValueChange={onValueChange} value={value} />
-      </View>
-    }
-  />
-);
+export const SettingsSwitchRow = ({
+  busy = false,
+  disabled = false,
+  onValueChange,
+  value,
+  ...rowProps
+}) => {
+  const theme = useOnboardingTheme();
+
+  return (
+    <SettingsRow
+      {...rowProps}
+      accessibilityRole="switch"
+      accessibilityState={{busy, checked: value}}
+      choice
+      disabled={busy || disabled}
+      onPress={() => onValueChange(!value)}
+      trailing={
+        busy ? (
+          <ActivityIndicator color={theme.colors.primary} size="small" />
+        ) : (
+          <View pointerEvents="none">
+            <Switch
+              disabled={disabled}
+              onValueChange={onValueChange}
+              value={value}
+            />
+          </View>
+        )
+      }
+    />
+  );
+};
 
 export const SettingsLockAction = ({onPress}) => {
   const theme = useOnboardingTheme();

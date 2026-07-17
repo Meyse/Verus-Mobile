@@ -4,25 +4,23 @@
   display size.
 */
 
-import React, {useState, useEffect, useRef} from 'react';
-import {Keyboard, Alert} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {ActivityIndicator, Alert} from 'react-native';
+import {Portal} from 'react-native-paper';
 import {useDispatch} from 'react-redux';
+import {saveGeneralSettings} from '../../../../actions/actionCreators';
+import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
+import ListSelectionModal from '../../../../components/ListSelectionModal/ListSelectionModal';
+import NumberPadModal from '../../../../components/NumberPadModal/NumberPadModal';
+import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
   CURRENCY_NAMES,
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../../../utils/constants/currencies';
-import NumberPadModal from '../../../../components/NumberPadModal/NumberPadModal';
-import {Portal} from 'react-native-paper';
-import ListSelectionModal from '../../../../components/ListSelectionModal/ListSelectionModal';
-import {saveGeneralSettings} from '../../../../actions/actionCreators';
-import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
-import {NavigationActions} from '@react-navigation/compat';
-import { ADDRESS_BLOCKLIST_FROM_WEBSERVER } from '../../../../utils/constants/constants';
-import { useObjectSelector } from '../../../../hooks/useObjectSelector';
-import { MINIMUM_GAS_PRICE_GWEI } from '../../../../utils/constants/web3Constants';
+import {MINIMUM_GAS_PRICE_GWEI} from '../../../../utils/constants/web3Constants';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../../env/index';
 import {
-  SettingsActionFooter,
   SettingsRow,
   SettingsScreen,
   SettingsSection,
@@ -30,9 +28,46 @@ import {
 } from '../../components/SettingsScaffold';
 
 const NO_DEFAULT = 'None';
+const SETTING_LABELS = {
+  allowSettingVerusPaySlippage: 'VerusPay slippage preference',
+  defaultAccount: 'default profile',
+  displayCurrency: 'display currency',
+  enableExperimentalGenericRequests: 'experimental deeplinks preference',
+  enableSendCoinCameraToggle: 'QR scanner preference',
+  homeCardDragDetection: 'automatic drag detection',
+  maxTxCount: 'maximum displayed transactions',
+  minGasPriceGwei: 'minimum ETH gas price',
+};
 
-const WalletSettings = props => {
-  const isMounted = useRef(false);
+const hasSetting = (settings, key) =>
+  Object.prototype.hasOwnProperty.call(settings, key);
+
+const validateNumberSetting = (key, value) => {
+  const stringValue = value == null ? '' : value.toString();
+
+  if (
+    key === 'maxTxCount' &&
+    (!value ||
+      stringValue.length === 0 ||
+      isNaN(value) ||
+      Number(value) < 10 ||
+      Number(value) > 100)
+  ) {
+    return 'Please enter a valid number from 10 to 100';
+  }
+
+  if (
+    key === 'minGasPriceGwei' &&
+    value != null &&
+    (stringValue.length === 0 || isNaN(value))
+  ) {
+    return 'Please enter a valid minimum gas price in Gwei';
+  }
+
+  return null;
+};
+
+const GeneralWalletSettings = () => {
   const generalWalletSettings = useObjectSelector(
     state => state.settings.generalWalletSettings,
   );
@@ -41,223 +76,167 @@ const WalletSettings = props => {
     state => state.authentication.activeAccount,
   );
   const dispatch = useDispatch();
+  const theme = useOnboardingTheme();
+  const isMounted = useRef(true);
+  const pendingSettingsRef = useRef({});
 
-  const [settings, setSettings] = useState({...generalWalletSettings});
-  const [homeCardDragDetection, setHomeCardDragDetection] = useState(
-    generalWalletSettings.homeCardDragDetection != null
-      ? generalWalletSettings.homeCardDragDetection
-      : false,
-  );
-  const [allowSettingVerusPaySlippage, setAllowSettingVerusPaySlippage] = useState(
-    !!generalWalletSettings.allowSettingVerusPaySlippage
-  );
-  const [enableSendCoinCameraToggle, setEnableSendCoinCameraToggle] = useState(
-    !!generalWalletSettings.enableSendCoinCameraToggle
-  );
-  const [enableExperimentalGenericRequests, setEnableExperimentalGenericRequests] = useState(
-    !!generalWalletSettings.enableExperimentalGenericRequests
-  );
-
-  const [errors, setErrors] = useState({
-    maxTxCount: false,
-    minGasPriceGwei: false,
-    displayCurrency: false,
-  });
-  const [loading, setLoading] = useState(false);
+  const [pendingSettings, setPendingSettings] = useState({});
   const [currentNumberInputModal, setCurrentNumberInputModal] = useState(null);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] =
     useState(false);
   const [defaultProfileModalOpen, setDefaultProfileModalOpen] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
 
-  const openNumberInputModal = inputKey => setCurrentNumberInputModal(inputKey);
-  const closeNumberInputModal = () => setCurrentNumberInputModal(null);
-  const openDisplayCurrencyModal = () => setDisplayCurrencyModalOpen(true);
-  const closeDisplayCurrencyModal = () => setDisplayCurrencyModalOpen(false);
-  const openDefaultProfileModal = () => setDefaultProfileModalOpen(true);
-  const closeDefaultProfileModal = () => setDefaultProfileModalOpen(false);
+  useEffect(
+    () => () => {
+      isMounted.current = false;
+    },
+    [],
+  );
 
-  const handleSubmit = () => {
-    Keyboard.dismiss();
-    validateFormData();
-  };
+  const displayedSetting = key =>
+    hasSetting(pendingSettings, key)
+      ? pendingSettings[key]
+      : generalWalletSettings[key];
+  const isSaving = key => hasSetting(pendingSettings, key);
 
-  useEffect(() => {
+  const setPendingSetting = (key, value) => {
+    const nextPendingSettings = {
+      ...pendingSettingsRef.current,
+      [key]: value,
+    };
+    pendingSettingsRef.current = nextPendingSettings;
+
     if (isMounted.current) {
-      setSettings({
-        ...settings,
-        homeCardDragDetection,
-        allowSettingVerusPaySlippage,
-        enableSendCoinCameraToggle,
-        enableExperimentalGenericRequests
-      });
-      setHasChanges(true);
-    } else {
-      isMounted.current = true;
-    }
-  }, [homeCardDragDetection, allowSettingVerusPaySlippage, enableSendCoinCameraToggle, enableExperimentalGenericRequests]);
-
-  const describeSlippage = () => {
-    createAlert(
-      "Slippage", 
-      "Before editing maximum slippage on your VerusPay invoices, ensure you are aware of the risks. " +
-      "The maximum slippage value is used to limit which currencies others will be allowed to pay your invoice with." + 
-      " The percentage value you set is the maximum allowed difference between the estimated conversion outcome of the payee's chosen " + 
-      "conversion path, and the real outcome. This value is calculated for each currency using factors that determine their" + 
-      " respective volatilites, like the amount of currency in their respective reserves. Setting a high slippage value introduces " + 
-      " the risk of receiving an amount of currency unexpectedly lower than what you set as the invoice amount."
-    )
-  }
-
-  const toggleAllowSettingVerusPaySlippage = () => {
-    if (!allowSettingVerusPaySlippage) {
-      describeSlippage()
-    }
-
-    setAllowSettingVerusPaySlippage(!allowSettingVerusPaySlippage);
-  }
-
-  const toggleEnableSendCoinCameraToggle = () => {
-    setEnableSendCoinCameraToggle(!enableSendCoinCameraToggle);
-  }
-
-  const toggleEnableExperimentalGenericRequests = () => {
-    setEnableExperimentalGenericRequests(!enableExperimentalGenericRequests);
-  }
-
-  const saveSettings = async () => {
-    setLoading(true);
-    try {
-      const stateToSave = {
-        maxTxCount: Number(settings.maxTxCount),
-        minGasPriceGwei: settings.minGasPriceGwei == null || isNaN(settings.minGasPriceGwei) ? undefined : Number(settings.minGasPriceGwei),
-        displayCurrency: settings.displayCurrency,
-        defaultAccount:
-          settings.defaultAccount === NO_DEFAULT ? null : settings.defaultAccount,
-        homeCardDragDetection,
-        allowSettingVerusPaySlippage,
-        enableSendCoinCameraToggle,
-        enableExperimentalGenericRequests,
-        ackedCurrencyDisclaimer: settings.ackedCurrencyDisclaimer,
-        addressBlocklistDefinition:
-          settings.addressBlocklistDefinition == null
-            ? {
-                type: ADDRESS_BLOCKLIST_FROM_WEBSERVER,
-                data: null,
-              }
-            : settings.addressBlocklistDefinition,
-        addressBlocklist:
-          settings.addressBlocklist == null ? [] : settings.addressBlocklist,
-        vrpcOverrides: settings.vrpcOverrides == null ? {} : settings.vrpcOverrides,
-      };
-      const res = await saveGeneralSettings(stateToSave);
-      dispatch(res);
-      createAlert('Success', 'General wallet settings saved.');
-      setSettings({...stateToSave});
-      setLoading(false);
-    } catch (err) {
-      createAlert('Error', err.message);
-      console.warn(err.message);
-      setLoading(false);
+      setPendingSettings(nextPendingSettings);
     }
   };
 
-  const handleError = (error, field) => {
-    Alert.alert(error);
+  const clearPendingSetting = key => {
+    const nextPendingSettings = {...pendingSettingsRef.current};
+    delete nextPendingSettings[key];
+    pendingSettingsRef.current = nextPendingSettings;
+
+    if (isMounted.current) {
+      setPendingSettings(nextPendingSettings);
+    }
   };
 
-  const back = () => {
-    props.navigation.dispatch(NavigationActions.back());
-  };
-
-  const validateFormData = () => {
-    setErrors({maxTxCount: null, minGasPriceGwei: null, displayCurrency: null});
-    let _errors = false;
-    const _maxTxCount = settings.maxTxCount;
-    const _minGasPriceGwei = settings.minGasPriceGwei;
-
+  const persistSetting = async (key, value) => {
     if (
-      !_maxTxCount ||
-      _maxTxCount.length === 0 ||
-      isNaN(_maxTxCount) ||
-      Number(_maxTxCount) < 10 ||
-      Number(_maxTxCount) > 100
+      hasSetting(pendingSettingsRef.current, key) ||
+      Object.is(generalWalletSettings[key], value)
     ) {
-      handleError('Please enter a valid number from 10 to 100', 'maxTxCount');
-      _errors = true;
-    } else if (
-      _minGasPriceGwei != null && (_minGasPriceGwei.length === 0 || isNaN(_minGasPriceGwei))
-    ) {
-      handleError('Please enter a valid minimum gas price in Gwei', '_minGasPriceGwei');
-      _errors = true;
+      return;
     }
 
-    if (!_errors) {
-      saveSettings();
+    setPendingSetting(key, value);
+
+    try {
+      dispatch(await saveGeneralSettings({[key]: value}));
+    } catch (err) {
+      const errorMessage =
+        err && err.message ? err.message : 'The settings store was unavailable.';
+      createAlert(
+        `Unable to save ${SETTING_LABELS[key]}`,
+        `${errorMessage}\n\nYour previous value is still active. Please try again.`,
+      );
+      console.warn(`Failed to save ${key}: ${errorMessage}`);
+    } finally {
+      clearPendingSetting(key);
     }
   };
 
+  const describeSlippage = () =>
+    createAlert(
+      'Slippage',
+      'Before editing maximum slippage on your VerusPay invoices, ensure you are aware of the risks. ' +
+        'The maximum slippage value is used to limit which currencies others will be allowed to pay your invoice with.' +
+        " The percentage value you set is the maximum allowed difference between the estimated conversion outcome of the payee's chosen " +
+        'conversion path, and the real outcome. This value is calculated for each currency using factors that determine their' +
+        ' respective volatilites, like the amount of currency in their respective reserves. Setting a high slippage value introduces ' +
+        ' the risk of receiving an amount of currency unexpectedly lower than what you set as the invoice amount.',
+    );
+
+  const toggleAllowSettingVerusPaySlippage = async value => {
+    if (value) {
+      await describeSlippage();
+    }
+
+    if (isMounted.current) {
+      persistSetting('allowSettingVerusPaySlippage', value);
+    }
+  };
+
+  const openNumberInputModal = key => {
+    const currentValue =
+      key === 'minGasPriceGwei' && displayedSetting(key) == null
+        ? Number(MINIMUM_GAS_PRICE_GWEI)
+        : Number(displayedSetting(key));
+
+    setCurrentNumberInputModal({
+      key,
+      value: isNaN(currentValue) ? 0 : currentValue,
+    });
+  };
+
+  const closeNumberInputModal = () => setCurrentNumberInputModal(null);
+
+  const commitNumberInput = (key, value) => {
+    const error = validateNumberSetting(key, value);
+
+    if (error) {
+      Alert.alert(error);
+      return false;
+    }
+
+    closeNumberInputModal();
+    persistSetting(key, Number(value));
+    return true;
+  };
+
+  const defaultAccountHash = displayedSetting('defaultAccount');
   const defaultAccount =
-    settings.defaultAccount == null
+    defaultAccountHash == null
       ? null
-      : accounts.find(item => item.accountHash === settings.defaultAccount);
+      : accounts.find(item => item.accountHash === defaultAccountHash);
   const defaultAccountName = defaultAccount == null ? null : defaultAccount.id;
+
+  const savingIndicator = key =>
+    isSaving(key) ? (
+      <ActivityIndicator color={theme.colors.primary} size="small" />
+    ) : null;
 
   return (
     <>
       <Portal>
         {currentNumberInputModal != null && (
           <NumberPadModal
-            value={
-              settings[currentNumberInputModal] == null || isNaN(settings[currentNumberInputModal]) ? 
-                0
-                : 
-                Number(settings[currentNumberInputModal])
-            }
-            visible={currentNumberInputModal != null}
-            onChange={(number) => {
-              setSettings({
-                ...settings,
-                [currentNumberInputModal]: number.toString(),
-              });
-              setHasChanges(true);
-            }}
-            cancel={() => closeNumberInputModal()}
+            cancel={closeNumberInputModal}
             decimals={0}
+            submit={value =>
+              commitNumberInput(currentNumberInputModal.key, value)
+            }
+            value={currentNumberInputModal.value}
+            visible
           />
         )}
         {displayCurrencyModalOpen && (
           <ListSelectionModal
-            title="Currencies"
-            selectedKey={settings.displayCurrency}
-            visible={displayCurrencyModalOpen}
-            onSelect={(item) => {
-              setSettings({
-                ...settings,
-                displayCurrency: item.key,
-              });
-              setHasChanges(true);
-            }}
+            cancel={() => setDisplayCurrencyModalOpen(false)}
             data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map(key => ({
               key,
               title: key,
               description: CURRENCY_NAMES[key],
             }))}
-            cancel={() => closeDisplayCurrencyModal()}
+            onSelect={item => persistSetting('displayCurrency', item.key)}
+            selectedKey={displayedSetting('displayCurrency')}
+            title="Currencies"
+            visible
           />
         )}
         {defaultProfileModalOpen && (
           <ListSelectionModal
-            title="Profiles"
-            selectedKey={settings.defaultAccount}
-            visible={defaultProfileModalOpen}
-            onSelect={(item) => {
-              setSettings({
-                ...settings,
-                defaultAccount: item.key,
-              });
-              setHasChanges(true);
-            }}
+            cancel={() => setDefaultProfileModalOpen(false)}
             data={[
               {
                 key: NO_DEFAULT,
@@ -271,96 +250,124 @@ const WalletSettings = props => {
                   item.id === activeAccount.id ? 'Currently logged in' : null,
               })),
             ]}
-            cancel={() => closeDefaultProfileModal()}
+            onSelect={item =>
+              persistSetting(
+                'defaultAccount',
+                item.key === NO_DEFAULT ? null : item.key,
+              )
+            }
+            selectedKey={
+              defaultAccountHash == null ? NO_DEFAULT : defaultAccountHash
+            }
+            title="Profiles"
+            visible
           />
         )}
       </Portal>
       <SettingsScreen
-        footer={
-          <SettingsActionFooter
-            busy={loading}
-            busyLabel="Saving wallet settings…"
-            primaryDisabled={!hasChanges}
-            primaryLabel="Confirm"
-            primaryOnPress={handleSubmit}
-            primaryTestID="settings.general.confirm"
-            secondaryDisabled={loading}
-            secondaryLabel="Back"
-            secondaryOnPress={back}
-          />
-        }
+        safeAreaEdges={['left', 'right', 'bottom']}
         testID="settings.general">
         <SettingsSection title="Display">
           <SettingsRow
+            accessibilityState={{busy: isSaving('maxTxCount')}}
             description="Maximum displayed Electrum transactions"
+            disabled={isSaving('maxTxCount')}
             icon="format-list-numbered"
             onPress={() => openNumberInputModal('maxTxCount')}
+            testID="settings.general.maxTxCount"
             title="Max. display TXs"
-            value={settings.maxTxCount}
+            trailing={savingIndicator('maxTxCount')}
+            value={displayedSetting('maxTxCount')}
           />
           <SettingsRow
+            accessibilityState={{busy: isSaving('displayCurrency')}}
             description="Currency used to display wallet value"
+            disabled={isSaving('displayCurrency')}
             icon="currency-usd"
-            onPress={openDisplayCurrencyModal}
+            onPress={() => setDisplayCurrencyModalOpen(true)}
+            testID="settings.general.displayCurrency"
             title="Universal display currency"
-            value={settings.displayCurrency}
+            trailing={savingIndicator('displayCurrency')}
+            value={displayedSetting('displayCurrency')}
           />
           {!ENABLE_SIGNED_IN_REDESIGN && (
             <SettingsSwitchRow
+              busy={isSaving('homeCardDragDetection')}
               description="Move home screen cards when dragged"
               icon="gesture-swipe"
-              onValueChange={setHomeCardDragDetection}
+              onValueChange={value =>
+                persistSetting('homeCardDragDetection', value)
+              }
+              testID="settings.general.homeCardDragDetection"
               title="Automatic drag detection"
-              value={homeCardDragDetection}
+              value={displayedSetting('homeCardDragDetection')}
             />
           )}
           <SettingsSwitchRow
+            busy={isSaving('allowSettingVerusPaySlippage')}
             description="Show maximum slippage when creating a converted VerusPay invoice"
             icon="chart-bell-curve"
             onValueChange={toggleAllowSettingVerusPaySlippage}
+            testID="settings.general.allowSettingVerusPaySlippage"
             title="Edit max VerusPay invoice slippage"
-            value={allowSettingVerusPaySlippage}
+            value={displayedSetting('allowSettingVerusPaySlippage')}
           />
           <SettingsSwitchRow
+            busy={isSaving('enableSendCoinCameraToggle')}
             description="Keep the send QR scanner off until its toggle is pressed"
             icon="qrcode-scan"
-            onValueChange={toggleEnableSendCoinCameraToggle}
+            onValueChange={value =>
+              persistSetting('enableSendCoinCameraToggle', value)
+            }
+            testID="settings.general.enableSendCoinCameraToggle"
             title="Add toggle button for QR scanner"
-            value={enableSendCoinCameraToggle}
+            value={displayedSetting('enableSendCoinCameraToggle')}
           />
           <SettingsSwitchRow
+            busy={isSaving('enableExperimentalGenericRequests')}
             description="Allow deeplinks for identity update, app encryption, and other experimental features"
             icon="link-variant"
             last
-            onValueChange={toggleEnableExperimentalGenericRequests}
+            onValueChange={value =>
+              persistSetting('enableExperimentalGenericRequests', value)
+            }
+            testID="settings.general.enableExperimentalGenericRequests"
             title="Enable experimental deeplinks"
-            value={enableExperimentalGenericRequests}
+            value={displayedSetting('enableExperimentalGenericRequests')}
           />
         </SettingsSection>
 
         <SettingsSection title="Startup">
           <SettingsRow
+            accessibilityState={{busy: isSaving('defaultAccount')}}
             description="Automatically selected profile on app start"
+            disabled={isSaving('defaultAccount')}
             icon="account-arrow-right-outline"
             last
-            onPress={openDefaultProfileModal}
+            onPress={() => setDefaultProfileModalOpen(true)}
+            testID="settings.general.defaultAccount"
             title="Default profile"
+            trailing={savingIndicator('defaultAccount')}
             value={defaultAccountName == null ? NO_DEFAULT : defaultAccountName}
           />
         </SettingsSection>
 
         <SettingsSection title="Ethereum">
           <SettingsRow
+            accessibilityState={{busy: isSaving('minGasPriceGwei')}}
             description="Minimum Gwei used for simple ETH and ERC20 transfers"
             descriptionNumberOfLines={3}
+            disabled={isSaving('minGasPriceGwei')}
             icon="gas-station-outline"
             last
             onPress={() => openNumberInputModal('minGasPriceGwei')}
+            testID="settings.general.minGasPriceGwei"
             title="Min. ETH gas price"
+            trailing={savingIndicator('minGasPriceGwei')}
             value={
-              settings.minGasPriceGwei == null
+              displayedSetting('minGasPriceGwei') == null
                 ? Number(MINIMUM_GAS_PRICE_GWEI)
-                : settings.minGasPriceGwei
+                : displayedSetting('minGasPriceGwei')
             }
           />
         </SettingsSection>
@@ -369,4 +376,4 @@ const WalletSettings = props => {
   );
 };
 
-export default WalletSettings;
+export default GeneralWalletSettings;

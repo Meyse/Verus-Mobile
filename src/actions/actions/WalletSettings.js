@@ -15,6 +15,10 @@ import {
 import store from '../../store/index'
 //TODO: Maybe dispatch from here instead of VerusMobile main file
 
+let generalSettingsSaveQueue = Promise.resolve()
+let queuedGeneralSettingsChanges = null
+let queuedGeneralSettingsSaveCount = 0
+
 /**
  * Fetches the wallet settings state from Async Storage and returns a promise that 
  * resolves to an action to be dispatched to the redux store. Rejects on error.
@@ -94,17 +98,33 @@ export const saveBuySellSettings = (stateChanges, userID) => {
  * @param {Object} stateChanges Changes to be made to the general setting state,
  */
 export const saveGeneralSettings = (stateChanges) => {
-  const settingsState = store.getState().settings
-  const generalWalletSettings = normalizeGeneralWalletSettings({
-    ...settingsState.generalWalletSettings,
-    ...stateChanges,
+  const pendingStateChanges = {...stateChanges}
+  queuedGeneralSettingsSaveCount += 1
+
+  const saveOperation = generalSettingsSaveQueue.then(async () => {
+    const settingsState = store.getState().settings
+    const generalWalletSettings = normalizeGeneralWalletSettings({
+      ...settingsState.generalWalletSettings,
+      ...(queuedGeneralSettingsChanges || {}),
+      ...pendingStateChanges,
+    })
+
+    await storeSettings({...settingsState, generalWalletSettings})
+    queuedGeneralSettingsChanges = {
+      ...(queuedGeneralSettingsChanges || {}),
+      ...pendingStateChanges,
+    }
+
+    return setGeneralWalletSettingsState(generalWalletSettings)
   })
 
-  return new Promise((resolve, reject) => {
-    storeSettings({...settingsState, generalWalletSettings})
-    .then(() => {
-      resolve(setGeneralWalletSettingsState(generalWalletSettings))
-    })
-    .catch(err => reject(err))
+  generalSettingsSaveQueue = saveOperation.catch(() => undefined)
+
+  return saveOperation.finally(() => {
+    queuedGeneralSettingsSaveCount -= 1
+
+    if (queuedGeneralSettingsSaveCount === 0) {
+      queuedGeneralSettingsChanges = null
+    }
   })
 }

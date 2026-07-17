@@ -11,6 +11,7 @@ import { triggerLightHaptic } from "../../utils/haptics/haptics";
 class NumberPadModal extends Component {
   constructor(props) {
     super(props);
+    this.currentValue = props.value;
   }
 
   render() {
@@ -18,7 +19,8 @@ class NumberPadModal extends Component {
       visible,
       cancel,
       value,
-      onChange,
+      onChange = () => {},
+      submit,
       decimals
     } = this.props;
 
@@ -42,6 +44,7 @@ class NumberPadModal extends Component {
             decimals={decimals}
             autofocus
             onChange={(number) => {
+              this.currentValue = number
               triggerLightHaptic()
               onChange(number)
             }}
@@ -54,7 +57,8 @@ class NumberPadModal extends Component {
               <IconButton icon="check" {...Input.iconStyle} />
             }
             height={300}
-            onWillHide={cancel}
+            onSubmit={submit ? () => submit(this.currentValue) : undefined}
+            onWillHide={submit ? undefined : cancel}
           />
         </NumberPad>
       </SemiModal>
