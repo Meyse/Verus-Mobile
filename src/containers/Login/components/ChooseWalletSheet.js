@@ -29,12 +29,10 @@ const ChooseWalletSheet = ({
   onClose,
   onClosed,
   accounts,
-  defaultAccountHash,
   lastOpenedAccountTimestamps = {},
   supportedBiometryType,
   networkLabel,
   onSelectAccount,
-  onSetDefaultAccount,
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -96,15 +94,9 @@ const ChooseWalletSheet = ({
             renderItem={({item}) => (
               <WalletRow
                 account={item}
-                isDefault={item.accountHash === defaultAccountHash}
                 lastOpenedAt={lastOpenedAccountTimestamps[item.accountHash]}
                 supportedBiometryType={supportedBiometryType}
                 onSelect={() => onSelectAccount(item)}
-                onSetDefault={
-                  typeof onSetDefaultAccount === 'function'
-                    ? () => onSetDefaultAccount(item)
-                    : null
-                }
                 styles={styles}
                 theme={theme}
               />
@@ -134,16 +126,13 @@ const ScrollCue = ({styles, theme}) => (
 
 const WalletRow = ({
   account,
-  isDefault,
   lastOpenedAt,
   supportedBiometryType,
   onSelect,
-  onSetDefault,
   styles,
   theme,
 }) => {
   const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
-  const showDefaultAction = typeof onSetDefault === 'function';
   const lastOpenedLabel = formatLastOpenedLabel(lastOpenedAt);
   const showBiometryAffordance =
     account.biometry &&
@@ -177,9 +166,6 @@ const WalletRow = ({
             {account.id}
           </Text>
           <View style={styles.walletMetaRow}>
-            {isDefault && !showDefaultAction && (
-              <Text style={styles.defaultText}>{'Default'}</Text>
-            )}
             <Text numberOfLines={1} style={styles.lastOpenedText}>
               {lastOpenedLabel}
             </Text>
@@ -193,31 +179,6 @@ const WalletRow = ({
           />
         )}
       </TouchableOpacity>
-      {showDefaultAction && (
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityState={{selected: isDefault}}
-          activeOpacity={isDefault ? 1 : 0.74}
-          disabled={isDefault}
-          onPress={onSetDefault}
-          style={[
-            styles.defaultButton,
-            isDefault && styles.defaultButtonActive,
-          ]}>
-          <MaterialCommunityIcons
-            name={isDefault ? 'star' : 'star-outline'}
-            size={17}
-            color={isDefault ? theme.colors.onPrimary : theme.colors.primary}
-          />
-          <Text
-            style={[
-              styles.defaultButtonText,
-              isDefault && styles.defaultButtonTextActive,
-            ]}>
-            {isDefault ? 'Default' : 'Set default'}
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
@@ -264,11 +225,6 @@ const createStyles = theme =>
     fontSize: 16,
     ...fontStyle('semiBold'),
   },
-  defaultText: {
-    color: theme.colors.primary,
-    fontSize: 12,
-    ...fontStyle('semiBold'),
-  },
   walletMetaRow: {
     marginTop: 3,
     minWidth: 0,
@@ -282,30 +238,6 @@ const createStyles = theme =>
     color: theme.colors.textSubtle,
     fontSize: 12,
     ...fontStyle('regular'),
-  },
-  defaultButton: {
-    minWidth: 104,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: theme.colors.borderStrong,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    gap: 5,
-  },
-  defaultButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  defaultButtonText: {
-    color: theme.colors.primary,
-    fontSize: 12,
-    ...fontStyle('semiBold'),
-  },
-  defaultButtonTextActive: {
-    color: theme.colors.onPrimary,
   },
 });
 

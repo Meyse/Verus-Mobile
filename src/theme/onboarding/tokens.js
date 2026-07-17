@@ -102,7 +102,6 @@ const lightColors = {
   disabledButton: '#E4E8EF',
   disabledText: '#9AA3AF',
   shadow: '#000000',
-  star: '#F7B500',
 };
 
 const darkColors = {
@@ -133,7 +132,6 @@ const darkColors = {
   disabledButton: 'rgba(255, 255, 255, 0.08)',
   disabledText: 'rgba(255, 255, 255, 0.42)',
   shadow: '#000000',
-  star: '#F7B500',
 };
 
 export const ONBOARDING_THEMES = {

@@ -56,17 +56,17 @@ export const formatLastOpenedLabel = timestamp => {
 
 export const sortAccountsByLoginPriority = (
   accounts,
-  defaultAccountHash,
+  priorityAccountHash,
   lastOpenedAccountTimestamps,
 ) =>
   (Array.isArray(accounts) ? accounts : [])
     .map((account, index) => ({account, index}))
     .sort((a, b) => {
-      const aIsDefault = a.account.accountHash === defaultAccountHash;
-      const bIsDefault = b.account.accountHash === defaultAccountHash;
+      const aHasPriority = a.account.accountHash === priorityAccountHash;
+      const bHasPriority = b.account.accountHash === priorityAccountHash;
 
-      if (aIsDefault !== bIsDefault) {
-        return aIsDefault ? -1 : 1;
+      if (aHasPriority !== bHasPriority) {
+        return aHasPriority ? -1 : 1;
       }
 
       const aLastOpened = getAccountLastOpenedTimestamp(

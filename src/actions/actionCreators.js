@@ -71,7 +71,6 @@ import {
   SET_ETH_TX_RECEIPTS,
   ADD_ETH_TX_RECEIPT,
   SET_COIN_SUB_WALLET,
-  DISABLE_SELECT_DEFAULT_ACCOUNT,
   ADD_GOOD_SERVER,
   ADD_BAD_SERVER,
   SET_SECURE_LOADING_SUCCESS_DATA,
@@ -95,11 +94,6 @@ export const setAccounts = (accounts) => {
 //Reducer Name: authentication
 export const signIntoAuthenticatedAccount = () => {
   return { type: SIGN_IN_USER }
-}
-
-//Reducer Name: authentication
-export const disableSelectDefaultAccount = () => {
-  return { type: DISABLE_SELECT_DEFAULT_ACCOUNT }
 }
 
 //Reducer Name: authentication

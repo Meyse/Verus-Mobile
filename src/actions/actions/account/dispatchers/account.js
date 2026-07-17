@@ -15,12 +15,10 @@ import { DISABLED_CHANNELS } from '../../../../../env/index'
 import store from "../../../../store";
 import { getAddressBlocklistFromServer } from "../../../../utils/api/channels/general/addressBlocklist/getAddressBlocklist";
 import { normalizeLastOpenedAccountTimestamps } from "../../../../utils/account/accountActivity";
-import { buildDefaultAccountSettingsForAccount } from "../../../../utils/account/accountNetwork";
 
 export const initializeAccountData = async (
   account,
   password,
-  makeDefault = false,
   setInitStep = () => {},
   alertOnFail = true,
 ) => {
@@ -43,12 +41,8 @@ export const initializeAccountData = async (
       ),
       [account.accountHash]: Date.now(),
     };
-    const accountSettings = makeDefault
-      ? buildDefaultAccountSettingsForAccount(account, generalWalletSettings)
-      : {};
 
     await saveGeneralSettings({
-      ...accountSettings,
       lastOpenedAccountTimestamps,
     });
 
@@ -157,7 +151,6 @@ export const clearActiveAccountLifecycles = async () => {
 export const refreshAccountData = async (
   accountHash,
   password,
-  makeDefault = false,
   setInitStep = () => {},
   alertOnFail = true,
 ) => {
@@ -173,7 +166,6 @@ export const refreshAccountData = async (
   return await initializeAccountData(
     newAccount,
     password,
-    makeDefault,
     setInitStep,
     alertOnFail,
   );

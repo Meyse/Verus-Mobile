@@ -27,10 +27,8 @@ import {
   SettingsSwitchRow,
 } from '../../components/SettingsScaffold';
 
-const NO_DEFAULT = 'None';
 const SETTING_LABELS = {
   allowSettingVerusPaySlippage: 'VerusPay slippage preference',
-  defaultAccount: 'default profile',
   displayCurrency: 'display currency',
   enableExperimentalGenericRequests: 'experimental deeplinks preference',
   enableSendCoinCameraToggle: 'QR scanner preference',
@@ -71,10 +69,6 @@ const GeneralWalletSettings = () => {
   const generalWalletSettings = useObjectSelector(
     state => state.settings.generalWalletSettings,
   );
-  const accounts = useObjectSelector(state => state.authentication.accounts);
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const isMounted = useRef(true);
@@ -84,7 +78,6 @@ const GeneralWalletSettings = () => {
   const [currentNumberInputModal, setCurrentNumberInputModal] = useState(null);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] =
     useState(false);
-  const [defaultProfileModalOpen, setDefaultProfileModalOpen] = useState(false);
 
   useEffect(
     () => () => {
@@ -194,13 +187,6 @@ const GeneralWalletSettings = () => {
     return true;
   };
 
-  const defaultAccountHash = displayedSetting('defaultAccount');
-  const defaultAccount =
-    defaultAccountHash == null
-      ? null
-      : accounts.find(item => item.accountHash === defaultAccountHash);
-  const defaultAccountName = defaultAccount == null ? null : defaultAccount.id;
-
   const savingIndicator = key =>
     isSaving(key) ? (
       <ActivityIndicator color={theme.colors.primary} size="small" />
@@ -231,35 +217,6 @@ const GeneralWalletSettings = () => {
             onSelect={item => persistSetting('displayCurrency', item.key)}
             selectedKey={displayedSetting('displayCurrency')}
             title="Currencies"
-            visible
-          />
-        )}
-        {defaultProfileModalOpen && (
-          <ListSelectionModal
-            cancel={() => setDefaultProfileModalOpen(false)}
-            data={[
-              {
-                key: NO_DEFAULT,
-                title: 'None',
-                description: 'Manually select profile on app start',
-              },
-              ...accounts.map(item => ({
-                key: item.accountHash,
-                title: item.id,
-                description:
-                  item.id === activeAccount.id ? 'Currently logged in' : null,
-              })),
-            ]}
-            onSelect={item =>
-              persistSetting(
-                'defaultAccount',
-                item.key === NO_DEFAULT ? null : item.key,
-              )
-            }
-            selectedKey={
-              defaultAccountHash == null ? NO_DEFAULT : defaultAccountHash
-            }
-            title="Profiles"
             visible
           />
         )}
@@ -334,21 +291,6 @@ const GeneralWalletSettings = () => {
             testID="settings.general.enableExperimentalGenericRequests"
             title="Enable experimental deeplinks"
             value={displayedSetting('enableExperimentalGenericRequests')}
-          />
-        </SettingsSection>
-
-        <SettingsSection title="Startup">
-          <SettingsRow
-            accessibilityState={{busy: isSaving('defaultAccount')}}
-            description="Automatically selected profile on app start"
-            disabled={isSaving('defaultAccount')}
-            icon="account-arrow-right-outline"
-            last
-            onPress={() => setDefaultProfileModalOpen(true)}
-            testID="settings.general.defaultAccount"
-            title="Default profile"
-            trailing={savingIndicator('defaultAccount')}
-            value={defaultAccountName == null ? NO_DEFAULT : defaultAccountName}
           />
         </SettingsSection>
 

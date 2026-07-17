@@ -13,7 +13,7 @@ import {
 } from '../utils/account/accountActivity';
 import {
   getAccountNetworkKey,
-  getDefaultAccountForNetwork,
+  resolveLegacyWalletPriorityHash,
 } from '../utils/account/accountNetwork';
 import {getSupportedBiometryType} from '../utils/keychain/keychain';
 
@@ -29,7 +29,6 @@ const createWalletUnlockDisplaySnapshot = walletUnlock => ({
     ? [...walletUnlock.accountHashes]
     : walletUnlock.accountHashes,
   preferredAccountHash: walletUnlock.preferredAccountHash,
-  makeDefaultAllowed: walletUnlock.makeDefaultAllowed,
   loadingTitle: walletUnlock.loadingTitle,
   loadingSubtitle: walletUnlock.loadingSubtitle,
   networkLabel: walletUnlock.networkLabel,
@@ -93,25 +92,27 @@ const WalletUnlockCoordinator = () => {
     : eligibleAccounts.length > 0
     ? getAccountNetworkKey(eligibleAccounts[0])
     : null;
-  const defaultAccount = walletNetworkKey
-    ? getDefaultAccountForNetwork(
+  const legacyPriorityAccountHash = walletNetworkKey
+    ? resolveLegacyWalletPriorityHash(
         accounts,
         generalWalletSettings,
         walletNetworkKey,
+        lastOpenedAccountTimestamps,
       )
     : null;
-  const defaultAccountHash = defaultAccount ? defaultAccount.accountHash : null;
   const sortedEligibleAccounts = useMemo(
     () =>
       sortAccountsByLoginPriority(
         eligibleAccounts,
-        preferredAccount ? preferredAccount.accountHash : defaultAccountHash,
+        preferredAccount
+          ? preferredAccount.accountHash
+          : legacyPriorityAccountHash,
         lastOpenedAccountTimestamps,
       ),
     [
-      defaultAccountHash,
       eligibleAccounts,
       lastOpenedAccountTimestamps,
+      legacyPriorityAccountHash,
       preferredAccount,
     ],
   );
@@ -259,7 +260,6 @@ const WalletUnlockCoordinator = () => {
         onClose={handleCancelUnlock}
         onClosed={handleChooseWalletClosed}
         accounts={sortedEligibleAccounts}
-        defaultAccountHash={defaultAccountHash}
         lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
         supportedBiometryType={supportedBiometryType}
         networkLabel={displayWalletUnlock.networkLabel || 'matching'}
@@ -272,15 +272,10 @@ const WalletUnlockCoordinator = () => {
           selectedAccount != null
         }
         account={selectedAccount}
-        isDefaultAccount={
-          selectedAccount != null &&
-          selectedAccount.accountHash === defaultAccountHash
-        }
         title={displayWalletUnlock.title}
         requestLabel={displayWalletUnlock.requestLabel}
         loadingTitle={displayWalletUnlock.loadingTitle}
         loadingSubtitle={displayWalletUnlock.loadingSubtitle || undefined}
-        makeDefaultAllowed={displayWalletUnlock.makeDefaultAllowed}
         useRefreshAccountData={useRefreshAccountData}
         closeOnUnlocked={false}
         onClose={handleCancelUnlock}

@@ -1,11 +1,8 @@
+import {getAccountLastOpenedTimestamp} from './accountActivity';
+
 export const WALLET_NETWORKS = {
   MAINNET: 'mainnet',
   TESTNET: 'testnet',
-};
-
-export const DEFAULT_ACCOUNTS_BY_NETWORK = {
-  [WALLET_NETWORKS.MAINNET]: null,
-  [WALLET_NETWORKS.TESTNET]: null,
 };
 
 export const getWalletNetworkKey = testProfile =>
@@ -34,72 +31,44 @@ export const filterAccountsForNetwork = (accounts, networkKey) =>
     accountMatchesNetwork(account, networkKey),
   );
 
-export const normalizeDefaultAccountsByNetwork = defaultAccountsByNetwork => ({
-  ...DEFAULT_ACCOUNTS_BY_NETWORK,
-  ...(defaultAccountsByNetwork || {}),
-});
-
-export const resolveDefaultAccountHashForNetwork = (
+export const resolveLegacyWalletPriorityHash = (
   accounts,
   generalWalletSettings = {},
   networkKey,
+  lastOpenedAccountTimestamps = {},
 ) => {
-  const defaultsByNetwork = normalizeDefaultAccountsByNetwork(
-    generalWalletSettings.defaultAccountsByNetwork,
-  );
-  const networkDefault = defaultsByNetwork[networkKey];
-  const matchingNetworkDefault = (accounts || []).find(
-    account =>
-      account.accountHash === networkDefault &&
-      accountMatchesNetwork(account, networkKey),
+  const networkAccounts = (Array.isArray(accounts) ? accounts : []).filter(
+    account => accountMatchesNetwork(account, networkKey),
   );
 
-  if (matchingNetworkDefault) {
-    return matchingNetworkDefault.accountHash;
+  if (
+    networkAccounts.some(
+      account =>
+        getAccountLastOpenedTimestamp(
+          account,
+          lastOpenedAccountTimestamps,
+        ) != null,
+    )
+  ) {
+    return null;
   }
 
+  const defaultsByNetwork =
+    generalWalletSettings.defaultAccountsByNetwork != null &&
+    typeof generalWalletSettings.defaultAccountsByNetwork === 'object'
+      ? generalWalletSettings.defaultAccountsByNetwork
+      : {};
+  const networkDefault = defaultsByNetwork[networkKey];
   const legacyDefault = generalWalletSettings.defaultAccount;
-  const matchingLegacyDefault = (accounts || []).find(
-    account =>
-      account.accountHash === legacyDefault &&
-      accountMatchesNetwork(account, networkKey),
+  const networkAccountHashes = new Set(
+    networkAccounts.map(account => account.accountHash),
+  );
+  const legacyPriorityHashes = [networkDefault, legacyDefault].filter(
+    accountHash => typeof accountHash === 'string',
+  );
+  const legacyPriorityHash = legacyPriorityHashes.find(accountHash =>
+    networkAccountHashes.has(accountHash),
   );
 
-  return matchingLegacyDefault ? matchingLegacyDefault.accountHash : null;
+  return legacyPriorityHash || null;
 };
-
-export const getDefaultAccountForNetwork = (
-  accounts,
-  generalWalletSettings,
-  networkKey,
-) => {
-  const defaultAccountHash = resolveDefaultAccountHashForNetwork(
-    accounts,
-    generalWalletSettings,
-    networkKey,
-  );
-
-  return (
-    (accounts || []).find(account => account.accountHash === defaultAccountHash) ||
-    null
-  );
-};
-
-export const buildDefaultAccountsByNetwork = (
-  currentDefaultAccountsByNetwork,
-  account,
-) => ({
-  ...normalizeDefaultAccountsByNetwork(currentDefaultAccountsByNetwork),
-  [getAccountNetworkKey(account)]: account.accountHash,
-});
-
-export const buildDefaultAccountSettingsForAccount = (
-  account,
-  generalWalletSettings = {},
-) => ({
-  defaultAccount: account.accountHash,
-  defaultAccountsByNetwork: buildDefaultAccountsByNetwork(
-    generalWalletSettings.defaultAccountsByNetwork,
-    account,
-  ),
-});

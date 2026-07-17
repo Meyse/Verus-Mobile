@@ -74,7 +74,6 @@ class WyreServiceIntroSlider extends Component {
     await refreshAccountData(
       this.props.activeAccount.accountHash,
       password,
-      false,
       () => {}
     );
   }

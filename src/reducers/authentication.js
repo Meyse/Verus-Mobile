@@ -8,7 +8,6 @@ import { AUTHENTICATE_USER_SEND_MODAL } from "../utils/constants/sendModal";
 import {
   SET_ACCOUNTS,
   UPDATE_ACCOUNT_KEYS,
-  DISABLE_SELECT_DEFAULT_ACCOUNT,
   BIOMETRIC_AUTH,
   AUTHENTICATE_USER,
   SIGN_IN_USER,
@@ -45,7 +44,6 @@ export const authentication = (
       testnetOverrides: {}
     },
     signedIn: false,
-    selectDefaultAccount: true,
     authModalUsed: false,
     showHideSeedCorruptionSetting: false
   },
@@ -64,11 +62,6 @@ export const authentication = (
           action.payload.type === AUTHENTICATE_USER_SEND_MODAL
             ? true
             : state.authModalUsed,
-      };
-    case DISABLE_SELECT_DEFAULT_ACCOUNT:
-      return {
-        ...state,
-        selectDefaultAccount: false
       };
     case SET_ACCOUNTS:
       return {
@@ -89,8 +82,7 @@ export const authentication = (
     case SIGN_IN_USER:
       return {
         ...state,
-        signedIn: true,
-        selectDefaultAccount: false
+        signedIn: true
       };
     case UPDATE_ACCOUNT_KEYS:
       return {

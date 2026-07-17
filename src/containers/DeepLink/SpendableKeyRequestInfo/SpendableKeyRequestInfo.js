@@ -563,7 +563,6 @@ const SpendableKeyRequestInfoContent = props => {
           : 'Unlock wallet to continue',
         requestLabel: 'Spendable key',
         accountHashes: matchingAccounts.map(account => account.accountHash),
-        makeDefaultAllowed: true,
         networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
       });
     } catch (e) {

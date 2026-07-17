@@ -36,9 +36,9 @@ import {
 } from '../../utils/account/accountActivity';
 import {
   filterAccountsForNetwork,
-  getDefaultAccountForNetwork,
   getWalletNetworkKey,
   getWalletNetworkLabel,
+  resolveLegacyWalletPriorityHash,
 } from '../../utils/account/accountNetwork';
 import UnlockWalletSheet from './components/UnlockWalletSheet';
 import {normalizeWalletAvatar} from '../../utils/walletAvatar';
@@ -87,26 +87,33 @@ const Login = props => {
       ),
     [generalWalletSettings.lastOpenedAccountTimestamps],
   );
-  const defaultAccountForNetwork = useMemo(
+  const legacyPriorityAccountHash = useMemo(
     () =>
-      getDefaultAccountForNetwork(
-        accounts,
+      resolveLegacyWalletPriorityHash(
+        networkAccounts,
         generalWalletSettings,
         selectedNetworkKey,
+        lastOpenedAccountTimestamps,
       ),
-    [accounts, generalWalletSettings, selectedNetworkKey],
+    [
+      generalWalletSettings,
+      lastOpenedAccountTimestamps,
+      networkAccounts,
+      selectedNetworkKey,
+    ],
   );
-  const defaultAccountHash = defaultAccountForNetwork
-    ? defaultAccountForNetwork.accountHash
-    : null;
   const sortedDisplayNetworkAccounts = useMemo(
     () =>
       sortAccountsByLoginPriority(
         networkAccounts,
-        defaultAccountHash,
+        legacyPriorityAccountHash,
         lastOpenedAccountTimestamps,
       ),
-    [networkAccounts, defaultAccountHash, lastOpenedAccountTimestamps],
+    [
+      lastOpenedAccountTimestamps,
+      legacyPriorityAccountHash,
+      networkAccounts,
+    ],
   );
 
   useEffect(() => {
@@ -188,7 +195,6 @@ const Login = props => {
       return (
         <LoginWalletList
           accounts={sortedDisplayNetworkAccounts}
-          defaultAccountHash={defaultAccountHash}
           lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
           supportedBiometryType={supportedBiometryType}
           onSelectAccount={setUnlockAccount}
@@ -200,13 +206,9 @@ const Login = props => {
     }
 
     if (sortedDisplayNetworkAccounts.length === 1) {
-      const isDefault =
-        sortedDisplayNetworkAccounts[0].accountHash === defaultAccountHash;
-
       return (
         <LoginWalletCard
           account={sortedDisplayNetworkAccounts[0]}
-          isDefault={isDefault}
           lastOpenedAt={
             lastOpenedAccountTimestamps[
               sortedDisplayNetworkAccounts[0].accountHash
@@ -290,7 +292,6 @@ const Login = props => {
         onClose={() => setChooseWalletVisible(false)}
         onClosed={handleChooseWalletClosed}
         accounts={sortedDisplayNetworkAccounts}
-        defaultAccountHash={defaultAccountHash}
         lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
         supportedBiometryType={supportedBiometryType}
         networkLabel={selectedNetworkLabel}
@@ -299,10 +300,6 @@ const Login = props => {
       <UnlockWalletSheet
         visible={unlockAccount != null}
         account={unlockAccount}
-        isDefaultAccount={
-          unlockAccount != null &&
-          unlockAccount.accountHash === defaultAccountHash
-        }
         onClose={() => setUnlockAccount(null)}
       />
     </View>
@@ -311,7 +308,6 @@ const Login = props => {
 
 const LoginWalletList = ({
   accounts,
-  defaultAccountHash,
   lastOpenedAccountTimestamps,
   supportedBiometryType,
   onSelectAccount,
@@ -328,7 +324,6 @@ const LoginWalletList = ({
   return (
     <View style={styles.walletPreviewList}>
       {previewAccounts.map((account, index) => {
-        const isDefault = account.accountHash === defaultAccountHash;
         const isLastPreviewCard =
           hiddenWalletCount === 0 && index === previewAccounts.length - 1;
 
@@ -336,7 +331,6 @@ const LoginWalletList = ({
           <LoginWalletCard
             key={account.accountHash || account.id}
             account={account}
-            isDefault={isDefault}
             lastOpenedAt={lastOpenedAccountTimestamps[account.accountHash]}
             supportedBiometryType={supportedBiometryType}
             onPress={() => onSelectAccount(account)}
@@ -371,7 +365,6 @@ const ViewAllWalletsButton = ({walletCount, onPress, styles}) => (
 
 const LoginWalletCard = ({
   account,
-  isDefault,
   lastOpenedAt,
   supportedBiometryType,
   onPress,
@@ -415,13 +408,7 @@ const LoginWalletCard = ({
           {lastOpenedLabel}
         </Text>
       </View>
-      {isDefault ? (
-        <MaterialCommunityIcons
-          name="star"
-          size={22}
-          color={theme.colors.star}
-        />
-      ) : showBiometryAffordance ? (
+      {showBiometryAffordance ? (
         <BiometricAffordanceIcon
           supportedBiometryType={supportedBiometryType}
           color={theme.colors.textSecondary}

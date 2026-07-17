@@ -13,7 +13,6 @@ const initialState = {
   requestLabel: null,
   accountHashes: null,
   preferredAccountHash: null,
-  makeDefaultAllowed: true,
   loadingTitle: null,
   loadingSubtitle: null,
   networkLabel: null,

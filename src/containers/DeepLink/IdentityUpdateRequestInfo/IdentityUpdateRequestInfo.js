@@ -873,7 +873,6 @@ const IdentityUpdateRequestInfoContent = props => {
           : 'Unlock wallet to continue',
         requestLabel: 'VerusID update request',
         accountHashes: allowList.map(account => account.accountHash),
-        makeDefaultAllowed: true,
         networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
       });
       goNext();

@@ -53,25 +53,11 @@ const getBiometryLabel = supportedBiometryType => {
     : 'Use biometrics';
 };
 
-const getDefaultAccessibilityLabel = (isDefaultAccount, defaultStarActive) => {
-  if (isDefaultAccount) {
-    return 'Default wallet';
-  }
-
-  if (defaultStarActive) {
-    return 'Will make default after unlock';
-  }
-
-  return 'Make default after unlock';
-};
-
 const UnlockWalletSheet = ({
   visible,
   account,
-  isDefaultAccount,
   title,
   requestLabel,
-  makeDefaultAllowed = true,
   useRefreshAccountData = false,
   closeOnUnlocked = true,
   onClose,
@@ -85,8 +71,6 @@ const UnlockWalletSheet = ({
   );
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [password, setPassword] = useState('');
-  const [makeDefaultAccount, setMakeDefaultAccount] =
-    useState(isDefaultAccount);
   const [loading, setLoading] = useState(false);
   const [loadingDotCount, setLoadingDotCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -94,8 +78,6 @@ const UnlockWalletSheet = ({
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [displayAccount, setDisplayAccount] = useState(account);
-  const [displayIsDefaultAccount, setDisplayIsDefaultAccount] =
-    useState(isDefaultAccount);
   const passwordInputRef = useRef(null);
 
   const focusPasswordInput = useCallback(() => {
@@ -110,8 +92,7 @@ const UnlockWalletSheet = ({
     }
 
     setDisplayAccount(account);
-    setDisplayIsDefaultAccount(isDefaultAccount);
-  }, [account, isDefaultAccount]);
+  }, [account]);
 
   useEffect(() => {
     if (visible) {
@@ -119,12 +100,11 @@ const UnlockWalletSheet = ({
       setLoading(false);
       setLoadingDotCount(0);
       setErrorMessage(null);
-      setMakeDefaultAccount(isDefaultAccount);
       setBiometryAttempted(false);
       setSupportedBiometryType(null);
       setShowPassword(false);
     }
-  }, [account ? account.accountHash : null, isDefaultAccount, visible]);
+  }, [account ? account.accountHash : null, visible]);
 
   useEffect(() => {
     if (!loading || !visible) {
@@ -140,7 +120,7 @@ const UnlockWalletSheet = ({
   }, [loading, visible]);
 
   const tryUnlockAccount = useCallback(
-    async (key, nextMakeDefault = makeDefaultAccount) => {
+    async key => {
       if (!account || !key || loading) {
         return;
       }
@@ -154,7 +134,6 @@ const UnlockWalletSheet = ({
           await refreshAccountData(
             account.accountHash,
             key,
-            nextMakeDefault,
             undefined,
             false,
           );
@@ -162,7 +141,6 @@ const UnlockWalletSheet = ({
           await initializeAccountData(
             account,
             key,
-            nextMakeDefault,
             undefined,
             false,
           );
@@ -188,7 +166,6 @@ const UnlockWalletSheet = ({
       account,
       closeOnUnlocked,
       loading,
-      makeDefaultAccount,
       onClose,
       onUnlocked,
       useRefreshAccountData,
@@ -222,7 +199,7 @@ const UnlockWalletSheet = ({
 
         if (biometricPassword != null) {
           setPassword(biometricPassword);
-          await tryUnlockAccount(biometricPassword, makeDefaultAccount);
+          await tryUnlockAccount(biometricPassword);
         } else {
           if (showFailureMessage) {
             setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
@@ -244,7 +221,6 @@ const UnlockWalletSheet = ({
       account,
       focusPasswordInput,
       loading,
-      makeDefaultAccount,
       tryUnlockAccount,
       visible,
     ],
@@ -285,18 +261,6 @@ const UnlockWalletSheet = ({
 
   const walletAvatar = normalizeWalletAvatar(
     displayAccount ? displayAccount.walletAvatar : null,
-  );
-  const defaultStarActive = makeDefaultAccount || displayIsDefaultAccount;
-  const showDefaultStar = displayIsDefaultAccount || makeDefaultAllowed;
-  const canChangeDefaultPreference =
-    makeDefaultAllowed &&
-    visible &&
-    account != null &&
-    !displayIsDefaultAccount &&
-    !loading;
-  const defaultAccessibilityLabel = getDefaultAccessibilityLabel(
-    displayIsDefaultAccount,
-    defaultStarActive,
   );
   const disabled = password.length === 0 || loading || !account;
   const showBiometryAction = !!(displayAccount && displayAccount.biometry);
@@ -341,29 +305,6 @@ const UnlockWalletSheet = ({
               {displayAccount ? displayAccount.id : ''}
             </Text>
           </View>
-          {showDefaultStar && (
-            <TouchableOpacity
-              accessibilityLabel={defaultAccessibilityLabel}
-              accessibilityRole="checkbox"
-              accessibilityState={{
-                checked: defaultStarActive,
-                disabled: !canChangeDefaultPreference,
-              }}
-              activeOpacity={canChangeDefaultPreference ? 0.74 : 1}
-              disabled={!canChangeDefaultPreference}
-              onPress={() => setMakeDefaultAccount(value => !value)}
-              style={styles.defaultStarButton}>
-              <MaterialCommunityIcons
-                name={defaultStarActive ? 'star' : 'star-outline'}
-                size={28}
-                color={
-                  defaultStarActive
-                    ? theme.colors.star
-                    : theme.colors.textSubtle
-                }
-              />
-            </TouchableOpacity>
-          )}
         </View>
         {loading ? (
           <View
@@ -476,7 +417,6 @@ const createStyles = theme =>
     minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 24,
   },
   walletIdentity: {
@@ -484,7 +424,6 @@ const createStyles = theme =>
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 14,
   },
   walletIcon: {
     width: 42,
@@ -500,12 +439,6 @@ const createStyles = theme =>
     color: theme.colors.textPrimary,
     fontSize: 22,
     ...fontStyle('semiBold'),
-  },
-  defaultStarButton: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   errorText: {
     marginTop: 8,

@@ -532,7 +532,6 @@ const AppEncryptionRequestInfoContent = props => {
           : 'Unlock wallet to continue',
         requestLabel: 'Encryption request',
         accountHashes: allowList.map(account => account.accountHash),
-        makeDefaultAllowed: true,
         networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
       });
       setOpenIdentityAfterUnlock(true);

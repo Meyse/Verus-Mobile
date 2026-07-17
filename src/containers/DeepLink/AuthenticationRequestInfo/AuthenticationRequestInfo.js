@@ -876,7 +876,6 @@ const AuthenticationRequestInfoContent = props => {
           : 'Unlock wallet to continue',
         requestLabel: 'Authentication request',
         accountHashes: allowList.map(account => account.accountHash),
-        makeDefaultAllowed: true,
         networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
       });
       setOpenIdentityAfterUnlock(true);

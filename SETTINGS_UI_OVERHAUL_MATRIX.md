@@ -64,7 +64,7 @@ Status values:
 | VerusPay slippage | Preserve first-enable risk explanation and preference. | `GeneralWalletSettings.js` | verified |
 | QR-scanner toggle | Preserve `enableSendCoinCameraToggle` semantics used by Send. | `GeneralWalletSettings.js`, `SendCoin.js` | verified |
 | Experimental deeplinks | Preserve `enableExperimentalGenericRequests` gate used by deeplink routing. | `GeneralWalletSettings.js`, `DeepLink.js` | verified |
-| Default Profile | Preserve the existing `defaultAccount` row and account-hash persistence contract. Do not silently replace it with per-network defaults. | `GeneralWalletSettings.js`, `Login.js` | verified |
+| Wallet startup order | Do not expose or persist a default profile. Preserve legacy default fields only as an invisible first-ordering fallback until genuine per-network last-opened activity exists. | `accountNetwork.js`, `Login.js` | verified |
 | Minimum ETH gas price | Preserve optional integer Gwei override and default display. | `GeneralWalletSettings.js` | verified |
 | Address blocklist type | Preserve source/manual selection and current persistence schema. | `AddressBlocklist.js` | verified |
 | Address blocklist source | Preserve custom source URL editing and default URL fallback. | `AddressBlocklist.js`, `AddressBlocklist.render.js` | verified |

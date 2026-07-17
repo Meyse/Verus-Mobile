@@ -12,7 +12,7 @@ import {
   Keyboard
 } from "react-native"
 import { NavigationActions } from '@react-navigation/compat'
-import { addCoin, addUser, disableSelectDefaultAccount } from '../../actions/actionCreators'
+import { addCoin, addUser } from '../../actions/actionCreators'
 import { connect } from 'react-redux'
 import AlertAsync from 'react-native-alert-async'
 import { clearAllCoinIntervals } from "../../actions/actionDispatchers"
@@ -57,8 +57,6 @@ class SignUp extends Component {
   }
 
   async componentDidMount() {
-    this.props.dispatch(disableSelectDefaultAccount())
-
     this.props.activeCoinList.map((coinObj) => {
       clearAllCoinIntervals(coinObj.id);
     });

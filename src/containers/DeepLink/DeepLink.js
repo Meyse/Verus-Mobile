@@ -127,7 +127,6 @@ const DeepLink = (props) => {
             ? 'Switch wallet to verify signer'
             : 'Unlock wallet to verify signer',
           requestLabel: 'Generic request',
-          makeDefaultAllowed: true,
           networkLabel: request.isTestnet() ? 'Testnet' : 'Mainnet',
         },
       });

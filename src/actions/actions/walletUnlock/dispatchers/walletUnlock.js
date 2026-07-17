@@ -24,7 +24,6 @@ const buildWalletUnlockRequest = options => {
     requestLabel: options.requestLabel || null,
     accountHashes: normalizeAccountHashes(options.accountHashes),
     preferredAccountHash: options.preferredAccountHash || null,
-    makeDefaultAllowed: options.makeDefaultAllowed !== false,
     loadingTitle: options.loadingTitle || null,
     loadingSubtitle: options.loadingSubtitle || null,
     networkLabel: options.networkLabel || null,

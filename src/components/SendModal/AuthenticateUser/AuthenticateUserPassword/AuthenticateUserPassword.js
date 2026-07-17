@@ -1,8 +1,7 @@
 import React from 'react';
 import { useEffect, useState } from "react"
 import { Keyboard, ScrollView, TouchableWithoutFeedback, View } from "react-native";
-import { Button, Checkbox, TextInput } from "react-native-paper";
-import { useSelector } from 'react-redux';
+import { Button, TextInput } from "react-native-paper";
 import { initializeAccountData } from "../../../../actions/actionDispatchers";
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import Colors from '../../../../globals/colors';
@@ -15,10 +14,6 @@ import AnimatedActivityIndicatorBox from '../../../AnimatedActivityIndicatorBox'
 
 const AuthenticateUserPassword = props => {
   const [password, setPassword] = useState("")
-  const defaultAccount = useSelector(
-    state => state.settings.generalWalletSettings.defaultAccount,
-  );
-
   const accounts = useObjectSelector(state => state.authentication.accounts)
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount)
   const data = useObjectSelector(state => state.sendModal.data)
@@ -29,8 +24,6 @@ const AuthenticateUserPassword = props => {
           x => x.accountHash === data[SEND_MODAL_USER_TO_AUTHENTICATE],
         )
       : props.route.params.account;
-  const defaultAccountSelected = account != null && defaultAccount === account.accountHash
-  const [makeDefaultAccount, setMakeDefaultAccount] = useState(defaultAccountSelected)
 
   const [internalLoading, setInternalLoading] = useState(false)
 
@@ -41,11 +34,7 @@ const AuthenticateUserPassword = props => {
     Keyboard.dismiss();
 
     try {
-      await initializeAccountData(
-        account,
-        key,
-        makeDefaultAccount
-      );
+      await initializeAccountData(account, key);
 
       setInternalLoading(false);
       await props.setPreventExit(false);
@@ -112,15 +101,6 @@ const AuthenticateUserPassword = props => {
           autoCapitalize={'none'}
           autoCorrect={false}
           secureTextEntry={true}
-        />
-      </View>
-      <View style={styles.wideBlock}>
-        <Checkbox.Item
-          color={Colors.primaryColor}
-          label={'Make default'}
-          status={makeDefaultAccount ? 'checked' : 'unchecked'}
-          onPress={() => setMakeDefaultAccount(!makeDefaultAccount)}
-          mode="android"
         />
       </View>
       <View
