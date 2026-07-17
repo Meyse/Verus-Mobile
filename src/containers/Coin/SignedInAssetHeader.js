@@ -1008,7 +1008,7 @@ const SignedInAssetHeader = () => {
       const walletBalance = getLedgerConfirmed(ledgerEntry);
       const walletHasError = Boolean(balanceErrors?.[item.id]);
 
-      let amountText = truncateDecimal(walletBalance, 8);
+      let amountText = '—';
       let fiatText = getWalletFiatDisplay(item, walletBalance);
       if (!showBalance) {
         amountText = '*****';
@@ -1016,8 +1016,8 @@ const SignedInAssetHeader = () => {
       } else if (walletHasError) {
         amountText = CONNECTION_ERROR;
         fiatText = null;
-      } else if (walletBalance == null) {
-        amountText = '—';
+      } else if (walletBalance != null) {
+        amountText = truncateDecimal(walletBalance, 8);
       }
 
       return (
