@@ -154,7 +154,7 @@ const createStyles = theme =>
       borderRadius: 18,
     },
     lockActionText: {
-      color: theme.colors.primary,
+      color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
       fontSize: 16,
       lineHeight: 22,
       ...fontStyle('semiBold'),
@@ -503,7 +503,7 @@ export const SettingsLockAction = ({onPress}) => {
       style={styles.lockAction}
       testID="settings.lockWallet">
       <MaterialCommunityIcons
-        color={theme.colors.primary}
+        color={theme.isDark ? theme.colors.textPrimary : theme.colors.primary}
         name="lock-outline"
         size={19}
       />
