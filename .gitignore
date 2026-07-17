@@ -39,6 +39,8 @@ yarn-error.log
 # Local Codex and redesign artifacts
 /docs/
 /artifacts/
+/.playwright-cli/
+/.pnpm-store/
 /AGENTS.md
 /agents.md
 /DESIGN.md
