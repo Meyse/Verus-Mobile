@@ -14,8 +14,10 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
 
 const createStyles = theme =>
   StyleSheet.create({
@@ -164,6 +166,12 @@ const createStyles = theme =>
       gap: 14,
       marginBottom: 22,
     },
+    profileIcon: {
+      width: 36,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     profileCopy: {
       minWidth: 0,
       flex: 1,
@@ -174,12 +182,8 @@ const createStyles = theme =>
       lineHeight: 21,
       ...fontStyle('semiBold'),
     },
-    profileMetaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 2,
-    },
     profileMeta: {
+      marginTop: 2,
       color: theme.colors.textSubtle,
       fontSize: 11.5,
       lineHeight: 16,
@@ -222,13 +226,6 @@ const createStyles = theme =>
       fontSize: 11.5,
       lineHeight: 16,
       ...fontStyle('regular'),
-    },
-    statusDot: {
-      width: 6,
-      height: 6,
-      marginRight: 6,
-      borderRadius: 3,
-      backgroundColor: theme.colors.success,
     },
     notice: {
       flexDirection: 'row',
@@ -515,25 +512,37 @@ export const SettingsLockAction = ({onPress}) => {
   );
 };
 
-export const SettingsProfileSummary = ({name, status = 'Logged in'}) => {
+export const SettingsProfileSummary = ({name, subtitle, walletAvatar}) => {
   const theme = useOnboardingTheme();
   const styles = getStyles(theme);
+  const normalizedWalletAvatar = normalizeWalletAvatar(walletAvatar);
 
   return (
     <View style={styles.profile}>
-      <MaterialCommunityIcons
-        color={theme.colors.textSecondary}
-        name="account-outline"
-        size={29}
-      />
+      <View style={styles.profileIcon}>
+        {normalizedWalletAvatar ? (
+          <WalletAvatar
+            emojiSize={19}
+            size={36}
+            walletAvatar={normalizedWalletAvatar}
+          />
+        ) : (
+          <MaterialCommunityIcons
+            color={theme.colors.textSubtle}
+            name="wallet-outline"
+            size={26}
+          />
+        )}
+      </View>
       <View style={styles.profileCopy}>
         <Text numberOfLines={1} style={styles.profileName}>
           {name}
         </Text>
-        <View style={styles.profileMetaRow}>
-          <View style={styles.statusDot} />
-          <Text style={styles.profileMeta}>{status}</Text>
-        </View>
+        {subtitle ? (
+          <Text numberOfLines={1} style={styles.profileMeta}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

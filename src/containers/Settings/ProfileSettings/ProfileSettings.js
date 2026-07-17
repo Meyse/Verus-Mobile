@@ -514,9 +514,8 @@ class ProfileSettings extends Component {
         </Portal>
         <SettingsProfileSummary
           name={this.props.activeAccount.id}
-          status={
-            this.props.testAccount ? 'Logged in · Test profile' : 'Logged in'
-          }
+          subtitle={this.props.testAccount ? 'Test profile' : null}
+          walletAvatar={this.props.activeAccount.walletAvatar}
         />
         {this.props.testAccount ? (
           <SettingsSection title="Profile information">
