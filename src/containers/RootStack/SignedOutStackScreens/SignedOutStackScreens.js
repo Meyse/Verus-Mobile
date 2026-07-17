@@ -97,6 +97,7 @@ const SignedOutStackScreens = props => {
       <SignedOutStack.Screen
         name="CreateProfile"
         options={{
+          animationEnabled: false,
           headerShown: false,
         }}>
         {screenProps => (

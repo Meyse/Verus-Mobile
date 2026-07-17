@@ -50,6 +50,7 @@ const SignedOutNoKeyStackScreens = props => {
       <SignedOutNoKeyStack.Screen
         name="CreateProfile"
         options={{
+          animationEnabled: false,
           headerShown: false,
         }}>
         {screenProps => (

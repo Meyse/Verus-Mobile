@@ -1,5 +1,10 @@
-import React from 'react';
-import {StyleSheet} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  StyleSheet,
+} from 'react-native';
 import {Portal} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Colors from '../globals/colors';
@@ -8,6 +13,9 @@ import {
   OnboardingThemeProvider,
   useOnboardingTheme,
 } from '../theme/onboarding';
+
+const OPEN_ANIMATION_DURATION = 230;
+const CLOSE_ANIMATION_DURATION = 160;
 
 const BottomSheetModal = ({
   visible,
@@ -21,8 +29,100 @@ const BottomSheetModal = ({
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
+  const animation = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const renderVisibleRef = useRef(visible);
+  const onClosedRef = useRef(onClosed);
+  const reduceMotionRef = useRef(false);
+  const [renderVisible, setRenderVisible] = useState(visible);
   const bottomSpacing = floating ? Math.max(insets.bottom, 12) : 0;
   const safeAreaPadding = floating ? 0 : insets.bottom;
+
+  const setInternalVisible = useCallback(nextVisible => {
+    renderVisibleRef.current = nextVisible;
+    setRenderVisible(nextVisible);
+  }, []);
+
+  useEffect(() => {
+    onClosedRef.current = onClosed;
+  }, [onClosed]);
+
+  useEffect(() => {
+    let active = true;
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      reduceMotionEnabled => {
+        reduceMotionRef.current = reduceMotionEnabled;
+      },
+    );
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(reduceMotionEnabled => {
+        if (active) {
+          reduceMotionRef.current = reduceMotionEnabled;
+        }
+      })
+      .catch(() => {
+        if (active) {
+          reduceMotionRef.current = false;
+        }
+      });
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    animation.stopAnimation();
+    const reduceMotionEnabled = reduceMotionRef.current;
+
+    if (visible) {
+      setInternalVisible(true);
+      animation.setValue(reduceMotionEnabled ? 1 : 0);
+
+      if (!reduceMotionEnabled) {
+        Animated.timing(animation, {
+          toValue: 1,
+          duration: OPEN_ANIMATION_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      }
+    } else if (renderVisibleRef.current) {
+      const completeClose = () => {
+        setInternalVisible(false);
+
+        if (typeof onClosedRef.current === 'function') {
+          onClosedRef.current();
+        }
+      };
+
+      if (reduceMotionEnabled) {
+        animation.setValue(0);
+        completeClose();
+      } else {
+        Animated.timing(animation, {
+          toValue: 0,
+          duration: CLOSE_ANIMATION_DURATION,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }).start(({finished}) => {
+          if (active && finished) {
+            completeClose();
+          }
+        });
+      }
+    }
+
+    return () => {
+      active = false;
+      animation.stopAnimation();
+    };
+  }, [animation, setInternalVisible, visible]);
+
   const sheetStyle = StyleSheet.flatten([
     styles.sheet,
     floating ? styles.floatingSheet : styles.attachedSheet,
@@ -37,20 +137,55 @@ const BottomSheetModal = ({
     },
     contentContainerStyle,
   ]);
+  const overlayAnimatedStyle = {
+    opacity: animation.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, theme.colors.scrimOpacity],
+    }),
+  };
+  const sheetAnimatedStyle = {
+    opacity: animation,
+    transform: [
+      {
+        translateY: animation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [44, 0],
+        }),
+      },
+      {
+        scale: animation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.98, 1],
+        }),
+      },
+    ],
+  };
 
   return (
     <Portal>
+      {renderVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.overlay,
+            {backgroundColor: theme.colors.scrim},
+            overlayAnimatedStyle,
+          ]}
+        />
+      )}
       <SemiModal
-        animationType="slide"
-        transparent
-        visible={visible}
-        onDismiss={onClosed}
-        onRequestClose={onClose}
-        flexHeight={0.01}
-        contentContainerStyle={sheetStyle}
-        modalTheme={theme}
         {...modalProps}
-        showHeader={false}>
+        animationType="none"
+        contentContainerStyle={sheetStyle}
+        flexHeight={0.01}
+        modalTheme={theme}
+        onDismiss={undefined}
+        onRequestClose={onClose}
+        sheetAnimatedStyle={sheetAnimatedStyle}
+        showHeader={false}
+        showOverlay={false}
+        transparent
+        visible={renderVisible}>
         <OnboardingThemeProvider modeOverride={theme.mode}>
           {children}
         </OnboardingThemeProvider>
@@ -60,6 +195,12 @@ const BottomSheetModal = ({
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.quinaryColor,
+    elevation: 15,
+    zIndex: 15,
+  },
   sheet: {
     flex: 0,
     alignSelf: 'stretch',
