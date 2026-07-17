@@ -42,7 +42,7 @@ const WalletSettings = ({ navigation, dispatch, activeCoinsForUser }) => {
       ],
     });
 
-    navigation.closeDrawer();
+    if (navigation.closeDrawer) navigation.closeDrawer();
     navigation.dispatch(resetAction);
   }, [navigation]);
 

@@ -162,7 +162,7 @@ class DisplaySeed extends Component {
       routes: [{ name: route }],
     });
 
-    this.props.navigation.closeDrawer();
+    if (this.props.navigation.closeDrawer) this.props.navigation.closeDrawer();
     this.props.navigation.dispatch(resetAction);
   };
 

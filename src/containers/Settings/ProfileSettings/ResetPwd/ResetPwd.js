@@ -100,7 +100,7 @@ class ResetPwd extends Component {
       })
     }
 
-    this.props.navigation.closeDrawer();
+    if (this.props.navigation.closeDrawer) this.props.navigation.closeDrawer();
     this.props.navigation.dispatch(resetAction)
   }
 
