@@ -326,7 +326,7 @@ export default function SeedWords({
                   signedOutFlowStyles.title,
                   smallDevice && signedOutFlowStyles.titleSmallDevice,
                 ]}>
-                {isAtEnd ? 'Verify recovery phrase' : 'Write down these words'}
+                {isAtEnd ? 'Verify Secret Recovery Phrase' : 'Write down these words'}
               </Text>
               {isAtEnd && smallDevice ? null : (
                 <Text style={styles.contextText}>

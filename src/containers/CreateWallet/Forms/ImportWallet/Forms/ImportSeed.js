@@ -199,7 +199,7 @@ export default function ImportSeed({
   })();
   const reviewMessage = (() => {
     if (invalidWordIndexes.length > 0) {
-      return 'One or more words are not in the seed word list.';
+      return 'One or more words are not valid BIP39 words.';
     }
 
     if (checksumError) {
@@ -398,7 +398,7 @@ export default function ImportSeed({
     const resolvedWord = resolveSeedWord(value);
 
     if (resolvedWord == null) {
-      setEntryMessage('Choose a valid seed word.');
+      setEntryMessage('Choose a valid BIP39 word.');
       return;
     }
 
@@ -541,7 +541,7 @@ export default function ImportSeed({
   const shouldShowFooter = !wordEntryActive || reviewMode;
   const getFooterLabel = () => {
     if (reviewMode) return 'Import wallet';
-    if (allWordsFilled) return 'Review seed';
+    if (allWordsFilled) return 'Review phrase';
 
     return 'Paste all words';
   };
@@ -558,10 +558,10 @@ export default function ImportSeed({
     return 'onboarding.importSeed.paste';
   };
   const getTitle = () => {
-    if (reviewMode) return 'Review seed words';
+    if (reviewMode) return 'Review Secret Recovery Phrase';
     if (wordEntryActive) return `Word ${currentWordIndex + 1} of ${SEED_WORD_COUNT}`;
 
-    return 'Import 24-word seed';
+    return 'Import Secret Recovery Phrase';
   };
 
   const renderWordGrid = () => (

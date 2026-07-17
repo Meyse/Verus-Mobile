@@ -47,7 +47,7 @@ const RecoverSeedsSelectAccount = ({ navigation }) => {
           routes: [{ name: 'DisplaySeed', params: { data: { seeds, showDerivedKeys: true, keyDerivationVersion: passwordDialogAccount.keyDerivationVersion, completeOnBack: true } } }],
         }));
       } catch(e) {
-        createAlert("Error", "Failed to retrieve seeds");
+        createAlert("Error", "Failed to retrieve recovery secrets");
       }
     } else {
       createAlert("Authentication Error", "Incorrect password");
@@ -68,7 +68,7 @@ const RecoverSeedsSelectAccount = ({ navigation }) => {
               color: Colors.secondaryColor,
               fontWeight: '500',
             }}
-            description={`${numSeeds[account.accountHash] ? numSeeds[account.accountHash] : 0} seed${numSeeds[account.accountHash] && numSeeds[account.accountHash] > 1 ? 's' : ''}`}
+            description={`${numSeeds[account.accountHash] ? numSeeds[account.accountHash] : 0} recovery secret${numSeeds[account.accountHash] && numSeeds[account.accountHash] > 1 ? 's' : ''}`}
             left={() => <List.Icon color={Colors.secondaryColor} icon="account-circle" />}
             descriptionStyle={{ color: Colors.secondaryColor }}
             right={() => (

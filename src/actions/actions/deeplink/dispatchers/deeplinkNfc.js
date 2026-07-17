@@ -44,7 +44,7 @@ export const readDeeplinkFromNfc = async ({
     ) {
       createAlert(
         'Wallet Backup Detected',
-        'This NFC card contains a wallet backup, not a verus:// deeplink.\n\nContinue profile creation, then choose Import using NFC when you are asked how to set up your wallet seed.',
+        'This NFC card contains a wallet backup, not a verus:// deeplink.\n\nContinue profile creation, then choose Import using NFC when you are asked how to set up your Secret Recovery Phrase.',
         [
           {
             text: 'Cancel',

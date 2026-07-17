@@ -80,7 +80,10 @@ export default function ImportText({
 
   const handleImport = () => {
     if (!importedSeed || importedSeed.length < 1) {
-      createAlert('Error', 'Please enter a seed, WIF key or spending key.');
+      createAlert(
+        'Error',
+        'Please enter a custom seed, WIF key, or spending key.',
+      );
     } else {
       onComplete();
     }
@@ -131,20 +134,20 @@ export default function ImportText({
                   signedOutFlowStyles.title,
                   smallDevice && signedOutFlowStyles.titleSmallDevice,
                 ]}>
-                {'Import private key or seed'}
+                {'Enter custom seed or private key'}
               </Text>
               <AppTextInput
                 autoComplete="off"
                 importantForAutofill="no"
                 inputStyle={styles.seedInputText}
-                label="Private key or seed"
+                label="Custom seed or private key"
                 multiline={showSeed && Platform.OS !== 'ios'}
                 onChangeText={setImportedSeed}
                 onRightPress={() => setShowSeed(value => !value)}
                 rightAccessibilityLabel={
                   showSeed
-                    ? 'Hide private key or seed'
-                    : 'Show private key or seed'
+                    ? 'Hide custom seed or private key'
+                    : 'Show custom seed or private key'
                 }
                 rightIcon={showSeed ? 'eye-off' : 'eye'}
                 secureTextEntry={!showSeed}

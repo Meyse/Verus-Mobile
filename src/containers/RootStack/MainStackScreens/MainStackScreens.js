@@ -73,7 +73,7 @@ const MainStackScreens = props => {
         component={DisplaySeed}
         options={{
           ...settingsHeaderOptions,
-          title: "Seed",
+          title: "Recovery secrets",
         }}
       />
 

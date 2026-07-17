@@ -45,7 +45,10 @@ class ImportSeed extends Component {
       let _errors = false;
 
       if (!seed || seed.length < 1) {
-        Alert.alert("Error", "Please enter a seed, WIF key or spending key.");
+        Alert.alert(
+          "Error",
+          "Please enter a Secret Recovery Phrase, WIF key, or spending key."
+        );
         _errors = true;
       }
 
@@ -59,8 +62,8 @@ class ImportSeed extends Component {
         } catch (e) {
           this.setState({ loading: false });
           Alert.alert(
-            "Invalid Seed",
-            "Please enter a valid 24 word seed phrase, or an extended spending key belonging to a Z address."
+            "Invalid Recovery Secret",
+            "Please enter a valid 24-word BIP39 Secret Recovery Phrase or an extended spending key belonging to a Z address."
           );
         }
       } else {
@@ -70,8 +73,8 @@ class ImportSeed extends Component {
         ) {
           this.setState({ loading: false });
           Alert.alert(
-            "Invalid Seed",
-            "Please enter a valid 24 word seed phrase."
+            "Invalid Secret Recovery Phrase",
+            "Please enter a valid 24-word Secret Recovery Phrase."
           );
         } else {
           this.setState({ loading: false });
@@ -92,23 +95,23 @@ class ImportSeed extends Component {
           >
             <View style={Styles.headerContainer}>
               <Text style={Styles.centralHeader}>
-                {"Import Existing WIF/Seed"}
+                {"Import Secret Recovery Phrase or Key"}
               </Text>
             </View>
             <View style={Styles.fullWidthFlexGrowCenterBlock}>
               <View style={Styles.wideCenterBlock}>
                 <Text style={[Styles.textWithGreyColor, Styles.centeredText]}>
                   {this.props.channel === WYRE_SERVICE
-                    ? "Enter or scan a 24 word seed phrase."
+                    ? "Enter or scan a 24-word Secret Recovery Phrase."
                     : this.props.channel === DLIGHT_PRIVATE
-                    ? "Enter or scan a 24 word seed phrase, or Z spending key."
-                    : "Enter or scan an existing spending key, WIF key, or seed phrase."}
+                    ? "Enter or scan a Secret Recovery Phrase or Z spending key."
+                    : "Enter or scan an existing spending key, WIF key, or Secret Recovery Phrase."}
                 </Text>
               </View>
               <View style={Styles.wideCenterBlock}>
                 <TextInput
                   onChangeText={(text) => this.setState({ seed: text })}
-                  label={"Seed"}
+                  label={"Recovery secret or key"}
                   underlineColor={Colors.primaryColor}
                   selectionColor={Colors.primaryColor}
                   value={this.state.seed}
@@ -140,7 +143,7 @@ class ImportSeed extends Component {
                   onPress={() =>
                     this.setState({ showSeed: !this.state.showSeed })
                   }
-                >{`${this.state.showSeed ? "Hide" : "Show"} Seed`}</Button>
+                >{`${this.state.showSeed ? "Hide" : "Show"} Recovery Secret`}</Button>
               </View>
             </View>
             <View style={Styles.footerContainer}>

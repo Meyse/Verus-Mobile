@@ -42,7 +42,9 @@ export const getMnemonicEntropyBuffer = mnemonic => {
   const normalized = mnemonic.trim().replace(/\s+/g, ' ');
 
   if (!isValid24WordBip39Mnemonic(normalized)) {
-    throw new Error('Wallet seed must be a valid 24 word BIP39 mnemonic.');
+    throw new Error(
+      'Secret Recovery Phrase must be a valid 24-word BIP39 phrase.',
+    );
   }
 
   return Buffer.from(mnemonicToEntropy(normalized), 'hex');
@@ -52,13 +54,15 @@ export const entropyBufferToMnemonic = entropy => {
   const entropyBuffer = Buffer.from(entropy);
 
   if (entropyBuffer.length !== 32) {
-    throw new Error('Seed details must contain 32 bytes of BIP39 entropy.');
+    throw new Error('Recovery data must contain 32 bytes of BIP39 entropy.');
   }
 
   const mnemonic = entropyToMnemonic(entropyBuffer.toString('hex'));
 
   if (!isValid24WordBip39Mnemonic(mnemonic)) {
-    throw new Error('Seed details do not contain a valid 24 word BIP39 seed.');
+    throw new Error(
+      'Recovery data does not contain a valid 24-word BIP39 Secret Recovery Phrase.',
+    );
   }
 
   return mnemonic;
@@ -76,8 +80,8 @@ export const seedDetailsRequiresPassword = seedDetailsOrdinal => {
 export const validateSeedDetails = (
   seedDetails,
   {
-    invalidMessage = 'Invalid seed details.',
-    unsupportedSeedMessage = 'Only BIP39 seed details are supported.',
+    invalidMessage = 'Invalid recovery data.',
+    unsupportedSeedMessage = 'Only BIP39 recovery data is supported.',
   } = {},
 ) => {
   if (seedDetails == null || !seedDetails.isValid()) {
@@ -93,19 +97,19 @@ export const validateSeedDetails = (
     seedDetails.usesSaltedTaggedAes256Gcm()
   ) {
     if (!seedDetails.usesSaltedTaggedAes256Gcm()) {
-      throw new Error('Unsupported seed details encryption format.');
+      throw new Error('Unsupported recovery data encryption format.');
     }
 
     if (
       !seedDetails.containsKDFIters() ||
       seedDetails.KDFIters.toNumber() <= 0
     ) {
-      throw new Error('Encrypted seed details are missing KDF iteration metadata.');
+      throw new Error('Encrypted recovery data is missing KDF iteration metadata.');
     }
   } else if (
     !seedDetails.encryptionFormat.eq(seedDetails.constructor.ENCRYPTION_FORMAT_NONE)
   ) {
-    throw new Error('Unsupported seed details encryption format.');
+    throw new Error('Unsupported recovery data encryption format.');
   }
 };
 
@@ -113,9 +117,9 @@ export const seedDetailsOrdinalToMnemonic = ({
   seedDetailsOrdinal,
   ExpectedOrdinalClass,
   password,
-  invalidMessage = 'Payload does not contain valid seed details.',
-  passwordRequiredMessage = 'These seed details are encrypted. Enter the password.',
-  decryptErrorMessage = 'Unable to decrypt seed details. Check the password and try again.',
+  invalidMessage = 'Payload does not contain valid recovery data.',
+  passwordRequiredMessage = 'This recovery data is encrypted. Enter the password.',
+  decryptErrorMessage = 'Unable to decrypt recovery data. Check the password and try again.',
 }) => {
   const seedDetails = seedDetailsOrdinal && seedDetailsOrdinal.data;
 
@@ -166,7 +170,7 @@ export const buildSeedDetails = async ({
 
   if (encrypted) {
     if (!Number.isInteger(parsedKdfIters) || parsedKdfIters <= 0) {
-      throw new Error('Seed details encryption iterations must be a positive integer.');
+      throw new Error('Recovery data encryption iterations must be a positive integer.');
     }
 
     const encryptedSeedDetails = await saltedEncrypt(
@@ -192,7 +196,7 @@ export const buildSeedDetails = async ({
   });
 
   if (!seedDetails.isValid()) {
-    throw new Error('Failed to create valid seed details.');
+    throw new Error('Failed to create valid recovery data.');
   }
 
   return seedDetails;

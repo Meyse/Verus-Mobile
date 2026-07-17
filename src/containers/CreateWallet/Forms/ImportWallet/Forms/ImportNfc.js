@@ -262,7 +262,9 @@ export default function ImportNfc({
           ) : (
             <View style={styles.field}>
               <Text style={styles.bodyTextWithSpacing}>
-                {'Scan a Verus NFC wallet backup card to import its 24-word seed.'}
+                {
+                  'Scan a Verus NFC wallet backup card to import its Secret Recovery Phrase.'
+                }
               </Text>
               <Button
                 mode="contained"

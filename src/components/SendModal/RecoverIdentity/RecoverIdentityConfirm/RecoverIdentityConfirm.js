@@ -46,7 +46,7 @@ const RecoverIdentityConfirm = props => {
     const encryptedSeed = sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
     const seed = decryptkey(instanceKey, encryptedSeed);
 
-    if (!seed) throw new Error("Unable to decrypt seed");
+    if (!seed) throw new Error("Unable to decrypt recovery secret");
 
     const keyObj = await deriveKeyPair(seed, coinsList.VRSC, ELECTRUM);
 

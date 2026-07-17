@@ -64,7 +64,7 @@ const START_ACTIONS = [
 
 const IMPORT_ACTIONS = [
   {
-    label: 'Import 24-word recovery phrase',
+    label: 'Import Secret Recovery Phrase',
     IconComponent: ArrowDownToLine,
     testID: 'onboarding.startSheet.importSeed',
     selection: {
@@ -82,7 +82,7 @@ const IMPORT_ACTIONS = [
     },
   },
   {
-    label: 'Enter private key or seed',
+    label: 'Enter custom seed or private key',
     IconComponent: KeyRound,
     testID: 'onboarding.startSheet.importText',
     selection: {

@@ -151,7 +151,7 @@ class SignUp extends Component {
         if (_seeds[ELECTRUM] == null) {
           createAlert(
             "Error",
-            "Please configure at least a primary seed."
+            "Please configure a primary recovery secret."
           );
           _errors = true;
         }

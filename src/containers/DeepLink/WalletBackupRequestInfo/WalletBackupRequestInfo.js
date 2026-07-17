@@ -301,7 +301,7 @@ const WalletBackupRequestInfo = props => {
 
     return createAlert(
       'Unencrypted Backup',
-      'This will write your wallet seed backup without a backup password. Continue?',
+      'This will write your Secret Recovery Phrase to the NFC card without a backup password. Continue?',
       [
         {
           text: 'Cancel',
@@ -356,7 +356,9 @@ const WalletBackupRequestInfo = props => {
       const mnemonic = seeds[ELECTRUM];
 
       if (!isValid24WordBip39Mnemonic(mnemonic)) {
-        throw new Error('The active profile primary seed is not a valid 24 word BIP39 mnemonic.');
+        throw new Error(
+          'The active profile does not contain a valid 24-word BIP39 Secret Recovery Phrase.',
+        );
       }
 
       const walletBackup = await buildWalletBackupOrdinal({
@@ -431,7 +433,7 @@ const WalletBackupRequestInfo = props => {
       console.error(e);
       createAlert(
         'Backup Failed',
-        `${e.message || 'Unable to write wallet backup to NFC card.'}\n\nYour seed was not backed up by this request. You can back up your seed later from the app settings.`,
+        `${e.message || 'Unable to write wallet backup to NFC card.'}\n\nYour Secret Recovery Phrase was not backed up by this request. You can back it up later from the app settings.`,
       );
     } finally {
       if (nfcSessionPreRegistered && !nfcWriterStarted) {
@@ -465,7 +467,7 @@ const WalletBackupRequestInfo = props => {
               Choose NFC Card Action
             </Text>
             <Text style={styles.body}>
-              This NFC card can back up a wallet seed and redeem a spendable key. You can claim the spendable key to an existing matching profile, or back up a profile to the card first and then claim to that backed-up profile.
+              This NFC card can back up a Secret Recovery Phrase and redeem a spendable key. You can claim the spendable key to an existing matching profile, or back up a profile to the card first and then claim to that backed-up profile.
             </Text>
             <AppButton
               height={56}

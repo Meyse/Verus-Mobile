@@ -276,7 +276,7 @@ class DisplaySeed extends Component {
                             {fetchingDerivedKey[key] ? (
                               <ActivityIndicator size="small" />
                             ) : isToggleOn ? (
-                              'Show seed'
+                              'Show recovery secret'
                             ) : key === ELECTRUM ? (
                               'Show derived key (VRSC)'
                             ) : (

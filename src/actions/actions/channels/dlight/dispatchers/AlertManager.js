@@ -22,9 +22,8 @@ export const canRetryDlightInitialization = (chainTicker) => {
 export const canShowSeed = () => {
   return createAlert(
     'Warning',
-    "The next screen will display your unencrypted wallet seed in plain text.\n\n" + 
-    "Be careful and take into consideration the fact that anyone with access to " + 
-    "this seed will have access to all the funds in its wallet.\n\nAre you sure you " +
+    "The next screen will display your unencrypted wallet recovery secrets and private keys in plain text.\n\n" +
+    "Anyone with access to this information can control the associated funds.\n\nAre you sure you " +
     "would like to proceed?",
     [
       {
@@ -42,8 +41,8 @@ export const canShowSeed = () => {
 
 export const canCopySeed = () => {
   return createAlert(
-    "Copy Seed?",
-    "Would you like to use the same seed as both your primary seed, and secondary seed?." +
+    "Use the same recovery secret?",
+    "Would you like to use the same recovery secret as both your primary and secondary recovery secrets?" +
       "\n\n" +
       "If you use private addresses and transactions, this would make your private addresses derived from the same source as your transparent addresses.",
     [

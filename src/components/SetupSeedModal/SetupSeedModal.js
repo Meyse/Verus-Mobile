@@ -50,7 +50,7 @@ class SetupSeedModal extends Component {
         }
       })
     } catch(e) {
-      createAlert("Error", "Error generating seed words.")
+      createAlert("Error", "Error generating Secret Recovery Phrase.")
       this.props.cancel()
       console.warn(e)
     }

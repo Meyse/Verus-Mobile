@@ -297,11 +297,11 @@ export const authenticateAccount = async (account, password) => {
                       ? ELECTRUM
                       : channel;
 
-                  if (seeds[seedChannel] == null) throw new Error('No seed for channel ' + seedChannel);
+                  if (seeds[seedChannel] == null) throw new Error('No recovery secret for channel ' + seedChannel);
 
                   const decryptedSeed = decryptkey(password, seeds[seedChannel]);
 
-                  if (!decryptedSeed) throw new Error('Failed to decrypt seed for channel ' + seedChannel);
+                  if (!decryptedSeed) throw new Error('Failed to decrypt recovery secret for channel ' + seedChannel);
 
                   const keyObj = await deriveKeyPair(
                     decryptedSeed,
@@ -410,7 +410,7 @@ export const addKeypairs = async (
       ? accountSeeds[seedType]
       : accountSeeds[ELECTRUM];
 
-    if (!seed) throw new Error('No seed found for account');
+    if (!seed) throw new Error('No recovery secret found for account');
     
     if (
       (coinObj.compatible_channels.includes(seedType) &&

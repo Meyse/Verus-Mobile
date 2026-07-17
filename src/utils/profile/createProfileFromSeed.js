@@ -63,11 +63,11 @@ export const createProfileFromSeed = async ({
       );
     }
   } catch (e) {
-    throw new Error(`Could not create keypair from seed: ${e.message}`);
+    throw new Error(`Could not create keypair from recovery secret: ${e.message}`);
   }
 
   if (seeds[ELECTRUM] == null) {
-    throw new Error('Please configure at least a primary seed.');
+    throw new Error('Please configure a primary recovery secret.');
   }
 
   const accountHash = hashAccountId(profileName);

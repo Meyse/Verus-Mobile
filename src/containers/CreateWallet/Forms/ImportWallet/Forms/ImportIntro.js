@@ -51,7 +51,7 @@ export default function ImportIntro({navigation, label, onSelectMethod}) {
           }}
           mode="outlined"
           onPress={() => selectMethod('seed')}>
-          {"Import 24-word seed"}
+          {"Import Secret Recovery Phrase"}
         </Button>
         <Button
           icon={({ size, color }) => (
@@ -127,7 +127,7 @@ export default function ImportIntro({navigation, label, onSelectMethod}) {
           }}
           mode="outlined"
           onPress={() => selectMethod('text')}>
-          {"Enter private key or seed"}
+          {"Enter custom seed or private key"}
         </Button>
       </View>
     </View>

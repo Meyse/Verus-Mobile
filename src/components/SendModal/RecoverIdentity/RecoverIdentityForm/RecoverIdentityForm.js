@@ -81,7 +81,7 @@ const RecoverIdentityForm = (props) => {
     const encryptedSeed = sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
     const seed = decryptkey(instanceKey, encryptedSeed);
 
-    if (!seed) throw new Error("Unable to decrypt seed");
+    if (!seed) throw new Error("Unable to decrypt recovery secret");
 
     const keyObj = await deriveKeyPair(seed, coinObj, ELECTRUM);
     const {addresses} = keyObj;
@@ -178,7 +178,7 @@ const RecoverIdentityForm = (props) => {
 
       if (!isInWallet) {
         throw new Error(
-          'Ensure that your imported seed/key corresponds to the primary address of the VerusID set as your recovery authority.',
+          'Ensure that your imported recovery secret or key corresponds to the primary address of the VerusID set as your recovery authority.',
         );
       }
 

@@ -71,7 +71,7 @@ const SignedOutStackScreens = props => {
         name="DisplaySeed"
         component={DisplaySeed}
         options={{
-          title: 'Seed',
+          title: 'Recovery secrets',
         }}
       />
 

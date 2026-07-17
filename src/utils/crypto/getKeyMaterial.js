@@ -37,7 +37,7 @@ export const getKeyMaterial = async (systemID) => {
   } catch (e) {}
 
   throw new Error(
-    `No Z (shielded address) seed has been set up. ` +
-    `Please go to Settings → Profile and set up a Z Seed before accepting encryption requests.`
+    `No Z recovery secret has been set up. ` +
+    `Please go to Settings → Profile and set up a Z recovery secret before accepting encryption requests.`
   );
 };

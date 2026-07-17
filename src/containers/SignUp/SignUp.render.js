@@ -102,7 +102,7 @@ export const SignUpRender = function() {
                 <View style={Styles.wideBlockDense}>
                   <Checkbox.Item
                     color={Colors.primaryColor}
-                    label={"Configure account seed"}
+                    label={"Configure account recovery secret"}
                     status={
                       this.state.seeds[ELECTRUM] != null
                         ? "checked"
@@ -116,7 +116,7 @@ export const SignUpRender = function() {
                   <View style={Styles.wideBlockDense}>
                     <Checkbox.Item
                       color={Colors.primaryColor}
-                      label={"Setup Optional (Z Address) Seed"}
+                      label={"Set Up Optional Z Recovery Secret"}
                       status={
                         this.state.seeds[DLIGHT_PRIVATE] != null
                           ? "checked"

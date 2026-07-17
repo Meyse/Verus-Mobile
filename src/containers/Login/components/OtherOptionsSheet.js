@@ -9,7 +9,7 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const OTHER_ACTIONS = [
   {
-    label: 'Recover profile seed',
+    label: 'View profile recovery secrets',
     IconComponent: KeyRound,
     actionKey: 'onRecoverProfileSeed',
   },

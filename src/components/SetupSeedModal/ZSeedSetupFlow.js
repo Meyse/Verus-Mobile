@@ -43,7 +43,9 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
     const trimmedValue = importValue.trim();
 
     if (!trimmedValue) {
-      setImportError('Enter a recovery phrase or extended Z spending key.');
+      setImportError(
+        'Enter a Secret Recovery Phrase or extended Z spending key.',
+      );
       return;
     }
 
@@ -57,7 +59,7 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
       finish(trimmedValue);
     } catch (error) {
       setImportError(
-        'Enter a valid BIP39 recovery phrase or an extended spending key belonging to a Z address.',
+        'Enter a valid BIP39 Secret Recovery Phrase or an extended spending key belonging to a Z address.',
       );
       setImportLoading(false);
     }
@@ -125,11 +127,12 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
                 />
                 <Text
                   style={[styles.title, smallDevice && styles.titleSmall]}>
-                  Set up your Z seed
+                  Set up your Z recovery secret
                 </Text>
                 <Text style={styles.body}>
-                  A secondary Z seed protects private addresses and app-encryption
-                  capabilities. It is a separate secret, not a preference toggle.
+                  A secondary Z recovery secret protects private addresses and
+                  app-encryption capabilities. It is a separate secret, not a
+                  preference toggle.
                 </Text>
                 <View style={styles.notice}>
                   <MaterialCommunityIcons
@@ -138,8 +141,8 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
                     size={20}
                   />
                   <Text style={styles.noticeText}>
-                    Anyone with this recovery phrase or spending key can control its
-                    funds. Store it offline before continuing.
+                    Anyone with this Secret Recovery Phrase or spending key can
+                    control its funds. Store it offline before continuing.
                   </Text>
                 </View>
               </>
@@ -149,12 +152,12 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
               <>
                 <Text
                   style={[styles.title, smallDevice && styles.titleSmall]}>
-                  Import a Z seed
+                  Import a Z recovery secret
                 </Text>
                 <Text style={styles.body}>
-                  Import a valid BIP39 recovery phrase (12, 15, 18, 21, or 24
-                  words) or an extended Z spending key. New recovery phrases
-                  created here contain 24 words.
+                  Import a valid BIP39 Secret Recovery Phrase (12, 15, 18, 21, or
+                  24 words) or an extended Z spending key. New Secret Recovery
+                  Phrases created here contain 24 words.
                 </Text>
                 <AppTextInput
                   autoComplete="off"
@@ -162,7 +165,7 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
                   errorText={importError}
                   importantForAutofill="no"
                   inputShellStyle={styles.importInputShell}
-                  label="Recovery phrase or spending key"
+                  label="Secret Recovery Phrase or spending key"
                   multiline={showImportValue}
                   onChangeText={value => {
                     setImportValue(value);
@@ -205,14 +208,14 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
             onPress={() => setStage('create')}
             testID="settings.zSeed.create"
             variant="primary">
-            Create new 24-word seed
+            Create new Secret Recovery Phrase
           </AppButton>
           <AppButton
             height={52}
             onPress={() => setStage('import')}
             testID="settings.zSeed.openImport"
             variant="secondary">
-            Import existing seed or key
+            Import Secret Recovery Phrase or spending key
           </AppButton>
         </SafeBottomActionStack>
       ) : null}

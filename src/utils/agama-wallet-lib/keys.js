@@ -48,7 +48,7 @@ const seedToWif = (seed, network, iguana) => {
       } else if (dBig >= n) {
         Alert.alert(
           'Private Key Warning',
-          'The derived private key scalar is ≥ curve order. Some wallets may behave inconsistently when importing it. Consider generating a new seed.'
+          'The derived private key scalar is ≥ curve order. Some wallets may behave inconsistently when importing it. Consider generating a new Secret Recovery Phrase.'
         );
       }
 

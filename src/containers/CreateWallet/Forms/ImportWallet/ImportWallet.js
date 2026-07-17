@@ -113,7 +113,7 @@ export default function ImportWalletStackScreens({
       return (
         <ShieldedAddressSetup
           actionLabel="Complete"
-          body="Use this recovery phrase for private transactions and encryption capabilities. Recommended."
+          body="Use this Secret Recovery Phrase for private transactions and encryption capabilities. Recommended."
           onBack={goBack}
           onComplete={useSeedAsZ => onComplete(importedSeed, {useSeedAsZ})}
           optionLabel="Restore shielded address"

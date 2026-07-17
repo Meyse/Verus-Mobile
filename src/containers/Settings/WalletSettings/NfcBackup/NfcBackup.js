@@ -6,7 +6,7 @@ const NfcBackup = props => {
   const finishBackup = async () => {
     createAlert(
       'Backup Complete',
-      'Your current profile seed has been written to the NFC card.',
+      'Your Secret Recovery Phrase has been written to the NFC card.',
     );
     props.navigation.goBack();
   };

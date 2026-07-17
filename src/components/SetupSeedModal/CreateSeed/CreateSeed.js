@@ -100,7 +100,7 @@ class CreateSeed extends Component {
     return (
       <ScrollView style={Styles.flexBackground} contentContainerStyle={Styles.centerContainer}>
         <View style={Styles.headerContainer}>
-          <Text style={Styles.centralHeader}>{"Seed Setup"}</Text>
+          <Text style={Styles.centralHeader}>{"Secret Recovery Phrase Setup"}</Text>
         </View>
         {formStep === 0 && (
           <View style={Styles.standardWidthFlexGrowCenterBlock}>
@@ -108,7 +108,7 @@ class CreateSeed extends Component {
               {`You will now be shown a sequence of ${DEFAULT_SEED_PHRASE_LENGTH} words.`}
             </Text>
             <Text style={Styles.centralLightTextPadded}>
-              {"This sequence of words is a seed phrase, a secret key used to access your wallet."}
+              {"This sequence of words is your Secret Recovery Phrase, a secret key used to access your wallet."}
             </Text>
             <Text style={Styles.centralLightTextPadded}>
               {"Write each word down, seperated by a space, and keep your words safe."}
@@ -125,10 +125,10 @@ class CreateSeed extends Component {
                 onPress={this.props.importSeed}
               >
                 {this.props.channel === WYRE_SERVICE
-                  ? "import an existing 24 word seed phrase"
+                  ? "import an existing Secret Recovery Phrase"
                   : this.props.channel === DLIGHT_PRIVATE
-                  ? "import an existing seed phrase/spending key."
-                  : "import an existing seed/wallet."}
+                  ? "import an existing Secret Recovery Phrase or spending key."
+                  : "import an existing recovery secret or wallet."}
               </Text>
             </View>
           </View>

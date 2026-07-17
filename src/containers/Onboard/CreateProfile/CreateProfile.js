@@ -152,7 +152,7 @@ export default function CreateProfileStackScreens(props) {
       setNewSeed(seed);
       return seed;
     } catch (e) {
-      createAlert('Error', 'Error generating seed words.');
+      createAlert('Error', 'Error generating Secret Recovery Phrase.');
       console.warn(e);
       return null;
     }
@@ -437,7 +437,7 @@ export default function CreateProfileStackScreens(props) {
       return (
         <ShieldedAddressSetup
           actionLabel="Complete"
-          body="Use this recovery phrase for private transactions and encryption capabilities. Recommended."
+          body="Use this Secret Recovery Phrase for private transactions and encryption capabilities. Recommended."
           onComplete={completeImportShieldedSetup}
           optionLabel="Restore shielded address"
           showHeader={false}

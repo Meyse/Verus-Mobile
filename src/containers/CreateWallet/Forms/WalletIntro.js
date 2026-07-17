@@ -59,7 +59,9 @@ export default function WalletIntro({navigation, ensureNewSeed, testProfile}) {
             width: '60%',
             marginTop: 24
           }}>
-          {"Create a wallet, or import a seed or private key you already control."}
+          {
+            "Create a wallet, or import a Secret Recovery Phrase or private key you already control."
+          }
         </Paragraph>
       </View>
       <SafeBottomActionStack

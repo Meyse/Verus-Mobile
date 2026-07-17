@@ -49,7 +49,7 @@ const RevokeRecoverStackScreens = props => {
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
             onComplete={completeImport}
-            label={`Import ${isRecovery ? "Recovery" : "Revocation"} Seed or Key`}
+            label={`Import ${isRecovery ? "Recovery" : "Revocation"} Secret or Key`}
           />
         )}
       </RevokeRecoverStack.Screen>

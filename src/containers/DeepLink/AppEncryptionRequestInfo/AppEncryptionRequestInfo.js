@@ -87,7 +87,7 @@ const ROOT_CHAIN_BY_NETWORK = {
 };
 
 const SHIELDED_SETUP_PROFILE_MESSAGE =
-  'Set up the shielded-address seed in Settings > Profile, then restart Verus Mobile and try again.';
+  'Set up the Z recovery secret in Settings > Profile, then restart Verus Mobile and try again.';
 
 const SHIELDED_SETUP_RESTART_MESSAGE =
   'Restart Verus Mobile, unlock this profile, and try again.';
@@ -706,10 +706,10 @@ const AppEncryptionRequestInfoContent = props => {
       });
     } catch (e) {
       const isZSeedMissing =
-        e.message && e.message.includes('No Z (shielded address) seed');
+        e.message && e.message.includes('No Z recovery secret');
 
       createAlert(
-        isZSeedMissing ? 'Z seed required' : 'Error',
+        isZSeedMissing ? 'Z recovery secret required' : 'Error',
         e.message || 'Failed to process encryption request.',
       );
 

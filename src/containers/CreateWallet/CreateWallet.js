@@ -24,7 +24,7 @@ export default function CreateWalletStackScreens({
       setNewSeed(seed);
       return seed;
     } catch (e) {
-      createAlert('Error', 'Error generating seed words.');
+      createAlert('Error', 'Error generating Secret Recovery Phrase.');
       console.warn(e);
       return null;
     }

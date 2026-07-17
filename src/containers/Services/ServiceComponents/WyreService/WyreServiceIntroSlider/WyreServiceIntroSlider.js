@@ -217,11 +217,11 @@ class WyreServiceIntroSlider extends Component {
           }}
         /> */}
         <Text style={{ textAlign: "center", width: "75%", color: "white" }}>
-          {"Import a 24 word seed phrase associated with a Wyre account."}
+          {"Import a 24-word Secret Recovery Phrase associated with a Wyre account."}
         </Text>
         {this.state.hasElectrum24WordSeed && (
           <Button style={{ marginTop: 16 }} mode="contained" onPress={() => this.linkCurrentSeed()}>
-            {"Link current seed"}
+            {"Link current Secret Recovery Phrase"}
           </Button>
         )}
         <Button
@@ -230,8 +230,8 @@ class WyreServiceIntroSlider extends Component {
           onPress={() => this.setState({ setupWyreSeedModalOpen: true })}
         >
           {this.state.hasElectrum24WordSeed
-            ? "Import & link different seed"
-            : "Import & link seed"}
+            ? "Import & link different Secret Recovery Phrase"
+            : "Import & link Secret Recovery Phrase"}
         </Button>
         <Text
           style={{

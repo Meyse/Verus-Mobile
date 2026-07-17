@@ -190,7 +190,7 @@ export default function SeedIntro({
               smallDevice && signedOutFlowStyles.titleSmallDevice,
               styles.title,
             ]}>
-            {'Back up your recovery phrase'}
+            {'Back up your Secret Recovery Phrase'}
           </Text>
           <View style={styles.guidanceList}>
             {GUIDANCE.map(item => (
@@ -214,7 +214,7 @@ export default function SeedIntro({
           onPress={showRecoveryPhrase}
           testID="onboarding.seedIntro.showPhrase"
           variant="primary">
-          {'Show recovery phrase'}
+          {'Show Secret Recovery Phrase'}
         </AppButton>
       </SafeBottomActionStack>
       <BottomSheetModal
@@ -224,11 +224,11 @@ export default function SeedIntro({
         maxHeight="64%">
         <View style={styles.warningSheet}>
           <Text style={styles.warningTitle}>
-            {'Protect your recovery phrase'}
+            {'Protect your Secret Recovery Phrase'}
           </Text>
           <Text style={[signedOutSheetStyles.bodyText, styles.warningBody]}>
             {
-              'Never share your recovery phrase with anyone. Anyone with these words can control your wallet.'
+              'Never share your Secret Recovery Phrase with anyone. Anyone with these words can control your wallet.'
             }
           </Text>
           <Text style={[signedOutSheetStyles.bodyText, styles.warningBody]}>

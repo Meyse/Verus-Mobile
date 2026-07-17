@@ -354,11 +354,11 @@ export default function CreatePassword({
             </Text>
             <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
               {
-                'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your recovery phrase, which you will see in the next steps.'
+                'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your Secret Recovery Phrase, which you will see in the next steps.'
               }
             </Text>
             <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
-              {'Keep your recovery phrase private and stored somewhere safe.'}
+              {'Keep your Secret Recovery Phrase private and stored somewhere safe.'}
             </Text>
             <AppButton
               height={52}
@@ -503,11 +503,11 @@ export default function CreatePassword({
           </Text>
           <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
             {
-              'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your recovery phrase, which you will see in the next steps.'
+              'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your Secret Recovery Phrase, which you will see in the next steps.'
             }
           </Text>
           <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
-            {'Keep your recovery phrase private and stored somewhere safe.'}
+            {'Keep your Secret Recovery Phrase private and stored somewhere safe.'}
           </Text>
           <AppButton
             height={52}

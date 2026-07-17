@@ -140,7 +140,7 @@ class SecureStore {
 
   isEncrypted() {
     if (this.encryptedFlagSet()) {
-      if (this.credential == null) throw new Error("CRITICAL ERROR! Unable to decrypt wallet data because of missing keychain credential! Try restarting wallet, or clearing wallet data and restoring your wallet from the seed you have backed up (this action will clear all wallet/account data from this device).");
+      if (this.credential == null) throw new Error("CRITICAL ERROR! Unable to decrypt wallet data because of a missing keychain credential! Try restarting the wallet, or clear wallet data and restore your wallet using the Secret Recovery Phrase or private key you backed up (this action will clear all wallet and account data from this device).");
 
       return true;
     } else return false
@@ -276,7 +276,7 @@ class SecureStore {
 
         return decryptedItem;
       } catch (e) {
-        throw new Error("CRITICAL ERROR! Unable to decrypt encrypted wallet data. Try restarting your wallet, or clearing wallet data and restoring your wallet from the seed you have backed up (this action will clear all wallet/account data from this device).");
+        throw new Error("CRITICAL ERROR! Unable to decrypt encrypted wallet data. Try restarting your wallet, or clear wallet data and restore your wallet using the Secret Recovery Phrase or private key you backed up (this action will clear all wallet and account data from this device).");
       }
       
     } else {

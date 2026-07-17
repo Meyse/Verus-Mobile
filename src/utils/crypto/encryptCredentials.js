@@ -106,7 +106,7 @@ export const processEncryptedKeys = async (
   if (!derivedAddress || derivedAddress !== privateAddress) {
     throw new Error(
       "The z-address on this identity does not match the z-address linked to your account. " +
-      "Credential encryption requires the identity's z-address to be derived from the same seed as your account's shielded (Z) address."
+      "Credential encryption requires the identity's z-address to be derived from the same recovery secret as your account's shielded (Z) address."
     );
   }
 

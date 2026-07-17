@@ -630,7 +630,7 @@ const ConfirmPayStep = ({
           {hasEncryptedKeys && (
             <View style={localStyles.encryptedKeyRecapRow}>
               <Text style={localStyles.encryptedKeyRecapText}>
-                Credential data will be encrypted with a key derived from your identity so that neither the credential type nor its contents are publicly visible on-chain. Your account's shielded (Z) seed must match the identity's z-address.
+                    Credential data will be encrypted with a key derived from your identity so that neither the credential type nor its contents are publicly visible on-chain. Your account's Z recovery secret must match the identity's z-address.
               </Text>
             </View>
           )}

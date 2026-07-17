@@ -85,7 +85,7 @@ export const addEncryptedKeyToUser = async (accountHash, channel, seed, password
     const userObj = users[userObjIndex]
 
     if (userObj.encryptedKeys[channel] != null && !overwrite) {
-      throw new Error(`User with hash ${accountHash} already has as ${channel} seed, cannot overwrite.`)
+      throw new Error(`User with hash ${accountHash} already has a ${channel} recovery secret and it cannot be overwritten.`)
     } else {
       let newUserObj = {...userObj}
       newUserObj.encryptedKeys[channel] = await encryptkey(password, seed)
@@ -348,8 +348,8 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
               if (seedPotentiallyCorrupted) {
                 if (!user.hideSeedWarnings) {
                   Alert.alert(
-                    "Possible Seed Corruption Detected",
-                    "Non-standard characters were detected in your profile seed.\n\nIf your seed is a standard word-based phrase, or a WIF key, this could indicate that your seed data was corrupted, and may not match your seed backup.\n\nCheck your seed by going into Settings > Profile > Recover Seed. If it does not match your backup, create a new profile from your backup and send any funds on this profile to that new profile.\n\nYou can disable this warning in Profile > Settings."
+                    "Possible Recovery Data Issue",
+                    "Non-standard characters were detected in your stored profile recovery data.\n\nIf it is a Secret Recovery Phrase or WIF key, this could indicate that the data is corrupted and may not match your offline backup.\n\nCheck it by going to Settings > Profile > View recovery secrets. If it does not match your backup, create a new profile from your backup and transfer any funds from this profile to the new profile.\n\nYou can disable this warning in Settings > Profile."
                   );
                 }
 

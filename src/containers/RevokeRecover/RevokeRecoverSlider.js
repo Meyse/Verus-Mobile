@@ -123,7 +123,7 @@ export default function RevokeRecoverSlider({ navigation, setIsRecovery }) {
           {
             key: 2,
             title: '',
-            text: 'To revoke, you will need access to the seed of your revocation VerusID. To recover, you will need access to the seed of your recovery VerusID.',
+            text: 'To revoke, you will need access to the recovery secret or key for your revocation VerusID. To recover, you will need access to the recovery secret or key for your recovery VerusID.',
           },
         ]}
         renderNextButton={() => {

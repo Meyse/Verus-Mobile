@@ -180,7 +180,7 @@ class ProfileSettings extends Component {
       createAlert(
         "Error",
         `Failed to ${hideSeedWarnings ? "enable" : "disable"
-        } seed corruption warning.`
+        } recovery data integrity warning.`
       );
     }
   };
@@ -189,7 +189,7 @@ class ProfileSettings extends Component {
     return createAlert(
       'Change key derivation version?',
       "Changing the key derivation version will change how your addresses are derived from your " + 
-      "seed for this profile. This will log you out.",
+      "stored recovery secret for this profile. This will log you out.",
       [
         {
           text: 'No',
@@ -340,9 +340,9 @@ class ProfileSettings extends Component {
   
             createAlert(
               "Success",
-              `Z Seed set for ${
+              `Z recovery secret saved for ${
                 this.props.activeAccount.id
-              }. Restart Verus Mobile and login to start using Z cards!`
+              }. Restart Verus Mobile and sign in to start using Z cards.`
             );
           } catch(e) {
             createAlert("Error", e.message);
@@ -356,8 +356,8 @@ class ProfileSettings extends Component {
 
   canUseCurrentSeedForZ = () => {
     return createAlert(
-      "Use existing seed for Z?",
-      "Your current seed has been detected as a valid 24-word mnemonic. Would you like to use it as your Z (shielded address) seed?",
+      "Use existing Secret Recovery Phrase for Z?",
+      "Your current Secret Recovery Phrase is a valid 24-word BIP39 phrase. Would you like to use it as your Z recovery secret?",
       [
         {
           text: "No",
@@ -375,7 +375,7 @@ class ProfileSettings extends Component {
   canBackupCurrentProfileToNfc = () => {
     return createAlert(
       "Backup profile to NFC?",
-      "This will write an NFC wallet backup for your current profile seed. If you manually setup your Z seed to be different from your main profile seed, this process will not backup your Z seed.\n\n" +
+      "This will write an NFC wallet backup containing your current profile's Secret Recovery Phrase. If you set up a different Z recovery secret, it will not be included.\n\n" +
         "If you choose an unencrypted backup on the next screen, anyone with the NFC card can access this wallet. Keep the card secure.\n\n" +
         "Would you like to proceed?",
       [
@@ -436,7 +436,7 @@ class ProfileSettings extends Component {
         if (!this.is24WordMnemonic(primarySeed)) {
           createAlert(
             "NFC Backup Unavailable",
-            "The current profile primary seed is not a valid 24 word mnemonic and cannot be written as an NFC wallet backup.",
+            "The current profile does not contain a valid 24-word BIP39 Secret Recovery Phrase and cannot be written as an NFC wallet backup.",
           );
           return;
         }
@@ -528,13 +528,13 @@ class ProfileSettings extends Component {
         ) : null}
         <SettingsSection title="Security">
           <SettingsRow
-            description="View your recovery phrase and derived keys"
+            description="View your Secret Recovery Phrase and derived keys"
             icon="key-outline"
             onPress={async () => {
               if (await canShowSeed()) this.openPasswordCheck(this.showSeed);
             }}
             testID="settings.profile.recoverSeed"
-            title="Recover seed"
+            title="View recovery secrets"
           />
           <SettingsRow
             icon="lock-reset"
@@ -558,11 +558,11 @@ class ProfileSettings extends Component {
           ) : null}
           {showSeedWarning ? (
             <SettingsSwitchRow
-              description="Alert on login when non-standard seed characters may indicate corruption"
+              description="Alert on sign-in when non-standard characters may indicate damaged recovery data"
               icon="alert-circle-outline"
               last
               onValueChange={() => this.toggleSeedCorruptionWarning()}
-              title="Seed corruption warnings"
+              title="Recovery data integrity warnings"
               value={!this.props.activeAccount.hideSeedWarnings}
             />
           ) : null}
@@ -579,7 +579,7 @@ class ProfileSettings extends Component {
             }
           />
           <SettingsRow
-            description="Requires a 24-word mnemonic seed"
+            description="Requires a 24-word BIP39 Secret Recovery Phrase"
             disabled={this.state.checkingNfcBackupSeed}
             icon="credit-card-wireless-outline"
             last={!ENABLE_DLIGHT}
@@ -606,8 +606,8 @@ class ProfileSettings extends Component {
               testID="settings.profile.zSeed"
               title={
                 zSetupComplete
-                  ? 'Z seed setup complete'
-                  : 'Setup Z (shielded address) seed'
+                  ? 'Z recovery secret setup complete'
+                  : 'Set up Z recovery secret'
               }
               value={zSetupComplete ? 'Complete' : null}
             />
