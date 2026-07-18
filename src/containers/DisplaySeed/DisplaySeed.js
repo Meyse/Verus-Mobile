@@ -227,7 +227,14 @@ class DisplaySeed extends Component {
   }
 
   render() {
-    const { seeds, toggleDerivedKey, fetchingDerivedKey, derivedKeys, completeOnBack } = this.state;
+    const {
+      seeds,
+      toggleDerivedKey,
+      fetchingDerivedKey,
+      derivedKeys,
+      completeOnBack,
+      fromDeleteAccount,
+    } = this.state;
     const { data } = this.props.route.params;
 
     return (
@@ -238,14 +245,14 @@ class DisplaySeed extends Component {
               primaryLabel="Done"
               primaryOnPress={this.back}
             />
-          ) : (
+          ) : fromDeleteAccount ? (
             <SettingsActionFooter
-              primaryLabel={this.state.fromDeleteAccount ? 'Continue' : 'Home'}
+              primaryLabel="Continue"
               primaryOnPress={this.resetToScreen}
               secondaryLabel="Back"
               secondaryOnPress={this.back}
             />
-          )
+          ) : null
         }
         testID="settings.displaySeed">
         <SettingsNotice

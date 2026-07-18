@@ -60,7 +60,10 @@ import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {requestServiceStoredData} from '../../../utils/auth/authBox';
 import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 import {DLIGHT_PRIVATE} from '../../../utils/constants/intervalConstants';
-import {VERUSID_NETWORK_DEFAULT} from '../../../../env/index';
+import {
+  ENABLE_SIGNED_IN_REDESIGN,
+  VERUSID_NETWORK_DEFAULT,
+} from '../../../../env/index';
 import {processAppEncryptionRequest} from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
@@ -725,19 +728,29 @@ const AppEncryptionRequestInfoContent = props => {
     dispatch(setConfigSection('settings-profile'));
     dispatch(resetDeeplinkData());
 
+    const settingsRoute = ENABLE_SIGNED_IN_REDESIGN
+      ? {
+          screen: 'Home',
+          params: {
+            screen: 'SettingsHome',
+            params: {screen: 'ProfileSettings'},
+          },
+        }
+      : {
+          screen: 'MainStack',
+          params: {
+            screen: 'SettingsMenus',
+            params: {title: 'Profile'},
+          },
+        };
+
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
         routes: [
           {
             name: 'SignedInStack',
-            params: {
-              screen: 'MainStack',
-              params: {
-                screen: 'SettingsMenus',
-                params: {title: 'Profile'},
-              },
-            },
+            params: settingsRoute,
           },
         ],
       }),

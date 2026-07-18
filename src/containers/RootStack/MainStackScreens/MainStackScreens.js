@@ -103,35 +103,67 @@ const MainStackScreens = props => {
         />
       )}
 
-      <MainStack.Screen
-        name="SettingsMenus"
-        component={SettingsMenus}
-        options={settingsHeaderOptions}
-      />
-
-      <MainStack.Screen
-        name="ProfileSettings"
-        component={ProfileSettings}
-        options={{...settingsHeaderOptions, title: 'Wallet and security'}}
-      />
-
-      <MainStack.Screen
-        name="WalletSettings"
-        component={WalletSettings}
-        options={{...settingsHeaderOptions, title: 'Wallet settings'}}
-      />
-
-      <MainStack.Screen
-        name="Appearance"
-        component={Appearance}
-        options={{...settingsHeaderOptions, title: 'Appearance'}}
-      />
-
-      <MainStack.Screen
-        name="AppInfo"
-        component={AppInfo}
-        options={{...settingsHeaderOptions, title: 'App information'}}
-      />
+      {!ENABLE_SIGNED_IN_REDESIGN && (
+        <>
+          <MainStack.Screen
+            name="SettingsMenus"
+            component={SettingsMenus}
+            options={settingsHeaderOptions}
+          />
+          <MainStack.Screen
+            name="ProfileSettings"
+            component={ProfileSettings}
+            options={{...settingsHeaderOptions, title: 'Wallet and security'}}
+          />
+          <MainStack.Screen
+            name="WalletSettings"
+            component={WalletSettings}
+            options={{...settingsHeaderOptions, title: 'Wallet settings'}}
+          />
+          <MainStack.Screen
+            name="Appearance"
+            component={Appearance}
+            options={{...settingsHeaderOptions, title: 'Appearance'}}
+          />
+          <MainStack.Screen
+            name="AppInfo"
+            component={AppInfo}
+            options={{...settingsHeaderOptions, title: 'App information'}}
+          />
+          <MainStack.Screen
+            name="GeneralWalletSettings"
+            component={GeneralWalletSettings}
+            options={{
+              ...settingsHeaderOptions,
+              title: "General",
+            }}
+          />
+          <MainStack.Screen
+            name="AddressBlocklist"
+            component={AddressBlocklist}
+            options={{
+              ...settingsHeaderOptions,
+              title: "Blocked addresses",
+            }}
+          />
+          <MainStack.Screen
+            name="VrpcOverrides"
+            component={VrpcOverrides}
+            options={{
+              ...settingsHeaderOptions,
+              title: "Custom RPC servers",
+            }}
+          />
+          <MainStack.Screen
+            name="CoinSettings"
+            component={CoinSettings}
+            options={({ route }) => ({
+              ...settingsHeaderOptions,
+              title: route.params != null ? route.params.title : null,
+            })}
+          />
+        </>
+      )}
 
       <MainStack.Screen
         name="ProfileInfo"
@@ -161,48 +193,12 @@ const MainStackScreens = props => {
       />
 
       <MainStack.Screen
-        name="GeneralWalletSettings"
-        component={GeneralWalletSettings}
-        options={{
-          ...settingsHeaderOptions,
-          title: "General",
-        }}
-      />
-
-      <MainStack.Screen
-        name="AddressBlocklist"
-        component={AddressBlocklist}
-        options={{
-          ...settingsHeaderOptions,
-          title: "Blocked addresses",
-        }}
-      />
-
-      <MainStack.Screen
-        name="VrpcOverrides"
-        component={VrpcOverrides}
-        options={{
-          ...settingsHeaderOptions,
-          title: "Custom RPC servers",
-        }}
-      />  
-
-      <MainStack.Screen
         name="NfcBackup"
         component={NfcBackup}
         options={{
           ...settingsHeaderOptions,
           title: "NFC backup",
         }}
-      />
-
-      <MainStack.Screen
-        name="CoinSettings"
-        component={CoinSettings}
-        options={({ route }) => ({
-          ...settingsHeaderOptions,
-          title: route.params != null ? route.params.title : null,
-        })}
       />
 
       <MainStack.Screen

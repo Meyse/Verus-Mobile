@@ -1,21 +1,72 @@
 import React from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import SignedInSettingsHome from '../../Settings/SignedInSettingsHome';
-import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
+import ProfileSettings from '../../Settings/ProfileSettings/ProfileSettings';
+import WalletSettings from '../../Settings/WalletSettings/WalletSettings';
+import Appearance from '../../Settings/Appearance/Appearance';
+import AppInfo from '../../Settings/AppInfo/AppInfo';
+import GeneralWalletSettings from '../../Settings/WalletSettings/GeneralWalletSettings/GeneralWalletSettings';
+import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
+import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
+import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSettings';
+import {createSettingsHeaderOptions} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const SettingsStack = createStackNavigator();
 
 const SettingsStackScreens = () => {
   const theme = useOnboardingTheme();
+  const settingsHeaderOptions = createSettingsHeaderOptions(theme);
 
   return (
     <SettingsStack.Navigator
-      screenOptions={createRedesignedHeaderOptions(theme)}>
+      screenOptions={settingsHeaderOptions}>
       <SettingsStack.Screen
         name="Settings"
         component={SignedInSettingsHome}
         options={{headerShown: false}}
+      />
+      <SettingsStack.Screen
+        name="ProfileSettings"
+        component={ProfileSettings}
+        options={{title: 'Wallet and security'}}
+      />
+      <SettingsStack.Screen
+        name="WalletSettings"
+        component={WalletSettings}
+        options={{title: 'Wallet settings'}}
+      />
+      <SettingsStack.Screen
+        name="Appearance"
+        component={Appearance}
+        options={{title: 'Appearance'}}
+      />
+      <SettingsStack.Screen
+        name="AppInfo"
+        component={AppInfo}
+        options={{title: 'App information'}}
+      />
+      <SettingsStack.Screen
+        name="GeneralWalletSettings"
+        component={GeneralWalletSettings}
+        options={{title: 'General'}}
+      />
+      <SettingsStack.Screen
+        name="AddressBlocklist"
+        component={AddressBlocklist}
+        options={{title: 'Blocked addresses'}}
+      />
+      <SettingsStack.Screen
+        name="VrpcOverrides"
+        component={VrpcOverrides}
+        options={{title: 'Custom RPC servers'}}
+      />
+      <SettingsStack.Screen
+        name="CoinSettings"
+        component={CoinSettings}
+        options={({route}) => ({
+          title: route.params != null ? route.params.title : null,
+        })}
       />
     </SettingsStack.Navigator>
   );
