@@ -7,54 +7,14 @@ import {
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
-import {FingerprintPattern, ScanFace} from 'lucide-react-native';
 import AppButton from '../../../../components/AppButton';
+import {getBiometryPresentation} from '../../../../components/BiometricAffordanceIcon';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import {createSignedOutFlowStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const CONTENT_ANIMATION_DURATION = 320;
-
-const BIOMETRY_PRESENTATION = {
-  TouchID: {
-    title: 'Use Touch ID',
-    body: 'Unlock this wallet with Touch ID. You can change this later in settings.',
-    action: 'Enable Touch ID',
-    icon: FingerprintPattern,
-  },
-  FaceID: {
-    title: 'Use Face ID',
-    body: 'Unlock this wallet with Face ID. You can change this later in settings.',
-    action: 'Enable Face ID',
-    icon: ScanFace,
-  },
-  Fingerprint: {
-    title: 'Use fingerprint unlock',
-    body: 'Unlock this wallet with your fingerprint. You can change this later in settings.',
-    action: 'Enable fingerprint unlock',
-    icon: FingerprintPattern,
-  },
-  Face: {
-    title: 'Use face unlock',
-    body: 'Unlock this wallet with facial recognition. You can change this later in settings.',
-    action: 'Enable face unlock',
-    icon: ScanFace,
-  },
-  Iris: {
-    title: 'Use biometrics',
-    body: 'Unlock this wallet with iris recognition. You can change this later in settings.',
-    action: 'Enable biometrics',
-    icon: ScanFace,
-  },
-};
-
-const DEFAULT_PRESENTATION = {
-  title: 'Use biometrics',
-  body: 'Unlock this wallet with your device biometrics. You can change this later in settings.',
-  action: 'Enable biometrics',
-  icon: FingerprintPattern,
-};
 
 export default function UseBiometrics({
   supportedBiometryType,
@@ -66,8 +26,7 @@ export default function UseBiometrics({
     () => createSignedOutFlowStyles(theme),
     [theme],
   );
-  const presentation =
-    BIOMETRY_PRESENTATION[supportedBiometryType?.type] || DEFAULT_PRESENTATION;
+  const presentation = getBiometryPresentation(supportedBiometryType);
   const BiometryIcon = presentation.icon;
   const contentProgress = useRef(new Animated.Value(0)).current;
   const {smallDevice} = useOnboardingSmallDeviceLayout();
@@ -159,9 +118,11 @@ export default function UseBiometrics({
               smallDevice && signedOutFlowStyles.titleSmallDevice,
               styles.title,
             ]}>
-            {presentation.title}
+            {presentation.onboardingTitle}
           </Text>
-          <Text style={signedOutFlowStyles.body}>{presentation.body}</Text>
+          <Text style={signedOutFlowStyles.body}>
+            {presentation.onboardingBody}
+          </Text>
         </Animated.View>
       </View>
       <SafeBottomActionStack gap={10}>
@@ -170,7 +131,7 @@ export default function UseBiometrics({
           onPress={() => continueToWalletSetup(true)}
           testID="onboarding.biometrics.enable"
           variant="primary">
-          {presentation.action}
+          {presentation.onboardingAction}
         </AppButton>
         <AppButton
           height={56}

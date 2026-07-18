@@ -22,6 +22,9 @@ import {
   signOut,
 } from "../../../actions/actionCreators";
 import PasswordCheck from "../../../components/PasswordCheck";
+import BiometricAffordanceIcon, {
+  getBiometryPresentation,
+} from '../../../components/BiometricAffordanceIcon';
 import {
   canShowSeed,
 } from "../../../actions/actions/channels/dlight/dispatchers/AlertManager";
@@ -57,10 +60,8 @@ class ProfileSettings extends Component {
       loading: false,
       passwordDialogOpen: false,
       passwordDialogTitle: "",
-      supportedBiometryType: {
-        display_name: null,
-        biometry: false,
-      },
+      supportedBiometryType: null,
+      biometryCheckComplete: false,
       privateSeedModalOpen: false,
       keyDerivationVersionModalOpen: false,
       checkingNfcBackupSeed: false,
@@ -79,9 +80,34 @@ class ProfileSettings extends Component {
     navigation.navigate(screen);
   };
 
-  async componentDidMount() {
-    this.setState({ supportedBiometryType: await getSupportedBiometryType() });
+  componentDidMount() {
+    this._isMounted = true;
+    this._unsubscribeFocus = this.props.navigation.addListener(
+      'focus',
+      this.refreshSupportedBiometryType,
+    );
+    this.refreshSupportedBiometryType();
   }
+
+  componentWillUnmount() {
+    this._isMounted = false;
+    this._unsubscribeFocus?.();
+  }
+
+  refreshSupportedBiometryType = async () => {
+    try {
+      const supportedBiometryType = await getSupportedBiometryType();
+
+      if (this._isMounted) {
+        this.setState({
+          supportedBiometryType,
+          biometryCheckComplete: true,
+        });
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
 
   closePasswordDialog = (cb) => {
     this.setState(
@@ -122,6 +148,8 @@ class ProfileSettings extends Component {
       const { activeAccount } = this.props;
       const { supportedBiometryType } = this.state;
       const { biometry, accountHash, id } = activeAccount;
+      const biometryTitle =
+        getBiometryPresentation(supportedBiometryType).settingsTitle;
 
       this.closePasswordDialog(async () => {
         try {
@@ -133,18 +161,14 @@ class ProfileSettings extends Component {
             this.props.dispatch(await setBiometry(accountHash, false));
             createAlert(
               "Success",
-              `${
-                supportedBiometryType.display_name
-              } authentication disabled for profile "${id}"`
+              `${biometryTitle} disabled for profile "${id}".`
             );
           } else {
             await storeBiometricPassword(accountHash, passwordCheck.password);
             this.props.dispatch(await setBiometry(accountHash, true));
             createAlert(
               "Success",
-              `${
-                supportedBiometryType.display_name
-              } authentication enabled for profile "${id}"`
+              `${biometryTitle} enabled for profile "${id}".`
             );
           }
         } catch (e) {
@@ -153,12 +177,12 @@ class ProfileSettings extends Component {
             "Error",
             `Failed to ${
               biometry ? "disable" : "enable"
-            } biometric authentication (${supportedBiometryType.display_name}).`
+            } ${biometryTitle}.`
           );
         }
       });
     } else {
-      createAlert("Authentication Error", "Incorrect password");
+      createAlert("Authentication Error", "Incorrect password.");
     }
   };
 
@@ -468,11 +492,35 @@ class ProfileSettings extends Component {
       onPasswordCorrect,
     });
 
+  showBiometryDeviceSetupAlert = () =>
+    createAlert(
+      'Set up biometrics on this device',
+      'Set up biometric authentication in your device settings, then return to Verus Mobile to use biometric unlock again.',
+    );
+
   renderSettingsList = () => {
     const zSetupComplete = dlightEnabled();
+    const biometryEnabled = !!this.props.activeAccount.biometry;
+    const biometrySupported = !!this.state.supportedBiometryType?.biometry;
+    const biometryNeedsDeviceSetup =
+      biometryEnabled &&
+      this.state.biometryCheckComplete &&
+      !biometrySupported;
     const showBiometry =
-      this.props.activeAccount.biometry ||
-      this.state.supportedBiometryType.biometry;
+      biometryEnabled || biometrySupported;
+    const biometryPresentation = getBiometryPresentation(
+      this.state.supportedBiometryType,
+    );
+    let biometryTitle = biometryPresentation.settingsSetupTitle;
+    let biometryValue = 'Off';
+
+    if (biometryNeedsDeviceSetup) {
+      biometryTitle = 'Biometric unlock';
+      biometryValue = 'Needs device setup';
+    } else if (biometryEnabled) {
+      biometryTitle = biometryPresentation.settingsTitle;
+      biometryValue = 'On';
+    }
     const showSeedWarning =
       this.props.activeAccount.hideSeedWarnings ||
       this.props.showHideSeedCorruptionSetting;
@@ -545,15 +593,24 @@ class ProfileSettings extends Component {
           />
           {showBiometry ? (
             <SettingsRow
-              icon="fingerprint"
+              accessibilityLabel={`${biometryTitle}, ${biometryValue}`}
               last={!showSeedWarning}
+              leading={
+                <BiometricAffordanceIcon
+                  showFallback={biometryEnabled}
+                  size={19}
+                  supportedBiometryType={this.state.supportedBiometryType}
+                />
+              }
               onPress={() => {
-                this.openPasswordCheck(this.toggleBiometry);
+                if (biometryNeedsDeviceSetup) {
+                  this.showBiometryDeviceSetupAlert();
+                } else {
+                  this.openPasswordCheck(this.toggleBiometry);
+                }
               }}
-              title={`${
-                this.props.activeAccount.biometry ? "Disable" : "Setup"
-              } biometric authentication`}
-              value={this.props.activeAccount.biometry ? 'On' : 'Off'}
+              title={biometryTitle}
+              value={biometryValue}
             />
           ) : null}
           {showSeedWarning ? (
