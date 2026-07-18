@@ -64,6 +64,11 @@ const Appearance = () => {
       <SettingsSection title="Theme">
         {OPTIONS.map((option, index) => {
           const selected = appearance === option.value;
+          const radioColor = selected
+            ? theme.isDark
+              ? theme.colors.onPrimary
+              : theme.colors.primary
+            : theme.colors.textSubtle;
 
           return (
             <SettingsRow
@@ -80,9 +85,7 @@ const Appearance = () => {
               trailing={
                 <View style={styles.radioSlot}>
                   <MaterialCommunityIcons
-                    color={
-                      selected ? theme.colors.primary : theme.colors.textSubtle
-                    }
+                    color={radioColor}
                     name={selected ? 'radiobox-marked' : 'radiobox-blank'}
                     size={20}
                   />
