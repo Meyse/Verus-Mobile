@@ -65,6 +65,7 @@ class ProfileSettings extends Component {
       privateSeedModalOpen: false,
       keyDerivationVersionModalOpen: false,
       checkingNfcBackupSeed: false,
+      nfcBackupEligible: null,
       onPasswordCorrect: () => {},
     };
 
@@ -84,15 +85,20 @@ class ProfileSettings extends Component {
     this._isMounted = true;
     this._unsubscribeFocus = this.props.navigation.addListener(
       'focus',
-      this.refreshSupportedBiometryType,
+      this.refreshProfileSettingsState,
     );
-    this.refreshSupportedBiometryType();
+    this.refreshProfileSettingsState();
   }
 
   componentWillUnmount() {
     this._isMounted = false;
     this._unsubscribeFocus?.();
   }
+
+  refreshProfileSettingsState = () => {
+    this.refreshSupportedBiometryType();
+    this.refreshNfcBackupEligibility();
+  };
 
   refreshSupportedBiometryType = async () => {
     try {
@@ -103,6 +109,24 @@ class ProfileSettings extends Component {
           supportedBiometryType,
           biometryCheckComplete: true,
         });
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  refreshNfcBackupEligibility = async () => {
+    const accountHash = this.props.activeAccount?.accountHash;
+
+    try {
+      const seeds = await requestSeeds();
+      const nfcBackupEligible = this.is24WordMnemonic(seeds[ELECTRUM]);
+
+      if (
+        this._isMounted &&
+        this.props.activeAccount?.accountHash === accountHash
+      ) {
+        this.setState({nfcBackupEligible});
       }
     } catch (e) {
       console.warn(e);
@@ -458,6 +482,7 @@ class ProfileSettings extends Component {
         const primarySeed = seeds[ELECTRUM];
 
         if (!this.is24WordMnemonic(primarySeed)) {
+          this.setState({nfcBackupEligible: false});
           createAlert(
             "NFC Backup Unavailable",
             "The current wallet does not contain a valid 24-word BIP39 Secret Recovery Phrase and cannot be written as an NFC wallet backup.",
@@ -465,6 +490,7 @@ class ProfileSettings extends Component {
           return;
         }
 
+        this.setState({nfcBackupEligible: true});
         this.props.navigation.navigate("NfcBackup");
       } catch (e) {
         createAlert(
@@ -636,8 +662,15 @@ class ProfileSettings extends Component {
             }
           />
           <SettingsRow
-            description="Requires a 24-word BIP39 Secret Recovery Phrase"
-            disabled={this.state.checkingNfcBackupSeed}
+            description={
+              this.state.nfcBackupEligible === false
+                ? 'Unavailable: this wallet does not use a 24-word BIP39 Secret Recovery Phrase'
+                : undefined
+            }
+            disabled={
+              this.state.checkingNfcBackupSeed ||
+              this.state.nfcBackupEligible === false
+            }
             icon="credit-card-wireless-outline"
             last={!ENABLE_DLIGHT}
             onPress={this.openNfcBackup}
