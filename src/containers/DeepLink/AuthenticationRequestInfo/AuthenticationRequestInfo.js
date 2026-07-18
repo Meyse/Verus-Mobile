@@ -862,7 +862,7 @@ const AuthenticationRequestInfoContent = props => {
         'Cannot continue',
         `No ${
           requestIsTestnet ? 'testnet' : 'mainnet'
-        } profiles found, cannot respond to authentication request.`,
+        } wallets found, cannot respond to authentication request.`,
       );
       return;
     }

@@ -154,21 +154,21 @@ class ProfileSettings extends Component {
       this.closePasswordDialog(async () => {
         try {
           if (accountHash == null)
-            throw new Error("No account hash for profile: " + id);
+            throw new Error("No account hash for wallet: " + id);
 
           if (biometry) {
             await removeBiometricPassword(accountHash);
             this.props.dispatch(await setBiometry(accountHash, false));
             createAlert(
               "Success",
-              `${biometryTitle} disabled for profile "${id}".`
+              `${biometryTitle} disabled for wallet "${id}".`
             );
           } else {
             await storeBiometricPassword(accountHash, passwordCheck.password);
             this.props.dispatch(await setBiometry(accountHash, true));
             createAlert(
               "Success",
-              `${biometryTitle} enabled for profile "${id}".`
+              `${biometryTitle} enabled for wallet "${id}".`
             );
           }
         } catch (e) {
@@ -192,7 +192,7 @@ class ProfileSettings extends Component {
 
     try {
       if (accountHash == null)
-        throw new Error("No account hash for profile: " + id);
+        throw new Error("No account hash for wallet: " + id);
 
       if (hideSeedWarnings) {
         this.props.dispatch(await setHideSeedWarnings(accountHash, false));
@@ -213,7 +213,7 @@ class ProfileSettings extends Component {
     return createAlert(
       'Change key derivation version?',
       "Changing the key derivation version will change how your addresses are derived from your " + 
-      "stored recovery secret for this profile. This will log you out.",
+      "stored recovery secret for this wallet. This will log you out.",
       [
         {
           text: 'No',
@@ -398,8 +398,8 @@ class ProfileSettings extends Component {
 
   canBackupCurrentProfileToNfc = () => {
     return createAlert(
-      "Backup profile to NFC?",
-      "This will write an NFC wallet backup containing your current profile's Secret Recovery Phrase. If you set up a different Z recovery secret, it will not be included.\n\n" +
+      "Back up wallet to NFC?",
+      "This will write an NFC wallet backup containing this wallet's Secret Recovery Phrase. If you set up a different Z recovery secret, it will not be included.\n\n" +
         "If you choose an unencrypted backup on the next screen, anyone with the NFC card can access this wallet. Keep the card secure.\n\n" +
         "Would you like to proceed?",
       [
@@ -460,7 +460,7 @@ class ProfileSettings extends Component {
         if (!this.is24WordMnemonic(primarySeed)) {
           createAlert(
             "NFC Backup Unavailable",
-            "The current profile does not contain a valid 24-word BIP39 Secret Recovery Phrase and cannot be written as an NFC wallet backup.",
+            "The current wallet does not contain a valid 24-word BIP39 Secret Recovery Phrase and cannot be written as an NFC wallet backup.",
           );
           return;
         }
@@ -469,7 +469,7 @@ class ProfileSettings extends Component {
       } catch (e) {
         createAlert(
           "Error",
-          e.message || "Unable to check whether this profile can be backed up.",
+          e.message || "Unable to check whether this wallet can be backed up.",
         );
       } finally {
         this.setState({ checkingNfcBackupSeed: false });
@@ -562,15 +562,15 @@ class ProfileSettings extends Component {
         </Portal>
         <SettingsProfileSummary
           name={this.props.activeAccount.id}
-          subtitle={this.props.testAccount ? 'Test profile' : null}
+          subtitle={this.props.testAccount ? 'Testnet wallet' : null}
           walletAvatar={this.props.activeAccount.walletAvatar}
         />
         {this.props.testAccount ? (
-          <SettingsSection title="Profile information">
+          <SettingsSection title="Wallet information">
             <SettingsNotice
               body="All testnet coins/currencies have no value and will disappear whenever their testnet is reset."
               icon="alert-outline"
-              title="Test profile information"
+              title="Testnet wallet information"
             />
           </SettingsSection>
         ) : null}
@@ -642,7 +642,7 @@ class ProfileSettings extends Component {
             last={!ENABLE_DLIGHT}
             onPress={this.openNfcBackup}
             testID="settings.profile.nfcBackup"
-            title="Backup current profile to NFC"
+            title="Back up this wallet to NFC"
             trailing={
               this.state.checkingNfcBackupSeed ? (
                 <ActivityIndicator size="small" />
@@ -700,14 +700,14 @@ class ProfileSettings extends Component {
             />
           </SettingsSection>
         ) : null}
-        <SettingsSection title="Profile actions">
+        <SettingsSection title="Wallet actions">
           <SettingsRow
             danger
             icon="trash-can-outline"
             last
             onPress={() => this._openSettings(REMOVE_PROFILE)}
             testID="settings.profile.delete"
-            title="Delete profile"
+            title="Delete wallet"
           />
         </SettingsSection>
       </SettingsScreen>

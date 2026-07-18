@@ -860,7 +860,7 @@ const IdentityUpdateRequestInfoContent = props => {
         'Cannot continue',
         `No ${
           requestIsTestnet ? 'testnet' : 'mainnet'
-        } profiles found, cannot respond to this VerusID update request.`,
+        } wallets found, cannot respond to this VerusID update request.`,
       );
       return;
     }

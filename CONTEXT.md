@@ -5,8 +5,8 @@ This glossary defines the product terms used by the Verus Mobile signed-in exper
 ## Language
 
 **Wallet**:
-The signed-in portfolio where a person sees their total value, enabled assets, balances, and wallet-level actions.
-_Avoid_: Dashboard, Home screen
+The named, locally protected wallet a person creates, imports, selects, and unlocks. Its signed-in Wallet view contains its portfolio, enabled Assets, Cards, balances, and wallet-level security and recovery actions.
+_Avoid_: Profile, account, Dashboard, Home screen
 
 **Asset**:
 A currency or token enabled in the Wallet, potentially available through more than one Card.

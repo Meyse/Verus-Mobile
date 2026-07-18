@@ -112,7 +112,7 @@ const MainStackScreens = props => {
       <MainStack.Screen
         name="ProfileSettings"
         component={ProfileSettings}
-        options={{...settingsHeaderOptions, title: 'Profile and security'}}
+        options={{...settingsHeaderOptions, title: 'Wallet and security'}}
       />
 
       <MainStack.Screen

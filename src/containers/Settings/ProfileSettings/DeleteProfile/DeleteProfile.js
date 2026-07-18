@@ -56,7 +56,7 @@ class DeleteProfile extends Component {
   canDelete = () => {
     return createAlert(
       'Confirm Deletion',
-      "Are you sure you would like to delete this profile?",
+      "Are you sure you want to delete this wallet from this device?",
       [
         {
           text: 'No, take me back',
@@ -89,7 +89,10 @@ class DeleteProfile extends Component {
         } 
   
         if (!this.state.confirmSwitch && !_errors) {
-          createAlert("Please confirm", "Please confirm you are aware of what deleting your profile entails.")
+          createAlert(
+            "Please confirm",
+            "Please confirm that you have backed up the recovery secrets needed to restore this wallet.",
+          )
           _errors = true
         }
   
@@ -107,7 +110,7 @@ class DeleteProfile extends Component {
                     _biometry
                   ),
                 message:
-                  "Deleting profile, please do not close Verus Mobile",
+                  "Deleting wallet data, please do not close Verus Mobile",
                 input: [this.props.activeAccount, biometry],
               };
               this.resetToScreen("SecureLoading", data)
@@ -128,10 +131,10 @@ class DeleteProfile extends Component {
       if (deleteBiometry) await removeBiometricPassword(account.accountHash)
       
       await deleteProfile(account, this.props.dispatch)
-      createAlert("Profile Deleted!", `"${account.id}" profile successfully deleted.`)
+      createAlert("Wallet deleted", `"${account.id}" was deleted from this device.`)
     } catch (error) {
       console.warn(error)
-      createAlert("Error.", `Failed to delete "${account.id}" profile.`)
+      createAlert("Error", `Failed to delete wallet "${account.id}".`)
     }
   }
 
@@ -141,7 +144,7 @@ class DeleteProfile extends Component {
         autoComplete="off"
         errorText={this.state.errors.pwd}
         importantForAutofill="no"
-        label="Profile password"
+        label="Wallet password"
         onChangeText={pwd => this.setState({pwd})}
         returnKeyType="done"
         secureTextEntry
@@ -170,8 +173,8 @@ class DeleteProfile extends Component {
         footer={
           <SettingsActionFooter
             busy={this.state.loading}
-            busyLabel="Preparing profile deletion…"
-            primaryLabel="Delete profile"
+            busyLabel="Preparing wallet deletion…"
+            primaryLabel="Delete wallet"
             primaryOnPress={this._handleSubmit}
             primaryTestID="settings.deleteProfile.submit"
             primaryVariant="danger"
@@ -184,7 +187,7 @@ class DeleteProfile extends Component {
         keyboardShouldPersistTaps="handled"
         testID="settings.deleteProfile">
         <SettingsNotice
-          body="This permanently removes the profile and its saved biometric credential from this device. It cannot be undone."
+          body="This removes the wallet and its saved biometric credential from this device. Make sure you have its recovery secrets before continuing."
           danger
           icon="alert-octagon-outline"
           title="Irreversible action"
@@ -196,13 +199,13 @@ class DeleteProfile extends Component {
           <SettingsRow
             accessibilityRole="checkbox"
             accessibilityState={{checked: this.state.confirmSwitch}}
-            description="I understand that deleting this profile cannot be reversed."
+            description="I have backed up the recovery secrets needed to restore this wallet."
             descriptionNumberOfLines={3}
             icon="delete-alert-outline"
             last
             onPress={() => this.setState({confirmSwitch: !this.state.confirmSwitch})}
             showChevron={false}
-            title="Acknowledge permanent deletion"
+            title="Confirm recovery backup"
             trailing={
               <View pointerEvents="none">
                 <Checkbox

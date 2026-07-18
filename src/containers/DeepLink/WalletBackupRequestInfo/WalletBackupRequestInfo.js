@@ -143,11 +143,11 @@ const WalletBackupRequestInfo = props => {
 
   if (requestIsTestnet) {
     backupDescription = profileBackup
-      ? 'This will create a testnet wallet backup for the current profile on an NFC card.'
+      ? 'This will create a testnet wallet backup for the current wallet on an NFC card.'
       : 'This request will create a testnet wallet backup on an NFC card.';
   } else {
     backupDescription = profileBackup
-      ? 'This will create a wallet backup for the current profile on an NFC card.'
+      ? 'This will create a wallet backup for the current wallet on an NFC card.'
       : 'This request will create a wallet backup on an NFC card.';
   }
 
@@ -227,8 +227,8 @@ const WalletBackupRequestInfo = props => {
   const openLogin = () => {
     if (matchingAccounts.length === 0) {
       createAlert(
-        'No profile found',
-        `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profile is available for this request.`,
+        'No wallet found',
+        `No ${requestIsTestnet ? 'testnet' : 'mainnet'} wallet is available for this request.`,
       );
       return;
     }
@@ -240,11 +240,11 @@ const WalletBackupRequestInfo = props => {
 
   const validateProfileForm = () => {
     if (!profileName || profileName.length < 1) {
-      return 'Please enter a profile name.';
+      return 'Please enter a wallet name.';
     } else if (profileName.length > 50) {
-      return 'Please enter a profile name shorter than 50 characters.';
+      return 'Please enter a wallet name shorter than 50 characters.';
     } else if (accounts.find(account => account.id === profileName)) {
-      return 'A profile with this name already exists.';
+      return 'A wallet with this name already exists.';
     }
 
     return validatePasswordPair(profilePassword, profilePasswordConfirm);
@@ -259,7 +259,7 @@ const WalletBackupRequestInfo = props => {
     }
 
     Keyboard.dismiss();
-    openLoadingModal('Setting up your new profile...');
+    openLoadingModal('Setting up your new wallet...');
 
     try {
       const seed = await getKey(256);
@@ -277,8 +277,8 @@ const WalletBackupRequestInfo = props => {
       });
 
       createAlert(
-        'Profile created',
-        `Your '${profileName}' profile has been created and is ready for wallet backup.`,
+        'Wallet created',
+        `Your '${profileName}' wallet has been created and is ready for backup.`,
       );
     } catch (e) {
       console.error(e);
@@ -357,7 +357,7 @@ const WalletBackupRequestInfo = props => {
 
       if (!isValid24WordBip39Mnemonic(mnemonic)) {
         throw new Error(
-          'The active profile does not contain a valid 24-word BIP39 Secret Recovery Phrase.',
+          'The active wallet does not contain a valid 24-word BIP39 Secret Recovery Phrase.',
         );
       }
 
@@ -383,7 +383,7 @@ const WalletBackupRequestInfo = props => {
     Keyboard.dismiss();
 
     if (!activeAccountMatchesRequest) {
-      createAlert('Error', 'Please login to a matching profile before continuing.');
+      createAlert('Error', 'Please sign in to a matching wallet before continuing.');
       return;
     }
 
@@ -467,7 +467,7 @@ const WalletBackupRequestInfo = props => {
               Choose NFC Card Action
             </Text>
             <Text style={styles.body}>
-              This NFC card can back up a Secret Recovery Phrase and redeem a spendable key. You can claim the spendable key to an existing matching profile, or back up a profile to the card first and then claim to that backed-up profile.
+              This NFC card can back up a Secret Recovery Phrase and redeem a spendable key. You can claim the spendable key to an existing matching wallet, or back up a wallet to the card first and then claim to that backed-up wallet.
             </Text>
             <AppButton
               height={56}
@@ -475,7 +475,7 @@ const WalletBackupRequestInfo = props => {
               onPress={skipBackupAndClaimSpendableKey}
               style={styles.stackedButton}
               variant="primary">
-              Claim to Existing Profile
+              Claim to Existing Wallet
             </AppButton>
             <AppButton
               height={52}
@@ -556,7 +556,7 @@ const WalletBackupRequestInfo = props => {
                       onPress={openLogin}
                       style={styles.stackedButton}
                       variant="primary">
-                      Login to Profile
+                      Unlock Wallet
                     </AppButton>
                   ) : null}
                   {matchingAccounts.length > 0 ? (
@@ -564,13 +564,13 @@ const WalletBackupRequestInfo = props => {
                       onPress={() => setShowCreateProfile(!showCreateProfile)}
                       style={styles.stackedButton}
                       variant="text">
-                      {showCreateProfile ? 'Hide New Profile' : 'Create New Profile'}
+                      {showCreateProfile ? 'Hide New Wallet' : 'Create New Wallet'}
                     </AppButton>
                   ) : null}
                   {showCreateProfile ? (
                     <View style={styles.inputStack}>
                       <AppTextInput
-                        label="Profile name"
+                        label="Wallet name"
                         onChangeText={setProfileName}
                         returnKeyType="done"
                         value={profileName}
@@ -578,7 +578,7 @@ const WalletBackupRequestInfo = props => {
                       <AppTextInput
                         {...passwordAutofillProps}
                         helperText={`Password strength: ${profilePasswordDetails.text}`}
-                        label="Profile password"
+                        label="Wallet password"
                         onChangeText={setProfilePassword}
                         returnKeyType="done"
                         secureTextEntry
@@ -587,7 +587,7 @@ const WalletBackupRequestInfo = props => {
                       />
                       <AppTextInput
                         {...passwordAutofillProps}
-                        label="Confirm profile password"
+                        label="Confirm wallet password"
                         onChangeText={setProfilePasswordConfirm}
                         returnKeyType="done"
                         secureTextEntry
@@ -613,7 +613,7 @@ const WalletBackupRequestInfo = props => {
                         }
                         onPress={createProfile}
                         variant="primary">
-                        Create Profile
+                        Create Wallet
                       </AppButton>
                     </View>
                   ) : null}
@@ -623,7 +623,7 @@ const WalletBackupRequestInfo = props => {
                   <View style={styles.profileCard}>
                     <Text style={styles.profileName}>{activeAccount.id}</Text>
                     <Text style={styles.profileNetwork}>
-                      {requestIsTestnet ? 'Testnet profile' : 'Mainnet profile'}
+                      {requestIsTestnet ? 'Testnet wallet' : 'Mainnet wallet'}
                     </Text>
                   </View>
                   <Checkbox.Item
@@ -640,7 +640,7 @@ const WalletBackupRequestInfo = props => {
                     <View>
                       <Checkbox.Item
                         color={theme.colors.primary}
-                        label="Use profile password for backup"
+                        label="Use wallet password for backup"
                         labelStyle={styles.checkboxLabel}
                         mode="android"
                         onPress={() =>

@@ -307,7 +307,7 @@ const resolveRedeemedCurrencyCoinObj = async ({
 
   if (!!coinObj.testnet !== !!isTestnet) {
     throw new Error(
-      `${coinObj.display_ticker || currencyId} is not available on the active profile network.`,
+      `${coinObj.display_ticker || currencyId} is not available on the active wallet network.`,
     );
   }
 

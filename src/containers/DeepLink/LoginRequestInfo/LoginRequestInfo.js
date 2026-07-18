@@ -197,10 +197,10 @@ const LoginRequestInfo = props => {
       const coinObj = CoinDirectory.findCoinObj(chain_id);
       if (!!coinObj.testnet != isTestnet) {
         createAlert(
-          "Incorrect profile type",
-          `Please login to a ${
+          "Wrong wallet network",
+          `Please sign in to a ${
             coinObj.testnet ? 'testnet' : 'mainnet'
-            } profile to use this login request.`, );
+            } wallet to use this login request.`, );
         return;
       }
       else if (!rootSystemAdded) {
@@ -244,7 +244,7 @@ const LoginRequestInfo = props => {
           "Cannot continue",
           `No ${
             coinObj.testnet ? 'testnet' : 'mainnet'
-          } profiles found, cannot respond to ${
+          } wallets found, cannot respond to ${
             coinObj.testnet ? 'testnet' : 'mainnet'
           } login request.`,
         );

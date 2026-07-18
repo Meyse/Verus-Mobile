@@ -159,7 +159,7 @@ export default function CreateProfileStackScreens(props) {
   }, [newSeed]);
 
   const createProfile = async (seed, createAsTestProfile, useSeedAsZ) => {
-    openLoadingModal('Setting up your new profile...');
+    openLoadingModal('Setting up your new wallet...');
     let profileCreated = false;
 
     try {
@@ -193,8 +193,8 @@ export default function CreateProfileStackScreens(props) {
         dispatch(setDeeplinkUrl(replay.url, replay.passthrough));
       } else {
         createAlert(
-          'Profile created!',
-          `Your '${profileName}' profile has been created and is ready to use.`,
+          'Wallet created!',
+          `Your '${profileName}' wallet has been created and is ready to use.`,
         );
       }
     } catch (e) {

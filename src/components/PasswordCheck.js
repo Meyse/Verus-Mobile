@@ -126,7 +126,7 @@ const PasswordCheck = (props) => {
             autoComplete="off"
             autoCorrect={false}
             importantForAutofill="no"
-            label="Profile password"
+            label="Wallet password"
             onChangeText={text =>
               setPassword({text, usingBiometry: password.usingBiometry})
             }

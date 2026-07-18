@@ -238,7 +238,7 @@ class ResetPwd extends Component {
           />
         </SettingsSection>
         <SettingsNotice
-          body="Changing this password re-encrypts the profile, removes its saved biometric credential, and signs you out."
+          body="Changing this password re-encrypts the wallet, removes its saved biometric credential, and signs you out."
           icon="shield-key-outline"
           title="Security step"
         />

@@ -38,6 +38,6 @@ export const getKeyMaterial = async (systemID) => {
 
   throw new Error(
     `No Z recovery secret has been set up. ` +
-    `Please go to Settings → Profile and set up a Z recovery secret before accepting encryption requests.`
+    `Please go to Settings → Wallet and security and set up a Z recovery secret before accepting encryption requests.`
   );
 };

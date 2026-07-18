@@ -24,7 +24,7 @@ const signedInCopy = {
   },
   settings: {
     title: 'Settings',
-    profileAndSecurity: 'Profile and security',
+    profileAndSecurity: 'Wallet and security',
     wallet: 'Wallet settings',
     appearance: 'Appearance',
     appInformation: 'App information',

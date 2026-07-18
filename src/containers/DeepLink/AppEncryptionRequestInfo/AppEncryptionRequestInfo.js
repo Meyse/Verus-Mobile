@@ -87,10 +87,10 @@ const ROOT_CHAIN_BY_NETWORK = {
 };
 
 const SHIELDED_SETUP_PROFILE_MESSAGE =
-  'Set up the Z recovery secret in Settings > Profile, then restart Verus Mobile and try again.';
+  'Set up the Z recovery secret in Settings > Wallet and security, then restart Verus Mobile and try again.';
 
 const SHIELDED_SETUP_RESTART_MESSAGE =
-  'Restart Verus Mobile, unlock this profile, and try again.';
+  'Restart Verus Mobile, unlock this wallet, and try again.';
 
 const getOfflineSystemName = systemId => {
   if (!systemId) return null;
@@ -519,7 +519,7 @@ const AppEncryptionRequestInfoContent = props => {
         'Cannot continue',
         `No ${
           requestIsTestnet ? 'testnet' : 'mainnet'
-        } profiles found, cannot respond to this encryption request.`,
+        } wallets found, cannot respond to this encryption request.`,
       );
       return;
     }
@@ -749,7 +749,7 @@ const AppEncryptionRequestInfoContent = props => {
       ? 'Switch wallet'
       : 'Unlock wallet'
     : shieldedSetupNeedsProfile
-    ? 'Open Profile settings'
+    ? 'Open Wallet and security'
     : shieldedSetupNeedsRestart
     ? 'Restart required'
     : !linkedIdsLoaded

@@ -727,7 +727,7 @@ const GiftCardServiceOverview = ({
                   maxWidth: fieldWidth,
                   textAlign: 'center',
                 }}>
-                No gift cards have been created for this profile.
+                No gift cards have been created for this wallet.
               </Text>
             </View>
           ) : (

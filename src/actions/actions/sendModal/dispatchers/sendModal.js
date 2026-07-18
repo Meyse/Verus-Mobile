@@ -243,7 +243,7 @@ export const openAuthenticateUserModal = (data, initialRouteName) => {
         }
       : data,
     AUTHENTICATE_USER_SEND_MODAL,
-    'To login, select a user profile, then enter your password.',
+    'To sign in, select a wallet, then enter its password.',
     initialRouteName
   );
 };

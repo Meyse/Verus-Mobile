@@ -93,7 +93,7 @@ const RecoverSeedsSelectAccount = ({ navigation }) => {
           allowBiometry={true}
         />
       }
-      <Text style={{ ...styles.centralHeader, marginTop: 16 }}>{'Select a Profile'}</Text>
+      <Text style={{ ...styles.centralHeader, marginTop: 16 }}>{'Select a wallet'}</Text>
       <ScrollView>
         {renderAccountCards()}
       </ScrollView>

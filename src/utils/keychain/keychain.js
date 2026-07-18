@@ -105,7 +105,7 @@ export const saveNewPersistentCredential = async (credBuf) => {
   return retrievedCred
 }
 
-export const getSessionCredential = (title = "Authenticate Profile") => {
+export const getSessionCredential = (title = "Authenticate wallet") => {
   return getInternetCredential(SESSION_CREDENTIAL_KEY, title);
 }
 

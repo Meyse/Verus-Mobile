@@ -349,7 +349,7 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
                 if (!user.hideSeedWarnings) {
                   Alert.alert(
                     "Possible Recovery Data Issue",
-                    "Non-standard characters were detected in your stored profile recovery data.\n\nIf it is a Secret Recovery Phrase or WIF key, this could indicate that the data is corrupted and may not match your offline backup.\n\nCheck it by going to Settings > Profile > View recovery secrets. If it does not match your backup, create a new profile from your backup and transfer any funds from this profile to the new profile.\n\nYou can disable this warning in Settings > Profile."
+                    "Non-standard characters were detected in your stored wallet recovery data.\n\nIf it is a Secret Recovery Phrase or WIF key, this could indicate that the data is corrupted and may not match your offline backup.\n\nCheck it by going to Settings > Wallet and security > View recovery secrets. If it does not match your backup, create a new wallet from your backup and transfer any funds from this wallet to the new wallet.\n\nYou can disable this warning in Settings > Wallet and security."
                   );
                 }
 

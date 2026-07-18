@@ -196,7 +196,7 @@ const InvoiceInfo = props => {
           "Cannot continue",
           `No ${
             details.isTestnet() ? 'testnet' : 'mainnet'
-          } profiles found, cannot respond to ${
+          } wallets found, cannot respond to ${
             details.isTestnet() ? 'testnet' : 'mainnet'
           } login request.`,
         );
@@ -233,9 +233,9 @@ const InvoiceInfo = props => {
         isTestInvoice ? 'testnet' : 'mainnet'
       }, but you are using a ${
         isTestInvoice ? 'mainnet' : 'testnet'
-      } profile. Please logout, select a ${
+      } wallet. Please sign out, select a ${
         isTestInvoice ? 'testnet' : 'mainnet'
-      } profile, and retry this invoice to continue.`,
+      } wallet, and retry this invoice to continue.`,
       [
         {
           text: 'Ok',

@@ -144,7 +144,7 @@ const DeepLink = (props) => {
     ) {
       createAlert(
         "Cannot continue",
-        `No ${request.isTestnet() ? 'testnet' : 'mainnet'} profiles found, cannot verify delegated request signer.`,
+        `No ${request.isTestnet() ? 'testnet' : 'mainnet'} wallets found, cannot verify delegated request signer.`,
       );
       cancel();
       return;

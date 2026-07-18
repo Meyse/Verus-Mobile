@@ -57,7 +57,7 @@ const AuthenticateUserPassword = props => {
       try {
         const password = await getBiometricPassword(
           account.accountHash,
-          'Authenticate to unlock profile',
+          'Authenticate to unlock wallet',
         );
 
         if (password != null) {
