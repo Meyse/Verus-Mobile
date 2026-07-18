@@ -1,5 +1,8 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   FlatList,
   Pressable,
   StyleSheet,
@@ -11,6 +14,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -23,6 +27,8 @@ import NotificationWidget from './HomeWidgets/NotificationWidget';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
+const REVEAL_BALANCE_DURATION = 220;
+const CONCEAL_BALANCE_DURATION = 160;
 
 const getCurrencyParts = (amount, currency) => {
   const rounded = BigNumber(amount || 0).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
@@ -42,25 +48,96 @@ const formatFiat = (amount, currency) => {
   return formatCurrency({amount: rounded.toFixed(2), code: currency})[0];
 };
 
-const PortfolioBalance = ({amount, currency, showBalance, theme}) => {
-  const value = getCurrencyParts(amount, currency);
+const useBalanceRevealProgress = showBalance => {
+  const progress = useRef(new Animated.Value(showBalance ? 1 : 0)).current;
+  const reduceMotionRef = useRef(false);
 
-  if (!showBalance) {
-    return <Text style={[styles.heroMask, {color: theme.colors.textPrimary}]}>***</Text>;
-  }
+  useEffect(() => {
+    let active = true;
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      reduceMotionEnabled => {
+        reduceMotionRef.current = reduceMotionEnabled;
+      },
+    );
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(reduceMotionEnabled => {
+        if (active) {
+          reduceMotionRef.current = reduceMotionEnabled;
+        }
+      })
+      .catch(() => {
+        if (active) {
+          reduceMotionRef.current = false;
+        }
+      });
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    progress.stopAnimation();
+    const nextValue = showBalance ? 1 : 0;
+
+    if (reduceMotionRef.current) {
+      progress.setValue(nextValue);
+      return undefined;
+    }
+
+    const animation = Animated.timing(progress, {
+      toValue: nextValue,
+      duration: showBalance
+        ? REVEAL_BALANCE_DURATION
+        : CONCEAL_BALANCE_DURATION,
+      easing: showBalance
+        ? Easing.out(Easing.cubic)
+        : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start();
+
+    return () => animation.stop();
+  }, [progress, showBalance]);
+
+  return progress;
+};
+
+const PortfolioBalance = ({
+  amount,
+  currency,
+  revealProgress,
+  showBalance,
+  theme,
+}) => {
+  const value = getCurrencyParts(amount, currency);
 
   return (
     <View style={styles.heroValueRow}>
-      <Text style={[styles.heroSymbol, {color: theme.colors.textPrimary}]}>
+      <PrivacyBlurredText
+        blurRadius={6}
+        color={theme.colors.textPrimary}
+        containerStyle={styles.heroSymbolFrame}
+        hidden={!showBalance}
+        revealProgress={revealProgress}
+        style={styles.heroSymbol}>
         {value.symbol}
-      </Text>
-      <Text
-        numberOfLines={1}
+      </PrivacyBlurredText>
+      <PrivacyBlurredText
         adjustsFontSizeToFit
+        blurRadius={11}
+        color={theme.colors.textPrimary}
+        containerStyle={styles.heroAmountFrame}
+        hidden={!showBalance}
         minimumFontScale={0.35}
-        style={[styles.heroAmount, {color: theme.colors.textPrimary}]}>
+        numberOfLines={1}
+        revealProgress={revealProgress}
+        style={styles.heroAmount}>
         {value.value}
-      </Text>
+      </PrivacyBlurredText>
     </View>
   );
 };
@@ -88,6 +165,7 @@ const SignedInWalletHome = ({
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [showHeaderDivider, setShowHeaderDivider] = useState(false);
   const dividerRef = useRef(false);
+  const balanceRevealProgress = useBalanceRevealProgress(showBalance);
 
   const handleScroll = event => {
     const next = (event?.nativeEvent?.contentOffset?.y || 0) > HEADER_DIVIDER_THRESHOLD;
@@ -100,24 +178,28 @@ const SignedInWalletHome = ({
   const renderAsset = ({item}) => {
     const crypto = BigNumber(item.balance || 0);
     const hasBalance = crypto.isGreaterThan(0);
-    const cryptoText = `${crypto.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)} ${
-      item.coin.display_ticker
-    }`;
+    const cryptoAmountText = crypto
+      .decimalPlaces(4, BigNumber.ROUND_DOWN)
+      .toFixed(4);
+    const cryptoText = showBalance
+      ? `${cryptoAmountText} ${item.coin.display_ticker}`
+      : 'balance hidden';
     const rateText = item.rate == null ? null : formatFiat(item.rate, displayCurrency);
-    const fiatText =
-      item.fiatValue != null
-        ? formatFiat(item.fiatValue, displayCurrency)
-        : hasBalance
-        ? 'N/A'
-        : formatFiat(0, displayCurrency);
+    let fiatText;
+
+    if (item.fiatValue != null) {
+      fiatText = formatFiat(item.fiatValue, displayCurrency);
+    } else {
+      fiatText = hasBalance ? 'N/A' : formatFiat(0, displayCurrency);
+    }
+
+    const fiatUnavailable = fiatText === 'N/A';
 
     return (
       <TouchableOpacity
         activeOpacity={0.76}
         accessibilityRole="button"
-        accessibilityLabel={`${item.coin.display_name}, ${
-          showBalance ? cryptoText : 'balance hidden'
-        }`}
+        accessibilityLabel={`${item.coin.display_name}, ${cryptoText}`}
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <View style={styles.logoWrap}>
@@ -130,19 +212,38 @@ const SignedInWalletHome = ({
               style={[styles.assetName, {color: theme.colors.textPrimary}]}>
               {item.coin.display_name}
             </Text>
-            <Text
-              numberOfLines={1}
-              style={[
-                fiatText === 'N/A' ? styles.fiatUnavailable : styles.fiatValue,
-                {color: fiatText === 'N/A' ? theme.colors.textSubtle : theme.colors.textPrimary},
-              ]}>
-              {showBalance ? fiatText : '*****'}
-            </Text>
+            {fiatUnavailable ? (
+              <Text
+                numberOfLines={1}
+                style={[styles.fiatUnavailable, {color: theme.colors.textSubtle}]}>
+                {fiatText}
+              </Text>
+            ) : (
+              <PrivacyBlurredText
+                blurRadius={5}
+                color={theme.colors.textPrimary}
+                hidden={!showBalance}
+                numberOfLines={1}
+                revealProgress={balanceRevealProgress}
+                style={styles.fiatValue}>
+                {fiatText}
+              </PrivacyBlurredText>
+            )}
           </View>
           <View style={[styles.assetLine, styles.assetSecondaryLine]}>
-            <Text numberOfLines={1} style={[styles.cryptoValue, {color: theme.colors.textSecondary}]}>
-              {showBalance ? cryptoText : `*** ${item.coin.display_ticker}`}
-            </Text>
+            <View style={styles.cryptoValue}>
+              <PrivacyBlurredText
+                blurRadius={5}
+                color={theme.colors.textSecondary}
+                hidden={!showBalance}
+                revealProgress={balanceRevealProgress}
+                style={styles.cryptoAmount}>
+                {cryptoAmountText}
+              </PrivacyBlurredText>
+              <Text style={[styles.cryptoTicker, {color: theme.colors.textSecondary}]}>
+                {item.coin.display_ticker}
+              </Text>
+            </View>
             {rateText ? (
               <Text numberOfLines={1} style={[styles.fiatRate, {color: theme.colors.textSubtle}]}>
                 {rateText}
@@ -173,6 +274,7 @@ const SignedInWalletHome = ({
             <PortfolioBalance
               amount={totalFiatBalance}
               currency={displayCurrency}
+              revealProgress={balanceRevealProgress}
               showBalance={showBalance}
               theme={theme}
             />
@@ -247,10 +349,11 @@ const styles = StyleSheet.create({
   balanceActions: {flexDirection: 'row', alignItems: 'center', marginLeft: 8, marginTop: 12},
   balanceToggle: {marginRight: 6},
   iconButton: {padding: 6},
-  heroValueRow: {flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12},
-  heroSymbol: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 24, marginRight: 4, marginTop: 2},
-  heroAmount: {...fontStyle('bold'), flexShrink: 1, fontSize: 40, lineHeight: 44, letterSpacing: -0.5},
-  heroMask: {...fontStyle('bold'), paddingVertical: 12, fontSize: 40, lineHeight: 44, letterSpacing: 1},
+  heroValueRow: {flexDirection: 'row', alignItems: 'flex-start', marginVertical: 12},
+  heroSymbolFrame: {marginRight: 4, marginTop: 2},
+  heroSymbol: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 24},
+  heroAmountFrame: {flexShrink: 1},
+  heroAmount: {...fontStyle('bold'), fontSize: 40, lineHeight: 44, letterSpacing: -0.5},
   listContent: {paddingBottom: 16},
   assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row'},
   logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},
@@ -260,7 +363,9 @@ const styles = StyleSheet.create({
   assetName: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 21, flexShrink: 1, marginRight: 12},
   fiatValue: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20, textAlign: 'right'},
   fiatUnavailable: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, textAlign: 'right'},
-  cryptoValue: {...fontStyle('medium'), fontSize: 16, lineHeight: 20, flexShrink: 1, marginRight: 12},
+  cryptoValue: {alignItems: 'center', flexDirection: 'row', flexShrink: 1, marginRight: 12},
+  cryptoAmount: {...fontStyle('medium'), fontSize: 16, lineHeight: 20},
+  cryptoTicker: {...fontStyle('medium'), fontSize: 16, lineHeight: 20, marginLeft: 5},
   fiatRate: {...fontStyle('regular'), fontSize: 12, lineHeight: 16, textAlign: 'right'},
 });
 
