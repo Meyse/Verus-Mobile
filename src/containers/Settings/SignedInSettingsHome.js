@@ -16,14 +16,14 @@ import {
 const SETTINGS_ROWS = [
   {
     key: 'ProfileSettings',
-    title: signedInCopy.settings.profileAndSecurity,
-    icon: 'account-outline',
+    title: signedInCopy.settings.securityAndRecovery,
+    icon: 'shield-lock-outline',
     section: 'Account',
   },
   {
-    key: 'WalletSettings',
-    title: signedInCopy.settings.wallet,
-    icon: 'wallet-outline',
+    key: 'GeneralWalletSettings',
+    title: signedInCopy.settings.general,
+    icon: 'tune',
     section: 'Preferences',
   },
   {
@@ -31,6 +31,12 @@ const SETTINGS_ROWS = [
     title: signedInCopy.settings.appearance,
     icon: 'palette-outline',
     section: 'Preferences',
+  },
+  {
+    key: 'WalletSettings',
+    title: signedInCopy.settings.networkAndStorage,
+    icon: 'network-outline',
+    section: 'Advanced',
   },
   {
     key: 'AppInfo',
@@ -93,7 +99,7 @@ const SignedInSettingsHome = ({navigation}) => {
   const rowDescription = key =>
     key === 'ProfileSettings' ? activeProfile?.id : null;
 
-  const sections = ['Account', 'Preferences', 'About'];
+  const sections = ['Account', 'Preferences', 'Advanced', 'About'];
 
   return (
     <SettingsScreen home testID="settings.home">

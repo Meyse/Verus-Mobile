@@ -2,7 +2,7 @@ import React from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import SignedInSettingsHome from '../../Settings/SignedInSettingsHome';
 import ProfileSettings from '../../Settings/ProfileSettings/ProfileSettings';
-import WalletSettings from '../../Settings/WalletSettings/WalletSettings';
+import NetworkAndStorageSettings from '../../Settings/NetworkAndStorageSettings/NetworkAndStorageSettings';
 import Appearance from '../../Settings/Appearance/Appearance';
 import AppInfo from '../../Settings/AppInfo/AppInfo';
 import GeneralWalletSettings from '../../Settings/WalletSettings/GeneralWalletSettings/GeneralWalletSettings';
@@ -11,6 +11,7 @@ import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverr
 import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSettings';
 import {createSettingsHeaderOptions} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import signedInCopy from '../../../copy/signedIn';
 
 const SettingsStack = createStackNavigator();
 
@@ -29,12 +30,12 @@ const SettingsStackScreens = () => {
       <SettingsStack.Screen
         name="ProfileSettings"
         component={ProfileSettings}
-        options={{title: 'Wallet and security'}}
+        options={{title: signedInCopy.settings.securityAndRecovery}}
       />
       <SettingsStack.Screen
         name="WalletSettings"
-        component={WalletSettings}
-        options={{title: 'Wallet settings'}}
+        component={NetworkAndStorageSettings}
+        options={{title: signedInCopy.settings.networkAndStorage}}
       />
       <SettingsStack.Screen
         name="Appearance"
@@ -49,7 +50,7 @@ const SettingsStackScreens = () => {
       <SettingsStack.Screen
         name="GeneralWalletSettings"
         component={GeneralWalletSettings}
-        options={{title: 'General'}}
+        options={{title: signedInCopy.settings.general}}
       />
       <SettingsStack.Screen
         name="AddressBlocklist"

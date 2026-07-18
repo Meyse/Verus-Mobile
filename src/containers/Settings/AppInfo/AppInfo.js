@@ -8,7 +8,7 @@
 import React from 'react';
 import {Platform} from 'react-native';
 import {APP_VERSION} from '../../../../env/index';
-import VerusLogo from '../../../images/customIcons/Verus.png';
+import AppIconSource from '../../../images/appIconSource';
 import {openUrl} from '../../../utils/linking';
 import {
   SettingsAppSummary,
@@ -28,7 +28,7 @@ const LICENCE_URL =
 const AppInfo = () => (
   <SettingsScreen testID="settings.appInfo">
     <SettingsAppSummary
-      logoSource={VerusLogo}
+      logoSource={AppIconSource}
       name="Verus Mobile"
       subtitle="Support and build information"
     />

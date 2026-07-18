@@ -30,7 +30,11 @@ import {
 } from "../../../actions/actions/channels/dlight/dispatchers/AlertManager";
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert";
 import { checkPinForUser } from "../../../utils/asyncStore/asyncStore";
-import {ENABLE_DLIGHT, WYRE_ACCESSIBLE} from '../../../../env/index';
+import {
+  ENABLE_DLIGHT,
+  ENABLE_SIGNED_IN_REDESIGN,
+  WYRE_ACCESSIBLE,
+} from '../../../../env/index';
 import { dlightEnabled } from "../../../utils/enabledChannels";
 import SetupSeedModal from "../../../components/SetupSeedModal/SetupSeedModal";
 import { DLIGHT_PRIVATE, ELECTRUM } from "../../../utils/constants/intervalConstants";
@@ -47,6 +51,7 @@ import {
   SettingsSection,
   SettingsSwitchRow,
 } from '../components/SettingsScaffold';
+import KeychainEncryptionSettingRow from '../components/KeychainEncryptionSettingRow';
 
 const RESET_PWD = "ResetPwd"
 const REMOVE_PROFILE = "DeleteProfile"
@@ -550,6 +555,7 @@ class ProfileSettings extends Component {
     const showSeedWarning =
       this.props.activeAccount.hideSeedWarnings ||
       this.props.showHideSeedCorruptionSetting;
+    const showKeychainEncryption = ENABLE_SIGNED_IN_REDESIGN;
 
     return (
       <SettingsScreen testID="settings.profile">
@@ -612,7 +618,7 @@ class ProfileSettings extends Component {
           />
           <SettingsRow
             icon="lock-reset"
-            last={!showBiometry && !showSeedWarning}
+            last={!showBiometry && !showKeychainEncryption && !showSeedWarning}
             onPress={() => this._openSettings(RESET_PWD)}
             testID="settings.profile.changePassword"
             title="Change password"
@@ -620,7 +626,7 @@ class ProfileSettings extends Component {
           {showBiometry ? (
             <SettingsRow
               accessibilityLabel={`${biometryTitle}, ${biometryValue}`}
-              last={!showSeedWarning}
+              last={!showKeychainEncryption && !showSeedWarning}
               leading={
                 <BiometricAffordanceIcon
                   showFallback={biometryEnabled}
@@ -637,6 +643,12 @@ class ProfileSettings extends Component {
               }}
               title={biometryTitle}
               value={biometryValue}
+            />
+          ) : null}
+          {showKeychainEncryption ? (
+            <KeychainEncryptionSettingRow
+              last={!showSeedWarning}
+              navigation={this.props.navigation}
             />
           ) : null}
           {showSeedWarning ? (

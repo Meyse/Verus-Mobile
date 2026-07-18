@@ -24,9 +24,11 @@ const signedInCopy = {
   },
   settings: {
     title: 'Settings',
-    profileAndSecurity: 'Wallet and security',
-    wallet: 'Wallet settings',
+    securityAndRecovery: 'Security & recovery',
+    walletAndSecurity: 'Wallet and security',
+    general: 'General',
     appearance: 'Appearance',
+    networkAndStorage: 'Network & storage',
     appInformation: 'App information',
     appearanceDescription: 'Choose how Verus Mobile looks on this device.',
     system: 'System',

@@ -10,6 +10,7 @@ import { CoinDirectory } from "../CoinData/CoinDirectory";
 import { requestPrivKey } from "../auth/authBox";
 import { DLIGHT_PRIVATE } from "../constants/intervalConstants";
 import { Tools } from "react-native-verus";
+import { PROFILE_SECURITY_SETTINGS_LABEL } from "../settings/settingsLabels";
 
 /**
  * Gets an extended spending key for zGetEncryptionAddress.
@@ -38,6 +39,6 @@ export const getKeyMaterial = async (systemID) => {
 
   throw new Error(
     `No Z recovery secret has been set up. ` +
-    `Please go to Settings → Wallet and security and set up a Z recovery secret before accepting encryption requests.`
+    `Please go to Settings → ${PROFILE_SECURITY_SETTINGS_LABEL} and set up a Z recovery secret before accepting encryption requests.`
   );
 };

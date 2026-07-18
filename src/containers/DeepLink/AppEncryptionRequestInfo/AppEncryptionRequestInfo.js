@@ -64,6 +64,7 @@ import {
   ENABLE_SIGNED_IN_REDESIGN,
   VERUSID_NETWORK_DEFAULT,
 } from '../../../../env/index';
+import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../utils/settings/settingsLabels';
 import {processAppEncryptionRequest} from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
@@ -90,7 +91,7 @@ const ROOT_CHAIN_BY_NETWORK = {
 };
 
 const SHIELDED_SETUP_PROFILE_MESSAGE =
-  'Set up the Z recovery secret in Settings > Wallet and security, then restart Verus Mobile and try again.';
+  `Set up the Z recovery secret in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}, then restart Verus Mobile and try again.`;
 
 const SHIELDED_SETUP_RESTART_MESSAGE =
   'Restart Verus Mobile, unlock this wallet, and try again.';
@@ -762,7 +763,7 @@ const AppEncryptionRequestInfoContent = props => {
       ? 'Switch wallet'
       : 'Unlock wallet'
     : shieldedSetupNeedsProfile
-    ? 'Open Wallet and security'
+    ? `Open ${PROFILE_SECURITY_SETTINGS_LABEL}`
     : shieldedSetupNeedsRestart
     ? 'Restart required'
     : !linkedIdsLoaded

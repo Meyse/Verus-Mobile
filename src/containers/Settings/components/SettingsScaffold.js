@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -14,10 +14,24 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import {SignedInEdgeFade} from '../../../components/SignedInActionBar';
 import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
+
+const SCROLL_END_THRESHOLD = 8;
+const SCROLL_CUE_HEIGHT = 46;
+const EMPTY_SCROLL_METRICS = {
+  contentHeight: 0,
+  layoutHeight: 0,
+  offsetY: 0,
+};
+
+const hasSameScrollMetrics = (left, right) =>
+  left.contentHeight === right.contentHeight &&
+  left.layoutHeight === right.layoutHeight &&
+  left.offsetY === right.offsetY;
 
 const createStyles = theme =>
   StyleSheet.create({
@@ -27,6 +41,32 @@ const createStyles = theme =>
     },
     scroll: {
       flex: 1,
+    },
+    scrollFrame: {
+      flex: 1,
+    },
+    scrollCue: {
+      position: 'absolute',
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 1,
+      height: SCROLL_CUE_HEIGHT,
+      alignItems: 'center',
+    },
+    scrollCueFade: {
+      position: 'absolute',
+      right: 0,
+      bottom: 0,
+      left: 0,
+    },
+    scrollCueChevron: {
+      position: 'absolute',
+      bottom: 2,
+      width: 20,
+      height: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     content: {
       width: '100%',
@@ -203,8 +243,9 @@ const createStyles = theme =>
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
-      borderRadius: 14,
-      backgroundColor: theme.colors.primary,
+      borderRadius: Platform.OS === 'ios' ? 9.5 : 21,
+      ...(Platform.OS === 'ios' && {borderCurve: 'continuous'}),
+      backgroundColor: 'transparent',
     },
     appLogoImage: {
       width: 42,
@@ -294,6 +335,26 @@ const getStyles = theme => {
   return stylesByTheme.get(theme);
 };
 
+const SettingsScrollCue = ({styles, theme}) => (
+  <View
+    accessibilityElementsHidden
+    importantForAccessibility="no-hide-descendants"
+    pointerEvents="none"
+    style={styles.scrollCue}>
+    <SignedInEdgeFade
+      height={SCROLL_CUE_HEIGHT}
+      style={styles.scrollCueFade}
+    />
+    <View style={styles.scrollCueChevron}>
+      <MaterialCommunityIcons
+        color={theme.colors.textSubtle}
+        name="chevron-down"
+        size={15}
+      />
+    </View>
+  </View>
+);
+
 export const SettingsScreen = ({
   avoidKeyboard = false,
   children,
@@ -307,6 +368,8 @@ export const SettingsScreen = ({
 }) => {
   const theme = useOnboardingTheme();
   const styles = getStyles(theme);
+  const scrollRef = useRef(null);
+  const [scrollMetrics, setScrollMetrics] = useState(EMPTY_SCROLL_METRICS);
   const Container = avoidKeyboard ? KeyboardAvoidingView : View;
   const containerProps = avoidKeyboard
     ? {
@@ -316,6 +379,49 @@ export const SettingsScreen = ({
     : {};
   const edges =
     safeAreaEdges || (home ? ['top', 'left', 'right'] : ['left', 'right']);
+  const isScrollable =
+    scrollMetrics.layoutHeight > 0 &&
+    scrollMetrics.contentHeight >
+      scrollMetrics.layoutHeight + SCROLL_END_THRESHOLD;
+  const showBottomScrollCue =
+    isScrollable &&
+    scrollMetrics.offsetY + scrollMetrics.layoutHeight <
+      scrollMetrics.contentHeight - SCROLL_END_THRESHOLD;
+
+  const updateScrollMetrics = useCallback(nextMetrics => {
+    setScrollMetrics(current => {
+      const next = {
+        ...current,
+        ...nextMetrics,
+      };
+
+      return hasSameScrollMetrics(current, next) ? current : next;
+    });
+  }, []);
+
+  const handleScroll = useCallback(
+    event => {
+      const {contentOffset, contentSize, layoutMeasurement} =
+        event.nativeEvent;
+
+      updateScrollMetrics({
+        contentHeight: contentSize.height,
+        layoutHeight: layoutMeasurement.height,
+        offsetY: contentOffset.y,
+      });
+    },
+    [updateScrollMetrics],
+  );
+
+  useEffect(() => {
+    if (!isScrollable) return undefined;
+
+    const timeout = setTimeout(() => {
+      scrollRef.current?.flashScrollIndicators?.();
+    }, 260);
+
+    return () => clearTimeout(timeout);
+  }, [isScrollable]);
 
   return (
     <SafeAreaView
@@ -325,19 +431,35 @@ export const SettingsScreen = ({
       <Container
         {...containerProps}
         style={styles.screen}>
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={[
-            styles.content,
-            home && styles.homeContent,
-            contentContainerStyle,
-          ]}
-          keyboardDismissMode={keyboardDismissMode}
-          keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-          showsVerticalScrollIndicator={false}
-          style={styles.scroll}>
-          {children}
-        </ScrollView>
+        <View style={styles.scrollFrame}>
+          <ScrollView
+            ref={scrollRef}
+            bounces={false}
+            contentContainerStyle={[
+              styles.content,
+              home && styles.homeContent,
+              contentContainerStyle,
+            ]}
+            keyboardDismissMode={keyboardDismissMode}
+            keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+            onContentSizeChange={(_, contentHeight) =>
+              updateScrollMetrics({contentHeight})
+            }
+            onLayout={event =>
+              updateScrollMetrics({
+                layoutHeight: event.nativeEvent.layout.height,
+              })
+            }
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={isScrollable}
+            style={styles.scroll}>
+            {children}
+          </ScrollView>
+          {showBottomScrollCue ? (
+            <SettingsScrollCue styles={styles} theme={theme} />
+          ) : null}
+        </View>
         {footer}
       </Container>
     </SafeAreaView>

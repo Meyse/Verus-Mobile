@@ -17,6 +17,7 @@ import { Alert } from 'react-native';
 import { SUSPICIOUS_UNICODE_CHARACTER_TEST } from '../constants/regex';
 import { INCORRECT_PASSWORD_DELAY_ERROR_MS } from '../constants/errors';
 import { normalizeWalletAvatar } from '../walletAvatar';
+import { PROFILE_SECURITY_SETTINGS_LABEL } from '../settings/settingsLabels';
 
 //Set storage to hold encrypted user data
 export const storeUser = (authData, users) => {
@@ -349,7 +350,7 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
                 if (!user.hideSeedWarnings) {
                   Alert.alert(
                     "Possible Recovery Data Issue",
-                    "Non-standard characters were detected in your stored wallet recovery data.\n\nIf it is a Secret Recovery Phrase or WIF key, this could indicate that the data is corrupted and may not match your offline backup.\n\nCheck it by going to Settings > Wallet and security > View recovery secrets. If it does not match your backup, create a new wallet from your backup and transfer any funds from this wallet to the new wallet.\n\nYou can disable this warning in Settings > Wallet and security."
+                    `Non-standard characters were detected in your stored wallet recovery data.\n\nIf it is a Secret Recovery Phrase or WIF key, this could indicate that the data is corrupted and may not match your offline backup.\n\nCheck it by going to Settings > ${PROFILE_SECURITY_SETTINGS_LABEL} > View recovery secrets. If it does not match your backup, create a new wallet from your backup and transfer any funds from this wallet to the new wallet.\n\nYou can disable this warning in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}.`
                   );
                 }
 
