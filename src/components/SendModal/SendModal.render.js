@@ -4,8 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, Portal, Button } from "react-native-paper";
 import Colors from "../../globals/colors";
 import {
-  ADD_ERC20_TOKEN_MODAL,
-  ADD_PBAAS_CURRENCY_MODAL,
   AUTHENTICATE_USER_SEND_MODAL,
   CONVERSION_SEND_MODAL,
   CONVERT_OR_CROSS_CHAIN_SEND_MODAL,
@@ -51,15 +49,9 @@ import ProvisionIdentityForm from "./ProvisionIdentity/ProvisionIdentityForm/Pro
 import ProvisionIdentityConfirm from "./ProvisionIdentity/ProvisionIdentityConfirm/ProvisionIdentityConfirm";
 import ProvisionIdentityResult from "./ProvisionIdentity/ProvisionIdentityResult/ProvisionIdentityResult";
 import ProvisionIdentityBottomSheet from "./ProvisionIdentity/ProvisionIdentityBottomSheet";
-import AddPbaasCurrencyForm from "./AddPbaasCurrency/AddPbaasCurrencyForm/AddPbaasCurrencyForm";
-import AddPbaasCurrencyConfirm from "./AddPbaasCurrency/AddPbaasCurrencyConfirm/AddPbaasCurrencyConfirm";
-import AddPbaasCurrencyResult from "./AddPbaasCurrency/AddPbaasCurrencyResult/AddPbaasCurrencyResult";
 import ConvertOrCrossChainSendForm from "./ConvertOrCrossChainSend/ConvertOrCrossChainSendForm/ConvertOrCrossChainSendForm";
 import ConvertOrCrossChainSendConfirm from "./ConvertOrCrossChainSend/ConvertOrCrossChainSendConfirm/ConvertOrCrossChainSendConfirm";
 import ConvertOrCrossChainSendResult from "./ConvertOrCrossChainSend/ConvertOrCrossChainSendResult/ConvertOrCrossChainSendResult";
-import AddErc20TokenForm from "./AddErc20Token/AddErc20TokenForm/AddErc20TokenForm";
-import AddErc20TokenConfirm from "./AddErc20Token/AddErc20TokenConfirm/AddErc20TokenConfirm";
-import AddErc20TokenResult from "./AddErc20Token/AddErc20TokenResult/AddErc20TokenResult";
 import RevokeIdentityForm from "./RevokeIdentity/RevokeIdentityForm/RevokeIdentityForm";
 import RevokeIdentityConfirm from "./RevokeIdentity/RevokeIdentityConfirm/RevokeIdentityConfirm";
 import RevokeIdentityResult from "./RevokeIdentity/RevokeIdentityResult/RevokeIdentityResult";
@@ -81,9 +73,7 @@ const SEND_FORMS = {
   [LINK_IDENTITY_SEND_MODAL]: LinkIdentityForm,
   [PROVISION_IDENTITY_SEND_MODAL]: ProvisionIdentityForm,
   [AUTHENTICATE_USER_SEND_MODAL]: AuthenticateUserForm,
-  [ADD_PBAAS_CURRENCY_MODAL]: AddPbaasCurrencyForm,
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendForm,
-  [ADD_ERC20_TOKEN_MODAL]: AddErc20TokenForm,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityForm,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityForm,
   [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityForm
@@ -97,9 +87,7 @@ const SEND_CONFIRMATION = {
   [LINK_IDENTITY_SEND_MODAL]: LinkIdentityConfirm,
   [PROVISION_IDENTITY_SEND_MODAL]: ProvisionIdentityConfirm,
   [AUTHENTICATE_USER_SEND_MODAL]: AuthenticateUserPassword,
-  [ADD_PBAAS_CURRENCY_MODAL]: AddPbaasCurrencyConfirm,
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendConfirm,
-  [ADD_ERC20_TOKEN_MODAL]: AddErc20TokenConfirm,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityConfirm,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityConfirm,
   [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityConfirm
@@ -113,9 +101,7 @@ const SEND_RESULTS = {
   [LINK_IDENTITY_SEND_MODAL]: LinkIdentityResult,
   [PROVISION_IDENTITY_SEND_MODAL]: ProvisionIdentityResult,
   [AUTHENTICATE_USER_SEND_MODAL]: AuthenticateUserResult,
-  [ADD_PBAAS_CURRENCY_MODAL]: AddPbaasCurrencyResult,
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendResult,
-  [ADD_ERC20_TOKEN_MODAL]: AddErc20TokenResult,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityResult,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityResult,
   [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityResult

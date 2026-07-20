@@ -25,6 +25,10 @@ import Appearance from '../../Settings/Appearance/Appearance';
 import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
 import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
 import SendWizardNavigator from '../../SendWizard/SendWizardNavigator';
+import AddAssetByIdentifier from '../../ManageAssets/AddAssetByIdentifier';
+import ManageAssets, {
+  ManageAssetsDirectory,
+} from '../../ManageAssets/ManageAssets';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
 import {
   createRedesignedHeaderOptions,
@@ -57,6 +61,33 @@ const MainStackScreens = props => {
         component={AddCoin}
         options={{
           title: "Add Coin",
+        }}
+      />
+
+      <MainStack.Screen
+        name="ManageAssets"
+        component={ManageAssets}
+        options={{
+          ...settingsHeaderOptions,
+          title: 'Manage assets',
+        }}
+      />
+
+      <MainStack.Screen
+        name="ManageAssetsDirectory"
+        component={ManageAssetsDirectory}
+        options={{
+          ...settingsHeaderOptions,
+          title: 'Discover assets',
+        }}
+      />
+
+      <MainStack.Screen
+        name="AddAssetByIdentifier"
+        component={AddAssetByIdentifier}
+        options={{
+          ...settingsHeaderOptions,
+          title: 'Add by identifier',
         }}
       />
 

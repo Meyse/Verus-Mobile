@@ -18,11 +18,8 @@ import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
-import {
-  DisplayCurrencySheet,
-  ManageAssetsSheet,
-} from './components/SignedInWalletSheets';
+import {RenderAssetListCoinLogo} from '../../utils/CoinData/Graphics';
+import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
@@ -156,12 +153,9 @@ const SignedInWalletHome = ({
   transferAvailable,
   onReceive,
   onSendOrConvert,
-  onAddCoin,
-  onAddPbaasCurrency,
-  onAddErc20Token,
+  onManageAssets,
 }) => {
   const theme = useOnboardingTheme();
-  const [manageAssetsOpen, setManageAssetsOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [showHeaderDivider, setShowHeaderDivider] = useState(false);
   const dividerRef = useRef(false);
@@ -203,7 +197,7 @@ const SignedInWalletHome = ({
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <View style={styles.logoWrap}>
-          {RenderSquareCoinLogo(item.coin.id, {}, 38, 38)}
+          {RenderAssetListCoinLogo(item.coin.id, {}, 38, 38)}
         </View>
         <View style={styles.assetCopy}>
           <View style={styles.assetLine}>
@@ -298,7 +292,7 @@ const SignedInWalletHome = ({
               accessibilityRole="button"
               accessibilityLabel="Manage assets"
               hitSlop={ICON_HIT_SLOP}
-              onPress={() => setManageAssetsOpen(true)}
+              onPress={onManageAssets}
               style={styles.iconButton}>
               <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSubtle} />
             </TouchableOpacity>
@@ -323,13 +317,6 @@ const SignedInWalletHome = ({
         sendOrConvertDisabled={!transferAvailable}
         onReceive={onReceive}
         onSendOrConvert={onSendOrConvert}
-      />
-      <ManageAssetsSheet
-        visible={manageAssetsOpen}
-        onClose={() => setManageAssetsOpen(false)}
-        onAddCoin={onAddCoin}
-        onAddPbaasCurrency={onAddPbaasCurrency}
-        onAddErc20Token={onAddErc20Token}
       />
       <DisplayCurrencySheet
         visible={currencyOpen}

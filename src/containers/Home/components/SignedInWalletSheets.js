@@ -1,7 +1,6 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -43,103 +42,6 @@ const SheetHeader = ({onClose, title}) => {
         />
       </TouchableOpacity>
     </View>
-  );
-};
-
-const ManageRow = ({description, icon, image, onPress, title}) => {
-  const theme = useOnboardingTheme();
-
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      activeOpacity={0.72}
-      onPress={onPress}
-      style={[styles.manageRow, {backgroundColor: theme.colors.surface}]}>
-      <View style={styles.manageIconLane}>
-        {image ? (
-          <Image source={image} resizeMode="contain" style={styles.manageImage} />
-        ) : (
-          <MaterialCommunityIcons
-            name={icon}
-            size={24}
-            color={theme.colors.textPrimary}
-          />
-        )}
-      </View>
-      <View style={styles.manageCopy}>
-        <Text style={[styles.manageTitle, {color: theme.colors.textPrimary}]}>
-          {title}
-        </Text>
-        <Text
-          style={[
-            styles.manageDescription,
-            {color: theme.colors.textSecondary},
-          ]}>
-          {description}
-        </Text>
-      </View>
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={24}
-        color={theme.colors.textSubtle}
-      />
-    </TouchableOpacity>
-  );
-};
-
-export const ManageAssetsSheet = ({
-  onAddCoin,
-  onAddErc20Token,
-  onAddPbaasCurrency,
-  onClose,
-  visible,
-}) => {
-  const pendingActionRef = useRef(null);
-
-  const closeThenRun = useCallback(
-    action => {
-      pendingActionRef.current = action;
-      onClose();
-    },
-    [onClose],
-  );
-
-  const handleClosed = useCallback(() => {
-    const pendingAction = pendingActionRef.current;
-    pendingActionRef.current = null;
-    if (typeof pendingAction === 'function') pendingAction();
-  }, []);
-
-  return (
-    <BottomSheetModal
-      floating={false}
-      maxHeight="70%"
-      onClose={onClose}
-      onClosed={handleClosed}
-      visible={visible}
-      contentContainerStyle={styles.attachedSheet}>
-      <SheetHeader title="Manage assets" onClose={onClose} />
-      <View style={styles.manageList}>
-        <ManageRow
-          image={require('../../../images/customIcons/Verus.png')}
-          title="Add ecosystem currency"
-          description="Add currencies and coins from the Verus ecosystem"
-          onPress={() => closeThenRun(onAddPbaasCurrency)}
-        />
-        <ManageRow
-          icon="format-list-bulleted"
-          title="Browse assets"
-          description="Enable or disable assets in your wallet"
-          onPress={() => closeThenRun(onAddCoin)}
-        />
-        <ManageRow
-          icon="ethereum"
-          title="Add ERC-20 token"
-          description="Add by contract address on Ethereum"
-          onPress={() => closeThenRun(onAddErc20Token)}
-        />
-      </View>
-    </BottomSheetModal>
   );
 };
 
@@ -313,44 +215,6 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  manageList: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  manageRow: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    marginBottom: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  manageIconLane: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manageImage: {
-    width: 24,
-    height: 24,
-  },
-  manageCopy: {
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 8,
-  },
-  manageTitle: {
-    fontSize: 18,
-    lineHeight: 23,
-    ...fontStyle('semiBold'),
-  },
-  manageDescription: {
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
-    ...fontStyle('regular'),
   },
   searchOuter: {
     paddingHorizontal: 16,

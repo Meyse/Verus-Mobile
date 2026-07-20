@@ -50,11 +50,6 @@ import {
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { VERUSID_SERVICE_ID } from '../../utils/constants/services';
 import { dragDetectionEnabled } from '../../utils/dragDetection';
-import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
-import {
-  openAddErc20TokenModal,
-  openAddPbaasCurrencyModal,
-} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
@@ -79,9 +74,6 @@ const Home = () => {
   const activeCoinsForUser = useObjectSelector((state) => state.coins.activeCoinsForUser);
 
   const activeAccount = useObjectSelector((state) => state.authentication.activeAccount);
-  const testnetOverrides = useObjectSelector(
-    (state) => state.authentication.activeAccount.testnetOverrides,
-  );
   const balances = useObjectSelector((state) =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
@@ -494,16 +486,9 @@ const Home = () => {
     navigation.navigate('AddCoin', { refresh: refresh });
   };
 
-  const _addPbaasCurrency = async () => {
-    openAddPbaasCurrencyModal(
-      CoinDirectory.findCoinObj(testnetOverrides.VRSC ? testnetOverrides.VRSC : 'VRSC'),
-    );
-  };
-
-  const _addErc20Token = () => {
-    openAddErc20TokenModal(
-      CoinDirectory.findCoinObj(testnetOverrides.ETH ? testnetOverrides.ETH : 'ETH'),
-    );
+  const _addAssetByIdentifier = () => {
+    const mainNavigation = navigation.getParent()?.getParent();
+    (mainNavigation || navigation).navigate('AddAssetByIdentifier');
   };
 
   if (ENABLE_SIGNED_IN_REDESIGN) {
@@ -526,9 +511,9 @@ const Home = () => {
         transferAvailable={transferAvailable}
         onReceive={() => (mainNavigation || navigation).navigate('ReceiveAssetsList')}
         onSendOrConvert={() => (mainNavigation || navigation).navigate('SendWizard')}
-        onAddCoin={_addCoin}
-        onAddPbaasCurrency={_addPbaasCurrency}
-        onAddErc20Token={_addErc20Token}
+        onManageAssets={() =>
+          (mainNavigation || navigation).navigate('ManageAssets')
+        }
       />
     );
   }
@@ -544,8 +529,7 @@ const Home = () => {
       setEditingCards={handleSetEditingCards}
       _addCoin={_addCoin}
       _verusPay={_verusPay}
-      _addPbaasCurrency={_addPbaasCurrency}
-      _addErc20Token={_addErc20Token}
+      _addAssetByIdentifier={_addAssetByIdentifier}
       forceUpdate={forceUpdate}
       loading={loading}
       HomeRenderCoinsList={() =>

@@ -84,6 +84,69 @@ export const RenderSquareCoinLogo = (chainTicker, style = {}, width = 40, height
   );
 };
 
+export const RenderAssetListCoinLogo = (
+  chainTicker,
+  style = {},
+  width = 40,
+  height = 40,
+) => {
+  const {Logo} = getSimpleLogo(chainTicker, 'dark');
+  let BadgeLogo = null;
+
+  try {
+    const coinObj = CoinDirectory.findCoinObj(chainTicker);
+    const displayTicker = coinObj.display_ticker || '';
+    const displayName = coinObj.display_name || '';
+
+    if (
+      (displayTicker.includes('.vETH') || displayName.includes('on Verus')) &&
+      !displayTicker.includes('Bridge.vETH')
+    ) {
+      BadgeLogo = getSimpleLogo('VRSC', 'dark').Logo;
+    } else if (displayName.includes('on Ethereum')) {
+      BadgeLogo = getSimpleLogo('ETH', 'dark').Logo;
+    }
+  } catch (e) {
+    BadgeLogo = null;
+  }
+
+  const badgeSize = width * 0.55;
+  const overflowOffset = badgeSize * 0.3;
+
+  return (
+    <View
+      style={{
+        width,
+        height,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+        overflow: 'visible',
+        zIndex: 1,
+      }}>
+      <Logo width={width} height={height} style={style} />
+      {BadgeLogo ? (
+        <View
+          style={{
+            position: 'absolute',
+            right: -overflowOffset,
+            bottom: -overflowOffset,
+            width: badgeSize,
+            height: badgeSize,
+            padding: 2,
+            borderRadius: badgeSize / 2,
+            backgroundColor: 'white',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2,
+          }}>
+          <BadgeLogo width={badgeSize - 4} height={badgeSize - 4} />
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
 export const RenderCircleCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
   const { Logo, color } = getSimpleLogo(chainTicker);
 
