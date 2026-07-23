@@ -11,6 +11,7 @@ import LottieView from 'lottie-react-native';
 import {Pencil, Plus} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppTextInput from '../../../../components/AppTextInput';
+import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {createSignedOutSheetStyles} from '../../../../styles';
@@ -29,6 +30,7 @@ const DEFAULT_CANDIDATE_LIST_HEIGHT =
   4 * CANDIDATE_ROW_TOTAL_HEIGHT + LIST_CONTENT_VERTICAL_PADDING;
 const SCROLL_CUE_HEIGHT = 42;
 const SCROLL_END_THRESHOLD = 8;
+const IDENTITY_SKELETON_WIDTHS = ['44%', '62%', '50%', '70%'];
 
 const getErrorText = value => {
   if (value == null) return '';
@@ -138,7 +140,7 @@ const LinkExistingVerusIdSheet = ({
   const [candidates, setCandidates] = useState([]);
   const [errorMessage, setErrorMessage] = useState(null);
   const [linking, setLinking] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(active);
   const [lookupUnsupported, setLookupUnsupported] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showBottomScrollCue, setShowBottomScrollCue] = useState(false);
@@ -384,10 +386,20 @@ const LinkExistingVerusIdSheet = ({
     });
   };
 
-  if (loading || linking) {
+  if (loading) {
+    return (
+      <DiscoverySkeleton
+        minHeight={listViewportHeight}
+        styles={styles}
+        theme={theme}
+      />
+    );
+  }
+
+  if (linking) {
     return (
       <LoadingState
-        label={linking ? 'Linking VerusID' : 'Finding VerusIDs'}
+        label="Linking VerusID"
         minHeight={listViewportHeight}
         styles={styles}
       />
@@ -480,6 +492,24 @@ const LinkExistingVerusIdSheet = ({
     </>
   );
 };
+
+const DiscoverySkeleton = ({minHeight, styles, theme}) => (
+  <SkeletonLoader
+    accessibilityLabel="Finding VerusIDs"
+    style={[styles.skeletonState, {minHeight}]}>
+    <View style={styles.skeletonList}>
+      {IDENTITY_SKELETON_WIDTHS.map(width => (
+        <View key={width} style={styles.identityRow}>
+          <SkeletonBlock
+            color={theme.colors.border}
+            height={16}
+            width={width}
+          />
+        </View>
+      ))}
+    </View>
+  </SkeletonLoader>
+);
 
 const LoadingState = ({label, minHeight, styles}) => (
   <View
@@ -603,6 +633,13 @@ const createStyles = theme =>
     loadingAnimation: {
       width: 96,
       height: 70,
+    },
+    skeletonState: {
+      minHeight: 156,
+      justifyContent: 'center',
+    },
+    skeletonList: {
+      width: '100%',
     },
     statusState: {
       minHeight: 78,

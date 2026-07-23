@@ -1,7 +1,8 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Buffer} from 'buffer';
 import {
   Image,
+  ScrollView,
   SectionList,
   StyleSheet,
   Text,
@@ -15,8 +16,10 @@ import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import AppButton from '../../../../components/AppButton';
+import {setUserCoins} from '../../../../actions/actionCreators';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
@@ -26,17 +29,39 @@ import {
   NOTIFICATION_TYPE_VERUSID_READY,
 } from '../../../../utils/constants/services';
 import {openLinkIdentityModal} from '../../../../actions/actions/sendModal/dispatchers/sendModal';
+import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import {dispatchRemoveNotification} from '../../../../actions/actions/notifications/dispatchers/notifications';
 import {
   checkVerusIdNotificationsForUpdates,
   deleteProvisionedIds,
+  linkVerusId,
 } from '../../../../actions/actions/services/dispatchers/verusid/verusid';
-import {updatePendingVerusIds} from '../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
+import {
+  updatePendingVerusIds,
+  updateVerusIdWallet,
+} from '../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
+import {
+  clearChainLifecycle,
+  refreshActiveChainLifecycles,
+} from '../../../../actions/actions/intervals/dispatchers/lifecycleManager';
+import LinkExistingVerusIdSheet from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import {processVerusId} from './VerusIdLogin';
 
 const emptyVerusIdImage = require('../../../../images/customIcons/empty-verusid.png');
 const BOTTOM_FADE_HEIGHT = 48;
+const SCROLL_CUE_HEIGHT = 46;
+const SCROLL_END_THRESHOLD = 8;
+const EMPTY_SCROLL_METRICS = {
+  contentHeight: 0,
+  layoutHeight: 0,
+  offsetY: 0,
+};
+
+const hasSameScrollMetrics = (left, right) =>
+  left.contentHeight === right.contentHeight &&
+  left.layoutHeight === right.layoutHeight &&
+  left.offsetY === right.offsetY;
 
 const FAQ_ITEMS = [
   {
@@ -147,6 +172,41 @@ const BottomFade = ({backgroundColor, solidHeight}) => (
       <Rect x="0" y="0" width="100%" height={BOTTOM_FADE_HEIGHT} fill="url(#identityBottomFade)" />
     </Svg>
     <View style={{height: solidHeight, backgroundColor}} />
+  </View>
+);
+
+const InfoSheetScrollCue = ({theme}) => (
+  <View
+    accessibilityElementsHidden
+    importantForAccessibility="no-hide-descendants"
+    pointerEvents="none"
+    style={styles.infoSheetScrollCue}>
+    <Svg height="100%" width="100%" style={styles.infoSheetScrollCueFade}>
+      <Defs>
+        <LinearGradient
+          id="verusIdInfoSheetBottomScrollCue"
+          x1="0"
+          x2="0"
+          y1="0"
+          y2="1">
+          <Stop offset="0" stopColor={theme.colors.sheet} stopOpacity="0" />
+          <Stop offset="0.72" stopColor={theme.colors.sheet} stopOpacity="0.92" />
+          <Stop offset="1" stopColor={theme.colors.sheet} stopOpacity="1" />
+        </LinearGradient>
+      </Defs>
+      <Rect
+        fill="url(#verusIdInfoSheetBottomScrollCue)"
+        height="100%"
+        width="100%"
+      />
+    </Svg>
+    <View style={styles.infoSheetScrollCueChevron}>
+      <MaterialCommunityIcons
+        color={theme.colors.textSubtle}
+        name="chevron-down"
+        size={15}
+      />
+    </View>
   </View>
 );
 
@@ -263,10 +323,20 @@ const SignedInVerusIdService = ({controller}) => {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
+  const signedOutSheetStyles = useMemo(
+    () => createSignedOutSheetStyles(theme),
+    [theme],
+  );
+  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
   const [expandedFaq, setExpandedFaq] = useState(null);
-  const [createInfoVisible, setCreateInfoVisible] = useState(false);
+  const [infoSheetScrollMetrics, setInfoSheetScrollMetrics] = useState(
+    EMPTY_SCROLL_METRICS,
+  );
   const [infoVisible, setInfoVisible] = useState(false);
+  const [linkSheetContentActive, setLinkSheetContentActive] = useState(false);
+  const [linkSheetSession, setLinkSheetSession] = useState(0);
+  const [linkSheetVisible, setLinkSheetVisible] = useState(false);
   const [selectedPending, setSelectedPending] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [pendingError, setPendingError] = useState(null);
@@ -283,14 +353,150 @@ const SignedInVerusIdService = ({controller}) => {
   const pendingCount = groups.ready.length + groups.attention.length + groups.progress.length;
   const hasContent = linked.length > 0 || pendingCount > 0;
   const bottomPadding = Math.max(insets.bottom, 20);
+  const infoSheetIsScrollable =
+    infoSheetScrollMetrics.layoutHeight > 0 &&
+    infoSheetScrollMetrics.contentHeight >
+      infoSheetScrollMetrics.layoutHeight + SCROLL_END_THRESHOLD;
+  const showInfoSheetScrollCue =
+    infoVisible &&
+    infoSheetIsScrollable &&
+    infoSheetScrollMetrics.offsetY + infoSheetScrollMetrics.layoutHeight <
+      infoSheetScrollMetrics.contentHeight - SCROLL_END_THRESHOLD;
 
-  const openLink = useCallback(
-    (chain = identityNetwork, value) =>
+  const updateInfoSheetScrollMetrics = useCallback(nextMetrics => {
+    setInfoSheetScrollMetrics(current => {
+      const next = {
+        ...current,
+        ...nextMetrics,
+      };
+
+      return hasSameScrollMetrics(current, next) ? current : next;
+    });
+  }, []);
+
+  const handleInfoSheetScroll = useCallback(
+    event => {
+      const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
+
+      updateInfoSheetScrollMetrics({
+        contentHeight: contentSize.height,
+        layoutHeight: layoutMeasurement.height,
+        offsetY: contentOffset.y,
+      });
+    },
+    [updateInfoSheetScrollMetrics],
+  );
+
+  useEffect(() => {
+    if (!infoVisible) {
+      setInfoSheetScrollMetrics(EMPTY_SCROLL_METRICS);
+    }
+  }, [infoVisible]);
+
+  const closeLinkSheet = useCallback(() => setLinkSheetVisible(false), []);
+
+  const handleLinkSheetClosed = useCallback(
+    () => setLinkSheetContentActive(false),
+    [],
+  );
+
+  const openLegacyManualLink = useCallback(
+    (chain = identityNetwork, value) => {
+      closeLinkSheet();
       openLinkIdentityModal(
         CoinDirectory.findCoinObj(chain),
         value ? {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: value} : undefined,
-      ),
+      );
+    },
+    [closeLinkSheet, identityNetwork],
+  );
+
+  const openLinkSheet = useCallback(() => {
+    setLinkSheetSession(current => current + 1);
+    setLinkSheetContentActive(true);
+    setLinkSheetVisible(true);
+  }, []);
+
+  const isLinkCandidateAllowed = useCallback(
+    candidate => candidate?.chainId === identityNetwork,
     [identityNetwork],
+  );
+
+  const linkAutoFoundIdentity = useCallback(
+    async candidate => {
+      try {
+        const activeAccount = controller.props.activeAccount;
+        const candidateChainId = candidate?.chainId || identityNetwork;
+        const identityAddress = candidate?.identityAddress;
+        const fullyQualifiedName = candidate?.fullyQualifiedName;
+        const primaryAddresses =
+          candidate?.identity?.primaryaddresses ||
+          candidate?.identity?.primaryAddresses ||
+          [];
+        const displayName =
+          candidate?.displayName ||
+          (fullyQualifiedName
+            ? convertFqnToDisplayFormat(fullyQualifiedName)
+            : null);
+
+        if (!activeAccount?.id) {
+          throw new Error('You must be signed in to link VerusIDs.');
+        }
+
+        if (!identityAddress || !fullyQualifiedName || !displayName) {
+          throw new Error('Unable to link this VerusID.');
+        }
+
+        if (candidate.status !== 'active') {
+          throw new Error('Only active VerusIDs can be linked.');
+        }
+
+        if (
+          !candidate.primaryAddress ||
+          !primaryAddresses.includes(candidate.primaryAddress)
+        ) {
+          throw new Error(
+            'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+          );
+        }
+
+        if (!isLinkCandidateAllowed(candidate)) {
+          throw new Error('This VerusID does not match the selected network.');
+        }
+
+        const coinObj = CoinDirectory.findCoinObj(candidateChainId);
+
+        if (!coinObj) {
+          throw new Error('Unable to find the VerusID network.');
+        }
+
+        await linkVerusId(identityAddress, displayName, coinObj.id);
+        await updateVerusIdWallet();
+        clearChainLifecycle(coinObj.id);
+
+        const setUserCoinsAction = setUserCoins(
+          activeCoinList,
+          activeAccount.id,
+        );
+        dispatch(setUserCoinsAction);
+        refreshActiveChainLifecycles(
+          setUserCoinsAction.payload.activeCoinsForUser,
+        );
+
+        await controller.getLinkedIds();
+        setLinkSheetVisible(false);
+      } catch (error) {
+        createAlert('Error', error?.message || 'Unable to link VerusID.');
+        throw error;
+      }
+    },
+    [
+      activeCoinList,
+      controller,
+      dispatch,
+      identityNetwork,
+      isLinkCandidateAllowed,
+    ],
   );
 
   const openIdentity = useCallback(
@@ -340,7 +546,7 @@ const SignedInVerusIdService = ({controller}) => {
   const handleReady = useCallback(
     item => {
       if (!item.readyAction.hasResponseUris || !item.details?.loginRequest) {
-        openLink(item.chain, item.linkInput);
+        openLegacyManualLink(item.chain, item.linkInput);
         return;
       }
       Promise.resolve(
@@ -351,9 +557,9 @@ const SignedInVerusIdService = ({controller}) => {
           item.details.fqn || null,
           item.readyAction.requestType,
         ),
-      ).catch(() => openLink(item.chain, item.linkInput));
+      ).catch(() => openLegacyManualLink(item.chain, item.linkInput));
     },
-    [controller.props.navigation, dispatch, openLink],
+    [controller.props.navigation, dispatch, openLegacyManualLink],
   );
 
   const handleScroll = event => {
@@ -429,7 +635,7 @@ const SignedInVerusIdService = ({controller}) => {
           <TouchableOpacity onPress={() => setInfoVisible(true)} hitSlop={10} style={styles.headerIcon}>
             <MaterialCommunityIcons name="information-variant" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => openLink()} hitSlop={10} style={styles.headerIcon}>
+          <TouchableOpacity onPress={openLinkSheet} hitSlop={10} style={styles.headerIcon}>
             <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -493,14 +699,8 @@ const SignedInVerusIdService = ({controller}) => {
             Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands.
           </Text>
           <AppButton
-            onPress={() => setCreateInfoVisible(true)}
+            onPress={openLinkSheet}
             style={styles.emptyPrimaryCta}>
-            Create free VerusID
-          </AppButton>
-          <AppButton
-            onPress={() => openLink()}
-            style={styles.emptySecondaryCta}
-            variant="secondary">
             Link VerusID
           </AppButton>
           <TouchableOpacity
@@ -521,65 +721,86 @@ const SignedInVerusIdService = ({controller}) => {
       {hasContent ? <BottomFade backgroundColor={theme.colors.background} solidHeight={bottomPadding} /> : null}
 
       <BottomSheetModal
-        visible={infoVisible}
-        onClose={() => setInfoVisible(false)}
-        floating={false}
-        maxHeight="88%"
-        contentContainerStyle={styles.sheet}>
-        <SheetHeader onClose={() => setInfoVisible(false)} theme={theme} title="What is a VerusID?" />
-        <Text style={[styles.infoSummary, {color: theme.colors.textSecondary}]}>
-          VerusID is a self-sovereign identity and personal data vault. Controlled by you, not companies.
-        </Text>
-        <View style={[styles.faqList, {borderColor: theme.colors.border}]}>
-          {FAQ_ITEMS.map((item, index) => {
-            const expanded = item.key === expandedFaq;
-            return (
-              <View
-                key={item.key}
-                style={[
-                  styles.faqItem,
-                  index > 0 && {borderTopColor: theme.colors.border, borderTopWidth: 1},
-                ]}>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => setExpandedFaq(current => (current === item.key ? null : item.key))}
-                  style={styles.faqHeader}>
-                  <Text style={[styles.faqTitle, {color: theme.colors.textPrimary}]}>{item.title}</Text>
-                  <MaterialCommunityIcons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={22}
-                    color={theme.colors.textSecondary}
-                  />
-                </TouchableOpacity>
-                {expanded ? <FaqBody body={item.body} theme={theme} /> : null}
-              </View>
-            );
-          })}
+        avoidKeyboard
+        visible={linkSheetVisible}
+        onClose={closeLinkSheet}
+        onClosed={handleLinkSheetClosed}
+        maxHeight="76%">
+        <View style={[signedOutSheetStyles.body, signedOutSheetStyles.bodyShort]}>
+          <LinkExistingVerusIdSheet
+            key={linkSheetSession}
+            active={linkSheetContentActive}
+            coinObj={CoinDirectory.findCoinObj(identityNetwork)}
+            isCandidateAllowed={isLinkCandidateAllowed}
+            linkedIds={linkedIds}
+            onLinkCandidate={linkAutoFoundIdentity}
+            onManualLink={openLegacyManualLink}
+          />
         </View>
       </BottomSheetModal>
 
       <BottomSheetModal
-        visible={createInfoVisible}
-        onClose={() => setCreateInfoVisible(false)}
-        floating={false}
-        maxHeight="55%"
-        contentContainerStyle={styles.sheet}>
-        <SheetHeader
-          onClose={() => setCreateInfoVisible(false)}
-          theme={theme}
-          title="Create a VerusID"
-        />
-        <Text style={[styles.sheetBody, {color: theme.colors.textSecondary}]}>
-          This wallet can create a VerusID when a compatible app sends a secure
-          provisioning request. You can link an existing VerusID now.
+        visible={infoVisible}
+        onClose={() => setInfoVisible(false)}
+        maxHeight="80%"
+        contentContainerStyle={styles.infoSheet}>
+        <Text
+          accessibilityRole="header"
+          style={[styles.infoSheetTitle, {color: theme.colors.textPrimary}]}>
+          What is a VerusID?
         </Text>
+        <Text style={[styles.infoSummary, {color: theme.colors.textSecondary}]}>
+          VerusID is a self-sovereign identity and personal data vault. Controlled by you, not companies.
+        </Text>
+        <View style={styles.infoSheetScrollFrame}>
+          <ScrollView
+            alwaysBounceVertical={false}
+            bounces={false}
+            contentContainerStyle={styles.infoSheetScrollContent}
+            onContentSizeChange={(_, contentHeight) =>
+              updateInfoSheetScrollMetrics({contentHeight})
+            }
+            onLayout={event =>
+              updateInfoSheetScrollMetrics({
+                layoutHeight: event.nativeEvent.layout.height,
+              })
+            }
+            onScroll={handleInfoSheetScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={infoSheetIsScrollable}>
+            <View style={styles.faqList}>
+              {FAQ_ITEMS.map(item => {
+                const expanded = item.key === expandedFaq;
+                return (
+                  <View
+                    key={item.key}
+                    style={styles.faqItem}>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      onPress={() => setExpandedFaq(current => (current === item.key ? null : item.key))}
+                      style={styles.faqHeader}>
+                      <Text style={[styles.faqTitle, {color: theme.colors.textPrimary}]}>{item.title}</Text>
+                      <MaterialCommunityIcons
+                        name={expanded ? 'chevron-up' : 'chevron-down'}
+                        size={22}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                    {expanded ? <FaqBody body={item.body} theme={theme} /> : null}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+          {showInfoSheetScrollCue ? <InfoSheetScrollCue theme={theme} /> : null}
+        </View>
         <AppButton
-          onPress={() => {
-            setCreateInfoVisible(false);
-            openLink();
-          }}
-          style={styles.sheetPrimaryAction}>
-          Link VerusID
+          accessibilityLabel="Done"
+          height={56}
+          onPress={() => setInfoVisible(false)}
+          style={styles.infoSheetDoneButton}
+          variant="secondary">
+          Done
         </AppButton>
       </BottomSheetModal>
 
@@ -726,16 +947,39 @@ const styles = StyleSheet.create({
   emptyTitle: {...fontStyle('bold'), fontSize: 20, lineHeight: 25, textAlign: 'center', marginBottom: 8},
   emptyDescription: {...fontStyle('regular'), fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 32},
   emptyPrimaryCta: {width: 200, marginBottom: 16},
-  emptySecondaryCta: {
-    width: 200,
-    marginBottom: 16,
-  },
   learnMoreRow: {flexDirection: 'row', alignItems: 'center'},
   learnMoreIcon: {marginRight: 6},
   learnMoreText: {...fontStyle('semiBold'), fontSize: 13, lineHeight: 17, letterSpacing: -0.1},
   bottomFade: {position: 'absolute', left: 0, right: 0, bottom: 0},
   bottomFadeSvg: {marginBottom: -1},
   sheet: {borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 20, paddingBottom: 28},
+  infoSheet: {borderRadius: 24, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20},
+  infoSheetTitle: {...fontStyle('semiBold'), fontSize: 21, lineHeight: 27, marginBottom: 12},
+  infoSheetScrollFrame: {flexGrow: 0, flexShrink: 1, overflow: 'hidden'},
+  infoSheetScrollContent: {paddingBottom: 4},
+  infoSheetScrollCue: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    height: SCROLL_CUE_HEIGHT,
+    alignItems: 'center',
+  },
+  infoSheetScrollCueFade: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  infoSheetScrollCueChevron: {
+    position: 'absolute',
+    bottom: 2,
+    width: 20,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoSheetDoneButton: {marginTop: 22},
   sheetHeader: {height: 58, alignItems: 'center', justifyContent: 'center'},
   sheetTitle: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20},
   closeButton: {
@@ -747,12 +991,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoSummary: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 14},
-  faqList: {width: '100%', borderWidth: 1, borderRadius: 14, overflow: 'hidden'},
+  infoSummary: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 20},
+  faqList: {width: '100%', gap: 4},
   faqItem: {width: '100%'},
-  faqHeader: {minHeight: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center'},
+  faqHeader: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
   faqTitle: {...fontStyle('bold'), flex: 1, fontSize: 15, lineHeight: 20, letterSpacing: -0.2},
-  faqBody: {paddingLeft: 16, paddingRight: 16, paddingBottom: 12},
+  faqBody: {paddingBottom: 16},
   faqParagraph: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 10},
   faqBullet: {marginLeft: 10, marginBottom: 6},
   faqSpacer: {height: 10},
@@ -762,7 +1006,6 @@ const styles = StyleSheet.create({
   pendingError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginBottom: 2},
   sheetAction: {width: '100%', marginBottom: 10},
   removeAction: {width: '100%', marginTop: 2},
-  sheetPrimaryAction: {width: '100%'},
   helperText: {...fontStyle('regular'), marginTop: 10, fontSize: 12, lineHeight: 16},
 });
 
