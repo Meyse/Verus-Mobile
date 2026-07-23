@@ -5,11 +5,11 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AppSearchField from '../../../components/AppSearchField';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -88,12 +88,10 @@ export const DisplayCurrencySheet = ({
 }) => {
   const theme = useOnboardingTheme();
   const [query, setQuery] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     if (!visible) {
       setQuery('');
-      setSearchFocused(false);
     }
   }, [visible]);
 
@@ -130,39 +128,14 @@ export const DisplayCurrencySheet = ({
         keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}>
         <SheetHeader title="Currencies" onClose={onClose} />
         <View style={styles.searchOuter}>
-          <View
-            style={[
-              styles.searchField,
-              {
-                backgroundColor: searchFocused
-                  ? theme.colors.inputFocused
-                  : theme.colors.input,
-                borderColor: searchFocused
-                  ? theme.colors.primary
-                  : 'transparent',
-                shadowColor: theme.colors.primary,
-              },
-            ]}>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              onBlur={() => setSearchFocused(false)}
-              onChangeText={setQuery}
-              onFocus={() => setSearchFocused(true)}
-              placeholder="Search currencies"
-              placeholderTextColor={theme.colors.textSubtle}
-              returnKeyType="search"
-              style={[styles.searchInput, {color: theme.colors.textPrimary}]}
-              value={query}
-            />
-            <View style={styles.searchIcon}>
-              <MaterialCommunityIcons
-                name="magnify"
-                size={20}
-                color={theme.colors.textSubtle}
-              />
-            </View>
-          </View>
+          <AppSearchField
+            accessibilityLabel="Search currencies"
+            onChangeText={setQuery}
+            placeholder="Search currencies"
+            resultCount={currencies.length}
+            themeMode={theme.mode}
+            value={query}
+          />
         </View>
         <FlatList
           data={currencies}
@@ -219,29 +192,6 @@ const styles = StyleSheet.create({
   searchOuter: {
     paddingHorizontal: 16,
     paddingBottom: 12,
-  },
-  searchField: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: {width: 0, height: 2},
-  },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    lineHeight: 20,
-    ...fontStyle('regular'),
-  },
-  searchIcon: {
-    height: '100%',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
   },
   currencyListViewport: {
     maxHeight: 500,

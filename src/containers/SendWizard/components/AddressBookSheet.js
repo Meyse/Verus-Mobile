@@ -1,7 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {FlatList, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AppSearchField from '../../../components/AppSearchField';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SkeletonLoader, {SkeletonRow} from '../../../components/SkeletonLoader';
 import {fontStyle} from '../../../globals/fonts';
@@ -78,18 +79,15 @@ const AddressBookSheet = ({context, onClose, onSelect, visible}) => {
           <MaterialCommunityIcons name="close" size={20} color={theme.colors.textPrimary} />
         </TouchableOpacity>
       </View>
-      <View style={[styles.search, {backgroundColor: theme.colors.input}]}>
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={setQuery}
-          placeholder="Search saved addresses"
-          placeholderTextColor={theme.colors.textSubtle}
-          style={[styles.searchInput, {color: theme.colors.textPrimary}]}
-          value={query}
-        />
-        <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.textSubtle} />
-      </View>
+      <AppSearchField
+        accessibilityLabel="Search saved addresses"
+        onChangeText={setQuery}
+        placeholder="Search saved addresses"
+        resultCount={filtered.length}
+        style={styles.searchSpacing}
+        themeMode={theme.mode}
+        value={query}
+      />
       {loading ? (
         <SkeletonLoader accessibilityLabel="Loading Address Book">
           <SkeletonRow />
@@ -150,8 +148,7 @@ const styles = StyleSheet.create({
   headerSide: {width: 34, height: 34},
   title: {flex: 1, textAlign: 'center', fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
   close: {width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center'},
-  search: {height: 44, borderRadius: 12, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center'},
-  searchInput: {flex: 1, height: 44, padding: 0, fontSize: 15, lineHeight: 20, ...fontStyle('regular')},
+  searchSpacing: {marginHorizontal: 16, marginBottom: 12},
   list: {paddingHorizontal: 16, paddingBottom: 20},
   row: {minHeight: 72, borderRadius: 12, marginBottom: 10, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center'},
   rowIcon: {width: 28, marginRight: 12, alignItems: 'center'},

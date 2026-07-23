@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -29,6 +28,8 @@ import {clearAllCoinIntervals} from '../../actions/actionDispatchers';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
 import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
 import AppButton from '../../components/AppButton';
+import AppSearchField from '../../components/AppSearchField';
+import AppSearchLauncher from '../../components/AppSearchLauncher';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import {SignedInEdgeFade} from '../../components/SignedInActionBar';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
@@ -365,20 +366,12 @@ const ManageAssets = ({navigation}) => {
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={isScrollable}
           style={styles.scroll}>
-          <TouchableOpacity
+          <AppSearchLauncher
             accessibilityLabel="Find an asset"
-            accessibilityRole="button"
-            activeOpacity={0.72}
+            label="Find an asset"
             onPress={() => openDirectory(ASSET_COLLECTIONS.ALL)}
-            style={styles.searchButton}
-            testID="manage-assets-search">
-            <MaterialCommunityIcons
-              color={theme.colors.textSubtle}
-              name="magnify"
-              size={20}
-            />
-            <Text style={styles.searchButtonText}>Find an asset</Text>
-          </TouchableOpacity>
+            testID="manage-assets-search"
+          />
 
           <TouchableOpacity
             accessibilityLabel={`Manage ${data.activeAssets.length} wallet assets`}
@@ -542,7 +535,6 @@ export const ManageAssetsDirectory = ({navigation, route}) => {
     normalizeCollection(route.params?.collection),
   );
   const [query, setQuery] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     setCollection(normalizeCollection(route.params?.collection));
@@ -582,45 +574,14 @@ export const ManageAssetsDirectory = ({navigation, route}) => {
         keyboardVerticalOffset={68}
         style={styles.keyboardAvoider}>
         <View style={styles.directoryHeader}>
-          <View
-            style={[
-              styles.searchField,
-              searchFocused && styles.searchFieldFocused,
-            ]}>
-            <MaterialCommunityIcons
-              color={theme.colors.textSubtle}
-              name="magnify"
-              size={20}
-            />
-            <TextInput
-              accessibilityLabel="Search assets"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onBlur={() => setSearchFocused(false)}
-              onChangeText={setQuery}
-              onFocus={() => setSearchFocused(true)}
-              placeholder="Search name, ticker or asset type"
-              placeholderTextColor={theme.colors.textSubtle}
-              returnKeyType="search"
-              style={styles.searchInput}
-              testID="manage-assets-directory-search"
-              value={query}
-            />
-            {query ? (
-              <TouchableOpacity
-                accessibilityLabel="Clear search"
-                accessibilityRole="button"
-                activeOpacity={0.7}
-                onPress={() => setQuery('')}
-                style={styles.clearSearch}>
-                <MaterialCommunityIcons
-                  color={theme.colors.textSubtle}
-                  name="close"
-                  size={18}
-                />
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          <AppSearchField
+            accessibilityLabel="Search assets"
+            onChangeText={setQuery}
+            placeholder="Search name, ticker or asset type"
+            resultCount={assets.length}
+            testID="manage-assets-directory-search"
+            value={query}
+          />
 
           {walletCollection ? (
             <Text style={styles.walletHelper}>

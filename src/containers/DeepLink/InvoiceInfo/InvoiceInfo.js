@@ -22,6 +22,7 @@ import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import BigNumber from 'bignumber.js';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { invoiceInfoStyles as styles } from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
   const Wrapper = onPress ? TouchableOpacity : View;
@@ -48,6 +49,7 @@ const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
 };
 
 const InvoiceInfo = props => {
+  const theme = useOnboardingTheme();
   const { 
     detailsBufferString, 
     isSigned,
@@ -398,6 +400,7 @@ const InvoiceInfo = props => {
             cancel={() => setIsListSelectionModalVisible(false)}
             title="Supported Payment Networks"
             flexHeight={1}
+            themeMode={theme.mode}
           />
         )}
       </Portal>

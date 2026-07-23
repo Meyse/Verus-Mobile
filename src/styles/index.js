@@ -17,6 +17,7 @@ const Styles = StyleSheet.create({
 
 export {default as appButtonStyles} from './components/appButton.styles';
 export {default as appEncryptionRequestInfoStyles} from './deeplink/appEncryptionRequestInfo.styles';
+export {default as appSearchStyles} from './components/appSearch.styles';
 export {default as appTextInputStyles} from './components/appTextInput.styles';
 export {default as authenticationRequestInfoStyles} from './deeplink/authenticationRequestInfo.styles';
 export {default as authorityInfoSheetStyles} from './deeplink/authorityInfoSheet.styles';

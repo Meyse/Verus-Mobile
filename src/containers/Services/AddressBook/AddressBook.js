@@ -3,7 +3,6 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  TextInput as RNTextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,6 +12,7 @@ import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
 import CopyAction from '../../../components/CopyAction';
 import AppButton from '../../../components/AppButton';
+import AppSearchField from '../../../components/AppSearchField';
 import SkeletonLoader, {
   SkeletonBlock,
   SkeletonText,
@@ -100,7 +100,6 @@ const AddressBook = () => {
   );
   const [records, setRecords] = useState([]);
   const [search, setSearch] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -246,31 +245,13 @@ const AddressBook = () => {
                 );
               })}
             </View>
-            <View
-              style={[
-                styles.searchContainer,
-                searchFocused && styles.searchContainerFocused,
-              ]}>
-              <RNTextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                onBlur={() => setSearchFocused(false)}
-                onChangeText={setSearch}
-                onFocus={() => setSearchFocused(true)}
-                placeholder="Search addresses"
-                placeholderTextColor={theme.colors.textSubtle}
-                returnKeyType="search"
-                style={styles.searchInput}
-                value={search}
-              />
-              <View style={styles.searchIcon}>
-                <MaterialCommunityIcons
-                  color={theme.colors.textSubtle}
-                  name="magnify"
-                  size={20}
-                />
-              </View>
-            </View>
+            <AppSearchField
+              accessibilityLabel="Search addresses"
+              onChangeText={setSearch}
+              placeholder="Search addresses"
+              resultCount={filteredRecords.length}
+              value={search}
+            />
           </>
         )}
       </View>
@@ -459,36 +440,6 @@ const createStyles = theme =>
     },
     filterLabelActive: {
       color: theme.colors.onPrimary,
-    },
-    searchContainer: {
-      height: 48,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: 'transparent',
-      backgroundColor: theme.colors.input,
-    },
-    searchContainerFocused: {
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.inputFocused,
-      shadowColor: theme.colors.primary,
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      shadowOffset: {width: 0, height: 2},
-    },
-    searchInput: {
-      ...fontStyle('regular'),
-      flex: 1,
-      height: 48,
-      paddingHorizontal: 16,
-      color: theme.colors.textPrimary,
-      fontSize: 16,
-    },
-    searchIcon: {
-      height: '100%',
-      justifyContent: 'center',
-      paddingHorizontal: 16,
     },
     scrollContent: {
       paddingHorizontal: 16,

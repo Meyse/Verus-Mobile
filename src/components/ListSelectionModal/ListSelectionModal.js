@@ -5,18 +5,17 @@
 */
 
 import React, { Component } from "react";
+import AppSearchField from "../AppSearchField";
 import SemiModal from "../SemiModal";
 import {List, withTheme} from "react-native-paper"
-import { TouchableOpacity, FlatList, View, TextInput as RNTextInput, KeyboardAvoidingView, Platform } from "react-native"
+import { TouchableOpacity, FlatList, View, KeyboardAvoidingView, Platform } from "react-native"
 import { listSelectionModalStyles as styles } from "../../styles";
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 class ListSelectionModal extends Component {
   constructor(props) {
     super(props);
     this.state = {
       searchQuery: '',
-      searchFocused: false,
     };
   }
 
@@ -24,9 +23,9 @@ class ListSelectionModal extends Component {
     if (
       prevProps.visible &&
       !this.props.visible &&
-      (this.state.searchQuery.length > 0 || this.state.searchFocused)
+      this.state.searchQuery.length > 0
     ) {
-      this.setState({ searchQuery: '', searchFocused: false });
+      this.setState({ searchQuery: '' });
     }
   }
 
@@ -66,8 +65,9 @@ class ListSelectionModal extends Component {
       showSearch = false,
       searchPlaceholder = "Search",
       keyExtractor,
+      themeMode,
     } = this.props;
-    const { searchQuery, searchFocused } = this.state;
+    const { searchQuery } = this.state;
     const filteredData = this.getFilteredData();
     const {theme} = this.props;
 
@@ -96,34 +96,14 @@ class ListSelectionModal extends Component {
           <View style={styles.container}>
             {showSearch && (
               <View style={styles.searchContainer}>
-                <View
-                  style={[
-                    styles.searchInputContainer,
-                    {backgroundColor: theme.colors.background},
-                    searchFocused && styles.searchInputFocused,
-                    searchFocused && {
-                      backgroundColor: theme.colors.surface,
-                      borderColor: theme.colors.primary,
-                      shadowColor: theme.colors.primary,
-                    },
-                  ]}
-                >
-                  <RNTextInput
-                    value={searchQuery}
-                    onChangeText={(text) => this.setState({ searchQuery: text })}
-                    onFocus={() => this.setState({ searchFocused: true })}
-                    onBlur={() => this.setState({ searchFocused: false })}
-                    placeholder={searchPlaceholder}
-                    placeholderTextColor={theme.colors.placeholder}
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    returnKeyType="search"
-                    style={[styles.searchInput, {color: theme.colors.text}]}
-                  />
-                  <View style={styles.searchIcon}>
-                    <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.placeholder} />
-                  </View>
-                </View>
+                <AppSearchField
+                  accessibilityLabel={searchPlaceholder}
+                  onChangeText={(text) => this.setState({ searchQuery: text })}
+                  placeholder={searchPlaceholder}
+                  resultCount={filteredData.length}
+                  themeMode={themeMode}
+                  value={searchQuery}
+                />
               </View>
             )}
 

@@ -28,6 +28,10 @@ export default StyleSheet.create({
   singleLineInputShell: {
     height: 56,
   },
+  compactInputShell: {
+    minHeight: 48,
+    height: 48,
+  },
   multilineInputShell: {
     alignItems: 'flex-start',
   },
@@ -59,6 +63,15 @@ export default StyleSheet.create({
     textAlignVertical: 'center',
     ...androidFontPaddingFix,
   },
+  compactInput: {
+    height: 44,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlignVertical: 'center',
+    ...androidFontPaddingFix,
+  },
   multilineInput: {
     minHeight: 54,
     paddingVertical: 13,
@@ -72,11 +85,20 @@ export default StyleSheet.create({
     justifyContent: 'center',
     paddingLeft: 10,
   },
+  compactLeftAccessory: {
+    width: 44,
+    height: 44,
+    paddingLeft: 0,
+  },
   rightAction: {
     width: 48,
     height: 54,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  compactRightAction: {
+    width: 44,
+    height: 44,
   },
   supportingText: {
     marginTop: 7,

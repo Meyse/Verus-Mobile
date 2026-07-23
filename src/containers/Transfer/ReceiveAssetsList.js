@@ -1,10 +1,11 @@
 import React, {useCallback, useLayoutEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, TextInput, TouchableOpacity, View} from 'react-native';
+import {FlatList, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Text} from 'react-native-paper';
 import {formatCurrency} from 'react-native-format-currency';
 import BigNumber from 'bignumber.js';
 import {useDispatch, useSelector} from 'react-redux';
+import AppSearchField from '../../components/AppSearchField';
 import SkeletonLoader, {SkeletonBlock, SkeletonText} from '../../components/SkeletonLoader';
 import {setActiveApp, setActiveCoin, setActiveSection, setCoinSubWallet} from '../../actions/actionCreators';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
@@ -45,7 +46,6 @@ const ReceiveAssetsList = ({navigation}) => {
   );
   const showBalance = useSelector(state => state.coins.showBalance);
   const [search, setSearch] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
   const [pendingCoin, setPendingCoin] = useState(null);
   const [cardSheetVisible, setCardSheetVisible] = useState(false);
   const [headerScrolled, setHeaderScrolled] = useState(false);
@@ -221,20 +221,13 @@ const ReceiveAssetsList = ({navigation}) => {
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
       <View style={[styles.header, headerScrolled && styles.headerScrolled]}>
         <Text style={styles.title}>Receive assets</Text>
-        <View style={[styles.search, searchFocused && styles.searchFocused]}>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={() => setSearchFocused(false)}
-            onChangeText={setSearch}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search assets"
-            placeholderTextColor={theme.colors.textSubtle}
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={search}
-          />
-        </View>
+        <AppSearchField
+          accessibilityLabel="Search assets"
+          onChangeText={setSearch}
+          placeholder="Search assets"
+          resultCount={filteredAssets.length}
+          value={search}
+        />
       </View>
       {loading ? (
         renderSkeleton()

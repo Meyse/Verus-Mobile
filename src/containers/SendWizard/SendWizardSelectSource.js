@@ -1,9 +1,10 @@
 import React, {useMemo, useState} from 'react';
-import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AppSearchField from '../../components/AppSearchField';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {fontStyle} from '../../globals/fonts';
@@ -25,10 +26,10 @@ import {SourceCardSheet} from './components/SelectionSheets';
 const SendWizardSelectSource = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const {state, setSource} = useSendWizard();
   const [query, setQuery] = useState('');
   const [pendingAsset, setPendingAsset] = useState(null);
-  const [searchFocused, setSearchFocused] = useState(false);
 
   const coins = useObjectSelector(stateValue => stateValue.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(stateValue => extractDisplaySubWallets(stateValue));
@@ -115,37 +116,23 @@ const SendWizardSelectSource = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <WizardHeading>Select asset to send or convert</WizardHeading>
-      <View
+      <WizardHeading
+        style={
+          smallDevice ? undefined : {paddingTop: theme.spacing.xl}
+        }>
+        Select asset to send or convert
+      </WizardHeading>
+      <AppSearchField
+        accessibilityLabel="Search currencies"
+        onChangeText={setQuery}
+        placeholder="Search currencies"
+        resultCount={filteredAssets.length}
         style={[
-          styles.search,
-          {
-            marginHorizontal: theme.spacing.screenPadding,
-            backgroundColor: searchFocused
-              ? theme.colors.inputFocused
-              : theme.colors.input,
-            borderColor: searchFocused ? theme.colors.primary : 'transparent',
-          },
-        ]}>
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onBlur={() => setSearchFocused(false)}
-          onChangeText={setQuery}
-          onFocus={() => setSearchFocused(true)}
-          placeholder="Search currencies"
-          placeholderTextColor={theme.colors.textSubtle}
-          returnKeyType="search"
-          style={[styles.searchInput, {color: theme.colors.textPrimary}]}
-          value={query}
-        />
-        <MaterialCommunityIcons
-          name="magnify"
-          size={20}
-          color={theme.colors.textSubtle}
-          style={styles.searchIcon}
-        />
-      </View>
+          styles.searchSpacing,
+          {marginHorizontal: theme.spacing.screenPadding},
+        ]}
+        value={query}
+      />
       <FlatList
         data={filteredAssets}
         keyExtractor={item => item.coin.id}
@@ -201,9 +188,7 @@ const SendWizardSelectSource = () => {
 
 const styles = StyleSheet.create({
   list: {paddingBottom: 24},
-  search: {height: 52, marginBottom: 14, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center'},
-  searchInput: {flex: 1, height: 52, paddingHorizontal: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
-  searchIcon: {marginHorizontal: 16},
+  searchSpacing: {marginBottom: 14},
   assetRow: {paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center'},
   assetLogo: {width: 38, height: 38, marginRight: 16},
   assetCopy: {flex: 1, minWidth: 0},

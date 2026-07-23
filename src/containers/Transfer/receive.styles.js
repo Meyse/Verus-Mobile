@@ -22,27 +22,6 @@ export const createReceiveListStyles = theme =>
       letterSpacing: -0.2,
       ...fontStyle('bold'),
     },
-    search: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      height: 48,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: 'transparent',
-      backgroundColor: theme.colors.input,
-    },
-    searchFocused: {
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.inputFocused,
-    },
-    searchInput: {
-      flex: 1,
-      height: 48,
-      paddingHorizontal: 14,
-      color: theme.colors.textPrimary,
-      fontSize: 15,
-      ...fontStyle('regular'),
-    },
     list: {paddingBottom: 20},
     row: {
       flexDirection: 'row',

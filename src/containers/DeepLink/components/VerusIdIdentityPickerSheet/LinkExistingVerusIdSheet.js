@@ -10,7 +10,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import LottieView from 'lottie-react-native';
 import {Pencil, Plus} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import AppTextInput from '../../../../components/AppTextInput';
+import AppSearchField from '../../../../components/AppSearchField';
 import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
@@ -409,23 +409,12 @@ const LinkExistingVerusIdSheet = ({
   return (
     <>
       {candidates.length > 0 && (
-        <AppTextInput
-          autoCapitalize="none"
-          containerStyle={styles.searchContainer}
-          inputShellStyle={styles.searchShell}
-          leftAccessory={
-            <MaterialCommunityIcons
-              name="magnify"
-              size={21}
-              color={theme.colors.textSubtle}
-            />
-          }
+        <AppSearchField
+          accessibilityLabel="Search VerusID"
           onChangeText={setSearchQuery}
-          onRightPress={() => setSearchQuery('')}
           placeholder="Search VerusID"
-          returnKeyType="search"
-          rightAccessibilityLabel="Clear search"
-          rightIcon={searchQuery ? 'close-circle' : null}
+          resultCount={filteredCandidates.length}
+          style={styles.searchContainer}
           themeMode={theme.mode}
           value={searchQuery}
         />
@@ -617,11 +606,6 @@ const createStyles = theme =>
   StyleSheet.create({
     searchContainer: {
       marginBottom: 10,
-    },
-    searchShell: {
-      height: 50,
-      minHeight: 50,
-      borderRadius: 12,
     },
     loadingState: {
       minHeight: 156,

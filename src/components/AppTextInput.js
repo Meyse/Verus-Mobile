@@ -30,6 +30,7 @@ const AppTextInput = forwardRef(function AppTextInput(
     rightIcon,
     rightIconColor,
     secureTextEntry = false,
+    size = 'default',
     supportingTextStyle,
     themeMode,
     value,
@@ -47,6 +48,7 @@ const AppTextInput = forwardRef(function AppTextInput(
     placeholderTextColor || theme.colors.textSubtle;
   const resolvedRightIconColor = rightIconColor || theme.colors.textSubtle;
   const isMultiline = inputProps.multiline === true;
+  const isCompact = size === 'compact' && !isMultiline;
 
   const handleBlur = event => {
     setFocused(false);
@@ -76,8 +78,12 @@ const AppTextInput = forwardRef(function AppTextInput(
           isMultiline
             ? styles.multilineInputShell
             : styles.singleLineInputShell,
+          isCompact && styles.compactInputShell,
           {
             backgroundColor: theme.colors.input,
+          },
+          isCompact && {
+            borderColor: theme.colors.borderStrong,
           },
           focused && styles.inputShellFocused,
           focused && {
@@ -92,7 +98,13 @@ const AppTextInput = forwardRef(function AppTextInput(
           inputShellStyle,
         ]}>
         {leftAccessory ? (
-          <View style={styles.leftAccessory}>{leftAccessory}</View>
+          <View
+            style={[
+              styles.leftAccessory,
+              isCompact && styles.compactLeftAccessory,
+            ]}>
+            {leftAccessory}
+          </View>
         ) : null}
         <TextInput
           {...inputProps}
@@ -109,6 +121,7 @@ const AppTextInput = forwardRef(function AppTextInput(
           style={[
             styles.input,
             isMultiline ? styles.multilineInput : styles.singleLineInput,
+            isCompact && styles.compactInput,
             {color: theme.colors.textPrimary},
             inputStyle,
           ]}
@@ -120,7 +133,10 @@ const AppTextInput = forwardRef(function AppTextInput(
             accessibilityRole="button"
             activeOpacity={0.72}
             onPress={onRightPress}
-            style={styles.rightAction}>
+            style={[
+              styles.rightAction,
+              isCompact && styles.compactRightAction,
+            ]}>
             <MaterialCommunityIcons
               color={resolvedRightIconColor}
               name={rightIcon}

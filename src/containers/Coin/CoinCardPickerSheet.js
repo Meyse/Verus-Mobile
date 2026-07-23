@@ -12,7 +12,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -20,6 +19,7 @@ import {
 import {useSelector} from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
+import AppSearchField from '../../components/AppSearchField';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
@@ -92,7 +92,6 @@ const CoinCardPickerSheet = ({
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [chainFilter, setChainFilter] = useState(ALL_CHAINS);
-  const [searchFocused, setSearchFocused] = useState(false);
   const [showBottomScrollCue, setShowBottomScrollCue] = useState(false);
   const [showTopScrollCue, setShowTopScrollCue] = useState(false);
 
@@ -103,7 +102,6 @@ const CoinCardPickerSheet = ({
       setQuery('');
       setTypeFilter('all');
       setChainFilter(ALL_CHAINS);
-      setSearchFocused(false);
     }
 
     if (!visible) didInitialScrollRef.current = false;
@@ -468,35 +466,16 @@ const CoinCardPickerSheet = ({
         </Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
 
-        <View
-          style={[
-            styles.searchField,
-            searchFocused && styles.searchFieldFocused,
-          ]}>
-          <TextInput
-            accessibilityLabel="Search cards"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={() => setSearchFocused(false)}
-            onChangeText={handleQueryChange}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search cards"
-            placeholderTextColor={theme.colors.textSubtle}
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={query}
-          />
-          {query ? (
-            <TouchableOpacity
-              accessibilityLabel="Clear search"
-              accessibilityRole="button"
-              activeOpacity={0.74}
-              onPress={() => handleQueryChange('')}
-              style={styles.clearAction}>
-              <Text style={styles.clearLabel}>Clear</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <AppSearchField
+          accessibilityLabel="Search cards"
+          onChangeText={handleQueryChange}
+          onClear={() => handleQueryChange('')}
+          placeholder="Search cards"
+          resultCount={filteredItems.length}
+          style={styles.searchFieldSpacing}
+          themeMode={theme.mode}
+          value={query}
+        />
 
         <ScrollView
           horizontal
@@ -652,45 +631,8 @@ const createStyles = theme =>
       lineHeight: 18,
       ...fontStyle('regular'),
     },
-    searchField: {
-      height: 50,
+    searchFieldSpacing: {
       marginTop: 14,
-      paddingLeft: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'transparent',
-      borderRadius: 12,
-      backgroundColor: theme.colors.input,
-    },
-    searchFieldFocused: {
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.inputFocused,
-      shadowColor: theme.colors.primary,
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      shadowOffset: {width: 0, height: 3},
-    },
-    searchInput: {
-      flex: 1,
-      minWidth: 0,
-      height: '100%',
-      paddingVertical: 0,
-      color: theme.colors.textPrimary,
-      fontSize: 16,
-      ...fontStyle('regular'),
-    },
-    clearAction: {
-      minWidth: 58,
-      height: 48,
-      paddingHorizontal: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    clearLabel: {
-      color: theme.colors.primary,
-      fontSize: 13,
-      ...fontStyle('semiBold'),
     },
     filterRow: {
       marginTop: 12,
