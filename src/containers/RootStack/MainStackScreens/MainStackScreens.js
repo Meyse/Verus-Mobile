@@ -1,5 +1,9 @@
-import React from 'react';
-import { createStackNavigator } from "@react-navigation/stack";
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  HeaderStyleInterpolators,
+  createStackNavigator,
+} from "@react-navigation/stack";
+import {AccessibilityInfo, Easing} from 'react-native';
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import AddCoin from '../../AddCoin/AddCoin'
 import CoinDetails from '../../CoinDetails/CoinDetails'
@@ -38,9 +42,92 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const MainStack = createStackNavigator();
 
+const MANAGE_ASSETS_OPEN_DURATION = 220;
+const MANAGE_ASSETS_CLOSE_DURATION = 150;
+const MANAGE_ASSETS_REDUCED_MOTION_DURATION = 150;
+
+const getProgressOpacity = current =>
+  current.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+const forManageAssets = ({current}) => ({
+  cardStyle: {
+    opacity: getProgressOpacity(current),
+    transform: [
+      {
+        translateY: current.progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [12, 0],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  },
+});
+
+const forManageAssetsReducedMotion = ({current}) => ({
+  cardStyle: {
+    opacity: getProgressOpacity(current),
+  },
+});
+
+const createManageAssetsTransitionOptions = reduceMotionEnabled => ({
+  transitionSpec: {
+    open: {
+      animation: 'timing',
+      config: {
+        duration: reduceMotionEnabled
+          ? MANAGE_ASSETS_REDUCED_MOTION_DURATION
+          : MANAGE_ASSETS_OPEN_DURATION,
+        easing: Easing.out(Easing.cubic),
+      },
+    },
+    close: {
+      animation: 'timing',
+      config: {
+        duration: reduceMotionEnabled
+          ? MANAGE_ASSETS_REDUCED_MOTION_DURATION
+          : MANAGE_ASSETS_CLOSE_DURATION,
+        easing: Easing.out(Easing.cubic),
+      },
+    },
+  },
+  cardStyleInterpolator: reduceMotionEnabled
+    ? forManageAssetsReducedMotion
+    : forManageAssets,
+  headerStyleInterpolator: HeaderStyleInterpolators.forFade,
+});
+
 const MainStackScreens = props => {
   const theme = useOnboardingTheme();
   const settingsHeaderOptions = createSettingsHeaderOptions(theme);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const manageAssetsTransitionOptions = useMemo(
+    () => createManageAssetsTransitionOptions(reduceMotionEnabled),
+    [reduceMotionEnabled],
+  );
+
+  useEffect(() => {
+    let active = true;
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled,
+    );
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(reduceMotion => {
+        if (active) setReduceMotionEnabled(reduceMotion);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <MainStack.Navigator
@@ -69,6 +156,7 @@ const MainStackScreens = props => {
         component={ManageAssets}
         options={{
           ...settingsHeaderOptions,
+          ...manageAssetsTransitionOptions,
           title: 'Manage assets',
         }}
       />
