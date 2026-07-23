@@ -77,14 +77,14 @@ const createStyles = theme =>
       paddingBottom: 34,
     },
     homeContent: {
-      paddingTop: 24,
+      paddingTop: 12,
       paddingBottom: 16,
     },
     title: {
       color: theme.colors.textPrimary,
-      fontSize: 24,
-      lineHeight: 31,
-      ...fontStyle('semiBold'),
+      fontSize: 28,
+      lineHeight: 34,
+      ...fontStyle('bold'),
     },
     subtitle: {
       marginTop: 6,
