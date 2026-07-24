@@ -360,7 +360,6 @@ const CoinCardPickerSheet = ({
     setQuery('');
     setTypeFilter('all');
     setChainFilter(ALL_CHAINS);
-    setSearchFocused(false);
     setShowBottomScrollCue(false);
     setShowTopScrollCue(false);
 
