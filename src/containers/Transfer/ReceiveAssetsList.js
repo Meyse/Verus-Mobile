@@ -10,7 +10,7 @@ import SkeletonLoader, {SkeletonBlock, SkeletonText} from '../../components/Skel
 import {setActiveApp, setActiveCoin, setActiveSection, setCoinSubWallet} from '../../actions/actionCreators';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {WALLET_APP_RECEIVE} from '../../utils/constants/apps';
 import {
   API_GET_ADDRESSES,
@@ -175,7 +175,7 @@ const ReceiveAssetsList = ({navigation}) => {
         onPress={() => handleAssetPress(item)}
         style={styles.row}>
         <View style={styles.logo}>
-          {RenderSquareCoinLogo(item.coinObj.id, {}, 38, 38)}
+          <AssetCoinLogo coinId={item.coinObj.id} size={38} />
         </View>
         <View style={styles.rowBody}>
           <View style={styles.rowTop}>

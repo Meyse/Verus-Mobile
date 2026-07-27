@@ -5,7 +5,7 @@ import {Text} from 'react-native-paper';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {RenderPlainCoinLogo} from '../../utils/CoinData/Graphics';
 import {createReceiveSheetStyles} from './receive.styles';
 
 const getNetworkDetails = wallet => {
@@ -79,7 +79,7 @@ const ReceiveSubwalletSheet = ({
             <View key={group.id} style={styles.group}>
               <View style={styles.groupHeader}>
                 <View style={styles.groupLogo}>
-                  {RenderSquareCoinLogo(group.icon, {}, 24, 24)}
+                  {RenderPlainCoinLogo(group.icon, {}, 24, 24)}
                 </View>
                 <Text numberOfLines={1} style={styles.groupTitle}>
                   {group.name}

@@ -36,7 +36,7 @@ import CopyAction from '../../components/CopyAction';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {CONNECTION_ERROR} from '../../utils/api/errors/errorMessages';
 import {USD} from '../../utils/constants/currencies';
 import {
@@ -1169,7 +1169,7 @@ const SignedInAssetHeader = () => {
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
       <View style={styles.assetIdentity}>
         <View style={styles.coinIdentity}>
-          {RenderSquareCoinLogo(activeCoin.id, {}, 28, 28)}
+          <AssetCoinLogo coinId={activeCoin.id} size={28} />
           <Text
             numberOfLines={1}
             style={[styles.assetTicker, {color: theme.colors.textSecondary}]}>

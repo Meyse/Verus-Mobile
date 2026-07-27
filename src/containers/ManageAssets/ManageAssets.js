@@ -36,7 +36,7 @@ import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {RenderPlainCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
   ASSET_COLLECTIONS,
   buildAssetManagerData,
@@ -94,8 +94,8 @@ const useAssetManagerData = () => {
   return data;
 };
 
-const PlainAssetLogo = ({coinObj, size = 36}) =>
-  RenderPlainCoinLogo(coinObj.id, {}, size, size);
+const ManagedAssetLogo = ({coinObj, size = 36}) =>
+  <AssetCoinLogo coinId={coinObj.id} size={size} />;
 
 const LogoStack = ({assets, small = false, styles, tiles = false}) => (
   <View style={tiles ? styles.logoStack : styles.walletLogos}>
@@ -111,7 +111,7 @@ const LogoStack = ({assets, small = false, styles, tiles = false}) => (
               : styles.overlappingLogoAfterFirst),
           {zIndex: 3 - index},
         ]}>
-        <PlainAssetLogo coinObj={coinObj} size={small ? 22 : 28} />
+        <ManagedAssetLogo coinObj={coinObj} size={small ? 22 : 28} />
       </View>
     ))}
   </View>
@@ -128,7 +128,7 @@ const AssetRow = ({
 }) => (
   <View style={styles.assetRow} testID={`manage-asset-row-${coinObj.id}`}>
     <View style={styles.rowLogo}>
-      <PlainAssetLogo coinObj={coinObj} size={38} />
+      <ManagedAssetLogo coinObj={coinObj} size={38} />
     </View>
     <View style={styles.rowCopy}>
       <View style={styles.rowTitleLine}>

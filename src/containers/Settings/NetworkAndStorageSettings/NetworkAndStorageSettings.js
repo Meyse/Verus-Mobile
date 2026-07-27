@@ -1,7 +1,7 @@
 import React, {useCallback} from 'react';
 import {connect} from 'react-redux';
 import {ELECTRUM} from '../../../utils/constants/intervalConstants';
-import {RenderSquareCoinLogo} from '../../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 import ClearCacheSettingRow from '../components/ClearCacheSettingRow';
 import {
   SettingsRow,
@@ -12,6 +12,7 @@ import {
 const ADDRESS_BLOCKLIST = 'AddressBlocklist';
 const COIN_SETTINGS = 'CoinSettings';
 const VRPC_OVERRIDES = 'VrpcOverrides';
+const ASSET_LEADING_STYLE = {marginRight: 18};
 
 const NetworkAndStorageSettings = ({activeCoinsForUser, navigation}) => {
   const openSettings = useCallback(
@@ -53,7 +54,8 @@ const NetworkAndStorageSettings = ({activeCoinsForUser, navigation}) => {
               description="Transaction verification"
               key={coin.id}
               last={index === electrumCoins.length - 1}
-              leading={RenderSquareCoinLogo(coin.id)}
+              leading={<AssetCoinLogo coinId={coin.id} />}
+              leadingStyle={ASSET_LEADING_STYLE}
               onPress={() =>
                 openSettings(COIN_SETTINGS, coin.id, coin.display_name)
               }

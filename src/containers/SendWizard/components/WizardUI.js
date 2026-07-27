@@ -14,7 +14,7 @@ import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../theme/onboarding';
-import {RenderSquareCoinLogo} from '../../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 
 export const WIZARD_CONTENT_INSET = 16;
 
@@ -126,7 +126,7 @@ export const AssetOptionRow = ({
       onPress={onPress}
       style={({pressed}) => [styles.assetRow, pressed && styles.pressed]}>
       <View style={styles.assetLogo}>
-        {RenderSquareCoinLogo(coinId, {}, 38, 38)}
+        <AssetCoinLogo coinId={coinId} size={38} />
       </View>
       <View style={styles.assetRowCopy}>
         <Text

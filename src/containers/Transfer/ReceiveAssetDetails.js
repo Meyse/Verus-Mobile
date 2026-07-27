@@ -42,8 +42,8 @@ import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {
+  AssetCoinLogo,
   RenderPlainCoinLogo,
-  RenderSquareCoinLogo,
 } from '../../utils/CoinData/Graphics';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {WALLET_APP_RECEIVE} from '../../utils/constants/apps';
@@ -697,7 +697,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              {RenderSquareCoinLogo(coinObj.id, {}, 32, 32)}
+              <AssetCoinLogo coinId={coinObj.id} size={32} />
               <Text style={styles.title}>{coinObj.display_name}</Text>
             </View>
             <Text style={styles.ticker}>{coinObj.display_ticker}</Text>
@@ -734,8 +734,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                       style={[
                         styles.networkIcon,
                         {
-                          backgroundColor:
-                            network.theme_color || theme.colors.textSecondary,
                           marginLeft: index > 0 ? -12 : 0,
                           zIndex: index + 1,
                         },
@@ -925,7 +923,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           <View style={styles.networkList}>
             {supportedNetworks.map(network => (
               <View key={network.id} style={styles.networkListItem}>
-                {RenderSquareCoinLogo(network.id, {}, 32, 32)}
+                {RenderPlainCoinLogo(network.id, {}, 32, 32)}
                 <View style={styles.networkListText}>
                   <Text style={styles.networkListTitle}>{network.display_name}</Text>
                   <Text style={styles.networkListTicker}>{network.display_ticker}</Text>

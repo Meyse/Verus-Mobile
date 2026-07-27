@@ -66,6 +66,9 @@ export const getSimpleLogo = (chainTicker, theme = 'light') => {
   return { Logo: Logo, color };
 }
 
+/**
+ * @deprecated Legacy background-backed renderer. Do not use in redesigned UI.
+ */
 export const RenderSquareCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
   const { Logo, color } = getSimpleLogo(chainTicker);
 
@@ -84,47 +87,66 @@ export const RenderSquareCoinLogo = (chainTicker, style = {}, width = 40, height
   );
 };
 
-export const RenderAssetListCoinLogo = (
-  chainTicker,
-  style = {},
-  width = 40,
-  height = 40,
-) => {
-  const {Logo} = getSimpleLogo(chainTicker, 'dark');
-  let BadgeLogo = null;
-
-  try {
-    const coinObj = CoinDirectory.findCoinObj(chainTicker);
-    const displayTicker = coinObj.display_ticker || '';
-    const displayName = coinObj.display_name || '';
-
-    if (
-      (displayTicker.includes('.vETH') || displayName.includes('on Verus')) &&
-      !displayTicker.includes('Bridge.vETH')
-    ) {
-      BadgeLogo = getSimpleLogo('VRSC', 'dark').Logo;
-    } else if (displayName.includes('on Ethereum')) {
-      BadgeLogo = getSimpleLogo('ETH', 'dark').Logo;
-    }
-  } catch (e) {
-    BadgeLogo = null;
+const getAssetBadgeTicker = coinObj => {
+  if (Object.prototype.hasOwnProperty.call(coinObj, 'icon_badge')) {
+    return coinObj.icon_badge;
   }
 
-  const badgeSize = width * 0.55;
+  if (coinObj.proto === 'erc20') return 'ETH';
+
+  const currencyId = coinObj.currency_id || coinObj.id;
+  if (
+    coinObj.proto === 'vrsc' &&
+    coinObj.mapped_to != null &&
+    currencyId != null &&
+    coinObj.system_id != null &&
+    currencyId !== coinObj.system_id
+  ) {
+    return 'VRSC';
+  }
+
+  return null;
+};
+
+export const AssetCoinLogo = ({
+  coinId,
+  showBadge = true,
+  size = 40,
+  style = {},
+}) => {
+  const {Logo} = getSimpleLogo(coinId, 'dark');
+  let BadgeLogo = null;
+
+  if (showBadge) {
+    try {
+      const coinObj = CoinDirectory.findCoinObj(coinId);
+      const badgeTicker = getAssetBadgeTicker(coinObj);
+      BadgeLogo = badgeTicker
+        ? getSimpleLogo(badgeTicker, 'dark').Logo
+        : null;
+    } catch (e) {
+      BadgeLogo = null;
+    }
+  }
+
+  const badgeSize = size * 0.55;
   const overflowOffset = badgeSize * 0.3;
 
   return (
     <View
-      style={{
-        width,
-        height,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'transparent',
-        overflow: 'visible',
-        zIndex: 1,
-      }}>
-      <Logo width={width} height={height} style={style} />
+      style={[
+        {
+          width: size,
+          height: size,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'transparent',
+          overflow: 'visible',
+          zIndex: 1,
+        },
+        style,
+      ]}>
+      <Logo width={size} height={size} />
       {BadgeLogo ? (
         <View
           style={{
@@ -147,6 +169,9 @@ export const RenderAssetListCoinLogo = (
   );
 };
 
+/**
+ * @deprecated Legacy background-backed renderer. Do not use in redesigned UI.
+ */
 export const RenderCircleCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
   const { Logo, color } = getSimpleLogo(chainTicker);
 

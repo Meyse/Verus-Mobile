@@ -505,6 +505,7 @@ export const SettingsRow = ({
   iconColor,
   last = false,
   leading,
+  leadingStyle,
   onPress,
   selected = false,
   showChevron,
@@ -536,7 +537,9 @@ export const SettingsRow = ({
         disabled && styles.rowDisabled,
       ]}
       testID={testID}>
-      {leading ? <View style={styles.rowIcon}>{leading}</View> : null}
+      {leading ? (
+        <View style={[styles.rowIcon, leadingStyle]}>{leading}</View>
+      ) : null}
       {!leading && icon ? (
         <View style={styles.rowIcon}>
           <MaterialCommunityIcons

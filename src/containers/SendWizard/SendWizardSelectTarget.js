@@ -13,7 +13,7 @@ import AppSearchField from '../../components/AppSearchField';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {
@@ -143,7 +143,11 @@ const SendWizardSelectTarget = () => {
       onPress={() => chooseTarget(option)}
       style={({pressed}) => [styles.optionRow, pressed && styles.pressed]}>
       <View style={styles.optionLogo}>
-        {RenderSquareCoinLogo(option.coinId || option.id, {}, 40, 40)}
+        <AssetCoinLogo
+          coinId={option.coinId || option.id}
+          showBadge={!option.isGrouped}
+          size={40}
+        />
       </View>
       <Text
         numberOfLines={1}

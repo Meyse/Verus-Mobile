@@ -11,7 +11,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
-import {RenderSquareCoinLogo} from '../../../utils/CoinData/Graphics';
+import {RenderPlainCoinLogo} from '../../../utils/CoinData/Graphics';
 import {truncateDecimal} from '../../../utils/math';
 import BigNumber from 'bignumber.js';
 
@@ -61,7 +61,12 @@ export const SourceCardSheet = ({
         {groups.map(([network, sources]) => (
           <View key={network} style={styles.networkGroup}>
             <View style={styles.networkHeader}>
-              {RenderSquareCoinLogo(sources[0]?.coin?.system_id || sources[0]?.coin?.id || 'VRSC', {}, 24, 24)}
+              {RenderPlainCoinLogo(
+                sources[0]?.coin?.system_id || sources[0]?.coin?.id || 'VRSC',
+                {},
+                24,
+                24,
+              )}
               <Text style={[styles.networkTitle, {color: theme.colors.textSecondary}]}>{network}</Text>
             </View>
             {sources.map(source => (
@@ -133,12 +138,8 @@ export const TargetNetworkSheet = ({
                 {backgroundColor: theme.colors.primary},
               ]}
             />
-            <View
-              style={[
-                styles.routeIcon,
-                {backgroundColor: theme.colors.surfaceMuted},
-              ]}>
-              {RenderSquareCoinLogo(
+            <View style={styles.routeIcon}>
+              {RenderPlainCoinLogo(
                 item.networkIcon || item.coinId || item.id,
                 {},
                 28,

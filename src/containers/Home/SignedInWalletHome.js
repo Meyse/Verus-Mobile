@@ -18,7 +18,7 @@ import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {RenderAssetListCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 
@@ -199,7 +199,7 @@ const SignedInWalletHome = ({
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <View style={styles.logoWrap}>
-          {RenderAssetListCoinLogo(item.coin.id, {}, 38, 38)}
+          <AssetCoinLogo coinId={item.coin.id} size={38} />
         </View>
         <View style={styles.assetCopy}>
           <View style={styles.assetLine}>

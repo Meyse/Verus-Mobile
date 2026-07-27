@@ -44,7 +44,7 @@ import {
   API_GET_TRANSACTIONS,
 } from '../../utils/constants/intervalConstants';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
   I_ADDRESS_VERSION,
   MID_VERIFICATION,
@@ -468,7 +468,7 @@ const SendWizardConfirm = () => {
           <View style={styles.amountBlock}>
             <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>YOU’RE SENDING</Text>
             <View style={styles.amountRow}>
-              {RenderSquareCoinLogo(sourceCoin?.id, {}, 28, 28)}
+              <AssetCoinLogo coinId={sourceCoin?.id} size={28} />
               <View style={styles.amountCopy}>
                 <View style={styles.amountValueRow}>
                   <Text style={[styles.amountValue, {color: theme.colors.textPrimary}]}>{truncateDecimal(displayAmount, 8)}</Text>
@@ -493,7 +493,7 @@ const SendWizardConfirm = () => {
                 </View>
                 <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>THEY RECEIVE</Text>
                 <View style={styles.amountRow}>
-                  {RenderSquareCoinLogo(target.coinId || target.id, {}, 28, 28)}
+                  <AssetCoinLogo coinId={target.coinId || target.id} size={28} />
                   <View style={styles.amountCopy}>
                     <View style={styles.amountValueRow}>
                       <Text style={[styles.amountValue, {color: theme.colors.textPrimary}]}>{truncateDecimal(BigNumber(estimatedReceive), 8)}</Text>

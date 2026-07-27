@@ -8,7 +8,7 @@ import AppSearchField from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {fontStyle} from '../../globals/fonts';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
 import {WALLET_APP_SEND} from '../../utils/constants/apps';
@@ -193,7 +193,9 @@ const SendWizardSelectSource = () => {
             <Pressable
               onPress={() => chooseAsset(item)}
               style={({pressed}) => [styles.assetRow, pressed && styles.pressed]}>
-              <View style={styles.assetLogo}>{RenderSquareCoinLogo(item.coin.id, {}, 38, 38)}</View>
+              <View style={styles.assetLogo}>
+                <AssetCoinLogo coinId={item.coin.id} size={38} />
+              </View>
               <View style={styles.assetCopy}>
                 <View style={styles.titleRow}>
                   <Text numberOfLines={1} style={[styles.assetName, {color: theme.colors.textPrimary}]}>{item.coin.display_name}</Text>

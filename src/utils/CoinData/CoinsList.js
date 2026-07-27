@@ -248,6 +248,7 @@ export const coinsList = {
     display_name: "Bridge.vETH",
     alt_names: [],
     theme_color: "#081C45",
+    icon_badge: null,
     compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: "vrsc",

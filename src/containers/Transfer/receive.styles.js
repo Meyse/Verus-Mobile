@@ -121,10 +121,9 @@ export const createReceiveSheetStyles = theme =>
       width: 28,
       height: 28,
       marginRight: 10,
-      borderRadius: 6,
-      overflow: 'hidden',
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'visible',
     },
     groupTitle: {
       color: theme.colors.textSubtle,
@@ -200,14 +199,15 @@ export const createReceiveDetailsStyles = theme =>
     networkIcon: {
       width: 30,
       height: 30,
-      borderRadius: 15,
-      borderWidth: 2,
-      borderColor: theme.colors.surfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'visible',
+    },
+    moreNetworks: {
+      borderRadius: 15,
+      backgroundColor: theme.colors.textSecondary,
       overflow: 'hidden',
     },
-    moreNetworks: {backgroundColor: theme.colors.textSecondary},
     moreNetworksText: {
       color: theme.colors.background,
       fontSize: 10,

@@ -8,7 +8,7 @@ import CopyAction from '../../components/CopyAction';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {useSendWizard} from './SendWizardContext';
 import {WizardFooter, WizardScreen} from './components/WizardUI';
 import {getTransactionId} from './wizardUtils';
@@ -79,7 +79,7 @@ const SendWizardSuccess = () => {
         </Text>
         <View style={[styles.summary, {backgroundColor: theme.colors.surfaceMuted}]}>
           <View style={styles.amountRow}>
-            {RenderSquareCoinLogo(sourceCoin?.id, {}, 36, 36)}
+            <AssetCoinLogo coinId={sourceCoin?.id} size={36} />
             <View style={styles.amountCopy}>
               <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>SENT</Text>
               <Text style={[styles.amountValue, {color: theme.colors.textPrimary}]}>
@@ -93,7 +93,7 @@ const SendWizardSuccess = () => {
                 <MaterialCommunityIcons name="arrow-down" size={20} color={theme.colors.textSecondary} />
               </View>
               <View style={styles.amountRow}>
-                {RenderSquareCoinLogo(target.coinId || target.id, {}, 36, 36)}
+                <AssetCoinLogo coinId={target.coinId || target.id} size={36} />
                 <View style={styles.amountCopy}>
                   <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>ESTIMATED RECEIVE</Text>
                   <Text style={[styles.amountValue, {color: theme.colors.textPrimary}]}>

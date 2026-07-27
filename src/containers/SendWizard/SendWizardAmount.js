@@ -22,7 +22,7 @@ import {estimateConversion} from '../../utils/api/channels/vrpc/requests/estimat
 import {USD} from '../../utils/constants/currencies';
 import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {
@@ -449,7 +449,7 @@ const SendWizardAmount = () => {
                 <>
                   <Text style={[styles.estimateLabel, {color: theme.colors.textSecondary}]}>You receive</Text>
                   <View style={styles.estimateOutputRow}>
-                    {RenderSquareCoinLogo(target.coinId || target.id, {}, 24, 24)}
+                    <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
                     <View style={styles.estimateCopy}>
                       <View style={styles.estimateValueRow}>
                         <Text style={[styles.estimateValue, {color: theme.colors.textPrimary}]}>
