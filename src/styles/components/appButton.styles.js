@@ -23,6 +23,6 @@ export default StyleSheet.create({
   label: {
     ...fontStyle('semiBold'),
     fontSize: APP_BUTTON_LABEL_SIZE,
-    letterSpacing: 0,
+    letterSpacing: -0.2,
   },
 });

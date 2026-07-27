@@ -30,25 +30,31 @@ const shared = {
     xl: 24,
     full: 9999,
   },
+  // Keep redesigned title roles centralized. See TYPOGRAPHY.md before adding
+  // or overriding title size, weight, line height, or tracking.
   typography: {
     headlineLg: {
       fontSize: 31,
       lineHeight: 38,
+      letterSpacing: -0.75,
       ...fontStyle('semiBold'),
     },
     headlineMd: {
       fontSize: 28,
       lineHeight: 36,
+      letterSpacing: -0.7,
       ...fontStyle('semiBold'),
     },
     headlineCompact: {
       fontSize: 26,
       lineHeight: 32,
+      letterSpacing: -0.65,
       ...fontStyle('semiBold'),
     },
     titleSheet: {
       fontSize: 20,
       lineHeight: 26,
+      letterSpacing: -0.3,
       ...fontStyle('semiBold'),
     },
     bodyMd: {

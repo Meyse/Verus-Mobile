@@ -14,13 +14,10 @@ export const createReceiveListStyles = theme =>
       borderBottomColor: theme.colors.border,
     },
     title: {
+      ...theme.typography.headlineMd,
       marginTop: 8,
       marginBottom: 16,
       color: theme.colors.textPrimary,
-      fontSize: 28,
-      lineHeight: 36,
-      letterSpacing: -0.2,
-      ...fontStyle('bold'),
     },
     list: {paddingBottom: 20},
     row: {
@@ -178,12 +175,9 @@ export const createReceiveDetailsStyles = theme =>
     header: {marginBottom: 24},
     titleRow: {flexDirection: 'row', alignItems: 'center'},
     title: {
+      ...theme.typography.headlineMd,
       marginLeft: 12,
       color: theme.colors.textPrimary,
-      fontSize: 28,
-      lineHeight: 36,
-      letterSpacing: -0.2,
-      ...fontStyle('bold'),
     },
     ticker: {
       marginTop: 4,
@@ -283,10 +277,8 @@ export const createReceiveDetailsStyles = theme =>
     sheet: {paddingTop: 12},
     sheetBody: {paddingHorizontal: 24, paddingBottom: 24},
     sheetHeading: {
+      ...theme.typography.headlineMd,
       color: theme.colors.textPrimary,
-      fontSize: 28,
-      lineHeight: 36,
-      ...fontStyle('bold'),
     },
     sheetSubtitle: {
       marginBottom: 20,
@@ -305,7 +297,8 @@ export const createReceiveDetailsStyles = theme =>
       color: theme.colors.textPrimary,
       fontSize: 24,
       lineHeight: 30,
-      ...fontStyle('bold'),
+      letterSpacing: -0.5,
+      ...fontStyle('semiBold'),
     },
     amountRow: {
       flexDirection: 'row',

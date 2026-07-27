@@ -126,7 +126,13 @@ const SignedInServicesHome = ({navigation}) => {
       edges={['top', 'left', 'right']}
       style={[styles.screen, {backgroundColor: theme.colors.background}]}>
       <View style={[styles.header, {backgroundColor: theme.colors.background}]}>
-        <Text style={[styles.heading, {color: theme.colors.textPrimary}]}>Services</Text>
+        <Text
+          style={[
+            theme.typography.headlineMd,
+            {color: theme.colors.textPrimary},
+          ]}>
+          Services
+        </Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {services.map(service => (
@@ -182,7 +188,6 @@ const SignedInServicesHome = ({navigation}) => {
 const styles = StyleSheet.create({
   screen: {flex: 1},
   header: {paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16},
-  heading: {...fontStyle('bold'), fontSize: 28, lineHeight: 34},
   scrollContent: {padding: 16, paddingBottom: 40},
   serviceCard: {
     width: '100%',
@@ -201,7 +206,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 25,
     letterSpacing: -0.2,
-    ...fontStyle('bold'),
+    ...fontStyle('semiBold'),
   },
   cardSubtitle: {
     marginTop: 2,

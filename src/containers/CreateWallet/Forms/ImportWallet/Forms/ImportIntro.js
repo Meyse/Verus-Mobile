@@ -154,6 +154,7 @@ const styles = StyleSheet.create({
     color: Colors.primaryColor,
     fontSize: 28,
     lineHeight: 35,
-    ...fontStyle('bold'),
+    letterSpacing: -0.7,
+    ...fontStyle('semiBold'),
   },
 });

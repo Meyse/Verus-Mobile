@@ -4,7 +4,6 @@ import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
-import {fontStyle} from '../../../globals/fonts';
 import {VerusLogo} from '../../../images/customIcons';
 import WelcomeBackgroundVideo from '../../../components/WelcomeBackgroundVideo';
 import OnboardingStartSheet from './OnboardingStartSheet';
@@ -109,10 +108,8 @@ const createStyles = theme => StyleSheet.create({
     paddingRight: 48,
   },
   headline: {
+    ...theme.typography.headlineMd,
     textAlign: 'left',
     color: theme.colors.textPrimary,
-    fontSize: 28,
-    ...fontStyle('semiBold'),
-    lineHeight: 36,
   },
 });

@@ -66,7 +66,14 @@ const SendWizardSuccess = () => {
     <WizardScreen scroll={false}>
       <View style={styles.content}>
         <AnimatedSuccessCheckmark style={styles.successAnimation} />
-        <Text style={[styles.title, {color: theme.colors.textPrimary}]}>{title}</Text>
+        <Text
+          style={[
+            theme.typography.headlineMd,
+            styles.title,
+            {color: theme.colors.textPrimary},
+          ]}>
+          {title}
+        </Text>
         <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
           {subtitle}
         </Text>
@@ -145,7 +152,7 @@ const SendWizardSuccess = () => {
 const styles = StyleSheet.create({
   content: {flex: 1, paddingHorizontal: 24, paddingTop: 80, alignItems: 'center'},
   successAnimation: {width: 90, height: 90},
-  title: {fontSize: 28, lineHeight: 34, textAlign: 'center', marginTop: 18, ...fontStyle('bold')},
+  title: {textAlign: 'center', marginTop: 18},
   subtitle: {fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8, marginBottom: 32, maxWidth: 320, ...fontStyle('regular')},
   summary: {width: '100%', borderRadius: 16, padding: 20, marginBottom: 24},
   amountRow: {flexDirection: 'row', alignItems: 'center'},

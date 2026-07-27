@@ -177,7 +177,12 @@ const SignedInVerusIdDetails = () => {
           }
           showsVerticalScrollIndicator={false}>
           <View style={[styles.inlineTitleContainer, {backgroundColor: theme.colors.background}]}>
-            <Text numberOfLines={2} style={[styles.title, {color: theme.colors.textPrimary}]}>
+            <Text
+              numberOfLines={2}
+              style={[
+                theme.typography.headlineMd,
+                {color: theme.colors.textPrimary},
+              ]}>
               {title}
             </Text>
           </View>
@@ -266,7 +271,6 @@ const styles = StyleSheet.create({
   scrollView: {flex: 1},
   content: {paddingBottom: 40},
   inlineTitleContainer: {paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12},
-  title: {...fontStyle('bold'), fontSize: 28, lineHeight: 34, letterSpacing: -0.2},
   identityData: {width: '100%'},
   errorContainer: {flex: 1, justifyContent: 'center'},
   emptyAttestations: {

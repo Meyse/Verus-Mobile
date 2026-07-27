@@ -620,7 +620,13 @@ const SignedInVerusIdService = ({controller}) => {
           scrolled && {borderBottomColor: theme.colors.border, borderBottomWidth: StyleSheet.hairlineWidth},
         ]}>
         <View style={styles.headerTitle}>
-          <Text style={[styles.heading, {color: theme.colors.textPrimary}]}>VerusID</Text>
+          <Text
+            style={[
+              theme.typography.headlineMd,
+              {color: theme.colors.textPrimary},
+            ]}>
+            VerusID
+          </Text>
           {hasContent ? (
             <Text
               style={[
@@ -872,7 +878,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {flex: 1, flexDirection: 'row', alignItems: 'center'},
-  heading: {...fontStyle('bold'), fontSize: 28, lineHeight: 34},
   headerActions: {flexDirection: 'row', alignItems: 'center', columnGap: 6},
   headerIcon: {padding: 6},
   listContent: {paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40},
@@ -880,7 +885,7 @@ const styles = StyleSheet.create({
   pendingGroup: {marginBottom: 18},
   pendingRows: {rowGap: 12},
   sectionHeading: {flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 16},
-  sectionTitle: {...fontStyle('bold'), fontSize: 16, lineHeight: 20},
+  sectionTitle: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20},
   countPill: {
     marginLeft: 8,
     minWidth: 24,
@@ -910,7 +915,7 @@ const styles = StyleSheet.create({
   rowText: {flex: 1, minWidth: 0},
   rowTextWithAction: {paddingRight: 90},
   rowTextWithWideAction: {paddingRight: 140},
-  identityName: {...fontStyle('bold'), fontSize: 18, lineHeight: 23, letterSpacing: -0.2},
+  identityName: {...fontStyle('semiBold'), fontSize: 18, lineHeight: 23, letterSpacing: -0.2},
   identitySubtitle: {...fontStyle('regular'), fontSize: 13, lineHeight: 17, marginTop: 2, letterSpacing: -0.1},
   networkPill: {paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8, alignSelf: 'flex-start'},
   networkText: {...fontStyle('bold'), fontSize: 10, lineHeight: 12, textTransform: 'uppercase'},
@@ -944,7 +949,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyImage: {width: 170, height: 140, marginBottom: 32},
-  emptyTitle: {...fontStyle('bold'), fontSize: 20, lineHeight: 25, textAlign: 'center', marginBottom: 8},
+  emptyTitle: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 25, textAlign: 'center', marginBottom: 8},
   emptyDescription: {...fontStyle('regular'), fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 32},
   emptyPrimaryCta: {width: 200, marginBottom: 16},
   learnMoreRow: {flexDirection: 'row', alignItems: 'center'},
@@ -995,12 +1000,12 @@ const styles = StyleSheet.create({
   faqList: {width: '100%', gap: 4},
   faqItem: {width: '100%'},
   faqHeader: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
-  faqTitle: {...fontStyle('bold'), flex: 1, fontSize: 15, lineHeight: 20, letterSpacing: -0.2},
+  faqTitle: {...fontStyle('semiBold'), flex: 1, fontSize: 15, lineHeight: 20, letterSpacing: -0.2},
   faqBody: {paddingBottom: 16},
   faqParagraph: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 10},
   faqBullet: {marginLeft: 10, marginBottom: 6},
   faqSpacer: {height: 10},
-  pendingName: {...fontStyle('bold'), fontSize: 16, lineHeight: 21},
+  pendingName: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 21},
   pendingStatus: {...fontStyle('regular'), fontSize: 13, lineHeight: 17, marginTop: 2, marginBottom: 12},
   sheetBody: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 14},
   pendingError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginBottom: 2},

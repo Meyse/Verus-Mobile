@@ -81,10 +81,8 @@ const createStyles = theme =>
       paddingBottom: 16,
     },
     title: {
+      ...theme.typography.headlineMd,
       color: theme.colors.textPrimary,
-      fontSize: 28,
-      lineHeight: 34,
-      ...fontStyle('bold'),
     },
     subtitle: {
       marginTop: 6,

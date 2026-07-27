@@ -310,9 +310,8 @@ const createStyles = theme =>
       textAlign: 'center',
     },
     title: {
+      ...theme.typography.headlineMd,
       color: theme.colors.primary,
-      fontSize: 28,
-      fontWeight: 'bold',
       marginBottom: 24,
       textAlign: 'center',
     },
