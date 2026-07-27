@@ -21,6 +21,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppSearchField from '../../components/AppSearchField';
 import BottomSheetModal from '../../components/BottomSheetModal';
+import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -135,13 +136,13 @@ const CoinCardPickerSheet = ({
           confirmed == null
             ? 'Balance unavailable'
             : `${amountText} ${displayTicker}`.trim();
+        const hasBalanceValue = confirmed != null && !hasBalanceError;
 
-        if (!showBalance) {
-          amountText = '*****';
-          balanceAccessibilityLabel = 'Balance hidden';
-        } else if (hasBalanceError) {
+        if (hasBalanceError) {
           amountText = CONNECTION_ERROR;
           balanceAccessibilityLabel = 'Connection error';
+        } else if (!showBalance && hasBalanceValue) {
+          balanceAccessibilityLabel = 'Balance hidden';
         }
 
         return {
@@ -156,6 +157,7 @@ const CoinCardPickerSheet = ({
           type,
           networkLabel,
           amountText,
+          hasBalanceValue,
           balanceAccessibilityLabel,
           searchText: [
             identifier,
@@ -432,13 +434,17 @@ const CoinCardPickerSheet = ({
             </Text>
           </View>
           <View style={styles.balanceColumn}>
-            <Text
+            <PrivacyBlurredText
               adjustsFontSizeToFit
+              blurRadius={5}
+              color={theme.colors.textPrimary}
+              containerStyle={styles.balanceFrame}
+              hidden={!showBalance && item.hasBalanceValue}
               minimumFontScale={0.72}
               numberOfLines={1}
               style={styles.balance}>
               {item.amountText}
-            </Text>
+            </PrivacyBlurredText>
             <Text numberOfLines={1} style={styles.balanceTicker}>
               {displayTicker}
             </Text>
@@ -446,7 +452,14 @@ const CoinCardPickerSheet = ({
         </TouchableOpacity>
       );
     },
-    [displayTicker, handleSelect, selectedSubWalletId, styles],
+    [
+      displayTicker,
+      handleSelect,
+      selectedSubWalletId,
+      showBalance,
+      styles,
+      theme.colors.textPrimary,
+    ],
   );
 
   return (
@@ -734,6 +747,9 @@ const createStyles = theme =>
     balanceColumn: {
       width: 108,
       alignItems: 'flex-end',
+    },
+    balanceFrame: {
+      alignSelf: 'stretch',
     },
     balance: {
       maxWidth: '100%',

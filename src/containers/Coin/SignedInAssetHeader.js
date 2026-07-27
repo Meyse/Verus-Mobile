@@ -33,6 +33,7 @@ import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {setCoinSubWallet} from '../../actions/actionCreators';
 import CopyAction from '../../components/CopyAction';
+import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -1010,14 +1011,27 @@ const SignedInAssetHeader = () => {
 
       let amountText = '—';
       let fiatText = getWalletFiatDisplay(item, walletBalance);
-      if (!showBalance) {
-        amountText = '*****';
-        fiatText = '***';
-      } else if (walletHasError) {
+      if (walletHasError) {
         amountText = CONNECTION_ERROR;
         fiatText = null;
       } else if (walletBalance != null) {
         amountText = truncateDecimal(walletBalance, 8);
+      }
+      const hasBalanceValue = !walletHasError && walletBalance != null;
+      let balanceAccessibilityLabel;
+      if (walletHasError) {
+        balanceAccessibilityLabel = 'Connection error';
+      } else if (walletBalance == null) {
+        balanceAccessibilityLabel = 'Balance unavailable';
+      } else if (!showBalance) {
+        balanceAccessibilityLabel = `${displayTicker} balance hidden`;
+      } else {
+        balanceAccessibilityLabel = [
+          `${amountText} ${displayTicker}`,
+          fiatText,
+        ]
+          .filter(Boolean)
+          .join(', ');
       }
 
       return (
@@ -1075,13 +1089,20 @@ const SignedInAssetHeader = () => {
             </View>
           </View>
 
-          <View style={styles.amountSection}>
+          <View
+            accessible
+            accessibilityLabel={balanceAccessibilityLabel}
+            style={styles.amountSection}>
             <View style={styles.amountRow}>
-              <Text
+              <PrivacyBlurredText
+                blurRadius={11}
+                color={cardMaterial.text}
+                containerStyle={styles.amountTextFrame}
+                hidden={!showBalance && hasBalanceValue}
                 numberOfLines={1}
-                style={[styles.amountText, {color: cardMaterial.text}]}>
+                style={styles.amountText}>
                 {amountText}
-              </Text>
+              </PrivacyBlurredText>
               {!walletHasError ? (
                 <Text
                   numberOfLines={1}
@@ -1091,11 +1112,15 @@ const SignedInAssetHeader = () => {
               ) : null}
             </View>
             {fiatText != null ? (
-              <Text
+              <PrivacyBlurredText
+                blurRadius={5}
+                color={cardMaterial.mutedText}
+                containerStyle={styles.fiatTextFrame}
+                hidden={!showBalance}
                 numberOfLines={1}
-                style={[styles.fiatText, {color: cardMaterial.mutedText}]}>
+                style={styles.fiatText}>
                 {fiatText}
-              </Text>
+              </PrivacyBlurredText>
             ) : null}
           </View>
 
@@ -1155,14 +1180,14 @@ const SignedInAssetHeader = () => {
 
   if (!activeCoin) return null;
 
-  const totalAmountText = showBalance
-    ? truncateDecimal(totalConfirmedBalance, 4)
-    : '*****';
+  const totalAmountText = truncateDecimal(totalConfirmedBalance, 4);
   const shouldShowTotalFiat = totalFiatDisplay != null || activeCoin.testnet;
-  let totalFiatText = null;
-  if (shouldShowTotalFiat) {
-    totalFiatText = showBalance ? totalFiatDisplay ?? '—' : '***';
-  }
+  const totalFiatText = shouldShowTotalFiat ? totalFiatDisplay ?? '—' : null;
+  const totalBalanceAccessibilityLabel = showBalance
+    ? [`${totalAmountText} ${displayTicker}`, totalFiatDisplay]
+        .filter(Boolean)
+        .join(', ')
+    : `${displayTicker} total balance hidden`;
 
   return (
     <View
@@ -1176,20 +1201,31 @@ const SignedInAssetHeader = () => {
             {displayTicker}
           </Text>
         </View>
-        <View style={styles.totalBalance}>
-          <Text
+        <View
+          accessible
+          accessibilityLabel={totalBalanceAccessibilityLabel}
+          style={styles.totalBalance}>
+          <PrivacyBlurredText
             adjustsFontSizeToFit
+            blurRadius={11}
+            color={theme.colors.textPrimary}
+            containerStyle={styles.totalAmountFrame}
+            hidden={!showBalance}
             minimumFontScale={0.72}
             numberOfLines={1}
-            style={[styles.totalAmount, {color: theme.colors.textPrimary}]}>
+            style={styles.totalAmount}>
             {totalAmountText}
-          </Text>
+          </PrivacyBlurredText>
           {totalFiatText != null ? (
-            <Text
+            <PrivacyBlurredText
+              blurRadius={5}
+              color={theme.colors.textSecondary}
+              containerStyle={styles.totalFiatFrame}
+              hidden={!showBalance && totalFiatDisplay != null}
               numberOfLines={1}
-              style={[styles.totalFiat, {color: theme.colors.textSecondary}]}>
+              style={styles.totalFiat}>
               {totalFiatText}
-            </Text>
+            </PrivacyBlurredText>
           ) : null}
         </View>
       </View>
@@ -1270,6 +1306,9 @@ const styles = StyleSheet.create({
     maxWidth: '48%',
     alignItems: 'flex-end',
   },
+  totalAmountFrame: {
+    maxWidth: '100%',
+  },
   totalAmount: {
     fontSize: 26,
     lineHeight: 32,
@@ -1277,8 +1316,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     ...fontStyle('bold'),
   },
-  totalFiat: {
+  totalFiatFrame: {
     marginTop: 1,
+  },
+  totalFiat: {
     fontSize: 12,
     lineHeight: 16,
     textAlign: 'right',
@@ -1369,6 +1410,9 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     flexWrap: 'nowrap',
   },
+  amountTextFrame: {
+    flexShrink: 1,
+  },
   amountText: {
     flexShrink: 1,
     fontSize: 30,
@@ -1383,8 +1427,10 @@ const styles = StyleSheet.create({
     ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
-  fiatText: {
+  fiatTextFrame: {
     marginTop: 1,
+  },
+  fiatText: {
     fontSize: 12,
     lineHeight: 16,
     ...CARD_LABEL_SHADOW,
