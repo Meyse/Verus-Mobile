@@ -49,6 +49,10 @@ const AppTextInput = forwardRef(function AppTextInput(
   const resolvedRightIconColor = rightIconColor || theme.colors.textSubtle;
   const isMultiline = inputProps.multiline === true;
   const isCompact = size === 'compact' && !isMultiline;
+  const inputBorderColor =
+    isCompact && !theme.isDark
+      ? theme.colors.borderStrong
+      : theme.colors.inputBorder;
 
   const handleBlur = event => {
     setFocused(false);
@@ -81,9 +85,7 @@ const AppTextInput = forwardRef(function AppTextInput(
           isCompact && styles.compactInputShell,
           {
             backgroundColor: theme.colors.input,
-          },
-          isCompact && {
-            borderColor: theme.colors.borderStrong,
+            borderColor: inputBorderColor,
           },
           focused && styles.inputShellFocused,
           focused && {

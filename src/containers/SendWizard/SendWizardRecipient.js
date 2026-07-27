@@ -231,6 +231,7 @@ const SendWizardRecipient = () => {
       setSaveAddressOpen(false);
     } catch (saveError) {
       setError(saveError.message || 'Could not save this address.');
+      throw saveError;
     }
   };
 

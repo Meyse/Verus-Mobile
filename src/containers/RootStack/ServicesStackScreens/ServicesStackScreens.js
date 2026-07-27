@@ -9,7 +9,10 @@ import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreS
 import GiftCardCreate from '../../Services/ServiceComponents/GiftCardService/GiftCardCreate/GiftCardCreate';
 import GiftCardFund from '../../Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
-import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
+import {
+  createRedesignedHeaderOptions,
+  createSettingsHeaderOptions,
+} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import AddressBook from '../../Services/AddressBook/AddressBook';
 import SignedInVerusIdDetails from '../../Services/ServiceComponents/VerusIdService/SignedInVerusIdDetails';
@@ -19,6 +22,7 @@ const ServicesStack = createStackNavigator();
 
 const ServicesStackScreens = props => {
   const theme = useOnboardingTheme();
+  const addressBookHeaderOptions = createSettingsHeaderOptions(theme);
 
   return (
     <ServicesStack.Navigator
@@ -40,9 +44,8 @@ const ServicesStackScreens = props => {
         name="AddressBook"
         component={AddressBook}
         options={{
+          ...addressBookHeaderOptions,
           title: '',
-          headerBackTitle: 'Back',
-          headerRight: () => null,
           headerShadowVisible: false,
         }}
       />

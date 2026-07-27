@@ -127,7 +127,8 @@ const AddressBook = () => {
     const query = search.trim().toLowerCase();
     return [...records]
       .filter(
-        record => activeFilter === 'all' || getRecordGroup(record) === activeFilter,
+        record =>
+          activeFilter === 'all' || getRecordGroup(record) === activeFilter,
       )
       .filter(record => {
         if (!query) return true;
@@ -153,6 +154,9 @@ const AddressBook = () => {
 
   const closeEditor = useCallback(() => {
     setSheetVisible(false);
+  }, []);
+
+  const handleEditorClosed = useCallback(() => {
     setEditing(null);
   }, []);
 
@@ -204,11 +208,18 @@ const AddressBook = () => {
 
   const showSearchAndFilters = records.length >= 6;
   const hasRecords = records.length > 0;
+
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.container}>
       <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
         <View style={styles.headerTopRow}>
-          <Text style={styles.headerTitle}>Address book</Text>
+          <Text
+            style={[
+              theme.typography.headlineMd,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Address book
+          </Text>
           <TouchableOpacity
             accessibilityLabel="Add address"
             accessibilityRole="button"
@@ -233,7 +244,10 @@ const AddressBook = () => {
                     accessibilityRole="button"
                     key={filter.id}
                     onPress={() => setActiveFilter(filter.id)}
-                    style={[styles.filterPill, selected && styles.filterPillActive]}>
+                    style={[
+                      styles.filterPill,
+                      selected && styles.filterPillActive,
+                    ]}>
                     <Text
                       style={[
                         styles.filterLabel,
@@ -265,7 +279,11 @@ const AddressBook = () => {
               <SkeletonBlock height={28} radius={14} width={28} />
               <View style={styles.skeletonText}>
                 <SkeletonText height={16} width="42%" />
-                <SkeletonText height={14} style={styles.skeletonAddress} width="72%" />
+                <SkeletonText
+                  height={14}
+                  style={styles.skeletonAddress}
+                  width="72%"
+                />
               </View>
             </View>
           ))}
@@ -294,9 +312,8 @@ const AddressBook = () => {
               size={80}
             />
           </View>
-          <Text style={styles.emptyTitle}>No saved addresses</Text>
-          <Text style={styles.emptyDescription}>
-            Save frequently used addresses for quick access when sending
+          <Text style={[styles.emptyTitle, styles.emptyTitleStandalone]}>
+            No saved addresses
           </Text>
           <AppButton
             onPress={() => openEditor(EMPTY_RECORD)}
@@ -374,10 +391,10 @@ const AddressBook = () => {
           )}
         </ScrollView>
       )}
-
       <AddressBookEditSheet
         editing={editing}
         onClose={closeEditor}
+        onClosed={handleEditorClosed}
         onSave={saveEditing}
         visible={sheetVisible && Boolean(editing)}
       />
@@ -406,12 +423,6 @@ const createStyles = theme =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingBottom: 10,
-    },
-    headerTitle: {
-      ...fontStyle('bold'),
-      color: theme.colors.textPrimary,
-      fontSize: 28,
-      lineHeight: 34,
     },
     headerIconButton: {
       padding: 6,
@@ -510,6 +521,9 @@ const createStyles = theme =>
       fontSize: 20,
       lineHeight: 25,
       textAlign: 'center',
+    },
+    emptyTitleStandalone: {
+      marginBottom: 32,
     },
     emptyDescription: {
       ...fontStyle('regular'),
