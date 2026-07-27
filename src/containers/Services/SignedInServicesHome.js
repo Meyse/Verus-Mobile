@@ -1,6 +1,5 @@
 import React, {useCallback, useState} from 'react';
 import {
-  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,77 +8,12 @@ import {
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import Svg, {
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  RadialGradient as SvgRadialGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import signedInCopy from '../../copy/signedIn';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {loadAddressBook} from '../../utils/addressBook/addressBook';
 import {GIFT_CARD_SERVICE_ID} from '../../utils/constants/services';
-
-const CARD_HEIGHT = 108;
-
-const ServiceCardBackground = ({emphasized, theme}) => {
-  const width = Dimensions.get('window').width - 32;
-  return (
-    <View pointerEvents="none" style={styles.background}>
-      <Svg height={CARD_HEIGHT} width={width}>
-        <Defs>
-          <SvgLinearGradient
-            id={emphasized ? 'giftCardGradient' : 'addressBookGradient'}
-            x1="0"
-            x2="1"
-            y1="0"
-            y2="1">
-            <Stop
-              offset="0"
-              stopColor={emphasized ? theme.colors.primary : theme.colors.surface}
-            />
-            <Stop
-              offset="0.6"
-              stopColor={emphasized ? theme.colors.primary : theme.colors.surfaceRaised}
-            />
-            <Stop
-              offset="1"
-              stopColor={emphasized ? theme.colors.primaryPressed : theme.colors.surfaceMuted}
-            />
-          </SvgLinearGradient>
-          {!emphasized ? (
-            <SvgRadialGradient id="addressBookHighlight" cx="0.92" cy="0.88" r="0.85">
-              <Stop offset="0" stopColor={theme.colors.primary} stopOpacity="0.18" />
-              <Stop offset="0.6" stopColor={theme.colors.primary} stopOpacity="0.08" />
-              <Stop offset="1" stopColor={theme.colors.primary} stopOpacity="0" />
-            </SvgRadialGradient>
-          ) : null}
-        </Defs>
-        <Rect
-          fill={`url(#${emphasized ? 'giftCardGradient' : 'addressBookGradient'})`}
-          height={CARD_HEIGHT}
-          rx={16}
-          ry={16}
-          width={width}
-          x={0}
-          y={0}
-        />
-        {!emphasized ? (
-          <Rect
-            fill="url(#addressBookHighlight)"
-            height={CARD_HEIGHT}
-            rx={16}
-            ry={16}
-            width={width}
-            x={0}
-            y={0}
-          />
-        ) : null}
-      </Svg>
-    </View>
-  );
-};
 
 const SignedInServicesHome = ({navigation}) => {
   const theme = useOnboardingTheme();
@@ -101,22 +35,22 @@ const SignedInServicesHome = ({navigation}) => {
     }, []),
   );
 
+  const addressCountLabel = addressCount > 0 ? `${addressCount} saved` : null;
   const services = [
     {
       key: 'gift-cards',
-      title: 'Gift Cards',
-      description: 'Create and share a secure claim for funds or VerusIDs',
-      emphasized: true,
-      onPress: () => navigation.navigate('Service', {service: GIFT_CARD_SERVICE_ID}),
+      title: signedInCopy.services.giftCards,
+      description: signedInCopy.services.giftCardsDescription,
+      icon: 'gift-outline',
+      onPress: () =>
+        navigation.navigate('Service', {service: GIFT_CARD_SERVICE_ID}),
     },
     {
       key: 'address-book',
-      title: 'Address book',
-      description:
-        addressCount === 0
-          ? 'Save addresses for easy access'
-          : `${addressCount} saved address${addressCount === 1 ? '' : 'es'}`,
-      emphasized: false,
+      title: signedInCopy.services.addressBook,
+      description: signedInCopy.services.addressBookDescription,
+      icon: 'book-open-page-variant',
+      meta: addressCountLabel,
       onPress: () => navigation.navigate('AddressBook'),
     },
   ];
@@ -131,55 +65,87 @@ const SignedInServicesHome = ({navigation}) => {
             theme.typography.headlineMd,
             {color: theme.colors.textPrimary},
           ]}>
-          Services
+          {signedInCopy.services.title}
         </Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {services.map(service => (
-          <TouchableOpacity
-            key={service.key}
-            accessibilityLabel={service.title}
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            onPress={service.onPress}
-            style={[
-              styles.serviceCard,
-              {
-                backgroundColor: service.emphasized
-                  ? theme.colors.primaryPressed
-                  : theme.colors.surfaceMuted,
-                borderColor: service.emphasized
-                  ? theme.colors.primary
-                  : theme.colors.border,
-              },
-            ]}>
-            <ServiceCardBackground emphasized={service.emphasized} theme={theme} />
-            <View style={styles.textContainer}>
-              <Text
-                style={[
-                  styles.cardTitle,
-                  {
-                    color: service.emphasized
-                      ? theme.colors.onPrimary
-                      : theme.colors.primary,
-                  },
-                ]}>
-                {service.title}
-              </Text>
-              <Text
-                style={[
-                  styles.cardSubtitle,
-                  {
-                    color: service.emphasized
-                      ? 'rgba(255, 255, 255, 0.85)'
-                      : theme.colors.textSecondary,
-                  },
-                ]}>
-                {service.description}
-              </Text>
+        {services.map((service, index) => {
+          const accessibilityLabel = service.meta
+            ? `${service.title}. ${service.description} ${service.meta}.`
+            : `${service.title}. ${service.description}`;
+
+          return (
+            <View key={service.key} style={styles.rowContainer}>
+              <TouchableOpacity
+                accessibilityLabel={accessibilityLabel}
+                accessibilityRole="button"
+                activeOpacity={0.8}
+                onPress={service.onPress}
+                style={styles.serviceRow}>
+                <View style={styles.iconLane}>
+                  <MaterialCommunityIcons
+                    accessible={false}
+                    color={theme.colors.primary}
+                    name={service.icon}
+                    size={28}
+                  />
+                </View>
+                <View style={styles.textContainer}>
+                  <View style={styles.titleLine}>
+                    <Text
+                      style={[
+                        styles.rowTitle,
+                        {color: theme.colors.textPrimary},
+                      ]}>
+                      {service.title}
+                    </Text>
+                    {service.meta ? (
+                      <View
+                        style={[
+                          styles.countBadge,
+                          {
+                            backgroundColor: theme.isDark
+                              ? theme.colors.surface
+                              : theme.colors.surfaceMuted,
+                          },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.countBadgeText,
+                            {color: theme.colors.textSecondary},
+                          ]}>
+                          {service.meta}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text
+                    style={[
+                      styles.rowDescription,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    {service.description}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  accessible={false}
+                  color={theme.colors.textSubtle}
+                  name="chevron-right"
+                  size={21}
+                />
+              </TouchableOpacity>
+              {index < services.length - 1 ? (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.divider,
+                    {backgroundColor: theme.colors.border},
+                  ]}
+                />
+              ) : null}
             </View>
-          </TouchableOpacity>
-        ))}
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -188,31 +154,67 @@ const SignedInServicesHome = ({navigation}) => {
 const styles = StyleSheet.create({
   screen: {flex: 1},
   header: {paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16},
-  scrollContent: {padding: 16, paddingBottom: 40},
-  serviceCard: {
-    width: '100%',
-    minHeight: CARD_HEIGHT,
-    marginBottom: 16,
+  scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderRadius: 16,
+    paddingTop: 22,
+    paddingBottom: 40,
   },
-  background: {...StyleSheet.absoluteFillObject},
-  textContainer: {gap: 2},
-  cardTitle: {
-    fontSize: 20,
-    lineHeight: 25,
+  rowContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  serviceRow: {
+    minHeight: 116,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  iconLane: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textContainer: {
+    minWidth: 0,
+    flex: 1,
+    marginLeft: 16,
+    paddingRight: 12,
+  },
+  titleLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rowTitle: {
+    fontSize: 17,
+    lineHeight: 22,
     letterSpacing: -0.2,
     ...fontStyle('semiBold'),
   },
-  cardSubtitle: {
-    marginTop: 2,
+  rowDescription: {
+    marginTop: 5,
     fontSize: 14,
-    lineHeight: 19,
+    lineHeight: 20,
+    ...fontStyle('regular'),
+  },
+  countBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    lineHeight: 14,
     ...fontStyle('medium'),
+  },
+  divider: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 60,
+    height: StyleSheet.hairlineWidth,
   },
 });
 

@@ -42,8 +42,11 @@ const signedInCopy = {
   services: {
     title: 'Services',
     description: 'Wallet capabilities you can choose to use.',
-    giftCards: 'Gift Cards',
-    addressBook: 'Address Book',
+    giftCards: 'Gift cards',
+    giftCardsDescription:
+      'Share funds or VerusIDs as a redeemable link, QR code, or NFC card.',
+    addressBook: 'Address book',
+    addressBookDescription: 'Reuse saved addresses when sending or converting.',
     verusIdSetup: 'VerusID setup',
   },
   identity: {
