@@ -3,9 +3,9 @@ import {Button} from 'react-native-paper';
 import Colors from '../globals/colors';
 import {appButtonStyles as styles} from '../styles';
 import {
-  resolveOnboardingTheme,
-  useOnboardingTheme,
-} from '../theme/onboarding';
+  resolveAppTheme,
+  useAppTheme,
+} from '../theme/app';
 import {APP_BUTTON_HEIGHT} from '../styles/components/appButton.styles';
 
 const TONAL_ON_DARK_COLOR = 'rgba(255, 255, 255, 0.16)';
@@ -69,10 +69,10 @@ const AppButton = ({
   style,
   ...props
 }) => {
-  const onboardingTheme = useOnboardingTheme();
+  const appTheme = useAppTheme();
   const theme = themeMode
-    ? resolveOnboardingTheme(themeMode)
-    : onboardingTheme;
+    ? resolveAppTheme(themeMode)
+    : appTheme;
   const variantStyles = createVariantStyles(theme);
   const disabledVariantStyles = createDisabledVariantStyles(theme);
   const variantStyle = variantStyles[variant] || variantStyles.primary;

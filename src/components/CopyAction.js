@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Clipboard, TouchableOpacity} from 'react-native';
 import {Check, Copy} from 'lucide-react-native';
 import {copyActionStyles as styles} from '../styles';
-import {useOnboardingTheme} from '../theme/onboarding';
+import {useAppTheme} from '../theme/app';
 
 const getCopyText = value => {
   if (value == null) return '';
@@ -23,7 +23,7 @@ const CopyAction = ({
   timeoutMs = 1400,
   value,
 }) => {
-  const theme = useOnboardingTheme();
+  const theme = useAppTheme();
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef(null);
   const copyText = getCopyText(value);

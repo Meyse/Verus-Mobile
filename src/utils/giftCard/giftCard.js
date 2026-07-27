@@ -1141,14 +1141,32 @@ const getIdentityUpdate = async (systemId, identityAddress) => {
   };
 };
 
-const getNativeFeeSatsFromDeltas = (deltas, systemId, fallbackFeeSats) => {
+const getNativeFeeSatsFromDeltas = (
+  deltas,
+  systemId,
+  fallbackFeeSats,
+  outputs = [],
+) => {
   const nativeDelta = deltas && typeof deltas.get === 'function'
     ? deltas.get(systemId)
     : null;
 
-  return nativeDelta == null
-    ? BigNumber(fallbackFeeSats)
-    : BigNumber(nativeDelta).absoluteValue();
+  if (nativeDelta == null) return BigNumber(fallbackFeeSats);
+
+  const nativeSentSats = outputs.reduce((total, output) => {
+    return output.currency === systemId
+      ? total.plus(output.satoshis)
+      : total;
+  }, BigNumber(0));
+  const actualFeeSats = BigNumber(nativeDelta)
+    .absoluteValue()
+    .minus(nativeSentSats);
+
+  if (actualFeeSats.isNegative()) {
+    throw new Error('Gift card funding fee could not be verified.');
+  }
+
+  return actualFeeSats;
 };
 
 const getIdentityFunding = (identity, identityFundingByKey) => {
@@ -1258,6 +1276,7 @@ const buildIdentityFundingTransaction = async ({
     updateTx.deltas,
     group.systemId,
     inputPlan.expectedFeeSats,
+    outputs,
   );
 
   return {

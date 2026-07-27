@@ -1,32 +1,25 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
-  Keyboard,
-  SafeAreaView,
   ScrollView,
-  TouchableWithoutFeedback,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import {
-  ActivityIndicator,
-  Button,
-  Card,
-  Dialog,
-  Divider,
-  IconButton,
-  Portal,
-  Text,
-} from 'react-native-paper';
+import {ActivityIndicator} from 'react-native-paper';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch, useSelector} from 'react-redux';
-import {
-  GENERIC_REQUEST_DEEPLINK_VDXF_KEY,
-} from 'verus-typescript-primitives';
-import QRModal from '../../../../../components/QRModal';
-import {copyToClipboard} from '../../../../../utils/clipboard/clipboard';
+import {GENERIC_REQUEST_DEEPLINK_VDXF_KEY} from 'verus-typescript-primitives';
+import AppButton from '../../../../../components/AppButton';
+import CopyAction from '../../../../../components/CopyAction';
+import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
+import {fontStyle} from '../../../../../globals/fonts';
+import {useAppTheme} from '../../../../../theme/app';
+import {SET_DEEPLINK_DATA} from '../../../../../utils/constants/storeType';
 import {GIFT_CARD_SERVICE_ID} from '../../../../../utils/constants/services';
 import {
-  buildGiftCardNfcDeeplinkUri,
   canDeleteGiftCard,
   getGiftCardPendingFundings,
   hasGiftCardClaims,
@@ -36,13 +29,14 @@ import {
   removeGiftCard,
   upsertGiftCard,
 } from '../../../../../utils/giftCard/giftCard';
-import {writeDeeplinkUriToNfc} from '../../../../../utils/walletBackup/walletBackupNfc';
-import {SET_DEEPLINK_DATA} from '../../../../../utils/constants/storeType';
-import Colors from '../../../../../globals/colors';
-import Styles from '../../../../../styles';
+import GiftCardShareSheet from '../GiftCardShareSheet';
 
-const fieldWidth = 320;
 const GIFT_CARD_REFRESH_INTERVAL_MS = 30000;
+const STATUS_ALL = 'all';
+const STATUS_READY = 'ready';
+const STATUS_PENDING = 'pending';
+const STATUS_NOT_FUNDED = 'not-funded';
+const STATUS_REDEEMED = 'redeemed';
 
 const formatCardDate = timestamp => {
   if (!timestamp) return '';
@@ -54,22 +48,26 @@ const formatCardDate = timestamp => {
   }
 };
 
-const truncateAddress = address => {
-  if (!address || address.length <= 22) return address || '';
-  return `${address.slice(0, 10)}...${address.slice(-8)}`;
-};
+const getCardStatus = card => {
+  if (card.status?.state === 'redeemed' || card.status?.redeemed) {
+    return STATUS_REDEEMED;
+  }
 
-const getPrimaryAddress = card => {
-  const addresses = Object.values(card.addressesBySystem || {});
+  if (hasPendingGiftCardFunding(card)) return STATUS_PENDING;
+  if (card.status?.state === 'funded' || hasGiftCardClaims(card)) {
+    return STATUS_READY;
+  }
 
-  return addresses[0] || '';
+  return STATUS_NOT_FUNDED;
 };
 
 const getStatusLabel = card => {
-  if (card.status?.state === 'redeemed') return 'Redeemed';
-  if (hasPendingGiftCardFunding(card)) return 'Pending funding';
-  if (card.status?.state === 'funded') return 'Funded';
-  return 'Created';
+  const status = getCardStatus(card);
+
+  if (status === STATUS_REDEEMED) return 'Redeemed';
+  if (status === STATUS_PENDING) return 'Pending';
+  if (status === STATUS_READY) return 'Ready';
+  return 'Not funded';
 };
 
 const getSystemRows = card => {
@@ -81,12 +79,40 @@ const getSystemRows = card => {
   });
 };
 
+const getCardContents = card => {
+  const contents = [];
+
+  for (const system of getSystemRows(card)) {
+    for (const currency of system.currencies || []) {
+      contents.push(
+        `${currency.amount} ${currency.display?.name || currency.currencyId}`,
+      );
+    }
+
+    for (const identity of system.identities || []) {
+      contents.push(identity.fullyQualifiedName || identity.identityAddress);
+    }
+  }
+
+  return contents;
+};
+
+const getContentsSummary = card => {
+  const contents = getCardContents(card);
+
+  if (contents.length === 0) {
+    return hasPendingGiftCardFunding(card) ? 'Funding pending' : 'Empty';
+  }
+  if (contents.length <= 2) return contents.join(' · ');
+  return `${contents.slice(0, 2).join(' · ')} +${contents.length - 2}`;
+};
+
 const getRefreshComparableCard = card => {
   const status = card.status
     ? {
-      ...card.status,
-      lastCheckedAt: null,
-    }
+        ...card.status,
+        lastCheckedAt: null,
+      }
     : null;
 
   return JSON.stringify({
@@ -95,40 +121,41 @@ const getRefreshComparableCard = card => {
   });
 };
 
-const ShareGiftCardDialog = ({card, onCancel, onCopy, onNfc, onQr}) => {
+const getSystemName = (systemId, card, activeCoinsForUser) => {
+  const statusSystem = (card.status?.systems || []).find(
+    system => system.systemId === systemId,
+  );
+  const activeCoin = (activeCoinsForUser || []).find(
+    coin => coin.system_id === systemId && coin.currency_id === systemId,
+  );
+  const coinObj = statusSystem?.coinObj || activeCoin;
+
+  return coinObj?.display_ticker || coinObj?.id || systemId;
+};
+
+const GiftCardStatusBadge = ({card}) => {
+  const theme = useAppTheme();
+  const status = getCardStatus(card);
+  let backgroundColor = theme.colors.surfaceMuted;
+  let color = theme.colors.textSecondary;
+
+  if (status === STATUS_READY) {
+    backgroundColor = theme.colors.successBackground;
+    color = theme.colors.success;
+  } else if (status === STATUS_PENDING) {
+    backgroundColor = theme.colors.warningBackground;
+    color = theme.colors.warning;
+  } else if (status === STATUS_REDEEMED) {
+    backgroundColor = theme.colors.dangerBackground;
+    color = theme.colors.danger;
+  }
+
   return (
-    <Portal>
-      <Dialog visible={card != null} onDismiss={onCancel}>
-        <Dialog.Title>Share Gift Card</Dialog.Title>
-        <Dialog.Content>
-          <ScrollView>
-            <Button
-              mode="contained"
-              icon="qrcode"
-              onPress={() => onQr(card)}
-              style={{marginBottom: 8}}>
-              QR Code
-            </Button>
-            <Button
-              mode="contained"
-              icon="content-copy"
-              onPress={() => onCopy(card)}
-              style={{marginBottom: 8}}>
-              Copy Link
-            </Button>
-            <Button
-              mode="contained"
-              icon="credit-card-wireless"
-              onPress={() => onNfc(card)}>
-              Write NFC
-            </Button>
-          </ScrollView>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={onCancel}>Cancel</Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+    <View
+      accessibilityLabel={`Status: ${getStatusLabel(card)}`}
+      style={[styles.statusBadge, {backgroundColor}]}>
+      <Text style={[styles.statusBadgeText, {color}]}>{getStatusLabel(card)}</Text>
+    </View>
   );
 };
 
@@ -138,11 +165,12 @@ const GiftCardServiceOverview = ({
   saveServiceData,
 }) => {
   const dispatch = useDispatch();
+  const theme = useAppTheme();
   const activeCoinsForUser = useSelector(state => state.coins.activeCoinsForUser);
-  const [qrCard, setQrCard] = useState(null);
   const [shareCardTarget, setShareCardTarget] = useState(null);
   const [busyCardId, setBusyCardId] = useState(null);
-  const [nfcStatus, setNfcStatus] = useState(null);
+  const [filter, setFilter] = useState(STATUS_ALL);
+  const [selectedCardId, setSelectedCardId] = useState(null);
   const refreshAllRunningRef = useRef(false);
   const normalizedData = normalizeGiftCardServiceData(serviceData);
   const cards = useMemo(
@@ -152,6 +180,20 @@ const GiftCardServiceOverview = ({
       ),
     [normalizedData.cards],
   );
+  const selectedCard = cards.find(card => card.id === selectedCardId) || null;
+  const visibleCards = useMemo(
+    () =>
+      filter === STATUS_ALL
+        ? cards
+        : cards.filter(card => getCardStatus(card) === filter),
+    [cards, filter],
+  );
+
+  useEffect(() => {
+    if (selectedCardId && !selectedCard) {
+      setSelectedCardId(null);
+    }
+  }, [selectedCard, selectedCardId]);
 
   const saveCard = useCallback(
     async card => {
@@ -254,7 +296,7 @@ const GiftCardServiceOverview = ({
     [activeCoinsForUser, saveCard],
   );
 
-  const fundCard = async card => {
+  const openFunding = async (card, routeParams = {}) => {
     if (hasPendingGiftCardFunding(card)) {
       Alert.alert(
         'Pending Funding',
@@ -284,7 +326,10 @@ const GiftCardServiceOverview = ({
         return;
       }
 
-      navigation.navigate('GiftCardFund', {cardId: card.id});
+      navigation.navigate('GiftCardFund', {
+        cardId: card.id,
+        ...routeParams,
+      });
     } catch (_) {}
   };
 
@@ -366,6 +411,7 @@ const GiftCardServiceOverview = ({
       }
 
       await saveServiceData(removeGiftCard(normalizedData, card.id));
+      setSelectedCardId(null);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', e.message);
@@ -414,329 +460,940 @@ const GiftCardServiceOverview = ({
     );
   };
 
-  const shareNfc = async card => {
-    if (!card) return;
+  const renderList = () => (
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+      <View style={styles.listHeader}>
+        <View style={styles.headerTitleRow}>
+          <TouchableOpacity
+            accessibilityLabel="Back to Services"
+            accessibilityRole="button"
+            onPress={() => navigation.goBack()}
+            style={styles.headerBackAction}>
+            <MaterialCommunityIcons
+              color={theme.colors.textPrimary}
+              name="arrow-left"
+              size={24}
+            />
+          </TouchableOpacity>
+          <Text
+            style={[
+              theme.typography.headlineMd,
+              styles.listTitle,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Gift cards
+          </Text>
+          <TouchableOpacity
+            accessibilityLabel="Create gift card"
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('GiftCardCreate')}
+            style={styles.headerAction}>
+            <MaterialCommunityIcons
+              color={theme.colors.textPrimary}
+              name="plus"
+              size={26}
+            />
+          </TouchableOpacity>
+        </View>
+        <Text
+          style={[
+            theme.typography.caption,
+            styles.headerDescription,
+            {color: theme.colors.textSecondary},
+          ]}>
+          Share funds or VerusIDs as a redeemable link, QR code, or NFC card.
+        </Text>
+        <ScrollView
+          contentContainerStyle={styles.filters}
+          horizontal
+          showsHorizontalScrollIndicator={false}>
+          {[
+            [STATUS_ALL, 'All'],
+            [STATUS_READY, 'Ready'],
+            [STATUS_PENDING, 'Pending'],
+            [STATUS_NOT_FUNDED, 'Not funded'],
+            [STATUS_REDEEMED, 'Redeemed'],
+          ].map(([value, label]) => {
+            const selected = filter === value;
 
-    setNfcStatus('Preparing NFC writer...');
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{selected}}
+                key={value}
+                onPress={() => setFilter(value)}
+                style={[
+                  styles.filter,
+                  {
+                    backgroundColor: selected
+                      ? theme.colors.textPrimary
+                      : theme.colors.surfaceMuted,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.filterText,
+                    {
+                      color: selected
+                        ? theme.colors.background
+                        : theme.colors.textSecondary,
+                    },
+                  ]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-    try {
-      await writeDeeplinkUriToNfc(buildGiftCardNfcDeeplinkUri(card), {
-        onStatus: setNfcStatus,
-      });
-      Alert.alert('Success', 'Gift card written to NFC card.');
-    } catch (e) {
-      console.error(e);
-      Alert.alert('NFC Error', e.message);
-    } finally {
-      setNfcStatus(null);
-    }
-  };
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}>
+        {visibleCards.map((card, index) => {
+          const busy = busyCardId === card.id;
+          const accessibilityLabel = `${card.label}. ${getContentsSummary(
+            card,
+          )}. ${getStatusLabel(card)}.`;
 
-  const shareCard = card => {
-    setShareCardTarget(card);
-  };
+          return (
+            <View key={card.id} style={styles.rowContainer}>
+              <TouchableOpacity
+                accessibilityLabel={accessibilityLabel}
+                accessibilityRole="button"
+                activeOpacity={0.78}
+                onPress={() => setSelectedCardId(card.id)}
+                style={styles.cardRow}>
+                <View
+                  style={[
+                    styles.iconLane,
+                    {backgroundColor: theme.colors.surfaceMuted},
+                  ]}>
+                  {busy ? (
+                    <ActivityIndicator
+                      animating
+                      color={theme.colors.primary}
+                      size="small"
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      accessible={false}
+                      color={theme.colors.primary}
+                      name="gift-outline"
+                      size={25}
+                    />
+                  )}
+                </View>
+                <View style={styles.rowCopy}>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.rowTitle, {color: theme.colors.textPrimary}]}>
+                    {card.label}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.rowDescription,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    {getContentsSummary(card)}
+                  </Text>
+                </View>
+                <GiftCardStatusBadge card={card} />
+                <MaterialCommunityIcons
+                  accessible={false}
+                  color={theme.colors.textSubtle}
+                  name="chevron-right"
+                  size={21}
+                />
+              </TouchableOpacity>
+              {index < visibleCards.length - 1 ? (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.divider,
+                    {backgroundColor: theme.colors.border},
+                  ]}
+                />
+              ) : null}
+            </View>
+          );
+        })}
 
-  const shareQr = card => {
-    setShareCardTarget(null);
-    setQrCard(card);
-  };
+        {visibleCards.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              accessible={false}
+              color={theme.colors.textSubtle}
+              name="gift-outline"
+              size={42}
+            />
+            <Text
+              style={[
+                theme.typography.titleSheet,
+                styles.emptyTitle,
+                {color: theme.colors.textPrimary},
+              ]}>
+              {cards.length === 0 ? 'No gift cards yet' : 'No gift cards here'}
+            </Text>
+            <Text
+              style={[
+                theme.typography.caption,
+                styles.emptyBody,
+                {color: theme.colors.textSecondary},
+              ]}>
+              {cards.length === 0
+                ? 'Create one to share funds or a VerusID.'
+                : 'Choose another status to see your other gift cards.'}
+            </Text>
+            {cards.length > 0 ? (
+              <AppButton
+                onPress={() => setFilter(STATUS_ALL)}
+                style={styles.emptyAction}
+                variant="text">
+                Show all gift cards
+              </AppButton>
+            ) : null}
+          </View>
+        ) : null}
+      </ScrollView>
 
-  const shareCopy = card => {
-    setShareCardTarget(null);
-    copyToClipboard(card.requestUri, {
-      title: 'Copied',
-      message: 'Gift card link copied to clipboard.',
-    });
-  };
+      <SafeBottomActionStack horizontalSpacing={20}>
+        <AppButton
+          icon="plus"
+          mode="contained"
+          onPress={() => navigation.navigate('GiftCardCreate')}>
+          Create gift card
+        </AppButton>
+      </SafeBottomActionStack>
+    </SafeAreaView>
+  );
 
-  const shareNfcFromDialog = card => {
-    setShareCardTarget(null);
-    shareNfc(card);
-  };
-
-  const renderCard = card => {
-    const systemRows = getSystemRows(card);
-    const primaryAddress = getPrimaryAddress(card);
+  const renderDetail = card => {
     const busy = busyCardId === card.id;
     const pendingFundings = getGiftCardPendingFundings(card);
-    const pending = pendingFundings.length > 0;
     const hasClaims = hasGiftCardClaims(card);
+    const pending = pendingFundings.length > 0;
     const deleteEnabled = canDeleteGiftCard(card);
+    const status = getCardStatus(card);
+    const addresses = Object.entries(card.addressesBySystem || {});
+    const systemRows = getSystemRows(card);
+    const fundDisabled = pending || status === STATUS_REDEEMED || busy;
 
     return (
-      <Card key={card.id} style={{marginBottom: 12, borderRadius: 8}}>
-        <Card.Title
-          title={card.label}
-          subtitle={`${getStatusLabel(card)}${card.encrypted ? ' • encrypted' : ''}${formatCardDate(card.createdAt) ? ` • ${formatCardDate(card.createdAt)}` : ''}`}
-          left={props => (
+      <SafeAreaView
+        edges={['top', 'left', 'right']}
+        style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+        <View style={styles.detailHeader}>
+          <TouchableOpacity
+            accessibilityLabel="Back to gift cards"
+            accessibilityRole="button"
+            onPress={() => setSelectedCardId(null)}
+            style={styles.detailHeaderAction}>
             <MaterialCommunityIcons
-              {...props}
-              name="gift-outline"
-              color={Colors.primaryColor}
-              size={32}
+              color={theme.colors.textPrimary}
+              name="arrow-left"
+              size={24}
             />
-          )}
-          right={props =>
-            busy ? (
+          </TouchableOpacity>
+          <Text
+            style={[
+              theme.typography.titleSheet,
+              styles.detailHeaderTitle,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Gift card
+          </Text>
+          <TouchableOpacity
+            accessibilityLabel="Refresh gift card"
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => refreshCard(card)}
+            style={styles.detailHeaderAction}>
+            {busy ? (
               <ActivityIndicator
-                {...props}
                 animating
-                color={Colors.primaryColor}
-                style={{marginRight: 16}}
+                color={theme.colors.primary}
+                size="small"
               />
             ) : (
-              <IconButton
-                {...props}
-                icon="refresh"
-                onPress={() => refreshCard(card)}
+              <MaterialCommunityIcons
+                color={theme.colors.textPrimary}
+                name="refresh"
+                size={23}
               />
-            )
-          }
-        />
-        <Card.Content>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.detailContent}
+          showsVerticalScrollIndicator={false}>
+          <View
+            style={[
+              styles.detailIcon,
+              {backgroundColor: theme.colors.surfaceMuted},
+            ]}>
+            <MaterialCommunityIcons
+              accessible={false}
+              color={theme.colors.primary}
+              name="gift-outline"
+              size={34}
+            />
+          </View>
           <Text
-            style={{
-              color: Colors.verusDarkGray,
-              fontSize: 12,
-              marginBottom: 8,
-            }}>
-            {truncateAddress(primaryAddress)}
+            style={[
+              theme.typography.headlineCompact,
+              styles.detailTitle,
+              {color: theme.colors.textPrimary},
+            ]}>
+            {card.label}
           </Text>
-          {systemRows.length === 0 ? (
-            <Text style={{color: Colors.verusDarkGray}}>
-              No funds or VerusIDs found.
-            </Text>
-          ) : (
-            systemRows.map(system => (
-              <View key={system.systemId} style={{marginBottom: 8}}>
-                <Text style={{fontWeight: 'bold'}}>
-                  {system.coinObj?.display_ticker || system.coinObj?.id || system.systemId}
-                </Text>
-                {(system.currencies || []).map(currency => (
-                  <Text key={currency.currencyId}>
-                    {currency.amount} {currency.display?.name || currency.currencyId}
-                  </Text>
-                ))}
-                {(system.identities || []).map(identity => (
-                  <Text key={identity.identityAddress}>
-                    {identity.fullyQualifiedName || identity.identityAddress}
-                  </Text>
-                ))}
-              </View>
-            ))
-          )}
-          {pendingFundings.length > 0 && (
+          <GiftCardStatusBadge card={card} />
+
+          <View
+            style={[
+              styles.detailSection,
+              {borderColor: theme.colors.border},
+            ]}>
             <View
-              style={{
-                backgroundColor: '#FFF4E8',
-                borderColor: Colors.infoButtonColor,
-                borderRadius: 8,
-                borderWidth: 1,
-                marginTop: 12,
-                padding: 10,
-              }}>
-              <Text style={{fontWeight: 'bold', marginBottom: 6}}>
-                Pending funding
+              style={[
+                styles.detailInfoRow,
+                {borderBottomColor: theme.colors.border},
+              ]}>
+              <MaterialCommunityIcons
+                color={theme.colors.primary}
+                name="cash-multiple"
+                size={22}
+              />
+              <View style={styles.detailInfoCopy}>
+                <Text
+                  style={[
+                    styles.detailInfoLabel,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  Contents
+                </Text>
+                <Text
+                  style={[
+                    styles.detailInfoValue,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {getContentsSummary(card)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.detailInfoRow}>
+              <MaterialCommunityIcons
+                color={theme.colors.primary}
+                name="shield-key-outline"
+                size={22}
+              />
+              <View style={styles.detailInfoCopy}>
+                <Text
+                  style={[
+                    styles.detailInfoLabel,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  Claim protection
+                </Text>
+                <Text
+                  style={[
+                    styles.detailInfoValue,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {card.encrypted ? 'Claim password required' : 'Spendable link'}
+                  {formatCardDate(card.createdAt)
+                    ? ` · Created ${formatCardDate(card.createdAt)}`
+                    : ''}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {systemRows.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                CURRENT CONTENTS
               </Text>
-              {pendingFundings.map((entry, entryIndex) =>
-                <View key={entryIndex}>
+              {systemRows.map((system, index) => (
+                <View
+                  key={system.systemId}
+                  style={[
+                    styles.systemBlock,
+                    index < systemRows.length - 1 && {
+                      borderBottomColor: theme.colors.border,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.systemTitle,
+                      {color: theme.colors.textPrimary},
+                    ]}>
+                    {system.coinObj?.display_ticker ||
+                      system.coinObj?.id ||
+                      system.systemId}
+                  </Text>
+                  {(system.currencies || []).map(currency => (
+                    <Text
+                      key={currency.currencyId}
+                      style={[
+                        styles.systemValue,
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      {currency.amount}{' '}
+                      {currency.display?.name || currency.currencyId}
+                    </Text>
+                  ))}
+                  {(system.identities || []).map(identity => (
+                    <Text
+                      key={identity.identityAddress}
+                      style={[
+                        styles.systemValue,
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      {identity.fullyQualifiedName || identity.identityAddress}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.sectionBlock}>
+            <Text
+              style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>
+              FUNDING ADDRESSES
+            </Text>
+            {addresses.map(([systemId, address], index) => (
+              <View
+                key={systemId}
+                style={[
+                  styles.addressRow,
+                  index < addresses.length - 1 && {
+                    borderBottomColor: theme.colors.border,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                  },
+                ]}>
+                <View style={styles.addressCopy}>
+                  <Text
+                    style={[
+                      styles.addressSystem,
+                      {color: theme.colors.textPrimary},
+                    ]}>
+                    {getSystemName(systemId, card, activeCoinsForUser)}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    selectable
+                    style={[
+                      styles.addressValue,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    {address}
+                  </Text>
+                </View>
+                <CopyAction
+                  accessibilityLabel={`Copy ${getSystemName(
+                    systemId,
+                    card,
+                    activeCoinsForUser,
+                  )} gift card address`}
+                  value={address}
+                />
+              </View>
+            ))}
+          </View>
+
+          {pendingFundings.length > 0 ? (
+            <View
+              style={[
+              styles.pendingNotice,
+              {
+                  backgroundColor: theme.colors.warningBackground,
+                },
+              ]}>
+              <View style={styles.pendingHeader}>
+                <MaterialCommunityIcons
+                  color={theme.colors.warning}
+                  name="clock-outline"
+                  size={21}
+                />
+                <Text
+                  style={[
+                    styles.pendingTitle,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  Pending funding
+                </Text>
+              </View>
+              {pendingFundings.map((entry, entryIndex) => (
+                <View key={`${entry.createdAt || entryIndex}`}>
                   {(entry.identities || []).map(identity => (
                     <Text
                       key={`${entryIndex}:${identity.identityAddress}`}
-                      style={{
-                        color: Colors.verusDarkGray,
-                        fontSize: 12,
-                        marginTop: 2,
-                      }}>
-                      Waiting for {identity.fullyQualifiedName || identity.identityAddress}
+                      style={[
+                        styles.pendingBody,
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      Waiting for{' '}
+                      {identity.fullyQualifiedName || identity.identityAddress}
                     </Text>
                   ))}
                   {(entry.txids || []).map(txid => (
                     <View
                       key={`${entryIndex}:${txid}`}
-                      style={{
-                        alignItems: 'center',
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        marginTop: 4,
-                      }}>
+                      style={styles.transactionRow}>
                       <Text
+                        numberOfLines={1}
                         selectable
-                        style={{
-                          color: Colors.verusDarkGray,
-                          flex: 1,
-                          fontSize: 12,
-                          marginRight: 8,
-                        }}>
+                        style={[
+                          styles.transactionValue,
+                          {color: theme.colors.textSecondary},
+                        ]}>
                         {txid}
                       </Text>
-                      <IconButton
-                        icon="content-copy"
-                        size={18}
-                        onPress={() =>
-                          copyToClipboard(txid, {
-                            title: 'Copied',
-                            message: 'Transaction ID copied to clipboard.',
-                          })
-                        }
+                      <CopyAction
+                        accessibilityLabel="Copy pending funding transaction ID"
+                        value={txid}
                       />
                     </View>
                   ))}
-                </View>,
-              )}
+                </View>
+              ))}
             </View>
-          )}
-        </Card.Content>
-        <Divider style={{marginTop: 8}} />
-        <Card.Actions style={{justifyContent: 'space-between'}}>
-          <Button
-            compact
-            icon="cash-plus"
-            disabled={card.status?.state === 'redeemed' || pending || busy}
-            onPress={() => fundCard(card)}>
-            Fund
-          </Button>
-          <Button
-            compact
-            icon="close-circle-outline"
-            disabled={busy || pending || !hasClaims}
-            onPress={() => cancelCard(card)}>
-            Cancel
-          </Button>
-          <Button
-            compact
-            icon="share-variant"
+          ) : null}
+
+          <View
+            style={[
+              styles.lifecycleActions,
+              {borderTopColor: theme.colors.border},
+            ]}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={() => setShareCardTarget(card)}
+              style={styles.lifecycleRow}>
+              <MaterialCommunityIcons
+                color={theme.colors.primary}
+                name="share-variant"
+                size={22}
+              />
+              <Text
+                style={[
+                  styles.lifecycleLabel,
+                  {color: theme.colors.textPrimary},
+                ]}>
+                Share gift card
+              </Text>
+              <MaterialCommunityIcons
+                color={theme.colors.textSubtle}
+                name="chevron-right"
+                size={21}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={busy || pending || !hasClaims}
+              onPress={() => cancelCard(card)}
+              style={[styles.lifecycleRow, (busy || pending || !hasClaims) && styles.disabled]}>
+              <MaterialCommunityIcons
+                color={theme.colors.warning}
+                name="close-circle-outline"
+                size={22}
+              />
+              <Text
+                style={[
+                  styles.lifecycleLabel,
+                  {color: theme.colors.textPrimary},
+                ]}>
+                Cancel by redeeming to this wallet
+              </Text>
+              <MaterialCommunityIcons
+                color={theme.colors.textSubtle}
+                name="chevron-right"
+                size={21}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={() =>
+                deleteEnabled
+                  ? confirmDeleteCard(card)
+                  : explainDeleteUnavailable(card)
+              }
+              style={styles.lifecycleRow}>
+              <MaterialCommunityIcons
+                color={
+                  deleteEnabled ? theme.colors.danger : theme.colors.textSubtle
+                }
+                name="delete-outline"
+                size={22}
+              />
+              <Text
+                style={[
+                  styles.lifecycleLabel,
+                  {
+                    color: deleteEnabled
+                      ? theme.colors.danger
+                      : theme.colors.textSecondary,
+                  },
+                ]}>
+                Delete from this device
+              </Text>
+              <MaterialCommunityIcons
+                color={theme.colors.textSubtle}
+                name="chevron-right"
+                size={21}
+              />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <SafeBottomActionStack gap={8} horizontalSpacing={20}>
+          <AppButton
             disabled={busy}
-            onPress={() => shareCard(card)}>
-            Share
-          </Button>
-          <IconButton
-            icon="delete-outline"
-            disabled={busy}
-            iconColor={deleteEnabled ? Colors.warningButtonColor : Colors.verusDarkGray}
-            style={!deleteEnabled ? {opacity: 0.45} : null}
+            icon={status === STATUS_NOT_FUNDED ? 'cash-plus' : 'share-variant'}
+            mode="contained"
             onPress={() =>
-              deleteEnabled
-                ? confirmDeleteCard(card)
-                : explainDeleteUnavailable(card)
-            }
-          />
-        </Card.Actions>
-      </Card>
+              status === STATUS_NOT_FUNDED
+                ? openFunding(card)
+                : setShareCardTarget(card)
+            }>
+            {status === STATUS_NOT_FUNDED ? 'Add contents' : 'Share gift card'}
+          </AppButton>
+          {status !== STATUS_REDEEMED ? (
+            <AppButton
+              disabled={fundDisabled}
+              onPress={() => openFunding(card, {startExternal: true})}
+              variant="text">
+              Fund from another wallet
+            </AppButton>
+          ) : null}
+          {status === STATUS_READY ? (
+            <AppButton
+              disabled={fundDisabled}
+              onPress={() => openFunding(card)}
+              variant="text">
+              Add more contents
+            </AppButton>
+          ) : null}
+        </SafeBottomActionStack>
+      </SafeAreaView>
     );
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={Styles.defaultRoot}>
-        <ShareGiftCardDialog
-          card={shareCardTarget}
-          onCancel={() => setShareCardTarget(null)}
-          onCopy={shareCopy}
-          onNfc={shareNfcFromDialog}
-          onQr={shareQr}
-        />
-        <QRModal
-          animationType="slide"
-          visible={qrCard != null}
-          qrString={qrCard?.requestUri || ''}
-          title="Gift Card QR"
-          description={qrCard?.label || 'Gift Card'}
-          fileName={qrCard ? `GiftCard-${qrCard.id}` : 'GiftCard'}
-          showVerusIconInQr
-          cancel={() => setQrCard(null)}
-        />
-        {nfcStatus != null && (
-          <View
-            style={{
-              alignItems: 'center',
-              backgroundColor: Colors.secondaryColor,
-              bottom: 0,
-              justifyContent: 'center',
-              left: 0,
-              paddingHorizontal: 32,
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              zIndex: 99,
-            }}>
-            <MaterialCommunityIcons
-              name="credit-card-wireless"
-              size={64}
-              color={Colors.primaryColor}
-              style={{marginBottom: 24}}
-            />
-            <ActivityIndicator animating color={Colors.primaryColor} size="large" />
-            <Text
-              style={{
-                color: Colors.verusDarkGray,
-                fontSize: 22,
-                fontWeight: 'bold',
-                marginTop: 24,
-                textAlign: 'center',
-              }}>
-              {nfcStatus}
-            </Text>
-          </View>
-        )}
-        <ScrollView
-          style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: 120,
-          }}>
-          <View
-            style={{
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginBottom: 12,
-            }}>
-            <Text
-              style={{
-                color: Colors.primaryColor,
-                fontSize: 22,
-                fontWeight: 'bold',
-              }}>
-              Gift Cards
-            </Text>
-            <Button
-              mode="contained"
-              icon="plus"
-              onPress={() => navigation.navigate('GiftCardCreate')}>
-              Create
-            </Button>
-          </View>
-          {cards.length === 0 ? (
-            <View
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 24,
-                paddingVertical: 64,
-              }}>
-              <MaterialCommunityIcons
-                name="gift-outline"
-                size={56}
-                color={Colors.primaryColor}
-                style={{marginBottom: 16}}
-              />
-              <Text
-                style={{
-                  color: Colors.verusDarkGray,
-                  maxWidth: fieldWidth,
-                  textAlign: 'center',
-                }}>
-                No gift cards have been created for this wallet.
-              </Text>
-            </View>
-          ) : (
-            cards.map(renderCard)
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+    <>
+      {selectedCard ? renderDetail(selectedCard) : renderList()}
+      <GiftCardShareSheet
+        card={shareCardTarget}
+        onClose={() => setShareCardTarget(null)}
+      />
+    </>
   );
 };
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  listHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerBackAction: {
+    width: 44,
+    height: 44,
+    marginLeft: -8,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listTitle: {
+    minWidth: 0,
+    flex: 1,
+  },
+  headerAction: {
+    width: 44,
+    height: 44,
+    marginLeft: 'auto',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  headerDescription: {
+    maxWidth: 340,
+    marginTop: 6,
+  },
+  filters: {
+    gap: 8,
+    paddingTop: 18,
+    paddingBottom: 2,
+  },
+  filter: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    borderRadius: 999,
+  },
+  filterText: {
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('semiBold'),
+  },
+  listContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  rowContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  cardRow: {
+    minHeight: 104,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  iconLane: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+  },
+  rowCopy: {
+    minWidth: 0,
+    flex: 1,
+    marginLeft: 16,
+    paddingRight: 8,
+  },
+  rowTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+    ...fontStyle('semiBold'),
+  },
+  rowDescription: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
+  },
+  divider: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 60,
+    height: StyleSheet.hairlineWidth,
+  },
+  statusBadge: {
+    flexShrink: 0,
+    marginRight: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    lineHeight: 14,
+    ...fontStyle('semiBold'),
+  },
+  emptyState: {
+    minHeight: 300,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 44,
+  },
+  emptyTitle: {
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    marginTop: 7,
+    textAlign: 'center',
+  },
+  emptyAction: {
+    marginTop: 10,
+  },
+  detailHeader: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  detailHeaderAction: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  detailHeaderTitle: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  detailContent: {
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    paddingBottom: 28,
+  },
+  detailIcon: {
+    width: 68,
+    height: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    borderRadius: 21,
+  },
+  detailTitle: {
+    marginTop: 18,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  detailSection: {
+    marginTop: 28,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  detailInfoRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  detailInfoCopy: {
+    minWidth: 0,
+    flex: 1,
+  },
+  detailInfoLabel: {
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  detailInfoValue: {
+    marginTop: 3,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
+  },
+  sectionBlock: {
+    marginTop: 26,
+  },
+  sectionLabel: {
+    marginBottom: 8,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.8,
+    ...fontStyle('semiBold'),
+  },
+  systemBlock: {
+    paddingVertical: 12,
+  },
+  systemTitle: {
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  systemValue: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
+  },
+  addressRow: {
+    minHeight: 78,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addressCopy: {
+    minWidth: 0,
+    flex: 1,
+    paddingRight: 10,
+  },
+  addressSystem: {
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  addressValue: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
+    ...fontStyle('regular'),
+  },
+  pendingNotice: {
+    marginTop: 24,
+    padding: 14,
+    borderRadius: 14,
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pendingTitle: {
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  pendingBody: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 17,
+    ...fontStyle('regular'),
+  },
+  transactionRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionValue: {
+    minWidth: 0,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    ...fontStyle('regular'),
+  },
+  lifecycleActions: {
+    marginTop: 28,
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  lifecycleRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  lifecycleLabel: {
+    minWidth: 0,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  disabled: {
+    opacity: 0.45,
+  },
+});
 
 export default GiftCardServiceOverview;

@@ -4,9 +4,9 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {appTextInputStyles as styles} from '../styles';
 import {
-  resolveOnboardingTheme,
-  useOnboardingTheme,
-} from '../theme/onboarding';
+  resolveAppTheme,
+  useAppTheme,
+} from '../theme/app';
 
 const AppTextInput = forwardRef(function AppTextInput(
   {
@@ -39,10 +39,10 @@ const AppTextInput = forwardRef(function AppTextInput(
   ref,
 ) {
   const [focused, setFocused] = useState(false);
-  const onboardingTheme = useOnboardingTheme();
+  const appTheme = useAppTheme();
   const theme = themeMode
-    ? resolveOnboardingTheme(themeMode)
-    : onboardingTheme;
+    ? resolveAppTheme(themeMode)
+    : appTheme;
   const supportingText = errorText || helperText;
   const resolvedPlaceholderTextColor =
     placeholderTextColor || theme.colors.textSubtle;
@@ -110,6 +110,7 @@ const AppTextInput = forwardRef(function AppTextInput(
         ) : null}
         <TextInput
           {...inputProps}
+          accessibilityLabel={inputProps.accessibilityLabel || label}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
           onBlur={handleBlur}

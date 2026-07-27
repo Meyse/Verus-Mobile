@@ -567,6 +567,80 @@ describe('gift card helpers', () => {
     );
   });
 
+  it('separates native funds from the fee in a combined VerusID transfer', async () => {
+    const cardAddress = 'RDCr3h5wYGoMh2QF7akoZy2GNsjCeSqgpu';
+
+    mockDeriveKeyPair.mockImplementation(async () => ({
+      addresses: [cardAddress],
+      privKey: `K-${mockRootCoin.system_id}`,
+    }));
+    mockGetSpendableUtxos.mockResolvedValue([
+      {
+        txid: 'cc'.repeat(32),
+        outputIndex: 0,
+        satoshis: 200000000,
+        script: '00',
+        isspendable: 1,
+      },
+    ]);
+    mockGetIdentity.mockResolvedValueOnce({
+      result: {
+        blockheight: 123,
+      },
+    });
+    mockCreateUpdateIdentityWithCurrencyTransferTx.mockResolvedValueOnce({
+      hex: 'identity-update-with-funds-tx',
+      utxos: [],
+      deltas: new Map([[mockRootCoin.system_id, '-100020000']]),
+    });
+
+    const card = await createGiftCard({
+      requestIsTestnet: false,
+      activeCoinsForUser: [mockRootCoin],
+    });
+    const plan = await preflightGiftCardFunding({
+      card,
+      selections: {
+        funds: [
+          {
+            systemId: mockRootCoin.system_id,
+            currencyId: mockRootCoin.system_id,
+            amount: '1',
+            coinObj: mockRootCoin,
+          },
+        ],
+        identities: [
+          {
+            key: 'root-system:i-combined-id',
+            chain: 'VRSC',
+            systemId: mockRootCoin.system_id,
+            identityAddress: 'i-combined-id',
+            fullyQualifiedName: 'combined@',
+          },
+        ],
+      },
+      identityFunding: [],
+      activeCoinsForUser: [mockRootCoin],
+      activeAccount: {
+        keys: {
+          [mockRootCoin.id]: {
+            vrpc: {
+              addresses: ['RSourceAddress'],
+            },
+          },
+        },
+      },
+    });
+
+    expect(plan.transactions[0]).toEqual(
+      expect.objectContaining({
+        type: 'identity',
+        includesFunds: true,
+        feeSats: '20000',
+      }),
+    );
+  });
+
   it('summarizes funds already held by selected VerusIDs', async () => {
     mockGetAddressUtxos.mockResolvedValueOnce({
       result: [

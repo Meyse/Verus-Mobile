@@ -1,18 +1,20 @@
 import React from 'react';
 import {StyleSheet, TouchableOpacity} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useOnboardingTheme} from '../theme/onboarding';
+import {useAppTheme} from '../theme/app';
 
-const OnboardingBackButton = ({onPress, style}) => {
-  const theme = useOnboardingTheme();
+const OnboardingBackButton = ({disabled = false, onPress, style}) => {
+  const theme = useAppTheme();
 
   return (
     <TouchableOpacity
       accessibilityLabel="Go back"
       accessibilityRole="button"
+      accessibilityState={{disabled}}
       activeOpacity={0.74}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.button, style]}>
+      style={[styles.button, disabled && styles.disabled, style]}>
       <MaterialCommunityIcons
         color={theme.colors.textPrimary}
         name="arrow-left"
@@ -24,10 +26,13 @@ const OnboardingBackButton = ({onPress, style}) => {
 
 const styles = StyleSheet.create({
   button: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabled: {
+    opacity: 0.36,
   },
 });
 

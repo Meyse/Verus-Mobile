@@ -13,15 +13,18 @@ import {
   createRedesignedHeaderOptions,
   createSettingsHeaderOptions,
 } from '../../../utils/navigation/header';
-import {useOnboardingTheme} from '../../../theme/onboarding';
+import {useAppTheme} from '../../../theme/app';
 import AddressBook from '../../Services/AddressBook/AddressBook';
 import SignedInVerusIdDetails from '../../Services/ServiceComponents/VerusIdService/SignedInVerusIdDetails';
-import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
+import {
+  GIFT_CARD_SERVICE_ID,
+  VERUSID_SERVICE_ID,
+} from '../../../utils/constants/services';
 
 const ServicesStack = createStackNavigator();
 
-const ServicesStackScreens = props => {
-  const theme = useOnboardingTheme();
+const ServicesStackScreens = () => {
+  const theme = useAppTheme();
   const addressBookHeaderOptions = createSettingsHeaderOptions(theme);
 
   return (
@@ -54,10 +57,13 @@ const ServicesStackScreens = props => {
         component={Service}
         options={({route}) => ({
           title: '',
-          headerShown: !(
-            ENABLE_SIGNED_IN_REDESIGN &&
-            route.params?.service === VERUSID_SERVICE_ID
-          ),
+          headerShown:
+            route.params?.service === GIFT_CARD_SERVICE_ID
+              ? false
+              : !(
+                  ENABLE_SIGNED_IN_REDESIGN &&
+                  route.params?.service === VERUSID_SERVICE_ID
+                ),
         })}
       />
       <ServicesStack.Screen
@@ -87,14 +93,14 @@ const ServicesStackScreens = props => {
         name="GiftCardCreate"
         component={GiftCardCreate}
         options={{
-          title: "Create Gift Card",
+          headerShown: false,
         }}
       />
       <ServicesStack.Screen
         name="GiftCardFund"
         component={GiftCardFund}
         options={{
-          title: "Fund Gift Card",
+          headerShown: false,
         }}
       />
     </ServicesStack.Navigator>
