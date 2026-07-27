@@ -1,6 +1,7 @@
 import React from "react";
 import { Card } from "react-native-paper";
 import { View } from "react-native";
+import { useOnboardingTheme } from "../../theme/onboarding";
 import { getCoinLogo } from "./CoinData";
 import { CoinDirectory } from "./CoinDirectory";
 import { coinsList } from "./CoinsList";
@@ -114,6 +115,7 @@ export const AssetCoinLogo = ({
   size = 40,
   style = {},
 }) => {
+  const theme = useOnboardingTheme();
   const {Logo} = getSimpleLogo(coinId, 'dark');
   let BadgeLogo = null;
 
@@ -157,7 +159,7 @@ export const AssetCoinLogo = ({
             height: badgeSize,
             padding: 2,
             borderRadius: badgeSize / 2,
-            backgroundColor: 'white',
+            backgroundColor: theme.colors.background,
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 2,
