@@ -32,7 +32,14 @@ const SheetHeader = ({onClose, title}) => {
   );
 };
 
-export const SourceCardSheet = ({cards, onClose, onSelect, selectedId, visible}) => {
+export const SourceCardSheet = ({
+  cards,
+  description = 'Your asset has multiple Cards. Select which Card to send from.',
+  onClose,
+  onSelect,
+  selectedId,
+  visible,
+}) => {
   const theme = useOnboardingTheme();
   const groups = useMemo(() => {
     const map = new Map();
@@ -47,7 +54,9 @@ export const SourceCardSheet = ({cards, onClose, onSelect, selectedId, visible})
   return (
     <BottomSheetModal floating={false} maxHeight="70%" onClose={onClose} visible={visible}>
       <SheetHeader title="Select source" onClose={onClose} />
-      <Text style={[styles.description, {color: theme.colors.textSecondary}]}>Your asset has multiple Cards. Select which Card to send from.</Text>
+      <Text style={[styles.description, {color: theme.colors.textSecondary}]}>
+        {description}
+      </Text>
       <ScrollView contentContainerStyle={styles.list}>
         {groups.map(([network, sources]) => (
           <View key={network} style={styles.networkGroup}>

@@ -3,8 +3,8 @@ import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
+import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSearchField from '../../components/AppSearchField';
-import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {fontStyle} from '../../globals/fonts';
@@ -20,14 +20,22 @@ import {
 import {USD} from '../../utils/constants/currencies';
 import {truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
-import {WizardHeading, WizardScreen} from './components/WizardUI';
+import {
+  WIZARD_CONTENT_INSET,
+  WizardHeading,
+  WizardScreen,
+} from './components/WizardUI';
 import {SourceCardSheet} from './components/SelectionSheets';
+import {
+  buildSendTarget,
+  isConversionChannel,
+  SEND_WIZARD_MODE,
+} from './wizardUtils';
 
 const SendWizardSelectSource = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
-  const {state, setSource} = useSendWizard();
+  const {mode, state, setSource} = useSendWizard();
   const [query, setQuery] = useState('');
   const [pendingAsset, setPendingAsset] = useState(null);
 
@@ -47,9 +55,18 @@ const SendWizardSelectSource = () => {
       .map(coin => {
         const cards = (cardsByCoin[coin.id] || [])
           .filter(
-            card =>
-              card.compatible_apps?.includes(WALLET_APP_SEND) &&
-              Boolean(card.api_channels?.[API_SEND]),
+            card => {
+              const channel = card.api_channels?.[API_SEND];
+              const canSend =
+                card.compatible_apps?.includes(WALLET_APP_SEND) &&
+                Boolean(channel);
+
+              return (
+                canSend &&
+                (mode !== SEND_WIZARD_MODE.CONVERT ||
+                  (!CONVERSION_DISABLED && isConversionChannel(channel)))
+              );
+            },
           )
           .map(card => {
             const balance = BigNumber(balances?.[coin.id]?.[card.id]?.total || 0);
@@ -86,7 +103,7 @@ const SendWizardSelectSource = () => {
       })
       .filter(Boolean)
       .sort((first, second) => second.total.comparedTo(first.total));
-  }, [balances, cardsByCoin, coins, displayCurrency, rates]);
+  }, [balances, cardsByCoin, coins, displayCurrency, mode, rates]);
 
   const filteredAssets = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -100,12 +117,30 @@ const SendWizardSelectSource = () => {
 
   const chooseSource = source => {
     setPendingAsset(null);
-    setSource({
+    const sourceState = {
       sourceCoin: source.coin,
       sourceSubWallet: source.card,
       sourceBalance: source.balance,
       channel: source.channel,
-    });
+    };
+
+    if (mode === SEND_WIZARD_MODE.SEND) {
+      const sourceNetworkId =
+        source.channel?.split('.')[2] ||
+        source.coin.system_id ||
+        source.coin.id;
+      const target = buildSendTarget({}, source.coin, sourceNetworkId);
+      const route =
+        target.routes.find(
+          candidate => !candidate.isCrossChain && !candidate.via,
+        ) || target.routes[0];
+
+      setSource(sourceState, target, route);
+      navigation.navigate('SendWizardAmount');
+      return;
+    }
+
+    setSource(sourceState);
     navigation.navigate('SendWizardSelectTarget');
   };
 
@@ -116,21 +151,17 @@ const SendWizardSelectSource = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <WizardHeading
-        style={
-          smallDevice ? undefined : {paddingTop: theme.spacing.xl}
-        }>
-        Select asset to send or convert
+      <WizardHeading>
+        {mode === SEND_WIZARD_MODE.CONVERT
+          ? 'Select asset to convert'
+          : 'Select asset to send'}
       </WizardHeading>
       <AppSearchField
         accessibilityLabel="Search currencies"
         onChangeText={setQuery}
         placeholder="Search currencies"
         resultCount={filteredAssets.length}
-        style={[
-          styles.searchSpacing,
-          {marginHorizontal: theme.spacing.screenPadding},
-        ]}
+        style={styles.searchSpacing}
         value={query}
       />
       <FlatList
@@ -141,7 +172,9 @@ const SendWizardSelectSource = () => {
             <Text style={[styles.emptyBody, {color: theme.colors.textSecondary}]}>
               {query.trim()
                 ? 'No assets match your search.'
-                : 'No assets with balance available to send.'}
+                : `No assets with balance available to ${
+                    mode === SEND_WIZARD_MODE.CONVERT ? 'convert' : 'send'
+                  }.`}
             </Text>
           </View>
         }
@@ -177,6 +210,9 @@ const SendWizardSelectSource = () => {
       />
       <SourceCardSheet
         cards={pendingAsset?.cards || []}
+        description={`Your asset has multiple Cards. Select which Card to ${
+          mode === SEND_WIZARD_MODE.CONVERT ? 'convert' : 'send'
+        } from.`}
         selectedId={state.sourceSubWallet?.id}
         visible={Boolean(pendingAsset)}
         onClose={() => setPendingAsset(null)}
@@ -188,8 +224,16 @@ const SendWizardSelectSource = () => {
 
 const styles = StyleSheet.create({
   list: {paddingBottom: 24},
-  searchSpacing: {marginBottom: 14},
-  assetRow: {paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center'},
+  searchSpacing: {
+    marginHorizontal: WIZARD_CONTENT_INSET,
+    marginBottom: 14,
+  },
+  assetRow: {
+    paddingHorizontal: WIZARD_CONTENT_INSET,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   assetLogo: {width: 38, height: 38, marginRight: 16},
   assetCopy: {flex: 1, minWidth: 0},
   titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
@@ -197,7 +241,11 @@ const styles = StyleSheet.create({
   fiatValue: {fontSize: 16, lineHeight: 22, marginLeft: 12, ...fontStyle('semiBold')},
   cryptoValue: {fontSize: 16, lineHeight: 22, marginTop: 6, ...fontStyle('medium')},
   pressed: {opacity: 0.7},
-  empty: {paddingHorizontal: 32, paddingTop: 64, alignItems: 'center'},
+  empty: {
+    paddingHorizontal: WIZARD_CONTENT_INSET,
+    paddingTop: 64,
+    alignItems: 'center',
+  },
   emptyBody: {fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8, ...fontStyle('regular')},
 });
 

@@ -29,6 +29,7 @@ import {
   API_GET_SERVICE_PAYMENT_METHODS,
   API_GET_SERVICE_RATES,
   API_GET_SERVICE_NOTIFICATIONS,
+  API_SEND,
 } from '../../utils/constants/intervalConstants';
 import { USD } from '../../utils/constants/currencies';
 import {
@@ -54,12 +55,18 @@ import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import SignedInWalletHome from './SignedInWalletHome';
-import {ENABLE_SIGNED_IN_REDESIGN} from '../../../env/index';
 import {
-  WALLET_APP_CONVERT,
+  CONVERSION_DISABLED,
+  ENABLE_SIGNED_IN_REDESIGN,
+} from '../../../env/index';
+import {
   WALLET_APP_RECEIVE,
   WALLET_APP_SEND,
 } from '../../utils/constants/apps';
+import {
+  isConversionChannel,
+  SEND_WIZARD_MODE,
+} from '../SendWizard/wizardUtils';
 
 const getAssetStatusDescription = coin => {
   if (coin.mapped_to) return `Mapped · ${coin.display_ticker}`;
@@ -398,18 +405,28 @@ const Home = () => {
 
   const actionSources = useCallback(
     action => {
-      const sectionKeys =
-        action === 'wallet-receive'
-          ? [WALLET_APP_RECEIVE]
-          : [WALLET_APP_SEND, WALLET_APP_CONVERT];
+      const sectionKey =
+        action === 'wallet-receive' ? WALLET_APP_RECEIVE : WALLET_APP_SEND;
 
       return activeCoinsForUser.flatMap(coinObj => {
         return (allSubWallets[coinObj.id] || [])
           .map(card => {
-            const sectionKey = sectionKeys.find(key =>
-              card.compatible_apps.includes(key),
-            );
-            const section = sectionKey && findSection(coinObj, sectionKey);
+            const channel = card.api_channels?.[API_SEND];
+            const hasBalance = BigNumber(
+              balances?.[coinObj.id]?.[card.id]?.total || 0,
+            ).isGreaterThan(0);
+            const compatible = card.compatible_apps.includes(sectionKey);
+            const actionAvailable =
+              action === 'wallet-receive'
+                ? compatible
+                : compatible &&
+                  Boolean(channel) &&
+                  hasBalance &&
+                  (action !== 'wallet-convert' ||
+                    (!CONVERSION_DISABLED && isConversionChannel(channel)));
+            const section = actionAvailable
+              ? findSection(coinObj, sectionKey)
+              : null;
 
             if (!section) return null;
 
@@ -427,7 +444,7 @@ const Home = () => {
           .filter(Boolean);
       });
     },
-    [activeCoinsForUser, allSubWallets],
+    [activeCoinsForUser, allSubWallets, balances],
   );
 
   const openActionSource = (source) => {
@@ -494,7 +511,8 @@ const Home = () => {
   if (ENABLE_SIGNED_IN_REDESIGN) {
     const mainNavigation = navigation.getParent()?.getParent();
     const receiveAvailable = actionSources('wallet-receive').length > 0;
-    const transferAvailable = actionSources('wallet-transfer').length > 0;
+    const sendAvailable = actionSources('wallet-send').length > 0;
+    const convertAvailable = actionSources('wallet-convert').length > 0;
 
     return (
       <SignedInWalletHome
@@ -507,10 +525,20 @@ const Home = () => {
         onSelectDisplayCurrency={setDisplayCurrencyFunc}
         onRefresh={forceUpdate}
         onOpenAsset={openCoin}
+        convertAvailable={convertAvailable}
         receiveAvailable={receiveAvailable}
-        transferAvailable={transferAvailable}
+        sendAvailable={sendAvailable}
         onReceive={() => (mainNavigation || navigation).navigate('ReceiveAssetsList')}
-        onSendOrConvert={() => (mainNavigation || navigation).navigate('SendWizard')}
+        onSend={() =>
+          (mainNavigation || navigation).navigate('SendWizard', {
+            mode: SEND_WIZARD_MODE.SEND,
+          })
+        }
+        onConvert={() =>
+          (mainNavigation || navigation).navigate('SendWizard', {
+            mode: SEND_WIZARD_MODE.CONVERT,
+          })
+        }
         onManageAssets={() =>
           (mainNavigation || navigation).navigate('ManageAssets')
         }

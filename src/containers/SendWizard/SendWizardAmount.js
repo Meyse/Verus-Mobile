@@ -23,6 +23,7 @@ import {USD} from '../../utils/constants/currencies';
 import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
 import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
@@ -30,12 +31,20 @@ import {
   WizardHeading,
   WizardScreen,
 } from './components/WizardUI';
-import {RouteSheet} from './components/SelectionSheets';
+import {
+  RouteSheet,
+  TargetNetworkSheet,
+} from './components/SelectionSheets';
+import {
+  buildSendTarget,
+  isConversionChannel,
+  SEND_WIZARD_MODE,
+} from './wizardUtils';
 
 const SendWizardAmount = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
-  const {state, setAmount, setEstimate, setRoute} = useSendWizard();
+  const {mode, state, setAmount, setEstimate, setRoute} = useSendWizard();
   const {
     channel,
     sourceCoin,
@@ -51,6 +60,10 @@ const SendWizardAmount = () => {
   const [routeEstimates, setRouteEstimates] = useState({});
   const [preferredRouteKey, setPreferredRouteKey] = useState(null);
   const [routeSheetOpen, setRouteSheetOpen] = useState(false);
+  const [sendTarget, setSendTarget] = useState(target);
+  const [networkLoading, setNetworkLoading] = useState(false);
+  const [networkError, setNetworkError] = useState(null);
+  const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
 
   const displayCurrency = useSelector(
     stateValue =>
@@ -62,6 +75,48 @@ const SendWizardAmount = () => {
     fiatChannel == null
       ? null
       : rates?.[fiatChannel]?.[sourceCoin?.id]?.[displayCurrency];
+
+  useEffect(() => {
+    setSendTarget(target);
+
+    if (
+      mode !== SEND_WIZARD_MODE.SEND ||
+      !sourceCoin ||
+      !channel ||
+      !isConversionChannel(channel)
+    ) {
+      setNetworkLoading(false);
+      setNetworkError(null);
+      return undefined;
+    }
+
+    let active = true;
+    const sourceNetworkId =
+      channel.split('.')[2] || sourceCoin.system_id || sourceCoin.id;
+
+    setNetworkLoading(true);
+    setNetworkError(null);
+    getConversionPaths(sourceCoin, channel, {
+      src: sourceCoin.currency_id || sourceCoin.id,
+    })
+      .then(paths => {
+        if (active) {
+          setSendTarget(
+            buildSendTarget(paths || {}, sourceCoin, sourceNetworkId),
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setNetworkError('Other networks unavailable.');
+      })
+      .finally(() => {
+        if (active) setNetworkLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [channel, mode, sourceCoin, target]);
 
   const cryptoAmount = useMemo(() => {
     const entered = BigNumber(String(input || 0).replace(',', '.'));
@@ -224,6 +279,19 @@ const SendWizardAmount = () => {
     navigation.navigate('SendWizardRecipient');
   };
 
+  const sendNetworkOptions = sendTarget?.networkOptions || [];
+  const selectedNetwork =
+    sendNetworkOptions.find(option =>
+      option.routes.some(candidate => candidate.key === route?.key),
+    ) || sendNetworkOptions.find(option => option.isSameNetwork);
+  const chooseSendNetwork = option => {
+    const nextRoute =
+      option.routes.find(candidate => !candidate.via) || option.routes[0];
+
+    if (nextRoute) setRoute(nextRoute);
+    setNetworkSheetOpen(false);
+  };
+
   if (!sourceCoin || !target || !route) {
     return (
       <WizardScreen>
@@ -268,6 +336,70 @@ const SendWizardAmount = () => {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
           <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
+          {mode === SEND_WIZARD_MODE.SEND &&
+          isConversionChannel(channel) ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: networkLoading || sendNetworkOptions.length < 2,
+                }}
+                disabled={networkLoading || sendNetworkOptions.length < 2}
+                onPress={() => setNetworkSheetOpen(true)}
+                style={[
+                  styles.networkRow,
+                  {
+                    backgroundColor: theme.colors.surfaceMuted,
+                    borderColor: theme.colors.border,
+                  },
+                ]}>
+                <View>
+                  <Text
+                    style={[
+                      styles.networkLabel,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    Network
+                  </Text>
+                  <Text
+                    style={[
+                      styles.networkValue,
+                      {color: theme.colors.textPrimary},
+                    ]}>
+                    {selectedNetwork?.networkName ||
+                      route.networkName ||
+                      sourceCoin.display_name}
+                  </Text>
+                </View>
+                <View style={styles.networkStatus}>
+                  {networkLoading ? (
+                    <Text
+                      style={[
+                        styles.networkHint,
+                        {color: theme.colors.textSubtle},
+                      ]}>
+                      Checking…
+                    </Text>
+                  ) : sendNetworkOptions.length > 1 ? (
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={20}
+                      color={theme.colors.textSubtle}
+                    />
+                  ) : null}
+                </View>
+              </Pressable>
+              {networkError ? (
+                <Text
+                  style={[
+                    styles.networkError,
+                    {color: theme.colors.textSubtle},
+                  ]}>
+                  {networkError}
+                </Text>
+              ) : null}
+            </>
+          ) : null}
           <View style={styles.amountBlock}>
             <TextInput
               autoFocus
@@ -374,6 +506,13 @@ const SendWizardAmount = () => {
           setRouteSheetOpen(false);
         }}
       />
+      <TargetNetworkSheet
+        onClose={() => setNetworkSheetOpen(false)}
+        onSelect={chooseSendNetwork}
+        options={sendNetworkOptions}
+        target={sendTarget}
+        visible={networkSheetOpen}
+      />
     </WizardScreen>
   );
 };
@@ -383,6 +522,22 @@ const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12},
   headingInset: {marginHorizontal: -16},
   contextLine: {fontSize: 14, lineHeight: 20, marginBottom: 8, ...fontStyle('regular')},
+  networkRow: {
+    minHeight: 58,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  networkLabel: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
+  networkValue: {fontSize: 15, lineHeight: 20, marginTop: 1, ...fontStyle('semiBold')},
+  networkStatus: {minWidth: 28, alignItems: 'flex-end'},
+  networkHint: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
+  networkError: {fontSize: 12, lineHeight: 17, marginBottom: 4, ...fontStyle('regular')},
   amountBlock: {alignItems: 'center', marginTop: 8, marginBottom: 8},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},

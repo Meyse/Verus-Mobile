@@ -1,5 +1,20 @@
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 
+export const SEND_WIZARD_MODE = {
+  CONVERT: 'convert',
+  SEND: 'send',
+};
+
+const CONVERSION_CHANNEL_TYPES = new Set([
+  'erc20',
+  'eth',
+  'vrpc',
+  'wyre_service',
+]);
+
+export const isConversionChannel = channel =>
+  CONVERSION_CHANNEL_TYPES.has(channel?.split('.')[0]);
+
 export const ADDRESS_TYPE = {
   ETHEREUM: 'ethereum',
   GENERIC: 'generic',
@@ -282,6 +297,69 @@ export const buildTargetOptions = (
 ) => {
   if (!sourceCoin) return [];
 
+  const sourceOption = buildSendTarget(
+    conversionPaths,
+    sourceCoin,
+    sourceNetworkId,
+  );
+  const sourceCurrencyId = sourceCoin.currency_id || sourceCoin.id;
+  const optionMap = new Map();
+
+  for (const [destinationKey, paths] of Object.entries(conversionPaths || {})) {
+    if (!Array.isArray(paths)) continue;
+
+    paths.forEach(path => {
+      const destination = path?.destination;
+      if (!destination) return;
+
+      const displayCurrencyId = getDefinitionId(destination) || destinationKey;
+      const sameCurrency = displayCurrencyId === sourceCurrencyId;
+      const mappingSend = Boolean(path.mapping && path.exportto);
+      if (sameCurrency || mappingSend || conversionDisabled) return;
+
+      const route = buildRoute(sourceCoin, sourceNetworkId, path);
+      const bouncebackCurrency =
+        path.ethdest && destination.mapto
+          ? getDefinitionId(destination.mapto) || getDefinitionName(destination.mapto)
+          : displayCurrencyId;
+      const fallbackName = getDefinitionName(destination) || displayCurrencyId;
+      const display = getCurrencyDisplay(displayCurrencyId, fallbackName);
+      const option = optionMap.get(displayCurrencyId) || {
+        id: displayCurrencyId,
+        transactionCurrency: bouncebackCurrency,
+        fullyqualifiedname: getDefinitionName(destination) || bouncebackCurrency,
+        convertToFqn: path.ethdest
+          ? null
+          : getDefinitionName(destination) || bouncebackCurrency,
+        coinId: display.coinId,
+        name: display.name,
+        ticker: display.ticker,
+        isConversion: true,
+        routes: [],
+      };
+
+      if (!option.routes.some(existing => existing.key === route.key)) {
+        option.routes.push(route);
+      }
+      optionMap.set(displayCurrencyId, option);
+    });
+  }
+
+  const conversions = groupConversionOptions(
+    [...optionMap.values()],
+    sourceCoin,
+    sourceNetworkId,
+  ).sort((first, second) => first.name.localeCompare(second.name));
+  return [sourceOption, ...conversions];
+};
+
+export const buildSendTarget = (
+  conversionPaths,
+  sourceCoin,
+  sourceNetworkId,
+) => {
+  if (!sourceCoin) return null;
+
   const sourceCurrencyId = sourceCoin.currency_id || sourceCoin.id;
   const sourceDisplay = getCurrencyDisplay(sourceCoin.id, sourceCoin.display_name);
   const directRoute = {
@@ -322,7 +400,6 @@ export const buildTargetOptions = (
     name: sourceCoin.display_name,
     ticker: sourceCoin.display_ticker,
   };
-  const optionMap = new Map();
 
   for (const [destinationKey, paths] of Object.entries(conversionPaths || {})) {
     if (!Array.isArray(paths)) continue;
@@ -334,9 +411,9 @@ export const buildTargetOptions = (
       const displayCurrencyId = getDefinitionId(destination) || destinationKey;
       const sameCurrency = displayCurrencyId === sourceCurrencyId;
       const mappingSend = Boolean(path.mapping && path.exportto);
-      const route = buildRoute(sourceCoin, sourceNetworkId, path);
 
       if (sameCurrency || mappingSend) {
+        const route = buildRoute(sourceCoin, sourceNetworkId, path);
         const routeWithMapping = mappingSend
           ? {
               ...route,
@@ -352,33 +429,6 @@ export const buildTargetOptions = (
         }
         return;
       }
-
-      if (conversionDisabled) return;
-
-      const bouncebackCurrency =
-        path.ethdest && destination.mapto
-          ? getDefinitionId(destination.mapto) || getDefinitionName(destination.mapto)
-          : displayCurrencyId;
-      const fallbackName = getDefinitionName(destination) || displayCurrencyId;
-      const display = getCurrencyDisplay(displayCurrencyId, fallbackName);
-      const option = optionMap.get(displayCurrencyId) || {
-        id: displayCurrencyId,
-        transactionCurrency: bouncebackCurrency,
-        fullyqualifiedname: getDefinitionName(destination) || bouncebackCurrency,
-        convertToFqn: path.ethdest
-          ? null
-          : getDefinitionName(destination) || bouncebackCurrency,
-        coinId: display.coinId,
-        name: display.name,
-        ticker: display.ticker,
-        isConversion: true,
-        routes: [],
-      };
-
-      if (!option.routes.some(existing => existing.key === route.key)) {
-        option.routes.push(route);
-      }
-      optionMap.set(displayCurrencyId, option);
     });
   }
 
@@ -387,12 +437,7 @@ export const buildTargetOptions = (
     sourceCoin,
     sourceNetworkId,
   );
-  const conversions = groupConversionOptions(
-    [...optionMap.values()],
-    sourceCoin,
-    sourceNetworkId,
-  ).sort((first, second) => first.name.localeCompare(second.name));
-  return [sourceOption, ...conversions];
+  return sourceOption;
 };
 
 export const POPULAR_TARGETS = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];

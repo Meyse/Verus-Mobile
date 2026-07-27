@@ -149,10 +149,12 @@ const SignedInWalletHome = ({
   onSelectDisplayCurrency,
   onRefresh,
   onOpenAsset,
+  convertAvailable,
   receiveAvailable,
-  transferAvailable,
+  sendAvailable,
   onReceive,
-  onSendOrConvert,
+  onConvert,
+  onSend,
   onManageAssets,
 }) => {
   const theme = useOnboardingTheme();
@@ -313,10 +315,12 @@ const SignedInWalletHome = ({
       />
 
       <SignedInActionBar
+        convertDisabled={!convertAvailable}
         receiveDisabled={!receiveAvailable}
-        sendOrConvertDisabled={!transferAvailable}
+        sendDisabled={!sendAvailable}
+        onConvert={onConvert}
         onReceive={onReceive}
-        onSendOrConvert={onSendOrConvert}
+        onSend={onSend}
       />
       <DisplayCurrencySheet
         visible={currencyOpen}

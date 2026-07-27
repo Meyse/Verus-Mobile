@@ -8,7 +8,8 @@ const signedInCopy = {
   },
   actions: {
     receive: 'Receive',
-    sendOrConvert: 'Send or convert',
+    send: 'Send',
+    convert: 'Convert',
     manageAssets: 'Manage assets',
     retry: 'Try again',
     refresh: 'Refresh',

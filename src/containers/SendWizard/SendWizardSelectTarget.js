@@ -15,21 +15,19 @@ import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
-import {
-  ERC20,
-  ETH,
-  VRPC,
-  WYRE_SERVICE,
-} from '../../utils/constants/intervalConstants';
 import {useSendWizard} from './SendWizardContext';
-import {ErrorMessage, WizardHeading, WizardScreen} from './components/WizardUI';
+import {
+  ErrorMessage,
+  WIZARD_CONTENT_INSET,
+  WizardHeading,
+  WizardScreen,
+} from './components/WizardUI';
 import {TargetNetworkSheet} from './components/SelectionSheets';
 import {
   buildTargetOptions,
+  isConversionChannel,
   isPopularTarget,
 } from './wizardUtils';
-
-const PATH_CHANNELS = [VRPC, ETH, ERC20, WYRE_SERVICE];
 
 const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
@@ -41,10 +39,8 @@ const SendWizardSelectTarget = () => {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [pendingTarget, setPendingTarget] = useState(null);
-  const channelType = channel?.split('.')[0];
   const sourceNetworkId =
     channel?.split('.')[2] || sourceCoin?.system_id || sourceCoin?.id;
-  const conversionSupported = PATH_CHANNELS.includes(channelType);
 
   useEffect(() => {
     if (!sourceCoin || !channel) {
@@ -52,7 +48,7 @@ const SendWizardSelectTarget = () => {
       return undefined;
     }
 
-    if (!PATH_CHANNELS.includes(channelType)) {
+    if (!isConversionChannel(channel)) {
       setPaths({});
       setLoading(false);
       return undefined;
@@ -80,7 +76,7 @@ const SendWizardSelectTarget = () => {
     return () => {
       active = false;
     };
-  }, [channel, channelType, sourceCoin]);
+  }, [channel, sourceCoin]);
 
   const options = useMemo(
     () =>
@@ -92,10 +88,14 @@ const SendWizardSelectTarget = () => {
       ),
     [paths, sourceCoin, sourceNetworkId],
   );
+  const conversionOptions = useMemo(
+    () => options.filter(option => option.isConversion),
+    [options],
+  );
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return options;
-    return options.filter(option =>
+    if (!normalized) return conversionOptions;
+    return conversionOptions.filter(option =>
       [
         option.name,
         option.ticker,
@@ -112,10 +112,9 @@ const SendWizardSelectTarget = () => {
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(normalized)),
     );
-  }, [options, query]);
-  const sendOption = filtered.find(option => !option.isConversion);
-  const popular = filtered.filter(option => option.isConversion && isPopularTarget(option));
-  const other = filtered.filter(option => option.isConversion && !isPopularTarget(option));
+  }, [conversionOptions, query]);
+  const popular = filtered.filter(isPopularTarget);
+  const other = filtered.filter(option => !isPopularTarget(option));
 
   const chooseRoute = (target, route) => {
     setPendingTarget(null);
@@ -136,14 +135,6 @@ const SendWizardSelectTarget = () => {
     }
 
     chooseNetwork(networkOptions[0]);
-  };
-
-  const chooseDirectSend = target => {
-    const directRoute =
-      target.routes.find(route => !route.isCrossChain && !route.via) ||
-      target.routes.find(route => !route.isCrossChain) ||
-      target.routes[0];
-    chooseRoute(target, directRoute);
   };
 
   const renderOption = option => (
@@ -186,10 +177,7 @@ const SendWizardSelectTarget = () => {
         onChangeText={setQuery}
         placeholder="Search currencies"
         resultCount={filtered.length}
-        style={[
-          styles.searchSpacing,
-          {marginHorizontal: theme.spacing.screenPadding},
-        ]}
+        style={styles.searchSpacing}
         value={query}
       />
       {loading ? (
@@ -201,69 +189,6 @@ const SendWizardSelectTarget = () => {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           <ErrorMessage>{error}</ErrorMessage>
-          {sendOption ? (
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>Send</Text>
-              <Pressable
-                onPress={() => chooseDirectSend(sendOption)}
-                style={({pressed}) => [
-                  styles.sendPrimary,
-                  {backgroundColor: theme.colors.surfaceMuted},
-                  pressed && styles.pressed,
-                ]}>
-                <View style={styles.optionLogo}>
-                  {RenderSquareCoinLogo(sendOption.coinId || sendOption.id, {}, 40, 40)}
-                </View>
-                <View style={styles.optionCopy}>
-                  <Text style={[styles.optionName, {color: theme.colors.textPrimary}]}>
-                    {sendOption.name}
-                  </Text>
-                  <Text style={[styles.optionTicker, {color: theme.colors.textSecondary}]}>
-                    {sendOption.ticker}
-                  </Text>
-                </View>
-              </Pressable>
-              {sendOption.routes.some(route => route.isCrossChain) ? (
-                <Pressable
-                  onPress={() =>
-                    setPendingTarget({
-                      ...sendOption,
-                      networkOptions: sendOption.networkOptions
-                        .map(option => ({
-                          ...option,
-                          routes: option.routes.filter(
-                            route => route.isCrossChain,
-                          ),
-                        }))
-                        .filter(option => option.routes.length > 0),
-                    })
-                  }
-                  style={({pressed}) => [styles.crossChain, pressed && styles.pressed]}>
-                  <MaterialCommunityIcons
-                    name="swap-horizontal"
-                    size={18}
-                    color={theme.colors.textSecondary}
-                  />
-                  <Text style={[styles.crossChainText, {color: theme.colors.textSecondary}]}>Cross-chain send available</Text>
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={20}
-                    color={theme.colors.textSubtle}
-                  />
-                </Pressable>
-              ) : null}
-              {!conversionSupported ? (
-                <Text
-                  style={[
-                    styles.cardCapability,
-                    {color: theme.colors.textSecondary},
-                  ]}>
-                  Conversions aren’t available from this Card. Choose another
-                  Card with conversion support to convert this asset.
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
           {popular.length > 0 ? (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>Popular conversions</Text>
@@ -276,9 +201,11 @@ const SendWizardSelectTarget = () => {
               {other.map(renderOption)}
             </View>
           ) : null}
-          {!sendOption && popular.length === 0 && other.length === 0 ? (
+          {popular.length === 0 && other.length === 0 ? (
             <Text style={[styles.empty, {color: theme.colors.textSecondary}]}>
-              No matching transfer options.
+              {query.trim()
+                ? 'No matching conversion options.'
+                : 'No conversion routes available.'}
             </Text>
           ) : null}
         </ScrollView>
@@ -296,11 +223,17 @@ const SendWizardSelectTarget = () => {
 
 const styles = StyleSheet.create({
   content: {paddingBottom: 32},
-  skeleton: {paddingHorizontal: 20, paddingTop: 20},
-  searchSpacing: {marginBottom: 14},
+  skeleton: {
+    paddingHorizontal: WIZARD_CONTENT_INSET,
+    paddingTop: 20,
+  },
+  searchSpacing: {
+    marginHorizontal: WIZARD_CONTENT_INSET,
+    marginBottom: 14,
+  },
   section: {marginBottom: 24},
   sectionLabel: {
-    paddingHorizontal: 20,
+    paddingHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 12,
     fontSize: 14,
     lineHeight: 19,
@@ -308,37 +241,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     ...fontStyle('semiBold'),
   },
-  sendPrimary: {
-    marginHorizontal: 16,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  crossChain: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingHorizontal: 20,
+  optionRow: {
+    paddingHorizontal: WIZARD_CONTENT_INSET,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  crossChainText: {flex: 1, marginLeft: 8, fontSize: 14, lineHeight: 19, ...fontStyle('regular')},
-  cardCapability: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    fontSize: 13,
-    lineHeight: 18,
+  optionLogo: {width: 40, height: 40, marginRight: 28},
+  optionName: {flex: 1, fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
+  pressed: {opacity: 0.7},
+  empty: {
+    paddingHorizontal: WIZARD_CONTENT_INSET,
+    paddingVertical: 32,
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 22,
     ...fontStyle('regular'),
   },
-  optionRow: {paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center'},
-  optionLogo: {width: 40, height: 40, marginRight: 28},
-  optionCopy: {flex: 1},
-  optionName: {flex: 1, fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
-  optionTicker: {fontSize: 13, lineHeight: 18, marginTop: 2, ...fontStyle('medium')},
-  pressed: {opacity: 0.7},
-  empty: {padding: 32, textAlign: 'center', fontSize: 15, lineHeight: 22, ...fontStyle('regular')},
 });
 
 export default SendWizardSelectTarget;

@@ -16,6 +16,8 @@ import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallD
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {RenderSquareCoinLogo} from '../../../utils/CoinData/Graphics';
 
+export const WIZARD_CONTENT_INSET = 16;
+
 export const WizardScreen = ({children, contentContainerStyle, scroll = true}) => {
   const theme = useOnboardingTheme();
 
@@ -44,13 +46,13 @@ export const WizardHeading = ({children, style, subtitle}) => {
     <View
       style={[
         {
-          paddingHorizontal: theme.spacing.screenPadding,
+          paddingHorizontal: WIZARD_CONTENT_INSET,
           paddingTop: smallDevice
-            ? theme.spacing.stepTopSmallDevice
-            : theme.spacing.stepTop,
+            ? theme.spacing.md
+            : theme.spacing.lg,
           paddingBottom: smallDevice
             ? theme.spacing.stepTitleMarginSmallDevice
-            : theme.spacing.stepTitleMargin,
+            : theme.spacing.md,
         },
         style,
       ]}>
@@ -58,7 +60,7 @@ export const WizardHeading = ({children, style, subtitle}) => {
         style={[
           smallDevice
             ? theme.typography.headlineCompact
-            : theme.typography.headlineLg,
+            : theme.typography.headlineMd,
           {color: theme.colors.textPrimary},
         ]}>
         {children}
@@ -259,7 +261,7 @@ const styles = StyleSheet.create({
   subtitle: {marginTop: 8},
   search: {
     height: 52,
-    marginHorizontal: 20,
+    marginHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 14,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -275,7 +277,7 @@ const styles = StyleSheet.create({
     ...fontStyle('regular'),
   },
   sectionLabel: {
-    paddingHorizontal: 20,
+    paddingHorizontal: WIZARD_CONTENT_INSET,
     marginTop: 18,
     marginBottom: 6,
     fontSize: 13,
@@ -286,7 +288,7 @@ const styles = StyleSheet.create({
   },
   assetRow: {
     minHeight: 70,
-    paddingHorizontal: 20,
+    paddingHorizontal: WIZARD_CONTENT_INSET,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -313,7 +315,7 @@ const styles = StyleSheet.create({
     ...fontStyle('semiBold'),
   },
   errorBox: {
-    marginHorizontal: 20,
+    marginHorizontal: WIZARD_CONTENT_INSET,
     marginVertical: 12,
     borderRadius: 12,
     padding: 12,

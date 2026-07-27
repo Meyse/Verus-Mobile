@@ -1,23 +1,55 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {StyleSheet, useWindowDimensions, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useOnboardingTheme} from '../theme/onboarding';
 import signedInCopy from '../copy/signedIn';
 import AppButton from './AppButton';
 
+const ACTION_ICON_SIZE = 20;
+const ACTION_ICONS = {
+  receive: ({color}) => (
+    <MaterialCommunityIcons
+      color={color}
+      name="arrow-down"
+      size={ACTION_ICON_SIZE}
+    />
+  ),
+  send: ({color}) => (
+    <MaterialCommunityIcons
+      color={color}
+      name="arrow-up"
+      size={ACTION_ICON_SIZE}
+    />
+  ),
+  convert: ({color}) => (
+    <MaterialCommunityIcons
+      color={color}
+      name="swap-horizontal"
+      size={ACTION_ICON_SIZE}
+    />
+  ),
+};
+
 const SignedInActionBar = ({
+  convertDisabled = false,
   onReceive,
-  onSendOrConvert,
+  onConvert,
+  onSend,
   receiveDisabled = false,
-  sendOrConvertDisabled = false,
+  sendDisabled = false,
   includeBottomInset = true,
   showFade = false,
-  sendOrConvertLabel = signedInCopy.actions.sendOrConvert,
 }) => {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
+  const {fontScale} = useWindowDimensions();
+  const stacked = fontScale >= 1.3;
   const bottomPadding = includeBottomInset ? Math.max(insets.bottom, 20) : 20;
+  const buttonStyle = [styles.button, stacked && styles.stackedButton];
+  const disabledHint = action =>
+    `${action} is unavailable because there is no compatible Asset and Card.`;
 
   return (
     <View
@@ -28,23 +60,55 @@ const SignedInActionBar = ({
         style={styles.bottomFade}
         visible={showFade}
       />
-      <View style={[styles.row, {paddingBottom: bottomPadding}]}>
+      <View
+        style={[
+          styles.row,
+          stacked && styles.stackedRow,
+          {paddingBottom: bottomPadding},
+        ]}>
         <AppButton
+          accessibilityHint={
+            receiveDisabled ? disabledHint(signedInCopy.actions.receive) : undefined
+          }
           accessibilityLabel={signedInCopy.actions.receive}
           compact
           disabled={receiveDisabled}
+          icon={ACTION_ICONS.receive}
+          labelStyle={styles.label}
           onPress={onReceive}
-          style={styles.button}
+          style={buttonStyle}
           variant="secondary">
           {signedInCopy.actions.receive}
         </AppButton>
         <AppButton
+          accessibilityHint={
+            sendDisabled ? disabledHint(signedInCopy.actions.send) : undefined
+          }
+          accessibilityLabel={signedInCopy.actions.send}
           compact
-          disabled={sendOrConvertDisabled}
-          onPress={onSendOrConvert}
-          style={styles.button}
+          disabled={sendDisabled}
+          icon={ACTION_ICONS.send}
+          labelStyle={styles.label}
+          onPress={onSend}
+          style={buttonStyle}
           variant="secondary">
-          {sendOrConvertLabel}
+          {signedInCopy.actions.send}
+        </AppButton>
+        <AppButton
+          accessibilityHint={
+            convertDisabled
+              ? disabledHint(signedInCopy.actions.convert)
+              : undefined
+          }
+          accessibilityLabel={signedInCopy.actions.convert}
+          compact
+          disabled={convertDisabled}
+          icon={ACTION_ICONS.convert}
+          labelStyle={styles.label}
+          onPress={onConvert}
+          style={buttonStyle}
+          variant="secondary">
+          {signedInCopy.actions.convert}
         </AppButton>
       </View>
     </View>
@@ -110,13 +174,27 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'center',
-    columnGap: 16,
+    gap: 8,
     paddingHorizontal: 16,
     paddingTop: 10,
+  },
+  stackedRow: {
+    flexDirection: 'column',
   },
   button: {
     flex: 1,
     maxWidth: 176,
+  },
+  stackedButton: {
+    flex: 0,
+    maxWidth: '100%',
+    width: '100%',
+  },
+  label: {
+    fontSize: 16,
+    lineHeight: 20,
+    marginLeft: 10,
+    marginRight: 12,
   },
 });
 

@@ -10,6 +10,8 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch, useSelector} from 'react-redux';
 import {Layers} from 'lucide-react-native';
+import BigNumber from 'bignumber.js';
+import {CONVERSION_DISABLED} from '../../../env/index';
 import {setCoinSubWallet} from '../../actions/actionCreators';
 import MissingInfoRedirect from '../../components/MissingInfoRedirect/MissingInfoRedirect';
 import SignedInActionBar, {
@@ -18,8 +20,21 @@ import SignedInActionBar, {
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {WALLET_APP_OVERVIEW, WALLET_APP_RECEIVE, WALLET_APP_SEND, WALLET_APP_CONVERT} from '../../utils/constants/apps';
+import {
+  WALLET_APP_OVERVIEW,
+  WALLET_APP_RECEIVE,
+  WALLET_APP_SEND,
+} from '../../utils/constants/apps';
+import {
+  API_GET_BALANCES,
+  API_SEND,
+} from '../../utils/constants/intervalConstants';
+import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {subWalletActivity} from '../../utils/subwallet/subWalletStatus';
+import {
+  isConversionChannel,
+  SEND_WIZARD_MODE,
+} from '../SendWizard/wizardUtils';
 import CoinCardPickerSheet from './CoinCardPickerSheet';
 import Overview from './Overview/Overview';
 import SignedInAssetHeader from './SignedInAssetHeader';
@@ -34,6 +49,13 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const allSubWallets = useObjectSelector(
     state => state.coinMenus.allSubWallets[activeCoin.id] || [],
   );
+  const selectedBalance = useObjectSelector(state =>
+    selectedSubWallet == null
+      ? '0'
+      : extractLedgerData(state, 'balances', API_GET_BALANCES)?.[
+          activeCoin.id
+        ]?.[selectedSubWallet.id]?.total || '0',
+  );
   const services = useSelector(state => state.services);
   const cardPickerTriggerRef = useRef(null);
   const restorePickerFocusRef = useRef(false);
@@ -46,12 +68,18 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const compatibleApps = selectedSubWallet?.compatible_apps || [];
   const hasOverview = compatibleApps.includes(WALLET_APP_OVERVIEW);
   const canReceive = compatibleApps.includes(WALLET_APP_RECEIVE);
-  const canTransfer =
-    compatibleApps.includes(WALLET_APP_SEND) ||
-    compatibleApps.includes(WALLET_APP_CONVERT);
+  const sendChannel = selectedSubWallet?.api_channels?.[API_SEND];
+  const canSend =
+    compatibleApps.includes(WALLET_APP_SEND) &&
+    Boolean(sendChannel) &&
+    BigNumber(selectedBalance).isGreaterThan(0);
+  const canConvert =
+    canSend &&
+    !CONVERSION_DISABLED &&
+    isConversionChannel(sendChannel);
 
   const mainNavigation = navigation.getParent()?.getParent() || navigation;
-  const entryParams = {
+  const sourceParams = {
     initialCoinId: activeCoin.id,
     initialSubWalletId: selectedSubWallet?.id,
   };
@@ -226,9 +254,9 @@ const SignedInCoinDetail = ({navigation, route}) => {
             />
           </View>
           <SignedInActionBar
-            sendOrConvertLabel="Send or convert"
+            convertDisabled={!canConvert}
             receiveDisabled={!canReceive}
-            sendOrConvertDisabled={!canTransfer}
+            sendDisabled={!canSend}
             showFade={
               overviewActive &&
               fadesMatchSelectedSubWallet &&
@@ -237,8 +265,17 @@ const SignedInCoinDetail = ({navigation, route}) => {
             onReceive={() =>
               mainNavigation.navigate('ReceiveAssetDetails', receiveParams)
             }
-            onSendOrConvert={() =>
-              mainNavigation.navigate('SendWizard', entryParams)
+            onSend={() =>
+              mainNavigation.navigate('SendWizard', {
+                ...sourceParams,
+                mode: SEND_WIZARD_MODE.SEND,
+              })
+            }
+            onConvert={() =>
+              mainNavigation.navigate('SendWizard', {
+                ...sourceParams,
+                mode: SEND_WIZARD_MODE.CONVERT,
+              })
             }
           />
         </>

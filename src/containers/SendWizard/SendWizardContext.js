@@ -19,16 +19,18 @@ const initialWizardState = {
 
 const SendWizardContext = createContext(null);
 
-export const SendWizardProvider = ({children, initialSource}) => {
+export const SendWizardProvider = ({children, initialState, mode}) => {
   const [state, setState] = useState(() => ({
     ...initialWizardState,
-    ...(initialSource || {}),
+    ...(initialState || {}),
   }));
 
-  const setSource = useCallback(source => {
+  const setSource = useCallback((source, target = null, route = null) => {
     setState(current => ({
       ...initialWizardState,
       ...source,
+      target,
+      route,
       txResult: current.txResult,
     }));
   }, []);
@@ -95,6 +97,7 @@ export const SendWizardProvider = ({children, initialSource}) => {
 
   const value = useMemo(
     () => ({
+      mode,
       state,
       setSource,
       setTarget,
@@ -107,6 +110,7 @@ export const SendWizardProvider = ({children, initialSource}) => {
       reset,
     }),
     [
+      mode,
       reset,
       setAmount,
       setEstimate,

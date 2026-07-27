@@ -269,14 +269,6 @@ class CoinMenus extends Component {
     }
   };
 
-  openTransfer = (transferSections) => {
-    const transferSection = transferSections.find(
-      section => section.key === WALLET_APP_SEND,
-    ) || transferSections[0];
-
-    if (transferSection) this.switchToSection(transferSection.key);
-  };
-
   goBack = () => {
     this.props.navigation.dispatch(NavigationActions.back());
   };
@@ -336,10 +328,22 @@ class CoinMenus extends Component {
               />
               {ENABLE_SIGNED_IN_REDESIGN && (
                 <SignedInActionBar
+                  convertDisabled={
+                    !transferSections.some(
+                      section => section.key === WALLET_APP_CONVERT,
+                    )
+                  }
                   receiveDisabled={!canReceive}
-                  sendOrConvertDisabled={transferSections.length === 0}
+                  sendDisabled={
+                    !transferSections.some(
+                      section => section.key === WALLET_APP_SEND,
+                    )
+                  }
+                  onConvert={() =>
+                    this.switchToSection(WALLET_APP_CONVERT)
+                  }
                   onReceive={() => this.switchToSection(WALLET_APP_RECEIVE)}
-                  onSendOrConvert={() => this.openTransfer(transferSections)}
+                  onSend={() => this.switchToSection(WALLET_APP_SEND)}
                 />
               )}
             </View>

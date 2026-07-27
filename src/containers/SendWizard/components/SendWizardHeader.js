@@ -10,18 +10,55 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {SEND_WIZARD_MODE} from '../wizardUtils';
+import {WIZARD_CONTENT_INSET} from './WizardUI';
 
-const STEP_PROGRESS = {
-  SendWizardSelectSource: 0.2,
-  SendWizardSelectTarget: 0.4,
-  SendWizardAmount: 0.6,
-  SendWizardRecipient: 0.8,
-  SendWizardConfirm: 1,
-  SendWizardSuccess: 1,
+const HEADER_HORIZONTAL_PADDING = 24;
+
+const FLOW_STEPS = {
+  [SEND_WIZARD_MODE.SEND]: {
+    manual: [
+      'SendWizardSelectSource',
+      'SendWizardAmount',
+      'SendWizardRecipient',
+      'SendWizardConfirm',
+    ],
+    selected: [
+      'SendWizardAmount',
+      'SendWizardRecipient',
+      'SendWizardConfirm',
+    ],
+  },
+  [SEND_WIZARD_MODE.CONVERT]: {
+    manual: [
+      'SendWizardSelectSource',
+      'SendWizardSelectTarget',
+      'SendWizardAmount',
+      'SendWizardRecipient',
+      'SendWizardConfirm',
+    ],
+    selected: [
+      'SendWizardSelectTarget',
+      'SendWizardAmount',
+      'SendWizardRecipient',
+      'SendWizardConfirm',
+    ],
+  },
 };
 
-export const getSendWizardProgress = routeName =>
-  STEP_PROGRESS[routeName] || STEP_PROGRESS.SendWizardSelectSource;
+export const getSendWizardProgress = (
+  routeName,
+  mode = SEND_WIZARD_MODE.SEND,
+  hasInitialSource = false,
+) => {
+  if (routeName === 'SendWizardSuccess') return 1;
+
+  const modeSteps = FLOW_STEPS[mode] || FLOW_STEPS[SEND_WIZARD_MODE.SEND];
+  const steps = hasInitialSource ? modeSteps.selected : modeSteps.manual;
+  const stepIndex = steps.indexOf(routeName);
+
+  return (Math.max(stepIndex, 0) + 1) / steps.length;
+};
 
 const SendWizardHeader = ({
   disabled = false,
@@ -96,8 +133,8 @@ const SendWizardHeader = ({
         styles.container,
         {
           paddingTop: insets.top + 16,
-          paddingLeft: insets.left + 24,
-          paddingRight: insets.right + 24,
+          paddingLeft: insets.left + HEADER_HORIZONTAL_PADDING,
+          paddingRight: insets.right + HEADER_HORIZONTAL_PADDING,
           backgroundColor: theme.colors.background,
           borderBottomColor: theme.colors.border,
         },
@@ -192,6 +229,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 5,
+    marginHorizontal: WIZARD_CONTENT_INSET - HEADER_HORIZONTAL_PADDING,
     marginTop: 10,
     overflow: 'hidden',
     borderRadius: 999,

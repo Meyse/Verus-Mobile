@@ -16,7 +16,9 @@ const loadWizardUtils = coinDirectory => {
       '',
     )
     .replace(/export const /g, 'const ')
-    .concat('\nmodule.exports = {buildTargetOptions};\n');
+    .concat(
+      '\nmodule.exports = {buildSendTarget, buildTargetOptions, isConversionChannel};\n',
+    );
   const appModule = {exports: {}};
 
   new Function('module', 'exports', 'CoinDirectory', source)(
@@ -33,6 +35,7 @@ const DAI_VERUS_ID = 'iDAIonVRSCTEST111111111111111111111';
 const DAI_ETH_ID = '0x00000000000000000000000000000000000000da';
 const PRELAUNCH_ID = 'iSuperVrsc111111111111111111111111111';
 const BASKET_ID = 'iBasket1111111111111111111111111111111';
+const OTHER_SYSTEM_ID = 'iOtherSystem1111111111111111111111111';
 
 const coins = {
   VRSCTEST: {
@@ -89,6 +92,23 @@ const bridge = currency(
 );
 
 const conversionPaths = {
+  [VRSCTEST_ID]: [
+    {
+      destination: currency(
+        VRSCTEST_ID,
+        'VRSCTEST',
+        'VRSCTEST',
+        VRSCTEST_ID,
+      ),
+      exportto: currency(
+        OTHER_SYSTEM_ID,
+        'OTHER.VRSCTEST',
+        'OTHER',
+        VRSCTEST_ID,
+      ),
+      price: 1,
+    },
+  ],
   [DAI_VERUS_ID]: [
     {destination: daiOnVerus, price: 1},
     {destination: daiOnVerus, via: bridge, price: 1.01},
@@ -132,12 +152,46 @@ const conversionPaths = {
 };
 
 const main = () => {
-  const {buildTargetOptions} = loadWizardUtils(coinDirectory);
+  const {
+    buildSendTarget,
+    buildTargetOptions,
+    isConversionChannel,
+  } = loadWizardUtils(coinDirectory);
+  const directSend = buildSendTarget({}, coins.VRSCTEST);
+
+  assert(directSend, 'direct Send must be available without conversion data');
+  assert.strictEqual(
+    directSend.routes.length,
+    1,
+    'direct Send must start with one local route',
+  );
+  assert.strictEqual(
+    directSend.routes[0].isCrossChain,
+    false,
+    'the locally seeded Send route must stay on the current network',
+  );
+
   const options = buildTargetOptions(conversionPaths, coins.VRSCTEST, false);
   const send = options.find(option => !option.isConversion);
   const conversions = options.filter(option => option.isConversion);
 
   assert(send, 'VRSCTEST must retain its ordinary-send option');
+  assert(
+    send.routes.some(route => route.isCrossChain),
+    'same-asset cross-chain routes must remain attached to Send',
+  );
+  assert.strictEqual(
+    send.networkOptions.length,
+    2,
+    'Send must expose current and cross-chain destination networks',
+  );
+  assert(
+    conversions.every(option => option.isConversion),
+    'Convert target lists must exclude the direct-send option',
+  );
+  assert(isConversionChannel('vrpc.RAddress.System'));
+  assert(isConversionChannel('eth'));
+  assert(!isConversionChannel('dlight_private'));
   const prelaunch = conversions.find(option => option.id === PRELAUNCH_ID);
   assert(
     prelaunch,
