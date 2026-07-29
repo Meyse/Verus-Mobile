@@ -1,43 +1,48 @@
-import React, {useState} from 'react';
+import React, {useCallback, useRef, useState} from 'react';
 import {
-  Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {ActivityIndicator} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
-import CopyAction from '../../../../components/CopyAction';
 import {useAppTheme} from '../../../../theme/app';
-import {buildGiftCardNfcDeeplinkUri} from '../../../../utils/giftCard/giftCard';
-import {writeDeeplinkUriToNfc} from '../../../../utils/walletBackup/walletBackupNfc';
-import GiftCardQrModal from './GiftCardQrModal';
+import {
+  GiftCardNfcProgressModal,
+  useGiftCardSharing,
+} from './GiftCardShareController';
 
-const GiftCardShareSheet = ({card, onClose}) => {
+const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
   const theme = useAppTheme();
-  const [qrVisible, setQrVisible] = useState(false);
-  const [nfcStatus, setNfcStatus] = useState(null);
+  const pendingQrCardIdRef = useRef(null);
+  const [qrPending, setQrPending] = useState(false);
+  const {
+    copied,
+    copyLink,
+    nfcStatus,
+    shareNative,
+    shareNfc,
+  } = useGiftCardSharing(card);
 
-  const shareNfc = async () => {
-    if (!card) return;
+  const openQr = useCallback(() => {
+    if (!card?.id || pendingQrCardIdRef.current) return;
 
-    setNfcStatus('Preparing NFC writer...');
+    pendingQrCardIdRef.current = card.id;
+    setQrPending(true);
+    onClose();
+  }, [card?.id, onClose]);
 
-    try {
-      await writeDeeplinkUriToNfc(buildGiftCardNfcDeeplinkUri(card), {
-        onStatus: setNfcStatus,
-      });
-      Alert.alert('Success', 'Gift card written to NFC card.');
-    } catch (e) {
-      Alert.alert('NFC Error', e.message);
-    } finally {
-      setNfcStatus(null);
-    }
-  };
+  const handleClosed = useCallback(() => {
+    const pendingCardId = pendingQrCardIdRef.current;
+
+    if (!pendingCardId) return;
+
+    pendingQrCardIdRef.current = null;
+    setQrPending(false);
+    onOpenQr?.(pendingCardId);
+  }, [onOpenQr]);
 
   return (
     <>
@@ -46,9 +51,14 @@ const GiftCardShareSheet = ({card, onClose}) => {
         contentContainerStyle={styles.sheet}
         maxHeight="86%"
         onClose={onClose}
-        visible={card != null && !qrVisible && nfcStatus == null}>
+        onClosed={handleClosed}
+        visible={card != null && nfcStatus == null}>
         <View style={styles.header}>
-          <Text style={[theme.typography.titleSheet, {color: theme.colors.textPrimary}]}>
+          <Text
+            style={[
+              theme.typography.titleSheet,
+              {color: theme.colors.textPrimary},
+            ]}>
             Share gift card
           </Text>
           <TouchableOpacity
@@ -78,10 +88,7 @@ const GiftCardShareSheet = ({card, onClose}) => {
               size={21}
             />
             <Text
-              style={[
-                styles.warningText,
-                {color: theme.colors.textSecondary},
-              ]}>
+              style={[styles.warningText, {color: theme.colors.textSecondary}]}>
               Anyone with this redeemable link can claim this gift card and
               funds added to it later.
               {card?.encrypted
@@ -92,14 +99,20 @@ const GiftCardShareSheet = ({card, onClose}) => {
 
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => setQrVisible(true)}
-            style={[styles.actionRow, {borderBottomColor: theme.colors.border}]}>
+            disabled={qrPending}
+            onPress={openQr}
+            style={[
+              styles.actionRow,
+              {borderBottomColor: theme.colors.border},
+              qrPending && styles.disabled,
+            ]}>
             <MaterialCommunityIcons
               color={theme.colors.primary}
               name="qrcode"
               size={23}
             />
-            <Text style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
+            <Text
+              style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
               Show QR code
             </Text>
             <MaterialCommunityIcons
@@ -109,23 +122,56 @@ const GiftCardShareSheet = ({card, onClose}) => {
             />
           </TouchableOpacity>
 
-          <View
-            style={[styles.actionRow, {borderBottomColor: theme.colors.border}]}>
+          <TouchableOpacity
+            accessibilityLabel={
+              copied
+                ? 'Redeemable gift card link copied'
+                : 'Copy redeemable gift card link'
+            }
+            accessibilityRole="button"
+            onPress={copyLink}
+            style={[
+              styles.actionRow,
+              {borderBottomColor: theme.colors.border},
+            ]}>
             <MaterialCommunityIcons
               color={theme.colors.primary}
               name="link-variant"
               size={23}
             />
-            <Text style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
-              Copy redeemable link
+            <Text
+              style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
+              {copied ? 'Redeemable link copied' : 'Copy redeemable link'}
             </Text>
-            <CopyAction
-              accessibilityLabel="Copy redeemable gift card link"
-              copiedAccessibilityLabel="Redeemable gift card link copied"
-              color={theme.colors.primary}
-              value={card?.requestUri}
+            <MaterialCommunityIcons
+              color={copied ? theme.colors.success : theme.colors.textSubtle}
+              name={copied ? 'check' : 'content-copy'}
+              size={21}
             />
-          </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={shareNative}
+            style={[
+              styles.actionRow,
+              {borderBottomColor: theme.colors.border},
+            ]}>
+            <MaterialCommunityIcons
+              color={theme.colors.primary}
+              name="share-variant"
+              size={23}
+            />
+            <Text
+              style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
+              Share redeemable link
+            </Text>
+            <MaterialCommunityIcons
+              color={theme.colors.textSubtle}
+              name="chevron-right"
+              size={21}
+            />
+          </TouchableOpacity>
 
           <TouchableOpacity
             accessibilityRole="button"
@@ -136,7 +182,8 @@ const GiftCardShareSheet = ({card, onClose}) => {
               name="credit-card-wireless-outline"
               size={23}
             />
-            <Text style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
+            <Text
+              style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>
               Write to NFC card
             </Text>
             <MaterialCommunityIcons
@@ -148,41 +195,7 @@ const GiftCardShareSheet = ({card, onClose}) => {
         </ScrollView>
       </BottomSheetModal>
 
-      <GiftCardQrModal
-        card={card}
-        onClose={() => setQrVisible(false)}
-        visible={card != null && qrVisible}
-      />
-
-      <Modal
-        animationType="fade"
-        onRequestClose={() => {}}
-        transparent={false}
-        visible={nfcStatus != null}>
-        <View
-          accessibilityLiveRegion="polite"
-          style={[styles.nfcProgress, {backgroundColor: theme.colors.background}]}>
-          <MaterialCommunityIcons
-            color={theme.colors.primary}
-            name="credit-card-wireless-outline"
-            size={64}
-          />
-          <ActivityIndicator
-            animating
-            color={theme.colors.primary}
-            size="large"
-            style={styles.nfcSpinner}
-          />
-          <Text
-            style={[
-              theme.typography.titleSheet,
-              styles.nfcStatus,
-              {color: theme.colors.textPrimary},
-            ]}>
-            {nfcStatus}
-          </Text>
-        </View>
-      </Modal>
+      <GiftCardNfcProgressModal nfcStatus={nfcStatus} />
     </>
   );
 };
@@ -236,18 +249,8 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '600',
   },
-  nfcProgress: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  nfcSpinner: {
-    marginTop: 28,
-  },
-  nfcStatus: {
-    marginTop: 24,
-    textAlign: 'center',
+  disabled: {
+    opacity: 0.45,
   },
 });
 

@@ -1,5 +1,6 @@
 import React, {useCallback, useState} from 'react';
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,12 +9,16 @@ import {
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import signedInCopy from '../../copy/signedIn';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {loadAddressBook} from '../../utils/addressBook/addressBook';
 import {GIFT_CARD_SERVICE_ID} from '../../utils/constants/services';
+
+const giftCardIcon = require('../../images/customIcons/services-gift-card-folded.png');
+const addressBookIcon = require('../../images/customIcons/services-address-book-folded.png');
+const SERVICE_ICON_SIZE = 68;
+const SERVICE_ICON_LEFT = -17;
 
 const SignedInServicesHome = ({navigation}) => {
   const theme = useOnboardingTheme();
@@ -36,12 +41,16 @@ const SignedInServicesHome = ({navigation}) => {
   );
 
   const addressCountLabel = addressCount > 0 ? `${addressCount} saved` : null;
+  const serviceBackgroundColor = theme.isDark
+    ? theme.colors.surfaceMuted
+    : '#EEF2F8';
+  const serviceLabelColor = theme.colors.textPrimary;
   const services = [
     {
       key: 'gift-cards',
       title: signedInCopy.services.giftCards,
       description: signedInCopy.services.giftCardsDescription,
-      icon: 'gift-outline',
+      icon: giftCardIcon,
       onPress: () =>
         navigation.navigate('Service', {service: GIFT_CARD_SERVICE_ID}),
     },
@@ -49,7 +58,7 @@ const SignedInServicesHome = ({navigation}) => {
       key: 'address-book',
       title: signedInCopy.services.addressBook,
       description: signedInCopy.services.addressBookDescription,
-      icon: 'book-open-page-variant',
+      icon: addressBookIcon,
       meta: addressCountLabel,
       onPress: () => navigation.navigate('AddressBook'),
     },
@@ -69,7 +78,7 @@ const SignedInServicesHome = ({navigation}) => {
         </Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {services.map((service, index) => {
+        {services.map(service => {
           const accessibilityLabel = service.meta
             ? `${service.title}. ${service.description} ${service.meta}.`
             : `${service.title}. ${service.description}`;
@@ -81,13 +90,18 @@ const SignedInServicesHome = ({navigation}) => {
                 accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={service.onPress}
-                style={styles.serviceRow}>
-                <View style={styles.iconLane}>
-                  <MaterialCommunityIcons
+                style={[
+                  styles.serviceRow,
+                  {backgroundColor: serviceBackgroundColor},
+                ]}>
+                <View
+                  pointerEvents="none"
+                  style={styles.serviceIconFrame}>
+                  <Image
                     accessible={false}
-                    color={theme.colors.primary}
-                    name={service.icon}
-                    size={28}
+                    resizeMode="contain"
+                    source={service.icon}
+                    style={styles.serviceIcon}
                   />
                 </View>
                 <View style={styles.textContainer}>
@@ -95,7 +109,7 @@ const SignedInServicesHome = ({navigation}) => {
                     <Text
                       style={[
                         styles.rowTitle,
-                        {color: theme.colors.textPrimary},
+                        {color: serviceLabelColor},
                       ]}>
                       {service.title}
                     </Text>
@@ -104,9 +118,7 @@ const SignedInServicesHome = ({navigation}) => {
                         style={[
                           styles.countBadge,
                           {
-                            backgroundColor: theme.isDark
-                              ? theme.colors.surface
-                              : theme.colors.surfaceMuted,
+                            backgroundColor: theme.colors.surface,
                           },
                         ]}>
                         <Text
@@ -127,22 +139,7 @@ const SignedInServicesHome = ({navigation}) => {
                     {service.description}
                   </Text>
                 </View>
-                <MaterialCommunityIcons
-                  accessible={false}
-                  color={theme.colors.textSubtle}
-                  name="chevron-right"
-                  size={21}
-                />
               </TouchableOpacity>
-              {index < services.length - 1 ? (
-                <View
-                  pointerEvents="none"
-                  style={[
-                    styles.divider,
-                    {backgroundColor: theme.colors.border},
-                  ]}
-                />
-              ) : null}
             </View>
           );
         })}
@@ -158,28 +155,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 22,
     paddingBottom: 40,
+    gap: 12,
   },
   rowContainer: {
-    position: 'relative',
     width: '100%',
   },
   serviceRow: {
-    minHeight: 116,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
+    position: 'relative',
+    width: '100%',
+    minHeight: 108,
+    overflow: 'hidden',
+    borderRadius: 18,
+    paddingTop: 18,
+    paddingRight: 16,
+    paddingBottom: 18,
+    paddingLeft: 72,
   },
-  iconLane: {
-    width: 44,
-    height: 44,
+  serviceIconFrame: {
+    position: 'absolute',
+    zIndex: 0,
+    left: SERVICE_ICON_LEFT,
+    top: 0,
+    bottom: 0,
+    width: SERVICE_ICON_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  serviceIcon: {
+    width: SERVICE_ICON_SIZE,
+    height: SERVICE_ICON_SIZE,
+  },
   textContainer: {
+    zIndex: 1,
     minWidth: 0,
     flex: 1,
-    marginLeft: 16,
-    paddingRight: 12,
   },
   titleLine: {
     flexDirection: 'row',
@@ -208,13 +217,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     ...fontStyle('medium'),
-  },
-  divider: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 60,
-    height: StyleSheet.hairlineWidth,
   },
 });
 

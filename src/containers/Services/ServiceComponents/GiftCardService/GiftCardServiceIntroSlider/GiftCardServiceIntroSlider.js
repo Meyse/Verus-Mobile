@@ -96,7 +96,7 @@ const GiftCardServiceIntroSlider = ({onBack, onDone}) => {
         </View>
       </ScrollView>
 
-      <SafeBottomActionStack gap={10}>
+      <SafeBottomActionStack gap={10} safeAreaSpacing={0}>
         <AppButton
           accessibilityLabel="Open gift cards"
           mode="contained"

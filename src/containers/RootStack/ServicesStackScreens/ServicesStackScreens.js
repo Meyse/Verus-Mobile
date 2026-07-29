@@ -8,11 +8,9 @@ import WyreServiceAddPaymentMethod from '../../Services/ServiceComponents/WyreSe
 import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceEditPaymentMethod/WyreServiceEditPaymentMethod';
 import GiftCardCreate from '../../Services/ServiceComponents/GiftCardService/GiftCardCreate/GiftCardCreate';
 import GiftCardFund from '../../Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund';
+import GiftCardQrScreen from '../../Services/ServiceComponents/GiftCardService/GiftCardQrScreen';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../env/index';
-import {
-  createRedesignedHeaderOptions,
-  createSettingsHeaderOptions,
-} from '../../../utils/navigation/header';
+import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
 import {useAppTheme} from '../../../theme/app';
 import AddressBook from '../../Services/AddressBook/AddressBook';
 import SignedInVerusIdDetails from '../../Services/ServiceComponents/VerusIdService/SignedInVerusIdDetails';
@@ -25,7 +23,6 @@ const ServicesStack = createStackNavigator();
 
 const ServicesStackScreens = () => {
   const theme = useAppTheme();
-  const addressBookHeaderOptions = createSettingsHeaderOptions(theme);
 
   return (
     <ServicesStack.Navigator
@@ -47,9 +44,7 @@ const ServicesStackScreens = () => {
         name="AddressBook"
         component={AddressBook}
         options={{
-          ...addressBookHeaderOptions,
-          title: '',
-          headerShadowVisible: false,
+          headerShown: false,
         }}
       />
       <ServicesStack.Screen
@@ -99,6 +94,13 @@ const ServicesStackScreens = () => {
       <ServicesStack.Screen
         name="GiftCardFund"
         component={GiftCardFund}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <ServicesStack.Screen
+        name="GiftCardQr"
+        component={GiftCardQrScreen}
         options={{
           headerShown: false,
         }}

@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -13,6 +14,7 @@ import {useSelector} from 'react-redux';
 import CopyAction from '../../../components/CopyAction';
 import AppButton from '../../../components/AppButton';
 import AppSearchField from '../../../components/AppSearchField';
+import ServiceManagerHeader from '../../../components/ServiceManagerHeader';
 import SkeletonLoader, {
   SkeletonBlock,
   SkeletonText,
@@ -44,6 +46,7 @@ const FILTERS = [
 ];
 
 const ICON_HIT_SLOP = {top: 10, right: 10, bottom: 10, left: 10};
+const emptyAddressBookImage = require('../../../images/customIcons/empty-address-book.png');
 
 const truncateAddress = address => {
   if (!address || address.length <= 19) return address;
@@ -91,7 +94,7 @@ const getRecordTicker = record => {
   return (record.asset || record.network || 'VRSC').toUpperCase();
 };
 
-const AddressBook = () => {
+const AddressBook = ({navigation}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -210,30 +213,13 @@ const AddressBook = () => {
   const hasRecords = records.length > 0;
 
   return (
-    <SafeAreaView edges={['left', 'right']} style={styles.container}>
-      <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
-        <View style={styles.headerTopRow}>
-          <Text
-            style={[
-              theme.typography.headlineMd,
-              {color: theme.colors.textPrimary},
-            ]}>
-            Address book
-          </Text>
-          <TouchableOpacity
-            accessibilityLabel="Add address"
-            accessibilityRole="button"
-            hitSlop={ICON_HIT_SLOP}
-            onPress={() => openEditor(EMPTY_RECORD)}
-            style={styles.headerIconButton}>
-            <MaterialCommunityIcons
-              color={theme.colors.textPrimary}
-              name="plus"
-              size={20}
-            />
-          </TouchableOpacity>
-        </View>
-
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+      <ServiceManagerHeader
+        addAccessibilityLabel="Add address"
+        onAdd={() => openEditor(EMPTY_RECORD)}
+        onBack={() => navigation.goBack()}
+        showDivider={showHeaderDivider}
+        title="Address book">
         {showSearchAndFilters && (
           <>
             <View style={styles.filterContainer}>
@@ -242,6 +228,7 @@ const AddressBook = () => {
                 return (
                   <TouchableOpacity
                     accessibilityRole="button"
+                    accessibilityState={{selected}}
                     key={filter.id}
                     onPress={() => setActiveFilter(filter.id)}
                     style={[
@@ -268,7 +255,7 @@ const AddressBook = () => {
             />
           </>
         )}
-      </View>
+      </ServiceManagerHeader>
 
       {loading ? (
         <SkeletonLoader
@@ -305,16 +292,13 @@ const AddressBook = () => {
         </View>
       ) : !hasRecords ? (
         <View style={styles.emptyState}>
-          <View style={styles.emptyIllustration}>
-            <MaterialCommunityIcons
-              color={theme.colors.borderStrong}
-              name="book-open-variant"
-              size={80}
-            />
-          </View>
-          <Text style={[styles.emptyTitle, styles.emptyTitleStandalone]}>
-            No saved addresses
-          </Text>
+          <Image
+            accessible={false}
+            resizeMode="contain"
+            source={emptyAddressBookImage}
+            style={styles.emptyImage}
+          />
+          <Text style={styles.emptySubtitle}>No saved addresses</Text>
           <AppButton
             onPress={() => openEditor(EMPTY_RECORD)}
             style={styles.emptyPrimaryButton}>
@@ -408,25 +392,6 @@ const createStyles = theme =>
       flex: 1,
       backgroundColor: theme.colors.background,
     },
-    header: {
-      paddingHorizontal: 20,
-      paddingTop: 12,
-      paddingBottom: 16,
-      backgroundColor: theme.colors.background,
-    },
-    headerScrolled: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-    },
-    headerTopRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingBottom: 10,
-    },
-    headerIconButton: {
-      padding: 6,
-    },
     filterContainer: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -514,6 +479,12 @@ const createStyles = theme =>
       justifyContent: 'center',
       marginBottom: 32,
     },
+    emptyImage: {
+      width: 170,
+      height: 140,
+      marginBottom: 32,
+      opacity: 0.35,
+    },
     emptyTitle: {
       ...fontStyle('bold'),
       marginBottom: 8,
@@ -522,8 +493,13 @@ const createStyles = theme =>
       lineHeight: 25,
       textAlign: 'center',
     },
-    emptyTitleStandalone: {
+    emptySubtitle: {
+      ...fontStyle('regular'),
       marginBottom: 32,
+      color: theme.colors.textSecondary,
+      fontSize: 15,
+      lineHeight: 22,
+      textAlign: 'center',
     },
     emptyDescription: {
       ...fontStyle('regular'),

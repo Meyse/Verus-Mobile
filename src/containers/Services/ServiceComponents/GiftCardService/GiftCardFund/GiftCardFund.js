@@ -1,15 +1,17 @@
 import BigNumber from 'bignumber.js';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {ActivityIndicator, Switch} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -18,6 +20,7 @@ import {modifyServiceStoredDataForUser} from '../../../../../actions/actions/ser
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import CopyAction from '../../../../../components/CopyAction';
+import FadedScrollView from '../../../../../components/FadedScrollView';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../../../globals/fonts';
@@ -44,6 +47,7 @@ import {
 } from '../../../../../utils/giftCard/giftCard';
 import {truncateDecimal} from '../../../../../utils/math';
 import {SPENDABLE_KEY_CLAIM_NON_NATIVE_FEE_COINS} from '../../../../../utils/spendableKey/spendableKey';
+import GiftCardCurrencyPickerSheet from '../GiftCardCurrencyPickerSheet';
 import GiftCardShareSheet from '../GiftCardShareSheet';
 
 const STEP_DETAILS = 'details';
@@ -52,6 +56,76 @@ const STEP_REVIEW = 'review';
 const STEP_PROCESSING = 'processing';
 const STEP_RESULT = 'result';
 const STEP_EXTERNAL = 'external';
+
+const PAGE_CONTENT_ANIMATION_DURATION = 320;
+
+const GiftCardPageContent = ({children}) => {
+  const contentProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let active = true;
+    let animation;
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(reduceMotionEnabled => {
+        if (!active) return;
+
+        contentProgress.stopAnimation();
+
+        if (reduceMotionEnabled) {
+          contentProgress.setValue(1);
+          return;
+        }
+
+        contentProgress.setValue(0);
+        animation = Animated.timing(contentProgress, {
+          toValue: 1,
+          duration: PAGE_CONTENT_ANIMATION_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        });
+        animation.start();
+      })
+      .catch(() => {
+        if (active) {
+          contentProgress.setValue(1);
+        }
+      });
+
+    return () => {
+      active = false;
+
+      if (animation) {
+        animation.stop();
+      }
+
+      contentProgress.stopAnimation();
+    };
+  }, [contentProgress]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: contentProgress,
+        transform: [
+          {
+            translateY: contentProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [18, 0],
+            }),
+          },
+          {
+            scale: contentProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.985, 1],
+            }),
+          },
+        ],
+      }}>
+      {children}
+    </Animated.View>
+  );
+};
 
 const hasAmount = amount => {
   try {
@@ -63,6 +137,9 @@ const hasAmount = amount => {
 
 const getSourceAddressForCoin = (coinObj, activeAccount) =>
   activeAccount?.keys?.[coinObj.id]?.[VRPC]?.addresses?.[0];
+
+const getFundingCoinKey = coinObj =>
+  `${coinObj.system_id}:${coinObj.currency_id}`;
 
 const getCoinBalance = (coinObj, activeAccount, ledgerBalances) => {
   const sourceAddress = getSourceAddressForCoin(coinObj, activeAccount);
@@ -220,6 +297,8 @@ const GiftCardFund = props => {
   const [claimPassword, setClaimPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fundAmounts, setFundAmounts] = useState({});
+  const [selectedFundingCoinKeys, setSelectedFundingCoinKeys] = useState([]);
+  const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
   const [selectedIds, setSelectedIds] = useState({});
   const [identityFunding, setIdentityFunding] = useState([]);
   const [identityFundingLoading, setIdentityFundingLoading] = useState(false);
@@ -231,19 +310,68 @@ const GiftCardFund = props => {
   const [loadError, setLoadError] = useState(null);
   const [result, setResult] = useState(null);
   const [shareCard, setShareCard] = useState(null);
+  const reopenShareCardIdRef = useRef(null);
+  const qrNavigationActiveRef = useRef(false);
   const [selectedSystemId, setSelectedSystemId] = useState(null);
   const [externalReturnStep, setExternalReturnStep] = useState(
     STEP_CONTENTS,
   );
+  const scrollViewRef = useRef(null);
+  const revealPasswordScrollRef = useRef(false);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
 
   const storedCard = routeCardId
     ? serviceData?.cards?.[routeCardId]
     : null;
   const card = draftCard || storedCard;
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!qrNavigationActiveRef.current) return undefined;
+
+      const reopenCardId = reopenShareCardIdRef.current;
+      const cardToShare =
+        result?.card?.id === reopenCardId
+          ? result.card
+          : serviceData?.cards?.[reopenCardId];
+
+      qrNavigationActiveRef.current = false;
+      reopenShareCardIdRef.current = null;
+
+      if (cardToShare) {
+        setShareCard(cardToShare);
+      }
+
+      return undefined;
+    }, [result?.card, serviceData?.cards]),
+  );
+
+  const openShareQr = useCallback(
+    cardId => {
+      if (!cardId || qrNavigationActiveRef.current) return;
+
+      reopenShareCardIdRef.current = cardId;
+      qrNavigationActiveRef.current = true;
+      props.navigation.navigate('GiftCardQr', {cardId});
+    },
+    [props.navigation],
+  );
+
   useEffect(() => {
     props.navigation.setOptions({headerShown: false});
   }, [props.navigation]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    AccessibilityInfo.isReduceMotionEnabled().then(enabled => {
+      if (mounted) setReduceMotionEnabled(enabled);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (step !== STEP_RESULT || !result?.title) return;
@@ -308,7 +436,7 @@ const GiftCardFund = props => {
 
     return (activeCoinsForUser || [])
       .filter(coinObj => {
-        const key = `${coinObj.system_id}:${coinObj.currency_id}`;
+        const key = getFundingCoinKey(coinObj);
 
         if (seen.has(key)) return false;
         seen.add(key);
@@ -326,6 +454,53 @@ const GiftCardFund = props => {
         ),
       );
   }, [activeAccount, activeCoinsForUser, card]);
+
+  const selectedFundingCoinKeySet = useMemo(
+    () => new Set(selectedFundingCoinKeys),
+    [selectedFundingCoinKeys],
+  );
+  const selectedFundingCoins = useMemo(
+    () =>
+      activeFundingCoins.filter(coinObj =>
+        selectedFundingCoinKeySet.has(getFundingCoinKey(coinObj)),
+      ),
+    [activeFundingCoins, selectedFundingCoinKeySet],
+  );
+  const fundingCurrencyOptions = useMemo(
+    () =>
+      activeFundingCoins.map(coinObj => {
+        const ticker = coinObj.display_ticker || coinObj.id;
+        const name = coinObj.display_name || ticker;
+        const systemName = getSystemName(
+          coinObj.system_id,
+          activeCoinsForUser,
+        );
+        const balance = getCoinBalance(
+          coinObj,
+          activeAccount,
+          ledgerBalances,
+        );
+
+        return {
+          key: getFundingCoinKey(coinObj),
+          coinObj,
+          ticker,
+          name,
+          systemName,
+          balanceText: balance == null ? '—' : formatAmount(balance),
+          searchText: [ticker, name, systemName]
+            .filter(Boolean)
+            .join(' ')
+            .toLocaleLowerCase(),
+        };
+      }),
+    [
+      activeAccount,
+      activeCoinsForUser,
+      activeFundingCoins,
+      ledgerBalances,
+    ],
+  );
 
   const linkedIdentityOptions = useMemo(() => {
     const options = [];
@@ -362,11 +537,18 @@ const GiftCardFund = props => {
   const selections = useMemo(
     () => ({
       funds: activeFundingCoins
-        .filter(coinObj => hasAmount(fundAmounts[coinObj.id]))
+        .filter(coinObj => {
+          const key = getFundingCoinKey(coinObj);
+
+          return (
+            selectedFundingCoinKeySet.has(key) &&
+            hasAmount(fundAmounts[key])
+          );
+        })
         .map(coinObj => ({
           systemId: coinObj.system_id,
           currencyId: coinObj.currency_id,
-          amount: fundAmounts[coinObj.id],
+          amount: fundAmounts[getFundingCoinKey(coinObj)],
           coinObj,
         })),
       identities: linkedIdentityOptions.filter(
@@ -377,11 +559,43 @@ const GiftCardFund = props => {
       activeFundingCoins,
       fundAmounts,
       linkedIdentityOptions,
+      selectedFundingCoinKeySet,
       selectedIds,
     ],
   );
   const hasSelections =
     selections.funds.length > 0 || selections.identities.length > 0;
+  const applyFundingCurrencies = useCallback(
+    nextSelectedKeys => {
+      const availableKeySet = new Set(
+        activeFundingCoins.map(getFundingCoinKey),
+      );
+      const availableSelectedKeys = nextSelectedKeys.filter(key =>
+        availableKeySet.has(key),
+      );
+      const nextSelectedKeySet = new Set(availableSelectedKeys);
+
+      setSelectedFundingCoinKeys(availableSelectedKeys);
+      setFundAmounts(current =>
+        Object.fromEntries(
+          Object.entries(current).filter(([key]) =>
+            nextSelectedKeySet.has(key),
+          ),
+        ),
+      );
+    },
+    [activeFundingCoins],
+  );
+  const removeFundingCurrency = useCallback(key => {
+    setSelectedFundingCoinKeys(current =>
+      current.filter(currentKey => currentKey !== key),
+    );
+    setFundAmounts(current => {
+      const next = {...current};
+      delete next[key];
+      return next;
+    });
+  }, []);
   const selectedIdentityKeys = useMemo(
     () => selections.identities.map(identity => identity.key).join('|'),
     [selections.identities],
@@ -425,6 +639,23 @@ const GiftCardFund = props => {
   );
   const selectedExternalAddress =
     card?.addressesBySystem?.[selectedSystemId] || '';
+
+  const handleEncryptedChange = value => {
+    revealPasswordScrollRef.current = value;
+    setEncrypted(value);
+  };
+
+  const handleScrollContentSizeChange = (_, contentHeight) => {
+    if (!revealPasswordScrollRef.current) return;
+
+    revealPasswordScrollRef.current = false;
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        animated: !reduceMotionEnabled,
+        y: 120,
+      });
+    });
+  };
 
   useEffect(() => {
     setPreflightPlan(null);
@@ -819,19 +1050,6 @@ const GiftCardFund = props => {
 
   const renderDetails = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
-          GIFT CARD DETAILS
-        </Text>
-        <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
-          Create something worth sharing
-        </Text>
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-          Name the card and decide whether the recipient needs a separate
-          claim password.
-        </Text>
-      </View>
-
       <AppTextInput
         autoCapitalize="sentences"
         label="Gift card name"
@@ -852,7 +1070,7 @@ const GiftCardFund = props => {
         <Switch
           accessibilityLabel="Require claim password"
           color={theme.colors.primary}
-          onValueChange={setEncrypted}
+          onValueChange={handleEncryptedChange}
           value={encrypted}
         />
       </View>
@@ -896,103 +1114,186 @@ const GiftCardFund = props => {
   const renderFunds = () => (
     <View style={styles.composerSection}>
       <View style={styles.sectionHeading}>
-        <View
-          style={[
-            styles.sectionIcon,
-            {backgroundColor: theme.colors.surfaceMuted},
-          ]}>
-          <MaterialCommunityIcons
-            color={theme.colors.primary}
-            name="cash-multiple"
-            size={22}
-          />
-        </View>
-        <View style={styles.sectionHeadingCopy}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
-            Add funds
-          </Text>
-          <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
-            Enter any combination of available currencies.
-          </Text>
-        </View>
+        <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
+          Add funds
+        </Text>
+        <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
+          Choose currencies, then enter the amount for each.
+        </Text>
       </View>
 
       {activeFundingCoins.length === 0 ? (
         <Text style={[styles.emptyCopy, {color: theme.colors.textSecondary}]}>
           No compatible VRPC balances are available for this card.
         </Text>
-      ) : (
-        activeFundingCoins.map(coinObj => {
-          const balance = getCoinBalance(
-            coinObj,
-            activeAccount,
-            ledgerBalances,
-          );
-          const maxAmount = getMaxFundAmount(coinObj, balance);
-          const ticker = coinObj.display_ticker || coinObj.id;
-
-          return (
-            <View
-              key={`${coinObj.system_id}:${coinObj.currency_id}`}
+      ) : selectedFundingCoins.length === 0 ? (
+        <TouchableOpacity
+          accessibilityHint="Opens a searchable currency picker."
+          accessibilityRole="button"
+          activeOpacity={0.74}
+          disabled={busy}
+          onPress={() => setCurrencyPickerVisible(true)}
+          style={styles.currencyPickerLauncher}>
+          <View
+            style={[
+              styles.currencyPickerLauncherIcon,
+              {backgroundColor: theme.colors.surfaceMuted},
+            ]}>
+            <MaterialCommunityIcons
+              color={theme.colors.primary}
+              name="plus"
+              size={23}
+            />
+          </View>
+          <View style={styles.currencyPickerLauncherCopy}>
+            <Text
               style={[
-                styles.assetRow,
-                {borderTopColor: theme.colors.border},
+                styles.assetTitle,
+                {color: theme.colors.textPrimary},
               ]}>
-              <View style={styles.assetCopy}>
-                <Text style={[styles.assetTitle, {color: theme.colors.textPrimary}]}>
-                  {ticker}
-                </Text>
-                <Text style={[styles.assetMeta, {color: theme.colors.textSecondary}]}>
-                  Balance: {balance == null ? '—' : formatAmount(balance)}{' '}
-                  {ticker}
-                </Text>
-              </View>
-              <View style={styles.amountEditor}>
-                <AppTextInput
-                  accessibilityLabel={`Amount of ${ticker}`}
-                  containerStyle={styles.amountInput}
-                  inputMode="decimal"
-                  keyboardType="decimal-pad"
-                  onChangeText={value =>
-                    setFundAmounts(current => ({
-                      ...current,
-                      [coinObj.id]: value,
-                    }))
-                  }
-                  placeholder="0"
-                  size="compact"
-                  value={fundAmounts[coinObj.id] || ''}
-                />
-                <TouchableOpacity
-                  accessibilityLabel={`Use maximum ${ticker} balance`}
-                  accessibilityRole="button"
-                  disabled={
-                    maxAmount == null || !hasAmount(maxAmount)
-                  }
-                  onPress={() =>
-                    setFundAmounts(current => ({
-                      ...current,
-                      [coinObj.id]: formatAmount(maxAmount),
-                    }))
-                  }
-                  style={styles.maxButton}>
+              Choose currencies
+            </Text>
+            <Text
+              style={[
+                styles.assetMeta,
+                {color: theme.colors.textSecondary},
+              ]}>
+              {activeFundingCoins.length}{' '}
+              {activeFundingCoins.length === 1
+                ? 'currency'
+                : 'currencies'}{' '}
+              available
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            color={theme.colors.textSubtle}
+            name="chevron-right"
+            size={22}
+          />
+        </TouchableOpacity>
+      ) : (
+        <>
+          {selectedFundingCoins.map(coinObj => {
+            const key = getFundingCoinKey(coinObj);
+            const balance = getCoinBalance(
+              coinObj,
+              activeAccount,
+              ledgerBalances,
+            );
+            const maxAmount = getMaxFundAmount(coinObj, balance);
+            const ticker = coinObj.display_ticker || coinObj.id;
+
+            return (
+              <View
+                key={key}
+                style={[
+                  styles.assetRow,
+                  {borderTopColor: theme.colors.border},
+                ]}>
+                <View style={styles.assetCopy}>
+                  <View style={styles.assetTitleRow}>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.assetTitle,
+                        styles.assetTitleFlexible,
+                        {color: theme.colors.textPrimary},
+                      ]}>
+                      {ticker}
+                    </Text>
+                    <TouchableOpacity
+                      accessibilityLabel={`Remove ${ticker}`}
+                      accessibilityRole="button"
+                      activeOpacity={0.7}
+                      disabled={busy}
+                      hitSlop={{top: 8, right: 8, bottom: 8, left: 8}}
+                      onPress={() => removeFundingCurrency(key)}
+                      style={styles.removeCurrencyButton}>
+                      <MaterialCommunityIcons
+                        color={theme.colors.textSubtle}
+                        name="close"
+                        size={18}
+                      />
+                    </TouchableOpacity>
+                  </View>
                   <Text
                     style={[
-                      styles.maxLabel,
-                      {
-                        color:
-                          maxAmount == null || !hasAmount(maxAmount)
-                            ? theme.colors.disabledText
-                            : theme.colors.primary,
-                      },
+                      styles.assetMeta,
+                      {color: theme.colors.textSecondary},
                     ]}>
-                    Max
+                    Balance: {balance == null ? '—' : formatAmount(balance)}{' '}
+                    {ticker}
                   </Text>
-                </TouchableOpacity>
+                </View>
+                <View style={styles.amountEditor}>
+                  <AppTextInput
+                    accessibilityLabel={`Amount of ${ticker}`}
+                    containerStyle={styles.amountInput}
+                    inputMode="decimal"
+                    keyboardType="decimal-pad"
+                    onChangeText={value =>
+                      setFundAmounts(current => ({
+                        ...current,
+                        [key]: value,
+                      }))
+                    }
+                    placeholder="0"
+                    size="compact"
+                    inputStyle={styles.amountInputText}
+                    value={fundAmounts[key] || ''}
+                  />
+                  <TouchableOpacity
+                    accessibilityLabel={`Use maximum ${ticker} balance`}
+                    accessibilityRole="button"
+                    disabled={maxAmount == null || !hasAmount(maxAmount)}
+                    onPress={() =>
+                      setFundAmounts(current => ({
+                        ...current,
+                        [key]: formatAmount(maxAmount),
+                      }))
+                    }
+                    style={styles.maxButton}>
+                    <Text
+                      style={[
+                        styles.maxLabel,
+                        {
+                          color:
+                            maxAmount == null || !hasAmount(maxAmount)
+                              ? theme.colors.disabledText
+                              : theme.colors.primary,
+                        },
+                      ]}>
+                      Max
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          );
-        })
+            );
+          })}
+          <TouchableOpacity
+            accessibilityHint="Opens the currency picker with current selections."
+            accessibilityRole="button"
+            activeOpacity={0.74}
+            disabled={busy}
+            onPress={() => setCurrencyPickerVisible(true)}
+            style={[
+              styles.editCurrenciesRow,
+              {borderTopColor: theme.colors.border},
+            ]}>
+            <MaterialCommunityIcons
+              color={theme.colors.primary}
+              name="plus-circle-outline"
+              size={20}
+            />
+            <Text
+              style={[
+                styles.editCurrenciesLabel,
+                {color: theme.colors.primary},
+              ]}>
+              Add or remove currencies
+            </Text>
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
@@ -1000,102 +1301,76 @@ const GiftCardFund = props => {
   const renderIdentities = () => (
     <View style={styles.composerSection}>
       <View style={styles.sectionHeading}>
-        <View
-          style={[
-            styles.sectionIcon,
-            {backgroundColor: theme.colors.surfaceMuted},
-          ]}>
-          <MaterialCommunityIcons
-            color={theme.colors.primary}
-            name="account-outline"
-            size={22}
-          />
-        </View>
-        <View style={styles.sectionHeadingCopy}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
-            Add VerusID
-          </Text>
-          <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
-            Move one or more linked identities into the gift card.
-          </Text>
-        </View>
+        <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
+          Add VerusID
+        </Text>
+        <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
+          Move one or more linked identities into the gift card.
+        </Text>
       </View>
 
-      {linkedIdentityOptions.length === 0 ? (
-        <Text style={[styles.emptyCopy, {color: theme.colors.textSecondary}]}>
-          No compatible linked VerusIDs are available.
-        </Text>
-      ) : (
-        linkedIdentityOptions.map(identity => {
-          const selected = selectedIds[identity.key] === true;
+      {linkedIdentityOptions.map(identity => {
+        const selected = selectedIds[identity.key] === true;
 
-          return (
-            <TouchableOpacity
-              accessibilityLabel={
-                identity.fullyQualifiedName || identity.identityAddress
+        return (
+          <TouchableOpacity
+            accessibilityLabel={
+              identity.fullyQualifiedName || identity.identityAddress
+            }
+            accessibilityRole="checkbox"
+            accessibilityState={{checked: selected}}
+            key={identity.key}
+            onPress={() =>
+              setSelectedIds(current => ({
+                ...current,
+                [identity.key]: !current[identity.key],
+              }))
+            }
+            style={[
+              styles.identityRow,
+              {borderTopColor: theme.colors.border},
+            ]}>
+            <MaterialCommunityIcons
+              color={
+                selected
+                  ? theme.colors.primary
+                  : theme.colors.textSubtle
               }
-              accessibilityRole="checkbox"
-              accessibilityState={{checked: selected}}
-              key={identity.key}
-              onPress={() =>
-                setSelectedIds(current => ({
-                  ...current,
-                  [identity.key]: !current[identity.key],
-                }))
+              name={
+                selected
+                  ? 'checkbox-marked-circle'
+                  : 'checkbox-blank-circle-outline'
               }
-              style={[
-                styles.identityRow,
-                {borderTopColor: theme.colors.border},
-              ]}>
-              <MaterialCommunityIcons
-                color={
-                  selected
-                    ? theme.colors.primary
-                    : theme.colors.textSubtle
-                }
-                name={
-                  selected
-                    ? 'checkbox-marked-circle'
-                    : 'checkbox-blank-circle-outline'
-                }
-                size={24}
-              />
-              <View style={styles.identityCopy}>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.assetTitle, {color: theme.colors.textPrimary}]}>
-                  {identity.fullyQualifiedName || identity.identityAddress}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.assetMeta, {color: theme.colors.textSecondary}]}>
-                  {getSystemName(identity.systemId, activeCoinsForUser)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })
-      )}
+              size={24}
+            />
+            <View style={styles.identityCopy}>
+              <Text
+                numberOfLines={1}
+                style={[styles.assetTitle, {color: theme.colors.textPrimary}]}>
+                {identity.fullyQualifiedName || identity.identityAddress}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[styles.assetMeta, {color: theme.colors.textSecondary}]}>
+                {getSystemName(identity.systemId, activeCoinsForUser)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 
   const renderContents = () => (
     <>
       <View style={styles.stepCopy}>
-        <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
-          CARD CONTENTS
-        </Text>
         <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
           Build the gift
-        </Text>
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-          Add funds, VerusIDs, or both. Nothing is sent until you verify the
-          review.
         </Text>
       </View>
 
       {renderFunds()}
-      {renderIdentities()}
+      {linkedIdentityOptions.length > 0 ? renderIdentities() : null}
 
       <TouchableOpacity
         accessibilityRole="button"
@@ -1105,14 +1380,8 @@ const GiftCardFund = props => {
           styles.externalBranch,
           {
             backgroundColor: theme.colors.surfaceMuted,
-            borderColor: theme.colors.border,
           },
         ]}>
-        <MaterialCommunityIcons
-          color={theme.colors.primary}
-          name="wallet-outline"
-          size={23}
-        />
         <View style={styles.externalBranchCopy}>
           <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
             Fund from another wallet
@@ -1135,15 +1404,8 @@ const GiftCardFund = props => {
   const renderReview = () => (
     <>
       <View style={styles.stepCopy}>
-        <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
-          REVIEW
-        </Text>
         <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
           Review before funding
-        </Text>
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-          The card address is cryptographically re-derived before any
-          transaction is built.
         </Text>
       </View>
 
@@ -1304,6 +1566,21 @@ const GiftCardFund = props => {
         />
       ) : null}
 
+      {!preflightPlan ? (
+        <View
+          style={[
+            styles.reviewAssurance,
+            {backgroundColor: theme.colors.surfaceMuted},
+          ]}>
+          <Text style={[styles.noticeTitle, {color: theme.colors.textPrimary}]}>
+            Address verification
+          </Text>
+          <Text style={[styles.noticeText, {color: theme.colors.textSecondary}]}>
+            The card address is re-derived before any transaction is built.
+          </Text>
+        </View>
+      ) : null}
+
       {preflightPlan ? (
         <View
           style={[
@@ -1365,23 +1642,22 @@ const GiftCardFund = props => {
   const renderExternal = () => (
     <>
       <View style={styles.stepCopy}>
-        <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
-          EXTERNAL FUNDING
-        </Text>
         <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
           Fund from another wallet
-        </Text>
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-          Choose the same system as the sending wallet. Each system has its own
-          derived address.
         </Text>
       </View>
 
       <Text style={[styles.fieldLabel, {color: theme.colors.textSecondary}]}>
         Funding system
       </Text>
-      <ScrollView
+      <Text style={[styles.fieldHelper, {color: theme.colors.textSecondary}]}>
+        Choose the same system as the sending wallet. Each system has its own
+        derived address.
+      </Text>
+      <FadedScrollView
         contentContainerStyle={styles.systemPills}
+        fadeBackgroundColor={theme.colors.background}
+        fadeLength={28}
         horizontal
         showsHorizontalScrollIndicator={false}>
         {systemIds.map(systemId => {
@@ -1418,7 +1694,7 @@ const GiftCardFund = props => {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </FadedScrollView>
 
       <View
         style={[
@@ -1584,10 +1860,12 @@ const GiftCardFund = props => {
 
     if (step === STEP_DETAILS) {
       return (
-        <SafeBottomActionStack gap={8} horizontalSpacing={20}>
+        <SafeBottomActionStack
+          gap={8}
+          horizontalSpacing={20}
+          safeAreaSpacing={0}>
           <AppButton
             disabled={busy}
-            icon="arrow-right"
             onPress={createDraft}>
             Continue
           </AppButton>
@@ -1597,10 +1875,12 @@ const GiftCardFund = props => {
 
     if (step === STEP_CONTENTS) {
       return (
-        <SafeBottomActionStack gap={8} horizontalSpacing={20}>
+        <SafeBottomActionStack
+          gap={8}
+          horizontalSpacing={20}
+          safeAreaSpacing={0}>
           <AppButton
             disabled={!hasSelections || busy}
-            icon="arrow-right"
             onPress={() => {
               setResult(null);
               setStep(STEP_REVIEW);
@@ -1613,11 +1893,13 @@ const GiftCardFund = props => {
 
     if (step === STEP_REVIEW) {
       return (
-        <SafeBottomActionStack gap={8} horizontalSpacing={20}>
+        <SafeBottomActionStack
+          gap={8}
+          horizontalSpacing={20}
+          safeAreaSpacing={0}>
           {preflightPlan ? (
             <AppButton
               disabled={busy}
-              icon="gift-outline"
               onPress={broadcast}>
               {createMode ? 'Create and fund' : 'Fund gift card'}
             </AppButton>
@@ -1628,7 +1910,6 @@ const GiftCardFund = props => {
                 identityFundingLoading ||
                 (card?.encrypted && !claimPassword)
               }
-              icon="shield-check-outline"
               onPress={buildPreflight}>
               Verify fees and addresses
             </AppButton>
@@ -1639,7 +1920,10 @@ const GiftCardFund = props => {
 
     if (step === STEP_EXTERNAL) {
       return (
-        <SafeBottomActionStack gap={8} horizontalSpacing={20}>
+        <SafeBottomActionStack
+          gap={8}
+          horizontalSpacing={20}
+          safeAreaSpacing={0}>
           <AppButton onPress={() => props.navigation.goBack()}>
             Done
           </AppButton>
@@ -1648,10 +1932,12 @@ const GiftCardFund = props => {
     }
 
     return (
-      <SafeBottomActionStack gap={8} horizontalSpacing={20}>
+      <SafeBottomActionStack
+        gap={8}
+        horizontalSpacing={20}
+        safeAreaSpacing={0}>
         {result?.retryable ? (
           <AppButton
-            icon="arrow-left"
             onPress={() => {
               setResult(null);
               setStep(STEP_REVIEW);
@@ -1661,7 +1947,6 @@ const GiftCardFund = props => {
         ) : null}
         {result?.card ? (
           <AppButton
-            icon="share-variant"
             onPress={() => setShareCard(result.card)}>
             Share gift card
           </AppButton>
@@ -1737,8 +2022,9 @@ const GiftCardFund = props => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
         style={styles.content}>
-        <ScrollView
+        <FadedScrollView
           bounces={false}
+          containerStyle={styles.scrollViewport}
           contentContainerStyle={[
             styles.scrollContent,
             {
@@ -1748,15 +2034,28 @@ const GiftCardFund = props => {
             step === STEP_PROCESSING && styles.processingScrollContent,
           ]}
           key={step}
+          fadeBackgroundColor={theme.colors.background}
+          fadeLength={42}
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          {renderStep()}
-        </ScrollView>
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={handleScrollContentSizeChange}
+          ref={scrollViewRef}
+          showStartFade={false}>
+          <GiftCardPageContent key={step}>{renderStep()}</GiftCardPageContent>
+        </FadedScrollView>
         {renderActions()}
       </KeyboardAvoidingView>
+      <GiftCardCurrencyPickerSheet
+        onApply={applyFundingCurrencies}
+        onClose={() => setCurrencyPickerVisible(false)}
+        options={fundingCurrencyOptions}
+        selectedKeys={selectedFundingCoinKeys}
+        visible={currencyPickerVisible}
+      />
       <GiftCardShareSheet
         card={shareCard}
         onClose={() => setShareCard(null)}
+        onOpenQr={openShareQr}
       />
     </View>
   );
@@ -1769,6 +2068,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  scrollViewport: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
@@ -1779,26 +2081,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepCopy: {
-    marginBottom: 24,
-  },
-  eyebrow: {
-    marginBottom: 8,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 1.1,
-    ...fontStyle('semiBold'),
+    marginBottom: 22,
   },
   title: {
     fontSize: 28,
     lineHeight: 35,
     letterSpacing: -0.65,
     ...fontStyle('semiBold'),
-  },
-  subtitle: {
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 22,
-    ...fontStyle('regular'),
   },
   switchRow: {
     minHeight: 76,
@@ -1862,30 +2151,34 @@ const styles = StyleSheet.create({
     ...fontStyle('regular'),
   },
   composerSection: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
   sectionHeading: {
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sectionIcon: {
-    width: 42,
-    height: 42,
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 21,
-  },
-  sectionHeadingCopy: {
-    minWidth: 0,
-    flex: 1,
   },
   emptyCopy: {
     paddingVertical: 14,
     fontSize: 14,
     lineHeight: 21,
     ...fontStyle('regular'),
+  },
+  currencyPickerLauncher: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currencyPickerLauncherIcon: {
+    width: 38,
+    height: 38,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+  },
+  currencyPickerLauncherCopy: {
+    minWidth: 0,
+    flex: 1,
+    paddingRight: 12,
   },
   assetRow: {
     minHeight: 76,
@@ -1899,10 +2192,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 12,
   },
+  assetTitleRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   assetTitle: {
     fontSize: 15,
     lineHeight: 21,
     ...fontStyle('semiBold'),
+  },
+  assetTitleFlexible: {
+    minWidth: 0,
+    flex: 1,
   },
   assetMeta: {
     marginTop: 2,
@@ -1910,23 +2212,47 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     ...fontStyle('regular'),
   },
+  removeCurrencyButton: {
+    width: 32,
+    height: 32,
+    marginRight: -6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   amountEditor: {
-    width: 126,
-    alignItems: 'flex-end',
+    width: 172,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   amountInput: {
-    width: '100%',
+    width: 112,
+  },
+  amountInputText: {
+    paddingHorizontal: 12,
+    textAlign: 'right',
   },
   maxButton: {
-    minWidth: 48,
-    minHeight: 44,
-    marginTop: -4,
-    alignItems: 'flex-end',
+    width: 52,
+    height: 48,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   maxLabel: {
     fontSize: 13,
     lineHeight: 18,
+    ...fontStyle('semiBold'),
+  },
+  editCurrenciesRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  editCurrenciesLabel: {
+    fontSize: 14,
+    lineHeight: 20,
     ...fontStyle('semiBold'),
   },
   identityRow: {
@@ -1944,7 +2270,6 @@ const styles = StyleSheet.create({
   externalBranch: {
     minHeight: 78,
     padding: 14,
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1952,7 +2277,7 @@ const styles = StyleSheet.create({
   externalBranchCopy: {
     minWidth: 0,
     flex: 1,
-    marginHorizontal: 12,
+    marginRight: 12,
   },
   reviewGroup: {
     marginBottom: 18,
@@ -2002,11 +2327,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  reviewAssurance: {
+    marginBottom: 18,
+    padding: 14,
+    borderRadius: 14,
+  },
   fieldLabel: {
     marginBottom: 8,
     fontSize: 13,
     lineHeight: 18,
     ...fontStyle('semiBold'),
+  },
+  fieldHelper: {
+    marginTop: -4,
+    marginBottom: 14,
+    fontSize: 13,
+    lineHeight: 19,
+    ...fontStyle('regular'),
   },
   systemPills: {
     paddingBottom: 20,

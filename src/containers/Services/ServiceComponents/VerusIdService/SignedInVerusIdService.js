@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
     paddingHorizontal: 32,
   },
-  emptyImage: {width: 170, height: 140, marginBottom: 32},
+  emptyImage: {width: 170, height: 140, marginBottom: 32, opacity: 0.35},
   emptyTitle: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 25, textAlign: 'center', marginBottom: 8},
   emptyDescription: {...fontStyle('regular'), fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 32},
   emptyPrimaryCta: {width: 200, marginBottom: 16},
