@@ -1023,6 +1023,7 @@ const GiftCardFund = props => {
   };
 
   const persistFundingResult = async (fundingCard, fundingResult) => {
+    setOperationText('Saving submitted transactions...');
     const pendingCard = await updateStoredCard(
       fundingCard.id,
       (currentData, currentCard) =>
@@ -1035,9 +1036,6 @@ const GiftCardFund = props => {
       getSubmittedGiftCardFundingIdentities(fundingResult);
     let unlinkError = null;
     let finalCard = pendingCard;
-
-    setOperationText('Saving submitted transactions...');
-    await saveCard(pendingCard);
 
     if (submittedIdentities.length > 0) {
       setOperationText('Unlinking transferred VerusIDs...');

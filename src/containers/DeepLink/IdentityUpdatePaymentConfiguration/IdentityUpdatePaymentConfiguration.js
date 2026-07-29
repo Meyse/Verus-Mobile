@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, View, SafeAreaView, Text } from 'react-native';
+import { Alert, View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Styles from '../../../styles/index';
 import { GenericRequest, GenericResponse, IdentityUpdateRequestDetails, IdentityUpdateResponseDetails, IdentityUpdateResponseOrdinalVDXFObject } from 'verus-typescript-primitives';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';

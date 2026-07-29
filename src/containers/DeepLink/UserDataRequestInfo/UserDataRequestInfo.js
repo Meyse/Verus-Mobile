@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Checkbox, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,7 +21,7 @@ import { SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { unixToDate } from '../../../utils/math';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
-import IdentityPickerSheet from '../AuthenticationRequestInfo/components/IdentityPickerSheet';
+import IdentityPickerSheet from '../components/VerusIdIdentityPickerSheet/IdentityPickerSheet';
 import {
   getMissingCredentialKeys,
   getScopedCredentials,
@@ -449,10 +449,12 @@ const UserDataRequestInfo = props => {
     <SafeAreaView style={styles.root}>
       <IdentityPickerSheet
         visible={identitySheetVisible}
+        linkingEnabled={false}
         linkedIds={linkedIds}
         sortedIds={sortedIds}
         isIdentityAllowed={isIdentityAllowed}
         selectedIdentity={selectedIdentity}
+        provisioningEnabled={false}
         onClose={() => setIdentitySheetVisible(false)}
         onSelect={handleSelectIdentity}
       />

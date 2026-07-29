@@ -116,6 +116,7 @@ const IdentityPickerSheet = ({
   sortedIds,
   isIdentityAllowed,
   selectedIdentity,
+  linkingEnabled = true,
   provisioningEnabled = true,
   provisioningRequestState,
   initialMode = VERUSID_SHEET_MODES.CHOOSE,
@@ -151,7 +152,7 @@ const IdentityPickerSheet = ({
   );
   const matchingCount = matchingIdentities.length;
   const resolvedInitialMode =
-    initialMode === VERUSID_SHEET_MODES.LINK
+    linkingEnabled && initialMode === VERUSID_SHEET_MODES.LINK
       ? VERUSID_SHEET_MODES.LINK
       : VERUSID_SHEET_MODES.CHOOSE;
   const linkSheetMetrics = getLinkSheetMetrics({
@@ -433,6 +434,7 @@ const IdentityPickerSheet = ({
               <ChooseRows
                 disabled={isTransitioning}
                 getRowAnimation={getRowAnimation}
+                linkingEnabled={linkingEnabled}
                 matchingCount={matchingCount}
                 matchingIdentities={matchingIdentities}
                 onLinkExisting={handleLinkExisting}
@@ -469,6 +471,7 @@ const getRowAnimatedStyle = animatedValue => ({
 const ChooseRows = ({
   disabled,
   getRowAnimation,
+  linkingEnabled,
   matchingCount,
   matchingIdentities,
   onLinkExisting,
@@ -594,17 +597,19 @@ const ChooseRows = ({
           />
         </Animated.View>
       )}
-      <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
-        <ActionRow
-          disabled={disabled}
-          IconComponent={Link2}
-          label="Link existing VerusID"
-          signedOutSheetStyles={signedOutSheetStyles}
-          styles={styles}
-          onPress={onLinkExisting}
-          theme={theme}
-        />
-      </Animated.View>
+      {linkingEnabled ? (
+        <Animated.View style={getRowAnimatedStyle(getRowAnimation(rowIndex++))}>
+          <ActionRow
+            disabled={disabled}
+            IconComponent={Link2}
+            label="Link existing VerusID"
+            signedOutSheetStyles={signedOutSheetStyles}
+            styles={styles}
+            onPress={onLinkExisting}
+            theme={theme}
+          />
+        </Animated.View>
+      ) : null}
     </>
   );
 };
