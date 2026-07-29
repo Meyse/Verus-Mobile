@@ -28,10 +28,19 @@ import {
 } from '../../../utils/deeplink/credentials/scopedCredentials';
 import { buildUserDataResponse } from '../../../utils/deeplink/userData/buildUserDataResponse';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
+import {userDataRequestedSignerMatchesIdentity} from '../../../utils/deeplink/userData/requestedSigner';
+import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 
 const truncateAddress = addr => {
   if (!addr || addr.length <= 14) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+};
+
+const hasLinkedIdentity = (linkedIds, chainId, identityID) => {
+  return Object.prototype.hasOwnProperty.call(
+    linkedIds[chainId] || {},
+    identityID,
+  );
 };
 
 const DetailRow = ({ title, subtitle, showBorder, icon }) => (
@@ -121,6 +130,7 @@ const UserDataRequestInfo = props => {
     sigtime,
     credentialRequests = [],
     requestScope,
+    requestedSignerID,
     cancel,
     next,
     response,
@@ -130,6 +140,7 @@ const UserDataRequestInfo = props => {
 
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
+  const accounts = useObjectSelector(state => state.authentication.accounts);
   const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
   const testnetOverrides = useObjectSelector(
     state => state.authentication.activeAccount?.testnetOverrides || {},
@@ -150,6 +161,13 @@ const UserDataRequestInfo = props => {
   const [acknowledgedCredentials, setAcknowledgedCredentials] = useState({});
 
   const requestIsTestnet = request != null ? request.isTestnet() : false;
+  const matchingAccounts = useMemo(
+    () =>
+      (accounts || []).filter(
+        account => accountIsTestnet(account) === requestIsTestnet,
+      ),
+    [accounts, requestIsTestnet],
+  );
   const identityChain = requestIsTestnet ? 'VRSCTEST' : identityNetwork;
   const credentialKeys = useMemo(
     () => credentialRequests.map(item => item.key),
@@ -157,6 +175,10 @@ const UserDataRequestInfo = props => {
   );
   const requesterLabel = signerFqn || signerIdentityID || 'Requester';
   const sigDateString = sigtime ? unixToDate(sigtime) : null;
+  const requestedSignerUnavailable =
+    linkedIdsLoaded &&
+    requestedSignerID != null &&
+    !hasLinkedIdentity(linkedIds, identityChain, requestedSignerID);
 
   useEffect(() => {
     const loadLinkedIds = async () => {
@@ -193,10 +215,33 @@ const UserDataRequestInfo = props => {
   }, [linkedIds]);
 
   useEffect(() => {
-    if (!selectedIdentity && linkedIdsLoaded) {
-      const chainIds = linkedIds[identityChain];
-      if (chainIds && Object.keys(chainIds).length > 0) {
-        const firstIAddress = Object.keys(chainIds)[0];
+    if (!linkedIdsLoaded) return;
+
+    const chainIds = linkedIds[identityChain] || {};
+    const selectedIdentityIsAllowed =
+      selectedIdentity != null &&
+      selectedIdentity.chainId === identityChain &&
+      hasLinkedIdentity(linkedIds, identityChain, selectedIdentity.iAddress) &&
+      userDataRequestedSignerMatchesIdentity(
+        requestedSignerID,
+        selectedIdentity.iAddress,
+      );
+
+    if (selectedIdentity != null && !selectedIdentityIsAllowed) {
+      setSelectedIdentity(null);
+      return;
+    }
+
+    if (selectedIdentity == null) {
+      const firstIAddress = requestedSignerID != null
+        ? (
+          hasLinkedIdentity(linkedIds, identityChain, requestedSignerID)
+            ? requestedSignerID
+            : null
+        )
+        : Object.keys(chainIds)[0];
+
+      if (firstIAddress) {
         setSelectedIdentity({
           chainId: identityChain,
           iAddress: firstIAddress,
@@ -204,7 +249,13 @@ const UserDataRequestInfo = props => {
         });
       }
     }
-  }, [identityChain, linkedIds, linkedIdsLoaded, selectedIdentity]);
+  }, [
+    identityChain,
+    linkedIds,
+    linkedIdsLoaded,
+    requestedSignerID,
+    selectedIdentity,
+  ]);
 
   useEffect(() => {
     if (waitingForSignin && signedIn && sendModalType == null) {
@@ -216,7 +267,14 @@ const UserDataRequestInfo = props => {
     let cancelled = false;
 
     const loadCredentials = async () => {
-      if (!signedIn || !selectedIdentity) {
+      if (
+        !signedIn ||
+        !selectedIdentity ||
+        !userDataRequestedSignerMatchesIdentity(
+          requestedSignerID,
+          selectedIdentity.iAddress,
+        )
+      ) {
         setCredentials([]);
         setMissingCredentialKeys(credentialKeys);
         return;
@@ -251,24 +309,51 @@ const UserDataRequestInfo = props => {
     return () => {
       cancelled = true;
     };
-  }, [credentialKeys, requestScope, selectedIdentity, signedIn, signerSystemID]);
+  }, [
+    credentialKeys,
+    requestScope,
+    requestedSignerID,
+    selectedIdentity,
+    signedIn,
+    signerSystemID,
+  ]);
 
   useEffect(() => {
     setAcknowledgedCredentials({});
   }, [credentials]);
 
-  const isIdentityAllowed = (chainId) => chainId === identityChain;
+  const isIdentityAllowed = (chainId, iAddress) => {
+    return (
+      chainId === identityChain &&
+      userDataRequestedSignerMatchesIdentity(requestedSignerID, iAddress)
+    );
+  };
 
   const handleSelectIdentity = (chainId, iAddress, friendlyName) => {
+    if (!isIdentityAllowed(chainId, iAddress)) {
+      createAlert(
+        'Requested signer required',
+        `This request must be answered by ${requestedSignerID}.`,
+      );
+      return;
+    }
+
     setSelectedIdentity({ chainId, iAddress, friendlyName });
     setIdentitySheetVisible(false);
   };
 
   const handleSignin = () => {
-    const allowlist = {};
-    const chainIds = linkedIds[identityChain];
-    if (chainIds) allowlist[identityChain] = Object.keys(chainIds);
-    openAuthenticateUserModal({ [SEND_MODAL_USER_ALLOWLIST]: allowlist });
+    if (matchingAccounts.length === 0) {
+      createAlert(
+        'No profile found',
+        `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profile is available for this request.`,
+      );
+      return;
+    }
+
+    openAuthenticateUserModal({
+      [SEND_MODAL_USER_ALLOWLIST]: matchingAccounts,
+    });
     setWaitingForSignin(true);
   };
 
@@ -299,6 +384,19 @@ const UserDataRequestInfo = props => {
 
     if (!selectedIdentity) {
       setIdentitySheetVisible(true);
+      return;
+    }
+
+    if (
+      !userDataRequestedSignerMatchesIdentity(
+        requestedSignerID,
+        selectedIdentity.iAddress,
+      )
+    ) {
+      createAlert(
+        'Requested signer required',
+        `This request must be answered by ${requestedSignerID}.`,
+      );
       return;
     }
 
@@ -337,7 +435,11 @@ const UserDataRequestInfo = props => {
     }
   };
 
-  const continueDisabled = credentialsLoading || waitingForSignin || !credentialReviewComplete;
+  const continueDisabled =
+    credentialsLoading ||
+    waitingForSignin ||
+    requestedSignerUnavailable ||
+    !credentialReviewComplete;
 
   if (credentialsLoading && credentials.length === 0) {
     return <AnimatedActivityIndicatorBox />;
@@ -424,7 +526,22 @@ const UserDataRequestInfo = props => {
             showBorder
           />
           <DetailRow title="Scope" subtitle={requestScope} showBorder />
+          {requestedSignerID ? (
+            <DetailRow
+              title="Required response identity"
+              subtitle={requestedSignerID}
+              showBorder
+            />
+          ) : null}
         </View>
+
+        {requestedSignerUnavailable ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningText}>
+              The identity required by this request is not linked to the current profile.
+            </Text>
+          </View>
+        ) : null}
 
         <TouchableOpacity
           style={[
