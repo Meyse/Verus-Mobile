@@ -13,11 +13,7 @@ import LottieView from 'lottie-react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Check, Info} from 'lucide-react-native';
-import {
-  CompactAddressObject,
-  GenericResponse,
-  VerifiableSignatureData,
-} from 'verus-typescript-primitives';
+import {GenericResponse} from 'verus-typescript-primitives';
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -66,6 +62,7 @@ import {
 } from '../../../../env/index';
 import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../utils/settings/settingsLabels';
 import {processAppEncryptionRequest} from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
+import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {
@@ -219,7 +216,7 @@ const cloneGenericResponse = response => {
   return baseResponse;
 };
 
-const LoadingSheet = ({styles, visible}) => (
+const LoadingSheet = ({encrypted, styles, visible}) => (
   <BottomSheetModal
     closeDisabled
     contentContainerStyle={styles.loadingSheetContainer}
@@ -227,7 +224,9 @@ const LoadingSheet = ({styles, visible}) => (
     onClose={() => {}}
     visible={visible}>
     <View
-      accessibilityLabel="Preparing encrypted reply"
+      accessibilityLabel={
+        encrypted ? 'Preparing encrypted reply' : 'Preparing reply'
+      }
       accessibilityRole="progressbar"
       style={styles.loadingSheetBody}>
       <LottieView
@@ -236,9 +235,13 @@ const LoadingSheet = ({styles, visible}) => (
         source={require('../../../animations/loading_7bars.json')}
         style={styles.loadingAnimation}
       />
-      <Text style={styles.loadingTitle}>Preparing encrypted reply</Text>
+      <Text style={styles.loadingTitle}>
+        {encrypted ? 'Preparing encrypted reply' : 'Preparing reply'}
+      </Text>
       <Text style={styles.loadingSubtitle}>
-        Deriving the encrypted response for this app.
+        {encrypted
+          ? 'Deriving the encrypted response for this app.'
+          : 'Preparing the response for this app.'}
       </Text>
     </View>
   </BottomSheetModal>
@@ -676,34 +679,28 @@ const AppEncryptionRequestInfoContent = props => {
     setProcessing(true);
 
     try {
+      const updatedResponse = cloneGenericResponse(response);
+      const coinObj = CoinDirectory.findCoinObj(selectedIdentity.chainId);
+
+      if (!coinObj) {
+        throw new Error('Unable to find selected identity network.');
+      }
+
+      ensureGenericResponseSigner({
+        response: updatedResponse,
+        systemID: coinObj.system_id,
+        identityID: selectedIdentity.iAddress,
+      });
+
       const {responseDetail} = await processAppEncryptionRequest({
         request,
         detailIndex,
         responseSignerID: selectedIdentity.iAddress,
       });
-      const updatedResponse = cloneGenericResponse(response);
 
       updatedResponse.details = updatedResponse.details || [];
       updatedResponse.details = [...updatedResponse.details, responseDetail];
-      if (typeof updatedResponse.setFlags === 'function') {
-        updatedResponse.setFlags();
-      }
-
-      if (updatedResponse.signature == null) {
-        const coinObj = CoinDirectory.findCoinObj(selectedIdentity.chainId);
-
-        if (!coinObj) {
-          throw new Error('Unable to find selected identity network.');
-        }
-
-        updatedResponse.signature = new VerifiableSignatureData({
-          systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
-          identityID: CompactAddressObject.fromIAddress(
-            selectedIdentity.iAddress,
-          ),
-        });
-        updatedResponse.setSigned();
-      }
+      updatedResponse.setFlags();
 
       await next(updatedResponse, [detailIndex], {
         autoDeliverOnComplete: true,
@@ -907,7 +904,11 @@ const AppEncryptionRequestInfoContent = props => {
         loadVerusId={loadSignerVerusId}
         loadFriendlyNames={loadSignerFriendlyNames}
       />
-      <LoadingSheet styles={styles} visible={processing} />
+      <LoadingSheet
+        encrypted={hasEncryptResponseToAddress}
+        styles={styles}
+        visible={processing}
+      />
       <DeepLinkReviewScrollView>
         <View style={styles.header}>
           <Text style={styles.mainTitle}>Share encryption address</Text>

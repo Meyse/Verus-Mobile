@@ -62,12 +62,10 @@ import {
   RecipientConstraint,
   AuthenticationResponseDetails,
   AuthenticationResponseOrdinalVDXFObject,
-  CompactAddressObject,
   fqnToParentAddress,
   fqnToParentFqn,
   GenericResponse,
   ProvisionIdentityDetails,
-  VerifiableSignatureData,
 } from 'verus-typescript-primitives';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {
@@ -109,6 +107,7 @@ import {
   OnboardingThemeProvider,
   useOnboardingTheme,
 } from '../../../theme/onboarding';
+import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 
 const toAddressString = addressObj => {
   if (addressObj == null || typeof addressObj.toAddress !== 'function') {
@@ -817,14 +816,14 @@ const AuthenticationRequestInfoContent = props => {
     baseResponse.details = [...baseResponse.details, responseDetail];
     baseResponse.setFlags();
 
-    if (baseResponse.signature == null) {
-      const coinObj = CoinDirectory.findCoinObj(chainId);
-      baseResponse.signature = new VerifiableSignatureData({
-        systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
-        identityID: CompactAddressObject.fromIAddress(iAddress),
-      });
-      baseResponse.setSigned();
-    }
+    const coinObj = CoinDirectory.findCoinObj(chainId);
+    if (!coinObj) throw new Error('Unsupported signing chain.');
+
+    ensureGenericResponseSigner({
+      response: baseResponse,
+      systemID: coinObj.system_id,
+      identityID: iAddress,
+    });
 
     const handledIndices = [detailIndex];
     if (

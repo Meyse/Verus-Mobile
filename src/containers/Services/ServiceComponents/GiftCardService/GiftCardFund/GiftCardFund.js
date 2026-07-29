@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
+  Alert,
   Animated,
   Easing,
   KeyboardAvoidingView,
@@ -39,11 +40,16 @@ import {
   discoverGiftCardIdentityFunds,
   getGiftCardFundingTopups,
   getSubmittedGiftCardFundingIdentities,
+  hasGiftCardBeenShared,
+  hasGiftCardClaims,
+  hasPendingGiftCardFunding,
+  markGiftCardShared,
   normalizeGiftCardServiceData,
   preflightGiftCardFunding,
   refreshGiftCardStatus,
   unlinkGiftCardFundingIdentitiesFromVerusIdData,
   upsertGiftCard,
+  upsertGiftCardIfUnchanged,
 } from '../../../../../utils/giftCard/giftCard';
 import {truncateDecimal} from '../../../../../utils/math';
 import {SPENDABLE_KEY_CLAIM_NON_NATIVE_FEE_COINS} from '../../../../../utils/spendableKey/spendableKey';
@@ -410,6 +416,13 @@ const GiftCardFund = props => {
 
       if (!createMode && !giftCardData.cards?.[routeCardId]) {
         setLoadError('This gift card could not be found.');
+      } else if (
+        !createMode &&
+        hasGiftCardBeenShared(giftCardData.cards?.[routeCardId])
+      ) {
+        setLoadError(
+          'Shared gift cards cannot be funded. Create a new gift card instead.',
+        );
       }
     } catch (e) {
       setLoadError(e.message || 'Unable to load gift card data.');
@@ -711,42 +724,214 @@ const GiftCardFund = props => {
   }, [selectedIdentityKeys, selections.identities, step]);
 
   const saveCard = useCallback(
-    async nextCard => {
-      const nextData = {
-        ...upsertGiftCard(serviceData, nextCard),
-        introSeen: true,
-      };
+    async (nextCard, expectedCard = null) => {
+      const savedData = await modifyServiceStoredDataForUser(
+        currentData => {
+          const normalized = normalizeGiftCardServiceData(currentData);
+          const nextData = expectedCard
+            ? upsertGiftCardIfUnchanged(
+                normalized,
+                expectedCard,
+                nextCard,
+              )
+            : upsertGiftCard(normalized, nextCard);
 
-      setServiceData(nextData);
-      await modifyServiceStoredDataForUser(
-        nextData,
+          return {
+            ...nextData,
+            introSeen: true,
+          };
+        },
         GIFT_CARD_SERVICE_ID,
         activeAccount.accountHash,
       );
 
-      return nextData;
+      setServiceData(savedData);
+      return savedData.cards?.[nextCard.id] || nextCard;
     },
-    [activeAccount, serviceData],
+    [activeAccount],
+  );
+
+  const updateStoredCard = useCallback(
+    async (cardId, updater) => {
+      const savedData = await modifyServiceStoredDataForUser(
+        currentData => {
+          const normalized = normalizeGiftCardServiceData(currentData);
+          const currentCard = normalized.cards?.[cardId];
+
+          if (!currentCard) {
+            throw new Error('Gift card is no longer available.');
+          }
+
+          return {
+            ...updater(normalized, currentCard),
+            introSeen: true,
+          };
+        },
+        GIFT_CARD_SERVICE_ID,
+        activeAccount.accountHash,
+      );
+
+      setServiceData(savedData);
+      return savedData.cards?.[cardId] || null;
+    },
+    [activeAccount],
+  );
+
+  const loadLatestFundableCard = useCallback(async () => {
+    if (createMode) {
+      if (!card) throw new Error('Gift card is not ready.');
+      if (hasGiftCardBeenShared(card)) {
+        throw new Error(
+          'Shared gift cards cannot be funded. Create a new gift card instead.',
+        );
+      }
+      return card;
+    }
+
+    const latestData = normalizeGiftCardServiceData(
+      await requestServiceStoredData(GIFT_CARD_SERVICE_ID),
+    );
+    const latestCard = latestData.cards?.[routeCardId];
+
+    if (!latestCard) {
+      throw new Error('Gift card is no longer available.');
+    }
+
+    if (hasGiftCardBeenShared(latestCard)) {
+      throw new Error(
+        'Shared gift cards cannot be funded. Create a new gift card instead.',
+      );
+    }
+
+    setServiceData(latestData);
+    return latestCard;
+  }, [card, createMode, routeCardId]);
+
+  const prepareShareCard = useCallback(
+    async cardToShare => {
+      const refreshed = await refreshGiftCardStatus({
+        card: cardToShare,
+        activeCoinsForUser,
+      });
+      const latestCard = await updateStoredCard(
+        cardToShare.id,
+        currentData =>
+          upsertGiftCardIfUnchanged(
+            currentData,
+            cardToShare,
+            refreshed,
+          ),
+      );
+
+      if (hasPendingGiftCardFunding(latestCard)) {
+        throw new Error(
+          'Wait for funding transactions to confirm before sharing this gift card.',
+        );
+      }
+
+      if (!hasGiftCardClaims(latestCard)) {
+        throw new Error(
+          'Fund this gift card and wait for confirmation before sharing it.',
+        );
+      }
+
+      return latestCard;
+    },
+    [activeCoinsForUser, updateStoredCard],
+  );
+
+  const openShareOptions = useCallback(
+    async cardToShare => {
+      setBusy(true);
+      setOperationText('Checking gift card status...');
+
+      try {
+        const preparedCard = await prepareShareCard(cardToShare);
+        setShareCard(preparedCard);
+      } catch (e) {
+        Alert.alert(
+          'Unable to share',
+          e.message || 'Unable to prepare gift card.',
+        );
+      } finally {
+        setBusy(false);
+        setOperationText('');
+      }
+    },
+    [prepareShareCard],
+  );
+
+  const authorizeShare = useCallback(
+    async cardToShare => {
+      setBusy(true);
+      setOperationText('Securing gift card for sharing...');
+
+      try {
+        const preparedCard = await prepareShareCard(cardToShare);
+        const sharedCard = await updateStoredCard(
+          preparedCard.id,
+          (currentData, currentCard) => {
+            if (hasGiftCardBeenShared(currentCard)) {
+              return currentData;
+            }
+
+            if (hasPendingGiftCardFunding(currentCard)) {
+              throw new Error(
+                'Wait for funding transactions to confirm before sharing this gift card.',
+              );
+            }
+
+            if (!hasGiftCardClaims(currentCard)) {
+              throw new Error(
+                'Fund this gift card and wait for confirmation before sharing it.',
+              );
+            }
+
+            return upsertGiftCard(
+              currentData,
+              markGiftCardShared(currentCard),
+            );
+          },
+        );
+
+        if (!hasGiftCardBeenShared(sharedCard)) {
+          throw new Error(
+            'Gift card state changed before it could be marked as shared.',
+          );
+        }
+
+        setResult(current =>
+          current ? {...current, card: sharedCard} : current,
+        );
+        setShareCard(sharedCard);
+        return sharedCard;
+      } catch (e) {
+        Alert.alert(
+          'Unable to share',
+          e.message || 'Unable to share gift card.',
+        );
+        return null;
+      } finally {
+        setBusy(false);
+        setOperationText('');
+      }
+    },
+    [prepareShareCard, updateStoredCard],
   );
 
   const unlinkFundedIdentities = async identities => {
     if (!identities || identities.length === 0) return;
 
-    const verusIdData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-    const nextVerusIdData =
-      unlinkGiftCardFundingIdentitiesFromVerusIdData(
-        verusIdData,
-        identities,
-      );
-
-    if (nextVerusIdData === verusIdData) return;
-
-    await modifyServiceStoredDataForUser(
-      nextVerusIdData,
+    const savedData = await modifyServiceStoredDataForUser(
+      currentData =>
+        unlinkGiftCardFundingIdentitiesFromVerusIdData(
+          currentData,
+          identities,
+        ),
       VERUSID_SERVICE_ID,
       activeAccount.accountHash,
     );
-    setLinkedIds(nextVerusIdData.linked_ids || {});
+    setLinkedIds(savedData.linked_ids || {});
   };
 
   const createDraft = async () => {
@@ -811,10 +996,11 @@ const GiftCardFund = props => {
 
     try {
       await new Promise(resolve => setTimeout(resolve, 0));
+      const fundingCard = await loadLatestFundableCard();
 
       const plan = await preflightGiftCardFunding({
-        card,
-        password: card.encrypted ? claimPassword : undefined,
+        card: fundingCard,
+        password: fundingCard.encrypted ? claimPassword : undefined,
         selections,
         identityFunding,
         activeCoinsForUser,
@@ -837,9 +1023,13 @@ const GiftCardFund = props => {
   };
 
   const persistFundingResult = async (fundingCard, fundingResult) => {
-    const pendingCard = addGiftCardPendingFunding(
-      fundingCard,
-      fundingResult,
+    const pendingCard = await updateStoredCard(
+      fundingCard.id,
+      (currentData, currentCard) =>
+        upsertGiftCard(
+          currentData,
+          addGiftCardPendingFunding(currentCard, fundingResult),
+        ),
     );
     const submittedIdentities =
       getSubmittedGiftCardFundingIdentities(fundingResult);
@@ -866,7 +1056,15 @@ const GiftCardFund = props => {
         card: pendingCard,
         activeCoinsForUser,
       });
-      await saveCard(finalCard);
+      finalCard = await updateStoredCard(
+        pendingCard.id,
+        currentData =>
+          upsertGiftCardIfUnchanged(
+            currentData,
+            pendingCard,
+            finalCard,
+          ),
+      );
     } catch (_) {
       finalCard = pendingCard;
     }
@@ -882,6 +1080,7 @@ const GiftCardFund = props => {
     if (!card || !preflightPlan) return;
 
     let cardSaved = false;
+    let fundingCard = card;
 
     setBusy(true);
     setOperationText('Saving gift card before funding...');
@@ -889,12 +1088,17 @@ const GiftCardFund = props => {
     setStep(STEP_PROCESSING);
 
     try {
-      await saveCard(card);
+      fundingCard = createMode
+        ? await saveCard(card)
+        : await loadLatestFundableCard();
       cardSaved = true;
       setOperationText('Confirming gift card funding transactions...');
 
       const fundingResult = await broadcastGiftCardFunding({preflightPlan});
-      const persisted = await persistFundingResult(card, fundingResult);
+      const persisted = await persistFundingResult(
+        fundingCard,
+        fundingResult,
+      );
       const unlinkMessage = persisted.unlinkError
         ? ` Funding succeeded, but one or more transferred VerusIDs could not be unlinked locally: ${persisted.unlinkError.message}`
         : '';
@@ -916,7 +1120,10 @@ const GiftCardFund = props => {
         };
 
         try {
-          const persisted = await persistFundingResult(card, partialResult);
+          const persisted = await persistFundingResult(
+            fundingCard,
+            partialResult,
+          );
           const count = e.results.length;
           const unlinkMessage = persisted.unlinkError
             ? ` One or more transferred VerusIDs could not be unlinked locally: ${persisted.unlinkError.message}`
@@ -938,7 +1145,7 @@ const GiftCardFund = props => {
             title: 'Submitted, but not saved',
             message:
               `Some transactions were submitted, but their pending history could not be saved locally: ${saveError.message}`,
-            card,
+            card: fundingCard,
             txids: getTxids(partialResult),
           });
         }
@@ -947,7 +1154,7 @@ const GiftCardFund = props => {
           kind: 'error',
           title: 'Funding not completed',
           message: e.message,
-          card: cardSaved ? card : null,
+          card: cardSaved ? fundingCard : null,
           retryable: true,
           txids: [],
         });
@@ -967,9 +1174,13 @@ const GiftCardFund = props => {
     setOperationText('Saving gift card...');
 
     try {
-      await saveCard(card);
+      const fundingCard = createMode
+        ? await saveCard(card)
+        : await loadLatestFundableCard();
       const nextSystemId =
-        selectedSystemId || systemIds[0] || null;
+        selectedSystemId ||
+        Object.keys(fundingCard.addressesBySystem || {})[0] ||
+        null;
 
       if (!nextSystemId) {
         throw new Error('No supported funding system is available.');
@@ -1947,7 +2158,8 @@ const GiftCardFund = props => {
         ) : null}
         {result?.card ? (
           <AppButton
-            onPress={() => setShareCard(result.card)}>
+            disabled={busy}
+            onPress={() => openShareOptions(result.card)}>
             Share gift card
           </AppButton>
         ) : null}
@@ -2054,6 +2266,7 @@ const GiftCardFund = props => {
       />
       <GiftCardShareSheet
         card={shareCard}
+        onAuthorizeShare={authorizeShare}
         onClose={() => setShareCard(null)}
         onOpenQr={openShareQr}
       />

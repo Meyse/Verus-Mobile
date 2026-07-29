@@ -30,14 +30,13 @@ import { API_GET_BALANCES, API_SEND, GENERAL, WYRE_SERVICE, USD } from '../../..
 import { GENERIC_REQUEST_DELIVERY_TYPES } from '../../../../utils/deeplink/genericRequestDelivery';
 import BigNumber from 'bignumber.js';
 import {
-  CompactAddressObject,
   GenericResponse,
   IdentityUpdateResponseDetails,
   IdentityUpdateResponseOrdinalVDXFObject,
-  VerifiableSignatureData,
 } from 'verus-typescript-primitives';
 import { processEncryptedKeys } from '../../../../utils/crypto/encryptCredentials';
 import { confirmPayStepStyles as createConfirmPayStepStyles } from '../../../../styles';
+import {ensureGenericResponseSigner} from '../../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 
 const IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT = 360;
 const COMPLETION_SHEET_STAGE = {
@@ -375,6 +374,17 @@ const ConfirmPayStep = ({
     let resultTxid = null;
 
     try {
+      const baseResponse = new GenericResponse();
+      if (responseBufferString && responseBufferString.length > 0) {
+        baseResponse.fromBuffer(Buffer.from(responseBufferString, 'hex'), 0);
+      }
+
+      ensureGenericResponseSigner({
+        response: baseResponse,
+        systemID: coinObj.system_id,
+        identityID: signerIdentityAddress,
+      });
+
       const { wallet, coinObj: sourceCoinObj } = selectedSource;
       const [channelName, , systemId] = wallet.api_channels[API_SEND].split('.');
 
@@ -392,11 +402,6 @@ const ConfirmPayStep = ({
       resultTxid = result.result;
 
       // Build response (mirrored from IdentityUpdatePaymentConfiguration)
-      const baseResponse = new GenericResponse();
-      if (responseBufferString && responseBufferString.length > 0) {
-        baseResponse.fromBuffer(Buffer.from(responseBufferString, 'hex'), 0);
-      }
-
       const responseDetail = new IdentityUpdateResponseOrdinalVDXFObject({
         data: new IdentityUpdateResponseDetails({
           requestID: details.containsRequestID() ? details.requestID : undefined,
@@ -409,13 +414,7 @@ const ConfirmPayStep = ({
       if (baseResponse.details == null) baseResponse.details = [];
       baseResponse.details = [...baseResponse.details, responseDetail];
 
-      if (baseResponse.signature == null) {
-        baseResponse.signature = new VerifiableSignatureData({
-          systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
-          identityID: CompactAddressObject.fromIAddress(signerIdentityAddress),
-        });
-        baseResponse.setSigned();
-      }
+      baseResponse.setFlags();
 
       if (next) {
         setBroadcastTxid(resultTxid);

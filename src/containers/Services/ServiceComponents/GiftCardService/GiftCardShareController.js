@@ -39,10 +39,11 @@ export const useGiftCardSharing = card => {
     };
   }, [card?.id, resetSharing]);
 
-  const copyLink = useCallback(() => {
-    if (!card?.requestUri) return;
+  const copyLink = useCallback(cardOverride => {
+    const cardToShare = cardOverride || card;
+    if (!cardToShare?.requestUri) return;
 
-    Clipboard.setString(card.requestUri);
+    Clipboard.setString(cardToShare.requestUri);
     setCopied(true);
     AccessibilityInfo.announceForAccessibility(
       'Redeemable gift card link copied',
@@ -58,11 +59,12 @@ export const useGiftCardSharing = card => {
     }, 1400);
   }, [card]);
 
-  const shareNative = useCallback(async () => {
-    if (!card?.requestUri) return;
+  const shareNative = useCallback(async cardOverride => {
+    const cardToShare = cardOverride || card;
+    if (!cardToShare?.requestUri) return;
 
     try {
-      await Share.share({message: card.requestUri});
+      await Share.share({message: cardToShare.requestUri});
     } catch (error) {
       Alert.alert(
         'Unable to Share',
@@ -71,13 +73,14 @@ export const useGiftCardSharing = card => {
     }
   }, [card]);
 
-  const shareNfc = useCallback(async () => {
-    if (!card) return;
+  const shareNfc = useCallback(async cardOverride => {
+    const cardToShare = cardOverride || card;
+    if (!cardToShare) return;
 
     setNfcStatus('Preparing NFC writer...');
 
     try {
-      await writeDeeplinkUriToNfc(buildGiftCardNfcDeeplinkUri(card), {
+      await writeDeeplinkUriToNfc(buildGiftCardNfcDeeplinkUri(cardToShare), {
         onStatus: setNfcStatus,
       });
       Alert.alert('Success', 'Gift card written to NFC card.');

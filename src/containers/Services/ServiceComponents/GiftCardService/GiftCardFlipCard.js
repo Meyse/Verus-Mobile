@@ -180,6 +180,8 @@ const GiftCardFlipCard = ({
   copied,
   onCopyLink,
   onOpenQr,
+  onPrepareShare,
+  onRevealLink,
   onResetSharing,
   onShareNative,
   onWriteNfc,
@@ -244,7 +246,21 @@ const GiftCardFlipCard = ({
     [flipProgress, reduceMotionEnabled],
   );
 
-  const toggleLink = useCallback(() => {
+  const showSharingOptions = useCallback(async () => {
+    if (onPrepareShare) {
+      const prepared = await onPrepareShare();
+      if (!prepared) return;
+    }
+
+    setFace(true);
+  }, [onPrepareShare, setFace]);
+
+  const toggleLink = useCallback(async () => {
+    if (!linkRevealed && onRevealLink) {
+      const allowed = await onRevealLink();
+      if (!allowed) return;
+    }
+
     const nextRevealed = !linkRevealed;
     setLinkRevealed(nextRevealed);
     AccessibilityInfo.announceForAccessibility(
@@ -252,7 +268,7 @@ const GiftCardFlipCard = ({
         ? 'Redeemable gift card link revealed'
         : 'Redeemable gift card link hidden',
     );
-  }, [linkRevealed]);
+  }, [linkRevealed, onRevealLink]);
 
   const frontAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(flipProgress.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
@@ -368,7 +384,7 @@ const GiftCardFlipCard = ({
             accessibilityRole="button"
             disabled={busy}
             hitSlop={{top: 4, right: 4, bottom: 4, left: 4}}
-            onPress={() => setFace(true)}
+            onPress={showSharingOptions}
             style={[styles.shareButton, busy && styles.disabled]}>
             <Text style={styles.shareButtonText}>Share</Text>
           </TouchableOpacity>

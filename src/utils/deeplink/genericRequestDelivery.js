@@ -3,7 +3,6 @@ import base64url from 'base64url';
 import {Linking} from 'react-native';
 import {URL} from 'react-native-url-polyfill';
 import {
-  BigNumber,
   GENERIC_RESPONSE_DEEPLINK_VDXF_KEY,
   GenericRequest,
   GenericResponse,
@@ -14,6 +13,12 @@ import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {getSystemNameFromSystemId} from '../CoinData/CoinData';
 import {signGenericResponse} from '../api/channels/vrpc/callCreators';
 import {verifyGenericResponse} from '../api/channels/vrpc/requests/verifyGenericResponse';
+import {encryptGenericResponseDetails} from './genericResponse/encryptGenericResponseDetails';
+import {prepareGenericResponseForSigning} from './genericResponse/prepareGenericResponseForSigning';
+import {
+  assertNoPlaintextExtendedSpendingKey,
+  assertSecurePostResponseUri,
+} from './genericResponse/responseDeliverySecurity';
 
 export const GENERIC_REQUEST_DELIVERY_TYPES = {
   NONE: 'none',
@@ -95,11 +100,13 @@ export const parseGenericResponseBuffer = responseBufferString => {
   return response;
 };
 
-export const signAndVerifyGenericResponse = async response => {
-  response.createdAt = new BigNumber((Date.now() / 1000).toFixed(0));
-  response.handledBy = VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID;
-
-  response.setFlags();
+export const signAndVerifyGenericResponse = async (request, response) => {
+  await encryptGenericResponseDetails({request, response});
+  prepareGenericResponseForSigning({
+    request,
+    response,
+    handledBy: VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID,
+  });
 
   if (response.signature == null) {
     return null;
@@ -133,13 +140,22 @@ export const deliverGenericResponse = async (request, signedResponse) => {
     };
   }
 
+  assertNoPlaintextExtendedSpendingKey(signedResponse);
+
   if (deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
     const responseBuffer = signedResponse.toBuffer();
+    const secureResponseUri = assertSecurePostResponseUri(
+      deliveryInfo.uriString,
+    );
 
     try {
-      const postResult = await axios.post(deliveryInfo.uriString, responseBuffer, {
-        headers: {'Content-Type': 'application/octet-stream'},
-      });
+      const postResult = await axios.post(
+        secureResponseUri,
+        responseBuffer,
+        {
+          headers: {'Content-Type': 'application/octet-stream'},
+        },
+      );
 
       return {
         ...deliveryInfo,
@@ -206,6 +222,6 @@ export const completeGenericResponseDelivery = async ({
     };
   }
 
-  const signedResponse = await signAndVerifyGenericResponse(response);
+  const signedResponse = await signAndVerifyGenericResponse(request, response);
   return deliverGenericResponse(request, signedResponse);
 };

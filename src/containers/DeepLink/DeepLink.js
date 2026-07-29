@@ -32,7 +32,7 @@ import InvoiceInfo from './InvoiceInfo/InvoiceInfo';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { verifyIdentityUpdateRequest } from '../../utils/api/channels/vrpc/requests/verifyIdentityUpdateRequest';
 import { extractIdentityUpdateRequestSig } from '../../utils/api/channels/vrpc/requests/extractIdentityUpdateRequestSig';
-import { APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, DATA_TYPE_DEFINEDKEY, DefinedKey, IDENTITY_UPDATE_REQUEST_VDXF_KEY, nameAndParentAddrToIAddr, USER_DATA_REQUEST_VDXF_KEY } from 'verus-typescript-primitives';
+import { DATA_TYPE_DEFINEDKEY, DefinedKey, nameAndParentAddrToIAddr } from 'verus-typescript-primitives';
 import IdentityUpdateRequestInfo from './IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
 import { getIdentityContent } from '../../utils/api/channels/verusid/requests/getIdentityContent';
 import { capitalizeString } from '../../utils/stringUtils';
@@ -50,6 +50,10 @@ import {
   requestDelegatedSignerWallet,
   validateWithDelegatedSignerGate,
 } from '../../utils/deeplink/delegatedSignerGate';
+import {
+  assertExperimentalDeeplinkAllowed,
+  assertExperimentalGenericRequestAllowed,
+} from '../../utils/deeplink/experimentalDeeplinks';
 
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -97,21 +101,7 @@ const DeepLink = (props) => {
 
     const requiresDelegatedUserCheck = isDelegatedSignerRequest(request);
     
-    const experimentalRequestsAllowed = store.getState().settings.generalWalletSettings.enableExperimentalGenericRequests === true;
-
-    if (!experimentalRequestsAllowed) {
-      const hasExperimentalRequest = request.details.some(detail =>
-        detail.getIAddressKey() === IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid || 
-        detail.getIAddressKey() === APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid ||
-        detail.getIAddressKey() === DATA_PACKET_REQUEST_VDXF_KEY.vdxfid ||
-        detail.getIAddressKey() === USER_DATA_REQUEST_VDXF_KEY.vdxfid ||
-        detail.getIAddressKey() === DATA_PACKET_REQUEST_VDXF_KEY.vdxfid
-      );
-
-      if (hasExperimentalRequest) {
-        throw new Error("This type of request is currently experimental and disabled in your general wallet settings.");
-      }
-    }
+    assertExperimentalGenericRequestAllowed(request, store.getState());
 
     setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
 
@@ -544,6 +534,8 @@ const DeepLink = (props) => {
 
   const processDeeplink = async () => {
     try {
+      assertExperimentalDeeplinkAllowed(deeplinkId, store.getState());
+
       switch (deeplinkId) {
         case primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid:
           await processVerusPayInvoice();

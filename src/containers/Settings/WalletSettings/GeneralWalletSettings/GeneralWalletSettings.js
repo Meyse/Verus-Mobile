@@ -282,7 +282,8 @@ const GeneralWalletSettings = () => {
           />
           <SettingsSwitchRow
             busy={isSaving('enableExperimentalGenericRequests')}
-            description="Allow deeplinks for identity update, app encryption, and other experimental features"
+            description="Allow deeplinks that include experimental features (identity update, app encryption, credentials, data packets, etc.)"
+            descriptionNumberOfLines={100}
             icon="link-variant"
             last
             onValueChange={value =>

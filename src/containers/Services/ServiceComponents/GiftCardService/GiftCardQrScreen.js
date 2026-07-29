@@ -23,7 +23,10 @@ import {fontStyle} from '../../../../globals/fonts';
 import {useAppTheme} from '../../../../theme/app';
 import {requestServiceStoredData} from '../../../../utils/auth/authBox';
 import {GIFT_CARD_SERVICE_ID} from '../../../../utils/constants/services';
-import {normalizeGiftCardServiceData} from '../../../../utils/giftCard/giftCard';
+import {
+  hasGiftCardBeenShared,
+  normalizeGiftCardServiceData,
+} from '../../../../utils/giftCard/giftCard';
 
 const VERUS_LOGO = require('../../../../images/customIcons/Verus.png');
 
@@ -56,7 +59,10 @@ const GiftCardQrScreen = ({navigation, route}) => {
 
       if (loadGenerationRef.current !== loadGeneration) return;
 
-      if (!storedCard?.requestUri) {
+      if (
+        !storedCard?.requestUri ||
+        !hasGiftCardBeenShared(storedCard)
+      ) {
         setLoadError(true);
       } else {
         setCard(storedCard);

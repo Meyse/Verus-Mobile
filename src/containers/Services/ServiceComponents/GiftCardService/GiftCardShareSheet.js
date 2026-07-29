@@ -14,7 +14,12 @@ import {
   useGiftCardSharing,
 } from './GiftCardShareController';
 
-const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
+const GiftCardShareSheet = ({
+  card,
+  onAuthorizeShare,
+  onClose,
+  onOpenQr,
+}) => {
   const theme = useAppTheme();
   const pendingQrCardIdRef = useRef(null);
   const [qrPending, setQrPending] = useState(false);
@@ -26,13 +31,29 @@ const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
     shareNfc,
   } = useGiftCardSharing(card);
 
-  const openQr = useCallback(() => {
+  const authorizeShare = useCallback(
+    async action => {
+      const authorizedCard = onAuthorizeShare
+        ? await onAuthorizeShare(card)
+        : card;
+
+      if (!authorizedCard) return false;
+
+      await action(authorizedCard);
+      return true;
+    },
+    [card, onAuthorizeShare],
+  );
+
+  const openQr = useCallback(async () => {
     if (!card?.id || pendingQrCardIdRef.current) return;
 
-    pendingQrCardIdRef.current = card.id;
-    setQrPending(true);
-    onClose();
-  }, [card?.id, onClose]);
+    await authorizeShare(authorizedCard => {
+      pendingQrCardIdRef.current = authorizedCard.id;
+      setQrPending(true);
+      onClose();
+    });
+  }, [authorizeShare, card?.id, onClose]);
 
   const handleClosed = useCallback(() => {
     const pendingCardId = pendingQrCardIdRef.current;
@@ -89,8 +110,8 @@ const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
             />
             <Text
               style={[styles.warningText, {color: theme.colors.textSecondary}]}>
-              Anyone with this redeemable link can claim this gift card and
-              funds added to it later.
+              Sharing exposes the spendable gift-card key. This card cannot be
+              funded again after it is shared.
               {card?.encrypted
                 ? ' The claim password is a separate secret and cannot be recovered.'
                 : ''}
@@ -129,7 +150,7 @@ const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
                 : 'Copy redeemable gift card link'
             }
             accessibilityRole="button"
-            onPress={copyLink}
+            onPress={() => authorizeShare(copyLink)}
             style={[
               styles.actionRow,
               {borderBottomColor: theme.colors.border},
@@ -152,7 +173,7 @@ const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
 
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={shareNative}
+            onPress={() => authorizeShare(shareNative)}
             style={[
               styles.actionRow,
               {borderBottomColor: theme.colors.border},
@@ -175,7 +196,7 @@ const GiftCardShareSheet = ({card, onClose, onOpenQr}) => {
 
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={shareNfc}
+            onPress={() => authorizeShare(shareNfc)}
             style={styles.actionRow}>
             <MaterialCommunityIcons
               color={theme.colors.primary}

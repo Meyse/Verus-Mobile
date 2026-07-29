@@ -84,7 +84,10 @@ const GenericRequestComplete = props => {
       const deliveryInfo = getGenericRequestDeliveryInfo(request);
 
       if (deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
-        return "Your response will be sent to the requester";
+        const responseLabel = request.hasEncryptResponseToAddress()
+          ? 'Your encrypted response'
+          : 'Your response';
+        return `${responseLabel} will be sent to ${deliveryInfo.destinationHost}`;
       }
 
       if (deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT) {

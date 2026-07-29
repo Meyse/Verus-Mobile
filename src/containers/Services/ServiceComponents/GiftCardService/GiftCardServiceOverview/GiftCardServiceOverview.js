@@ -34,13 +34,18 @@ import {SET_DEEPLINK_DATA} from '../../../../../utils/constants/storeType';
 import {GIFT_CARD_SERVICE_ID} from '../../../../../utils/constants/services';
 import {
   canDeleteGiftCard,
+  getGiftCardClaimInfo,
+  getGiftCardIdentityLookupErrors,
   getGiftCardPendingFundings,
+  hasGiftCardBeenShared,
   hasGiftCardClaims,
   hasPendingGiftCardFunding,
+  markGiftCardShared,
   normalizeGiftCardServiceData,
   refreshGiftCardStatus,
   removeGiftCard,
   upsertGiftCard,
+  upsertGiftCardIfUnchanged,
 } from '../../../../../utils/giftCard/giftCard';
 import {
   GIFT_CARD_DISPLAY_STATUS_NOT_FUNDED,
@@ -107,6 +112,30 @@ const getContentsSummary = card => {
   }
   if (contents.length <= 2) return contents.join(' · ');
   return `${contents.slice(0, 2).join(' · ')} +${contents.length - 2}`;
+};
+
+const formatCardDateTime = timestamp => {
+  if (!timestamp) return '';
+
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch (_) {
+    return '';
+  }
+};
+
+const truncateAddress = address => {
+  if (!address || address.length <= 22) return address || '';
+  return `${address.slice(0, 10)}...${address.slice(-8)}`;
+};
+
+const getClaimedByLabel = claimInfo => {
+  const addresses = claimInfo?.claimedByAddresses || [];
+
+  if (addresses.length === 0) return 'recipient unavailable';
+  if (addresses.length === 1) return truncateAddress(addresses[0]);
+
+  return `${truncateAddress(addresses[0])} +${addresses.length - 1} more`;
 };
 
 const getRefreshComparableCard = card => {
@@ -184,6 +213,7 @@ const GiftCardServiceOverview = ({
   const cancelRequestGenerationRef = useRef(0);
   const qrNavigationPendingRef = useRef(false);
   const refreshAllRunningRef = useRef(false);
+  const refreshGenerationRef = useRef(0);
   const normalizedData = normalizeGiftCardServiceData(serviceData);
   const cards = useMemo(
     () =>
@@ -206,12 +236,12 @@ const GiftCardServiceOverview = ({
       qrNavigationPendingRef.current = false;
     }, []),
   );
-  const openQr = useCallback(() => {
-    if (!selectedCard?.id || qrNavigationPendingRef.current) return;
+  const navigateToQr = useCallback(cardToShare => {
+    if (!cardToShare?.id || qrNavigationPendingRef.current) return;
 
     qrNavigationPendingRef.current = true;
-    navigation.navigate('GiftCardQr', {cardId: selectedCard.id});
-  }, [navigation, selectedCard?.id]);
+    navigation.navigate('GiftCardQr', {cardId: cardToShare.id});
+  }, [navigation]);
   const visibleCards = useMemo(
     () =>
       filter === STATUS_ALL
@@ -233,22 +263,28 @@ const GiftCardServiceOverview = ({
   }, [selectedCardId]);
 
   const saveCard = useCallback(
-    async card => {
-      await saveServiceData(upsertGiftCard(normalizedData, card));
+    async (card, expectedCard = null) => {
+      const savedData = await saveServiceData(currentData => {
+        return expectedCard == null
+          ? upsertGiftCard(currentData, card)
+          : upsertGiftCardIfUnchanged(currentData, expectedCard, card);
+      });
+
+      return savedData.cards?.[card.id] || null;
     },
-    [normalizedData, saveServiceData],
+    [saveServiceData],
   );
 
   const refreshAllCards = useCallback(async () => {
     const cardList = Object.values(normalizedData.cards || {});
+    const refreshGeneration = refreshGenerationRef.current;
 
     if (cardList.length === 0 || refreshAllRunningRef.current) return;
 
     refreshAllRunningRef.current = true;
 
     try {
-      let nextData = normalizedData;
-      let changed = false;
+      const refreshes = [];
 
       for (const card of cardList) {
         try {
@@ -261,16 +297,31 @@ const GiftCardServiceOverview = ({
             getRefreshComparableCard(refreshed) !==
             getRefreshComparableCard(card)
           ) {
-            nextData = upsertGiftCard(nextData, refreshed);
-            changed = true;
+            refreshes.push({
+              expectedCard: card,
+              refreshedCard: refreshed,
+            });
           }
         } catch (e) {
           console.warn(e.message);
         }
       }
 
-      if (changed) {
-        await saveServiceData(nextData);
+      if (
+        refreshes.length > 0 &&
+        refreshGeneration === refreshGenerationRef.current
+      ) {
+        await saveServiceData(currentData =>
+          refreshes.reduce(
+            (nextData, refresh) =>
+              upsertGiftCardIfUnchanged(
+                nextData,
+                refresh.expectedCard,
+                refresh.refreshedCard,
+              ),
+            currentData,
+          ),
+        );
       }
     } finally {
       refreshAllRunningRef.current = false;
@@ -281,6 +332,8 @@ const GiftCardServiceOverview = ({
     let refreshInterval = null;
 
     const stopRefreshInterval = () => {
+      refreshGenerationRef.current += 1;
+
       if (refreshInterval != null) {
         clearInterval(refreshInterval);
         refreshInterval = null;
@@ -329,8 +382,8 @@ const GiftCardServiceOverview = ({
           activeCoinsForUser,
         });
 
-        await saveCard(refreshed);
-        return refreshed;
+        const savedCard = await saveCard(refreshed, card);
+        return savedCard || refreshed;
       } catch (e) {
         console.error(e);
         Alert.alert(
@@ -345,7 +398,135 @@ const GiftCardServiceOverview = ({
     [activeCoinsForUser, saveCard],
   );
 
+  const prepareCardForSharing = useCallback(
+    async card => {
+      if (hasGiftCardBeenShared(card)) return card;
+
+      const refreshed = await refreshGiftCardStatus({
+        card,
+        activeCoinsForUser,
+      });
+      const savedCard = await saveCard(refreshed, card);
+      const latestCard = savedCard || refreshed;
+
+      if (hasPendingGiftCardFunding(latestCard)) {
+        throw new Error(
+          'Wait for funding transactions to confirm before sharing this gift card.',
+        );
+      }
+
+      if (!hasGiftCardClaims(latestCard)) {
+        throw new Error(
+          'Fund this gift card and wait for confirmation before sharing it.',
+        );
+      }
+
+      return latestCard;
+    },
+    [activeCoinsForUser, saveCard],
+  );
+
+  const markCardSharedForAction = useCallback(
+    async card => {
+      const savedData = await saveServiceData(currentData => {
+        const normalized = normalizeGiftCardServiceData(currentData);
+        const currentCard = normalized.cards?.[card.id];
+
+        if (!currentCard) {
+          throw new Error('Gift card is no longer available.');
+        }
+
+        if (hasGiftCardBeenShared(currentCard)) {
+          return normalized;
+        }
+
+        if (hasPendingGiftCardFunding(currentCard)) {
+          throw new Error(
+            'Wait for funding transactions to confirm before sharing this gift card.',
+          );
+        }
+
+        if (!hasGiftCardClaims(currentCard)) {
+          throw new Error(
+            'Fund this gift card and wait for confirmation before sharing it.',
+          );
+        }
+
+        return upsertGiftCard(
+          normalized,
+          markGiftCardShared(currentCard),
+        );
+      });
+      const sharedCard = savedData.cards?.[card.id];
+
+      if (!hasGiftCardBeenShared(sharedCard)) {
+        throw new Error(
+          'Gift card state changed before it could be marked as shared.',
+        );
+      }
+
+      return sharedCard;
+    },
+    [saveServiceData],
+  );
+
+  const prepareShareOptions = useCallback(
+    async card => {
+      if (!card) return false;
+
+      setBusyCardId(card.id);
+
+      try {
+        await prepareCardForSharing(card);
+        return true;
+      } catch (e) {
+        console.error(e);
+        Alert.alert(
+          'Unable to share',
+          e.message || 'Unable to prepare gift card.',
+        );
+        return false;
+      } finally {
+        setBusyCardId(null);
+      }
+    },
+    [prepareCardForSharing],
+  );
+
+  const runShareAction = useCallback(
+    async (card, action) => {
+      if (!card) return false;
+
+      setBusyCardId(card.id);
+
+      try {
+        const preparedCard = await prepareCardForSharing(card);
+        const sharedCard = await markCardSharedForAction(preparedCard);
+        await action(sharedCard);
+        return true;
+      } catch (e) {
+        console.error(e);
+        Alert.alert(
+          'Unable to share',
+          e.message || 'Unable to share gift card.',
+        );
+        return false;
+      } finally {
+        setBusyCardId(null);
+      }
+    },
+    [markCardSharedForAction, prepareCardForSharing],
+  );
+
   const openFunding = async (card, routeParams = {}) => {
+    if (hasGiftCardBeenShared(card)) {
+      Alert.alert(
+        'Already shared',
+        'Shared gift cards cannot be funded. Create a new gift card instead.',
+      );
+      return;
+    }
+
     if (hasPendingGiftCardFunding(card)) {
       Alert.alert(
         'Pending Funding',
@@ -361,6 +542,14 @@ const GiftCardServiceOverview = ({
 
     try {
       const refreshed = await refreshCard(card);
+
+      if (hasGiftCardBeenShared(refreshed)) {
+        Alert.alert(
+          'Already shared',
+          'Shared gift cards cannot be funded. Create a new gift card instead.',
+        );
+        return;
+      }
 
       if (hasPendingGiftCardFunding(refreshed)) {
         Alert.alert(
@@ -399,11 +588,12 @@ const GiftCardServiceOverview = ({
         activeCoinsForUser,
       });
 
-      await saveCard(refreshed);
+      const savedCard = await saveCard(refreshed, card);
+      const latestCard = savedCard || refreshed;
 
       if (requestGeneration !== cancelRequestGenerationRef.current) return;
 
-      if (hasPendingGiftCardFunding(refreshed)) {
+      if (hasPendingGiftCardFunding(latestCard)) {
         setCancelPreparation({
           status: GIFT_CARD_CANCEL_STATUS.PENDING,
           card: null,
@@ -411,7 +601,7 @@ const GiftCardServiceOverview = ({
         return;
       }
 
-      if (!hasGiftCardClaims(refreshed)) {
+      if (!hasGiftCardClaims(latestCard)) {
         setCancelPreparation({
           status: GIFT_CARD_CANCEL_STATUS.EMPTY,
           card: null,
@@ -421,7 +611,7 @@ const GiftCardServiceOverview = ({
 
       setCancelPreparation({
         status: GIFT_CARD_CANCEL_STATUS.READY,
-        card: refreshed,
+        card: latestCard,
       });
     } catch (e) {
       console.error(e);
@@ -474,7 +664,7 @@ const GiftCardServiceOverview = ({
       });
 
       if (!canDeleteGiftCard(refreshed)) {
-        await saveCard(refreshed);
+        await saveCard(refreshed, card);
         Alert.alert(
           'Cannot Delete',
           'This gift card still has funds, VerusIDs, or pending funding.',
@@ -482,7 +672,9 @@ const GiftCardServiceOverview = ({
         return;
       }
 
-      await saveServiceData(removeGiftCard(normalizedData, card.id));
+      await saveServiceData(currentData =>
+        removeGiftCard(currentData, card.id),
+      );
       setSelectedCardId(null);
     } catch (e) {
       console.error(e);
@@ -714,8 +906,13 @@ const GiftCardServiceOverview = ({
     const addresses = Object.entries(card.addressesBySystem || {});
     const systemRows = getSystemRows(card);
     const presentation = getGiftCardPresentation(card);
+    const claimInfo = getGiftCardClaimInfo(card);
+    const claimedAt = formatCardDateTime(claimInfo?.claimedAt);
+    const identityLookupErrors = getGiftCardIdentityLookupErrors(card);
+    const shared = hasGiftCardBeenShared(card);
     const fundingAvailable =
-      status === STATUS_NOT_FUNDED || status === STATUS_READY;
+      !shared &&
+      (status === STATUS_NOT_FUNDED || status === STATUS_READY);
     const contentsSummary =
       presentation.confirmedItemCount === 0
         ? 'No confirmed contents'
@@ -826,11 +1023,15 @@ const GiftCardServiceOverview = ({
             busy={busy}
             card={card}
             copied={copied}
-            onCopyLink={copyLink}
-            onOpenQr={openQr}
+            onCopyLink={() => runShareAction(card, copyLink)}
+            onOpenQr={() => runShareAction(card, navigateToQr)}
+            onPrepareShare={() => prepareShareOptions(card)}
+            onRevealLink={() =>
+              runShareAction(card, async () => {})
+            }
             onResetSharing={resetSharing}
-            onShareNative={shareNative}
-            onWriteNfc={shareNfc}
+            onShareNative={() => runShareAction(card, shareNative)}
+            onWriteNfc={() => runShareAction(card, shareNfc)}
             presentation={presentation}
           />
 
@@ -842,6 +1043,71 @@ const GiftCardServiceOverview = ({
                   {color: theme.colors.textSecondary},
                 ]}>
                 This gift card has been redeemed and cannot be funded again.
+              </Text>
+            </View>
+          ) : null}
+
+          {claimInfo != null ? (
+            <View
+              style={[
+                styles.claimNotice,
+                {
+                  backgroundColor: theme.colors.successBackground,
+                  borderColor: theme.colors.success,
+                },
+              ]}>
+              <MaterialCommunityIcons
+                color={theme.colors.success}
+                name="account-check-outline"
+                size={19}
+              />
+              <View style={styles.claimNoticeCopy}>
+                <Text
+                  style={[
+                    styles.claimNoticeTitle,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  Claimed by {getClaimedByLabel(claimInfo)}
+                </Text>
+                <Text
+                  style={[
+                    styles.claimNoticeBody,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {claimedAt
+                    ? `Claimed at ${claimedAt}`
+                    : claimInfo.height
+                    ? `Claimed at block ${claimInfo.height}`
+                    : 'Claim time unavailable'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {claimInfo == null &&
+          systemRows.length === 0 &&
+          identityLookupErrors.length > 0 ? (
+            <View
+              style={[
+                styles.lookupWarning,
+                {
+                  backgroundColor: theme.colors.warningBackground,
+                  borderColor: theme.colors.warning,
+                },
+              ]}>
+              <MaterialCommunityIcons
+                color={theme.colors.warning}
+                name="database-alert-outline"
+                size={19}
+              />
+              <Text
+                style={[
+                  styles.lookupWarningText,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                VerusID lookup is unavailable on this endpoint. Identity-only
+                cards funded outside this wallet require an endpoint started
+                with -idindex=1.
               </Text>
             </View>
           ) : null}
@@ -1303,6 +1569,46 @@ const styles = StyleSheet.create({
   statusGuidanceText: {
     fontSize: 13,
     lineHeight: 19,
+    ...fontStyle('regular'),
+  },
+  claimNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 18,
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+  },
+  claimNoticeCopy: {
+    minWidth: 0,
+    flex: 1,
+  },
+  claimNoticeTitle: {
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  claimNoticeBody: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
+    ...fontStyle('regular'),
+  },
+  lookupWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 18,
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+  },
+  lookupWarningText: {
+    minWidth: 0,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
     ...fontStyle('regular'),
   },
   flatSections: {
