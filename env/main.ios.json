@@ -22,6 +22,7 @@
   "ENABLE_VRPC": true,
   "ENABLE_VERUSID": true,
   "ENABLE_SIGNED_IN_REDESIGN": true,
+  "ALLOW_HTTP_GENERIC_RESPONSE_POSTS": true,
 
   "SERVICES_DISABLED_DEFAULT": {
     "wyre_service": true,
