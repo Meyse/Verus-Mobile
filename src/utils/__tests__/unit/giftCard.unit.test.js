@@ -166,16 +166,22 @@ const {
   GIFT_CARD_STATUS_FUNDED,
   GIFT_CARD_STATUS_REDEEMED,
   addGiftCardPendingFunding,
+  beginGiftCardShare,
   buildGiftCardNfcDeeplinkUri,
   canDeleteGiftCard,
+  cancelGiftCardShare,
+  completeGiftCardShare,
   createGiftCard,
   discoverGiftCardIdentityFunds,
+  GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS,
   getGiftCardClaimInfo,
   getGiftCardPendingFundings,
   getGiftCardFundingTopups,
   getGiftCardMnemonic,
   getSubmittedGiftCardFundingIdentities,
   hasGiftCardBeenShared,
+  hasGiftCardShareInProgress,
+  hasGiftCardShareReservation,
   hasPendingGiftCardFunding,
   markGiftCardShared,
   normalizeGiftCardServiceData,
@@ -258,6 +264,7 @@ describe('gift card helpers', () => {
     );
     expect(card.mnemonic).toBeUndefined();
     expect(card.sharedAt).toBeNull();
+    expect(card.shareAttempt).toBeNull();
     expect(card.requestUri).toMatch(/^verus:\/\//);
     expect(canDeleteGiftCard(card)).toBe(true);
     expect(parseGiftCardRequest(card).spendableKeyOrdinal).toBeInstanceOf(
@@ -310,6 +317,7 @@ describe('gift card helpers', () => {
     expect(removedClaimed.cards[newCard.id]).toEqual({
       ...newCard,
       sharedAt: null,
+      shareAttempt: null,
     });
     expect(Object.values(upserted.cards)).toHaveLength(1);
     expect(upserted.cards[newCard.id].label).toBe('Same Label');
@@ -338,11 +346,97 @@ describe('gift card helpers', () => {
     ).toBe(firstSharedAt);
   });
 
+  it('reserves, completes, and rolls back gift card share attempts', () => {
+    const baseCard = {
+      id: 'share-attempt-card',
+      sharedAt: null,
+      shareAttempt: null,
+      updatedAt: 1,
+    };
+    const startedCard = beginGiftCardShare(
+      baseCard,
+      'share-attempt-1',
+      1710000000000,
+    );
+
+    expect(
+      hasGiftCardShareInProgress(startedCard, 1710000000001),
+    ).toBe(true);
+    expect(hasGiftCardBeenShared(startedCard)).toBe(false);
+    expect(() =>
+      beginGiftCardShare(
+        startedCard,
+        'share-attempt-2',
+        1710000000001,
+      ),
+    ).toThrow('sharing is in progress');
+
+    const cancelledCard = cancelGiftCardShare(
+      startedCard,
+      'share-attempt-1',
+    );
+
+    expect(cancelledCard.shareAttempt).toBeNull();
+    expect(
+      hasGiftCardShareInProgress(cancelledCard, 1710000000002),
+    ).toBe(false);
+
+    const restartedCard = beginGiftCardShare(
+      cancelledCard,
+      'share-attempt-2',
+      1710000000003,
+    );
+    const sharedCard = completeGiftCardShare(
+      restartedCard,
+      'share-attempt-2',
+      1710000000004,
+    );
+
+    expect(sharedCard.shareAttempt).toBeNull();
+    expect(sharedCard.sharedAt).toBe(1710000000004);
+    expect(hasGiftCardBeenShared(sharedCard)).toBe(true);
+  });
+
+  it('treats abandoned gift card share attempts as stale', () => {
+    const startedAt = 1710000000000;
+    const card = beginGiftCardShare(
+      {
+        id: 'stale-share-attempt-card',
+        sharedAt: null,
+      },
+      'stale-share-attempt',
+      startedAt,
+    );
+
+    expect(
+      hasGiftCardShareInProgress(
+        card,
+        startedAt + GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS - 1,
+      ),
+    ).toBe(true);
+    expect(
+      hasGiftCardShareInProgress(
+        card,
+        startedAt + GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS,
+      ),
+    ).toBe(false);
+    expect(hasGiftCardShareReservation(card)).toBe(true);
+
+    expect(
+      beginGiftCardShare(
+        card,
+        'replacement-share-attempt',
+        startedAt + GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS,
+      ).shareAttempt.id,
+    ).toBe('replacement-share-attempt');
+  });
+
   it('does not overwrite a card changed after a status refresh began', () => {
     const sourceCard = {
       id: 'card-id',
       label: 'Gift',
       sharedAt: null,
+      shareAttempt: null,
       updatedAt: 1,
       status: {state: 'new'},
       fundingHistory: [],
@@ -370,6 +464,41 @@ describe('gift card helpers', () => {
         refreshedCard,
       ).cards[sourceCard.id],
     ).toEqual(currentCard);
+  });
+
+  it('does not overwrite a share reservation with a stale card update', () => {
+    const sourceCard = {
+      id: 'share-cas-card',
+      label: 'Gift',
+      sharedAt: null,
+      shareAttempt: null,
+      updatedAt: 1,
+      status: {state: 'funded'},
+      fundingHistory: [],
+    };
+    const reservedCard = beginGiftCardShare(
+      sourceCard,
+      'active-share-attempt',
+      Date.now(),
+    );
+    const staleUpdate = {
+      ...sourceCard,
+      label: 'Stale update',
+      updatedAt: 2,
+    };
+    const serviceData = {
+      cards: {
+        [sourceCard.id]: reservedCard,
+      },
+    };
+
+    expect(
+      upsertGiftCardIfUnchanged(
+        serviceData,
+        sourceCard,
+        staleUpdate,
+      ).cards[sourceCard.id],
+    ).toEqual(reservedCard);
   });
 
   it('creates encrypted gift cards that require the claim password', async () => {
@@ -571,6 +700,53 @@ describe('gift card helpers', () => {
         },
       }),
     ).rejects.toThrow('Shared gift cards cannot be funded');
+  });
+
+  it('rejects funding while gift card sharing is in progress', async () => {
+    const card = beginGiftCardShare(
+      {
+        id: 'sharing-card',
+        sharedAt: null,
+      },
+      'active-share-attempt',
+      Date.now(),
+    );
+
+    await expect(
+      preflightGiftCardFunding({
+        card,
+        selections: {
+          funds: [],
+          identities: [],
+        },
+      }),
+    ).rejects.toThrow('sharing is in progress');
+  });
+
+  it('keeps funding blocked after an interrupted share attempt becomes stale', async () => {
+    const startedAt =
+      Date.now() - GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS - 1;
+    const card = beginGiftCardShare(
+      {
+        id: 'interrupted-share-card',
+        sharedAt: null,
+      },
+      'interrupted-share-attempt',
+      startedAt,
+    );
+
+    expect(hasGiftCardShareInProgress(card)).toBe(false);
+    expect(hasGiftCardShareReservation(card)).toBe(true);
+
+    await expect(
+      preflightGiftCardFunding({
+        card,
+        selections: {
+          funds: [],
+          identities: [],
+        },
+      }),
+    ).rejects.toThrow('sharing is in progress');
   });
 
   it('rejects gift card funding transactions that exceed the planned fee', async () => {

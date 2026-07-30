@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import {Buffer} from 'buffer';
 import {entropyToMnemonic} from 'bip39';
+import {v4 as uuidv4} from 'uuid';
 import {
   CreateWalletBackupDetails,
   CreateWalletBackupDetailsOrdinalVDXFObject,
@@ -64,6 +65,9 @@ export const GIFT_CARD_FUNDING_IDENTITY = 'identity';
 export const GIFT_CARD_FUNDING_BOTH = 'both';
 export const GIFT_CARD_FUNDING_STATUS_PENDING = 'pending';
 export const GIFT_CARD_FUNDING_STATUS_CONFIRMED = 'confirmed';
+export const GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS = 10 * 60 * 1000;
+export const GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE =
+  'Gift card sharing is in progress. Wait for it to finish before funding.';
 
 const DEFAULT_LABEL = 'Gift Card';
 const IDENTITY_DEFINITION_FIELDS = [
@@ -612,6 +616,7 @@ export const createGiftCard = async ({
     encrypted,
     kdfIters: encrypted ? Number(kdfIters) : 0,
     sharedAt: null,
+    shareAttempt: null,
     requestUri,
     requestBufferString,
     addressesBySystem: derived.addressesBySystem,
@@ -722,6 +727,73 @@ export const hasGiftCardBeenShared = card => {
   return Number.isFinite(sharedAt) && sharedAt > 0;
 };
 
+export const getGiftCardShareAttempt = card => {
+  if (hasGiftCardBeenShared(card)) return null;
+
+  const attemptId = card?.shareAttempt?.id;
+  const startedAt = Number(card?.shareAttempt?.startedAt);
+
+  if (
+    typeof attemptId !== 'string' ||
+    attemptId.length === 0 ||
+    !Number.isFinite(startedAt) ||
+    startedAt <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    id: attemptId,
+    startedAt,
+  };
+};
+
+export const hasGiftCardShareReservation = card => {
+  return getGiftCardShareAttempt(card) != null;
+};
+
+export const hasGiftCardShareInProgress = (card, now = Date.now()) => {
+  const attempt = getGiftCardShareAttempt(card);
+  const currentTime = Number(now);
+
+  if (attempt == null || !Number.isFinite(currentTime)) return false;
+  if (attempt.startedAt > currentTime) return true;
+
+  return (
+    currentTime - attempt.startedAt < GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS
+  );
+};
+
+export const beginGiftCardShare = (
+  card,
+  attemptId = uuidv4(),
+  startedAt = Date.now(),
+) => {
+  if (hasGiftCardBeenShared(card)) return card;
+  if (hasGiftCardShareInProgress(card, startedAt)) {
+    throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
+  }
+
+  if (typeof attemptId !== 'string' || attemptId.length === 0) {
+    throw new Error('Gift card share attempt must have an id.');
+  }
+
+  const normalizedStartedAt = Number(startedAt);
+
+  if (!Number.isFinite(normalizedStartedAt) || normalizedStartedAt <= 0) {
+    throw new Error('Gift card share attempt must have a valid start time.');
+  }
+
+  return {
+    ...card,
+    shareAttempt: {
+      id: attemptId,
+      startedAt: normalizedStartedAt,
+    },
+    updatedAt: normalizedStartedAt,
+  };
+};
+
 export const markGiftCardShared = (card, sharedAt = Date.now()) => {
   if (hasGiftCardBeenShared(card)) return card;
 
@@ -734,6 +806,40 @@ export const markGiftCardShared = (card, sharedAt = Date.now()) => {
   return {
     ...card,
     sharedAt: normalizedSharedAt,
+    updatedAt: Date.now(),
+  };
+};
+
+export const completeGiftCardShare = (
+  card,
+  attemptId,
+  sharedAt = Date.now(),
+) => {
+  if (hasGiftCardBeenShared(card)) {
+    return card?.shareAttempt == null
+      ? card
+      : {
+          ...card,
+          shareAttempt: null,
+        };
+  }
+
+  if (card?.shareAttempt?.id !== attemptId) {
+    throw new Error('Gift card share attempt is no longer active.');
+  }
+
+  return {
+    ...markGiftCardShared(card, sharedAt),
+    shareAttempt: null,
+  };
+};
+
+export const cancelGiftCardShare = (card, attemptId) => {
+  if (card?.shareAttempt?.id !== attemptId) return card;
+
+  return {
+    ...card,
+    shareAttempt: null,
     updatedAt: Date.now(),
   };
 };
@@ -2010,6 +2116,10 @@ export const preflightGiftCardFunding = async ({
     );
   }
 
+  if (hasGiftCardShareReservation(card)) {
+    throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
+  }
+
   if (card?.status?.state === GIFT_CARD_STATUS_REDEEMED || card?.status?.redeemed) {
     throw new Error('Redeemed gift cards cannot be funded.');
   }
@@ -2199,6 +2309,7 @@ const normalizeGiftCardCards = cards => {
       ...card,
       id: cardId,
       sharedAt: hasGiftCardBeenShared(card) ? Number(card.sharedAt) : null,
+      shareAttempt: getGiftCardShareAttempt(card),
     };
 
     return normalizedCards;
@@ -2247,6 +2358,7 @@ const getGiftCardPersistenceSnapshot = card => {
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
     sharedAt: hasGiftCardBeenShared(card) ? Number(card.sharedAt) : null,
+    shareAttempt: getGiftCardShareAttempt(card),
     requestIsTestnet: card.requestIsTestnet,
     encrypted: card.encrypted,
     kdfIters: card.kdfIters,

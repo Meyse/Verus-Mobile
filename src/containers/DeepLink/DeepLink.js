@@ -1,5 +1,5 @@
 import { CommonActions } from '@react-navigation/native';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import AnimatedActivityIndicatorBox from '../../components/AnimatedActivityIndicatorBox';
@@ -68,8 +68,10 @@ const DeepLink = (props) => {
     GENERIC_REQUEST_LOADING_STEPS.READ
   )
   const dispatch = useDispatch()
+  const processGenerationRef = useRef(0)
 
   const cancel = () => {
+    processGenerationRef.current += 1
     let resetAction
 
     if (signedIn) {
@@ -92,7 +94,7 @@ const DeepLink = (props) => {
     props.navigation.dispatch(resetAction);
   }
 
-  const processGenericRequest = async () => {
+  const processGenericRequest = async processGeneration => {
     setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.READ);
 
     const request = new primitives.GenericRequest();
@@ -127,6 +129,8 @@ const DeepLink = (props) => {
       validateRequest: () => validateGenericRequest(request),
       unlockForDelegatedSigner,
     });
+
+    if (processGenerationRef.current !== processGeneration) return;
 
     if (
       validationResult.outcome ===
@@ -532,7 +536,7 @@ const DeepLink = (props) => {
     }
   }
 
-  const processDeeplink = async () => {
+  const processDeeplink = async processGeneration => {
     try {
       assertExperimentalDeeplinkAllowed(deeplinkId, store.getState());
 
@@ -541,7 +545,7 @@ const DeepLink = (props) => {
           await processVerusPayInvoice();
           break;
         case primitives.GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid:
-          await processGenericRequest();
+          await processGenericRequest(processGeneration);
           break;
         case primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid:
           await processLoginConsentRequest();
@@ -555,6 +559,8 @@ const DeepLink = (props) => {
           break;
       }
     } catch (e) {
+      if (processGenerationRef.current !== processGeneration) return;
+
       console.error(e)
 
       createAlert('Error', e.message);
@@ -563,7 +569,13 @@ const DeepLink = (props) => {
   };
 
   useEffect(() => {
-    processDeeplink()
+    const processGeneration = processGenerationRef.current + 1
+    processGenerationRef.current = processGeneration
+    processDeeplink(processGeneration)
+
+    return () => {
+      processGenerationRef.current += 1
+    }
   }, [])
 
   const screens = {

@@ -63,6 +63,10 @@ import {
 import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../utils/settings/settingsLabels';
 import {processAppEncryptionRequest} from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
+import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericRequestDeliveryInfo,
+} from '../../../utils/deeplink/genericRequestDelivery';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {
@@ -107,14 +111,6 @@ const getUriString = uri => {
   if (!uri) return null;
   if (typeof uri.getUriString === 'function') return uri.getUriString();
   return String(uri);
-};
-
-const getUriDisplayHost = uri => {
-  const uriString = getUriString(uri);
-  if (!uriString) return null;
-
-  const hostMatch = uriString.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i);
-  return hostMatch ? hostMatch[1] : uriString;
 };
 
 const getLinkedAddressSet = linkedIds => {
@@ -308,7 +304,16 @@ const AppEncryptionRequestInfoContent = props => {
       : []),
     [request],
   );
-  const websiteLabel = getUriDisplayHost(responseUris[0]);
+  const deliveryInfo = useMemo(
+    () => getGenericRequestDeliveryInfo(request),
+    [request],
+  );
+  const deliveryMethod =
+    deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST
+      ? 'Secure POST'
+      : deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT
+      ? 'Redirect'
+      : null;
   const [linkedIds, setLinkedIds] = useState({});
   const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
   const [selectedIdentity, setSelectedIdentity] = useState(null);
@@ -782,7 +787,13 @@ const AppEncryptionRequestInfoContent = props => {
   const requesterMetadataRows = [
     systemLabel ? {label: 'Network', value: systemLabel} : null,
     sigDateString ? {label: 'Signed', value: sigDateString} : null,
-    websiteLabel ? {label: 'Website', value: websiteLabel} : null,
+    deliveryInfo.destinationHost
+      ? {
+          label: 'Response destination',
+          value: deliveryInfo.destinationHost,
+        }
+      : null,
+    deliveryMethod ? {label: 'Delivery', value: deliveryMethod} : null,
   ].filter(Boolean);
   const requestDetailsSections = useMemo(() => {
     const responseRows = responseUris

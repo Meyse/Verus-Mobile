@@ -330,6 +330,7 @@ const GenericRequestHome = props => {
   }
 
   const autoDeliverySuccessTimeoutRef = useRef(null);
+  const processGenerationRef = useRef(0);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const signedIn = useSelector(state => state.authentication.signedIn);
   const dispatch = useDispatch();
@@ -344,6 +345,10 @@ const GenericRequestHome = props => {
    * @type {[Array<number>, (Array<number>) => {}]}
    */
   const [processedDetailIndices, setProcessedDetailIndices] = useState([]);
+  const cancelRequest = useCallback(() => {
+    processGenerationRef.current += 1;
+    props.cancel();
+  }, [props.cancel]);
 
   /**
    * @type {Map<string, (GenericRequest, GenericResponse, number) => Promise<{
@@ -399,6 +404,8 @@ const GenericRequestHome = props => {
   }
 
   const processNextDetail = async () => {
+    const processGeneration = processGenerationRef.current + 1;
+    processGenerationRef.current = processGeneration;
     const detailsLen = request.details.length;
     const numProcessed = processedDetailIndices.length;
 
@@ -407,6 +414,9 @@ const GenericRequestHome = props => {
         if (!processedDetailIndices.includes(i)) {
           try {
             const res = await processDetailAtIndex(i);
+
+            if (processGenerationRef.current !== processGeneration) return;
+
             const newIndices = [...processedDetailIndices];
 
             for (const processedIndex of res.handledIndices) {
@@ -436,8 +446,10 @@ const GenericRequestHome = props => {
 
             return;
           } catch (e) {
+            if (processGenerationRef.current !== processGeneration) return;
+
             createAlert("Error", e.message)
-            props.cancel()
+            cancelRequest()
             console.warn(e)
           }
         }
@@ -446,6 +458,7 @@ const GenericRequestHome = props => {
   }
 
   const completeRequest = useCallback(() => {
+    processGenerationRef.current += 1;
     const resetAction = CommonActions.reset({
       index: 0,
       routes: [{name: signedIn ? 'SignedInStack' : 'SignedOutStack'}],
@@ -681,6 +694,8 @@ const GenericRequestHome = props => {
 
   useEffect(() => {
     return () => {
+      processGenerationRef.current += 1;
+
       if (autoDeliverySuccessTimeoutRef.current) {
         clearTimeout(autoDeliverySuccessTimeoutRef.current);
       }
@@ -745,7 +760,7 @@ const GenericRequestHome = props => {
     [AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid]: () => (
       <AuthenticationRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
@@ -757,7 +772,7 @@ const GenericRequestHome = props => {
     [IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid]: () => (
       <IdentityUpdateRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         requestBufferString={request.toBuffer().toString('hex')}
@@ -776,7 +791,7 @@ const GenericRequestHome = props => {
     [VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid]: () => (
       <InvoiceInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
@@ -788,7 +803,7 @@ const GenericRequestHome = props => {
     [APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid]: () => (
       <AppEncryptionRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
@@ -800,7 +815,7 @@ const GenericRequestHome = props => {
     [USER_DATA_REQUEST_VDXF_KEY.vdxfid]: () => (
       <UserDataRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
@@ -812,7 +827,7 @@ const GenericRequestHome = props => {
     [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: () => (
       <DataPacketRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
@@ -824,7 +839,7 @@ const GenericRequestHome = props => {
     [CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid]: () => (
       <WalletBackupRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
@@ -836,7 +851,7 @@ const GenericRequestHome = props => {
     [SPENDABLE_KEY_DETAILS_VDXF_KEY.vdxfid]: () => (
       <SpendableKeyRequestInfo
         {...displayProps}
-        cancel={props.cancel}
+        cancel={cancelRequest}
         completeWithDelivery={completeWithDelivery}
         setLoading={props.setLoading}
         navigation={props.navigation}
@@ -865,7 +880,7 @@ const GenericRequestHome = props => {
       {displayKey == null ? (
         <GenericRequestLoading
           activeStep={GENERIC_REQUEST_LOADING_STEPS.REVIEW}
-          onCancel={props.cancel}
+          onCancel={cancelRequest}
         />
       ) : props.loading ? (
         <AnimatedActivityIndicatorBox />

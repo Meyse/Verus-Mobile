@@ -10,7 +10,7 @@
   - 2026-04-08: Reintroduced a guarded cancel escape hatch after a POST response URI
   fails so users can leave the screen after at least one delivery attempt.
 */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
@@ -35,6 +35,7 @@ import {
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
 } from '../../../utils/deeplink/genericRequestDelivery';
+import {createGenericRequestDeliverySingleFlight} from '../GenericRequestHome/genericRequestCompletionFlow';
 
 const GenericRequestComplete = props => {
   const { requestBufferString, responseBufferString } = props.route.params;
@@ -49,6 +50,9 @@ const GenericRequestComplete = props => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [postFailed, setPostFailed] = useState(false);
+  const deliverySingleFlightRef = useRef(
+    createGenericRequestDeliverySingleFlight(),
+  );
 
   const completeRequest = () => {
     const resetAction = CommonActions.reset({
@@ -162,6 +166,8 @@ const GenericRequestComplete = props => {
 
   // Keep the redesigned success UI while stamping and verifying the response metadata; integrated by Codex GPT-5 to match the upstream protocol path.
   const onComplete = async () => {
+    if (!deliverySingleFlightRef.current.tryStart()) return;
+
     try {
       setLoading(true);
 
@@ -177,6 +183,7 @@ const GenericRequestComplete = props => {
 
       createAlert('Error', e?.message || 'Failed to complete the request.');
       console.warn(e);
+      deliverySingleFlightRef.current.clear();
       setLoading(false);
       return;
     }
@@ -256,6 +263,7 @@ const GenericRequestComplete = props => {
         )}
         <View style={styles.ctaCol}>
           <GradientButton
+            disabled={loading}
             onPress={onComplete}
             style={styles.completeButton}
           >

@@ -2,12 +2,10 @@ import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import DeepLink from '../../DeepLink/DeepLink';
-import AuthenticationRequestIdentity from '../../DeepLink/AuthenticationRequestIdentity/AuthenticationRequestIdentity';
 import GenericRequestComplete from '../../DeepLink/GenericRequestComplete/GenericRequestComplete';
 import LoginRequestIdentity from '../../DeepLink/LoginRequestIdentity/LoginRequestIdentity';
 import LoginRequestComplete from '../../DeepLink/LoginRequestComplete/LoginRequestComplete';
 import InvoicePaymentConfiguration from '../../DeepLink/InvoicePaymentConfiguration/InvoicePaymentConfiguration';
-import IdentityUpdatePaymentConfiguration from '../../DeepLink/IdentityUpdatePaymentConfiguration/IdentityUpdatePaymentConfiguration';
 
 const DeepLinkStack = createStackNavigator();
 
@@ -32,14 +30,6 @@ const DeepLinkStackScreens = props => {
         }}
       />
       <DeepLinkStack.Screen
-        name="AuthenticationRequestIdentity"
-        component={AuthenticationRequestIdentity}
-        options={{
-          headerRight: () => null,
-          title: "Select Identity"
-        }}
-      />
-      <DeepLinkStack.Screen
         name="LoginRequestComplete"
         component={LoginRequestComplete}
         options={{
@@ -56,14 +46,6 @@ const DeepLinkStackScreens = props => {
       <DeepLinkStack.Screen
         name="InvoicePaymentConfiguration"
         component={InvoicePaymentConfiguration}
-        options={{
-          headerRight: () => null,
-          title: "Configure Payment"
-        }}
-      />
-      <DeepLinkStack.Screen
-        name="IdentityUpdatePaymentConfiguration"
-        component={IdentityUpdatePaymentConfiguration}
         options={{
           headerRight: () => null,
           title: "Configure Payment"

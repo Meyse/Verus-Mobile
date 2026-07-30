@@ -33,14 +33,19 @@ import {useAppTheme} from '../../../../../theme/app';
 import {SET_DEEPLINK_DATA} from '../../../../../utils/constants/storeType';
 import {GIFT_CARD_SERVICE_ID} from '../../../../../utils/constants/services';
 import {
+  beginGiftCardShare,
   canDeleteGiftCard,
+  cancelGiftCardShare,
+  completeGiftCardShare,
+  GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE,
   getGiftCardClaimInfo,
   getGiftCardIdentityLookupErrors,
   getGiftCardPendingFundings,
   hasGiftCardBeenShared,
   hasGiftCardClaims,
+  hasGiftCardShareInProgress,
+  hasGiftCardShareReservation,
   hasPendingGiftCardFunding,
-  markGiftCardShared,
   normalizeGiftCardServiceData,
   refreshGiftCardStatus,
   removeGiftCard,
@@ -401,6 +406,9 @@ const GiftCardServiceOverview = ({
   const prepareCardForSharing = useCallback(
     async card => {
       if (hasGiftCardBeenShared(card)) return card;
+      if (hasGiftCardShareInProgress(card)) {
+        throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
+      }
 
       const refreshed = await refreshGiftCardStatus({
         card,
@@ -408,6 +416,10 @@ const GiftCardServiceOverview = ({
       });
       const savedCard = await saveCard(refreshed, card);
       const latestCard = savedCard || refreshed;
+
+      if (hasGiftCardShareInProgress(latestCard)) {
+        throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
+      }
 
       if (hasPendingGiftCardFunding(latestCard)) {
         throw new Error(
@@ -424,50 +436,6 @@ const GiftCardServiceOverview = ({
       return latestCard;
     },
     [activeCoinsForUser, saveCard],
-  );
-
-  const markCardSharedForAction = useCallback(
-    async card => {
-      const savedData = await saveServiceData(currentData => {
-        const normalized = normalizeGiftCardServiceData(currentData);
-        const currentCard = normalized.cards?.[card.id];
-
-        if (!currentCard) {
-          throw new Error('Gift card is no longer available.');
-        }
-
-        if (hasGiftCardBeenShared(currentCard)) {
-          return normalized;
-        }
-
-        if (hasPendingGiftCardFunding(currentCard)) {
-          throw new Error(
-            'Wait for funding transactions to confirm before sharing this gift card.',
-          );
-        }
-
-        if (!hasGiftCardClaims(currentCard)) {
-          throw new Error(
-            'Fund this gift card and wait for confirmation before sharing it.',
-          );
-        }
-
-        return upsertGiftCard(
-          normalized,
-          markGiftCardShared(currentCard),
-        );
-      });
-      const sharedCard = savedData.cards?.[card.id];
-
-      if (!hasGiftCardBeenShared(sharedCard)) {
-        throw new Error(
-          'Gift card state changed before it could be marked as shared.',
-        );
-      }
-
-      return sharedCard;
-    },
-    [saveServiceData],
   );
 
   const prepareShareOptions = useCallback(
@@ -497,14 +465,91 @@ const GiftCardServiceOverview = ({
     async (card, action) => {
       if (!card) return false;
 
+      let actionCompleted = false;
+      let shareAttemptId = null;
       setBusyCardId(card.id);
 
       try {
         const preparedCard = await prepareCardForSharing(card);
-        const sharedCard = await markCardSharedForAction(preparedCard);
-        await action(sharedCard);
+        const startedData = await saveServiceData(currentData => {
+          const normalized = normalizeGiftCardServiceData(currentData);
+          const currentCard = normalized.cards?.[preparedCard.id];
+
+          if (!currentCard) {
+            throw new Error('Gift card is no longer available.');
+          }
+
+          if (hasGiftCardBeenShared(currentCard)) {
+            return normalized;
+          }
+
+          if (hasPendingGiftCardFunding(currentCard)) {
+            throw new Error(
+              'Wait for funding transactions to confirm before sharing this gift card.',
+            );
+          }
+
+          if (!hasGiftCardClaims(currentCard)) {
+            throw new Error(
+              'Fund this gift card and wait for confirmation before sharing it.',
+            );
+          }
+
+          const startedCard = beginGiftCardShare(currentCard);
+          shareAttemptId = startedCard.shareAttempt?.id || null;
+          return upsertGiftCard(normalized, startedCard);
+        });
+        const actionCard = startedData.cards?.[preparedCard.id];
+
+        if (!actionCard) {
+          throw new Error('Gift card is no longer available.');
+        }
+
+        await action(actionCard);
+        actionCompleted = true;
+
+        if (shareAttemptId) {
+          const completedData = await saveServiceData(currentData => {
+            const normalized = normalizeGiftCardServiceData(currentData);
+            const currentCard = normalized.cards?.[preparedCard.id];
+
+            if (!currentCard) {
+              throw new Error('Gift card is no longer available.');
+            }
+
+            return upsertGiftCard(
+              normalized,
+              completeGiftCardShare(currentCard, shareAttemptId),
+            );
+          });
+
+          if (!hasGiftCardBeenShared(completedData.cards?.[preparedCard.id])) {
+            throw new Error(
+              'Gift card state changed before sharing could be recorded.',
+            );
+          }
+        }
+
         return true;
       } catch (e) {
+        if (shareAttemptId && !actionCompleted) {
+          try {
+            await saveServiceData(currentData => {
+              const normalized = normalizeGiftCardServiceData(currentData);
+              const currentCard = normalized.cards?.[card.id];
+
+              return currentCard
+                ? upsertGiftCard(
+                    normalized,
+                    cancelGiftCardShare(currentCard, shareAttemptId),
+                  )
+                : normalized;
+            });
+          } catch (rollbackError) {
+            console.warn('Unable to clear gift card share attempt', rollbackError);
+          }
+        }
+
         console.error(e);
         Alert.alert(
           'Unable to share',
@@ -515,7 +560,7 @@ const GiftCardServiceOverview = ({
         setBusyCardId(null);
       }
     },
-    [markCardSharedForAction, prepareCardForSharing],
+    [prepareCardForSharing, saveServiceData],
   );
 
   const openFunding = async (card, routeParams = {}) => {
@@ -524,6 +569,11 @@ const GiftCardServiceOverview = ({
         'Already shared',
         'Shared gift cards cannot be funded. Create a new gift card instead.',
       );
+      return;
+    }
+
+    if (hasGiftCardShareReservation(card)) {
+      Alert.alert('Sharing in progress', GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
       return;
     }
 
@@ -548,6 +598,11 @@ const GiftCardServiceOverview = ({
           'Already shared',
           'Shared gift cards cannot be funded. Create a new gift card instead.',
         );
+        return;
+      }
+
+      if (hasGiftCardShareReservation(refreshed)) {
+        Alert.alert('Sharing in progress', GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
         return;
       }
 
@@ -1026,8 +1081,8 @@ const GiftCardServiceOverview = ({
             onCopyLink={() => runShareAction(card, copyLink)}
             onOpenQr={() => runShareAction(card, navigateToQr)}
             onPrepareShare={() => prepareShareOptions(card)}
-            onRevealLink={() =>
-              runShareAction(card, async () => {})
+            onRevealLink={revealLink =>
+              runShareAction(card, revealLink)
             }
             onResetSharing={resetSharing}
             onShareNative={() => runShareAction(card, shareNative)}

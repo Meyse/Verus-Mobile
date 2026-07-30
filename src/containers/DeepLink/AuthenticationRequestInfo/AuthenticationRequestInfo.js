@@ -108,6 +108,10 @@ import {
   useOnboardingTheme,
 } from '../../../theme/onboarding';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
+import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericRequestDeliveryInfo,
+} from '../../../utils/deeplink/genericRequestDelivery';
 
 const toAddressString = addressObj => {
   if (addressObj == null || typeof addressObj.toAddress !== 'function') {
@@ -140,16 +144,6 @@ const getOfflineSystemName = systemId => {
   } catch (e) {
     return null;
   }
-};
-
-const getUriDisplayHost = uri => {
-  if (!uri || typeof uri.getUriString !== 'function') return null;
-
-  const uriString = uri.getUriString();
-  if (!uriString) return null;
-  const hostMatch = uriString.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i);
-
-  return hostMatch ? hostMatch[1] : uriString;
 };
 
 const getRequestIdDisplay = details => {
@@ -333,7 +327,16 @@ const AuthenticationRequestInfoContent = props => {
       }),
     [request, requestBufferString],
   );
-  const websiteLabel = getUriDisplayHost(responseUris[0]);
+  const deliveryInfo = useMemo(
+    () => getGenericRequestDeliveryInfo(request),
+    [request],
+  );
+  const deliveryMethod =
+    deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST
+      ? 'Secure POST'
+      : deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT
+      ? 'Redirect'
+      : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -1761,7 +1764,13 @@ const AuthenticationRequestInfoContent = props => {
   const requesterMetadataRows = [
     systemLabel ? {label: 'Network', value: systemLabel} : null,
     sigDateString ? {label: 'Signed', value: sigDateString} : null,
-    websiteLabel ? {label: 'Website', value: websiteLabel} : null,
+    deliveryInfo.destinationHost
+      ? {
+          label: 'Response destination',
+          value: deliveryInfo.destinationHost,
+        }
+      : null,
+    deliveryMethod ? {label: 'Delivery', value: deliveryMethod} : null,
   ].filter(Boolean);
   const requestDetailsSections = useMemo(() => {
     const responseRows = [

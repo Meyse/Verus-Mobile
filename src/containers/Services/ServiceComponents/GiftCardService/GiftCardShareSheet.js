@@ -16,12 +16,13 @@ import {
 
 const GiftCardShareSheet = ({
   card,
-  onAuthorizeShare,
   onClose,
   onOpenQr,
+  onShareAction,
 }) => {
   const theme = useAppTheme();
   const pendingQrCardIdRef = useRef(null);
+  const [actionPending, setActionPending] = useState(false);
   const [qrPending, setQrPending] = useState(false);
   const {
     copied,
@@ -31,29 +32,41 @@ const GiftCardShareSheet = ({
     shareNfc,
   } = useGiftCardSharing(card);
 
-  const authorizeShare = useCallback(
+  const runShareAction = useCallback(
     async action => {
-      const authorizedCard = onAuthorizeShare
-        ? await onAuthorizeShare(card)
-        : card;
+      if (actionPending) return false;
 
-      if (!authorizedCard) return false;
+      setActionPending(true);
 
-      await action(authorizedCard);
-      return true;
+      try {
+        if (onShareAction) {
+          return await onShareAction(card, action);
+        }
+
+        await action(card);
+        return true;
+      } finally {
+        setActionPending(false);
+      }
     },
-    [card, onAuthorizeShare],
+    [actionPending, card, onShareAction],
   );
 
   const openQr = useCallback(async () => {
-    if (!card?.id || pendingQrCardIdRef.current) return;
+    if (actionPending || !card?.id || pendingQrCardIdRef.current) return;
 
-    await authorizeShare(authorizedCard => {
-      pendingQrCardIdRef.current = authorizedCard.id;
+    const shared = await runShareAction(actionCard => {
+      pendingQrCardIdRef.current = actionCard.id;
       setQrPending(true);
-      onClose();
     });
-  }, [authorizeShare, card?.id, onClose]);
+
+    if (shared) {
+      onClose();
+    } else {
+      pendingQrCardIdRef.current = null;
+      setQrPending(false);
+    }
+  }, [actionPending, card?.id, onClose, runShareAction]);
 
   const handleClosed = useCallback(() => {
     const pendingCardId = pendingQrCardIdRef.current;
@@ -120,12 +133,12 @@ const GiftCardShareSheet = ({
 
           <TouchableOpacity
             accessibilityRole="button"
-            disabled={qrPending}
+            disabled={actionPending || qrPending}
             onPress={openQr}
             style={[
               styles.actionRow,
               {borderBottomColor: theme.colors.border},
-              qrPending && styles.disabled,
+              (actionPending || qrPending) && styles.disabled,
             ]}>
             <MaterialCommunityIcons
               color={theme.colors.primary}
@@ -150,10 +163,12 @@ const GiftCardShareSheet = ({
                 : 'Copy redeemable gift card link'
             }
             accessibilityRole="button"
-            onPress={() => authorizeShare(copyLink)}
+            disabled={actionPending}
+            onPress={() => runShareAction(copyLink)}
             style={[
               styles.actionRow,
               {borderBottomColor: theme.colors.border},
+              actionPending && styles.disabled,
             ]}>
             <MaterialCommunityIcons
               color={theme.colors.primary}
@@ -173,10 +188,12 @@ const GiftCardShareSheet = ({
 
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => authorizeShare(shareNative)}
+            disabled={actionPending}
+            onPress={() => runShareAction(shareNative)}
             style={[
               styles.actionRow,
               {borderBottomColor: theme.colors.border},
+              actionPending && styles.disabled,
             ]}>
             <MaterialCommunityIcons
               color={theme.colors.primary}
@@ -196,8 +213,9 @@ const GiftCardShareSheet = ({
 
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => authorizeShare(shareNfc)}
-            style={styles.actionRow}>
+            disabled={actionPending}
+            onPress={() => runShareAction(shareNfc)}
+            style={[styles.actionRow, actionPending && styles.disabled]}>
             <MaterialCommunityIcons
               color={theme.colors.primary}
               name="credit-card-wireless-outline"

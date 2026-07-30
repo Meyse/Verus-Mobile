@@ -256,17 +256,27 @@ const GiftCardFlipCard = ({
   }, [onPrepareShare, setFace]);
 
   const toggleLink = useCallback(async () => {
-    if (!linkRevealed && onRevealLink) {
-      const allowed = await onRevealLink();
-      if (!allowed) return;
+    if (!linkRevealed) {
+      if (onRevealLink) {
+        const allowed = await onRevealLink(() => setLinkRevealed(true));
+
+        if (!allowed) {
+          setLinkRevealed(false);
+          return;
+        }
+      } else {
+        setLinkRevealed(true);
+      }
+
+      AccessibilityInfo.announceForAccessibility(
+        'Redeemable gift card link revealed',
+      );
+      return;
     }
 
-    const nextRevealed = !linkRevealed;
-    setLinkRevealed(nextRevealed);
+    setLinkRevealed(false);
     AccessibilityInfo.announceForAccessibility(
-      nextRevealed
-        ? 'Redeemable gift card link revealed'
-        : 'Redeemable gift card link hidden',
+      'Redeemable gift card link hidden',
     );
   }, [linkRevealed, onRevealLink]);
 

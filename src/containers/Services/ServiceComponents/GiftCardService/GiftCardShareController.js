@@ -41,7 +41,9 @@ export const useGiftCardSharing = card => {
 
   const copyLink = useCallback(cardOverride => {
     const cardToShare = cardOverride || card;
-    if (!cardToShare?.requestUri) return;
+    if (!cardToShare?.requestUri) {
+      throw new Error('Gift card link is unavailable.');
+    }
 
     Clipboard.setString(cardToShare.requestUri);
     setCopied(true);
@@ -61,21 +63,18 @@ export const useGiftCardSharing = card => {
 
   const shareNative = useCallback(async cardOverride => {
     const cardToShare = cardOverride || card;
-    if (!cardToShare?.requestUri) return;
-
-    try {
-      await Share.share({message: cardToShare.requestUri});
-    } catch (error) {
-      Alert.alert(
-        'Unable to Share',
-        error.message || 'The gift card link could not be shared.',
-      );
+    if (!cardToShare?.requestUri) {
+      throw new Error('Gift card link is unavailable.');
     }
+
+    return Share.share({message: cardToShare.requestUri});
   }, [card]);
 
   const shareNfc = useCallback(async cardOverride => {
     const cardToShare = cardOverride || card;
-    if (!cardToShare) return;
+    if (!cardToShare) {
+      throw new Error('Gift card is unavailable.');
+    }
 
     setNfcStatus('Preparing NFC writer...');
 
@@ -84,8 +83,6 @@ export const useGiftCardSharing = card => {
         onStatus: setNfcStatus,
       });
       Alert.alert('Success', 'Gift card written to NFC card.');
-    } catch (error) {
-      Alert.alert('NFC Error', error.message);
     } finally {
       setNfcStatus(null);
     }
