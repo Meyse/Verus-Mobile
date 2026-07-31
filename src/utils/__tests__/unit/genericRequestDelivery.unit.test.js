@@ -6,6 +6,9 @@ jest.mock('react-native', () => ({
   Linking: {
     openURL: jest.fn(),
   },
+  Platform: {
+    OS: 'ios',
+  },
 }));
 
 jest.mock('../../CoinData/CoinDirectory', () => ({
