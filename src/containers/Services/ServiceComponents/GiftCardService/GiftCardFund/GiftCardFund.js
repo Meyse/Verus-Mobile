@@ -17,7 +17,7 @@ import {useFocusEffect} from '@react-navigation/native';
 import {ActivityIndicator, Switch} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useSelector} from 'react-redux';
+import {useDispatch} from 'react-redux';
 import {modifyServiceStoredDataForUser} from '../../../../../actions/actions/services/dispatchers/services';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
@@ -55,7 +55,6 @@ import {
   normalizeGiftCardServiceData,
   preflightGiftCardFunding,
   refreshGiftCardStatus,
-  unlinkGiftCardFundingIdentitiesFromVerusIdData,
   upsertGiftCard,
   upsertGiftCardIfUnchanged,
 } from '../../../../../utils/giftCard/giftCard';
@@ -63,6 +62,15 @@ import {truncateDecimal} from '../../../../../utils/math';
 import {SPENDABLE_KEY_CLAIM_NON_NATIVE_FEE_COINS} from '../../../../../utils/spendableKey/spendableKey';
 import GiftCardCurrencyPickerSheet from '../GiftCardCurrencyPickerSheet';
 import GiftCardShareSheet from '../GiftCardShareSheet';
+import {unlinkGiftedIdentitiesForSession} from '../../../../../utils/spendableKey/claimMetadataSession';
+import {unlinkVerusId} from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
+import {updateVerusIdWallet} from '../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
+import {
+  clearChainLifecycle,
+  refreshActiveChainLifecycles,
+} from '../../../../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {setUserCoins} from '../../../../../actions/actionCreators';
+import {useObjectSelector} from '../../../../../hooks/useObjectSelector';
 
 const STEP_DETAILS = 'details';
 const STEP_CONTENTS = 'contents';
@@ -312,13 +320,18 @@ const GiftCardFund = props => {
   const createMode = props.createMode === true;
   const routeCardId = props.route?.params?.cardId;
   const startExternal = props.route?.params?.startExternal === true;
-  const activeAccount = useSelector(
+  const activeAccount = useObjectSelector(
     state => state.authentication.activeAccount,
   );
-  const activeCoinsForUser = useSelector(
+  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
+  const activeCoinsForUser = useObjectSelector(
     state => state.coins.activeCoinsForUser,
   );
-  const ledgerBalances = useSelector(state => state.ledger.balances);
+  const dispatch = useDispatch();
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch || 0,
+  );
+  const ledgerBalances = useObjectSelector(state => state.ledger.balances);
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const [serviceData, setServiceData] = useState(null);
@@ -528,6 +541,23 @@ const GiftCardFund = props => {
       setInitialLoading(false);
     }
   }, [createMode, routeCardId]);
+
+  const unlinkGiftedIdentities = useCallback(
+    async (identities, requestContext) =>
+      unlinkGiftedIdentitiesForSession({
+        identities,
+        requestContext,
+        activeAccount,
+        activeCoinList,
+        dispatch,
+        unlinkIdentity: unlinkVerusId,
+        updateIdentityWallet: updateVerusIdWallet,
+        clearLifecycle: clearChainLifecycle,
+        createSetUserCoinsAction: setUserCoins,
+        refreshLifecycles: refreshActiveChainLifecycles,
+      }),
+    [activeAccount, activeCoinList, dispatch],
+  );
 
   useEffect(() => {
     loadData();
@@ -1186,21 +1216,6 @@ const GiftCardFund = props => {
     [prepareShareCard, updateStoredCard],
   );
 
-  const unlinkFundedIdentities = async identities => {
-    if (!identities || identities.length === 0) return;
-
-    const savedData = await modifyServiceStoredDataForUser(
-      currentData =>
-        unlinkGiftCardFundingIdentitiesFromVerusIdData(
-          currentData,
-          identities,
-        ),
-      VERUSID_SERVICE_ID,
-      activeAccount.accountHash,
-    );
-    setLinkedIds(savedData.linked_ids || {});
-  };
-
   const createDraft = async () => {
     if (encrypted && !claimPassword) {
       setResult({
@@ -1307,6 +1322,20 @@ const GiftCardFund = props => {
     }
   };
 
+  const unlinkIdentitiesInContext = async submittedIdentities => {
+    if (!submittedIdentities || submittedIdentities.length === 0) return;
+
+    const unlinkContext = {
+      sessionScope: {
+        sessionScoped: true,
+        accountHash: activeAccount.accountHash,
+        sessionEpoch,
+      },
+    };
+
+    await unlinkGiftedIdentities(submittedIdentities, unlinkContext);
+  };
+
   const persistFundingResult = async (fundingCard, fundingResult) => {
     setOperationText('Saving submitted transactions...');
     const pendingCard = await updateStoredCard(
@@ -1326,7 +1355,7 @@ const GiftCardFund = props => {
       setOperationText('Unlinking transferred VerusIDs...');
 
       try {
-        await unlinkFundedIdentities(submittedIdentities);
+        await unlinkIdentitiesInContext(submittedIdentities);
       } catch (e) {
         unlinkError = e;
       }
