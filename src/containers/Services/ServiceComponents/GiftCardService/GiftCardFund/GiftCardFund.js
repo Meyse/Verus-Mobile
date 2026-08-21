@@ -276,9 +276,6 @@ const getPreflightOperationText = (phase, encrypted, current, total) => {
     : 'Checking gift card addresses...';
 };
 
-const getFundingOperationText = (current, total) =>
-  `Signing and submitting transaction ${current} of ${total}...`;
-
 const getTxids = fundingResult =>
   (fundingResult?.results || [])
     .map(item => item.txid)
@@ -344,6 +341,7 @@ const GiftCardFund = props => {
   const [identityFundingLoading, setIdentityFundingLoading] = useState(false);
   const [identityFundingError, setIdentityFundingError] = useState(null);
   const [preflightPlan, setPreflightPlan] = useState(null);
+  const [pendingFundingBroadcast, setPendingFundingBroadcast] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [operationText, setOperationText] = useState('');
@@ -353,6 +351,7 @@ const GiftCardFund = props => {
   const reopenShareCardIdRef = useRef(null);
   const qrNavigationActiveRef = useRef(false);
   const operationAnnouncementRef = useRef(null);
+  const pendingRouteInitializedRef = useRef(false);
   const [selectedSystemId, setSelectedSystemId] = useState(null);
   const [externalReturnStep, setExternalReturnStep] = useState(
     STEP_CONTENTS,
@@ -363,11 +362,19 @@ const GiftCardFund = props => {
   const revealPasswordScrollRef = useRef(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const pendingFundingId = props.route?.params?.pendingFundingId || null;
 
   const storedCard = routeCardId
     ? serviceData?.cards?.[routeCardId]
     : null;
   const card = draftCard || storedCard;
+  const savedPendingFunding =
+    pendingFundingId == null
+      ? null
+      : (card?.fundingHistory || []).find(
+          entry => entry?.id === pendingFundingId,
+        ) || null;
+  const pendingFunding = pendingFundingBroadcast || savedPendingFunding;
 
   const scrollPasswordFieldsIntoView = useCallback(() => {
     requestAnimationFrame(() => {
@@ -525,6 +532,47 @@ const GiftCardFund = props => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (
+      initialLoading ||
+      pendingFundingId == null ||
+      card == null ||
+      pendingRouteInitializedRef.current
+    ) {
+      return;
+    }
+
+    pendingRouteInitializedRef.current = true;
+
+    if (savedPendingFunding == null) {
+      setResult({
+        kind: 'error',
+        title: 'Pending funding unavailable',
+        message:
+          'This saved funding attempt no longer exists. Refresh the gift card before trying again.',
+        pendingFundingId,
+      });
+    } else {
+      setResult({
+        kind: 'partial',
+        title: 'Retry pending funding',
+        message:
+          'These exact signed transactions were saved before broadcast. Retrying rebroadcasts only transactions not already marked submitted.',
+        card,
+        pendingFundingId,
+        pendingRetry: true,
+        txids: getTxids({results: savedPendingFunding.transactions}),
+      });
+    }
+
+    setStep(STEP_RESULT);
+  }, [
+    card,
+    initialLoading,
+    pendingFundingId,
+    savedPendingFunding,
+  ]);
 
   useEffect(() => {
     if (!card || !startExternal || createMode) return;
@@ -1311,8 +1359,25 @@ const GiftCardFund = props => {
     };
   };
 
+  const persistFundingBroadcast = async (fundingCard, pendingBroadcast) => {
+    const updatedCard = await updateStoredCard(
+      fundingCard.id,
+      (currentData, currentCard) =>
+        upsertGiftCard(
+          currentData,
+          addGiftCardPendingFunding(currentCard, {
+            pendingBroadcast,
+            results: pendingBroadcast.transactions,
+          }),
+        ),
+    );
+
+    setPendingFundingBroadcast(pendingBroadcast);
+    return updatedCard;
+  };
+
   const broadcast = async () => {
-    if (!card || !preflightPlan) return;
+    if (!card || (!preflightPlan && !pendingFunding)) return;
 
     let cardSaved = false;
     let fundingCard = card;
@@ -1327,12 +1392,13 @@ const GiftCardFund = props => {
         ? await saveCard(await loadLatestFundableCard())
         : await loadLatestFundableCard();
       cardSaved = true;
-      setOperationText('Confirming gift card funding transactions...');
+      setOperationText('Submitting signed gift card funding transactions...');
 
       const fundingResult = await broadcastGiftCardFunding({
         preflightPlan,
-        onProgress: ({current, total}) =>
-          setOperationText(getFundingOperationText(current, total)),
+        pendingBroadcast: pendingFunding,
+        persistPendingBroadcast: pendingBroadcast =>
+          persistFundingBroadcast(fundingCard, pendingBroadcast),
       });
       const persisted = await persistFundingResult(
         fundingCard,
@@ -1355,6 +1421,7 @@ const GiftCardFund = props => {
       if (Array.isArray(e.results) && e.results.length > 0) {
         const partialResult = {
           preflightPlan: e.preflightPlan || preflightPlan,
+          pendingBroadcast: e.pendingBroadcast,
           results: e.results,
         };
 
@@ -1389,13 +1456,26 @@ const GiftCardFund = props => {
           });
         }
       } else {
+        const hasSavedBroadcast =
+          e?.pendingBroadcast != null || pendingFunding != null;
+
         setResult({
           kind: 'error',
-          title: 'Funding not completed',
-          message: e.message,
+          title: hasSavedBroadcast
+            ? 'Funding not confirmed'
+            : 'Funding not completed',
+          message: hasSavedBroadcast
+            ? `${e.message}\n\nThe exact signed transaction was saved and can be retried safely.`
+            : e.message,
           card: cardSaved ? fundingCard : null,
-          retryable: true,
-          txids: [],
+          pendingRetry: hasSavedBroadcast,
+          retryable: !hasSavedBroadcast,
+          txids: getTxids({
+            results:
+              e?.pendingBroadcast?.transactions ||
+              pendingFunding?.transactions ||
+              [],
+          }),
         });
       }
 
@@ -2429,6 +2509,11 @@ const GiftCardFund = props => {
         gap={8}
         horizontalSpacing={20}
         safeAreaSpacing={0}>
+        {result?.pendingRetry ? (
+          <AppButton disabled={busy} onPress={broadcast}>
+            Retry exact transactions
+          </AppButton>
+        ) : null}
         {result?.retryable ? (
           <AppButton
             onPress={() => {
@@ -2438,7 +2523,7 @@ const GiftCardFund = props => {
             Return to review
           </AppButton>
         ) : null}
-        {result?.card ? (
+        {result?.card && !result?.pendingRetry ? (
           <AppButton
             disabled={busy}
             onPress={() => openShareOptions(result.card)}>

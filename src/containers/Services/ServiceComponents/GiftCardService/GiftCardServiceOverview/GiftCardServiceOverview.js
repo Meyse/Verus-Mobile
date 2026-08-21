@@ -43,6 +43,7 @@ import {
   getGiftCardClaimInfo,
   getGiftCardIdentityLookupErrors,
   getGiftCardPendingFundings,
+  getRetryableGiftCardFunding,
   hasGiftCardBeenShared,
   hasGiftCardClaims,
   hasGiftCardShareInProgress,
@@ -590,10 +591,19 @@ const GiftCardServiceOverview = ({
     }
 
     if (hasPendingGiftCardFunding(card)) {
-      Alert.alert(
-        'Pending Funding',
-        'Wait for pending funding transactions to confirm before adding more funds.',
-      );
+      const retryableFunding = getRetryableGiftCardFunding(card);
+
+      if (retryableFunding != null) {
+        navigation.navigate('GiftCardFund', {
+          cardId: card.id,
+          pendingFundingId: retryableFunding.id,
+        });
+      } else {
+        Alert.alert(
+          'Pending Funding',
+          'Wait for pending funding transactions to confirm before adding more funds.',
+        );
+      }
       return;
     }
 
@@ -619,10 +629,19 @@ const GiftCardServiceOverview = ({
       }
 
       if (hasPendingGiftCardFunding(refreshed)) {
-        Alert.alert(
-          'Pending Funding',
-          'Wait for pending funding transactions to confirm before adding more funds.',
-        );
+        const retryableFunding = getRetryableGiftCardFunding(refreshed);
+
+        if (retryableFunding != null) {
+          navigation.navigate('GiftCardFund', {
+            cardId: refreshed.id,
+            pendingFundingId: retryableFunding.id,
+          });
+        } else {
+          Alert.alert(
+            'Pending Funding',
+            'Wait for pending funding transactions to confirm before adding more funds.',
+          );
+        }
         return;
       }
 
@@ -969,6 +988,7 @@ const GiftCardServiceOverview = ({
     const pendingFundings = getGiftCardPendingFundings(card);
     const capabilities = getGiftCardCapabilities(card);
     const pending = pendingFundings.length > 0;
+    const retryableFunding = getRetryableGiftCardFunding(card);
     const deleteEnabled = canDeleteGiftCard(card);
     const status = getGiftCardDisplayStatus(card);
     const addresses = Object.entries(card.addressesBySystem || {});
@@ -1013,26 +1033,29 @@ const GiftCardServiceOverview = ({
       : 'Copy pending funding transaction ID';
     const optionActions = [];
 
-    if (capabilities.canFund) {
-      optionActions.push(
-        {
-          key: 'add-contents',
-          disabled: busy,
-          IconComponent: CirclePlus,
-          label:
-            status === STATUS_NOT_FUNDED
-              ? 'Add contents'
-              : 'Add more contents',
-          onPress: () => openFunding(card),
-        },
-        {
+    if (capabilities.canFund || retryableFunding != null) {
+      optionActions.push({
+        key: 'add-contents',
+        disabled: busy,
+        IconComponent: CirclePlus,
+        label:
+          retryableFunding != null
+            ? 'Retry pending funding'
+            : status === STATUS_NOT_FUNDED
+            ? 'Add contents'
+            : 'Add more contents',
+        onPress: () => openFunding(card),
+      });
+
+      if (capabilities.canFund) {
+        optionActions.push({
           key: 'external-funding',
           disabled: busy,
           IconComponent: ArrowDownToLine,
           label: 'Fund from another wallet',
           onPress: () => openFunding(card, {startExternal: true}),
-        },
-      );
+        });
+      }
     }
 
     if (!capabilities.isRedeemed) {

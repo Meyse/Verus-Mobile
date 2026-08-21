@@ -39,6 +39,11 @@ import {
 } from '../../../utils/spendableKey/spendableKey';
 import {reconcileSpendableKeyClaimResults} from '../../../utils/spendableKey/claimResultReconciliation';
 import {
+  assertClaimMetadataSessionCurrent,
+  linkClaimedIdentitiesForSession,
+  scopeClaimMetadataAction,
+} from '../../../utils/spendableKey/claimMetadataSession';
+import {
   getSpendableKeyClaimLabel,
   getSpendableKeyReviewModel,
   getSpendableKeyReviewSubtitle,
@@ -66,7 +71,11 @@ import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
 import {DeepLinkReviewScrollView} from '../components/RequestReview';
-import {savePendingDeeplinkRequest} from '../../../utils/deeplink/pendingDeeplinkStorage';
+import {
+  getPendingDeeplinkRequest,
+  savePendingDeeplinkRequest,
+  setPendingDeeplinkBroadcast,
+} from '../../../utils/deeplink/pendingDeeplinkStorage';
 
 const CLAIM_PASSWORD_ERROR =
   'That password didn’t decrypt this key. Check it and try again.';
@@ -117,6 +126,70 @@ const getSystemPrivateAddressMap = (claimPlan, activeAccount) => {
   }
 
   return privateAddresses;
+};
+
+const getCurrentPendingClaimWalletBinding = (pendingBroadcast, account) => {
+  const expectedBinding = pendingBroadcast?.ownerWalletBinding;
+
+  if (
+    expectedBinding == null ||
+    typeof expectedBinding !== 'object' ||
+    Array.isArray(expectedBinding) ||
+    Object.keys(expectedBinding).length === 0 ||
+    account == null
+  ) {
+    return null;
+  }
+
+  return Object.entries(expectedBinding).reduce(
+    (currentBinding, [systemId, expected]) => {
+      const coinId = expected?.coinId;
+      const destinationAddress =
+        typeof coinId === 'string'
+          ? account.keys?.[coinId]?.[VRPC]?.addresses?.[0]
+          : null;
+
+      currentBinding[systemId] = {
+        coinId,
+        destinationAddress,
+      };
+
+      if (typeof expected?.privateAddress === 'string') {
+        currentBinding[systemId].privateAddress =
+          account.keys?.[coinId]?.[DLIGHT_PRIVATE]?.addresses?.[0];
+      }
+
+      return currentBinding;
+    },
+    {},
+  );
+};
+
+const pendingClaimWalletBindingMatches = (pendingBroadcast, currentBinding) => {
+  const expectedBinding = pendingBroadcast?.ownerWalletBinding;
+
+  if (
+    expectedBinding == null ||
+    typeof expectedBinding !== 'object' ||
+    Array.isArray(expectedBinding) ||
+    Object.keys(expectedBinding).length === 0 ||
+    currentBinding == null
+  ) {
+    return false;
+  }
+
+  return Object.entries(expectedBinding).every(([systemId, expected]) => {
+    const current = currentBinding[systemId];
+
+    return (
+      typeof expected?.coinId === 'string' &&
+      typeof expected?.destinationAddress === 'string' &&
+      current?.coinId === expected.coinId &&
+      current?.destinationAddress === expected.destinationAddress &&
+      (typeof expected.privateAddress !== 'string' ||
+        current?.privateAddress === expected.privateAddress)
+    );
+  });
 };
 
 const getStatusSubtitle = ({claimResult, requestError, status}) => {
@@ -386,8 +459,10 @@ const resolveRedeemedCurrencyCoinObj = async ({
   activeCoinList,
   currencyId,
   isTestnet,
+  requestContext,
   systemId,
 }) => {
+  assertClaimMetadataSessionCurrent(requestContext);
   const activeCoinObj = (activeCoinList || []).find(coinObj =>
     coinMatchesRedeemedCurrency(coinObj, currencyId, isTestnet),
   );
@@ -396,6 +471,7 @@ const resolveRedeemedCurrencyCoinObj = async ({
 
   if (!CoinDirectory.coinExistsInDirectory(currencyId)) {
     const currencyRes = await getCurrency(systemId, currencyId);
+    assertClaimMetadataSessionCurrent(requestContext);
 
     if (currencyRes.error) {
       throw new Error(currencyRes.error.message);
@@ -406,8 +482,10 @@ const resolveRedeemedCurrencyCoinObj = async ({
     }
 
     await CoinDirectory.addPbaasCurrency(currencyRes.result, isTestnet, true);
+    assertClaimMetadataSessionCurrent(requestContext);
   }
 
+  assertClaimMetadataSessionCurrent(requestContext);
   const coinObj = CoinDirectory.findCoinObj(currencyId);
 
   if (!!coinObj.testnet !== !!isTestnet) {
@@ -468,18 +546,63 @@ const SpendableKeyRequestInfoContent = props => {
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
+  const deeplinkPassthrough = useObjectSelector(state => state.deeplink.passthrough);
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch || 0,
+  );
+  const [pendingClaimBroadcast, setPendingClaimBroadcast] = useState(null);
 
   const requestIsTestnet = request != null && request.isTestnet();
+  const pendingClaimOwnerAccountHash =
+    pendingClaimBroadcast?.ownerAccountHash || null;
+  const pendingClaimHasWalletBinding = !!(
+    pendingClaimBroadcast == null ||
+    (pendingClaimBroadcast.ownerWalletBinding != null &&
+      typeof pendingClaimBroadcast.ownerWalletBinding === 'object' &&
+      !Array.isArray(pendingClaimBroadcast.ownerWalletBinding) &&
+      Object.keys(pendingClaimBroadcast.ownerWalletBinding).length > 0)
+  );
+  const pendingClaimHasBoundOwner =
+    pendingClaimBroadcast == null ||
+    (pendingClaimOwnerAccountHash != null && pendingClaimHasWalletBinding);
+  const currentPendingClaimWalletBinding = useMemo(
+    () =>
+      getCurrentPendingClaimWalletBinding(
+        pendingClaimBroadcast,
+        activeAccount,
+      ),
+    [activeAccount, pendingClaimBroadcast],
+  );
+  const activeAccountMatchesPendingClaimWallet =
+    pendingClaimBroadcast == null ||
+    pendingClaimWalletBindingMatches(
+      pendingClaimBroadcast,
+      currentPendingClaimWalletBinding,
+    );
   const activeAccountMatchesRequest = !!(
     signedIn &&
     activeAccount &&
-    accountIsTestnet(activeAccount) === requestIsTestnet
+    accountIsTestnet(activeAccount) === requestIsTestnet &&
+    pendingClaimHasBoundOwner &&
+    (pendingClaimBroadcast == null ||
+      activeAccount.accountHash === pendingClaimOwnerAccountHash) &&
+    activeAccountMatchesPendingClaimWallet
   );
   const matchingAccounts = useMemo(() => {
     return (accounts || []).filter(
-      account => accountIsTestnet(account) === requestIsTestnet,
+      account =>
+        accountIsTestnet(account) === requestIsTestnet &&
+        pendingClaimHasBoundOwner &&
+        (pendingClaimBroadcast == null ||
+          account.accountHash === pendingClaimOwnerAccountHash),
     );
-  }, [accounts, requestIsTestnet]);
+  }, [
+    accounts,
+    pendingClaimBroadcast,
+    pendingClaimHasBoundOwner,
+    pendingClaimOwnerAccountHash,
+    requestIsTestnet,
+  ]);
   const activeScanKey = useMemo(() => {
     if (!activeAccountMatchesRequest) return 'anonymous';
 
@@ -500,6 +623,13 @@ const SpendableKeyRequestInfoContent = props => {
   const [claimResult, setClaimResult] = useState(null);
   const [requestError, setRequestError] = useState(null);
   const [finishing, setFinishing] = useState(false);
+  const [claimLoadingText, setClaimLoadingText] = useState(null);
+  const [pendingRequestId, setPendingRequestId] = useState(
+    pendingDeeplinkId ||
+      deeplinkPassthrough?.pendingDeeplinkId ||
+      deeplinkPassthrough?.pendingProvisioningDeeplinkId ||
+      null,
+  );
   const [
     assignClaimedIdentityPrivateAddresses,
     setAssignClaimedIdentityPrivateAddresses,
@@ -527,6 +657,55 @@ const SpendableKeyRequestInfoContent = props => {
   );
 
   const detail = request ? request.getDetails(detailIndex) : null;
+
+  const ensurePendingRequestId = useCallback(async () => {
+    if (!request) throw new Error('Cannot save this spendable-key request.');
+    const requestBufferString = request.toBuffer().toString('hex');
+
+    if (pendingRequestId) {
+      const existingRequest = await getPendingDeeplinkRequest(pendingRequestId);
+
+      if (existingRequest?.requestBufferString === requestBufferString) {
+        return pendingRequestId;
+      }
+    }
+
+    const savedRequest = await savePendingDeeplinkRequest({
+      requestBufferString,
+      uri: request.toWalletDeeplinkUri(),
+    });
+
+    if (!savedRequest?.id) {
+      throw new Error('Unable to save this spendable-key request.');
+    }
+
+    setPendingRequestId(savedRequest.id);
+    return savedRequest.id;
+  }, [pendingRequestId, request]);
+
+  const persistClaimBroadcast = useCallback(async pendingBroadcast => {
+    const requestId = await ensurePendingRequestId();
+
+    await setPendingDeeplinkBroadcast(requestId, pendingBroadcast);
+    setPendingClaimBroadcast(pendingBroadcast);
+  }, [ensurePendingRequestId]);
+
+  const loadPendingClaimBroadcast = useCallback(async () => {
+    const requestId = await ensurePendingRequestId();
+    const savedRequest = await getPendingDeeplinkRequest(requestId);
+    const savedBroadcast = savedRequest?.pendingBroadcast;
+
+    if (
+      savedBroadcast?.kind === 'spendable-key-claim' &&
+      Array.isArray(savedBroadcast.transactions) &&
+      savedBroadcast.transactions.length > 0
+    ) {
+      setPendingClaimBroadcast(savedBroadcast);
+      return savedBroadcast;
+    }
+
+    return null;
+  }, [ensurePendingRequestId]);
 
   const getScanCache = useCallback(() => {
     const passwordKey = requiresPassword ? password : '';
@@ -669,7 +848,22 @@ const SpendableKeyRequestInfoContent = props => {
 
     try {
       await waitForStatusPaint();
+      const savedBroadcast = await loadPendingClaimBroadcast();
 
+      if (savedBroadcast != null) {
+        setRequestError({
+          title: 'Pending claim transaction',
+          message: 'A signed claim was saved before an earlier broadcast attempt. Retry to broadcast the same transaction again.',
+          retry: 'claim',
+        });
+        setStatus('error');
+        return;
+      }
+    } catch (e) {
+      console.warn('Unable to load pending spendable-key broadcast', e);
+    }
+
+    try {
       try {
         if (scanCache.mnemonic != null) {
           mnemonic = scanCache.mnemonic;
@@ -738,6 +932,7 @@ const SpendableKeyRequestInfoContent = props => {
     activeScanKey,
     detail,
     getScanCache,
+    loadPendingClaimBroadcast,
     password,
     requestIsTestnet,
     requiresPassword,
@@ -771,6 +966,38 @@ const SpendableKeyRequestInfoContent = props => {
     claimPlanScanKey !== activeScanKey;
 
   const openLogin = useCallback(async () => {
+    if (
+      pendingClaimBroadcast != null &&
+      pendingClaimHasBoundOwner &&
+      signedIn &&
+      activeAccount?.accountHash === pendingClaimOwnerAccountHash &&
+      !activeAccountMatchesPendingClaimWallet
+    ) {
+      createAlert(
+        'Originating wallet not found',
+        'This saved claim was created by a different wallet. It will not be submitted from this wallet.',
+      );
+      return;
+    }
+
+    if (matchingAccounts.length === 0) {
+      if (pendingClaimBroadcast != null && !pendingClaimHasBoundOwner) {
+        createAlert(
+          'Claim cannot be retried safely',
+          'This saved claim is missing its originating wallet. It will not be submitted from another wallet.',
+        );
+        return;
+      }
+
+      if (pendingClaimBroadcast != null) {
+        createAlert(
+          'Originating wallet not found',
+          'This saved claim can only be retried from the wallet that created it.',
+        );
+        return;
+      }
+    }
+
     try {
       await requestWalletUnlock({
         reason: 'spendable-key-claim',
@@ -789,7 +1016,16 @@ const SpendableKeyRequestInfoContent = props => {
         );
       }
     }
-  }, [matchingAccounts, requestIsTestnet, signedIn]);
+  }, [
+    activeAccount,
+    activeAccountMatchesPendingClaimWallet,
+    matchingAccounts,
+    pendingClaimBroadcast,
+    pendingClaimHasBoundOwner,
+    pendingClaimOwnerAccountHash,
+    requestIsTestnet,
+    signedIn,
+  ]);
 
   const openWalletSetup = useCallback(async () => {
     let savedPendingDeeplinkId = pendingDeeplinkId;
@@ -835,40 +1071,28 @@ const SpendableKeyRequestInfoContent = props => {
     }
   }, [accounts, navigation, pendingDeeplinkId, request, requestIsTestnet]);
 
-  const linkClaimedIdentities = useCallback(async results => {
-    const identityResults = results.filter(result => result.type === 'identity');
+  const linkClaimedIdentities = useCallback(
+    async (results, requestContext) =>
+      linkClaimedIdentitiesForSession({
+        results,
+        requestContext,
+        activeAccount,
+        activeCoinList,
+        dispatch,
+        linkIdentity: linkVerusId,
+        updateIdentityWallet: updateVerusIdWallet,
+        clearLifecycle: clearChainLifecycle,
+        createSetUserCoinsAction: setUserCoins,
+        refreshLifecycles: refreshActiveChainLifecycles,
+      }),
+    [activeAccount, activeCoinList, dispatch],
+  );
 
-    if (identityResults.length === 0) return;
-
-    const touchedCoinIds = new Set();
-
-    for (const result of identityResults) {
-      const displayName = result.identity.fullyQualifiedName
-        ? convertFqnToDisplayFormat(result.identity.fullyQualifiedName)
-        : result.identity.identityAddress;
-
-      await linkVerusId(
-        result.identity.identityAddress,
-        displayName,
-        result.coinObj.id,
-      );
-      touchedCoinIds.add(result.coinObj.id);
-    }
-
-    await updateVerusIdWallet();
-
-    for (const coinId of touchedCoinIds) {
-      clearChainLifecycle(coinId);
-    }
-
-    const setUserCoinsAction = setUserCoins(activeCoinList, activeAccount.id);
-    dispatch(setUserCoinsAction);
-    refreshActiveChainLifecycles(
-      setUserCoinsAction.payload.activeCoinsForUser,
-    );
-  }, [activeAccount, activeCoinList, dispatch]);
-
-  const addMissingRedeemedCurrencies = useCallback(async results => {
+  const addMissingRedeemedCurrencies = useCallback(async (
+    results,
+    requestContext,
+  ) => {
+    assertClaimMetadataSessionCurrent(requestContext);
     const redeemedCurrencyRefs = getRedeemedCurrencyRefs(results);
 
     if (redeemedCurrencyRefs.length === 0) return;
@@ -891,48 +1115,59 @@ const SpendableKeyRequestInfoContent = props => {
       }
 
       try {
+        assertClaimMetadataSessionCurrent(requestContext);
         const fullCoinData = await resolveRedeemedCurrencyCoinObj({
           activeCoinList: nextActiveCoinList,
           currencyId,
           isTestnet: requestIsTestnet,
+          requestContext,
           systemId,
         });
+        assertClaimMetadataSessionCurrent(requestContext);
         const keypairsAction = await addKeypairs(
           fullCoinData,
           nextAccountKeys,
           activeAccount.keyDerivationVersion == null
             ? 0
             : activeAccount.keyDerivationVersion,
+          requestContext,
         );
 
-        dispatch(keypairsAction);
+        assertClaimMetadataSessionCurrent(requestContext);
+        dispatch(scopeClaimMetadataAction(keypairsAction, requestContext));
         nextAccountKeys = keypairsAction.keys;
 
+        assertClaimMetadataSessionCurrent(requestContext);
         const addCoinAction = await addCoin(
           fullCoinData,
           nextActiveCoinList,
           activeAccount.id,
           fullCoinData.compatible_channels,
+          requestContext,
         );
+        assertClaimMetadataSessionCurrent(requestContext);
 
         if (!addCoinAction) {
           throw new Error(`Error adding ${fullCoinData.display_ticker || currencyId}.`);
         }
 
-        dispatch(addCoinAction);
+        dispatch(scopeClaimMetadataAction(addCoinAction, requestContext));
         nextActiveCoinList = cloneActiveCoinList(addCoinAction.activeCoinList);
         addedAny = true;
       } catch (e) {
+        if (e?.code === 'SESSION_CHANGED') throw e;
         errors.push(e.message || `Unable to add ${currencyId}.`);
       }
     }
 
     if (addedAny) {
+      assertClaimMetadataSessionCurrent(requestContext);
       const setUserCoinsAction = setUserCoins(
         nextActiveCoinList,
         activeAccount.id,
       );
-      dispatch(setUserCoinsAction);
+      dispatch(scopeClaimMetadataAction(setUserCoinsAction, requestContext));
+      assertClaimMetadataSessionCurrent(requestContext);
       refreshActiveChainLifecycles(
         setUserCoinsAction.payload.activeCoinsForUser,
       );
@@ -959,23 +1194,45 @@ const SpendableKeyRequestInfoContent = props => {
       return;
     }
 
-    if (claimPlan == null) {
+    if (claimPlan == null && pendingClaimBroadcast == null) {
       await scanClaims();
       return;
     }
 
     setStatus('claiming');
+    setClaimLoadingText('Submitting signed spendable-key transactions...');
     setClaimResult(null);
     setRequestError(null);
 
+    const claimRequestContext = {
+      sessionScope: {
+        sessionScoped: true,
+        accountHash: activeAccount.accountHash,
+        sessionEpoch,
+      },
+    };
+
     try {
-      const preflightPlan = await preflightSpendableKeyClaim({
-        claimPlan,
-        destinationBySystem,
-        privateAddressBySystem: selectedPrivateAddressBySystem,
-      });
+      assertClaimMetadataSessionCurrent(claimRequestContext);
+      const preflightPlan = pendingClaimBroadcast == null
+        ? await preflightSpendableKeyClaim({
+            claimPlan,
+            destinationBySystem,
+            privateAddressBySystem: selectedPrivateAddressBySystem,
+          })
+        : null;
+      assertClaimMetadataSessionCurrent(claimRequestContext);
+      const persistPendingBroadcastForSession = async pendingBroadcast => {
+        assertClaimMetadataSessionCurrent(claimRequestContext);
+        await persistClaimBroadcast(pendingBroadcast);
+        assertClaimMetadataSessionCurrent(claimRequestContext);
+      };
       const broadcastResult = await broadcastSpendableKeyClaim({
         preflightPlan,
+        pendingBroadcast: pendingClaimBroadcast,
+        ownerAccountHash: claimRequestContext.sessionScope.accountHash,
+        currentOwnerWalletBinding: currentPendingClaimWalletBinding,
+        persistPendingBroadcast: persistPendingBroadcastForSession,
       });
 
       const {
@@ -985,6 +1242,7 @@ const SpendableKeyRequestInfoContent = props => {
         results: broadcastResult.results,
         linkClaimedIdentities,
         addMissingRedeemedCurrencies,
+        requestContext: claimRequestContext,
       });
 
       if (identityLinkError) console.warn(identityLinkError);
@@ -1005,20 +1263,35 @@ const SpendableKeyRequestInfoContent = props => {
         );
       }
       scanCacheRef.current = null;
+      setPendingClaimBroadcast(broadcastResult.pendingBroadcast);
       setClaimResult(broadcastResult);
       setRequestError(null);
       setStatus('complete');
       alertSubmittedIdentityClaim(broadcastResult.results);
     } catch (e) {
+      if (e?.code === 'SESSION_CHANGED') return;
+
+      if (e.pendingBroadcast) {
+        setPendingClaimBroadcast(e.pendingBroadcast);
+      }
+
       if (Array.isArray(e.results) && e.results.length > 0) {
-        const {
-          identityLinkError,
-          currencyAddError,
-        } = await reconcileSpendableKeyClaimResults({
+        const reconciliation = await reconcileSpendableKeyClaimResults({
           results: e.results,
           linkClaimedIdentities,
           addMissingRedeemedCurrencies,
+          requestContext: claimRequestContext,
+        }).catch(metadataError => {
+          if (metadataError?.code === 'SESSION_CHANGED') return null;
+          throw metadataError;
         });
+
+        if (reconciliation == null) return;
+
+        const {
+          identityLinkError,
+          currencyAddError,
+        } = reconciliation;
 
         if (identityLinkError) console.warn(identityLinkError);
         if (currencyAddError) console.warn(currencyAddError);
@@ -1029,10 +1302,17 @@ const SpendableKeyRequestInfoContent = props => {
           partialError: e.message || 'Unable to complete every claim transaction.',
         });
         scanCacheRef.current = null;
-        setStatus('complete');
+        setRequestError({
+          title: 'Claim partially submitted',
+          message:
+            'Some claim transactions succeeded. The remaining signed transaction is saved and can be retried safely.',
+          detail: e.message || 'Unable to complete every claim transaction.',
+          retry: 'claim',
+        });
+        setStatus('error');
         createAlert(
           'Claim partially completed',
-          `${e.results.length} transaction${e.results.length === 1 ? '' : 's'} were submitted before an error occurred. Review the transaction IDs shown on this screen.${
+          `${e.results.length} transaction${e.results.length === 1 ? '' : 's'} were submitted before an error occurred. Review the transaction IDs shown on this screen, then retry the saved remainder.${
             currencyAddError
               ? ` One or more redeemed currencies could not be added to your wallet automatically. ${currencyAddError.message}`
               : ''
@@ -1045,7 +1325,16 @@ const SpendableKeyRequestInfoContent = props => {
         alertSubmittedIdentityClaim(e.results);
       } else {
         console.warn(e);
-        if (isNetworkError(e)) {
+        if (e.pendingBroadcast) {
+          setRequestError({
+            title: 'Claim not confirmed',
+            message:
+              'The signed claim transaction is saved and can be retried safely.',
+            detail: getErrorMessage(e, 'Unable to claim spendable key.'),
+            retry: 'claim',
+          });
+          setStatus('error');
+        } else if (isNetworkError(e)) {
           setRequestError(getClaimNetworkError(e));
           setStatus('error');
         } else {
@@ -1062,8 +1351,12 @@ const SpendableKeyRequestInfoContent = props => {
     destinationBySystem,
     linkClaimedIdentities,
     openLogin,
+    pendingClaimBroadcast,
+    currentPendingClaimWalletBinding,
+    persistClaimBroadcast,
     scanClaims,
     selectedPrivateAddressBySystem,
+    sessionEpoch,
   ]);
 
   useEffect(() => {
@@ -1136,7 +1429,7 @@ const SpendableKeyRequestInfoContent = props => {
 
   if (status === 'claiming') {
     return renderLoading(
-      'Submitting claim transactions',
+      claimLoadingText || 'Submitting claim transactions',
       'Keep Verus Mobile open while each transaction is prepared and broadcast.',
     );
   }
@@ -1283,7 +1576,10 @@ const SpendableKeyRequestInfoContent = props => {
     if (status === 'error') {
       if (!requestError?.retry) {
         cancel();
-      } else if (requestError.retry === 'claim' && claimPlan != null) {
+      } else if (
+        requestError.retry === 'claim' &&
+        (claimPlan != null || pendingClaimBroadcast != null)
+      ) {
         await claim();
       } else {
         await scanClaims();
