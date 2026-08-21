@@ -1,16 +1,18 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  AccessibilityInfo,
   Keyboard,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {Checkbox, Text, TextInput} from 'react-native-paper';
+import {Checkbox, Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import AppButton from '../../../components/AppButton';
+import AppTextInput from '../../../components/AppTextInput';
 import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
 import CopyAction from '../../../components/CopyAction';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -27,7 +29,9 @@ import {
 } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {linkVerusId} from '../../../actions/actions/services/dispatchers/verusid/verusid';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
+import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {
+  SPENDABLE_KEY_DECRYPTION_FAILED,
   broadcastSpendableKeyClaim,
   discoverSpendableKeyClaims,
   preflightSpendableKeyClaim,
@@ -64,6 +68,23 @@ import GenericRequestLoading, {
 import {DeepLinkReviewScrollView} from '../components/RequestReview';
 import {savePendingDeeplinkRequest} from '../../../utils/deeplink/pendingDeeplinkStorage';
 
+const CLAIM_PASSWORD_ERROR =
+  'That password didn’t decrypt this key. Check it and try again.';
+const CLAIM_PASSWORD_QR_ERROR =
+  'That QR code didn’t contain a valid claim password.';
+
+const announceForAccessibility = message => {
+  if (
+    typeof AccessibilityInfo.announceForAccessibilityWithOptions === 'function'
+  ) {
+    AccessibilityInfo.announceForAccessibilityWithOptions(message, {
+      queue: true,
+    });
+  } else {
+    AccessibilityInfo.announceForAccessibility(message);
+  }
+};
+
 const getSystemDestinationMap = (claimPlan, activeAccount) => {
   const destinations = {};
 
@@ -98,8 +119,12 @@ const getSystemPrivateAddressMap = (claimPlan, activeAccount) => {
   return privateAddresses;
 };
 
-const getStatusSubtitle = ({claimResult, status}) => {
-  if (status === 'error') return 'Retry when your connection is available.';
+const getStatusSubtitle = ({claimResult, requestError, status}) => {
+  if (status === 'error') {
+    return (
+      requestError?.subtitle || 'Retry when your connection is available.'
+    );
+  }
   if (status === 'complete') {
     if (claimResult?.partialError) {
       return 'Some claim transactions were submitted before an error.';
@@ -150,6 +175,16 @@ const getClaimNetworkError = error => ({
     'Unable to submit the claim transaction. Check your internet connection and try again.',
   detail: getErrorMessage(error, 'Unable to claim spendable key.'),
   retry: 'claim',
+});
+
+const getInvalidSpendableKeyError = error => ({
+  title: 'Can’t decrypt this key',
+  subtitle: 'This request can’t be processed on this device.',
+  message:
+    'This spendable key is invalid or uses an unsupported encryption format.',
+  detail: getErrorMessage(error, 'Unable to decrypt spendable key.'),
+  icon: 'alert-octagon-outline',
+  retry: null,
 });
 
 const isNetworkError = error => {
@@ -418,6 +453,7 @@ const SpendableKeyRequestInfoContent = props => {
     () => createSpendableKeyRequestInfoStyles(theme),
     [theme],
   );
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const signedIn = useSelector(state => state.authentication.signedIn);
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
@@ -447,6 +483,7 @@ const SpendableKeyRequestInfoContent = props => {
   }, [activeAccount, activeAccountMatchesRequest, activeCoinsForUser]);
 
   const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState(requiresPassword ? 'password' : 'idle');
   const [claimPlan, setClaimPlan] = useState(null);
@@ -460,6 +497,16 @@ const SpendableKeyRequestInfoContent = props => {
   ] = useState(true);
   const scanStartedRef = useRef(false);
   const scanCacheRef = useRef(null);
+  const scanInFlightRef = useRef(false);
+  const passwordInputRef = useRef(null);
+
+  const showPasswordError = useCallback(async message => {
+    setPasswordError(message);
+    setStatus('password');
+    await waitForStatusPaint();
+    passwordInputRef.current?.focus();
+    announceForAccessibility(message);
+  }, []);
 
   const destinationBySystem = useMemo(
     () => getSystemDestinationMap(claimPlan, activeAccount),
@@ -596,45 +643,58 @@ const SpendableKeyRequestInfoContent = props => {
   );
 
   const scanClaims = useCallback(async () => {
+    if (scanInFlightRef.current) return;
+    scanInFlightRef.current = true;
+
     Keyboard.dismiss();
     let mnemonic;
     const scanCache = getScanCache();
+    const needsDecryption = requiresPassword && scanCache.mnemonic == null;
 
     setClaimResult(null);
     setRequestError(null);
     setClaimPlan(null);
     setClaimPlanScanKey(null);
-    setStatus(requiresPassword ? 'decrypting' : 'scanning');
-    await waitForStatusPaint();
+    setPasswordError(null);
+    setStatus(needsDecryption ? 'decrypting' : 'scanning');
 
     try {
-      if (scanCache.mnemonic != null) {
-        mnemonic = scanCache.mnemonic;
-      } else {
-        mnemonic = spendableKeyDetailsOrdinalToMnemonic({
-          spendableKeyOrdinal: detail,
-          password,
-        });
-        scanCache.mnemonic = mnemonic;
+      await waitForStatusPaint();
+
+      try {
+        if (scanCache.mnemonic != null) {
+          mnemonic = scanCache.mnemonic;
+        } else {
+          mnemonic = spendableKeyDetailsOrdinalToMnemonic({
+            spendableKeyOrdinal: detail,
+            password,
+          });
+          scanCache.mnemonic = mnemonic;
+        }
+      } catch (e) {
+        if (requiresPassword && e?.code === SPENDABLE_KEY_DECRYPTION_FAILED) {
+          await showPasswordError(CLAIM_PASSWORD_ERROR);
+        } else if (!requiresPassword) {
+          createAlert(
+            'Error',
+            getErrorMessage(e, 'Unable to scan spendable key.'),
+          );
+          setRequestError({
+            title: 'Invalid spendable key',
+            message: 'This spendable key could not be read.',
+            detail: getErrorMessage(e, 'Unable to scan spendable key.'),
+            retry: 'scan',
+          });
+          setStatus('error');
+        } else {
+          setRequestError(getInvalidSpendableKeyError(e));
+          setStatus('error');
+        }
+
+        return;
       }
-    } catch (e) {
-      createAlert('Error', getErrorMessage(e, 'Unable to scan spendable key.'));
-      setStatus(requiresPassword ? 'password' : 'error');
 
-      if (!requiresPassword) {
-        setRequestError({
-          title: 'Invalid spendable key',
-          message: 'This spendable key could not be read.',
-          detail: getErrorMessage(e, 'Unable to scan spendable key.'),
-          retry: 'scan',
-        });
-      }
-
-      return;
-    }
-
-    try {
-      if (requiresPassword) {
+      if (needsDecryption) {
         setStatus('scanning');
         await waitForStatusPaint();
       }
@@ -660,6 +720,8 @@ const SpendableKeyRequestInfoContent = props => {
       console.warn(e);
       setRequestError(getScanError(e));
       setStatus('error');
+    } finally {
+      scanInFlightRef.current = false;
     }
   }, [
     activeAccountMatchesRequest,
@@ -670,6 +732,7 @@ const SpendableKeyRequestInfoContent = props => {
     password,
     requestIsTestnet,
     requiresPassword,
+    showPasswordError,
   ]);
 
   const scanPasswordQr = useCallback(() => {
@@ -686,12 +749,12 @@ const SpendableKeyRequestInfoContent = props => {
       scannedValue.length <= 5000
     ) {
       setPassword(scannedValue);
+      setPasswordError(null);
       setStatus('password');
     } else {
-      createAlert('Error', 'QR code did not contain a valid claim password.');
-      setStatus('password');
+      await showPasswordError(CLAIM_PASSWORD_QR_ERROR);
     }
-  }, []);
+  }, [showPasswordError]);
 
   const claimPlanNeedsAccountRefresh =
     claimPlan != null &&
@@ -1022,7 +1085,7 @@ const SpendableKeyRequestInfoContent = props => {
     }
   }, [claimPlanNeedsAccountRefresh, scanClaims, status]);
 
-  const renderLoading = (label, description) => (
+  const renderLoading = (label, description, onCancel) => (
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={styles.container}>
@@ -1031,10 +1094,27 @@ const SpendableKeyRequestInfoContent = props => {
         <Text style={styles.loadingText}>{label}</Text>
         <Text style={styles.loadingDescription}>{description}</Text>
       </View>
+      {onCancel && (
+        <SafeBottomActionStack
+          horizontalSpacing={24}
+          style={styles.footer}>
+          <AppButton height={56} onPress={onCancel} variant="secondary">
+            Cancel
+          </AppButton>
+        </SafeBottomActionStack>
+      )}
     </SafeAreaView>
   );
 
-  if (status === 'scanning' || status === 'decrypting') {
+  if (status === 'scanning' && requiresPassword) {
+    return renderLoading(
+      'Checking claim contents',
+      'Finding funds and VerusIDs linked to this key.',
+      cancel,
+    );
+  }
+
+  if (status === 'scanning') {
     return (
       <GenericRequestLoading
         activeStep={GENERIC_REQUEST_LOADING_STEPS.REVIEW}
@@ -1072,7 +1152,11 @@ const SpendableKeyRequestInfoContent = props => {
     );
   }
 
-  if (status === 'password') {
+  const isDecrypting = status === 'decrypting';
+
+  if (status === 'password' || isDecrypting) {
+    const decryptDisabled = password.length === 0 || isDecrypting;
+
     return (
       <SafeAreaView
         edges={['top', 'left', 'right']}
@@ -1080,57 +1164,87 @@ const SpendableKeyRequestInfoContent = props => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.passwordScreen}>
             <DeepLinkReviewScrollView
-              contentContainerStyle={styles.passwordScrollContent}>
-              <View style={styles.iconWrap}>
+              contentContainerStyle={[
+                styles.passwordScrollContent,
+                smallDevice && styles.passwordScrollContentSmallDevice,
+              ]}>
+              <View style={styles.passwordContent}>
                 <MaterialCommunityIcons
                   name="key-outline"
-                  size={42}
-                  color={theme.colors.primary}
+                  size={64}
+                  color={theme.colors.textPrimary}
+                  style={styles.passwordHeroIcon}
                 />
-              </View>
-              <Text style={styles.passwordTitle}>Decrypt spendable key</Text>
-              <Text style={styles.passwordDescription}>
-                This key is encrypted. Enter or scan its claim password to review
-                the funds and VerusIDs it can claim.
-              </Text>
-              <TextInput
-                returnKeyType="done"
-                label="Claim password"
-                value={password}
-                mode="outlined"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={setPassword}
-                onSubmitEditing={password.length > 0 ? scanClaims : undefined}
-                right={
-                  <TextInput.Icon
-                    icon={showPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowPassword(!showPassword)}
+                <Text style={styles.passwordTitle}>Decrypt spendable key</Text>
+                <Text style={styles.passwordDescription}>
+                  This key is encrypted. Enter or scan its claim password to
+                  review the funds and VerusIDs it can claim.
+                </Text>
+                <View pointerEvents={isDecrypting ? 'none' : 'auto'}>
+                  <AppTextInput
+                    ref={passwordInputRef}
+                    accessibilityLabel="Claim password"
+                    accessibilityState={{disabled: isDecrypting}}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isDecrypting}
+                    errorText={passwordError}
+                    label="Claim password"
+                    onChangeText={value => {
+                      if (value !== password) {
+                        setPasswordError(null);
+                      }
+
+                      setPassword(value);
+                    }}
+                    onRightPress={() => setShowPassword(!showPassword)}
+                    onSubmitEditing={
+                      decryptDisabled ? undefined : scanClaims
+                    }
+                    placeholder="Enter claim password"
+                    returnKeyType="done"
+                    rightAccessibilityLabel={
+                      showPassword
+                        ? 'Hide claim password'
+                        : 'Show claim password'
+                    }
+                    rightIcon={showPassword ? 'eye-off' : 'eye'}
+                    secureTextEntry={!showPassword}
+                    themeMode={theme.mode}
+                    value={password}
                   />
-                }
-                style={styles.passwordInput}
-              />
+                </View>
+              </View>
             </DeepLinkReviewScrollView>
             <SafeBottomActionStack
               gap={10}
               horizontalSpacing={24}
               style={styles.footer}>
               <AppButton
-                disabled={password.length === 0}
+                accessibilityState={{
+                  busy: isDecrypting,
+                  disabled: decryptDisabled,
+                }}
+                disabled={decryptDisabled}
                 height={56}
+                loading={isDecrypting}
                 onPress={scanClaims}
                 variant="primary">
-                Decrypt
+                {isDecrypting ? 'Decrypting…' : 'Decrypt'}
               </AppButton>
               <AppButton
+                disabled={isDecrypting}
                 icon="qrcode-scan"
                 height={56}
                 onPress={scanPasswordQr}
                 variant="secondary">
                 Scan password QR
               </AppButton>
-              <AppButton height={48} onPress={cancel} variant="text">
+              <AppButton
+                disabled={isDecrypting}
+                height={48}
+                onPress={cancel}
+                variant="text">
                 Cancel
               </AppButton>
             </SafeBottomActionStack>
@@ -1142,8 +1256,9 @@ const SpendableKeyRequestInfoContent = props => {
 
   let primaryActionLabel = getSpendableKeyClaimLabel(reviewModel);
 
-  if (status === 'error') primaryActionLabel = 'Retry';
-  else if (walletGate) primaryActionLabel = walletGate.actionLabel;
+  if (status === 'error') {
+    primaryActionLabel = requestError?.retry ? 'Retry' : 'Close';
+  } else if (walletGate) primaryActionLabel = walletGate.actionLabel;
   else if (status === 'empty' || status === 'complete') {
     primaryActionLabel = 'Done';
   }
@@ -1151,11 +1266,13 @@ const SpendableKeyRequestInfoContent = props => {
   const statusSubtitle =
     status === 'review'
       ? getSpendableKeyReviewSubtitle(reviewModel)
-      : getStatusSubtitle({claimResult, status});
+      : getStatusSubtitle({claimResult, requestError, status});
   const mainTitle = getScreenTitle({claimResult, requestError, status});
   const primaryAction = async () => {
     if (status === 'error') {
-      if (requestError?.retry === 'claim' && claimPlan != null) {
+      if (!requestError?.retry) {
+        cancel();
+      } else if (requestError.retry === 'claim' && claimPlan != null) {
         await claim();
       } else {
         await scanClaims();
@@ -1186,24 +1303,29 @@ const SpendableKeyRequestInfoContent = props => {
       await claim();
     }
   };
-  const showCancelAction = status !== 'complete';
+  const canOfferSecondaryActions =
+    status !== 'error' || requestError?.retry != null;
+  const showCancelAction =
+    status !== 'complete' && canOfferSecondaryActions;
 
   const footer = (
     <SafeBottomActionStack
       gap={10}
       horizontalSpacing={24}
       style={styles.footer}>
-      {walletGate?.helper && status !== 'complete' && (
-        <View style={styles.footerInfoRow}>
-          <MaterialCommunityIcons
-            name="information-outline"
-            size={16}
-            color={theme.colors.textSubtle}
-            style={styles.footerInfoIcon}
-          />
-          <Text style={styles.footerInfoText}>{walletGate.helper}</Text>
-        </View>
-      )}
+      {walletGate?.helper &&
+        status !== 'complete' &&
+        canOfferSecondaryActions && (
+          <View style={styles.footerInfoRow}>
+            <MaterialCommunityIcons
+              name="information-outline"
+              size={16}
+              color={theme.colors.textSubtle}
+              style={styles.footerInfoIcon}
+            />
+            <Text style={styles.footerInfoText}>{walletGate.helper}</Text>
+          </View>
+        )}
       <AppButton
         disabled={
           finishing ||
@@ -1240,7 +1362,7 @@ const SpendableKeyRequestInfoContent = props => {
         {status === 'error' && requestError != null && (
           <View style={styles.criticalWarningCard}>
             <MaterialCommunityIcons
-              name="wifi-alert"
+              name={requestError.icon || 'wifi-alert'}
               size={22}
               color={theme.colors.danger}
               style={{marginTop: 1}}

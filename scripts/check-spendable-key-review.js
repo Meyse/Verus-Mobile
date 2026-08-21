@@ -210,8 +210,49 @@ const main = async () => {
   assert(screenSource.includes('openUrl(explorerUrl)'));
   assert(!screenSource.includes('styles.requestCard'));
   assert(!screenSource.includes('truncate(identity.identityAddress)'));
-  assert(screenSource.includes("status === 'scanning' || status === 'decrypting'"));
-  assert(screenSource.includes('<GenericRequestLoading'));
+  assert(screenSource.includes('SPENDABLE_KEY_DECRYPTION_FAILED'));
+  assert(
+    screenSource.includes(
+      'That password didn’t decrypt this key. Check it and try again.',
+    ),
+  );
+  assert(
+    screenSource.includes(
+      'That QR code didn’t contain a valid claim password.',
+    ),
+  );
+  assert(screenSource.includes('errorText={passwordError}'));
+  assert(screenSource.includes('loading={isDecrypting}'));
+  assert(screenSource.includes('Decrypting…'));
+  assert(screenSource.includes('Checking claim contents'));
+  assert(
+    screenSource.includes(
+      'Finding funds and VerusIDs linked to this key.',
+    ),
+  );
+  assert(screenSource.includes("status === 'scanning' && requiresPassword"));
+  assert(screenSource.includes('Can’t decrypt this key'));
+  assert(
+    screenSource.includes(
+      'This spendable key is invalid or uses an unsupported encryption format.',
+    ),
+  );
+  assert(screenSource.includes("requestError?.retry ? 'Retry' : 'Close'"));
+
+  const spendableKeySource = fs.readFileSync(
+    path.resolve(__dirname, '../src/utils/spendableKey/spendableKey.js'),
+    'utf8',
+  );
+  assert(
+    spendableKeySource.includes(
+      "export const SPENDABLE_KEY_DECRYPTION_FAILED =",
+    ),
+  );
+  assert(
+    spendableKeySource.includes(
+      'error.code = SPENDABLE_KEY_DECRYPTION_FAILED',
+    ),
+  );
 
   const createProfileSource = fs.readFileSync(
     path.resolve(
@@ -266,7 +307,10 @@ const main = async () => {
           zeroValueTypesHidden: true,
           walletGateContract: true,
           successTxidsAndPartialErrorsPreserved: true,
-          sharedRequestLoadingPreserved: true,
+          inlinePasswordFailure: true,
+          encryptedClaimScanningContextual: true,
+          structuralDecryptionFailurePersistent: true,
+          unencryptedAutoScanPreserved: true,
           savedClaimReplayWired: true,
           savedClaimReplayRebuildsMissingUri: true,
         },

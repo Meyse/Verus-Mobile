@@ -68,6 +68,8 @@ export const GIFT_CARD_FUNDING_STATUS_CONFIRMED = 'confirmed';
 export const GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS = 10 * 60 * 1000;
 export const GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE =
   'Gift card sharing is in progress. Wait for it to finish before funding.';
+export const GIFT_CARD_REDEEMED_SHARE_MESSAGE =
+  'Redeemed gift cards cannot be shared.';
 
 const DEFAULT_LABEL = 'Gift Card';
 const IDENTITY_DEFINITION_FIELDS = [
@@ -580,9 +582,11 @@ export const createGiftCard = async ({
   kdfIters = SEED_DETAILS_ENCRYPTION_ITERS_LOW,
   requestIsTestnet,
   activeCoinsForUser,
+  onProgress,
 }) => {
   const entropy = Buffer.from(await randomBytes(32));
   const mnemonic = entropyToMnemonic(entropy.toString('hex'));
+  onProgress?.({phase: 'protecting'});
   const spendableKey = await buildSeedDetails({
     SeedDetailsClass: SpendableKeyDetails,
     mnemonic,
@@ -598,6 +602,7 @@ export const createGiftCard = async ({
   });
   const requestBufferString = request.toBuffer().toString('hex');
   const requestUri = request.toWalletDeeplinkUri();
+  onProgress?.({phase: 'deriving-addresses'});
   const derived = await deriveSpendableKeyAddresses({
     mnemonic,
     requestIsTestnet,
@@ -762,6 +767,31 @@ export const hasGiftCardShareInProgress = (card, now = Date.now()) => {
   return (
     currentTime - attempt.startedAt < GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS
   );
+};
+
+export const getGiftCardCapabilities = (card, now = Date.now()) => {
+  const isRedeemed =
+    card?.status?.state === GIFT_CARD_STATUS_REDEEMED ||
+    card?.status?.redeemed === true;
+  const isShared = hasGiftCardBeenShared(card);
+  const hasClaims = hasGiftCardClaims(card);
+  const hasPendingFunding = hasPendingGiftCardFunding(card);
+  const sharingInProgress = hasGiftCardShareInProgress(card, now);
+
+  return {
+    isRedeemed,
+    canShare:
+      !isRedeemed &&
+      !sharingInProgress &&
+      (isShared || (hasClaims && !hasPendingFunding)),
+    canFund:
+      !isRedeemed &&
+      !isShared &&
+      !hasGiftCardShareReservation(card) &&
+      !hasPendingFunding,
+    canCancel: !isRedeemed && hasClaims && !hasPendingFunding,
+    showFundingAddresses: !isRedeemed && !isShared,
+  };
 };
 
 export const beginGiftCardShare = (
@@ -2109,6 +2139,7 @@ export const preflightGiftCardFunding = async ({
   identityFunding,
   activeCoinsForUser,
   activeAccount,
+  onProgress,
 }) => {
   if (hasGiftCardBeenShared(card)) {
     throw new Error(
@@ -2140,6 +2171,7 @@ export const preflightGiftCardFunding = async ({
   );
   const requestedSystems = groups.map(group => group.systemId);
 
+  onProgress?.({phase: 'checking-protected-card'});
   await verifyGiftCardAddresses({
     card,
     password,
@@ -2149,7 +2181,12 @@ export const preflightGiftCardFunding = async ({
 
   const transactions = [];
 
-  for (const group of groups) {
+  for (const [groupIndex, group] of groups.entries()) {
+    onProgress?.({
+      phase: 'calculating-fees',
+      current: groupIndex + 1,
+      total: groups.length,
+    });
     const cardAddress = card.addressesBySystem[group.systemId];
     const sourceCoin =
       group.funds[0]?.coinObj ||
@@ -2241,10 +2278,19 @@ const signCurrencyFundingTransaction = async transaction => {
   return txb.build().toHex();
 };
 
-export const broadcastGiftCardFunding = async ({preflightPlan}) => {
+export const broadcastGiftCardFunding = async ({
+  preflightPlan,
+  onProgress,
+}) => {
   const results = [];
+  const transactions = preflightPlan.transactions;
 
-  for (const transaction of preflightPlan.transactions) {
+  for (const [transactionIndex, transaction] of transactions.entries()) {
+    onProgress?.({
+      phase: 'submitting-transaction',
+      current: transactionIndex + 1,
+      total: transactions.length,
+    });
     try {
       if (transaction.type === 'identity') {
         const spendingKey = await requestPrivKey(transaction.signingCoinId, VRPC);

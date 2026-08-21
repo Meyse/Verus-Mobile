@@ -836,20 +836,46 @@ export const spendableKeyDetailsRequiresPassword = spendableKeyOrdinal => {
   return seedDetailsRequiresPassword(spendableKeyOrdinal);
 };
 
+export const SPENDABLE_KEY_DECRYPTION_FAILED =
+  'SPENDABLE_KEY_DECRYPTION_FAILED';
+
+const SPENDABLE_KEY_DECRYPTION_FAILED_MESSAGE =
+  'Unable to decrypt spendable key. Check the password and try again.';
+const SPENDABLE_KEY_ENCRYPTED_BIP39_PAYLOAD_LENGTHS = [60, 64, 68, 72, 76];
+
 export const spendableKeyDetailsOrdinalToMnemonic = ({
   spendableKeyOrdinal,
   password,
 }) => {
-  return seedDetailsOrdinalToMnemonic({
-    seedDetailsOrdinal: spendableKeyOrdinal,
-    ExpectedOrdinalClass: SpendableKeyDetailsOrdinalVDXFObject,
-    password,
-    invalidMessage: 'Request does not contain valid spendable key details.',
-    passwordRequiredMessage:
-      'This spendable key is encrypted. Enter the claim password.',
-    decryptErrorMessage:
-      'Unable to decrypt spendable key. Check the password and try again.',
-  });
+  const spendableKeyDetails = spendableKeyOrdinal?.data;
+
+  if (
+    spendableKeyOrdinal instanceof SpendableKeyDetailsOrdinalVDXFObject &&
+    spendableKeyDetails?.usesSaltedTaggedAes256Gcm() &&
+    !SPENDABLE_KEY_ENCRYPTED_BIP39_PAYLOAD_LENGTHS.includes(
+      spendableKeyDetails.data?.length,
+    )
+  ) {
+    throw new Error('Encrypted spendable key data is malformed.');
+  }
+
+  try {
+    return seedDetailsOrdinalToMnemonic({
+      seedDetailsOrdinal: spendableKeyOrdinal,
+      ExpectedOrdinalClass: SpendableKeyDetailsOrdinalVDXFObject,
+      password,
+      invalidMessage: 'Request does not contain valid spendable key details.',
+      passwordRequiredMessage:
+        'This spendable key is encrypted. Enter the claim password.',
+      decryptErrorMessage: SPENDABLE_KEY_DECRYPTION_FAILED_MESSAGE,
+    });
+  } catch (error) {
+    if (error?.message === SPENDABLE_KEY_DECRYPTION_FAILED_MESSAGE) {
+      error.code = SPENDABLE_KEY_DECRYPTION_FAILED;
+    }
+
+    throw error;
+  }
 };
 
 export const discoverSpendableKeyClaims = async ({

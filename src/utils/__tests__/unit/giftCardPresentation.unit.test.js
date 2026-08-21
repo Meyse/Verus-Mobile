@@ -122,6 +122,7 @@ describe('gift card presentation', () => {
     );
     const redeemed = getGiftCardPresentation(
       buildCard({
+        fundingHistory: [{status: 'pending', txids: ['transaction-id']}],
         status: {state: 'redeemed', redeemed: true, systems: []},
       }),
     );
@@ -129,7 +130,14 @@ describe('gift card presentation', () => {
     expect(notFunded.status).toBe(GIFT_CARD_DISPLAY_STATUS_NOT_FUNDED);
     expect(notFunded.primaryContent.value).toBe('Ready to fund');
     expect(redeemed.status).toBe(GIFT_CARD_DISPLAY_STATUS_REDEEMED);
-    expect(redeemed.primaryContent.value).toBe('No confirmed contents');
+    expect(redeemed.primaryContent).toEqual({
+      type: 'redeemed',
+      value: 'Claim completed',
+      label: 'No contents remain',
+    });
+    expect(redeemed.confirmedItemCount).toBe(0);
+    expect(redeemed.hasPending).toBe(false);
+    expect(redeemed.pendingCount).toBe(0);
   });
 
   it('preserves long labels, many contents, and stable material selection', () => {

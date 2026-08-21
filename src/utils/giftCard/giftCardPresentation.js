@@ -104,14 +104,24 @@ export const getGiftCardDisplayStatusLabel = card =>
   getStatusLabel(getGiftCardDisplayStatus(card));
 
 export const getGiftCardPresentation = card => {
-  const confirmedContents = getConfirmedContents(card);
-  const pendingCount = (card?.fundingHistory || []).filter(
+  const status = getGiftCardDisplayStatus(card);
+  const redeemed = status === GIFT_CARD_DISPLAY_STATUS_REDEEMED;
+  let confirmedContents = getConfirmedContents(card);
+  let pendingCount = (card?.fundingHistory || []).filter(
     isPendingFunding,
   ).length;
-  const status = getGiftCardDisplayStatus(card);
   const materialHash = getStableHash(card?.id || card?.label);
-
   let primaryContent = confirmedContents[0] || null;
+
+  if (redeemed) {
+    confirmedContents = [];
+    pendingCount = 0;
+    primaryContent = {
+      type: 'redeemed',
+      value: 'Claim completed',
+      label: 'No contents remain',
+    };
+  }
 
   if (!primaryContent) {
     if (status === GIFT_CARD_DISPLAY_STATUS_NOT_FUNDED) {

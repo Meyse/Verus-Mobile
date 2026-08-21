@@ -37,7 +37,9 @@ import {
   canDeleteGiftCard,
   cancelGiftCardShare,
   completeGiftCardShare,
+  GIFT_CARD_REDEEMED_SHARE_MESSAGE,
   GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE,
+  getGiftCardCapabilities,
   getGiftCardClaimInfo,
   getGiftCardIdentityLookupErrors,
   getGiftCardPendingFundings,
@@ -110,6 +112,10 @@ const getCardContents = card => {
 };
 
 const getContentsSummary = card => {
+  if (getGiftCardCapabilities(card).isRedeemed) {
+    return 'Claim completed';
+  }
+
   const contents = getCardContents(card);
 
   if (contents.length === 0) {
@@ -119,11 +125,21 @@ const getContentsSummary = card => {
   return `${contents.slice(0, 2).join(' · ')} +${contents.length - 2}`;
 };
 
+const getListSummary = card => {
+  const contentsSummary = getContentsSummary(card);
+
+  return hasGiftCardBeenShared(card)
+    ? `Shared · ${contentsSummary}`
+    : contentsSummary;
+};
+
 const formatCardDateTime = timestamp => {
   if (!timestamp) return '';
 
   try {
-    return new Date(timestamp).toLocaleString();
+    const date = new Date(timestamp);
+
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
   } catch (_) {
     return '';
   }
@@ -228,14 +244,7 @@ const GiftCardServiceOverview = ({
     [normalizedData.cards],
   );
   const selectedCard = cards.find(card => card.id === selectedCardId) || null;
-  const {
-    copied,
-    copyLink,
-    nfcStatus,
-    resetSharing,
-    shareNative,
-    shareNfc,
-  } = useGiftCardSharing(selectedCard);
+  const {nfcStatus, shareNative, shareNfc} = useGiftCardSharing(selectedCard);
   useFocusEffect(
     useCallback(() => {
       qrNavigationPendingRef.current = false;
@@ -405,7 +414,10 @@ const GiftCardServiceOverview = ({
 
   const prepareCardForSharing = useCallback(
     async card => {
-      if (hasGiftCardBeenShared(card)) return card;
+      if (getGiftCardCapabilities(card).isRedeemed) {
+        throw new Error(GIFT_CARD_REDEEMED_SHARE_MESSAGE);
+      }
+
       if (hasGiftCardShareInProgress(card)) {
         throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
       }
@@ -416,10 +428,17 @@ const GiftCardServiceOverview = ({
       });
       const savedCard = await saveCard(refreshed, card);
       const latestCard = savedCard || refreshed;
+      const latestCapabilities = getGiftCardCapabilities(latestCard);
+
+      if (latestCapabilities.isRedeemed) {
+        throw new Error(GIFT_CARD_REDEEMED_SHARE_MESSAGE);
+      }
 
       if (hasGiftCardShareInProgress(latestCard)) {
         throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
       }
+
+      if (hasGiftCardBeenShared(latestCard)) return latestCard;
 
       if (hasPendingGiftCardFunding(latestCard)) {
         throw new Error(
@@ -438,35 +457,34 @@ const GiftCardServiceOverview = ({
     [activeCoinsForUser, saveCard],
   );
 
-  const prepareShareOptions = useCallback(
-    async card => {
-      if (!card) return false;
-
-      setBusyCardId(card.id);
-
-      try {
-        await prepareCardForSharing(card);
-        return true;
-      } catch (e) {
-        console.error(e);
-        Alert.alert(
-          'Unable to share',
-          e.message || 'Unable to prepare gift card.',
-        );
-        return false;
-      } finally {
-        setBusyCardId(null);
-      }
-    },
-    [prepareCardForSharing],
-  );
-
   const runShareAction = useCallback(
     async (card, action) => {
       if (!card) return false;
 
       let actionCompleted = false;
       let shareAttemptId = null;
+      const rollbackShareAttempt = async () => {
+        if (!shareAttemptId) return;
+
+        try {
+          await saveServiceData(currentData => {
+            const normalized = normalizeGiftCardServiceData(currentData);
+            const currentCard = normalized.cards?.[card.id];
+
+            return currentCard
+              ? upsertGiftCard(
+                  normalized,
+                  cancelGiftCardShare(currentCard, shareAttemptId),
+                )
+              : normalized;
+          });
+        } catch (rollbackError) {
+          console.warn(
+            'Unable to clear gift card share attempt',
+            rollbackError,
+          );
+        }
+      };
       setBusyCardId(card.id);
 
       try {
@@ -477,6 +495,10 @@ const GiftCardServiceOverview = ({
 
           if (!currentCard) {
             throw new Error('Gift card is no longer available.');
+          }
+
+          if (getGiftCardCapabilities(currentCard).isRedeemed) {
+            throw new Error(GIFT_CARD_REDEEMED_SHARE_MESSAGE);
           }
 
           if (hasGiftCardBeenShared(currentCard)) {
@@ -505,7 +527,13 @@ const GiftCardServiceOverview = ({
           throw new Error('Gift card is no longer available.');
         }
 
-        await action(actionCard);
+        const actionResult = await action(actionCard);
+
+        if (actionResult === false) {
+          await rollbackShareAttempt();
+          return false;
+        }
+
         actionCompleted = true;
 
         if (shareAttemptId) {
@@ -532,23 +560,7 @@ const GiftCardServiceOverview = ({
 
         return true;
       } catch (e) {
-        if (shareAttemptId && !actionCompleted) {
-          try {
-            await saveServiceData(currentData => {
-              const normalized = normalizeGiftCardServiceData(currentData);
-              const currentCard = normalized.cards?.[card.id];
-
-              return currentCard
-                ? upsertGiftCard(
-                    normalized,
-                    cancelGiftCardShare(currentCard, shareAttemptId),
-                  )
-                : normalized;
-            });
-          } catch (rollbackError) {
-            console.warn('Unable to clear gift card share attempt', rollbackError);
-          }
-        }
+        if (!actionCompleted) await rollbackShareAttempt();
 
         console.error(e);
         Alert.alert(
@@ -848,9 +860,10 @@ const GiftCardServiceOverview = ({
         showsVerticalScrollIndicator={false}>
         {visibleCards.map((card, index) => {
           const busy = busyCardId === card.id;
-          const accessibilityLabel = `${card.label}. ${getContentsSummary(
-            card,
-          )}. ${getGiftCardDisplayStatusLabel(card)}.`;
+          const shared = hasGiftCardBeenShared(card);
+          const accessibilityLabel = `${card.label}. ${
+            shared ? 'Shared from this wallet. ' : ''
+          }${getContentsSummary(card)}. ${getGiftCardDisplayStatusLabel(card)}.`;
 
           return (
             <View key={card.id} style={styles.rowContainer}>
@@ -895,7 +908,7 @@ const GiftCardServiceOverview = ({
                       styles.rowDescription,
                       {color: theme.colors.textSecondary},
                     ]}>
-                    {getContentsSummary(card)}
+                    {getListSummary(card)}
                   </Text>
                 </View>
                 <GiftCardStatusBadge card={card} />
@@ -954,32 +967,53 @@ const GiftCardServiceOverview = ({
   const renderDetail = card => {
     const busy = busyCardId === card.id;
     const pendingFundings = getGiftCardPendingFundings(card);
-    const hasClaims = hasGiftCardClaims(card);
+    const capabilities = getGiftCardCapabilities(card);
     const pending = pendingFundings.length > 0;
     const deleteEnabled = canDeleteGiftCard(card);
     const status = getGiftCardDisplayStatus(card);
     const addresses = Object.entries(card.addressesBySystem || {});
-    const systemRows = getSystemRows(card);
+    const systemRows = capabilities.isRedeemed ? [] : getSystemRows(card);
     const presentation = getGiftCardPresentation(card);
     const claimInfo = getGiftCardClaimInfo(card);
     const claimedAt = formatCardDateTime(claimInfo?.claimedAt);
     const identityLookupErrors = getGiftCardIdentityLookupErrors(card);
     const shared = hasGiftCardBeenShared(card);
-    const fundingAvailable =
-      !shared &&
-      (status === STATUS_NOT_FUNDED || status === STATUS_READY);
-    const contentsSummary =
-      presentation.confirmedItemCount === 0
-        ? 'No confirmed contents'
-        : `${presentation.confirmedItemCount} confirmed ${
-            presentation.confirmedItemCount === 1 ? 'item' : 'items'
-          }`;
+    const sharedAt = shared ? formatCardDateTime(card.sharedAt) : '';
+    const sharedNoticeBody = sharedAt
+      ? `This wallet exposed the redeemable link on ${sharedAt}. This gift card cannot be funded again.`
+      : 'This wallet exposed the redeemable link. This gift card cannot be funded again.';
+    let contentsSummary = 'No confirmed contents';
+    let emptyContentsMessage = pending
+      ? 'There are no confirmed contents yet. Pending funding is listed separately below.'
+      : 'There are no confirmed contents yet.';
+
+    if (capabilities.isRedeemed) {
+      contentsSummary = 'No contents remain';
+      emptyContentsMessage =
+        'This gift card has been claimed. No contents remain.';
+    } else if (presentation.confirmedItemCount > 0) {
+      contentsSummary = `${presentation.confirmedItemCount} confirmed ${
+        presentation.confirmedItemCount === 1 ? 'item' : 'items'
+      }`;
+    }
     const fundingSummary = `${addresses.length} funding ${
       addresses.length === 1 ? 'address' : 'addresses'
     }`;
+    const pendingTitle = capabilities.isRedeemed
+      ? 'Funding verification incomplete'
+      : 'Pending funding';
+    const pendingBody = capabilities.isRedeemed
+      ? 'One or more saved funding transactions could not be verified. This gift card has already been redeemed.'
+      : 'These items are not available to the recipient until they confirm.';
+    const pendingIdentityPrefix = capabilities.isRedeemed
+      ? 'Unverified record for '
+      : 'Waiting for ';
+    const pendingTransactionCopyLabel = capabilities.isRedeemed
+      ? 'Copy unverified funding transaction ID'
+      : 'Copy pending funding transaction ID';
     const optionActions = [];
 
-    if (fundingAvailable) {
+    if (capabilities.canFund) {
       optionActions.push(
         {
           key: 'add-contents',
@@ -1001,26 +1035,27 @@ const GiftCardServiceOverview = ({
       );
     }
 
-    optionActions.push(
-      {
+    if (!capabilities.isRedeemed) {
+      optionActions.push({
         key: 'cancel',
         danger: true,
-        disabled: busy || pending || !hasClaims,
+        disabled: busy || !capabilities.canCancel,
         IconComponent: RotateCcw,
         label: 'Cancel gift card',
         nextMode: 'cancel',
-      },
-      {
-        key: 'remove',
-        disabled: busy,
-        IconComponent: Trash2,
-        label: 'Remove from this device',
-        onPress: () =>
-          deleteEnabled
-            ? confirmDeleteCard(card)
-            : explainDeleteUnavailable(card),
-      },
-    );
+      });
+    }
+
+    optionActions.push({
+      key: 'remove',
+      disabled: busy,
+      IconComponent: Trash2,
+      label: 'Remove from this device',
+      onPress: () =>
+        deleteEnabled
+          ? confirmDeleteCard(card)
+          : explainDeleteUnavailable(card),
+    });
 
     return (
       <SafeAreaView
@@ -1076,19 +1111,49 @@ const GiftCardServiceOverview = ({
           showsVerticalScrollIndicator={false}>
           <GiftCardFlipCard
             busy={busy}
+            canShare={capabilities.canShare}
             card={card}
-            copied={copied}
-            onCopyLink={() => runShareAction(card, copyLink)}
             onOpenQr={() => runShareAction(card, navigateToQr)}
-            onPrepareShare={() => prepareShareOptions(card)}
-            onRevealLink={revealLink =>
-              runShareAction(card, revealLink)
-            }
-            onResetSharing={resetSharing}
             onShareNative={() => runShareAction(card, shareNative)}
             onWriteNfc={() => runShareAction(card, shareNfc)}
             presentation={presentation}
           />
+
+          {shared ? (
+            <View
+              accessible
+              accessibilityLabel={`Shared from this wallet. ${sharedNoticeBody}`}
+              style={[
+                styles.sharedNotice,
+                {
+                  backgroundColor: theme.colors.warningBackground,
+                  borderColor: theme.colors.warning,
+                },
+              ]}>
+              <MaterialCommunityIcons
+                accessible={false}
+                color={theme.colors.warning}
+                name="shield-alert-outline"
+                size={19}
+              />
+              <View style={styles.sharedNoticeCopy}>
+                <Text
+                  style={[
+                    styles.sharedNoticeTitle,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  Shared from this wallet
+                </Text>
+                <Text
+                  style={[
+                    styles.sharedNoticeBody,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {sharedNoticeBody}
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {status === STATUS_REDEEMED ? (
             <View style={styles.statusGuidance}>
@@ -1244,92 +1309,92 @@ const GiftCardServiceOverview = ({
                     styles.emptySectionText,
                     {color: theme.colors.textSecondary},
                   ]}>
-                  {pending
-                    ? 'There are no confirmed contents yet. Pending funding is listed separately below.'
-                    : 'There are no confirmed contents yet.'}
+                  {emptyContentsMessage}
                 </Text>
               )}
             </View>
 
-            <View
-              style={[
-                styles.flatSection,
-                styles.flatSectionDivider,
-                {borderTopColor: theme.colors.border},
-              ]}>
-              <View style={styles.sectionHeadingRow}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    {color: theme.colors.textPrimary},
-                  ]}>
-                  Funding addresses
-                </Text>
-                <Text
-                  style={[
-                    styles.sectionSummary,
-                    {color: theme.colors.textSecondary},
-                  ]}>
-                  {fundingSummary}
-                </Text>
-              </View>
-              <Text
+            {capabilities.showFundingAddresses ? (
+              <View
                 style={[
-                  styles.sectionIntro,
-                  {color: theme.colors.textSecondary},
+                  styles.flatSection,
+                  styles.flatSectionDivider,
+                  {borderTopColor: theme.colors.border},
                 ]}>
-                Send from another wallet using the address for the matching
-                system.
-              </Text>
-              {addresses.length > 0 ? (
-                addresses.map(([systemId, address], index) => (
-                  <View
-                    key={systemId}
+                <View style={styles.sectionHeadingRow}>
+                  <Text
                     style={[
-                      styles.addressRow,
-                      index < addresses.length - 1 && {
-                        borderBottomColor: theme.colors.border,
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                      },
+                      styles.sectionTitle,
+                      {color: theme.colors.textPrimary},
                     ]}>
-                    <View style={styles.addressCopy}>
-                      <Text
-                        style={[
-                          styles.addressSystem,
-                          {color: theme.colors.textPrimary},
-                        ]}>
-                        {getSystemName(systemId, card, activeCoinsForUser)}
-                      </Text>
-                      <Text
-                        numberOfLines={2}
-                        selectable
-                        style={[
-                          styles.addressValue,
-                          {color: theme.colors.textSecondary},
-                        ]}>
-                        {address}
-                      </Text>
-                    </View>
-                    <CopyAction
-                      accessibilityLabel={`Copy ${getSystemName(
-                        systemId,
-                        card,
-                        activeCoinsForUser,
-                      )} gift card address`}
-                      value={address}
-                    />
-                  </View>
-                ))
-              ) : (
+                    Funding addresses
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sectionSummary,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    {fundingSummary}
+                  </Text>
+                </View>
                 <Text
                   style={[
-                    styles.emptySectionText,
+                    styles.sectionIntro,
                     {color: theme.colors.textSecondary},
                   ]}>
-                  No funding addresses are available.
+                  Send from another wallet using the address for the matching
+                  system.
                 </Text>
-              )}
-            </View>
+                {addresses.length > 0 ? (
+                  addresses.map(([systemId, address], index) => (
+                    <View
+                      key={systemId}
+                      style={[
+                        styles.addressRow,
+                        index < addresses.length - 1 && {
+                          borderBottomColor: theme.colors.border,
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                        },
+                      ]}>
+                      <View style={styles.addressCopy}>
+                        <Text
+                          style={[
+                            styles.addressSystem,
+                            {color: theme.colors.textPrimary},
+                          ]}>
+                          {getSystemName(systemId, card, activeCoinsForUser)}
+                        </Text>
+                        <Text
+                          numberOfLines={2}
+                          selectable
+                          style={[
+                            styles.addressValue,
+                            {color: theme.colors.textSecondary},
+                          ]}>
+                          {address}
+                        </Text>
+                      </View>
+                      <CopyAction
+                        accessibilityLabel={`Copy ${getSystemName(
+                          systemId,
+                          card,
+                          activeCoinsForUser,
+                        )} gift card address`}
+                        value={address}
+                      />
+                    </View>
+                  ))
+                ) : (
+                  <Text
+                    style={[
+                      styles.emptySectionText,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    No funding addresses are available.
+                  </Text>
+                )}
+              </View>
+            ) : null}
           </View>
 
           {pendingFundings.length > 0 ? (
@@ -1344,7 +1409,7 @@ const GiftCardServiceOverview = ({
                     styles.pendingTitle,
                     {color: theme.colors.textPrimary},
                   ]}>
-                  Pending funding
+                  {pendingTitle}
                 </Text>
               </View>
               <Text
@@ -1352,8 +1417,7 @@ const GiftCardServiceOverview = ({
                   styles.pendingBody,
                   {color: theme.colors.textSecondary},
                 ]}>
-                These items are not available to the recipient until they
-                confirm.
+                {pendingBody}
               </Text>
               {pendingFundings.map((entry, entryIndex) => (
                 <View key={`${entry.createdAt || entryIndex}`}>
@@ -1364,7 +1428,7 @@ const GiftCardServiceOverview = ({
                         styles.pendingBody,
                         {color: theme.colors.textSecondary},
                       ]}>
-                      Waiting for{' '}
+                      {pendingIdentityPrefix}
                       {identity.fullyQualifiedName || identity.identityAddress}
                     </Text>
                   ))}
@@ -1382,7 +1446,7 @@ const GiftCardServiceOverview = ({
                         {txid}
                       </Text>
                       <CopyAction
-                        accessibilityLabel="Copy pending funding transaction ID"
+                        accessibilityLabel={pendingTransactionCopyLabel}
                         value={txid}
                       />
                     </View>
@@ -1624,6 +1688,30 @@ const styles = StyleSheet.create({
   statusGuidanceText: {
     fontSize: 13,
     lineHeight: 19,
+    ...fontStyle('regular'),
+  },
+  sharedNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 18,
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+  },
+  sharedNoticeCopy: {
+    minWidth: 0,
+    flex: 1,
+  },
+  sharedNoticeTitle: {
+    fontSize: 14,
+    lineHeight: 19,
+    ...fontStyle('semiBold'),
+  },
+  sharedNoticeBody: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
     ...fontStyle('regular'),
   },
   claimNotice: {

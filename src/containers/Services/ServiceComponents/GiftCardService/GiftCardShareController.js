@@ -67,7 +67,9 @@ export const useGiftCardSharing = card => {
       throw new Error('Gift card link is unavailable.');
     }
 
-    return Share.share({message: cardToShare.requestUri});
+    const result = await Share.share({message: cardToShare.requestUri});
+
+    return result?.action !== Share.dismissedAction;
   }, [card]);
 
   const shareNfc = useCallback(async cardOverride => {

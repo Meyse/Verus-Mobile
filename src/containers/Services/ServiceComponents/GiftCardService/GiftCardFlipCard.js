@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   AccessibilityInfo,
+  PanResponder,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,32 +16,28 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, {
-  Defs,
-  LinearGradient,
-  Path,
-  RadialGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, {Path} from 'react-native-svg';
 import {fontStyle} from '../../../../globals/fonts';
+import {useAppTheme} from '../../../../theme/app';
 
-const WALLET_CARD_WIDTH = 314;
-const WALLET_CARD_HEIGHT = 206;
+const WALLET_CARD_WIDTH = 360;
+const WALLET_CARD_HEIGHT = 227;
 const CARD_ASPECT_RATIO = WALLET_CARD_WIDTH / WALLET_CARD_HEIGHT;
 const CARD_PERSPECTIVE = 1100;
-const FLIP_DURATION_MS = 480;
+const FLIP_DURATION_MS = 420;
+const SWIPE_THRESHOLD = 44;
+const SWIPE_VELOCITY_THRESHOLD = 0.35;
 const FLIP_CONFIG = {
   duration: FLIP_DURATION_MS,
   easing: Easing.bezier(0.22, 0.8, 0.18, 1),
 };
-const CARD_TEXT = '#FFFFFF';
-const CARD_TEXT_MUTED = 'rgba(255,255,255,0.76)';
-const CARD_LABEL_SHADOW = {
-  textShadowColor: 'rgba(0,0,0,0.44)',
-  textShadowOffset: {width: 0, height: 1},
-  textShadowRadius: 2,
-};
+const CARD_FRONT = '#26313A';
+const CARD_BACK = '#202A32';
+const CARD_TEXT = '#F4F1E9';
+const CARD_TEXT_MUTED = 'rgba(244,241,233,0.72)';
+const CARD_SHAPE =
+  'M 20 0 H 340 Q 360 0 360 20 V 99 L 350 113.5 L 360 128 V 207 Q 360 227 340 227 H 20 Q 0 227 0 207 V 128 L 10 113.5 L 0 99 V 20 Q 0 0 20 0 Z';
 
 const formatCardDate = timestamp => {
   if (!timestamp) return '';
@@ -51,123 +49,32 @@ const formatCardDate = timestamp => {
   }
 };
 
-const getSeededFraction = (seed, offset) => {
-  let value = Math.imul(seed ^ offset, 2654435761);
-  value ^= value >>> 16;
-  return (value >>> 0) / 4294967295;
-};
+const CardMaterial = ({back = false, height, width}) => (
+  <Svg
+    accessible={false}
+    height={height}
+    pointerEvents="none"
+    style={StyleSheet.absoluteFill}
+    viewBox={`0 0 ${WALLET_CARD_WIDTH} ${WALLET_CARD_HEIGHT}`}
+    width={width}>
+    <Path
+      d={CARD_SHAPE}
+      fill={back ? CARD_BACK : CARD_FRONT}
+      stroke="rgba(255,255,255,0.2)"
+      strokeWidth="1"
+    />
+  </Svg>
+);
 
-const CardMaterial = ({height, material, width}) => {
-  const surfacePaths = useMemo(() => {
-    const seed = material.seed ?? 0x172034;
-    const offset = getSeededFraction(seed, 31) * 4;
-    const brush = Array.from({length: 35}, (_, lineIndex) => {
-      const y = lineIndex * 6 + offset;
-      return `M 0 ${y.toFixed(2)} H ${WALLET_CARD_WIDTH}`;
-    }).join(' ');
-    const grain = Array.from({length: 24}, (_, pointIndex) => {
-      const x = getSeededFraction(seed, pointIndex * 2 + 101);
-      const y = getSeededFraction(seed, pointIndex * 2 + 102);
-      const length = 0.4 + getSeededFraction(seed, pointIndex + 151);
-
-      return `M ${(x * WALLET_CARD_WIDTH).toFixed(2)} ${(
-        y * WALLET_CARD_HEIGHT
-      ).toFixed(2)} h ${length.toFixed(2)}`;
-    }).join(' ');
-
-    return {brush, grain};
-  }, [material.seed]);
-
-  return (
-    <Svg
-      accessible={false}
-      height={height}
-      pointerEvents="none"
-      style={StyleSheet.absoluteFill}
-      viewBox={`0 0 ${WALLET_CARD_WIDTH} ${WALLET_CARD_HEIGHT}`}
-      width={width}>
-      <Defs>
-        <LinearGradient id="giftCardBase" x1="0" x2="1" y1="0" y2="1">
-          <Stop offset="0" stopColor={material.top} />
-          <Stop offset="0.52" stopColor={material.middle} />
-          <Stop offset="1" stopColor={material.bottom} />
-        </LinearGradient>
-        <RadialGradient cx="76%" cy="12%" id="giftCardHighlight" r="92%">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.34" />
-          <Stop offset="0.28" stopColor={material.accent} stopOpacity="0.18" />
-          <Stop offset="1" stopColor={material.accent} stopOpacity="0" />
-        </RadialGradient>
-        <LinearGradient
-          id="giftCardLegibility"
-          x1="0"
-          x2="0"
-          y1="0"
-          y2="1">
-          <Stop offset="0" stopColor="#030812" stopOpacity="0.04" />
-          <Stop offset="0.5" stopColor="#030812" stopOpacity="0.02" />
-          <Stop offset="1" stopColor="#030812" stopOpacity="0.2" />
-        </LinearGradient>
-      </Defs>
-      <Rect
-        fill="url(#giftCardBase)"
-        height={WALLET_CARD_HEIGHT}
-        rx="23"
-        width={WALLET_CARD_WIDTH}
-      />
-      <Path
-        d={surfacePaths.brush}
-        stroke="#FFFFFF"
-        strokeOpacity="0.18"
-        strokeWidth="0.42"
-      />
-      <Path
-        d={surfacePaths.brush}
-        stroke="#07111F"
-        strokeDasharray="20 13"
-        strokeDashoffset="7"
-        strokeOpacity="0.18"
-        strokeWidth="0.22"
-      />
-      <Rect
-        fill="url(#giftCardHighlight)"
-        height={WALLET_CARD_HEIGHT}
-        opacity="0.54"
-        rx="23"
-        width={WALLET_CARD_WIDTH}
-      />
-      <Path
-        d={surfacePaths.grain}
-        stroke="#FFFFFF"
-        strokeOpacity="0.12"
-        strokeWidth="0.7"
-      />
-      <Rect
-        fill="url(#giftCardLegibility)"
-        height={WALLET_CARD_HEIGHT}
-        rx="23"
-        width={WALLET_CARD_WIDTH}
-      />
-      <Rect
-        fill="none"
-        height={WALLET_CARD_HEIGHT - 3}
-        rx="21.5"
-        stroke="rgba(255,255,255,0.16)"
-        strokeWidth="1"
-        width={WALLET_CARD_WIDTH - 3}
-        x="1.5"
-        y="1.5"
-      />
-    </Svg>
-  );
-};
-
-const SharingAction = ({disabled, label, onPress}) => (
+const SharingAction = ({disabled, icon, label, onPress}) => (
   <TouchableOpacity
     accessibilityLabel={label}
     accessibilityRole="button"
+    activeOpacity={0.72}
     disabled={disabled}
     onPress={onPress}
     style={[styles.sharingAction, disabled && styles.disabled]}>
+    <MaterialCommunityIcons color={CARD_TEXT} name={icon} size={27} />
     <Text numberOfLines={1} style={styles.sharingActionLabel}>
       {label}
     </Text>
@@ -176,40 +83,26 @@ const SharingAction = ({disabled, label, onPress}) => (
 
 const GiftCardFlipCard = ({
   busy,
+  canShare,
   card,
-  copied,
-  onCopyLink,
   onOpenQr,
-  onPrepareShare,
-  onRevealLink,
-  onResetSharing,
   onShareNative,
   onWriteNfc,
   presentation,
 }) => {
+  const theme = useAppTheme();
   const {width: screenWidth} = useWindowDimensions();
-  const cardWidth = Math.min(
-    Math.max(screenWidth * 0.78, 260),
-    WALLET_CARD_WIDTH,
-  );
+  const cardWidth = Math.min(Math.max(screenWidth - 32, 288), 430);
   const cardHeight = cardWidth / CARD_ASPECT_RATIO;
-  const compact = cardWidth < 292;
+  const compact = cardWidth < 330;
   const flipProgress = useSharedValue(0);
-  const [linkRevealed, setLinkRevealed] = useState(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showBack, setShowBack] = useState(false);
 
-  const resetCard = useCallback(() => {
-    setLinkRevealed(false);
+  useEffect(() => {
     setShowBack(false);
     flipProgress.value = 0;
-    onResetSharing();
-  }, [flipProgress, onResetSharing]);
-
-  useEffect(() => {
-    resetCard();
-    return resetCard;
-  }, [card?.id, resetCard]);
+  }, [canShare, card?.id, flipProgress]);
 
   useEffect(() => {
     let active = true;
@@ -233,52 +126,62 @@ const GiftCardFlipCard = ({
 
   const setFace = useCallback(
     backVisible => {
-      setLinkRevealed(false);
-      setShowBack(backVisible);
+      if (backVisible && !canShare) return;
+
       const targetProgress = backVisible ? 1 : 0;
+
+      setShowBack(backVisible);
       flipProgress.value = reduceMotionEnabled
         ? targetProgress
         : withTiming(targetProgress, FLIP_CONFIG);
-      AccessibilityInfo.announceForAccessibility(
-        backVisible ? 'Sharing options shown' : 'Gift card front shown',
-      );
+
+      if (backVisible !== showBack) {
+        AccessibilityInfo.announceForAccessibility(
+          backVisible ? 'Sharing options shown' : 'Gift card front shown',
+        );
+      }
     },
-    [flipProgress, reduceMotionEnabled],
+    [canShare, flipProgress, reduceMotionEnabled, showBack],
   );
 
-  const showSharingOptions = useCallback(async () => {
-    if (onPrepareShare) {
-      const prepared = await onPrepareShare();
-      if (!prepared) return;
-    }
+  const showSharingOptions = useCallback(() => {
+    if (canShare && !busy) setFace(true);
+  }, [busy, canShare, setFace]);
 
-    setFace(true);
-  }, [onPrepareShare, setFace]);
+  const panResponder = useMemo(() => {
+    const shouldHandleHorizontalSwipe = (_, gestureState) => {
+      if (!canShare) return false;
 
-  const toggleLink = useCallback(async () => {
-    if (!linkRevealed) {
-      if (onRevealLink) {
-        const allowed = await onRevealLink(() => setLinkRevealed(true));
+      const horizontal =
+        Math.abs(gestureState.dx) > 8 &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
 
-        if (!allowed) {
-          setLinkRevealed(false);
-          return;
-        }
-      } else {
-        setLinkRevealed(true);
-      }
+      return horizontal;
+    };
 
-      AccessibilityInfo.announceForAccessibility(
-        'Redeemable gift card link revealed',
-      );
-      return;
-    }
+    return PanResponder.create({
+      onMoveShouldSetPanResponder: shouldHandleHorizontalSwipe,
+      onMoveShouldSetPanResponderCapture: shouldHandleHorizontalSwipe,
+      onPanResponderMove: (_, gestureState) => {
+        const startProgress = showBack ? 1 : 0;
+        const nextProgress =
+          startProgress - gestureState.dx / Math.max(cardWidth, 1);
 
-    setLinkRevealed(false);
-    AccessibilityInfo.announceForAccessibility(
-      'Redeemable gift card link hidden',
-    );
-  }, [linkRevealed, onRevealLink]);
+        flipProgress.value = Math.min(1, Math.max(0, nextProgress));
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const shouldFlip = showBack
+          ? gestureState.dx > SWIPE_THRESHOLD ||
+            gestureState.vx > SWIPE_VELOCITY_THRESHOLD
+          : gestureState.dx < -SWIPE_THRESHOLD ||
+            gestureState.vx < -SWIPE_VELOCITY_THRESHOLD;
+
+        setFace(shouldFlip ? !showBack : showBack);
+      },
+      onPanResponderTerminate: () => setFace(showBack),
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, [canShare, cardWidth, flipProgress, setFace, showBack]);
 
   const frontAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(flipProgress.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
@@ -297,22 +200,26 @@ const GiftCardFlipCard = ({
     ],
   }));
   const createdDate = formatCardDate(card?.createdAt);
-  const protectionText = [presentation.protectionLabel, createdDate]
-    .filter(Boolean)
-    .join(' · ');
-  const additionalText =
-    presentation.additionalConfirmedCount > 0
-      ? ` · +${presentation.additionalConfirmedCount} more`
-      : '';
+  const issuedText = createdDate ? `Issued ${createdDate}` : 'Gift card';
+  const terminalPresentation = presentation.primaryContent.type === 'redeemed';
+  const FrontSurface = canShare ? Pressable : View;
+  const frontInteractionProps = canShare
+    ? {
+        accessibilityHint: 'Tap or swipe left to show sharing options',
+        accessibilityRole: 'button',
+        disabled: busy,
+        onPress: showSharingOptions,
+      }
+    : {};
   const frontAccessibilityLabel = `${presentation.label}. ${
     presentation.statusLabel
   }. ${presentation.primaryContent.value} ${
     presentation.primaryContent.label
-  }. ${
+  }. ${issuedText}.${
     presentation.additionalConfirmedCount > 0
-      ? `${presentation.additionalConfirmedCount} additional confirmed items.`
+      ? ` ${presentation.additionalConfirmedCount} additional confirmed items.`
       : ''
-  } ${presentation.protectionLabel}.${
+  }${
     presentation.hasPending
       ? ' Pending funding is separate from confirmed contents.'
       : ''
@@ -321,6 +228,7 @@ const GiftCardFlipCard = ({
   return (
     <View style={styles.container}>
       <View
+        {...(canShare ? panResponder.panHandlers : {})}
         style={[
           styles.cardFrame,
           {
@@ -333,153 +241,161 @@ const GiftCardFlipCard = ({
           importantForAccessibility={showBack ? 'no-hide-descendants' : 'yes'}
           pointerEvents={showBack ? 'none' : 'auto'}
           style={[styles.face, frontAnimatedStyle]}>
-          <CardMaterial
-            height={cardHeight}
-            material={presentation.material}
-            width={cardWidth}
-          />
-          <View
+          <CardMaterial height={cardHeight} width={cardWidth} />
+          <FrontSurface
             accessible
             accessibilityLabel={frontAccessibilityLabel}
-            style={[styles.faceContent, compact && styles.faceContentCompact]}>
-            <View style={styles.cardTopline}>
-              <Text numberOfLines={1} style={styles.cardKind}>
-                GIFT CARD
-              </Text>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>
-                  {presentation.statusLabel}
+            {...frontInteractionProps}
+            style={styles.facePressable}>
+            <View
+              style={[
+                styles.faceContent,
+                compact && styles.faceContentCompact,
+              ]}>
+              <View style={styles.cardTopline}>
+                <Text numberOfLines={1} style={styles.cardKind}>
+                  VERUS GIFT CARD
                 </Text>
+                <View style={styles.statusBadge}>
+                  <Text numberOfLines={1} style={styles.statusText}>
+                    {presentation.statusLabel.toUpperCase()}
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.amountSection}>
-              <View style={styles.amountRow}>
-                <Text
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  numberOfLines={1}
+              <View style={styles.amountSection}>
+                <View
                   style={[
-                    styles.primaryValue,
-                    compact && styles.primaryValueCompact,
+                    styles.amountRow,
+                    terminalPresentation && styles.terminalAmountRow,
                   ]}>
-                  {presentation.primaryContent.value}
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                    numberOfLines={1}
+                    style={[
+                      styles.primaryValue,
+                      compact && styles.primaryValueCompact,
+                      terminalPresentation && styles.terminalPrimaryValue,
+                    ]}>
+                    {presentation.primaryContent.value}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.primaryLabel,
+                      terminalPresentation && styles.terminalPrimaryLabel,
+                    ]}>
+                    {presentation.primaryContent.label}
+                  </Text>
+                </View>
+                <Text numberOfLines={1} style={styles.issuedText}>
+                  {issuedText}
                 </Text>
-                <Text numberOfLines={1} style={styles.primaryLabel}>
-                  {` ${presentation.primaryContent.label}`}
-                </Text>
+                {presentation.hasPending ? (
+                  <Text numberOfLines={1} style={styles.pendingText}>
+                    Pending funding is not included
+                  </Text>
+                ) : null}
               </View>
-              <Text numberOfLines={1} style={styles.protectionText}>
-                {protectionText}
-                {additionalText}
-              </Text>
-              {presentation.hasPending ? (
-                <Text numberOfLines={1} style={styles.pendingText}>
-                  Pending funding is not included
-                </Text>
-              ) : null}
-            </View>
 
-            <View style={styles.cardBottomline}>
-              <Text
-                ellipsizeMode="tail"
-                numberOfLines={1}
-                style={styles.cardLabel}>
-                {presentation.label}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            accessibilityLabel="Reveal sharing options"
-            accessibilityRole="button"
-            disabled={busy}
-            hitSlop={{top: 4, right: 4, bottom: 4, left: 4}}
-            onPress={showSharingOptions}
-            style={[styles.shareButton, busy && styles.disabled]}>
-            <Text style={styles.shareButtonText}>Share</Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View
-          accessibilityElementsHidden={!showBack}
-          importantForAccessibility={showBack ? 'yes' : 'no-hide-descendants'}
-          pointerEvents={showBack ? 'auto' : 'none'}
-          style={[styles.face, backAnimatedStyle]}>
-          <CardMaterial
-            height={cardHeight}
-            material={presentation.material}
-            width={cardWidth}
-          />
-          <View
-            style={[styles.backContent, compact && styles.backContentCompact]}>
-            <View style={styles.backHeader}>
-              <View style={styles.backTitleCopy}>
-                <Text style={styles.backEyebrow}>REDEEMABLE LINK</Text>
-                <Text numberOfLines={1} style={styles.backCardLabel}>
+              <View style={styles.cardBottomline}>
+                <Text
+                  ellipsizeMode="tail"
+                  numberOfLines={1}
+                  style={styles.cardLabel}>
                   {presentation.label}
                 </Text>
+                {canShare ? (
+                  <View style={styles.shareCue}>
+                    <MaterialCommunityIcons
+                      color={CARD_TEXT}
+                      name="gesture-swipe-horizontal"
+                      size={17}
+                    />
+                    <Text numberOfLines={1} style={styles.shareCueText}>
+                      Swipe or tap to share
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-              <TouchableOpacity
-                accessibilityLabel="Return to gift card front"
-                accessibilityRole="button"
-                onPress={() => setFace(false)}
-                style={styles.returnButton}>
-                <Text style={styles.returnButtonText}>Front</Text>
-              </TouchableOpacity>
             </View>
-
-            <View style={styles.secretPanel}>
-              <Text
-                accessibilityLabel={
-                  linkRevealed
-                    ? card?.requestUri
-                    : 'Redeemable gift card link hidden'
-                }
-                numberOfLines={1}
-                selectable={linkRevealed}
-                style={styles.secretValue}>
-                {linkRevealed ? card?.requestUri : 'Redeemable link hidden'}
-              </Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={toggleLink}
-                style={styles.revealButton}>
-                <Text style={styles.revealButtonText}>
-                  {linkRevealed ? 'Hide' : 'Reveal'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text
-              numberOfLines={card?.encrypted ? 3 : 2}
-              style={[styles.warning, compact && styles.warningCompact]}>
-              Anyone with this link can claim current and future contents.
-              {card?.encrypted
-                ? ' Share the claim password separately; it cannot be recovered.'
-                : ''}
-            </Text>
-
-            <View style={styles.sharingActions}>
-              <SharingAction
-                disabled={busy}
-                label={copied ? 'Copied' : 'Copy'}
-                onPress={onCopyLink}
-              />
-              <SharingAction
-                disabled={busy}
-                label="Share"
-                onPress={onShareNative}
-              />
-              <SharingAction disabled={busy} label="QR" onPress={onOpenQr} />
-              <SharingAction
-                disabled={busy}
-                label="NFC"
-                onPress={onWriteNfc}
-              />
-            </View>
-          </View>
+          </FrontSurface>
         </Animated.View>
+
+        {canShare ? (
+          <Animated.View
+            accessibilityElementsHidden={!showBack}
+            importantForAccessibility={
+              showBack ? 'yes' : 'no-hide-descendants'
+            }
+            pointerEvents={showBack ? 'auto' : 'none'}
+            style={[styles.face, backAnimatedStyle]}>
+            <CardMaterial back height={cardHeight} width={cardWidth} />
+            <View
+              style={[
+                styles.backContent,
+                compact && styles.backContentCompact,
+              ]}>
+              <View style={styles.backHeader}>
+                <Text numberOfLines={1} style={styles.backEyebrow}>
+                  SHARE GIFT CARD
+                </Text>
+                <Text numberOfLines={1} style={styles.backCardLabel}>
+                  {String(presentation.label || '').toUpperCase()}
+                </Text>
+              </View>
+
+              <View style={styles.sharingActions}>
+                <SharingAction
+                  disabled={busy}
+                  icon="share-variant"
+                  label="Share"
+                  onPress={onShareNative}
+                />
+                <SharingAction
+                  disabled={busy}
+                  icon="qrcode"
+                  label="QR"
+                  onPress={onOpenQr}
+                />
+                <SharingAction
+                  disabled={busy}
+                  icon="credit-card-wireless-outline"
+                  label="NFC"
+                  onPress={onWriteNfc}
+                />
+              </View>
+
+              <Text numberOfLines={1} style={styles.shareSafety}>
+                Sharing locks further funding.
+              </Text>
+            </View>
+          </Animated.View>
+        ) : null}
       </View>
+
+      {canShare ? (
+        <TouchableOpacity
+          accessibilityLabel={
+            showBack ? 'Return to gift card front' : 'Show sharing options'
+          }
+          accessibilityRole="button"
+          activeOpacity={0.7}
+          disabled={busy}
+          onPress={() => setFace(!showBack)}
+          style={[styles.flipHint, busy && styles.disabled]}>
+          <MaterialCommunityIcons
+            color={theme.colors.textSecondary}
+            name="gesture-swipe-horizontal"
+            size={18}
+          />
+          <Text
+            style={[styles.flipHintText, {color: theme.colors.textSecondary}]}>
+            {showBack ? 'Swipe right for front' : 'Swipe left for sharing'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 };
@@ -489,255 +405,229 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardFrame: {
-    borderRadius: 23,
+    borderRadius: 20,
     shadowColor: '#07101F',
-    shadowOffset: {width: 0, height: 16},
-    shadowOpacity: 0.23,
-    shadowRadius: 22,
+    shadowOffset: {width: 0, height: 14},
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 8,
   },
   face: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
     backfaceVisibility: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.26)',
-    borderRadius: 23,
+    borderRadius: 20,
+  },
+  facePressable: {
+    flex: 1,
   },
   faceContent: {
     flex: 1,
-    padding: 18,
+    paddingHorizontal: 25,
+    paddingVertical: 20,
   },
   faceContentCompact: {
-    padding: 15,
+    paddingHorizontal: 21,
+    paddingVertical: 17,
   },
   cardTopline: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   cardKind: {
     minWidth: 0,
     flex: 1,
-    marginRight: 10,
-    color: CARD_TEXT_MUTED,
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 0.9,
-    ...CARD_LABEL_SHADOW,
-    ...fontStyle('bold'),
-  },
-  statusBadge: {
-    minHeight: 24,
-    justifyContent: 'center',
-    paddingHorizontal: 9,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  statusText: {
     color: CARD_TEXT,
     fontSize: 10,
     lineHeight: 14,
-    ...CARD_LABEL_SHADOW,
+    letterSpacing: 1.1,
+    ...fontStyle('bold'),
+  },
+  statusBadge: {
+    minHeight: 27,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.72)',
+    borderRadius: 999,
+  },
+  statusText: {
+    color: CARD_TEXT,
+    fontSize: 9,
+    lineHeight: 13,
+    letterSpacing: 1,
     ...fontStyle('semiBold'),
   },
   amountSection: {
     flex: 1,
     justifyContent: 'center',
-    paddingRight: 4,
-    paddingBottom: 24,
+    paddingBottom: 10,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     flexWrap: 'nowrap',
+    gap: 7,
+  },
+  terminalAmountRow: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 0,
   },
   primaryValue: {
     minWidth: 0,
     flexShrink: 1,
     color: CARD_TEXT,
-    fontSize: 30,
-    lineHeight: 37,
-    letterSpacing: -0.4,
-    ...CARD_LABEL_SHADOW,
+    fontSize: 44,
+    lineHeight: 50,
+    letterSpacing: -1.8,
     ...fontStyle('bold'),
   },
   primaryValueCompact: {
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 38,
+    lineHeight: 44,
+  },
+  terminalPrimaryValue: {
+    fontSize: 32,
+    lineHeight: 37,
+    letterSpacing: -1,
   },
   primaryLabel: {
     flexShrink: 1,
     color: CARD_TEXT_MUTED,
     fontSize: 14,
     lineHeight: 20,
-    ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
-  protectionText: {
-    marginTop: 2,
+  terminalPrimaryLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  issuedText: {
+    marginTop: 4,
     color: CARD_TEXT_MUTED,
-    fontSize: 11,
-    lineHeight: 15,
-    ...CARD_LABEL_SHADOW,
-    ...fontStyle('semiBold'),
+    fontSize: 12,
+    lineHeight: 17,
+    ...fontStyle('regular'),
   },
   pendingText: {
     marginTop: 3,
     color: '#FFE0A6',
     fontSize: 10,
     lineHeight: 14,
-    ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
   cardBottomline: {
-    height: 44,
-    position: 'absolute',
-    right: 58,
-    bottom: 4,
-    left: 18,
-    justifyContent: 'center',
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   cardLabel: {
+    minWidth: 0,
+    flex: 1,
     color: CARD_TEXT,
-    fontSize: 12,
-    lineHeight: 16,
-    ...CARD_LABEL_SHADOW,
-    ...fontStyle('regular'),
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('semiBold'),
   },
-  shareButton: {
-    width: 54,
-    height: 44,
-    position: 'absolute',
-    right: 4,
-    bottom: 4,
+  shareCue: {
+    minHeight: 34,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
+    gap: 6,
+    paddingHorizontal: 11,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  shareButtonText: {
+  shareCueText: {
     color: CARD_TEXT,
-    fontSize: 11,
-    lineHeight: 15,
-    ...CARD_LABEL_SHADOW,
+    fontSize: 10,
+    lineHeight: 14,
     ...fontStyle('semiBold'),
   },
   backContent: {
     flex: 1,
-    padding: 15,
+    paddingHorizontal: 25,
+    paddingVertical: 18,
   },
   backContentCompact: {
-    padding: 12,
+    paddingHorizontal: 21,
+    paddingVertical: 15,
   },
   backHeader: {
-    minHeight: 34,
+    minHeight: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  backTitleCopy: {
-    minWidth: 0,
-    flex: 1,
-    paddingRight: 10,
+    gap: 12,
   },
   backEyebrow: {
-    color: CARD_TEXT_MUTED,
-    fontSize: 9,
-    lineHeight: 12,
-    letterSpacing: 0.8,
-    ...CARD_LABEL_SHADOW,
-    ...fontStyle('semiBold'),
-  },
-  backCardLabel: {
-    marginTop: 1,
-    color: CARD_TEXT,
-    fontSize: 12,
-    lineHeight: 16,
-    ...CARD_LABEL_SHADOW,
-    ...fontStyle('semiBold'),
-  },
-  returnButton: {
-    minHeight: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  returnButtonText: {
-    color: CARD_TEXT,
-    fontSize: 10,
-    lineHeight: 14,
-    ...fontStyle('semiBold'),
-  },
-  secretPanel: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginTop: 7,
-    paddingLeft: 11,
-    paddingRight: 5,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.24)',
-    borderRadius: 11,
-    backgroundColor: 'rgba(5,11,28,0.24)',
-  },
-  secretValue: {
     minWidth: 0,
     flex: 1,
-    color: CARD_TEXT,
-    fontSize: 10,
-    lineHeight: 14,
-    ...fontStyle('regular'),
-  },
-  revealButton: {
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: 9,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  revealButtonText: {
-    color: CARD_TEXT,
-    fontSize: 10,
-    lineHeight: 14,
-    ...fontStyle('semiBold'),
-  },
-  warning: {
-    minHeight: 30,
-    marginTop: 7,
     color: CARD_TEXT_MUTED,
     fontSize: 9,
     lineHeight: 13,
-    ...fontStyle('regular'),
+    letterSpacing: 1,
+    ...fontStyle('bold'),
   },
-  warningCompact: {
-    minHeight: 25,
-    marginTop: 4,
-    fontSize: 8,
-    lineHeight: 11,
+  backCardLabel: {
+    maxWidth: '42%',
+    color: CARD_TEXT_MUTED,
+    fontSize: 9,
+    lineHeight: 13,
+    letterSpacing: 1,
+    ...fontStyle('bold'),
   },
   sharingActions: {
-    minHeight: 42,
+    minHeight: 0,
+    flex: 1,
     flexDirection: 'row',
-    marginTop: 'auto',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.24)',
-    borderRadius: 11,
-    backgroundColor: 'rgba(5,11,28,0.24)',
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 9,
   },
   sharingAction: {
     minWidth: 0,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    padding: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.24)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   sharingActionLabel: {
     color: CARD_TEXT,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 17,
+    ...fontStyle('semiBold'),
+  },
+  shareSafety: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 9,
+    lineHeight: 13,
+    textAlign: 'center',
+    ...fontStyle('semiBold'),
+  },
+  flipHint: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 10,
+  },
+  flipHintText: {
+    fontSize: 11,
+    lineHeight: 15,
     ...fontStyle('semiBold'),
   },
   disabled: {

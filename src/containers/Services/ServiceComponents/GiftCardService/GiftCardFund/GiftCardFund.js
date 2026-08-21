@@ -5,6 +5,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -41,7 +42,9 @@ import {
   completeGiftCardShare,
   createGiftCard,
   discoverGiftCardIdentityFunds,
+  GIFT_CARD_REDEEMED_SHARE_MESSAGE,
   GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE,
+  getGiftCardCapabilities,
   getGiftCardFundingTopups,
   getSubmittedGiftCardFundingIdentities,
   hasGiftCardBeenShared,
@@ -69,6 +72,7 @@ const STEP_RESULT = 'result';
 const STEP_EXTERNAL = 'external';
 
 const PAGE_CONTENT_ANIMATION_DURATION = 320;
+const KEYBOARD_FOOTER_SPACING = 8;
 
 const GiftCardPageContent = ({children}) => {
   const contentProgress = useRef(new Animated.Value(0)).current;
@@ -252,6 +256,29 @@ const getStepAnnouncement = (step, createMode, operationText) => {
   return null;
 };
 
+const getCreateOperationText = (phase, encrypted) => {
+  if (phase === 'deriving-addresses') {
+    return 'Creating gift card addresses...';
+  }
+
+  return encrypted
+    ? 'Protecting your gift card with its claim password...'
+    : 'Creating your gift card...';
+};
+
+const getPreflightOperationText = (phase, encrypted, current, total) => {
+  if (phase === 'calculating-fees') {
+    return `Calculating fees for network ${current} of ${total}...`;
+  }
+
+  return encrypted
+    ? 'Checking the protected gift card...'
+    : 'Checking gift card addresses...';
+};
+
+const getFundingOperationText = (current, total) =>
+  `Signing and submitting transaction ${current} of ${total}...`;
+
 const getTxids = fundingResult =>
   (fundingResult?.results || [])
     .map(item => item.txid)
@@ -307,6 +334,8 @@ const GiftCardFund = props => {
   const [encrypted, setEncrypted] = useState(false);
   const [claimPassword, setClaimPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showClaimPassword, setShowClaimPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fundAmounts, setFundAmounts] = useState({});
   const [selectedFundingCoinKeys, setSelectedFundingCoinKeys] = useState([]);
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
@@ -323,18 +352,30 @@ const GiftCardFund = props => {
   const [shareCard, setShareCard] = useState(null);
   const reopenShareCardIdRef = useRef(null);
   const qrNavigationActiveRef = useRef(false);
+  const operationAnnouncementRef = useRef(null);
   const [selectedSystemId, setSelectedSystemId] = useState(null);
   const [externalReturnStep, setExternalReturnStep] = useState(
     STEP_CONTENTS,
   );
   const scrollViewRef = useRef(null);
+  const confirmPasswordInputRef = useRef(null);
+  const focusedPasswordFieldRef = useRef(null);
   const revealPasswordScrollRef = useRef(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const storedCard = routeCardId
     ? serviceData?.cards?.[routeCardId]
     : null;
   const card = draftCard || storedCard;
+
+  const scrollPasswordFieldsIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollToEnd({
+        animated: !reduceMotionEnabled,
+      });
+    });
+  }, [reduceMotionEnabled]);
 
   useFocusEffect(
     useCallback(() => {
@@ -385,6 +426,28 @@ const GiftCardFund = props => {
   }, []);
 
   useEffect(() => {
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+
+      if (focusedPasswordFieldRef.current) {
+        scrollPasswordFieldsIntoView();
+      }
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [scrollPasswordFieldsIntoView]);
+
+  useEffect(() => {
     if (step !== STEP_RESULT || !result?.title) return;
 
     AccessibilityInfo.announceForAccessibility(
@@ -392,19 +455,37 @@ const GiftCardFund = props => {
     );
   }, [result?.message, result?.title, step]);
 
+  const stepOperationText =
+    step === STEP_PROCESSING ? operationText : null;
+
+  useEffect(() => {
+    const announcesInlineOperation =
+      step === STEP_DETAILS || step === STEP_REVIEW;
+
+    if (!busy || !operationText || !announcesInlineOperation) {
+      operationAnnouncementRef.current = null;
+      return;
+    }
+
+    if (operationAnnouncementRef.current === operationText) return;
+
+    operationAnnouncementRef.current = operationText;
+    AccessibilityInfo.announceForAccessibility(operationText);
+  }, [busy, operationText, step]);
+
   useEffect(() => {
     if (initialLoading || step === STEP_RESULT) return;
 
     const announcement = getStepAnnouncement(
       step,
       createMode,
-      operationText,
+      stepOperationText,
     );
 
     if (announcement) {
       AccessibilityInfo.announceForAccessibility(announcement);
     }
-  }, [createMode, initialLoading, operationText, step]);
+  }, [createMode, initialLoading, step, stepOperationText]);
 
   const loadData = useCallback(async () => {
     setInitialLoading(true);
@@ -665,19 +746,47 @@ const GiftCardFund = props => {
 
   const handleEncryptedChange = value => {
     revealPasswordScrollRef.current = value;
+
+    if (!value) {
+      setShowClaimPassword(false);
+      setShowConfirmPassword(false);
+    }
+
     setEncrypted(value);
   };
 
-  const handleScrollContentSizeChange = (_, contentHeight) => {
-    if (!revealPasswordScrollRef.current) return;
+  const handlePasswordFocus = field => {
+    focusedPasswordFieldRef.current = field;
+    scrollPasswordFieldsIntoView();
+  };
 
-    revealPasswordScrollRef.current = false;
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({
-        animated: !reduceMotionEnabled,
-        y: 120,
+  const handlePasswordBlur = field => {
+    if (focusedPasswordFieldRef.current === field) {
+      focusedPasswordFieldRef.current = null;
+    }
+  };
+
+  const handleScrollViewportLayout = () => {
+    if (focusedPasswordFieldRef.current) {
+      scrollPasswordFieldsIntoView();
+    }
+  };
+
+  const handleScrollContentSizeChange = () => {
+    if (revealPasswordScrollRef.current) {
+      revealPasswordScrollRef.current = false;
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          animated: !reduceMotionEnabled,
+          y: 120,
+        });
       });
-    });
+      return;
+    }
+
+    if (focusedPasswordFieldRef.current) {
+      scrollPasswordFieldsIntoView();
+    }
   };
 
   useEffect(() => {
@@ -848,6 +957,10 @@ const GiftCardFund = props => {
 
   const prepareShareCard = useCallback(
     async cardToShare => {
+      if (getGiftCardCapabilities(cardToShare).isRedeemed) {
+        throw new Error(GIFT_CARD_REDEEMED_SHARE_MESSAGE);
+      }
+
       if (hasGiftCardShareInProgress(cardToShare)) {
         throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
       }
@@ -865,6 +978,12 @@ const GiftCardFund = props => {
             refreshed,
           ),
       );
+
+      if (getGiftCardCapabilities(latestCard).isRedeemed) {
+        throw new Error(GIFT_CARD_REDEEMED_SHARE_MESSAGE);
+      }
+
+      if (hasGiftCardBeenShared(latestCard)) return latestCard;
 
       if (hasPendingGiftCardFunding(latestCard)) {
         throw new Error(
@@ -912,6 +1031,25 @@ const GiftCardFund = props => {
     async (cardToShare, action) => {
       let actionCompleted = false;
       let shareAttemptId = null;
+      const rollbackShareAttempt = async () => {
+        if (!shareAttemptId) return;
+
+        try {
+          await updateStoredCard(
+            cardToShare.id,
+            (currentData, currentCard) =>
+              upsertGiftCard(
+                currentData,
+                cancelGiftCardShare(currentCard, shareAttemptId),
+              ),
+          );
+        } catch (rollbackError) {
+          console.warn(
+            'Unable to clear gift card share attempt',
+            rollbackError,
+          );
+        }
+      };
       setBusy(true);
       setOperationText('Securing gift card for sharing...');
 
@@ -920,6 +1058,10 @@ const GiftCardFund = props => {
         const actionCard = await updateStoredCard(
           preparedCard.id,
           (currentData, currentCard) => {
+            if (getGiftCardCapabilities(currentCard).isRedeemed) {
+              throw new Error(GIFT_CARD_REDEEMED_SHARE_MESSAGE);
+            }
+
             if (hasGiftCardBeenShared(currentCard)) {
               return currentData;
             }
@@ -949,7 +1091,13 @@ const GiftCardFund = props => {
           throw new Error('Gift card is no longer available.');
         }
 
-        await action(actionCard);
+        const actionResult = await action(actionCard);
+
+        if (actionResult === false) {
+          await rollbackShareAttempt();
+          return null;
+        }
+
         actionCompleted = true;
 
         const sharedCard = shareAttemptId
@@ -975,20 +1123,7 @@ const GiftCardFund = props => {
         setShareCard(sharedCard);
         return sharedCard;
       } catch (e) {
-        if (shareAttemptId && !actionCompleted) {
-          try {
-            await updateStoredCard(
-              cardToShare.id,
-              (currentData, currentCard) =>
-                upsertGiftCard(
-                  currentData,
-                  cancelGiftCardShare(currentCard, shareAttemptId),
-                ),
-            );
-          } catch (rollbackError) {
-            console.warn('Unable to clear gift card share attempt', rollbackError);
-          }
-        }
+        if (!actionCompleted) await rollbackShareAttempt();
 
         Alert.alert(
           'Unable to share',
@@ -1025,6 +1160,9 @@ const GiftCardFund = props => {
         title: 'Claim password required',
         message: 'Enter a claim password before continuing.',
       });
+      AccessibilityInfo.announceForAccessibility(
+        'Claim password required. Enter a claim password before continuing.',
+      );
       return;
     }
 
@@ -1034,11 +1172,14 @@ const GiftCardFund = props => {
         title: 'Passwords do not match',
         message: 'Check the claim password confirmation and try again.',
       });
+      AccessibilityInfo.announceForAccessibility(
+        'Passwords do not match. Check the claim password confirmation and try again.',
+      );
       return;
     }
 
     setBusy(true);
-    setOperationText('Creating secure claim details...');
+    setOperationText(getCreateOperationText('protecting', encrypted));
     setResult(null);
 
     try {
@@ -1052,6 +1193,8 @@ const GiftCardFund = props => {
         password: encrypted ? claimPassword : undefined,
         requestIsTestnet,
         activeCoinsForUser,
+        onProgress: ({phase}) =>
+          setOperationText(getCreateOperationText(phase, encrypted)),
       });
 
       setDraftCard(nextCard);
@@ -1073,9 +1216,10 @@ const GiftCardFund = props => {
 
     setBusy(true);
     setOperationText(
-      card.encrypted
-        ? 'Decrypting and verifying gift card addresses...'
-        : 'Verifying gift card addresses and fees...',
+      getPreflightOperationText(
+        'checking-protected-card',
+        card.encrypted,
+      ),
     );
 
     try {
@@ -1089,6 +1233,15 @@ const GiftCardFund = props => {
         identityFunding,
         activeCoinsForUser,
         activeAccount,
+        onProgress: ({phase, current, total}) =>
+          setOperationText(
+            getPreflightOperationText(
+              phase,
+              fundingCard.encrypted,
+              current,
+              total,
+            ),
+          ),
       });
 
       setPreflightPlan(plan);
@@ -1176,7 +1329,11 @@ const GiftCardFund = props => {
       cardSaved = true;
       setOperationText('Confirming gift card funding transactions...');
 
-      const fundingResult = await broadcastGiftCardFunding({preflightPlan});
+      const fundingResult = await broadcastGiftCardFunding({
+        preflightPlan,
+        onProgress: ({current, total}) =>
+          setOperationText(getFundingOperationText(current, total)),
+      });
       const persisted = await persistFundingResult(
         fundingCard,
         fundingResult,
@@ -1341,6 +1498,17 @@ const GiftCardFund = props => {
     );
   };
 
+  const claimPasswordError =
+    result?.kind === 'error' && result.title === 'Claim password required'
+      ? result.message
+      : null;
+  const confirmPasswordError =
+    result?.kind === 'error' && result.title === 'Passwords do not match'
+      ? result.message
+      : null;
+  const hasPasswordFieldError =
+    claimPasswordError != null || confirmPasswordError != null;
+
   const renderDetails = () => (
     <>
       <AppTextInput
@@ -1386,21 +1554,50 @@ const GiftCardFund = props => {
             </Text>
           </View>
           <AppTextInput
+            blurOnSubmit={false}
+            enablesReturnKeyAutomatically
+            errorText={claimPasswordError}
             label="Claim password"
+            onBlur={() => handlePasswordBlur('claim')}
             onChangeText={setClaimPassword}
-            secureTextEntry
+            onFocus={() => handlePasswordFocus('claim')}
+            onRightPress={() => setShowClaimPassword(value => !value)}
+            onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+            returnKeyType="next"
+            rightAccessibilityLabel={
+              showClaimPassword
+                ? 'Hide claim password'
+                : 'Show claim password'
+            }
+            rightIcon={showClaimPassword ? 'eye-off' : 'eye'}
+            secureTextEntry={!showClaimPassword}
             value={claimPassword}
           />
           <AppTextInput
+            blurOnSubmit={false}
+            enablesReturnKeyAutomatically
+            errorText={confirmPasswordError}
             label="Confirm claim password"
+            onBlur={() => handlePasswordBlur('confirm')}
             onChangeText={setConfirmPassword}
-            secureTextEntry
+            onFocus={() => handlePasswordFocus('confirm')}
+            onRightPress={() => setShowConfirmPassword(value => !value)}
+            onSubmitEditing={busy ? undefined : createDraft}
+            ref={confirmPasswordInputRef}
+            returnKeyType="done"
+            rightAccessibilityLabel={
+              showConfirmPassword
+                ? 'Hide confirm claim password'
+                : 'Show confirm claim password'
+            }
+            rightIcon={showConfirmPassword ? 'eye-off' : 'eye'}
+            secureTextEntry={!showConfirmPassword}
             value={confirmPassword}
           />
         </>
       ) : null}
 
-      {renderInlineResult()}
+      {hasPasswordFieldError ? null : renderInlineResult()}
     </>
   );
 
@@ -1915,19 +2112,6 @@ const GiftCardFund = props => {
         </View>
       ) : null}
 
-      {busy && operationText ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator
-            animating
-            color={theme.colors.primary}
-            size="small"
-          />
-          <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
-            {operationText}
-          </Text>
-        </View>
-      ) : null}
-
       {renderInlineResult()}
     </>
   );
@@ -2154,13 +2338,20 @@ const GiftCardFund = props => {
     if (step === STEP_DETAILS) {
       return (
         <SafeBottomActionStack
+          bottomSpacing={
+            keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30
+          }
           gap={8}
           horizontalSpacing={20}
+          includeBottomInset={!keyboardVisible}
           safeAreaSpacing={0}>
           <AppButton
+            accessibilityLabel={busy ? operationText : 'Continue'}
+            accessibilityState={{busy, disabled: busy}}
             disabled={busy}
+            loading={busy}
             onPress={createDraft}>
-            Continue
+            {busy ? 'Protecting gift card...' : 'Continue'}
           </AppButton>
         </SafeBottomActionStack>
       );
@@ -2198,13 +2389,22 @@ const GiftCardFund = props => {
             </AppButton>
           ) : (
             <AppButton
+              accessibilityLabel={busy ? operationText : undefined}
+              accessibilityState={{
+                busy,
+                disabled:
+                  busy ||
+                  identityFundingLoading ||
+                  (card?.encrypted && !claimPassword),
+              }}
               disabled={
                 busy ||
                 identityFundingLoading ||
                 (card?.encrypted && !claimPassword)
               }
+              loading={busy}
               onPress={buildPreflight}>
-              Verify fees and addresses
+              {busy ? 'Verifying...' : 'Verify fees and addresses'}
             </AppButton>
           )}
         </SafeBottomActionStack>
@@ -2330,9 +2530,12 @@ const GiftCardFund = props => {
           key={step}
           fadeBackgroundColor={theme.colors.background}
           fadeLength={42}
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={
+            Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+          }
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={handleScrollContentSizeChange}
+          onLayout={handleScrollViewportLayout}
           ref={scrollViewRef}
           showStartFade={false}>
           <GiftCardPageContent key={step}>{renderStep()}</GiftCardPageContent>
