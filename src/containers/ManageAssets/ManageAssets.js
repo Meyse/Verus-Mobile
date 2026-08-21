@@ -24,9 +24,9 @@ import {
   removeExistingCoin,
   setUserCoins,
 } from '../../actions/actionCreators';
-import {clearAllCoinIntervals} from '../../actions/actionDispatchers';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
 import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
 import AppButton from '../../components/AppButton';
 import AppSearchField from '../../components/AppSearchField';
 import AppSearchLauncher from '../../components/AppSearchLauncher';
@@ -78,6 +78,9 @@ const useAssetManagerData = () => {
   );
   const activeCoins = useObjectSelector(
     state => state.coins.activeCoinsForUser || [],
+  );
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch,
   );
   const testAccount =
     Object.keys(activeAccount?.testnetOverrides || {}).length > 0;
@@ -226,19 +229,33 @@ const useAssetMutation = () => {
       if (pendingAssetId) return;
 
       const removing = activeIds.has(coinObj.id);
+      const sessionScope = {
+        sessionScoped: true,
+        accountHash: activeAccount.accountHash,
+        sessionEpoch,
+      };
+      const requestContext = {
+        sessionScope,
+        ownerAccountHash: activeAccount.accountHash,
+      };
       setPendingAssetId(coinObj.id);
       setActionError(null);
 
       try {
         if (removing) {
-          await removeExistingCoin(
+          const nextActiveCoinList = await removeExistingCoin(
             coinObj.id,
             activeAccount.id,
             dispatch,
             false,
+            requestContext,
           );
-          clearAllCoinIntervals(coinObj.id);
-          dispatch(setUserCoins(activeCoinList, activeAccount.id));
+          dispatch(
+            scopeSessionAction(
+              setUserCoins(nextActiveCoinList, activeAccount.id),
+              sessionScope,
+            ),
+          );
         } else {
           const fullCoinData = CoinDirectory.findCoinObj(coinObj.id);
 
@@ -249,6 +266,7 @@ const useAssetMutation = () => {
               activeAccount.keyDerivationVersion == null
                 ? 0
                 : activeAccount.keyDerivationVersion,
+              requestContext,
             ),
           );
 
@@ -257,16 +275,17 @@ const useAssetMutation = () => {
             activeCoinList,
             activeAccount.id,
             fullCoinData.compatible_channels || [],
+            requestContext,
           );
 
           if (!addCoinAction) throw new Error('Asset could not be activated');
 
           dispatch(addCoinAction);
           const setUserCoinsAction = setUserCoins(
-            activeCoinList,
+            addCoinAction.activeCoinList,
             activeAccount.id,
           );
-          dispatch(setUserCoinsAction);
+          dispatch(scopeSessionAction(setUserCoinsAction, sessionScope));
           refreshActiveChainLifecycles(
             setUserCoinsAction.payload.activeCoinsForUser,
           );
@@ -282,7 +301,14 @@ const useAssetMutation = () => {
         setPendingAssetId(null);
       }
     },
-    [activeAccount, activeCoinList, activeIds, dispatch, pendingAssetId],
+    [
+      activeAccount,
+      activeCoinList,
+      activeIds,
+      dispatch,
+      pendingAssetId,
+      sessionEpoch,
+    ],
   );
 
   return {

@@ -4,6 +4,7 @@ import {
   setUserCoins,
 } from '../../actions/actionCreators';
 import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
 import {
   getCurrency,
   getCurrencyNameMap,
@@ -362,8 +363,10 @@ export const addResolvedAsset = async ({
   activeCoinList,
   activeCoins,
   dispatch,
+  requestContext,
   result,
 }) => {
+  const sessionScope = requestContext?.sessionScope || requestContext;
   let fullCoinData = result.coinData;
 
   if (result.kind === 'pbaas') {
@@ -403,6 +406,7 @@ export const addResolvedAsset = async ({
       activeAccount.keyDerivationVersion == null
         ? 0
         : activeAccount.keyDerivationVersion,
+      requestContext,
     ),
   );
 
@@ -411,6 +415,7 @@ export const addResolvedAsset = async ({
     activeCoinList,
     activeAccount.id,
     fullCoinData.compatible_channels || [],
+    requestContext,
   );
 
   if (!addCoinAction) throw new Error('Asset could not be added.');
@@ -418,10 +423,10 @@ export const addResolvedAsset = async ({
   dispatch(addCoinAction);
 
   const setUserCoinsAction = setUserCoins(
-    activeCoinList,
+    addCoinAction.activeCoinList,
     activeAccount.id,
   );
-  dispatch(setUserCoinsAction);
+  dispatch(scopeSessionAction(setUserCoinsAction, sessionScope));
   refreshActiveChainLifecycles(
     setUserCoinsAction.payload.activeCoinsForUser,
   );

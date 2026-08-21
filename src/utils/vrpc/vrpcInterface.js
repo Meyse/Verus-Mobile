@@ -323,6 +323,7 @@ class VrpcInterface {
   deleteAllEndpoints = () => {
     Store.dispatch({type: CLEAR_VRPC_ENDPOINTS});
     this.systemEndpointIds = {};
+    this.endpointConnections = {};
     this.cacheInterfaces = {};
     this.endpointConnections = {};
   };

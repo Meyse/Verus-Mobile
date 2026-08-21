@@ -112,6 +112,12 @@ import {
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
 } from '../../../utils/deeplink/genericRequestDelivery';
+import {assertAuthenticationRequestNotExpired} from '../../../utils/deeplink/validator/authenticationRequestValidator';
+
+const truncateAddress = addr => {
+  if (!addr || addr.length <= 14) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+};
 
 const toAddressString = addressObj => {
   if (addressObj == null || typeof addressObj.toAddress !== 'function') {
@@ -795,6 +801,10 @@ const AuthenticationRequestInfoContent = props => {
 
   // Build response using selected identity and call next()
   const buildResponseAndContinue = async () => {
+    // Re-check immediately before signing. A request can expire while the user
+    // is choosing an identity or authenticating a profile.
+    assertAuthenticationRequestNotExpired(details);
+
     const {chainId, iAddress} = selectedIdentity;
     const requestID =
       request && request.requestID ? request.requestID : details.requestID;

@@ -35,9 +35,10 @@ import { loadingModal } from './loadingModal';
 import { secureLoading } from './secureLoading';
 import { deeplink } from './deeplink';
 import { walletUnlock } from './walletUnlock';
+import { shouldRejectSessionAction } from './sessionScope';
 
 
-export default combineReducers({
+const combinedReducer = combineReducers({
   authentication,
   coins,
   ledger,
@@ -75,3 +76,9 @@ export default combineReducers({
   deeplink,
   walletUnlock
 });
+
+export default (state, action) => {
+  if (shouldRejectSessionAction(state, action)) return state;
+
+  return combinedReducer(state, action);
+};

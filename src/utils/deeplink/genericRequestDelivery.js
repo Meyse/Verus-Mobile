@@ -19,6 +19,10 @@ import {
   assertNoPlaintextExtendedSpendingKey,
   assertSecurePostResponseUri,
 } from './genericResponse/responseDeliverySecurity';
+import {
+  performAfterAuthenticationExpiryCheck,
+  signAfterAuthenticationExpiryCheck,
+} from './validator/authenticationRequestValidator';
 
 export const GENERIC_REQUEST_DELIVERY_TYPES = {
   NONE: 'none',
@@ -115,7 +119,10 @@ export const signAndVerifyGenericResponse = async (request, response) => {
   const signerSystemID = response.signature.systemID.toIAddress();
   const signerSystemName = getSystemNameFromSystemId(signerSystemID);
   const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
-  const signedResponse = await signGenericResponse(coinObj, response);
+  const signedResponse = await signAfterAuthenticationExpiryCheck(
+    request,
+    () => signGenericResponse(coinObj, response),
+  );
   const verification = await verifyGenericResponse(coinObj, signedResponse);
 
   if (!verification) {
@@ -223,5 +230,8 @@ export const completeGenericResponseDelivery = async ({
   }
 
   const signedResponse = await signAndVerifyGenericResponse(request, response);
-  return deliverGenericResponse(request, signedResponse);
+  return performAfterAuthenticationExpiryCheck(
+    request,
+    () => deliverGenericResponse(request, signedResponse),
+  );
 };

@@ -12,7 +12,7 @@ import {Keyboard, View} from "react-native";
 import {Checkbox} from 'react-native-paper'
 import { NavigationActions } from '@react-navigation/compat';
 import { CommonActions } from '@react-navigation/native';
-import { deleteProfile } from '../../../../actions/actionCreators';
+import { deleteProfile, setBiometry } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import { checkPinForUser } from '../../../../utils/asyncStore/asyncStore'
 import { createAlert, resolveAlert } from "../../../../actions/actions/alert/dispatchers/alert";
@@ -128,13 +128,26 @@ class DeleteProfile extends Component {
 
   deleteUser = async (account, deleteBiometry) => {
     try {
-      if (deleteBiometry) await removeBiometricPassword(account.accountHash)
-      
+      if (deleteBiometry) {
+        this.props.dispatch(await setBiometry(account.accountHash, false))
+        try {
+          await removeBiometricPassword(account.accountHash)
+        } catch (error) {
+          try {
+            this.props.dispatch(await setBiometry(account.accountHash, true))
+          } catch (restoreError) {
+            console.warn(restoreError)
+          }
+          throw error
+        }
+      }
+
       await deleteProfile(account, this.props.dispatch)
       createAlert("Wallet deleted", `"${account.id}" was deleted from this device.`)
     } catch (error) {
       console.warn(error)
       createAlert("Error", `Failed to delete wallet "${account.id}".`)
+      throw error
     }
   }
 

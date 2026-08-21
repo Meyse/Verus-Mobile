@@ -45,6 +45,7 @@ import StartupCover from "./components/StartupCover";
 import WalletUnlockCoordinator from "./components/WalletUnlockCoordinator";
 import {useOnboardingTheme} from './theme/onboarding';
 import {createNavigationTheme} from './theme/app/navigationTheme';
+import { recoverPasswordMigration } from "./utils/asyncStore/authDataStorage";
 
 const ThemedNavigationContainer = ({children}) => {
   const theme = useOnboardingTheme();
@@ -56,7 +57,7 @@ const ThemedNavigationContainer = ({children}) => {
   );
 };
 
-class VerusMobile extends React.Component {
+export class VerusMobile extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -106,6 +107,10 @@ class VerusMobile extends React.Component {
       // Load secret credential from keychain to decrypt data storage, and if loaded successfully, 
       // cycle secret credential with a newly generated one
       await secureStorageInitialization;
+
+      // Resolve any reset interrupted between its journaled storage writes
+      // before consumers read password-protected records.
+      await recoverPasswordMigration();
 
       // Clear cached electrum versions, TODO: Figure out what should trigger a cache clear on startup of server 
       //versions. (The action that triggers it should indicate a server upgraded it's 
@@ -164,6 +169,7 @@ class VerusMobile extends React.Component {
       })
 
       Alert.alert("Error", err.message)
+      this.setLoading(false)
     }
   }
 

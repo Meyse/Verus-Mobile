@@ -343,6 +343,9 @@ const AddAssetByIdentifier = ({navigation}) => {
   const activeCoins = useObjectSelector(
     state => state.coins.activeCoinsForUser || [],
   );
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch,
+  );
   const [state, stateDispatch] = useReducer(reducer, INITIAL_STATE);
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
@@ -474,6 +477,13 @@ const AddAssetByIdentifier = ({navigation}) => {
         activeCoinList,
         activeCoins: activeCoinsRef.current,
         dispatch,
+        requestContext: {
+          sessionScope: {
+            sessionScoped: true,
+            accountHash: activeAccount.accountHash,
+            sessionEpoch,
+          },
+        },
         result: state.result,
       });
 
@@ -490,7 +500,7 @@ const AddAssetByIdentifier = ({navigation}) => {
     } finally {
       addingRef.current = false;
     }
-  }, [activeAccount, activeCoinList, dispatch, state.result]);
+  }, [activeAccount, activeCoinList, dispatch, sessionEpoch, state.result]);
 
   const renderInput = state.phase === PHASE.INPUT || resolving;
   const renderReview = state.phase === PHASE.REVIEW || adding;
