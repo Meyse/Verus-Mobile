@@ -54,6 +54,10 @@ import {
   assertExperimentalDeeplinkAllowed,
   assertExperimentalGenericRequestAllowed,
 } from '../../utils/deeplink/experimentalDeeplinks';
+import {
+  validateVerusPayBurnChangePrice,
+  VERUSPAY_BURN_OWN_ADDRESS_DISPLAY,
+} from '../../utils/deeplink/verusPayBurnChangePrice';
 
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -172,10 +176,28 @@ const DeepLink = (props) => {
     const chainInfo = await getInfo(coinObj.system_id)
     if (chainInfo.error) throw new Error(chainInfo.error.message)
 
+    const requestedCurrency = await getCurrency(
+      coinObj.system_id,
+      invoice.details.requestedcurrencyid,
+    );
+    if (requestedCurrency.error) {
+      throw new Error(requestedCurrency.error.message);
+    }
+
+    validateVerusPayBurnChangePrice(
+      invoice.details,
+      requestedCurrency.result,
+      coinObj.system_id,
+    );
+
     const getDestinationDisplay = async () => {
       let destinationDisplay;
 
-      if (invoice.details.acceptsAnyDestination()) destinationDisplay = 'any destination'
+      if (invoice.details.acceptsAnyDestination()) {
+        destinationDisplay = invoice.details.isBurnChangePrice()
+          ? VERUSPAY_BURN_OWN_ADDRESS_DISPLAY
+          : 'any destination';
+      }
       else if (invoice.details.destination.isIAddr()) {
         const destinationId = await getIdentity(coinObj.system_id, invoice.details.destination.getAddressString())
         if (destinationId.error) throw new Error(destinationId.error.message)
@@ -242,9 +264,6 @@ const DeepLink = (props) => {
         const signedBy = await getIdentity(coinObj.system_id, invoice.signing_id)
         if (signedBy.error) throw new Error(signedBy.error.message)
 
-        const requestedCurrency = await getCurrency(coinObj.system_id, invoice.details.requestedcurrencyid)
-        if (requestedCurrency.error) throw new Error(requestedCurrency.error.message)
-
         await validateExpiry()
         setDisplayProps({
           detailsBufferString: invoice.details.toBuffer().toString('hex'),
@@ -269,9 +288,6 @@ const DeepLink = (props) => {
         cancel();
       }
     } else {
-      const requestedCurrency = await getCurrency(coinObj.system_id, invoice.details.requestedcurrencyid)
-      if (requestedCurrency.error) throw new Error(requestedCurrency.error.message)
-
       await validateExpiry()
       setDisplayProps({
         detailsBufferString: invoice.details.toBuffer().toString('hex'),

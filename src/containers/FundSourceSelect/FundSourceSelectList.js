@@ -29,6 +29,8 @@ const FundSourceSelectList = ({
     requestedCurrency,
     amount,
     excludeVerusBlockchain,
+    burnChangePrice = false,
+    burnSystemId,
     onSelect
   }) => {
 
@@ -82,10 +84,12 @@ const FundSourceSelectList = ({
         const rootNetwork = testnet ? coinsList.VRSCTEST : coinsList.VRSC;
         const rootNetworkId = rootNetwork.currency_id
 
-        if (network && 
+        if (
+          network &&
+          (!burnChangePrice || network === burnSystemId) &&
             ((allowNonVerusSystems && acceptedSystems.includes(network)) || 
               (network === rootNetworkId && !excludeVerusBlockchain) || 
-              (!expires && !allowConversion)
+              (!burnChangePrice && !expires && !allowConversion)
             )
         ) {
           displayedCoinObjsMap.set(network, CoinDirectory.findCoinObj(network));
@@ -93,6 +97,7 @@ const FundSourceSelectList = ({
           
           const acceptedNonVerusSystems = allowNonVerusSystems ? acceptedSystems : [];
           const exportTo =
+            !burnChangePrice &&
             !expires &&
             !allowConversion &&
             wallet.network !== rootNetworkId &&
@@ -199,10 +204,20 @@ const FundSourceSelectList = ({
         const balanceDisplay = balanceLoaded ? truncateDecimal(cryptoBalances[coinObj.id][wallet.id], 4) : '-';
 
         const requiredAmount = allowAnyAmount ? BigNumber(0) : BigNumber(amount);
+        const hasEnoughBalance = burnChangePrice
+          ? balance.isGreaterThan(0) &&
+            balance.isGreaterThanOrEqualTo(requiredAmount)
+          : balance.isGreaterThan(requiredAmount);
 
-        if (coinObj && balance.isGreaterThan(requiredAmount)) {
+        if (coinObj && hasEnoughBalance) {
           cards.push({
-            title: `Pay ${allowAnyAmount ? 'from' : `with ${amount} ${coinObj.display_ticker} from`} ${wallet.name}${
+            title: `${burnChangePrice ? 'Burn' : 'Pay'} ${
+              allowAnyAmount
+                ? 'from'
+                : `${burnChangePrice ? '' : 'with '}${amount} ${
+                    coinObj.display_ticker
+                  } from`
+            } ${wallet.name}${
               via != null ? ` via ${via}` : ''
             }`,
             subtitle: `Network: ${
@@ -250,7 +265,9 @@ const FundSourceSelectList = ({
       <View style={{flex: 1, width: '100%'}}>
         <MissingInfoRedirect
           icon={'alert-circle-outline'}
-          label={'No valid sources to pay from in your wallet with enough balance.'}
+          label={`No valid sources to ${
+            burnChangePrice ? 'burn' : 'pay'
+          } from in your wallet with enough balance.`}
         />
       </View>
     )

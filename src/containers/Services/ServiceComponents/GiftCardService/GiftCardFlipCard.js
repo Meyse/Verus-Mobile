@@ -12,6 +12,7 @@ import {
 import Animated, {
   Easing,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -98,9 +99,11 @@ const GiftCardFlipCard = ({
   const flipProgress = useSharedValue(0);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showBack, setShowBack] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
 
   useEffect(() => {
     setShowBack(false);
+    setTransitioning(false);
     flipProgress.value = 0;
   }, [canShare, card?.id, flipProgress]);
 
@@ -124,16 +127,30 @@ const GiftCardFlipCard = ({
     };
   }, []);
 
+  const completeFlip = useCallback(() => {
+    setTransitioning(false);
+  }, []);
+
   const setFace = useCallback(
     backVisible => {
-      if (backVisible && !canShare) return;
+      if ((backVisible && !canShare) || transitioning) return;
 
       const targetProgress = backVisible ? 1 : 0;
 
       setShowBack(backVisible);
-      flipProgress.value = reduceMotionEnabled
-        ? targetProgress
-        : withTiming(targetProgress, FLIP_CONFIG);
+
+      if (reduceMotionEnabled) {
+        flipProgress.value = targetProgress;
+      } else {
+        setTransitioning(true);
+        flipProgress.value = withTiming(
+          targetProgress,
+          FLIP_CONFIG,
+          finished => {
+            if (finished) runOnJS(completeFlip)();
+          },
+        );
+      }
 
       if (backVisible !== showBack) {
         AccessibilityInfo.announceForAccessibility(
@@ -141,16 +158,23 @@ const GiftCardFlipCard = ({
         );
       }
     },
-    [canShare, flipProgress, reduceMotionEnabled, showBack],
+    [
+      canShare,
+      completeFlip,
+      flipProgress,
+      reduceMotionEnabled,
+      showBack,
+      transitioning,
+    ],
   );
 
   const showSharingOptions = useCallback(() => {
-    if (canShare && !busy) setFace(true);
-  }, [busy, canShare, setFace]);
+    if (canShare && !busy && !transitioning) setFace(true);
+  }, [busy, canShare, setFace, transitioning]);
 
   const panResponder = useMemo(() => {
     const shouldHandleHorizontalSwipe = (_, gestureState) => {
-      if (!canShare) return false;
+      if (!canShare || busy || transitioning) return false;
 
       const horizontal =
         Math.abs(gestureState.dx) > 8 &&
@@ -181,7 +205,7 @@ const GiftCardFlipCard = ({
       onPanResponderTerminate: () => setFace(showBack),
       onPanResponderTerminationRequest: () => false,
     });
-  }, [canShare, cardWidth, flipProgress, setFace, showBack]);
+  }, [busy, canShare, cardWidth, flipProgress, setFace, showBack, transitioning]);
 
   const frontAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(flipProgress.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
@@ -239,7 +263,7 @@ const GiftCardFlipCard = ({
         <Animated.View
           accessibilityElementsHidden={showBack}
           importantForAccessibility={showBack ? 'no-hide-descendants' : 'yes'}
-          pointerEvents={showBack ? 'none' : 'auto'}
+          pointerEvents={transitioning || showBack ? 'none' : 'auto'}
           style={[styles.face, frontAnimatedStyle]}>
           <CardMaterial height={cardHeight} width={cardWidth} />
           <FrontSurface
@@ -329,7 +353,7 @@ const GiftCardFlipCard = ({
             importantForAccessibility={
               showBack ? 'yes' : 'no-hide-descendants'
             }
-            pointerEvents={showBack ? 'auto' : 'none'}
+            pointerEvents={transitioning || !showBack ? 'none' : 'auto'}
             style={[styles.face, backAnimatedStyle]}>
             <CardMaterial back height={cardHeight} width={cardWidth} />
             <View
@@ -348,19 +372,19 @@ const GiftCardFlipCard = ({
 
               <View style={styles.sharingActions}>
                 <SharingAction
-                  disabled={busy}
+                  disabled={busy || transitioning}
                   icon="share-variant"
                   label="Share"
                   onPress={onShareNative}
                 />
                 <SharingAction
-                  disabled={busy}
+                  disabled={busy || transitioning}
                   icon="qrcode"
                   label="QR"
                   onPress={onOpenQr}
                 />
                 <SharingAction
-                  disabled={busy}
+                  disabled={busy || transitioning}
                   icon="credit-card-wireless-outline"
                   label="NFC"
                   onPress={onWriteNfc}
@@ -382,9 +406,12 @@ const GiftCardFlipCard = ({
           }
           accessibilityRole="button"
           activeOpacity={0.7}
-          disabled={busy}
+          disabled={busy || transitioning}
           onPress={() => setFace(!showBack)}
-          style={[styles.flipHint, busy && styles.disabled]}>
+          style={[
+            styles.flipHint,
+            (busy || transitioning) && styles.disabled,
+          ]}>
           <MaterialCommunityIcons
             color={theme.colors.textSecondary}
             name="gesture-swipe-horizontal"

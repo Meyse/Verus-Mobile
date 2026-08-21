@@ -427,10 +427,19 @@ const getTransactionLabel = transaction => {
   }
 
   if (transaction.type === 'identity') {
-    return `${ticker} identity claim`;
+    return `${ticker} identity claim txID`;
   }
 
   return `${ticker} funds claim`;
+};
+
+const alertSubmittedIdentityClaim = results => {
+  if (!(results || []).some(result => result.type === 'identity')) return;
+
+  createAlert(
+    'Wait for blockchain confirmation',
+    'The claimed VerusID may now appear linked to your wallet, but the claim transaction still requires blockchain confirmation before the VerusID is considered yours. Wait for the claim transaction with the shown txID to be confirmed before sending funds to the VerusID.',
+  );
 };
 
 const SpendableKeyRequestInfoContent = props => {
@@ -999,6 +1008,7 @@ const SpendableKeyRequestInfoContent = props => {
       setClaimResult(broadcastResult);
       setRequestError(null);
       setStatus('complete');
+      alertSubmittedIdentityClaim(broadcastResult.results);
     } catch (e) {
       if (Array.isArray(e.results) && e.results.length > 0) {
         const {
@@ -1032,6 +1042,7 @@ const SpendableKeyRequestInfoContent = props => {
               : ''
           }`,
         );
+        alertSubmittedIdentityClaim(e.results);
       } else {
         console.warn(e);
         if (isNetworkError(e)) {
@@ -1461,6 +1472,7 @@ const SpendableKeyRequestInfoContent = props => {
         )}
 
         {claimResult == null &&
+          signedIn &&
           status === 'review' &&
           systemsWithoutPrivateAddressCount > 0 && (
             <View style={styles.warningCard}>

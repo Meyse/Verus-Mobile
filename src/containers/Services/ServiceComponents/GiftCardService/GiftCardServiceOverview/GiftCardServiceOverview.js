@@ -734,7 +734,7 @@ const GiftCardServiceOverview = ({
         await saveCard(refreshed, card);
         Alert.alert(
           'Cannot Delete',
-          'This gift card still has funds, VerusIDs, or pending funding.',
+          'This gift card still has funds, VerusIDs, pending funding, or could not be fully checked.',
         );
         return;
       }
