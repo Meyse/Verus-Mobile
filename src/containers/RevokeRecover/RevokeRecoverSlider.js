@@ -1,159 +1,157 @@
-import React from 'react';
-import {View, Dimensions} from 'react-native';
-import AppIntroSlider from 'react-native-app-intro-slider';
-import {Text, Paragraph, Button} from 'react-native-paper';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import TallButton from '../../components/LargerButton';
-import Colors from '../../globals/colors';
-import {
-  VerusIdLogo
-} from '../../images/customIcons';
-import { useState } from 'react';
-import { useEffect } from 'react';
-import { SMALL_DEVICE_HEGHT } from '../../utils/constants/constants';
+import React, {useState} from 'react';
+import {Text, TouchableOpacity, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { NavigationActions } from '@react-navigation/compat';
+import AppButton from '../../components/AppButton';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
+import {revokeRecoverFlowStyles as styles} from '../../styles';
+import {useAppTheme} from '../../theme/app';
+import RevokeRecoverFlowScaffold, {
+  RevokeRecoverStepCopy,
+} from './RevokeRecoverFlowScaffold';
 
-export default function RevokeRecoverSlider({ navigation, setIsRecovery }) {
-  const {height} = Dimensions.get('window');
+const ACTIONS = [
+  {
+    key: 'revoke',
+    title: 'Revoke a VerusID',
+    body: 'Disable an active identity after its keys may have been lost or compromised.',
+    icon: 'shield-off-outline',
+  },
+  {
+    key: 'recover',
+    title: 'Recover a VerusID',
+    body: 'Restore a revoked identity and assign a new primary address.',
+    icon: 'shield-refresh-outline',
+  },
+];
 
-  const [showIcons, setShowIcons] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
+const RevokeRecoverSlider = ({navigation, setImportedSeed, setIsRecovery}) => {
+  const theme = useAppTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
+  const [selection, setSelection] = useState(null);
+  const selectedAction = ACTIONS.find(action => action.key === selection);
 
-  useEffect(() => {
-    if (height > SMALL_DEVICE_HEGHT) {
-      setShowIcons(true);
-    } else {
-      setShowIcons(false);
-    }
-  })
+  const continueFlow = () => {
+    if (!selectedAction) return;
 
-  const goToImportWallet = (recovery = false) => {
-    setIsRecovery(recovery);
+    setImportedSeed(null);
+    setIsRecovery(selectedAction.key === 'recover');
     navigation.navigate('ImportWallet');
-  }
-
-  const renderSlide = (key, icon, text, title) => {
-    return (
-      <View
-        style={{
-          backgroundColor: Colors.secondaryColor,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          flex: 1,
-          alignItems: 'center',
-        }}
-        key={key}>
-        {height >= SMALL_DEVICE_HEGHT && <VerusIdLogo width={'55%'} height={'10%'} style={{top: height / 2 - 260, position: 'absolute'}} />}
-        <View
-          style={{
-            alignItems: 'center',
-            position: 'absolute',
-            top: height / 2 - 110,
-          }}>
-          <Text
-            style={{
-              textAlign: 'center',
-              color: Colors.quaternaryColor,
-              fontSize: 28,
-              fontWeight: 'bold',
-            }}>
-            {title}
-          </Text>
-          <Paragraph
-            style={{
-              textAlign: 'center',
-              width: '75%',
-              marginTop: 24,
-              width: 280,
-              color: Colors.quaternaryColor,
-            }}>
-            {text}
-          </Paragraph>
-          {key === 1 && 
-            <View style={{ flexDirection: "row", width: "70%", marginTop: 24, justifyContent: "space-between" }}>
-              <Button
-                mode="text"
-                onPress={() => goToImportWallet(false)}
-                labelStyle={{ fontWeight: 'bold', color: Colors.primaryColor }}
-                style={{
-                  alignSelf: 'center',
-                  backgroundColor: Colors.secondaryColor,
-                }}>
-                {'Revoke'}
-              </Button>
-              <Button
-                mode="text"
-                onPress={() => goToImportWallet(true)}
-                labelStyle={{ fontWeight: 'bold', color: Colors.primaryColor }}
-                style={{
-                  alignSelf: 'center',
-                  backgroundColor: Colors.secondaryColor,
-                }}>
-                {'Recover'}
-              </Button>
-            </View>
-          }
-        </View>
-      </View>
-    );
   };
 
   return (
-    <SafeAreaView
-      style={{
-        backgroundColor: Colors.secondaryColor,
-        flex: 1,
-      }}>
-      <AppIntroSlider
-        showSkipButton={true}
-        showPrevButton={false}
-        showDoneButton={false}
-        renderItem={({item, index}) =>
-          renderSlide(index, item.icon, item.text, item.title)
-        }
-        bottomButton={true}
-        onSkip={() => navigation.dispatch(NavigationActions.back())}
-        data={[
-          {
-            key: 0,
-            title: 'Revocation/Recovery',
-            text: 'Here you can revoke access to a lost or compromised VerusID, or recover a revoked VerusID with a new set of keys.',
-          },
-          {
-            key: 2,
-            title: '',
-            text: 'To revoke, you will need access to the recovery secret or key for your revocation VerusID. To recover, you will need access to the recovery secret or key for your recovery VerusID.',
-          },
-        ]}
-        renderNextButton={() => {
-          return (
-            <TallButton
-              mode="outlined"
-              labelStyle={{fontWeight: 'bold', color: Colors.primaryColor}}
-              style={{
-                alignSelf: 'center',
-                width: 280,
-                backgroundColor: Colors.secondaryColor,
-              }}>
-              {'Next'}
-            </TallButton>
-          );
-        }}
-        renderSkipButton={() => {
-          return (
-            <TallButton
-              mode="text"
-              labelStyle={{fontWeight: 'bold', color: Colors.warningButtonColor}}
-              style={{
-                alignSelf: 'center',
-                width: 280,
-              }}>
-              {'Cancel'}
-            </TallButton>
-          );
-        }}
+    <RevokeRecoverFlowScaffold
+      actions={
+        <AppButton
+          disabled={!selectedAction}
+          onPress={continueFlow}
+          testID="revokeRecover.action.continue">
+          {selectedAction
+            ? `Continue to ${selectedAction.key}`
+            : 'Choose an action'}
+        </AppButton>
+      }
+      headerTitle="VerusID safety"
+      onBack={() => navigation.goBack()}
+      contentContainerStyle={
+        smallDevice ? styles.scrollContentCompact : undefined
+      }
+      progress={0.15}>
+      <RevokeRecoverStepCopy
+        body="Choose the safeguard you need. Nothing is submitted until you review and confirm the on-chain change."
+        compact={smallDevice}
+        title="Protect or restore a VerusID"
       />
-    </SafeAreaView>
+
+      <View accessibilityRole="radiogroup" style={styles.choiceGroup}>
+        {ACTIONS.map(action => {
+          const selected = selection === action.key;
+
+          return (
+            <TouchableOpacity
+              accessibilityRole="radio"
+              accessibilityState={{checked: selected}}
+              activeOpacity={0.76}
+              key={action.key}
+              onPress={() => setSelection(action.key)}
+              style={[
+                styles.choiceRow,
+                smallDevice && styles.choiceRowCompact,
+                {
+                  backgroundColor: selected
+                    ? theme.colors.surfaceMuted
+                    : theme.colors.background,
+                  borderColor: selected
+                    ? theme.colors.primary
+                    : theme.colors.border,
+                },
+              ]}
+              testID={`revokeRecover.action.${action.key}`}>
+              <View
+                style={[
+                  styles.choiceIcon,
+                  smallDevice && styles.choiceIconCompact,
+                  {
+                    backgroundColor: selected
+                      ? theme.colors.primary
+                      : theme.colors.surfaceMuted,
+                  },
+                ]}>
+                <MaterialCommunityIcons
+                  color={
+                    selected
+                      ? theme.colors.onPrimary
+                      : theme.colors.textSecondary
+                  }
+                  name={action.icon}
+                  size={23}
+                />
+              </View>
+              <View style={styles.choiceCopy}>
+                <Text
+                  style={[
+                    styles.choiceTitle,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  {action.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.choiceBody,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {action.body}
+                </Text>
+              </View>
+              <MaterialCommunityIcons
+                color={
+                  selected ? theme.colors.primary : theme.colors.textSubtle
+                }
+                name={selected ? 'check-circle' : 'circle-outline'}
+                size={23}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View
+        style={[
+          styles.notice,
+          smallDevice && styles.noticeCompact,
+          {backgroundColor: theme.colors.warningBackground},
+        ]}>
+        <MaterialCommunityIcons
+          color={theme.colors.warning}
+          name="key-outline"
+          size={21}
+        />
+        <Text style={[styles.noticeCopy, {color: theme.colors.textSecondary}]}>
+          You will need the revocation or recovery authority’s secret or private
+          key. It stays on this device and only signs this action.
+        </Text>
+      </View>
+    </RevokeRecoverFlowScaffold>
   );
-}
+};
+
+export default RevokeRecoverSlider;

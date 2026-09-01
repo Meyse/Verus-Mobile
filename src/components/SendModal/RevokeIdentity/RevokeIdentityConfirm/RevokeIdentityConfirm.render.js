@@ -1,48 +1,105 @@
 import React from 'react';
-import { ScrollView, View, SafeAreaView } from 'react-native';
-import { Button } from 'react-native-paper';
-import Colors from '../../../../globals/colors';
-import Styles from '../../../../styles';
-import VerusIdObjectData from '../../../VerusIdObjectData';
+import AppButton from '../../../AppButton';
+import RevokeRecoverFlowScaffold, {
+  RevokeRecoverStepCopy,
+} from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
+import {
+  RevokeRecoverAcknowledgement,
+  RevokeRecoverLoadingState,
+  RevokeRecoverNotice,
+  RevokeRecoverReviewGroup,
+  RevokeRecoverReviewRow,
+} from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
+import {useAppTheme} from '../../../../theme/app';
+import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 
-export const RevokeIdentityConfirmRender = ({ targetId, friendlyNames, goBack, submitData, ownedByUser, ownedAddress }) => {
+const getIdentityName = identityResult =>
+  identityResult?.fullyqualifiedname
+    ? convertFqnToDisplayFormat(identityResult.fullyqualifiedname)
+    : identityResult?.identity?.identityaddress;
+
+export const RevokeIdentityConfirmRender = ({
+  acknowledged,
+  goBack,
+  loading,
+  networkName,
+  onAcknowledgedChange,
+  revocationId,
+  submitData,
+  submitError,
+  targetId,
+}) => {
+  const theme = useAppTheme();
+
+  if (loading) {
+    return (
+      <RevokeRecoverFlowScaffold
+        backDisabled
+        contentContainerStyle={{flexGrow: 1}}
+        headerTitle="Revoke VerusID"
+        keyboardAvoiding={false}
+        onBack={goBack}
+        progress={0.88}>
+        <RevokeRecoverLoadingState
+          body="Keep Verus Mobile open while the signed transaction is submitted to the network."
+          title="Submitting revocation"
+        />
+      </RevokeRecoverFlowScaffold>
+    );
+  }
+
   return (
-    <SafeAreaView style={{ ...Styles.fullWidth, ...Styles.backgroundColorWhite, height: '100%' }}>
-      <VerusIdObjectData
-        verusId={targetId}
-        friendlyNames={friendlyNames}
-        ownedByUser={false}
-        ownedAddress={ownedAddress}
-        updates={{
-          ["Status"]: {
-            data: "Revoked"
-          }
-        }}
-        StickyFooterComponent={
-          <View
-            style={{
-              backgroundColor: 'white',
-              width: '100%',
-              flexDirection: 'row',
-              justifyContent: 'space-evenly',
-              paddingVertical: 20
-            }}>
-            <Button
-              textColor={Colors.warningButtonColor}
-              style={{ width: 148 }}
-              onPress={goBack}>
-              Back
-            </Button>
-            <Button
-              buttonColor={Colors.verusGreenColor}
-              textColor={Colors.secondaryColor}
-              style={{ width: 148 }}
-              onPress={submitData}>
-              Revoke
-            </Button>
-          </View>
-        }
+    <RevokeRecoverFlowScaffold
+      actions={
+        <AppButton
+          buttonColor={theme.colors.danger}
+          disabled={!acknowledged}
+          onPress={submitData}
+          testID="revokeRecover.submit">
+          Submit revocation
+        </AppButton>
+      }
+      headerTitle="Revoke VerusID"
+      onBack={goBack}
+      progress={0.85}>
+      <RevokeRecoverStepCopy
+        body="Confirm the identity, blockchain, and authority before signing."
+        title="Review revocation"
       />
-    </SafeAreaView>
+
+      <RevokeRecoverNotice tone="danger">
+        This disables the VerusID on {networkName}. It cannot be used again
+        until its recovery authority submits a successful recovery.
+      </RevokeRecoverNotice>
+
+      <RevokeRecoverReviewGroup title="On-chain change">
+        <RevokeRecoverReviewRow
+          label="VerusID"
+          value={getIdentityName(targetId)}
+        />
+        <RevokeRecoverReviewRow label="Blockchain" value={networkName} />
+        <RevokeRecoverReviewRow label="Current status" value="Active" />
+        <RevokeRecoverReviewRow label="New status" value="Revoked" />
+        <RevokeRecoverReviewRow
+          label="Revocation authority"
+          value={getIdentityName(revocationId)}
+        />
+        <RevokeRecoverReviewRow
+          label="Identity address"
+          technical
+          value={targetId?.identity?.identityaddress}
+        />
+      </RevokeRecoverReviewGroup>
+
+      {submitError ? (
+        <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>
+      ) : null}
+
+      <RevokeRecoverAcknowledgement
+        label="I understand this VerusID will be disabled until it is recovered."
+        onValueChange={onAcknowledgedChange}
+        value={acknowledged}
+      />
+    </RevokeRecoverFlowScaffold>
   );
 };

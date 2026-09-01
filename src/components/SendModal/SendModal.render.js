@@ -1,8 +1,8 @@
-import React, { Component } from "react";
-import { Platform, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, Portal, Button } from "react-native-paper";
-import Colors from "../../globals/colors";
+import React, {Component} from 'react';
+import {Modal, Platform, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {Text, Portal, Button} from 'react-native-paper';
+import Colors from '../../globals/colors';
 import {
   AUTHENTICATE_USER_SEND_MODAL,
   CONVERSION_SEND_MODAL,
@@ -20,47 +20,47 @@ import {
   TRADITIONAL_CRYPTO_SEND_MODAL,
   UPDATE_IDENTITY_SEND_MODAL,
   WITHDRAW_SEND_MODAL,
-} from "../../utils/constants/sendModal";
-import SemiModal from "../SemiModal";
-import { OnboardingThemeProvider } from "../../theme/onboarding";
-import TraditionalCryptoSendForm from "./TraditionalCryptoSend/TraditionalCryptoSendForm/TraditionalCryptoSendForm";
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
-import AnimatedActivityIndicatorBox from "../AnimatedActivityIndicatorBox";
-import TraditionalCryptoSendConfirm from "./TraditionalCryptoSend/TraditionalCryptoSendConfirm/TraditionalCryptoSendConfirm";
-import TraditionalCryptoSendResult from "./TraditionalCryptoSend/TraditionalCryptoSendResult/TraditionalCryptoSendResult";
-import ConversionSendForm from "./ConversionSend/ConversionSendForm/ConversionSendForm";
-import ConversionSendConfirm from "./ConversionSend/ConversionSendConfirm/ConversionSendConfirm";
-import ConversionSendResult from "./ConversionSend/ConversionSendResult/ConversionSendResult";
-import WithdrawSendForm from "./WithdrawSend/WithdrawSendForm/WithdrawSendForm";
-import WithdrawSendConfirm from "./WithdrawSend/WithdrawSendConfirm/WithdrawSendConfirm";
-import WithdrawSendResult from "./WithdrawSend/WithdrawSendResult/WithdrawSendResult";
-import DepositSendForm from "./DepositSend/DepositSendForm/DepositSendForm";
-import DepositSendConfirm from "./DepositSend/DepositSendConfirm/DepositSendConfirm";
-import DepositSendResult from "./DepositSend/DepositSendResult/DepositSendResult";
-import LinkIdentityForm from "./LinkIdentity/LinkIdentityForm/LinkIdentityForm";
-import LinkIdentityConfirm from "./LinkIdentity/LinkIdentityConfirm/LinkIdentityConfirm";
-import LinkIdentityResult from "./LinkIdentity/LinkIdentityResult/LinkIdentityResult";
-import AuthenticateUserForm from "./AuthenticateUser/AuthenticateUserForm/AuthenticateUserForm";
-import AuthenticateUserPassword from "./AuthenticateUser/AuthenticateUserPassword/AuthenticateUserPassword";
-import AuthenticateUserResult from "./AuthenticateUser/AuthenticateUserResult/AuthenticateUserResult";
-import ProvisionIdentityForm from "./ProvisionIdentity/ProvisionIdentityForm/ProvisionIdentityForm";
-import ProvisionIdentityConfirm from "./ProvisionIdentity/ProvisionIdentityConfirm/ProvisionIdentityConfirm";
-import ProvisionIdentityResult from "./ProvisionIdentity/ProvisionIdentityResult/ProvisionIdentityResult";
-import ProvisionIdentityBottomSheet from "./ProvisionIdentity/ProvisionIdentityBottomSheet";
-import ConvertOrCrossChainSendForm from "./ConvertOrCrossChainSend/ConvertOrCrossChainSendForm/ConvertOrCrossChainSendForm";
-import ConvertOrCrossChainSendConfirm from "./ConvertOrCrossChainSend/ConvertOrCrossChainSendConfirm/ConvertOrCrossChainSendConfirm";
-import ConvertOrCrossChainSendResult from "./ConvertOrCrossChainSend/ConvertOrCrossChainSendResult/ConvertOrCrossChainSendResult";
-import RevokeIdentityForm from "./RevokeIdentity/RevokeIdentityForm/RevokeIdentityForm";
-import RevokeIdentityConfirm from "./RevokeIdentity/RevokeIdentityConfirm/RevokeIdentityConfirm";
-import RevokeIdentityResult from "./RevokeIdentity/RevokeIdentityResult/RevokeIdentityResult";
-import RecoverIdentityForm from "./RecoverIdentity/RecoverIdentityForm/RecoverIdentityForm";
-import RecoverIdentityConfirm from "./RecoverIdentity/RecoverIdentityConfirm/RecoverIdentityConfirm";
-import RecoverIdentityResult from "./RecoverIdentity/RecoverIdentityResult/RecoverIdentityResult";
-import UpdateIdentityForm from "./UpdateIdentity/UpdateIdentityForm/UpdateIdentityForm";
-import UpdateIdentityConfirm from "./UpdateIdentity/UpdateIdentityConfirm/UpdateIdentityConfirm";
-import UpdateIdentityResult from "./UpdateIdentity/UpdateIdentityResult/UpdateIdentityResult";
+} from '../../utils/constants/sendModal';
+import SemiModal from '../SemiModal';
+import {OnboardingThemeProvider} from '../../theme/onboarding';
+import TraditionalCryptoSendForm from './TraditionalCryptoSend/TraditionalCryptoSendForm/TraditionalCryptoSendForm';
+import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
+import {NavigationContainer} from '@react-navigation/native';
+import {createStackNavigator} from '@react-navigation/stack';
+import AnimatedActivityIndicatorBox from '../AnimatedActivityIndicatorBox';
+import TraditionalCryptoSendConfirm from './TraditionalCryptoSend/TraditionalCryptoSendConfirm/TraditionalCryptoSendConfirm';
+import TraditionalCryptoSendResult from './TraditionalCryptoSend/TraditionalCryptoSendResult/TraditionalCryptoSendResult';
+import ConversionSendForm from './ConversionSend/ConversionSendForm/ConversionSendForm';
+import ConversionSendConfirm from './ConversionSend/ConversionSendConfirm/ConversionSendConfirm';
+import ConversionSendResult from './ConversionSend/ConversionSendResult/ConversionSendResult';
+import WithdrawSendForm from './WithdrawSend/WithdrawSendForm/WithdrawSendForm';
+import WithdrawSendConfirm from './WithdrawSend/WithdrawSendConfirm/WithdrawSendConfirm';
+import WithdrawSendResult from './WithdrawSend/WithdrawSendResult/WithdrawSendResult';
+import DepositSendForm from './DepositSend/DepositSendForm/DepositSendForm';
+import DepositSendConfirm from './DepositSend/DepositSendConfirm/DepositSendConfirm';
+import DepositSendResult from './DepositSend/DepositSendResult/DepositSendResult';
+import LinkIdentityForm from './LinkIdentity/LinkIdentityForm/LinkIdentityForm';
+import LinkIdentityConfirm from './LinkIdentity/LinkIdentityConfirm/LinkIdentityConfirm';
+import LinkIdentityResult from './LinkIdentity/LinkIdentityResult/LinkIdentityResult';
+import AuthenticateUserForm from './AuthenticateUser/AuthenticateUserForm/AuthenticateUserForm';
+import AuthenticateUserPassword from './AuthenticateUser/AuthenticateUserPassword/AuthenticateUserPassword';
+import AuthenticateUserResult from './AuthenticateUser/AuthenticateUserResult/AuthenticateUserResult';
+import ProvisionIdentityForm from './ProvisionIdentity/ProvisionIdentityForm/ProvisionIdentityForm';
+import ProvisionIdentityConfirm from './ProvisionIdentity/ProvisionIdentityConfirm/ProvisionIdentityConfirm';
+import ProvisionIdentityResult from './ProvisionIdentity/ProvisionIdentityResult/ProvisionIdentityResult';
+import ProvisionIdentityBottomSheet from './ProvisionIdentity/ProvisionIdentityBottomSheet';
+import ConvertOrCrossChainSendForm from './ConvertOrCrossChainSend/ConvertOrCrossChainSendForm/ConvertOrCrossChainSendForm';
+import ConvertOrCrossChainSendConfirm from './ConvertOrCrossChainSend/ConvertOrCrossChainSendConfirm/ConvertOrCrossChainSendConfirm';
+import ConvertOrCrossChainSendResult from './ConvertOrCrossChainSend/ConvertOrCrossChainSendResult/ConvertOrCrossChainSendResult';
+import RevokeIdentityForm from './RevokeIdentity/RevokeIdentityForm/RevokeIdentityForm';
+import RevokeIdentityConfirm from './RevokeIdentity/RevokeIdentityConfirm/RevokeIdentityConfirm';
+import RevokeIdentityResult from './RevokeIdentity/RevokeIdentityResult/RevokeIdentityResult';
+import RecoverIdentityForm from './RecoverIdentity/RecoverIdentityForm/RecoverIdentityForm';
+import RecoverIdentityConfirm from './RecoverIdentity/RecoverIdentityConfirm/RecoverIdentityConfirm';
+import RecoverIdentityResult from './RecoverIdentity/RecoverIdentityResult/RecoverIdentityResult';
+import UpdateIdentityForm from './UpdateIdentity/UpdateIdentityForm/UpdateIdentityForm';
+import UpdateIdentityConfirm from './UpdateIdentity/UpdateIdentityConfirm/UpdateIdentityConfirm';
+import UpdateIdentityResult from './UpdateIdentity/UpdateIdentityResult/UpdateIdentityResult';
 
 const TopTabs = createMaterialTopTabNavigator();
 const Root = createStackNavigator();
@@ -76,7 +76,7 @@ const SEND_FORMS = {
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendForm,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityForm,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityForm,
-  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityForm
+  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityForm,
 };
 
 const SEND_CONFIRMATION = {
@@ -90,7 +90,7 @@ const SEND_CONFIRMATION = {
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendConfirm,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityConfirm,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityConfirm,
-  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityConfirm
+  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityConfirm,
 };
 
 const SEND_RESULTS = {
@@ -104,11 +104,11 @@ const SEND_RESULTS = {
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendResult,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityResult,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityResult,
-  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityResult
+  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityResult,
 };
 
 export const SendModalRender = function () {
-  const { visible, title } = this.props.sendModal;
+  const {visible, title} = this.props.sendModal;
   const modalStarterHeight = this.state.modalHeight;
   const modalHeight = this.props.keyboard.active
     ? this.props.keyboard.height + modalStarterHeight
@@ -145,57 +145,88 @@ export const SendModalRender = function () {
     );
   }
 
+  const isIdentitySafetyModal =
+    this.props.sendModal.type === REVOKE_IDENTITY_SEND_MODAL ||
+    this.props.sendModal.type === RECOVER_IDENTITY_SEND_MODAL;
+
+  if (isIdentitySafetyModal) {
+    return (
+      <Modal
+        animationType="slide"
+        onRequestClose={() => this.cancel()}
+        presentationStyle="fullScreen"
+        visible={visible}>
+        <OnboardingThemeProvider>
+          <NavigationContainer
+            key={this.props.sendModal.requestId || 'identity-safety-modal'}>
+            <Root.Navigator screenOptions={{headerShown: false}}>
+              <Root.Screen name="IdentitySafetyModal">
+                {SendModalInnerAreaRender.call(this)}
+              </Root.Screen>
+            </Root.Navigator>
+          </NavigationContainer>
+        </OnboardingThemeProvider>
+      </Modal>
+    );
+  }
+
   return (
     <Portal>
       <NavigationContainer
-        key={this.props.sendModal.requestId || 'send-modal-idle'}
-      >
+        key={this.props.sendModal.requestId || 'send-modal-idle'}>
         <SemiModal
           animationType="slide"
           transparent={true}
           visible={visible}
           onRequestClose={() => this.cancel()}
           contentContainerStyle={{
-            height: Platform.OS === "android" ? modalStarterHeight : modalHeight,
+            height:
+              Platform.OS === 'android' ? modalStarterHeight : modalHeight,
             flex: 0,
-            backgroundColor: "white",
-          }}
-        >
-          <SafeAreaView style={{ flex: 1 }}>
+            backgroundColor: 'white',
+          }}>
+          <SafeAreaView style={{flex: 1}}>
             <Root.Navigator
               screenOptions={{
                 header: () => (
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    alignItems: "center", 
-                    justifyContent: "space-between", 
-                    backgroundColor: Colors.secondaryColor 
-                  }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: Colors.secondaryColor,
+                    }}>
                     <Button
-                      style={{ marginBottom: 16 }}
+                      style={{marginBottom: 16}}
                       onPress={() => this.cancel()}
                       textColor={Colors.primaryColor}
-                      disabled={this.state.preventExit}
-                    >
-                      {"Close"}
+                      disabled={this.state.preventExit}>
+                      {'Close'}
                     </Button>
-                    <Text style={{ marginBottom: 16, fontSize: 16, textAlign: "center" }}>{title}</Text>
+                    <Text
+                      style={{
+                        marginBottom: 16,
+                        fontSize: 16,
+                        textAlign: 'center',
+                      }}>
+                      {title}
+                    </Text>
                     <Button
-                      style={{ marginBottom: 16 }}
+                      style={{marginBottom: 16}}
                       onPress={() => this.showHelpModal()}
                       textColor={Colors.primaryColor}
-                      disabled={this.state.preventExit}
-                    >
-                      {"Help"}
-                    </Button>   
+                      disabled={this.state.preventExit}>
+                      {'Help'}
+                    </Button>
                   </View>
                 ),
                 headerStyle: {
                   height: 52,
                 },
-              }}
-            >
-              <Root.Screen name="SendModalInner">{SendModalInnerAreaRender.call(this)}</Root.Screen>
+              }}>
+              <Root.Screen name="SendModalInner">
+                {SendModalInnerAreaRender.call(this)}
+              </Root.Screen>
             </Root.Navigator>
           </SafeAreaView>
         </SemiModal>
@@ -205,24 +236,31 @@ export const SendModalRender = function () {
 };
 
 export const SendModalInnerAreaRender = function () {
+  const isIdentitySafetyModal =
+    this.props.sendModal.type === REVOKE_IDENTITY_SEND_MODAL ||
+    this.props.sendModal.type === RECOVER_IDENTITY_SEND_MODAL;
   const starterProps = {
+    cancel: () => this.cancel(),
+    loading: this.state.loading,
     updateSendFormData: (key, value) => this.updateSendFormData(key, value),
-    setLoading: (loading) => this.setLoading(loading),
-    setModalHeight: (height) => this.setModalHeight(height),
-    setPreventExit: (preventExit) => this.setPreventExit(preventExit),
-    setVisible: (visible) => this.setVisible(visible)
+    setLoading: loading => this.setLoading(loading),
+    setModalHeight: height => this.setModalHeight(height),
+    setPreventExit: preventExit => this.setPreventExit(preventExit),
+    setVisible: visible => this.setVisible(visible),
   };
 
   const Form =
-    this.state.loading || SEND_FORMS[this.props.sendModal.type] == null
+    (!isIdentitySafetyModal && this.state.loading) ||
+    SEND_FORMS[this.props.sendModal.type] == null
       ? AnimatedActivityIndicatorBox
       : SEND_FORMS[this.props.sendModal.type];
 
   const Confirmation =
-    this.state.loading || SEND_CONFIRMATION[this.props.sendModal.type] == null
+    (!isIdentitySafetyModal && this.state.loading) ||
+    SEND_CONFIRMATION[this.props.sendModal.type] == null
       ? AnimatedActivityIndicatorBox
       : SEND_CONFIRMATION[this.props.sendModal.type];
-  
+
   const Result =
     this.state.loading || SEND_RESULTS[this.props.sendModal.type] == null
       ? AnimatedActivityIndicatorBox
@@ -239,13 +277,14 @@ export const SendModalInnerAreaRender = function () {
       tabBarPosition="bottom"
       screenOptions={{
         swipeEnabled: false,
-        tabBarPressColor: "transparent",
+        tabBarPressColor: 'transparent',
         tabBarPressOpacity: 1,
         tabBarLabelStyle: {
-          fontSize: 12
+          fontSize: 12,
         },
+        tabBarStyle: isIdentitySafetyModal ? {display: 'none'} : undefined,
         lazy: true,
-        lazyPlaceholder: () => <AnimatedActivityIndicatorBox />
+        lazyPlaceholder: () => <AnimatedActivityIndicatorBox />,
       }}>
       <TopTabs.Screen
         name={SEND_MODAL_FORM_STEP_FORM}

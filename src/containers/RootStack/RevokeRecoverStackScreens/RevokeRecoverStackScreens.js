@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { createStackNavigator } from "@react-navigation/stack";
-import { defaultHeaderOptions } from '../../../utils/navigation/header';
+import React, {useState} from 'react';
+import {createStackNavigator} from '@react-navigation/stack';
+import {defaultHeaderOptions} from '../../../utils/navigation/header';
 import RevokeRecoverSlider from '../../RevokeRecover/RevokeRecoverSlider';
 import ImportWalletStackScreens from '../../CreateWallet/Forms/ImportWallet/ImportWallet';
 import RevokeRecoverIdentityForm from '../../RevokeRecover/RevokeRecoverIdentityForm';
-import { NavigationActions } from '@react-navigation/compat';
+import {NavigationActions} from '@react-navigation/compat';
 
 const RevokeRecoverStack = createStackNavigator();
 
@@ -12,27 +12,26 @@ const RevokeRecoverStackScreens = props => {
   const [importedSeed, setImportedSeed] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
 
-  const exitRevokeRecover = () => props.navigation.dispatch(NavigationActions.back())
+  const exitRevokeRecover = () =>
+    props.navigation.dispatch(NavigationActions.back());
 
-  const completeImport = seed => {
+  const completeImport = (seed, navigation) => {
     if (seed != null) setImportedSeed(seed);
 
-    props.navigation.navigate("IdentityForm");
+    navigation.navigate('IdentityForm');
   };
 
   return (
-    <RevokeRecoverStack.Navigator
-      screenOptions={defaultHeaderOptions}
-    >
+    <RevokeRecoverStack.Navigator screenOptions={defaultHeaderOptions}>
       <RevokeRecoverStack.Screen
         name="Slider"
         options={{
           headerShown: false,
-        }}
-      >
-        {() => (
+        }}>
+        {screenProps => (
           <RevokeRecoverSlider
-            navigation={props.navigation}
+            navigation={screenProps.navigation}
+            setImportedSeed={setImportedSeed}
             setIsRecovery={setIsRecovery}
           />
         )}
@@ -48,8 +47,8 @@ const RevokeRecoverStackScreens = props => {
             navigation={screenProps.navigation}
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
-            onComplete={completeImport}
-            label={`Import ${isRecovery ? "Recovery" : "Revocation"} Secret or Key`}
+            onComplete={seed => completeImport(seed, screenProps.navigation)}
+            label={`Import ${isRecovery ? 'Recovery' : 'Revocation'} Authority`}
           />
         )}
       </RevokeRecoverStack.Screen>
@@ -58,11 +57,10 @@ const RevokeRecoverStackScreens = props => {
         name="IdentityForm"
         options={{
           headerShown: false,
-        }}
-      >
-        {() => (
+        }}>
+        {screenProps => (
           <RevokeRecoverIdentityForm
-            navigation={props.navigation}
+            navigation={screenProps.navigation}
             isRecovery={isRecovery}
             importedSeed={importedSeed}
             exitRevokeRecover={exitRevokeRecover}
@@ -73,4 +71,4 @@ const RevokeRecoverStackScreens = props => {
   );
 };
 
-export default RevokeRecoverStackScreens
+export default RevokeRecoverStackScreens;

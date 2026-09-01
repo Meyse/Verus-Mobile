@@ -1,8 +1,6 @@
 import {useCallback, useEffect, useState} from 'react';
-import {useSelector, useDispatch} from 'react-redux';
+import {useSelector} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
-import {Alert, Dimensions} from 'react-native';
-import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import {
   getFriendlyNameMap,
   getIdentity,
@@ -22,31 +20,54 @@ import {
 } from '../../../../utils/constants/sendModal';
 import {deriveKeyPair} from '../../../../utils/keys';
 import {RecoverIdentityFormRender} from './RecoverIdentityForm.render';
-import { createRecoverIdentityTx, createRevokeIdentityTx } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
-import { coinsList } from '../../../../utils/CoinData/CoinsList';
-import { decryptkey } from '../../../../utils/seedCrypt';
-import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
-import { useObjectSelector } from '../../../../hooks/useObjectSelector';
+import {createRecoverIdentityTx} from '../../../../utils/api/channels/verusid/requests/updateIdentity';
+import {coinsList} from '../../../../utils/CoinData/CoinsList';
+import {decryptkey} from '../../../../utils/seedCrypt';
+import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
+import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 
-const RecoverIdentityForm = (props) => {
-  const { height } = Dimensions.get("window");
-  const dispatch = useDispatch();
+const SAFE_RECOVERY_ERRORS = new Set([
+  'This VerusID could not be found on the selected blockchain.',
+  'Cannot recover VerusID that is not revoked.',
+  'The recovery authority could not be verified on this blockchain.',
+  'Recovery identity is not active, and therefore unable to sign transactions.',
+  'Recovery identity has minimum signatures > 1. Please recover through CLI or Verus Desktop.',
+  'The imported secret or key does not control this VerusID’s recovery authority.',
+]);
 
+const getSafeRecoveryError = error => {
+  if (error?.message === 'Unable to decrypt recovery secret') {
+    return 'The imported authority key could not be read. Go back and import it again.';
+  }
+
+  if (SAFE_RECOVERY_ERRORS.has(error?.message)) return error.message;
+
+  return 'The VerusID could not be prepared for recovery. Check the identity, addresses, blockchain, and connection, then try again.';
+};
+
+const RecoverIdentityForm = props => {
   const sendModal = useObjectSelector(state => state.sendModal);
 
   const instanceKey = useSelector(state => state.authentication.instanceKey);
-  
-  const [networkName, setNetworkName] = useState(sendModal.data[SEND_MODAL_SYSTEM_ID]);
-  
+
+  const [networkName, setNetworkName] = useState(
+    sendModal.data[SEND_MODAL_SYSTEM_ID],
+  );
+  const [formError, setFormError] = useState(null);
+
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [scannerField, setScannerField] = useState(SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD);
+  const [scannerField, setScannerField] = useState(
+    SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD,
+  );
 
   useEffect(() => {
     try {
-      const systemObj = CoinDirectory.findSystemCoinObj(sendModal.data[SEND_MODAL_SYSTEM_ID]);
+      const systemObj = CoinDirectory.findSystemCoinObj(
+        sendModal.data[SEND_MODAL_SYSTEM_ID],
+      );
       setNetworkName(systemObj.display_name);
-    } catch(e) {}
-  }, [])
+    } catch (e) {}
+  }, []);
 
   const formHasError = useCallback(() => {
     const {data} = sendModal;
@@ -57,31 +78,25 @@ const RecoverIdentityForm = (props) => {
         : '';
 
     if (!identity || identity.length < 1) {
-      createAlert('Required Field', 'Identity is a required field.');
-      return true;
+      return 'Enter the revoked VerusID you want to recover.';
     }
 
     try {
       fromBase58Check(identity);
     } catch (e) {
       if (!identity.endsWith('@')) {
-        createAlert(
-          'Invalid Identity',
-          'Identity not a valid identity handle or iAddress.',
-        )
-
-        return true;
+        return 'Enter a VerusID name ending in @ or a valid i-address.';
       }
     }
 
-    return false;
-  }, [sendModal, dispatch]);
+    return null;
+  }, [sendModal]);
 
-  const getPotentialPrimaryAddresses = useCallback(async (coinObj) => {
+  const getPotentialPrimaryAddresses = useCallback(async coinObj => {
     const encryptedSeed = sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
     const seed = decryptkey(instanceKey, encryptedSeed);
 
-    if (!seed) throw new Error("Unable to decrypt recovery secret");
+    if (!seed) throw new Error('Unable to decrypt recovery secret');
 
     const keyObj = await deriveKeyPair(seed, coinObj, ELECTRUM);
     const {addresses} = keyObj;
@@ -89,42 +104,50 @@ const RecoverIdentityForm = (props) => {
     return addresses;
   }, []);
 
-  const handleScan = (codes) => {
+  const handleScan = codes => {
     const result = codes[0] ? codes[0].value : null;
-    setScannerOpen(false)
+    setScannerOpen(false);
 
-    if (result != null && typeof result === "string" && result.length <= 5000) {
-      props.updateSendFormData(scannerField, result)
+    if (result != null && typeof result === 'string' && result.length <= 5000) {
+      props.updateSendFormData(scannerField, result);
     } else {
-      Alert.alert("Error", "Unknown data in qr code")
+      setFormError('The QR code does not contain a usable address.');
     }
   };
 
-  const toggleScanner = (field) => {
+  const toggleScanner = field => {
     if (scannerOpen) {
       setScannerOpen(false);
-      props.setModalHeight(null);
     } else {
-      setScannerField(field)
-      setScannerOpen(true)
-      props.setModalHeight(height >= 720 ? 696 : height - 24);
+      setScannerField(field);
+      setScannerOpen(true);
     }
-  }
+  };
 
   const toggleEditRevocationRecovery = () => {
-    props.updateSendFormData(SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY, !sendModal.data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY])
-  }
+    props.updateSendFormData(
+      SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY,
+      !sendModal.data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY],
+    );
+  };
 
   const toggleEditZAddr = () => {
-    props.updateSendFormData(SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS, !sendModal.data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS])
-  }
+    props.updateSendFormData(
+      SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS,
+      !sendModal.data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS],
+    );
+  };
 
   const submitData = useCallback(async () => {
-    if (formHasError()) {
+    const validationError = formHasError();
+
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
 
-    props.setLoading(true)
+    setFormError(null);
+    props.setLoading(true);
 
     const {data} = sendModal;
 
@@ -136,23 +159,25 @@ const RecoverIdentityForm = (props) => {
     try {
       const tarRes = await getIdentity(data[SEND_MODAL_SYSTEM_ID], identity);
       if (tarRes.error) {
-        throw new Error(tarRes.error.message);
+        throw new Error(
+          'This VerusID could not be found on the selected blockchain.',
+        );
       }
 
-      if (tarRes.result.status !== "revoked") {
-        throw new Error(
-          'Cannot recover VerusID that is not revoked.',
-        );
+      if (tarRes.result.status !== 'revoked') {
+        throw new Error('Cannot recover VerusID that is not revoked.');
       }
 
       const recovery = tarRes.result.identity.recoveryauthority;
 
       const recRes = await getIdentity(data[SEND_MODAL_SYSTEM_ID], recovery);
       if (recRes.error) {
-        throw new Error(recRes.error.message);
+        throw new Error(
+          'The recovery authority could not be verified on this blockchain.',
+        );
       }
 
-      if (recRes.result.status !== "active") {
+      if (recRes.result.status !== 'active') {
         throw new Error(
           'Recovery identity is not active, and therefore unable to sign transactions.',
         );
@@ -178,65 +203,77 @@ const RecoverIdentityForm = (props) => {
 
       if (!isInWallet) {
         throw new Error(
-          'Ensure that your imported recovery secret or key corresponds to the primary address of the VerusID set as your recovery authority.',
+          'The imported secret or key does not control this VerusID’s recovery authority.',
         );
       }
 
-      const friendlyNames = await getFriendlyNameMap(data[SEND_MODAL_SYSTEM_ID], tarRes.result);
+      const friendlyNames = await getFriendlyNameMap(
+        data[SEND_MODAL_SYSTEM_ID],
+        tarRes.result,
+      );
 
       const targetIdAddr = tarRes.result.identity.identityaddress;
 
-      const primaryAddr = data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD] != null && data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD].length > 0 ? 
-                            data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD] 
-                            : 
-                            null;
+      const primaryAddr =
+        data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD] != null &&
+        data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD].length > 0
+          ? data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD]
+          : null;
 
-      const revocationAddr = data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] && data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD] != null && data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD].length > 0 ? 
-                                data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD] 
-                                : 
-                                null;
+      const revocationAddr =
+        data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] &&
+        data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD] != null &&
+        data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD].length > 0
+          ? data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD]
+          : null;
 
-      const recoveryAddr = data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] && data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD] != null && data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD].length > 0 ? 
-                            data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD] 
-                            : 
-                            null;
+      const recoveryAddr =
+        data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] &&
+        data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD] != null &&
+        data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD].length > 0
+          ? data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD]
+          : null;
 
-      const privateAddr = data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS] && data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD] != null && data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD].length > 0 ? 
-                            data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD] 
-                            : 
-                            null;
+      const privateAddr =
+        data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS] &&
+        data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD] != null &&
+        data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD].length > 0
+          ? data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD]
+          : null;
 
       const recoveryResult = await createRecoverIdentityTx(
-        data[SEND_MODAL_SYSTEM_ID], 
-        targetIdAddr, 
-        recoveryAddr, 
-        revocationAddr, 
-        [primaryAddr], 
-        privateAddr, 
-        recRes.result.identity.identityaddress
-      )
+        data[SEND_MODAL_SYSTEM_ID],
+        targetIdAddr,
+        recoveryAddr,
+        revocationAddr,
+        primaryAddr ? [primaryAddr] : null,
+        privateAddr,
+        recRes.result.identity.identityaddress,
+      );
 
-      props.setModalHeight(height >= 720 ? 696 : height - 24);
       props.navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, {
         targetId: tarRes.result,
-        recoveryAddr: recRes.result,
+        recoveryId: recRes.result,
         friendlyNames,
         ownedAddress,
         recoverableByUser,
         recoveryResult,
-        revocationAddr,
-        recoveryAddr,
+        newRevocationAuthority: revocationAddr,
+        newRecoveryAuthority: recoveryAddr,
         primaryAddr,
-        privateAddr
-      })
+        privateAddr,
+      });
     } catch (e) {
-      Alert.alert('Error', e.message);
+      setFormError(getSafeRecoveryError(e));
     }
 
-    props.setLoading(false)
-  }, [formHasError, getPotentialPrimaryAddresses, sendModal, dispatch, props]);
+    props.setLoading(false);
+  }, [formHasError, getPotentialPrimaryAddresses, sendModal, props]);
 
   return RecoverIdentityFormRender({
+    formError,
+    loading: props.loading,
+    onBack: props.cancel,
     submitData,
     updateSendFormData: props.updateSendFormData,
     sendModalData: sendModal.data,
@@ -245,7 +282,7 @@ const RecoverIdentityForm = (props) => {
     toggleScanner,
     handleScan,
     toggleEditRevocationRecovery,
-    toggleEditZAddr
+    toggleEditZAddr,
   });
 };
 

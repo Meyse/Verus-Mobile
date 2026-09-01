@@ -33,6 +33,7 @@ export {default as identityUpdateRequestInfoStyles} from './deeplink/identityUpd
 export {default as invoiceInfoStyles} from './deeplink/invoiceInfo.styles';
 export {default as listSelectionModalStyles} from './components/listSelectionModal.styles';
 export {default as reviewStepStyles} from './deeplink/reviewStep.styles';
+export {default as revokeRecoverFlowStyles} from './components/revokeRecoverFlow.styles';
 export {default as spendableKeyRequestInfoStyles} from './deeplink/spendableKeyRequestInfo.styles';
 export {default as signedOutFlowStyles} from './components/signedOutFlow.styles';
 export {default as signedOutSheetStyles} from './components/signedOutSheet.styles';

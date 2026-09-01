@@ -1,6 +1,5 @@
 import React, {useState, useCallback} from 'react';
-import {useDispatch, useSelector} from 'react-redux';
-import {Alert} from 'react-native';
+import {useSelector} from 'react-redux';
 import {
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
   SEND_MODAL_FORM_STEP_FORM,
@@ -8,37 +7,37 @@ import {
   SEND_MODAL_SYSTEM_ID,
 } from '../../../../utils/constants/sendModal';
 import {RecoverIdentityConfirmRender} from './RecoverIdentityConfirm.render';
-import { pushUpdateIdentityTx } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
-import { decryptkey } from '../../../../utils/seedCrypt';
-import { deriveKeyPair } from '../../../../utils/keys';
-import { ELECTRUM } from '../../../../utils/constants/intervalConstants';
-import { coinsList } from '../../../../utils/CoinData/CoinsList';
-import { useObjectSelector } from '../../../../hooks/useObjectSelector';
+import {pushUpdateIdentityTx} from '../../../../utils/api/channels/verusid/requests/updateIdentity';
+import {decryptkey} from '../../../../utils/seedCrypt';
+import {deriveKeyPair} from '../../../../utils/keys';
+import {ELECTRUM} from '../../../../utils/constants/intervalConstants';
+import {coinsList} from '../../../../utils/CoinData/CoinsList';
+import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 
 const RecoverIdentityConfirm = props => {
-  const [targetId, setTargetId] = useState(props.route.params.targetId);
-  const [recoveryId, setRecoveryId] = useState(props.route.params.recoveryId);
-  const [recoveryResult, setRecoveryResult] = useState(props.route.params.recoveryResult);
-  const [revocationAddr, setRevocationAddr] = useState(props.route.params.revocationAddr);
-  const [recoveryAddr, setRecoveryAddr] = useState(props.route.params.recoveryAddr);
-  const [primaryAddr, setPrimaryAddr] = useState(props.route.params.primaryAddr);
-  const [privateAddr, setPrivateAddr] = useState(props.route.params.privateAddr);
-
-  const [friendlyNames, setFriendlyNames] = useState(
-    props.route.params.friendlyNames,
-  );
+  const targetId = props.route.params.targetId;
+  const recoveryId = props.route.params.recoveryId;
+  const recoveryResult = props.route.params.recoveryResult;
+  const revocationAddr = props.route.params.newRevocationAuthority;
+  const recoveryAddr = props.route.params.newRecoveryAuthority;
+  const primaryAddr = props.route.params.primaryAddr;
+  const privateAddr = props.route.params.privateAddr;
+  const friendlyNames = props.route.params.friendlyNames;
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const instanceKey = useSelector(state => state.authentication.instanceKey);
 
-  const dispatch = useDispatch();
-  
   const sendModal = useObjectSelector(state => state.sendModal);
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
-  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
+  let networkName = sendModal.data[SEND_MODAL_SYSTEM_ID];
+
+  try {
+    networkName = CoinDirectory.findSystemCoinObj(
+      sendModal.data[SEND_MODAL_SYSTEM_ID],
+    ).display_name;
+  } catch (_) {}
 
   const goBack = useCallback(() => {
-    props.setModalHeight();
     props.navigation.navigate(SEND_MODAL_FORM_STEP_FORM);
   }, [props]);
 
@@ -46,7 +45,7 @@ const RecoverIdentityConfirm = props => {
     const encryptedSeed = sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
     const seed = decryptkey(instanceKey, encryptedSeed);
 
-    if (!seed) throw new Error("Unable to decrypt recovery secret");
+    if (!seed) throw new Error('Unable to decrypt recovery secret');
 
     const keyObj = await deriveKeyPair(seed, coinsList.VRSC, ELECTRUM);
 
@@ -54,20 +53,28 @@ const RecoverIdentityConfirm = props => {
   }, []);
 
   const submitData = useCallback(async () => {
+    if (!acknowledged || props.loading) return;
+
+    setSubmitError(null);
     await props.setLoading(true);
     await props.setPreventExit(true);
-    const { data } = sendModal;
+    const {data} = sendModal;
 
     try {
       const spendingKey = await getSpendingKey();
 
       const keys = [];
       for (let i = 0; i < recoveryResult.utxos.length; i++) {
-        keys.push([spendingKey])
+        keys.push([spendingKey]);
       }
 
-      const result = await pushUpdateIdentityTx(data[SEND_MODAL_SYSTEM_ID], recoveryResult.hex, recoveryResult.utxos, keys);
-      
+      const result = await pushUpdateIdentityTx(
+        data[SEND_MODAL_SYSTEM_ID],
+        recoveryResult.hex,
+        recoveryResult.utxos,
+        keys,
+      );
+
       if (result.error) {
         throw new Error(result.error.message);
       }
@@ -75,36 +82,33 @@ const RecoverIdentityConfirm = props => {
       props.navigation.navigate(SEND_MODAL_FORM_STEP_RESULT, {
         targetId,
         recoveryId,
-        txid: result.result
+        txid: result.result,
       });
     } catch (e) {
-      Alert.alert('Error', e.message);
+      setSubmitError(
+        'The recovery transaction could not be submitted. Review the addresses and connection, then try again.',
+      );
     }
 
     props.setPreventExit(false);
     props.setLoading(false);
-  }, [
-    targetId,
-    friendlyNames,
-    sendModal,
-    activeAccount,
-    activeCoinList,
-    dispatch,
-    props,
-  ]);
+  }, [targetId, sendModal, acknowledged, props]);
 
   return RecoverIdentityConfirmRender({
+    acknowledged,
+    loading: props.loading,
+    networkName,
+    onAcknowledgedChange: setAcknowledged,
     targetId,
     friendlyNames,
     goBack,
     submitData,
-    recoverableByUser: !!props.route.params.recoverableByUser,
-    ownedAddress: props.route.params.ownedAddress || '',
-    sendModal,
     revocationAddr,
     recoveryAddr,
     primaryAddr,
-    privateAddr
+    privateAddr,
+    recoveryId,
+    submitError,
   });
 };
 
