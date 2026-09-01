@@ -11,6 +11,7 @@ const RevokeRecoverStack = createStackNavigator();
 const RevokeRecoverStackScreens = props => {
   const [importedSeed, setImportedSeed] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
+  const [importSession, setImportSession] = useState({id: 0, method: null});
 
   const exitRevokeRecover = () =>
     props.navigation.dispatch(NavigationActions.back());
@@ -31,6 +32,13 @@ const RevokeRecoverStackScreens = props => {
         {screenProps => (
           <RevokeRecoverSlider
             navigation={screenProps.navigation}
+            onSelectImportMethod={method => {
+              setImportSession(current => ({
+                id: current.id + 1,
+                method,
+              }));
+              screenProps.navigation.navigate('ImportWallet');
+            }}
             setImportedSeed={setImportedSeed}
             setIsRecovery={setIsRecovery}
           />
@@ -44,7 +52,9 @@ const RevokeRecoverStackScreens = props => {
         }}>
         {screenProps => (
           <ImportWalletStackScreens
+            key={`authority-import-${importSession.id}`}
             navigation={screenProps.navigation}
+            initialMethod={importSession.method}
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
             onComplete={seed => completeImport(seed, screenProps.navigation)}

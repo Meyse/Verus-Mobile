@@ -8,7 +8,10 @@ import ShieldedAddressSetup from '../CreateSeed/Forms/ShieldedAddressSetup';
 import ScanSeed from '../../../../components/ScanSeed';
 import CompactSetupHeader from '../../../Onboard/components/CompactSetupHeader';
 import {signedOutFlowStyles as styles} from '../../../../styles';
-import {shouldOfferImportShieldedRestore} from '../../../Onboard/onboardingSetupFlow';
+import {
+  IMPORT_METHODS,
+  shouldOfferImportShieldedRestore,
+} from '../../../Onboard/onboardingSetupFlow';
 
 const IMPORT_STEPS = {
   INTRO: 'intro',
@@ -20,16 +23,35 @@ const IMPORT_STEPS = {
 
 const IMPORT_SEED_PROGRESS_CAP = 0.95;
 
+const getInitialImportStep = initialMethod => {
+  switch (initialMethod) {
+    case IMPORT_METHODS.SEED:
+      return IMPORT_STEPS.SEED;
+    case IMPORT_METHODS.TEXT:
+    case IMPORT_METHODS.QR:
+      return IMPORT_STEPS.TEXT;
+    case IMPORT_METHODS.NFC:
+      return IMPORT_STEPS.NFC;
+    default:
+      return IMPORT_STEPS.INTRO;
+  }
+};
+
 export default function ImportWalletStackScreens({
   navigation,
   importedSeed,
   setImportedSeed,
   onComplete,
   label,
+  initialMethod,
 }) {
-  const [step, setStep] = useState(IMPORT_STEPS.INTRO);
+  const initialStep = getInitialImportStep(initialMethod);
+  const hasInitialMethod = initialStep !== IMPORT_STEPS.INTRO;
+  const [step, setStep] = useState(initialStep);
   const [seedEntryProgress, setSeedEntryProgress] = useState(0);
-  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(
+    initialMethod === IMPORT_METHODS.QR,
+  );
 
   useEffect(() => {
     if (
@@ -70,6 +92,8 @@ export default function ImportWalletStackScreens({
       navigation?.goBack?.();
     } else if (step === IMPORT_STEPS.SHIELDED_ADDRESS) {
       setStep(IMPORT_STEPS.SEED);
+    } else if (hasInitialMethod) {
+      navigation?.goBack?.();
     } else {
       setStep(IMPORT_STEPS.INTRO);
       setScannerVisible(false);

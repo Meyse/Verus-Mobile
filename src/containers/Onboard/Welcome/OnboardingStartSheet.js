@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {Text} from 'react-native-paper';
 import {
   ArrowDownToLine,
   ChevronLeft,
@@ -16,8 +15,8 @@ import {
   QrCode,
   SmartphoneNfc,
 } from 'lucide-react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../components/BottomSheetModal';
+import SignedOutActionRow from '../../../components/SignedOutActionRow';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
@@ -337,7 +336,7 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
             ) : null}
           </Animated.View>
           {actions.map((action, index) => (
-            <StartActionRow
+            <SignedOutActionRow
               key={action.label}
               animatedValue={rowAnimations[index]}
               disabled={isTransitioning}
@@ -345,8 +344,6 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
               iconSize={action.iconSize}
               IconComponent={action.IconComponent}
               testID={action.testID}
-              styles={styles}
-              theme={theme}
               onPress={
                 action.nextMode
                   ? () => transitionToMode(action.nextMode)
@@ -357,54 +354,6 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
         </Animated.View>
       </View>
     </BottomSheetModal>
-  );
-};
-
-const StartActionRow = ({
-  animatedValue,
-  disabled,
-  label,
-  IconComponent,
-  iconSize = 24,
-  testID,
-  styles,
-  theme,
-  onPress,
-}) => {
-  const animatedStyle = animatedValue
-    ? {
-        opacity: animatedValue,
-        transform: [
-          {
-            translateY: animatedValue.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 0],
-            }),
-          },
-        ],
-      }
-    : null;
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={disabled ? 1 : 0.74}
-        disabled={disabled}
-        onPress={onPress}
-        testID={testID}
-        style={styles.actionRow}>
-        <View style={[styles.actionIconContainer, styles.actionIcon]}>
-          <IconComponent size={iconSize} color={theme.colors.textPrimary} />
-        </View>
-        <Text style={styles.actionLabel}>{label}</Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={22}
-          color={theme.colors.textSubtle}
-        />
-      </TouchableOpacity>
-    </Animated.View>
   );
 };
 

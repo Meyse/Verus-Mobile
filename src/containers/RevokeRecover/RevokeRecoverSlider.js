@@ -8,6 +8,7 @@ import {useAppTheme} from '../../theme/app';
 import RevokeRecoverFlowScaffold, {
   RevokeRecoverStepCopy,
 } from './RevokeRecoverFlowScaffold';
+import RevokeRecoverAuthoritySheet from './RevokeRecoverAuthoritySheet';
 
 const ACTIONS = [
   {
@@ -24,10 +25,16 @@ const ACTIONS = [
   },
 ];
 
-const RevokeRecoverSlider = ({navigation, setImportedSeed, setIsRecovery}) => {
+const RevokeRecoverSlider = ({
+  navigation,
+  onSelectImportMethod,
+  setImportedSeed,
+  setIsRecovery,
+}) => {
   const theme = useAppTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const [selection, setSelection] = useState(null);
+  const [authoritySheetVisible, setAuthoritySheetVisible] = useState(false);
   const selectedAction = ACTIONS.find(action => action.key === selection);
 
   const continueFlow = () => {
@@ -35,7 +42,7 @@ const RevokeRecoverSlider = ({navigation, setImportedSeed, setIsRecovery}) => {
 
     setImportedSeed(null);
     setIsRecovery(selectedAction.key === 'recover');
-    navigation.navigate('ImportWallet');
+    setAuthoritySheetVisible(true);
   };
 
   return (
@@ -150,6 +157,11 @@ const RevokeRecoverSlider = ({navigation, setImportedSeed, setIsRecovery}) => {
           key. It stays on this device and only signs this action.
         </Text>
       </View>
+      <RevokeRecoverAuthoritySheet
+        onClose={() => setAuthoritySheetVisible(false)}
+        onSelectMethod={onSelectImportMethod}
+        visible={authoritySheetVisible}
+      />
     </RevokeRecoverFlowScaffold>
   );
 };
