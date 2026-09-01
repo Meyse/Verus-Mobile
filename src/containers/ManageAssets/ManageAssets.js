@@ -79,9 +79,6 @@ const useAssetManagerData = () => {
   const activeCoins = useObjectSelector(
     state => state.coins.activeCoinsForUser || [],
   );
-  const sessionEpoch = useObjectSelector(
-    state => state.authentication.sessionEpoch,
-  );
   const testAccount =
     Object.keys(activeAccount?.testnetOverrides || {}).length > 0;
   const data = useMemo(
@@ -210,6 +207,9 @@ const useAssetMutation = () => {
   const dispatch = useDispatch();
   const activeAccount = useObjectSelector(
     state => state.authentication.activeAccount,
+  );
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch,
   );
   const activeCoinList = useObjectSelector(
     state => state.coins.activeCoinList || [],
