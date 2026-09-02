@@ -81,8 +81,17 @@ export const RevokeRecoverReviewGroup = ({children, title}) => {
   );
 };
 
-export const RevokeRecoverReviewRow = ({label, technical = false, value}) => {
+export const RevokeRecoverReviewRow = ({
+  label,
+  multiline = false,
+  technical = false,
+  value,
+}) => {
   const theme = useAppTheme();
+  let numberOfLines = 1;
+
+  if (technical) numberOfLines = 2;
+  if (multiline) numberOfLines = undefined;
 
   if (value == null || value === '') return null;
 
@@ -92,7 +101,7 @@ export const RevokeRecoverReviewRow = ({label, technical = false, value}) => {
         {label}
       </Text>
       <Text
-        numberOfLines={technical ? 2 : 1}
+        numberOfLines={numberOfLines}
         selectable={technical}
         style={[
           styles.reviewValue,

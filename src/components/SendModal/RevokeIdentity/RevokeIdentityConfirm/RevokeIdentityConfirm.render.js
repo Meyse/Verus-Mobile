@@ -51,13 +51,20 @@ export const RevokeIdentityConfirmRender = ({
   return (
     <RevokeRecoverFlowScaffold
       actions={
-        <AppButton
-          buttonColor={theme.colors.danger}
-          disabled={!acknowledged}
-          onPress={submitData}
-          testID="revokeRecover.submit">
-          Submit revocation
-        </AppButton>
+        <>
+          <RevokeRecoverAcknowledgement
+            label="I understand this VerusID will be disabled until it is recovered."
+            onValueChange={onAcknowledgedChange}
+            value={acknowledged}
+          />
+          <AppButton
+            buttonColor={theme.colors.danger}
+            disabled={!acknowledged}
+            onPress={submitData}
+            testID="revokeRecover.submit">
+            Submit revocation
+          </AppButton>
+        </>
       }
       headerTitle="Revoke VerusID"
       onBack={goBack}
@@ -75,6 +82,7 @@ export const RevokeIdentityConfirmRender = ({
       <RevokeRecoverReviewGroup title="On-chain change">
         <RevokeRecoverReviewRow
           label="VerusID"
+          multiline
           value={getIdentityName(targetId)}
         />
         <RevokeRecoverReviewRow label="Blockchain" value={networkName} />
@@ -82,6 +90,7 @@ export const RevokeIdentityConfirmRender = ({
         <RevokeRecoverReviewRow label="New status" value="Revoked" />
         <RevokeRecoverReviewRow
           label="Revocation authority"
+          multiline
           value={getIdentityName(revocationId)}
         />
         <RevokeRecoverReviewRow
@@ -94,12 +103,6 @@ export const RevokeIdentityConfirmRender = ({
       {submitError ? (
         <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>
       ) : null}
-
-      <RevokeRecoverAcknowledgement
-        label="I understand this VerusID will be disabled until it is recovered."
-        onValueChange={onAcknowledgedChange}
-        value={acknowledged}
-      />
     </RevokeRecoverFlowScaffold>
   );
 };

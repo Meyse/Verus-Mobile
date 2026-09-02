@@ -72,13 +72,20 @@ export const RecoverIdentityConfirmRender = ({
   return (
     <RevokeRecoverFlowScaffold
       actions={
-        <AppButton
-          buttonColor={theme.colors.danger}
-          disabled={!acknowledged}
-          onPress={submitData}
-          testID="revokeRecover.submit">
-          Submit recovery
-        </AppButton>
+        <>
+          <RevokeRecoverAcknowledgement
+            label="I checked the new primary address and every authority change."
+            onValueChange={onAcknowledgedChange}
+            value={acknowledged}
+          />
+          <AppButton
+            buttonColor={theme.colors.danger}
+            disabled={!acknowledged}
+            onPress={submitData}
+            testID="revokeRecover.submit">
+            Submit recovery
+          </AppButton>
+        </>
       }
       headerTitle="Recover VerusID"
       onBack={goBack}
@@ -96,6 +103,7 @@ export const RecoverIdentityConfirmRender = ({
       <RevokeRecoverReviewGroup title="On-chain change">
         <RevokeRecoverReviewRow
           label="VerusID"
+          multiline
           value={getIdentityName(targetId)}
         />
         <RevokeRecoverReviewRow label="Blockchain" value={networkName} />
@@ -103,6 +111,7 @@ export const RecoverIdentityConfirmRender = ({
         <RevokeRecoverReviewRow label="New status" value="Active" />
         <RevokeRecoverReviewRow
           label="Signing recovery authority"
+          multiline
           value={getIdentityName(recoveryId)}
         />
         <RevokeRecoverReviewRow
@@ -112,11 +121,13 @@ export const RecoverIdentityConfirmRender = ({
         />
         <RevokeRecoverReviewRow
           label="New recovery authority"
+          multiline
           technical={!!recoveryAddr && recoveryAddr.startsWith('i')}
           value={getFriendlyAddress(recoveryAddr, friendlyNames) || 'Unchanged'}
         />
         <RevokeRecoverReviewRow
           label="New revocation authority"
+          multiline
           technical={!!revocationAddr && revocationAddr.startsWith('i')}
           value={
             getFriendlyAddress(revocationAddr, friendlyNames) || 'Unchanged'
@@ -132,12 +143,6 @@ export const RecoverIdentityConfirmRender = ({
       {submitError ? (
         <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>
       ) : null}
-
-      <RevokeRecoverAcknowledgement
-        label="I checked the new primary address and every authority change."
-        onValueChange={onAcknowledgedChange}
-        value={acknowledged}
-      />
     </RevokeRecoverFlowScaffold>
   );
 };
