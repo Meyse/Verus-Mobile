@@ -27,6 +27,7 @@
 		4E9EA99D23BB985300B9FA10 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 4E9EA99C23BB985200B9FA10 /* assets */; };
 		4EAA00012F3A000100000001 /* VerusKeepAwake.m in Sources */ = {isa = PBXBuildFile; fileRef = 4EAA00032F3A000100000001 /* VerusKeepAwake.m */; };
 		4EAA00042F3A000100000001 /* PrivacyBlurredText.m in Sources */ = {isa = PBXBuildFile; fileRef = 4EAA00052F3A000100000001 /* PrivacyBlurredText.m */; };
+		4EAA00062F3A000100000001 /* VerusScreenSecurity.m in Sources */ = {isa = PBXBuildFile; fileRef = 4EAA00082F3A000100000001 /* VerusScreenSecurity.m */; };
 		4EAC77502411690900A7D427 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5E192C160435467282AA50EC /* SourceSansPro-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3D75763453624C50830E810F /* SourceSansPro-LightItalic.ttf */; };
 		7575623222F346C1998DBA73 /* SourceSansPro-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */; };
@@ -153,6 +154,8 @@
 		4EAA00022F3A000100000001 /* VerusKeepAwake.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VerusKeepAwake.h; path = verusMobile/VerusKeepAwake.h; sourceTree = "<group>"; };
 		4EAA00032F3A000100000001 /* VerusKeepAwake.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = VerusKeepAwake.m; path = verusMobile/VerusKeepAwake.m; sourceTree = "<group>"; };
 		4EAA00052F3A000100000001 /* PrivacyBlurredText.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PrivacyBlurredText.m; path = verusMobile/PrivacyBlurredText.m; sourceTree = "<group>"; };
+		4EAA00072F3A000100000001 /* VerusScreenSecurity.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = VerusScreenSecurity.h; path = verusMobile/VerusScreenSecurity.h; sourceTree = "<group>"; };
+		4EAA00082F3A000100000001 /* VerusScreenSecurity.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = VerusScreenSecurity.m; path = verusMobile/VerusScreenSecurity.m; sourceTree = "<group>"; };
 		6EAC43F25AA591AAC2E7ECFA /* Pods-verusmobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-verusmobile.debug.xcconfig"; path = "Target Support Files/Pods-verusmobile/Pods-verusmobile.debug.xcconfig"; sourceTree = "<group>"; };
 		AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-BoldItalic.ttf"; path = "../assets/fonts/SourceSansPro-BoldItalic.ttf"; sourceTree = "<group>"; };
 		C37976CFD29D43DEBE8AB634 /* SourceSansPro-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-Bold.ttf"; path = "../assets/fonts/SourceSansPro-Bold.ttf"; sourceTree = "<group>"; };
@@ -236,6 +239,8 @@
 				4EAA00022F3A000100000001 /* VerusKeepAwake.h */,
 				4EAA00032F3A000100000001 /* VerusKeepAwake.m */,
 				4EAA00052F3A000100000001 /* PrivacyBlurredText.m */,
+				4EAA00072F3A000100000001 /* VerusScreenSecurity.h */,
+				4EAA00082F3A000100000001 /* VerusScreenSecurity.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB11A68108700A75B9A /* LaunchScreen.xib */,
@@ -732,6 +737,7 @@
 				4E80A310241028FC00F037A9 /* bridge.swift in Sources */,
 				4EAA00012F3A000100000001 /* VerusKeepAwake.m in Sources */,
 				4EAA00042F3A000100000001 /* PrivacyBlurredText.m in Sources */,
+				4EAA00062F3A000100000001 /* VerusScreenSecurity.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -29,10 +29,12 @@ const ChooseWalletSheet = ({
   onClose,
   onClosed,
   accounts,
+  getAccountMeta,
   lastOpenedAccountTimestamps = {},
   supportedBiometryType,
   networkLabel,
   onSelectAccount,
+  title = 'Choose wallet',
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -76,7 +78,7 @@ const ChooseWalletSheet = ({
       onClosed={onClosed}
       maxHeight="76%">
       <View style={[signedOutSheetStyles.body, signedOutSheetStyles.bodyList]}>
-        <Text style={signedOutSheetStyles.title}>{'Choose wallet'}</Text>
+        <Text style={signedOutSheetStyles.title}>{title}</Text>
         <Text style={signedOutSheetStyles.subtitle}>
           {`${walletCount} ${networkLabel} ${
             walletCount === 1 ? 'wallet' : 'wallets'
@@ -94,6 +96,11 @@ const ChooseWalletSheet = ({
             renderItem={({item}) => (
               <WalletRow
                 account={item}
+                metaLabel={
+                  typeof getAccountMeta === 'function'
+                    ? getAccountMeta(item)
+                    : null
+                }
                 lastOpenedAt={lastOpenedAccountTimestamps[item.accountHash]}
                 supportedBiometryType={supportedBiometryType}
                 onSelect={() => onSelectAccount(item)}
@@ -127,13 +134,15 @@ const ScrollCue = ({styles, theme}) => (
 const WalletRow = ({
   account,
   lastOpenedAt,
+  metaLabel,
   supportedBiometryType,
   onSelect,
   styles,
   theme,
 }) => {
   const walletAvatar = normalizeWalletAvatar(account.walletAvatar);
-  const lastOpenedLabel = formatLastOpenedLabel(lastOpenedAt);
+  const lastOpenedLabel =
+    metaLabel == null ? formatLastOpenedLabel(lastOpenedAt) : metaLabel;
   const showBiometryAffordance =
     account.biometry &&
     supportedBiometryType != null &&

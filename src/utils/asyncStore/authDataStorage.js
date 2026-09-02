@@ -730,7 +730,7 @@ export const getUsers = () => {
 };
 
 // Check user password
-export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorruptedSeed = false) =>
+export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorruptedSeed = false, alertOnInternalError = true) =>
   queueUserStorageWrite(() => new Promise((resolve, reject) => {
     SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(async res => {
@@ -772,7 +772,11 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
                       )
                     );
                   } catch (e) {
-                    Alert.alert("Authentication Error", "Internal authentication error.");
+                    if (alertOnInternalError) {
+                      Alert.alert("Authentication Error", "Internal authentication error.");
+                    } else {
+                      throw new Error("Internal authentication error.");
+                    }
                   }
                 }
               }

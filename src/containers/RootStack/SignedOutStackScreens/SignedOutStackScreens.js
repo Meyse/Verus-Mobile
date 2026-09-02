@@ -10,7 +10,6 @@ import {useDispatch, useSelector} from 'react-redux';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
 import CreateProfile from '../../Onboard/CreateProfile/CreateProfile';
 import RevokeRecoverStackScreens from '../RevokeRecoverStackScreens/RevokeRecoverStackScreens';
-import RecoverSeedsStackScreens from '../RecoverSeedsStackScreens/RecoverSeedsStackScreens';
 import ProvisioningDeeplinkList from '../../ProvisioningDeeplinkList/ProvisioningDeeplinkList';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 
@@ -108,14 +107,6 @@ const SignedOutStackScreens = props => {
       <SignedOutStack.Screen
         name="RevokeRecover"
         component={RevokeRecoverStackScreens}
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <SignedOutStack.Screen
-        name="RecoverSeeds"
-        component={RecoverSeedsStackScreens}
         options={{
           headerShown: false,
         }}

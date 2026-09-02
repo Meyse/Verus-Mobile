@@ -53,6 +53,15 @@ const WALLET_PREVIEW_LIMIT = 3;
 const WALLET_CARD_MIN_HEIGHT = 74;
 const WALLET_CARD_SPACING = 10;
 
+const getRecoverySecretCount = account =>
+  Object.values(account?.encryptedKeys || {}).filter(value => value != null)
+    .length;
+
+const getRecoverySecretCountLabel = account => {
+  const count = getRecoverySecretCount(account);
+  return `${count} recovery ${count === 1 ? 'secret' : 'secrets'}`;
+};
+
 const Login = props => {
   const {width} = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -65,8 +74,10 @@ const Login = props => {
   const [addWalletVisible, setAddWalletVisible] = useState(false);
   const [chooseWalletVisible, setChooseWalletVisible] = useState(false);
   const [otherOptionsVisible, setOtherOptionsVisible] = useState(false);
+  const [recoveryWalletsVisible, setRecoveryWalletsVisible] = useState(false);
   const [unlockAccount, setUnlockAccount] = useState(null);
   const [pendingUnlockAccount, setPendingUnlockAccount] = useState(null);
+  const [pendingRecoveryAccount, setPendingRecoveryAccount] = useState(null);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
   const logoVariant = theme.isDark ? 'monochrome' : 'default';
   const resumePendingDeeplinkId =
@@ -115,13 +126,22 @@ const Login = props => {
       networkAccounts,
     ],
   );
+  const recoveryAccounts = useMemo(
+    () =>
+      sortedDisplayNetworkAccounts.filter(
+        account => getRecoverySecretCount(account) > 0,
+      ),
+    [sortedDisplayNetworkAccounts],
+  );
 
   useEffect(() => {
     setAddWalletVisible(false);
     setChooseWalletVisible(false);
     setOtherOptionsVisible(false);
+    setRecoveryWalletsVisible(false);
     setUnlockAccount(null);
     setPendingUnlockAccount(null);
+    setPendingRecoveryAccount(null);
   }, [selectedNetworkKey]);
 
   useEffect(() => {
@@ -168,8 +188,24 @@ const Login = props => {
     props.navigation.navigate('RevokeRecover');
   };
 
+  const openRecoverySecrets = account => {
+    props.navigation.navigate('DisplaySeed', {
+      accountHash: account.accountHash,
+      networkKey: selectedNetworkKey,
+      data: {
+        completeOnBack: true,
+        keyDerivationVersion: account.keyDerivationVersion,
+        showDerivedKeys: true,
+      },
+    });
+  };
+
   const handleRecoverSeed = () => {
-    props.navigation.navigate('RecoverSeeds');
+    if (recoveryAccounts.length === 1) {
+      openRecoverySecrets(recoveryAccounts[0]);
+    } else if (recoveryAccounts.length > 1) {
+      setRecoveryWalletsVisible(true);
+    }
   };
 
   const handleProvisioningRequests = () => {
@@ -185,6 +221,18 @@ const Login = props => {
     if (pendingUnlockAccount != null) {
       setUnlockAccount(pendingUnlockAccount);
       setPendingUnlockAccount(null);
+    }
+  };
+
+  const handleRecoveryWalletAccount = account => {
+    setRecoveryWalletsVisible(false);
+    setPendingRecoveryAccount(account);
+  };
+
+  const handleRecoveryWalletClosed = () => {
+    if (pendingRecoveryAccount != null) {
+      openRecoverySecrets(pendingRecoveryAccount);
+      setPendingRecoveryAccount(null);
     }
   };
 
@@ -286,6 +334,8 @@ const Login = props => {
         onRecoverProfileSeed={handleRecoverSeed}
         onRevokeRecoverVerusId={handleRevokeRecover}
         onProvisioningRequests={handleProvisioningRequests}
+        networkLabel={selectedNetworkLabel}
+        walletCount={recoveryAccounts.length}
       />
       <ChooseWalletSheet
         visible={chooseWalletVisible}
@@ -296,6 +346,17 @@ const Login = props => {
         supportedBiometryType={supportedBiometryType}
         networkLabel={selectedNetworkLabel}
         onSelectAccount={handleChooseWalletAccount}
+      />
+      <ChooseWalletSheet
+        visible={recoveryWalletsVisible}
+        onClose={() => setRecoveryWalletsVisible(false)}
+        onClosed={handleRecoveryWalletClosed}
+        accounts={recoveryAccounts}
+        getAccountMeta={getRecoverySecretCountLabel}
+        supportedBiometryType={supportedBiometryType}
+        networkLabel={selectedNetworkLabel}
+        onSelectAccount={handleRecoveryWalletAccount}
+        title={`Choose a ${selectedNetworkLabel} wallet`}
       />
       <UnlockWalletSheet
         visible={unlockAccount != null}
