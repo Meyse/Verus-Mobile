@@ -44,6 +44,8 @@ export default function ImportWalletStackScreens({
   onComplete,
   label,
   initialMethod,
+  progressStart = 0,
+  progressEnd = 1,
 }) {
   const initialStep = getInitialImportStep(initialMethod);
   const hasInitialMethod = initialStep !== IMPORT_STEPS.INTRO;
@@ -113,12 +115,18 @@ export default function ImportWalletStackScreens({
   }, []);
 
   const getProgress = () => {
-    if (step === IMPORT_STEPS.INTRO) return 0.5;
-    if (step === IMPORT_STEPS.SEED) {
-      return 0.5 + seedEntryProgress * (IMPORT_SEED_PROGRESS_CAP - 0.5);
+    let importProgress;
+
+    if (step === IMPORT_STEPS.INTRO) {
+      importProgress = 0.5;
+    } else if (step === IMPORT_STEPS.SEED) {
+      importProgress =
+        0.5 + seedEntryProgress * (IMPORT_SEED_PROGRESS_CAP - 0.5);
+    } else {
+      importProgress = 1;
     }
 
-    return 1;
+    return progressStart + importProgress * (progressEnd - progressStart);
   };
 
   const content = (() => {

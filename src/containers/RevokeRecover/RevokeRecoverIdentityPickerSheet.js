@@ -317,11 +317,10 @@ export const RevokeRecoverIdentityField = ({
     return (
       <SkeletonLoader
         accessibilityLabel={`Finding VerusIDs to ${action}`}
-        style={styles.selectionField}>
+        style={[styles.selectionField, styles.selectionSkeleton]}>
         <View style={styles.selectionCopy}>
-          <SkeletonBlock color={theme.colors.border} height={16} width="46%" />
+          <SkeletonBlock height={16} width="46%" />
           <SkeletonBlock
-            color={theme.colors.border}
             height={12}
             style={styles.fieldSkeletonBody}
             width="72%"
@@ -479,6 +478,11 @@ const createFieldStyles = theme =>
       minWidth: 0,
       flex: 1,
       paddingRight: 12,
+    },
+    selectionSkeleton: {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+      justifyContent: 'center',
     },
     fieldSkeletonBody: {
       marginTop: 8,

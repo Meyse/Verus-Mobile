@@ -59,6 +59,8 @@ const RevokeRecoverStackScreens = props => {
             setImportedSeed={setImportedSeed}
             onComplete={seed => completeImport(seed, screenProps.navigation)}
             label={`Import ${isRecovery ? 'Recovery' : 'Revocation'} Authority`}
+            progressStart={0.2}
+            progressEnd={0.42}
           />
         )}
       </RevokeRecoverStack.Screen>
