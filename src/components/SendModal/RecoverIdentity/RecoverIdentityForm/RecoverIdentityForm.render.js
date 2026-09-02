@@ -128,11 +128,14 @@ export const RecoverIdentityFormRender = ({
 
       <View style={styles.fieldGroup}>
         <RevokeRecoverIdentityField
+          candidateCount={identityDiscovery.candidates.length}
+          discoveryStatus={identityDiscovery.status}
           errorText={formError}
           isRecovery
           manualEntry={manualEntry}
           onChangeText={updateIdentity}
           onChoose={onOpenIdentitySheet}
+          onRetry={identityDiscovery.retry}
           selectedCandidate={selectedCandidate}
           value={sendModalData[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD] || ''}
         />

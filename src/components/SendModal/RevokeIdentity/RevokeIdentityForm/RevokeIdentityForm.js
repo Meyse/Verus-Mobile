@@ -1,5 +1,4 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {InteractionManager} from 'react-native';
 import {useSelector} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
 import {
@@ -16,7 +15,6 @@ import {
 import {deriveKeyPair} from '../../../../utils/keys';
 import {RevokeIdentityFormRender} from './RevokeIdentityForm.render';
 import {createRevokeIdentityTx} from '../../../../utils/api/channels/verusid/requests/updateIdentity';
-import {coinsList} from '../../../../utils/CoinData/CoinsList';
 import {decryptkey} from '../../../../utils/seedCrypt';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
@@ -32,23 +30,30 @@ const SAFE_REVOCATION_ERRORS = new Set([
   'The imported secret or key does not control this VerusID’s revocation authority.',
 ]);
 
-const getSafeRevocationError = error => {
+const getSafeRevocationError = (error, networkName) => {
   if (error?.message === 'Unable to decrypt recovery secret') {
     return 'The imported authority key could not be read. Go back and import it again.';
   }
 
   if (SAFE_REVOCATION_ERRORS.has(error?.message)) return error.message;
 
+  if (
+    error?.message === "Couldn't fund raw transaction" ||
+    error?.message === 'Insufficient funds in UTXOs provided'
+  ) {
+    return `The authority address needs enough ${networkName} to pay the network fee before this VerusID can be revoked.`;
+  }
+
   return 'The VerusID could not be prepared for revocation. Check the identity, blockchain, and connection, then try again.';
 };
 
 const RevokeIdentityForm = props => {
   const sendModal = useObjectSelector(state => state.sendModal);
-
   const instanceKey = useSelector(state => state.authentication.instanceKey);
-  const [networkName, setNetworkName] = useState(
-    sendModal.data[SEND_MODAL_SYSTEM_ID],
-  );
+  const encryptedIdentitySeed =
+    sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
+  const systemId = sendModal.data[SEND_MODAL_SYSTEM_ID];
+  const [networkName, setNetworkName] = useState(systemId);
   const [formError, setFormError] = useState(null);
   const initialIdentity =
     sendModal.data[SEND_MODAL_IDENTITY_TO_REVOKE_FIELD]?.trim() || '';
@@ -60,22 +65,12 @@ const RevokeIdentityForm = props => {
   const [manualEntry, setManualEntry] = useState(Boolean(initialIdentity));
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const identityDiscovery = useAuthorityIdentityDiscovery({
-    active: identitySheetVisible,
-    encryptedSeed: sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED],
+    active: !manualEntry,
+    encryptedSeed: encryptedIdentitySeed,
     instanceKey,
     isRecovery: false,
-    systemId: sendModal.data[SEND_MODAL_SYSTEM_ID],
+    systemId,
   });
-
-  useEffect(() => {
-    if (!shouldAutoOpenIdentitySheet) return undefined;
-
-    const interaction = InteractionManager.runAfterInteractions(() => {
-      setIdentitySheetVisible(true);
-    });
-
-    return () => interaction.cancel();
-  }, [shouldAutoOpenIdentitySheet]);
 
   identitySheetVisibleRef.current = identitySheetVisible;
 
@@ -94,12 +89,10 @@ const RevokeIdentityForm = props => {
 
   useEffect(() => {
     try {
-      const systemObj = CoinDirectory.findSystemCoinObj(
-        sendModal.data[SEND_MODAL_SYSTEM_ID],
-      );
+      const systemObj = CoinDirectory.findSystemCoinObj(systemId);
       setNetworkName(systemObj.display_name);
     } catch (e) {}
-  }, []);
+  }, [systemId]);
 
   const formHasError = useCallback(() => {
     const {data} = sendModal;
@@ -124,19 +117,19 @@ const RevokeIdentityForm = props => {
     return null;
   }, [sendModal]);
 
-  const getPotentialPrimaryAddresses = useCallback(async coinObj => {
-    const encryptedSeed = sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
-    const seed = decryptkey(instanceKey, encryptedSeed);
+  const getPotentialPrimaryAddresses = useCallback(async () => {
+    const seed = decryptkey(instanceKey, encryptedIdentitySeed);
 
     if (!seed) throw new Error('Unable to decrypt recovery secret');
 
-    const keyObj = await deriveKeyPair(seed, coinObj, ELECTRUM);
+    const system = CoinDirectory.findSystemCoinObj(systemId);
+    const keyObj = await deriveKeyPair(seed, system, ELECTRUM);
     const {addresses} = keyObj;
 
     return addresses;
-  }, []);
+  }, [encryptedIdentitySeed, instanceKey, systemId]);
 
-  const chooseCandidate = candidate => {
+  const chooseCandidate = useCallback(candidate => {
     setFormError(null);
     setSelectedCandidate(candidate);
     setManualEntry(false);
@@ -145,14 +138,45 @@ const RevokeIdentityForm = props => {
       candidate.identityAddress,
     );
     setIdentitySheetVisible(false);
-  };
+  }, [props.updateSendFormData]);
 
-  const chooseManualEntry = () => {
+  const chooseManualEntry = useCallback(() => {
     setFormError(null);
     setSelectedCandidate(null);
     setManualEntry(true);
     setIdentitySheetVisible(false);
-  };
+  }, []);
+
+  const openIdentitySheet = useCallback(() => {
+    setManualEntry(false);
+    setIdentitySheetVisible(true);
+  }, []);
+
+  useEffect(() => {
+    if (!shouldAutoOpenIdentitySheet || manualEntry || selectedCandidate) return;
+
+    const {candidates, status} = identityDiscovery;
+
+    if (status === 'ready' && candidates.length === 1) {
+      chooseCandidate(candidates[0]);
+      return;
+    }
+
+    if (
+      (status === 'ready' && candidates.length > 1) ||
+      status === 'error' ||
+      status === 'unsupported'
+    ) {
+      setIdentitySheetVisible(true);
+    }
+  }, [
+    chooseCandidate,
+    identityDiscovery.candidates,
+    identityDiscovery.status,
+    manualEntry,
+    selectedCandidate,
+    shouldAutoOpenIdentitySheet,
+  ]);
 
   const updateIdentity = text => {
     setFormError(null);
@@ -220,7 +244,7 @@ const RevokeIdentityForm = props => {
       }
 
       let isInWallet = false;
-      const addrs = await getPotentialPrimaryAddresses(coinsList.VRSC);
+      const addrs = await getPotentialPrimaryAddresses();
 
       for (const address of revRes.result.identity.primaryaddresses) {
         if (addrs.includes(address)) {
@@ -246,7 +270,7 @@ const RevokeIdentityForm = props => {
       const revocationResult = await createRevokeIdentityTx(
         data[SEND_MODAL_SYSTEM_ID],
         targetIdAddr,
-        revRes.result.identity.identityaddress,
+        ownedAddress,
       );
 
       props.navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, {
@@ -258,7 +282,7 @@ const RevokeIdentityForm = props => {
         revocationResult,
       });
     } catch (e) {
-      setFormError(getSafeRevocationError(e));
+      setFormError(getSafeRevocationError(e, networkName));
     }
 
     props.setLoading(false);
@@ -272,7 +296,7 @@ const RevokeIdentityForm = props => {
     identitySheetVisible,
     manualEntry,
     onCloseIdentitySheet: () => setIdentitySheetVisible(false),
-    onOpenIdentitySheet: () => setIdentitySheetVisible(true),
+    onOpenIdentitySheet: openIdentitySheet,
     selectedCandidate,
     submitData,
     updateIdentity,

@@ -78,11 +78,14 @@ export const RevokeIdentityFormRender = ({
       />
 
       <RevokeRecoverIdentityField
+        candidateCount={identityDiscovery.candidates.length}
+        discoveryStatus={identityDiscovery.status}
         errorText={formError}
         isRecovery={false}
         manualEntry={manualEntry}
         onChangeText={updateIdentity}
         onChoose={onOpenIdentitySheet}
+        onRetry={identityDiscovery.retry}
         onSubmitEditing={submitData}
         selectedCandidate={selectedCandidate}
         value={formDataValue || ''}

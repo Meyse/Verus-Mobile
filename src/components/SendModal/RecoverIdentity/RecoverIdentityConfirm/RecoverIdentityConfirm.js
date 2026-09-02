@@ -11,7 +11,6 @@ import {pushUpdateIdentityTx} from '../../../../utils/api/channels/verusid/reque
 import {decryptkey} from '../../../../utils/seedCrypt';
 import {deriveKeyPair} from '../../../../utils/keys';
 import {ELECTRUM} from '../../../../utils/constants/intervalConstants';
-import {coinsList} from '../../../../utils/CoinData/CoinsList';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 
@@ -29,12 +28,13 @@ const RecoverIdentityConfirm = props => {
   const instanceKey = useSelector(state => state.authentication.instanceKey);
 
   const sendModal = useObjectSelector(state => state.sendModal);
-  let networkName = sendModal.data[SEND_MODAL_SYSTEM_ID];
+  const encryptedIdentitySeed =
+    sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
+  const systemId = sendModal.data[SEND_MODAL_SYSTEM_ID];
+  let networkName = systemId;
 
   try {
-    networkName = CoinDirectory.findSystemCoinObj(
-      sendModal.data[SEND_MODAL_SYSTEM_ID],
-    ).display_name;
+    networkName = CoinDirectory.findSystemCoinObj(systemId).display_name;
   } catch (_) {}
 
   const goBack = useCallback(() => {
@@ -42,15 +42,15 @@ const RecoverIdentityConfirm = props => {
   }, [props]);
 
   const getSpendingKey = useCallback(async () => {
-    const encryptedSeed = sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
-    const seed = decryptkey(instanceKey, encryptedSeed);
+    const seed = decryptkey(instanceKey, encryptedIdentitySeed);
 
     if (!seed) throw new Error('Unable to decrypt recovery secret');
 
-    const keyObj = await deriveKeyPair(seed, coinsList.VRSC, ELECTRUM);
+    const system = CoinDirectory.findSystemCoinObj(systemId);
+    const keyObj = await deriveKeyPair(seed, system, ELECTRUM);
 
     return keyObj.privKey;
-  }, []);
+  }, [encryptedIdentitySeed, instanceKey, systemId]);
 
   const submitData = useCallback(async () => {
     if (!acknowledged || props.loading) return;

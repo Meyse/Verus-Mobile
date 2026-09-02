@@ -1,6 +1,7 @@
 import {IDENTITY_FLAG_REVOKED} from 'verus-typescript-primitives';
 import {isIdentityIndexUnavailable} from './identityIndex';
 import {getIdentitiesWithAddress} from './requests/getIdentitiesWithAddress';
+import {getIdentity} from './requests/getIdentity';
 import {
   getIdentitiesWithRecovery,
   getIdentitiesWithRevocation,
@@ -16,6 +17,7 @@ export const AUTHORITY_IDENTITY_DISCOVERY_STATUS = {
 
 const AUTHORITY_LOOKUP_BATCH_SIZE = 6;
 const REVOKED_FLAG = IDENTITY_FLAG_REVOKED.toNumber();
+const ROOT_SYSTEM_SUFFIX = /\.(?:VRSC|VRSCTEST)@$/i;
 
 const normalizeResults = result => {
   if (result == null) return [];
@@ -35,10 +37,62 @@ const getDisplayName = result => {
     result?.friendlyname ||
     result?.friendlyName;
 
-  if (friendlyName) return friendlyName;
+  if (friendlyName) return friendlyName.replace(ROOT_SYSTEM_SUFFIX, '@');
   if (identity.name) return `${identity.name.replace(/@$/, '')}@`;
 
   return identity.identityaddress || 'VerusID';
+};
+
+const hydrateCandidates = async ({candidateMap, isRecovery, systemId}) => {
+  const indexedCandidates = Array.from(candidateMap.values());
+  const hydratedCandidates = [];
+  let hydrationFailed = false;
+
+  for (
+    let offset = 0;
+    offset < indexedCandidates.length;
+    offset += AUTHORITY_LOOKUP_BATCH_SIZE
+  ) {
+    const candidateBatch = indexedCandidates.slice(
+      offset,
+      offset + AUTHORITY_LOOKUP_BATCH_SIZE,
+    );
+    const identityResponses = await Promise.all(
+      candidateBatch.map(candidate =>
+        getIdentity(systemId, candidate.identityAddress),
+      ),
+    );
+
+    for (let index = 0; index < candidateBatch.length; index += 1) {
+      const indexedCandidate = candidateBatch[index];
+      const identityResponse = identityResponses[index];
+
+      if (identityResponse?.error || !identityResponse?.result) {
+        hydrationFailed = true;
+        continue;
+      }
+
+      const identity = getIdentityDefinition(identityResponse.result);
+
+      if (
+        !isEligibleTarget(
+          identity,
+          indexedCandidate.authorityId,
+          isRecovery,
+        )
+      ) {
+        continue;
+      }
+
+      hydratedCandidates.push({
+        displayName: getDisplayName(identityResponse.result),
+        identity,
+        identityAddress: identity.identityaddress,
+      });
+    }
+  }
+
+  return {candidates: hydratedCandidates, hydrationFailed};
 };
 
 const isUsableAuthority = (identity, primaryAddress) => {
@@ -137,15 +191,19 @@ export const discoverAuthorityIdentityTargets = async ({
           if (!isEligibleTarget(identity, authorityId, isRecovery)) continue;
 
           candidateMap.set(identity.identityaddress, {
-            displayName: getDisplayName(result),
-            identity,
+            authorityId,
             identityAddress: identity.identityaddress,
           });
         }
       }
     }
 
-    const candidates = Array.from(candidateMap.values()).sort((left, right) =>
+    const {candidates, hydrationFailed} = await hydrateCandidates({
+      candidateMap,
+      isRecovery,
+      systemId,
+    });
+    candidates.sort((left, right) =>
       left.displayName.localeCompare(right.displayName),
     );
 
@@ -153,6 +211,8 @@ export const discoverAuthorityIdentityTargets = async ({
       candidates,
       status: candidates.length
         ? AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY
+        : hydrationFailed
+        ? AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR
         : AUTHORITY_IDENTITY_DISCOVERY_STATUS.EMPTY,
     };
   } catch (error) {
