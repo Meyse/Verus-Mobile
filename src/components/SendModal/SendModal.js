@@ -30,6 +30,10 @@ class SendModal extends Component {
   constructor(props) {
     super(props);
 
+    this.identitySafetyRequestCloseHandler = null;
+    this.setIdentitySafetyRequestCloseHandler =
+      this.setIdentitySafetyRequestCloseHandler.bind(this);
+
     this.DEFAULT_MODAL_HEIGHTS = {
       [TRADITIONAL_CRYPTO_SEND_MODAL]: 624,
       [CONVERSION_SEND_MODAL]: 624,
@@ -143,6 +147,17 @@ class SendModal extends Component {
 
   updateSendFormData(key, value) {
     setSendModalDataField(key, value);
+  }
+
+  setIdentitySafetyRequestCloseHandler(handler) {
+    this.identitySafetyRequestCloseHandler =
+      typeof handler === 'function' ? handler : null;
+  }
+
+  handleIdentitySafetyRequestClose() {
+    if (this.identitySafetyRequestCloseHandler?.()) return;
+
+    this.cancel();
   }
 
   showHelpModal() {

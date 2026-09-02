@@ -153,7 +153,7 @@ export const SendModalRender = function () {
     return (
       <Modal
         animationType="slide"
-        onRequestClose={() => this.cancel()}
+        onRequestClose={() => this.handleIdentitySafetyRequestClose()}
         presentationStyle="fullScreen"
         visible={visible}>
         <OnboardingThemeProvider>
@@ -245,6 +245,8 @@ export const SendModalInnerAreaRender = function () {
     updateSendFormData: (key, value) => this.updateSendFormData(key, value),
     setLoading: loading => this.setLoading(loading),
     setModalHeight: height => this.setModalHeight(height),
+    setIdentitySafetyRequestCloseHandler:
+      this.setIdentitySafetyRequestCloseHandler,
     setPreventExit: preventExit => this.setPreventExit(preventExit),
     setVisible: visible => this.setVisible(visible),
   };

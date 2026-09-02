@@ -4,3 +4,4 @@ export * from './requests/getFriendlyNameMap';
 export * from './requests/getCurrency';
 export * from './requests/getCurrencyNameMap';
 export * from './requests/getIdentitiesWithAddress';
+export * from './requests/getIdentitiesWithAuthority';

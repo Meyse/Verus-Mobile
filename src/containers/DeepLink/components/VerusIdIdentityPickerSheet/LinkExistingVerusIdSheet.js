@@ -22,8 +22,8 @@ import {
 } from '../../../../utils/api/channels/verusid/callCreators';
 import {VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
+import {isIdentityIndexUnavailable} from '../../../../utils/api/channels/verusid/identityIndex';
 
-const GET_IDENTITIES_WITH_ADDRESS_METHOD = 'getidentitieswithaddress';
 const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
 const LIST_CONTENT_VERTICAL_PADDING = 4;
 const DEFAULT_CANDIDATE_LIST_HEIGHT =
@@ -31,39 +31,6 @@ const DEFAULT_CANDIDATE_LIST_HEIGHT =
 const SCROLL_CUE_HEIGHT = 42;
 const SCROLL_END_THRESHOLD = 8;
 const IDENTITY_SKELETON_WIDTHS = ['44%', '62%', '50%', '70%'];
-
-const getErrorText = value => {
-  if (value == null) return '';
-  if (typeof value === 'string') return value;
-
-  try {
-    return JSON.stringify(value);
-  } catch (e) {
-    return String(value);
-  }
-};
-
-const isGetIdentitiesWithAddressUnsupported = error => {
-  if (!error) return false;
-  if (error.code === -32601) return true;
-
-  const errorText = `${getErrorText(error.message)} ${getErrorText(
-    error.data,
-  )}`.toLowerCase();
-  const hasUnsupportedMessage =
-    errorText.includes('not found') ||
-    errorText.includes('not supported') ||
-    errorText.includes('unsupported') ||
-    errorText.includes('unknown method') ||
-    errorText.includes('method not found') ||
-    errorText.includes('not a function');
-
-  return (
-    hasUnsupportedMessage &&
-    (errorText.includes(GET_IDENTITIES_WITH_ADDRESS_METHOD) ||
-      errorText.includes('method'))
-  );
-};
 
 const normalizeDiscoveryResult = result => {
   if (result == null) return [];
@@ -185,7 +152,7 @@ const LinkExistingVerusIdSheet = ({
         );
 
         if (discoveryRes.error) {
-          if (isGetIdentitiesWithAddressUnsupported(discoveryRes.error)) {
+          if (isIdentityIndexUnavailable(discoveryRes.error)) {
             if (requestIdRef.current === requestId) {
               setLookupUnsupported(true);
               setErrorMessage(
@@ -290,7 +257,7 @@ const LinkExistingVerusIdSheet = ({
         }
       } catch (e) {
         if (requestIdRef.current === requestId) {
-          if (isGetIdentitiesWithAddressUnsupported(e)) {
+          if (isIdentityIndexUnavailable(e)) {
             setLookupUnsupported(true);
             setErrorMessage(
               'Automatic VerusID lookup is unavailable for this chain.',

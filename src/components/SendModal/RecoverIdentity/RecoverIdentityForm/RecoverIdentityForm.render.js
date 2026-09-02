@@ -7,6 +7,9 @@ import BarcodeReader from '../../../BarcodeReader/BarcodeReader';
 import RevokeRecoverFlowScaffold, {
   RevokeRecoverStepCopy,
 } from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
+import RevokeRecoverIdentityPickerSheet, {
+  RevokeRecoverIdentityField,
+} from '../../../../containers/RevokeRecover/RevokeRecoverIdentityPickerSheet';
 import {
   RevokeRecoverLoadingState,
   RevokeRecoverNotice,
@@ -24,17 +27,26 @@ import {
 } from '../../../../utils/constants/sendModal';
 
 export const RecoverIdentityFormRender = ({
+  chooseCandidate,
+  chooseManualEntry,
   formError,
   handleScan,
+  identityDiscovery,
+  identitySheetVisible,
   loading,
+  manualEntry,
   networkName,
   onBack,
+  onCloseIdentitySheet,
+  onOpenIdentitySheet,
   scannerOpen,
+  selectedCandidate,
   sendModalData,
   submitData,
   toggleEditRevocationRecovery,
   toggleEditZAddr,
   toggleScanner,
+  updateIdentity,
   updateSendFormData,
 }) => {
   const theme = useAppTheme();
@@ -83,12 +95,31 @@ export const RecoverIdentityFormRender = ({
   return (
     <RevokeRecoverFlowScaffold
       actions={
-        <AppButton onPress={submitData} testID="revokeRecover.identity.review">
+        <AppButton
+          disabled={
+            !sendModalData[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD]?.trim()
+          }
+          onPress={submitData}
+          testID="revokeRecover.identity.review">
           Review recovery
         </AppButton>
       }
       headerTitle="Recover VerusID"
       onBack={onBack}
+      overlay={
+        <RevokeRecoverIdentityPickerSheet
+          candidates={identityDiscovery.candidates}
+          isRecovery
+          onClose={onCloseIdentitySheet}
+          onManualEntry={chooseManualEntry}
+          onRetry={identityDiscovery.retry}
+          onSelect={chooseCandidate}
+          selectedIdentityAddress={selectedCandidate?.identityAddress}
+          status={identityDiscovery.status}
+          visible={identitySheetVisible}
+        />
+      }
+      overlayVisible={identitySheetVisible}
       progress={0.68}>
       <RevokeRecoverStepCopy
         body={`Enter the revoked identity on ${networkName}, then choose the addresses it should use after recovery.`}
@@ -96,15 +127,13 @@ export const RecoverIdentityFormRender = ({
       />
 
       <View style={styles.fieldGroup}>
-        <AppTextInput
+        <RevokeRecoverIdentityField
           errorText={formError}
-          label="VerusID name or i-address"
-          onChangeText={text =>
-            updateSendFormData(SEND_MODAL_IDENTITY_TO_RECOVER_FIELD, text)
-          }
-          placeholder="name@ or i..."
-          returnKeyType="next"
-          testID="revokeRecover.identity.input"
+          isRecovery
+          manualEntry={manualEntry}
+          onChangeText={updateIdentity}
+          onChoose={onOpenIdentitySheet}
+          selectedCandidate={selectedCandidate}
           value={sendModalData[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD] || ''}
         />
         <AppTextInput

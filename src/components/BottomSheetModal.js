@@ -3,7 +3,11 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import {Portal} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -22,9 +26,12 @@ const BottomSheetModal = ({
   onClose,
   onClosed,
   children,
+  embedded = false,
   floating = true,
   maxHeight = '80%',
   contentContainerStyle,
+  avoidKeyboard,
+  keyboardVerticalOffset,
   ...modalProps
 }) => {
   const insets = useSafeAreaInsets();
@@ -161,6 +168,44 @@ const BottomSheetModal = ({
     ],
   };
 
+  if (embedded) {
+    if (!renderVisible) return null;
+
+    const EmbeddedWrapper = avoidKeyboard ? KeyboardAvoidingView : View;
+    const embeddedWrapperProps = avoidKeyboard
+      ? {
+          behavior: Platform.OS === 'ios' ? 'padding' : 'height',
+          keyboardVerticalOffset: keyboardVerticalOffset || 0,
+        }
+      : {};
+
+    return (
+      <EmbeddedWrapper
+        {...embeddedWrapperProps}
+        accessibilityViewIsModal
+        importantForAccessibility="yes"
+        pointerEvents="box-none"
+        style={styles.embeddedRoot}>
+        <TouchableWithoutFeedback accessible={false} onPress={onClose}>
+          <Animated.View
+            style={[
+              styles.embeddedOverlay,
+              {backgroundColor: theme.colors.scrim},
+              overlayAnimatedStyle,
+            ]}
+          />
+        </TouchableWithoutFeedback>
+        <Animated.View
+          accessibilityViewIsModal
+          style={[sheetStyle, styles.embeddedSheet, sheetAnimatedStyle]}>
+          <OnboardingThemeProvider modeOverride={theme.mode}>
+            {children}
+          </OnboardingThemeProvider>
+        </Animated.View>
+      </EmbeddedWrapper>
+    );
+  }
+
   return (
     <Portal>
       {renderVisible && (
@@ -176,9 +221,11 @@ const BottomSheetModal = ({
       <SemiModal
         {...modalProps}
         animationType="none"
+        avoidKeyboard={avoidKeyboard}
         contentContainerStyle={sheetStyle}
         flexHeight={0.01}
         modalTheme={theme}
+        keyboardVerticalOffset={keyboardVerticalOffset}
         onDismiss={undefined}
         onRequestClose={onClose}
         sheetAnimatedStyle={sheetAnimatedStyle}
@@ -221,6 +268,20 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
+  },
+  embeddedRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+    elevation: 30,
+  },
+  embeddedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  embeddedSheet: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
 });
 

@@ -1,4 +1,5 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {InteractionManager} from 'react-native';
 import {useSelector} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
 import {
@@ -19,6 +20,7 @@ import {coinsList} from '../../../../utils/CoinData/CoinsList';
 import {decryptkey} from '../../../../utils/seedCrypt';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import useAuthorityIdentityDiscovery from '../../../../containers/RevokeRecover/useAuthorityIdentityDiscovery';
 
 const SAFE_REVOCATION_ERRORS = new Set([
   'This VerusID could not be found on the selected blockchain.',
@@ -48,6 +50,47 @@ const RevokeIdentityForm = props => {
     sendModal.data[SEND_MODAL_SYSTEM_ID],
   );
   const [formError, setFormError] = useState(null);
+  const initialIdentity =
+    sendModal.data[SEND_MODAL_IDENTITY_TO_REVOKE_FIELD]?.trim() || '';
+  const [shouldAutoOpenIdentitySheet] = useState(
+    () => !initialIdentity,
+  );
+  const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+  const identitySheetVisibleRef = useRef(false);
+  const [manualEntry, setManualEntry] = useState(Boolean(initialIdentity));
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const identityDiscovery = useAuthorityIdentityDiscovery({
+    active: identitySheetVisible,
+    encryptedSeed: sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED],
+    instanceKey,
+    isRecovery: false,
+    systemId: sendModal.data[SEND_MODAL_SYSTEM_ID],
+  });
+
+  useEffect(() => {
+    if (!shouldAutoOpenIdentitySheet) return undefined;
+
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      setIdentitySheetVisible(true);
+    });
+
+    return () => interaction.cancel();
+  }, [shouldAutoOpenIdentitySheet]);
+
+  identitySheetVisibleRef.current = identitySheetVisible;
+
+  useEffect(() => {
+    const handleRequestClose = () => {
+      if (!identitySheetVisibleRef.current) return false;
+
+      setIdentitySheetVisible(false);
+      return true;
+    };
+
+    props.setIdentitySafetyRequestCloseHandler(handleRequestClose);
+
+    return () => props.setIdentitySafetyRequestCloseHandler(null);
+  }, [props.setIdentitySafetyRequestCloseHandler]);
 
   useEffect(() => {
     try {
@@ -92,6 +135,30 @@ const RevokeIdentityForm = props => {
 
     return addresses;
   }, []);
+
+  const chooseCandidate = candidate => {
+    setFormError(null);
+    setSelectedCandidate(candidate);
+    setManualEntry(false);
+    props.updateSendFormData(
+      SEND_MODAL_IDENTITY_TO_REVOKE_FIELD,
+      candidate.identityAddress,
+    );
+    setIdentitySheetVisible(false);
+  };
+
+  const chooseManualEntry = () => {
+    setFormError(null);
+    setSelectedCandidate(null);
+    setManualEntry(true);
+    setIdentitySheetVisible(false);
+  };
+
+  const updateIdentity = text => {
+    setFormError(null);
+    setSelectedCandidate(null);
+    props.updateSendFormData(SEND_MODAL_IDENTITY_TO_REVOKE_FIELD, text);
+  };
 
   const submitData = useCallback(async () => {
     const validationError = formHasError();
@@ -198,9 +265,17 @@ const RevokeIdentityForm = props => {
   }, [formHasError, getPotentialPrimaryAddresses, sendModal, props]);
 
   return RevokeIdentityFormRender({
+    chooseCandidate,
+    chooseManualEntry,
     formError,
+    identityDiscovery,
+    identitySheetVisible,
+    manualEntry,
+    onCloseIdentitySheet: () => setIdentitySheetVisible(false),
+    onOpenIdentitySheet: () => setIdentitySheetVisible(true),
+    selectedCandidate,
     submitData,
-    updateSendFormData: props.updateSendFormData,
+    updateIdentity,
     formDataValue: sendModal.data[SEND_MODAL_IDENTITY_TO_REVOKE_FIELD],
     loading: props.loading,
     networkName,

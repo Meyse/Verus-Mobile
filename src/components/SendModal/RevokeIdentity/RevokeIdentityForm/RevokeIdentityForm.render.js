@@ -1,23 +1,32 @@
 import React from 'react';
 import AppButton from '../../../AppButton';
-import AppTextInput from '../../../AppTextInput';
 import RevokeRecoverFlowScaffold, {
   RevokeRecoverStepCopy,
 } from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
+import RevokeRecoverIdentityPickerSheet, {
+  RevokeRecoverIdentityField,
+} from '../../../../containers/RevokeRecover/RevokeRecoverIdentityPickerSheet';
 import {
   RevokeRecoverLoadingState,
   RevokeRecoverNotice,
 } from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
-import {SEND_MODAL_IDENTITY_TO_REVOKE_FIELD} from '../../../../utils/constants/sendModal';
 
 export const RevokeIdentityFormRender = ({
+  chooseCandidate,
+  chooseManualEntry,
   formError,
   formDataValue,
+  identityDiscovery,
+  identitySheetVisible,
   loading,
+  manualEntry,
   networkName,
   onBack,
+  onCloseIdentitySheet,
+  onOpenIdentitySheet,
+  selectedCandidate,
   submitData,
-  updateSendFormData,
+  updateIdentity,
 }) => {
   if (loading) {
     return (
@@ -39,30 +48,43 @@ export const RevokeIdentityFormRender = ({
   return (
     <RevokeRecoverFlowScaffold
       actions={
-        <AppButton onPress={submitData} testID="revokeRecover.identity.review">
+        <AppButton
+          disabled={!formDataValue?.trim()}
+          onPress={submitData}
+          testID="revokeRecover.identity.review">
           Review revocation
         </AppButton>
       }
       headerTitle="Revoke VerusID"
       onBack={onBack}
+      overlay={
+        <RevokeRecoverIdentityPickerSheet
+          candidates={identityDiscovery.candidates}
+          isRecovery={false}
+          onClose={onCloseIdentitySheet}
+          onManualEntry={chooseManualEntry}
+          onRetry={identityDiscovery.retry}
+          onSelect={chooseCandidate}
+          selectedIdentityAddress={selectedCandidate?.identityAddress}
+          status={identityDiscovery.status}
+          visible={identitySheetVisible}
+        />
+      }
+      overlayVisible={identitySheetVisible}
       progress={0.68}>
       <RevokeRecoverStepCopy
         body={`Enter the active identity on ${networkName}. Its revocation authority must match the key you imported.`}
         title="Choose the VerusID"
       />
 
-      <AppTextInput
-        autoCapitalize="none"
-        autoCorrect={false}
+      <RevokeRecoverIdentityField
         errorText={formError}
-        label="VerusID name or i-address"
-        onChangeText={text =>
-          updateSendFormData(SEND_MODAL_IDENTITY_TO_REVOKE_FIELD, text)
-        }
+        isRecovery={false}
+        manualEntry={manualEntry}
+        onChangeText={updateIdentity}
+        onChoose={onOpenIdentitySheet}
         onSubmitEditing={submitData}
-        placeholder="name@ or i..."
-        returnKeyType="done"
-        testID="revokeRecover.identity.input"
+        selectedCandidate={selectedCandidate}
         value={formDataValue || ''}
       />
 

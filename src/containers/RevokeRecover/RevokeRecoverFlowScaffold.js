@@ -42,6 +42,8 @@ const RevokeRecoverFlowScaffold = ({
   headerTitle = 'VerusID safety',
   keyboardAvoiding = true,
   onBack,
+  overlay,
+  overlayVisible = false,
   progress,
 }) => {
   const insets = useSafeAreaInsets();
@@ -53,43 +55,51 @@ const RevokeRecoverFlowScaffold = ({
 
   return (
     <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
-      <ProgressHeader
-        backDisabled={backDisabled}
-        onBack={onBack}
-        progress={progress}
-        title={headerTitle}
-      />
-      <Wrapper {...wrapperProps} style={styles.content}>
-        <FadedScrollView
-          bounces={false}
-          containerStyle={styles.scrollViewport}
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingLeft: 20 + insets.left,
-              paddingRight: 20 + insets.right,
-            },
-            contentContainerStyle,
-          ]}
-          fadeBackgroundColor={theme.colors.background}
-          fadeLength={42}
-          keyboardDismissMode={
-            Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-          }
-          keyboardShouldPersistTaps="handled"
-          style={styles.scrollViewport}
-          showStartFade={false}>
-          {children}
-        </FadedScrollView>
-        {actions ? (
-          <SafeBottomActionStack
-            gap={8}
-            horizontalSpacing={20}
-            safeAreaSpacing={0}>
-            {actions}
-          </SafeBottomActionStack>
-        ) : null}
-      </Wrapper>
+      <View
+        accessibilityElementsHidden={overlayVisible}
+        importantForAccessibility={
+          overlayVisible ? 'no-hide-descendants' : 'auto'
+        }
+        style={styles.content}>
+        <ProgressHeader
+          backDisabled={backDisabled}
+          onBack={onBack}
+          progress={progress}
+          title={headerTitle}
+        />
+        <Wrapper {...wrapperProps} style={styles.content}>
+          <FadedScrollView
+            bounces={false}
+            containerStyle={styles.scrollViewport}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingLeft: 20 + insets.left,
+                paddingRight: 20 + insets.right,
+              },
+              contentContainerStyle,
+            ]}
+            fadeBackgroundColor={theme.colors.background}
+            fadeLength={42}
+            keyboardDismissMode={
+              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            }
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollViewport}
+            showStartFade={false}>
+            {children}
+          </FadedScrollView>
+          {actions ? (
+            <SafeBottomActionStack
+              gap={8}
+              horizontalSpacing={20}
+              safeAreaSpacing={0}>
+              {actions}
+            </SafeBottomActionStack>
+          ) : null}
+        </Wrapper>
+      </View>
+      {overlay}
     </View>
   );
 };
