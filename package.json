@@ -16,6 +16,7 @@
     "test": "jest",
     "lint": "eslint .",
     "check:design": "node scripts/check-design-contract.js",
+    "check:identity-authority-funding": "node scripts/check-identity-authority-funding.js",
     "check:safe-areas": "node scripts/check-safe-area.js",
     "check:search-fields": "node scripts/check-search-fields.js src",
     "check:send-wizard-options": "node scripts/check-send-wizard-options.js",

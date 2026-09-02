@@ -270,7 +270,7 @@ const RevokeIdentityForm = props => {
       const revocationResult = await createRevokeIdentityTx(
         data[SEND_MODAL_SYSTEM_ID],
         targetIdAddr,
-        ownedAddress,
+        revRes.result.identity.identityaddress,
       );
 
       props.navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, {

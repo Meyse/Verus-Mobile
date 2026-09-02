@@ -338,7 +338,7 @@ const RecoverIdentityForm = props => {
         revocationAddr,
         primaryAddr ? [primaryAddr] : null,
         privateAddr,
-        ownedAddress,
+        recRes.result.identity.identityaddress,
       );
 
       props.navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, {
