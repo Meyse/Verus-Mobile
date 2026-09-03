@@ -11,9 +11,9 @@ import {Text} from 'react-native-paper';
 import {validateMnemonic} from 'bip39';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
-import OnboardingBackButton from '../../components/OnboardingBackButton';
 import PasswordCheck from '../../components/PasswordCheck';
 import RecoverySecretsPrivacyGuard from '../../components/RecoverySecretsPrivacyGuard';
+import ServiceManagerHeader from '../../components/ServiceManagerHeader';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -243,12 +243,15 @@ const DisplaySeed = ({navigation, route}) => {
   const signedOutSafeAreaEdges = showSignedOutHeader
     ? ['top', 'left', 'right']
     : undefined;
-  const signedOutBackButton = showSignedOutHeader ? (
-    <OnboardingBackButton
-      onPress={back}
-      style={styles.signedOutBackButton}
-    />
-  ) : null;
+  const renderSignedOutHeader = showSignedOutHeader
+    ? ({showDivider}) => (
+        <ServiceManagerHeader
+          onBack={back}
+          showDivider={showDivider}
+          title="Recovery secrets"
+        />
+      )
+    : undefined;
 
   const resetToScreen = () => {
     const destination = data.fromDeleteAccount ? 'DeleteProfile' : 'Home';
@@ -359,12 +362,15 @@ const DisplaySeed = ({navigation, route}) => {
       <>
         {signedOutStatusBar}
         <SettingsScreen
+          renderHeader={renderSignedOutHeader}
           safeAreaEdges={signedOutSafeAreaEdges}
+          showScrollCue={false}
           footer={
             <SettingsActionFooter primaryLabel="Done" primaryOnPress={back} />
           }>
-          {signedOutBackButton}
-          <SettingsTitle>Recovery secrets</SettingsTitle>
+          {!showSignedOutHeader ? (
+            <SettingsTitle>Recovery secrets</SettingsTitle>
+          ) : null}
           <SettingsNotice
             danger
             body="This wallet is not available on the selected network. Return and choose another wallet."
@@ -384,10 +390,13 @@ const DisplaySeed = ({navigation, route}) => {
       {signedOutStatusBar}
       <SettingsScreen
         footer={footer}
+        renderHeader={renderSignedOutHeader}
         safeAreaEdges={signedOutSafeAreaEdges}
+        showScrollCue={false}
         testID="settings.displaySeed">
-        {signedOutBackButton}
-        <SettingsTitle subtitle={networkLabel}>Recovery secrets</SettingsTitle>
+        {!showSignedOutHeader ? (
+          <SettingsTitle>Recovery secrets</SettingsTitle>
+        ) : null}
         {captureBlocked ? (
           <SettingsNotice
             danger
@@ -400,7 +409,6 @@ const DisplaySeed = ({navigation, route}) => {
             {account ? (
               <SettingsProfileSummary
                 name={account.id}
-                subtitle={`${networkLabel} wallet`}
                 walletAvatar={account.walletAvatar}
               />
             ) : null}
@@ -411,19 +419,21 @@ const DisplaySeed = ({navigation, route}) => {
               title="Private recovery information"
             />
             {secretEntries.length > 0 ? (
-              <SettingsSection title="Recovery secrets">
-                {secretEntries.map(([key, value]) => (
-                  <SecretCard
-                    key={key}
-                    name={SECRET_NAMES[key]}
-                    onToggle={() => toggleSecret(key)}
-                    revealed={revealedSecrets[key] === true}
-                    styles={styles}
-                    theme={theme}
-                    value={value}
-                  />
-                ))}
-              </SettingsSection>
+              <View style={styles.recoverySecretsSection}>
+                <SettingsSection title="Recovery secrets">
+                  {secretEntries.map(([key, value]) => (
+                    <SecretCard
+                      key={key}
+                      name={SECRET_NAMES[key]}
+                      onToggle={() => toggleSecret(key)}
+                      revealed={revealedSecrets[key] === true}
+                      styles={styles}
+                      theme={theme}
+                      value={value}
+                    />
+                  ))}
+                </SettingsSection>
+              </View>
             ) : requiresAuthentication ? (
               <SettingsNotice
                 body="Authenticate to load this wallet's recovery information."
@@ -595,9 +605,8 @@ const DerivedKeyRow = ({
 
 const createStyles = theme =>
   StyleSheet.create({
-    signedOutBackButton: {
-      marginLeft: -12,
-      marginBottom: 4,
+    recoverySecretsSection: {
+      marginTop: theme.spacing.md,
     },
     card: {
       marginBottom: 12,

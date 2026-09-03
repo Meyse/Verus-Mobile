@@ -32,9 +32,8 @@ const ChooseWalletSheet = ({
   getAccountMeta,
   lastOpenedAccountTimestamps = {},
   supportedBiometryType,
-  networkLabel,
   onSelectAccount,
-  title = 'Choose wallet',
+  title = 'Wallets',
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -79,11 +78,6 @@ const ChooseWalletSheet = ({
       maxHeight="76%">
       <View style={[signedOutSheetStyles.body, signedOutSheetStyles.bodyList]}>
         <Text style={signedOutSheetStyles.title}>{title}</Text>
-        <Text style={signedOutSheetStyles.subtitle}>
-          {`${walletCount} ${networkLabel} ${
-            walletCount === 1 ? 'wallet' : 'wallets'
-          }`}
-        </Text>
         <View style={[styles.listFrame, {height: walletListHeight}]}>
           <FlatList
             data={accounts}

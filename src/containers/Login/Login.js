@@ -343,7 +343,6 @@ const Login = props => {
         accounts={sortedDisplayNetworkAccounts}
         lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
         supportedBiometryType={supportedBiometryType}
-        networkLabel={selectedNetworkLabel}
         onSelectAccount={handleChooseWalletAccount}
       />
       <ChooseWalletSheet
@@ -353,9 +352,8 @@ const Login = props => {
         accounts={recoveryAccounts}
         getAccountMeta={getRecoverySecretCountLabel}
         supportedBiometryType={supportedBiometryType}
-        networkLabel={selectedNetworkLabel}
         onSelectAccount={handleRecoveryWalletAccount}
-        title={`Choose a ${selectedNetworkLabel} wallet`}
+        title="Wallet recovery secrets"
       />
       <UnlockWalletSheet
         visible={unlockAccount != null}

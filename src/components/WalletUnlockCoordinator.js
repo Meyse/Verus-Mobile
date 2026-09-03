@@ -262,7 +262,6 @@ const WalletUnlockCoordinator = () => {
         accounts={sortedEligibleAccounts}
         lastOpenedAccountTimestamps={lastOpenedAccountTimestamps}
         supportedBiometryType={supportedBiometryType}
-        networkLabel={displayWalletUnlock.networkLabel || 'matching'}
         onSelectAccount={handleChooseWalletAccount}
       />
       <UnlockWalletSheet

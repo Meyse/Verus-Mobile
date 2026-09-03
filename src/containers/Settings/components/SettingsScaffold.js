@@ -361,7 +361,9 @@ export const SettingsScreen = ({
   home = false,
   keyboardDismissMode,
   keyboardShouldPersistTaps,
+  renderHeader,
   safeAreaEdges,
+  showScrollCue = true,
   testID,
 }) => {
   const theme = useOnboardingTheme();
@@ -382,9 +384,13 @@ export const SettingsScreen = ({
     scrollMetrics.contentHeight >
       scrollMetrics.layoutHeight + SCROLL_END_THRESHOLD;
   const showBottomScrollCue =
+    showScrollCue &&
     isScrollable &&
     scrollMetrics.offsetY + scrollMetrics.layoutHeight <
       scrollMetrics.contentHeight - SCROLL_END_THRESHOLD;
+  const header = renderHeader
+    ? renderHeader({showDivider: scrollMetrics.offsetY > 1})
+    : null;
 
   const updateScrollMetrics = useCallback(nextMetrics => {
     setScrollMetrics(current => {
@@ -429,6 +435,7 @@ export const SettingsScreen = ({
       <Container
         {...containerProps}
         style={styles.screen}>
+        {header}
         <View style={styles.scrollFrame}>
           <ScrollView
             ref={scrollRef}
