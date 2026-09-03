@@ -334,7 +334,6 @@ const Login = props => {
         onRecoverProfileSeed={handleRecoverSeed}
         onRevokeRecoverVerusId={handleRevokeRecover}
         onProvisioningRequests={handleProvisioningRequests}
-        networkLabel={selectedNetworkLabel}
         walletCount={recoveryAccounts.length}
       />
       <ChooseWalletSheet

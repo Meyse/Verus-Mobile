@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {ActivityIndicator, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -27,6 +27,7 @@ const PasswordCheck = props => {
     errorMessage,
     networkLabel,
     onInputChange,
+    preferBiometry = false,
     redesigned = false,
     returnSecrets = false,
     submit,
@@ -41,13 +42,21 @@ const PasswordCheck = props => {
   const [password, setPassword] = useState('');
   const [freeze, setFreeze] = useState(false);
   const [biometryType, setBiometryType] = useState(null);
+  const [biometryChecked, setBiometryChecked] = useState(false);
+  const [biometryAttempted, setBiometryAttempted] = useState(false);
+  const [showPasswordFallback, setShowPasswordFallback] = useState(
+    !preferBiometry,
+  );
   const walletAvatar = normalizeWalletAvatar(account?.walletAvatar);
 
   useEffect(() => {
     let active = true;
 
+    setBiometryChecked(false);
+
     if (!allowBiometry || !account?.biometry) {
       setBiometryType(null);
+      setBiometryChecked(true);
       return () => {
         active = false;
       };
@@ -55,84 +64,155 @@ const PasswordCheck = props => {
 
     getSupportedBiometryType()
       .then(result => {
-        if (active) setBiometryType(result);
+        if (active) {
+          setBiometryType(result);
+          setBiometryChecked(true);
+        }
       })
       .catch(() => {
-        if (active) setBiometryType(null);
+        if (active) {
+          setBiometryType(null);
+          setBiometryChecked(true);
+        }
       });
 
     return () => {
       active = false;
     };
-  }, [account, allowBiometry]);
+  }, [account?.biometry, allowBiometry]);
 
   useEffect(() => {
-    if (!visible) {
+    if (visible) {
+      setBiometryAttempted(false);
+      setShowPasswordFallback(!preferBiometry);
+    } else {
       setPassword('');
       setFreeze(false);
     }
-  }, [visible]);
+  }, [account?.accountHash, preferBiometry, visible]);
 
   const updatePassword = text => {
     setPassword(text);
     if (typeof onInputChange === 'function') onInputChange(text);
   };
 
-  const validatePassword = async candidate => {
-    setFreeze(true);
+  const validatePassword = useCallback(
+    async candidate => {
+      setFreeze(true);
 
-    try {
-      const seeds = await checkPinForUser(
-        candidate,
-        userName,
-        false,
-        false,
-        !suppressSystemAlerts,
+      try {
+        const seeds = await checkPinForUser(
+          candidate,
+          userName,
+          false,
+          false,
+          !suppressSystemAlerts,
+        );
+
+        return returnSecrets
+          ? {seeds, valid: true}
+          : {password: candidate, valid: true};
+      } catch (error) {
+        return returnSecrets
+          ? {error, valid: false}
+          : {error, password: candidate, valid: false};
+      } finally {
+        setFreeze(false);
+      }
+    },
+    [returnSecrets, suppressSystemAlerts, userName],
+  );
+
+  const beginAttempt = useCallback(
+    () =>
+      typeof createAttemptToken === 'function'
+        ? createAttemptToken()
+        : undefined,
+    [createAttemptToken],
+  );
+
+  const submitPassword = useCallback(
+    async (candidate, attemptToken = beginAttempt()) => {
+      const result = await validatePassword(candidate);
+      await submit(
+        attemptToken === undefined ? result : {...result, attemptToken},
       );
 
-      return returnSecrets
-        ? {seeds, valid: true}
-        : {password: candidate, valid: true};
-    } catch (error) {
-      return returnSecrets
-        ? {error, valid: false}
-        : {error, password: candidate, valid: false};
-    } finally {
-      setFreeze(false);
+      if (result.valid) setPassword('');
+      return result;
+    },
+    [beginAttempt, submit, validatePassword],
+  );
+
+  const tryBiometricAuth = useCallback(async () => {
+    if (!biometryType?.biometry || !account?.accountHash) {
+      if (preferBiometry) setShowPasswordFallback(true);
+      return;
     }
-  };
-
-  const beginAttempt = () =>
-    typeof createAttemptToken === 'function' ? createAttemptToken() : undefined;
-
-  const submitPassword = async (candidate, attemptToken = beginAttempt()) => {
-    const result = await validatePassword(candidate);
-    await submit(
-      attemptToken === undefined ? result : {...result, attemptToken},
-    );
-
-    if (result.valid) setPassword('');
-  };
-
-  const tryBiometricAuth = async () => {
-    if (!biometryType?.biometry || !account?.accountHash) return;
 
     const attemptToken = beginAttempt();
 
     try {
+      if (preferBiometry) setShowPasswordFallback(false);
       setFreeze(true);
       const biometricPassword = await getBiometricPassword(
         account.accountHash,
         `Authenticate to access ${account.id}`,
       );
-      await submitPassword(biometricPassword, attemptToken);
+      const result = await submitPassword(biometricPassword, attemptToken);
+
+      if (preferBiometry && !result.valid) {
+        setShowPasswordFallback(true);
+      }
     } catch {
-      // Biometric cancellation leaves the sheet open for another attempt.
+      if (preferBiometry) setShowPasswordFallback(true);
     } finally {
       setFreeze(false);
       setPassword('');
     }
-  };
+  }, [
+    account?.accountHash,
+    account?.id,
+    beginAttempt,
+    biometryType?.biometry,
+    preferBiometry,
+    submitPassword,
+  ]);
+
+  useEffect(() => {
+    if (
+      !visible ||
+      !preferBiometry ||
+      !biometryChecked ||
+      biometryAttempted
+    ) {
+      return;
+    }
+
+    setBiometryAttempted(true);
+
+    if (!account?.biometry || !biometryType?.biometry) {
+      setShowPasswordFallback(true);
+      return;
+    }
+
+    tryBiometricAuth();
+  }, [
+    account?.biometry,
+    biometryAttempted,
+    biometryChecked,
+    biometryType?.biometry,
+    preferBiometry,
+    tryBiometricAuth,
+    visible,
+  ]);
+
+  const passwordFallbackVisible = !preferBiometry || showPasswordFallback;
+  const waitingForPreferredBiometry =
+    preferBiometry &&
+    visible &&
+    !showPasswordFallback &&
+    !biometryChecked;
 
   if (redesigned) {
     return (
@@ -180,18 +260,20 @@ const PasswordCheck = props => {
               </View>
             </View>
           ) : null}
-          <AppTextInput
-            autoComplete="off"
-            autoCorrect={false}
-            importantForAutofill="no"
-            label="Wallet password"
-            onChangeText={updatePassword}
-            placeholder="Enter password"
-            secureTextEntry
-            testID="settings.passwordCheck.password"
-            textContentType="none"
-            value={password}
-          />
+          {passwordFallbackVisible ? (
+            <AppTextInput
+              autoComplete="off"
+              autoCorrect={false}
+              importantForAutofill="no"
+              label="Wallet password"
+              onChangeText={updatePassword}
+              placeholder="Enter password"
+              secureTextEntry
+              testID="settings.passwordCheck.password"
+              textContentType="none"
+              value={password}
+            />
+          ) : null}
           {errorMessage ? (
             <Text
               accessibilityLiveRegion="polite"
@@ -200,10 +282,12 @@ const PasswordCheck = props => {
               {errorMessage}
             </Text>
           ) : null}
-          {freeze ? (
+          {freeze || waitingForPreferredBiometry ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={theme.colors.primary} size="small" />
-              <Text style={styles.loadingText}>Authenticating…</Text>
+              <Text style={styles.loadingText}>
+                {freeze ? 'Authenticating…' : 'Preparing biometric unlock…'}
+              </Text>
             </View>
           ) : null}
           <View style={styles.actions}>
@@ -215,7 +299,9 @@ const PasswordCheck = props => {
               variant="secondary">
               Cancel
             </AppButton>
-            {allowBiometry && biometryType?.biometry ? (
+            {passwordFallbackVisible &&
+            allowBiometry &&
+            biometryType?.biometry ? (
               <AppButton
                 disabled={freeze}
                 height={52}
@@ -225,15 +311,17 @@ const PasswordCheck = props => {
                 {biometryType.display_name}
               </AppButton>
             ) : null}
-            <AppButton
-              disabled={freeze || password.length === 0}
-              height={52}
-              onPress={() => submitPassword(password)}
-              style={styles.action}
-              testID="settings.passwordCheck.submit"
-              variant="primary">
-              {submitLabel}
-            </AppButton>
+            {passwordFallbackVisible ? (
+              <AppButton
+                disabled={freeze || password.length === 0}
+                height={52}
+                onPress={() => submitPassword(password)}
+                style={styles.action}
+                testID="settings.passwordCheck.submit"
+                variant="primary">
+                {submitLabel}
+              </AppButton>
+            ) : null}
           </View>
         </ScrollView>
       </BottomSheetModal>

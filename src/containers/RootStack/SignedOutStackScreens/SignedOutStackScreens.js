@@ -66,8 +66,9 @@ const SignedOutStackScreens = props => {
       <SignedOutStack.Screen
         name="DisplaySeed"
         component={DisplaySeed}
+        initialParams={{showSignedOutHeader: true}}
         options={{
-          title: 'Recovery secrets',
+          headerShown: false,
         }}
       />
 

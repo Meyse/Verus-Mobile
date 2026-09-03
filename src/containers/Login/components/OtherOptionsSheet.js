@@ -4,7 +4,6 @@ import {Text} from 'react-native-paper';
 import {FileClock, KeyRound, ShieldCheck} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../components/BottomSheetModal';
-import {fontStyle} from '../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 
@@ -27,12 +26,10 @@ const OtherOptionsSheet = ({
   onRecoverProfileSeed,
   onRevokeRecoverVerusId,
   onProvisioningRequests,
-  networkLabel,
   walletCount,
 }) => {
   const theme = useOnboardingTheme();
   const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
-  const styles = useMemo(() => createStyles(theme), [theme]);
   const pendingActionRef = useRef(null);
   const recoveryDisabled = walletCount === 0;
   const actionHandlers = {
@@ -45,12 +42,6 @@ const OtherOptionsSheet = ({
     pendingActionRef.current = typeof action === 'function' ? action : null;
     onClose();
   };
-
-  const recoveryDescription = recoveryDisabled
-    ? `No ${networkLabel.toLowerCase()} wallets with stored secrets`
-    : `${walletCount} ${networkLabel.toLowerCase()} ${
-        walletCount === 1 ? 'wallet' : 'wallets'
-      } available`;
 
   const handleClosed = () => {
     const pendingAction = pendingActionRef.current;
@@ -69,12 +60,10 @@ const OtherOptionsSheet = ({
       maxHeight="78%">
       <View style={[sheetStyles.body, sheetStyles.bodyShort]}>
         <OtherActionRow
-          description={recoveryDescription}
           disabled={recoveryDisabled}
-          label={`View ${networkLabel} wallet recovery secrets`}
+          label="View wallet recovery secrets"
           IconComponent={KeyRound}
           sheetStyles={sheetStyles}
-          styles={styles}
           theme={theme}
           onPress={() => handleAction(onRecoverProfileSeed)}
         />
@@ -84,7 +73,6 @@ const OtherOptionsSheet = ({
             label={label}
             IconComponent={IconComponent}
             sheetStyles={sheetStyles}
-            styles={styles}
             theme={theme}
             onPress={() => handleAction(actionHandlers[actionKey])}
           />
@@ -95,12 +83,10 @@ const OtherOptionsSheet = ({
 };
 
 const OtherActionRow = ({
-  description,
   disabled = false,
   label,
   IconComponent,
   sheetStyles,
-  styles,
   theme,
   onPress,
 }) => (
@@ -114,12 +100,7 @@ const OtherActionRow = ({
     <View style={[sheetStyles.actionIconContainer, sheetStyles.actionIcon]}>
       <IconComponent size={24} color={theme.colors.textPrimary} />
     </View>
-    <View style={styles.actionCopy}>
-      <Text style={styles.actionLabel}>{label}</Text>
-      {description ? (
-        <Text style={styles.actionDescription}>{description}</Text>
-      ) : null}
-    </View>
+    <Text style={sheetStyles.actionLabel}>{label}</Text>
     <MaterialCommunityIcons
       name="chevron-right"
       size={22}
@@ -128,28 +109,10 @@ const OtherActionRow = ({
   </TouchableOpacity>
 );
 
-const createStyles = theme =>
-  StyleSheet.create({
-    actionRowDisabled: {
-      opacity: 0.48,
-    },
-    actionCopy: {
-      minWidth: 0,
-      flex: 1,
-      paddingRight: 12,
-    },
-    actionLabel: {
-      color: theme.colors.textPrimary,
-      fontSize: 16,
-      ...fontStyle('semiBold'),
-    },
-    actionDescription: {
-      marginTop: 2,
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      lineHeight: 17,
-      ...fontStyle('regular'),
-    },
-  });
+const styles = StyleSheet.create({
+  actionRowDisabled: {
+    opacity: 0.48,
+  },
+});
 
 export default OtherOptionsSheet;

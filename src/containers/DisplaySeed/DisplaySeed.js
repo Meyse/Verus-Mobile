@@ -1,9 +1,17 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, AppState, StyleSheet, View} from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  StatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {CommonActions} from '@react-navigation/native';
 import {Text} from 'react-native-paper';
 import {validateMnemonic} from 'bip39';
 import AppButton from '../../components/AppButton';
+import CopyAction from '../../components/CopyAction';
+import OnboardingBackButton from '../../components/OnboardingBackButton';
 import PasswordCheck from '../../components/PasswordCheck';
 import RecoverySecretsPrivacyGuard from '../../components/RecoverySecretsPrivacyGuard';
 import {fontStyle} from '../../globals/fonts';
@@ -66,6 +74,7 @@ const DisplaySeed = ({navigation, route}) => {
   );
   const params = route?.params || {};
   const data = params.data || {};
+  const showSignedOutHeader = params.showSignedOutHeader === true;
   const accountHash = params.accountHash;
   const requiresAuthentication = typeof accountHash === 'string';
   const protectedAccount = useMemo(
@@ -225,6 +234,22 @@ const DisplaySeed = ({navigation, route}) => {
 
   const back = () => navigation.goBack();
 
+  const signedOutStatusBar = showSignedOutHeader ? (
+    <StatusBar
+      backgroundColor={theme.colors.background}
+      barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+    />
+  ) : null;
+  const signedOutSafeAreaEdges = showSignedOutHeader
+    ? ['top', 'left', 'right']
+    : undefined;
+  const signedOutBackButton = showSignedOutHeader ? (
+    <OnboardingBackButton
+      onPress={back}
+      style={styles.signedOutBackButton}
+    />
+  ) : null;
+
   const resetToScreen = () => {
     const destination = data.fromDeleteAccount ? 'DeleteProfile' : 'Home';
     const resetAction = CommonActions.reset({
@@ -331,18 +356,23 @@ const DisplaySeed = ({navigation, route}) => {
 
   if (!accountIsAllowed) {
     return (
-      <SettingsScreen
-        footer={
-          <SettingsActionFooter primaryLabel="Done" primaryOnPress={back} />
-        }>
-        <SettingsTitle>Recovery secrets</SettingsTitle>
-        <SettingsNotice
-          danger
-          body="This wallet is not available on the selected network. Return and choose another wallet."
-          icon="shield-alert-outline"
-          title="Wallet unavailable"
-        />
-      </SettingsScreen>
+      <>
+        {signedOutStatusBar}
+        <SettingsScreen
+          safeAreaEdges={signedOutSafeAreaEdges}
+          footer={
+            <SettingsActionFooter primaryLabel="Done" primaryOnPress={back} />
+          }>
+          {signedOutBackButton}
+          <SettingsTitle>Recovery secrets</SettingsTitle>
+          <SettingsNotice
+            danger
+            body="This wallet is not available on the selected network. Return and choose another wallet."
+            icon="shield-alert-outline"
+            title="Wallet unavailable"
+          />
+        </SettingsScreen>
+      </>
     );
   }
 
@@ -351,7 +381,12 @@ const DisplaySeed = ({navigation, route}) => {
   return (
     <>
       <RecoverySecretsPrivacyGuard onCaptureChange={handleCaptureChange} />
-      <SettingsScreen footer={footer} testID="settings.displaySeed">
+      {signedOutStatusBar}
+      <SettingsScreen
+        footer={footer}
+        safeAreaEdges={signedOutSafeAreaEdges}
+        testID="settings.displaySeed">
+        {signedOutBackButton}
         <SettingsTitle subtitle={networkLabel}>Recovery secrets</SettingsTitle>
         {captureBlocked ? (
           <SettingsNotice
@@ -441,6 +476,7 @@ const DisplaySeed = ({navigation, route}) => {
           errorMessage={authenticationError}
           networkLabel={`${networkLabel} wallet`}
           onInputChange={() => setAuthenticationError(null)}
+          preferBiometry
           redesigned
           returnSecrets
           submit={handleAuthentication}
@@ -462,9 +498,20 @@ const SecretCard = ({name, onToggle, revealed, styles, theme, value}) => {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{name}</Text>
-        <Text style={styles.sensitiveLabel}>
-          {revealed ? 'Visible' : 'Concealed'}
-        </Text>
+        <View style={styles.cardHeaderActions}>
+          <Text style={styles.sensitiveLabel}>
+            {revealed ? 'Visible' : 'Concealed'}
+          </Text>
+          {revealed ? (
+            <CopyAction
+              accessibilityLabel={`Copy ${name} recovery secret`}
+              color={theme.colors.primary}
+              copiedAccessibilityLabel={`${name} recovery secret copied`}
+              iconSize={18}
+              value={value}
+            />
+          ) : null}
+        </View>
       </View>
       {revealed ? (
         words ? (
@@ -505,11 +552,21 @@ const DerivedKeyRow = ({
   onToggle,
   revealed,
   styles,
+  theme,
   value,
 }) => (
   <View style={styles.derivedRow}>
     <View style={styles.derivedHeader}>
       <Text style={styles.derivedTitle}>{name}</Text>
+      {revealed && value ? (
+        <CopyAction
+          accessibilityLabel={`Copy ${name}`}
+          color={theme.colors.primary}
+          copiedAccessibilityLabel={`${name} copied`}
+          iconSize={18}
+          value={value}
+        />
+      ) : null}
       <AppButton
         disabled={fetching}
         height={40}
@@ -538,6 +595,10 @@ const DerivedKeyRow = ({
 
 const createStyles = theme =>
   StyleSheet.create({
+    signedOutBackButton: {
+      marginLeft: -12,
+      marginBottom: 4,
+    },
     card: {
       marginBottom: 12,
       padding: 16,
@@ -549,6 +610,11 @@ const createStyles = theme =>
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 14,
+    },
+    cardHeaderActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
     cardTitle: {
       color: theme.colors.textPrimary,
