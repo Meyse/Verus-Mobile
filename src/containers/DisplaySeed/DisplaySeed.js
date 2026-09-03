@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   AppState,
+  Platform,
   StatusBar,
   StyleSheet,
   View,
@@ -21,6 +22,7 @@ import {
   accountMatchesNetwork,
   getAccountNetworkKey,
   getWalletNetworkLabel,
+  WALLET_NETWORKS,
 } from '../../utils/account/accountNetwork';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {
@@ -43,7 +45,12 @@ import {
   SettingsTitle,
 } from '../Settings/components/SettingsScaffold';
 
-const REVEAL_TIMEOUT_MS = 60 * 1000;
+const MONOSPACE_FONT = Platform.select({
+  ios: 'Menlo',
+  android: 'monospace',
+  default: 'monospace',
+});
+
 const SECRET_NAMES = {
   [DLIGHT_PRIVATE]: 'Secondary (Z-address)',
   [ELECTRUM]: 'Primary',
@@ -176,24 +183,6 @@ const DisplaySeed = ({navigation, route}) => {
     return unsubscribeBlur;
   }, [hideSensitiveValues, navigation]);
 
-  useEffect(() => {
-    if (!requiresAuthentication || Object.keys(secrets).length === 0) {
-      return undefined;
-    }
-
-    const timeout = setTimeout(() => {
-      hideSensitiveValues();
-      if (requiresAuthentication && !captureBlockedRef.current) {
-        setAuthenticationError(
-          'For your security, authenticate again to continue.',
-        );
-        setAuthenticationVisible(true);
-      }
-    }, REVEAL_TIMEOUT_MS);
-
-    return () => clearTimeout(timeout);
-  }, [hideSensitiveValues, requiresAuthentication, secrets]);
-
   const handleCaptureChange = useCallback(
     captured => {
       captureBlockedRef.current = captured;
@@ -272,11 +261,21 @@ const DisplaySeed = ({navigation, route}) => {
     const options = [];
 
     if (secrets[ELECTRUM]) {
-      options.push(
-        {coin: coinsList.VRSC, id: 'vrsc', label: 'VRSC private key'},
-        {coin: coinsList.BTC, id: 'btc', label: 'BTC private key'},
-        {coin: coinsList.ETH, id: 'eth', label: 'Ethereum private key'},
-      );
+      ['VRSC', 'BTC', 'ETH'].forEach(mainnetCoinId => {
+        const coinId =
+          networkKey === WALLET_NETWORKS.TESTNET
+            ? account?.testnetOverrides?.[mainnetCoinId]
+            : mainnetCoinId;
+        const coin = coinsList[coinId];
+
+        if (coin) {
+          options.push({
+            coin,
+            id: mainnetCoinId.toLowerCase(),
+            label: `${coin.display_ticker} private key`,
+          });
+        }
+      });
     }
 
     if (
@@ -287,22 +286,28 @@ const DisplaySeed = ({navigation, route}) => {
     }
 
     return options;
-  }, [secrets]);
+  }, [account, networkKey, secrets]);
 
-  const derivePrivateKey = async option => {
+  const derivePrivateKeyDetails = async option => {
     if (option.id === 'z-address') {
-      return dlightSeedToBytes(secrets[DLIGHT_PRIVATE]);
+      return {
+        address: null,
+        privateKey: await dlightSeedToBytes(secrets[DLIGHT_PRIVATE]),
+      };
     }
 
     const channel = option.id === 'eth' ? ETH : ELECTRUM;
-    return (
-      await deriveKeyPair(
-        secrets[ELECTRUM],
-        option.coin,
-        channel,
-        data.keyDerivationVersion,
-      )
-    ).privKey;
+    const keyPair = await deriveKeyPair(
+      secrets[ELECTRUM],
+      option.coin,
+      channel,
+      data.keyDerivationVersion,
+    );
+
+    return {
+      address: keyPair.addresses?.[0] || null,
+      privateKey: keyPair.privKey,
+    };
   };
 
   const toggleDerivedKey = async option => {
@@ -319,7 +324,7 @@ const DisplaySeed = ({navigation, route}) => {
     try {
       setDerivedKeyError(null);
       setFetchingDerivedKey(option.id);
-      const value = await derivePrivateKey(option);
+      const value = await derivePrivateKeyDetails(option);
 
       if (
         !mountedRef.current ||
@@ -467,7 +472,6 @@ const DisplaySeed = ({navigation, route}) => {
                     onToggle={() => toggleDerivedKey(option)}
                     revealed={revealedDerivedKeys[option.id] === true}
                     styles={styles}
-                    theme={theme}
                     value={derivedKeys[option.id]}
                   />
                 ))}
@@ -515,7 +519,6 @@ const SecretCard = ({name, onToggle, revealed, styles, theme, value}) => {
           {revealed ? (
             <CopyAction
               accessibilityLabel={`Copy ${name} recovery secret`}
-              color={theme.colors.primary}
               copiedAccessibilityLabel={`${name} recovery secret copied`}
               iconSize={18}
               value={value}
@@ -562,19 +565,17 @@ const DerivedKeyRow = ({
   onToggle,
   revealed,
   styles,
-  theme,
   value,
 }) => (
   <View style={styles.derivedRow}>
     <View style={styles.derivedHeader}>
       <Text style={styles.derivedTitle}>{name}</Text>
-      {revealed && value ? (
+      {revealed && value?.privateKey ? (
         <CopyAction
           accessibilityLabel={`Copy ${name}`}
-          color={theme.colors.primary}
           copiedAccessibilityLabel={`${name} copied`}
           iconSize={18}
-          value={value}
+          value={value.privateKey}
         />
       ) : null}
       <AppButton
@@ -592,8 +593,26 @@ const DerivedKeyRow = ({
         )}
       </AppButton>
     </View>
-    {revealed && value ? (
-      <Text style={styles.derivedValue}>{value}</Text>
+    {value?.address ? (
+      <View style={styles.associatedAddressBlock}>
+        <Text style={styles.associatedAddressLabel}>Associated address</Text>
+        <View style={styles.associatedAddressRow}>
+          <Text selectable style={styles.associatedAddressValue}>
+            {value.address}
+          </Text>
+          <CopyAction
+            accessibilityLabel={`Copy address for ${name}`}
+            copiedAccessibilityLabel={`Address for ${name} copied`}
+            iconSize={18}
+            value={value.address}
+          />
+        </View>
+      </View>
+    ) : null}
+    {revealed && value?.privateKey ? (
+      <Text selectable style={styles.derivedValue}>
+        {value.privateKey}
+      </Text>
     ) : null}
     {error ? (
       <Text accessibilityLiveRegion="polite" style={styles.error}>
@@ -724,6 +743,30 @@ const createStyles = theme =>
       fontSize: 13,
       lineHeight: 20,
       ...fontStyle('regular'),
+    },
+    associatedAddressBlock: {
+      marginTop: 8,
+    },
+    associatedAddressLabel: {
+      marginBottom: 4,
+      color: theme.colors.textSubtle,
+      fontSize: 11,
+      lineHeight: 15,
+      ...fontStyle('semiBold'),
+    },
+    associatedAddressRow: {
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    associatedAddressValue: {
+      minWidth: 0,
+      flex: 1,
+      color: theme.colors.textSecondary,
+      fontFamily: MONOSPACE_FONT,
+      fontSize: 12,
+      lineHeight: 18,
     },
     error: {
       marginTop: 8,
