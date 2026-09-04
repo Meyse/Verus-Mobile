@@ -501,6 +501,7 @@ const DisplaySeed = ({navigation, route}) => {
           preferBiometry
           redesigned
           returnSecrets
+          showCenteredLoadingMessage={false}
           submit={handleAuthentication}
           submitLabel="Unlock"
           suppressSystemAlerts

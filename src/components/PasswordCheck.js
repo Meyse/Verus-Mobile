@@ -34,6 +34,7 @@ const PasswordCheck = props => {
     returnSecrets = false,
     submit,
     submitLabel = 'Continue',
+    showCenteredLoadingMessage = true,
     suppressSystemAlerts = false,
     title,
     userName,
@@ -266,7 +267,10 @@ const PasswordCheck = props => {
             </View>
           ) : null}
           {showCenteredLoading ? (
-            <WalletUnlockLoadingContent message={centeredLoadingMessage} />
+            <WalletUnlockLoadingContent
+              message={centeredLoadingMessage}
+              showMessage={showCenteredLoadingMessage}
+            />
           ) : (
             <>
               {passwordFallbackVisible ? (

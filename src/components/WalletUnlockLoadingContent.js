@@ -12,18 +12,21 @@ const LOADING_DOT_INTERVAL_MS = 300;
 const WalletUnlockLoadingContent = ({
   height = DEFAULT_CONTENT_HEIGHT,
   message = 'Unlocking your wallet',
+  showMessage = true,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [loadingDotCount, setLoadingDotCount] = useState(0);
 
   useEffect(() => {
+    if (!showMessage) return undefined;
+
     const dotInterval = setInterval(() => {
       setLoadingDotCount(value => (value + 1) % 4);
     }, LOADING_DOT_INTERVAL_MS);
 
     return () => clearInterval(dotInterval);
-  }, []);
+  }, [showMessage]);
 
   return (
     <View style={[styles.container, {height}]}>
@@ -35,12 +38,14 @@ const WalletUnlockLoadingContent = ({
           source={require('../animations/loading_7bars.json')}
           style={styles.animation}
         />
-        <View style={styles.messageRow}>
-          <Text numberOfLines={1} style={styles.message}>
-            {message}
-          </Text>
-          <Text style={styles.dots}>{'.'.repeat(loadingDotCount)}</Text>
-        </View>
+        {showMessage ? (
+          <View style={styles.messageRow}>
+            <Text numberOfLines={1} style={styles.message}>
+              {message}
+            </Text>
+            <Text style={styles.dots}>{'.'.repeat(loadingDotCount)}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
