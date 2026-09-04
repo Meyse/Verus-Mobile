@@ -82,6 +82,7 @@ methods, never Verus Mobile's visual direction.
 | Service list or manager | `src/components/ServiceManagerHeader.js`, `src/containers/Services/AddressBook/AddressBook.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the shared header and established list rhythm. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
 | Settings | `src/containers/Settings/components/SettingsScaffold.js` | Compose with `SettingsScreen`, `SettingsTitle`, `SettingsSection`, and `SettingsRow`. |
+| Ambiguous vertical overflow | `SettingsScreen` in `src/containers/Settings/components/SettingsScaffold.js`; `DeepLinkRequestSheetScaffold` for request sheets | Show the existing bottom fade and centered chevron only while more content remains below. |
 | Search, copy, loading | `src/components/AppSearchField.js`, `src/components/AppSearchLauncher.js`, `src/components/CopyAction.js`, `src/components/SkeletonLoader.js` | Never hand-roll an equivalent local control. |
 
 ## BottomSheets
@@ -177,6 +178,20 @@ Settings work must compose `SettingsScaffold` rather than recreate its page,
 section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
 rows and dividers. Omit row icons unless they are necessary or already part of
 the selected canonical setting pattern.
+
+## Scroll affordances
+
+When a vertically scrollable surface does not make its overflow apparent from
+partially visible content, show the established non-interactive bottom fade with
+a centered downward chevron. Derive its visibility from measured content and
+viewport size: show it only while more content remains below, and hide it when
+the surface is not scrollable or reaches the end.
+
+Use the scroll cue already provided by `SettingsScreen` for settings-style
+pages and `DeepLinkRequestSheetScaffold` for informational request sheets. Keep
+the cue above the scroll content and below any fixed action footer, pass touches
+through it, and hide it from accessibility. Do not leave the cue permanently
+visible or use it as a button.
 
 ## Request-review hierarchy
 

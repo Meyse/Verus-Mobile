@@ -5,11 +5,13 @@ import {
   Platform,
   StatusBar,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import {CommonActions} from '@react-navigation/native';
 import {Text} from 'react-native-paper';
 import {validateMnemonic} from 'bip39';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
 import PasswordCheck from '../../components/PasswordCheck';
@@ -397,7 +399,6 @@ const DisplaySeed = ({navigation, route}) => {
         footer={footer}
         renderHeader={renderSignedOutHeader}
         safeAreaEdges={signedOutSafeAreaEdges}
-        showScrollCue={false}
         testID="settings.displaySeed">
         {!showSignedOutHeader ? (
           <SettingsTitle>Recovery secrets</SettingsTitle>
@@ -472,7 +473,13 @@ const DisplaySeed = ({navigation, route}) => {
                     onToggle={() => toggleDerivedKey(option)}
                     revealed={revealedDerivedKeys[option.id] === true}
                     styles={styles}
+                    theme={theme}
                     value={derivedKeys[option.id]}
+                    valueLabel={
+                      option.id === 'z-address'
+                        ? 'Spending key'
+                        : 'Private key'
+                    }
                   />
                 ))}
               </SettingsSection>
@@ -512,19 +519,14 @@ const SecretCard = ({name, onToggle, revealed, styles, theme, value}) => {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{name}</Text>
-        <View style={styles.cardHeaderActions}>
-          <Text style={styles.sensitiveLabel}>
-            {revealed ? 'Visible' : 'Concealed'}
-          </Text>
-          {revealed ? (
-            <CopyAction
-              accessibilityLabel={`Copy ${name} recovery secret`}
-              copiedAccessibilityLabel={`${name} recovery secret copied`}
-              iconSize={18}
-              value={value}
-            />
-          ) : null}
-        </View>
+        {revealed ? (
+          <CopyAction
+            accessibilityLabel={`Copy ${name} recovery secret`}
+            copiedAccessibilityLabel={`${name} recovery secret copied`}
+            iconSize={18}
+            value={value}
+          />
+        ) : null}
       </View>
       {revealed ? (
         words ? (
@@ -565,60 +567,87 @@ const DerivedKeyRow = ({
   onToggle,
   revealed,
   styles,
+  theme,
   value,
+  valueLabel,
 }) => (
   <View style={styles.derivedRow}>
     <View style={styles.derivedHeader}>
       <Text style={styles.derivedTitle}>{name}</Text>
-      {revealed && value?.privateKey ? (
-        <CopyAction
-          accessibilityLabel={`Copy ${name}`}
-          copiedAccessibilityLabel={`${name} copied`}
-          iconSize={18}
-          value={value.privateKey}
-        />
-      ) : null}
-      <AppButton
+      <TouchableOpacity
+        accessibilityLabel={revealed ? `Hide ${name}` : `Reveal ${name}`}
+        accessibilityRole="button"
+        accessibilityState={{expanded: revealed, busy: fetching}}
+        activeOpacity={0.72}
         disabled={fetching}
-        height={40}
+        hitSlop={8}
         onPress={onToggle}
-        style={styles.derivedAction}
-        variant="secondary">
+        style={styles.derivedAction}>
         {fetching ? (
-          <ActivityIndicator size="small" />
-        ) : revealed ? (
-          'Hide'
+          <ActivityIndicator
+            color={theme.colors.textSubtle}
+            size="small"
+          />
         ) : (
-          'Reveal'
+          <MaterialCommunityIcons
+            color={theme.colors.textSubtle}
+            name={revealed ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+          />
         )}
-      </AppButton>
+      </TouchableOpacity>
     </View>
-    {value?.address ? (
-      <View style={styles.associatedAddressBlock}>
-        <Text style={styles.associatedAddressLabel}>Associated address</Text>
-        <View style={styles.associatedAddressRow}>
-          <Text selectable style={styles.associatedAddressValue}>
-            {value.address}
-          </Text>
-          <CopyAction
-            accessibilityLabel={`Copy address for ${name}`}
+    {revealed && value ? (
+      <View style={styles.derivedDetails}>
+        {value.address ? (
+          <TechnicalValueRow
+            copyAccessibilityLabel={`Copy address for ${name}`}
             copiedAccessibilityLabel={`Address for ${name} copied`}
-            iconSize={18}
+            label="Associated address"
+            styles={styles}
             value={value.address}
           />
-        </View>
+        ) : null}
+        {value.privateKey ? (
+          <TechnicalValueRow
+            copyAccessibilityLabel={`Copy ${name}`}
+            copiedAccessibilityLabel={`${name} copied`}
+            label={valueLabel}
+            styles={styles}
+            value={value.privateKey}
+          />
+        ) : null}
       </View>
-    ) : null}
-    {revealed && value?.privateKey ? (
-      <Text selectable style={styles.derivedValue}>
-        {value.privateKey}
-      </Text>
     ) : null}
     {error ? (
       <Text accessibilityLiveRegion="polite" style={styles.error}>
         {error}
       </Text>
     ) : null}
+  </View>
+);
+
+const TechnicalValueRow = ({
+  copyAccessibilityLabel,
+  copiedAccessibilityLabel,
+  label,
+  styles,
+  value,
+}) => (
+  <View style={styles.technicalValueBlock}>
+    <Text style={styles.technicalValueLabel}>{label}</Text>
+    <View style={styles.technicalValueRow}>
+      <Text selectable style={styles.technicalValue}>
+        {value}
+      </Text>
+      <CopyAction
+        accessibilityLabel={copyAccessibilityLabel}
+        copiedAccessibilityLabel={copiedAccessibilityLabel}
+        iconSize={18}
+        style={styles.technicalValueCopy}
+        value={value}
+      />
+    </View>
   </View>
 );
 
@@ -639,21 +668,10 @@ const createStyles = theme =>
       justifyContent: 'space-between',
       marginBottom: 14,
     },
-    cardHeaderActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
     cardTitle: {
       color: theme.colors.textPrimary,
       fontSize: 15,
       lineHeight: 20,
-      ...fontStyle('semiBold'),
-    },
-    sensitiveLabel: {
-      color: theme.colors.warning,
-      fontSize: 11,
-      lineHeight: 15,
       ...fontStyle('semiBold'),
     },
     concealedValue: {
@@ -676,9 +694,9 @@ const createStyles = theme =>
     secret: {
       marginBottom: 14,
       color: theme.colors.textPrimary,
+      fontFamily: MONOSPACE_FONT,
       fontSize: 14,
       lineHeight: 22,
-      ...fontStyle('regular'),
     },
     wordGrid: {
       flexDirection: 'row',
@@ -735,38 +753,43 @@ const createStyles = theme =>
       ...fontStyle('semiBold'),
     },
     derivedAction: {
-      minWidth: 92,
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 20,
     },
-    derivedValue: {
-      marginTop: 8,
-      color: theme.colors.textPrimary,
-      fontSize: 13,
-      lineHeight: 20,
-      ...fontStyle('regular'),
+    derivedDetails: {
+      gap: 12,
+      paddingTop: 4,
+      paddingBottom: 8,
     },
-    associatedAddressBlock: {
-      marginTop: 8,
+    technicalValueBlock: {
+      minWidth: 0,
     },
-    associatedAddressLabel: {
+    technicalValueLabel: {
       marginBottom: 4,
       color: theme.colors.textSubtle,
       fontSize: 11,
       lineHeight: 15,
       ...fontStyle('semiBold'),
     },
-    associatedAddressRow: {
+    technicalValueRow: {
       minWidth: 0,
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 8,
     },
-    associatedAddressValue: {
+    technicalValue: {
       minWidth: 0,
       flex: 1,
-      color: theme.colors.textSecondary,
+      color: theme.colors.textPrimary,
       fontFamily: MONOSPACE_FONT,
       fontSize: 12,
       lineHeight: 18,
+    },
+    technicalValueCopy: {
+      marginTop: -7,
     },
     error: {
       marginTop: 8,
