@@ -10,6 +10,7 @@ import AppButton from './AppButton';
 import AppTextInput from './AppTextInput';
 import BottomSheetModal from './BottomSheetModal';
 import PasswordInput from './PasswordInput';
+import WalletUnlockLoadingContent from './WalletUnlockLoadingContent';
 import WalletAvatar from './WalletAvatar';
 import {fontStyle} from '../globals/fonts';
 import {useOnboardingTheme} from '../theme/onboarding';
@@ -23,6 +24,7 @@ const PasswordCheck = props => {
     allowBiometry,
     body = DEFAULT_DESCRIPTION,
     cancel,
+    centeredLoadingMessage = null,
     createAttemptToken,
     errorMessage,
     networkLabel,
@@ -213,6 +215,9 @@ const PasswordCheck = props => {
     visible &&
     !showPasswordFallback &&
     !biometryChecked;
+  const showCenteredLoading =
+    centeredLoadingMessage != null &&
+    (freeze || waitingForPreferredBiometry);
 
   if (redesigned) {
     return (
@@ -260,69 +265,80 @@ const PasswordCheck = props => {
               </View>
             </View>
           ) : null}
-          {passwordFallbackVisible ? (
-            <AppTextInput
-              autoComplete="off"
-              autoCorrect={false}
-              importantForAutofill="no"
-              label="Wallet password"
-              onChangeText={updatePassword}
-              placeholder="Enter password"
-              secureTextEntry
-              testID="settings.passwordCheck.password"
-              textContentType="none"
-              value={password}
-            />
-          ) : null}
-          {errorMessage ? (
-            <Text
-              accessibilityLiveRegion="polite"
-              style={styles.error}
-              testID="settings.passwordCheck.error">
-              {errorMessage}
-            </Text>
-          ) : null}
-          {freeze || waitingForPreferredBiometry ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={theme.colors.primary} size="small" />
-              <Text style={styles.loadingText}>
-                {freeze ? 'Authenticating…' : 'Preparing biometric unlock…'}
-              </Text>
-            </View>
-          ) : null}
-          <View style={styles.actions}>
-            <AppButton
-              disabled={freeze}
-              height={52}
-              onPress={cancel}
-              style={styles.action}
-              variant="secondary">
-              Cancel
-            </AppButton>
-            {passwordFallbackVisible &&
-            allowBiometry &&
-            biometryType?.biometry ? (
-              <AppButton
-                disabled={freeze}
-                height={52}
-                onPress={tryBiometricAuth}
-                style={styles.action}
-                variant="secondary">
-                {biometryType.display_name}
-              </AppButton>
-            ) : null}
-            {passwordFallbackVisible ? (
-              <AppButton
-                disabled={freeze || password.length === 0}
-                height={52}
-                onPress={() => submitPassword(password)}
-                style={styles.action}
-                testID="settings.passwordCheck.submit"
-                variant="primary">
-                {submitLabel}
-              </AppButton>
-            ) : null}
-          </View>
+          {showCenteredLoading ? (
+            <WalletUnlockLoadingContent message={centeredLoadingMessage} />
+          ) : (
+            <>
+              {passwordFallbackVisible ? (
+                <AppTextInput
+                  autoComplete="off"
+                  autoCorrect={false}
+                  importantForAutofill="no"
+                  label="Wallet password"
+                  onChangeText={updatePassword}
+                  placeholder="Enter password"
+                  secureTextEntry
+                  testID="settings.passwordCheck.password"
+                  textContentType="none"
+                  value={password}
+                />
+              ) : null}
+              {errorMessage ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={styles.error}
+                  testID="settings.passwordCheck.error">
+                  {errorMessage}
+                </Text>
+              ) : null}
+              {freeze || waitingForPreferredBiometry ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator
+                    color={theme.colors.primary}
+                    size="small"
+                  />
+                  <Text style={styles.loadingText}>
+                    {freeze
+                      ? 'Authenticating…'
+                      : 'Preparing biometric unlock…'}
+                  </Text>
+                </View>
+              ) : null}
+              <View style={styles.actions}>
+                <AppButton
+                  disabled={freeze}
+                  height={52}
+                  onPress={cancel}
+                  style={styles.action}
+                  variant="secondary">
+                  Cancel
+                </AppButton>
+                {passwordFallbackVisible &&
+                allowBiometry &&
+                biometryType?.biometry ? (
+                  <AppButton
+                    disabled={freeze}
+                    height={52}
+                    onPress={tryBiometricAuth}
+                    style={styles.action}
+                    variant="secondary">
+                    {biometryType.display_name}
+                  </AppButton>
+                ) : null}
+                {passwordFallbackVisible ? (
+                  <AppButton
+                    disabled={freeze || password.length === 0}
+                    height={52}
+                    onPress={() => submitPassword(password)}
+                    style={styles.action}
+                    testID="settings.passwordCheck.submit"
+                    variant="primary">
+                    {submitLabel}
+                  </AppButton>
+                ) : null}
+              </View>
+            </>
+          )}
         </ScrollView>
       </BottomSheetModal>
     );

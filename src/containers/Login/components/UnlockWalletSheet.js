@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, StyleSheet, TouchableOpacity, View} from 'react-native';
-import LottieView from 'lottie-react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
@@ -10,6 +9,7 @@ import {
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import BottomSheetModal from '../../../components/BottomSheetModal';
+import WalletUnlockLoadingContent from '../../../components/WalletUnlockLoadingContent';
 import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../styles';
@@ -29,9 +29,6 @@ const PASSWORD_ONLY_CONTENT_HEIGHT =
   PASSWORD_FIELD_HEIGHT + PASSWORD_BUTTON_TOP_MARGIN + UNLOCK_BUTTON_HEIGHT;
 const BIOMETRY_CONTENT_HEIGHT =
   PASSWORD_FIELD_HEIGHT + BIOMETRY_ACTION_TOTAL_HEIGHT + UNLOCK_BUTTON_HEIGHT;
-const UNLOCK_LOADING_ANIMATION_SIZE = 96;
-const LOADING_DOT_INTERVAL_MS = 300;
-const LOADING_MESSAGE = 'Unlocking your wallet';
 
 const formatErrorMessage = error => {
   const message =
@@ -72,7 +69,6 @@ const UnlockWalletSheet = ({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingDotCount, setLoadingDotCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
   const [biometryAttempted, setBiometryAttempted] = useState(false);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
@@ -98,26 +94,12 @@ const UnlockWalletSheet = ({
     if (visible) {
       setPassword('');
       setLoading(false);
-      setLoadingDotCount(0);
       setErrorMessage(null);
       setBiometryAttempted(false);
       setSupportedBiometryType(null);
       setShowPassword(false);
     }
   }, [account ? account.accountHash : null, visible]);
-
-  useEffect(() => {
-    if (!loading || !visible) {
-      setLoadingDotCount(0);
-      return undefined;
-    }
-
-    const dotInterval = setInterval(() => {
-      setLoadingDotCount(value => (value + 1) % 4);
-    }, LOADING_DOT_INTERVAL_MS);
-
-    return () => clearInterval(dotInterval);
-  }, [loading, visible]);
 
   const tryUnlockAccount = useCallback(
     async key => {
@@ -307,29 +289,7 @@ const UnlockWalletSheet = ({
           </View>
         </View>
         {loading ? (
-          <View
-            style={[
-              styles.loadingContainer,
-              {height: loadingContentHeight},
-            ]}>
-            <View style={styles.loadingContent}>
-              <LottieView
-                accessibilityLabel={LOADING_MESSAGE}
-                autoPlay
-                loop
-                source={require('../../../animations/loading_7bars.json')}
-                style={styles.loadingAnimation}
-              />
-              <View style={styles.loadingMessageRow}>
-                <Text numberOfLines={1} style={styles.loadingMessage}>
-                  {LOADING_MESSAGE}
-                </Text>
-                <Text style={styles.loadingDots}>
-                  {'.'.repeat(loadingDotCount)}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <WalletUnlockLoadingContent height={loadingContentHeight} />
         ) : (
           <>
             <AppTextInput
@@ -466,38 +426,6 @@ const createStyles = theme =>
   },
   unlockButtonWithInputSpacing: {
     marginTop: 16,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  loadingAnimation: {
-    width: UNLOCK_LOADING_ANIMATION_SIZE,
-    height: UNLOCK_LOADING_ANIMATION_SIZE,
-  },
-  loadingMessageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  loadingMessage: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    lineHeight: 20,
-    textAlign: 'center',
-    ...fontStyle('semiBold'),
-  },
-  loadingDots: {
-    width: 18,
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    lineHeight: 20,
-    ...fontStyle('semiBold'),
   },
 });
 

@@ -493,6 +493,7 @@ const DisplaySeed = ({navigation, route}) => {
           allowBiometry
           body="Confirm access to this wallet. Recovery secrets stay concealed until you reveal them."
           cancel={back}
+          centeredLoadingMessage="Accessing recovery secrets"
           createAttemptToken={() => sensitiveSessionRef.current}
           errorMessage={authenticationError}
           networkLabel={`${networkLabel} wallet`}
