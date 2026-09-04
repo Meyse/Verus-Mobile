@@ -26,6 +26,9 @@ import {
   getWalletNetworkLabel,
   WALLET_NETWORKS,
 } from '../../utils/account/accountNetwork';
+import {
+  getAddresses as getDlightAddresses,
+} from '../../utils/api/channels/dlight/requests/getAddresses';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {
   DLIGHT_PRIVATE,
@@ -274,7 +277,7 @@ const DisplaySeed = ({navigation, route}) => {
           options.push({
             coin,
             id: mainnetCoinId.toLowerCase(),
-            label: `${coin.display_ticker} private key`,
+            label: coin.display_ticker,
           });
         }
       });
@@ -284,7 +287,14 @@ const DisplaySeed = ({navigation, route}) => {
       secrets[DLIGHT_PRIVATE] &&
       !isDlightSpendingKey(secrets[DLIGHT_PRIVATE])
     ) {
-      options.push({id: 'z-address', label: 'Z-address spending key'});
+      options.push({
+        coin:
+          networkKey === WALLET_NETWORKS.TESTNET
+            ? coinsList.VRSCTEST
+            : coinsList.VRSC,
+        id: 'z-address',
+        label: 'Z-address spending key',
+      });
     }
 
     return options;
@@ -292,8 +302,14 @@ const DisplaySeed = ({navigation, route}) => {
 
   const derivePrivateKeyDetails = async option => {
     if (option.id === 'z-address') {
+      const addressResponse = await getDlightAddresses(
+        '',
+        secrets[DLIGHT_PRIVATE],
+        option.coin.id,
+      );
+
       return {
-        address: null,
+        address: addressResponse?.result || null,
         privateKey: await dlightSeedToBytes(secrets[DLIGHT_PRIVATE]),
       };
     }
@@ -340,9 +356,14 @@ const DisplaySeed = ({navigation, route}) => {
       setRevealedDerivedKeys(current => ({...current, [option.id]: true}));
     } catch {
       if (mountedRef.current && session === sensitiveSessionRef.current) {
+        const keyDescription =
+          option.id === 'z-address'
+            ? option.label
+            : `${option.label} private key`;
+
         setDerivedKeyError({
           id: option.id,
-          message: `Could not derive the ${option.label.toLowerCase()}. Try again.`,
+          message: `Could not derive the ${keyDescription.toLowerCase()}. Try again.`,
         });
       }
     } finally {
