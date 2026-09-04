@@ -17,6 +17,10 @@ const WalletAvatarPickerSheet = ({
   walletAvatar,
   onChange,
   onClose,
+  onSubmit,
+  submitting = false,
+  submitLabel = 'Done',
+  submitVariant = 'secondary',
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -103,12 +107,14 @@ const WalletAvatarPickerSheet = ({
         </View>
 
         <AppButton
-          accessibilityLabel="Done"
+          accessibilityLabel={submitLabel}
+          disabled={submitting}
           height={56}
-          onPress={onClose}
+          loading={submitting}
+          onPress={onSubmit || onClose}
           style={styles.doneButton}
-          variant="secondary">
-          Done
+          variant={submitVariant}>
+          {submitLabel}
         </AppButton>
       </View>
     </BottomSheetModal>

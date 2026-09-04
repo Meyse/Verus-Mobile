@@ -673,6 +673,28 @@ export const setUserTestnetOverrides = (accountHash, testnetOverrides) => {
   return setUserSetting(accountHash, "testnetOverrides", testnetOverrides)
 }
 
+export const setUserWalletAvatar = (accountHash, walletAvatar) => {
+  const normalizedAvatar = normalizeWalletAvatar(walletAvatar);
+
+  if (normalizedAvatar == null) {
+    throw new Error('Invalid wallet appearance');
+  }
+
+  return updateUsers(users => {
+    const userIndex = users.findIndex(user => user.accountHash === accountHash);
+
+    if (accountHash == null || userIndex === -1) {
+      throw new Error(`User with hash ${accountHash} not found`);
+    }
+
+    return users.map((user, index) =>
+      index === userIndex
+        ? {...user, walletAvatar: normalizedAvatar}
+        : user,
+    );
+  });
+};
+
 //TODO: Stop using wifKey to encrypt payment methods before using them in production
 export const putUserPaymentMethods = async (user, paymentMethods) => {
   //const encryptedPaymentMethods = encryptkey(user.wifKey, JSON.stringify(paymentMethods))

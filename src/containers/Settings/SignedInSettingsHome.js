@@ -1,10 +1,16 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useState} from 'react';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {CommonActions} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {signOut} from '../../actions/actionCreators';
 import signedInCopy from '../../copy/signedIn';
 import {APP_VERSION} from '../../../env/index';
-import {ONBOARDING_THEME_MODE} from '../../theme/onboarding';
+import {
+  ONBOARDING_THEME_MODE,
+  useOnboardingTheme,
+} from '../../theme/onboarding';
+import WalletAvatar from '../../components/WalletAvatar';
+import {normalizeWalletAvatar} from '../../utils/walletAvatar';
 import {
   SettingsLockAction,
   SettingsRow,
@@ -12,6 +18,7 @@ import {
   SettingsSection,
   SettingsTitle,
 } from './components/SettingsScaffold';
+import WalletAppearanceSheet from './components/WalletAppearanceSheet';
 
 const SETTINGS_ROWS = [
   {
@@ -48,7 +55,10 @@ const SETTINGS_ROWS = [
 
 const SignedInSettingsHome = ({navigation}) => {
   const dispatch = useDispatch();
+  const theme = useOnboardingTheme();
+  const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const activeProfile = useSelector(state => state.authentication.activeAccount);
+  const walletAvatar = normalizeWalletAvatar(activeProfile?.walletAvatar);
   const appearance = useSelector(
     state =>
       state.settings.generalWalletSettings.appearance ||
@@ -109,6 +119,30 @@ const SignedInSettingsHome = ({navigation}) => {
 
         return (
           <SettingsSection compact key={section} title={section}>
+            {section === 'Account' ? (
+              <SettingsRow
+                accessibilityLabel={`Wallet appearance, ${activeProfile?.id}`}
+                description={activeProfile?.id}
+                leading={
+                  walletAvatar ? (
+                    <WalletAvatar
+                      emojiSize={16}
+                      size={30}
+                      walletAvatar={walletAvatar}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      color={theme.colors.textSubtle}
+                      name="wallet-outline"
+                      size={22}
+                    />
+                  )
+                }
+                onPress={() => setAppearanceSheetVisible(true)}
+                testID="settings.home.WalletAppearance"
+                title="Wallet appearance"
+              />
+            ) : null}
             {rows.map((row, index) => (
               <SettingsRow
                 description={rowDescription(row.key)}
@@ -125,6 +159,11 @@ const SignedInSettingsHome = ({navigation}) => {
         );
       })}
       <SettingsLockAction onPress={lockWallet} />
+      <WalletAppearanceSheet
+        account={activeProfile}
+        onClose={() => setAppearanceSheetVisible(false)}
+        visible={appearanceSheetVisible}
+      />
     </SettingsScreen>
   );
 };

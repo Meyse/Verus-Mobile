@@ -17,6 +17,7 @@ import {
   OPEN_SEND_COIN_MODAL,
   UPDATE_ACCOUNT_DISABLED_SERVICES,
   UPDATE_ACCOUNT_TESTNET_OVERRIDES_COMPLETE,
+  UPDATE_ACCOUNT_WALLET_AVATAR,
   UPDATE_SESSION_KEY,
   INIT_INSTANCE_KEY,
   HIDE_SEED_WARNINGS,
@@ -68,6 +69,18 @@ export const authentication = (
       return {
         ...state,
         accounts: action.payload.accounts
+      };
+    case UPDATE_ACCOUNT_WALLET_AVATAR:
+      return {
+        ...state,
+        accounts: action.payload.accounts,
+        activeAccount:
+          state.activeAccount?.accountHash === action.payload.accountHash
+            ? {
+                ...state.activeAccount,
+                walletAvatar: action.payload.walletAvatar,
+              }
+            : state.activeAccount,
       };
     case AUTHENTICATE_USER:
       return {

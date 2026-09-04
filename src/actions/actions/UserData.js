@@ -16,6 +16,7 @@ import {
   setUserDisabledServices,
   setUserTestnetOverrides,
   setUserHideSeedWarnings,
+  setUserWalletAvatar,
   updateUsers,
 } from '../../utils/asyncStore/asyncStore';
 import {deriveKeyPair} from '../../utils/keys';
@@ -41,6 +42,7 @@ import {
   SET_ACCOUNTS,
   UPDATE_ACCOUNT_DISABLED_SERVICES,
   UPDATE_ACCOUNT_TESTNET_OVERRIDES,
+  UPDATE_ACCOUNT_WALLET_AVATAR,
 } from '../../utils/constants/storeType';
 import {removeExistingCoin} from './coins/Coins';
 import {
@@ -194,6 +196,26 @@ export const setHideSeedWarnings = (accountHash, hideSeedWarnings) => {
       })
       .catch(err => reject(err));
   });
+};
+
+export const setWalletAvatar = async (accountHash, walletAvatar) => {
+  const sessionScope = captureSessionScope(store.getState(), accountHash);
+  const normalizedAvatar = normalizeWalletAvatar(walletAvatar);
+
+  if (normalizedAvatar == null) {
+    throw new Error('Invalid wallet appearance');
+  }
+
+  const accounts = await setUserWalletAvatar(accountHash, normalizedAvatar);
+
+  return scopeSessionAction({
+    type: UPDATE_ACCOUNT_WALLET_AVATAR,
+    payload: {
+      accountHash,
+      accounts,
+      walletAvatar: normalizedAvatar,
+    },
+  }, sessionScope);
 };
 
 // Requires user to logout and log back in
