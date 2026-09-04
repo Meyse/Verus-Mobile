@@ -106,9 +106,6 @@ const SignedInSettingsHome = ({navigation}) => {
     return null;
   };
 
-  const rowDescription = key =>
-    key === 'ProfileSettings' ? activeProfile?.id : null;
-
   const sections = ['Account', 'Preferences', 'Advanced', 'About'];
 
   return (
@@ -118,11 +115,15 @@ const SignedInSettingsHome = ({navigation}) => {
         const rows = SETTINGS_ROWS.filter(row => row.section === section);
 
         return (
-          <SettingsSection compact key={section} title={section}>
+          <SettingsSection
+            compact
+            key={section}
+            title={
+              section === 'Account' ? activeProfile?.id || section : section
+            }>
             {section === 'Account' ? (
               <SettingsRow
                 accessibilityLabel={`Wallet appearance, ${activeProfile?.id}`}
-                description={activeProfile?.id}
                 leading={
                   walletAvatar ? (
                     <WalletAvatar
@@ -145,7 +146,6 @@ const SignedInSettingsHome = ({navigation}) => {
             ) : null}
             {rows.map((row, index) => (
               <SettingsRow
-                description={rowDescription(row.key)}
                 icon={row.icon}
                 key={row.key}
                 last={index === rows.length - 1}
