@@ -117,7 +117,7 @@ const SignedOutStackScreens = props => {
         name="ProvisioningDeeplinks"
         component={ProvisioningDeeplinkList}
         options={{
-          title: 'Pending Requests',
+          headerShown: false,
         }}
       />
     </SignedOutStack.Navigator>

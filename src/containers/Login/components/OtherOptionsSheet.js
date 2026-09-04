@@ -14,7 +14,7 @@ const OTHER_ACTIONS = [
     actionKey: 'onRevokeRecoverVerusId',
   },
   {
-    label: 'Provisioning requests',
+    label: 'Saved requests',
     IconComponent: FileClock,
     actionKey: 'onProvisioningRequests',
   },
