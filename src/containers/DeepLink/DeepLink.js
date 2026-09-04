@@ -62,6 +62,9 @@ import {
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkData = useObjectSelector((state) => state.deeplink.data)
+  const deeplinkPassthrough = useObjectSelector(
+    state => state.deeplink.passthrough,
+  )
 
   const signedIn = useSelector((state) => state.authentication.signedIn)
   const accounts = useObjectSelector(state => state.authentication.accounts)
@@ -76,6 +79,17 @@ const DeepLink = (props) => {
 
   const cancel = () => {
     processGenerationRef.current += 1
+    dispatch(resetDeeplinkData())
+
+    if (deeplinkPassthrough?.replayedPendingDeeplink === true) {
+      const parentNavigation = props.navigation.getParent?.()
+
+      if (parentNavigation?.canGoBack?.()) {
+        parentNavigation.goBack()
+        return
+      }
+    }
+
     let resetAction
 
     if (signedIn) {
@@ -94,7 +108,6 @@ const DeepLink = (props) => {
         routes: [{name: 'SignedOutStack'}],
       });
     }
-    dispatch(resetDeeplinkData())
     props.navigation.dispatch(resetAction);
   }
 

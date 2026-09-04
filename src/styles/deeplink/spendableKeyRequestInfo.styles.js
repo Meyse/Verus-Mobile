@@ -58,6 +58,12 @@ const createSpendableKeyRequestInfoStyles = theme =>
     passwordScreen: {
       flex: 1,
     },
+    passwordNavigation: {
+      alignItems: 'flex-start',
+      height: 44,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.md,
+    },
     passwordScrollContent: {
       flexGrow: 1,
       justifyContent: 'flex-start',
@@ -67,6 +73,9 @@ const createSpendableKeyRequestInfoStyles = theme =>
     },
     passwordScrollContentSmallDevice: {
       paddingTop: theme.spacing.stepTopSmallDevice,
+    },
+    passwordScrollContentWithBack: {
+      paddingTop: 10,
     },
     passwordContent: {
       width: '100%',

@@ -15,6 +15,7 @@ import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
 import CopyAction from '../../../components/CopyAction';
+import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {
@@ -547,6 +548,8 @@ const SpendableKeyRequestInfoContent = props => {
   const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const deeplinkPassthrough = useObjectSelector(state => state.deeplink.passthrough);
+  const isReplayedPendingDeeplink =
+    deeplinkPassthrough?.replayedPendingDeeplink === true;
   const sessionEpoch = useObjectSelector(
     state => state.authentication.sessionEpoch || 0,
   );
@@ -1467,10 +1470,20 @@ const SpendableKeyRequestInfoContent = props => {
         style={styles.container}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.passwordScreen}>
+            {isReplayedPendingDeeplink && (
+              <View style={styles.passwordNavigation}>
+                <OnboardingBackButton
+                  disabled={isDecrypting}
+                  onPress={cancel}
+                />
+              </View>
+            )}
             <DeepLinkReviewScrollView
               contentContainerStyle={[
                 styles.passwordScrollContent,
                 smallDevice && styles.passwordScrollContentSmallDevice,
+                isReplayedPendingDeeplink &&
+                  styles.passwordScrollContentWithBack,
               ]}>
               <View style={styles.passwordContent}>
                 <MaterialCommunityIcons
@@ -1544,13 +1557,15 @@ const SpendableKeyRequestInfoContent = props => {
                 variant="secondary">
                 Scan password QR
               </AppButton>
-              <AppButton
-                disabled={isDecrypting}
-                height={48}
-                onPress={cancel}
-                variant="text">
-                Cancel
-              </AppButton>
+              {!isReplayedPendingDeeplink && (
+                <AppButton
+                  disabled={isDecrypting}
+                  height={48}
+                  onPress={cancel}
+                  variant="text">
+                  Cancel
+                </AppButton>
+              )}
             </SafeBottomActionStack>
           </View>
         </TouchableWithoutFeedback>
