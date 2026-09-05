@@ -283,6 +283,7 @@ export const RevokeRecoverIdentityField = ({
   const singleCandidate =
     discoveryStatus === AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY &&
     candidateCount === 1;
+  const hasConfirmedTarget = !!selectedCandidate?.identityAddress;
 
   if (manualEntry) {
     return (
@@ -363,6 +364,14 @@ export const RevokeRecoverIdentityField = ({
 
   const selectionCopy = (
     <View style={styles.selectionCopy}>
+      {hasConfirmedTarget ? (
+        <View style={styles.confirmedTarget}>
+          <View style={styles.confirmedTargetIcon}>
+            <Check color={theme.colors.onPrimary} size={18} strokeWidth={2.6} />
+          </View>
+          <Text style={styles.confirmedTargetLabel}>Confirmed target</Text>
+        </View>
+      ) : null}
       <Text style={[styles.selectionTitle, theme.typography.titleSheet]}>
         {selectedCandidate?.displayName || 'Choose a VerusID'}
       </Text>
@@ -385,14 +394,18 @@ export const RevokeRecoverIdentityField = ({
       ) : null}
       {singleCandidate ? (
         <View
-          accessibilityLabel={`${selectedCandidate?.displayName}, selected to ${action}`}
+          accessibilityLabel={`Confirmed target: ${selectedCandidate?.displayName}, selected to ${action}`}
           style={styles.selectionField}
           testID="revokeRecover.identity.single">
           {selectionCopy}
         </View>
       ) : (
         <TouchableOpacity
-          accessibilityLabel={`Choose a VerusID to ${action}`}
+          accessibilityLabel={
+            hasConfirmedTarget
+              ? `Confirmed target: ${selectedCandidate?.displayName}, selected to ${action}`
+              : `Choose a VerusID to ${action}`
+          }
           accessibilityRole="button"
           activeOpacity={0.76}
           onPress={onChoose}
@@ -484,6 +497,26 @@ const createFieldStyles = theme =>
       flex: 1,
       paddingRight: 12,
     },
+    confirmedTarget: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 24,
+    },
+    confirmedTargetIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.primary,
+    },
+    confirmedTargetLabel: {
+      color: theme.colors.textSecondary,
+      fontSize: 16,
+      lineHeight: 22,
+      ...fontStyle('semiBold'),
+    },
     selectionContext: {
       marginBottom: 8,
       color: theme.colors.textSecondary,
@@ -513,7 +546,7 @@ const createFieldStyles = theme =>
       ...fontStyle('regular'),
     },
     selectionTechnicalBody: {
-      marginTop: 8,
+      marginTop: 20,
       fontFamily: 'monospace',
       fontWeight: '500',
     },
