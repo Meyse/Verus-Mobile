@@ -77,6 +77,7 @@ export const RevokeIdentityFormRender = ({
         errorText={formError}
         isRecovery={false}
         manualEntry={manualEntry}
+        networkName={networkName}
         onChangeText={updateIdentity}
         onChoose={onOpenIdentitySheet}
         onRetry={identityDiscovery.retry}

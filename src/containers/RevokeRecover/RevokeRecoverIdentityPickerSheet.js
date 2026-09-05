@@ -273,6 +273,7 @@ export const RevokeRecoverIdentityField = ({
   selectedCandidate,
   value,
   contextLabel,
+  networkName,
 }) => {
   const theme = useAppTheme();
   const styles = useMemo(() => createFieldStyles(theme), [theme]);
@@ -284,6 +285,8 @@ export const RevokeRecoverIdentityField = ({
     discoveryStatus === AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY &&
     candidateCount === 1;
   const hasConfirmedTarget = !!selectedCandidate?.identityAddress;
+  const confirmedNetworkName =
+    networkName || contextLabel?.replace(/^(Recovering|Revoking) on /, '');
 
   if (manualEntry) {
     return (
@@ -364,14 +367,6 @@ export const RevokeRecoverIdentityField = ({
 
   const selectionCopy = (
     <View style={styles.selectionCopy}>
-      {hasConfirmedTarget ? (
-        <View style={styles.confirmedTarget}>
-          <View style={styles.confirmedTargetIcon}>
-            <Check color={theme.colors.onPrimary} size={12} strokeWidth={2.4} />
-          </View>
-          <Text style={styles.confirmedTargetLabel}>Confirmed target</Text>
-        </View>
-      ) : null}
       <Text style={[styles.selectionTitle, theme.typography.titleSheet]}>
         {selectedCandidate?.displayName || 'Choose a VerusID'}
       </Text>
@@ -389,12 +384,22 @@ export const RevokeRecoverIdentityField = ({
 
   return (
     <View>
-      {contextLabel ? (
-        <Text style={styles.selectionContext}>{contextLabel}</Text>
+      {hasConfirmedTarget ? (
+        <View style={styles.selectionContext}>
+          <View style={styles.confirmedTargetIcon}>
+            <Check color={theme.colors.onPrimary} size={12} strokeWidth={2.4} />
+          </View>
+          <Text style={styles.confirmedTargetLabel}>
+            Confirmed target
+            {confirmedNetworkName ? ` (on ${confirmedNetworkName})` : ''}
+          </Text>
+        </View>
+      ) : contextLabel ? (
+        <Text style={styles.selectionContextFallback}>{contextLabel}</Text>
       ) : null}
       {singleCandidate ? (
         <View
-          accessibilityLabel={`Confirmed target: ${selectedCandidate?.displayName}, selected to ${action}`}
+          accessibilityLabel={`${selectedCandidate?.displayName}, selected to ${action}`}
           style={styles.selectionField}
           testID="revokeRecover.identity.single">
           {selectionCopy}
@@ -403,7 +408,7 @@ export const RevokeRecoverIdentityField = ({
         <TouchableOpacity
           accessibilityLabel={
             hasConfirmedTarget
-              ? `Confirmed target: ${selectedCandidate?.displayName}, selected to ${action}`
+              ? `${selectedCandidate?.displayName}, selected to ${action}`
               : `Choose a VerusID to ${action}`
           }
           accessibilityRole="button"
@@ -497,12 +502,6 @@ const createFieldStyles = theme =>
       flex: 1,
       paddingRight: 12,
     },
-    confirmedTarget: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 16,
-    },
     confirmedTargetIcon: {
       width: 22,
       height: 22,
@@ -518,7 +517,12 @@ const createFieldStyles = theme =>
       ...fontStyle('semiBold'),
     },
     selectionContext: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
       marginBottom: 8,
+    },
+    selectionContextFallback: {
       color: theme.colors.textSecondary,
       fontSize: 14,
       lineHeight: 20,

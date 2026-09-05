@@ -171,6 +171,7 @@ export const RecoverIdentityFormRender = ({
         errorText={formError}
         isRecovery
         manualEntry={manualEntry}
+        networkName={networkName}
         onChangeText={updateIdentity}
         onChoose={onOpenIdentitySheet}
         onRetry={identityDiscovery.retry}
