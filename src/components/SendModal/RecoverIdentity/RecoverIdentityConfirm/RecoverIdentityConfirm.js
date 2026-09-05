@@ -13,6 +13,7 @@ import {deriveKeyPair} from '../../../../utils/keys';
 import {ELECTRUM} from '../../../../utils/constants/intervalConstants';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
+import {recoveryValues} from '../../../../containers/RevokeRecover/RecoveryValues';
 
 const RecoverIdentityConfirm = props => {
   const targetId = props.route.params.targetId;
@@ -83,6 +84,14 @@ const RecoverIdentityConfirm = props => {
         targetId,
         recoveryId,
         txid: result.result,
+        values: recoveryValues({
+          targetId,
+          primaryAddr,
+          privateAddr,
+          recoveryAddr,
+          revocationAddr,
+          friendlyNames,
+        }),
       });
     } catch (e) {
       setSubmitError(

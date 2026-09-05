@@ -32,7 +32,9 @@ export const AUTHORITY_IDENTITY_SEARCH_THRESHOLD = 6;
 const SKELETON_WIDTHS = ['52%', '68%', '44%', '61%'];
 
 const toSearchValue = candidate =>
-  `${candidate.displayName || ''} ${candidate.identityAddress || ''}`.toLowerCase();
+  `${candidate.displayName || ''} ${
+    candidate.identityAddress || ''
+  }`.toLowerCase();
 
 const getStatusMessage = (status, isRecovery) => {
   const action = isRecovery ? 'recover' : 'revoke';
@@ -72,8 +74,7 @@ const RevokeRecoverIdentityPickerSheet = ({
     status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY &&
     candidates.length > 0;
   const showSearch =
-    showCandidates &&
-    candidates.length > AUTHORITY_IDENTITY_SEARCH_THRESHOLD;
+    showCandidates && candidates.length > AUTHORITY_IDENTITY_SEARCH_THRESHOLD;
   const filteredCandidates = useMemo(() => {
     if (!showSearch) return candidates;
 
@@ -89,10 +90,8 @@ const RevokeRecoverIdentityPickerSheet = ({
     status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR ||
     status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.UNSUPPORTED;
   const candidateContentHeight = showCandidates
-    ? Math.min(
-        candidates.length,
-        AUTHORITY_IDENTITY_SEARCH_THRESHOLD + 1,
-      ) * SHEET_ROW_HEIGHT
+    ? Math.min(candidates.length, AUTHORITY_IDENTITY_SEARCH_THRESHOLD + 1) *
+      SHEET_ROW_HEIGHT
     : 0;
   const desiredSheetHeight = loading
     ? SHEET_PADDING_HEIGHT + SKELETON_WIDTHS.length * SHEET_ROW_HEIGHT
@@ -273,6 +272,7 @@ export const RevokeRecoverIdentityField = ({
   onSubmitEditing,
   selectedCandidate,
   value,
+  contextLabel,
 }) => {
   const theme = useAppTheme();
   const styles = useMemo(() => createFieldStyles(theme), [theme]);
@@ -338,7 +338,9 @@ export const RevokeRecoverIdentityField = ({
           style={styles.selectionField}
           testID="revokeRecover.identity.empty">
           <View style={styles.selectionCopy}>
-            <Text style={styles.selectionTitle}>No eligible VerusIDs found</Text>
+            <Text style={styles.selectionTitle}>
+              No eligible VerusIDs found
+            </Text>
             <Text style={styles.selectionBody}>
               {`This authority cannot ${action} any eligible identities.`}
             </Text>
@@ -350,7 +352,9 @@ export const RevokeRecoverIdentityField = ({
           onPress={onRetry}
           style={styles.chooseAvailable}
           testID="revokeRecover.identity.retryInline">
-          <Text style={styles.chooseAvailableText}>Try automatic lookup again</Text>
+          <Text style={styles.chooseAvailableText}>
+            Try automatic lookup again
+          </Text>
         </TouchableOpacity>
         {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
       </View>
@@ -359,7 +363,10 @@ export const RevokeRecoverIdentityField = ({
 
   const selectionCopy = (
     <View style={styles.selectionCopy}>
-      <Text numberOfLines={1} style={styles.selectionTitle}>
+      {contextLabel ? (
+        <Text style={styles.selectionBody}>{contextLabel}</Text>
+      ) : null}
+      <Text style={[styles.selectionTitle, theme.typography.titleSheet]}>
         {selectedCandidate?.displayName || 'Choose a VerusID'}
       </Text>
       <Text
@@ -467,12 +474,10 @@ const createFieldStyles = theme =>
       minHeight: 64,
       paddingHorizontal: 16,
       paddingVertical: 10,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.border,
       borderRadius: 16,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.colors.surfaceMuted,
     },
     selectionCopy: {
       minWidth: 0,

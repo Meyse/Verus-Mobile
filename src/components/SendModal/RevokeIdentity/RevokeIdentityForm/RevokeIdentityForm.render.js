@@ -1,8 +1,6 @@
 import React from 'react';
 import AppButton from '../../../AppButton';
-import RevokeRecoverFlowScaffold, {
-  RevokeRecoverStepCopy,
-} from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
+import RevokeRecoverFlowScaffold from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
 import RevokeRecoverIdentityPickerSheet, {
   RevokeRecoverIdentityField,
 } from '../../../../containers/RevokeRecover/RevokeRecoverIdentityPickerSheet';
@@ -33,13 +31,13 @@ export const RevokeIdentityFormRender = ({
       <RevokeRecoverFlowScaffold
         backDisabled
         contentContainerStyle={{flexGrow: 1}}
-        headerTitle="Revoke VerusID"
+        headerTitle="Checking VerusID"
+        showBack={false}
         keyboardAvoiding={false}
         onBack={onBack}
         progress={0.68}>
         <RevokeRecoverLoadingState
           body="Verifying the identity, its revocation authority, and the imported signing key."
-          title="Checking the VerusID"
         />
       </RevokeRecoverFlowScaffold>
     );
@@ -55,7 +53,7 @@ export const RevokeIdentityFormRender = ({
           Review revocation
         </AppButton>
       }
-      headerTitle="Revoke VerusID"
+      headerTitle="Revocation details"
       onBack={onBack}
       overlay={
         <RevokeRecoverIdentityPickerSheet
@@ -72,12 +70,8 @@ export const RevokeIdentityFormRender = ({
       }
       overlayVisible={identitySheetVisible}
       progress={0.68}>
-      <RevokeRecoverStepCopy
-        body={`Enter the active identity on ${networkName}. Its revocation authority must match the key you imported.`}
-        title="Choose the VerusID"
-      />
-
       <RevokeRecoverIdentityField
+        contextLabel={`Revoking on ${networkName}`}
         candidateCount={identityDiscovery.candidates.length}
         discoveryStatus={identityDiscovery.status}
         errorText={formError}

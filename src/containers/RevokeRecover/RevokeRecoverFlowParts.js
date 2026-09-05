@@ -1,6 +1,7 @@
 import React from 'react';
-import {Text, View} from 'react-native';
-import {ActivityIndicator, Switch} from 'react-native-paper';
+import {Text, TouchableOpacity, View} from 'react-native';
+import {ActivityIndicator} from 'react-native-paper';
+import {Check, Square} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {revokeRecoverFlowStyles as styles} from '../../styles';
 import {useAppTheme} from '../../theme/app';
@@ -46,14 +47,16 @@ export const RevokeRecoverLoadingState = ({body, title}) => {
           size="large"
         />
       </View>
-      <Text
-        style={[
-          theme.typography.headlineMd,
-          styles.loadingTitle,
-          {color: theme.colors.textPrimary},
-        ]}>
-        {title}
-      </Text>
+      {title ? (
+        <Text
+          style={[
+            theme.typography.headlineMd,
+            styles.loadingTitle,
+            {color: theme.colors.textPrimary},
+          ]}>
+          {title}
+        </Text>
+      ) : null}
       <Text
         style={[
           theme.typography.bodyMd,
@@ -83,15 +86,10 @@ export const RevokeRecoverReviewGroup = ({children, title}) => {
 
 export const RevokeRecoverReviewRow = ({
   label,
-  multiline = false,
   technical = false,
   value,
 }) => {
   const theme = useAppTheme();
-  let numberOfLines = 1;
-
-  if (technical) numberOfLines = 2;
-  if (multiline) numberOfLines = undefined;
 
   if (value == null || value === '') return null;
 
@@ -101,7 +99,6 @@ export const RevokeRecoverReviewRow = ({
         {label}
       </Text>
       <Text
-        numberOfLines={numberOfLines}
         selectable={technical}
         style={[
           styles.reviewValue,
@@ -118,7 +115,17 @@ export const RevokeRecoverAcknowledgement = ({label, onValueChange, value}) => {
   const theme = useAppTheme();
 
   return (
-    <View style={styles.acknowledgement}>
+    <TouchableOpacity
+      accessibilityRole="checkbox"
+      accessibilityLabel={label}
+      accessibilityState={{checked: value}}
+      onPress={() => onValueChange(!value)}
+      style={styles.acknowledgement}>
+      {value ? (
+        <Check size={24} color={theme.colors.primary} />
+      ) : (
+        <Square size={24} color={theme.colors.textSubtle} />
+      )}
       <Text
         style={[
           styles.acknowledgementCopy,
@@ -126,12 +133,6 @@ export const RevokeRecoverAcknowledgement = ({label, onValueChange, value}) => {
         ]}>
         {label}
       </Text>
-      <Switch
-        accessibilityLabel={label}
-        color={theme.colors.primary}
-        onValueChange={onValueChange}
-        value={value}
-      />
-    </View>
+    </TouchableOpacity>
   );
 };

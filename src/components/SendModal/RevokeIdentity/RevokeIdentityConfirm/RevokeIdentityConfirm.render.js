@@ -7,16 +7,13 @@ import {
   RevokeRecoverAcknowledgement,
   RevokeRecoverLoadingState,
   RevokeRecoverNotice,
-  RevokeRecoverReviewGroup,
-  RevokeRecoverReviewRow,
 } from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
+import {
+  IdentityContext,
+  RecoveryValue,
+  identityName,
+} from '../../../../containers/RevokeRecover/RecoveryValues';
 import {useAppTheme} from '../../../../theme/app';
-import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
-
-const getIdentityName = identityResult =>
-  identityResult?.fullyqualifiedname
-    ? convertFqnToDisplayFormat(identityResult.fullyqualifiedname)
-    : identityResult?.identity?.identityaddress;
 
 export const RevokeIdentityConfirmRender = ({
   acknowledged,
@@ -30,26 +27,23 @@ export const RevokeIdentityConfirmRender = ({
   targetId,
 }) => {
   const theme = useAppTheme();
-
-  if (loading) {
+  if (loading)
     return (
       <RevokeRecoverFlowScaffold
         backDisabled
-        contentContainerStyle={{flexGrow: 1}}
-        headerTitle="Revoke VerusID"
-        keyboardAvoiding={false}
-        onBack={goBack}
-        progress={0.88}>
-        <RevokeRecoverLoadingState
-          body="Keep Verus Mobile open while the signed transaction is submitted to the network."
-          title="Submitting revocation"
-        />
+        showBack={false}
+        showProgress={false}
+        headerTitle="Submitting revocation"
+        keyboardAvoiding={false}>
+        <RevokeRecoverLoadingState body="Keep Verus Mobile open while the transaction is submitted." />
       </RevokeRecoverFlowScaffold>
     );
-  }
 
   return (
     <RevokeRecoverFlowScaffold
+      headerTitle="Review revocation"
+      onBack={goBack}
+      progress={0.85}
       actions={
         <>
           <RevokeRecoverAcknowledgement
@@ -65,41 +59,23 @@ export const RevokeIdentityConfirmRender = ({
             Submit revocation
           </AppButton>
         </>
-      }
-      headerTitle="Revoke VerusID"
-      onBack={goBack}
-      progress={0.85}>
-      <RevokeRecoverStepCopy
-        body="Confirm the identity, blockchain, and authority before signing."
-        title="Review revocation"
+      }>
+      <IdentityContext
+        name={identityName(targetId)}
+        networkName={networkName}
+        status="Active → Revoked"
       />
-
-      <RevokeRecoverNotice tone="danger">
-        This disables the VerusID on {networkName}. It cannot be used again
-        until its recovery authority submits a successful recovery.
-      </RevokeRecoverNotice>
-
-      <RevokeRecoverReviewGroup title="On-chain change">
-        <RevokeRecoverReviewRow
-          label="VerusID"
-          multiline
-          value={getIdentityName(targetId)}
-        />
-        <RevokeRecoverReviewRow label="Blockchain" value={networkName} />
-        <RevokeRecoverReviewRow label="Current status" value="Active" />
-        <RevokeRecoverReviewRow label="New status" value="Revoked" />
-        <RevokeRecoverReviewRow
-          label="Revocation authority"
-          multiline
-          value={getIdentityName(revocationId)}
-        />
-        <RevokeRecoverReviewRow
-          label="Identity address"
-          technical
-          value={targetId?.identity?.identityaddress}
-        />
-      </RevokeRecoverReviewGroup>
-
+      <RevokeRecoverStepCopy body="This disables the VerusID until its recovery authority restores it. Check the identity before signing." />
+      <RecoveryValue
+        label="Revocation authority"
+        value={identityName(revocationId)}
+      />
+      <RevokeRecoverStepCopy />
+      <RecoveryValue
+        label="Identity address"
+        value={targetId?.identity?.identityaddress}
+        technical
+      />
       {submitError ? (
         <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>
       ) : null}

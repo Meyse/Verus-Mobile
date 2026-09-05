@@ -13,6 +13,9 @@ import OnboardingBackButton from './OnboardingBackButton';
 
 const ProgressHeader = ({
   backDisabled = false,
+  borderless = false,
+  showBack = true,
+  showProgress = true,
   onBack,
   progress = 0.25,
   title,
@@ -72,6 +75,7 @@ const ProgressHeader = ({
     <View
       style={[
         styles.container,
+        borderless && {borderBottomWidth: 0},
         {
           paddingTop: insets.top + 16,
           paddingLeft: insets.left + 24,
@@ -81,11 +85,15 @@ const ProgressHeader = ({
         },
       ]}>
       <View style={styles.actionRow}>
-        <OnboardingBackButton
-          disabled={backDisabled}
-          onPress={onBack}
-          style={styles.backButtonOffset}
-        />
+        {showBack ? (
+          <OnboardingBackButton
+            disabled={backDisabled}
+            onPress={onBack}
+            style={styles.backButtonOffset}
+          />
+        ) : (
+          <View style={styles.actionPlaceholder} />
+        )}
         {title ? (
           <>
             <Text
@@ -102,28 +110,30 @@ const ProgressHeader = ({
           </>
         ) : null}
       </View>
-      <View
-        accessibilityLabel={`${Math.round(clampedProgress * 100)}% complete`}
-        accessibilityRole="progressbar"
-        accessibilityValue={{
-          min: 0,
-          max: 100,
-          now: Math.round(clampedProgress * 100),
-        }}
-        style={[
-          styles.progressTrack,
-          {backgroundColor: theme.colors.surfaceMuted},
-        ]}>
-        <Animated.View
+      {showProgress ? (
+        <View
+          accessibilityLabel={`${Math.round(clampedProgress * 100)}% complete`}
+          accessibilityRole="progressbar"
+          accessibilityValue={{
+            min: 0,
+            max: 100,
+            now: Math.round(clampedProgress * 100),
+          }}
           style={[
-            styles.progressFill,
-            {
-              width: progressWidth,
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        />
-      </View>
+            styles.progressTrack,
+            {backgroundColor: theme.colors.surfaceMuted},
+          ]}>
+          <Animated.View
+            style={[
+              styles.progressFill,
+              {
+                width: progressWidth,
+                backgroundColor: theme.colors.primary,
+              },
+            ]}
+          />
+        </View>
+      ) : null}
     </View>
   );
 };

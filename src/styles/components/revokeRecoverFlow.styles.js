@@ -13,8 +13,8 @@ export default StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingTop: 24,
-    paddingBottom: 56,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
   scrollContentCompact: {
     paddingTop: 16,
@@ -39,7 +39,6 @@ export default StyleSheet.create({
     minHeight: 86,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
@@ -107,7 +106,6 @@ export default StyleSheet.create({
     minHeight: 64,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -205,9 +203,6 @@ export default StyleSheet.create({
   },
   reviewGroup: {
     marginBottom: 18,
-    paddingHorizontal: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
   },
   reviewHeading: {
     paddingTop: 15,
@@ -219,21 +214,15 @@ export default StyleSheet.create({
   reviewRow: {
     minHeight: 48,
     paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 5,
   },
   reviewLabel: {
     minWidth: 0,
-    flex: 1,
-    paddingRight: 12,
     fontSize: 13,
     lineHeight: 19,
     ...fontStyle('regular'),
   },
   reviewValue: {
-    maxWidth: '64%',
-    textAlign: 'right',
     fontSize: 13,
     lineHeight: 19,
     ...fontStyle('semiBold'),
@@ -243,7 +232,7 @@ export default StyleSheet.create({
     fontWeight: '500',
   },
   acknowledgement: {
-    minHeight: 72,
+    minHeight: 56,
     marginTop: 2,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -252,7 +241,7 @@ export default StyleSheet.create({
   acknowledgementCopy: {
     minWidth: 0,
     flex: 1,
-    paddingRight: 16,
+    paddingLeft: 12,
     fontSize: 13,
     lineHeight: 19,
     ...fontStyle('regular'),

@@ -38,6 +38,7 @@ const RecoverIdentityResult = props => {
 
   return RecoverIdentityResultRender({
     targetId,
+    values: props.route.params?.values,
     networkObj,
     finishSend,
     txid,

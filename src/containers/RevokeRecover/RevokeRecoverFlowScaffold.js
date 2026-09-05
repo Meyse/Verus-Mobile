@@ -12,14 +12,16 @@ export const RevokeRecoverStepCopy = ({body, compact = false, title}) => {
 
   return (
     <View style={[styles.stepCopy, compact && styles.stepCopyCompact]}>
-      <Text
-        accessibilityRole="header"
-        style={[
-          theme.typography.headlineMd,
-          {color: theme.colors.textPrimary},
-        ]}>
-        {title}
-      </Text>
+      {title ? (
+        <Text
+          accessibilityRole="header"
+          style={[
+            theme.typography.headlineMd,
+            {color: theme.colors.textPrimary},
+          ]}>
+          {title}
+        </Text>
+      ) : null}
       {body ? (
         <Text
           style={[
@@ -45,6 +47,8 @@ const RevokeRecoverFlowScaffold = ({
   overlay,
   overlayVisible = false,
   progress,
+  showProgress = true,
+  showBack = true,
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
@@ -62,6 +66,9 @@ const RevokeRecoverFlowScaffold = ({
         }
         style={styles.content}>
         <ProgressHeader
+          borderless
+          showBack={showBack}
+          showProgress={showProgress}
           backDisabled={backDisabled}
           onBack={onBack}
           progress={progress}

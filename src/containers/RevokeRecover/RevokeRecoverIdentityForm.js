@@ -130,18 +130,13 @@ const RevokeRecoverIdentityForm = ({
           loading={loading}
           onPress={continueFlow}
           testID="revokeRecover.network.continue">
-          {loading
-            ? 'Preparing secure session...'
-            : `Continue to ${isRecovery ? 'recovery' : 'revocation'}`}
+          {loading ? 'Preparing secure session...' : 'Continue'}
         </AppButton>
       }
-      headerTitle={isRecovery ? 'Recover VerusID' : 'Revoke VerusID'}
+      headerTitle="Choose blockchain"
       onBack={() => navigation.goBack()}
       progress={0.5}>
-      <RevokeRecoverStepCopy
-        body={`Choose where the VerusID exists. The imported authority key will be checked against this blockchain before a transaction can be reviewed.`}
-        title="Choose the blockchain"
-      />
+      <RevokeRecoverStepCopy body="Choose the blockchain where this VerusID exists." />
 
       <View accessibilityRole="radiogroup" style={styles.networkList}>
         {systems.map(system => {
@@ -188,7 +183,7 @@ const RevokeRecoverIdentityForm = ({
                 color={
                   selected ? theme.colors.primary : theme.colors.textSubtle
                 }
-                name={selected ? 'check-circle' : 'circle-outline'}
+                name={selected ? 'radiobox-marked' : 'radiobox-blank'}
                 size={23}
               />
             </TouchableOpacity>
@@ -214,21 +209,13 @@ const RevokeRecoverIdentityForm = ({
         </View>
       ) : null}
 
-      <View
+      <Text
         style={[
-          styles.notice,
-          {backgroundColor: theme.colors.warningBackground},
+          theme.typography.caption,
+          {color: theme.colors.textSecondary, marginTop: 24},
         ]}>
-        <MaterialCommunityIcons
-          color={theme.colors.warning}
-          name="source-branch"
-          size={21}
-        />
-        <Text style={[styles.noticeCopy, {color: theme.colors.textSecondary}]}>
-          An identity exported to another blockchain must be revoked or
-          recovered separately on each chain.
-        </Text>
-      </View>
+        Exported identities need a separate action on each blockchain.
+      </Text>
     </RevokeRecoverFlowScaffold>
   );
 };

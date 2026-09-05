@@ -1,27 +1,21 @@
 import React, {useState} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AppButton from '../../components/AppButton';
-import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
+import {Check, ChevronRight} from 'lucide-react-native';
 import {revokeRecoverFlowStyles as styles} from '../../styles';
 import {useAppTheme} from '../../theme/app';
-import RevokeRecoverFlowScaffold, {
-  RevokeRecoverStepCopy,
-} from './RevokeRecoverFlowScaffold';
+import RevokeRecoverFlowScaffold from './RevokeRecoverFlowScaffold';
 import RevokeRecoverAuthoritySheet from './RevokeRecoverAuthoritySheet';
 
 const ACTIONS = [
   {
     key: 'revoke',
     title: 'Revoke a VerusID',
-    body: 'Disable an active identity after its keys may have been lost or compromised.',
-    icon: 'shield-off-outline',
+    body: 'Disable an active identity',
   },
   {
     key: 'recover',
     title: 'Recover a VerusID',
-    body: 'Restore a revoked identity and assign a new primary address.',
-    icon: 'shield-refresh-outline',
+    body: 'Restore a revoked identity',
   },
 ];
 
@@ -32,136 +26,74 @@ const RevokeRecoverSlider = ({
   setIsRecovery,
 }) => {
   const theme = useAppTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const [selection, setSelection] = useState(null);
   const [authoritySheetVisible, setAuthoritySheetVisible] = useState(false);
-  const selectedAction = ACTIONS.find(action => action.key === selection);
-
-  const continueFlow = () => {
-    if (!selectedAction) return;
-
+  const chooseAction = key => {
+    setSelection(key);
     setImportedSeed(null);
-    setIsRecovery(selectedAction.key === 'recover');
+    setIsRecovery(key === 'recover');
     setAuthoritySheetVisible(true);
   };
 
   return (
     <RevokeRecoverFlowScaffold
-      actions={
-        <AppButton
-          disabled={!selectedAction}
-          onPress={continueFlow}
-          testID="revokeRecover.action.continue">
-          {selectedAction
-            ? `Continue to ${selectedAction.key}`
-            : 'Choose an action'}
-        </AppButton>
-      }
-      headerTitle="VerusID safety"
+      headerTitle="Choose action"
       onBack={() => navigation.goBack()}
-      contentContainerStyle={
-        smallDevice ? styles.scrollContentCompact : undefined
-      }
-      progress={0.15}>
-      <RevokeRecoverStepCopy
-        body="Choose the safeguard you need. Nothing is submitted until you review and confirm the on-chain change."
-        compact={smallDevice}
-        title="Protect or restore a VerusID"
-      />
-
-      <View accessibilityRole="radiogroup" style={styles.choiceGroup}>
+      progress={0.15}
+      overlayVisible={authoritySheetVisible}
+      overlay={
+        <RevokeRecoverAuthoritySheet
+          isRecovery={selection === 'recover'}
+          onClose={() => setAuthoritySheetVisible(false)}
+          onSelectMethod={onSelectImportMethod}
+          visible={authoritySheetVisible}
+        />
+      }>
+      <View style={styles.choiceGroup}>
         {ACTIONS.map(action => {
           const selected = selection === action.key;
-
+          const Icon = selected ? Check : ChevronRight;
           return (
             <TouchableOpacity
-              accessibilityRole="radio"
-              accessibilityState={{checked: selected}}
-              activeOpacity={0.76}
               key={action.key}
-              onPress={() => setSelection(action.key)}
+              accessibilityRole="button"
+              accessibilityState={{selected}}
+              onPress={() => chooseAction(action.key)}
               style={[
                 styles.choiceRow,
-                smallDevice && styles.choiceRowCompact,
                 {
                   backgroundColor: selected
                     ? theme.colors.surfaceMuted
                     : theme.colors.background,
-                  borderColor: selected
-                    ? theme.colors.primary
-                    : theme.colors.border,
                 },
               ]}
               testID={`revokeRecover.action.${action.key}`}>
-              <View
-                style={[
-                  styles.choiceIcon,
-                  smallDevice && styles.choiceIconCompact,
-                  {
-                    backgroundColor: selected
-                      ? theme.colors.primary
-                      : theme.colors.surfaceMuted,
-                  },
-                ]}>
-                <MaterialCommunityIcons
-                  color={
-                    selected
-                      ? theme.colors.onPrimary
-                      : theme.colors.textSecondary
-                  }
-                  name={action.icon}
-                  size={23}
-                />
-              </View>
               <View style={styles.choiceCopy}>
                 <Text
                   style={[
-                    styles.choiceTitle,
+                    theme.typography.bodyMd,
                     {color: theme.colors.textPrimary},
                   ]}>
                   {action.title}
                 </Text>
                 <Text
                   style={[
-                    styles.choiceBody,
+                    theme.typography.caption,
                     {color: theme.colors.textSecondary},
                   ]}>
                   {action.body}
                 </Text>
               </View>
-              <MaterialCommunityIcons
+              <Icon
+                size={22}
                 color={
                   selected ? theme.colors.primary : theme.colors.textSubtle
                 }
-                name={selected ? 'check-circle' : 'circle-outline'}
-                size={23}
               />
             </TouchableOpacity>
           );
         })}
       </View>
-
-      <View
-        style={[
-          styles.notice,
-          smallDevice && styles.noticeCompact,
-          {backgroundColor: theme.colors.warningBackground},
-        ]}>
-        <MaterialCommunityIcons
-          color={theme.colors.warning}
-          name="key-outline"
-          size={21}
-        />
-        <Text style={[styles.noticeCopy, {color: theme.colors.textSecondary}]}>
-          You will need the revocation or recovery authority’s secret or private
-          key. It stays on this device and only signs this action.
-        </Text>
-      </View>
-      <RevokeRecoverAuthoritySheet
-        onClose={() => setAuthoritySheetVisible(false)}
-        onSelectMethod={onSelectImportMethod}
-        visible={authoritySheetVisible}
-      />
     </RevokeRecoverFlowScaffold>
   );
 };

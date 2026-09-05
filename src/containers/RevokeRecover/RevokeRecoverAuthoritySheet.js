@@ -1,5 +1,5 @@
 import React, {useMemo, useRef} from 'react';
-import {View} from 'react-native';
+import {ScrollView, Text} from 'react-native';
 import {
   ArrowDownToLine,
   KeyRound,
@@ -41,6 +41,7 @@ const AUTHORITY_IMPORT_ACTIONS = [
 
 const RevokeRecoverAuthoritySheet = ({
   visible,
+  isRecovery,
   onClose,
   onSelectMethod,
 }) => {
@@ -68,7 +69,21 @@ const RevokeRecoverAuthoritySheet = ({
       onClose={onClose}
       onClosed={handleClosed}
       visible={visible}>
-      <View style={[styles.body, styles.bodyShort]}>
+      <ScrollView
+        style={{flexShrink: 1}}
+        contentContainerStyle={[styles.body, styles.bodyShort]}>
+        <Text accessibilityRole="header" style={styles.title}>
+          {isRecovery
+            ? 'Import recovery authority'
+            : 'Import revocation authority'}
+        </Text>
+        <Text
+          style={[
+            theme.typography.caption,
+            {color: theme.colors.textSecondary, marginBottom: 16},
+          ]}>
+          Choose how to import the authority’s secret or private key.
+        </Text>
         {AUTHORITY_IMPORT_ACTIONS.map(action => (
           <SignedOutActionRow
             key={action.method}
@@ -78,7 +93,14 @@ const RevokeRecoverAuthoritySheet = ({
             testID={action.testID}
           />
         ))}
-      </View>
+        <Text
+          style={[
+            theme.typography.caption,
+            {color: theme.colors.textSecondary, marginTop: 16},
+          ]}>
+          Your key stays on this device and only signs this action.
+        </Text>
+      </ScrollView>
     </BottomSheetModal>
   );
 };

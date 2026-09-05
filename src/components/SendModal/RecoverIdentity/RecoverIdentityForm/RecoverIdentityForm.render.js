@@ -1,19 +1,14 @@
-import React from 'react';
-import {Text, View} from 'react-native';
-import {Switch} from 'react-native-paper';
+import React, {useState} from 'react';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {ChevronDown, ChevronUp} from 'lucide-react-native';
 import AppButton from '../../../AppButton';
-import AppTextInput from '../../../AppTextInput';
 import BarcodeReader from '../../../BarcodeReader/BarcodeReader';
-import RevokeRecoverFlowScaffold, {
-  RevokeRecoverStepCopy,
-} from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
+import RevokeRecoverFlowScaffold from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
 import RevokeRecoverIdentityPickerSheet, {
   RevokeRecoverIdentityField,
 } from '../../../../containers/RevokeRecover/RevokeRecoverIdentityPickerSheet';
-import {
-  RevokeRecoverLoadingState,
-  RevokeRecoverNotice,
-} from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
+import {RevokeRecoverLoadingState} from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
+import RecoveryChangeSheet from '../../../../containers/RevokeRecover/RecoveryChangeSheet';
 import {revokeRecoverFlowStyles as styles} from '../../../../styles';
 import {useAppTheme} from '../../../../theme/app';
 import {
@@ -25,6 +20,11 @@ import {
   SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS,
   SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY,
 } from '../../../../utils/constants/sendModal';
+
+const shortAddress = value =>
+  value && value.length > 24
+    ? `${value.slice(0, 10)}…${value.slice(-8)}`
+    : value;
 
 export const RecoverIdentityFormRender = ({
   chooseCandidate,
@@ -43,15 +43,44 @@ export const RecoverIdentityFormRender = ({
   selectedCandidate,
   sendModalData,
   submitData,
-  toggleEditRevocationRecovery,
-  toggleEditZAddr,
   toggleScanner,
   updateIdentity,
-  updateSendFormData,
+  currentIdentity,
+  editSheet,
+  editSheetVisible,
+  editOptions,
+  draft = {},
+  editError,
+  openEditSheet,
+  onCloseEditSheet,
+  onEditClosed,
+  onEditChange,
+  onSaveEdit,
+  onResetEdit,
 }) => {
   const theme = useAppTheme();
+  const [advanced, setAdvanced] = useState(
+    () => !!(sendModalData[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] ||
+      sendModalData[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS]),
+  );
+  const changeAuthorities =
+    sendModalData[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] === true;
+  const changePrivateAddress =
+    sendModalData[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS] === true;
+  const primary = sendModalData[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD];
+  const zAddress = changePrivateAddress
+    ? sendModalData[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD]
+    : currentIdentity?.privateaddress;
+  const recovery =
+    (changeAuthorities &&
+      sendModalData[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD]) ||
+    currentIdentity?.recoveryauthority;
+  const revocation =
+    (changeAuthorities &&
+      sendModalData[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD]) ||
+    currentIdentity?.revocationauthority;
 
-  if (scannerOpen) {
+  if (scannerOpen)
     return (
       <View style={styles.scannerRoot}>
         <BarcodeReader
@@ -63,34 +92,23 @@ export const RecoverIdentityFormRender = ({
               Cancel scan
             </AppButton>
           )}
-          onScan={codes => handleScan(codes)}
+          onScan={handleScan}
           prompt="Scan a Verus address"
         />
       </View>
     );
-  }
 
-  if (loading) {
+  if (loading)
     return (
       <RevokeRecoverFlowScaffold
         backDisabled
-        contentContainerStyle={{flexGrow: 1}}
-        headerTitle="Recover VerusID"
+        showBack={false}
+        headerTitle="Checking recovery"
         keyboardAvoiding={false}
-        onBack={onBack}
         progress={0.68}>
-        <RevokeRecoverLoadingState
-          body="Verifying the revoked identity, its recovery authority, the new addresses, and the imported signing key."
-          title="Checking the recovery"
-        />
+        <RevokeRecoverLoadingState body="Checking the identity, authority, and addresses." />
       </RevokeRecoverFlowScaffold>
     );
-  }
-
-  const changeAuthorities =
-    sendModalData[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] === true;
-  const changePrivateAddress =
-    sendModalData[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS] === true;
 
   return (
     <RevokeRecoverFlowScaffold
@@ -104,160 +122,175 @@ export const RecoverIdentityFormRender = ({
           Review recovery
         </AppButton>
       }
-      headerTitle="Recover VerusID"
+      headerTitle="Recovery details"
       onBack={onBack}
+      progress={0.68}
+      overlayVisible={identitySheetVisible || !!editSheet}
       overlay={
-        <RevokeRecoverIdentityPickerSheet
-          candidates={identityDiscovery.candidates}
-          isRecovery
-          onClose={onCloseIdentitySheet}
-          onManualEntry={chooseManualEntry}
-          onRetry={identityDiscovery.retry}
-          onSelect={chooseCandidate}
-          selectedIdentityAddress={selectedCandidate?.identityAddress}
-          status={identityDiscovery.status}
-          visible={identitySheetVisible}
-        />
-      }
-      overlayVisible={identitySheetVisible}
-      progress={0.68}>
-      <RevokeRecoverStepCopy
-        body={`Enter the revoked identity on ${networkName}, then choose the addresses it should use after recovery.`}
-        title="Set the recovered identity"
-      />
-
-      <View style={styles.fieldGroup}>
-        <RevokeRecoverIdentityField
-          candidateCount={identityDiscovery.candidates.length}
-          discoveryStatus={identityDiscovery.status}
-          errorText={formError}
-          isRecovery
-          manualEntry={manualEntry}
-          onChangeText={updateIdentity}
-          onChoose={onOpenIdentitySheet}
-          onRetry={identityDiscovery.retry}
-          selectedCandidate={selectedCandidate}
-          value={sendModalData[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD] || ''}
-        />
-        <AppTextInput
-          helperText="Leave empty only if the existing primary address should remain."
-          label="New primary R-address"
-          onChangeText={text =>
-            updateSendFormData(SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD, text)
-          }
-          onRightPress={() =>
-            toggleScanner(SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD)
-          }
-          placeholder="R..."
-          returnKeyType="done"
-          rightAccessibilityLabel="Scan new primary address"
-          rightIcon="qrcode-scan"
-          testID="revokeRecover.recovery.primaryAddress"
-          value={sendModalData[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD] || ''}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
-          Advanced changes
-        </Text>
-        <Text style={[styles.sectionBody, {color: theme.colors.textSecondary}]}>
-          Keep these off unless the recovered identity needs new authorities or
-          a new private address.
-        </Text>
-
-        <View style={[styles.switchRow, {borderTopColor: theme.colors.border}]}>
-          <View style={styles.switchCopy}>
-            <Text
-              style={[styles.switchTitle, {color: theme.colors.textPrimary}]}>
-              Change recovery and revocation authorities
-            </Text>
-            <Text
-              style={[styles.switchBody, {color: theme.colors.textSecondary}]}>
-              Replace the identities allowed to protect this VerusID.
-            </Text>
-          </View>
-          <Switch
-            accessibilityLabel="Change recovery and revocation authorities"
-            color={theme.colors.primary}
-            onValueChange={toggleEditRevocationRecovery}
-            value={changeAuthorities}
+        <>
+          <RevokeRecoverIdentityPickerSheet
+            candidates={identityDiscovery.candidates}
+            isRecovery
+            onClose={onCloseIdentitySheet}
+            onManualEntry={chooseManualEntry}
+            onRetry={identityDiscovery.retry}
+            onSelect={chooseCandidate}
+            selectedIdentityAddress={selectedCandidate?.identityAddress}
+            status={identityDiscovery.status}
+            visible={identitySheetVisible}
           />
-        </View>
-
-        {changeAuthorities ? (
-          <View style={styles.fieldGroup}>
-            <AppTextInput
-              label="New recovery VerusID"
-              onChangeText={text =>
-                updateSendFormData(SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD, text)
-              }
-              placeholder="name@ or i..."
-              value={
-                sendModalData[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD] || ''
-              }
-            />
-            <AppTextInput
-              label="New revocation VerusID"
-              onChangeText={text =>
-                updateSendFormData(
-                  SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD,
-                  text,
-                )
-              }
-              placeholder="name@ or i..."
-              value={
-                sendModalData[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD] || ''
-              }
-            />
-          </View>
-        ) : null}
-
-        <View style={[styles.switchRow, {borderTopColor: theme.colors.border}]}>
-          <View style={styles.switchCopy}>
-            <Text
-              style={[styles.switchTitle, {color: theme.colors.textPrimary}]}>
-              Change private address
-            </Text>
-            <Text
-              style={[styles.switchBody, {color: theme.colors.textSecondary}]}>
-              Replace the identity’s private z-address metadata.
-            </Text>
-          </View>
-          <Switch
-            accessibilityLabel="Change private address"
-            color={theme.colors.primary}
-            onValueChange={toggleEditZAddr}
-            value={changePrivateAddress}
-          />
-        </View>
-
-        {changePrivateAddress ? (
-          <AppTextInput
-            label="New private z-address"
-            onChangeText={text =>
-              updateSendFormData(
-                SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD,
-                text,
+          <RecoveryChangeSheet
+            type={editSheet}
+            visible={editSheetVisible}
+            hasZAddress={editOptions.hasZAddress}
+            current={currentIdentity}
+            draft={draft}
+            error={editError}
+            onChange={onEditChange}
+            onClose={onCloseEditSheet}
+            onClosed={onEditClosed}
+            onSave={onSaveEdit}
+            onReset={editOptions.canReset ? onResetEdit : undefined}
+            onScan={() =>
+              toggleScanner(
+                editSheet === 'primary'
+                  ? SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD
+                  : SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD,
               )
             }
-            onRightPress={() =>
-              toggleScanner(SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD)
-            }
-            placeholder="zs..."
-            rightAccessibilityLabel="Scan new private address"
-            rightIcon="qrcode-scan"
-            value={
-              sendModalData[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD] || ''
-            }
           />
-        ) : null}
+        </>
+      }>
+      <RevokeRecoverIdentityField
+        candidateCount={identityDiscovery.candidates.length}
+        discoveryStatus={identityDiscovery.status}
+        contextLabel={`Recovering on ${networkName}`}
+        errorText={formError}
+        isRecovery
+        manualEntry={manualEntry}
+        onChangeText={updateIdentity}
+        onChoose={onOpenIdentitySheet}
+        onRetry={identityDiscovery.retry}
+        selectedCandidate={selectedCandidate}
+        value={sendModalData[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD] || ''}
+      />
+      <View style={localStyles.primary}>
+        <EditRow
+          title="Primary R-address"
+          value={
+            primary
+              ? `New · ${shortAddress(primary)}`
+              : currentIdentity?.primaryaddresses?.length
+              ? `Current · ${currentIdentity.primaryaddresses
+                  .map(shortAddress)
+                  .join(', ')}`
+              : 'Current address will be kept'
+          }
+          onPress={() => openEditSheet('primary')}
+          testID="revokeRecover.primary.change"
+        />
       </View>
-
-      <RevokeRecoverNotice>
-        Recovery changes identity control. Check the new primary address and any
-        advanced changes carefully before submitting.
-      </RevokeRecoverNotice>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{expanded: advanced}}
+        onPress={() => setAdvanced(!advanced)}
+        style={localStyles.row}
+        testID="revokeRecover.advanced">
+        <View style={localStyles.copy}>
+          <Text
+            style={[
+              theme.typography.bodyMd,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Advanced changes
+          </Text>
+          <Text
+            style={[
+              theme.typography.caption,
+              {color: theme.colors.textSecondary},
+            ]}>
+            Authorities and Z-address
+          </Text>
+        </View>
+        {advanced ? (
+          <ChevronUp color={theme.colors.textSubtle} size={22} />
+        ) : (
+          <ChevronDown color={theme.colors.textSubtle} size={22} />
+        )}
+      </TouchableOpacity>
+      {advanced ? (
+        <>
+          <EditRow
+            title="Authorities"
+            value={
+              changeAuthorities
+                ? `Recovery · ${
+                    recovery || 'Current authority'
+                  }\nRevocation · ${revocation || 'Current authority'}`
+                : 'Recovery and revocation authorities'
+            }
+            onPress={() => openEditSheet('authorities')}
+            testID="revokeRecover.authorities.change"
+          />
+          <EditRow
+            title="Z-address"
+            value={
+              shortAddress(zAddress) ||
+              (currentIdentity ? 'Not set' : 'Current value not loaded')
+            }
+            action={zAddress ? 'Change' : currentIdentity ? 'Add' : 'Change'}
+            onPress={() => openEditSheet('zAddress')}
+            testID="revokeRecover.zAddress.change"
+          />
+        </>
+      ) : null}
     </RevokeRecoverFlowScaffold>
   );
 };
+
+const EditRow = ({title, value, action = 'Change', onPress, testID}) => {
+  const theme = useAppTheme();
+  return (
+    <View style={localStyles.row}>
+      <View style={localStyles.copy}>
+        <Text
+          style={[theme.typography.bodyMd, {color: theme.colors.textPrimary}]}>
+          {title}
+        </Text>
+        <Text
+          style={[
+            theme.typography.caption,
+            {color: theme.colors.textSecondary},
+          ]}>
+          {value}
+        </Text>
+      </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`${action} ${title}`}
+        onPress={onPress}
+        testID={testID}
+        style={localStyles.action}>
+        <Text style={[theme.typography.labelMd, {color: theme.colors.primary}]}>
+          {action}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+const localStyles = StyleSheet.create({
+  primary: {marginTop: 24, marginBottom: 12},
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 68,
+    paddingVertical: 12,
+  },
+  copy: {flex: 1, minWidth: 0, gap: 3, paddingRight: 14},
+  action: {
+    minWidth: 62,
+    minHeight: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+});

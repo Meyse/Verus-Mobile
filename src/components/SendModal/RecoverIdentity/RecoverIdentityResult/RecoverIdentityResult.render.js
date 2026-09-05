@@ -1,7 +1,7 @@
 import React from 'react';
 import RevokeRecoverSubmittedResult from '../../../../containers/RevokeRecover/RevokeRecoverSubmittedResult';
 import {explorers} from '../../../../utils/CoinData/CoinData';
-import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
+import {identityName} from '../../../../containers/RevokeRecover/RecoveryValues';
 
 export const RecoverIdentityResultRender = ({
   finishSend,
@@ -9,10 +9,12 @@ export const RecoverIdentityResultRender = ({
   openExplorer,
   targetId,
   txid,
+  values,
 }) => (
   <RevokeRecoverSubmittedResult
     action="recovery"
-    identityName={convertFqnToDisplayFormat(targetId.fullyqualifiedname)}
+    values={values}
+    identityName={identityName(targetId)}
     networkName={networkObj?.display_name || 'the selected blockchain'}
     onDone={finishSend}
     onViewTransaction={

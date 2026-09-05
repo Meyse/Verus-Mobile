@@ -1,6 +1,12 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSelector} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
+import {Keyboard} from 'react-native';
+import {SaplingPaymentAddress} from 'verus-typescript-primitives';
+import {
+  I_ADDRESS_VERSION,
+  R_ADDRESS_VERSION,
+} from '../../../../utils/constants/constants';
 import {
   getFriendlyNameMap,
   getIdentity,
@@ -62,13 +68,22 @@ const RecoverIdentityForm = props => {
   const [formError, setFormError] = useState(null);
   const initialIdentity =
     sendModal.data[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD]?.trim() || '';
-  const [shouldAutoOpenIdentitySheet] = useState(
-    () => !initialIdentity,
-  );
+  const [shouldAutoOpenIdentitySheet] = useState(() => !initialIdentity);
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
   const identitySheetVisibleRef = useRef(false);
   const [manualEntry, setManualEntry] = useState(Boolean(initialIdentity));
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [manualIdentity, setManualIdentity] = useState(null);
+  const [editSheet, setEditSheet] = useState(null);
+  const [editSheetVisible, setEditSheetVisible] = useState(false);
+  const [editOptions, setEditOptions] = useState({});
+  const [draft, setDraft] = useState({});
+  const [editError, setEditError] = useState(null);
+  const editSheetRef = useRef(null);
+  const scannerOpenRef = useRef(false);
+  editSheetRef.current = editSheetVisible;
+  const currentIdentity =
+    selectedCandidate?.identity || manualIdentity?.identity;
   const identityDiscovery = useAuthorityIdentityDiscovery({
     active: !manualEntry,
     encryptedSeed: encryptedIdentitySeed,
@@ -81,6 +96,15 @@ const RecoverIdentityForm = props => {
 
   useEffect(() => {
     const handleRequestClose = () => {
+      if (scannerOpenRef.current) {
+        setScannerOpen(false);
+        return true;
+      }
+      if (editSheetRef.current) {
+        Keyboard.dismiss();
+        setEditSheetVisible(false);
+        return true;
+      }
       if (!identitySheetVisibleRef.current) return false;
 
       setIdentitySheetVisible(false);
@@ -93,9 +117,7 @@ const RecoverIdentityForm = props => {
   }, [props.setIdentitySafetyRequestCloseHandler]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [scannerField, setScannerField] = useState(
-    SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD,
-  );
+  scannerOpenRef.current = scannerOpen;
 
   useEffect(() => {
     try {
@@ -103,6 +125,27 @@ const RecoverIdentityForm = props => {
       setNetworkName(systemObj.display_name);
     } catch (e) {}
   }, [systemId]);
+
+  useEffect(() => {
+    if (!manualEntry || !initialIdentity) {
+      setManualIdentity(null);
+      return undefined;
+    }
+    let active = true;
+    setManualIdentity(null);
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await getIdentity(systemId, initialIdentity);
+        if (active && !response.error) setManualIdentity(response.result);
+      } catch (_) {
+        /* The existing review validation reports lookup failures. */
+      }
+    }, 400);
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [initialIdentity, manualEntry, systemId]);
 
   const formHasError = useCallback(() => {
     const {data} = sendModal;
@@ -139,16 +182,35 @@ const RecoverIdentityForm = props => {
     return addresses;
   }, [encryptedIdentitySeed, instanceKey, systemId]);
 
-  const chooseCandidate = useCallback(candidate => {
-    setFormError(null);
-    setSelectedCandidate(candidate);
-    setManualEntry(false);
+  const clearChanges = useCallback(() => {
+    [
+      SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD,
+      SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD,
+      SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD,
+      SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD,
+    ].forEach(field => props.updateSendFormData(field, ''));
+    props.updateSendFormData(SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS, false);
     props.updateSendFormData(
-      SEND_MODAL_IDENTITY_TO_RECOVER_FIELD,
-      candidate.identityAddress,
+      SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY,
+      false,
     );
-    setIdentitySheetVisible(false);
   }, [props.updateSendFormData]);
+
+  const chooseCandidate = useCallback(
+    candidate => {
+      if (initialIdentity && initialIdentity !== candidate.identityAddress)
+        clearChanges();
+      setFormError(null);
+      setSelectedCandidate(candidate);
+      setManualEntry(false);
+      props.updateSendFormData(
+        SEND_MODAL_IDENTITY_TO_RECOVER_FIELD,
+        candidate.identityAddress,
+      );
+      setIdentitySheetVisible(false);
+    },
+    [props.updateSendFormData, initialIdentity, clearChanges],
+  );
 
   const chooseManualEntry = useCallback(() => {
     setFormError(null);
@@ -163,7 +225,8 @@ const RecoverIdentityForm = props => {
   }, []);
 
   useEffect(() => {
-    if (!shouldAutoOpenIdentitySheet || manualEntry || selectedCandidate) return;
+    if (!shouldAutoOpenIdentitySheet || manualEntry || selectedCandidate)
+      return;
 
     const {candidates, status} = identityDiscovery;
 
@@ -189,6 +252,8 @@ const RecoverIdentityForm = props => {
   ]);
 
   const updateIdentity = text => {
+    if (text.trim() !== initialIdentity) clearChanges();
+    setManualIdentity(null);
     setFormError(null);
     setSelectedCandidate(null);
     props.updateSendFormData(SEND_MODAL_IDENTITY_TO_RECOVER_FIELD, text);
@@ -199,33 +264,137 @@ const RecoverIdentityForm = props => {
     setScannerOpen(false);
 
     if (result != null && typeof result === 'string' && result.length <= 5000) {
-      props.updateSendFormData(scannerField, result);
+      setDraft(value => ({...value, address: result}));
     } else {
-      setFormError('The QR code does not contain a usable address.');
+      setEditError('The QR code does not contain a usable address.');
     }
   };
 
-  const toggleScanner = field => {
+  const toggleScanner = () => {
     if (scannerOpen) {
       setScannerOpen(false);
     } else {
-      setScannerField(field);
+      Keyboard.dismiss();
       setScannerOpen(true);
     }
   };
 
-  const toggleEditRevocationRecovery = () => {
-    props.updateSendFormData(
-      SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY,
-      !sendModal.data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY],
-    );
+  const openEditSheet = type => {
+    const data = sendModal.data;
+    const changedAuthorities =
+      data[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY];
+    if (type === 'authorities') {
+      setDraft({
+        recovery: changedAuthorities
+          ? data[SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD] || ''
+          : currentIdentity?.recoveryauthority || '',
+        revocation: changedAuthorities
+          ? data[SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD] || ''
+          : currentIdentity?.revocationauthority || '',
+      });
+    } else if (type === 'primary') {
+      setDraft({
+        address: data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD] || '',
+      });
+    } else {
+      setDraft({
+        address: data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS]
+          ? data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD] || ''
+          : currentIdentity?.privateaddress || '',
+      });
+    }
+    setEditError(null);
+    setEditOptions({
+      canReset:
+        type === 'primary'
+          ? !!data[SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD]
+          : type === 'authorities'
+          ? !!changedAuthorities
+          : !!data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS],
+      hasZAddress: !!(
+        currentIdentity?.privateaddress ||
+        (data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS] &&
+          data[SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD])
+      ),
+    });
+    setEditSheet(type);
+    setEditSheetVisible(true);
   };
 
-  const toggleEditZAddr = () => {
-    props.updateSendFormData(
-      SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS,
-      !sendModal.data[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS],
-    );
+  const saveEdit = async (reset = false) => {
+    const update = props.updateSendFormData;
+    const address = draft.address?.trim() || '';
+    const recovery = draft.recovery?.trim() || '';
+    const revocation = draft.revocation?.trim() || '';
+    const validAddress = (value, version) => {
+      try {
+        return fromBase58Check(value).version === version;
+      } catch (_) {
+        return false;
+      }
+    };
+    if (!reset) {
+      if (
+        editSheet === 'primary' &&
+        !validAddress(address, R_ADDRESS_VERSION)
+      ) {
+        setEditError('Enter a valid primary R-address.');
+        return;
+      }
+      if (
+        editSheet === 'authorities' &&
+        [recovery, revocation].some(
+          value =>
+            value &&
+            !(value.length > 1 && value.endsWith('@')) &&
+            !validAddress(value, I_ADDRESS_VERSION),
+        )
+      ) {
+        setEditError('Enter a VerusID name ending in @ or a valid i-address.');
+        return;
+      }
+      if (editSheet === 'zAddress') {
+        try {
+          SaplingPaymentAddress.fromAddressString(address);
+        } catch (_) {
+          setEditError('Enter a valid Z-address.');
+          return;
+        }
+      }
+    }
+    if (editSheet === 'primary') {
+      await update(
+        SEND_MODAL_PRIMARY_RECOVERY_ADDRESS_FIELD,
+        reset ||
+          (currentIdentity?.primaryaddresses?.length === 1 &&
+            address === currentIdentity.primaryaddresses[0])
+          ? ''
+          : address,
+      );
+    } else if (editSheet === 'authorities') {
+      const nextRecovery =
+        reset || recovery === currentIdentity?.recoveryauthority
+          ? ''
+          : recovery;
+      const nextRevocation =
+        reset || revocation === currentIdentity?.revocationauthority
+          ? ''
+          : revocation;
+      await update(SEND_MODAL_NEW_RECOVERY_IDENTITY_FIELD, nextRecovery);
+      await update(SEND_MODAL_NEW_REVOCATION_IDENTITY_FIELD, nextRevocation);
+      await update(
+        SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY,
+        !!(nextRecovery || nextRevocation),
+      );
+    } else {
+      const nextAddress =
+        reset || address === currentIdentity?.privateaddress ? '' : address;
+      await update(SEND_MODAL_NEW_PRIVATE_IDENTITY_ADDRESS_FIELD, nextAddress);
+      await update(SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS, !!nextAddress);
+    }
+    Keyboard.dismiss();
+    setEditSheetVisible(false);
+    setFormError(null);
   };
 
   const submitData = useCallback(async () => {
@@ -380,8 +549,21 @@ const RecoverIdentityForm = props => {
     scannerOpen,
     toggleScanner,
     handleScan,
-    toggleEditRevocationRecovery,
-    toggleEditZAddr,
+    currentIdentity,
+    editSheet,
+    editSheetVisible,
+    editOptions,
+    draft,
+    editError,
+    openEditSheet,
+    onCloseEditSheet: () => setEditSheetVisible(false),
+    onEditClosed: () => setEditSheet(null),
+    onEditChange: (field, text) => {
+      setEditError(null);
+      setDraft(value => ({...value, [field]: text}));
+    },
+    onSaveEdit: () => saveEdit(),
+    onResetEdit: () => saveEdit(true),
   });
 };
 
