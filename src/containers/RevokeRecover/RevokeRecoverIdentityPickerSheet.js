@@ -363,9 +363,6 @@ export const RevokeRecoverIdentityField = ({
 
   const selectionCopy = (
     <View style={styles.selectionCopy}>
-      {contextLabel ? (
-        <Text style={styles.selectionBody}>{contextLabel}</Text>
-      ) : null}
       <Text style={[styles.selectionTitle, theme.typography.titleSheet]}>
         {selectedCandidate?.displayName || 'Choose a VerusID'}
       </Text>
@@ -383,6 +380,9 @@ export const RevokeRecoverIdentityField = ({
 
   return (
     <View>
+      {contextLabel ? (
+        <Text style={styles.selectionContext}>{contextLabel}</Text>
+      ) : null}
       {singleCandidate ? (
         <View
           accessibilityLabel={`${selectedCandidate?.displayName}, selected to ${action}`}
@@ -484,6 +484,13 @@ const createFieldStyles = theme =>
       flex: 1,
       paddingRight: 12,
     },
+    selectionContext: {
+      marginBottom: 8,
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 20,
+      ...fontStyle('regular'),
+    },
     selectionSkeleton: {
       alignItems: 'stretch',
       flexDirection: 'column',
@@ -506,6 +513,7 @@ const createFieldStyles = theme =>
       ...fontStyle('regular'),
     },
     selectionTechnicalBody: {
+      marginTop: 8,
       fontFamily: 'monospace',
       fontWeight: '500',
     },
