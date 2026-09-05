@@ -57,6 +57,16 @@ const shared = {
       letterSpacing: -0.3,
       ...fontStyle('semiBold'),
     },
+    titleRow: {
+      fontSize: 16,
+      lineHeight: 22,
+      ...fontStyle('semiBold'),
+    },
+    bodySm: {
+      fontSize: 14,
+      lineHeight: 20,
+      ...fontStyle('regular'),
+    },
     bodyMd: {
       fontSize: 16,
       lineHeight: 24,

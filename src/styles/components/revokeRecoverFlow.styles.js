@@ -33,13 +33,13 @@ export default StyleSheet.create({
     marginTop: 8,
   },
   choiceGroup: {
-    gap: 10,
+    gap: 8,
   },
   choiceRow: {
-    minHeight: 86,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 18,
+    minHeight: 82,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -65,7 +65,7 @@ export default StyleSheet.create({
   choiceCopy: {
     minWidth: 0,
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 12,
   },
   choiceTitle: {
     fontSize: 16,

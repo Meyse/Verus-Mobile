@@ -60,8 +60,11 @@ export const RecoverIdentityFormRender = ({
 }) => {
   const theme = useAppTheme();
   const [advanced, setAdvanced] = useState(
-    () => !!(sendModalData[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] ||
-      sendModalData[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS]),
+    () =>
+      !!(
+        sendModalData[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] ||
+        sendModalData[SEND_MODAL_RECOVERY_CHANGE_PRIVATE_ADDRESS]
+      ),
   );
   const changeAuthorities =
     sendModalData[SEND_MODAL_RECOVERY_CHANGE_REVOCATION_RECOVERY] === true;
@@ -271,7 +274,15 @@ const EditRow = ({title, value, action = 'Change', onPress, testID}) => {
         onPress={onPress}
         testID={testID}
         style={localStyles.action}>
-        <Text style={[theme.typography.labelMd, {color: theme.colors.primary}]}>
+        <Text
+          style={[
+            theme.typography.labelMd,
+            {
+              color: theme.isDark
+                ? theme.colors.textPrimary
+                : theme.colors.primary,
+            },
+          ]}>
           {action}
         </Text>
       </TouchableOpacity>

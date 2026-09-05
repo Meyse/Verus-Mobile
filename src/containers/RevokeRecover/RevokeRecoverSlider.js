@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
-import {Check, ChevronRight} from 'lucide-react-native';
+import {ChevronRight} from 'lucide-react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {revokeRecoverFlowStyles as styles} from '../../styles';
 import {useAppTheme} from '../../theme/app';
 import RevokeRecoverFlowScaffold from './RevokeRecoverFlowScaffold';
@@ -10,12 +11,12 @@ const ACTIONS = [
   {
     key: 'revoke',
     title: 'Revoke a VerusID',
-    body: 'Disable an active identity',
+    body: 'Disable an active identity after its keys may have been lost or compromised.',
   },
   {
     key: 'recover',
     title: 'Recover a VerusID',
-    body: 'Restore a revoked identity',
+    body: 'Restore a revoked identity and assign a new primary address.',
   },
 ];
 
@@ -37,6 +38,7 @@ const RevokeRecoverSlider = ({
 
   return (
     <RevokeRecoverFlowScaffold
+      contentContainerStyle={{paddingTop: 24}}
       headerTitle="Choose action"
       onBack={() => navigation.goBack()}
       progress={0.15}
@@ -52,7 +54,6 @@ const RevokeRecoverSlider = ({
       <View style={styles.choiceGroup}>
         {ACTIONS.map(action => {
           const selected = selection === action.key;
-          const Icon = selected ? Check : ChevronRight;
           return (
             <TouchableOpacity
               key={action.key}
@@ -71,25 +72,32 @@ const RevokeRecoverSlider = ({
               <View style={styles.choiceCopy}>
                 <Text
                   style={[
-                    theme.typography.bodyMd,
+                    theme.typography.titleRow,
                     {color: theme.colors.textPrimary},
                   ]}>
                   {action.title}
                 </Text>
                 <Text
                   style={[
-                    theme.typography.caption,
+                    styles.choiceBody,
                     {color: theme.colors.textSecondary},
                   ]}>
                   {action.body}
                 </Text>
               </View>
-              <Icon
-                size={22}
-                color={
-                  selected ? theme.colors.primary : theme.colors.textSubtle
-                }
-              />
+              {selected ? (
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={23}
+                  color={
+                    theme.isDark
+                      ? theme.colors.textPrimary
+                      : theme.colors.primary
+                  }
+                />
+              ) : (
+                <ChevronRight size={23} color={theme.colors.textSubtle} />
+              )}
             </TouchableOpacity>
           );
         })}

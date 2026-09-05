@@ -43,7 +43,7 @@ export const RevokeRecoverLoadingState = ({body, title}) => {
         ]}>
         <ActivityIndicator
           animating
-          color={theme.colors.primary}
+          color={theme.isDark ? theme.colors.textPrimary : theme.colors.primary}
           size="large"
         />
       </View>
@@ -84,11 +84,7 @@ export const RevokeRecoverReviewGroup = ({children, title}) => {
   );
 };
 
-export const RevokeRecoverReviewRow = ({
-  label,
-  technical = false,
-  value,
-}) => {
+export const RevokeRecoverReviewRow = ({label, technical = false, value}) => {
   const theme = useAppTheme();
 
   if (value == null || value === '') return null;
@@ -122,7 +118,10 @@ export const RevokeRecoverAcknowledgement = ({label, onValueChange, value}) => {
       onPress={() => onValueChange(!value)}
       style={styles.acknowledgement}>
       {value ? (
-        <Check size={24} color={theme.colors.primary} />
+        <Check
+          size={24}
+          color={theme.isDark ? theme.colors.textPrimary : theme.colors.primary}
+        />
       ) : (
         <Square size={24} color={theme.colors.textSubtle} />
       )}

@@ -515,7 +515,7 @@ const createFieldStyles = theme =>
       justifyContent: 'center',
     },
     chooseAvailableText: {
-      color: theme.colors.primary,
+      color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
       fontSize: 14,
       lineHeight: 20,
       ...fontStyle('semiBold'),

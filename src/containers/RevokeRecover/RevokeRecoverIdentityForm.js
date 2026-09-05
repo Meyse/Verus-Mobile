@@ -53,6 +53,9 @@ const RevokeRecoverIdentityForm = ({
   );
   const sendModalVisible = useSelector(state => state.sendModal.visible);
   const theme = useAppTheme();
+  const selectedColor = theme.isDark
+    ? theme.colors.textPrimary
+    : theme.colors.primary;
   const testProfile = accountIsTestnet(activeAccount);
   const initialNetwork = testProfile ? coinsList.VRSCTEST : coinsList.VRSC;
   const [selectedNetwork, setSelectedNetwork] = useState(initialNetwork);
@@ -180,9 +183,7 @@ const RevokeRecoverIdentityForm = ({
                 </Text>
               </View>
               <MaterialCommunityIcons
-                color={
-                  selected ? theme.colors.primary : theme.colors.textSubtle
-                }
+                color={selected ? selectedColor : theme.colors.textSubtle}
                 name={selected ? 'radiobox-marked' : 'radiobox-blank'}
                 size={23}
               />

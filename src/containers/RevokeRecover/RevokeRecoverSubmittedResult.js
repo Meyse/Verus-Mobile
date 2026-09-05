@@ -38,7 +38,11 @@ const RevokeRecoverSubmittedResult = ({
         <Text
           style={[
             theme.typography.labelMd,
-            {color: theme.colors.textSecondary},
+            {
+              color: theme.isDark
+                ? theme.colors.warning
+                : theme.colors.textSecondary,
+            },
           ]}>
           Awaiting network confirmation
         </Text>
@@ -80,7 +84,14 @@ const RevokeRecoverSubmittedResult = ({
             onPress={onViewTransaction}
             style={localStyles.link}>
             <Text
-              style={[theme.typography.labelMd, {color: theme.colors.primary}]}>
+              style={[
+                theme.typography.labelMd,
+                {
+                  color: theme.isDark
+                    ? theme.colors.textPrimary
+                    : theme.colors.primary,
+                },
+              ]}>
               View transaction
             </Text>
           </TouchableOpacity>

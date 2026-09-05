@@ -11,6 +11,8 @@ const SignedOutActionRow = ({
   label,
   IconComponent,
   iconSize = 24,
+  style,
+  labelStyle,
   testID,
   onPress,
 }) => {
@@ -38,11 +40,13 @@ const SignedOutActionRow = ({
         disabled={disabled}
         onPress={onPress}
         testID={testID}
-        style={styles.actionRow}>
-        <View style={[styles.actionIconContainer, styles.actionIcon]}>
-          <IconComponent size={iconSize} color={theme.colors.textPrimary} />
-        </View>
-        <Text style={styles.actionLabel}>{label}</Text>
+        style={[styles.actionRow, style]}>
+        {IconComponent ? (
+          <View style={[styles.actionIconContainer, styles.actionIcon]}>
+            <IconComponent size={iconSize} color={theme.colors.textPrimary} />
+          </View>
+        ) : null}
+        <Text style={[styles.actionLabel, labelStyle]}>{label}</Text>
         <MaterialCommunityIcons
           name="chevron-right"
           size={22}
