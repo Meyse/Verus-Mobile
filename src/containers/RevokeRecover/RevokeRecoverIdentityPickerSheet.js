@@ -367,7 +367,7 @@ export const RevokeRecoverIdentityField = ({
       {hasConfirmedTarget ? (
         <View style={styles.confirmedTarget}>
           <View style={styles.confirmedTargetIcon}>
-            <Check color={theme.colors.onPrimary} size={18} strokeWidth={2.6} />
+            <Check color={theme.colors.onPrimary} size={12} strokeWidth={2.4} />
           </View>
           <Text style={styles.confirmedTargetLabel}>Confirmed target</Text>
         </View>
@@ -500,21 +500,21 @@ const createFieldStyles = theme =>
     confirmedTarget: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      marginBottom: 24,
+      gap: 8,
+      marginBottom: 16,
     },
     confirmedTargetIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.primary,
     },
     confirmedTargetLabel: {
       color: theme.colors.textSecondary,
-      fontSize: 16,
-      lineHeight: 22,
+      fontSize: 14,
+      lineHeight: 20,
       ...fontStyle('semiBold'),
     },
     selectionContext: {
