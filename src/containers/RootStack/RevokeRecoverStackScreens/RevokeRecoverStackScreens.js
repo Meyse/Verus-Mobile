@@ -12,6 +12,7 @@ const RevokeRecoverStackScreens = props => {
   const [importedSeed, setImportedSeed] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
   const [importSession, setImportSession] = useState({id: 0, method: null});
+  const initialNetworkKey = props.route?.params?.networkKey;
 
   const exitRevokeRecover = () =>
     props.navigation.dispatch(NavigationActions.back());
@@ -75,6 +76,7 @@ const RevokeRecoverStackScreens = props => {
             navigation={screenProps.navigation}
             isRecovery={isRecovery}
             importedSeed={importedSeed}
+            initialNetworkKey={initialNetworkKey}
             exitRevokeRecover={exitRevokeRecover}
           />
         )}

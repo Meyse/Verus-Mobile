@@ -185,7 +185,9 @@ const Login = props => {
     });
 
   const handleRevokeRecover = () => {
-    props.navigation.navigate('RevokeRecover');
+    props.navigation.navigate('RevokeRecover', {
+      networkKey: selectedNetworkKey,
+    });
   };
 
   const openRecoverySecrets = account => {

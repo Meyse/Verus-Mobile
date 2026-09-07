@@ -30,30 +30,15 @@ const RevokeRecoverSubmittedResult = ({
       showProgress={false}
       headerTitle={recovery ? 'Recovery submitted' : 'Revocation submitted'}
       keyboardAvoiding={false}>
-      <View
-        style={[
-          localStyles.status,
-          {backgroundColor: theme.colors.warningBackground},
-        ]}>
-        <Text
-          style={[
-            theme.typography.labelMd,
-            {
-              color: theme.isDark
-                ? theme.colors.warning
-                : theme.colors.textSecondary,
-            },
-          ]}>
-          Awaiting network confirmation
-        </Text>
-      </View>
       <Text
         style={[
           theme.typography.bodyMd,
           localStyles.body,
           {color: theme.colors.textSecondary},
         ]}>
-        Waiting for {networkName} to confirm the transaction.
+        {recovery
+          ? 'Your VerusID becomes active after one network confirmation.'
+          : 'Your VerusID becomes revoked after one network confirmation.'}
       </Text>
       <IdentityContext name={identityName} networkName={networkName} />
       {recovery ? (
@@ -101,12 +86,6 @@ const RevokeRecoverSubmittedResult = ({
   );
 };
 const localStyles = StyleSheet.create({
-  status: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
   body: {marginTop: 8, marginBottom: 18},
   transaction: {marginTop: 18},
   link: {minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start'},

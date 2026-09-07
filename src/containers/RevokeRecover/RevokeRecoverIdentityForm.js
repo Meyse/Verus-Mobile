@@ -10,7 +10,10 @@ import {
 import AppButton from '../../components/AppButton';
 import {revokeRecoverFlowStyles as styles} from '../../styles';
 import {useAppTheme} from '../../theme/app';
-import {accountIsTestnet} from '../../utils/account/accountNetwork';
+import {
+  getAccountNetworkKey,
+  WALLET_NETWORKS,
+} from '../../utils/account/accountNetwork';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
@@ -42,6 +45,7 @@ const RevokeRecoverIdentityForm = ({
   navigation,
   isRecovery,
   importedSeed,
+  initialNetworkKey,
   exitRevokeRecover,
 }) => {
   const activeAccount = useSelector(
@@ -56,21 +60,33 @@ const RevokeRecoverIdentityForm = ({
   const selectedColor = theme.isDark
     ? theme.colors.textPrimary
     : theme.colors.primary;
-  const testProfile = accountIsTestnet(activeAccount);
-  const initialNetwork = testProfile ? coinsList.VRSCTEST : coinsList.VRSC;
+  const hasExplicitNetwork =
+    initialNetworkKey === WALLET_NETWORKS.MAINNET ||
+    initialNetworkKey === WALLET_NETWORKS.TESTNET;
+  const resolvedInitialNetworkKey = hasExplicitNetwork
+    ? initialNetworkKey
+    : activeAccount != null
+    ? getAccountNetworkKey(activeAccount)
+    : WALLET_NETWORKS.MAINNET;
+  const initialNetwork =
+    resolvedInitialNetworkKey === WALLET_NETWORKS.TESTNET
+      ? coinsList.VRSCTEST
+      : coinsList.VRSC;
   const [selectedNetwork, setSelectedNetwork] = useState(initialNetwork);
   const [loading, setLoading] = useState(false);
   const [prepareError, setPrepareError] = useState(null);
   const openedModal = useRef(false);
 
   const systems = useMemo(() => {
-    if (!testProfile) return DEFAULT_SYSTEMS;
+    if (resolvedInitialNetworkKey !== WALLET_NETWORKS.TESTNET) {
+      return DEFAULT_SYSTEMS;
+    }
 
     return [
       coinsList.VRSCTEST,
       ...DEFAULT_SYSTEMS.filter(system => system.id !== coinsList.VRSCTEST.id),
     ];
-  }, [testProfile]);
+  }, [resolvedInitialNetworkKey]);
 
   useEffect(() => {
     if (sendModalVisible) {
