@@ -2,27 +2,39 @@ import BigNumber from "bignumber.js";
 import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo } from "../../../../../utils/api/channels/vrpc/callCreators";
 import { satsToCoins } from "../../../../../utils/math";
 import { standardizeVrpcTxObj } from "../../../../../utils/standardization/standardizeTxObj";
+import {finiteBalance} from '../../../../../utils/assets/assetIdentity';
 
 export const updateVrpcBalances = async (coinObj, channelId) => {
   const [channelName, iAddress, systemId] = channelId.split('.')
 
   const currencyId = coinObj.currency_id
-  const isNative = currencyId === systemId
   
   const res = await getAddressBalances(systemId, [iAddress])
 
   if (res.error) throw new Error(res.error.message)
 
-  let totalBalance = '0';
-
-  if (isNative) totalBalance = satsToCoins(BigNumber(res.result.balance)).toString()
-  else if (res.result.currencybalance && res.result.currencybalance[currencyId]) {
-    totalBalance = BigNumber(res.result.currencybalance[currencyId]).toString()
+  // A missing/malformed response is unavailable, not an empty wallet. Retain
+  // the complete map for discovery on this exact address/system channel.
+  const nativeBalance = finiteBalance(res.result?.balance);
+  const currencyBalances = res.result?.currencybalance || {};
+  if (nativeBalance == null || typeof currencyBalances !== 'object' ||
+      Array.isArray(currencyBalances)) {
+    throw new Error('Balance response unavailable');
   }
+  const currencies = {};
+  for (const [id, value] of Object.entries(currencyBalances)) {
+    const balance = finiteBalance(value);
+    if (balance == null) throw new Error('Currency balance unavailable');
+    currencies[id] = balance.toString();
+  }
+  currencies[systemId] = satsToCoins(nativeBalance).toString();
+
+  const totalBalance = currencies[currencyId] || '0';
 
   return {
     chainTicker: coinObj.id,
     channel: channelId,
+    assetDiscovery: {systemId, address: iAddress, testnet: Boolean(coinObj.testnet), currencies},
     body: {
       confirmed: totalBalance,
       pending: '0',

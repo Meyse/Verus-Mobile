@@ -15,6 +15,7 @@ import coinsSaga from './coins';
 import deeplinkSaga from './deeplink';
 import notificationsSaga from './notifications'
 import widgetsSaga from './widgets'
+import assetManagementSaga from './assetManagement';
 
 import {
   ENABLE_VERUS_IDENTITIES,
@@ -29,7 +30,7 @@ import {
 } from "../../env/index";
 
 const generateSagas = () => {
-  let sagas = [authenticationSaga, coinsSaga, deeplinkSaga, notificationsSaga, widgetsSaga]
+  let sagas = [authenticationSaga, coinsSaga, deeplinkSaga, notificationsSaga, widgetsSaga, assetManagementSaga]
 
   if (ENABLE_VERUS_IDENTITIES) sagas.push(identitySaga)
 

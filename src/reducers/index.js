@@ -36,10 +36,12 @@ import { secureLoading } from './secureLoading';
 import { deeplink } from './deeplink';
 import { walletUnlock } from './walletUnlock';
 import { shouldRejectSessionAction } from './sessionScope';
+import {assetManagement} from './assetManagement';
 
 
 const combinedReducer = combineReducers({
   authentication,
+  assetManagement,
   coins,
   ledger,
   settings,

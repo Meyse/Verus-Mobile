@@ -157,6 +157,7 @@ const MainStackScreens = props => {
         options={{
           ...settingsHeaderOptions,
           ...manageAssetsTransitionOptions,
+          headerShown: false,
           title: 'Manage assets',
         }}
       />
@@ -167,6 +168,7 @@ const MainStackScreens = props => {
         options={{
           ...settingsHeaderOptions,
           title: 'Discover assets',
+          headerShown: false,
         }}
       />
 
@@ -176,6 +178,7 @@ const MainStackScreens = props => {
         options={{
           ...settingsHeaderOptions,
           title: 'Add by identifier',
+          headerShown: false,
         }}
       />
 

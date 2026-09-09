@@ -56,6 +56,12 @@ import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import SignedInWalletHome from './SignedInWalletHome';
 import {
+  getManagedAssetBalance,
+  isAssetShown,
+  isTestnetAccount,
+  uniqueAssets,
+} from '../../utils/assets/assetIdentity';
+import {
   CONVERSION_DISABLED,
   ENABLE_SIGNED_IN_REDESIGN,
 } from '../../../env/index';
@@ -81,6 +87,8 @@ const Home = () => {
   const activeCoinsForUser = useObjectSelector((state) => state.coins.activeCoinsForUser);
 
   const activeAccount = useObjectSelector((state) => state.authentication.activeAccount);
+  const assetManagement = useObjectSelector(state => state.assetManagement);
+  const ledgerBalances = useObjectSelector(state => state.ledger.balances);
   const balances = useObjectSelector((state) =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
@@ -97,7 +105,7 @@ const Home = () => {
   );
   const showBalance = useSelector(state => state.coins.showBalance);
 
-  const [totalFiatBalance, setTotalFiatBalance] = useState(0);
+  const [totalFiatBalance, setTotalFiatBalance] = useState(null);
   const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
   const [loading, setLoading] = useState(false);
   const [listItemHeights, setListItemHeights] = useState({});
@@ -234,7 +242,7 @@ const Home = () => {
     const totalBalances = getTotalBalances();
     setTotalFiatBalance(totalBalances.fiat);
     setTotalCryptoBalances(totalBalances.crypto);
-  }, [balances, displayCurrency, activeCoinsForUser, allSubWallets]);
+  }, [balances, ledgerBalances, assetManagement.snapshots, displayCurrency, activeCoinsForUser, allSubWallets, rates]);
 
   useEffect(() => {
     getWidgets();
@@ -331,37 +339,26 @@ const Home = () => {
 
   const getTotalBalances = () => {
     let _totalFiatBalance = BigNumber(0);
+    let fiatComplete = true;
     let coinBalances = {};
 
-    activeCoinsForUser.forEach((coinObj) => {
+    uniqueAssets(activeCoinsForUser).filter(coin =>
+      Boolean(coin.testnet) === isTestnetAccount(activeAccount)).forEach((coinObj) => {
       const key = coinObj.id;
-      coinBalances[coinObj.id] = BigNumber(0);
-
-      allSubWallets[coinObj.id].forEach((wallet) => {
-        if (balances[coinObj.id] != null && balances[coinObj.id][wallet.id] != null) {
-          coinBalances[coinObj.id] = coinBalances[coinObj.id].plus(
-            balances[key] &&
-              balances[key][wallet.id] &&
-              balances[key][wallet.id].total != null
-              ? BigNumber(balances[key][wallet.id].total)
-              : BigNumber(0),
-          );
-        }
-      });
+      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
+      coinBalances[key] = balance.total;
 
       const rate = getRate(key, displayCurrency);
 
       if (rate != null) {
         const price = BigNumber(rate);
-
-        _totalFiatBalance = _totalFiatBalance.plus(
-          coinBalances[coinObj.id].multipliedBy(price),
-        );
+        if (!balance.complete) fiatComplete = false;
+        if (balance.total != null) _totalFiatBalance = _totalFiatBalance.plus(balance.total.multipliedBy(price));
       }
     });
 
     return {
-      fiat: _totalFiatBalance.toNumber(),
+      fiat: fiatComplete ? _totalFiatBalance.toNumber() : null,
       crypto: coinBalances,
     };
   };
@@ -456,12 +453,16 @@ const Home = () => {
   };
 
   const signedInAssets = useMemo(() => {
-    return activeCoinsForUser
+    if (!assetManagement.ready) return [];
+    return uniqueAssets(activeCoinsForUser)
+      .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount) &&
+        isAssetShown(coin, assetManagement.preferences))
       .map(coin => {
         const cards = allSubWallets[coin.id] || [];
-        const balance = BigNumber(totalCryptoBalances[coin.id] || 0);
+        const holding = getManagedAssetBalance(coin, cards, ledgerBalances, assetManagement.snapshots);
+        const balance = holding.total;
         const rate = getRate(coin.id, displayCurrency);
-        const fiatValue = rate == null ? null : balance.multipliedBy(rate).toNumber();
+        const fiatValue = rate == null || balance == null || !holding.complete ? null : balance.multipliedBy(rate).toNumber();
         const preferredCard =
           activeSubWallets[coin.id] || cards.find(card => {
             const cardBalance = balances[coin.id]?.[card.id]?.total;
@@ -472,6 +473,7 @@ const Home = () => {
         return {
           coin,
           balance,
+          balanceComplete: holding.complete,
           rate,
           fiatValue,
           cardCount: cards.length,
@@ -480,7 +482,7 @@ const Home = () => {
         };
       })
       .sort((a, b) => {
-        const fundedOrder = Number(b.balance.isGreaterThan(0)) - Number(a.balance.isGreaterThan(0));
+        const fundedOrder = Number(b.balance?.isGreaterThan(0) || false) - Number(a.balance?.isGreaterThan(0) || false);
         if (fundedOrder !== 0) return fundedOrder;
         if (a.fiatValue != null && b.fiatValue != null && a.fiatValue !== b.fiatValue) {
           return b.fiatValue - a.fiatValue;
@@ -497,6 +499,9 @@ const Home = () => {
     displayCurrency,
     rates,
     totalCryptoBalances,
+    activeAccount,
+    assetManagement,
+    ledgerBalances,
   ]);
 
   const _addCoin = () => {
@@ -517,6 +522,8 @@ const Home = () => {
     return (
       <SignedInWalletHome
         assets={signedInAssets}
+        assetsReady={assetManagement.ready}
+        assetsLoadError={assetManagement.loadError}
         displayCurrency={displayCurrency}
         loading={loading}
         showBalance={showBalance}

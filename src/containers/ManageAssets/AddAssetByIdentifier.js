@@ -1,754 +1,249 @@
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useReducer,
-  useRef,
-} from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
-import {ActivityIndicator, Text} from 'react-native-paper';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {Keyboard, TouchableOpacity, View} from 'react-native';
+import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useDispatch} from 'react-redux';
 import AppButton from '../../components/AppButton';
-import SafeBottomActionStack from '../../components/SafeBottomActionStack';
+import AppTextInput from '../../components/AppTextInput';
+import CopyAction from '../../components/CopyAction';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
-import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import {ASSET_IDENTIFIER_ERROR, resolveAssetIdentifier} from '../../utils/CoinData/assetIdentifierService';
+import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
+import {assetNetworkKey, ethereumNetwork, getManagedAssetBalance, isTestnetAccount} from '../../utils/assets/assetIdentity';
 import {
-  addResolvedAsset,
-  ASSET_IDENTIFIER_ERROR,
-  classifyAssetIdentifier,
-  resolveAssetIdentifier,
-} from '../../utils/CoinData/assetIdentifierService';
+  addManagedAsset, assetContextIsCurrent, captureAssetContext, getNewAssetHoldings,
+} from '../../utils/assets/assetManagementService';
+import {
+  AssetFooter, AssetLogo, AssetScreen, AssetScrollView, NetworkPicker, systemLabel, systemNetworkLabel,
+} from './AssetManagementComponents';
 import {createManageAssetsStyles} from './manageAssets.styles';
 
-const LOOKUP_DELAY_MS = 450;
-
-const PHASE = {
-  INPUT: 'input',
-  RESOLVING: 'resolving',
-  REVIEW: 'review',
-  ADDING: 'adding',
-  SUCCESS: 'success',
+const getLookupNetworks = (account, activeCoins, kind) => {
+  const testnet = isTestnetAccount(account);
+  try {
+    if (kind === 'erc20') {
+      const coin = CoinDirectory.findCoinObj(account?.testnetOverrides?.ETH || (testnet ? 'GETH' : 'ETH'));
+      if (Boolean(coin.testnet) !== testnet) return [];
+      return [{id: ethereumNetwork(coin), label: testnet ? 'Goerli testnet' : 'Ethereum mainnet', coin}];
+    }
+    const root = CoinDirectory.findCoinObj(account?.testnetOverrides?.VRSC || (testnet ? 'VRSCTEST' : 'VRSC'));
+    const systems = new Map([[root.system_id, {id: root.system_id, label: testnet ? 'Verus testnet' : 'Verus mainnet', coin: root}]]);
+    for (const coin of activeCoins) {
+      if (coin.proto !== 'vrsc' || Boolean(coin.testnet) !== testnet || systems.has(coin.system_id)) continue;
+      try {
+        const system = CoinDirectory.findSystemCoinObj(coin.id);
+        if (system.vrpc_endpoints?.length) {
+          systems.set(system.system_id, {id: system.system_id, label: `${system.display_name} ${testnet ? 'testnet' : 'mainnet'}`, coin: system});
+        }
+      } catch (_) { /* Only offer supported systems already available to this wallet. */ }
+    }
+    return [...systems.values()];
+  } catch (_) { return []; }
 };
 
-const PHASE_TITLES = {
-  [PHASE.INPUT]: 'Add by identifier',
-  [PHASE.RESOLVING]: 'Add by identifier',
-  [PHASE.REVIEW]: 'Review asset',
-  [PHASE.ADDING]: 'Adding asset',
-  [PHASE.SUCCESS]: 'Asset added',
-};
-
-const INITIAL_STATE = {
-  phase: PHASE.INPUT,
-  input: '',
-  result: null,
-  error: null,
-  addedCoin: null,
-};
-
-const reducer = (state, action) => {
-  switch (action.type) {
-    case 'INPUT_CHANGED':
-      return {
-        ...INITIAL_STATE,
-        input: action.input,
-        error: action.error || null,
-      };
-    case 'RESOLVE_STARTED':
-      return {
-        ...state,
-        phase: PHASE.RESOLVING,
-        result: null,
-        error: null,
-      };
-    case 'RESOLVE_SUCCEEDED':
-      return {
-        ...state,
-        phase: PHASE.INPUT,
-        result: action.result,
-        error: null,
-      };
-    case 'RESOLVE_FAILED':
-      return {
-        ...state,
-        phase: PHASE.INPUT,
-        result: null,
-        error: action.error,
-      };
-    case 'REVIEW':
-      return {...state, phase: PHASE.REVIEW, error: null};
-    case 'BACK_TO_INPUT':
-      return {...state, phase: PHASE.INPUT, error: null};
-    case 'ADD_STARTED':
-      return {...state, phase: PHASE.ADDING, error: null};
-    case 'ADD_FAILED':
-      return {...state, phase: PHASE.REVIEW, error: action.error};
-    case 'ADD_SUCCEEDED':
-      return {
-        ...state,
-        phase: PHASE.SUCCESS,
-        error: null,
-        addedCoin: action.addedCoin,
-      };
-    default:
-      return state;
+const lookupErrorMessage = error => {
+  switch (error?.code) {
+    case ASSET_IDENTIFIER_ERROR.DUPLICATE: return 'This asset is already managed. You can change its Home setting in Manage assets.';
+    case ASSET_IDENTIFIER_ERROR.UNKNOWN_VERUS: return 'No currency was found. Check the name or i-address and selected network.';
+    case ASSET_IDENTIFIER_ERROR.ETHEREUM_FORMAT:
+    case ASSET_IDENTIFIER_ERROR.TYPE: return error.message;
+    case ASSET_IDENTIFIER_ERROR.METADATA: return 'Asset details are unavailable. Check the identifier and try again.';
+    default: return 'The network did not respond. Your entry is unchanged. Try again in a moment.';
   }
 };
 
-const getErrorMessage = error => {
-  if (error?.code === ASSET_IDENTIFIER_ERROR.DUPLICATE) {
-    return 'Already in your wallet.';
-  }
-
-  return error?.message || 'The asset could not be resolved.';
-};
-
-const getNetworkName = network => {
-  if (network === 'homestead') return 'Ethereum';
-  if (network === 'goerli') return 'Goerli testnet';
-  return network || 'Unavailable';
-};
-
-const getPbaasLaunchStatus = (result, pbaasCoin) => {
-  const {currencyDefinition, launchSystem} = result;
-  const bestHeight = launchSystem?.bestheight;
-
-  if (bestHeight == null) return 'Unknown';
-
-  const startBlock =
-    currencyDefinition.launchsystemid !== pbaasCoin.system_id
-      ? 1
-      : currencyDefinition.startblock;
-  const pending = startBlock > bestHeight;
-  const failed =
-    !pending &&
-    currencyDefinition.minpreconversion?.length > 0 &&
-    currencyDefinition.minpreconversion.every(amount => amount > 0) &&
-    currencyDefinition.bestcurrencystate?.supply === 0;
-
-  if (failed) return 'Failed to launch';
-  if (pending) return `Pending · starts at block ${startBlock}`;
-  return 'Active';
-};
-
-const ReviewRow = ({label, styles, value}) => (
-  <View style={styles.identifierReviewRow}>
-    <Text style={styles.identifierReviewLabel}>{label}</Text>
-    <Text selectable style={styles.identifierReviewValue}>
-      {String(value)}
-    </Text>
+const ReviewRow = ({label, value, copy = false, styles}) => (
+  <View style={styles.reviewRow}>
+    <Text style={styles.rowDescription}>{label}</Text>
+    <View style={styles.reviewValueLine}>
+      <Text selectable style={[styles.reviewValue, copy && styles.identifier]}>{String(value)}</Text>
+      {copy ? <CopyAction accessibilityLabel={`Copy ${label.toLowerCase()}`} value={value} /> : null}
+    </View>
   </View>
 );
 
-const DetectedSystem = ({classification, resolving, result, styles, theme}) => {
-  if (!classification.kind) return null;
-
-  const ethereum = classification.kind === 'erc20';
-  const resolved = result != null;
-  let description = 'Metadata will be retrieved automatically.';
-
-  if (resolving) {
-    description = 'Retrieving asset metadata…';
-  } else if (resolved) {
-    description = 'Metadata is ready to review.';
-  }
-
-  return (
-    <View
-      accessibilityLiveRegion="polite"
-      accessibilityState={{busy: resolving}}
-      style={styles.identifierDetected}
-      testID="asset-identifier-detected-system">
-      <View style={styles.identifierDetectedIcon}>
-        {resolving ? (
-          <ActivityIndicator color={theme.colors.primary} size={18} />
-        ) : (
-          <MaterialCommunityIcons
-            color={theme.colors.primary}
-            name={ethereum ? 'ethereum' : 'alpha-v-circle-outline'}
-            size={20}
-          />
-        )}
-      </View>
-      <View style={styles.identifierDetectedCopy}>
-        <Text style={styles.identifierDetectedEyebrow}>
-          {resolved ? 'Detected system' : 'Automatic detection'}
-        </Text>
-        <Text style={styles.identifierDetectedTitle}>
-          {ethereum ? 'Ethereum contract' : 'Verus currency'}
-        </Text>
-        <Text style={styles.identifierDetectedDescription}>
-          {description}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-const TrustCallout = ({result, styles, theme}) => {
-  const trusted = result.catalogueMatch != null;
-  const dynamicContract = result.kind === 'erc20' && !trusted;
-  let calloutStyle = styles.identifierCalloutInfo;
-  let iconColor = theme.colors.primary;
-  let iconName = 'information-outline';
-  let title = 'Resolved from the Verus network';
-  let description =
-    'Review the currency and launch-system details before adding it.';
-
-  if (trusted) {
-    calloutStyle = styles.identifierCalloutTrusted;
-    iconColor = theme.colors.success;
-    iconName = 'shield-check-outline';
-    title = 'Matches the wallet catalogue';
-    description =
-      'This metadata matches an asset included with Verus Mobile.';
-  } else if (dynamicContract) {
-    calloutStyle = styles.identifierCalloutWarning;
-    iconColor = theme.colors.warning;
-    iconName = 'alert-outline';
-    title = 'Verify this contract';
-    description =
-      'Token details came directly from the contract. Confirm the address before trusting its name, symbol, or decimals.';
-  }
-
-  return (
-    <View
-      accessibilityRole={dynamicContract ? 'alert' : undefined}
-      style={[styles.identifierCallout, calloutStyle]}>
-      <MaterialCommunityIcons
-        color={iconColor}
-        name={iconName}
-        size={21}
-      />
-      <View style={styles.identifierCalloutCopy}>
-        <Text style={styles.identifierCalloutTitle}>{title}</Text>
-        <Text style={styles.identifierCalloutDescription}>
-          {description}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-const ReviewContent = ({pbaasCoin, result, styles, theme}) => {
-  const pbaas = result.kind === 'pbaas';
-  const currency = pbaas ? result.currencyDefinition : null;
-  const name = pbaas
-    ? result.catalogueMatch?.display_name || currency.fullyqualifiedname
-    : result.name;
-  const ticker = pbaas
-    ? result.catalogueMatch?.display_ticker || currency.fullyqualifiedname
-    : result.symbol;
-
-  return (
-    <>
-      <View style={styles.identifierReviewHeader}>
-        <View style={styles.identifierReviewIcon}>
-          <MaterialCommunityIcons
-            color={theme.colors.primary}
-            name={pbaas ? 'alpha-v-circle-outline' : 'ethereum'}
-            size={24}
-          />
-        </View>
-        <View style={styles.identifierReviewHeaderCopy}>
-          <Text accessibilityRole="header" style={styles.identifierReviewName}>
-            {name}
-          </Text>
-          <Text style={styles.identifierReviewTicker}>{ticker}</Text>
-        </View>
-      </View>
-
-      <View
-        style={styles.identifierReviewCard}
-        testID={`asset-identifier-${result.kind}-review`}>
-        <ReviewRow label="Name" styles={styles} value={name} />
-        <ReviewRow label="Ticker" styles={styles} value={ticker} />
-        {pbaas ? (
-          <>
-            <ReviewRow
-              label="System"
-              styles={styles}
-              value={
-                result.friendlyNames[currency.systemid] || currency.systemid
-              }
-            />
-            <ReviewRow
-              label="Launch system"
-              styles={styles}
-              value={
-                result.launchSystem.fullyqualifiedname ||
-                currency.launchsystemid ||
-                currency.systemid
-              }
-            />
-            <ReviewRow
-              label="Currency ID"
-              styles={styles}
-              value={currency.currencyid}
-            />
-            <ReviewRow
-              label="Launch status"
-              styles={styles}
-              value={getPbaasLaunchStatus(result, pbaasCoin)}
-            />
-          </>
-        ) : (
-          <>
-            <ReviewRow
-              label="Network"
-              styles={styles}
-              value={getNetworkName(result.network)}
-            />
-            <ReviewRow
-              label="Contract"
-              styles={styles}
-              value={result.canonicalAddress}
-            />
-            <ReviewRow
-              label="Decimals"
-              styles={styles}
-              value={result.decimals}
-            />
-          </>
-        )}
-      </View>
-
-      <TrustCallout result={result} styles={styles} theme={theme} />
-    </>
-  );
-};
-
-const AddAssetByIdentifier = ({navigation}) => {
-  const dispatch = useDispatch();
+const CustomAsset = ({navigation, route}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
-  const {compact} = useOnboardingSmallDeviceLayout();
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
-  const activeCoinList = useObjectSelector(
-    state => state.coins.activeCoinList || [],
-  );
-  const activeCoins = useObjectSelector(
-    state => state.coins.activeCoinsForUser || [],
-  );
-  const sessionEpoch = useObjectSelector(
-    state => state.authentication.sessionEpoch,
-  );
-  const [state, stateDispatch] = useReducer(reducer, INITIAL_STATE);
-  const mountedRef = useRef(true);
-  const requestIdRef = useRef(0);
+  const account = useObjectSelector(state => state.authentication.activeAccount);
+  const activeCoins = useObjectSelector(state => state.coins.activeCoinsForUser || []);
+  const discoveries = useObjectSelector(getNewAssetHoldings);
+  const snapshots = useObjectSelector(state => state.assetManagement.snapshots);
+  const showBalance = useObjectSelector(state => state.coins.showBalance);
+  const initialParams = useRef(route?.params?.assetScope && assetContextIsCurrent(route.params.assetScope) ? route.params : {}).current;
+  const found = useRef(discoveries.find(holding => holding.key === initialParams.holdingKey)).current;
+  const [input, setInput] = useState(initialParams.identifier || '');
+  const [kind, setKind] = useState(initialParams.identifier?.startsWith('0x') ? 'erc20' : 'pbaas');
+  const [network, setNetwork] = useState(null);
+  const [networkOpen, setNetworkOpen] = useState(false);
+  const [result, setResult] = useState(found?.result || null);
+  const [review, setReview] = useState(Boolean(found));
+  const [resolving, setResolving] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState(null);
+  const requestId = useRef(0);
+  const mounted = useRef(true);
   const addingRef = useRef(false);
-  const activeCoinsRef = useRef(activeCoins);
-  activeCoinsRef.current = activeCoins;
+  const allowLeave = useRef(false);
+  const networks = useMemo(() => getLookupNetworks(account, activeCoins, kind), [account, activeCoins, kind]);
+  const selectedNetwork = networks.find(option => option.id === network) || networks[0];
+  const context = useRef(captureAssetContext()).current;
+  const canUpdate = () => mounted.current && assetContextIsCurrent(context);
 
-  const pbaasCoin = useMemo(() => {
+  useEffect(() => () => { mounted.current = false; requestId.current += 1; }, []);
+  useEffect(() => navigation.addListener('beforeRemove', event => {
+    if (allowLeave.current) return;
+    if (addingRef.current) { event.preventDefault(); return; }
+    if (review && !found) { event.preventDefault(); setReview(false); setError(null); }
+  }), [found, navigation, review]);
+  useEffect(() => { navigation.setOptions({gestureEnabled: !adding}); }, [adding, navigation]);
+
+  const editInput = value => {
+    requestId.current += 1;
+    setResolving(false);
+    setError(null);
+    setResult(null);
+    setInput(value);
+  };
+  const changeKind = value => {
+    requestId.current += 1;
+    setKind(value);
+    setNetwork(null);
+    setResult(null);
+    setError(null);
+    setResolving(false);
+  };
+  const changeNetwork = value => {
+    requestId.current += 1;
+    setNetwork(value);
+    setResult(null);
+    setError(null);
+    setResolving(false);
+  };
+  const lookUp = async () => {
+    if (!input.trim() || !selectedNetwork || resolving) return;
+    const id = ++requestId.current;
+    Keyboard.dismiss();
+    setResolving(true);
+    setError(null);
     try {
-      return CoinDirectory.findCoinObj(
-        activeAccount?.testnetOverrides?.VRSC || 'VRSC',
-      );
-    } catch (error) {
-      return null;
-    }
-  }, [activeAccount?.testnetOverrides?.VRSC]);
-
-  const ethereumCoin = useMemo(() => {
-    try {
-      return CoinDirectory.findCoinObj(
-        activeAccount?.testnetOverrides?.ETH || 'ETH',
-      );
-    } catch (error) {
-      return null;
-    }
-  }, [activeAccount?.testnetOverrides?.ETH]);
-
-  const classification = useMemo(
-    () => classifyAssetIdentifier(state.input),
-    [state.input],
-  );
-  const resolving = state.phase === PHASE.RESOLVING;
-  const adding = state.phase === PHASE.ADDING;
-
-  useEffect(
-    () => () => {
-      mountedRef.current = false;
-      requestIdRef.current += 1;
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-
-    if (!classification.kind || classification.error) return undefined;
-
-    const timer = setTimeout(async () => {
-      stateDispatch({type: 'RESOLVE_STARTED'});
-
-      try {
-        const result = await resolveAssetIdentifier({
-          activeCoins: activeCoinsRef.current,
-          ethereumCoin,
-          identifier: classification.identifier,
-          pbaasCoin,
-        });
-
-        if (
-          mountedRef.current &&
-          requestIdRef.current === requestId
-        ) {
-          stateDispatch({type: 'RESOLVE_SUCCEEDED', result});
-        }
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestIdRef.current === requestId
-        ) {
-          stateDispatch({
-            type: 'RESOLVE_FAILED',
-            error: getErrorMessage(error),
-          });
-        }
-      }
-    }, LOOKUP_DELAY_MS);
-
-    return () => clearTimeout(timer);
-  }, [
-    classification.error,
-    classification.identifier,
-    classification.kind,
-    ethereumCoin,
-    pbaasCoin,
-  ]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: PHASE_TITLES[state.phase],
-      gestureEnabled: !adding,
-    });
-  }, [adding, navigation, state.phase]);
-
-  useEffect(
-    () =>
-      navigation.addListener('beforeRemove', event => {
-        if (addingRef.current || adding) {
-          event.preventDefault();
-          return;
-        }
-
-        if (state.phase === PHASE.REVIEW) {
-          event.preventDefault();
-          stateDispatch({type: 'BACK_TO_INPUT'});
-        }
-      }),
-    [adding, navigation, state.phase],
-  );
-
-  const handleInputChange = useCallback(input => {
-    const nextClassification = classifyAssetIdentifier(input);
-    stateDispatch({
-      type: 'INPUT_CHANGED',
-      input,
-      error: nextClassification.error?.message,
-    });
-  }, []);
-
-  const handleAdd = useCallback(async () => {
-    if (addingRef.current || !state.result) return;
-
-    addingRef.current = true;
-    stateDispatch({type: 'ADD_STARTED'});
-
-    try {
-      const addedCoin = await addResolvedAsset({
-        activeAccount,
-        activeCoinList,
-        activeCoins: activeCoinsRef.current,
-        dispatch,
-        requestContext: {
-          sessionScope: {
-            sessionScoped: true,
-            accountHash: activeAccount.accountHash,
-            sessionEpoch,
-          },
-        },
-        result: state.result,
+      const resolved = await resolveAssetIdentifier({
+        activeCoins,
+        identifier: input.trim(),
+        kind,
+        pbaasCoin: kind === 'pbaas' ? selectedNetwork.coin : null,
+        ethereumCoin: kind === 'erc20' ? selectedNetwork.coin : null,
       });
-
-      if (mountedRef.current) {
-        stateDispatch({type: 'ADD_SUCCEEDED', addedCoin});
+      if (canUpdate() && id === requestId.current) { setResult(resolved); setReview(true); }
+    } catch (lookupError) {
+      if (canUpdate() && id === requestId.current) setError({code: lookupError.code, message: lookupErrorMessage(lookupError)});
+    } finally {
+      if (canUpdate() && id === requestId.current) setResolving(false);
+    }
+  };
+  const addAsset = async () => {
+    if (!result || addingRef.current) return;
+    addingRef.current = true;
+    setAdding(true);
+    setError(null);
+    try {
+      await addManagedAsset({result, context});
+      if (canUpdate()) {
+        allowLeave.current = true;
+        addingRef.current = false;
+        navigation.navigate('ManageAssets');
       }
-    } catch (error) {
-      if (mountedRef.current) {
-        stateDispatch({
-          type: 'ADD_FAILED',
-          error: getErrorMessage(error),
-        });
-      }
+    } catch (_) {
+      if (canUpdate()) setError({message: 'Couldn’t add this asset. Your entry is unchanged. Try again.'});
     } finally {
       addingRef.current = false;
+      if (canUpdate()) setAdding(false);
     }
-  }, [activeAccount, activeCoinList, dispatch, sessionEpoch, state.result]);
-
-  const renderInput = state.phase === PHASE.INPUT || resolving;
-  const renderReview = state.phase === PHASE.REVIEW || adding;
-  const continueDisabled =
-    state.result == null ||
-    resolving ||
-    Boolean(state.error) ||
-    !classification.identifier;
-  const successName =
-    state.addedCoin?.display_name ||
-    state.addedCoin?.display_ticker ||
-    'The asset';
-
+  };
+  const goBack = () => {
+    if (addingRef.current) return;
+    if (review && !found) { setReview(false); setError(null); }
+    else navigation.goBack();
+  };
+  const pbaas = result?.kind === 'pbaas';
+  const name = result && (result.catalogueMatch?.display_name || (pbaas ? result.currencyDefinition.fullyqualifiedname : result.name));
+  const ticker = result && (result.catalogueMatch?.display_ticker || (pbaas ? result.currencyDefinition.fullyqualifiedname : result.symbol));
+  const reviewNetwork = result && (pbaas
+    ? systemNetworkLabel(result.lookupSystemId, result.testnet)
+    : result.network === 'homestead' ? 'Ethereum mainnet' : 'Goerli testnet');
+  const foundBalance = found && getManagedAssetBalance(
+    {currency_id: found.currencyId, testnet: found.testnet},
+    found.channels.map(channel => ({api_channels: {[API_GET_BALANCES]: channel}})), {}, snapshots).total;
+  const duplicate = error?.code === ASSET_IDENTIFIER_ERROR.DUPLICATE;
   return (
-    <SafeAreaView
-      edges={['left', 'right']}
-      style={styles.screen}
-      testID="add-asset-by-identifier-screen">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={68}
-        style={styles.keyboardAvoider}>
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={[
-            styles.identifierContent,
-            compact && styles.identifierContentCompact,
-          ]}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator>
-          {renderInput ? (
-            <>
-              <View style={styles.identifierIntro}>
-                <Text accessibilityRole="header" style={styles.identifierTitle}>
-                  Add any supported asset
-                </Text>
-                <Text style={styles.identifierDescription}>
-                  Enter a Verus currency name or i-address, or paste an
-                  Ethereum token contract. The wallet detects the system
-                  automatically.
-                </Text>
-              </View>
-
-              <View style={styles.identifierFieldGroup}>
-                <Text
-                  nativeID="asset-identifier-label"
-                  style={styles.identifierFieldLabel}>
-                  Asset identifier
-                </Text>
-                <TextInput
-                  accessibilityLabel="Asset identifier"
-                  accessibilityLabelledBy="asset-identifier-label"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  multiline
-                  numberOfLines={3}
-                  onChangeText={handleInputChange}
-                  placeholder="Currency name, i-address, or 0x contract"
-                  placeholderTextColor={theme.colors.textSubtle}
-                  spellCheck={false}
-                  style={[
-                    styles.identifierInput,
-                    state.error && styles.identifierInputError,
-                  ]}
-                  testID="asset-identifier-input"
-                  textAlignVertical="top"
-                  value={state.input}
-                />
-                {state.error ? (
-                  <View
-                    accessibilityLiveRegion="assertive"
-                    accessibilityRole="alert"
-                    style={styles.identifierInlineError}
-                    testID="asset-identifier-error">
-                    <MaterialCommunityIcons
-                      color={theme.colors.danger}
-                      name="alert-circle-outline"
-                      size={18}
-                    />
-                    <Text style={styles.identifierInlineErrorText}>
-                      {state.error}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              <DetectedSystem
-                classification={classification}
-                resolving={resolving}
-                result={state.result}
-                styles={styles}
-                theme={theme}
-              />
-            </>
-          ) : null}
-
-          {renderReview && state.result ? (
-            <>
-              {adding ? (
-                <View
-                  accessibilityLiveRegion="polite"
-                  accessibilityState={{busy: true}}
-                  style={styles.identifierAdding}
-                  testID="asset-identifier-adding">
-                  <ActivityIndicator color={theme.colors.primary} size={28} />
-                  <Text style={styles.identifierAddingTitle}>
-                    Adding this asset…
-                  </Text>
-                  <Text style={styles.identifierAddingDescription}>
-                    Keep this screen open while the wallet is updated.
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.identifierReviewIntro}>
-                  Confirm the resolved metadata before adding this asset to
-                  your wallet.
-                </Text>
-              )}
-
-              <ReviewContent
-                pbaasCoin={pbaasCoin}
-                result={state.result}
-                styles={styles}
-                theme={theme}
-              />
-
-              {state.error ? (
-                <View
-                  accessibilityLiveRegion="assertive"
-                  accessibilityRole="alert"
-                  style={styles.identifierInlineError}
-                  testID="asset-identifier-add-error">
-                  <MaterialCommunityIcons
-                    color={theme.colors.danger}
-                    name="alert-circle-outline"
-                    size={18}
-                  />
-                  <Text style={styles.identifierInlineErrorText}>
-                    {state.error}
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          ) : null}
-
-          {state.phase === PHASE.SUCCESS ? (
-            <View
-              accessibilityLiveRegion="polite"
-              style={styles.identifierSuccess}
-              testID="asset-identifier-success">
-              <View style={styles.identifierSuccessIcon}>
-                <MaterialCommunityIcons
-                  color={theme.colors.success}
-                  name="check-circle-outline"
-                  size={40}
-                />
-              </View>
-              <Text
-                accessibilityRole="header"
-                style={styles.identifierSuccessTitle}>
-                Asset added
-              </Text>
-              <Text style={styles.identifierSuccessDescription}>
-                {successName} is now available in your wallet.
-              </Text>
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {renderInput ? (
-          <SafeBottomActionStack
-            bottomSpacing={14}
-            gap={8}
-            horizontalSpacing={20}
-            safeAreaSpacing={12}
-            style={styles.identifierFooter}>
-            <AppButton
-              accessibilityLabel="Continue to asset review"
-              accessibilityState={{
-                busy: resolving,
-                disabled: continueDisabled,
-              }}
-              disabled={continueDisabled}
-              loading={resolving}
-              onPress={() => stateDispatch({type: 'REVIEW'})}
-              testID="asset-identifier-continue"
-              variant="primary">
-              {resolving ? 'Resolving asset' : 'Continue to review'}
-            </AppButton>
-          </SafeBottomActionStack>
-        ) : null}
-
-        {renderReview ? (
-          <SafeBottomActionStack
-            bottomSpacing={14}
-            gap={8}
-            horizontalSpacing={20}
-            safeAreaSpacing={12}
-            style={styles.identifierFooter}>
-            <AppButton
-              accessibilityLabel="Add asset to wallet"
-              accessibilityState={{busy: adding, disabled: adding}}
-              disabled={adding}
-              loading={adding}
-              onPress={handleAdd}
-              testID="asset-identifier-add"
-              variant="primary">
-              {adding ? 'Adding asset' : 'Add asset'}
-            </AppButton>
-            {!adding ? (
-              <AppButton
-                accessibilityLabel="Back to identifier"
-                onPress={() => stateDispatch({type: 'BACK_TO_INPUT'})}
-                testID="asset-identifier-back"
-                variant="secondary">
-                Back to edit
-              </AppButton>
-            ) : null}
-          </SafeBottomActionStack>
-        ) : null}
-
-        {state.phase === PHASE.SUCCESS ? (
-          <SafeBottomActionStack
-            bottomSpacing={14}
-            gap={8}
-            horizontalSpacing={20}
-            safeAreaSpacing={12}
-            style={styles.identifierFooter}>
-            <AppButton
-              accessibilityLabel="Back to Manage assets"
-              onPress={() => navigation.navigate('ManageAssets')}
-              testID="asset-identifier-manage-assets"
-              variant="primary">
-              Back to Manage assets
-            </AppButton>
-            <AppButton
-              accessibilityLabel="Return to wallet"
-              onPress={() => navigation.navigate('Home')}
-              testID="asset-identifier-return-wallet"
-              variant="secondary">
-              Return to wallet
-            </AppButton>
-          </SafeBottomActionStack>
-        ) : null}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <AssetScreen title={review ? 'Review asset' : 'Add custom asset'} onBack={goBack} testID="add-asset-by-identifier-screen"
+      header={!review ? <View style={styles.headerContent}><View style={styles.segment}>
+        {[{id: 'pbaas', label: 'Verus currency'}, {id: 'erc20', label: 'ERC-20 token'}].map(type => (
+          <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected: kind === type.id}} key={type.id} onPress={() => changeKind(type.id)} style={[styles.segmentOption, kind === type.id && styles.segmentSelected]}>
+            <Text style={kind === type.id ? styles.tabLabelSelected : styles.tabLabel}>{type.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View></View> : null}
+      footer={<AssetFooter styles={styles}><AppButton
+        accessibilityState={{busy: adding || resolving}}
+        disabled={review ? adding : (!input.trim() || !selectedNetwork || resolving)}
+        loading={adding || resolving}
+        onPress={duplicate ? () => navigation.navigate('ManageAssets') : review ? addAsset : lookUp}
+        testID={review ? 'asset-identifier-add' : 'asset-identifier-lookup'}>
+        {duplicate ? 'Manage assets' : review ? (adding ? 'Adding asset' : 'Add asset') : resolving ? 'Looking up asset' : error ? 'Try again' : 'Look up asset'}
+      </AppButton></AssetFooter>}>
+      <AssetScrollView styles={styles} contentContainerStyle={!review && styles.formContent} testID="asset-identifier-content">
+        {!review ? <>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Network</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Network: ${selectedNetwork?.label || 'Unavailable'}`} onPress={() => { Keyboard.dismiss(); setNetworkOpen(true); }} style={styles.networkInput} testID="asset-identifier-network">
+              <Text style={styles.fieldValue}>{selectedNetwork?.label || 'Network unavailable'}</Text>
+              <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <AppTextInput
+            label={kind === 'pbaas' ? 'Currency name or i-address' : 'Contract address'}
+            inputShellStyle={styles.inputShell}
+            inputStyle={styles.input}
+            onChangeText={editInput}
+            onSubmitEditing={lookUp}
+            placeholder={kind === 'pbaas' ? 'Currency name or i-address' : '0x…'}
+            returnKeyType="search"
+            spellCheck={false}
+            maxLength={256}
+            testID="asset-identifier-input"
+            value={input}
+          />
+          <Text style={styles.helper}>{kind === 'pbaas' ? 'Enter the currency name or its i-address on the selected network.' : 'Paste the token contract address on the selected network.'}</Text>
+          {error ? <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.lookupError} testID="asset-identifier-error">
+            <Text style={styles.rowName}>{duplicate ? 'Already managed' : `Couldn’t look up this ${kind === 'pbaas' ? 'currency' : 'token'}`}</Text>
+            <Text style={styles.formHelper}>{error.message}</Text>
+          </View> : null}
+        </> : result ? <>
+          <View style={styles.reviewHeader}>
+            <AssetLogo coin={result.catalogueMatch} styles={styles} />
+            <View style={styles.rowCopy}><Text style={styles.reviewName}>{name}</Text><Text style={styles.rowDescription}>{ticker} · {pbaas ? 'Verus currency' : 'ERC-20 token'}</Text></View>
+          </View>
+          {found ? <View style={styles.reviewBalance}>
+            <Text style={styles.rowDescription}>Found in your wallet</Text>
+            <Text style={styles.reviewAmount}>{!showBalance ? 'Balance hidden' : foundBalance == null ? 'Balance unavailable' : `${foundBalance.toFormat()} ${ticker}`}</Text>
+          </View> : null}
+          <ReviewRow label="Network" value={reviewNetwork} styles={styles} />
+          <ReviewRow label={pbaas ? 'Currency ID' : 'Contract address'} value={pbaas ? result.currencyDefinition.currencyid : result.canonicalAddress} copy styles={styles} />
+          <ReviewRow label={pbaas ? 'Launch system' : 'Decimals'} value={pbaas ? (result.launchSystem?.fullyqualifiedname || systemLabel(result.currencyDefinition.launchsystemid || result.currencyDefinition.systemid)) : result.decimals} styles={styles} />
+          <Text style={styles.reviewCopy}>{pbaas ? 'Check that the currency ID matches the asset you want to add.' : 'Check the contract address against the asset issuer’s source.'}</Text>
+          <Text style={styles.reviewHomeCopy}>This asset will appear on Home.</Text>
+          {error ? <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.lookupError}><Text style={styles.formHelper}>{error.message}</Text></View> : null}
+        </> : null}
+      </AssetScrollView>
+      <NetworkPicker visible={networkOpen} onClose={() => setNetworkOpen(false)} options={networks} selected={selectedNetwork?.id} onSelect={changeNetwork} />
+    </AssetScreen>
   );
 };
 
+const AddAssetByIdentifier = props => {
+  const key = useObjectSelector(state => `${state.authentication.activeAccount?.accountHash}:${state.authentication.sessionEpoch}:${assetNetworkKey(state.authentication.activeAccount)}`);
+  return <CustomAsset key={key} {...props} />;
+};
 export default AddAssetByIdentifier;

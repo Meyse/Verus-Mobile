@@ -21,6 +21,7 @@ import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
+import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
@@ -110,7 +111,7 @@ const PortfolioBalance = ({
   showBalance,
   theme,
 }) => {
-  const value = getCurrencyParts(amount, currency);
+  const value = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
 
   return (
     <View style={styles.heroValueRow}>
@@ -141,6 +142,8 @@ const PortfolioBalance = ({
 
 const SignedInWalletHome = ({
   assets,
+  assetsReady = true,
+  assetsLoadError = false,
   displayCurrency,
   loading,
   showBalance,
@@ -174,9 +177,9 @@ const SignedInWalletHome = ({
   const renderAsset = ({item}) => {
     const crypto = BigNumber(item.balance || 0);
     const hasBalance = crypto.isGreaterThan(0);
-    const cryptoAmountText = crypto
+    const cryptoAmountText = item.balance == null ? '—' : `${item.balanceComplete ? '' : '≥ '}${crypto
       .decimalPlaces(4, BigNumber.ROUND_DOWN)
-      .toFixed(4);
+      .toFixed(4)}`;
     const cryptoText = showBalance
       ? `${cryptoAmountText} ${item.coin.display_ticker}`
       : 'balance hidden';
@@ -186,7 +189,7 @@ const SignedInWalletHome = ({
     if (item.fiatValue != null) {
       fiatText = formatFiat(item.fiatValue, displayCurrency);
     } else {
-      fiatText = hasBalance ? 'N/A' : formatFiat(0, displayCurrency);
+      fiatText = hasBalance || !item.balanceComplete ? 'N/A' : formatFiat(0, displayCurrency);
     }
 
     const fiatUnavailable = fiatText === 'N/A';
@@ -305,6 +308,17 @@ const SignedInWalletHome = ({
 
       <FlatList
         data={assets}
+        ListEmptyComponent={
+          !assetsReady && !assetsLoadError ? (
+            <SkeletonLoader accessibilityLabel="Loading your assets" style={{padding: 20}}>
+              {[0, 1, 2].map(row => <SkeletonBlock key={row} height={56} style={{marginBottom: 20}} />)}
+            </SkeletonLoader>
+          ) : (
+            <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary, padding: 20}]}>
+              {assetsLoadError ? 'Your saved assets are temporarily unavailable.' : 'No assets on Home'}
+            </Text>
+          )
+        }
         keyExtractor={item => item.coin.id}
         renderItem={renderAsset}
         refreshing={loading}

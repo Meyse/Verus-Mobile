@@ -4,7 +4,9 @@ import {
   setUserCoins,
 } from '../../actions/actionCreators';
 import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
-import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
+import {scopeSessionAction, sessionScopeIsCurrent} from '../../actions/actions/updates/sessionRequests';
+import store from '../../store';
+import {sameAsset, ethereumNetwork} from '../assets/assetIdentity';
 import {
   getCurrency,
   getCurrencyNameMap,
@@ -22,6 +24,7 @@ export const ASSET_IDENTIFIER_ERROR = {
   METADATA: 'metadata',
   PROVIDER_UNAVAILABLE: 'provider_unavailable',
   UNKNOWN_VERUS: 'unknown_verus',
+  TYPE: 'asset_type',
 };
 
 export class AssetIdentifierError extends Error {
@@ -75,7 +78,7 @@ const findBuiltInErc20Coin = (address, network) => {
   const entry = Object.values(coinsList).find(
     coinObj =>
       coinObj.proto === ERC20 &&
-      Boolean(coinObj.testnet) === isTestnetNetwork(network) &&
+      ethereumNetwork(coinObj) === network &&
       coinObj.currency_id?.toLowerCase() === normalizedAddress,
   );
 
@@ -91,10 +94,11 @@ const findRegisteredCoin = predicate => {
   return null;
 };
 
-const findRegisteredPbaasCoin = currencyId =>
+const findRegisteredPbaasCoin = (currencyId, isTestnet) =>
   findRegisteredCoin(
     coinObj =>
-      coinObj.proto === 'vrsc' && coinObj.currency_id === currencyId,
+      coinObj.proto === 'vrsc' && coinObj.currency_id === currencyId &&
+      Boolean(coinObj.testnet) === isTestnet,
   );
 
 const findRegisteredErc20Coin = (address, network) => {
@@ -103,16 +107,17 @@ const findRegisteredErc20Coin = (address, network) => {
   return findRegisteredCoin(
     coinObj =>
       coinObj.proto === ERC20 &&
-      coinObj.network === network &&
+      ethereumNetwork(coinObj) === network &&
       coinObj.currency_id?.toLowerCase() === normalizedAddress,
   );
 };
 
 const assetIsActive = (result, activeCoins) =>
   activeCoins.some(coinObj => {
+    if (result.kind === 'catalogue') return sameAsset(coinObj, result.coinData);
     if (result.kind === 'pbaas') {
       return (
-        coinObj.id === result.currencyDefinition.currencyid ||
+        coinObj.proto === 'vrsc' && Boolean(coinObj.testnet) === result.testnet &&
         coinObj.currency_id === result.currencyDefinition.currencyid
       );
     }
@@ -120,9 +125,8 @@ const assetIsActive = (result, activeCoins) =>
     const normalizedAddress = result.canonicalAddress.toLowerCase();
 
     return (
-      coinObj.id?.toLowerCase() === normalizedAddress ||
-      coinObj.currency_id?.toLowerCase() === normalizedAddress ||
-      (result.coinData != null && coinObj.id === result.coinData.id)
+      coinObj.proto === ERC20 && ethereumNetwork(coinObj) === result.network &&
+      coinObj.currency_id?.toLowerCase() === normalizedAddress
     );
   });
 
@@ -132,7 +136,7 @@ const duplicateError = result =>
     `${
       result.kind === 'pbaas'
         ? result.currencyDefinition.fullyqualifiedname
-        : result.symbol
+        : result.symbol || result.coinData?.display_name
     } is already in your wallet.`,
   );
 
@@ -205,6 +209,13 @@ const resolvePbaasIdentifier = async ({
   }
 
   const currencyDefinition = currencyResponse.result;
+  if (typeof currencyDefinition.currencyid !== 'string' ||
+      typeof currencyDefinition.systemid !== 'string' || !currencyDefinition.systemid.trim() ||
+      typeof currencyDefinition.fullyqualifiedname !== 'string' ||
+      !currencyDefinition.fullyqualifiedname.trim() || currencyDefinition.fullyqualifiedname.length > 256) {
+    throw new AssetIdentifierError(ASSET_IDENTIFIER_ERROR.METADATA,
+      'The network returned incomplete currency details. Try again.');
+  }
   const isTestnet = Boolean(pbaasCoin.testnet);
   const catalogueMatch = findBuiltInPbaasCoin(
     currencyDefinition.currencyid,
@@ -212,13 +223,15 @@ const resolvePbaasIdentifier = async ({
   );
   const coinData =
     catalogueMatch ||
-    findRegisteredPbaasCoin(currencyDefinition.currencyid);
+    findRegisteredPbaasCoin(currencyDefinition.currencyid, isTestnet);
   const partialResult = {
     kind: 'pbaas',
     identifier,
     currencyDefinition,
     catalogueMatch,
     coinData,
+    testnet: isTestnet,
+    lookupSystemId: pbaasCoin.system_id,
   };
 
   if (assetIsActive(partialResult, activeCoins)) {
@@ -285,6 +298,13 @@ const resolveErc20Identifier = async ({
     const {name, symbol, decimals} = await provider.getContractInfo(
       canonicalAddress,
     );
+    if (typeof name !== 'string' || !name.trim() || name.length > 256 ||
+        typeof symbol !== 'string' || !symbol.trim() || symbol.length > 128 ||
+        (typeof decimals !== 'number' && typeof decimals !== 'string') || String(decimals).trim() === '' ||
+        !Number.isInteger(Number(decimals)) || Number(decimals) < 0 || Number(decimals) > 255) {
+      throw new AssetIdentifierError(ASSET_IDENTIFIER_ERROR.METADATA,
+        'The contract returned incomplete token details. Check the address and try again.');
+    }
     const fallbackMetadata =
       name?.toLowerCase() === canonicalAddress &&
       symbol?.toLowerCase() === canonicalAddress.substring(0, 6);
@@ -306,10 +326,11 @@ const resolveErc20Identifier = async ({
       canonicalAddress,
       name,
       symbol,
-      decimals,
+      decimals: Number(decimals),
       network,
       catalogueMatch,
       coinData,
+      testnet: isTestnetNetwork(network),
     };
 
     if (assetIsActive(result, activeCoins)) throw duplicateError(result);
@@ -331,10 +352,17 @@ export const resolveAssetIdentifier = async ({
   ethereumCoin,
   identifier,
   pbaasCoin,
+  kind,
 }) => {
   const classification = classifyAssetIdentifier(identifier);
 
   if (classification.error) throw classification.error;
+  if (kind && classification.kind !== kind) {
+    throw new AssetIdentifierError(ASSET_IDENTIFIER_ERROR.TYPE,
+      kind === 'erc20'
+        ? 'Enter a 0x-prefixed contract address with 40 hexadecimal characters.'
+        : 'Enter a Verus currency name or i-address.');
+  }
 
   if (classification.kind === 'erc20') {
     return resolveErc20Identifier({
@@ -367,15 +395,29 @@ export const addResolvedAsset = async ({
   result,
 }) => {
   const sessionScope = requestContext?.sessionScope || requestContext;
+  const assertCurrent = () => {
+    requestContext?.assertCurrent?.();
+    if (!sessionScopeIsCurrent(store.getState(), sessionScope)) {
+      const error = new Error('The active wallet changed.');
+      error.code = 'SESSION_CHANGED';
+      throw error;
+    }
+  };
+  assertCurrent();
+  const testnet = Object.keys(activeAccount.testnetOverrides || {}).length > 0;
+  if (result.testnet != null && Boolean(result.testnet) !== testnet) {
+    throw new Error('The asset does not belong to this wallet network.');
+  }
   let fullCoinData = result.coinData;
 
   if (result.kind === 'pbaas') {
     if (!fullCoinData) {
       await CoinDirectory.addPbaasCurrency(
         result.currencyDefinition,
-        Object.keys(activeAccount.testnetOverrides || {}).length > 0,
+        testnet,
         true,
       );
+      assertCurrent();
       fullCoinData = CoinDirectory.findCoinObj(
         result.currencyDefinition.currencyid,
       );
@@ -390,25 +432,33 @@ export const addResolvedAsset = async ({
       },
       result.network,
     );
+    assertCurrent();
     fullCoinData = CoinDirectory.findCoinObj(result.canonicalAddress);
   }
 
   const resultWithCoinData = {...result, coinData: fullCoinData};
+  if (Boolean(fullCoinData.testnet) !== testnet) {
+    throw new Error('The asset does not belong to this wallet network.');
+  }
 
   if (assetIsActive(resultWithCoinData, activeCoins)) {
     throw duplicateError(resultWithCoinData);
   }
 
-  dispatch(
-    await addKeypairs(
+  const keyAction = await addKeypairs(
       fullCoinData,
       activeAccount.keys,
       activeAccount.keyDerivationVersion == null
         ? 0
         : activeAccount.keyDerivationVersion,
       requestContext,
-    ),
-  );
+    );
+  assertCurrent();
+  // Preserve keys added by another current-session flow while derivation ran.
+  dispatch({...keyAction, keys: {
+    ...store.getState().authentication.activeAccount.keys,
+    [fullCoinData.id]: keyAction.keys[fullCoinData.id],
+  }});
 
   const addCoinAction = await addCoin(
     fullCoinData,
@@ -419,6 +469,7 @@ export const addResolvedAsset = async ({
   );
 
   if (!addCoinAction) throw new Error('Asset could not be added.');
+  assertCurrent();
 
   dispatch(addCoinAction);
 

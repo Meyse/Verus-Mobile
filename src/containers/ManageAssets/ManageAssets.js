@@ -1,711 +1,242 @@
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Switch, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useDispatch} from 'react-redux';
-import {toLowerCaseCLocale} from 'verus-typescript-primitives';
-import {
-  addCoin,
-  addKeypairs,
-  removeExistingCoin,
-  setUserCoins,
-} from '../../actions/actionCreators';
-import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
-import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
-import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
 import AppButton from '../../components/AppButton';
 import AppSearchField from '../../components/AppSearchField';
-import AppSearchLauncher from '../../components/AppSearchLauncher';
-import SafeBottomActionStack from '../../components/SafeBottomActionStack';
-import {SignedInEdgeFade} from '../../components/SignedInActionBar';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
-import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
-  ASSET_COLLECTIONS,
-  buildAssetManagerData,
-  getAssetDescription,
-  getAssetsForCollection,
-  getCollectionTitle,
-} from './assetManagerData';
+  assetKey, assetNetworkKey, ethereumNetwork, getManagedAssetBalance,
+  isAssetShown, isTestnetAccount,
+} from '../../utils/assets/assetIdentity';
+import {
+  addManagedAsset, assetContextIsCurrent, captureAssetContext,
+  getNewAssetHoldings, loadAssetManagement, setAssetHomeVisibility,
+} from '../../utils/assets/assetManagementService';
+import {buildAssetManagerData} from './assetManagerData';
+import {
+  AssetFooter, AssetLoadingRows, AssetLogo, AssetScreen, AssetScrollView,
+  NetworkPicker, assetNetworkLabel, systemLabel,
+} from './AssetManagementComponents';
 import {createManageAssetsStyles} from './manageAssets.styles';
 
-const SCROLL_END_THRESHOLD = 8;
-const COLLECTION_FILTERS = [
-  ASSET_COLLECTIONS.ALL,
-  ASSET_COLLECTIONS.PBAAS,
-  ASSET_COLLECTIONS.BLOCKCHAINS,
-  ASSET_COLLECTIONS.BRIDGE,
-];
+const FILTERS = [{id: 'all', label: 'All'}, {id: 'home', label: 'On Home'}, {id: 'hidden', label: 'Hidden'}];
+const networkId = coin => coin.proto === 'eth' || coin.proto === 'erc20'
+  ? `ethereum:${ethereumNetwork(coin)}` : coin.system_id || `${coin.proto}:${coin.id}`;
+const matchesQuery = (query, values) => !query.trim() || values.filter(Boolean)
+  .some(value => String(value).toLowerCase().includes(query.trim().toLowerCase()));
 
-const getCollectionLabel = collection => {
-  switch (collection) {
-    case ASSET_COLLECTIONS.PBAAS:
-      return 'PBaaS';
-    case ASSET_COLLECTIONS.BLOCKCHAINS:
-      return 'Blockchains';
-    case ASSET_COLLECTIONS.BRIDGE:
-      return 'Bridge';
-    default:
-      return 'All';
-  }
-};
-
-const normalizeCollection = collection =>
-  Object.values(ASSET_COLLECTIONS).includes(collection)
-    ? collection
-    : ASSET_COLLECTIONS.ALL;
-
-const useAssetManagerData = () => {
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
-  const activeCoins = useObjectSelector(
-    state => state.coins.activeCoinsForUser || [],
-  );
-  const testAccount =
-    Object.keys(activeAccount?.testnetOverrides || {}).length > 0;
-  const data = useMemo(
-    () =>
-      buildAssetManagerData({
-        activeAccount,
-        activeCoins,
-        testAccount,
-      }),
-    [activeAccount, activeCoins, testAccount],
-  );
-
-  return data;
-};
-
-const ManagedAssetLogo = ({coinObj, size = 36}) =>
-  <AssetCoinLogo coinId={coinObj.id} size={size} />;
-
-const LogoStack = ({assets, small = false, styles, tiles = false}) => (
-  <View style={tiles ? styles.logoStack : styles.walletLogos}>
-    {assets.slice(0, 3).map((coinObj, index) => (
-      <View
-        key={coinObj.id}
-        style={[
-          tiles ? styles.logoTile : styles.overlappingLogo,
-          tiles && small && styles.logoTileSmall,
-          index > 0 &&
-            (tiles
-              ? styles.logoTileAfterFirst
-              : styles.overlappingLogoAfterFirst),
-          {zIndex: 3 - index},
-        ]}>
-        <ManagedAssetLogo coinObj={coinObj} size={small ? 22 : 28} />
-      </View>
-    ))}
-  </View>
-);
-
-const AssetRow = ({
-  active,
-  coinObj,
-  description,
-  disabled,
-  loading,
-  onToggle,
-  styles,
-}) => (
-  <View style={styles.assetRow} testID={`manage-asset-row-${coinObj.id}`}>
-    <View style={styles.rowLogo}>
-      <ManagedAssetLogo coinObj={coinObj} size={38} />
-    </View>
-    <View style={styles.rowCopy}>
-      <View style={styles.rowTitleLine}>
-        <Text numberOfLines={1} style={styles.rowName}>
-          {coinObj.display_name}
-        </Text>
-        <Text numberOfLines={1} style={styles.rowTicker}>
-          {coinObj.display_ticker}
-        </Text>
-      </View>
-      <Text numberOfLines={1} style={styles.rowDescription}>
-        {description}
-      </Text>
-    </View>
-    <AppButton
-      accessibilityLabel={`${active ? 'Remove' : 'Add'} ${
-        coinObj.display_name
-      } ${active ? 'from' : 'to'} wallet`}
-      accessibilityState={{
-        busy: loading,
-        disabled,
-        selected: active,
-      }}
-      compact
-      disabled={disabled}
-      height={32}
-      loading={loading}
-      onPress={onToggle}
-      style={styles.rowButton}
-      labelStyle={styles.rowButtonLabel}
-      variant={active ? 'secondary' : 'primary'}>
-      {active ? 'Added' : 'Add'}
-    </AppButton>
-  </View>
-);
-
-const ScrollCue = ({show, styles, theme}) =>
-  show ? (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      pointerEvents="none"
-      style={styles.scrollCue}>
-      <SignedInEdgeFade height={46} style={styles.scrollCueFade} visible />
-      <View style={styles.scrollCueChevron}>
-        <MaterialCommunityIcons
-          color={theme.colors.textSubtle}
-          name="chevron-down"
-          size={15}
-        />
-      </View>
-    </View>
-  ) : null;
-
-const IdentifierFooter = ({navigation, styles}) => (
-  <SafeBottomActionStack
-    bottomSpacing={14}
-    horizontalSpacing={20}
-    safeAreaSpacing={12}
-    style={styles.footer}>
-    <AppButton
-      accessibilityLabel="Add an asset by identifier"
-      compact
-      height={52}
-      icon="link-variant"
-      onPress={() => navigation.navigate('AddAssetByIdentifier')}
-      style={styles.footerButton}
-      testID="manage-assets-add-by-identifier"
-      variant="secondary">
-      Add by identifier
-    </AppButton>
-  </SafeBottomActionStack>
-);
-
-const useAssetMutation = () => {
-  const dispatch = useDispatch();
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
-  const sessionEpoch = useObjectSelector(
-    state => state.authentication.sessionEpoch,
-  );
-  const activeCoinList = useObjectSelector(
-    state => state.coins.activeCoinList || [],
-  );
-  const activeCoins = useObjectSelector(
-    state => state.coins.activeCoinsForUser || [],
-  );
-  const [pendingAssetId, setPendingAssetId] = useState(null);
-  const [actionError, setActionError] = useState(null);
-  const activeIds = useMemo(
-    () => new Set(activeCoins.map(coinObj => coinObj.id)),
-    [activeCoins],
-  );
-
-  const toggleAsset = useCallback(
-    async coinObj => {
-      if (pendingAssetId) return;
-
-      const removing = activeIds.has(coinObj.id);
-      const sessionScope = {
-        sessionScoped: true,
-        accountHash: activeAccount.accountHash,
-        sessionEpoch,
-      };
-      const requestContext = {
-        sessionScope,
-        ownerAccountHash: activeAccount.accountHash,
-      };
-      setPendingAssetId(coinObj.id);
-      setActionError(null);
-
-      try {
-        if (removing) {
-          const nextActiveCoinList = await removeExistingCoin(
-            coinObj.id,
-            activeAccount.id,
-            dispatch,
-            false,
-            requestContext,
-          );
-          dispatch(
-            scopeSessionAction(
-              setUserCoins(nextActiveCoinList, activeAccount.id),
-              sessionScope,
-            ),
-          );
-        } else {
-          const fullCoinData = CoinDirectory.findCoinObj(coinObj.id);
-
-          dispatch(
-            await addKeypairs(
-              fullCoinData,
-              activeAccount.keys,
-              activeAccount.keyDerivationVersion == null
-                ? 0
-                : activeAccount.keyDerivationVersion,
-              requestContext,
-            ),
-          );
-
-          const addCoinAction = await addCoin(
-            fullCoinData,
-            activeCoinList,
-            activeAccount.id,
-            fullCoinData.compatible_channels || [],
-            requestContext,
-          );
-
-          if (!addCoinAction) throw new Error('Asset could not be activated');
-
-          dispatch(addCoinAction);
-          const setUserCoinsAction = setUserCoins(
-            addCoinAction.activeCoinList,
-            activeAccount.id,
-          );
-          dispatch(scopeSessionAction(setUserCoinsAction, sessionScope));
-          refreshActiveChainLifecycles(
-            setUserCoinsAction.payload.activeCoinsForUser,
-          );
-        }
-      } catch (error) {
-        const message = `There was a problem ${
-          removing ? 'removing' : 'adding'
-        } ${coinObj.display_ticker}.`;
-        setActionError(message);
-        createAlert(`Error ${removing ? 'Removing' : 'Adding'} Asset`, message);
-        console.error(error);
-      } finally {
-        setPendingAssetId(null);
-      }
-    },
-    [
-      activeAccount,
-      activeCoinList,
-      activeIds,
-      dispatch,
-      pendingAssetId,
-      sessionEpoch,
-    ],
-  );
-
-  return {
-    actionError,
-    activeIds,
-    pendingAssetId,
-    toggleAsset,
-  };
-};
-
-const ManageAssets = ({navigation}) => {
-  const theme = useOnboardingTheme();
-  const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
-  const {compact} = useOnboardingSmallDeviceLayout();
-  const data = useAssetManagerData();
-  const {actionError, activeIds, pendingAssetId, toggleAsset} =
-    useAssetMutation();
-  const [scrollMetrics, setScrollMetrics] = useState({
-    contentHeight: 0,
-    layoutHeight: 0,
-    offsetY: 0,
-  });
-  const mappedCurrencies = useMemo(
-    () => data.pbaasCurrencies.filter(coinObj => coinObj.mapped_to).slice(0, 2),
-    [data.pbaasCurrencies],
-  );
-  const isScrollable =
-    scrollMetrics.layoutHeight > 0 &&
-    scrollMetrics.contentHeight >
-      scrollMetrics.layoutHeight + SCROLL_END_THRESHOLD;
-  const showScrollCue =
-    isScrollable &&
-    scrollMetrics.offsetY + scrollMetrics.layoutHeight <
-      scrollMetrics.contentHeight - SCROLL_END_THRESHOLD;
-
-  const openDirectory = useCallback(
-    collection => navigation.navigate('ManageAssetsDirectory', {collection}),
-    [navigation],
-  );
-
-  const updateScrollMetrics = useCallback(nextMetrics => {
-    setScrollMetrics(current => {
-      const next = {...current, ...nextMetrics};
-      const unchanged = Object.keys(next).every(
-        key => next[key] === current[key],
-      );
-
-      return unchanged ? current : next;
-    });
-  }, []);
-
-  return (
-    <SafeAreaView
-      edges={['left', 'right']}
-      style={styles.screen}
-      testID="manage-assets-screen">
-      <View style={styles.scrollFrame}>
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={[
-            styles.overviewContent,
-            compact && styles.overviewContentCompact,
-          ]}
-          onContentSizeChange={(_, contentHeight) =>
-            updateScrollMetrics({contentHeight})
-          }
-          onLayout={event =>
-            updateScrollMetrics({
-              layoutHeight: event.nativeEvent.layout.height,
-            })
-          }
-          onScroll={event => {
-            const {contentOffset, contentSize, layoutMeasurement} =
-              event.nativeEvent;
-            updateScrollMetrics({
-              contentHeight: contentSize.height,
-              layoutHeight: layoutMeasurement.height,
-              offsetY: contentOffset.y,
-            });
-          }}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={isScrollable}
-          style={styles.scroll}>
-          <AppSearchLauncher
-            accessibilityLabel="Find an asset"
-            label="Find an asset"
-            onPress={() => openDirectory(ASSET_COLLECTIONS.ALL)}
-            testID="manage-assets-search"
-          />
-
-          <TouchableOpacity
-            accessibilityLabel={`Manage ${data.activeAssets.length} wallet assets`}
-            accessibilityRole="button"
-            activeOpacity={0.72}
-            onPress={() => openDirectory(ASSET_COLLECTIONS.WALLET)}
-            style={styles.walletCard}
-            testID="manage-assets-wallet-card">
-            <LogoStack assets={data.activeAssets} styles={styles} />
-            <View style={styles.walletCopy}>
-              <Text style={styles.walletTitle}>Your wallet</Text>
-              <Text style={styles.walletDescription}>
-                {data.activeAssets.length} assets visible on Home
-              </Text>
-            </View>
-            <Text style={styles.walletAction}>Manage</Text>
-          </TouchableOpacity>
-
-          <Text
-            accessibilityRole="header"
-            style={[
-              styles.sectionTitle,
-              compact && styles.sectionTitleCompact,
-            ]}>
-            Explore by ecosystem
-          </Text>
-
-          <TouchableOpacity
-            accessibilityLabel="Browse Verus ecosystem currencies"
-            accessibilityRole="button"
-            activeOpacity={0.76}
-            onPress={() => openDirectory(ASSET_COLLECTIONS.PBAAS)}
-            style={[
-              styles.ecosystemCard,
-              compact && styles.ecosystemCardCompact,
-            ]}
-            testID="manage-assets-verus-card">
-            <View style={styles.ecosystemCopy}>
-              <Text style={styles.ecosystemTitle}>Verus ecosystem</Text>
-              <Text style={styles.ecosystemDescription}>
-                Currencies created and mapped through Verus PBaaS.
-              </Text>
-              <Text style={styles.ecosystemAction}>Browse currencies</Text>
-            </View>
-            <LogoStack assets={data.pbaasCurrencies} styles={styles} tiles />
-          </TouchableOpacity>
-
-          <View style={styles.categoryRow}>
-            <TouchableOpacity
-              accessibilityLabel="Browse ecosystem blockchains"
-              accessibilityRole="button"
-              activeOpacity={0.76}
-              onPress={() => openDirectory(ASSET_COLLECTIONS.BLOCKCHAINS)}
-              style={[
-                styles.categoryCard,
-                styles.blockchainCard,
-                compact && styles.categoryCardCompact,
-              ]}
-              testID="manage-assets-blockchains-card">
-              <LogoStack
-                assets={data.ecosystemBlockchains}
-                small
-                styles={styles}
-                tiles
-              />
-              <Text style={styles.categoryTitle}>Blockchains</Text>
-              <Text numberOfLines={1} style={styles.categoryDescription}>
-                {data.ecosystemBlockchains
-                  .map(coinObj => coinObj.display_ticker)
-                  .join(' · ') || 'Verus ecosystem chains'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              accessibilityLabel="Browse supported bridged ERC-20 tokens"
-              accessibilityRole="button"
-              activeOpacity={0.76}
-              onPress={() => openDirectory(ASSET_COLLECTIONS.BRIDGE)}
-              style={[
-                styles.categoryCard,
-                styles.bridgeCard,
-                compact && styles.categoryCardCompact,
-              ]}
-              testID="manage-assets-bridge-card">
-              <LogoStack
-                assets={data.bridgeErc20s}
-                small
-                styles={styles}
-                tiles
-              />
-              <Text style={styles.categoryTitle}>Bridged ERC-20s</Text>
-              <Text numberOfLines={1} style={styles.categoryDescription}>
-                Supported by Verus
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {mappedCurrencies.length > 0 ? (
-            <>
-              <View style={styles.popularHeader}>
-                <View style={styles.popularCopy}>
-                  <Text style={styles.popularTitle}>Popular assets</Text>
-                  <Text style={styles.popularDescription}>
-                    Commonly enabled bridge assets
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  accessibilityLabel="View all assets"
-                  accessibilityRole="button"
-                  activeOpacity={0.7}
-                  onPress={() => openDirectory(ASSET_COLLECTIONS.ALL)}>
-                  <Text style={styles.viewAll}>View all</Text>
-                </TouchableOpacity>
-              </View>
-              {actionError ? (
-                <View
-                  accessibilityLiveRegion="polite"
-                  accessibilityRole="alert"
-                  style={[styles.errorBanner, styles.overviewErrorBanner]}>
-                  <MaterialCommunityIcons
-                    color={theme.colors.danger}
-                    name="alert-circle-outline"
-                    size={18}
-                  />
-                  <Text style={styles.errorText}>{actionError}</Text>
-                </View>
-              ) : null}
-              <View style={styles.assetRows}>
-                {mappedCurrencies.map(coinObj => (
-                  <AssetRow
-                    active={activeIds.has(coinObj.id)}
-                    coinObj={coinObj}
-                    description={getAssetDescription(coinObj, data)}
-                    disabled={
-                      pendingAssetId != null && pendingAssetId !== coinObj.id
-                    }
-                    key={coinObj.id}
-                    loading={pendingAssetId === coinObj.id}
-                    onToggle={() => toggleAsset(coinObj)}
-                    styles={styles}
-                  />
-                ))}
-              </View>
-            </>
-          ) : null}
-        </ScrollView>
-        <ScrollCue show={showScrollCue} styles={styles} theme={theme} />
-      </View>
-      <IdentifierFooter navigation={navigation} styles={styles} />
-    </SafeAreaView>
-  );
-};
-
-export const ManageAssetsDirectory = ({navigation, route}) => {
-  const theme = useOnboardingTheme();
-  const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
-  const data = useAssetManagerData();
-  const {actionError, activeIds, pendingAssetId, toggleAsset} =
-    useAssetMutation();
-  const [collection, setCollection] = useState(() =>
-    normalizeCollection(route.params?.collection),
-  );
-  const [query, setQuery] = useState('');
-
+const useAssetData = () => {
+  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
+  const activeCoins = useObjectSelector(state => state.coins.activeCoinsForUser || []);
+  const management = useObjectSelector(state => state.assetManagement);
+  const cards = useObjectSelector(state => state.coinMenus.allSubWallets);
+  const balances = useObjectSelector(state => state.ledger.balances);
+  const showBalance = useObjectSelector(state => state.coins.showBalance);
+  const discoveries = useObjectSelector(getNewAssetHoldings);
+  const data = useMemo(() => buildAssetManagerData({activeAccount, activeCoins,
+    testAccount: isTestnetAccount(activeAccount)}), [activeAccount, activeCoins]);
   useEffect(() => {
-    setCollection(normalizeCollection(route.params?.collection));
-  }, [route.params?.collection]);
+    loadAssetManagement().catch(() => {});
+  }, []);
+  return {...data, cards, balances, management, discoveries, showBalance};
+};
 
-  useLayoutEffect(() => {
-    navigation.setOptions({title: getCollectionTitle(collection)});
-  }, [collection, navigation]);
+const useAssetAction = () => {
+  const [pending, setPending] = useState(null);
+  const [error, setError] = useState(null);
+  const pendingRef = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+  const perform = useCallback(async (coin, shown) => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    const context = captureAssetContext();
+    setPending(assetKey(coin));
+    setError(null);
+    try {
+      if (shown == null) await addManagedAsset({coin, context});
+      else await setAssetHomeVisibility(coin, shown, context);
+    } catch (_) {
+      if (mounted.current && assetContextIsCurrent(context)) {
+        setError(shown == null ? 'Couldn’t add this asset. Try again.' : 'Couldn’t save the Home setting. Try again.');
+      }
+    } finally {
+      pendingRef.current = false;
+      if (mounted.current && assetContextIsCurrent(context)) setPending(null);
+    }
+  }, []);
+  return {pending, error, perform};
+};
 
-  const assets = useMemo(() => {
-    const normalizedQuery = toLowerCaseCLocale(query.trim());
+const SectionHeader = ({title, detail, styles}) => (
+  <View style={styles.sectionHeader}>
+    <Text accessibilityRole="header" style={styles.sectionLabel}>{title}</Text>
+    <Text style={styles.sectionDetail}>{detail}</Text>
+  </View>
+);
 
-    return getAssetsForCollection(data, collection).filter(coinObj => {
-      if (!normalizedQuery) return true;
+const ErrorMessage = ({error, styles}) => error ? (
+  <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
+    <Text style={styles.errorText}>{error}</Text>
+  </View>
+) : null;
 
-      return [
-        coinObj.display_name,
-        coinObj.display_ticker,
-        coinObj.id,
-        getAssetDescription(coinObj, data),
-      ]
-        .filter(Boolean)
-        .some(value => toLowerCaseCLocale(value).includes(normalizedQuery));
-    });
-  }, [collection, data, query]);
+const AssetRow = ({coin, description, action, styles}) => (
+  <View style={styles.assetRow} testID={`manage-asset-row-${coin.id}`}>
+    <AssetLogo coin={coin} styles={styles} />
+    <View style={styles.rowCopy}>
+      <Text numberOfLines={1} style={styles.rowName}>{coin.display_name}</Text>
+      <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text>
+    </View>
+    {action}
+  </View>
+);
 
-  const walletCollection = collection === ASSET_COLLECTIONS.WALLET;
-  const pending = pendingAssetId != null;
+const NetworkFilter = ({label, onPress, styles, theme}) => (
+  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter by network: ${label}`} onPress={onPress} style={styles.networkFilter}>
+    <Text numberOfLines={1} style={styles.networkFilterLabel}>{label}</Text>
+    <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.textSecondary} />
+  </TouchableOpacity>
+);
+
+const useNetworkFilter = coins => {
+  const [network, setNetwork] = useState('all');
+  const [open, setOpen] = useState(false);
+  const options = useMemo(() => {
+    const choices = new Map(coins.map(coin => [networkId(coin), {id: networkId(coin), label: assetNetworkLabel(coin)}]));
+    return [{id: 'all', label: 'All networks'}, ...choices.values()];
+  }, [coins]);
+  return {network, setNetwork, open, setOpen, options, label: options.find(item => item.id === network)?.label || 'All networks'};
+};
+
+const Manager = ({navigation}) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
+  const data = useAssetData();
+  const {pending, error, perform} = useAssetAction();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const networks = useNetworkFilter(data.activeAssets);
+  const assets = data.activeAssets.filter(coin => {
+    const shown = isAssetShown(coin, data.management.preferences);
+    return (filter === 'all' || (filter === 'home' ? shown : !shown)) &&
+      (networks.network === 'all' || networkId(coin) === networks.network) &&
+      matchesQuery(query, [coin.display_name, coin.display_ticker, coin.currency_id, assetNetworkLabel(coin)]);
+  });
+  const discoveries = filter === 'all' ? data.discoveries.filter(holding =>
+    (networks.network === 'all' || networks.network === holding.systemId) &&
+    matchesQuery(query, [holding.result.currencyDefinition.fullyqualifiedname, holding.currencyId, systemLabel(holding.systemId)])) : [];
 
   return (
-    <SafeAreaView
-      edges={['left', 'right']}
-      style={styles.screen}
-      testID="manage-assets-directory">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={68}
-        style={styles.keyboardAvoider}>
-        <View style={styles.directoryHeader}>
-          <AppSearchField
-            accessibilityLabel="Search assets"
-            onChangeText={setQuery}
-            placeholder="Search name, ticker or asset type"
-            resultCount={assets.length}
-            testID="manage-assets-directory-search"
-            value={query}
-          />
-
-          {walletCollection ? (
-            <Text style={styles.walletHelper}>
-              Removing an asset hides it from Home without affecting its
-              balance.
-            </Text>
-          ) : (
-            <ScrollView
-              contentContainerStyle={styles.filtersContent}
-              horizontal
-              keyboardShouldPersistTaps="handled"
-              showsHorizontalScrollIndicator={false}
-              style={styles.filters}>
-              {COLLECTION_FILTERS.map(filter => {
-                const selected = collection === filter;
-
-                return (
-                  <AppButton
-                    accessibilityState={{selected}}
-                    compact
-                    height={34}
-                    key={filter}
-                    labelStyle={styles.filterLabel}
-                    onPress={() => setCollection(filter)}
-                    style={styles.filterButton}
-                    variant={selected ? 'secondary' : 'text'}>
-                    {getCollectionLabel(filter)}
-                  </AppButton>
-                );
-              })}
-            </ScrollView>
-          )}
+    <AssetScreen title="Manage assets" onBack={() => navigation.goBack()} testID="manage-assets-screen"
+      header={<View style={styles.headerContent}>
+        <AppSearchField accessibilityLabel="Search your assets" placeholder="Search your assets" value={query} onChangeText={setQuery} testID="manage-assets-search" />
+        <View style={styles.filters}>
+          <View style={styles.tabs}>{FILTERS.map(item => (
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected: filter === item.id}} key={item.id} onPress={() => setFilter(item.id)} style={[styles.tab, filter === item.id && styles.tabSelected]}>
+              <Text style={filter === item.id ? styles.tabLabelSelected : styles.tabLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}</View>
+          <NetworkFilter label={networks.label} onPress={() => networks.setOpen(true)} styles={styles} theme={theme} />
         </View>
-
-        {actionError ? (
-          <View
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            style={styles.errorBanner}>
-            <MaterialCommunityIcons
-              color={theme.colors.danger}
-              name="alert-circle-outline"
-              size={18}
-            />
-            <Text style={styles.errorText}>{actionError}</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.directoryMeta}>
-          <Text style={styles.resultCount}>
-            {walletCollection ? 'Visible assets' : `${assets.length} results`}
-          </Text>
-          {!walletCollection ? (
-            <Text style={styles.activeCount}>
-              {data.activeAssets.length} in wallet
-            </Text>
-          ) : null}
-        </View>
-
-        <FlatList
-          contentContainerStyle={[
-            styles.directoryList,
-            assets.length === 0 && styles.directoryListEmpty,
-          ]}
-          data={assets}
-          extraData={{activeIds, pendingAssetId}}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          keyExtractor={coinObj => coinObj.id}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No matching assets</Text>
-              <Text style={styles.emptyDescription}>
-                {query
-                  ? 'Try another name, ticker or ecosystem.'
-                  : 'No assets are available in this collection.'}
-              </Text>
-            </View>
-          }
-          renderItem={({item}) => (
-            <AssetRow
-              active={activeIds.has(item.id)}
-              coinObj={item}
-              description={getAssetDescription(item, data)}
-              disabled={pending && pendingAssetId !== item.id}
-              loading={pendingAssetId === item.id}
-              onToggle={() => toggleAsset(item)}
-              styles={styles}
-            />
-          )}
-          showsVerticalScrollIndicator
-          testID="manage-assets-directory-list"
-        />
-
-        <IdentifierFooter navigation={navigation} styles={styles} />
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>}
+      footer={<AssetFooter styles={styles}><AppButton onPress={() => navigation.navigate('ManageAssetsDirectory')} testID="manage-assets-add-asset">Add asset</AppButton></AssetFooter>}>
+      <ErrorMessage styles={styles} error={error || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
+      <AssetScrollView styles={styles} testID="manage-assets-list">
+        {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
+          <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
+          {assets.map(coin => {
+            const {total: balance, complete} = getManagedAssetBalance(coin, data.cards[coin.id], data.balances, data.management.snapshots);
+            const amount = !data.showBalance ? 'Balance hidden' : balance == null ? 'Balance unavailable' : `${complete ? '' : '≥ '}${balance.toFormat()} ${coin.display_ticker}`;
+            return <AssetRow key={assetKey(coin)} coin={coin} description={`${amount} · ${assetNetworkLabel(coin)}`} styles={styles}
+              action={<TouchableOpacity style={styles.switchAction}
+                accessibilityRole="switch"
+                accessibilityLabel={`Show ${coin.display_name} on Home`}
+                accessibilityState={{checked: isAssetShown(coin, data.management.preferences), busy: pending === assetKey(coin), disabled: pending != null}}
+                disabled={pending != null}
+                onPress={() => perform(coin, !isAssetShown(coin, data.management.preferences))}
+                testID={`asset-home-switch-${coin.id}`}>
+                <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Switch
+                accessible={false}
+                trackColor={{false: theme.colors.borderStrong, true: theme.colors.primary}}
+                ios_backgroundColor={theme.colors.borderStrong}
+                value={isAssetShown(coin, data.management.preferences)}
+                /></View>
+              </TouchableOpacity>} />;
+          })}
+          {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{query ? 'No matching assets' : filter === 'hidden' ? 'No hidden assets' : filter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
+          {discoveries.length > 0 ? <>
+            <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
+            {discoveries.map(holding => {
+              const name = holding.result.currencyDefinition.fullyqualifiedname;
+              return <View key={holding.key} style={styles.assetRow}>
+                <AssetLogo styles={styles} />
+                <View style={styles.rowCopy}>
+                  <Text numberOfLines={1} style={styles.rowName}>{name}</Text>
+                  <Text numberOfLines={2} style={styles.rowDescription}>{data.showBalance ? holding.balance.toFormat() : 'Balance hidden'} · {systemLabel(holding.systemId)}</Text>
+                </View>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Review ${name}`} style={styles.rowAction}
+                  onPress={() => navigation.navigate('AddAssetByIdentifier', {holdingKey: holding.key, assetScope: captureAssetContext()})}>
+                  <Text style={styles.actionLabel}>Review</Text>
+                </TouchableOpacity>
+              </View>;
+            })}
+          </> : null}
+        </>}
+      </AssetScrollView>
+      <NetworkPicker visible={networks.open} onClose={() => networks.setOpen(false)} options={networks.options} selected={networks.network} onSelect={networks.setNetwork} title="Networks" />
+    </AssetScreen>
   );
 };
 
+const Directory = ({navigation}) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
+  const data = useAssetData();
+  const {pending, error, perform} = useAssetAction();
+  const [query, setQuery] = useState('');
+  const networks = useNetworkFilter(data.catalogue);
+  const active = new Set(data.activeAssets.map(assetKey));
+  const assets = data.catalogue.filter(coin =>
+    (networks.network === 'all' || networkId(coin) === networks.network) &&
+    matchesQuery(query, [coin.display_name, coin.display_ticker, coin.currency_id, assetNetworkLabel(coin)]));
+  return (
+    <AssetScreen title="Add asset" onBack={() => navigation.goBack()} testID="manage-assets-directory"
+      header={<View style={styles.headerContent}><AppSearchField accessibilityLabel="Search catalogue or paste identifier" placeholder="Search catalogue or paste identifier" value={query} onChangeText={setQuery} testID="manage-assets-directory-search" /></View>}>
+      <ErrorMessage error={error} styles={styles} />
+      <AssetScrollView styles={styles} testID="manage-assets-directory-list">
+        <TouchableOpacity accessibilityRole="button" style={styles.customEntry} testID="manage-assets-add-custom"
+          onPress={() => navigation.navigate('AddAssetByIdentifier', {identifier: query.trim(), assetScope: captureAssetContext()})}>
+          <View style={styles.customEntryCopy}>
+            <Text style={styles.rowName}>Add custom asset</Text>
+            <Text style={styles.rowDescription}>Verus currency or ERC-20 token</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>{query.trim() ? 'Search results' : 'Common assets'}</Text>
+          <NetworkFilter label={networks.label} onPress={() => networks.setOpen(true)} styles={styles} theme={theme} />
+        </View>
+        {assets.map(coin => {
+          const added = active.has(assetKey(coin));
+          return <AssetRow key={assetKey(coin)} coin={coin} styles={styles} description={`${coin.display_ticker} · ${assetNetworkLabel(coin)}`}
+            action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${coin.display_name}`}
+              accessibilityState={{disabled: added || pending != null || !data.management.ready, busy: pending === assetKey(coin)}}
+              disabled={added || pending != null || !data.management.ready} onPress={() => perform(coin)} style={styles.rowAction}>
+              <Text style={added ? styles.addedLabel : styles.actionLabel}>{added ? 'Added' : pending === assetKey(coin) ? 'Adding…' : 'Add'}</Text>
+            </TouchableOpacity>} />;
+        })}
+        {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>No matching assets</Text><Text style={styles.rowDescription}>Try another name or add a custom asset.</Text></View> : null}
+        <Text style={styles.helper}>Adding an asset shows it on Home.</Text>
+      </AssetScrollView>
+      <NetworkPicker visible={networks.open} onClose={() => networks.setOpen(false)} options={networks.options} selected={networks.network} onSelect={networks.setNetwork} title="Networks" />
+    </AssetScreen>
+  );
+};
+
+const useWalletViewKey = () => useObjectSelector(state => `${state.authentication.activeAccount?.accountHash}:${state.authentication.sessionEpoch}:${assetNetworkKey(state.authentication.activeAccount)}`);
+const ManageAssets = props => <Manager key={useWalletViewKey()} {...props} />;
+export const ManageAssetsDirectory = props => <Directory key={useWalletViewKey()} {...props} />;
 export default ManageAssets;
