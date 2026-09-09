@@ -85,7 +85,7 @@ const AssetRow = ({coin, presentation, description, action, styles}) => (
   <View style={styles.assetRow} testID={`manage-asset-row-${coin.id}`}>
     <AssetLogo presentation={presentation} styles={styles} />
     <View style={styles.rowCopy}>
-      <Text numberOfLines={1} style={styles.rowName}>{presentation.name}</Text>
+      <Text numberOfLines={2} style={styles.rowName}>{presentation.name}</Text>
       <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text>
     </View>
     {action}
@@ -131,10 +131,10 @@ const Manager = ({navigation}) => {
           {assets.map(({coin, presentation}) => {
             const {total: balance, complete} = getManagedAssetBalance(coin, data.cards[coin.id], data.balances, data.management.snapshots);
             const amount = !data.showBalance ? 'Balance hidden' : balance == null ? 'Balance unavailable' : `${complete ? '' : '≥ '}${balance.toFormat()} ${presentation.ticker}`;
-            return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} description={`${amount} · ${presentation.networkLabel}`} styles={styles}
+            return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} description={amount} styles={styles}
               action={<TouchableOpacity style={styles.switchAction}
                 accessibilityRole="switch"
-                accessibilityLabel={`Show ${presentation.name} on Home (${presentation.networkLabel})`}
+                accessibilityLabel={`Show ${presentation.name} on Home (${presentation.ticker})`}
                 accessibilityState={{checked: isAssetShown(coin, data.management.preferences), busy: pending === assetKey(coin), disabled: pending != null}}
                 disabled={pending != null}
                 onPress={() => perform(coin, !isAssetShown(coin, data.management.preferences))}
@@ -151,12 +151,12 @@ const Manager = ({navigation}) => {
           {discoveries.length > 0 ? <>
             <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
             {discoveries.map(holding => {
-              const {name, networkLabel} = holding.presentation;
+              const {name, ticker, networkLabel} = holding.presentation;
               return <View key={holding.key} style={styles.assetRow}>
                 <AssetLogo presentation={holding.presentation} styles={styles} />
                 <View style={styles.rowCopy}>
-                  <Text numberOfLines={1} style={styles.rowName}>{name}</Text>
-                  <Text numberOfLines={2} style={styles.rowDescription}>{data.showBalance ? holding.balance.toFormat() : 'Balance hidden'} · {networkLabel}</Text>
+                  <Text numberOfLines={2} style={styles.rowName}>{name}</Text>
+                  <Text numberOfLines={2} style={styles.rowDescription}>{data.showBalance ? `${holding.balance.toFormat()} ${ticker}` : 'Balance hidden'}</Text>
                 </View>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Review ${name} (${networkLabel})`} style={styles.rowAction}
                   onPress={() => navigation.navigate('AddAssetByIdentifier', {holdingKey: holding.key, assetScope: captureAssetContext()})}>
@@ -198,8 +198,8 @@ const Directory = ({navigation}) => {
         </View>
         {assets.map(({coin, presentation}) => {
           const added = active.has(assetKey(coin));
-          return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} styles={styles} description={`${presentation.ticker} · ${presentation.networkLabel}`}
-            action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${presentation.name} (${presentation.networkLabel})`}
+          return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} styles={styles} description={presentation.ticker}
+            action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${presentation.name} (${presentation.ticker})`}
               accessibilityState={{disabled: added || pending != null || !data.management.ready, busy: pending === assetKey(coin)}}
               disabled={added || pending != null || !data.management.ready} onPress={() => perform(coin)} style={styles.rowAction}>
               <Text style={added ? styles.addedLabel : styles.actionLabel}>{added ? 'Added' : pending === assetKey(coin) ? 'Adding…' : 'Add'}</Text>

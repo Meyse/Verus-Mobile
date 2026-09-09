@@ -200,7 +200,7 @@ const SignedInWalletHome = ({
       <TouchableOpacity
         activeOpacity={0.76}
         accessibilityRole="button"
-        accessibilityLabel={`${presentation.name}, ${presentation.networkLabel}, ${cryptoText}`}
+        accessibilityLabel={`${presentation.name}, ${cryptoText}`}
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <View style={styles.logoWrap}>
@@ -209,7 +209,7 @@ const SignedInWalletHome = ({
         <View style={styles.assetCopy}>
           <View style={styles.assetLine}>
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
               style={[styles.assetName, {color: theme.colors.textPrimary}]}>
               {presentation.name}
             </Text>
@@ -242,7 +242,7 @@ const SignedInWalletHome = ({
                 {cryptoAmountText}
               </PrivacyBlurredText>
               <Text numberOfLines={1} style={[styles.cryptoTicker, {color: theme.colors.textSecondary}]}>
-                {presentation.ticker}{presentation.networkLabel !== presentation.name ? ` · ${presentation.networkLabel}` : ''}
+                {presentation.ticker}
               </Text>
             </View>
             {rateText ? (

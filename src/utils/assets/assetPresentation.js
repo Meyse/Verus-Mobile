@@ -5,22 +5,6 @@ import {API_GET_BALANCES, VRPC} from '../constants/intervalConstants';
 import {IS_PBAAS_CHAIN} from '../constants/currencies';
 import {ethereumNetwork, isTestnetAccount} from './assetIdentity';
 
-// Presentation aliases are keyed by verified currency IDs. They never replace
-// the network-specific identities used for balances, activation or preferences.
-const MAINNET_DISPLAY = {
-  i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X: {name: 'Ethereum', ticker: 'ETH'},
-  i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd: {name: 'USDC', ticker: 'USDC'},
-  iGBs4DWztRNvNEJBt4mqHszLxfKTNHTkhM: {name: 'DAI', ticker: 'DAI'},
-  iCkKJuJScy4Z6NSDK7Mt42ZAB2NEnAE1o4: {name: 'Maker', ticker: 'MKR'},
-  iC5TQFrFXSYLQGkiZ8FYmZHFJzaRF5CYgE: {name: 'EURC', ticker: 'EURC'},
-  iS8TfRPfVpKo5FVfSUzfHBQxo9KuzpnqLU: {name: 'tBTC', ticker: 'tBTC'},
-  i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY: {name: 'Tether', ticker: 'USDT'},
-  i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj: {name: 'Savings crvUSD', ticker: 'scrvUSD'},
-  iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB: {name: 'crvUSD', ticker: 'crvUSD'},
-  '0xbc2738ba63882891094c99e59a02141ca1a1c36a': {name: 'Verus', ticker: 'VRSC'},
-  '0xe6052dcc60573561ecef2d9a4c0fea6d3ac5b9a2': {name: 'Bridge.vETH', ticker: 'VBRID'},
-};
-
 const readCoin = id => {
   try { return CoinDirectory.getBasicCoinObj(id); }
   catch (_) { return null; }
@@ -78,9 +62,8 @@ const assetNetworks = (coin, {cards, systemId}) => {
 
 export const getAssetPresentation = (coin, context = {}) => {
   const known = catalogueCoin(coin);
-  const display = known && !coin.testnet ? MAINNET_DISPLAY[currencyId(known)] : null;
-  const name = display?.name || known?.display_name || coin.display_name || 'Unknown asset';
-  const ticker = display?.ticker || known?.display_ticker || coin.display_ticker || name;
+  const name = known?.display_name || coin.display_name || 'Unknown asset';
+  const ticker = known?.display_ticker || coin.display_ticker || name;
   const networks = assetNetworks(coin, context);
   const network = networks.length === 1 ? networks[0] : null;
   const definition = known || coin;
