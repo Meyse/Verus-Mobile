@@ -59,7 +59,7 @@ export const buildAssetManagerData = ({
       getCatalogueIds({activeAccount, testAccount})
         .filter(id => Object.prototype.hasOwnProperty.call(coinsList, id))
         .map(getCatalogueCoin)
-        .filter(Boolean),
+        .filter(coin => coin && coin.proto !== 'fiat'),
     ),
     starterIds,
   );
