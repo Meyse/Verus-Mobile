@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {Modal, Platform, View} from 'react-native';
+import {Modal, Platform, StyleSheet, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Text, Portal, Button} from 'react-native-paper';
 import Colors from '../../globals/colors';
@@ -7,6 +7,7 @@ import {
   AUTHENTICATE_USER_SEND_MODAL,
   CONVERSION_SEND_MODAL,
   CONVERT_OR_CROSS_CHAIN_SEND_MODAL,
+  SEND_MODAL_INVOICE_CONTEXT,
   DEPOSIT_SEND_MODAL,
   LINK_IDENTITY_SEND_MODAL,
   PROVISION_IDENTITY_SEND_MODAL,
@@ -61,6 +62,8 @@ import RecoverIdentityResult from './RecoverIdentity/RecoverIdentityResult/Recov
 import UpdateIdentityForm from './UpdateIdentity/UpdateIdentityForm/UpdateIdentityForm';
 import UpdateIdentityConfirm from './UpdateIdentity/UpdateIdentityConfirm/UpdateIdentityConfirm';
 import UpdateIdentityResult from './UpdateIdentity/UpdateIdentityResult/UpdateIdentityResult';
+
+import {InvoicePaymentLoading} from '../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
 
 const TopTabs = createMaterialTopTabNavigator();
 const Root = createStackNavigator();
@@ -149,23 +152,38 @@ export const SendModalRender = function () {
     this.props.sendModal.type === REVOKE_IDENTITY_SEND_MODAL ||
     this.props.sendModal.type === RECOVER_IDENTITY_SEND_MODAL;
 
-  if (isIdentitySafetyModal) {
+  const isInvoiceModal =
+    [CONVERT_OR_CROSS_CHAIN_SEND_MODAL, AUTHENTICATE_USER_SEND_MODAL].includes(
+      this.props.sendModal.type,
+    ) && !!this.props.sendModal.data?.[SEND_MODAL_INVOICE_CONTEXT];
+
+  if (isIdentitySafetyModal || isInvoiceModal) {
+    const PortalHost = isInvoiceModal ? Portal.Host : React.Fragment;
+    const ThemeProvider = isInvoiceModal
+      ? React.Fragment
+      : OnboardingThemeProvider;
     return (
       <Modal
         animationType="slide"
-        onRequestClose={() => this.handleIdentitySafetyRequestClose()}
+        onRequestClose={() =>
+          isInvoiceModal
+            ? this.cancel()
+            : this.handleIdentitySafetyRequestClose()
+        }
         presentationStyle="fullScreen"
         visible={visible}>
-        <OnboardingThemeProvider>
-          <NavigationContainer
-            key={this.props.sendModal.requestId || 'identity-safety-modal'}>
-            <Root.Navigator screenOptions={{headerShown: false}}>
-              <Root.Screen name="IdentitySafetyModal">
-                {SendModalInnerAreaRender.call(this)}
-              </Root.Screen>
-            </Root.Navigator>
-          </NavigationContainer>
-        </OnboardingThemeProvider>
+        <ThemeProvider>
+          <PortalHost>
+            <NavigationContainer
+              key={this.props.sendModal.requestId || 'identity-safety-modal'}>
+              <Root.Navigator screenOptions={{headerShown: false}}>
+                <Root.Screen name="IdentitySafetyModal">
+                  {SendModalInnerAreaRender.call(this)}
+                </Root.Screen>
+              </Root.Navigator>
+            </NavigationContainer>
+          </PortalHost>
+        </ThemeProvider>
       </Modal>
     );
   }
@@ -239,6 +257,11 @@ export const SendModalInnerAreaRender = function () {
   const isIdentitySafetyModal =
     this.props.sendModal.type === REVOKE_IDENTITY_SEND_MODAL ||
     this.props.sendModal.type === RECOVER_IDENTITY_SEND_MODAL;
+  const isInvoiceModal =
+    [CONVERT_OR_CROSS_CHAIN_SEND_MODAL, AUTHENTICATE_USER_SEND_MODAL].includes(
+      this.props.sendModal.type,
+    ) && !!this.props.sendModal.data?.[SEND_MODAL_INVOICE_CONTEXT];
+  const keepScreensMounted = isIdentitySafetyModal || isInvoiceModal;
   const starterProps = {
     cancel: () => this.cancel(),
     loading: this.state.loading,
@@ -252,84 +275,103 @@ export const SendModalInnerAreaRender = function () {
   };
 
   const Form =
-    (!isIdentitySafetyModal && this.state.loading) ||
+    (!keepScreensMounted && this.state.loading) ||
     SEND_FORMS[this.props.sendModal.type] == null
       ? AnimatedActivityIndicatorBox
       : SEND_FORMS[this.props.sendModal.type];
 
   const Confirmation =
-    (!isIdentitySafetyModal && this.state.loading) ||
+    (!keepScreensMounted && this.state.loading) ||
     SEND_CONFIRMATION[this.props.sendModal.type] == null
       ? AnimatedActivityIndicatorBox
       : SEND_CONFIRMATION[this.props.sendModal.type];
 
   const Result =
-    this.state.loading || SEND_RESULTS[this.props.sendModal.type] == null
+    (!isInvoiceModal && this.state.loading) ||
+    SEND_RESULTS[this.props.sendModal.type] == null
       ? AnimatedActivityIndicatorBox
       : SEND_RESULTS[this.props.sendModal.type];
 
   return () => (
-    <TopTabs.Navigator
-      initialRouteName={
-        this.props.sendModal.initialRouteName
-          ? this.props.sendModal.initialRouteName
-          : SEND_MODAL_FORM_STEP_FORM
-      }
-      backBehavior={'none'}
-      tabBarPosition="bottom"
-      screenOptions={{
-        swipeEnabled: false,
-        tabBarPressColor: 'transparent',
-        tabBarPressOpacity: 1,
-        tabBarLabelStyle: {
-          fontSize: 12,
-        },
-        tabBarStyle: isIdentitySafetyModal ? {display: 'none'} : undefined,
-        lazy: true,
-        lazyPlaceholder: () => <AnimatedActivityIndicatorBox />,
-      }}>
-      <TopTabs.Screen
-        name={SEND_MODAL_FORM_STEP_FORM}
-        options={{
-          tabBarLabel:
-            this.props.sendModal.type == AUTHENTICATE_USER_SEND_MODAL
-              ? 'Select'
-              : 'Enter',
-        }}
-        listeners={{
-          tabPress: e => {
-            e.preventDefault();
-          },
-        }}>
-        {props => <Form {...props} {...starterProps} />}
-      </TopTabs.Screen>
-      <TopTabs.Screen
-        name={SEND_MODAL_FORM_STEP_CONFIRM}
-        options={{
-          tabBarLabel:
-            this.props.sendModal.type == AUTHENTICATE_USER_SEND_MODAL
-              ? 'Login'
-              : 'Confirm',
-        }}
-        listeners={{
-          tabPress: e => {
-            e.preventDefault();
-          },
-        }}>
-        {props => <Confirmation {...props} {...starterProps} />}
-      </TopTabs.Screen>
-      <TopTabs.Screen
-        name={SEND_MODAL_FORM_STEP_RESULT}
-        options={{
-          tabBarLabel: 'Result',
-        }}
-        listeners={{
-          tabPress: e => {
-            e.preventDefault();
-          },
-        }}>
-        {props => <Result {...props} {...starterProps} />}
-      </TopTabs.Screen>
-    </TopTabs.Navigator>
+    <View style={{flex: 1}}>
+      <View
+        style={{flex: 1}}
+        pointerEvents={isInvoiceModal && this.state.loading ? 'none' : 'auto'}
+        accessibilityElementsHidden={isInvoiceModal && this.state.loading}
+        importantForAccessibility={
+          isInvoiceModal && this.state.loading ? 'no-hide-descendants' : 'auto'
+        }>
+        <TopTabs.Navigator
+          initialRouteName={
+            this.props.sendModal.initialRouteName
+              ? this.props.sendModal.initialRouteName
+              : SEND_MODAL_FORM_STEP_FORM
+          }
+          backBehavior={'none'}
+          tabBarPosition="bottom"
+          screenOptions={{
+            swipeEnabled: false,
+            tabBarPressColor: 'transparent',
+            tabBarPressOpacity: 1,
+            tabBarLabelStyle: {
+              fontSize: 12,
+            },
+            tabBarStyle: keepScreensMounted ? {display: 'none'} : undefined,
+            lazy: true,
+            lazyPlaceholder: () => <AnimatedActivityIndicatorBox />,
+          }}>
+          <TopTabs.Screen
+            name={SEND_MODAL_FORM_STEP_FORM}
+            options={{
+              tabBarLabel:
+                this.props.sendModal.type == AUTHENTICATE_USER_SEND_MODAL
+                  ? 'Select'
+                  : 'Enter',
+            }}
+            listeners={{
+              tabPress: e => {
+                e.preventDefault();
+              },
+            }}>
+            {props => <Form {...props} {...starterProps} />}
+          </TopTabs.Screen>
+          <TopTabs.Screen
+            name={SEND_MODAL_FORM_STEP_CONFIRM}
+            options={{
+              tabBarLabel:
+                this.props.sendModal.type == AUTHENTICATE_USER_SEND_MODAL
+                  ? 'Login'
+                  : 'Confirm',
+            }}
+            listeners={{
+              tabPress: e => {
+                e.preventDefault();
+              },
+            }}>
+            {props => <Confirmation {...props} {...starterProps} />}
+          </TopTabs.Screen>
+          <TopTabs.Screen
+            name={SEND_MODAL_FORM_STEP_RESULT}
+            options={{
+              tabBarLabel: 'Result',
+            }}
+            listeners={{
+              tabPress: e => {
+                e.preventDefault();
+              },
+            }}>
+            {props => <Result {...props} {...starterProps} />}
+          </TopTabs.Screen>
+        </TopTabs.Navigator>
+      </View>
+      {isInvoiceModal && this.state.loading && (
+        <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
+          <InvoicePaymentLoading
+            sending={this.state.preventExit}
+            onClose={() => this.cancel()}
+          />
+        </View>
+      )}
+    </View>
   );
 };

@@ -7,6 +7,7 @@ import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert
 import { API_SEND, DLIGHT_PRIVATE, ERC20, ETH, VRPC } from "../../../../utils/constants/intervalConstants";
 import {
   SEND_MODAL_ADVANCED_FORM,
+  SEND_MODAL_INVOICE_CONTEXT,
   SEND_MODAL_AMOUNT_FIELD,
   SEND_MODAL_CONTINUE_IMMEDIATELY,
   SEND_MODAL_CONVERTTO_FIELD,
@@ -56,7 +57,10 @@ import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../utils/constant
 import { getWeb3ProviderForNetwork } from "../../../../utils/web3/provider";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 
-const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation }) => {
+import InvoicePaymentForm from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentForm';
+import {InvoicePaymentLoading} from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
+
+const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation, cancel }) => {
   const { height } = Dimensions.get('window');
   const sendModal = useObjectSelector(state => state.sendModal);
   const isBurnChangePrice =
@@ -1065,6 +1069,19 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
       );
     }
   };
+
+  if (sendModal.data[SEND_MODAL_INVOICE_CONTEXT]) {
+    return localBalances == null ? (
+      <InvoicePaymentLoading onClose={cancel} />
+    ) : (
+      <InvoicePaymentForm
+        sendModal={sendModal}
+        updateSendFormData={updateSendFormData}
+        onContinue={submitData}
+        onBack={cancel}
+      />
+    );
+  }
 
   return localBalances == null ? (<AnimatedActivityIndicatorBox />) : (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>

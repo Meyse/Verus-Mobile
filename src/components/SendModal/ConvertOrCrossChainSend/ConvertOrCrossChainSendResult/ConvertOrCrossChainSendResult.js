@@ -8,10 +8,13 @@ import Colors from "../../../../globals/colors";
 import Styles from "../../../../styles";
 import { copyToClipboard } from "../../../../utils/clipboard/clipboard";
 import AnimatedSuccessCheckmark from "../../../AnimatedSuccessCheckmark";
-import { SEND_MODAL_SEND_COMPLETED } from "../../../../utils/constants/sendModal";
+import { SEND_MODAL_SEND_COMPLETED, SEND_MODAL_INVOICE_CONTEXT } from "../../../../utils/constants/sendModal";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 
+import InvoicePaymentResult from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentResult';
+
 const ConvertOrCrossChainSendResult = (props) => {
+  const isInvoice = useObjectSelector(state => !!state.sendModal.data[SEND_MODAL_INVOICE_CONTEXT]);
   const coinObj = useObjectSelector(state => state.sendModal.coinObj);
   const [params, setParams] = useState(props.route.params == null ? {} : props.route.params);
   const { updateSendFormData } = props;
@@ -32,6 +35,17 @@ const ConvertOrCrossChainSendResult = (props) => {
 
   const { txid, output, destination } = params;
   const isBurnChangePrice = output?.burn === true;
+
+  if (isInvoice) {
+    return (
+      <InvoicePaymentResult
+        params={params}
+        coinObj={coinObj}
+        onDone={finishSend}
+        onExplorer={explorers[coinObj.id] != null ? openExplorer : undefined}
+      />
+    );
+  }
 
   return (
     <ScrollView

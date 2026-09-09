@@ -31,7 +31,8 @@ const FundSourceSelectList = ({
     excludeVerusBlockchain,
     burnChangePrice = false,
     burnSystemId,
-    onSelect
+    onSelect,
+    renderContent,
   }) => {
 
   const allBalances = useObjectSelector(state => state.ledger.balances);
@@ -211,6 +212,11 @@ const FundSourceSelectList = ({
 
         if (coinObj && hasEnoughBalance) {
           cards.push({
+            id: `${networkId}.${optionId}`,
+            balanceDisplay,
+            networkLabel: displayedCoinObjs[network]
+              ? displayedCoinObjs[network].display_ticker
+              : network,
             title: `${burnChangePrice ? 'Burn' : 'Pay'} ${
               allowAnyAmount
                 ? 'from'
@@ -256,6 +262,13 @@ const FundSourceSelectList = ({
         })
       }
     }))
+  }
+
+  if (renderContent) {
+    return renderContent({
+      cards: displayedCards,
+      loading: displayedCards.length === 0 && showLoadingInsteadOfError,
+    });
   }
 
   return noValidCards ? 

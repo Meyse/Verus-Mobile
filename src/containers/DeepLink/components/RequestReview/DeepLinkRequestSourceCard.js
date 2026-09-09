@@ -14,6 +14,7 @@ const DeepLinkRequestSourceCard = ({
   requesterAccessibilityHint,
   requesterLabel,
   showRequestDetailsLink = false,
+  style,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(
@@ -25,7 +26,7 @@ const DeepLinkRequestSourceCard = ({
     showRequestDetailsLink && typeof onPressRequestDetails === 'function';
 
   return (
-    <View style={styles.requesterCard}>
+    <View style={[styles.requesterCard, style]}>
       <Text style={styles.requesterLabel}>Request from</Text>
       <TouchableOpacity
         accessibilityHint={

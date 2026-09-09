@@ -15,6 +15,10 @@ import {
 import {
   CONVERT_OR_CROSS_CHAIN_SLIPPAGE_WARNING_THRESHOLD,
   SEND_MODAL_FORM_STEP_FORM,
+  SEND_MODAL_INVOICE_CONTEXT,
+  SEND_MODAL_DISABLED_INPUTS,
+  SEND_MODAL_AMOUNT_FIELD,
+  SEND_MODAL_TO_ADDRESS_FIELD,
   SEND_MODAL_FORM_STEP_RESULT,
   SEND_MODAL_PRICE_ESTIMATE,
 } from '../../../../utils/constants/sendModal';
@@ -33,12 +37,15 @@ import { sendConvertOrCrossChain } from '../../../../utils/api/routers/sendConve
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
+import InvoicePaymentReview from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentReview';
+
 function ConvertOrCrossChainSendConfirm({
   navigation,
   route,
   setLoading,
   setModalHeight,
   setPreventExit,
+  cancel,
 }) {
   const sendModal = useObjectSelector(state => state.sendModal);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
@@ -55,7 +62,8 @@ function ConvertOrCrossChainSendConfirm({
     }
   });
 
-  const [params, setParams] = useState(route.params.preflight);
+  // Invoice screens remain mounted while preparing; use the latest reviewed preflight.
+  const params = route.params.preflight;
   const [confirmationFields, setConfirmationFields] = useState([]);
   const [closedAccordions, setClosedAccordions] = useState({});
   const dispatch = useDispatch();
@@ -384,9 +392,9 @@ function ConvertOrCrossChainSendConfirm({
 
     setLoading(false);
     setTimeout(() => {
-      scrollRef.current.flashScrollIndicators();
+      scrollRef.current?.flashScrollIndicators();
     }, 500);
-  }, []);
+  }, [params]);
 
   const toggleAccordion = key => {
     setClosedAccordions({
@@ -476,6 +484,24 @@ function ConvertOrCrossChainSendConfirm({
       </React.Fragment>
     );
   };
+
+  if (sendModal.data[SEND_MODAL_INVOICE_CONTEXT]) {
+    const locked = sendModal.data[SEND_MODAL_DISABLED_INPUTS] || {};
+    return (
+      <InvoicePaymentReview
+        params={params}
+        sendModal={sendModal}
+        confirmationFields={confirmationFields}
+        networkName={networkName}
+        onSend={submitData}
+        onBack={
+          locked[SEND_MODAL_AMOUNT_FIELD] && locked[SEND_MODAL_TO_ADDRESS_FIELD]
+            ? cancel
+            : goBack
+        }
+      />
+    );
+  }
 
   return (
     <View style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
