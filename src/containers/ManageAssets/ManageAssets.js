@@ -7,9 +7,10 @@ import AppSearchField from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {
-  assetKey, assetNetworkKey, ethereumNetwork, getManagedAssetBalance,
+  assetKey, assetNetworkKey, getManagedAssetBalance,
   isAssetShown, isTestnetAccount,
 } from '../../utils/assets/assetIdentity';
+import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
   addManagedAsset, assetContextIsCurrent, captureAssetContext,
   getNewAssetHoldings, loadAssetManagement, setAssetHomeVisibility,
@@ -17,13 +18,10 @@ import {
 import {buildAssetManagerData} from './assetManagerData';
 import {
   AssetFooter, AssetLoadingRows, AssetLogo, AssetScreen, AssetScrollView,
-  NetworkPicker, assetNetworkLabel, systemLabel,
 } from './AssetManagementComponents';
 import {createManageAssetsStyles} from './manageAssets.styles';
 
 const FILTERS = [{id: 'all', label: 'All'}, {id: 'home', label: 'On Home'}, {id: 'hidden', label: 'Hidden'}];
-const networkId = coin => coin.proto === 'eth' || coin.proto === 'erc20'
-  ? `ethereum:${ethereumNetwork(coin)}` : coin.system_id || `${coin.proto}:${coin.id}`;
 const matchesQuery = (query, values) => !query.trim() || values.filter(Boolean)
   .some(value => String(value).toLowerCase().includes(query.trim().toLowerCase()));
 
@@ -83,33 +81,16 @@ const ErrorMessage = ({error, styles}) => error ? (
   </View>
 ) : null;
 
-const AssetRow = ({coin, description, action, styles}) => (
+const AssetRow = ({coin, presentation, description, action, styles}) => (
   <View style={styles.assetRow} testID={`manage-asset-row-${coin.id}`}>
-    <AssetLogo coin={coin} styles={styles} />
+    <AssetLogo presentation={presentation} styles={styles} />
     <View style={styles.rowCopy}>
-      <Text numberOfLines={1} style={styles.rowName}>{coin.display_name}</Text>
+      <Text numberOfLines={1} style={styles.rowName}>{presentation.name}</Text>
       <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text>
     </View>
     {action}
   </View>
 );
-
-const NetworkFilter = ({label, onPress, styles, theme}) => (
-  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter by network: ${label}`} onPress={onPress} style={styles.networkFilter}>
-    <Text numberOfLines={1} style={styles.networkFilterLabel}>{label}</Text>
-    <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.textSecondary} />
-  </TouchableOpacity>
-);
-
-const useNetworkFilter = coins => {
-  const [network, setNetwork] = useState('all');
-  const [open, setOpen] = useState(false);
-  const options = useMemo(() => {
-    const choices = new Map(coins.map(coin => [networkId(coin), {id: networkId(coin), label: assetNetworkLabel(coin)}]));
-    return [{id: 'all', label: 'All networks'}, ...choices.values()];
-  }, [coins]);
-  return {network, setNetwork, open, setOpen, options, label: options.find(item => item.id === network)?.label || 'All networks'};
-};
 
 const Manager = ({navigation}) => {
   const theme = useOnboardingTheme();
@@ -118,16 +99,17 @@ const Manager = ({navigation}) => {
   const {pending, error, perform} = useAssetAction();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
-  const networks = useNetworkFilter(data.activeAssets);
-  const assets = data.activeAssets.filter(coin => {
+  const assets = data.activeAssets.map(coin => ({coin,
+    presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
+  })).filter(({coin, presentation}) => {
     const shown = isAssetShown(coin, data.management.preferences);
     return (filter === 'all' || (filter === 'home' ? shown : !shown)) &&
-      (networks.network === 'all' || networkId(coin) === networks.network) &&
-      matchesQuery(query, [coin.display_name, coin.display_ticker, coin.currency_id, assetNetworkLabel(coin)]);
+      matchesQuery(query, presentation.searchTerms);
   });
-  const discoveries = filter === 'all' ? data.discoveries.filter(holding =>
-    (networks.network === 'all' || networks.network === holding.systemId) &&
-    matchesQuery(query, [holding.result.currencyDefinition.fullyqualifiedname, holding.currencyId, systemLabel(holding.systemId)])) : [];
+  const discoveries = filter === 'all' ? data.discoveries.map(holding => ({...holding,
+    presentation: getAssetPresentation(resolvedAssetCoin(holding.result), {systemId: holding.systemId}),
+  })).filter(holding => matchesQuery(query, [...holding.presentation.searchTerms,
+    holding.result.currencyDefinition.fullyqualifiedname])) : [];
 
   return (
     <AssetScreen title="Manage assets" onBack={() => navigation.goBack()} testID="manage-assets-screen"
@@ -139,7 +121,6 @@ const Manager = ({navigation}) => {
               <Text style={filter === item.id ? styles.tabLabelSelected : styles.tabLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}</View>
-          <NetworkFilter label={networks.label} onPress={() => networks.setOpen(true)} styles={styles} theme={theme} />
         </View>
       </View>}
       footer={<AssetFooter styles={styles}><AppButton onPress={() => navigation.navigate('ManageAssetsDirectory')} testID="manage-assets-add-asset">Add asset</AppButton></AssetFooter>}>
@@ -147,13 +128,13 @@ const Manager = ({navigation}) => {
       <AssetScrollView styles={styles} testID="manage-assets-list">
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
           <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
-          {assets.map(coin => {
+          {assets.map(({coin, presentation}) => {
             const {total: balance, complete} = getManagedAssetBalance(coin, data.cards[coin.id], data.balances, data.management.snapshots);
-            const amount = !data.showBalance ? 'Balance hidden' : balance == null ? 'Balance unavailable' : `${complete ? '' : '≥ '}${balance.toFormat()} ${coin.display_ticker}`;
-            return <AssetRow key={assetKey(coin)} coin={coin} description={`${amount} · ${assetNetworkLabel(coin)}`} styles={styles}
+            const amount = !data.showBalance ? 'Balance hidden' : balance == null ? 'Balance unavailable' : `${complete ? '' : '≥ '}${balance.toFormat()} ${presentation.ticker}`;
+            return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} description={`${amount} · ${presentation.networkLabel}`} styles={styles}
               action={<TouchableOpacity style={styles.switchAction}
                 accessibilityRole="switch"
-                accessibilityLabel={`Show ${coin.display_name} on Home`}
+                accessibilityLabel={`Show ${presentation.name} on Home (${presentation.networkLabel})`}
                 accessibilityState={{checked: isAssetShown(coin, data.management.preferences), busy: pending === assetKey(coin), disabled: pending != null}}
                 disabled={pending != null}
                 onPress={() => perform(coin, !isAssetShown(coin, data.management.preferences))}
@@ -170,14 +151,14 @@ const Manager = ({navigation}) => {
           {discoveries.length > 0 ? <>
             <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
             {discoveries.map(holding => {
-              const name = holding.result.currencyDefinition.fullyqualifiedname;
+              const {name, networkLabel} = holding.presentation;
               return <View key={holding.key} style={styles.assetRow}>
-                <AssetLogo styles={styles} />
+                <AssetLogo presentation={holding.presentation} styles={styles} />
                 <View style={styles.rowCopy}>
                   <Text numberOfLines={1} style={styles.rowName}>{name}</Text>
-                  <Text numberOfLines={2} style={styles.rowDescription}>{data.showBalance ? holding.balance.toFormat() : 'Balance hidden'} · {systemLabel(holding.systemId)}</Text>
+                  <Text numberOfLines={2} style={styles.rowDescription}>{data.showBalance ? holding.balance.toFormat() : 'Balance hidden'} · {networkLabel}</Text>
                 </View>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Review ${name}`} style={styles.rowAction}
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Review ${name} (${networkLabel})`} style={styles.rowAction}
                   onPress={() => navigation.navigate('AddAssetByIdentifier', {holdingKey: holding.key, assetScope: captureAssetContext()})}>
                   <Text style={styles.actionLabel}>Review</Text>
                 </TouchableOpacity>
@@ -186,7 +167,6 @@ const Manager = ({navigation}) => {
           </> : null}
         </>}
       </AssetScrollView>
-      <NetworkPicker visible={networks.open} onClose={() => networks.setOpen(false)} options={networks.options} selected={networks.network} onSelect={networks.setNetwork} title="Networks" />
     </AssetScreen>
   );
 };
@@ -197,11 +177,9 @@ const Directory = ({navigation}) => {
   const data = useAssetData();
   const {pending, error, perform} = useAssetAction();
   const [query, setQuery] = useState('');
-  const networks = useNetworkFilter(data.catalogue);
   const active = new Set(data.activeAssets.map(assetKey));
-  const assets = data.catalogue.filter(coin =>
-    (networks.network === 'all' || networkId(coin) === networks.network) &&
-    matchesQuery(query, [coin.display_name, coin.display_ticker, coin.currency_id, assetNetworkLabel(coin)]));
+  const assets = data.catalogue.map(coin => ({coin, presentation: getAssetPresentation(coin)}))
+    .filter(({presentation}) => matchesQuery(query, presentation.searchTerms));
   return (
     <AssetScreen title="Add asset" onBack={() => navigation.goBack()} testID="manage-assets-directory"
       header={<View style={styles.headerContent}><AppSearchField accessibilityLabel="Search catalogue or paste identifier" placeholder="Search catalogue or paste identifier" value={query} onChangeText={setQuery} testID="manage-assets-directory-search" /></View>}>
@@ -217,12 +195,11 @@ const Directory = ({navigation}) => {
         </TouchableOpacity>
         <View style={styles.sectionHeader}>
           <Text accessibilityRole="header" style={styles.sectionLabel}>{query.trim() ? 'Search results' : 'Common assets'}</Text>
-          <NetworkFilter label={networks.label} onPress={() => networks.setOpen(true)} styles={styles} theme={theme} />
         </View>
-        {assets.map(coin => {
+        {assets.map(({coin, presentation}) => {
           const added = active.has(assetKey(coin));
-          return <AssetRow key={assetKey(coin)} coin={coin} styles={styles} description={`${coin.display_ticker} · ${assetNetworkLabel(coin)}`}
-            action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${coin.display_name}`}
+          return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} styles={styles} description={`${presentation.ticker} · ${presentation.networkLabel}`}
+            action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${presentation.name} (${presentation.networkLabel})`}
               accessibilityState={{disabled: added || pending != null || !data.management.ready, busy: pending === assetKey(coin)}}
               disabled={added || pending != null || !data.management.ready} onPress={() => perform(coin)} style={styles.rowAction}>
               <Text style={added ? styles.addedLabel : styles.actionLabel}>{added ? 'Added' : pending === assetKey(coin) ? 'Adding…' : 'Add'}</Text>
@@ -231,7 +208,6 @@ const Directory = ({navigation}) => {
         {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>No matching assets</Text><Text style={styles.rowDescription}>Try another name or add a custom asset.</Text></View> : null}
         <Text style={styles.helper}>Adding an asset shows it on Home.</Text>
       </AssetScrollView>
-      <NetworkPicker visible={networks.open} onClose={() => networks.setOpen(false)} options={networks.options} selected={networks.network} onSelect={networks.setNetwork} title="Networks" />
     </AssetScreen>
   );
 };

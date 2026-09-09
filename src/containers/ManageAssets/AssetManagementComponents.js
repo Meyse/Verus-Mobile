@@ -11,7 +11,7 @@ import {SignedInEdgeFade} from '../../components/SignedInActionBar';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {ethereumNetwork} from '../../utils/assets/assetIdentity';
+import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {createSignedOutSheetStyles} from '../../styles/components/signedOutSheet.styles';
 import {createManageAssetsStyles} from './manageAssets.styles';
@@ -19,18 +19,6 @@ import {createManageAssetsStyles} from './manageAssets.styles';
 export const systemLabel = systemId => {
   try { return CoinDirectory.findCoinObj(systemId).display_name; }
   catch (_) { return systemId; }
-};
-
-export const systemNetworkLabel = (systemId, testnet) => {
-  const name = systemLabel(systemId);
-  return /testnet|mainnet/i.test(name) ? name : `${name} ${testnet ? 'testnet' : 'mainnet'}`;
-};
-
-export const assetNetworkLabel = coin => {
-  if (coin.proto === 'erc20' || coin.proto === 'eth') {
-    return ethereumNetwork(coin) === 'homestead' ? 'Ethereum' : 'Goerli testnet';
-  }
-  return coin.system_id ? systemLabel(coin.system_id) : coin.display_name;
 };
 
 export const AssetScreen = ({children, footer, header, onBack, testID, title}) => {
@@ -90,11 +78,9 @@ export const AssetScrollView = ({children, contentContainerStyle, styles, testID
   );
 };
 
-export const AssetLogo = ({coin, styles}) => (
+export const AssetLogo = ({coin, presentation = coin && getAssetPresentation(coin), styles}) => (
   <View style={styles.rowLogo}>
-    {coin ? <AssetCoinLogo coinId={coin.id} showBadge={false} size={38} /> : (
-      <View style={styles.unknownLogo}><Text style={styles.unknownLabel}>?</Text></View>
-    )}
+    <AssetCoinLogo coinId={presentation?.iconId} badgeTicker={presentation?.badgeTicker || null} size={38} />
   </View>
 );
 

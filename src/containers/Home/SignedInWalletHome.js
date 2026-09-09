@@ -19,6 +19,7 @@ import SignedInActionBar from '../../components/SignedInActionBar';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
+import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
@@ -175,13 +176,14 @@ const SignedInWalletHome = ({
   };
 
   const renderAsset = ({item}) => {
+    const presentation = item.presentation || getAssetPresentation(item.coin);
     const crypto = BigNumber(item.balance || 0);
     const hasBalance = crypto.isGreaterThan(0);
     const cryptoAmountText = item.balance == null ? '—' : `${item.balanceComplete ? '' : '≥ '}${crypto
       .decimalPlaces(4, BigNumber.ROUND_DOWN)
       .toFixed(4)}`;
     const cryptoText = showBalance
-      ? `${cryptoAmountText} ${item.coin.display_ticker}`
+      ? `${cryptoAmountText} ${presentation.ticker}`
       : 'balance hidden';
     const rateText = item.rate == null ? null : formatFiat(item.rate, displayCurrency);
     let fiatText;
@@ -198,18 +200,18 @@ const SignedInWalletHome = ({
       <TouchableOpacity
         activeOpacity={0.76}
         accessibilityRole="button"
-        accessibilityLabel={`${item.coin.display_name}, ${cryptoText}`}
+        accessibilityLabel={`${presentation.name}, ${presentation.networkLabel}, ${cryptoText}`}
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <View style={styles.logoWrap}>
-          <AssetCoinLogo coinId={item.coin.id} size={38} />
+          <AssetCoinLogo coinId={presentation.iconId} badgeTicker={presentation.badgeTicker} size={38} />
         </View>
         <View style={styles.assetCopy}>
           <View style={styles.assetLine}>
             <Text
               numberOfLines={1}
               style={[styles.assetName, {color: theme.colors.textPrimary}]}>
-              {item.coin.display_name}
+              {presentation.name}
             </Text>
             {fiatUnavailable ? (
               <Text
@@ -239,8 +241,8 @@ const SignedInWalletHome = ({
                 style={styles.cryptoAmount}>
                 {cryptoAmountText}
               </PrivacyBlurredText>
-              <Text style={[styles.cryptoTicker, {color: theme.colors.textSecondary}]}>
-                {item.coin.display_ticker}
+              <Text numberOfLines={1} style={[styles.cryptoTicker, {color: theme.colors.textSecondary}]}>
+                {presentation.ticker}{presentation.networkLabel !== presentation.name ? ` · ${presentation.networkLabel}` : ''}
               </Text>
             </View>
             {rateText ? (
@@ -370,7 +372,7 @@ const styles = StyleSheet.create({
   fiatUnavailable: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, textAlign: 'right'},
   cryptoValue: {alignItems: 'center', flexDirection: 'row', flexShrink: 1, marginRight: 12},
   cryptoAmount: {...fontStyle('medium'), fontSize: 16, lineHeight: 20},
-  cryptoTicker: {...fontStyle('medium'), fontSize: 16, lineHeight: 20, marginLeft: 5},
+  cryptoTicker: {...fontStyle('medium'), fontSize: 16, lineHeight: 20, marginLeft: 5, flexShrink: 1},
   fiatRate: {...fontStyle('regular'), fontSize: 12, lineHeight: 16, textAlign: 'right'},
 });
 

@@ -7,45 +7,22 @@ import AppTextInput from '../../components/AppTextInput';
 import CopyAction from '../../components/CopyAction';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {ASSET_IDENTIFIER_ERROR, resolveAssetIdentifier} from '../../utils/CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
-import {assetNetworkKey, ethereumNetwork, getManagedAssetBalance, isTestnetAccount} from '../../utils/assets/assetIdentity';
+import {assetNetworkKey, getManagedAssetBalance} from '../../utils/assets/assetIdentity';
+import {getAssetLookupNetworks, getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
   addManagedAsset, assetContextIsCurrent, captureAssetContext, getNewAssetHoldings,
 } from '../../utils/assets/assetManagementService';
 import {
-  AssetFooter, AssetLogo, AssetScreen, AssetScrollView, NetworkPicker, systemLabel, systemNetworkLabel,
+  AssetFooter, AssetLogo, AssetScreen, AssetScrollView, NetworkPicker, systemLabel,
 } from './AssetManagementComponents';
 import {createManageAssetsStyles} from './manageAssets.styles';
-
-const getLookupNetworks = (account, activeCoins, kind) => {
-  const testnet = isTestnetAccount(account);
-  try {
-    if (kind === 'erc20') {
-      const coin = CoinDirectory.findCoinObj(account?.testnetOverrides?.ETH || (testnet ? 'GETH' : 'ETH'));
-      if (Boolean(coin.testnet) !== testnet) return [];
-      return [{id: ethereumNetwork(coin), label: testnet ? 'Goerli testnet' : 'Ethereum mainnet', coin}];
-    }
-    const root = CoinDirectory.findCoinObj(account?.testnetOverrides?.VRSC || (testnet ? 'VRSCTEST' : 'VRSC'));
-    const systems = new Map([[root.system_id, {id: root.system_id, label: testnet ? 'Verus testnet' : 'Verus mainnet', coin: root}]]);
-    for (const coin of activeCoins) {
-      if (coin.proto !== 'vrsc' || Boolean(coin.testnet) !== testnet || systems.has(coin.system_id)) continue;
-      try {
-        const system = CoinDirectory.findSystemCoinObj(coin.id);
-        if (system.vrpc_endpoints?.length) {
-          systems.set(system.system_id, {id: system.system_id, label: `${system.display_name} ${testnet ? 'testnet' : 'mainnet'}`, coin: system});
-        }
-      } catch (_) { /* Only offer supported systems already available to this wallet. */ }
-    }
-    return [...systems.values()];
-  } catch (_) { return []; }
-};
 
 const lookupErrorMessage = error => {
   switch (error?.code) {
     case ASSET_IDENTIFIER_ERROR.DUPLICATE: return 'This asset is already managed. You can change its Home setting in Manage assets.';
-    case ASSET_IDENTIFIER_ERROR.UNKNOWN_VERUS: return 'No currency was found. Check the name or i-address and selected network.';
+    case ASSET_IDENTIFIER_ERROR.UNKNOWN_VERUS: return 'No currency was found. Check the name or i-address and network.';
     case ASSET_IDENTIFIER_ERROR.ETHEREUM_FORMAT:
     case ASSET_IDENTIFIER_ERROR.TYPE: return error.message;
     case ASSET_IDENTIFIER_ERROR.METADATA: return 'Asset details are unavailable. Check the identifier and try again.';
@@ -86,7 +63,7 @@ const CustomAsset = ({navigation, route}) => {
   const mounted = useRef(true);
   const addingRef = useRef(false);
   const allowLeave = useRef(false);
-  const networks = useMemo(() => getLookupNetworks(account, activeCoins, kind), [account, activeCoins, kind]);
+  const networks = useMemo(() => getAssetLookupNetworks(account, activeCoins, kind), [account, activeCoins, kind]);
   const selectedNetwork = networks.find(option => option.id === network) || networks[0];
   const context = useRef(captureAssetContext()).current;
   const canUpdate = () => mounted.current && assetContextIsCurrent(context);
@@ -167,11 +144,10 @@ const CustomAsset = ({navigation, route}) => {
     else navigation.goBack();
   };
   const pbaas = result?.kind === 'pbaas';
-  const name = result && (result.catalogueMatch?.display_name || (pbaas ? result.currencyDefinition.fullyqualifiedname : result.name));
-  const ticker = result && (result.catalogueMatch?.display_ticker || (pbaas ? result.currencyDefinition.fullyqualifiedname : result.symbol));
-  const reviewNetwork = result && (pbaas
-    ? systemNetworkLabel(result.lookupSystemId, result.testnet)
-    : result.network === 'homestead' ? 'Ethereum mainnet' : 'Goerli testnet');
+  const presentation = result && getAssetPresentation(resolvedAssetCoin(result), {
+    systemId: found?.systemId || (pbaas ? result.lookupSystemId : undefined),
+  });
+  const fullName = result && (pbaas ? result.currencyDefinition.fullyqualifiedname : result.name);
   const foundBalance = found && getManagedAssetBalance(
     {currency_id: found.currencyId, testnet: found.testnet},
     found.channels.map(channel => ({api_channels: {[API_GET_BALANCES]: channel}})), {}, snapshots).total;
@@ -196,11 +172,16 @@ const CustomAsset = ({navigation, route}) => {
       <AssetScrollView styles={styles} contentContainerStyle={!review && styles.formContent} testID="asset-identifier-content">
         {!review ? <>
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Network</Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Network: ${selectedNetwork?.label || 'Unavailable'}`} onPress={() => { Keyboard.dismiss(); setNetworkOpen(true); }} style={styles.networkInput} testID="asset-identifier-network">
-              <Text style={styles.fieldValue}>{selectedNetwork?.label || 'Network unavailable'}</Text>
-              <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
+            {networks.length > 1 ? <>
+              <Text style={styles.fieldLabel}>Lookup network</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Lookup network: ${selectedNetwork?.label || 'Unavailable'}`} onPress={() => { Keyboard.dismiss(); setNetworkOpen(true); }} style={styles.networkInput} testID="asset-identifier-network">
+                <Text style={styles.fieldValue}>{selectedNetwork?.label || 'Network unavailable'}</Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </> : <View style={styles.networkSummary} testID="asset-identifier-network-summary">
+              <Text style={styles.fieldLabel}>Network</Text>
+              <Text style={styles.networkSummaryValue}>{selectedNetwork?.label || 'Network unavailable'}</Text>
+            </View>}
           </View>
           <AppTextInput
             label={kind === 'pbaas' ? 'Currency name or i-address' : 'Contract address'}
@@ -215,21 +196,21 @@ const CustomAsset = ({navigation, route}) => {
             testID="asset-identifier-input"
             value={input}
           />
-          <Text style={styles.helper}>{kind === 'pbaas' ? 'Enter the currency name or its i-address on the selected network.' : 'Paste the token contract address on the selected network.'}</Text>
           {error ? <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.lookupError} testID="asset-identifier-error">
             <Text style={styles.rowName}>{duplicate ? 'Already managed' : `Couldn’t look up this ${kind === 'pbaas' ? 'currency' : 'token'}`}</Text>
             <Text style={styles.formHelper}>{error.message}</Text>
           </View> : null}
         </> : result ? <>
           <View style={styles.reviewHeader}>
-            <AssetLogo coin={result.catalogueMatch} styles={styles} />
-            <View style={styles.rowCopy}><Text style={styles.reviewName}>{name}</Text><Text style={styles.rowDescription}>{ticker} · {pbaas ? 'Verus currency' : 'ERC-20 token'}</Text></View>
+            <AssetLogo presentation={presentation} styles={styles} />
+            <View style={styles.rowCopy}><Text style={styles.reviewName}>{presentation.name}</Text><Text style={styles.rowDescription}>{presentation.ticker} · {pbaas ? 'Verus currency' : 'ERC-20 token'}</Text></View>
           </View>
           {found ? <View style={styles.reviewBalance}>
             <Text style={styles.rowDescription}>Found in your wallet</Text>
-            <Text style={styles.reviewAmount}>{!showBalance ? 'Balance hidden' : foundBalance == null ? 'Balance unavailable' : `${foundBalance.toFormat()} ${ticker}`}</Text>
+            <Text style={styles.reviewAmount}>{!showBalance ? 'Balance hidden' : foundBalance == null ? 'Balance unavailable' : `${foundBalance.toFormat()} ${presentation.ticker}`}</Text>
           </View> : null}
-          <ReviewRow label="Network" value={reviewNetwork} styles={styles} />
+          <ReviewRow label="Network" value={presentation.networkLabel} styles={styles} />
+          {fullName && fullName !== presentation.name ? <ReviewRow label={pbaas ? 'Currency name' : 'Token name'} value={fullName} styles={styles} /> : null}
           <ReviewRow label={pbaas ? 'Currency ID' : 'Contract address'} value={pbaas ? result.currencyDefinition.currencyid : result.canonicalAddress} copy styles={styles} />
           <ReviewRow label={pbaas ? 'Launch system' : 'Decimals'} value={pbaas ? (result.launchSystem?.fullyqualifiedname || systemLabel(result.currencyDefinition.launchsystemid || result.currencyDefinition.systemid)) : result.decimals} styles={styles} />
           <Text style={styles.reviewCopy}>{pbaas ? 'Check that the currency ID matches the asset you want to add.' : 'Check the contract address against the asset issuer’s source.'}</Text>

@@ -61,6 +61,7 @@ import {
   isTestnetAccount,
   uniqueAssets,
 } from '../../utils/assets/assetIdentity';
+import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {
   CONVERSION_DISABLED,
   ENABLE_SIGNED_IN_REDESIGN,
@@ -459,6 +460,7 @@ const Home = () => {
         isAssetShown(coin, assetManagement.preferences))
       .map(coin => {
         const cards = allSubWallets[coin.id] || [];
+        const presentation = getAssetPresentation(coin, {cards});
         const holding = getManagedAssetBalance(coin, cards, ledgerBalances, assetManagement.snapshots);
         const balance = holding.total;
         const rate = getRate(coin.id, displayCurrency);
@@ -472,6 +474,7 @@ const Home = () => {
 
         return {
           coin,
+          presentation,
           balance,
           balanceComplete: holding.complete,
           rate,
@@ -489,7 +492,7 @@ const Home = () => {
         }
         if (a.fiatValue != null && b.fiatValue == null) return -1;
         if (a.fiatValue == null && b.fiatValue != null) return 1;
-        return a.coin.display_name.localeCompare(b.coin.display_name);
+        return a.presentation.name.localeCompare(b.presentation.name);
       });
   }, [
     activeCoinsForUser,

@@ -1,6 +1,6 @@
 import React from "react";
 import { Card } from "react-native-paper";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { useOnboardingTheme } from "../../theme/onboarding";
 import { getCoinLogo } from "./CoinData";
 import { CoinDirectory } from "./CoinDirectory";
@@ -111,20 +111,21 @@ const getAssetBadgeTicker = coinObj => {
 
 export const AssetCoinLogo = ({
   coinId,
+  badgeTicker,
   showBadge = true,
   size = 40,
   style = {},
 }) => {
   const theme = useOnboardingTheme();
-  const {Logo} = getSimpleLogo(coinId, 'dark');
+  const Logo = coinId ? getSimpleLogo(coinId, 'dark').Logo : null;
   let BadgeLogo = null;
 
   if (showBadge) {
     try {
-      const coinObj = CoinDirectory.findCoinObj(coinId);
-      const badgeTicker = getAssetBadgeTicker(coinObj);
-      BadgeLogo = badgeTicker
-        ? getSimpleLogo(badgeTicker, 'dark').Logo
+      const badge = badgeTicker !== undefined ? badgeTicker
+        : getAssetBadgeTicker(CoinDirectory.findCoinObj(coinId));
+      BadgeLogo = badge
+        ? getSimpleLogo(badge, 'dark').Logo
         : null;
     } catch (e) {
       BadgeLogo = null;
@@ -148,7 +149,12 @@ export const AssetCoinLogo = ({
         },
         style,
       ]}>
-      <Logo width={size} height={size} />
+      {Logo ? <Logo width={size} height={size} /> : (
+        <View style={{width: size, height: size, borderRadius: size / 2,
+          alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceMuted}}>
+          <Text style={[theme.typography.titleSheet, {color: theme.colors.textSecondary}]}>?</Text>
+        </View>
+      )}
       {BadgeLogo ? (
         <View
           style={{
