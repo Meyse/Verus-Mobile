@@ -1,5 +1,14 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Keyboard, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {
+  Keyboard,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
@@ -9,6 +18,7 @@ import {
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import BottomSheetModal from '../../../components/BottomSheetModal';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import WalletUnlockLoadingContent from '../../../components/WalletUnlockLoadingContent';
 import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
@@ -21,6 +31,8 @@ import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
 const BIOMETRY_UNAVAILABLE_MESSAGE =
   'Biometric unlock is unavailable. Enter your password to continue.';
 const PASSWORD_AUTO_FOCUS_DELAY_MS = 260;
+const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
+const KEYBOARD_SHEET_TOP_SPACING = 12;
 const PASSWORD_FIELD_HEIGHT = 83;
 const UNLOCK_BUTTON_HEIGHT = 56;
 const PASSWORD_BUTTON_TOP_MARGIN = 16;
@@ -62,6 +74,8 @@ const UnlockWalletSheet = ({
   onUnlocked,
 }) => {
   const theme = useOnboardingTheme();
+  const insets = useSafeAreaInsets();
+  const {height: windowHeight} = useWindowDimensions();
   const signedOutSheetStyles = useMemo(
     () => createSignedOutSheetStyles(theme),
     [theme],
@@ -74,6 +88,7 @@ const UnlockWalletSheet = ({
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [displayAccount, setDisplayAccount] = useState(account);
+  const [keyboardTop, setKeyboardTop] = useState(null);
   const passwordInputRef = useRef(null);
 
   const focusPasswordInput = useCallback(() => {
@@ -100,6 +115,25 @@ const UnlockWalletSheet = ({
       setShowPassword(false);
     }
   }, [account ? account.accountHash : null, visible]);
+
+  useEffect(() => {
+    setKeyboardTop(null);
+    if (!visible) return undefined;
+
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      event => setKeyboardTop(event.endCoordinates.screenY),
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardTop(null),
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [visible]);
 
   const tryUnlockAccount = useCallback(
     async key => {
@@ -249,6 +283,19 @@ const UnlockWalletSheet = ({
   const loadingContentHeight = showBiometryAction
     ? BIOMETRY_CONTENT_HEIGHT
     : PASSWORD_ONLY_CONTENT_HEIGHT;
+  const keyboardVisible = keyboardTop != null;
+  // A percentage would shrink again inside the keyboard-avoiding container.
+  // Screen coordinates also avoid subtracting the keyboard twice on Android.
+  const keyboardSheetHeight = Math.max(
+    1,
+    Math.min(
+      windowHeight * 0.64,
+      Math.min(windowHeight, keyboardTop) -
+        insets.top -
+        KEYBOARD_SHEET_TOP_SPACING -
+        KEYBOARD_SHEET_BOTTOM_SPACING,
+    ),
+  );
 
   return (
     <BottomSheetModal
@@ -256,99 +303,119 @@ const UnlockWalletSheet = ({
       onClose={loading ? () => {} : onClose}
       onClosed={onClosed}
       avoidKeyboard
-      maxHeight="64%">
-      <View style={signedOutSheetStyles.body}>
-        {(title || requestLabel) && (
-          <View style={styles.contextHeader}>
-            {title && <Text style={styles.contextTitle}>{title}</Text>}
-            {requestLabel && (
-              <Text style={styles.contextLabel}>{requestLabel}</Text>
+      maxHeight={keyboardVisible ? keyboardSheetHeight : '64%'}
+      contentContainerStyle={
+        keyboardVisible && {marginBottom: KEYBOARD_SHEET_BOTTOM_SPACING}
+      }>
+      <View style={styles.sheetLayout}>
+        <View style={styles.scrollFrame}>
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={[
+              signedOutSheetStyles.body,
+              !loading && styles.formContent,
+              !loading && !showBiometryAction && styles.passwordContent,
+            ]}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled">
+            {(title || requestLabel) && (
+              <View style={styles.contextHeader}>
+                {title && <Text style={styles.contextTitle}>{title}</Text>}
+                {requestLabel && (
+                  <Text style={styles.contextLabel}>{requestLabel}</Text>
+                )}
+              </View>
             )}
-          </View>
-        )}
-        <View style={styles.header}>
-          <View style={styles.walletIdentity}>
-            <View style={styles.walletIcon}>
-              {walletAvatar ? (
-                <WalletAvatar
-                  walletAvatar={walletAvatar}
-                  size={42}
-                  emojiSize={22}
-                />
-              ) : (
-                <MaterialCommunityIcons
-                  name="wallet-outline"
-                  size={26}
-                  color={theme.colors.primary}
-                />
-              )}
-            </View>
-            <Text numberOfLines={1} style={styles.walletName}>
-              {displayAccount ? displayAccount.id : ''}
-            </Text>
-          </View>
-        </View>
-        {loading ? (
-          <WalletUnlockLoadingContent height={loadingContentHeight} />
-        ) : (
-          <>
-            <AppTextInput
-              ref={passwordInputRef}
-              themeMode={theme.mode}
-              returnKeyType="done"
-              label="Password"
-              value={password}
-              onChangeText={text => {
-                setPassword(text);
-                setErrorMessage(null);
-              }}
-              onSubmitEditing={() => {
-                if (!disabled) {
-                  tryUnlockAccount(password);
-                }
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              enablesReturnKeyAutomatically
-              placeholder="Enter password"
-              rightAccessibilityLabel={
-                showPassword ? 'Hide password' : 'Show password'
-              }
-              rightIcon={showPassword ? 'eye-off' : 'eye'}
-              secureTextEntry={!showPassword}
-              onRightPress={() => setShowPassword(value => !value)}
-            />
-            {errorMessage != null && (
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            )}
-            {showBiometryAction && (
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.74}
-                onPress={() => tryBiometricUnlock(true)}
-                style={styles.biometryAction}>
-                <MaterialCommunityIcons
-                  name="fingerprint"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text style={styles.biometryActionText}>
-                  {getBiometryLabel(supportedBiometryType)}
+            <View style={styles.header}>
+              <View style={styles.walletIdentity}>
+                <View style={styles.walletIcon}>
+                  {walletAvatar ? (
+                    <WalletAvatar
+                      walletAvatar={walletAvatar}
+                      size={42}
+                      emojiSize={22}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="wallet-outline"
+                      size={26}
+                      color={theme.colors.primary}
+                    />
+                  )}
+                </View>
+                <Text numberOfLines={1} style={styles.walletName}>
+                  {displayAccount ? displayAccount.id : ''}
                 </Text>
-              </TouchableOpacity>
+              </View>
+            </View>
+            {loading ? (
+              <WalletUnlockLoadingContent height={loadingContentHeight} />
+            ) : (
+              <>
+                <AppTextInput
+                  ref={passwordInputRef}
+                  themeMode={theme.mode}
+                  returnKeyType="done"
+                  label="Password"
+                  value={password}
+                  onChangeText={text => {
+                    setPassword(text);
+                    setErrorMessage(null);
+                  }}
+                  onSubmitEditing={() => {
+                    if (!disabled) {
+                      tryUnlockAccount(password);
+                    }
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  enablesReturnKeyAutomatically
+                  placeholder="Enter password"
+                  rightAccessibilityLabel={
+                    showPassword ? 'Hide password' : 'Show password'
+                  }
+                  rightIcon={showPassword ? 'eye-off' : 'eye'}
+                  secureTextEntry={!showPassword}
+                  onRightPress={() => setShowPassword(value => !value)}
+                />
+                {errorMessage != null && (
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                )}
+                {showBiometryAction && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    activeOpacity={0.74}
+                    onPress={() => tryBiometricUnlock(true)}
+                    style={styles.biometryAction}>
+                    <MaterialCommunityIcons
+                      name="fingerprint"
+                      size={24}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.biometryActionText}>
+                      {getBiometryLabel(supportedBiometryType)}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
+          </ScrollView>
+        </View>
+        {!loading && (
+          <SafeBottomActionStack
+            bottomSpacing={keyboardVisible ? KEYBOARD_SHEET_BOTTOM_SPACING : 22}
+            gap={0}
+            horizontalSpacing={20}
+            includeBottomInset={false}
+            safeAreaSpacing={0}>
             <AppButton
               themeMode={theme.mode}
               onPress={() => tryUnlockAccount(password)}
               disabled={disabled}
-              height={56}
-              style={[
-                styles.unlockButton,
-                !showBiometryAction && styles.unlockButtonWithInputSpacing,
-              ]}>
+              height={UNLOCK_BUTTON_HEIGHT}>
               {'Unlock'}
             </AppButton>
-          </>
+          </SafeBottomActionStack>
         )}
       </View>
     </BottomSheetModal>
@@ -357,6 +424,19 @@ const UnlockWalletSheet = ({
 
 const createStyles = theme =>
   StyleSheet.create({
+  sheetLayout: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  scrollFrame: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  formContent: {
+    paddingBottom: 0,
+  },
   contextHeader: {
     marginBottom: 20,
   },
@@ -421,11 +501,8 @@ const createStyles = theme =>
     fontSize: 15,
     ...fontStyle('semiBold'),
   },
-  unlockButton: {
-    width: '100%',
-  },
-  unlockButtonWithInputSpacing: {
-    marginTop: 16,
+  passwordContent: {
+    paddingBottom: PASSWORD_BUTTON_TOP_MARGIN,
   },
 });
 
