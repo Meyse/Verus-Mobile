@@ -8,7 +8,7 @@ import {setBiometry} from '../../../../actions/actionCreators';
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import Colors from '../../../../globals/colors';
 import styles from "../../../../styles";
-import { SEND_MODAL_INVOICE_CONTEXT, SEND_MODAL_FORM_STEP_FORM, SEND_MODAL_FORM_STEP_RESULT, SEND_MODAL_USER_TO_AUTHENTICATE } from "../../../../utils/constants/sendModal";
+import { SEND_MODAL_FORM_STEP_FORM, SEND_MODAL_FORM_STEP_RESULT, SEND_MODAL_USER_TO_AUTHENTICATE } from "../../../../utils/constants/sendModal";
 import { getSupportedBiometryType } from '../../../../utils/keychain/keychain';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import {
@@ -38,9 +38,6 @@ export const resolveAuthenticationAccount = (
     accounts.find(account => account.accountHash === accountHash) || routeAccount
   );
 };
-
-import {InvoiceWalletPassword} from '../../../../containers/DeepLink/InvoiceInfo/InvoiceUnlockWallet';
-import {InvoicePaymentLoading} from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
 
 const AuthenticateUserPassword = props => {
   const dispatch = useDispatch();
@@ -119,20 +116,6 @@ const AuthenticateUserPassword = props => {
     
     props.navigation.navigate(SEND_MODAL_FORM_STEP_FORM);
     props.updateSendFormData(SEND_MODAL_USER_TO_AUTHENTICATE, null);
-  }
-
-  if (data[SEND_MODAL_INVOICE_CONTEXT]) {
-    return internalLoading ? (
-      <InvoicePaymentLoading title="Unlocking wallet" />
-    ) : (
-      <InvoiceWalletPassword
-        account={account}
-        password={password}
-        onChangePassword={setPassword}
-        onUnlock={() => tryUnlockAccount(password)}
-        onBack={goBack}
-      />
-    );
   }
 
   return internalLoading ? <AnimatedActivityIndicatorBox /> : (

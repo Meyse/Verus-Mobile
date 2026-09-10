@@ -3,10 +3,8 @@ import { useEffect, useState } from "react"
 import { FlatList, TouchableOpacity } from "react-native";
 import { List } from "react-native-paper";
 import styles from "../../../../styles";
-import { SEND_MODAL_FORM_STEP_CONFIRM, SEND_MODAL_USER_ALLOWLIST, SEND_MODAL_INVOICE_CONTEXT } from "../../../../utils/constants/sendModal";
+import { SEND_MODAL_FORM_STEP_CONFIRM, SEND_MODAL_USER_ALLOWLIST } from "../../../../utils/constants/sendModal";
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
-
-import {InvoiceWalletPicker} from '../../../../containers/DeepLink/InvoiceInfo/InvoiceUnlockWallet';
 
 const AuthenticateUserForm = props => {
   const accounts = useObjectSelector(state => state.authentication.accounts)
@@ -34,16 +32,6 @@ const AuthenticateUserForm = props => {
 
     setAccountList(_accountList);    
   }, []);
-
-  if (data[SEND_MODAL_INVOICE_CONTEXT]) {
-    return (
-      <InvoiceWalletPicker
-        accounts={accountList}
-        onSelect={selectAccount}
-        onCancel={props.cancel}
-      />
-    );
-  }
 
   return (
     <FlatList

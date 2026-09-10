@@ -153,9 +153,8 @@ export const SendModalRender = function () {
     this.props.sendModal.type === RECOVER_IDENTITY_SEND_MODAL;
 
   const isInvoiceModal =
-    [CONVERT_OR_CROSS_CHAIN_SEND_MODAL, AUTHENTICATE_USER_SEND_MODAL].includes(
-      this.props.sendModal.type,
-    ) && !!this.props.sendModal.data?.[SEND_MODAL_INVOICE_CONTEXT];
+    this.props.sendModal.type === CONVERT_OR_CROSS_CHAIN_SEND_MODAL &&
+    !!this.props.sendModal.data?.[SEND_MODAL_INVOICE_CONTEXT];
 
   if (isIdentitySafetyModal || isInvoiceModal) {
     const PortalHost = isInvoiceModal ? Portal.Host : React.Fragment;
@@ -258,9 +257,8 @@ export const SendModalInnerAreaRender = function () {
     this.props.sendModal.type === REVOKE_IDENTITY_SEND_MODAL ||
     this.props.sendModal.type === RECOVER_IDENTITY_SEND_MODAL;
   const isInvoiceModal =
-    [CONVERT_OR_CROSS_CHAIN_SEND_MODAL, AUTHENTICATE_USER_SEND_MODAL].includes(
-      this.props.sendModal.type,
-    ) && !!this.props.sendModal.data?.[SEND_MODAL_INVOICE_CONTEXT];
+    this.props.sendModal.type === CONVERT_OR_CROSS_CHAIN_SEND_MODAL &&
+    !!this.props.sendModal.data?.[SEND_MODAL_INVOICE_CONTEXT];
   const keepScreensMounted = isIdentitySafetyModal || isInvoiceModal;
   const starterProps = {
     cancel: () => this.cancel(),

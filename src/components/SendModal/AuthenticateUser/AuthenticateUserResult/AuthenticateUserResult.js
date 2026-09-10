@@ -6,12 +6,7 @@ import Colors from '../../../../globals/colors';
 import Styles from '../../../../styles';
 import AnimatedSuccessCheckmark from '../../../AnimatedSuccessCheckmark';
 
-import {useObjectSelector} from '../../../../hooks/useObjectSelector';
-import {SEND_MODAL_INVOICE_CONTEXT} from '../../../../utils/constants/sendModal';
-import {InvoicePaymentLoading} from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
-
 const AuthenticateUserResult = props => {
-  const isInvoice = useObjectSelector(state => !!state.sendModal.data[SEND_MODAL_INVOICE_CONTEXT]);
   async function onMount() {
     setTimeout(() => {
       closeSendModal()
@@ -21,8 +16,6 @@ const AuthenticateUserResult = props => {
   useEffect(() => {
     onMount()
   }, [])
-
-  if (isInvoice) return <InvoicePaymentLoading title="Wallet unlocked" />;
 
   return (
     <ScrollView

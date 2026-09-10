@@ -14,11 +14,10 @@ import {
 import {blocksToTime, satsToCoins, unixToDate} from '../../../utils/math';
 import {getSystemNameFromSystemId} from '../../../utils/CoinData/CoinData';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
-import {openAuthenticateUserModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import {
-  SEND_MODAL_INVOICE_CONTEXT,
-  SEND_MODAL_USER_ALLOWLIST,
-} from '../../../utils/constants/sendModal';
+  requestWalletUnlock,
+  WALLET_UNLOCK_CANCELLED,
+} from '../../../actions/actionDispatchers';
 import {
   createAlert,
   resolveAlert,
@@ -113,7 +112,7 @@ const InvoiceInfo = props => {
     );
   }, [wrongNetwork, details]);
 
-  const unlockWallet = () => {
+  const unlockWallet = async () => {
     const allowList = details.isTestnet()
       ? accounts.filter(
           account =>
@@ -122,18 +121,28 @@ const InvoiceInfo = props => {
       : accounts.filter(
           account => account.testnetOverrides?.[coinObj.id] == null,
         );
-    if (allowList.length > 0) {
-      openAuthenticateUserModal({
-        [SEND_MODAL_USER_ALLOWLIST]: allowList,
-        [SEND_MODAL_INVOICE_CONTEXT]: {},
-      });
-    } else {
+    if (allowList.length === 0) {
       createAlert(
         'Cannot continue',
         `No ${
           details.isTestnet() ? 'testnet' : 'mainnet'
         } wallets found for this invoice.`,
       );
+      return;
+    }
+
+    try {
+      await requestWalletUnlock({
+        reason: 'invoice-request',
+        title: 'Unlock wallet to continue',
+        requestLabel: 'Invoice',
+        accountHashes: allowList.map(account => account.accountHash),
+        networkLabel: details.isTestnet() ? 'Testnet' : 'Mainnet',
+      });
+    } catch (e) {
+      if (e?.code !== WALLET_UNLOCK_CANCELLED) {
+        createAlert('Cannot continue', e?.message || 'Unable to unlock wallet.');
+      }
     }
   };
 
@@ -243,7 +252,7 @@ const InvoiceInfo = props => {
                 ? 'Review burn'
                 : 'Review payment'
               : 'Choose how to pay'
-            : 'Unlock wallet to continue'}
+            : 'Unlock wallet'}
         </AppButton>
         <AppButton variant="secondary" onPress={cancel}>
           Cancel
