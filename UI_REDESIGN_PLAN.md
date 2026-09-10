@@ -8,13 +8,13 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-09-10.
-- Status: planning complete; implementation has not started under this plan.
+- Status: GR-1 and GR-2 implemented locally; remaining native runtime QA is tracked below.
 - Source-analysis baseline: `fecfbce4e5eba42e238a9960f30e7cd049ed08ba` on
   `codex/integrate-generic-request-upstream`.
-- Evidence: current source and routing inspected; `corepack pnpm check:design`
-  passed for 27 canonical sources. An authenticated simulator walkthrough was
-  not completed. Visual and interaction findings need runtime confirmation.
-- Current focus: none assigned. Recommended first implementation task: **GR-1**.
+- Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
+  and isolated iOS native previews. Authenticated wallet delivery and Android
+  runtime evidence remain open; see the GR-1/GR-2 log entry.
+- Current focus: **GR-1 / GR-2** verification and local delivery.
 - Authority: creating this plan authorized documentation only. Later user
   instructions determine which work to execute. Unchecked boxes do not authorize
   starting the entire backlog. Existing authorization carries across sessions.
@@ -23,13 +23,13 @@ without repeating the entire investigation.
 
 | Workstream | Outcome | Status | Dependency |
 | --- | --- | --- | --- |
-| GR-1 | Credential and data-signing reviews use current request patterns | Not started | Existing request-review primitives |
-| GR-2 | Remaining request flows report delivery status accurately | Not started | Coordinate with GR-1; can be implemented separately |
+| GR-1 | Credential and data-signing reviews use current request patterns | Ready for verification | Existing request-review primitives |
+| GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
 | SH-1 | Selection and information sheets share the approved presentation | Not started | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Not started | SH-1 for sheet migration |
 | RX-1 | Receive choices are clear and payment requests have proper steps | Not started | SH-1 for sheet migration |
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Not started | SH-1 where a shared sheet is needed |
-| QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Not started | Applies to each delivered workstream |
+| QA-1 | Completed scope has recorded visual, behavioral, and review evidence | In progress for GR-1/GR-2 | Applies to each delivered workstream |
 
 Recommended sequence: GR-1 and GR-2 together, SH-1 with its first real consumer,
 TX-1, RX-1, then ID-1. Apply QA-1 to every delivery rather than saving all QA for
@@ -127,31 +127,49 @@ uses the canonical sheet. Both request types are experimentally gated.
 [userDataRequestValidator](src/utils/deeplink/validator/userDataRequestValidator.js),
 [scopedCredentials](src/utils/deeplink/credentials/scopedCredentials.js).
 
-- [ ] **GR-1.1** Trace the current handler, validator, credential lookup, response
+- [x] **GR-1.1** Trace the current handler, validator, credential lookup, response
   builder, and screen props. Record supported data types and restrictions before
   changing presentation. Do not infer a general credential manager from this UI.
-- [ ] **GR-1.2** State the small design contract using authentication/app-encryption
+- [x] **GR-1.2** State the small design contract using authentication/app-encryption
   review as the exemplar: requester, requested action, responding VerusID,
   inspectable details, and the next required action.
-- [ ] **GR-1.3** Migrate both screens to semantic colors, shared typography,
+- [x] **GR-1.3** Migrate both screens to semantic colors, shared typography,
   request-review composition, `AppButton`, and `SafeBottomActionStack`.
-- [ ] **GR-1.4** Show understandable credential names and the data being shared.
+- [x] **GR-1.4** Show understandable credential names and the data being shared.
   Put secondary scope/encoding metadata behind a details affordance; keep exact
   values inspectable without turning the main page into a JSON dump.
-- [ ] **GR-1.5** Separate readable statements/data from hashes, bytes, and descriptor
+- [x] **GR-1.5** Separate readable statements/data from hashes, bytes, and descriptor
   metadata in Data Packet review. Represent unknown or uninterpretable content
   honestly; never summarize arbitrary signatures as harmless authentication.
-- [ ] **GR-1.6** Preserve per-credential and per-statement/data-item consent. Reset
+- [x] **GR-1.6** Preserve per-credential and per-statement/data-item consent. Reset
   consent when the reviewed payload or responding identity changes. Do not
   remove required acknowledgements merely to reduce copy.
-- [ ] **GR-1.7** Distinguish locked, loading, no matching credentials, partially
+- [x] **GR-1.7** Distinguish locked, loading, no matching credentials, partially
   available credentials, lookup failure, and required-signer-unavailable states.
   Do not report “no credentials” before a lookup has completed successfully.
-- [ ] **GR-1.8** Give each state an accurate action label and recovery path. Make
+- [x] **GR-1.8** Give each state an accurate action label and recovery path. Make
   clear when continuing returns only some requested credentials or none.
 - [ ] **GR-1.9** Verify consent gates, scope/signer/network restrictions, encrypted
   responses, signed-out entry, and mixed-detail requests using disposable data.
 - [ ] **GR-1.10** Complete relevant QA-1 checks and record delivery evidence.
+
+**Implemented design contract (2026-09-10):** Authentication and app-encryption
+review are the exemplars. Both screens reuse semantic theme/typography,
+`DeepLinkRequestSourceCard`, request details and identity picker sheets,
+`AppButton`, `SafeBottomActionStack`, `CopyAction`, and `SkeletonLoader`.
+Credential values and readable signed data stay on the main review; exact
+keys, hashes, bytes, scope, and descriptor data are inspectable in sheets.
+Per-item checkboxes deliberately remain. Compact pages opt into the existing
+sheet scroll cue so content below the requester remains discoverable.
+
+**Protocol coverage:** User Data supports scoped, encrypted full-credential
+responses only; missing keys produce partial or empty contributions. A lookup
+or decryption error is a retryable error, never an empty result. Data Packet
+supports the handler's messages, descriptors, and statements; opaque bytes
+remain explicitly unreadable. Validator, experimental gate, network, required
+signer, and encryption restrictions remain authoritative. Native fixture
+rendering substitutes wallet storage and signing; GR-1.9 remains open for an
+authenticated disposable-wallet mixed request and callback walkthrough.
 
 **Acceptance:** Both request types belong to the current review family in light
 and dark mode. Users can understand and inspect what will be sent/signed, which
@@ -171,22 +189,33 @@ Without another detail opting into automatic delivery, they reach the legacy
 [GenericRequestComplete](src/containers/DeepLink/GenericRequestComplete/GenericRequestComplete.js),
 [genericRequestDelivery](src/utils/deeplink/genericRequestDelivery.js).
 
-- [ ] **GR-2.1** Inventory remaining callers of legacy completion and determine
+- [x] **GR-2.1** Inventory remaining callers of legacy completion and determine
   which can use existing centralized delivery. Include mixed-detail ordering and
   requests with no response content or no callback destination.
-- [ ] **GR-2.2** Route applicable credential/data-signing completion through the
+- [x] **GR-2.2** Route applicable credential/data-signing completion through the
   existing delivery mechanism. Avoid adding a second delivery implementation or
   changing the timing of user consent implicitly.
-- [ ] **GR-2.3** Make visible states accurately describe response preparation,
+- [x] **GR-2.3** Make visible states accurately describe response preparation,
   sending, sent, redirect handoff, and failed delivery. Preserve any separate
   transaction-result facts; do not imply final settlement from a sent response.
-- [ ] **GR-2.4** Preserve duplicate-submission protection, retry behavior, the
+- [x] **GR-2.4** Preserve duplicate-submission protection, retry behavior, the
   guarded exit after failure, and saved-request completion timing. Translate
   technical failures into clear guidance without claiming delivery succeeded.
-- [ ] **GR-2.5** Verify POST success/failure/retry, redirect handoff, no-callback,
+- [x] **GR-2.5** Verify POST success/failure/retry, redirect handoff, no-callback,
   mixed-detail requests, and repeated button taps using controlled fixtures.
   Record which result was observed and which remains unverified.
 - [ ] **GR-2.6** Complete relevant QA-1 checks and record delivery evidence.
+
+**Completion inventory (2026-09-10):** Credential and Data Packet now opt into
+centralized delivery. Authentication, app-encryption, and spendable-key flows
+already do so. Mixed requests retain the existing accumulated completion policy.
+`WalletBackupRequestInfo` and the older `InvoicePaymentConfiguration` retain
+legacy completion; its pre-delivery copy now says “Ready to finish” and
+“Response not sent”. Dedicated invoice results and inline Identity Update retain
+their distinct transaction/update facts. The shared delivery path caches a
+prepared signed/encrypted response per request/response pair for retry, rechecks
+authentication expiry, and reports POST, redirect, and no-response outcomes
+separately. Failure exit does not mark the saved request complete.
 
 **Acceptance:** No broad “Success” state implies a response was delivered before
 delivery occurs. Retry does not repeat already completed signing/payment work.
@@ -385,6 +414,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-09-10 | GR-1 / GR-2 local implementation | Task-owned candidate over `75592c0f` on `codex/integrate-generic-request-upstream` | Shared themed credential/Data Packet review; explicit consent; cached completion retry; authoritative session/lifecycle/expiry guards before signing. Design/safe-area/parser/iOS bundle, focused non-Jest state/delivery checks, and harness contract checks pass. iOS fixture render/interaction evidence and independent review records: [local QA report](gr12-qa.local.md) | GR-1.9–1.10 and GR-2.6 remain open for authenticated native callbacks/mixed-order walkthrough, Android, and remaining accessibility evidence. No mainnet wallet accessed. |
 | 2026-09-10 | Initial analysis | `fecfbce4` | Source/routing review; design check passed for 27 canonical sources; no authenticated visual walkthrough | Plan created; implementation tasks remain unchecked |
 
 Append one row per coherent delivery. Link safe local QA notes or durable evidence
@@ -394,12 +424,14 @@ patch exists.
 
 ### Resume note
 
-- Last completed action: source findings organized into this plan.
-- Workstream in progress: none.
-- Suggested next action: when implementation is authorized, start GR-1 and plan
-  its GR-2 delivery integration using current authentication/app-encryption flows.
-- Outstanding evidence gap: authenticated native walkthrough, both themes,
-  normal/compact layouts, and applicable Android states have not been established
-  by the initial analysis.
-- Decisions/blockers: none blocking maintenance of this plan. Runtime prerequisites
-  and specific design contracts must be established for the selected workstream.
+- Last completed action: GR-1/GR-2 local implementation, controlled fixture checks, and signing-race corrections.
+- Workstream in progress: GR-1.9–1.10, GR-2.6, and applicable QA-1 evidence.
+- Next action: use a configured disposable Testnet wallet for authenticated
+  mixed-detail delivery and Android checks. Local delivery and reviewer evidence
+  are recorded in the linked QA report.
+- Runtime gap: the normal simulator has competing preview-app deeplink handlers;
+  the compact simulator reaches the actual Testnet unlock sheet but its selected
+  disposable profile could not be unlocked with the available setup. Isolated
+  native fixtures verify rendering and interaction, not wallet signing or live
+  callback delivery. No personal/mainnet wallet was unlocked.
+- Owner: GR-1/GR-2 follow-up task. Other workstreams remain unstarted.

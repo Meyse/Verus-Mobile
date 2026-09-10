@@ -27,8 +27,8 @@ const hasSameScrollMetrics = (left, right) =>
   left.layoutHeight === right.layoutHeight &&
   left.offsetY === right.offsetY;
 
-const RequestSheetScrollCue = ({styles, theme}) => (
-  <View pointerEvents="none" style={styles.requestSheetScrollCue}>
+export const RequestSheetScrollCue = ({styles, theme, backgroundColor = theme.colors.sheet}) => (
+  <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.requestSheetScrollCue}>
     <Svg width="100%" height="100%">
       <Defs>
         <LinearGradient
@@ -37,13 +37,13 @@ const RequestSheetScrollCue = ({styles, theme}) => (
           x2="0"
           y1="0"
           y2="1">
-          <Stop offset="0" stopColor={theme.colors.sheet} stopOpacity="0" />
+          <Stop offset="0" stopColor={backgroundColor} stopOpacity="0" />
           <Stop
             offset="0.72"
-            stopColor={theme.colors.sheet}
+            stopColor={backgroundColor}
             stopOpacity="0.92"
           />
-          <Stop offset="1" stopColor={theme.colors.sheet} stopOpacity="1" />
+          <Stop offset="1" stopColor={backgroundColor} stopOpacity="1" />
         </LinearGradient>
       </Defs>
       <Rect

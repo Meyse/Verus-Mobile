@@ -62,8 +62,10 @@ import {
 import {markPendingDeeplinkComplete} from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {
   completeGenericResponseDelivery,
+  createGenericResponseDelivery,
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
+  getGenericResponseDeliveryFailure,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
@@ -140,9 +142,11 @@ const getAutoDeliverySheetTitle = ({
   isPost,
   isRedirect,
   isSuccess,
+  isPreparing,
 }) => {
   if (isError) return 'Response not sent';
-  if (isSuccess) return 'Response sent';
+  if (isSuccess) return isPost ? 'Response sent' : isRedirect ? 'Browser opened' : 'Request complete';
+  if (isPreparing) return 'Preparing response';
   if (isRedirect) return `Returning to ${destination}`;
   if (isPost) return 'Sending response';
 
@@ -162,14 +166,12 @@ const getAutoDeliverySheetMessage = ({
       return `We couldn't send the response to ${destination}.`;
     }
 
-    return (
-      error?.message || 'Verus Mobile could not complete this request.'
-    );
+    return getGenericResponseDeliveryFailure(error).message;
   }
 
-  if (isSuccess) {
-    return null;
-  }
+  if (isSuccess) return isPost ? null : isRedirect
+    ? 'The response was handed to your browser. Delivery is not confirmed here.'
+    : 'No response was sent to the requester.';
 
   if (isPost) {
     return null;
@@ -188,6 +190,8 @@ const AutoDeliverySheetContent = ({
   onLeaveWithoutSending,
   onRetry,
   status,
+  phase,
+  onDone,
 }) => {
   const theme = useOnboardingTheme();
   const destination = deliveryInfo?.destinationHost || 'the requester';
@@ -204,6 +208,7 @@ const AutoDeliverySheetContent = ({
     isPost,
     isRedirect,
     isSuccess,
+    isPreparing: isLoading && phase === 'preparing',
   });
   const message = getAutoDeliverySheetMessage({
     destination,
@@ -234,7 +239,7 @@ const AutoDeliverySheetContent = ({
       <Text
         accessibilityRole={isLoading ? 'progressbar' : undefined}
         style={[
-          autoDeliverySheetStyles.title,
+          theme.typography.titleSheet,
           {color: theme.colors.textPrimary},
         ]}>
         {title}
@@ -250,15 +255,20 @@ const AutoDeliverySheetContent = ({
       )}
       {isError && (
         <View style={autoDeliverySheetStyles.actions}>
-          <AppButton height={52} onPress={onRetry} variant="primary">
+          {getGenericResponseDeliveryFailure(error).canRetry && <AppButton height={52} onPress={onRetry} variant="primary">
             Try again
-          </AppButton>
+          </AppButton>}
           <AppButton
             height={52}
             onPress={onLeaveWithoutSending}
             variant="secondary">
             Leave without sending
           </AppButton>
+        </View>
+      )}
+      {isSuccess && !isPost && (
+        <View style={autoDeliverySheetStyles.actions}>
+          <AppButton height={52} onPress={onDone} variant="primary">Done</AppButton>
         </View>
       )}
     </View>
@@ -271,6 +281,8 @@ const AutoDeliverySheet = ({
   onLeaveWithoutSending,
   onRetry,
   status,
+  phase,
+  onDone,
 }) => {
   const visible = status !== AUTO_DELIVERY_STATUS.IDLE;
 
@@ -283,6 +295,8 @@ const AutoDeliverySheet = ({
       visible={visible}>
       <AutoDeliverySheetContent
         deliveryInfo={deliveryInfo}
+        phase={phase}
+        onDone={onDone}
         error={error}
         onLeaveWithoutSending={onLeaveWithoutSending}
         onRetry={onRetry}
@@ -323,10 +337,12 @@ const GenericRequestHome = props => {
   const [inlineDeliveryInProgress, setInlineDeliveryInProgress] =
     useState(false);
   const autoDeliverySingleFlightRef = useRef(null);
+  const preparedAutoDeliveryRef = useRef(null);
 
   if (autoDeliverySingleFlightRef.current == null) {
     autoDeliverySingleFlightRef.current =
       createGenericRequestDeliverySingleFlight();
+    preparedAutoDeliveryRef.current = createGenericResponseDelivery();
   }
 
   const autoDeliverySuccessTimeoutRef = useRef(null);
@@ -485,6 +501,7 @@ const GenericRequestHome = props => {
   const runAutoDelivery = useCallback(async () => {
     if (request == null) return;
     if (autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING) return;
+    const generation = processGenerationRef.current;
 
     const requestBufferString = request.toBuffer().toString('hex');
     const currentResponse = responseRef.current;
@@ -500,23 +517,29 @@ const GenericRequestHome = props => {
       status: AUTO_DELIVERY_STATUS.LOADING,
       deliveryInfo,
       error: null,
+      phase: 'preparing',
     });
 
     try {
-      const result = await completeGenericResponseDelivery({
+      const result = await preparedAutoDeliveryRef.current({
         requestBufferString,
         responseBufferString,
+        onPhase: phase => setAutoDeliveryState(current => ({...current, phase})),
+        assertCurrent: () => {
+          if (generation !== processGenerationRef.current) throw new Error('Request closed');
+        },
       });
 
+      if (generation !== processGenerationRef.current) return;
       await markSavedPendingRequestComplete();
 
-      if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
-        setAutoDeliveryState({
-          status: AUTO_DELIVERY_STATUS.SUCCESS,
-          deliveryInfo: result,
-          error: null,
-        });
+      setAutoDeliveryState({
+        status: AUTO_DELIVERY_STATUS.SUCCESS,
+        deliveryInfo: result,
+        error: null,
+      });
 
+      if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
         autoDeliverySuccessTimeoutRef.current = setTimeout(() => {
           autoDeliverySuccessTimeoutRef.current = null;
           completeRequest();
@@ -524,10 +547,9 @@ const GenericRequestHome = props => {
         return;
       }
 
-      completeRequest();
     } catch (e) {
+      if (generation !== processGenerationRef.current) return;
       autoDeliverySingleFlightRef.current.clear();
-      console.warn(e);
       setAutoDeliveryState({
         status: AUTO_DELIVERY_STATUS.ERROR,
         deliveryInfo: e?.deliveryInfo || deliveryInfo,
@@ -908,6 +930,8 @@ const GenericRequestHome = props => {
       )}
       <AutoDeliverySheet
         deliveryInfo={autoDeliveryState.deliveryInfo}
+        phase={autoDeliveryState.phase}
+        onDone={completeRequest}
         error={autoDeliveryState.error}
         onLeaveWithoutSending={completeRequest}
         onRetry={runAutoDelivery}

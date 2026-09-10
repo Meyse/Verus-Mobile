@@ -10,13 +10,12 @@
   - 2026-04-08: Reintroduced a guarded cancel escape hatch after a POST response URI
   fails so users can leave the screen after at least one delivery attempt.
 */
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import CopyAction from '../../../components/CopyAction';
 import GradientButton from '../../../components/GradientButton';
@@ -31,9 +30,10 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { genericRequestCompleteStyles as styles } from '../../../styles';
 import { markPendingDeeplinkComplete } from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {
-  completeGenericResponseDelivery,
+  createGenericResponseDelivery,
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
+  getGenericResponseDeliveryFailure,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {createGenericRequestDeliverySingleFlight} from '../GenericRequestHome/genericRequestCompletionFlow';
 
@@ -50,6 +50,13 @@ const GenericRequestComplete = props => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [postFailed, setPostFailed] = useState(false);
+  const [canRetry, setCanRetry] = useState(true);
+  const requestContext = useMemo(() => ({}), [requestBufferString, responseBufferString]);
+  const currentRequestContext = useRef(requestContext);
+  currentRequestContext.current = requestContext;
+  useEffect(() => () => { currentRequestContext.current = null; }, []);
+  const deliveryRef = useRef(null);
+  if (deliveryRef.current == null) deliveryRef.current = createGenericResponseDelivery();
   const deliverySingleFlightRef = useRef(
     createGenericRequestDeliverySingleFlight(),
   );
@@ -164,25 +171,29 @@ const GenericRequestComplete = props => {
     return `${value.slice(0, start)}...${value.slice(-end)}`;
   };
 
-  // Keep the redesigned success UI while stamping and verifying the response metadata; integrated by Codex GPT-5 to match the upstream protocol path.
   const onComplete = async () => {
-    if (!deliverySingleFlightRef.current.tryStart()) return;
+    if (!canRetry || !deliverySingleFlightRef.current.tryStart()) return;
+    const assertCurrent = () => {
+      if (currentRequestContext.current !== requestContext) throw new Error('Request closed');
+    };
 
     try {
       setLoading(true);
 
-      await completeGenericResponseDelivery({
+      await deliveryRef.current({
         requestBufferString,
         responseBufferString,
+        assertCurrent,
       });
+      assertCurrent();
       await markSavedPendingRequestComplete();
+      assertCurrent();
     } catch (e) {
-      if (e?.isResponsePostError) {
-        setPostFailed(true);
-      }
-
-      createAlert('Error', e?.message || 'Failed to complete the request.');
-      console.warn(e);
+      if (currentRequestContext.current !== requestContext) return;
+      setPostFailed(true);
+      const failure = getGenericResponseDeliveryFailure(e);
+      setCanRetry(failure.canRetry);
+      createAlert('Response not sent', failure.message);
       deliverySingleFlightRef.current.clear();
       setLoading(false);
       return;
@@ -204,15 +215,8 @@ const GenericRequestComplete = props => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Centered success content */}
       <View style={styles.centerContent}>
-        <Text style={styles.mainTitle}>Success</Text>
-
-        <View style={styles.checkmarkContainer}>
-          <AnimatedSuccessCheckmark
-            style={{ width: 128 }}
-          />
-        </View>
+        <Text style={styles.mainTitle}>{postFailed ? 'Response not sent' : 'Ready to finish'}</Text>
 
         {identityUpdateTxid && (
           <View style={styles.txidCard}>
@@ -261,7 +265,7 @@ const GenericRequestComplete = props => {
             </Button>
           </View>
         )}
-        <View style={styles.ctaCol}>
+        {canRetry && <View style={styles.ctaCol}>
           <GradientButton
             disabled={loading}
             onPress={onComplete}
@@ -269,7 +273,7 @@ const GenericRequestComplete = props => {
           >
             Complete
           </GradientButton>
-        </View>
+        </View>}
       </View>
     </SafeAreaView>
   );

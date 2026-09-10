@@ -20,14 +20,41 @@ import {
   assertSecurePostResponseUri,
 } from './genericResponse/responseDeliverySecurity';
 import {
+  assertAuthenticationRequestsNotExpired,
   performAfterAuthenticationExpiryCheck,
   signAfterAuthenticationExpiryCheck,
 } from './validator/authenticationRequestValidator';
+import {createRequestSessionGuard} from './requestSessionGuard';
 
 export const GENERIC_REQUEST_DELIVERY_TYPES = {
   NONE: 'none',
   POST: 'post',
   REDIRECT: 'redirect',
+};
+
+export const getGenericResponseDeliveryFailure = error => {
+  if (error?.code === 'AUTHENTICATION_REQUEST_EXPIRED')
+    return {
+      canRetry: false,
+      message: 'This request expired. Ask the requester for a new request.',
+    };
+  if (error?.code === 'SESSION_CHANGED')
+    return {
+      canRetry: false,
+      message:
+        'Your wallet session changed. Open the request again to review it.',
+    };
+  if (error?.code === 'RESPONSE_VERIFICATION_FAILED')
+    return {
+      canRetry: false,
+      message:
+        'The response signature could not be verified. Check your VerusID, then open the request again.',
+    };
+  return {
+    canRetry: true,
+    message:
+      'Unable to prepare or deliver the response. Check your connection and try again.',
+  };
 };
 
 export const isPostUri = uri => {
@@ -104,8 +131,18 @@ export const parseGenericResponseBuffer = responseBufferString => {
   return response;
 };
 
-export const signAndVerifyGenericResponse = async (request, response) => {
+export const signAndVerifyGenericResponse = async (
+  request,
+  response,
+  sessionGuard = createRequestSessionGuard(),
+) => {
+  const assertCurrent = () => {
+    sessionGuard.assertCurrent();
+    assertAuthenticationRequestsNotExpired(request);
+  };
+  assertCurrent();
   await encryptGenericResponseDetails({request, response});
+  assertCurrent();
   prepareGenericResponseForSigning({
     request,
     response,
@@ -119,16 +156,22 @@ export const signAndVerifyGenericResponse = async (request, response) => {
   const signerSystemID = response.signature.systemID.toIAddress();
   const signerSystemName = getSystemNameFromSystemId(signerSystemID);
   const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
-  const signedResponse = await signAfterAuthenticationExpiryCheck(
-    request,
-    () => signGenericResponse(coinObj, response),
+  const signedResponse = await signAfterAuthenticationExpiryCheck(request, () =>
+    signGenericResponse(coinObj, response, {
+      sessionScope: sessionGuard.sessionScope,
+      assertCurrent,
+    }),
   );
+  assertCurrent();
   const verification = await verifyGenericResponse(coinObj, signedResponse);
+  assertCurrent();
 
   if (!verification) {
-    throw new Error(
+    const error = new Error(
       'Response failed verification, ensure the identity you selected is still under your control.',
     );
+    error.code = 'RESPONSE_VERIFICATION_FAILED';
+    throw error;
   }
 
   return signedResponse;
@@ -143,6 +186,8 @@ export const deliverGenericResponse = async (request, signedResponse) => {
   ) {
     return {
       ...deliveryInfo,
+      type: GENERIC_REQUEST_DELIVERY_TYPES.NONE,
+      reason: signedResponse == null ? 'no-response' : 'no-destination',
       signedResponse,
     };
   }
@@ -156,13 +201,9 @@ export const deliverGenericResponse = async (request, signedResponse) => {
     );
 
     try {
-      const postResult = await axios.post(
-        secureResponseUri,
-        responseBuffer,
-        {
-          headers: {'Content-Type': 'application/octet-stream'},
-        },
-      );
+      const postResult = await axios.post(secureResponseUri, responseBuffer, {
+        headers: {'Content-Type': 'application/octet-stream'},
+      });
 
       return {
         ...deliveryInfo,
@@ -212,26 +253,69 @@ export const deliverGenericResponse = async (request, signedResponse) => {
   };
 };
 
-export const completeGenericResponseDelivery = async ({
-  requestBufferString,
-  responseBufferString,
-}) => {
-  const request = parseGenericRequestBuffer(requestBufferString);
-  const response = parseGenericResponseBuffer(responseBufferString);
+// A flow owns one in-memory attempt. Delivery retries reuse the exact signed,
+// encrypted response; a changed request or response invalidates that preparation.
+// The caller owns the single-flight guard and discards this closure on exit.
+export const createGenericResponseDelivery = () => {
+  let prepared = null;
+  let attempt = null;
+  return async ({
+    requestBufferString,
+    responseBufferString,
+    onPhase,
+    assertCurrent = () => {},
+  }) => {
+    assertCurrent();
+    if (
+      !attempt ||
+      attempt.requestBufferString !== requestBufferString ||
+      attempt.responseBufferString !== responseBufferString
+    ) {
+      prepared = null;
+      attempt = {
+        requestBufferString,
+        responseBufferString,
+        sessionGuard: createRequestSessionGuard(assertCurrent),
+      };
+    }
+    const {sessionGuard} = attempt;
+    sessionGuard.assertCurrent();
 
-  if (request == null || response == null) {
-    return {
-      type: GENERIC_REQUEST_DELIVERY_TYPES.NONE,
-      responseUri: null,
-      uriString: null,
-      destinationHost: null,
-      signedResponse: null,
-    };
-  }
+    if (!prepared) {
+      onPhase?.('preparing');
+      const request = parseGenericRequestBuffer(requestBufferString);
+      const response = parseGenericResponseBuffer(responseBufferString);
+      const signedResponse =
+        request && response
+          ? await signAndVerifyGenericResponse(request, response, sessionGuard)
+          : null;
+      sessionGuard.assertCurrent();
+      prepared = {
+        requestBufferString,
+        responseBufferString,
+        request,
+        signedResponse,
+      };
+    }
 
-  const signedResponse = await signAndVerifyGenericResponse(request, response);
-  return performAfterAuthenticationExpiryCheck(
-    request,
-    () => deliverGenericResponse(request, signedResponse),
-  );
+    if (!prepared.request || !prepared.signedResponse) {
+      return {
+        type: GENERIC_REQUEST_DELIVERY_TYPES.NONE,
+        reason: 'no-response',
+        responseUri: null,
+        uriString: null,
+        destinationHost: null,
+        signedResponse: null,
+      };
+    }
+
+    onPhase?.('sending');
+    return performAfterAuthenticationExpiryCheck(prepared.request, () => {
+      sessionGuard.assertCurrent();
+      return deliverGenericResponse(prepared.request, prepared.signedResponse);
+    });
+  };
 };
+
+export const completeGenericResponseDelivery = args =>
+  createGenericResponseDelivery()(args);
