@@ -89,6 +89,7 @@ const createDeepLinkRequestReviewStyles = theme =>
       ...fontStyle('semiBold'),
     },
     requestSheetBody: {
+      flexShrink: 1,
       paddingHorizontal: theme.spacing.sheetPadding,
       paddingTop: 8,
       paddingBottom: 22,

@@ -50,7 +50,6 @@ const createDataRequestInfoStyles = theme => ({
     error: {
       ...theme.typography.bodySm,
       color: theme.colors.danger,
-      marginTop: 12,
     },
     loading: {paddingVertical: 24, gap: 16},
     detailField: {

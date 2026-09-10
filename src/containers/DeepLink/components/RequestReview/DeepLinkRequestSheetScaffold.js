@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ScrollView,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
@@ -72,21 +71,11 @@ const DeepLinkRequestSheetScaffold = ({
   visible,
 }) => {
   const theme = useOnboardingTheme();
-  const {height} = useWindowDimensions();
   const [scrollMetrics, setScrollMetrics] = useState(EMPTY_SCROLL_METRICS);
   const styles = useMemo(
     () => createDeepLinkRequestReviewStyles(theme),
     [theme],
   );
-  const numericMaxHeight = useMemo(() => {
-    if (typeof maxHeight === 'number') return maxHeight;
-    if (typeof maxHeight !== 'string' || !maxHeight.endsWith('%')) return null;
-
-    const percentage = Number(maxHeight.replace('%', ''));
-    if (!Number.isFinite(percentage)) return null;
-
-    return Math.max(0, height * (percentage / 100) - 10);
-  }, [height, maxHeight]);
   const showBottomScrollCue =
     visible &&
     scrollMetrics.layoutHeight > 0 &&
@@ -131,11 +120,7 @@ const DeepLinkRequestSheetScaffold = ({
       onClose={onClose}
       onClosed={onClosed}
       maxHeight={maxHeight}>
-      <View
-        style={[
-          styles.requestSheetBody,
-          numericMaxHeight != null && {maxHeight: numericMaxHeight},
-        ]}>
+      <View style={styles.requestSheetBody}>
         <View style={styles.requestSheetHeader}>
           <View style={styles.requestSheetHeaderText}>
             <Text style={styles.requestSheetTitle}>{title}</Text>

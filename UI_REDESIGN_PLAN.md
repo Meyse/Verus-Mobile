@@ -12,8 +12,8 @@ without repeating the entire investigation.
 - Source-analysis baseline: `fecfbce4e5eba42e238a9960f30e7cd049ed08ba` on
   `codex/integrate-generic-request-upstream`.
 - Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
-  and isolated iOS native previews. Authenticated wallet delivery and Android
-  runtime evidence remain open; see the GR-1/GR-2 log entry.
+  isolated iOS/Android native previews, and Android build/entry checks.
+  Authenticated wallet delivery remains open; see the GR-1/GR-2 log entries.
 - Current focus: **GR-1 / GR-2** verification and local delivery.
 - Authority: creating this plan authorized documentation only. Later user
   instructions determine which work to execute. Unchecked boxes do not authorize
@@ -161,6 +161,9 @@ Credential values and readable signed data stay on the main review; exact
 keys, hashes, bytes, scope, and descriptor data are inspectable in sheets.
 Per-item checkboxes deliberately remain. Compact pages opt into the existing
 sheet scroll cue so content below the requester remains discoverable.
+The shared details-sheet body shrinks within the modal's height constraint so
+Done remains inside its rounded boundary. Signing errors remain visible above
+the primary action in the normal-flow footer, outside the scrolling review.
 
 **Protocol coverage:** User Data supports scoped, encrypted full-credential
 responses only; missing keys produce partial or empty contributions. A lookup
@@ -414,6 +417,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-09-10 | GR-1 Android QA and layout corrections | Task-owned candidate over `4decf026` | Android native build/entry and 41 fixture screenshots recorded. Corrected tall details-sheet overflow and kept signing errors beside the action. Native iOS/Android light/dark, normal/compact layout and consent/failure checks pass; design, safe-area, parser and iOS bundle checks pass. [Android QA](docs/gr12-android-qa-20260910/qa.local.md); [correction evidence](docs/gr12-ui-fix-20260910/qa.local.md) | Authenticated wallet signing/callbacks and remaining accessibility evidence remain open. The original overflow reproduced on Android; the normal iOS baseline already fit. |
 | 2026-09-10 | GR-1 / GR-2 local implementation | Task-owned candidate over `75592c0f` on `codex/integrate-generic-request-upstream` | Shared themed credential/Data Packet review; explicit consent; cached completion retry; authoritative session/lifecycle/expiry guards before signing. Design/safe-area/parser/iOS bundle, focused non-Jest state/delivery checks, and harness contract checks pass. iOS fixture render/interaction evidence and independent review records: [local QA report](gr12-qa.local.md) | GR-1.9–1.10 and GR-2.6 remain open for authenticated native callbacks/mixed-order walkthrough, Android, and remaining accessibility evidence. No mainnet wallet accessed. |
 | 2026-09-10 | Initial analysis | `fecfbce4` | Source/routing review; design check passed for 27 canonical sources; no authenticated visual walkthrough | Plan created; implementation tasks remain unchecked |
 
@@ -424,11 +428,12 @@ patch exists.
 
 ### Resume note
 
-- Last completed action: GR-1/GR-2 local implementation, controlled fixture checks, and signing-race corrections.
+- Last completed action: Android fixture QA and shared sheet/error layout corrections,
+  verified on normal and compact iOS/Android screens in both themes.
 - Workstream in progress: GR-1.9–1.10, GR-2.6, and applicable QA-1 evidence.
 - Next action: use a configured disposable Testnet wallet for authenticated
-  mixed-detail delivery and Android checks. Local delivery and reviewer evidence
-  are recorded in the linked QA report.
+  mixed-detail delivery on both platforms and remaining accessibility checks.
+  Local delivery and reviewer evidence are recorded in the linked QA reports.
 - Runtime gap: the normal simulator has competing preview-app deeplink handlers;
   the compact simulator reaches the actual Testnet unlock sheet but its selected
   disposable profile could not be unlocked with the available setup. Isolated

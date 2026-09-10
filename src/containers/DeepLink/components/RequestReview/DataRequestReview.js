@@ -299,11 +299,6 @@ export default function DataRequestReview({
           ) : (
             children
           )}
-          {error ? (
-            <Text accessibilityRole="alert" style={styles.error}>
-              {error}
-            </Text>
-          ) : null}
         </View>
       </DeepLinkReviewScrollView>
       <SafeBottomActionStack
@@ -329,6 +324,14 @@ export default function DataRequestReview({
             </TouchableOpacity>
           </View>
         )}
+        {error ? (
+          <Text
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
         <AppButton
           height={56}
           variant="primary"
