@@ -17,6 +17,7 @@ This file is a compact map for Codex-style agents working in Verus Mobile. Keep 
 
 ## Mandatory Design Gate
 
+- For follow-up work on GenericRequest, Send/Convert, Receive, VerusID, and shared sheets, read [UI_REDESIGN_PLAN.md](UI_REDESIGN_PLAN.md). Keep its task checkboxes and evidence log current when working on that scope; the plan itself does not authorize implementation.
 - Before proposing or writing any new or intentionally redesigned user-visible UI, read `DESIGN.md` in full. Untouched legacy screens are not visual precedent and do not need migration unless the task says so.
 - Before implementation, state the task's small design contract: touched scope, canonical exemplar, shared primitives, required rendered states, and any deliberate deviation. Do not average several old screens into a new pattern.
 - Reuse the component or primitive named by `DESIGN.md`. If exact reuse is impossible, match the canonical source and rendered measurements before varying it.
