@@ -34,6 +34,8 @@ import {
   setCoinSubWallet,
 } from '../../actions/actionCreators';
 import BottomSheetModal from '../../components/BottomSheetModal';
+import ReceiveAddressSheet from './ReceiveAddressSheet';
+import SupportedChainsSheet from './SupportedChainsSheet';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
 import GradientButton from '../../components/GradientButton';
@@ -473,6 +475,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           </View>
         </View>
         <ReceiveSubwalletSheet
+        selectedId={selectedCardId}
           balanceMap={balanceMap}
           coinObj={coinObj}
           onClose={() => setCardSheetVisible(false)}
@@ -860,84 +863,21 @@ const ReceiveAssetDetails = ({navigation, route}) => {
               : renderResultStep()}
       </BottomSheetModal>
 
-      <BottomSheetModal
-        contentContainerStyle={styles.sheet}
-        floating={false}
-        maxHeight="70%"
+      <ReceiveAddressSheet
+        records={addressRecords}
+        selectedIndex={selectedAddressIndex}
+        onSelect={setSelectedAddressIndex}
         onClose={() => setAddressSheetVisible(false)}
-        visible={addressSheetVisible}>
-        <SheetHeader
-          onClose={() => setAddressSheetVisible(false)}
-          styles={sheetStyles}
-          theme={theme}
-          title="Choose address"
-        />
-        <View style={styles.sheetBody}>
-          <Text style={styles.sheetHeading}>Choose address</Text>
-          <Text style={styles.sheetSubtitle}>
-            Select the labeled address to show in the QR code and request.
-          </Text>
-          {addressRecords.map((record, index) => (
-            <TouchableOpacity
-              accessibilityRole="button"
-              key={`${record.address}-${index}`}
-              onPress={() => {
-                setSelectedAddressIndex(index);
-                setAddressSheetVisible(false);
-              }}
-              style={styles.optionCard}>
-              <View style={{flex: 1}}>
-                <Text style={styles.optionTitle}>{record.label}</Text>
-                <Text ellipsizeMode="middle" numberOfLines={1} style={styles.sheetSubtitle}>
-                  {record.address}
-                </Text>
-              </View>
-              {index === selectedAddressIndex ? (
-                <MaterialCommunityIcons
-                  color={theme.colors.primary}
-                  name="check-circle"
-                  size={22}
-                />
-              ) : null}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </BottomSheetModal>
-
-      <BottomSheetModal
-        contentContainerStyle={styles.sheet}
-        floating={false}
-        maxHeight="70%"
+        visible={addressSheetVisible}
+      />
+      <SupportedChainsSheet
+        networks={supportedNetworks}
         onClose={() => setNetworksVisible(false)}
-        visible={networksVisible}>
-        <SheetHeader
-          onClose={() => setNetworksVisible(false)}
-          styles={sheetStyles}
-          theme={theme}
-          title="Supported chains"
-        />
-        <View style={styles.supportedChainsBody}>
-          <Text style={styles.supportedChainsDescription}>
-            This address supports all currencies on all chains in the Verus ecosystem.
-          </Text>
-          <View style={styles.networkList}>
-            {supportedNetworks.map(network => (
-              <View key={network.id} style={styles.networkListItem}>
-                {RenderPlainCoinLogo(network.id, {}, 32, 32)}
-                <View style={styles.networkListText}>
-                  <Text style={styles.networkListTitle}>{network.display_name}</Text>
-                  <Text style={styles.networkListTicker}>{network.display_ticker}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-          <AppButton onPress={() => setNetworksVisible(false)}>
-            Got it
-          </AppButton>
-        </View>
-      </BottomSheetModal>
+        visible={networksVisible}
+      />
 
       <ReceiveSubwalletSheet
+        selectedId={selectedCardId}
         balanceMap={balanceMap}
         coinObj={coinObj}
         onClose={() => setCardSheetVisible(false)}

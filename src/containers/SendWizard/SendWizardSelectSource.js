@@ -38,6 +38,7 @@ const SendWizardSelectSource = () => {
   const {mode, state, setSource} = useSendWizard();
   const [query, setQuery] = useState('');
   const [pendingAsset, setPendingAsset] = useState(null);
+  const [cardSheetVisible, setCardSheetVisible] = useState(false);
 
   const coins = useObjectSelector(stateValue => stateValue.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(stateValue => extractDisplaySubWallets(stateValue));
@@ -146,7 +147,10 @@ const SendWizardSelectSource = () => {
 
   const chooseAsset = asset => {
     if (asset.cards.length === 1) chooseSource(asset.cards[0]);
-    else setPendingAsset(asset);
+    else {
+      setPendingAsset(asset);
+      setCardSheetVisible(true);
+    }
   };
 
   return (
@@ -212,12 +216,13 @@ const SendWizardSelectSource = () => {
       />
       <SourceCardSheet
         cards={pendingAsset?.cards || []}
-        description={`Your asset has multiple Cards. Select which Card to ${
+        description={`Choose the card to ${
           mode === SEND_WIZARD_MODE.CONVERT ? 'convert' : 'send'
         } from.`}
         selectedId={state.sourceSubWallet?.id}
-        visible={Boolean(pendingAsset)}
-        onClose={() => setPendingAsset(null)}
+        visible={cardSheetVisible}
+        onClose={() => setCardSheetVisible(false)}
+        onClosed={() => setPendingAsset(null)}
         onSelect={chooseSource}
       />
     </WizardScreen>

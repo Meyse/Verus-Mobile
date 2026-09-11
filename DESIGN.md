@@ -115,12 +115,33 @@ the canonical component may change the rule for later sheets.
 Do not use `src/styles/deeplink/identityPickerSheet.styles.js` as visual
 precedent. It is a stale, unused style file rather than the running selector.
 
+Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
+`SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
+56-point minimum row height, 18-point radius, 16-point horizontal inset, and
+4-point vertical spacing. Rows may grow to preserve balances, networks, routes,
+or complete addresses. Titles use `theme.typography.titleSheet`. Use
+`useSheetDismissal` to apply a choice or navigate after `onClosed`; keep the
+caller's selected content separate from visibility until closing completes.
+The saved-address chooser may use 90% of the available height while the
+Android keyboard is open, with its management action scrolling after results.
+Android uses native modal resizing; iOS retains keyboard avoidance. This keeps
+a complete address choice readable on compact screens. Normal states remain at
+76%. Nested identity linking and the searchable Coin Card picker retain their
+specialized composition and behavior.
+
 ### Information
 
-Use `DeepLinkRequestDetailsSheet` for read-only request information. It provides
-the 78% maximum height, 20-point sheet title, sectioned label/value rows,
+Use `DeepLinkRequestDetailsSheet` for read-only request information. Its
+`DeepLinkRequestSheetScaffold` wrapper reuses `src/components/InfoSheet.js`; use
+`InfoSheet` and `InfoSheetSection` directly for other informational sheets.
+The information scaffold provides the 78% maximum height, 20-point sheet title,
+sectioned label/value rows,
 overflow cue, and a 56-point quiet Done action. Keep the title literal and the
 content concise. Do not add an illustration, hero icon, or eyebrow.
+
+Both information and selection sheets use `src/components/SheetScrollView.js`
+for measured overflow cues. Below a 128-point scroll viewport, use the native
+scroll indicator instead of a fade that would obscure the visible content.
 
 ### Shared behavior
 

@@ -7,14 +7,15 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-09-10.
-- Status: GR-1 and GR-2 implemented locally; remaining native runtime QA is tracked below.
+- Last updated: 2026-09-11.
+- Status: SH-1 completed locally. GR-1 and GR-2 implementation is present;
+  their remaining native runtime QA is tracked below.
 - Source-analysis baseline: `fecfbce4e5eba42e238a9960f30e7cd049ed08ba` on
   `codex/integrate-generic-request-upstream`.
 - Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
   isolated iOS/Android native previews, and Android build/entry checks.
   Authenticated wallet delivery remains open; see the GR-1/GR-2 log entries.
-- Current focus: **GR-1 / GR-2** verification and local delivery.
+- Current focus: **SH-1** complete; visual results are ready for user review.
 - Authority: creating this plan authorized documentation only. Later user
   instructions determine which work to execute. Unchecked boxes do not authorize
   starting the entire backlog. Existing authorization carries across sessions.
@@ -25,11 +26,11 @@ without repeating the entire investigation.
 | --- | --- | --- | --- |
 | GR-1 | Credential and data-signing reviews use current request patterns | Ready for verification | Existing request-review primitives |
 | GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
-| SH-1 | Selection and information sheets share the approved presentation | Not started | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
-| TX-1 | Current Send/Convert wizard uses shared layout and sheets | Not started | SH-1 for sheet migration |
-| RX-1 | Receive choices are clear and payment requests have proper steps | Not started | SH-1 for sheet migration |
+| SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
+| TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
+| RX-1 | Receive choices are clear and payment requests have proper steps | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Not started | SH-1 where a shared sheet is needed |
-| QA-1 | Completed scope has recorded visual, behavioral, and review evidence | In progress for GR-1/GR-2 | Applies to each delivered workstream |
+| QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
 Recommended sequence: GR-1 and GR-2 together, SH-1 with its first real consumer,
 TX-1, RX-1, then ID-1. Apply QA-1 to every delivery rather than saving all QA for
@@ -230,27 +231,66 @@ Remaining legacy completion callers are documented, with deliberate exceptions.
 set `floating={false}` and duplicate their headers, rows, actions, and overflow
 handling. Some clear visible content or navigate before the shell finishes closing.
 
-- [ ] **SH-1.1** Inventory active consumers in TX-1, RX-1, and ID-1. Classify each
+- [x] **SH-1.1** Inventory active consumers in TX-1, RX-1, and ID-1. Classify each
   as selection, information, compact form, blocking processing, or a full task.
   Record intentional exceptions rather than applying one height to everything.
-- [ ] **SH-1.2** Compare the running identity selector and transfer card picker
+- [x] **SH-1.2** Compare the running identity selector and transfer card picker
   with proposed consumers at matching size/theme. Use DESIGN.md as authority.
-- [ ] **SH-1.3** Reuse or minimally extract a shared selection composition from
+- [x] **SH-1.3** Reuse or minimally extract a shared selection composition from
   the approved pattern. Preserve transfer-specific balance, network, route, and
   address information; do not force it into identity-specific data structures.
-- [ ] **SH-1.4** Reuse the information scaffold for fee and supported-chain details.
+- [x] **SH-1.4** Reuse the information scaffold for fee and supported-chain details.
   If its DeepLink location obstructs reuse, extract the smallest shared component
   while preserving existing wrappers and behavior.
-- [ ] **SH-1.5** Standardize floating geometry, semantic selected states, titles,
+- [x] **SH-1.5** Standardize floating geometry, semantic selected states, titles,
   action rows, keyboard handling, measured overflow cues, and quiet Done actions
   where appropriate. Preserve explicit exit controls for blocking/nested tasks.
-- [ ] **SH-1.6** Separate visibility changes from destructive cleanup. Keep
+- [x] **SH-1.6** Separate visibility changes from destructive cleanup. Keep
   selected content mounted through closing; use `onClosed` for cleanup/navigation
   that must wait. Check rapid reopen and reduced-motion behavior.
-- [ ] **SH-1.7** Migrate with a real consumer and verify existing canonical
+- [x] **SH-1.7** Migrate with a real consumer and verify existing canonical
   consumers immediately. Do not create a broad unused sheet framework.
-- [ ] **SH-1.8** Complete relevant QA-1 checks and record migrated consumers and
+- [x] **SH-1.8** Complete relevant QA-1 checks and record migrated consumers and
   deliberate exceptions in the evidence log.
+
+**SH-1 inventory and design contract (2026-09-11):**
+
+| Active surface | Classification | SH-1 disposition |
+| --- | --- | --- |
+| Send/Convert source Card, destination network, route | Selection | Migrated to `SelectionSheet` and semantic selected rows; existing eligibility, balance and route data preserved |
+| Send saved addresses and self addresses | Searchable selection / selection | Migrated; address/network filtering preserved; exact address remains available; Address Book navigation deferred until closed |
+| Send confirmation fee breakdown | Information | Migrated to `InfoSheet` with unchanged fee data and preflight explanation |
+| Receive Card and address choice | Selection | Migrated; Card and address choices are named separately; selection applied after closing |
+| Receive supported chains | Information | Migrated to `InfoSheet`, section rows, measured overflow and quiet Done |
+| VerusID chooser and Coin Card picker | Specialized selection exemplars | Retain canonical composition; regression checked alongside migrated sheets |
+| Address Book edit and manual identity link | Compact form / nested form | Retain existing dedicated keyboard and save/link handling; broader migration belongs to TX-1 / ID-1 |
+| Receive payment-request amount/subject/settings/result | Full task | Deliberate exception: existing 90% attached sheet remains until RX-1.5 moves the task to full-screen steps |
+| VerusID discovery/linking | Nested searchable task | Retain canonical floating 76% sheet and existing post-close manual-link handoff |
+| VerusID explanation FAQ | Information with disclosure | Existing floating sheet retained; FAQ consolidation and copy remain ID-1.9 |
+| VerusID pending status and unlink confirmation | Action/status and destructive confirmation | Keep explicit guarded exit and action behavior; lifecycle/presentation migration stays with ID-1.3 |
+| GenericRequest delivery and Identity Update processing | Blocking processing / stepped task | Preserve existing completion, consent and transaction semantics |
+
+The shared selection composition follows the running identity selector's floating
+shell, 18-point row radius, 16-point row inset, 4-point row spacing and semantic
+success selection. `SelectionRow` uses a 56-point minimum and grows for balances,
+network/route details, complete addresses, and text scaling. Titles use the shared
+20/26 role; task rows use the canonical 62-point minimum. The searchable
+saved-address sheet fills the 76% shell to keep loading, empty,
+error and loaded states stable. With the Android keyboard open, it uses 90% of
+the remaining height and moves the management action into the scroll content so
+one complete address remains legible; Android uses native modal resizing. The
+fade gives way to the native scroll indicator below a 128-point viewport. Other short
+choices retain their intrinsic height. The information scaffold
+and rows moved to `InfoSheet` / `InfoSheetSection`, retaining the DeepLink exports
+as compatibility wrappers. `SheetScrollView` supplies the existing measured fade
+and chevron to both families. Simple sheets dismiss by outside tap/system back;
+information sheets also have the quiet 56-point Done action.
+
+Visibility is separate from pending source/target/Card content. `useSheetDismissal`
+queues one choice or navigation callback for `onClosed`, cancels it on a rapid
+reopen, and dismisses the keyboard. Existing shell animation and reduced-motion
+behavior remain authoritative. No signing, preflight, transaction, invoice, or
+identity-management capability is changed.
 
 **Acceptance:** Migrated sheets feel like the same component family and preserve
 their task-specific information. No blank/reset flash or competing navigation
@@ -273,14 +313,16 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 - [ ] **TX-1.2** Adopt `ProgressHeader` and the approved signed-in wizard
   composition. Preserve correct progress when steps are skipped. Expose one
   clear exit on initial/result states; retain necessary back navigation elsewhere.
-- [ ] **TX-1.3** Migrate source Card, destination network, and route sheets through
+- [x] **TX-1.3** Migrate source Card, destination network, and route sheets through
   SH-1. Preserve eligibility, selected values, balances, and route distinctions.
-- [ ] **TX-1.4** Migrate Address Book and self-address sheets. Retain search,
+- [x] **TX-1.4** Migrate Address Book and self-address sheets. Retain search,
   network filtering, validation, and clear raw-address presentation.
-- [ ] **TX-1.5** Move fee breakdown to the shared information pattern. Keep fees,
+- [x] **TX-1.5** Move fee breakdown to the shared information pattern. Keep fees,
   conversion estimates, and any uncertainty understandable and accurately labeled.
 - [ ] **TX-1.6** Defer selection-triggered navigation and Address Book handoff
   until sheet closure completes. Verify back navigation retains valid form data.
+  SH-1 implements the post-close callbacks; authenticated wizard back-navigation
+  verification remains open in TX-1.
 - [ ] **TX-1.7** Align amount, recipient, confirmation, processing, error, and
   result layouts. Reuse existing search, copy, skeleton, and safe-action controls.
 - [ ] **TX-1.8** Verify relevant direct send, conversion, cross-chain destination,
@@ -302,10 +344,10 @@ recipient. Existing transfer restrictions and state transitions still hold.
 
 - [ ] **RX-1.1** Trace Wallet/Asset entry, Card selection, address selection,
   supported-chain information, and payment-request generation separately.
-- [ ] **RX-1.2** Rename the Card selector’s misleading “Choose address” title to
+- [x] **RX-1.2** Rename the Card selector’s misleading “Choose address” title to
   “Choose a card”. Keep network context visible and show a current selection when
   the invoking flow has one. Preserve the Card-to-address/channel relationship.
-- [ ] **RX-1.3** Remove duplicate address-selection headings and migrate Card,
+- [x] **RX-1.3** Remove duplicate address-selection headings and migrate Card,
   address, and supported-chain sheets through SH-1.
 - [ ] **RX-1.4** Use consistent identifier typography and shared copy feedback.
   Verify the full copied address and displayed QR belong to the selected Card
@@ -417,6 +459,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-09-11 | SH-1 shared selection and information sheets | Local delivery over `51672964` on `codex/integrate-generic-request-upstream`; exact commit in the local QA report | Nine migrated sheets; canonical identity/Card/request-details regression evidence. 133 native gallery entries plus seven before captures cover iOS/Android, light/dark, normal/compact and focused loading/error/keyboard/overflow states. Design, safe-area, parser, focused dismissal/selection checks and production iOS bundle pass. Independent design and behavior reviews are ready, with unchanged repository guards. [Screenshot gallery](docs/sh1-qa-20260911/index.html); [QA report](docs/sh1-qa-20260911/qa.local.md) | SH-1 complete. Screenshots use actual components with synthetic Testnet data. Authenticated wallet journeys and full VoiceOver/TalkBack traversal remain with the owning TX-1/RX-1/ID-1 and QA-1 tasks. Next scoped implementation: remaining TX-1 work when authorized. |
 | 2026-09-10 | GR-1 Android QA and layout corrections | Task-owned candidate over `4decf026` | Android native build/entry and 41 fixture screenshots recorded. Corrected tall details-sheet overflow and kept signing errors beside the action. Native iOS/Android light/dark, normal/compact layout and consent/failure checks pass; design, safe-area, parser and iOS bundle checks pass. [Android QA](docs/gr12-android-qa-20260910/qa.local.md); [correction evidence](docs/gr12-ui-fix-20260910/qa.local.md) | Authenticated wallet signing/callbacks and remaining accessibility evidence remain open. The original overflow reproduced on Android; the normal iOS baseline already fit. |
 | 2026-09-10 | GR-1 / GR-2 local implementation | Task-owned candidate over `75592c0f` on `codex/integrate-generic-request-upstream` | Shared themed credential/Data Packet review; explicit consent; cached completion retry; authoritative session/lifecycle/expiry guards before signing. Design/safe-area/parser/iOS bundle, focused non-Jest state/delivery checks, and harness contract checks pass. iOS fixture render/interaction evidence and independent review records: [local QA report](gr12-qa.local.md) | GR-1.9–1.10 and GR-2.6 remain open for authenticated native callbacks/mixed-order walkthrough, Android, and remaining accessibility evidence. No mainnet wallet accessed. |
 | 2026-09-10 | Initial analysis | `fecfbce4` | Source/routing review; design check passed for 27 canonical sources; no authenticated visual walkthrough | Plan created; implementation tasks remain unchecked |
@@ -428,15 +471,20 @@ patch exists.
 
 ### Resume note
 
-- Last completed action: Android fixture QA and shared sheet/error layout corrections,
-  verified on normal and compact iOS/Android screens in both themes.
-- Workstream in progress: GR-1.9–1.10, GR-2.6, and applicable QA-1 evidence.
-- Next action: use a configured disposable Testnet wallet for authenticated
-  mixed-detail delivery on both platforms and remaining accessibility checks.
-  Local delivery and reviewer evidence are recorded in the linked QA reports.
-- Runtime gap: the normal simulator has competing preview-app deeplink handlers;
+- Last completed action: SH-1 shared selection/information sheets, verified on
+  normal and compact iOS/Android screens in both themes. Both independent reviews
+  are ready; the screenshot gallery and local QA report record the evidence.
+- Next action: review the SH-1 gallery, then resume the remaining TX-1 work when
+  authorized. TX-1.6 retains authenticated back-navigation walkthroughs.
+- Earlier GR-1/GR-2 runtime follow-up remains open: GR-1.9–1.10, GR-2.6,
+  authenticated mixed-detail delivery on both platforms, and remaining
+  accessibility checks. Local delivery and reviewer evidence are in the linked
+  GR reports.
+- Previously recorded GR runtime gap: the normal simulator has competing preview-app deeplink handlers;
   the compact simulator reaches the actual Testnet unlock sheet but its selected
   disposable profile could not be unlocked with the available setup. Isolated
   native fixtures verify rendering and interaction, not wallet signing or live
   callback delivery. No personal/mainnet wallet was unlocked.
-- Owner: GR-1/GR-2 follow-up task. Other workstreams remain unstarted.
+- Owners: the GR-1/GR-2 follow-up task retains its runtime gaps; the next TX-1
+  task owns the remaining Send/Convert work. RX-1 and ID-1 retain their listed
+  exceptions and unfinished tasks.

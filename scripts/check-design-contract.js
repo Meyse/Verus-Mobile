@@ -9,6 +9,9 @@ const requiredFiles = [
   'TYPOGRAPHY.md',
   'src/theme/onboarding/tokens.js',
   'src/components/BottomSheetModal.js',
+  'src/components/InfoSheet.js',
+  'src/components/SelectionSheet.js',
+  'src/components/SheetScrollView.js',
   'src/components/AppSearchField.js',
   'src/components/AppSearchLauncher.js',
   'src/components/CopyAction.js',
@@ -103,7 +106,7 @@ const requiredSourceFragments = [
     fragments: ['maxHeight="78%"', 'title="Request details"'],
   },
   {
-    path: 'src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js',
+    path: 'src/components/InfoSheet.js',
     fragments: ['height={56}', 'variant="secondary"'],
   },
   {

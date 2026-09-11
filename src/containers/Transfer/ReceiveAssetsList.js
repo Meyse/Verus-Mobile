@@ -254,6 +254,7 @@ const ReceiveAssetsList = ({navigation}) => {
         balanceMap={pendingBalanceMap}
         coinObj={pendingCoin}
         onClose={() => setCardSheetVisible(false)}
+        onClosed={() => setPendingCoin(null)}
         onSelect={card => {
           setCardSheetVisible(false);
           openDetails(pendingCoin, card);

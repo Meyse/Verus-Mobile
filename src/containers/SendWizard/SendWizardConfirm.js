@@ -28,7 +28,7 @@ import {
   toLowerCaseCLocale,
 } from 'verus-typescript-primitives';
 import SkeletonLoader, {SkeletonSection} from '../../components/SkeletonLoader';
-import BottomSheetModal from '../../components/BottomSheetModal';
+import FeeBreakdownSheet from './components/FeeBreakdownSheet';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -546,32 +546,7 @@ const SendWizardConfirm = () => {
         onPress={submit}>
         Hold to confirm &amp; send
       </WizardFooter>
-      <BottomSheetModal floating={false} maxHeight="45%" onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen}>
-        <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, {color: theme.colors.textPrimary}]}>Fee breakdown</Text>
-          <TouchableOpacity onPress={() => setFeeSheetOpen(false)} style={[styles.sheetClose, {backgroundColor: theme.colors.surfaceMuted}]}>
-            <MaterialCommunityIcons name="close" size={18} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.feeBreakdown}>
-          {(feeItems.length ? feeItems : [{amount: 'Calculated by wallet', currency: ''}]).map(
-            (item, index) => (
-              <View
-                key={`${item.amount}:${item.currency}:${index}`}
-                style={[
-                  styles.feeBreakdownRow,
-                  {borderBottomColor: theme.colors.border},
-                  index === Math.max(feeItems.length, 1) - 1 &&
-                    styles.feeBreakdownRowLast,
-                ]}>
-                <Text style={[styles.feeBreakdownLabel, {color: theme.colors.textSecondary}]}>Network fee</Text>
-                <Text style={[styles.feeBreakdownValue, {color: theme.colors.textPrimary}]}>{`${item.amount}${item.currency ? ` ${item.currency}` : ''}`}</Text>
-              </View>
-            ),
-          )}
-        </View>
-        <Text style={[styles.sheetBody, {color: theme.colors.textSecondary}]}>Fees are calculated by the selected Verus Card and route during preflight.</Text>
-      </BottomSheetModal>
+      <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />
     </WizardScreen>
   );
 };
@@ -608,15 +583,6 @@ const styles = StyleSheet.create({
   stateBody: {fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, ...fontStyle('regular')},
   warning: {borderRadius: 10, padding: 10, marginBottom: 8},
   warningText: {fontSize: 13, lineHeight: 19, ...fontStyle('regular')},
-  sheetHeader: {minHeight: 56, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center'},
-  sheetTitle: {flex: 1, fontSize: 20, lineHeight: 26, ...fontStyle('bold')},
-  sheetClose: {width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center'},
-  feeBreakdown: {marginHorizontal: 20, marginBottom: 16},
-  feeBreakdownRow: {minHeight: 52, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  feeBreakdownRowLast: {borderBottomWidth: 0},
-  feeBreakdownLabel: {fontSize: 14, lineHeight: 20, ...fontStyle('regular')},
-  feeBreakdownValue: {maxWidth: '60%', textAlign: 'right', fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
-  sheetBody: {paddingHorizontal: 20, paddingBottom: 32, fontSize: 15, lineHeight: 22, ...fontStyle('regular')},
 });
 
 export default SendWizardConfirm;

@@ -39,6 +39,7 @@ const SendWizardSelectTarget = () => {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [pendingTarget, setPendingTarget] = useState(null);
+  const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
   const sourceNetworkId =
     channel?.split('.')[2] || sourceCoin?.system_id || sourceCoin?.id;
 
@@ -131,6 +132,7 @@ const SendWizardSelectTarget = () => {
     const networkOptions = target.networkOptions || [target];
     if (networkOptions.length > 1) {
       setPendingTarget(target);
+      setNetworkSheetVisible(true);
       return;
     }
 
@@ -217,8 +219,9 @@ const SendWizardSelectTarget = () => {
       <TargetNetworkSheet
         target={pendingTarget}
         options={pendingTarget?.networkOptions || []}
-        visible={Boolean(pendingTarget)}
-        onClose={() => setPendingTarget(null)}
+        visible={networkSheetVisible}
+        onClose={() => setNetworkSheetVisible(false)}
+        onClosed={() => setPendingTarget(null)}
         onSelect={chooseNetwork}
       />
     </WizardScreen>

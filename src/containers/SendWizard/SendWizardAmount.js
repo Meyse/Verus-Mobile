@@ -495,7 +495,7 @@ const SendWizardAmount = () => {
         estimates={routeEstimates}
         selectedKey={route?.key}
         target={target}
-        title="Select conversion route"
+        title="Choose a conversion route"
         routes={target.routes || []}
         visible={routeSheetOpen}
         onClose={() => setRouteSheetOpen(false)}
@@ -507,6 +507,7 @@ const SendWizardAmount = () => {
         }}
       />
       <TargetNetworkSheet
+        selectedKey={route?.networkKey}
         onClose={() => setNetworkSheetOpen(false)}
         onSelect={chooseSendNetwork}
         options={sendNetworkOptions}

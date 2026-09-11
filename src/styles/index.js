@@ -44,4 +44,6 @@ export {createSignedOutSheetStyles} from './components/signedOutSheet.styles';
 export {default as vdxfUniValueModalInnerAreaStyles} from './components/vdxfUniValueModalInnerArea.styles';
 export {default as verusIdObjectDataStyles} from './components/verusIdObjectData.styles';
 
+export {createSelectionSheetStyles} from './components/selectionSheet.styles';
+
 export default Styles;
