@@ -75,7 +75,7 @@ export const getAmountInputError = value => {
 
 const getStepTitle = step =>
   ({
-    [STEP_AMOUNT]: 'Enter an amount',
+    [STEP_AMOUNT]: 'Enter amount',
     [STEP_SUBJECT]: 'Add a subject',
     [STEP_SETTINGS]: 'Conversion settings',
     [STEP_RESULT]: 'Payment request ready',
@@ -446,13 +446,6 @@ const ReceivePaymentRequestFlow = ({
 
   const renderAmountStep = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.stepTitle, theme.typography.headlineMd]}>
-          {getStepTitle(STEP_AMOUNT)}
-        </Text>
-      </View>
       <View style={styles.amountRow}>
         <AppTextInput
           accessibilityLabel={`Amount in ${currencyTicker}`}
@@ -501,13 +494,6 @@ const ReceivePaymentRequestFlow = ({
 
   const renderSubjectStep = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.stepTitle, theme.typography.headlineMd]}>
-          {getStepTitle(STEP_SUBJECT)}
-        </Text>
-      </View>
       <Text style={styles.stepHelper}>
         Optional. Added to the share message.
       </Text>
@@ -525,13 +511,6 @@ const ReceivePaymentRequestFlow = ({
 
   const renderSettingsStep = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.stepTitle, theme.typography.headlineMd]}>
-          {getStepTitle(STEP_SETTINGS)}
-        </Text>
-      </View>
       <TouchableOpacity
         accessibilityRole="checkbox"
         accessibilityState={{checked: allowConversion}}
@@ -571,13 +550,6 @@ const ReceivePaymentRequestFlow = ({
 
   const renderResultStep = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.stepTitle, theme.typography.headlineMd]}>
-          {getStepTitle(STEP_RESULT)}
-        </Text>
-      </View>
       <View style={styles.resultWrap}>
         <View style={styles.resultQr}>
           <QRCode
@@ -731,7 +703,7 @@ const ReceivePaymentRequestFlow = ({
       <ProgressHeader
         onBack={handleBack}
         progress={getStepProgress(step, conversionEligible)}
-        title={card ? card.name : coinObj?.display_name}
+        title={getStepTitle(step)}
       />
       <KeyboardAvoidingView
         // iOS already insets the window for the keyboard, so padding is the

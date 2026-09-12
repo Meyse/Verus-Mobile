@@ -324,8 +324,6 @@ export const createReceiveDetailsStyles = theme =>
     wizardRoot: {flex: 1, backgroundColor: theme.colors.background},
     wizardViewport: {flex: 1},
     wizardContent: {flexGrow: 1, paddingTop: 24, paddingBottom: 28},
-    stepCopy: {marginBottom: 22},
-    stepTitle: {color: theme.colors.textPrimary},
     stepHelper: {
       ...theme.typography.bodySm,
       marginBottom: 20,
