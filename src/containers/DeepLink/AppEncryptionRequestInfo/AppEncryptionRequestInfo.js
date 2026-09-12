@@ -18,12 +18,6 @@ import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {
-  openLinkIdentityModal,
-} from '../../../actions/actions/sendModal/dispatchers/sendModal';
-import {
-  LINK_IDENTITY_SEND_MODAL,
-} from '../../../utils/constants/sendModal';
-import {
   requestWalletUnlock,
   WALLET_UNLOCK_CANCELLED,
 } from '../../../actions/actionDispatchers';
@@ -54,6 +48,11 @@ import {
 } from '../../../utils/api/channels/verusid/callCreators';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {requestServiceStoredData} from '../../../utils/auth/authBox';
+import Store from '../../../store';
+import {
+  captureSessionScope,
+  sessionScopeIsCurrent,
+} from '../../../actions/actions/updates/sessionRequests';
 import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 import {DLIGHT_PRIVATE} from '../../../utils/constants/intervalConstants';
 import {
@@ -69,6 +68,10 @@ import {
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
+import {
+  identityLinkCandidateMatchesAccount,
+  identityLinkOriginIsCurrent,
+} from '../../../utils/verusid/verusIdFlowGuards';
 import {
   appEncryptionRequestInfoStyles as createAppEncryptionRequestInfoStyles,
 } from '../../../styles';
@@ -91,6 +94,8 @@ const ROOT_CHAIN_BY_NETWORK = {
   testnet: 'VRSCTEST',
 };
 
+const SESSION_CHANGED = 'SESSION_CHANGED';
+
 const SHIELDED_SETUP_PROFILE_MESSAGE =
   `Set up the Z recovery secret in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}, then restart Verus Mobile and try again.`;
 
@@ -111,18 +116,6 @@ const getUriString = uri => {
   if (!uri) return null;
   if (typeof uri.getUriString === 'function') return uri.getUriString();
   return String(uri);
-};
-
-const getLinkedAddressSet = linkedIds => {
-  const addresses = new Set();
-
-  for (const chainId of Object.keys(linkedIds || {})) {
-    for (const iAddress of Object.keys(linkedIds[chainId] || {})) {
-      addresses.add(iAddress.toLowerCase());
-    }
-  }
-
-  return addresses;
 };
 
 const getRequestChainKey = (linkedIds, requestIdentityChainId) => {
@@ -277,10 +270,14 @@ const AppEncryptionRequestInfoContent = props => {
   const activeAccount = useObjectSelector(
     state => state.authentication.activeAccount,
   );
+  // The account this screen rendered against. Link mutations must reject if the
+  // store account changed in the same frame as the action.
+  const renderedAccountHash = useObjectSelector(
+    state => state.authentication.activeAccount?.accountHash || null,
+  );
   const encryptedIds = useObjectSelector(
     state => state.services.stored[VERUSID_SERVICE_ID],
   );
-  const sendModal = useObjectSelector(state => state.sendModal);
   const signedIn = useSelector(state => state.authentication.signedIn);
   const requestIsTestnet = request != null ? request.isTestnet() : false;
   const activeAccountMatchesRequest =
@@ -325,8 +322,7 @@ const AppEncryptionRequestInfoContent = props => {
   const [processing, setProcessing] = useState(false);
   const [openIdentityAfterUnlock, setOpenIdentityAfterUnlock] =
     useState(false);
-  const sendModalWasVisibleRef = useRef(false);
-  const launchedLinkModalRef = useRef(null);
+  const linkOperationRef = useRef(0);
   const zSeedConfigured = activeAccount?.seeds?.[DLIGHT_PRIVATE] != null;
   const shieldedKeyLoaded =
     requestCoinObj?.id != null &&
@@ -374,28 +370,39 @@ const AppEncryptionRequestInfoContent = props => {
     [isRequestChainId, requestIdentityChainId],
   );
 
-  const loadLinkedIds = useCallback(async () => {
+  const loadLinkedIds = useCallback(async isCurrent => {
+    const shouldApply = () =>
+      typeof isCurrent === 'function' ? isCurrent() : true;
+
     try {
       const verusIdServiceData = await requestServiceStoredData(
         VERUSID_SERVICE_ID,
       );
       const nextLinkedIds = verusIdServiceData.linked_ids || {};
 
-      setLinkedIds(nextLinkedIds);
+      if (shouldApply()) setLinkedIds(nextLinkedIds);
       return nextLinkedIds;
     } catch (e) {
-      setLinkedIds({});
+      if (shouldApply()) setLinkedIds({});
       return {};
     } finally {
-      setLinkedIdsLoaded(true);
+      if (shouldApply()) setLinkedIdsLoaded(true);
     }
   }, []);
 
   const loadLinkedIdsAndSelect = useCallback(
-    async ({preferredIAddress, previousAddressSet, reopenIdentitySheet}) => {
-      setLinkedIdsLoaded(false);
+    async ({
+      preferredIAddress,
+      previousAddressSet,
+      reopenIdentitySheet,
+      isCurrent,
+    }) => {
+      const shouldApply = () =>
+        typeof isCurrent === 'function' ? isCurrent() : true;
 
-      const nextLinkedIds = await loadLinkedIds();
+      if (shouldApply()) setLinkedIdsLoaded(false);
+
+      const nextLinkedIds = await loadLinkedIds(isCurrent);
       const nextIdentity = findPreferredIdentity({
         linkedIds: nextLinkedIds,
         preferredIAddress,
@@ -404,12 +411,14 @@ const AppEncryptionRequestInfoContent = props => {
       });
 
       if (nextIdentity) {
-        setSelectedIdentity(nextIdentity);
-        setIdentitySheetVisible(false);
+        if (shouldApply()) {
+          setSelectedIdentity(nextIdentity);
+          setIdentitySheetVisible(false);
+        }
         return nextIdentity;
       }
 
-      if (reopenIdentitySheet) {
+      if (reopenIdentitySheet && shouldApply()) {
         setIdentitySheetVisible(true);
       }
 
@@ -458,31 +467,6 @@ const AppEncryptionRequestInfoContent = props => {
     setOpenIdentityAfterUnlock(false);
     setIdentitySheetVisible(true);
   }, [activeAccountMatchesRequest, linkedIdsLoaded, openIdentityAfterUnlock]);
-
-  useEffect(() => {
-    const sendModalClosed =
-      sendModalWasVisibleRef.current &&
-      !sendModal.visible &&
-      sendModal.type == null;
-
-    sendModalWasVisibleRef.current = sendModal.visible;
-
-    if (!sendModalClosed) return;
-    if (launchedLinkModalRef.current?.type !== LINK_IDENTITY_SEND_MODAL) {
-      return;
-    }
-
-    const launchedModal = launchedLinkModalRef.current;
-    launchedLinkModalRef.current = null;
-
-    loadLinkedIdsAndSelect({
-      previousAddressSet: launchedModal.previousAddressSet,
-      reopenIdentitySheet: true,
-    }).catch(e => {
-      console.warn('Unable to reload linked identities after linking', e);
-      setIdentitySheetVisible(true);
-    });
-  }, [loadLinkedIdsAndSelect, sendModal.type, sendModal.visible]);
 
   const canOpenSignerDetails = signerSystemName && signerIdentityID;
 
@@ -557,22 +541,36 @@ const AppEncryptionRequestInfoContent = props => {
     }
   };
 
-  const handleManualLinkExisting = useCallback(() => {
-    if (!requestCoinObj) {
-      createAlert('Cannot link VerusID', 'Unable to find the request network.');
-      return;
-    }
-
-    launchedLinkModalRef.current = {
-      type: LINK_IDENTITY_SEND_MODAL,
-      previousAddressSet: getLinkedAddressSet(linkedIds),
-    };
-    setIdentitySheetVisible(false);
-    openLinkIdentityModal(requestCoinObj);
-  }, [linkedIds, requestCoinObj]);
-
   const linkIdentityCandidate = useCallback(
-    async candidate => {
+    async (candidate, {showError = true, isCurrent: callerIsCurrent} = {}) => {
+      const shouldApply = () =>
+        typeof callerIsCurrent === 'function' ? callerIsCurrent() : true;
+      const requestContext = {
+        sessionScope: captureSessionScope(
+          Store.getState(),
+          renderedAccountHash,
+        ),
+      };
+      const operationToken = linkOperationRef.current + 1;
+      linkOperationRef.current = operationToken;
+      const isOperationCurrent = () =>
+        linkOperationRef.current === operationToken &&
+        shouldApply() &&
+        sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope);
+      const assertSessionCurrent = () => {
+        if (!isOperationCurrent()) {
+          const error = new Error(
+            'Account changed while the VerusID was being linked.',
+          );
+          error.code = SESSION_CHANGED;
+          throw error;
+        }
+      };
+
+      // The candidate belongs to the account this screen rendered. If the store
+      // account already moved on, the link must not run against the new one.
+      assertSessionCurrent();
+
       try {
         const candidateChainId = candidate?.chainId || requestIdentityChainId;
         const identityAddress = candidate?.identityAddress;
@@ -619,28 +617,62 @@ const AppEncryptionRequestInfoContent = props => {
           );
         }
 
+        // The candidate's chosen primary R-address must belong to the account
+        // that is scoped right now, not only to the identity's own primary
+        // address list, and its origin session must still be live.
+        const liveState = Store.getState();
+
+        if (
+          candidate?.origin &&
+          !identityLinkOriginIsCurrent(liveState, candidate.origin)
+        ) {
+          const sessionError = new Error(
+            'Account changed while the VerusID was being linked.',
+          );
+          sessionError.code = SESSION_CHANGED;
+          throw sessionError;
+        }
+
+        if (!identityLinkCandidateMatchesAccount(liveState, candidate)) {
+          throw new Error(
+            'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+          );
+        }
+
         const coinObj = CoinDirectory.findCoinObj(candidateChainId);
 
         if (!coinObj) {
           throw new Error('Unable to find the request network.');
         }
 
-        await linkVerusId(identityAddress, displayName, coinObj.id);
-        await updateVerusIdWallet();
+        await linkVerusId(
+          identityAddress,
+          displayName,
+          coinObj.id,
+          requestContext,
+        );
+        assertSessionCurrent();
+        await updateVerusIdWallet(requestContext);
+        assertSessionCurrent();
         clearChainLifecycle(coinObj.id);
 
         const setUserCoinsAction = setUserCoins(
           activeCoinList,
           activeAccount.id,
         );
+        assertSessionCurrent();
         dispatch(setUserCoinsAction);
         refreshActiveChainLifecycles(
           setUserCoinsAction.payload.activeCoinsForUser,
         );
 
+        assertSessionCurrent();
         const selectedLinkedIdentity = await loadLinkedIdsAndSelect({
           preferredIAddress: identityAddress,
+          isCurrent: isOperationCurrent,
         });
+
+        if (!isOperationCurrent()) return;
 
         if (!selectedLinkedIdentity) {
           setSelectedIdentity({
@@ -651,7 +683,9 @@ const AppEncryptionRequestInfoContent = props => {
           setIdentitySheetVisible(false);
         }
       } catch (e) {
-        createAlert('Error', e?.message || 'Unable to link VerusID.');
+        if (showError && isOperationCurrent()) {
+          createAlert('Error', e?.message || 'Unable to link VerusID.');
+        }
         throw e;
       }
     },
@@ -661,12 +695,13 @@ const AppEncryptionRequestInfoContent = props => {
       dispatch,
       isAutoLinkCandidateAllowed,
       loadLinkedIdsAndSelect,
+      renderedAccountHash,
       requestIdentityChainId,
     ],
   );
 
   const linkAutoFoundIdentity = useCallback(
-    candidate => linkIdentityCandidate(candidate),
+    candidate => linkIdentityCandidate(candidate, {showError: false}),
     [linkIdentityCandidate],
   );
 
@@ -901,7 +936,6 @@ const AppEncryptionRequestInfoContent = props => {
         initialMode={VERUSID_SHEET_MODES.CHOOSE}
         onClose={() => setIdentitySheetVisible(false)}
         onLinkCandidate={linkAutoFoundIdentity}
-        onManualLink={handleManualLinkExisting}
         onSelect={handleSelectIdentity}
       />
       <DeepLinkRequestDetailsSheet

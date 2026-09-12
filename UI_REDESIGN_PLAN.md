@@ -8,18 +8,23 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-09-12.
-- Status: SH-1 and RX-1 complete for their scoped local deliveries. GR-1 and
-  GR-2 implementation is present; their remaining native runtime QA is tracked
-  below.
+- Status: SH-1 and RX-1 complete for their scoped local deliveries. ID-1 is
+  complete for this scoped local delivery: verified and review-ready, with its
+  rendered/native QA and the single independent high-risk review done, and still
+  uncommitted until the parent integrates it. GR-1 and GR-2 implementation is
+  present; their remaining native runtime QA is tracked below. Global QA-1 stays
+  open across workstreams.
 - Source-analysis baseline: `fecfbce4e5eba42e238a9960f30e7cd049ed08ba` on
   `codex/integrate-generic-request-upstream`.
 - Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
   isolated iOS/Android native previews, and Android build/entry checks.
   Authenticated wallet delivery remains open; see the GR-1/GR-2 log entries.
-- Current focus: **RX-1 complete** with the user-requested system amount
-  keypad, 196 native gallery captures, 32 passing focused behavior checks, and
-  ready high-risk and design reviews. The next scoped implementation is the
-  remaining TX-1 work when authorized. Broader authenticated/runtime and
+- Current focus: **ID-1 complete for this scoped local delivery**, verified and
+  review-ready but uncommitted until the parent integrates it over `a607faf6` on
+  `codex/id1-redesign`. RX-1 remains complete with the user-requested system
+  amount keypad, 196 native gallery captures, 32 passing focused behavior
+  checks, and ready high-risk and design reviews. The next scoped implementation
+  is the remaining TX-1 work when authorized. Broader authenticated/runtime and
   accessibility follow-up remains explicitly tracked under QA-1.
 - Authority: creating this plan authorized documentation only. Later user
   instructions determine which work to execute. Unchecked boxes do not authorize
@@ -34,7 +39,7 @@ without repeating the entire investigation.
 | SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
 | RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
-| ID-1 | VerusID linking, details, and status surfaces are consistent | Not started | SH-1 where a shared sheet is needed |
+| ID-1 | VerusID linking, details, and status surfaces are consistent | Complete for this scoped local delivery (verified, review-ready, uncommitted pending parent integration) | SH-1 where a shared sheet is needed |
 | QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
 Recommended sequence: GR-1 and GR-2 together, SH-1 with its first real consumer,
@@ -428,36 +433,150 @@ steps, a working back path, and a result accurately tied to its generated data.
 [LinkIdentityForm](src/components/SendModal/LinkIdentity/LinkIdentityForm/LinkIdentityForm.render.js),
 [DeepLinkVerusIdDetailsSheet](src/containers/DeepLink/components/RequestReview/DeepLinkVerusIdDetailsSheet.js).
 
-- [ ] **ID-1.1** Trace automatic linking, manual fallback, and request-resume paths
+- [x] **ID-1.1** Trace automatic linking, manual fallback, and request-resume paths
   separately. Automatic discovery already uses the newer component; retain it.
-- [ ] **ID-1.2** Bring manual input, review, loading, error, and result into the
+- [x] **ID-1.2** Bring manual input, review, loading, error, and result into the
   current linking experience. Preserve network/ownership checks and the ability
   to inspect the resolved identity before completing any required confirmation.
-- [ ] **ID-1.3** Migrate pending-status and unlink sheets through SH-1. Make the
+- [x] **ID-1.3** Migrate pending-status and unlink sheets through SH-1. Make the
   useful refresh/retry action prominent and removal secondary where appropriate.
   Keep unlink distinct from on-chain revocation, deletion, or recovery.
-- [ ] **ID-1.4** Use `onClosed` for manual-modal handoff, pending selection cleanup,
+- [x] **ID-1.4** Use `onClosed` for manual-modal handoff, pending selection cleanup,
   and any navigation that requires the sheet to finish closing. Retain error
   contents until dismissal ends and block conflicting actions while processing.
-- [ ] **ID-1.5** Refine the detail hierarchy: identity name, status, and network
+- [x] **ID-1.5** Refine the detail hierarchy: identity name, status, and network
   first; understandable authority/control information; secondary technical data
   progressively disclosed. Preserve important warnings and complete identifiers.
-- [ ] **ID-1.6** Replace copy-alert interactions in the touched details path with
+- [x] **ID-1.6** Replace copy-alert interactions in the touched details path with
   `CopyAction`. Account for other users of `VerusIdObjectData` before shared edits.
-- [ ] **ID-1.7** Remove the unconditional “No attestations linked” assertion unless
+- [x] **ID-1.7** Remove the unconditional “No attestations linked” assertion unless
   backed by an actual result. Prefer omitting the unsupported section; adding a
   new attestation-loading feature is a separate scope decision.
-- [ ] **ID-1.8** Use stable loading treatment and readable retry guidance for
+- [x] **ID-1.8** Use stable loading treatment and readable retry guidance for
   linked-list/detail failures. Ensure a refresh failure is visible even when old
   identity data remains on screen; do not expose raw RPC errors as the main copy.
-- [ ] **ID-1.9** Consolidate the informational sheet where practical, remove
+- [x] **ID-1.9** Consolidate the informational sheet where practical, remove
   repeated copy, use “VerusID” consistently, and label icon-only controls for
   accessibility. Preserve state-aware scrolling and overflow cues.
-- [ ] **ID-1.10** Verify no identities, several identities, long names, discovery
+- [x] **ID-1.10** Verify no identities, several identities, long names, discovery
   empty/error, manual link validation, pending/failed status, details loading/error,
   copy feedback, and unlink cancellation. Verify security-sensitive mutations only
   in the authorized disposable Testnet setup.
-- [ ] **ID-1.11** Complete relevant QA-1 checks and record delivery evidence.
+- [x] **ID-1.11** Complete relevant QA-1 checks and record delivery evidence.
+
+**Implementation (verified and review-ready; uncommitted until parent
+integration):** manual entry, validation, identity resolution, the
+resolved-identity review, the linking loading state, and the actionable failure
+now live inside the shared
+`LinkExistingVerusIdSheet` instead of the legacy SendModal link flow. The manual
+step reuses the compact-form composition from `AddressBookEditSheet`
+(`AppTextInput` plus `SafeBottomActionStack`) and the review reuses
+`InfoSheetSection` with the section builder exported from
+`DeepLinkVerusIdDetailsSheet`, so both the signed-in VerusID service and the
+GenericRequest identity picker share one experience. Resolution stays read-only:
+automatic discovery still queries `getIdentitiesWithAddress` with the stored
+Redux VRPC R-address, and manual resolution calls `getIdentity` on the sheet's own
+chain and matches the result against the wallet's stored VRPC addresses for the
+ownership check, so no seed, private key, or signing material is requested.
+Active-status, network/system, duplicate-link, and primary-address ownership
+checks run in the sheet and remain enforced by the existing parent link paths.
+The linked result is the refreshed list entry or request selection that the
+existing parent flow already performs, so automatic and manual linking end in the
+same place instead of adding a second result surface.
+The signed-in service links under a captured session scope and re-asserts it
+after each awaited step, so a late completion from another account cannot mark a
+link or close a newer sheet.
+
+Pending status and unlink confirmation are now floating shared sheets driven by
+`useSheetDismissal`: refresh/retry is primary, removal/unlink is
+secondary/destructive, every control disables while processing, cleanup and
+selection clearing happen in `onClosed`, request-resume navigation waits for the
+status sheet to close, and `goBack` waits for the unlink sheet to close. The
+unlink copy states that it only removes the local wallet association and does not
+revoke, delete, recover, or change the VerusID on-chain. The signed-in details
+screen consumes a new `presentation="signedInDetails"` variant of
+`VerusIdObjectData`: the name is the screen title, status/network/identifiers lead
+the rows, warnings and authority/control information follow, identity content and
+the private address start collapsed, copy uses inline `CopyAction`, refresh
+failure stays visible above stale-but-useful data, and the unsupported
+“No attestations linked” section is gone. The informational sheet now composes
+the shared `InfoSheet` (measured overflow cue included) with one definition line
+instead of duplicating the “What is VerusID?” heading.
+
+**Correction (session-bound linking and resumption, follow-up):** the first
+candidate passed rendered-source review but failed independent high-risk review,
+so the following corrections are in the working tree and remain uncommitted. The
+shared `LinkExistingVerusIdSheet` now captures a real wallet session scope
+(account hash plus login epoch) for both automatic discovery and manual lookup,
+re-checks it after every await and immediately before it hands a candidate to a
+parent, invalidates discovery/resolution/review when the scope changes, and
+carries immutable origin metadata on every candidate. The three parents
+(`AuthenticationRequestInfo`, `AppEncryptionRequestInfo`,
+`SignedInVerusIdService`) revalidate that the candidate's chosen primary
+R-address belongs to the currently scoped account's VRPC address array for the
+candidate chain in addition to the identity's own primary-address list, so a
+candidate resolved for one account can never link into another even when both
+share the same first R-address. `processVerusId` gained a backward-compatible
+optional guard that is checked after the pending-request storage await and
+immediately before every dispatch and navigation; the signed-in service supplies
+the captured session plus a synchronous operation token, and both the retry and
+READY-row resume paths are single-flight so a stale completion cannot dispatch,
+navigate, reopen a fallback sheet, clear a newer operation, or attach an error to
+a newer session. The unlink confirmation's queued `goBack` now re-checks the
+immutable originating session and route/focus ownership at execution time (the
+unlink token is deliberately not used, because `onClosed` bumps it first). A
+pending-status sheet that becomes READY now closes so the READY row's guarded
+Link action takes over, with truthful "Ready to link" copy if it renders before
+closing. The remaining legacy Authentication manual fallback now routes into the
+shared manual step with the request network and a prefilled FQN, and the touched
+consumers no longer open the legacy SendModal link UI. `IdentityPickerSheet`'s
+nested Back transition guards on the synchronous `linkBusyRef` instead of the
+React `linkBusy` state so a same-frame Back cannot leave the link step.
+
+**Correction (final lifecycle defects, follow-up):** the same independent
+high-risk reviewer rechecked the corrected candidate, closed five findings, and
+returned two reproduced P2 lifecycle defects, now corrected. First, the unlink
+confirmation's delayed callback validated against `renderedSessionScopeRef`
+(rewritten on every render), so after an account/session change the old callback
+could validate against the new session and call `goBack`. The callback now
+carries the immutable `requestContext.sessionScope` captured when the unlink
+started, alongside the unchanged mounted, focused-route, and route-key checks;
+the unlink token is still deliberately unused because `onClosed` bumps it first.
+Second, the READY-resume single-flight flag was cleared only by the old
+promise's `finally`, so an unresolved run left the component rejecting every
+later READY action. `createVerusIdResumeOwner` in `verusIdFlowGuards.js` now
+binds the in-flight flag and token to the owning session scope: an account-hash
+or session-epoch change invalidates the old token and releases the gate
+synchronously, while a stale `catch`/`finally` cannot reopen a fallback, attach
+an error, navigate, or clear a newer run's gate. Both defects are covered by the
+real queued-callback and handler behavior with deferred promises, each confirmed
+to fail when its fix is reverted by mutation.
+
+**Final verification (iOS fixture, rendered and native):** the final candidate
+was compiled into a task-owned iOS release fixture bundle from the actual
+candidate (26 assets) and exercised with synthetic disposable VRSCTEST states on
+a normal 402x874 simulator and a compact iPhone SE, in light and dark. Covered:
+no identities, several identities, long names, discovery loading/empty/error, the
+always-reachable manual fallback, manual validation/lookup/resolved review/
+failure, processing single-flight with blocked dismissal/Back, pending
+error/progress/READY actions, details loading/error/long values, separate
+accessible `CopyAction` nodes with copied feedback, unlink cancellation/failure,
+and the rebuilt final details spot check. Native QA found a manual-row clipping,
+corrected before the final capture. The same and only independent Astra
+high-risk reviewer returned READY with all original and follow-up findings
+closed, against a complete before/after state guard (1,702 files, no exclusions,
+identical). Parent-owned visual QA applied the canonical SH-1/onboarding
+patterns at normal/compact and light/dark; because the user required exactly one
+independent reviewer, no second design-adviser reviewer was added, and the
+single reviewer explicitly applied `max-product-design-taste` while reviewing
+the final renders. Proof limits: fixture data and API are synthetic and cannot
+sign, spend, move funds, expose a real key, or prove live RPC or
+authenticated-wallet behavior, and callback or session authentication is not
+transaction or settlement proof; native proof is iOS only. Android runtime, full
+VoiceOver/TalkBack, exhaustive text scaling/reduced motion, and authenticated
+disposable-wallet mutation remain explicitly unverified follow-up, not implied
+passes. Node was 22.18.0 because the requested 22.23.2 was unavailable; checks
+used the canonical sibling `node_modules`, and no source depends on it.
 
 **Acceptance:** Automatic and manual paths form one coherent experience. Details
 and status are concise and truthful. Copy feedback is unobtrusive. Unlinking is
@@ -508,6 +627,11 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-09-12 | ID-1 final acceptance (scoped local delivery) | Candidate over `a607faf6` on `codex/id1-redesign` in worktree `/private/tmp/verus-mobile-id1-01a09345`; verified and review-ready, still uncommitted until the parent integration | Final verification of the ID-1 candidate. The parent independently ran 10 focused ID-1 suites (63 tests), `git diff --check`, Babel parse for all 9 changed production JS files, design contract (30 canonical sources), safe-area (9 files), search-field (15 files), identity-authority funding (PASS), and GenericRequest completion flow (9 cases). A task-owned iOS release fixture bundle compiled from the actual candidate (26 assets), and synthetic disposable VRSCTEST states were exercised on a normal 402x874 simulator and a compact iPhone SE with light/dark captures, covering no identities, several identities, long names, discovery loading/empty/error, the always-reachable manual fallback, manual validation/lookup/resolved review/failure, processing single-flight with blocked dismissal/Back, pending error/progress/READY actions, details loading/error/long values, separate accessible `CopyAction` nodes and copied feedback, unlink cancellation/failure (unlink remains a local association change only), and the rebuilt final details spot check. Native QA found a manual-row clipping, corrected before the final capture. The same and only independent Astra high-risk reviewer returned READY with all original and follow-up findings closed; the complete before/after state guard was 1,702 files, no exclusions, identical. Parent-owned visual QA applied the canonical SH-1/onboarding patterns at normal/compact and light/dark; because the user required exactly one independent reviewer, no second design-adviser reviewer was added, and the single reviewer explicitly applied `max-product-design-taste` while reviewing the final renders. Proof limits: fixture data and API are synthetic and cannot sign, spend, move funds, expose a real key, or prove live RPC or authenticated-wallet behavior, and callback or session authentication is not transaction or settlement proof; native proof is iOS only. Android runtime, full VoiceOver/TalkBack, exhaustive text scaling/reduced motion, and authenticated disposable-wallet mutation remain explicitly unverified follow-up, not implied passes. Node was 22.18.0 because the requested 22.23.2 was unavailable; checks used the canonical sibling `node_modules`, and no source depends on it. | ID-1.10–1.11 complete for the scoped local delivery. The parent commits/integrates this candidate; ID-1 is verified and review-ready but uncommitted. Global QA-1 stays open for the other workstreams. |
+| 2026-09-12 | ID-1 final lifecycle corrections (two P2 defects) | Uncommitted local delivery over `a607faf6` on `codex/id1-redesign` in worktree `/private/tmp/verus-mobile-id1-01a09345`; the parent owns the commit and the rendered/native QA | Corrects the two reproduced P2 lifecycle defects from the same independent high-risk reviewer (five earlier findings already closed). (1) The unlink confirmation's delayed `goBack` callback now passes the immutable `requestContext.sessionScope` captured when the unlink started instead of the per-render `renderedSessionScopeRef`, keeping the mounted/focused-route/route-key checks. (2) `SignedInVerusIdService` now owns its READY-resume single-flight flag through the new `createVerusIdResumeOwner` guard (`verusIdFlowGuards.js`), which binds the in-flight flag/token to the session scope and releases the gate synchronously on an account-hash or session-epoch change, so an unresolved run cannot lock later READY actions; stale `catch`/`finally` stay inert. New focused regression coverage exercises the real queued callback and handler with deferred promises (`SignedInVerusIdLifecycle` 4, plus `verusIdFlowGuards` resume-owner cases now 15) and each defect was separately reverted by mutation to confirm the tests fail. The 10 focused ID-1 suites pass (63 tests). Babel parse (5 files), `git diff --check`, design contract (30 canonical sources), `check-safe-areas --changed` (9 files), `check-search-fields --changed` (15 files), `check-generic-request-completion-flow` (9 cases), and `check-identity-authority-funding` pass. HEAD unchanged at `a607faf6`; dependencies resolved through a temporary `NODE_PATH` to the sibling checkout (no source change depends on it). | ID-1.10–1.11 stay open for the parent: rendered light/dark normal/compact empty/error/keyboard/processing captures, the independent design-adviser pass, and the same reviewer's re-closure of these two corrections before acceptance and commit. |
+| 2026-09-12 | ID-1 high-risk review corrections | Uncommitted local delivery over `a607faf6` on `codex/id1-redesign` in worktree `/private/tmp/verus-mobile-id1-01a09345`; the parent owns the commit and the rendered/native QA | Correction of the six blocking findings from the single independent high-risk review. New `src/utils/verusid/verusIdFlowGuards.js` holds the shared, tested decisions: candidate origin capture/match, pending-status-sheet dismissal, and the delayed-unlink navigation guard. `LinkExistingVerusIdSheet` binds discovery and manual lookup to the account hash plus login epoch, checks the scope after every await and before linking, and stamps immutable origin metadata on each candidate; `AuthenticationRequestInfo`, `AppEncryptionRequestInfo`, and `SignedInVerusIdService` revalidate the candidate's primary R-address against the current account's VRPC addresses and reject a stale origin. `processVerusId` now takes a backward-compatible optional guard checked after the storage await and before every dispatch/navigation; the signed-in service supplies the captured session plus a synchronous operation token, and retry/READY resume are single-flight with no stale dispatch, navigation, fallback reopen, state clearing, or cross-session error. The queued unlink `goBack` re-checks the originating session and focused route at execution time. A status sheet that becomes READY closes instead of showing false `In progress` copy. The Authentication passthrough fallback and the touched manual routes use the shared manual sheet with a prefilled FQN; no touched ID-1 path opens the legacy SendModal link UI. `IdentityPickerSheet` Back now guards on the synchronous `linkBusyRef`. Focused Jest suites added: `verusIdFlowGuards` (12), `processVerusIdResumeGuard` (4), `id1LinkFailureRouting` (2), and `IdentityPickerSheet` (3, including the ref-guard case confirmed to fail against the prior state-based Back guard). The four new suites plus 11 relevant existing suites pass (15 suites / 79 tests); Babel parse for the changed/new JS files, `git diff --check`, design contract (30 canonical sources), `check-safe-areas` (6 files), `check-search-fields --changed` (14 files), `check-generic-request-completion-flow` (9 cases), and `check-identity-authority-funding` pass. | ID-1.10–1.11 remain open: no rendered or native capture exists for the corrected manual/review/pending/unlink/details states, and the parent must re-run the independent high-risk and design reviews on this corrected candidate before acceptance and commit. This pass added no simulator/fixture files. Verification used a temporary `node_modules` symlink to the sibling checkout because this worktree has no installed dependencies and the sandboxed pnpm store is not writable; no source change depends on it. |
+| 2026-09-12 | ID-1 correction adoption and verification pass | Uncommitted local delivery over `a607faf6` on `codex/id1-redesign` in worktree `/private/tmp/verus-mobile-id1-01a09345`; the parent owns the commit and the rendered/native QA | The prior correction candidate was inspected as untrusted work and re-verified against all six blockers; no production source needed changing, only the focused suites were tightened. `verusIdFlowGuards` (12) exhaustively covers stale origin/epoch rejection and the shared-first-address switch, READY/removed status-sheet dismissal, and the four delayed-unlink navigation rejections. `processVerusIdResumeGuard` (6) now also fails if the guard is not re-checked between each `dispatch`/storage await and the navigation, after the pre-navigation guard was confirmed present and then re-confirmed by mutation. `IdentityPickerSheet` (3) covers origin metadata on the discovered candidate, the same-frame Back block, and the blocked backdrop/system close, each proven to fail when its guard is removed. `id1LinkFailureRouting` (2) stays a structural source assertion that the touched consumers do not open the legacy SendModal link UI. Focused correction suites plus the existing ID-1 session/provisioning/notification suites: 10 suites / 62 tests. `git diff --check`, Babel parse on all 14 changed/new JS files, design contract (30 canonical sources), `check-safe-areas` (9 files), `check-search-fields --changed` (14 files), `check-generic-request-completion-flow` (9 cases), and `check-identity-authority-funding` pass. HEAD unchanged at `a607faf6`; dependencies were resolved through a temporary `NODE_PATH` to the sibling checkout (no source change depends on it). | ID-1.10–1.11 stay open for the parent: rendered and native light/dark normal/compact captures, the independent high-risk behavior re-review, and the design-adviser pass on this corrected candidate before acceptance and commit. |
+| 2026-09-12 | ID-1 VerusID linking, details, and status implementation | Uncommitted local delivery over `a607faf6` on `codex/id1-redesign` in worktree `/private/tmp/verus-mobile-id1-01a09345`; the parent owns the commit and the rendered/native QA | Manual entry, validation, resolution, review, linking, and failure now live in the shared `LinkExistingVerusIdSheet`, so the touched consumers never open the legacy SendModal link flow; identity resolution is read-only and never requests seeds. Pending status and unlink confirmation are floating shared sheets with refresh/retry primary, removal/unlink secondary, controls disabled while processing, `onClosed` cleanup and navigation, and local-only unlink copy. Signed-in details leads with the name, status, network, and identifiers, keeps warnings and full values, collapses technical sections, uses inline `CopyAction`, and drops the unsupported “No attestations linked” section. `git diff --check` clean; design contract (30 canonical sources), `check-safe-areas` for the 5 changed files, Babel parse (5 changed files), relative-import resolution, `check-generic-request-completion-flow` (9 cases) and `check-identity-authority-funding` pass. | ID-1.10–1.11 remain open: no rendered or native capture exists for the new manual/review/pending/unlink/details states, and no independent design or behavior review has run on this candidate. `corepack pnpm` could not execute in this worktree (no installed `node_modules`), so the check scripts were run directly with `node`. Next: the parent captures iOS/Android light/dark normal/compact states and runs the required reviews before accepting. |
 | 2026-09-12 | RX-1 accepted local delivery | Task-owned delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; exact commit in the local QA receipt | Full-screen request flow with the system decimal amount keypad, native subject/slippage fields, safe footer, preserved invoice/share contracts, and operation-bound cancel/save behavior. 32/32 independent focused checks pass; design (30 canonical sources), safe-area, parser, both native preview bundles and production iOS bundle pass. 196 native gallery captures include 120 static Receive/canonical states plus request, keyboard, error, cancellation, save, copy/selection and scrolled states across iOS/Android normal/compact and light/dark. Native copied change address matches the full fixture value; native QR images decode; QR save succeeds on both platforms. Same high-risk reviewer and design adviser are READY with no unresolved findings; full source guards identical (2,970 files, six generated/cache exclusions). [Screenshot gallery](docs/rx1-qa-20260911/index.html); [QA and commit receipt](docs/rx1-qa-20260911/qa.local.md) | RX-1.8–1.9 complete for disposable-fixture delivery. No personal/mainnet wallet, live RPC, signing, funds movement or settlement proof. Full VoiceOver/TalkBack, exhaustive text scaling and native reduced-motion settings remain QA-1 follow-up; sampled native and shared-source evidence are recorded. |
 | 2026-09-11 | RX-1 Receive and payment-request implementation + correction passes | Uncommitted local delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; the parent commits after acceptance | Full-screen stepped payment-request task, platform monospace addresses, accurate Card/address states, `beforeRemove` parity with header back, stale-completion invalidation and single-flight create/QR-save guards. Corrections after an independent high-risk review: operation-bound QR save completion (a late save cannot mark a newer request saved, attach its failure or clear a newer guard) and a real cancel path while generation is pending (header back and `Cancel` invalidate generation identity before leaving; no stranded loading). Preview fixtures now use distinct per-Card address channels and real system i-addresses, and the harness gives details/wizard a real previous route with an optional chrome-free launch state. 27 focused non-Jest behaviour checks pass, including the real-StackRouter route-removal checks, the deferred-per-save CameraRoll checks, the actual preview fixture dataset and the actual preview invoice stub driving the real encoder/decoder; design check (30 canonical sources), safe-area, Babel parse (5 files) and production iOS bundle (46 assets) pass; both preview bundles compile and the production bundle contains no fixture references. The independent high-risk reviewer passed that candidate with no findings. [Local RX-1 QA](docs/rx1-qa-20260911/qa.local.md); [preview harness](docs/rx1-qa-20260911/index.js) | Superseded by the 2026-09-12 native-QA corrections below. RX-1.8–1.9 stay open. |
 | 2026-09-12 | RX-1 native-QA corrections (third pass) | Uncommitted local delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; the parent commits after acceptance | Two production corrections taken from actual native screenshots: the absent-address row is now a wrapping body sentence with no copy affordance, while real addresses keep identifier typography and the copy control; and the payment-request flow reserves Android keyboard space (`KeyboardAvoidingView` `height` under the manifest's `adjustPan`) so the subject and slippage footers stay reachable, with iOS keeping `padding`. Fixture-only repairs: the preview store now processes `PUSH_MODAL`/`REMOVE_MODAL` through the production modal reducer and seeds `state.modal.stack`, so sheets no longer crash the native modal chain; the list loading scenario now uses the real pre-Card-directory loading contract instead of rendering an empty list; and two new scenarios mount the **real** `GiftCardFund` screen (fund and create modes) with an exact synthetic Card, a real funding coin/VRPC source address/ledger balance, and an origin-scoped inert service-storage stub that cannot read a password or keychain entry. 30 focused non-Jest checks pass, including three new guards each verified to fail against the pre-fix code; design check (30 canonical sources), safe-area checks (3 changed, 8 Transfer), Babel parse (10 files), preview iOS/Android bundles and the production iOS bundle (46 assets, 0 fixture references) pass. [Local RX-1 QA](docs/rx1-qa-20260911/qa.local.md) | RX-1.8–1.9 remain open. Native proof is partial: the parent captured iOS normal and iPhone SE compact surfaces plus Android amount/subject/settings/result and decoded each result QR (one QR per result, 158 characters), but the sheet scenarios and the canonical Gift Card comparison have not been captured on a device yet, and no independent review verdict exists for this corrected candidate. Next: parent re-captures the corrected matrix, compares against the real Gift Card screen, then runs the same report-only reviews and commits. |
@@ -524,11 +648,25 @@ patch exists.
 
 ### Resume note
 
-- Last completed action: RX-1 accepted local delivery with the native system
-  amount keypad, 196 native screenshots, 32 passing focused checks, and ready
-  independent high-risk/design reviews. RX-1.1–1.9 are complete for the scoped
-  disposable-fixture delivery. The gallery and exact commit receipt are in
-  `docs/rx1-qa-20260911`; no push or publication is part of this delivery.
+- ID-1 is complete for this scoped local delivery. The implementation and its
+  high-risk review corrections (including the two final P2 lifecycle defects)
+  are present in the isolated `codex/id1-redesign` worktree, verified and
+  review-ready, and still uncommitted until the parent integrates them over
+  `a607faf6`. ID-1.10–1.11 are complete: rendered light/dark normal/compact
+  empty/error/keyboard/processing states were captured on iOS fixtures, and the
+  single independent high-risk reviewer (which also applied
+  `max-product-design-taste` while reviewing the final renders) returned READY
+  with all findings closed. Android, authenticated real-wallet, and full
+  accessibility proof remain explicitly open, not implied.
+- Last completed action: ID-1 finalization — the parent ran the focused ID-1
+  checks, captured and verified the iOS fixture states, and obtained the single
+  independent high-risk READY, leaving the candidate verified and review-ready
+  but uncommitted until integration. RX-1 remains an accepted local delivery
+  with the native system amount keypad, 196 native screenshots, 32 passing
+  focused checks, and ready independent high-risk/design reviews. RX-1.1–1.9 are
+  complete for the scoped disposable-fixture delivery. The gallery and exact
+  commit receipt are in `docs/rx1-qa-20260911`; no push or publication is part of
+  this delivery.
 - Next action: resume remaining TX-1 work when authorized. TX-1.6 retains
   authenticated back-navigation walkthroughs. Global QA-1 retains broader
   authenticated/runtime and accessibility proof beyond RX-1's sampled native
@@ -543,5 +681,6 @@ patch exists.
   native fixtures verify rendering and interaction, not wallet signing or live
   callback delivery. No personal/mainnet wallet was unlocked.
 - Owners: the GR-1/GR-2 follow-up task retains its runtime gaps; the next TX-1
-  task owns the remaining Send/Convert work. ID-1 retains its listed
-  exceptions and unfinished tasks.
+  task owns the remaining Send/Convert work. ID-1 retains its explicit proof
+  limits: iOS-only native evidence, with Android runtime, authenticated
+  real-wallet, signing/funds, live RPC, and full accessibility proof still open.

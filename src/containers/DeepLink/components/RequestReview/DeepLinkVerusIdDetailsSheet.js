@@ -55,7 +55,9 @@ const getContentLabel = key => {
   return abbreviateKey(key);
 };
 
-const buildVerusIdSections = (verusId, friendlyNames) => {
+// Shared with the identity picker's manual link review so a resolved VerusID
+// reads the same before and after it is linked.
+export const buildVerusIdSections = (verusId, friendlyNames) => {
   const identity = verusId?.identity;
   if (!identity) return [];
 

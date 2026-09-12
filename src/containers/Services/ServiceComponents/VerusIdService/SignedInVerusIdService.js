@@ -2,7 +2,6 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Buffer} from 'buffer';
 import {
   Image,
-  ScrollView,
   SectionList,
   StyleSheet,
   Text,
@@ -16,20 +15,28 @@ import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import AppButton from '../../../../components/AppButton';
+import InfoSheet from '../../../../components/InfoSheet';
+import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
+import SkeletonLoader, {
+  SkeletonBlock,
+} from '../../../../components/SkeletonLoader';
+import useSheetDismissal from '../../../../components/useSheetDismissal';
 import {setUserCoins} from '../../../../actions/actionCreators';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import Store from '../../../../store';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
-import {SEND_MODAL_IDENTITY_TO_LINK_FIELD} from '../../../../utils/constants/sendModal';
 import {
   NOTIFICATION_TYPE_VERUSID_ERROR,
   NOTIFICATION_TYPE_VERUSID_READY,
 } from '../../../../utils/constants/services';
-import {openLinkIdentityModal} from '../../../../actions/actions/sendModal/dispatchers/sendModal';
-import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
+import {
+  captureSessionScope,
+  sessionScopeIsCurrent,
+} from '../../../../actions/actions/updates/sessionRequests';
 import {dispatchRemoveNotification} from '../../../../actions/actions/notifications/dispatchers/notifications';
 import {
   checkVerusIdNotificationsForUpdates,
@@ -44,31 +51,23 @@ import {
   clearChainLifecycle,
   refreshActiveChainLifecycles,
 } from '../../../../actions/actions/intervals/dispatchers/lifecycleManager';
-import LinkExistingVerusIdSheet from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
+import {
+  createVerusIdResumeOwner,
+  identityLinkCandidateMatchesAccount,
+  identityLinkOriginIsCurrent,
+  pendingStatusSheetShouldDismiss,
+} from '../../../../utils/verusid/verusIdFlowGuards';
+import LinkExistingVerusIdSheet, {
+  LINK_EXISTING_VERUSID_SHEET_MODES,
+} from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import {processVerusId} from './VerusIdLogin';
 
 const emptyVerusIdImage = require('../../../../images/customIcons/empty-verusid.png');
 const BOTTOM_FADE_HEIGHT = 48;
-const SCROLL_CUE_HEIGHT = 46;
-const SCROLL_END_THRESHOLD = 8;
-const EMPTY_SCROLL_METRICS = {
-  contentHeight: 0,
-  layoutHeight: 0,
-  offsetY: 0,
-};
-
-const hasSameScrollMetrics = (left, right) =>
-  left.contentHeight === right.contentHeight &&
-  left.layoutHeight === right.layoutHeight &&
-  left.offsetY === right.offsetY;
+const IDENTITY_SKELETON_WIDTHS = ['46%', '64%', '52%', '72%'];
 
 const FAQ_ITEMS = [
-  {
-    key: 'what-is',
-    title: 'What is VerusID?',
-    body: 'Your VerusID is a blockchain-based identity that belongs entirely to you. It works as both a universal login and a personal database — letting you authenticate across apps and store your data in your wallet rather than on company servers.',
-  },
   {
     key: 'sign-in',
     title: 'Signing in with VerusID',
@@ -77,7 +76,7 @@ const FAQ_ITEMS = [
   {
     key: 'personal-db',
     title: 'Your personal database',
-    body: "Apps can request to store data in your VerusID or read data you've previously saved. Each request appears in your wallet for you to approve or deny.\n\nYour data is encrypted and written directly to your identity on the blockchain.",
+    body: "Apps can request to store data in your VerusID or read data you've previously saved. Each request appears in your wallet for you to approve or deny.\n\nYour data is encrypted and written directly to your VerusID on the blockchain.",
   },
   {
     key: 'different',
@@ -172,41 +171,6 @@ const BottomFade = ({backgroundColor, solidHeight}) => (
       <Rect x="0" y="0" width="100%" height={BOTTOM_FADE_HEIGHT} fill="url(#identityBottomFade)" />
     </Svg>
     <View style={{height: solidHeight, backgroundColor}} />
-  </View>
-);
-
-const InfoSheetScrollCue = ({theme}) => (
-  <View
-    accessibilityElementsHidden
-    importantForAccessibility="no-hide-descendants"
-    pointerEvents="none"
-    style={styles.infoSheetScrollCue}>
-    <Svg height="100%" width="100%" style={styles.infoSheetScrollCueFade}>
-      <Defs>
-        <LinearGradient
-          id="verusIdInfoSheetBottomScrollCue"
-          x1="0"
-          x2="0"
-          y1="0"
-          y2="1">
-          <Stop offset="0" stopColor={theme.colors.sheet} stopOpacity="0" />
-          <Stop offset="0.72" stopColor={theme.colors.sheet} stopOpacity="0.92" />
-          <Stop offset="1" stopColor={theme.colors.sheet} stopOpacity="1" />
-        </LinearGradient>
-      </Defs>
-      <Rect
-        fill="url(#verusIdInfoSheetBottomScrollCue)"
-        height="100%"
-        width="100%"
-      />
-    </Svg>
-    <View style={styles.infoSheetScrollCueChevron}>
-      <MaterialCommunityIcons
-        color={theme.colors.textSubtle}
-        name="chevron-down"
-        size={15}
-      />
-    </View>
   </View>
 );
 
@@ -306,17 +270,37 @@ const FaqBody = ({body, theme}) => (
   </View>
 );
 
-const SheetHeader = ({disabled, onClose, theme, title}) => (
-  <View style={styles.sheetHeader}>
-    <Text style={[styles.sheetTitle, {color: theme.colors.textPrimary}]}>{title}</Text>
-    <TouchableOpacity
-      accessibilityLabel="Close"
-      disabled={disabled}
-      onPress={onClose}
-      style={[styles.closeButton, {backgroundColor: theme.colors.surfaceMuted}]}>
-      <MaterialCommunityIcons name="close" size={18} color={theme.colors.textSecondary} />
-    </TouchableOpacity>
-  </View>
+const describePendingActionError = error => {
+  const message =
+    typeof error?.message === 'string' ? error.message.trim() : '';
+
+  if (
+    !message ||
+    message.length > 140 ||
+    /rpc|json|0x[0-9a-f]{6,}|-?\d{3,}/i.test(message)
+  ) {
+    return 'Unable to update this VerusID request. Try again.';
+  }
+
+  return message;
+};
+
+const IdentityListSkeleton = ({theme}) => (
+  <SkeletonLoader
+    accessibilityLabel="Loading VerusIDs"
+    style={styles.loadingSkeleton}>
+    {IDENTITY_SKELETON_WIDTHS.map(width => (
+      <View
+        key={width}
+        style={[
+          styles.loadingRow,
+          {backgroundColor: theme.colors.surfaceMuted},
+        ]}>
+        <SkeletonBlock color={theme.colors.border} height={16} width={width} />
+        <SkeletonBlock color={theme.colors.border} height={12} width="32%" />
+      </View>
+    ))}
+  </SkeletonLoader>
 );
 
 const SignedInVerusIdService = ({controller}) => {
@@ -328,20 +312,46 @@ const SignedInVerusIdService = ({controller}) => {
     [theme],
   );
   const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
+  // The account this component rendered against. Operations must reject if the
+  // store account changed in the same frame as the tap.
+  const renderedAccountHash = useObjectSelector(
+    state => state.authentication.activeAccount?.accountHash || null,
+  );
+  // The session epoch increments on an account/session change (including a
+  // re-login of the same account), so it is a dependency of the resume owner.
+  const renderedSessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch || 0,
+  );
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
   const [expandedFaq, setExpandedFaq] = useState(null);
-  const [infoSheetScrollMetrics, setInfoSheetScrollMetrics] = useState(
-    EMPTY_SCROLL_METRICS,
-  );
   const [infoVisible, setInfoVisible] = useState(false);
   const [linkSheetContentActive, setLinkSheetContentActive] = useState(false);
+  const [linkSheetInitialManualValue, setLinkSheetInitialManualValue] = useState('');
+  const [linkSheetMode, setLinkSheetMode] = useState(
+    LINK_EXISTING_VERUSID_SHEET_MODES.LIST,
+  );
+  const [linkSheetNetwork, setLinkSheetNetwork] = useState(null);
   const [linkSheetSession, setLinkSheetSession] = useState(0);
   const [linkSheetVisible, setLinkSheetVisible] = useState(false);
+  const [linkSheetBusy, setLinkSheetBusy] = useState(false);
+  const [pendingNotice, setPendingNotice] = useState(null);
+  const [pendingSheetVisible, setPendingSheetVisible] = useState(false);
   const [selectedPending, setSelectedPending] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [pendingError, setPendingError] = useState(null);
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef(false);
+  const linkSheetBusyRef = useRef(false);
+  const linkSheetSessionRef = useRef(0);
+  // The READY-resume single-flight flag is owned by the session scope that
+  // started it. A scope change invalidates the old run synchronously so a READY
+  // action in the new session can start even if the old promise never settles.
+  const identityResumeOwnerRef = useRef(
+    createVerusIdResumeOwner(captureSessionScope(Store.getState())),
+  );
+  const identityResumeOwner = identityResumeOwnerRef.current;
+  const pendingActionRef = useRef(null);
+  const pendingActionTokenRef = useRef(0);
   const testnetOverrides = controller.props.activeAccount?.testnetOverrides || {};
   const identityNetwork = testnetOverrides[VERUSID_NETWORK_DEFAULT] || VERUSID_NETWORK_DEFAULT;
   const linkedIds = controller.state.linkedIds;
@@ -353,149 +363,222 @@ const SignedInVerusIdService = ({controller}) => {
   const pendingCount = groups.ready.length + groups.attention.length + groups.progress.length;
   const hasContent = linked.length > 0 || pendingCount > 0;
   const bottomPadding = Math.max(insets.bottom, 20);
-  const infoSheetIsScrollable =
-    infoSheetScrollMetrics.layoutHeight > 0 &&
-    infoSheetScrollMetrics.contentHeight >
-      infoSheetScrollMetrics.layoutHeight + SCROLL_END_THRESHOLD;
-  const showInfoSheetScrollCue =
-    infoVisible &&
-    infoSheetIsScrollable &&
-    infoSheetScrollMetrics.offsetY + infoSheetScrollMetrics.layoutHeight <
-      infoSheetScrollMetrics.contentHeight - SCROLL_END_THRESHOLD;
+  const resolvedLinkNetwork = linkSheetNetwork || identityNetwork;
+  const activePendingKey = selectedPending
+    ? `${selectedPending.chain}:${selectedPending.iAddress}`
+    : null;
+  // Release any resume still bound to a previous account/session epoch; only
+  // the current session's single-flight gate survives a scope change.
+  useEffect(() => {
+    identityResumeOwner.invalidateForScope(
+      captureSessionScope(Store.getState(), renderedAccountHash),
+    );
+  }, [identityResumeOwner, renderedAccountHash, renderedSessionEpoch]);
+  // Re-read the selected request from the current store data so a refresh can
+  // show an updated status without the sheet holding a stale snapshot.
+  const currentPending = useMemo(() => {
+    if (!activePendingKey) return null;
 
-  const updateInfoSheetScrollMetrics = useCallback(nextMetrics => {
-    setInfoSheetScrollMetrics(current => {
-      const next = {
-        ...current,
-        ...nextMetrics,
-      };
+    return (
+      [...groups.ready, ...groups.attention, ...groups.progress].find(
+        item => `${item.chain}:${item.iAddress}` === activePendingKey,
+      ) || null
+    );
+  }, [activePendingKey, groups]);
+  const pendingSheetItem = currentPending || selectedPending;
+  const pendingProcessing = Boolean(pendingAction);
+  const pendingIsError =
+    pendingSheetItem?.status === NOTIFICATION_TYPE_VERUSID_ERROR;
+  const pendingIsReady =
+    pendingSheetItem?.status === NOTIFICATION_TYPE_VERUSID_READY;
+  const pendingCanRetry =
+    pendingIsError && Boolean(pendingSheetItem?.details?.loginRequest);
+  // Writes the ref before the state update so same-frame taps and the close
+  // guard see the in-flight link synchronously.
+  const handleLinkSheetBusyChange = useCallback(nextBusy => {
+    linkSheetBusyRef.current = nextBusy;
+    setLinkSheetBusy(nextBusy);
+  }, []);
+  // Guard the dismissal itself, not `closeDisabled` alone, so an in-flight
+  // link cannot be abandoned by a system/backdrop close.
+  const closeLinkSheet = useCallback(() => {
+    if (linkSheetBusyRef.current) return;
 
-      return hasSameScrollMetrics(current, next) ? current : next;
-    });
+    setLinkSheetVisible(false);
   }, []);
 
-  const handleInfoSheetScroll = useCallback(
-    event => {
-      const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
-
-      updateInfoSheetScrollMetrics({
-        contentHeight: contentSize.height,
-        layoutHeight: layoutMeasurement.height,
-        offsetY: contentOffset.y,
-      });
-    },
-    [updateInfoSheetScrollMetrics],
-  );
-
-  useEffect(() => {
-    if (!infoVisible) {
-      setInfoSheetScrollMetrics(EMPTY_SCROLL_METRICS);
-    }
-  }, [infoVisible]);
-
-  const closeLinkSheet = useCallback(() => setLinkSheetVisible(false), []);
-
   const handleLinkSheetClosed = useCallback(
-    () => setLinkSheetContentActive(false),
+    () => {
+      linkSheetBusyRef.current = false;
+      setLinkSheetBusy(false);
+      setLinkSheetContentActive(false);
+      setLinkSheetInitialManualValue('');
+      setLinkSheetMode(LINK_EXISTING_VERUSID_SHEET_MODES.LIST);
+    },
     [],
   );
 
-  const openLegacyManualLink = useCallback(
-    (chain = identityNetwork, value) => {
-      closeLinkSheet();
-      openLinkIdentityModal(
-        CoinDirectory.findCoinObj(chain),
-        value ? {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: value} : undefined,
-      );
+  const openLinkSheet = useCallback(
+    (
+      chain = identityNetwork,
+      manualValue = '',
+      mode = LINK_EXISTING_VERUSID_SHEET_MODES.LIST,
+    ) => {
+      setLinkSheetNetwork(chain || identityNetwork);
+      setLinkSheetInitialManualValue(manualValue || '');
+      setLinkSheetMode(mode);
+      // A new opening is a new session; an older link completion must not
+      // close or select into it.
+      linkSheetSessionRef.current += 1;
+      setLinkSheetSession(linkSheetSessionRef.current);
+      setLinkSheetContentActive(true);
+      setLinkSheetVisible(true);
     },
-    [closeLinkSheet, identityNetwork],
+    [identityNetwork],
   );
 
-  const openLinkSheet = useCallback(() => {
-    setLinkSheetSession(current => current + 1);
-    setLinkSheetContentActive(true);
-    setLinkSheetVisible(true);
-  }, []);
+  const openManualLinkSheet = useCallback(
+    (chain, manualValue) =>
+      openLinkSheet(
+        chain,
+        manualValue,
+        LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL,
+      ),
+    [openLinkSheet],
+  );
 
   const isLinkCandidateAllowed = useCallback(
-    candidate => candidate?.chainId === identityNetwork,
-    [identityNetwork],
+    candidate => candidate?.chainId === resolvedLinkNetwork,
+    [resolvedLinkNetwork],
   );
 
   const linkAutoFoundIdentity = useCallback(
     async candidate => {
-      try {
-        const activeAccount = controller.props.activeAccount;
-        const candidateChainId = candidate?.chainId || identityNetwork;
-        const identityAddress = candidate?.identityAddress;
-        const fullyQualifiedName = candidate?.fullyQualifiedName;
-        const primaryAddresses =
-          candidate?.identity?.primaryaddresses ||
-          candidate?.identity?.primaryAddresses ||
-          [];
-        const displayName =
-          candidate?.displayName ||
-          (fullyQualifiedName
-            ? convertFqnToDisplayFormat(fullyQualifiedName)
-            : null);
-
-        if (!activeAccount?.id) {
-          throw new Error('You must be signed in to link VerusIDs.');
-        }
-
-        if (!identityAddress || !fullyQualifiedName || !displayName) {
-          throw new Error('Unable to link this VerusID.');
-        }
-
-        if (candidate.status !== 'active') {
-          throw new Error('Only active VerusIDs can be linked.');
-        }
-
-        if (
-          !candidate.primaryAddress ||
-          !primaryAddresses.includes(candidate.primaryAddress)
-        ) {
-          throw new Error(
-            'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
-          );
-        }
-
-        if (!isLinkCandidateAllowed(candidate)) {
-          throw new Error('This VerusID does not match the selected network.');
-        }
-
-        const coinObj = CoinDirectory.findCoinObj(candidateChainId);
-
-        if (!coinObj) {
-          throw new Error('Unable to find the VerusID network.');
-        }
-
-        await linkVerusId(identityAddress, displayName, coinObj.id);
-        await updateVerusIdWallet();
-        clearChainLifecycle(coinObj.id);
-
-        const setUserCoinsAction = setUserCoins(
-          activeCoinList,
-          activeAccount.id,
+      const requestContext = {
+        sessionScope: captureSessionScope(
+          Store.getState(),
+          renderedAccountHash,
+        ),
+      };
+      if (!sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)) {
+        const error = new Error(
+          'Account changed while the VerusID was being linked.',
         );
-        dispatch(setUserCoinsAction);
-        refreshActiveChainLifecycles(
-          setUserCoinsAction.payload.activeCoinsForUser,
-        );
-
-        await controller.getLinkedIds();
-        setLinkSheetVisible(false);
-      } catch (error) {
-        createAlert('Error', error?.message || 'Unable to link VerusID.');
+        error.code = 'SESSION_CHANGED';
         throw error;
       }
+      // Capture the sheet session too: only the session that started the link
+      // may close it afterwards.
+      const sheetSession = linkSheetSessionRef.current;
+      const isSheetSessionCurrent = () =>
+        linkSheetSessionRef.current === sheetSession;
+      const assertSessionCurrent = () => {
+        if (
+          !sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)
+        ) {
+          const error = new Error(
+            'Account changed while the VerusID was being linked.',
+          );
+          error.code = 'SESSION_CHANGED';
+          throw error;
+        }
+      };
+
+      const activeAccount = controller.props.activeAccount;
+      const candidateChainId = candidate?.chainId || resolvedLinkNetwork;
+      const identityAddress = candidate?.identityAddress;
+      const fullyQualifiedName = candidate?.fullyQualifiedName;
+      const primaryAddresses =
+        candidate?.identity?.primaryaddresses ||
+        candidate?.identity?.primaryAddresses ||
+        [];
+      const displayName =
+        candidate?.displayName ||
+        (fullyQualifiedName
+          ? convertFqnToDisplayFormat(fullyQualifiedName)
+          : null);
+
+      if (!activeAccount?.id) {
+        throw new Error('You must be signed in to link VerusIDs.');
+      }
+
+      if (!identityAddress || !fullyQualifiedName || !displayName) {
+        throw new Error('Unable to link this VerusID.');
+      }
+
+      if (candidate.status !== 'active') {
+        throw new Error('Only active VerusIDs can be linked.');
+      }
+
+      if (
+        !candidate.primaryAddress ||
+        !primaryAddresses.includes(candidate.primaryAddress)
+      ) {
+        throw new Error(
+          'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+        );
+      }
+
+      if (!isLinkCandidateAllowed(candidate)) {
+        throw new Error('This VerusID does not match the selected network.');
+      }
+
+      // The candidate's chosen primary R-address must belong to the account
+      // that is scoped right now, not only to the identity's own primary
+      // address list. A candidate resolved for another account is rejected
+      // even if this sheet stayed mounted across the switch.
+      const liveState = Store.getState();
+
+      if (
+        candidate?.origin &&
+        !identityLinkOriginIsCurrent(liveState, candidate.origin)
+      ) {
+        const error = new Error(
+          'Account changed while the VerusID was being linked.',
+        );
+        error.code = 'SESSION_CHANGED';
+        throw error;
+      }
+
+      if (!identityLinkCandidateMatchesAccount(liveState, candidate)) {
+        throw new Error(
+          'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+        );
+      }
+
+      const coinObj = CoinDirectory.findCoinObj(candidateChainId);
+
+      if (!coinObj) {
+        throw new Error('Unable to find the VerusID network.');
+      }
+
+      await linkVerusId(identityAddress, displayName, coinObj.id, requestContext);
+      assertSessionCurrent();
+      await updateVerusIdWallet(requestContext);
+      assertSessionCurrent();
+      clearChainLifecycle(coinObj.id);
+
+      const setUserCoinsAction = setUserCoins(activeCoinList, activeAccount.id);
+      assertSessionCurrent();
+      dispatch(setUserCoinsAction);
+      refreshActiveChainLifecycles(
+        setUserCoinsAction.payload.activeCoinsForUser,
+      );
+
+      assertSessionCurrent();
+      if (!isSheetSessionCurrent()) return;
+      // The sheet renders any rejected link reason inline, so this path only
+      // resolves once the VerusID is actually linked for this account. The
+      // wallet refresh above already supplies the list update.
+      setLinkSheetVisible(false);
     },
     [
       activeCoinList,
-      controller,
+      controller.props.activeAccount,
       dispatch,
-      identityNetwork,
       isLinkCandidateAllowed,
+      renderedAccountHash,
+      resolvedLinkNetwork,
     ],
   );
 
@@ -510,57 +593,195 @@ const SignedInVerusIdService = ({controller}) => {
   );
 
   const runPendingAction = useCallback(
-    async action => {
-      if (!selectedPending || pendingAction) return;
-      setPendingAction(action);
-      setPendingError(null);
-      try {
-        if (action === 'refresh') {
-          await checkVerusIdNotificationsForUpdates();
-          await updatePendingVerusIds();
-        } else if (action === 'remove') {
-          await deleteProvisionedIds(selectedPending.iAddress, selectedPending.chain);
-          await updatePendingVerusIds();
-          if (selectedPending.details?.notificationUid) {
-            await dispatchRemoveNotification(selectedPending.details.notificationUid);
-          }
-        } else if (action === 'retry') {
-          await processVerusId(
-            {dispatch, navigation: controller.props.navigation},
-            selectedPending.details.loginRequest,
-            selectedPending.details.fromService || null,
-            selectedPending.details.fqn || null,
-            selectedPending.details.requestType || 'loginconsent',
-          );
-        }
-        setSelectedPending(null);
-      } catch (error) {
-        setPendingError(error.message || 'Unable to update this request.');
-      } finally {
-        setPendingAction(null);
-      }
-    },
-    [controller.props.navigation, dispatch, pendingAction, selectedPending],
-  );
+    async (action, item = selectedPending) => {
+      // Single-flight per action: the ref is set before the first state
+      // update so same-frame taps cannot start a second run.
+      if (!item || pendingActionRef.current) return;
 
-  const handleReady = useCallback(
-    item => {
-      if (!item.readyAction.hasResponseUris || !item.details?.loginRequest) {
-        openLegacyManualLink(item.chain, item.linkInput);
+      const requestContext = {
+        sessionScope: captureSessionScope(
+          Store.getState(),
+          renderedAccountHash,
+        ),
+      };
+      // The pending row belongs to the account this screen rendered. If the
+      // store account already moved on, the action must not run at all.
+      if (!sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)) {
         return;
       }
-      Promise.resolve(
-        processVerusId(
-          {dispatch, navigation: controller.props.navigation},
-          item.details.loginRequest,
-          item.details.fromService || null,
-          item.details.fqn || null,
-          item.readyAction.requestType,
-        ),
-      ).catch(() => openLegacyManualLink(item.chain, item.linkInput));
+      const token = pendingActionTokenRef.current + 1;
+      pendingActionTokenRef.current = token;
+      pendingActionRef.current = action;
+      const isCurrent = () =>
+        pendingActionTokenRef.current === token &&
+        sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope);
+
+      setPendingAction(action);
+      setPendingError(null);
+      setPendingNotice(null);
+      try {
+        if (action === 'refresh') {
+          await checkVerusIdNotificationsForUpdates(requestContext);
+          if (!isCurrent()) return;
+          await updatePendingVerusIds(requestContext);
+          if (!isCurrent()) return;
+          setPendingNotice('Checked just now.');
+        } else if (action === 'remove') {
+          await deleteProvisionedIds(item.iAddress, item.chain, requestContext);
+          if (!isCurrent()) return;
+          await updatePendingVerusIds(requestContext);
+          if (!isCurrent()) return;
+          if (item.details?.notificationUid) {
+            if (!isCurrent()) return;
+            await dispatchRemoveNotification(item.details.notificationUid);
+          }
+        } else if (action === 'retry' && item.details?.loginRequest) {
+          // The resume is bound to the captured session and this synchronous
+          // operation token. A completion from a superseded run must not
+          // dispatch, navigate, or fall through into the newer session.
+          await processVerusId(
+            {dispatch, navigation: controller.props.navigation},
+            item.details.loginRequest,
+            item.details.fromService || null,
+            item.details.fqn || null,
+            item.details.requestType || 'loginconsent',
+            null,
+            isCurrent,
+          );
+        }
+      } catch (error) {
+        if (!isCurrent()) return;
+
+        setSelectedPending(item);
+        setPendingError(describePendingActionError(error));
+        setPendingSheetVisible(true);
+      } finally {
+        if (pendingActionTokenRef.current === token) {
+          pendingActionRef.current = null;
+          setPendingAction(null);
+        }
+      }
     },
-    [controller.props.navigation, dispatch, openLegacyManualLink],
+    [controller.props.navigation, dispatch, renderedAccountHash, selectedPending],
   );
+
+const handleReady = useCallback(
+  item => {
+    if (!item.readyAction.hasResponseUris || !item.details?.loginRequest) {
+      openManualLinkSheet(item.chain, item.linkInput);
+      return;
+    }
+
+    const requestContext = {
+      sessionScope: captureSessionScope(
+        Store.getState(),
+        renderedAccountHash,
+      ),
+    };
+    if (!sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)) {
+      return;
+    }
+
+    // Single-flight: a second tap in the same session must not start a
+    // parallel processVerusId or navigate twice. `begin` also invalidates any
+    // resume still bound to a previous session scope, so a scope change frees
+    // the gate even when the old promise never settles.
+    const token = identityResumeOwner.begin(requestContext.sessionScope);
+    if (token == null) return;
+    const isResumeCurrent = () =>
+      identityResumeOwner.isActive(token) &&
+      sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope);
+
+    Promise.resolve(
+      processVerusId(
+        {dispatch, navigation: controller.props.navigation},
+        item.details.loginRequest,
+        item.details.fromService || null,
+        item.details.fqn || null,
+        item.readyAction.requestType,
+        null,
+        isResumeCurrent,
+      ),
+    )
+      .catch(() => {
+        // A stale resume must not reopen the fallback sheet or attach itself
+        // to a newer session or operation.
+        if (!isResumeCurrent()) return;
+        openManualLinkSheet(item.chain, item.linkInput);
+      })
+      .finally(() => {
+        // A superseded run must not clear the newer operation's in-flight flag.
+        identityResumeOwner.release(token);
+      });
+  },
+  [
+    controller.props.navigation,
+    dispatch,
+    identityResumeOwner,
+    openManualLinkSheet,
+    renderedAccountHash,
+  ],
+);
+
+  const openPendingSheet = useCallback(item => {
+    // Supersede any in-flight action so it cannot write into this opening.
+    pendingActionTokenRef.current += 1;
+    pendingActionRef.current = null;
+    setPendingAction(null);
+    setPendingError(null);
+    setPendingNotice(null);
+    setSelectedPending(item);
+    setPendingSheetVisible(true);
+  }, []);
+
+  // The hook's onClose must hide unconditionally. A rejected close that
+  // returned early would leave the hook's internal closing flag stuck on.
+  const hidePendingSheet = useCallback(() => setPendingSheetVisible(false), []);
+
+  const handlePendingSheetClosed = useCallback(() => {
+    setSelectedPending(null);
+    setPendingError(null);
+    setPendingNotice(null);
+  }, []);
+
+  const pendingDismissal = useSheetDismissal({
+    visible: pendingSheetVisible,
+    onClose: hidePendingSheet,
+    onClosed: handlePendingSheetClosed,
+  });
+
+  // The processing guard lives outside the hook so a blocked dismissal is a
+  // no-op instead of a partially applied hook transition.
+  const requestClosePendingSheet = useCallback(() => {
+    if (pendingActionRef.current) return;
+
+    pendingDismissal.close();
+  }, [pendingDismissal]);
+
+  // A request that leaves the pending list - linked, removed, or replaced -
+  // has nothing left to show, so the status sheet closes itself. The same
+  // applies once a refresh makes it READY: the sheet would otherwise keep
+  // calling it "In progress" with only Check/Remove, so close it and let the
+  // READY row's Link action take over.
+  useEffect(() => {
+    if (!pendingSheetVisible || pendingProcessing) return;
+    if (
+      !pendingStatusSheetShouldDismiss({
+        selectedPending,
+        currentPending,
+        readyStatus: NOTIFICATION_TYPE_VERUSID_READY,
+      })
+    ) {
+      return;
+    }
+
+    setPendingSheetVisible(false);
+  }, [
+    currentPending,
+    pendingProcessing,
+    pendingSheetVisible,
+    selectedPending,
+  ]);
 
   const handleScroll = event => {
     const next = (event.nativeEvent.contentOffset.y || 0) > 1;
@@ -578,7 +799,9 @@ const SignedInVerusIdService = ({controller}) => {
         <View style={styles.pendingRows}>
           {items.map(item => {
             const isReady = item.status === NOTIFICATION_TYPE_VERUSID_READY;
-            const press = isReady ? () => handleReady(item) : () => setSelectedPending(item);
+            const press = isReady
+              ? () => handleReady(item)
+              : () => openPendingSheet(item);
             return (
               <IdentityRow
                 key={`${item.chain}:${item.iAddress}`}
@@ -601,12 +824,6 @@ const SignedInVerusIdService = ({controller}) => {
         </View>
       </View>
     );
-  };
-
-  const closePendingSheet = () => {
-    if (pendingAction) return;
-    setSelectedPending(null);
-    setPendingError(null);
   };
 
   return (
@@ -638,25 +855,33 @@ const SignedInVerusIdService = ({controller}) => {
           ) : null}
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => setInfoVisible(true)} hitSlop={10} style={styles.headerIcon}>
+          <TouchableOpacity
+            accessibilityLabel="About VerusID"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => setInfoVisible(true)}
+            style={styles.headerIcon}>
             <MaterialCommunityIcons name="information-variant" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={openLinkSheet} hitSlop={10} style={styles.headerIcon}>
+          <TouchableOpacity
+            accessibilityLabel="Link existing VerusID"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => openLinkSheet()}
+            style={styles.headerIcon}>
             <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
-        <View style={styles.loading}>
-          <Text style={[styles.loadingText, {color: theme.colors.textSubtle}]}>Loading...</Text>
-        </View>
+        <IdentityListSkeleton theme={theme} />
       ) : controller.state.loadError ? (
         <View style={styles.errorState}>
           <MaterialCommunityIcons name="alert-circle-outline" size={52} color={theme.colors.textSubtle} />
           <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>Unable to load VerusIDs</Text>
           <Text style={[styles.emptyDescription, {color: theme.colors.textSecondary}]}>
-            {controller.state.loadError}
+            Check your connection and try again.
           </Text>
           <AppButton onPress={() => controller.getLinkedIds()} style={styles.emptyPrimaryCta}>
             Try again
@@ -700,12 +925,12 @@ const SignedInVerusIdService = ({controller}) => {
             resizeMode="contain"
             accessibilityIgnoresInvertColors
           />
-          <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>No identity in your wallet</Text>
+          <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>No VerusID linked</Text>
           <Text style={[styles.emptyDescription, {color: theme.colors.textSecondary}]}>
             Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands.
           </Text>
           <AppButton
-            onPress={openLinkSheet}
+            onPress={() => openLinkSheet()}
             style={styles.emptyPrimaryCta}>
             Link VerusID
           </AppButton>
@@ -728,6 +953,7 @@ const SignedInVerusIdService = ({controller}) => {
 
       <BottomSheetModal
         avoidKeyboard
+        closeDisabled={linkSheetBusy}
         visible={linkSheetVisible}
         onClose={closeLinkSheet}
         onClosed={handleLinkSheetClosed}
@@ -736,133 +962,165 @@ const SignedInVerusIdService = ({controller}) => {
           <LinkExistingVerusIdSheet
             key={linkSheetSession}
             active={linkSheetContentActive}
-            coinObj={CoinDirectory.findCoinObj(identityNetwork)}
+            coinObj={CoinDirectory.findCoinObj(resolvedLinkNetwork)}
+            initialManualValue={linkSheetInitialManualValue}
+            initialMode={linkSheetMode}
             isCandidateAllowed={isLinkCandidateAllowed}
             linkedIds={linkedIds}
+            onBusyChange={handleLinkSheetBusyChange}
             onLinkCandidate={linkAutoFoundIdentity}
-            onManualLink={openLegacyManualLink}
           />
         </View>
       </BottomSheetModal>
 
-      <BottomSheetModal
-        visible={infoVisible}
+      <InfoSheet
         onClose={() => setInfoVisible(false)}
-        maxHeight="80%"
-        contentContainerStyle={styles.infoSheet}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.infoSheetTitle, {color: theme.colors.textPrimary}]}>
-          What is a VerusID?
-        </Text>
-        <Text style={[styles.infoSummary, {color: theme.colors.textSecondary}]}>
-          VerusID is a self-sovereign identity and personal data vault. Controlled by you, not companies.
-        </Text>
-        <View style={styles.infoSheetScrollFrame}>
-          <ScrollView
-            alwaysBounceVertical={false}
-            bounces={false}
-            contentContainerStyle={styles.infoSheetScrollContent}
-            onContentSizeChange={(_, contentHeight) =>
-              updateInfoSheetScrollMetrics({contentHeight})
-            }
-            onLayout={event =>
-              updateInfoSheetScrollMetrics({
-                layoutHeight: event.nativeEvent.layout.height,
-              })
-            }
-            onScroll={handleInfoSheetScroll}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={infoSheetIsScrollable}>
-            <View style={styles.faqList}>
-              {FAQ_ITEMS.map(item => {
-                const expanded = item.key === expandedFaq;
-                return (
-                  <View
-                    key={item.key}
-                    style={styles.faqItem}>
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      onPress={() => setExpandedFaq(current => (current === item.key ? null : item.key))}
-                      style={styles.faqHeader}>
-                      <Text style={[styles.faqTitle, {color: theme.colors.textPrimary}]}>{item.title}</Text>
-                      <MaterialCommunityIcons
-                        name={expanded ? 'chevron-up' : 'chevron-down'}
-                        size={22}
-                        color={theme.colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                    {expanded ? <FaqBody body={item.body} theme={theme} /> : null}
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-          {showInfoSheetScrollCue ? <InfoSheetScrollCue theme={theme} /> : null}
+        subtitle="Acts as a universal login and personal data vault that belongs entirely to you."
+        title="VerusID"
+        visible={infoVisible}>
+        <View style={styles.faqList}>
+          {FAQ_ITEMS.map(item => {
+            const expanded = item.key === expandedFaq;
+            return (
+              <View key={item.key} style={styles.faqItem}>
+                <TouchableOpacity
+                  accessibilityLabel={item.title}
+                  accessibilityRole="button"
+                  accessibilityState={{expanded}}
+                  onPress={() =>
+                    setExpandedFaq(current =>
+                      current === item.key ? null : item.key,
+                    )
+                  }
+                  style={styles.faqHeader}>
+                  <Text style={[styles.faqTitle, {color: theme.colors.textPrimary}]}>
+                    {item.title}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={22}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+                {expanded ? <FaqBody body={item.body} theme={theme} /> : null}
+              </View>
+            );
+          })}
         </View>
-        <AppButton
-          accessibilityLabel="Done"
-          height={56}
-          onPress={() => setInfoVisible(false)}
-          style={styles.infoSheetDoneButton}
-          variant="secondary">
-          Done
-        </AppButton>
-      </BottomSheetModal>
+      </InfoSheet>
 
       <BottomSheetModal
-        visible={Boolean(selectedPending)}
-        onClose={closePendingSheet}
-        floating={false}
+        closeDisabled={pendingProcessing}
+        onClose={requestClosePendingSheet}
+        onClosed={pendingDismissal.onClosed}
         maxHeight="70%"
-        contentContainerStyle={styles.sheet}>
-        <SheetHeader
-          disabled={Boolean(pendingAction)}
-          onClose={closePendingSheet}
-          theme={theme}
-          title="Identity status"
-        />
-        <Text numberOfLines={1} style={[styles.pendingName, {color: theme.colors.textPrimary}]}>
-          {selectedPending?.name || 'Unknown identity'}
-        </Text>
-        <Text style={[styles.pendingStatus, {color: theme.colors.textSecondary}]}>
-          {selectedPending?.status === NOTIFICATION_TYPE_VERUSID_ERROR ? 'Needs attention' : 'In progress'}
-        </Text>
-        <Text style={[styles.sheetBody, {color: theme.colors.textSecondary}]}>
-          {selectedPending?.status === NOTIFICATION_TYPE_VERUSID_ERROR
-            ? 'This request appears stuck or failed. You can refresh, retry, or remove it from your list.'
-            : 'This request is still being processed. You can refresh or remove it from your list.'}
-        </Text>
-        {pendingError ? <Text style={[styles.pendingError, {color: theme.colors.danger}]}>{pendingError}</Text> : null}
-        <AppButton
-          disabled={Boolean(pendingAction)}
-          onPress={() => runPendingAction('refresh')}
-          style={styles.sheetAction}
-          variant="secondary">
-          {pendingAction === 'refresh' ? 'Refreshing...' : 'Refresh now'}
-        </AppButton>
-        {selectedPending?.status === NOTIFICATION_TYPE_VERUSID_ERROR && selectedPending?.details?.loginRequest ? (
-          <AppButton
-            disabled={Boolean(pendingAction)}
-            onPress={() => runPendingAction('retry')}
-            style={styles.sheetAction}
-            variant="secondary">
-            {pendingAction === 'retry' ? 'Retrying...' : 'Retry request'}
-          </AppButton>
-        ) : null}
-        <AppButton
-          buttonColor={theme.colors.danger}
-          disabled={Boolean(pendingAction)}
-          onPress={() => runPendingAction('remove')}
-          style={styles.removeAction}
-          textColor={theme.colors.onPrimary}>
-          {pendingAction === 'remove' ? 'Removing...' : 'Remove from list'}
-        </AppButton>
-        {selectedPending?.status === NOTIFICATION_TYPE_VERUSID_ERROR && !selectedPending?.details?.loginRequest ? (
-          <Text style={[styles.helperText, {color: theme.colors.textSecondary}]}>
-            Retry is unavailable because the original request payload is missing.
+        visible={pendingSheetVisible}>
+        <View style={[signedOutSheetStyles.body, signedOutSheetStyles.bodyShort]}>
+          <Text
+            accessibilityRole="header"
+            style={[theme.typography.titleSheet, {color: theme.colors.textPrimary}]}>
+            VerusID request
           </Text>
-        ) : null}
+          <Text
+            numberOfLines={2}
+            style={[styles.pendingName, {color: theme.colors.textPrimary}]}>
+            {pendingSheetItem?.name || 'VerusID'}
+          </Text>
+          <Text style={[styles.pendingStatus, {color: theme.colors.textSecondary}]}>
+            {pendingIsError
+              ? 'Needs attention'
+              : pendingIsReady
+              ? 'Ready to link'
+              : 'In progress'}
+          </Text>
+          <Text
+            style={[
+              theme.typography.bodySm,
+              styles.pendingDescription,
+              {color: theme.colors.textSecondary},
+            ]}>
+            {pendingIsError
+              ? pendingCanRetry
+                ? 'The request did not finish. Retry it, or check for updates first.'
+                : 'The request did not finish and its original payload is no longer available. Remove it from this list.'
+              : pendingIsReady
+              ? 'The request finished. Link this VerusID to continue.'
+              : 'The request is still processing. Check for updates, or remove it from this list.'}
+          </Text>
+          {pendingError ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.pendingError, {color: theme.colors.danger}]}>
+              {pendingError}
+            </Text>
+          ) : null}
+          {pendingNotice ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.pendingNotice, {color: theme.colors.textSecondary}]}>
+              {pendingNotice}
+            </Text>
+          ) : null}
+          <SafeBottomActionStack
+            bottomSpacing={12}
+            gap={10}
+            horizontalSpacing={0}
+            includeBottomInset={false}
+            safeAreaSpacing={0}
+            style={styles.pendingActions}>
+            {pendingCanRetry ? (
+              <AppButton
+                accessibilityLabel="Retry VerusID request"
+                disabled={pendingProcessing}
+                height={56}
+                onPress={() =>
+                  pendingDismissal.dismiss(() =>
+                    runPendingAction('retry', pendingSheetItem),
+                  )
+                }
+                themeMode={theme.mode}>
+                Retry request
+              </AppButton>
+            ) : null}
+            {pendingIsReady ? (
+              <AppButton
+                accessibilityLabel="Link completed VerusID request"
+                disabled={pendingProcessing}
+                height={56}
+                onPress={() => {
+                  // The status sheet has nothing left to do; close it and let
+                  // the READY row's Link/Resume action take over.
+                  setPendingSheetVisible(false);
+                  handleReady(pendingSheetItem);
+                }}
+                themeMode={theme.mode}>
+                Link VerusID
+              </AppButton>
+            ) : (
+              <AppButton
+                accessibilityLabel="Check for VerusID request updates"
+                disabled={pendingProcessing}
+                height={56}
+                onPress={() => runPendingAction('refresh', pendingSheetItem)}
+                themeMode={theme.mode}
+                variant={pendingCanRetry ? 'secondary' : 'primary'}>
+                {pendingAction === 'refresh'
+                  ? 'Checking...'
+                  : 'Check for updates'}
+              </AppButton>
+            )}
+            <AppButton
+              accessibilityLabel="Remove VerusID request from this list"
+              disabled={pendingProcessing}
+              height={56}
+              onPress={() => runPendingAction('remove', pendingSheetItem)}
+              textColor={theme.colors.danger}
+              themeMode={theme.mode}
+              variant="secondary">
+              {pendingAction === 'remove' ? 'Removing...' : 'Remove from list'}
+            </AppButton>
+          </SafeBottomActionStack>
+        </View>
       </BottomSheetModal>
     </SafeAreaView>
   );
@@ -932,8 +1190,14 @@ const styles = StyleSheet.create({
   rowActionWide: {minWidth: 132},
   rowActionText: {...fontStyle('bold'), fontSize: 13, lineHeight: 17, letterSpacing: -0.2},
   itemSeparator: {height: 12},
-  loading: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20},
-  loadingText: {...fontStyle('regular'), fontSize: 14, lineHeight: 19},
+  loadingSkeleton: {paddingHorizontal: 20, paddingTop: 12, rowGap: 12},
+  loadingRow: {
+    height: 76,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    rowGap: 8,
+  },
   errorState: {
     flex: 1,
     alignItems: 'center',
@@ -957,46 +1221,6 @@ const styles = StyleSheet.create({
   learnMoreText: {...fontStyle('semiBold'), fontSize: 13, lineHeight: 17, letterSpacing: -0.1},
   bottomFade: {position: 'absolute', left: 0, right: 0, bottom: 0},
   bottomFadeSvg: {marginBottom: -1},
-  sheet: {borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 20, paddingBottom: 28},
-  infoSheet: {borderRadius: 24, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20},
-  infoSheetTitle: {...fontStyle('semiBold'), fontSize: 21, lineHeight: 27, marginBottom: 12},
-  infoSheetScrollFrame: {flexGrow: 0, flexShrink: 1, overflow: 'hidden'},
-  infoSheetScrollContent: {paddingBottom: 4},
-  infoSheetScrollCue: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-    height: SCROLL_CUE_HEIGHT,
-    alignItems: 'center',
-  },
-  infoSheetScrollCueFade: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-  },
-  infoSheetScrollCueChevron: {
-    position: 'absolute',
-    bottom: 2,
-    width: 20,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoSheetDoneButton: {marginTop: 22},
-  sheetHeader: {height: 58, alignItems: 'center', justifyContent: 'center'},
-  sheetTitle: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20},
-  closeButton: {
-    position: 'absolute',
-    right: 0,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoSummary: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 20},
   faqList: {width: '100%', gap: 4},
   faqItem: {width: '100%'},
   faqHeader: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
@@ -1005,13 +1229,12 @@ const styles = StyleSheet.create({
   faqParagraph: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 10},
   faqBullet: {marginLeft: 10, marginBottom: 6},
   faqSpacer: {height: 10},
-  pendingName: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 21},
-  pendingStatus: {...fontStyle('regular'), fontSize: 13, lineHeight: 17, marginTop: 2, marginBottom: 12},
-  sheetBody: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, marginBottom: 14},
-  pendingError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginBottom: 2},
-  sheetAction: {width: '100%', marginBottom: 10},
-  removeAction: {width: '100%', marginTop: 2},
-  helperText: {...fontStyle('regular'), marginTop: 10, fontSize: 12, lineHeight: 16},
+  pendingName: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 22, marginTop: 12},
+  pendingStatus: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginTop: 2},
+  pendingDescription: {marginTop: 12},
+  pendingError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginTop: 12},
+  pendingNotice: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginTop: 12},
+  pendingActions: {marginTop: 18},
 });
 
 export default SignedInVerusIdService;

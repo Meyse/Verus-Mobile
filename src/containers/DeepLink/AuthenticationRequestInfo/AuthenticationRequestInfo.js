@@ -23,14 +23,9 @@ import LottieView from 'lottie-react-native';
 import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
+import {openProvisionIdentityModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import {
-  openLinkIdentityModal,
-  openProvisionIdentityModal,
-} from '../../../actions/actions/sendModal/dispatchers/sendModal';
-import {
-  LINK_IDENTITY_SEND_MODAL,
   PROVISION_IDENTITY_SEND_MODAL,
-  SEND_MODAL_IDENTITY_TO_LINK_FIELD,
   SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET,
   SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
 } from '../../../utils/constants/sendModal';
@@ -77,6 +72,11 @@ import {getSystemNameFromSystemId} from '../../../utils/CoinData/CoinData';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
 import {requestServiceStoredData} from '../../../utils/auth/authBox';
+import Store from '../../../store';
+import {
+  captureSessionScope,
+  sessionScopeIsCurrent,
+} from '../../../actions/actions/updates/sessionRequests';
 import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 import {VRPC} from '../../../utils/constants/intervalConstants';
 import {
@@ -84,6 +84,10 @@ import {
   getProvisioningRequestState,
   PROVISIONING_REQUEST_STATUSES,
 } from '../../../utils/verusid/provisioningRequestState';
+import {
+  identityLinkCandidateMatchesAccount,
+  identityLinkOriginIsCurrent,
+} from '../../../utils/verusid/verusIdFlowGuards';
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -128,6 +132,7 @@ const toAddressString = addressObj => {
 };
 
 const EMPTY_RECIPIENT_CONSTRAINTS = [];
+const SESSION_CHANGED = 'SESSION_CHANGED';
 const ROOT_CHAIN_BY_NETWORK = {
   mainnet: 'VRSC',
   testnet: 'VRSCTEST',
@@ -219,14 +224,20 @@ const AuthenticationRequestInfoContent = props => {
   const [identitySheetInitialMode, setIdentitySheetInitialMode] = useState(
     VERUSID_SHEET_MODES.CHOOSE,
   );
+  const [identitySheetInitialManualValue, setIdentitySheetInitialManualValue] =
+    useState('');
   const [selectedIdentity, setSelectedIdentity] = useState(null); // { chainId, iAddress, friendlyName }
   const [openIdentityAfterUnlock, setOpenIdentityAfterUnlock] =
     useState(false);
   const [idProvisionSuccess, setIdProvisionSuccess] = useState(false);
   const [autoLinkingVisible, setAutoLinkingVisible] = useState(false);
   const launchedSendModalRef = useRef(null);
-  const sendModalWasVisibleRef = useRef(false);
-  const successfulSendModalTypeRef = useRef(null);
+  const linkOperationRef = useRef(0);
+  // The account this screen rendered against. Link mutations must reject if the
+  // store account changed in the same frame as the action.
+  const renderedAccountHash = useObjectSelector(
+    state => state.authentication.activeAccount?.accountHash || null,
+  );
   const successNavigationStartedRef = useRef(false);
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -255,7 +266,10 @@ const AuthenticationRequestInfoContent = props => {
     };
   }, []);
 
-  const loadLinkedIds = useCallback(async () => {
+  const loadLinkedIds = useCallback(async isCurrent => {
+    const shouldApply = () =>
+      typeof isCurrent === 'function' ? isCurrent() : true;
+
     try {
       const verusIdServiceData = await requestServiceStoredData(
         VERUSID_SERVICE_ID,
@@ -265,17 +279,21 @@ const AuthenticationRequestInfoContent = props => {
       const nextCompletedProvisioningRequests =
         verusIdServiceData.completed_provisioning_requests || {};
 
-      setLinkedIds(nextLinkedIds);
-      setPendingIds(nextPendingIds);
-      setCompletedProvisioningRequests(nextCompletedProvisioningRequests);
+      if (shouldApply()) {
+        setLinkedIds(nextLinkedIds);
+        setPendingIds(nextPendingIds);
+        setCompletedProvisioningRequests(nextCompletedProvisioningRequests);
+      }
       return nextLinkedIds;
     } catch (e) {
-      setLinkedIds({});
-      setPendingIds({});
-      setCompletedProvisioningRequests({});
+      if (shouldApply()) {
+        setLinkedIds({});
+        setPendingIds({});
+        setCompletedProvisioningRequests({});
+      }
       return {};
     } finally {
-      setLinkedIdsLoaded(true);
+      if (shouldApply()) setLinkedIdsLoaded(true);
     }
   }, []);
 
@@ -641,22 +659,31 @@ const AuthenticationRequestInfoContent = props => {
   );
 
   const reloadLinkedIdsAndSelect = useCallback(
-    async ({preferredIAddress = null, reopenIdentitySheet = false} = {}) => {
-      setLinkedIdsLoaded(false);
+    async ({
+      preferredIAddress = null,
+      reopenIdentitySheet = false,
+      isCurrent,
+    } = {}) => {
+      const shouldApply = () =>
+        typeof isCurrent === 'function' ? isCurrent() : true;
 
-      const nextLinkedIds = await loadLinkedIds();
+      if (shouldApply()) setLinkedIdsLoaded(false);
+
+      const nextLinkedIds = await loadLinkedIds(isCurrent);
       const nextIdentity = getAllowedIdentityFromLinkedIds(
         nextLinkedIds,
         preferredIAddress,
       );
 
       if (nextIdentity) {
-        setSelectedIdentity(nextIdentity);
-        setIdentitySheetVisible(false);
+        if (shouldApply()) {
+          setSelectedIdentity(nextIdentity);
+          setIdentitySheetVisible(false);
+        }
         return true;
       }
 
-      if (reopenIdentitySheet) {
+      if (reopenIdentitySheet && shouldApply()) {
         setIdentitySheetVisible(true);
       }
 
@@ -923,7 +950,6 @@ const AuthenticationRequestInfoContent = props => {
 
   useEffect(() => {
     if (!idProvisionSuccess && sendModal.data?.success) {
-      successfulSendModalTypeRef.current = sendModalType;
       setIdProvisionSuccess(true);
       return;
     }
@@ -938,17 +964,6 @@ const AuthenticationRequestInfoContent = props => {
 
       const finishSuccessfulModal = async () => {
         launchedSendModalRef.current = null;
-
-        if (
-          successfulSendModalTypeRef.current === LINK_IDENTITY_SEND_MODAL &&
-          pendingDeeplinkId
-        ) {
-          try {
-            await markPendingDeeplinkComplete(pendingDeeplinkId);
-          } catch (e) {
-            console.warn('Unable to mark pending deeplink complete', e);
-          }
-        }
 
         props.navigation.dispatch(
           CommonActions.reset({
@@ -983,37 +998,8 @@ const AuthenticationRequestInfoContent = props => {
     sendModal.data?.success,
     sendModal.visible,
     sendModalType,
-    pendingDeeplinkId,
     props.navigation,
   ]);
-
-  useEffect(() => {
-    const sendModalClosed =
-      sendModalWasVisibleRef.current && !sendModal.visible && sendModalType == null;
-
-    sendModalWasVisibleRef.current = sendModal.visible;
-
-    if (!sendModalClosed) return;
-
-    const launchedModal = launchedSendModalRef.current;
-
-    if (
-      launchedModal?.type !== LINK_IDENTITY_SEND_MODAL ||
-      !['user', 'passthrough'].includes(launchedModal.intent)
-    ) {
-      return;
-    }
-
-    launchedSendModalRef.current = null;
-
-    reloadLinkedIdsAndSelect({
-      preferredIAddress: launchedModal.identityAddress,
-      reopenIdentitySheet: true,
-    }).catch(e => {
-      console.warn('Unable to reload linked identities after linking', e);
-      setIdentitySheetVisible(true);
-    });
-  }, [reloadLinkedIdsAndSelect, sendModal.visible, sendModalType]);
 
   const expiryLabel = getExpiryLabel();
   const constraints =
@@ -1232,42 +1218,51 @@ const AuthenticationRequestInfoContent = props => {
     setIdentitySheetVisible(true);
   };
 
-  const openLinkIdentityModalFromChain = identityAddress => {
-    const data = identityAddress
-      ? {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityAddress}
-      : undefined;
-
-    launchedSendModalRef.current = {
-      type: LINK_IDENTITY_SEND_MODAL,
-      intent: 'user',
-      identityAddress: identityAddress || null,
-    };
-
-    setIdentitySheetVisible(false);
-    openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
-  };
-
+  // The automatic passthrough link failed. Route it into the shared manual
+  // LinkExistingVerusIdSheet step with the request network and the FQN
+  // prefilled instead of the legacy SendModal link UI.
   const openPassthroughLinkFallback = useCallback(
     identityAddress => {
-      const data = {
-        [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityAddress,
-        noLogin: false,
-      };
-
-      launchedSendModalRef.current = {
-        type: LINK_IDENTITY_SEND_MODAL,
-        intent: 'passthrough',
-        identityAddress: identityAddress || null,
-      };
-
-      setIdentitySheetVisible(false);
-      openLinkIdentityModal(CoinDirectory.findCoinObj(linkChainId), data);
+      // The generic-request resume bookkeeping (marking the pending deeplink
+      // complete) runs in the shared link handler once the manual link
+      // succeeds.
+      setIdentitySheetInitialManualValue(identityAddress || '');
+      setIdentitySheetInitialMode(VERUSID_SHEET_MODES.LINK);
+      setIdentitySheetVisible(true);
     },
-    [linkChainId],
+    [],
   );
 
   const linkIdentityCandidate = useCallback(
-    async (candidate, {showError = true} = {}) => {
+    async (candidate, {showError = true, isCurrent: callerIsCurrent} = {}) => {
+      const shouldApply = () =>
+        typeof callerIsCurrent === 'function' ? callerIsCurrent() : true;
+      const requestContext = {
+        sessionScope: captureSessionScope(
+          Store.getState(),
+          renderedAccountHash,
+        ),
+      };
+      const operationToken = linkOperationRef.current + 1;
+      linkOperationRef.current = operationToken;
+      const isOperationCurrent = () =>
+        linkOperationRef.current === operationToken &&
+        shouldApply() &&
+        sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope);
+      const assertSessionCurrent = () => {
+        if (!isOperationCurrent()) {
+          const error = new Error(
+            'Account changed while the VerusID was being linked.',
+          );
+          error.code = SESSION_CHANGED;
+          throw error;
+        }
+      };
+
+      // The candidate belongs to the account this screen rendered. If the store
+      // account already moved on, the link must not run against the new one.
+      assertSessionCurrent();
+
       try {
         const candidateChainId = candidate?.chainId || linkChainId;
         const identityAddress = candidate?.identityAddress;
@@ -1314,24 +1309,60 @@ const AuthenticationRequestInfoContent = props => {
           );
         }
 
+        // The candidate's chosen primary R-address must belong to the account
+        // that is scoped right now, not only to the identity's own primary
+        // address list, and its origin session must still be live. A candidate
+        // resolved for another account is rejected even if the sheet stayed
+        // mounted across the switch.
+        const liveState = Store.getState();
+
+        if (
+          candidate?.origin &&
+          !identityLinkOriginIsCurrent(liveState, candidate.origin)
+        ) {
+          const sessionError = new Error(
+            'Account changed while the VerusID was being linked.',
+          );
+          sessionError.code = SESSION_CHANGED;
+          throw sessionError;
+        }
+
+        if (!identityLinkCandidateMatchesAccount(liveState, candidate)) {
+          throw new Error(
+            'Ensure that your wallet address for this account matches a primary address of the VerusID you are trying to add.',
+          );
+        }
+
         const coinObj = CoinDirectory.findCoinObj(candidateChainId);
 
-        await linkVerusId(identityAddress, displayName, coinObj.id);
-        await updateVerusIdWallet();
+        await linkVerusId(
+          identityAddress,
+          displayName,
+          coinObj.id,
+          requestContext,
+        );
+        assertSessionCurrent();
+        await updateVerusIdWallet(requestContext);
+        assertSessionCurrent();
         clearChainLifecycle(coinObj.id);
 
         const setUserCoinsAction = setUserCoins(
           activeCoinList,
           activeAccount.id,
         );
+        assertSessionCurrent();
         dispatch(setUserCoinsAction);
         refreshActiveChainLifecycles(
           setUserCoinsAction.payload.activeCoinsForUser,
         );
 
+        assertSessionCurrent();
         const selectedLinkedIdentity = await reloadLinkedIdsAndSelect({
           preferredIAddress: identityAddress,
+          isCurrent: isOperationCurrent,
         });
+
+        if (!isOperationCurrent()) return;
 
         if (!selectedLinkedIdentity) {
           setSelectedIdentity({
@@ -1341,8 +1372,27 @@ const AuthenticationRequestInfoContent = props => {
           });
           setIdentitySheetVisible(false);
         }
+
+        // Preserve the request-resume bookkeeping the legacy link modal used to
+        // perform: the pending generic request is marked complete under the
+        // session that linked it, so the request does not strand.
+        if (pendingDeeplinkId) {
+          try {
+            await markPendingDeeplinkComplete(pendingDeeplinkId);
+          } catch (e) {
+            console.warn('Unable to mark pending deeplink complete', e);
+          }
+        }
+
+        // Hand the exact link context back so provisioning cleanup runs under
+        // the session that performed the link.
+        return {
+          coinObj,
+          requestContext,
+          sessionScope: requestContext.sessionScope,
+        };
       } catch (e) {
-        if (showError) {
+        if (showError && isOperationCurrent()) {
           createAlert('Error', e?.message || 'Unable to link VerusID.');
         }
 
@@ -1355,12 +1405,14 @@ const AuthenticationRequestInfoContent = props => {
       dispatch,
       isAutoLinkCandidateAllowed,
       linkChainId,
+      pendingDeeplinkId,
+      renderedAccountHash,
       reloadLinkedIdsAndSelect,
     ],
   );
 
   const linkAutoFoundIdentity = useCallback(
-    candidate => linkIdentityCandidate(candidate),
+    candidate => linkIdentityCandidate(candidate, {showError: false}),
     [linkIdentityCandidate],
   );
 
@@ -1417,8 +1469,22 @@ const AuthenticationRequestInfoContent = props => {
   );
 
   const cleanupProvisioningState = useCallback(
-    async (coinObj, identityAddress, notificationUid = null) => {
-      if (pendingDeeplinkId) {
+    async (
+      coinObj,
+      identityAddress,
+      notificationUid = null,
+      requestContext = null,
+    ) => {
+      const sessionScope = requestContext?.sessionScope || null;
+      const sessionIsCurrent = () =>
+        sessionScope == null ||
+        sessionScopeIsCurrent(Store.getState(), sessionScope);
+      const shouldApply = () =>
+        authRequestMountedRef.current && sessionIsCurrent();
+
+      // Provisioning bookkeeping is an unscoped side effect. It only runs while
+      // the session that performed the link is still the active one.
+      if (shouldApply() && pendingDeeplinkId) {
         try {
           await markPendingDeeplinkComplete(pendingDeeplinkId);
         } catch (e) {
@@ -1426,10 +1492,15 @@ const AuthenticationRequestInfoContent = props => {
         }
       }
 
-      if (identityAddress) {
+      if (shouldApply() && identityAddress) {
         try {
-          await deleteProvisionedIds(identityAddress, coinObj.id, true);
-          await updatePendingVerusIds();
+          await deleteProvisionedIds(
+            identityAddress,
+            coinObj.id,
+            true,
+            requestContext,
+          );
+          await updatePendingVerusIds(requestContext);
         } catch (e) {
           console.warn(
             'Unable to remove pending VerusID provisioning state',
@@ -1438,7 +1509,7 @@ const AuthenticationRequestInfoContent = props => {
         }
       }
 
-      if (notificationUid) {
+      if (shouldApply() && notificationUid) {
         try {
           await dispatchRemoveNotification(notificationUid);
         } catch (e) {
@@ -1462,6 +1533,14 @@ const AuthenticationRequestInfoContent = props => {
 
     const identityToAutoLink = passthrough.fqnToAutoLink;
     const notificationUid = passthrough.notificationUid;
+    // The login request belongs to the account that is signed in when this
+    // effect starts. Its context gates every later cleanup side effect.
+    const sessionScope = captureSessionScope(
+      Store.getState(),
+      renderedAccountHash,
+    );
+    const sessionIsCurrent = () =>
+      sessionScopeIsCurrent(Store.getState(), sessionScope);
 
     const autoLinkPassthroughIdentity = async () => {
       setAutoLinkingVisible(true);
@@ -1470,18 +1549,32 @@ const AuthenticationRequestInfoContent = props => {
         const candidate = await getProvisioningIdentityCandidate(
           identityToAutoLink,
         );
-        const coinObj = CoinDirectory.findCoinObj(candidate.chainId);
-        await linkIdentityCandidate(candidate, {showError: false});
+        const linkResult = await linkIdentityCandidate(candidate, {
+          showError: false,
+          isCurrent: sessionIsCurrent,
+        });
+
+        // The link context was invalidated before it completed: nothing was
+        // linked for this session, so there is nothing to clean up or show.
+        if (!linkResult) return;
+
         await cleanupProvisioningState(
-          coinObj,
+          linkResult.coinObj,
           candidate.identityAddress,
           notificationUid,
+          linkResult.requestContext,
         );
       } catch (e) {
         console.warn(
           'Unable to auto-link passthrough VerusID',
           e?.message ?? e,
         );
+
+        // A session change is not a link failure: the new account must not get
+        // this request's failure alert or fallback link sheet.
+        if (e?.code === SESSION_CHANGED || !sessionIsCurrent()) {
+          return;
+        }
 
         if (authRequestMountedRef.current) {
           setAutoLinkingVisible(false);
@@ -1515,6 +1608,7 @@ const AuthenticationRequestInfoContent = props => {
     linkIdentityCandidate,
     openPassthroughLinkFallback,
     passthrough,
+    renderedAccountHash,
     requiredSystemIds.length,
     requiredSystemsResolved,
     signedIn,
@@ -1647,20 +1741,39 @@ const AuthenticationRequestInfoContent = props => {
 
     setIdentitySheetVisible(false);
     setAutoLinkingVisible(true);
+    // The provisioning target belongs to the account this screen rendered.
+    const sessionScope = captureSessionScope(
+      Store.getState(),
+      renderedAccountHash,
+    );
+    const sessionIsCurrent = () =>
+      sessionScopeIsCurrent(Store.getState(), sessionScope);
 
     try {
       const candidate = await getProvisioningIdentityCandidate(
         provisioningRequestState.iAddress,
       );
-      const coinObj = CoinDirectory.findCoinObj(candidate.chainId);
 
-      await linkIdentityCandidate(candidate, {showError: false});
+      const linkResult = await linkIdentityCandidate(candidate, {
+        showError: false,
+        isCurrent: sessionIsCurrent,
+      });
+
+      if (!linkResult) return;
+
       await cleanupProvisioningState(
-        coinObj,
+        linkResult.coinObj,
         candidate.identityAddress,
         provisioningRequestState?.storedEntry?.notificationUid,
+        linkResult.requestContext,
       );
     } catch (e) {
+      // A session change is not a link failure: the new account must not get
+      // this request's failure alert or fallback sheet.
+      if (e?.code === SESSION_CHANGED || !sessionIsCurrent()) {
+        return;
+      }
+
       if (authRequestMountedRef.current) {
         await createAlert(
           'Unable to use VerusID',
@@ -1670,7 +1783,7 @@ const AuthenticationRequestInfoContent = props => {
         setIdentitySheetVisible(true);
       }
     } finally {
-      if (authRequestMountedRef.current) {
+      if (authRequestMountedRef.current && sessionIsCurrent()) {
         setAutoLinkingVisible(false);
       }
     }
@@ -1679,6 +1792,7 @@ const AuthenticationRequestInfoContent = props => {
     getProvisioningIdentityCandidate,
     linkIdentityCandidate,
     provisioningRequestState,
+    renderedAccountHash,
   ]);
 
   // Identity sheet handlers
@@ -1692,6 +1806,15 @@ const AuthenticationRequestInfoContent = props => {
     setSelectedIdentity({chainId, iAddress, friendlyName});
     setIdentitySheetVisible(false);
   };
+
+  // The prefilled manual value only belongs to the passthrough-fallback
+  // opening. Clear it once that sheet closes so a later open never starts on a
+  // stale FQN.
+  useEffect(() => {
+    if (!identitySheetVisible) {
+      setIdentitySheetInitialManualValue('');
+    }
+  }, [identitySheetVisible]);
 
   const hasRequirements = constraintRows.length > 0;
   const hasMatchingIdentity = useMemo(() => {
@@ -1844,9 +1967,9 @@ const AuthenticationRequestInfoContent = props => {
         provisioningEnabled={shouldShowProvisioningInChooser}
         provisioningRequestState={provisioningRequestState}
         initialMode={identitySheetInitialMode}
+        initialManualValue={identitySheetInitialManualValue}
         onClose={() => setIdentitySheetVisible(false)}
         onLinkCandidate={linkAutoFoundIdentity}
-        onManualLink={() => openLinkIdentityModalFromChain()}
         onRequestVerusId={
           shouldShowProvisioningInChooser
             ? openProvisionIdentityModalFromChain

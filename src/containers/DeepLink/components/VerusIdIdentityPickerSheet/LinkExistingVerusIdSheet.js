@@ -1,6 +1,9 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  Keyboard,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -9,20 +12,34 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LottieView from 'lottie-react-native';
 import {Pencil, Plus} from 'lucide-react-native';
+import {fromBase58Check} from 'verus-typescript-primitives';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
+import AppButton from '../../../../components/AppButton';
 import AppSearchField from '../../../../components/AppSearchField';
+import AppTextInput from '../../../../components/AppTextInput';
+import InfoSheetSection from '../../../../components/InfoSheetSection';
+import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
+import SheetScrollView from '../../../../components/SheetScrollView';
 import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import Store from '../../../../store';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
+  getFriendlyNameMap,
   getIdentitiesWithAddress,
   getIdentity,
 } from '../../../../utils/api/channels/verusid/callCreators';
 import {VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {isIdentityIndexUnavailable} from '../../../../utils/api/channels/verusid/identityIndex';
+import {
+  captureIdentityLinkOrigin,
+  identityLinkCandidateIsLinkable,
+  identityLinkOriginIsCurrent,
+} from '../../../../utils/verusid/verusIdFlowGuards';
+import {buildVerusIdSections} from '../RequestReview/DeepLinkVerusIdDetailsSheet';
 
 const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
 const LIST_CONTENT_VERTICAL_PADDING = 4;
@@ -31,6 +48,115 @@ const DEFAULT_CANDIDATE_LIST_HEIGHT =
 const SCROLL_CUE_HEIGHT = 42;
 const SCROLL_END_THRESHOLD = 8;
 const IDENTITY_SKELETON_WIDTHS = ['44%', '62%', '50%', '70%'];
+
+export const LINK_EXISTING_VERUSID_SHEET_MODES = {
+  LIST: 'list',
+  MANUAL: 'manual',
+};
+
+export const LINK_EXISTING_VERUSID_MANUAL_PHASES = {
+  INPUT: 'input',
+  RESOLVING: 'resolving',
+  REVIEW: 'review',
+};
+
+const MANUAL_MESSAGE_MAX_LENGTH = 140;
+const MANUAL_LOOKUP_FALLBACK_MESSAGE =
+  'Unable to look up that VerusID. Check the name and try again.';
+const MANUAL_LINK_FALLBACK_MESSAGE = 'Unable to link this VerusID. Try again.';
+
+const isTechnicalMessage = message =>
+  /rpc|json|0x[0-9a-f]{6,}|-?\d{3,}/i.test(String(message || ''));
+
+// A VerusID can be entered as a friendly name (with or without the trailing
+// "@") or as an i-Address. Only the name form is normalized.
+const normalizeManualLookup = value => {
+  const trimmed = String(value == null ? '' : value).trim();
+
+  if (!trimmed || trimmed.endsWith('@')) return trimmed;
+
+  try {
+    fromBase58Check(trimmed);
+    return trimmed;
+  } catch (e) {
+    return `${trimmed}@`;
+  }
+};
+
+const describeLookupFailure = error => {
+  const message =
+    typeof error?.message === 'string' ? error.message.trim() : '';
+
+  if (/not found|no such identity|unable to find/i.test(message)) {
+    return 'No VerusID found with that name or i-Address.';
+  }
+
+  if (
+    !message ||
+    message.length > MANUAL_MESSAGE_MAX_LENGTH ||
+    isTechnicalMessage(message)
+  ) {
+    return MANUAL_LOOKUP_FALLBACK_MESSAGE;
+  }
+
+  return message;
+};
+
+const describeLinkFailure = error => {
+  const message =
+    typeof error?.message === 'string' ? error.message.trim() : '';
+
+  if (
+    !message ||
+    message.length > MANUAL_MESSAGE_MAX_LENGTH ||
+    isTechnicalMessage(message)
+  ) {
+    return MANUAL_LINK_FALLBACK_MESSAGE;
+  }
+
+  return message;
+};
+
+// Manual linking resolves the identity read-only from the stored wallet
+// addresses. No seed, key, or signing material is requested.
+const buildResolvedCandidate = ({
+  chainId,
+  identityResult,
+  origin,
+  systemId,
+  walletAddresses,
+}) => {
+  const identity = identityResult?.identity || {};
+  const identityAddress =
+    identity.identityaddress || identity.identityAddress || null;
+  const fullyQualifiedName =
+    identityResult?.fullyqualifiedname ||
+    identityResult?.fullyQualifiedName ||
+    null;
+  const primaryAddresses =
+    identity.primaryaddresses || identity.primaryAddresses || [];
+  const walletAddressList = Array.isArray(walletAddresses)
+    ? walletAddresses
+    : [];
+
+  return {
+    chainId,
+    displayName: fullyQualifiedName
+      ? convertFqnToDisplayFormat(fullyQualifiedName)
+      : null,
+    fullyQualifiedName,
+    identity,
+    identityAddress,
+    identityResult,
+    name: identity.name || null,
+    origin: origin || null,
+    primaryAddress:
+      primaryAddresses.find(address => walletAddressList.includes(address)) ||
+      null,
+    status: identityResult?.status || null,
+    systemId,
+  };
+};
 
 const normalizeDiscoveryResult = result => {
   if (result == null) return [];
@@ -83,8 +209,11 @@ const LinkExistingVerusIdSheet = ({
   active,
   candidateListHeight = DEFAULT_CANDIDATE_LIST_HEIGHT,
   coinObj,
+  initialManualValue = '',
+  initialMode = LINK_EXISTING_VERUSID_SHEET_MODES.LIST,
   isCandidateAllowed,
   linkedIds,
+  onBusyChange,
   onLinkCandidate,
   onManualLink,
 }) => {
@@ -95,7 +224,15 @@ const LinkExistingVerusIdSheet = ({
   );
   const styles = useMemo(() => createStyles(theme), [theme]);
   const listRef = useRef(null);
+  const linkRequestIdRef = useRef(0);
+  const linkingRef = useRef(false);
+  const manualRequestIdRef = useRef(0);
+  const manualResolvingRef = useRef(false);
+  const onBusyChangeRef = useRef(onBusyChange);
   const requestIdRef = useRef(0);
+  const sheetSessionRef = useRef(0);
+  // Keep the latest callback without forcing the session effects to re-run.
+  onBusyChangeRef.current = onBusyChange;
   const coinId = coinObj?.id;
   const systemId = coinObj?.system_id;
   const primaryAddress = useObjectSelector(state =>
@@ -104,23 +241,67 @@ const LinkExistingVerusIdSheet = ({
           ?.addresses?.[0] || null
       : null,
   );
+  const walletAddresses = useObjectSelector(state =>
+    coinId
+      ? state.authentication.activeAccount?.keys?.[coinId]?.[VRPC]
+          ?.addresses || null
+      : null,
+  );
+  // Account hash and login epoch together identify the wallet session a
+  // candidate was discovered or resolved in. Both are captured so a switch
+  // between two accounts that share the same first R-address still invalidates
+  // stale work.
+  const sessionScopeKey = useObjectSelector(state =>
+    coinId
+      ? `${
+          state.authentication.activeAccount?.accountHash ?? 'none'
+        }:${state.authentication.sessionEpoch ?? 0}`
+      : null,
+  );
   const [candidates, setCandidates] = useState([]);
   const [errorMessage, setErrorMessage] = useState(null);
   const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState(null);
   const [loading, setLoading] = useState(active);
-  const [lookupUnsupported, setLookupUnsupported] = useState(false);
+  const [manualError, setManualError] = useState(null);
+  const [manualFriendlyNames, setManualFriendlyNames] = useState(null);
+  const [manualPhase, setManualPhase] = useState(
+    LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT,
+  );
+  const [manualValue, setManualValue] = useState('');
+  const [mode, setMode] = useState(
+    initialMode === LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL
+      ? LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL
+      : LINK_EXISTING_VERUSID_SHEET_MODES.LIST,
+  );
+  const [resolvedCandidate, setResolvedCandidate] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showBottomScrollCue, setShowBottomScrollCue] = useState(false);
   const [showTopScrollCue, setShowTopScrollCue] = useState(false);
+  const linkedAddressSet = useMemo(
+    () => buildLinkedAddressSet(linkedIds),
+    [linkedIds],
+  );
 
   useEffect(() => {
     if (!active) {
+      sheetSessionRef.current += 1;
       requestIdRef.current += 1;
+      linkRequestIdRef.current += 1;
+      manualRequestIdRef.current += 1;
+      linkingRef.current = false;
+      manualResolvingRef.current = false;
+      onBusyChangeRef.current?.(false);
       setCandidates([]);
       setErrorMessage(null);
+      setLinkError(null);
       setLinking(false);
       setLoading(false);
-      setLookupUnsupported(false);
+      setManualError(null);
+      setManualFriendlyNames(null);
+      setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+      setManualValue('');
+      setResolvedCandidate(null);
       setSearchQuery('');
       setShowBottomScrollCue(false);
       setShowTopScrollCue(false);
@@ -129,12 +310,20 @@ const LinkExistingVerusIdSheet = ({
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    // The discovery belongs to the wallet session that started it. Every await
+    // below re-checks this captured scope before writing state or candidates.
+    const origin = captureIdentityLinkOrigin(Store.getState(), {
+      chainId: coinId,
+      walletAddress: primaryAddress,
+    });
+    const isRequestCurrent = () =>
+      requestIdRef.current === requestId &&
+      identityLinkOriginIsCurrent(Store.getState(), origin);
 
     const discover = async () => {
       setCandidates([]);
       setErrorMessage(null);
       setLoading(true);
-      setLookupUnsupported(false);
 
       try {
         if (!systemId) {
@@ -151,10 +340,11 @@ const LinkExistingVerusIdSheet = ({
           false,
         );
 
+        if (!isRequestCurrent()) return;
+
         if (discoveryRes.error) {
           if (isIdentityIndexUnavailable(discoveryRes.error)) {
-            if (requestIdRef.current === requestId) {
-              setLookupUnsupported(true);
+            if (isRequestCurrent()) {
               setErrorMessage(
                 'Automatic VerusID lookup is unavailable for this chain.',
               );
@@ -165,7 +355,6 @@ const LinkExistingVerusIdSheet = ({
           throw new Error(discoveryRes.error.message);
         }
 
-        const linkedAddressSet = buildLinkedAddressSet(linkedIds);
         const discoveredCandidates = await Promise.all(
           normalizeDiscoveryResult(discoveryRes.result).map(
             async discoveryResult => {
@@ -181,6 +370,7 @@ const LinkExistingVerusIdSheet = ({
                 return null;
               }
 
+              if (!isRequestCurrent()) return null;
               if (identityRes.error) return null;
 
               const enrichedResult = identityRes.result;
@@ -196,6 +386,7 @@ const LinkExistingVerusIdSheet = ({
                 identityAddress: finalIdentityAddress,
                 identityResult: enrichedResult,
                 name: enrichedIdentity.name || discoveryResult?.name || null,
+                origin,
                 friendlyName:
                   enrichedResult?.friendlyname ||
                   enrichedResult?.friendlyName ||
@@ -248,17 +439,18 @@ const LinkExistingVerusIdSheet = ({
           deduped.push(candidate);
         }
 
+        if (!isRequestCurrent()) return;
+
         deduped.sort((left, right) =>
           left.displayName.localeCompare(right.displayName),
         );
 
-        if (requestIdRef.current === requestId) {
+        if (isRequestCurrent()) {
           setCandidates(deduped);
         }
       } catch (e) {
-        if (requestIdRef.current === requestId) {
+        if (isRequestCurrent()) {
           if (isIdentityIndexUnavailable(e)) {
-            setLookupUnsupported(true);
             setErrorMessage(
               'Automatic VerusID lookup is unavailable for this chain.',
             );
@@ -267,7 +459,7 @@ const LinkExistingVerusIdSheet = ({
           }
         }
       } finally {
-        if (requestIdRef.current === requestId) {
+        if (isRequestCurrent()) {
           setLoading(false);
         }
       }
@@ -278,7 +470,61 @@ const LinkExistingVerusIdSheet = ({
     return () => {
       requestIdRef.current += 1;
     };
-  }, [active, coinId, isCandidateAllowed, linkedIds, primaryAddress, systemId]);
+  }, [
+    active,
+    coinId,
+    isCandidateAllowed,
+    linkedAddressSet,
+    primaryAddress,
+    sessionScopeKey,
+    systemId,
+  ]);
+
+  // The sheet is reused between openings; each active session starts from the
+  // caller's requested step instead of the previous session's state.
+  useEffect(() => {
+    if (!active) return;
+
+    // A fresh session invalidates any in-flight link or lookup so a stale
+    // completion cannot write into this opening.
+    sheetSessionRef.current += 1;
+    linkRequestIdRef.current += 1;
+    manualRequestIdRef.current += 1;
+    linkingRef.current = false;
+    manualResolvingRef.current = false;
+    setLinkError(null);
+    setManualError(null);
+    setManualFriendlyNames(null);
+    setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+    setManualValue(initialManualValue || '');
+    setMode(
+      initialMode === LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL
+        ? LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL
+        : LINK_EXISTING_VERUSID_SHEET_MODES.LIST,
+    );
+    setResolvedCandidate(null);
+  }, [active, initialManualValue, initialMode]);
+
+  // A live account-hash or login-epoch change invalidates any in-flight link
+  // or shown manual resolution: the candidate belongs to the previous session.
+  const previousScopeKeyRef = useRef(sessionScopeKey);
+  useEffect(() => {
+    if (!active) return;
+    if (previousScopeKeyRef.current === sessionScopeKey) return;
+
+    previousScopeKeyRef.current = sessionScopeKey;
+    linkRequestIdRef.current += 1;
+    manualRequestIdRef.current += 1;
+    linkingRef.current = false;
+    manualResolvingRef.current = false;
+    onBusyChangeRef.current?.(false);
+    setLinking(false);
+    setLinkError(null);
+    setManualError(null);
+    setManualFriendlyNames(null);
+    setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+    setResolvedCandidate(null);
+  }, [active, sessionScopeKey]);
 
   const filteredCandidates = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -323,17 +569,222 @@ const LinkExistingVerusIdSheet = ({
   }, [active, candidateListScrollable, filteredCandidates.length, searchQuery]);
 
   const handleLinkCandidate = async candidate => {
-    if (linking) return;
+    // Same-frame double taps must only start one link. A ref guard is
+    // synchronous; the `linking` state update is not.
+    if (linkingRef.current) return;
 
+    // The candidate must still belong to the account that is scoped right now.
+    // This runs before the parent link handler so a candidate resolved for
+    // account A can never link into account B, even if the sheet stayed
+    // mounted across the switch.
+    if (!identityLinkCandidateIsLinkable(Store.getState(), candidate)) {
+      setLinkError(
+        'This VerusID no longer matches the active wallet. Reopen this sheet and try again.',
+      );
+      setManualError(
+        'This VerusID no longer matches the active wallet. Reopen this sheet and try again.',
+      );
+      return;
+    }
+
+    const session = sheetSessionRef.current;
+    const requestId = linkRequestIdRef.current + 1;
+    linkRequestIdRef.current = requestId;
+    linkingRef.current = true;
+
+    setLinkError(null);
+    setManualError(null);
     setLinking(true);
+    onBusyChangeRef.current?.(true);
 
     try {
       await onLinkCandidate(candidate);
     } catch (e) {
-      // Parent surfaces the actionable error. Keep the sheet stable.
+      // Keep the sheet stable and show why the link did not complete. The
+      // parent keeps ownership of the rules that allow the link at all.
+      if (
+        linkRequestIdRef.current === requestId &&
+        sheetSessionRef.current === session
+      ) {
+        setLinkError(describeLinkFailure(e));
+        setManualError(describeLinkFailure(e));
+      }
     } finally {
-      setLinking(false);
+      // A superseding session already reset the shared state.
+      if (linkRequestIdRef.current === requestId) {
+        linkingRef.current = false;
+        setLinking(false);
+        onBusyChangeRef.current?.(false);
+      }
     }
+  };
+
+  const getCandidateValidationError = candidate => {
+    if (
+      !candidate?.identityAddress ||
+      !candidate?.fullyQualifiedName ||
+      !candidate?.displayName
+    ) {
+      return 'Unable to link this VerusID.';
+    }
+
+    if (candidate.status !== 'active') {
+      return 'Only active VerusIDs can be linked.';
+    }
+
+    if (linkedAddressSet.has(candidate.identityAddress.toLowerCase())) {
+      return 'This VerusID is already linked to this wallet.';
+    }
+
+    if (
+      candidate.origin &&
+      !identityLinkOriginIsCurrent(Store.getState(), candidate.origin)
+    ) {
+      return 'This VerusID no longer matches the active wallet. Reopen this sheet and try again.';
+    }
+
+    if (
+      typeof isCandidateAllowed === 'function' &&
+      !isCandidateAllowed(candidate)
+    ) {
+      return 'This VerusID does not match the selected network or request.';
+    }
+
+    if (!candidate.primaryAddress) {
+      return 'This VerusID does not use a primary address from this wallet.';
+    }
+
+    return null;
+  };
+
+  const resolveManualIdentity = async () => {
+    if (
+      linkingRef.current ||
+      manualResolvingRef.current ||
+      manualPhase === LINK_EXISTING_VERUSID_MANUAL_PHASES.RESOLVING
+    ) {
+      return;
+    }
+
+    const session = sheetSessionRef.current;
+    const lookup = normalizeManualLookup(manualValue);
+
+    if (!lookup) {
+      setManualError('Enter a VerusID name or i-Address.');
+      return;
+    }
+
+    if (!systemId) {
+      setManualError('This VerusID network is unavailable right now.');
+      return;
+    }
+
+    const requestId = manualRequestIdRef.current + 1;
+    manualRequestIdRef.current = requestId;
+    manualResolvingRef.current = true;
+    // The lookup belongs to the wallet session that started it, not just the
+    // sheet. A resolved candidate must be re-checked before review and link.
+    const origin = captureIdentityLinkOrigin(Store.getState(), {
+      chainId: coinId,
+      walletAddress: primaryAddress,
+    });
+    setManualError(null);
+    setManualFriendlyNames(null);
+    setResolvedCandidate(null);
+    setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.RESOLVING);
+
+    const isRequestCurrent = () =>
+      manualRequestIdRef.current === requestId &&
+      sheetSessionRef.current === session &&
+      identityLinkOriginIsCurrent(Store.getState(), origin);
+
+    try {
+      const identityRes = await getIdentity(systemId, lookup);
+
+      if (!isRequestCurrent()) return;
+
+      if (identityRes.error) {
+        setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+        setManualError(describeLookupFailure(identityRes.error));
+        return;
+      }
+
+      const friendlyNames = await getFriendlyNameMap(
+        systemId,
+        identityRes.result,
+      ).catch(() => null);
+
+      if (!isRequestCurrent()) return;
+
+      const candidate = buildResolvedCandidate({
+        chainId: coinId,
+        identityResult: identityRes.result,
+        origin,
+        systemId,
+        walletAddresses,
+      });
+      const candidateError = getCandidateValidationError(candidate);
+
+      if (candidateError) {
+        setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+        setManualError(candidateError);
+        return;
+      }
+
+      Keyboard.dismiss();
+      setManualFriendlyNames(friendlyNames || {});
+      setResolvedCandidate(candidate);
+      setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.REVIEW);
+    } catch (e) {
+      if (!isRequestCurrent()) return;
+
+      setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+      setManualError(describeLookupFailure(e));
+    } finally {
+      if (manualRequestIdRef.current === requestId) {
+        manualResolvingRef.current = false;
+      }
+    }
+  };
+
+  const openManualMode = () => {
+    // The internal manual step needs a resolvable network. Consumers that
+    // cannot provide one keep their existing fallback.
+    if (!systemId && typeof onManualLink === 'function') {
+      onManualLink();
+      return;
+    }
+
+    setLinkError(null);
+    setManualError(null);
+    setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+    setResolvedCandidate(null);
+    setMode(LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL);
+  };
+
+  const closeManualMode = () => {
+    manualRequestIdRef.current += 1;
+    manualResolvingRef.current = false;
+    Keyboard.dismiss();
+    setManualError(null);
+    setManualFriendlyNames(null);
+    setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+    setResolvedCandidate(null);
+    setMode(LINK_EXISTING_VERUSID_SHEET_MODES.LIST);
+  };
+
+  const returnToManualInput = () => {
+    manualRequestIdRef.current += 1;
+    manualResolvingRef.current = false;
+    setManualError(null);
+    setResolvedCandidate(null);
+    setManualPhase(LINK_EXISTING_VERUSID_MANUAL_PHASES.INPUT);
+  };
+
+  const confirmResolvedCandidate = () => {
+    if (!resolvedCandidate) return;
+
+    handleLinkCandidate(resolvedCandidate);
   };
 
   const handleCandidateListScroll = event => {
@@ -353,16 +804,6 @@ const LinkExistingVerusIdSheet = ({
     });
   };
 
-  if (loading) {
-    return (
-      <DiscoverySkeleton
-        minHeight={listViewportHeight}
-        styles={styles}
-        theme={theme}
-      />
-    );
-  }
-
   if (linking) {
     return (
       <LoadingState
@@ -373,79 +814,272 @@ const LinkExistingVerusIdSheet = ({
     );
   }
 
-  return (
-    <>
-      {candidates.length > 0 && (
-        <AppSearchField
-          accessibilityLabel="Search VerusID"
-          onChangeText={setSearchQuery}
-          placeholder="Search VerusID"
-          resultCount={filteredCandidates.length}
-          style={styles.searchContainer}
-          themeMode={theme.mode}
-          value={searchQuery}
-        />
-      )}
-      {errorMessage && (
-        <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
-          <Text style={styles.statusText}>{errorMessage}</Text>
-        </View>
-      )}
-      {!errorMessage && candidates.length === 0 && (
-        <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
-          <Text style={styles.statusText}>
-            {'No VerusIDs were found for this wallet.'}
-          </Text>
-        </View>
-      )}
-      {!errorMessage &&
-        candidates.length > 0 &&
-        filteredCandidates.length === 0 && (
-          <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
-            <Text style={styles.statusText}>
-              {'No VerusIDs match that search.'}
-            </Text>
-          </View>
-        )}
-      {filteredCandidates.length > 0 && (
-        <View style={[styles.listFrame, {height: listViewportHeight}]}>
-          <FlatList
-            ref={listRef}
-            alwaysBounceVertical={false}
-            bounces={false}
-            contentContainerStyle={signedOutSheetStyles.listContent}
-            data={filteredCandidates}
-            keyExtractor={candidate => candidate.identityAddress}
-            keyboardShouldPersistTaps="handled"
-            onScroll={handleCandidateListScroll}
-            renderItem={({item}) => (
-              <CandidateRow
-                candidate={item}
-                onPress={() => handleLinkCandidate(item)}
-                styles={styles}
-                theme={theme}
-              />
-            )}
-            scrollEventThrottle={16}
-            scrollEnabled={candidateListScrollable}
-            showsVerticalScrollIndicator={candidateListScrollable}
-          />
-          {showTopScrollCue && (
-            <ScrollCue position="top" styles={styles} theme={theme} />
-          )}
-          {showBottomScrollCue && (
-            <ScrollCue position="bottom" styles={styles} theme={theme} />
-          )}
-        </View>
-      )}
-      {lookupUnsupported && (
-        <ManualLinkRow
-          onPress={onManualLink}
-          signedOutSheetStyles={signedOutSheetStyles}
+  if (mode === LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL) {
+    if (
+      manualPhase === LINK_EXISTING_VERUSID_MANUAL_PHASES.REVIEW &&
+      resolvedCandidate
+    ) {
+      return (
+        <ManualReviewStep
+          candidate={resolvedCandidate}
+          errorMessage={manualError}
+          friendlyNames={manualFriendlyNames}
+          onBack={returnToManualInput}
+          onConfirm={confirmResolvedCandidate}
+          styles={styles}
           theme={theme}
         />
+      );
+    }
+
+    return (
+      <ManualEntryStep
+        errorMessage={manualError}
+        onBack={closeManualMode}
+        onChangeValue={value => {
+          setManualValue(value);
+          if (manualError) setManualError(null);
+        }}
+        onLookup={resolveManualIdentity}
+        resolving={
+          manualPhase === LINK_EXISTING_VERUSID_MANUAL_PHASES.RESOLVING
+        }
+        styles={styles}
+        theme={theme}
+        value={manualValue}
+      />
+    );
+  }
+
+  return (
+    <>
+      {loading ? (
+        // Discovery keeps running in the background while the manual entry
+        // row below stays reachable.
+        <DiscoverySkeleton
+          minHeight={listViewportHeight}
+          styles={styles}
+          theme={theme}
+        />
+      ) : (
+        <>
+          {candidates.length > 0 && (
+            <AppSearchField
+              accessibilityLabel="Search VerusID"
+              onChangeText={setSearchQuery}
+              placeholder="Search VerusID"
+              resultCount={filteredCandidates.length}
+              style={styles.searchContainer}
+              themeMode={theme.mode}
+              value={searchQuery}
+            />
+          )}
+          {linkError && (
+            <Text accessibilityLiveRegion="polite" style={styles.linkError}>
+              {linkError}
+            </Text>
+          )}
+          {errorMessage && (
+            <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
+              <Text style={styles.statusText}>{errorMessage}</Text>
+            </View>
+          )}
+          {!errorMessage && candidates.length === 0 && (
+            <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
+              <Text style={styles.statusText}>
+                {'No VerusIDs were found for this wallet.'}
+              </Text>
+            </View>
+          )}
+          {!errorMessage &&
+            candidates.length > 0 &&
+            filteredCandidates.length === 0 && (
+              <View style={[styles.statusState, {minHeight: listViewportHeight}]}>
+                <Text style={styles.statusText}>
+                  {'No VerusIDs match that search.'}
+                </Text>
+              </View>
+            )}
+          {filteredCandidates.length > 0 && (
+            <View style={[styles.listFrame, {height: listViewportHeight}]}>
+              <FlatList
+                ref={listRef}
+                alwaysBounceVertical={false}
+                bounces={false}
+                contentContainerStyle={signedOutSheetStyles.listContent}
+                data={filteredCandidates}
+                keyExtractor={candidate => candidate.identityAddress}
+                keyboardShouldPersistTaps="handled"
+                onScroll={handleCandidateListScroll}
+                renderItem={({item}) => (
+                  <CandidateRow
+                    candidate={item}
+                    onPress={() => handleLinkCandidate(item)}
+                    styles={styles}
+                    theme={theme}
+                  />
+                )}
+                scrollEventThrottle={16}
+                scrollEnabled={candidateListScrollable}
+                showsVerticalScrollIndicator={candidateListScrollable}
+              />
+              {showTopScrollCue && (
+                <ScrollCue position="top" styles={styles} theme={theme} />
+              )}
+              {showBottomScrollCue && (
+                <ScrollCue position="bottom" styles={styles} theme={theme} />
+              )}
+            </View>
+          )}
+        </>
       )}
+      {/* The manual entry row stays reachable in every list-mode state. */}
+      <ManualLinkRow
+        onPress={openManualMode}
+        signedOutSheetStyles={signedOutSheetStyles}
+        theme={theme}
+      />
     </>
+  );
+};
+
+const ManualEntryStep = ({
+  errorMessage,
+  onBack,
+  onChangeValue,
+  onLookup,
+  resolving,
+  styles,
+  theme,
+  value,
+}) => (
+  <View>
+    <Text accessibilityRole="header" style={styles.manualStepTitle}>
+      Link VerusID
+    </Text>
+    <View style={styles.manualStepScrollFrame}>
+      <ScrollView
+        bounces={false}
+        contentContainerStyle={styles.manualStepScrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <AppTextInput
+          accessibilityLabel="VerusID name or i-Address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!resolving}
+          errorText={errorMessage}
+          label="VerusID name or i-Address"
+          onChangeText={onChangeValue}
+          onSubmitEditing={onLookup}
+          placeholder="Name or i-address"
+          returnKeyType="done"
+          themeMode={theme.mode}
+          value={value}
+        />
+      </ScrollView>
+    </View>
+    <SafeBottomActionStack
+      bottomSpacing={12}
+      gap={10}
+      horizontalSpacing={0}
+      includeBottomInset={false}
+      safeAreaSpacing={0}
+      style={styles.manualStepActions}>
+      <AppButton
+        accessibilityLabel="Look up VerusID"
+        disabled={resolving}
+        height={56}
+        onPress={onLookup}
+        themeMode={theme.mode}>
+        {resolving ? (
+          <ActivityIndicator color={theme.colors.onPrimary} size={18} />
+        ) : (
+          'Look up VerusID'
+        )}
+      </AppButton>
+      <AppButton
+        accessibilityLabel="Back to discovered VerusIDs"
+        disabled={resolving}
+        height={56}
+        onPress={onBack}
+        themeMode={theme.mode}
+        variant="secondary">
+        Back
+      </AppButton>
+    </SafeBottomActionStack>
+  </View>
+);
+
+const ManualReviewStep = ({
+  candidate,
+  errorMessage,
+  friendlyNames,
+  onBack,
+  onConfirm,
+  styles,
+  theme,
+}) => {
+  const sections = buildVerusIdSections(candidate?.identityResult, friendlyNames);
+
+  return (
+    <View>
+      <Text
+        accessibilityRole="header"
+        numberOfLines={2}
+        style={styles.manualStepTitle}>
+        {candidate?.displayName}
+      </Text>
+      <View
+        style={[
+          styles.reviewFrame,
+          errorMessage && styles.reviewFrameWithError,
+        ]}>
+        {sections.length > 0 ? (
+          <SheetScrollView>
+            {sections.map(section => (
+              <InfoSheetSection
+                key={section.title}
+                rows={section.rows}
+                title={section.title}
+              />
+            ))}
+          </SheetScrollView>
+        ) : (
+          <Text style={styles.statusText}>
+            No VerusID details were returned.
+          </Text>
+        )}
+      </View>
+      {errorMessage ? (
+        <Text accessibilityLiveRegion="polite" style={styles.linkError}>
+          {errorMessage}
+        </Text>
+      ) : null}
+      <SafeBottomActionStack
+        bottomSpacing={8}
+        gap={10}
+        horizontalSpacing={0}
+        includeBottomInset={false}
+        safeAreaSpacing={0}
+        style={styles.manualStepActions}>
+        <AppButton
+          accessibilityLabel={`Link ${candidate?.displayName || 'VerusID'}`}
+          height={56}
+          onPress={onConfirm}
+          themeMode={theme.mode}>
+          Link VerusID
+        </AppButton>
+        <AppButton
+          accessibilityLabel="Back to VerusID entry"
+          height={56}
+          onPress={onBack}
+          themeMode={theme.mode}
+          variant="secondary">
+          Back
+        </AppButton>
+      </SafeBottomActionStack>
+    </View>
   );
 };
 
@@ -547,6 +1181,7 @@ const CandidateRow = ({candidate, onPress, styles, theme}) => (
 
 const ManualLinkRow = ({onPress, signedOutSheetStyles, theme}) => (
   <TouchableOpacity
+    accessibilityLabel="Enter VerusID manually"
     accessibilityRole="button"
     activeOpacity={0.74}
     onPress={onPress}
@@ -571,6 +1206,38 @@ const ManualLinkRow = ({onPress, signedOutSheetStyles, theme}) => (
 
 const createStyles = theme =>
   StyleSheet.create({
+    linkError: {
+      color: theme.colors.danger,
+      fontSize: 13,
+      lineHeight: 18,
+      marginBottom: 10,
+      ...fontStyle('regular'),
+    },
+    manualStepTitle: {
+      color: theme.colors.textPrimary,
+      marginBottom: 10,
+      ...theme.typography.titleSheet,
+    },
+    manualStepScrollFrame: {
+      flexGrow: 0,
+      flexShrink: 1,
+      minHeight: 0,
+    },
+    manualStepScrollContent: {
+      paddingBottom: 4,
+    },
+    manualStepActions: {
+      marginTop: 12,
+    },
+    reviewFrame: {
+      flexGrow: 0,
+      flexShrink: 1,
+      maxHeight: 220,
+      overflow: 'hidden',
+    },
+    reviewFrameWithError: {
+      maxHeight: 168,
+    },
     searchContainer: {
       marginBottom: 10,
     },

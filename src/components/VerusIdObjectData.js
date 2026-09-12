@@ -13,15 +13,24 @@
     with truncated previews for cleaner scanning.
   - 2026-03-06: Clarified current-content removal wording  so pre-confirmation cards use
     future tense and content-clear actions get dedicated copy.
+  - 2026-09-12: Added the 'signedInDetails' presentation for the signed-in VerusID
+    details screen. It puts status/network first, omits the redundant name row,
+    expands control information while leaving technical sections collapsed, and
+    swaps row-wide copy alerts for an inline CopyAction. Default behavior for the
+    Identity Update/revoke/recover consumers is unchanged.
+  - 2026-09-12: The 'signedInDetails' rows opt out of the merged List.Item
+    accessibility element so the nested CopyAction stays reachable, and copied
+    feedback now names the field it copied.
 */
 import React, { useEffect, useState } from 'react';
-import { Clipboard, FlatList, Alert, View, Image, ScrollView } from 'react-native';
+import { Clipboard, Alert, View, Image, ScrollView } from 'react-native';
 import { Text, List, Divider, Paragraph } from 'react-native-paper';
 import Colors from '../globals/colors';
 import Styles, { verusIdObjectDataStyles as LocalStyles } from '../styles';
 import { Revoke, Recover, Coins } from '../images/customIcons';
 import { openUrl } from "../utils/linking";
 import AnimatedSuccessCheckmark from "./AnimatedSuccessCheckmark";
+import CopyAction from './CopyAction';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getVerusIdStatus } from '../utils/verusid/getVerusIdStatus';
 import { 
@@ -52,6 +61,19 @@ const checkmark = (<AnimatedSuccessCheckmark style={{ width: 20, marginRight: 5,
 
 const triangle = <MaterialCommunityIcons name={'information'} size={20} color={Colors.warningButtonColor} style={{ width: 20, marginRight: 9, alignSelf: 'flex-end', }} />;
 
+export const VERUSID_OBJECT_DATA_PRESENTATIONS = {
+  DEFAULT: 'default',
+  SIGNED_IN_DETAILS: 'signedInDetails',
+};
+
+// Control information answers "who else can act on this VerusID?" and stays open.
+// Identity content and the private address are technical detail and start collapsed.
+const SIGNED_IN_DETAILS_EXPANDED_GROUPS = [
+  VERUSID_WARNINGS.key,
+  VERUSID_BASE_INFO.key,
+  VERUSID_AUTH_INFO.key,
+];
+
 export default function VerusIdObjectData(props) {
   const { 
     friendlyNames, 
@@ -71,7 +93,11 @@ export default function VerusIdObjectData(props) {
     extraListItems,
     showChangeBadges,
     semanticTheme,
+    presentation = VERUSID_OBJECT_DATA_PRESENTATIONS.DEFAULT,
   } = props;
+
+  const signedInDetailsPresentation =
+    presentation === VERUSID_OBJECT_DATA_PRESENTATIONS.SIGNED_IN_DETAILS;
   
   const [listData, setListData] = useState([]);
   const [expandedAccordions, setExpandedAccordions] = useState({});
@@ -209,15 +235,10 @@ export default function VerusIdObjectData(props) {
       
       const baseInfo = [
         {
-          key: VERUSID_NAME.key,
-          title: VERUSID_NAME.label,
-          data: verusId.identity.name,
-          onPress: () => copyDataToClipboard(verusId.identity.name, VERUSID_NAME.label),
-        },
-        {
           key: VERUSID_IADDRESS.key,
           title: VERUSID_IADDRESS.label,
           data: verusId.identity.identityaddress,
+          copyValue: verusId.identity.identityaddress,
           onPress: () => copyDataToClipboard(verusId.identity.identityaddress, VERUSID_IADDRESS.label),
         },
         {
@@ -230,21 +251,38 @@ export default function VerusIdObjectData(props) {
           key: VERUSID_SYSTEM.key,
           title: VERUSID_SYSTEM.label,
           data: tryDisplayFriendlyName(verusId.identity.systemid).replace(/@/g, ''),
+          copyValue: verusId.identity.systemid,
           onPress: () => copyDataToClipboard(verusId.identity.systemid, VERUSID_SYSTEM.label),
         },
       ];
+
+      const nameRow = {
+        key: VERUSID_NAME.key,
+        title: VERUSID_NAME.label,
+        data: verusId.identity.name,
+        copyValue: verusId.identity.name,
+        onPress: () => copyDataToClipboard(verusId.identity.name, VERUSID_NAME.label),
+      };
+
+      // The signed-in details screen shows the name as its title and leads with
+      // status and network instead of repeating the name as a row.
+      const orderedBaseInfo = signedInDetailsPresentation
+        ? [baseInfo[1], baseInfo[2], baseInfo[0]]
+        : [nameRow, ...baseInfo];
   
       const authorityInfo = [
         {
           key: VERUSID_REVOCATION_AUTH.key,
           title: VERUSID_REVOCATION_AUTH.label,
           data: tryDisplayFriendlyName(verusId.identity.revocationauthority),
+          copyValue: verusId.identity.revocationauthority,
           onPress: () => copyDataToClipboard(verusId.identity.revocationauthority, VERUSID_REVOCATION_AUTH.label),
         },
         {
           key: VERUSID_RECOVERY_AUTH.key,
           title: VERUSID_RECOVERY_AUTH.label,
           data: tryDisplayFriendlyName(verusId.identity.recoveryauthority),
+          copyValue: verusId.identity.recoveryauthority,
           onPress: () => copyDataToClipboard(verusId.identity.recoveryauthority, VERUSID_RECOVERY_AUTH.label),
         },
       ];
@@ -255,6 +293,7 @@ export default function VerusIdObjectData(props) {
           key: VERUSID_PRIVATE_ADDRESS.key,
           title: VERUSID_PRIVATE_ADDRESS.label,
           data: verusId.identity.privateaddress || null,
+          copyValue: verusId.identity.privateaddress || null,
           onPress: verusId.identity.privateaddress
             ? () => copyDataToClipboard(verusId.identity.privateaddress, VERUSID_PRIVATE_ADDRESS.key)
             : undefined,
@@ -278,6 +317,7 @@ export default function VerusIdObjectData(props) {
           key: `${VERUSID_PRIMARY_ADDRESS.key}:${i}`,
           title: `${VERUSID_PRIMARY_ADDRESS.label} ${i + 1}`,
           data: primaryAddrs[i] ? primaryAddrs[i] : 'None',
+          copyValue: primaryAddrs[i] || null,
           onPress: primaryAddrs[i]
             ? () => copyDataToClipboard(primaryAddrs[i], 'Primary Address')
             : undefined,
@@ -295,14 +335,26 @@ export default function VerusIdObjectData(props) {
       // Build grouped data
       const groupedData = [
         { key: VERUSID_WARNINGS.key, title: VERUSID_WARNINGS.label, items: warningData },
-        { key: VERUSID_BASE_INFO.key, title: VERUSID_BASE_INFO.label, items: baseInfo },
+        { key: VERUSID_BASE_INFO.key, title: VERUSID_BASE_INFO.label, items: orderedBaseInfo },
         { key: VERUSID_CMM_INFO.key, title: VERUSID_CMM_INFO.label, items: contentMultiMapInfo },
         { key: VERUSID_AUTH_INFO.key, title: VERUSID_AUTH_INFO.label, items: authorityInfo.concat(primaryAddresses) },
         { key: VERUSID_PRIVATE_INFO.key, title: VERUSID_PRIVATE_INFO.label, items: privacyData },
       ];
+
+      // Authorities precede identity content on the signed-in details screen so
+      // the control model reads before raw content data.
+      const orderedGroups = signedInDetailsPresentation
+        ? [
+            groupedData[1],
+            groupedData[0],
+            groupedData[3],
+            groupedData[2],
+            groupedData[4],
+          ]
+        : groupedData;
   
       // Filter out unchanged if hideUnchanged is true
-      const finalGroups = groupedData.map(group => {
+      const finalGroups = orderedGroups.map(group => {
         const filtered = group.items.filter(item => {
           if (!hideUnchanged) return true;
           else return item.key && displayUpdates[group.key][item.key];
@@ -319,12 +371,14 @@ export default function VerusIdObjectData(props) {
       if (!hideDataOnLoad) {
         const initialExpandedState = {};
         finalGroups.forEach((group, idx) => {
-          initialExpandedState[idx] = true;
+          initialExpandedState[idx] =
+            !signedInDetailsPresentation ||
+            SIGNED_IN_DETAILS_EXPANDED_GROUPS.includes(group.key);
         });
         setExpandedAccordions(initialExpandedState);
       }
     }
-  }, [verusId, friendlyNames, updates, cmmDataKeys, chainInfo, coinObj, hideUnchanged, hideDataOnLoad]);
+  }, [verusId, friendlyNames, updates, cmmDataKeys, chainInfo, coinObj, hideUnchanged, hideDataOnLoad, signedInDetailsPresentation, ownedAddress, ownedByUser]);
 
   copyDataToClipboard = (data, name) => {
     Clipboard.setString(data);
@@ -374,6 +428,18 @@ export default function VerusIdObjectData(props) {
                       }
                       style={itemBackgroundColor ? {backgroundColor: itemBackgroundColor} : undefined}
                       titleNumberOfLines={100}
+                      accessible={signedInDetailsPresentation ? false : undefined}
+                      right={
+                        signedInDetailsPresentation && item.copyValue
+                          ? () => (
+                              <CopyAction
+                                accessibilityLabel={`Copy ${item.title}`}
+                                copiedAccessibilityLabel={`${item.title} copied`}
+                                value={item.copyValue}
+                              />
+                            )
+                          : undefined
+                      }
                       description={() =>
                         displayUpdates[group.key][item.key] ? (
                           <>
@@ -388,11 +454,12 @@ export default function VerusIdObjectData(props) {
                         )
                       }
                       onPress={
-                        displayUpdates[group.key][item.key] && 
-                        displayUpdates[group.key][item.key].onPress ? 
-                          displayUpdates[group.key][item.key].onPress 
-                          : 
-                          item.onPress
+                        signedInDetailsPresentation
+                          ? undefined
+                          : displayUpdates[group.key][item.key] &&
+                            displayUpdates[group.key][item.key].onPress
+                          ? displayUpdates[group.key][item.key].onPress
+                          : item.onPress
                       }
                     />
                     <Divider style={dividerColor ? {backgroundColor: dividerColor} : undefined} />
@@ -443,6 +510,18 @@ export default function VerusIdObjectData(props) {
                         }
                         style={itemBackgroundColor ? {backgroundColor: itemBackgroundColor} : undefined}
                         titleNumberOfLines={100}
+                        accessible={signedInDetailsPresentation ? false : undefined}
+                        right={
+                          signedInDetailsPresentation && item.copyValue
+                            ? () => (
+                                <CopyAction
+                                  accessibilityLabel={`Copy ${item.title}`}
+                                  copiedAccessibilityLabel={`${item.title} copied`}
+                                  value={item.copyValue}
+                                />
+                              )
+                            : undefined
+                        }
                         description={() =>
                           displayUpdates[group.key][item.key] ? (
                             <>
@@ -457,11 +536,12 @@ export default function VerusIdObjectData(props) {
                           )
                         }
                         onPress={
-                          displayUpdates[group.key][item.key] && 
-                          displayUpdates[group.key][item.key].onPress ? 
-                            displayUpdates[group.key][item.key].onPress 
-                            : 
-                            item.onPress
+                          signedInDetailsPresentation
+                            ? undefined
+                            : displayUpdates[group.key][item.key] &&
+                              displayUpdates[group.key][item.key].onPress
+                            ? displayUpdates[group.key][item.key].onPress
+                            : item.onPress
                         }
                       />
                       <Divider style={dividerColor ? {backgroundColor: dividerColor} : undefined} />

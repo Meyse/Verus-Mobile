@@ -12,7 +12,16 @@ export const processVerusId = async (
   fqnToAutoLink = null,
   requestType = 'loginconsent',
   notificationUid = null,
+  guard = null,
 ) => {
+  // Optional caller-supplied guard. When provided it is checked immediately
+  // before every dispatch and navigation so a stale resumption cannot write
+  // into a newer wallet session or override a newer operation. Callers that
+  // pass no guard keep the original unguarded behavior.
+  const isCurrent = () => (typeof guard === 'function' ? guard() !== false : true);
+
+  if (!isCurrent()) return null;
+
   if (requestType === 'generic') {
     let savedPendingRequest = null;
 
@@ -27,12 +36,16 @@ export const processVerusId = async (
       console.warn('Unable to save pending deeplink', e?.message ?? e);
     }
 
+    // The storage await can straddle a session change or a newer operation.
+    if (!isCurrent()) return null;
+
     const passthrough = {
       fqnToAutoLink,
       notificationUid,
       ...(getPendingDeeplinkPassthrough(savedPendingRequest) || {}),
     };
 
+    if (!isCurrent()) return null;
     props.dispatch({
       type: SET_DEEPLINK_DATA,
       payload: {
@@ -42,6 +55,7 @@ export const processVerusId = async (
         passthrough,
       },
     });
+    if (!isCurrent()) return null;
     props.navigation.navigate('DeepLink');
     return;
   }
@@ -49,6 +63,7 @@ export const processVerusId = async (
   const req = new primitives.LoginConsentRequest();
   req.fromBuffer(Buffer.from(requestPayload, 'base64'));
 
+  if (!isCurrent()) return null;
   props.dispatch({
     type: SET_DEEPLINK_DATA,
     payload: {
@@ -58,5 +73,6 @@ export const processVerusId = async (
       passthrough: { fqnToAutoLink, notificationUid }
     },
   });
+  if (!isCurrent()) return null;
   props.navigation.navigate('DeepLink');
 }

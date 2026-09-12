@@ -1,20 +1,53 @@
-import React, {useCallback, useEffect, useLayoutEffect, useMemo, useState} from 'react';
-import {RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+/*
+  SignedInVerusIdDetails
+  - Shows one linked VerusID. The name is the screen title; status, network,
+    and identifiers lead the data, control information follows, and technical
+    detail stays collapsed until asked for.
+  - Loading, refresh failure, and unlink confirmation use the shared
+    onboarding theme, skeletons, floating sheets, and dismissal lifecycle.
+*/
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDispatch} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import AnimatedActivityIndicatorBox from '../../../../components/AnimatedActivityIndicatorBox';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
-import MissingInfoRedirect from '../../../../components/MissingInfoRedirect/MissingInfoRedirect';
-import VerusIdObjectData from '../../../../components/VerusIdObjectData';
-import {fontStyle} from '../../../../globals/fonts';
+import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
+import SkeletonLoader, {
+  SkeletonBlock,
+  SkeletonSection,
+} from '../../../../components/SkeletonLoader';
+import useSheetDismissal from '../../../../components/useSheetDismissal';
+import VerusIdObjectData, {
+  VERUSID_OBJECT_DATA_PRESENTATIONS,
+} from '../../../../components/VerusIdObjectData';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
+import Store from '../../../../store';
+import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
-import {getFriendlyNameMap, getIdentity} from '../../../../utils/api/channels/verusid/callCreators';
+import {
+  getFriendlyNameMap,
+  getIdentity,
+} from '../../../../utils/api/channels/verusid/callCreators';
+import {VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {openUrl} from '../../../../utils/linking';
 import {setServiceLoading, setUserCoins} from '../../../../actions/actionCreators';
@@ -24,9 +57,17 @@ import {
   clearChainLifecycle,
   refreshActiveChainLifecycles,
 } from '../../../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {
+  captureSessionScope,
+  sessionScopeIsCurrent,
+} from '../../../../actions/actions/updates/sessionRequests';
+import {shouldNavigateAfterUnlinkDismissal} from '../../../../utils/verusid/verusIdFlowGuards';
 import {VERUSID_SERVICE_ID} from '../../../../utils/constants/services';
 
 const BOTTOM_FADE_HEIGHT = 48;
+const LOAD_FAILED_MESSAGE =
+  'Check your connection, then try again.';
+const UNLINK_FAILED_MESSAGE = 'Unable to unlink this VerusID. Try again.';
 
 const BottomFade = ({backgroundColor, solidHeight}) => (
   <View pointerEvents="none" style={styles.bottomFade}>
@@ -50,15 +91,66 @@ const BottomFade = ({backgroundColor, solidHeight}) => (
   </View>
 );
 
+const DetailsSkeleton = ({theme}) => (
+  <SkeletonLoader
+    accessibilityLabel="Loading VerusID details"
+    style={styles.skeleton}>
+    <SkeletonBlock height={28} style={styles.skeletonTitle} width="52%" />
+    <SkeletonSection
+      rows={[
+        {labelWidth: '16%', valueWidth: '26%'},
+        {labelWidth: '22%', valueWidth: '38%'},
+        {labelWidth: '14%', valueWidth: '74%'},
+      ]}
+      titleWidth="28%"
+    />
+    <SkeletonSection
+      rows={[
+        {labelWidth: '36%', valueWidth: '48%'},
+        {labelWidth: '34%', valueWidth: '44%'},
+      ]}
+      titleWidth="24%"
+    />
+    <View style={{height: theme.spacing.sm}} />
+  </SkeletonLoader>
+);
+
+const describeUnlinkFailure = error => {
+  const message =
+    typeof error?.message === 'string' ? error.message.trim() : '';
+
+  if (
+    !message ||
+    message.length > 140 ||
+    /rpc|json|0x[0-9a-f]{6,}|-?\d{3,}/i.test(message)
+  ) {
+    return UNLINK_FAILED_MESSAGE;
+  }
+
+  return message;
+};
+
 const SignedInVerusIdDetails = () => {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
+  const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const navigation = useNavigation();
   const route = useRoute();
   const {chain, iAddress} = route.params;
-  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
+  // The route this screen instance owns. The queued unlink navigation must
+  // only fire while this exact route is still focused.
+  const originatingRouteKeyRef = useRef(route.key);
+  const screenMountedRef = useRef(true);
+  const activeAccount = useObjectSelector(
+    state => state.authentication.activeAccount,
+  );
   const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
+  const walletAddresses = useObjectSelector(
+    state =>
+      state.authentication.activeAccount?.keys?.[chain]?.[VRPC]?.addresses ||
+      null,
+  );
   const [identity, setIdentity] = useState(null);
   const [friendlyNames, setFriendlyNames] = useState(null);
   const [error, setError] = useState(null);
@@ -66,24 +158,72 @@ const SignedInVerusIdDetails = () => {
   const [unlinkVisible, setUnlinkVisible] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [unlinkError, setUnlinkError] = useState(null);
+  const loadRequestIdRef = useRef(0);
+  const unlinkingRef = useRef(false);
+  const unlinkTokenRef = useRef(0);
+  // The session this screen rendered against. Operations capture the scope
+  // synchronously so a late completion cannot write into another account.
+  const renderedSessionScopeRef = useRef(null);
+  renderedSessionScopeRef.current = captureSessionScope(
+    Store.getState(),
+    activeAccount?.accountHash || null,
+  );
+  const isRenderedSessionCurrent = useCallback(
+    () =>
+      sessionScopeIsCurrent(
+        Store.getState(),
+        renderedSessionScopeRef.current,
+      ),
+    [],
+  );
   const bottomPadding = Math.max(insets.bottom, 20);
 
   const load = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+    const sessionScope = renderedSessionScopeRef.current;
+    const isRequestCurrent = () =>
+      requestId === loadRequestIdRef.current &&
+      sessionScopeIsCurrent(Store.getState(), sessionScope);
+    setError(null);
+
     try {
-      setError(null);
       const systemId = CoinDirectory.getBasicCoinObj(chain).system_id;
       const response = await getIdentity(systemId, iAddress);
+
+      if (!isRequestCurrent()) return;
       if (response.error) throw new Error(response.error.message);
-      setIdentity(response.result);
-      setFriendlyNames(await getFriendlyNameMap(systemId, response.result));
+
+      const loadedIdentity = response.result;
+      const loadedFriendlyNames = await getFriendlyNameMap(
+        systemId,
+        loadedIdentity,
+      );
+
+      if (!isRequestCurrent()) return;
+
+      setIdentity(loadedIdentity);
+      setFriendlyNames(loadedFriendlyNames);
     } catch (e) {
-      setError(e.message || 'Failed to load VerusID');
+      if (!isRequestCurrent()) return;
+
+      // A failed refresh keeps the VerusID already on screen and reports the
+      // failure in the screen's own words. Raw RPC text is never the headline.
+      setError(LOAD_FAILED_MESSAGE);
     }
   }, [chain, iAddress]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    screenMountedRef.current = true;
+
+    return () => {
+      screenMountedRef.current = false;
+    };
+  }, []);
 
   const title = useMemo(
     () =>
@@ -93,29 +233,139 @@ const SignedInVerusIdDetails = () => {
     [identity?.fullyqualifiedname, route.params?.displayName],
   );
 
+  const ownedAddress = useMemo(() => {
+    const primaryAddresses = identity?.identity?.primaryaddresses || [];
+
+    if (!Array.isArray(walletAddresses)) return null;
+
+    return (
+      primaryAddresses.find(address => walletAddresses.includes(address)) ||
+      null
+    );
+  }, [identity, walletAddresses]);
+
+  // The dismissal hook's onClose must hide unconditionally; the processing
+  // guard is applied by the caller instead.
+  const closeUnlinkSheet = useCallback(() => setUnlinkVisible(false), []);
+
+  const handleUnlinkSheetClosed = useCallback(() => {
+    unlinkTokenRef.current += 1;
+    unlinkingRef.current = false;
+    setUnlinkError(null);
+    setUnlinking(false);
+  }, []);
+
+  const unlinkDismissal = useSheetDismissal({
+    visible: unlinkVisible,
+    onClose: closeUnlinkSheet,
+    onClosed: handleUnlinkSheetClosed,
+  });
+
+  const requestCloseUnlinkSheet = useCallback(() => {
+    if (unlinkingRef.current) return;
+
+    unlinkDismissal.close();
+  }, [unlinkDismissal]);
+
   const unlinkIdentity = useCallback(async () => {
+    // Same-frame double taps must only start one unlink.
+    if (unlinkingRef.current) return;
+    // The details belong to the account this screen rendered. If the store
+    // account already moved on, the unlink must not run against the new one.
+    if (!isRenderedSessionCurrent()) return;
+
+    const requestContext = {
+      sessionScope: renderedSessionScopeRef.current,
+    };
+    const token = unlinkTokenRef.current + 1;
+    unlinkTokenRef.current = token;
+    unlinkingRef.current = true;
+    const isCurrent = () =>
+      unlinkTokenRef.current === token &&
+      sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope);
+    const assertSessionCurrent = () => {
+      if (!sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)) {
+        const sessionError = new Error(
+          'Account changed while the VerusID was being unlinked.',
+        );
+        sessionError.code = 'SESSION_CHANGED';
+        throw sessionError;
+      }
+    };
+
     setUnlinking(true);
     setUnlinkError(null);
     dispatch(setServiceLoading(true, VERUSID_SERVICE_ID));
+
     try {
       const coinObj = CoinDirectory.findCoinObj(chain);
-      await unlinkVerusId(iAddress, coinObj.id);
-      await updateVerusIdWallet();
+      await unlinkVerusId(iAddress, coinObj.id, requestContext);
+      assertSessionCurrent();
+      await updateVerusIdWallet(requestContext);
+      assertSessionCurrent();
       clearChainLifecycle(coinObj.id);
+
       if (activeAccount) {
         const action = setUserCoins(activeCoinList, activeAccount.id);
         dispatch(action);
         refreshActiveChainLifecycles(action.payload.activeCoinsForUser);
       }
-      setUnlinkVisible(false);
-      navigation.goBack();
+
+      assertSessionCurrent();
+      // The list underneath must be the active screen before this screen
+      // leaves, so the unlink sheet finishes closing first.
+      if (!isCurrent()) return;
+      unlinkDismissal.dismiss(() => {
+        // The queued navigation runs after the close animation. Re-check the
+        // session that began this unlink and the route/focus ownership here, at
+        // execution time, because both may have changed mid-dismissal. The
+        // request context is captured when the unlink starts, so a rerender
+        // cannot swap the scope out from under the delayed callback. The
+        // unlink token is intentionally not consulted: `onClosed` bumps it
+        // first, so it would always look stale.
+        if (
+          !shouldNavigateAfterUnlinkDismissal({
+            mounted: screenMountedRef.current,
+            sessionScope: requestContext.sessionScope,
+            state: Store.getState(),
+            originatingRouteKey: originatingRouteKeyRef.current,
+            navigationState: navigation.getState?.(),
+            isFocused:
+              typeof navigation.isFocused === 'function'
+                ? navigation.isFocused()
+                : undefined,
+          })
+        ) {
+          return;
+        }
+        navigation.goBack();
+      });
     } catch (e) {
-      setUnlinkError(e.message || 'Unable to unlink VerusID');
+      if (!isCurrent()) return;
+
+      setUnlinkError(describeUnlinkFailure(e));
     } finally {
-      dispatch(setServiceLoading(false, VERUSID_SERVICE_ID));
-      setUnlinking(false);
+      // Only clear the global service-loading flag while the captured session
+      // is still the active one; otherwise this old operation would clear a
+      // newly active session's loading state.
+      if (isCurrent()) {
+        dispatch(setServiceLoading(false, VERUSID_SERVICE_ID));
+      }
+      if (unlinkTokenRef.current === token) {
+        unlinkingRef.current = false;
+        setUnlinking(false);
+      }
     }
-  }, [activeAccount, activeCoinList, chain, dispatch, iAddress, navigation]);
+  }, [
+    activeAccount,
+    activeCoinList,
+    chain,
+    dispatch,
+    iAddress,
+    isRenderedSessionCurrent,
+    navigation,
+    unlinkDismissal,
+  ]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -123,24 +373,36 @@ const SignedInVerusIdDetails = () => {
       headerRight: () => (
         <View style={styles.headerActions}>
           <TouchableOpacity
+            accessibilityLabel="Open VerusID in browser"
             accessibilityRole="button"
-            accessibilityLabel="Open in browser"
             disabled={!identity}
             hitSlop={8}
-            onPress={() => openUrl(`https://verus.io/verusid-lookup/${identity.fullyqualifiedname}`)}
+            onPress={() =>
+              openUrl(
+                `https://verus.io/verusid-lookup/${identity.fullyqualifiedname}`,
+              )
+            }
             style={styles.headerIcon}>
-            <MaterialCommunityIcons name="open-in-new" size={22} color={theme.colors.textSecondary} />
+            <MaterialCommunityIcons
+              name="open-in-new"
+              size={22}
+              color={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityLabel="Unlink VerusID"
             accessibilityRole="button"
-            accessibilityLabel="Unlink identity"
             hitSlop={8}
             onPress={() => {
               setUnlinkError(null);
               setUnlinkVisible(true);
             }}
             style={styles.headerIconLast}>
-            <MaterialCommunityIcons name="link-variant-off" size={22} color={theme.colors.danger} />
+            <MaterialCommunityIcons
+              name="link-variant-off"
+              size={22}
+              color={theme.colors.danger}
+            />
           </TouchableOpacity>
         </View>
       ),
@@ -155,9 +417,11 @@ const SignedInVerusIdDetails = () => {
     });
   }, [identity, navigation, theme]);
 
+  const hasIdentity = Boolean(identity && friendlyNames);
+
   return (
     <View style={[styles.screen, {backgroundColor: theme.colors.background}]}>
-      {identity && friendlyNames ? (
+      {hasIdentity ? (
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
@@ -176,7 +440,7 @@ const SignedInVerusIdDetails = () => {
             />
           }
           showsVerticalScrollIndicator={false}>
-          <View style={[styles.inlineTitleContainer, {backgroundColor: theme.colors.background}]}>
+          <View style={styles.inlineTitleContainer}>
             <Text
               numberOfLines={2}
               style={[
@@ -186,78 +450,155 @@ const SignedInVerusIdDetails = () => {
               {title}
             </Text>
           </View>
+          {error ? (
+            <View
+              style={[
+                styles.refreshErrorRow,
+                {backgroundColor: theme.colors.surfaceMuted},
+              ]}>
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={20}
+                color={theme.colors.danger}
+              />
+              <View style={styles.refreshErrorText}>
+                <Text
+                  style={[
+                    theme.typography.titleRow,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  Couldn't refresh this VerusID
+                </Text>
+                <Text
+                  style={[
+                    theme.typography.caption,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {error}
+                </Text>
+              </View>
+              <AppButton
+                accessibilityLabel="Try loading this VerusID again"
+                onPress={load}
+                style={styles.refreshErrorAction}
+                themeMode={theme.mode}
+                variant="text">
+                Try again
+              </AppButton>
+            </View>
+          ) : null}
           <VerusIdObjectData
             verusId={identity}
             friendlyNames={friendlyNames}
+            presentation={VERUSID_OBJECT_DATA_PRESENTATIONS.SIGNED_IN_DETAILS}
+            ownedAddress={ownedAddress}
+            ownedByUser={Boolean(ownedAddress)}
             scrollDisabled
             containerStyle={styles.identityData}
             semanticTheme={theme}
           />
-          <View style={[styles.emptyAttestations, {backgroundColor: theme.colors.background}]}>
-            <MaterialCommunityIcons
-              name="certificate-outline"
-              size={48}
-              color={theme.colors.textSecondary}
-              style={styles.emptyAttestationIcon}
-            />
-            <Text style={[styles.emptyAttestationTitle, {color: theme.colors.textSecondary}]}>
-              No attestations linked to this identity
-            </Text>
-            <Text style={[styles.emptyAttestationBody, {color: theme.colors.textSubtle}]}>
-              Attestations you receive for this VerusID will appear here
-            </Text>
-          </View>
         </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <MissingInfoRedirect icon="alert-circle-outline" label={error} />
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={52}
+            color={theme.colors.textSubtle}
+          />
+          <Text
+            style={[
+              theme.typography.titleRow,
+              styles.errorTitle,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Couldn't load this VerusID
+          </Text>
+          <Text
+            style={[
+              theme.typography.bodySm,
+              styles.errorText,
+              {color: theme.colors.textSecondary},
+            ]}>
+            {error}
+          </Text>
+          <AppButton
+            accessibilityLabel="Try loading this VerusID again"
+            onPress={load}
+            style={styles.errorAction}
+            themeMode={theme.mode}>
+            Try again
+          </AppButton>
         </View>
       ) : (
-        <AnimatedActivityIndicatorBox />
+        <DetailsSkeleton theme={theme} />
       )}
 
-      {identity && friendlyNames ? (
-        <BottomFade backgroundColor={theme.colors.background} solidHeight={bottomPadding} />
+      {hasIdentity ? (
+        <BottomFade
+          backgroundColor={theme.colors.background}
+          solidHeight={bottomPadding}
+        />
       ) : null}
 
       <BottomSheetModal
-        visible={unlinkVisible}
-        onClose={() => {
-          if (!unlinking) {
-            setUnlinkVisible(false);
-            setUnlinkError(null);
-          }
-        }}
-        floating={false}
-        maxHeight="55%"
-        contentContainerStyle={styles.sheet}>
-        <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, {color: theme.colors.textPrimary}]}>Unlink identity</Text>
-          <TouchableOpacity
-            accessibilityLabel="Close"
-            disabled={unlinking}
-            onPress={() => {
-              setUnlinkVisible(false);
-              setUnlinkError(null);
-            }}
-            style={[styles.closeButton, {backgroundColor: theme.colors.surfaceMuted}]}>
-            <MaterialCommunityIcons name="close" size={18} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
+        closeDisabled={unlinking}
+        onClose={requestCloseUnlinkSheet}
+        onClosed={unlinkDismissal.onClosed}
+        maxHeight="60%"
+        visible={unlinkVisible}>
+        <View style={[sheetStyles.body, sheetStyles.bodyShort]}>
+          <Text
+            accessibilityRole="header"
+            style={[theme.typography.titleSheet, {color: theme.colors.textPrimary}]}>
+            Unlink VerusID
+          </Text>
+          <Text
+            style={[
+              theme.typography.bodySm,
+              styles.unlinkBody,
+              {color: theme.colors.textSecondary},
+            ]}>
+            {`This removes ${title} from this wallet. The VerusID stays on the blockchain: unlinking does not revoke, delete, recover, or change it, and you can link it again anytime.`}
+          </Text>
+          {unlinkError ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[
+                theme.typography.caption,
+                styles.unlinkError,
+                {color: theme.colors.danger},
+              ]}>
+              {unlinkError}
+            </Text>
+          ) : null}
+          <SafeBottomActionStack
+            bottomSpacing={12}
+            gap={10}
+            horizontalSpacing={0}
+            includeBottomInset={false}
+            safeAreaSpacing={0}
+            style={styles.unlinkActions}>
+            <AppButton
+              accessibilityLabel={`Unlink ${title}`}
+              buttonColor={theme.colors.danger}
+              disabled={unlinking}
+              height={56}
+              onPress={unlinkIdentity}
+              textColor={theme.colors.onPrimary}
+              themeMode={theme.mode}>
+              {unlinking ? 'Unlinking...' : 'Unlink VerusID'}
+            </AppButton>
+            <AppButton
+              accessibilityLabel="Cancel unlinking this VerusID"
+              disabled={unlinking}
+              height={56}
+              onPress={requestCloseUnlinkSheet}
+              themeMode={theme.mode}
+              variant="secondary">
+              Cancel
+            </AppButton>
+          </SafeBottomActionStack>
         </View>
-        <Text style={[styles.sheetBody, {color: theme.colors.textSecondary}]}>
-          This will remove the identity from your wallet. Your VerusID remains safe on the blockchain and you can link it again anytime.
-        </Text>
-        {unlinkError ? (
-          <Text style={[styles.unlinkError, {color: theme.colors.danger}]}>{unlinkError}</Text>
-        ) : null}
-        <AppButton
-          buttonColor={theme.colors.danger}
-          disabled={unlinking}
-          onPress={unlinkIdentity}
-          style={styles.unlinkAction}
-          textColor={theme.colors.onPrimary}>
-          {unlinking ? 'Unlinking...' : 'Unlink identity'}
-        </AppButton>
       </BottomSheetModal>
     </View>
   );
@@ -272,34 +613,34 @@ const styles = StyleSheet.create({
   content: {paddingBottom: 40},
   inlineTitleContainer: {paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12},
   identityData: {width: '100%'},
-  errorContainer: {flex: 1, justifyContent: 'center'},
-  emptyAttestations: {
-    marginTop: 8,
-    paddingVertical: 60,
-    paddingHorizontal: 24,
+  refreshErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  refreshErrorText: {flex: 1, minWidth: 0, marginLeft: 10, marginRight: 4},
+  refreshErrorAction: {alignSelf: 'center'},
+  skeleton: {paddingHorizontal: 16, paddingTop: 12},
+  skeletonTitle: {marginBottom: 24},
+  errorContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 60,
   },
-  emptyAttestationIcon: {marginBottom: 16, opacity: 0.6},
-  emptyAttestationTitle: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 21, textAlign: 'center', marginBottom: 8},
-  emptyAttestationBody: {...fontStyle('regular'), fontSize: 14, lineHeight: 20, textAlign: 'center'},
+  errorTitle: {textAlign: 'center', marginTop: 16},
+  errorText: {textAlign: 'center', marginTop: 8, marginBottom: 24},
+  errorAction: {minWidth: 180},
   bottomFade: {position: 'absolute', left: 0, right: 0, bottom: 0},
   bottomFadeSvg: {marginBottom: -1},
-  sheet: {borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 20, paddingBottom: 40},
-  sheetHeader: {height: 58, alignItems: 'center', justifyContent: 'center'},
-  sheetTitle: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20},
-  closeButton: {
-    position: 'absolute',
-    right: 0,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetBody: {...fontStyle('regular'), fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 24},
-  unlinkError: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, marginTop: -12, marginBottom: 16},
-  unlinkAction: {width: '100%'},
+  unlinkBody: {marginTop: 12},
+  unlinkError: {marginTop: 12},
+  unlinkActions: {marginTop: 18},
 });
 
 export default SignedInVerusIdDetails;

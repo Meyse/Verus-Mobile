@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -20,7 +20,9 @@ import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {PROVISIONING_REQUEST_STATUSES} from '../../../../utils/verusid/provisioningRequestState';
-import LinkExistingVerusIdSheet from './LinkExistingVerusIdSheet';
+import LinkExistingVerusIdSheet, {
+  LINK_EXISTING_VERUSID_SHEET_MODES,
+} from './LinkExistingVerusIdSheet';
 
 export const VERUSID_SHEET_MODES = {
   CHOOSE: 'choose',
@@ -44,6 +46,10 @@ const LIST_CONTENT_VERTICAL_PADDING = 4;
 const TARGET_VISIBLE_ROWS = 6;
 const TARGET_VISIBLE_ROWS_WITH_KEYBOARD = 4;
 const MIN_VISIBLE_ROWS_WITH_KEYBOARD = 1;
+// `LinkExistingVerusIdSheet` always renders the manual entry row, whose shared
+// `actionRow` style is 62 points tall. That row is permanent sheet chrome and
+// must be reserved before the scrollable candidate viewport is sized.
+const MANUAL_LINK_ROW_HEIGHT = 62;
 
 const getLinkSheetMetrics = ({
   height,
@@ -61,7 +67,8 @@ const getLinkSheetMetrics = ({
     LINK_SHEET_BODY_VERTICAL_PADDING +
     HEADER_ROW_HEIGHT +
     LINK_SHEET_SEARCH_HEIGHT +
-    LINK_SHEET_SEARCH_MARGIN_BOTTOM;
+    LINK_SHEET_SEARCH_MARGIN_BOTTOM +
+    MANUAL_LINK_ROW_HEIGHT;
   const defaultMaxSheetHeight = height * LINK_SHEET_MAX_HEIGHT_RATIO;
   const availableSheetHeight = keyboardVisible
     ? height -
@@ -70,6 +77,8 @@ const getLinkSheetMetrics = ({
       Math.max(insets.bottom, LINK_SHEET_SIDE_MARGIN) -
       LINK_SHEET_SIDE_MARGIN
     : defaultMaxSheetHeight;
+  // At minimum the sheet keeps one candidate row plus the permanent manual row
+  // reachable, so a compact keyboard layout never hides the manual route.
   const minimumSheetHeight =
     sheetChromeHeight +
     MIN_VISIBLE_ROWS_WITH_KEYBOARD * CANDIDATE_ROW_TOTAL_HEIGHT +
@@ -120,6 +129,7 @@ const IdentityPickerSheet = ({
   provisioningEnabled = true,
   provisioningRequestState,
   initialMode = VERUSID_SHEET_MODES.CHOOSE,
+  initialManualValue = '',
   onClose,
   onLinkCandidate,
   onManualLink,
@@ -137,6 +147,11 @@ const IdentityPickerSheet = ({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [sheetMode, setSheetMode] = useState(initialMode);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
+  // Mirrors `linkBusy` so same-frame guards (parent close, mode transitions)
+  // read the in-flight child mutation synchronously instead of waiting for the
+  // next render.
+  const linkBusyRef = useRef(false);
   const contentOpacity = useRef(new Animated.Value(1)).current;
   const contentTranslateX = useRef(new Animated.Value(0)).current;
   const headerProgress = useRef(new Animated.Value(0)).current;
@@ -184,6 +199,8 @@ const IdentityPickerSheet = ({
 
   useEffect(() => {
     if (!visible) {
+      setLinkBusy(false);
+      linkBusyRef.current = false;
       setKeyboardMetrics({height: 0, visible: false});
       return undefined;
     }
@@ -256,7 +273,10 @@ const IdentityPickerSheet = ({
   };
 
   const transitionToMode = nextMode => {
-    if (nextMode === sheetMode || isTransitioning) return;
+    // Read the synchronous busy ref, not the `linkBusy` state: a same-frame
+    // Back press can otherwise transition away from the link step after the
+    // child has already reported an in-flight mutation.
+    if (nextMode === sheetMode || isTransitioning || linkBusyRef.current) return;
 
     const forward = nextMode === VERUSID_SHEET_MODES.LINK;
 
@@ -352,6 +372,21 @@ const IdentityPickerSheet = ({
     transitionToMode(VERUSID_SHEET_MODES.LINK);
   };
 
+  // Writes the ref before the state update so the same-frame close/transition
+  // guards already observe the in-flight link.
+  const handleLinkBusyChange = useCallback(nextBusy => {
+    linkBusyRef.current = nextBusy;
+    setLinkBusy(nextBusy);
+  }, []);
+
+  // The child reports an in-flight link so the sheet cannot be dismissed
+  // (backdrop, system back, or the nested Back transition) mid-mutation.
+  const handleSheetClose = useCallback(() => {
+    if (linkBusyRef.current) return;
+
+    if (typeof onClose === 'function') onClose();
+  }, [onClose]);
+
   const headerAnimatedStyle = {
     height: headerProgress.interpolate({
       inputRange: [0, 1],
@@ -374,13 +409,14 @@ const IdentityPickerSheet = ({
   return (
     <BottomSheetModal
       avoidKeyboard={sheetMode === VERUSID_SHEET_MODES.LINK}
+      closeDisabled={linkBusy}
       contentContainerStyle={
         sheetMode === VERUSID_SHEET_MODES.LINK
           ? {height: linkSheetMetrics.sheetHeight}
           : null
       }
       visible={visible}
-      onClose={onClose}
+      onClose={handleSheetClose}
       maxHeight={
         sheetMode === VERUSID_SHEET_MODES.LINK
           ? linkSheetMetrics.sheetHeight
@@ -404,7 +440,7 @@ const IdentityPickerSheet = ({
                   accessibilityLabel="Back to VerusID options"
                   accessibilityRole="button"
                   activeOpacity={0.74}
-                  disabled={isTransitioning}
+                  disabled={isTransitioning || linkBusy}
                   onPress={() => transitionToMode(VERUSID_SHEET_MODES.CHOOSE)}
                   style={styles.backButton}>
                   <View style={signedOutSheetStyles.actionIcon}>
@@ -419,8 +455,15 @@ const IdentityPickerSheet = ({
               active={visible && sheetMode === VERUSID_SHEET_MODES.LINK}
               candidateListHeight={linkSheetMetrics.candidateListHeight}
               coinObj={coinObj}
+              initialManualValue={initialManualValue}
+              initialMode={
+                initialManualValue
+                  ? LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL
+                  : LINK_EXISTING_VERUSID_SHEET_MODES.LIST
+              }
               isCandidateAllowed={isCandidateAllowed}
               linkedIds={linkedIds}
+              onBusyChange={handleLinkBusyChange}
               onLinkCandidate={onLinkCandidate}
               onManualLink={onManualLink}
             />
