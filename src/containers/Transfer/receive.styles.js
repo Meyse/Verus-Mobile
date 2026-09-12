@@ -1,4 +1,4 @@
-import {StyleSheet} from 'react-native';
+import {Platform, StyleSheet} from 'react-native';
 import {fontStyle} from '../../globals/fonts';
 
 export const createReceiveListStyles = theme =>
@@ -244,6 +244,25 @@ export const createReceiveDetailsStyles = theme =>
       lineHeight: 20,
       ...fontStyle('medium'),
     },
+    // An absent address is a message rather than a record: normal body copy
+    // that wraps instead of identifier type that truncates.
+    addressMissing: {
+      flex: 1,
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 20,
+      ...fontStyle('regular'),
+    },
+    // Raw addresses, hashes and identifiers use the established platform
+    // monospace convention. Human VerusID names keep the normal type above.
+    identifier: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'},
+    cardMeta: {
+      marginTop: 6,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+      ...fontStyle('regular'),
+    },
     requestCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -274,42 +293,48 @@ export const createReceiveDetailsStyles = theme =>
       paddingTop: 16,
       backgroundColor: theme.colors.background,
     },
-    sheet: {paddingTop: 12},
-    sheetBody: {paddingHorizontal: 24, paddingBottom: 24},
-    sheetHeading: {
+
+    // Terminal page states (missing Asset, no receive-compatible Card,
+    // unresolved address). One centred statement and one safe exit.
+    stateScreen: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+    },
+    stateTitle: {
       ...theme.typography.headlineMd,
       color: theme.colors.textPrimary,
+      textAlign: 'center',
     },
-    sheetSubtitle: {
-      marginBottom: 20,
+    stateBody: {
+      marginTop: 10,
+      marginBottom: 24,
       color: theme.colors.textSecondary,
+      textAlign: 'center',
       fontSize: 14,
       lineHeight: 20,
       ...fontStyle('regular'),
     },
-    amountStepContent: {
-      paddingHorizontal: 24,
-      paddingTop: 8,
-      paddingBottom: 16,
+    stateAction: {width: '100%', maxWidth: 360},
+
+    // Payment-request task. Full-screen stepped composition that mirrors the
+    // canonical Gift Card flow: 20-point side inset, 24-point top inset and a
+    // 28-point bottom inset inside the fading scroll viewport.
+    wizardRoot: {flex: 1, backgroundColor: theme.colors.background},
+    wizardViewport: {flex: 1},
+    wizardContent: {flexGrow: 1, paddingTop: 24, paddingBottom: 28},
+    stepCopy: {marginBottom: 22},
+    stepTitle: {color: theme.colors.textPrimary},
+    stepHelper: {
+      ...theme.typography.bodySm,
+      marginBottom: 20,
+      color: theme.colors.textSecondary,
     },
-    amountStepHeading: {
-      marginBottom: 16,
-      color: theme.colors.textPrimary,
-      fontSize: 24,
-      lineHeight: 30,
-      letterSpacing: -0.5,
-      ...fontStyle('semiBold'),
-    },
-    amountRow: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-    },
-    amount: {
-      color: theme.colors.textPrimary,
-      fontSize: 48,
-      lineHeight: 56,
-      ...fontStyle('regular'),
-    },
+    amountRow: {flexDirection: 'row', alignItems: 'center'},
+    // The amount is a normal editable field with the shared native decimal
+    // keypad; the currency stays beside it so the unit is always visible.
+    amountField: {flex: 1, width: 'auto'},
     currency: {
       marginLeft: 8,
       color: theme.colors.textSecondary,
@@ -345,131 +370,48 @@ export const createReceiveDetailsStyles = theme =>
       lineHeight: 20,
       ...fontStyle('semiBold'),
     },
-    keypadWrap: {paddingBottom: 8},
-    keypad: {},
-    keyRow: {flexDirection: 'row'},
-    key: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-    keyText: {
-      color: theme.colors.textPrimary,
-      fontSize: 24,
-      lineHeight: 30,
-      ...fontStyle('regular'),
-    },
-    amountError: {marginHorizontal: 24},
-    amountStepFooter: {
-      paddingHorizontal: 20,
-      paddingBottom: 32,
-    },
-    subjectInput: {
-      height: 56,
-      paddingHorizontal: 16,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.borderStrong,
-      color: theme.colors.textPrimary,
-      backgroundColor: theme.colors.input,
-      fontSize: 16,
-      ...fontStyle('regular'),
-    },
-    subjectFooter: {marginTop: 24, paddingBottom: 8},
-    settingsIntro: {marginTop: 8, marginBottom: 24},
-    optionCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      minHeight: 64,
-      paddingHorizontal: 16,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surfaceMuted,
-    },
-    optionCopy: {flex: 1, paddingRight: 12},
-    optionTitle: {
-      flex: 1,
-      color: theme.colors.textPrimary,
-      fontSize: 16,
-      lineHeight: 22,
-      ...fontStyle('semiBold'),
-    },
-    optionSubtitle: {
-      marginTop: 2,
-      color: theme.colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 16,
-      ...fontStyle('regular'),
-    },
-    slippageLabel: {marginTop: 16, marginBottom: 8},
-    slippageInput: {
-      height: 44,
-      paddingHorizontal: 16,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.borderStrong,
-      color: theme.colors.textPrimary,
-      backgroundColor: theme.colors.input,
-      fontSize: 16,
-      ...fontStyle('regular'),
-    },
-    settingsFooter: {marginTop: 16, paddingBottom: 8},
+    amountError: {marginTop: 12},
     error: {
-      marginTop: 6,
+      marginTop: 12,
       color: theme.colors.danger,
-      fontSize: 12,
-      lineHeight: 16,
-      ...fontStyle('regular'),
-    },
-    result: {alignItems: 'center', paddingTop: 16, paddingBottom: 32},
-    resultQr: {backgroundColor: '#FFFFFF'},
-    resultText: {
-      marginTop: 16,
-      marginBottom: 16,
-      color: theme.colors.textSecondary,
-      textAlign: 'center',
       fontSize: 13,
-      lineHeight: 20,
-      ...fontStyle('medium'),
-    },
-    resultActions: {width: '80%', marginTop: 8},
-    resultButtonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    resultPrimaryButton: {marginBottom: 12},
-    savedResultButton: {opacity: 1},
-    resultSecondaryButton: {marginTop: 0},
-    supportedChainsBody: {
-      paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 32,
-    },
-    supportedChainsDescription: {
-      marginBottom: 16,
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 20,
+      lineHeight: 18,
       ...fontStyle('regular'),
     },
-    networkList: {marginTop: 8, marginBottom: 24},
-    networkListItem: {
+    settingRow: {
+      minHeight: 64,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    networkListText: {marginLeft: 12},
-    networkListTitle: {
+    settingCopy: {flex: 1, minWidth: 0, paddingRight: 16},
+    settingTitle: {
+      ...theme.typography.titleRow,
       color: theme.colors.textPrimary,
-      fontSize: 16,
-      lineHeight: 22,
-      ...fontStyle('semiBold'),
     },
-    networkListTicker: {
+    settingSubtitle: {
+      marginTop: 2,
       color: theme.colors.textSecondary,
       fontSize: 13,
       lineHeight: 18,
       ...fontStyle('regular'),
     },
-    loading: {alignItems: 'center', paddingTop: 72, paddingHorizontal: 24},
+    slippageField: {marginTop: 20},
+    resultWrap: {alignItems: 'center', paddingTop: 4},
+    resultQr: {backgroundColor: '#FFFFFF'},
+    resultAmount: {
+      marginTop: 20,
+      color: theme.colors.textPrimary,
+      fontSize: 20,
+      lineHeight: 26,
+      ...fontStyle('semiBold'),
+    },
+    resultAddress: {
+      maxWidth: '100%',
+      marginTop: 6,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+    },
   });

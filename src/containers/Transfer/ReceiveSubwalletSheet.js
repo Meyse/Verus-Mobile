@@ -1,9 +1,12 @@
 import React, {useMemo} from 'react';
+import {Text} from 'react-native';
 import SelectionSheet, {
   SelectionGroup,
   SelectionRow,
 } from '../../components/SelectionSheet';
 import useSheetDismissal from '../../components/useSheetDismissal';
+import {createSelectionSheetStyles} from '../../styles';
+import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 
 const getNetworkDetails = wallet => {
@@ -30,6 +33,8 @@ const ReceiveSubwalletSheet = ({
   subWallets = [],
   visible,
 }) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
   const groups = useMemo(() => {
     const result = new Map();
@@ -49,23 +54,31 @@ const ReceiveSubwalletSheet = ({
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
-      {groups.map(group => (
-        <SelectionGroup key={group.id} title={group.name}>
-          {group.wallets.map(wallet => (
-            <SelectionRow
-              key={wallet.id}
-              title={wallet.name || wallet.id}
-              accessibilityLabel={`Receive with ${wallet.name || 'Card'}`}
-              selected={
-                selectedId == null ? undefined : wallet.id === selectedId
-              }
-              value={Number(balanceMap[wallet.id] || 0).toFixed(4)}
-              valueLabel={coinObj.display_ticker}
-              onPress={() => dismissal.dismiss(() => onSelect(wallet))}
-            />
-          ))}
-        </SelectionGroup>
-      ))}
+      {groups.length === 0 ? (
+        // Never present an empty chooser: the invoking screen keeps the user
+        // on an accurate empty state instead of opening this sheet.
+        <Text style={styles.empty}>
+          No receive-compatible Card is available for this Asset.
+        </Text>
+      ) : (
+        groups.map(group => (
+          <SelectionGroup key={group.id} title={group.name}>
+            {group.wallets.map(wallet => (
+              <SelectionRow
+                key={wallet.id}
+                title={wallet.name || wallet.id}
+                accessibilityLabel={`Receive with ${wallet.name || 'Card'}`}
+                selected={
+                  selectedId == null ? undefined : wallet.id === selectedId
+                }
+                value={Number(balanceMap[wallet.id] || 0).toFixed(4)}
+                valueLabel={coinObj.display_ticker}
+                onPress={() => dismissal.dismiss(() => onSelect(wallet))}
+              />
+            ))}
+          </SelectionGroup>
+        ))
+      )}
     </SelectionSheet>
   );
 };

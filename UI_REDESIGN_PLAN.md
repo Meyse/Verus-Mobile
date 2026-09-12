@@ -7,15 +7,20 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-09-11.
-- Status: SH-1 completed locally. GR-1 and GR-2 implementation is present;
-  their remaining native runtime QA is tracked below.
+- Last updated: 2026-09-12.
+- Status: SH-1 and RX-1 complete for their scoped local deliveries. GR-1 and
+  GR-2 implementation is present; their remaining native runtime QA is tracked
+  below.
 - Source-analysis baseline: `fecfbce4e5eba42e238a9960f30e7cd049ed08ba` on
   `codex/integrate-generic-request-upstream`.
 - Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
   isolated iOS/Android native previews, and Android build/entry checks.
   Authenticated wallet delivery remains open; see the GR-1/GR-2 log entries.
-- Current focus: **SH-1** complete; visual results are ready for user review.
+- Current focus: **RX-1 complete** with the user-requested system amount
+  keypad, 196 native gallery captures, 32 passing focused behavior checks, and
+  ready high-risk and design reviews. The next scoped implementation is the
+  remaining TX-1 work when authorized. Broader authenticated/runtime and
+  accessibility follow-up remains explicitly tracked under QA-1.
 - Authority: creating this plan authorized documentation only. Later user
   instructions determine which work to execute. Unchecked boxes do not authorize
   starting the entire backlog. Existing authorization carries across sessions.
@@ -28,7 +33,7 @@ without repeating the entire investigation.
 | GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
 | SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
-| RX-1 | Receive choices are clear and payment requests have proper steps | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
+| RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Not started | SH-1 where a shared sheet is needed |
 | QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
@@ -264,7 +269,7 @@ handling. Some clear visible content or navigate before the shell finishes closi
 | Receive supported chains | Information | Migrated to `InfoSheet`, section rows, measured overflow and quiet Done |
 | VerusID chooser and Coin Card picker | Specialized selection exemplars | Retain canonical composition; regression checked alongside migrated sheets |
 | Address Book edit and manual identity link | Compact form / nested form | Retain existing dedicated keyboard and save/link handling; broader migration belongs to TX-1 / ID-1 |
-| Receive payment-request amount/subject/settings/result | Full task | Deliberate exception: existing 90% attached sheet remains until RX-1.5 moves the task to full-screen steps |
+| Receive payment-request amount/subject/settings/result | Full task | Migrated by RX-1.5 to a full-screen stepped task (`ReceivePaymentRequestFlow`) with `ProgressHeader`, `FadedScrollView` and `SafeBottomActionStack`; the 90% attached sheet is removed |
 | VerusID discovery/linking | Nested searchable task | Retain canonical floating 76% sheet and existing post-close manual-link handoff |
 | VerusID explanation FAQ | Information with disclosure | Existing floating sheet retained; FAQ consolidation and copy remain ID-1.9 |
 | VerusID pending status and unlink confirmation | Action/status and destructive confirmation | Keep explicit guarded exit and action behavior; lifecycle/presentation migration stays with ID-1.3 |
@@ -342,28 +347,72 @@ recipient. Existing transfer restrictions and state transitions still hold.
 [ReceiveAssetDetails](src/containers/Transfer/ReceiveAssetDetails.js),
 [receive.styles](src/containers/Transfer/receive.styles.js).
 
-- [ ] **RX-1.1** Trace Wallet/Asset entry, Card selection, address selection,
+- [x] **RX-1.1** Trace Wallet/Asset entry, Card selection, address selection,
   supported-chain information, and payment-request generation separately.
 - [x] **RX-1.2** Rename the Card selector’s misleading “Choose address” title to
   “Choose a card”. Keep network context visible and show a current selection when
   the invoking flow has one. Preserve the Card-to-address/channel relationship.
 - [x] **RX-1.3** Remove duplicate address-selection headings and migrate Card,
   address, and supported-chain sheets through SH-1.
-- [ ] **RX-1.4** Use consistent identifier typography and shared copy feedback.
+- [x] **RX-1.4** Use consistent identifier typography and shared copy feedback.
   Verify the full copied address and displayed QR belong to the selected Card
   and network; keep address distinctions required by the current channel.
-- [ ] **RX-1.5** Convert the amount/subject/settings/result payment-request flow
+- [x] **RX-1.5** Convert the amount/subject/settings/result payment-request flow
   into a full-screen stepped task with `ProgressHeader` and safe bottom actions.
   Inspect the current field rules before deciding which optional steps can be
   combined. Document any justified alternative before implementing it.
-- [ ] **RX-1.6** Add proper back navigation that preserves valid inputs. Make
+- [x] **RX-1.6** Add proper back navigation that preserves valid inputs. Make
   cancellation/re-entry deliberate; do not reset visible content mid-dismissal.
-- [ ] **RX-1.7** Preserve request amount, currency, subject, settings, QR encoding,
+- [x] **RX-1.7** Preserve request amount, currency, subject, settings, QR encoding,
   and share semantics. Request creation must not be described as receiving money.
-- [ ] **RX-1.8** Verify empty/loading/error states, one/multiple Cards, applicable
+- [x] **RX-1.8** Verify empty/loading/error states, one/multiple Cards, applicable
   address types/networks, optional fields, keyboard layouts, back/cancel/reopen,
   generated request decoding, and result display with disposable fixtures.
-- [ ] **RX-1.9** Complete relevant QA-1 checks and record delivery evidence.
+- [x] **RX-1.9** Complete relevant QA-1 checks and record delivery evidence.
+
+**Implemented design contract and data trace (2026-09-11):** Entry is Wallet →
+`ReceiveAssetsList`, or Asset detail → `ReceiveAssetDetails` with
+`{coinId, subWalletId}` from `SignedInCoinDetail`. `receiveCardsForCoin` filters
+Cards by `WALLET_APP_RECEIVE` and an address channel; `getExplicitAddressRecords`
+reads `activeAccount.keys[coinObj.id][card.api_channels[API_GET_ADDRESSES]].addresses`
+with labels from `card.address_info`; the Card therefore owns the channel, the
+channel owns the address list, and the copied address and receive QR are the same
+selected record. Card network copy uses `getSubWalletNetworkLabel`. Supported
+chains remain informational (`getSupportedNetworks`). Payment requests stay
+separate in `generateReceiveInvoice`.
+
+The design contract follows the canonical Gift Card stepped task: `ProgressHeader`,
+20-point horizontal / 24-point top / 28-point bottom insets,
+`theme.typography.headlineMd` (28/36) step title with a 22-point title-block gap,
+one primary `SafeBottomActionStack` action per step, `FadedScrollView` content and
+header back. RX-1.5 replaced the 90% attached payment-request sheet with
+`ReceivePaymentRequestFlow`: conversion-eligible Cards use amount → optional
+subject → conversion settings → result, non-conversion Cards keep amount → result
+with the v0 QR and camera-roll save. Subject and settings stay separate steps.
+RX-1.4 uses the established platform monospace convention for raw addresses
+(`Menlo` on iOS, `monospace` on Android) while human VerusID names keep normal
+type, and the details screen offers accurate loading/empty/error states with a
+safe exit instead of an empty Card chooser. RX-1.6 keeps step inputs across back,
+intercepts system back and removal gestures through `beforeRemove` to match the
+header back, invalidates in-flight generation on cancel/unmount/context change,
+single-flights creation and QR saving, and binds the result QR, amount, share
+message and save source to the generated snapshot. A pending generation is never
+a dead end: the header back and an explicit `Cancel` action both invalidate the
+generation before leaving, and every QR save completion is bound to the request
+and save operation that started it. RX-1.7 preserves the invoice contract,
+including the subject being share-message only and not encoded in the modern
+VerusPay invoice, and replaces raw RPC/file errors with concise recovery
+guidance. No wallet permission, share or save is invoked automatically.
+
+The amount step uses a normal editable `AppTextInput` driven by the system
+`decimal-pad` keypad — the same native input and keyboard mechanism as the
+slippage field — instead of the custom on-screen numeric keypad, which is
+removed. The field keeps the currency beside it, the fiat estimate and the
+fiat/coin switch, autofocuses on entry, and preserves the previous plain-decimal
+input contract (digits and one locale decimal separator, 18-character ceiling) so
+a paste such as `1e5` or `0x10` cannot validate into an unintended invoice. The
+rest of the step machine, single-flight generation, save binding, cancel and
+back handling are unchanged.
 
 **Acceptance:** Users can distinguish choosing an Asset, a Card, and an address.
 Simple choices use consistent sheets. Payment-request creation has understandable
@@ -459,6 +508,10 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-09-12 | RX-1 accepted local delivery | Task-owned delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; exact commit in the local QA receipt | Full-screen request flow with the system decimal amount keypad, native subject/slippage fields, safe footer, preserved invoice/share contracts, and operation-bound cancel/save behavior. 32/32 independent focused checks pass; design (30 canonical sources), safe-area, parser, both native preview bundles and production iOS bundle pass. 196 native gallery captures include 120 static Receive/canonical states plus request, keyboard, error, cancellation, save, copy/selection and scrolled states across iOS/Android normal/compact and light/dark. Native copied change address matches the full fixture value; native QR images decode; QR save succeeds on both platforms. Same high-risk reviewer and design adviser are READY with no unresolved findings; full source guards identical (2,970 files, six generated/cache exclusions). [Screenshot gallery](docs/rx1-qa-20260911/index.html); [QA and commit receipt](docs/rx1-qa-20260911/qa.local.md) | RX-1.8–1.9 complete for disposable-fixture delivery. No personal/mainnet wallet, live RPC, signing, funds movement or settlement proof. Full VoiceOver/TalkBack, exhaustive text scaling and native reduced-motion settings remain QA-1 follow-up; sampled native and shared-source evidence are recorded. |
+| 2026-09-11 | RX-1 Receive and payment-request implementation + correction passes | Uncommitted local delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; the parent commits after acceptance | Full-screen stepped payment-request task, platform monospace addresses, accurate Card/address states, `beforeRemove` parity with header back, stale-completion invalidation and single-flight create/QR-save guards. Corrections after an independent high-risk review: operation-bound QR save completion (a late save cannot mark a newer request saved, attach its failure or clear a newer guard) and a real cancel path while generation is pending (header back and `Cancel` invalidate generation identity before leaving; no stranded loading). Preview fixtures now use distinct per-Card address channels and real system i-addresses, and the harness gives details/wizard a real previous route with an optional chrome-free launch state. 27 focused non-Jest behaviour checks pass, including the real-StackRouter route-removal checks, the deferred-per-save CameraRoll checks, the actual preview fixture dataset and the actual preview invoice stub driving the real encoder/decoder; design check (30 canonical sources), safe-area, Babel parse (5 files) and production iOS bundle (46 assets) pass; both preview bundles compile and the production bundle contains no fixture references. The independent high-risk reviewer passed that candidate with no findings. [Local RX-1 QA](docs/rx1-qa-20260911/qa.local.md); [preview harness](docs/rx1-qa-20260911/index.js) | Superseded by the 2026-09-12 native-QA corrections below. RX-1.8–1.9 stay open. |
+| 2026-09-12 | RX-1 native-QA corrections (third pass) | Uncommitted local delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; the parent commits after acceptance | Two production corrections taken from actual native screenshots: the absent-address row is now a wrapping body sentence with no copy affordance, while real addresses keep identifier typography and the copy control; and the payment-request flow reserves Android keyboard space (`KeyboardAvoidingView` `height` under the manifest's `adjustPan`) so the subject and slippage footers stay reachable, with iOS keeping `padding`. Fixture-only repairs: the preview store now processes `PUSH_MODAL`/`REMOVE_MODAL` through the production modal reducer and seeds `state.modal.stack`, so sheets no longer crash the native modal chain; the list loading scenario now uses the real pre-Card-directory loading contract instead of rendering an empty list; and two new scenarios mount the **real** `GiftCardFund` screen (fund and create modes) with an exact synthetic Card, a real funding coin/VRPC source address/ledger balance, and an origin-scoped inert service-storage stub that cannot read a password or keychain entry. 30 focused non-Jest checks pass, including three new guards each verified to fail against the pre-fix code; design check (30 canonical sources), safe-area checks (3 changed, 8 Transfer), Babel parse (10 files), preview iOS/Android bundles and the production iOS bundle (46 assets, 0 fixture references) pass. [Local RX-1 QA](docs/rx1-qa-20260911/qa.local.md) | RX-1.8–1.9 remain open. Native proof is partial: the parent captured iOS normal and iPhone SE compact surfaces plus Android amount/subject/settings/result and decoded each result QR (one QR per result, 158 characters), but the sheet scenarios and the canonical Gift Card comparison have not been captured on a device yet, and no independent review verdict exists for this corrected candidate. Next: parent re-captures the corrected matrix, compares against the real Gift Card screen, then runs the same report-only reviews and commits. |
+| 2026-09-12 | RX-1 native amount keypad (fourth pass) | Uncommitted local delivery over `19a5ede5` on `codex/integrate-generic-request-upstream`; the parent commits after acceptance | User-requested amount change: the custom on-screen `NumericKeypad` is removed from `ReceivePaymentRequestFlow` and replaced by the shared editable `AppTextInput` with `keyboardType="decimal-pad"`/`inputMode="decimal"`, the same native input and keyboard mechanism as the slippage field and canonical `GiftCardFund`. The amount autofocuses on entry and on return, keeps the currency beside the field, the fiat estimate and the fiat/coin switch, and adds `maxLength` plus a plain-decimal guard (`isPlainAmountInput`/`getAmountInputError`) so a pasted `1e5`/`0x10` cannot validate. Amount, currency, switch, estimate, validation and step semantics are unchanged, as are single-flight generation, save binding, cancel and back handling. 32 focused non-Jest checks pass (two new: the plain-decimal guard and the native field shape/paste guard); design check (30 canonical sources), safe-area check (2 changed files), Babel parse (2 files), preview iOS (25 assets) and Android (27 assets) bundles and the production iOS bundle (46 assets, 0 fixture references) pass. [Local RX-1 QA](docs/rx1-qa-20260911/qa.local.md) | RX-1.8–1.9 remain open. Parent still owns the final native amount captures (iOS normal/SE-compact, Android normal, light/dark), the sheet/canonical comparisons, the independent high-risk and design reviews, and the commit. No native evidence was captured in this pass. |
 | 2026-09-11 | SH-1 shared selection and information sheets | Local delivery over `51672964` on `codex/integrate-generic-request-upstream`; exact commit in the local QA report | Nine migrated sheets; canonical identity/Card/request-details regression evidence. 133 native gallery entries plus seven before captures cover iOS/Android, light/dark, normal/compact and focused loading/error/keyboard/overflow states. Design, safe-area, parser, focused dismissal/selection checks and production iOS bundle pass. Independent design and behavior reviews are ready, with unchanged repository guards. [Screenshot gallery](docs/sh1-qa-20260911/index.html); [QA report](docs/sh1-qa-20260911/qa.local.md) | SH-1 complete. Screenshots use actual components with synthetic Testnet data. Authenticated wallet journeys and full VoiceOver/TalkBack traversal remain with the owning TX-1/RX-1/ID-1 and QA-1 tasks. Next scoped implementation: remaining TX-1 work when authorized. |
 | 2026-09-10 | GR-1 Android QA and layout corrections | Task-owned candidate over `4decf026` | Android native build/entry and 41 fixture screenshots recorded. Corrected tall details-sheet overflow and kept signing errors beside the action. Native iOS/Android light/dark, normal/compact layout and consent/failure checks pass; design, safe-area, parser and iOS bundle checks pass. [Android QA](docs/gr12-android-qa-20260910/qa.local.md); [correction evidence](docs/gr12-ui-fix-20260910/qa.local.md) | Authenticated wallet signing/callbacks and remaining accessibility evidence remain open. The original overflow reproduced on Android; the normal iOS baseline already fit. |
 | 2026-09-10 | GR-1 / GR-2 local implementation | Task-owned candidate over `75592c0f` on `codex/integrate-generic-request-upstream` | Shared themed credential/Data Packet review; explicit consent; cached completion retry; authoritative session/lifecycle/expiry guards before signing. Design/safe-area/parser/iOS bundle, focused non-Jest state/delivery checks, and harness contract checks pass. iOS fixture render/interaction evidence and independent review records: [local QA report](gr12-qa.local.md) | GR-1.9–1.10 and GR-2.6 remain open for authenticated native callbacks/mixed-order walkthrough, Android, and remaining accessibility evidence. No mainnet wallet accessed. |
@@ -471,11 +524,15 @@ patch exists.
 
 ### Resume note
 
-- Last completed action: SH-1 shared selection/information sheets, verified on
-  normal and compact iOS/Android screens in both themes. Both independent reviews
-  are ready; the screenshot gallery and local QA report record the evidence.
-- Next action: review the SH-1 gallery, then resume the remaining TX-1 work when
-  authorized. TX-1.6 retains authenticated back-navigation walkthroughs.
+- Last completed action: RX-1 accepted local delivery with the native system
+  amount keypad, 196 native screenshots, 32 passing focused checks, and ready
+  independent high-risk/design reviews. RX-1.1–1.9 are complete for the scoped
+  disposable-fixture delivery. The gallery and exact commit receipt are in
+  `docs/rx1-qa-20260911`; no push or publication is part of this delivery.
+- Next action: resume remaining TX-1 work when authorized. TX-1.6 retains
+  authenticated back-navigation walkthroughs. Global QA-1 retains broader
+  authenticated/runtime and accessibility proof beyond RX-1's sampled native
+  and source verification; see the RX-1 QA report for exact limits.
 - Earlier GR-1/GR-2 runtime follow-up remains open: GR-1.9–1.10, GR-2.6,
   authenticated mixed-detail delivery on both platforms, and remaining
   accessibility checks. Local delivery and reviewer evidence are in the linked
@@ -486,5 +543,5 @@ patch exists.
   native fixtures verify rendering and interaction, not wallet signing or live
   callback delivery. No personal/mainnet wallet was unlocked.
 - Owners: the GR-1/GR-2 follow-up task retains its runtime gaps; the next TX-1
-  task owns the remaining Send/Convert work. RX-1 and ID-1 retain their listed
+  task owns the remaining Send/Convert work. ID-1 retains its listed
   exceptions and unfinished tasks.

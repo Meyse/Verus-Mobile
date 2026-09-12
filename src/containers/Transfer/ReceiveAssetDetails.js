@@ -3,29 +3,14 @@ import React, {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
-import {
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Share,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import {CameraRoll} from '@react-native-camera-roll/camera-roll';
-import RNFS from 'react-native-fs';
+import {Dimensions, ScrollView, TouchableOpacity, View} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Checkbox, Text} from 'react-native-paper';
-import BigNumber from 'bignumber.js';
+import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
-import {fontStyle} from '../../globals/fonts';
-import {VerusPayLogo} from '../../images/customIcons';
 import {
   expireCoinData,
   setActiveApp,
@@ -33,20 +18,17 @@ import {
   setActiveSection,
   setCoinSubWallet,
 } from '../../actions/actionCreators';
-import BottomSheetModal from '../../components/BottomSheetModal';
-import ReceiveAddressSheet from './ReceiveAddressSheet';
-import SupportedChainsSheet from './SupportedChainsSheet';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
-import GradientButton from '../../components/GradientButton';
-import SkeletonLoader, {SkeletonBlock, SkeletonText} from '../../components/SkeletonLoader';
+import SkeletonLoader, {
+  SkeletonBlock,
+  SkeletonText,
+} from '../../components/SkeletonLoader';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {VerusPayLogo} from '../../images/customIcons';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {
-  AssetCoinLogo,
-  RenderPlainCoinLogo,
-} from '../../utils/CoinData/Graphics';
+import {AssetCoinLogo, RenderPlainCoinLogo} from '../../utils/CoinData/Graphics';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {WALLET_APP_RECEIVE} from '../../utils/constants/apps';
 import {
@@ -58,21 +40,18 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {USD} from '../../utils/constants/currencies';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
-import {truncateDecimal} from '../../utils/math';
+import {getSubWalletNetworkLabel} from '../../utils/subwallet/cardPresentation';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
+import ReceiveAddressSheet from './ReceiveAddressSheet';
+import ReceivePaymentRequestFlow from './ReceivePaymentRequestFlow';
 import ReceiveSubwalletSheet from './ReceiveSubwalletSheet';
+import SupportedChainsSheet from './SupportedChainsSheet';
 import {createReceiveDetailsStyles} from './receive.styles';
-import {
-  generateReceiveInvoice,
-  sanitizeNumericInput,
-  validateAmountInput,
-  validateSlippageInput,
-} from './receiveInvoice';
 
-const getDecimalSeparator = () =>
-  (1.1).toLocaleString().replace(/1/g, '') || '.';
-
-const getExplicitAddressRecords = (activeAccount, coinObj, card) => {
+// Addresses come from the keys of the active account, addressed by the Card's
+// own address channel. This is the single source for the copied address and
+// for the address encoded in the receive QR.
+export const getExplicitAddressRecords = (activeAccount, coinObj, card) => {
   if (!activeAccount || !coinObj || !card) return [];
   const channel = card.api_channels?.[API_GET_ADDRESSES];
   const addresses = activeAccount.keys?.[coinObj.id]?.[channel]?.addresses;
@@ -80,12 +59,14 @@ const getExplicitAddressRecords = (activeAccount, coinObj, card) => {
 
   return addresses.filter(Boolean).map((address, index) => ({
     address,
-    label: card.address_info?.[index]?.label || (index === 0 ? 'Address' : `Address ${index + 1}`),
+    label:
+      card.address_info?.[index]?.label ||
+      (index === 0 ? 'Address' : `Address ${index + 1}`),
   }));
 };
 
 const receiveCardsForCoin = (coinObj, allSubWallets) =>
-  (allSubWallets[coinObj?.id] || []).filter(
+  ((allSubWallets && allSubWallets[coinObj?.id]) || []).filter(
     wallet =>
       wallet.compatible_apps?.includes(WALLET_APP_RECEIVE) &&
       wallet.api_channels?.[API_GET_ADDRESSES] != null,
@@ -112,122 +93,31 @@ const getSupportedNetworks = coinObj => {
   return networks;
 };
 
-const SheetHeader = ({onClose, styles, theme, title = 'Payment request'}) => (
-  <View style={styles.header}>
-    <View style={styles.headerSpacer} />
-    <Text style={styles.sheetTitle}>{title}</Text>
-    <TouchableOpacity
-      accessibilityLabel="Close payment request"
-      accessibilityRole="button"
-      onPress={onClose}
-      style={styles.close}>
-      <MaterialCommunityIcons
-        color={theme.colors.textPrimary}
-        name="close"
-        size={18}
-      />
-    </TouchableOpacity>
-  </View>
-);
-
-const NumericKeypad = ({height, onChange, styles, theme, value}) => {
-  const decimalSeparator = useMemo(getDecimalSeparator, []);
-  const rows = useMemo(
-    () => [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      [decimalSeparator, '0', 'backspace-outline'],
-    ],
-    [decimalSeparator],
-  );
-
-  const press = key => {
-    let next = value || '';
-    if (key === 'backspace-outline') next = next.slice(0, -1);
-    else if (key === decimalSeparator) {
-      if (!next.includes('.') && !next.includes(',')) {
-        next = next ? `${next}${decimalSeparator}` : `0${decimalSeparator}`;
-      }
-    } else if (next.length < 18) {
-      next = next === '0' ? key : `${next}${key}`;
-    }
-    onChange(next);
-  };
-
-  return (
-    <View style={styles.keypad}>
-      {rows.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.keyRow}>
-          {row.map(key => (
-            <TouchableOpacity
-              accessibilityLabel={key === 'backspace-outline' ? 'Delete digit' : key}
-              accessibilityRole="button"
-              activeOpacity={0.35}
-              key={key}
-              onPress={() => press(key)}
-              style={[styles.key, {height}]}>
-              {key === 'backspace-outline' ? (
-                <MaterialCommunityIcons
-                  color={theme.colors.textPrimary}
-                  name={key}
-                  size={24}
-                />
-              ) : (
-                <Text style={styles.keyText}>{key}</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-};
-
 const ReceiveAssetDetails = ({navigation, route}) => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createReceiveDetailsStyles(theme), [theme]);
-  const sheetStyles = useMemo(
-    () => ({
-      header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 12,
-      },
-      headerSpacer: {width: 34, height: 34},
-      sheetTitle: {
-        flex: 1,
-        color: theme.colors.textPrimary,
-        fontSize: 16,
-        textAlign: 'center',
-        ...fontStyle('semiBold'),
-      },
-      close: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: theme.colors.surfaceMuted,
-      },
-    }),
-    [theme],
+  const isSmall =
+    Dimensions.get('window').height <= 667 ||
+    Dimensions.get('window').width <= 375;
+  const activeCoins = useObjectSelector(
+    state => state.coins.activeCoinsForUser || [],
   );
-  const isSmall = Dimensions.get('window').height <= 667 || Dimensions.get('window').width <= 375;
-  const activeCoins = useObjectSelector(state => state.coins.activeCoinsForUser || []);
   const allSubWallets = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
-  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
+  const activeAccount = useObjectSelector(
+    state => state.authentication.activeAccount,
+  );
   const rates = useObjectSelector(state => state.ledger.rates || {});
   const displayCurrency = useSelector(
     state => state.settings.generalWalletSettings.displayCurrency || USD,
   );
-  const generalSettings = useSelector(state => state.settings.generalWalletSettings);
+  const generalSettings = useSelector(
+    state => state.settings.generalWalletSettings,
+  );
   const coinObj = useMemo(() => {
     const active = activeCoins.find(coin => coin.id === route.params?.coinId);
     if (active) return active;
@@ -241,10 +131,14 @@ const ReceiveAssetDetails = ({navigation, route}) => {
     () => receiveCardsForCoin(coinObj, allSubWallets),
     [allSubWallets, coinObj],
   );
-  const [selectedCardId, setSelectedCardId] = useState(route.params?.subWalletId || null);
+  const [selectedCardId, setSelectedCardId] = useState(
+    route.params?.subWalletId || null,
+  );
+  const resolvedCardId =
+    selectedCardId ?? (cards.length === 1 ? cards[0].id : null);
   const selectedCard = useMemo(
-    () => cards.find(card => card.id === selectedCardId) || null,
-    [cards, selectedCardId],
+    () => cards.find(card => card.id === resolvedCardId) || null,
+    [cards, resolvedCardId],
   );
   const addressRecords = useMemo(
     () => getExplicitAddressRecords(activeAccount, coinObj, selectedCard),
@@ -256,45 +150,17 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const [cardSheetVisible, setCardSheetVisible] = useState(false);
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
   const [networksVisible, setNetworksVisible] = useState(false);
-  const [requestVisible, setRequestVisible] = useState(false);
-  const [step, setStep] = useState('amount');
-  const [amount, setAmount] = useState('');
-  const [amountFiat, setAmountFiat] = useState(false);
-  const [subject, setSubject] = useState('');
-  const [allowConversion, setAllowConversion] = useState(true);
-  const [maxSlippage, setMaxSlippage] = useState('0.5');
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [invoiceQr, setInvoiceQr] = useState(null);
-  const [showVerusIcon, setShowVerusIcon] = useState(false);
-  const [qrSaved, setQrSaved] = useState(false);
-  const qrRef = useRef(null);
-  const decimalSeparator = useMemo(getDecimalSeparator, []);
+  const [requestActive, setRequestActive] = useState(false);
 
   useEffect(() => {
-    if (selectedCardId == null && cards.length === 1) {
+    if (cards.length === 1 && selectedCardId !== cards[0].id) {
       setSelectedCardId(cards[0].id);
     }
   }, [cards, selectedCardId]);
 
   useEffect(() => {
     setSelectedAddressIndex(0);
-    setRequestVisible(false);
-    setInvoiceQr(null);
-    setStep('amount');
-    setAmount('');
-    setSubject('');
-    setError(null);
-  }, [selectedCardId]);
-
-  useEffect(() => {
-    setRequestVisible(false);
-    setInvoiceQr(null);
-    setStep('amount');
-    setAmount('');
-    setSubject('');
-    setError(null);
-  }, [activeAccount?.accountHash]);
+  }, [resolvedCardId, activeAccount?.accountHash]);
 
   useEffect(() => {
     if (!coinObj || !selectedCard) return;
@@ -314,6 +180,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
       title: '',
       headerBackTitle: 'Back',
       headerShadowVisible: false,
+      headerShown: !requestActive,
       headerTintColor: theme.colors.textPrimary,
       headerStyle: {
         backgroundColor: theme.colors.background,
@@ -337,7 +204,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             )
           : undefined,
     });
-  }, [cards.length, navigation, theme]);
+  }, [cards.length, navigation, requestActive, styles, theme]);
 
   const conversionEligible =
     coinObj?.proto === 'vrsc' &&
@@ -347,14 +214,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const priceMap =
     rates[GENERAL]?.[coinObj?.id] || rates[rateChannel]?.[coinObj?.id] || {};
   const price = priceMap[displayCurrency];
-  const normalizedAmount = sanitizeNumericInput(amount);
-  const amountValid = validateAmountInput(normalizedAmount) == null;
-  const amountPreview = useMemo(() => {
-    if (!amountValid || !price) return null;
-    return amountFiat
-      ? `≈ ${truncateDecimal(Number(normalizedAmount) / Number(price), 8)} ${coinObj.display_ticker}`
-      : `≈ ${truncateDecimal(Number(normalizedAmount) * Number(price), 2)} ${displayCurrency}`;
-  }, [amountFiat, amountValid, coinObj, displayCurrency, normalizedAmount, price]);
   const supportedNetworks = useMemo(
     () => getSupportedNetworks(coinObj),
     [coinObj],
@@ -367,94 +226,113 @@ const ReceiveAssetDetails = ({navigation, route}) => {
       }, {}),
     [balances, cards, coinObj?.id],
   );
+  const cardContextLabel = useMemo(() => {
+    if (!selectedCard) return '';
+    const networkName = getSubWalletNetworkLabel(selectedCard, coinObj);
+    return [selectedCard.name, networkName].filter(Boolean).join(' · ');
+  }, [coinObj, selectedCard]);
+  const requestContextKey = [
+    coinObj?.id,
+    selectedCard?.id,
+    address,
+    activeAccount?.accountHash,
+  ].join('|');
 
-  const closeRequest = useCallback(() => {
-    setRequestVisible(false);
-    setStep('amount');
-    setAmount('');
-    setSubject('');
-    setInvoiceQr(null);
-    setError(null);
-    setQrSaved(false);
+  const openCardSheet = useCallback(() => setCardSheetVisible(true), []);
+  const closeCardSheet = useCallback(() => setCardSheetVisible(false), []);
+  const openAddressSheet = useCallback(() => setAddressSheetVisible(true), []);
+  const closeAddressSheet = useCallback(() => setAddressSheetVisible(false), []);
+  const openNetworks = useCallback(() => setNetworksVisible(true), []);
+  const closeNetworks = useCallback(() => setNetworksVisible(false), []);
+  const startRequest = useCallback(() => setRequestActive(true), []);
+  const exitRequest = useCallback(() => setRequestActive(false), []);
+  const goHome = useCallback(() => navigation.navigate('Home'), [navigation]);
+  const selectCard = useCallback(card => {
+    setSelectedCardId(card.id);
+    setCardSheetVisible(false);
   }, []);
 
-  const createInvoice = useCallback(async () => {
-    const amountError = validateAmountInput(normalizedAmount);
-    const slippageError =
-      conversionEligible && allowConversion && generalSettings.allowSettingVerusPaySlippage
-        ? validateSlippageInput(sanitizeNumericInput(maxSlippage))
-        : null;
-    if (amountError || slippageError) {
-      setError(amountError || slippageError);
-      return;
-    }
+  const renderCardSheet = () => (
+    <ReceiveSubwalletSheet
+      balanceMap={balanceMap}
+      coinObj={coinObj}
+      onClose={closeCardSheet}
+      onSelect={selectCard}
+      selectedId={resolvedCardId}
+      subWallets={cards}
+      visible={cardSheetVisible}
+    />
+  );
 
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await generateReceiveInvoice({
-        address,
-        allowConversion: conversionEligible && allowConversion,
-        amountFiat,
-        amountValue: normalizedAmount,
-        coinObj,
-        displayCurrency,
-        maxSlippageValue: sanitizeNumericInput(maxSlippage),
-        memo: subject,
-        priceMap,
-        subWallet: selectedCard,
-      });
-      setInvoiceQr(result.qrString);
-      setShowVerusIcon(result.showVerusIcon);
-      setStep('result');
-    } catch (e) {
-      setError(e.message || 'Unable to create this payment request.');
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    address,
-    allowConversion,
-    amountFiat,
-    coinObj,
-    conversionEligible,
-    displayCurrency,
-    generalSettings.allowSettingVerusPaySlippage,
-    maxSlippage,
-    normalizedAmount,
-    priceMap,
-    selectedCard,
-    subject,
-  ]);
+  const addressLoading = activeAccount == null;
 
-  const shareInvoice = useCallback(async () => {
-    if (!invoiceQr) return;
-    const currency = amountFiat ? displayCurrency : coinObj.display_ticker;
-    await Share.share({
-      message: `Please pay me ${amount} ${currency}${subject ? ` for '${subject}'` : ''} with ${invoiceQr}`,
-    });
-  }, [amount, amountFiat, coinObj, displayCurrency, invoiceQr, subject]);
-
-  const saveQr = useCallback(() => {
-    if (!qrRef.current || qrSaved) return;
-    qrRef.current.toDataURL(async data => {
-      const path = `${RNFS.CachesDirectoryPath}/VerusPayQR_${Date.now()}.png`;
-      try {
-        await RNFS.writeFile(path, data, 'base64');
-        await CameraRoll.save(path, {type: 'photo'});
-        await RNFS.unlink(path);
-        setQrSaved(true);
-      } catch (e) {
-        setError(e.message || 'Unable to save the QR image.');
-      }
-    });
-  }, [qrSaved]);
+  const renderAddressRow = () => (
+    <TouchableOpacity
+      accessibilityRole={addressRecords.length > 1 ? 'button' : undefined}
+      activeOpacity={addressRecords.length > 1 ? 0.7 : 1}
+      disabled={addressRecords.length <= 1}
+      onPress={openAddressSheet}
+      style={styles.addressRow}>
+      {address ? (
+        <>
+          <Text
+            ellipsizeMode="middle"
+            numberOfLines={1}
+            selectable
+            style={[styles.address, styles.identifier]}>
+            {address}
+          </Text>
+          <CopyAction
+            accessibilityLabel="Copy receive address"
+            value={address}
+          />
+        </>
+      ) : (
+        // Missing data is a sentence, not a value: it reads as body copy that
+        // wraps fully and offers no copy affordance. Only a real address gets
+        // the identifier treatment and the copy control.
+        <Text style={styles.addressMissing}>
+          No address is available for this Card.
+        </Text>
+      )}
+      {addressRecords.length > 1 ? (
+        <MaterialCommunityIcons
+          color={theme.colors.textSubtle}
+          name="chevron-down"
+          size={20}
+        />
+      ) : null}
+    </TouchableOpacity>
+  );
 
   if (!coinObj) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.loading}>
-          <Text style={styles.sheetSubtitle}>Asset not found.</Text>
+      <SafeAreaView edges={['left', 'right']} style={styles.safe}>
+        <View style={styles.stateScreen}>
+          <Text style={styles.stateTitle}>Asset unavailable</Text>
+          <Text style={styles.stateBody}>
+            This Asset could not be loaded from the wallet directory.
+          </Text>
+          <View style={styles.stateAction}>
+            <AppButton onPress={goHome}>Done</AppButton>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (cards.length === 0) {
+    return (
+      <SafeAreaView edges={['left', 'right']} style={styles.safe}>
+        <View style={styles.stateScreen}>
+          <Text style={styles.stateTitle}>No Card available</Text>
+          <Text style={styles.stateBody}>
+            {coinObj.display_name} has no receive-compatible Card in this
+            wallet.
+          </Text>
+          <View style={styles.stateAction}>
+            <AppButton onPress={goHome}>Done</AppButton>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -463,236 +341,41 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   if (!selectedCard) {
     return (
       <SafeAreaView edges={['left', 'right']} style={styles.safe}>
-        <View style={styles.loading}>
-          <Text style={styles.sheetHeading}>Choose a Card</Text>
-          <Text style={[styles.sheetSubtitle, {textAlign: 'center'}]}>
-            This Asset needs an explicit receive-compatible Card.
+        <View style={styles.stateScreen}>
+          <Text style={styles.stateTitle}>Choose a Card</Text>
+          <Text style={styles.stateBody}>
+            {coinObj.display_name} is available through more than one Card.
           </Text>
-          <View style={{width: '100%', marginTop: 24}}>
-            <AppButton onPress={() => setCardSheetVisible(true)}>
-              Choose Card
-            </AppButton>
+          <View style={styles.stateAction}>
+            <AppButton onPress={openCardSheet}>Choose Card</AppButton>
           </View>
         </View>
-        <ReceiveSubwalletSheet
-        selectedId={selectedCardId}
-          balanceMap={balanceMap}
-          coinObj={coinObj}
-          onClose={() => setCardSheetVisible(false)}
-          onSelect={card => {
-            setSelectedCardId(card.id);
-            setCardSheetVisible(false);
-          }}
-          subWallets={cards}
-          visible={cardSheetVisible}
-        />
+        {renderCardSheet()}
       </SafeAreaView>
     );
   }
 
-  const renderAmountStep = () => (
-    <View>
-      <View style={styles.amountStepContent}>
-        <Text style={styles.amountStepHeading}>What's the amount?</Text>
-        <View style={styles.amountRow}>
-          <Text numberOfLines={1} adjustsFontSizeToFit style={styles.amount}>
-            {amount ? amount.replace('.', decimalSeparator) : `0${decimalSeparator}00`}
-          </Text>
-          <Text style={styles.currency}>
-            {amountFiat ? displayCurrency : coinObj.display_ticker}
-          </Text>
-        </View>
-        <View style={styles.estimateWrap}>
-          {amountPreview ? (
-            <Text style={styles.estimate}>{amountPreview}</Text>
-          ) : null}
-        </View>
-        {price ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => {
-              if (amount && price && Number(price) > 0) {
-                const current = Number(sanitizeNumericInput(amount));
-                const converted = amountFiat
-                  ? truncateDecimal(current / Number(price), 8)
-                  : truncateDecimal(current * Number(price), 2);
-                setAmount(String(converted));
-              }
-              setAmountFiat(value => !value);
-            }}
-            style={styles.switch}>
-            <MaterialCommunityIcons
-              color={theme.colors.textSecondary}
-              name="swap-vertical"
-              size={16}
-            />
-            <Text style={styles.switchText}>
-              Switch to {amountFiat ? coinObj.display_ticker : displayCurrency}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      <View style={styles.keypadWrap}>
-        <NumericKeypad
-          height={isSmall ? 40 : 48}
-          onChange={setAmount}
-          styles={styles}
-          theme={theme}
-          value={amount}
-        />
-      </View>
-      {error ? <Text style={[styles.error, styles.amountError]}>{error}</Text> : null}
-      <View style={styles.amountStepFooter}>
-        <AppButton
-          disabled={!amountValid}
-          onPress={() =>
-            conversionEligible ? setStep('subject') : createInvoice()
-          }>
-          Next
-        </AppButton>
-      </View>
-    </View>
-  );
-
-  const renderSubjectStep = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.sheetBody}>
-        <Text style={styles.amountStepHeading}>What is it for?</Text>
-        <Text style={styles.sheetSubtitle}>Optional</Text>
-        <TextInput
-          autoFocus
-          onChangeText={setSubject}
-          placeholder="e.g. Dinner"
-          placeholderTextColor={theme.colors.textSubtle}
-          returnKeyType="next"
-          style={styles.subjectInput}
-          value={subject}
-        />
-        <View style={styles.subjectFooter}>
-          <AppButton onPress={() => setStep('settings')}>Next</AppButton>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
-  );
-
-  const renderSettingsStep = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.sheetBody}>
-        <View style={styles.settingsIntro}>
-          <Text style={styles.amountStepHeading}>Allow conversions</Text>
-          <Text style={styles.sheetSubtitle}>
-            Sender can pay with currencies that can auto-convert to{' '}
-            {coinObj.display_ticker}. Easy for them, easy for you.
-          </Text>
-        </View>
-        <TouchableOpacity
-          accessibilityRole="checkbox"
-          accessibilityState={{checked: allowConversion}}
-          onPress={() => setAllowConversion(value => !value)}
-          style={styles.optionCard}>
-          <View style={styles.optionCopy}>
-            <Text style={styles.optionTitle}>Enable conversions</Text>
-            <Text style={styles.optionSubtitle}>
-              Max. slippage: {maxSlippage || '0.5'}%
-            </Text>
-          </View>
-          <Checkbox.Android
-            color={theme.colors.primary}
-            onPress={() => setAllowConversion(value => !value)}
-            status={allowConversion ? 'checked' : 'unchecked'}
-            uncheckedColor={theme.colors.textSubtle}
-          />
-        </TouchableOpacity>
-        {allowConversion && generalSettings.allowSettingVerusPaySlippage ? (
-          <>
-            <Text style={[styles.label, styles.slippageLabel]}>Max slippage (%)</Text>
-            <TextInput
-              keyboardType="decimal-pad"
-              onChangeText={setMaxSlippage}
-              placeholderTextColor={theme.colors.textSubtle}
-              style={styles.slippageInput}
-              value={maxSlippage}
-            />
-          </>
-        ) : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <View style={styles.settingsFooter}>
-          <AppButton disabled={loading} onPress={createInvoice}>
-            {loading ? 'Creating…' : 'Create payment link'}
-          </AppButton>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
-  );
-
-  const renderResultStep = () => (
-    <View style={styles.result}>
-      <View style={styles.resultQr}>
-        <QRCode
-          getRef={ref => {
-            qrRef.current = ref;
-          }}
-          logo={showVerusIcon ? require('../../images/customIcons/Verus.png') : undefined}
-          logoBackgroundColor="#FFFFFF"
-          logoBorderRadius={80}
-          logoSize={showVerusIcon ? 48 : undefined}
-          size={220}
-          value={invoiceQr || '-'}
-        />
-      </View>
-      <Text style={styles.resultText}>
-        Scan to pay {amount} {amountFiat ? displayCurrency : coinObj.display_ticker}
-        {address ? ` to ${address.slice(0, 5)}...${address.slice(-5)}` : ''}
-      </Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={styles.resultActions}>
-        <GradientButton
-          contentStyle={styles.resultButtonContent}
-          disabled={!conversionEligible && qrSaved}
-          leftIcon={
-            <MaterialCommunityIcons
-              color={theme.colors.onPrimary}
-              name={
-                conversionEligible
-                  ? 'share-variant'
-                  : qrSaved
-                    ? 'check'
-                    : 'content-save'
-              }
-              size={20}
-            />
-          }
-          onPress={conversionEligible ? shareInvoice : saveQr}
-          style={[
-            styles.resultPrimaryButton,
-            !conversionEligible && qrSaved && styles.savedResultButton,
-          ]}
-          topColor={!conversionEligible && qrSaved ? theme.colors.success : undefined}
-          bottomColor={!conversionEligible && qrSaved ? theme.colors.success : undefined}>
-          {conversionEligible
-            ? 'Share payment link'
-            : qrSaved
-              ? 'QR image saved'
-              : 'Save QR to camera roll'}
-        </GradientButton>
-        <AppButton
-          onPress={() => {
-            setAmount('');
-            setSubject('');
-            setInvoiceQr(null);
-            setError(null);
-            setQrSaved(false);
-            setStep('amount');
-          }}
-          style={styles.resultSecondaryButton}
-          variant="secondary">
-          New payment request
-        </AppButton>
-      </View>
-    </View>
-  );
-
-  const addressLoading = activeAccount == null;
+  if (requestActive) {
+    return (
+      <ReceivePaymentRequestFlow
+        address={address}
+        allowSlippageSetting={
+          generalSettings.allowSettingVerusPaySlippage === true
+        }
+        card={selectedCard}
+        cardContextLabel={cardContextLabel}
+        coinObj={coinObj}
+        contextKey={requestContextKey}
+        conversionEligible={conversionEligible}
+        displayCurrency={displayCurrency}
+        isSmall={isSmall}
+        navigation={navigation}
+        onExit={exitRequest}
+        price={price}
+        priceMap={priceMap}
+      />
+    );
+  }
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safe}>
@@ -714,7 +397,13 @@ const ReceiveAssetDetails = ({navigation, route}) => {
               ) : address ? (
                 <QRCode size={200} value={address} />
               ) : (
-                <View style={{width: 200, height: 200, alignItems: 'center', justifyContent: 'center'}}>
+                <View
+                  style={{
+                    width: 200,
+                    height: 200,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
                   <MaterialCommunityIcons
                     color={theme.colors.textSubtle}
                     name="qrcode"
@@ -728,7 +417,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                 accessibilityLabel="View supported chains"
                 accessibilityRole="button"
                 activeOpacity={0.7}
-                onPress={() => setNetworksVisible(true)}
+                onPress={openNetworks}
                 style={styles.networkPill}>
                 <View style={styles.networkIcons}>
                   {supportedNetworks.slice(0, 3).map((network, index) => (
@@ -777,7 +466,11 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                 <>
                   <Text style={styles.label}>VerusID</Text>
                   <View style={styles.addressRow}>
-                    <Text ellipsizeMode="middle" numberOfLines={1} selectable style={styles.address}>
+                    <Text
+                      ellipsizeMode="middle"
+                      numberOfLines={1}
+                      selectable
+                      style={styles.address}>
                       {selectedCard.name}
                     </Text>
                     <CopyAction
@@ -786,32 +479,19 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                     />
                   </View>
                   <Text style={[styles.label, {marginTop: 12}]}>i-Address</Text>
+                  {renderAddressRow()}
                 </>
               ) : (
-                <Text style={styles.label}>{selectedAddressRecord?.label || 'Address'}</Text>
+                <>
+                  <Text style={styles.label}>
+                    {selectedAddressRecord?.label || 'Address'}
+                  </Text>
+                  {renderAddressRow()}
+                </>
               )}
-              <TouchableOpacity
-                accessibilityRole={addressRecords.length > 1 ? 'button' : undefined}
-                activeOpacity={addressRecords.length > 1 ? 0.7 : 1}
-                disabled={addressRecords.length <= 1}
-                onPress={() => setAddressSheetVisible(true)}
-                style={styles.addressRow}>
-                <Text ellipsizeMode="middle" numberOfLines={1} selectable style={styles.address}>
-                  {address || 'No address is available for this Card.'}
-                </Text>
-                <CopyAction
-                  accessibilityLabel="Copy receive address"
-                  disabled={!address}
-                  value={address}
-                />
-                {addressRecords.length > 1 ? (
-                  <MaterialCommunityIcons
-                    color={theme.colors.textSubtle}
-                    name="chevron-down"
-                    size={20}
-                  />
-                ) : null}
-              </TouchableOpacity>
+              {cardContextLabel ? (
+                <Text style={styles.cardMeta}>{cardContextLabel}</Text>
+              ) : null}
             </>
           )}
           <TouchableOpacity
@@ -819,7 +499,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             accessibilityRole="button"
             activeOpacity={0.8}
             disabled={!address}
-            onPress={() => setRequestVisible(true)}
+            onPress={startRequest}
             style={[styles.requestCard, !address && {opacity: 0.5}]}>
             <Text style={styles.requestTitle}>
               {conversionEligible
@@ -839,55 +519,24 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           </TouchableOpacity>
         </ScrollView>
         <View
-          style={[
-            styles.footer,
-            {paddingBottom: Math.max(insets.bottom, 32)},
-          ]}>
-          <AppButton onPress={() => navigation.navigate('Home')}>Done</AppButton>
+          style={[styles.footer, {paddingBottom: Math.max(insets.bottom, 32)}]}>
+          <AppButton onPress={goHome}>Done</AppButton>
         </View>
       </View>
-
-      <BottomSheetModal
-        contentContainerStyle={styles.sheet}
-        floating={false}
-        maxHeight="90%"
-        onClose={closeRequest}
-        visible={requestVisible}>
-        <SheetHeader onClose={closeRequest} styles={sheetStyles} theme={theme} />
-        {step === 'amount'
-          ? renderAmountStep()
-          : step === 'subject'
-            ? renderSubjectStep()
-            : step === 'settings'
-              ? renderSettingsStep()
-              : renderResultStep()}
-      </BottomSheetModal>
 
       <ReceiveAddressSheet
         records={addressRecords}
         selectedIndex={selectedAddressIndex}
         onSelect={setSelectedAddressIndex}
-        onClose={() => setAddressSheetVisible(false)}
+        onClose={closeAddressSheet}
         visible={addressSheetVisible}
       />
       <SupportedChainsSheet
         networks={supportedNetworks}
-        onClose={() => setNetworksVisible(false)}
+        onClose={closeNetworks}
         visible={networksVisible}
       />
-
-      <ReceiveSubwalletSheet
-        selectedId={selectedCardId}
-        balanceMap={balanceMap}
-        coinObj={coinObj}
-        onClose={() => setCardSheetVisible(false)}
-        onSelect={card => {
-          setSelectedCardId(card.id);
-          setCardSheetVisible(false);
-        }}
-        subWallets={cards}
-        visible={cardSheetVisible}
-      />
+      {renderCardSheet()}
     </SafeAreaView>
   );
 };
