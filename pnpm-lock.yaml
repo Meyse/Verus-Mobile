@@ -104,8 +104,8 @@ importers:
   .:
     dependencies:
       '@bitgo/utxo-lib':
-        specifier: github:VerusCoin/BitGoJS#utxo-lib-verus
-        version: https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/f39bb2206bac9c3fbf199f7496e495e3a427c771
+        specifier: github:VerusCoin/BitGoJS#9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb
+        version: https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb
       '@noble/curves':
         specifier: 1.9.7
         version: 1.9.7
@@ -416,17 +416,17 @@ importers:
         specifier: git+https://github.com/VerusCoin/verus-pay-utils.git
         version: https://codeload.github.com/VerusCoin/verus-pay-utils/tar.gz/cc34a4cae48f30714200742eca3d43ee42e13290
       verus-typescript-primitives:
-        specifier: github:VerusCoin/verus-typescript-primitives
-        version: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888
+        specifier: github:VerusCoin/verus-typescript-primitives#7a7b01db697222cd68507a9dbf15f289615ea890
+        version: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890
       verus-zkedid-utils:
         specifier: git+https://github.com/VerusCoin/verus-zkedid-utils.git
         version: https://codeload.github.com/VerusCoin/verus-zkedid-utils/tar.gz/70d7f5ed6b4787da14b06de5d2d669d714d1860b
       verusd-rpc-ts-client:
-        specifier: github:VerusCoin/verusd-rpc-ts-client
-        version: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/fd2c6b0d35d468ee6174bcdd569f5aa990b05282
+        specifier: github:VerusCoin/verusd-rpc-ts-client#58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7
+        version: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7
       verusid-ts-client:
-        specifier: github:VerusCoin/verusid-ts-client
-        version: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/48a1d48a5d076f313022a5891986339851ad7c0c
+        specifier: github:VerusCoin/verusid-ts-client#0c39c0a4ba81378ac898cbe75ae1da7511617ccd
+        version: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/0c39c0a4ba81378ac898cbe75ae1da7511617ccd
       vm-browserify:
         specifier: 0.0.4
         version: 0.0.4
@@ -1098,8 +1098,8 @@ packages:
   '@bitgo/blake2b@3.0.1':
     resolution: {integrity: sha512-+Neg+nsqUhYOPlvyITHXYzKUTJofyxYdLQTzNjufamifBzxLGTpgn2KKUfvGNsGovlUYzlyPZj+CB6je2D7mhw==}
 
-  '@bitgo/utxo-lib@https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/f39bb2206bac9c3fbf199f7496e495e3a427c771':
-    resolution: {gitHosted: true, integrity: sha512-EfW7zaeb88hLwvM61xIF/UP3UAP+mPFp48huDu/ehKEPS+e7+/isgWtj41sJGYCCaQhh9hgC3s1u3BMQblTVLA==, tarball: https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/f39bb2206bac9c3fbf199f7496e495e3a427c771}
+  '@bitgo/utxo-lib@https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb':
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb}
     version: 1.9.6
     engines: {node: '>=10.22.0', npm: '>=3.10.10'}
 
@@ -5504,8 +5504,8 @@ packages:
     resolution: {gitHosted: true, integrity: sha512-CFDUPUQbM9uZ8rScxbYVMiQqway81P4D3MsKW/XRAWFgQUL4G7DnoQHskpdfTwuznC+VIPGv11mFdiD8HQCNag==, tarball: https://codeload.github.com/VerusCoin/verus-pay-utils/tar.gz/cc34a4cae48f30714200742eca3d43ee42e13290}
     version: 2.0.0
 
-  verus-typescript-primitives@https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888:
-    resolution: {gitHosted: true, integrity: sha512-GZ7yqyHgxNbysE9yKOJ90Wg+AMjKjAe9JyGhN9rorTs15Rz86UnO5GSMNGi6sBEoR1lj2IyLoBQaAGYnTqBh4g==, tarball: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888}
+  verus-typescript-primitives@https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890}
     version: 1.0.0
 
   verus-zkedid-utils@https://codeload.github.com/VerusCoin/verus-zkedid-utils/tar.gz/70d7f5ed6b4787da14b06de5d2d669d714d1860b:
@@ -5516,12 +5516,12 @@ packages:
     resolution: {gitHosted: true, integrity: sha512-JqQdoadk2NORCa9hFRw00m/IxLideAbqnpcAVJJtVyKh4gJsJXHvRuoOE1hE2hAtjYAoafD2GmDjLxohB7JzXA==, tarball: https://codeload.github.com/michaeltout/verus-zkedid-utils/tar.gz/f9a97d448a0b460794132bea9789e278a0084a62}
     version: 1.0.0
 
-  verusd-rpc-ts-client@https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/fd2c6b0d35d468ee6174bcdd569f5aa990b05282:
-    resolution: {gitHosted: true, integrity: sha512-WhSUwr8MT4S5WuJnM/UvZyN7IbuKQ0wJ5Hz3Y+gMRhZLG4t6aLwKvMFfXkBnUuCgNKr+j1wxpSBe2ZASNw6LuQ==, tarball: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/fd2c6b0d35d468ee6174bcdd569f5aa990b05282}
+  verusd-rpc-ts-client@https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7}
     version: 0.1.0
 
-  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/48a1d48a5d076f313022a5891986339851ad7c0c:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/48a1d48a5d076f313022a5891986339851ad7c0c}
+  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/0c39c0a4ba81378ac898cbe75ae1da7511617ccd:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/0c39c0a4ba81378ac898cbe75ae1da7511617ccd}
     version: 0.1.0
 
   vlq@1.0.1:
@@ -6401,7 +6401,7 @@ snapshots:
       '@bitgo/blake2b-wasm': blake2b-wasm@https://codeload.github.com/VerusCoin/blake2b-wasm/tar.gz/a16070b30bb8d8aee670f0c69b642913eca79998
       nanoassert: 2.0.0
 
-  '@bitgo/utxo-lib@https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/f39bb2206bac9c3fbf199f7496e495e3a427c771':
+  '@bitgo/utxo-lib@https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb':
     dependencies:
       '@bitgo/blake2b': 3.0.1
       '@noble/curves': 1.9.7
@@ -6421,7 +6421,7 @@ snapshots:
       safe-buffer: 5.0.1
       typeforce: 1.11.3
       varuint-bitcoin: 1.0.4
-      verus-typescript-primitives: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888
+      verus-typescript-primitives: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890
       wif: 2.0.1
     transitivePeerDependencies:
       - supports-color
@@ -12093,7 +12093,7 @@ snapshots:
       bignumber.js: 9.1.1
       verus-zkedid-utils: https://codeload.github.com/michaeltout/verus-zkedid-utils/tar.gz/f9a97d448a0b460794132bea9789e278a0084a62
 
-  verus-typescript-primitives@https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888:
+  verus-typescript-primitives@https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890:
     dependencies:
       base64url: 3.0.1
       bech32: 2.0.0
@@ -12106,23 +12106,23 @@ snapshots:
 
   verus-zkedid-utils@https://codeload.github.com/michaeltout/verus-zkedid-utils/tar.gz/f9a97d448a0b460794132bea9789e278a0084a62: {}
 
-  verusd-rpc-ts-client@https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/fd2c6b0d35d468ee6174bcdd569f5aa990b05282:
+  verusd-rpc-ts-client@https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7:
     dependencies:
       axios: 1.18.0
       blake2b: https://codeload.github.com/VerusCoin/blake2b/tar.gz/578dc12b7b68a3ce76d1e1add1402b28a5890a6b
-      verus-typescript-primitives: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888
+      verus-typescript-primitives: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890
     transitivePeerDependencies:
       - debug
       - supports-color
 
-  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/48a1d48a5d076f313022a5891986339851ad7c0c:
+  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/0c39c0a4ba81378ac898cbe75ae1da7511617ccd:
     dependencies:
-      '@bitgo/utxo-lib': https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/f39bb2206bac9c3fbf199f7496e495e3a427c771
+      '@bitgo/utxo-lib': https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb
       axios: 1.18.0
       bignumber.js: 9.1.0
       bn.js: 4.12.3
-      verus-typescript-primitives: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/30c951804228a285546a45457be57ead39d90888
-      verusd-rpc-ts-client: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/fd2c6b0d35d468ee6174bcdd569f5aa990b05282
+      verus-typescript-primitives: https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/7a7b01db697222cd68507a9dbf15f289615ea890
+      verusd-rpc-ts-client: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7
     transitivePeerDependencies:
       - debug
       - supports-color

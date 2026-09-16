@@ -4,6 +4,11 @@ packages:
 nodeLinker: hoisted
 blockExoticSubdeps: false
 autoInstallPeers: false
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+minimumReleaseAgeExcludePrune: true
+trustLockfile: false
 
 overrides:
   word-wrap: "1.2.4"

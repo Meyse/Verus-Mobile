@@ -21,10 +21,10 @@
     "check:search-fields": "node scripts/check-search-fields.js src",
     "check:send-wizard-options": "node scripts/check-send-wizard-options.js",
     "check:spendable-key-review": "node scripts/check-spendable-key-review.js",
-    "update-verus-libs": "pnpm remove verus-typescript-primitives && pnpm add 'git+https://github.com/VerusCoin/verus-typescript-primitives.git' && pnpm remove @bitgo/utxo-lib && pnpm add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && pnpm remove verusd-rpc-ts-client && pnpm add 'git+https://github.com/VerusCoin/verusd-rpc-ts-client.git' && pnpm remove verusid-ts-client && pnpm add 'git+https://github.com/VerusCoin/verusid-ts-client.git'"
+    "update-verus-libs": "pnpm add 'github:VerusCoin/BitGoJS#9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb' 'github:VerusCoin/verus-typescript-primitives#7a7b01db697222cd68507a9dbf15f289615ea890' 'github:VerusCoin/verusd-rpc-ts-client#58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7' 'github:VerusCoin/verusid-ts-client#0c39c0a4ba81378ac898cbe75ae1da7511617ccd'"
   },
   "dependencies": {
-    "@bitgo/utxo-lib": "github:VerusCoin/BitGoJS#utxo-lib-verus",
+    "@bitgo/utxo-lib": "github:VerusCoin/BitGoJS#9582a20f7211a7a6aed7bfae3c651e6b76c1f9bb",
     "@noble/curves": "1.9.7",
     "@noble/hashes": "1.8.0",
     "@react-native-async-storage/async-storage": "2.0.0",
@@ -128,10 +128,10 @@
     "varuint-bitcoin": "1.0.4",
     "version_compare": "0.0.3",
     "verus-pay-utils": "git+https://github.com/VerusCoin/verus-pay-utils.git",
-    "verus-typescript-primitives": "github:VerusCoin/verus-typescript-primitives",
+    "verus-typescript-primitives": "github:VerusCoin/verus-typescript-primitives#7a7b01db697222cd68507a9dbf15f289615ea890",
     "verus-zkedid-utils": "git+https://github.com/VerusCoin/verus-zkedid-utils.git",
-    "verusd-rpc-ts-client": "github:VerusCoin/verusd-rpc-ts-client",
-    "verusid-ts-client": "github:VerusCoin/verusid-ts-client",
+    "verusd-rpc-ts-client": "github:VerusCoin/verusd-rpc-ts-client#58689ea52500a6a6e4aa741e5d2ed41d7bc6ddd7",
+    "verusid-ts-client": "github:VerusCoin/verusid-ts-client#0c39c0a4ba81378ac898cbe75ae1da7511617ccd",
     "vm-browserify": "0.0.4",
     "wif": "2.0.6"
   },
