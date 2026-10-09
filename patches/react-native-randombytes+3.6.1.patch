@@ -2,7 +2,7 @@ diff --git a/node_modules/react-native-randombytes/RNRandomBytes.m b/node_module
 index adef2e7..9e3bcf8 100644
 --- a/node_modules/react-native-randombytes/RNRandomBytes.m
 +++ b/node_modules/react-native-randombytes/RNRandomBytes.m
-@@ -24,5 +24,17 @@ @implementation RNRandomBytes
+@@ -24,20 +24,48 @@ @implementation RNRandomBytes
  RCT_EXPORT_METHOD(randomBytes:(NSUInteger)length
                    callback:(RCTResponseSenderBlock)callback)
  {
@@ -21,7 +21,7 @@ index adef2e7..9e3bcf8 100644
 +
 +    callback(@[[NSNull null], bytes]);
  }
-@@ -30,6 +42,15 @@
+ 
 -- (NSString *) randomBytes:(NSUInteger)length
 +- (NSString *) randomBytes:(NSUInteger)length status:(int *)status
  {
@@ -39,7 +39,7 @@ index adef2e7..9e3bcf8 100644
 +
      return [bytes base64EncodedStringWithOptions:0];
  }
-@@ -37,6 +58,13 @@
+ 
  - (NSDictionary *)constantsToExport
  {
 +    int status = errSecSuccess;
@@ -54,3 +54,23 @@ index adef2e7..9e3bcf8 100644
 +        @"seed": seed
      };
  };
+ 
+diff --git a/node_modules/react-native-randombytes/android/build.gradle b/node_modules/react-native-randombytes/android/build.gradle
+--- a/node_modules/react-native-randombytes/android/build.gradle
++++ b/node_modules/react-native-randombytes/android/build.gradle
+@@ -5,6 +5,7 @@
+ apply plugin: 'com.android.library'
+ 
+ android {
++    namespace "com.bitgo.randombytes"
+     compileSdkVersion safeExtGet('compileSdkVersion', 26)
+     buildToolsVersion safeExtGet('buildToolsVersion', '26.0.2')
+ 
+diff --git a/node_modules/react-native-randombytes/android/src/main/AndroidManifest.xml b/node_modules/react-native-randombytes/android/src/main/AndroidManifest.xml
+--- a/node_modules/react-native-randombytes/android/src/main/AndroidManifest.xml
++++ b/node_modules/react-native-randombytes/android/src/main/AndroidManifest.xml
+@@ -1,3 +1,2 @@
+-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+-    package="com.bitgo.randombytes">
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ </manifest>

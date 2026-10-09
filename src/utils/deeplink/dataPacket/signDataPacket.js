@@ -53,23 +53,22 @@ export const signDataPacketObject = async ({
   }
   const privKey = await requestPrivKey(coinObj.id, VRPC, {sessionScope});
   assertReviewCurrent();
-  // Preload RPC inputs so the client signs synchronously after this guard.
+  const verifiableSignature = new VerifiableSignatureData({
+    version: VerifiableSignatureData.TYPE_VERUSID_DEFAULT,
+    systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
+    identityID: CompactAddressObject.fromIAddress(identityAddress),
+  });
+
   const signature = await signer.signHash(
     identityAddress,
-    signatureHash,
+    verifiableSignature.getIdentityHash(height, signatureHash),
     privKey,
     identityResult.result,
     height,
     coinObj.system_id,
   );
   assertReviewCurrent();
-
-  const verifiableSignature = new VerifiableSignatureData({
-    version: VerifiableSignatureData.TYPE_VERUSID_DEFAULT,
-    systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
-    identityID: CompactAddressObject.fromIAddress(identityAddress),
-    signatureAsVch: Buffer.from(signature, 'base64'),
-  });
+  verifiableSignature.signatureAsVch = Buffer.from(signature, "base64");
 
   return verifiableSignature.toSignatureData(signatureHash);
 };

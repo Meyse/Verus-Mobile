@@ -404,6 +404,9 @@ const ContentStep = ({
       <ScrollView
         style={contentStyles.contentReviewScroll}
         contentContainerStyle={contentStyles.contentReviewScrollContent}>
+        {removeCount > 0 && addCount > 0 && (
+          <Text style={styles.subtitle}>This request removes active content and adds new content. Review both changes.</Text>
+        )}
         <VerusIdContentChanges
           cmmItems={cmmItems}
           cmmUpdates={cmmUpdates}

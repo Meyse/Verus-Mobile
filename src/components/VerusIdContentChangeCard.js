@@ -107,7 +107,7 @@ export const isContentMultiMapRemove = rawData => {
 
 export const getCmmChangeType = (hasExisting, updateEntry) => {
   if (!updateEntry) return null;
-  if (isContentMultiMapRemove(updateEntry.rawData)) return 'removed';
+  if (updateEntry.removeMeta) return 'removed';
   if (!hasExisting) return 'added';
   return 'appended';
 };
@@ -246,6 +246,11 @@ export const buildVerusIdContentChangeItems = ({
     if (!contentMultiMapInfo[key]) {
       const updateEntry = cmmUpdates[key];
       const targetKey = getUpdateKeyTarget(key);
+      const currentValues = updateEntry?.removeMeta?.action !== 4
+        ? currentContentMultiMap?.[updateEntry?.removeMeta?.entryKey]
+        : null;
+      const hasCurrentValues = currentValues != null &&
+        (!Array.isArray(currentValues) || currentValues.length > 0);
 
       contentMultiMapInfo[key] = {
         key,
@@ -253,8 +258,8 @@ export const buildVerusIdContentChangeItems = ({
           updateEntry && updateEntry.displayTitle
             ? updateEntry.displayTitle
             : getCmmDataKey(targetKey),
-        data: updateEntry ? updateEntry.data : null,
-        hideOldData: true,
+        data: hasCurrentValues ? getCmmDataPreview(currentValues) : updateEntry ? updateEntry.data : null,
+        hideOldData: !hasCurrentValues,
         dataInDescription: true,
         changeType: getCmmChangeType(false, updateEntry),
         isEncrypted: Boolean(updateEntry && updateEntry.isEncrypted),

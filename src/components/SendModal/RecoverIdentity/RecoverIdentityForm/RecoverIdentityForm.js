@@ -1,3 +1,4 @@
+import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSelector} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
@@ -523,7 +524,9 @@ const RecoverIdentityForm = props => {
         privateAddr,
       });
     } catch (e) {
-      setFormError(getSafeRecoveryError(e, networkName));
+      if (!showFundRawTransactionErrorAlert(e)) {
+        setFormError(getSafeRecoveryError(e, networkName));
+      }
     }
 
     props.setLoading(false);

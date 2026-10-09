@@ -34,6 +34,7 @@ import {
   VERUSID_SERVICE_ID,
 } from '../../../../../utils/constants/services';
 import {VRPC} from '../../../../../utils/constants/intervalConstants';
+import {showFundRawTransactionErrorAlert} from '../../../../../utils/vrpc/fundRawTransactionError';
 import {
   addGiftCardPendingFunding,
   beginGiftCardShare,
@@ -41,11 +42,13 @@ import {
   cancelGiftCardShare,
   completeGiftCardShare,
   createGiftCard,
+  canStartGiftCardFunding,
   discoverGiftCardIdentityFunds,
   GIFT_CARD_REDEEMED_SHARE_MESSAGE,
   GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE,
   getGiftCardCapabilities,
   getGiftCardFundingTopups,
+  getRetryableGiftCardFunding,
   getSubmittedGiftCardFundingIdentities,
   hasGiftCardBeenShared,
   hasGiftCardClaims,
@@ -148,6 +151,58 @@ const GiftCardPageContent = ({children}) => {
       {children}
     </Animated.View>
   );
+};
+
+const GIFT_CARD_FUNDING_NOT_ALLOWED = 'GIFT_CARD_FUNDING_NOT_ALLOWED';
+
+const isPendingFunding = funding =>
+  funding?.status === 'pending' || funding?.pending === true;
+
+const hasGiftCardBeenRedeemed = card =>
+  getGiftCardCapabilities(card).isRedeemed;
+
+const isExactSavedPendingFunding = (card, pendingBroadcast) => {
+  if (
+    typeof pendingBroadcast?.id !== 'string' ||
+    pendingBroadcast.id.length === 0 ||
+    !Array.isArray(pendingBroadcast.transactions) ||
+    pendingBroadcast.transactions.length === 0
+  ) {
+    return false;
+  }
+
+  const savedFunding = (card?.fundingHistory || []).find(
+    funding =>
+      funding?.id === pendingBroadcast.id &&
+      funding?.kind === pendingBroadcast.kind &&
+      isPendingFunding(funding),
+  );
+  const savedTransactions = savedFunding?.transactions;
+
+  return (
+    Array.isArray(savedTransactions) &&
+    savedTransactions.length === pendingBroadcast.transactions.length &&
+    savedTransactions.every((savedTransaction, index) => {
+      const pendingTransaction = pendingBroadcast.transactions[index];
+
+      return (
+        savedTransaction?.systemId === pendingTransaction?.systemId &&
+        savedTransaction?.txid === pendingTransaction?.txid &&
+        savedTransaction?.rawTx === pendingTransaction?.rawTx
+      );
+    })
+  );
+};
+
+const giftCardFundingNotAllowedError = card => {
+  const error = new Error(
+    hasGiftCardBeenShared(card)
+      ? 'This gift card cannot be funded again. Shared gift cards are single-use once funds or a funding attempt have been recorded.'
+      : 'Redeemed gift cards cannot be funded.',
+  );
+
+  error.code = GIFT_CARD_FUNDING_NOT_ALLOWED;
+  return error;
 };
 
 const hasAmount = amount => {
@@ -524,10 +579,12 @@ const GiftCardFund = props => {
         setLoadError('This gift card could not be found.');
       } else if (
         !createMode &&
-        hasGiftCardBeenShared(giftCardData.cards?.[routeCardId])
+        !canStartGiftCardFunding(giftCardData.cards?.[routeCardId]) &&
+        (hasGiftCardBeenRedeemed(giftCardData.cards?.[routeCardId]) ||
+          !getRetryableGiftCardFunding(giftCardData.cards?.[routeCardId]))
       ) {
         setLoadError(
-          'Shared gift cards cannot be funded. Create a new gift card instead.',
+          'This gift card cannot be funded again. Shared gift cards are single-use once funds or a funding attempt have been recorded.',
         );
       } else if (
         !createMode &&
@@ -947,9 +1004,9 @@ const GiftCardFund = props => {
       setServiceData(savedData);
       const savedCard = savedData.cards?.[nextCard.id] || nextCard;
 
-      if (hasGiftCardBeenShared(savedCard)) {
+      if (!canStartGiftCardFunding(savedCard)) {
         throw new Error(
-          'Shared gift cards cannot be funded. Create a new gift card instead.',
+          'This gift card cannot be funded again. Shared gift cards are single-use once funds or a funding attempt have been recorded.',
         );
       }
 
@@ -988,7 +1045,7 @@ const GiftCardFund = props => {
     [activeAccount],
   );
 
-  const loadLatestFundableCard = useCallback(async () => {
+  const loadLatestFundableCard = useCallback(async pendingFundingToRetry => {
     if (createMode) {
       if (!card) throw new Error('Gift card is not ready.');
       const latestData = normalizeGiftCardServiceData(
@@ -996,9 +1053,9 @@ const GiftCardFund = props => {
       );
       const latestCard = latestData.cards?.[card.id] || card;
 
-      if (hasGiftCardBeenShared(latestCard)) {
+      if (!canStartGiftCardFunding(latestCard) && !isExactSavedPendingFunding(latestCard, pendingFundingToRetry)) {
         throw new Error(
-          'Shared gift cards cannot be funded. Create a new gift card instead.',
+          'This gift card cannot be funded again. Shared gift cards are single-use once funds or a funding attempt have been recorded.',
         );
       }
 
@@ -1019,10 +1076,13 @@ const GiftCardFund = props => {
       throw new Error('Gift card is no longer available.');
     }
 
-    if (hasGiftCardBeenShared(latestCard)) {
-      throw new Error(
-        'Shared gift cards cannot be funded. Create a new gift card instead.',
-      );
+    const isRetryingRecordedFunding = isExactSavedPendingFunding(latestCard, pendingFundingToRetry);
+
+    if (
+      hasGiftCardBeenRedeemed(latestCard) ||
+      (!canStartGiftCardFunding(latestCard) && !isRetryingRecordedFunding)
+    ) {
+      throw giftCardFundingNotAllowedError(latestCard);
     }
 
     if (hasGiftCardShareReservation(latestCard)) {
@@ -1071,12 +1131,6 @@ const GiftCardFund = props => {
 
       if (hasGiftCardShareInProgress(latestCard)) {
         throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
-      }
-
-      if (!hasGiftCardClaims(latestCard)) {
-        throw new Error(
-          'Fund this gift card and wait for confirmation before sharing it.',
-        );
       }
 
       return latestCard;
@@ -1147,12 +1201,6 @@ const GiftCardFund = props => {
             if (hasPendingGiftCardFunding(currentCard)) {
               throw new Error(
                 'Wait for funding transactions to confirm before sharing this gift card.',
-              );
-            }
-
-            if (!hasGiftCardClaims(currentCard)) {
-              throw new Error(
-                'Fund this gift card and wait for confirmation before sharing it.',
               );
             }
 
@@ -1310,6 +1358,7 @@ const GiftCardFund = props => {
       setPreflightPlan(plan);
       setResult(null);
     } catch (e) {
+      showFundRawTransactionErrorAlert(e);
       setPreflightPlan(null);
       setResult({
         kind: 'error',
@@ -1391,14 +1440,24 @@ const GiftCardFund = props => {
   const persistFundingBroadcast = async (fundingCard, pendingBroadcast) => {
     const updatedCard = await updateStoredCard(
       fundingCard.id,
-      (currentData, currentCard) =>
-        upsertGiftCard(
+      (currentData, currentCard) => {
+        // Reserve the exact signed batch under the service-storage write queue.
+        if (hasGiftCardShareReservation(currentCard)) {
+          throw new Error(GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
+        }
+        if (hasGiftCardBeenRedeemed(currentCard) ||
+            (!canStartGiftCardFunding(currentCard) &&
+             !isExactSavedPendingFunding(currentCard, pendingBroadcast))) {
+          throw giftCardFundingNotAllowedError(currentCard);
+        }
+        return upsertGiftCard(
           currentData,
           addGiftCardPendingFunding(currentCard, {
             pendingBroadcast,
             results: pendingBroadcast.transactions,
           }),
-        ),
+        );
+      },
     );
 
     setPendingFundingBroadcast(pendingBroadcast);
@@ -1417,9 +1476,9 @@ const GiftCardFund = props => {
     setStep(STEP_PROCESSING);
 
     try {
-      fundingCard = createMode
-        ? await saveCard(await loadLatestFundableCard())
-        : await loadLatestFundableCard();
+      fundingCard = createMode && !pendingFunding
+        ? await saveCard(await loadLatestFundableCard(pendingFunding))
+        : await loadLatestFundableCard(pendingFunding);
       cardSaved = true;
       setOperationText('Submitting signed gift card funding transactions...');
 
@@ -1493,11 +1552,11 @@ const GiftCardFund = props => {
           title: hasSavedBroadcast
             ? 'Funding not confirmed'
             : 'Funding not completed',
-          message: hasSavedBroadcast
+          message: hasSavedBroadcast && e.code !== GIFT_CARD_FUNDING_NOT_ALLOWED
             ? `${e.message}\n\nThe exact signed transaction was saved and can be retried safely.`
             : e.message,
           card: cardSaved ? fundingCard : null,
-          pendingRetry: hasSavedBroadcast,
+          pendingRetry: hasSavedBroadcast && e.code !== GIFT_CARD_FUNDING_NOT_ALLOWED,
           retryable: !hasSavedBroadcast,
           txids: getTxids({
             results:
@@ -1523,8 +1582,8 @@ const GiftCardFund = props => {
 
     try {
       const fundingCard = createMode
-        ? await saveCard(await loadLatestFundableCard())
-        : await loadLatestFundableCard();
+        ? await saveCard(await loadLatestFundableCard(pendingFunding))
+        : await loadLatestFundableCard(pendingFunding);
       const nextSystemId =
         selectedSystemId ||
         Object.keys(fundingCard.addressesBySystem || {})[0] ||

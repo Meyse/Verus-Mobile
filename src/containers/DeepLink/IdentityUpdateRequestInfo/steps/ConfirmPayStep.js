@@ -37,6 +37,9 @@ import {
 import { processEncryptedKeys } from '../../../../utils/crypto/encryptCredentials';
 import { confirmPayStepStyles as createConfirmPayStepStyles } from '../../../../styles';
 import {ensureGenericResponseSigner} from '../../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
+import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
+import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
+import {buildIdentityStateChange} from '../utils/buildIdentityStateChange';
 
 const IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT = 360;
 const COMPLETION_SHEET_STAGE = {
@@ -131,6 +134,8 @@ const ConfirmPayStep = ({
   contentCount,
   hasEncryptedKeys,
   onBroadcastingChange,
+  identityStateChange,
+  chainHeight,
   styles: parentStyles,
 }) => {
   const theme = useOnboardingTheme();
@@ -154,6 +159,7 @@ const ConfirmPayStep = ({
   const [sourceSheetVisible, setSourceSheetVisible] = useState(false);
   const feeCalculationIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const [preparedStateChange, setPreparedStateChange] = useState(null);
 
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const allSubWallets = useObjectSelector(state => state.coinMenus.allSubWallets);
@@ -285,6 +291,7 @@ const ConfirmPayStep = ({
     setFeeCurrency(null);
     setTxHex(null);
     setUtxos(null);
+    setPreparedStateChange(null);
 
     try {
       const [, address, systemId] = source.wallet.channel.split('.');
@@ -328,6 +335,14 @@ const ConfirmPayStep = ({
       }
 
       setSelectedSource(source);
+      // The funded transaction can have a later expiry (and therefore unlock
+      // height) than the preview. Display the identity verified from this tx.
+      setPreparedStateChange(buildIdentityStateChange({
+        currentIdentity: subjectIdentity.identity,
+        updatedIdentity: updateIdentityTx.identity.toJson(),
+        chainHeight,
+        secondsPerBlock: coinObj.seconds_per_block,
+      }));
       setFee(satsToCoins(BigNumber(updateIdentityTx.deltas.get(currency).abs().toString())).toString());
       setFeeCurrency(currency);
       setTxHex(updateIdentityTx.hex);
@@ -343,7 +358,9 @@ const ConfirmPayStep = ({
       setSelectedSource(null);
       setTxHex(null);
       setUtxos(null);
-      Alert.alert('Error', e.message || 'Failed to calculate fee');
+      if (!showFundRawTransactionErrorAlert(e)) {
+        Alert.alert('Error', e.message || 'Failed to calculate fee');
+      }
     } finally {
       if (
         mountedRef.current &&
@@ -354,6 +371,7 @@ const ConfirmPayStep = ({
     }
   }, [
     coinObj,
+    chainHeight,
     details,
     hasEncryptedKeys,
     requestedCurrency,
@@ -577,6 +595,8 @@ const ConfirmPayStep = ({
           <Text style={parentStyles.mainTitle}>Confirm update</Text>
           <Text style={parentStyles.subtitle}>Select a payment source and confirm the identity update</Text>
         </View>
+
+        <IdentityStateChangeCard change={preparedStateChange || identityStateChange} detailed />
 
         {/* Fee */}
         <View style={localStyles.feeCard}>

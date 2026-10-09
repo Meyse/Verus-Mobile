@@ -378,7 +378,7 @@ export default function VerusIdObjectData(props) {
         setExpandedAccordions(initialExpandedState);
       }
     }
-  }, [verusId, friendlyNames, updates, cmmDataKeys, chainInfo, coinObj, hideUnchanged, hideDataOnLoad, signedInDetailsPresentation, ownedAddress, ownedByUser]);
+  }, [verusId, friendlyNames, displayUpdates, cmmDataKeys, chainInfo, coinObj, hideUnchanged, hideDataOnLoad, signedInDetailsPresentation, ownedAddress, ownedByUser]);
 
   copyDataToClipboard = (data, name) => {
     Clipboard.setString(data);

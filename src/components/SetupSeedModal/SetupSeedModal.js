@@ -17,7 +17,9 @@ import ZSeedSetupFlow from './ZSeedSetupFlow';
 
 class SetupSeedModal extends Component {
   constructor(props) {
-    super(props);    
+    super(props);
+    this.seedSessionOpen = !!props.visible;
+    this.seedSubmission = null;
     this.state = {
       firstTimeSeed: props.importOnly ? false : true,
       createSeedState: {
@@ -33,7 +35,8 @@ class SetupSeedModal extends Component {
         scanning: false,
         showSeed: false
       },
-      loadingSeed: true
+      loadingSeed: true,
+      submittingSeed: false,
     }
   }
 
@@ -51,16 +54,73 @@ class SetupSeedModal extends Component {
       })
     } catch(e) {
       createAlert("Error", "Error generating Secret Recovery Phrase.")
-      this.props.cancel()
+      this.cancel()
       console.warn(e)
     }
   }
 
+  componentDidUpdate(lastProps) {
+    if (lastProps.visible !== this.props.visible) {
+      this.seedSessionOpen = !!this.props.visible;
+      this.resetSeedSubmission();
+    }
+  }
+
+  componentWillUnmount() {
+    this.seedSessionOpen = false;
+    this.seedSubmission = null;
+  }
+
+  resetSeedSubmission = () => {
+    this.seedSubmission = null;
+    this.setState({ submittingSeed: false });
+  };
+
+  cancel = () => {
+    this.seedSessionOpen = false;
+    this.resetSeedSubmission();
+    this.props.cancel();
+  };
+
+  beginSeedSubmission = () => {
+    if (!this.props.visible || !this.seedSessionOpen || this.seedSubmission) return null;
+    const submission = {};
+    this.seedSubmission = submission;
+    this.setState({ submittingSeed: true });
+    return submission;
+  };
+
+  seedSubmissionIsCurrent = submission =>
+    this.props.visible && this.seedSessionOpen && this.seedSubmission === submission;
+
+  failSeedSubmission = submission => {
+    if (!this.seedSubmissionIsCurrent(submission)) return false;
+    this.resetSeedSubmission();
+    return true;
+  };
+
+  completeSeedSubmission = (submission, seed) => {
+    if (!this.seedSubmissionIsCurrent(submission)) return;
+    // Close this session before invoking callers that may update other modals.
+    this.seedSessionOpen = false;
+    this.props.setSeed(seed, this.props.channel);
+    this.cancel();
+  };
+
+  changeSeedMode = firstTimeSeed => {
+    this.resetSeedSubmission();
+    this.setState({ firstTimeSeed });
+  };
+
   render() {
-    const {cancel, setSeed, channel, importOnly, redesigned} = this.props;
+    const {channel, importOnly, redesigned} = this.props;
     const parentProps = {
-      cancel,
-      setSeed,
+      cancel: this.cancel,
+      beginSeedSubmission: this.beginSeedSubmission,
+      seedSubmissionIsCurrent: this.seedSubmissionIsCurrent,
+      failSeedSubmission: this.failSeedSubmission,
+      completeSeedSubmission: this.completeSeedSubmission,
+      submittingSeed: this.state.submittingSeed,
       channel
     }
     return (
@@ -68,7 +128,7 @@ class SetupSeedModal extends Component {
         animationType={this.props.animationType}
         transparent={false}
         visible={this.props.visible}
-        onRequestClose={cancel}
+        onRequestClose={this.cancel}
       >
         {redesigned ? (
           this.state.createSeedState.newSeed == null ? (
@@ -77,10 +137,9 @@ class SetupSeedModal extends Component {
             </View>
           ) : (
             <ZSeedSetupFlow
-              cancel={cancel}
-              channel={channel}
+              {...parentProps}
+              resetSeedSubmission={this.resetSeedSubmission}
               seed={this.state.createSeedState.newSeed}
-              setSeed={setSeed}
             />
           )
         ) : this.state.firstTimeSeed ? (
@@ -95,7 +154,7 @@ class SetupSeedModal extends Component {
                 this.setState({ createSeedState })
               }
               initState={this.state.createSeedState}
-              importSeed={() => this.setState({ firstTimeSeed: false })}
+              importSeed={() => this.changeSeedMode(false)}
             />
           )
         ) : (
@@ -106,7 +165,7 @@ class SetupSeedModal extends Component {
             }
             initState={this.state.importSeedState}
             backLabel={importOnly ? "Cancel" : "Back"}
-            onBack={importOnly ? cancel : () => this.setState({ firstTimeSeed: true })}
+            onBack={importOnly ? this.cancel : () => this.changeSeedMode(true)}
           />
         )}
       </Modal>

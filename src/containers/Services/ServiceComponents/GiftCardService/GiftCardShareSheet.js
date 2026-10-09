@@ -9,6 +9,7 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {useAppTheme} from '../../../../theme/app';
+import {hasGiftCardClaims} from '../../../../utils/giftCard/giftCard';
 import {
   GiftCardNfcProgressModal,
   useGiftCardSharing,
@@ -123,8 +124,9 @@ const GiftCardShareSheet = ({
             />
             <Text
               style={[styles.warningText, {color: theme.colors.textSecondary}]}>
-              Sharing exposes the spendable gift-card key. This card cannot be
-              funded again after it is shared.
+              {hasGiftCardClaims(card)
+                ? 'Sharing exposes the spendable gift-card key. This card cannot be funded again after it is shared.'
+                : 'This gift card is unfunded. Anyone with the key can spend funds as soon as they arrive. Fund this card only once.'}
               {card?.encrypted
                 ? ' The claim password is a separate secret and cannot be recovered.'
                 : ''}

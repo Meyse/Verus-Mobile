@@ -1,3 +1,4 @@
+import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSelector} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
@@ -282,7 +283,9 @@ const RevokeIdentityForm = props => {
         revocationResult,
       });
     } catch (e) {
-      setFormError(getSafeRevocationError(e, networkName));
+      if (!showFundRawTransactionErrorAlert(e)) {
+        setFormError(getSafeRevocationError(e, networkName));
+      }
     }
 
     props.setLoading(false);

@@ -1,3 +1,4 @@
+import {showFundRawTransactionErrorAlert} from '../../../utils/vrpc/fundRawTransactionError';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
@@ -1337,6 +1338,8 @@ const SpendableKeyRequestInfoContent = props => {
             retry: 'claim',
           });
           setStatus('error');
+        } else if (showFundRawTransactionErrorAlert(e)) {
+          setStatus('review');
         } else if (isNetworkError(e)) {
           setRequestError(getClaimNetworkError(e));
           setStatus('error');

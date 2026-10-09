@@ -564,6 +564,7 @@ const GenericRequestHome = props => {
   ]);
 
   const commitResponseProgress = (updatedResponse, handledIndices) => {
+    if (request.isTestnet()) updatedResponse.setIsTestnet();
     let newDetailsProcessed = detailsProcessed;
     const newProcessedDetailIndices = [...processedDetailIndices];
 
@@ -707,6 +708,7 @@ const GenericRequestHome = props => {
         new primitives.GenericResponse(),
       );
 
+      if (req.isTestnet()) initializedResponse.setIsTestnet();
       responseRef.current = initializedResponse;
       setResponse(initializedResponse);
       setRequest(req);

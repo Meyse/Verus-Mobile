@@ -40,6 +40,7 @@ import {
   GIFT_CARD_REDEEMED_SHARE_MESSAGE,
   GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE,
   getGiftCardCapabilities,
+  canStartGiftCardFunding,
   getGiftCardClaimInfo,
   getGiftCardIdentityLookupErrors,
   getGiftCardPendingFundings,
@@ -48,10 +49,11 @@ import {
   hasGiftCardClaims,
   hasGiftCardShareInProgress,
   hasGiftCardShareReservation,
+  hasGiftCardMempoolTransactions,
   hasPendingGiftCardFunding,
   normalizeGiftCardServiceData,
   refreshGiftCardStatus,
-  removeGiftCard,
+  removeGiftCardIfUnchangedAndDeletable,
   upsertGiftCard,
   upsertGiftCardIfUnchanged,
 } from '../../../../../utils/giftCard/giftCard';
@@ -447,12 +449,6 @@ const GiftCardServiceOverview = ({
         );
       }
 
-      if (!hasGiftCardClaims(latestCard)) {
-        throw new Error(
-          'Fund this gift card and wait for confirmation before sharing it.',
-        );
-      }
-
       return latestCard;
     },
     [activeCoinsForUser, saveCard],
@@ -509,12 +505,6 @@ const GiftCardServiceOverview = ({
           if (hasPendingGiftCardFunding(currentCard)) {
             throw new Error(
               'Wait for funding transactions to confirm before sharing this gift card.',
-            );
-          }
-
-          if (!hasGiftCardClaims(currentCard)) {
-            throw new Error(
-              'Fund this gift card and wait for confirmation before sharing it.',
             );
           }
 
@@ -577,13 +567,6 @@ const GiftCardServiceOverview = ({
   );
 
   const openFunding = async (card, routeParams = {}) => {
-    if (hasGiftCardBeenShared(card)) {
-      Alert.alert(
-        'Already shared',
-        'Shared gift cards cannot be funded. Create a new gift card instead.',
-      );
-      return;
-    }
 
     if (hasGiftCardShareReservation(card)) {
       Alert.alert('Sharing in progress', GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
@@ -612,16 +595,17 @@ const GiftCardServiceOverview = ({
       return;
     }
 
+    if (hasGiftCardBeenShared(card) && !canStartGiftCardFunding(card)) {
+      Alert.alert(
+        'Single-use Gift Card',
+        'This shared gift card already has funds or a recorded funding attempt. Create a new gift card instead of funding it again.',
+      );
+      return;
+    }
+
     try {
       const refreshed = await refreshCard(card);
 
-      if (hasGiftCardBeenShared(refreshed)) {
-        Alert.alert(
-          'Already shared',
-          'Shared gift cards cannot be funded. Create a new gift card instead.',
-        );
-        return;
-      }
 
       if (hasGiftCardShareReservation(refreshed)) {
         Alert.alert('Sharing in progress', GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE);
@@ -653,6 +637,10 @@ const GiftCardServiceOverview = ({
         return;
       }
 
+      if (!canStartGiftCardFunding(refreshed)) {
+        Alert.alert('Single-use gift card', 'This shared gift card already has funds or a recorded funding attempt. Create a new gift card instead of funding it again.');
+        return;
+      }
       navigation.navigate('GiftCardFund', {
         cardId: card.id,
         ...routeParams,
@@ -758,13 +746,32 @@ const GiftCardServiceOverview = ({
         return;
       }
 
-      await saveServiceData(currentData =>
-        removeGiftCard(currentData, card.id),
+      if (await hasGiftCardMempoolTransactions(refreshed)) {
+        await saveCard(refreshed, card);
+        Alert.alert(
+          'Cannot Delete',
+          'This gift card has a pending transaction in the mempool. Wait for it to confirm, then refresh the card before deleting it.',
+        );
+        return;
+      }
+
+      const savedData = await saveServiceData(currentData =>
+        removeGiftCardIfUnchangedAndDeletable(currentData, card),
       );
-      setSelectedCardId(null);
+      if (savedData.cards?.[card.id] == null) setSelectedCardId(null);
+
+      if (savedData.cards?.[card.id] != null) {
+        Alert.alert(
+          'Cannot Delete',
+          'This gift card changed while deletion checks were running. Refresh it and try again.',
+        );
+      }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', e.message);
+      Alert.alert(
+        'Unable to Delete',
+        e.message || 'Unable to verify that this gift card can be deleted.',
+      );
     } finally {
       setBusyCardId(null);
     }
@@ -773,9 +780,15 @@ const GiftCardServiceOverview = ({
   const confirmDeleteCard = card => {
     if (!canDeleteGiftCard(card)) return;
 
+    const hasBeenClaimed =
+      card.status?.state === 'redeemed' || card.status?.redeemed;
+    const message = hasBeenClaimed
+      ? 'Are you sure you want to delete this gift card from this device?'
+      : 'Are you sure you want to delete this gift card from this device? If there are any pending funds coming to the card, they will be permanently lost if the card is deleted.';
+
     Alert.alert(
       'Delete Gift Card',
-      'Are you sure you want to delete this gift card from this device?',
+      message,
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -999,9 +1012,11 @@ const GiftCardServiceOverview = ({
     const identityLookupErrors = getGiftCardIdentityLookupErrors(card);
     const shared = hasGiftCardBeenShared(card);
     const sharedAt = shared ? formatCardDateTime(card.sharedAt) : '';
-    const sharedNoticeBody = sharedAt
-      ? `This wallet exposed the redeemable link on ${sharedAt}. This gift card cannot be funded again.`
-      : 'This wallet exposed the redeemable link. This gift card cannot be funded again.';
+    const sharedNoticeBody = `${sharedAt
+      ? `This wallet exposed the redeemable link on ${sharedAt}.`
+      : 'This wallet exposed the redeemable link.'} ${canStartGiftCardFunding(card)
+      ? 'Anyone with the key can spend funds as soon as they arrive. Fund this card only once.'
+      : 'This gift card cannot be funded again.'}`;
     let contentsSummary = 'No confirmed contents';
     let emptyContentsMessage = pending
       ? 'There are no confirmed contents yet. Pending funding is listed separately below.'

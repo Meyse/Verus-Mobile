@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -39,6 +40,8 @@ import {preflightSend} from '../../utils/api/routers/preflightSend';
 import {sendConvertOrCrossChain} from '../../utils/api/routers/sendConvertOrCrossChain';
 import {send} from '../../utils/api/routers/send';
 import {
+  ETH,
+  ERC20,
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_TRANSACTIONS,
@@ -72,7 +75,7 @@ const SendWizardConfirm = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
-  const {state, setPreflight, setTxResult} = useSendWizard();
+  const {state, setPreflight, setTxResult, setBroadcastError} = useSendWizard();
   const {
     amount,
     amountSats,
@@ -94,6 +97,8 @@ const SendWizardConfirm = () => {
   );
   const [preflighting, setPreflighting] = useState(true);
   const [sending, setSending] = useState(false);
+  const submissionInFlight = useRef(false);
+  const broadcastUnknown = useRef(Boolean(state.broadcastError));
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
@@ -178,7 +183,8 @@ const SendWizardConfirm = () => {
         ? {exportto: route.exportToFqn || route.exportTo}
         : {}),
       ...(route?.via ? {via: route.viaFqn || route.via} : {}),
-      ...(route?.mapTo ? {mapto: route.mapTo} : {}),
+      ...(route?.mapTo && [ETH, ERC20].includes(channel?.split('.')[0])
+        ? {mapto: route.mapTo} : {}),
       ...(route?.preconvert ? {preconvert: true} : {}),
       ...(route?.bridgePrelaunch ? {bridgeprelaunch: true} : {}),
     }),
@@ -321,7 +327,8 @@ const SendWizardConfirm = () => {
   ]);
 
   const submit = async () => {
-    if (!preflightResult || sending) return;
+    if (!preflightResult || submissionInFlight.current || broadcastUnknown.current || state.broadcastError) return;
+    submissionInFlight.current = true;
     setSending(true);
     setError(null);
     try {
@@ -348,14 +355,20 @@ const SendWizardConfirm = () => {
         throw new Error(result.result || result.error?.message || 'Transaction failed.');
       }
 
-      dispatch(expireCoinData(sourceCoin.id, API_GET_BALANCES));
-      dispatch(expireCoinData(sourceCoin.id, API_GET_TRANSACTIONS));
-      dispatch(expireCoinData(sourceCoin.id, API_GET_FIATPRICE));
       setTxResult(result?.result);
       navigation.navigate('SendWizardSuccess');
     } catch (sendError) {
-      setError(sendError.message || 'Transaction failed.');
+      if (sendError.ambiguousBroadcast) {
+        broadcastUnknown.current = true;
+        setBroadcastError(sendError.message || 'The transaction may have been sent. Check your transaction history before starting another send.');
+      } else {
+        setError(sendError.message || 'Transaction failed.');
+      }
     } finally {
+      dispatch(expireCoinData(sourceCoin.id, API_GET_BALANCES));
+      dispatch(expireCoinData(sourceCoin.id, API_GET_TRANSACTIONS));
+      dispatch(expireCoinData(sourceCoin.id, API_GET_FIATPRICE));
+      submissionInFlight.current = false;
       setSending(false);
     }
   };
@@ -535,16 +548,16 @@ const SendWizardConfirm = () => {
             <Text style={[styles.warningText, {color: theme.colors.warning}]}>{message}</Text>
           </View>
         ))}
-        <ErrorMessage>{error}</ErrorMessage>
+        <ErrorMessage>{state.broadcastError || error}</ErrorMessage>
       </ScrollView>
       <WizardFooter
-        disabled={!preflightResult}
+        disabled={!preflightResult || Boolean(state.broadcastError)}
         holdToConfirm
         loading={sending}
         holdingText="Hold to confirm..."
         loadingText="Sending..."
         onPress={submit}>
-        Hold to confirm &amp; send
+        {state.broadcastError ? 'Status unknown' : 'Hold to confirm & send'}
       </WizardFooter>
       <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />
     </WizardScreen>

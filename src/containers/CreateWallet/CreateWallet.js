@@ -31,7 +31,7 @@ export default function CreateWalletStackScreens({
   };
 
   const completeSeedSetup = (asNew, useSeedAsZ, seedOverride) => {
-    createProfile(
+    return createProfile(
       asNew
         ? (seedOverride != null ? seedOverride : newSeed)
         : (seedOverride != null ? seedOverride : importedSeed),

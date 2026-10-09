@@ -224,16 +224,21 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     ? primaryInfo.addresses.filter(item => !item.inWallet)
     : [];
   const walletLosesControl = hasPrimaryInfo && primaryInfo.walletCount === 0;
+  const needsAdditionalSignatures = hasPrimaryInfo &&
+    primaryInfo.walletCount < (primaryInfo.minimumSignatures ?? 1);
   const addsExternalPrimary = added.some(change => change.walletMatch === false);
   const hasExternalPrimaryAfterUpdate = externalAfterUpdate.length > 0;
   const result = walletLosesControl
     ? 'Wallet primary control removed'
+    : needsAdditionalSignatures
+    ? 'Additional signatures required'
     : addsExternalPrimary
     ? 'External address can share control'
     : hasExternalPrimaryAfterUpdate
     ? 'External address remains a controller'
     : 'Wallet remains a primary controller';
   const rows = primaryAddressRows(added, removed, primaryInfo, result);
+  if (hasPrimaryInfo) rows.push(['Required signatures', primaryInfo.minimumSignatures ?? 1]);
   const ackRows = primaryAckRows(added, removed);
   const actionValue = primaryActionValue(added.length, removed.length);
 
@@ -269,7 +274,9 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     kind: 'primary',
     kicker: 'Primary control',
     value: actionValue,
-    caption: addsExternalPrimary
+    caption: needsAdditionalSignatures
+      ? 'Your wallet will need additional signatures after this update'
+      : addsExternalPrimary
       ? 'External address gains control'
       : hasExternalPrimaryAfterUpdate
       ? 'External address remains a controller'
@@ -286,7 +293,9 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
       : 'The primary addresses that control this VerusID are changing.',
     rows,
     ackRows,
-    risk: addsExternalPrimary
+    risk: needsAdditionalSignatures
+      ? `After this update, your wallet will have ${primaryInfo.walletCount} primary addresses, but ${primaryInfo.minimumSignatures} signatures will be required to authorize this ID.`
+      : addsExternalPrimary
       ? 'This address can participate in future control decisions for this VerusID.'
       : 'Primary addresses control who can spend and sign for this VerusID.',
   };
@@ -323,9 +332,63 @@ const buildAuthorityReviewItem = (change, type, currentAuthorities) => {
   };
 };
 
-const buildFallbackReviewItem = change => {
+const buildFallbackReviewItem = (change, primaryInfo) => {
   const value = change.rawData || change.data;
   const isContentClear = change.highRiskType === 'content-clear';
+  if (change.highRiskType === 'signature-threshold' && primaryInfo) {
+    const {walletCount, minimumSignatures, externalCount} = primaryInfo;
+    const needsMore = walletCount < minimumSignatures;
+    const outcome = needsMore
+      ? `After this update, your wallet will have ${walletCount} primary ${walletCount === 1 ? 'address' : 'addresses'}, but ${minimumSignatures} signatures will be required to authorize this ID.`
+      : externalCount > 0
+      ? `After this update, your wallet will have enough primary addresses to meet the ${minimumSignatures}-signature requirement. External addresses can also participate in signing.`
+      : `After this update, all primary addresses will be in your wallet. ${minimumSignatures} ${minimumSignatures === 1 ? 'signature will' : 'signatures will'} be required.`;
+    const rows = [
+      ['Required signatures', minimumSignatures],
+      ['Primary addresses in this wallet', walletCount],
+      ['Primary addresses after update', valuesList(primaryInfo.addresses.map(primaryInfoValue))],
+    ];
+    return {
+      key: change.key,
+      kind: 'fallback',
+      highRiskType: change.highRiskType,
+      kicker: change.title,
+      value: `${minimumSignatures} ${minimumSignatures === 1 ? 'signature' : 'signatures'} required`,
+      caption: change.warning,
+      detailTitle: change.title,
+      detailCopy: outcome,
+      ackTitle: change.title,
+      ackCopy: `${change.warning} ${outcome}`,
+      rows,
+      ackRows: rows,
+      risk: needsMore ? `Your wallet will need additional signatures after this update. ${outcome}` : outcome,
+    };
+  }
+  if (change.highRiskType === 'identity-state') {
+    const rows = [
+      ['Current status', change.before.status],
+      ['Current flags', change.before.flags],
+      ['Current timelock', change.before.timelock],
+      ['After update', change.after.status],
+      ['Resulting flags', change.after.flags],
+      ['Resulting timelock', change.after.timelock],
+    ];
+    return {
+      key: change.key,
+      kind: 'fallback',
+      highRiskType: change.highRiskType,
+      kicker: change.title,
+      value: change.after.status,
+      caption: `Current status: ${change.before.status}`,
+      detailTitle: change.title,
+      detailCopy: change.lockExplanation || change.warning,
+      ackTitle: change.title,
+      ackCopy: change.warning,
+      rows,
+      ackRows: rows,
+      risk: change.warning,
+    };
+  }
   const ackRows =
     Array.isArray(change.ackRows) && change.ackRows.length > 0
       ? change.ackRows
@@ -542,6 +605,7 @@ const buildScreenCopy = reviewItems => {
 
 const HighRiskStep = ({
   highRiskChanges,
+  identityStateChange,
   primaryAddressAfterUpdateInfo,
   ackSheetVisible,
   onCloseAckSheet,
@@ -587,7 +651,7 @@ const HighRiskStep = ({
       ),
       ...changes
         .filter(change => !usedKeys.has(change.key))
-        .map(buildFallbackReviewItem),
+        .map(change => buildFallbackReviewItem(change, primaryAddressAfterUpdateInfo)),
     ].filter(Boolean);
   }, [currentAuthorities, highRiskChanges, primaryAddressAfterUpdateInfo]);
 
@@ -639,7 +703,11 @@ const HighRiskStep = ({
                   </Text>
                   <Text
                     ellipsizeMode="middle"
-                    numberOfLines={1}
+                    numberOfLines={
+                      ['identity-state', 'signature-threshold'].includes(item.highRiskType)
+                        ? undefined
+                        : 1
+                    }
                     style={localStyles.changeValue}>
                     {item.value}
                   </Text>

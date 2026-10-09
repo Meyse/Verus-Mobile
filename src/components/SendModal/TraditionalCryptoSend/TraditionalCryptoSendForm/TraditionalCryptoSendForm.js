@@ -18,6 +18,7 @@ import { selectAddressBlocklist } from "../../../../selectors/settings";
 import { addressIsBlocked } from "../../../../utils/addressBlocklist";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 import AddressBookPicker from '../../../AddressBookPicker';
+import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 
 const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation }) => {
   const { height } = Dimensions.get("window");
@@ -222,7 +223,9 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
 
       navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, { txConfirmation: res });
     } catch (e) {
-      Alert.alert("Error", e.message);
+      if (!showFundRawTransactionErrorAlert(e)) {
+        Alert.alert("Error", e.message);
+      }
     }
 
     setLoading(false);

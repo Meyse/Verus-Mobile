@@ -36,6 +36,7 @@ import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import { sendConvertOrCrossChain } from '../../../../utils/api/routers/sendConvertOrCrossChain';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AnimatedActivityIndicatorBox from '../../../AnimatedActivityIndicatorBox';
 
 import InvoicePaymentReview from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentReview';
 
@@ -66,6 +67,9 @@ function ConvertOrCrossChainSendConfirm({
   const params = route.params.preflight;
   const [confirmationFields, setConfirmationFields] = useState([]);
   const [closedAccordions, setClosedAccordions] = useState({});
+  const [broadcastStatusUnknown, setBroadcastStatusUnknown] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionInFlight = useRef(false);
   const dispatch = useDispatch();
   const balances = route.params.balances;
   const scrollRef = useRef();
@@ -409,7 +413,10 @@ function ConvertOrCrossChainSendConfirm({
   };
 
   const submitData = async () => {
-    await setLoading(true);
+    if (submissionInFlight.current || broadcastStatusUnknown) return;
+    submissionInFlight.current = true;
+
+    setSubmitting(true);
     await setPreventExit(true);
 
     const {output, validation, hex, names, deltas, source, inputs} = params;
@@ -435,15 +442,21 @@ function ConvertOrCrossChainSendConfirm({
           destination: toAddress,
         });
     } catch (e) {
-      Alert.alert('Error', e.message);
+      if (e.ambiguousBroadcast === true) {
+        setBroadcastStatusUnknown(true);
+        Alert.alert('Broadcast status unknown', e.message);
+      } else {
+        Alert.alert('Error', e.message);
+      }
+    } finally {
+      dispatch(expireCoinData(sendModal.coinObj.id, API_GET_FIATPRICE));
+      dispatch(expireCoinData(sendModal.coinObj.id, API_GET_TRANSACTIONS));
+      dispatch(expireCoinData(sendModal.coinObj.id, API_GET_BALANCES));
+
+      await setPreventExit(false);
+      setSubmitting(false);
+      submissionInFlight.current = false;
     }
-
-    dispatch(expireCoinData(sendModal.coinObj.id, API_GET_FIATPRICE));
-    dispatch(expireCoinData(sendModal.coinObj.id, API_GET_TRANSACTIONS));
-    dispatch(expireCoinData(sendModal.coinObj.id, API_GET_BALANCES));
-
-    setPreventExit(false);
-    setLoading(false);
   };
 
   const renderItem = (item, index, divide = true) => {
@@ -494,6 +507,8 @@ function ConvertOrCrossChainSendConfirm({
         confirmationFields={confirmationFields}
         networkName={networkName}
         onSend={submitData}
+        submitting={submitting}
+        broadcastStatusUnknown={broadcastStatusUnknown}
         onBack={
           locked[SEND_MODAL_AMOUNT_FIELD] && locked[SEND_MODAL_TO_ADDRESS_FIELD]
             ? cancel
@@ -502,6 +517,7 @@ function ConvertOrCrossChainSendConfirm({
       />
     );
   }
+  if (submitting) return <AnimatedActivityIndicatorBox />;
 
   return (
     <View style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
@@ -559,8 +575,9 @@ function ConvertOrCrossChainSendConfirm({
           labelStyle={{color: Colors.secondaryColor}}
           style={{width: 148}}
           onPress={submitData}
+          disabled={broadcastStatusUnknown}
           mode="contained">
-          {params.output.burn === true ? 'Burn' : 'Send'}
+          {broadcastStatusUnknown ? 'Status unknown' : params.output.burn === true ? 'Burn' : 'Send'}
         </Button>
       </View>
     </View>

@@ -392,7 +392,7 @@ const GiftCardFlipCard = ({
               </View>
 
               <Text numberOfLines={1} style={styles.shareSafety}>
-                Sharing locks further funding.
+                Shared cards are single-use. Anyone with the key can spend funds as soon as they arrive.
               </Text>
             </View>
           </Animated.View>

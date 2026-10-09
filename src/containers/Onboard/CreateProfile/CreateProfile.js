@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {StatusBar, View} from 'react-native';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import ChooseName from './Forms/ChooseName';
@@ -99,6 +99,7 @@ export default function CreateProfileStackScreens(props) {
   const [seedWordStep, setSeedWordStep] = useState(0);
   const [biometryAvailable, setBiometryAvailable] = useState(null);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
+  const creationStarted = useRef(false);
   const dispatch = useDispatch();
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -159,10 +160,12 @@ export default function CreateProfileStackScreens(props) {
   }, [newSeed]);
 
   const createProfile = async (seed, createAsTestProfile, useSeedAsZ) => {
-    openLoadingModal('Setting up your new wallet...');
+    if (creationStarted.current) return;
+    creationStarted.current = true;
     let profileCreated = false;
 
     try {
+      openLoadingModal('Setting up your new wallet...');
       await createProfileFromSeed({
         profileName,
         password,
@@ -200,9 +203,10 @@ export default function CreateProfileStackScreens(props) {
     } catch (e) {
       console.error(e);
       createAlert(profileCreated ? 'Wallet ready' : 'Error', e.message);
+    } finally {
+      if (!profileCreated) creationStarted.current = false;
+      closeLoadingModal();
     }
-
-    closeLoadingModal();
   };
 
   const getImportStepForMethod = () =>

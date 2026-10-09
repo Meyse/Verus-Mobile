@@ -58,6 +58,7 @@ import {
   validateVerusPayBurnChangePrice,
   VERUSPAY_BURN_OWN_ADDRESS_DISPLAY,
 } from '../../utils/deeplink/verusPayBurnChangePrice';
+import {assertRequestNetworkMatchesAccount} from '../../utils/deeplink/requestAccounts';
 
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -68,6 +69,9 @@ const DeepLink = (props) => {
 
   const signedIn = useSelector((state) => state.authentication.signedIn)
   const accounts = useObjectSelector(state => state.authentication.accounts)
+  const activeAccount = useObjectSelector(
+    state => state.authentication.activeAccount,
+  )
   const [displayKey, setDisplayKey] = useState(null)
   const [loading, setLoading] = useState(false)
   const [displayProps, setDisplayProps] = useState({})
@@ -117,6 +121,10 @@ const DeepLink = (props) => {
     const request = new primitives.GenericRequest();
     request.fromBuffer(Buffer.from(deeplinkData, 'hex'));
     setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
+
+    if (signedIn) {
+      assertRequestNetworkMatchesAccount(activeAccount, request.isTestnet());
+    }
 
     const requiresDelegatedUserCheck = isDelegatedSignerRequest(request);
     
@@ -178,6 +186,13 @@ const DeepLink = (props) => {
 
   const processVerusPayInvoice = async () => {
     const invoice = primitives.VerusPayInvoice.fromJson(deeplinkData)
+
+    if (signedIn) {
+      assertRequestNetworkMatchesAccount(
+        activeAccount,
+        invoice.details.isTestnet(),
+      );
+    }
 
     if (!invoice.details.acceptsNonVerusSystems() && invoice.details.excludesVerusBlockchain()) {
       throw new Error("This invoice accepts no systems to pay on, and is therefore unpayable.")

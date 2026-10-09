@@ -22,6 +22,8 @@ const InvoicePaymentReview = ({
   confirmationFields,
   networkName,
   onSend,
+  submitting = false,
+  broadcastStatusUnknown = false,
   onBack,
 }) => {
   const {styles} = useInvoiceStyles();
@@ -47,7 +49,7 @@ const InvoicePaymentReview = ({
         title="Pay invoice"
         borderless
         progress={0.65}
-        showBack
+        showBack={!submitting}
         onBack={onBack}
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -129,8 +131,10 @@ const InvoicePaymentReview = ({
         />
       </ScrollView>
       <SafeBottomActionStack horizontalSpacing={24} style={styles.footer}>
-        <Text style={styles.footnote}>Payments cannot be reversed.</Text>
-        <AppButton onPress={onSend}>{`${burn ? 'Burn' : 'Send'} ${amount(
+        <Text style={styles.footnote}>{broadcastStatusUnknown
+          ? 'The payment may have been sent. Check your transaction history before starting another payment.'
+          : 'Payments cannot be reversed.'}</Text>
+        <AppButton onPress={onSend} loading={submitting} disabled={submitting || broadcastStatusUnknown}>{broadcastStatusUnknown ? 'Status unknown' : `${burn ? 'Burn' : 'Send'} ${amount(
           output.satoshis,
           output.currency,
         )}`}</AppButton>

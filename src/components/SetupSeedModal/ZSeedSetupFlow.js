@@ -22,7 +22,7 @@ import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDevi
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {parseDlightSeed} from '../../utils/keys';
 
-const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
+const ZSeedSetupFlow = ({cancel, seed, beginSeedSubmission, seedSubmissionIsCurrent, failSeedSubmission, completeSeedSubmission, resetSeedSubmission}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const {smallDevice} = useOnboardingSmallDeviceLayout();
@@ -35,8 +35,8 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
   const progress = stage === 'intro' ? 0.16 : 0.5;
 
   const finish = value => {
-    setSeed(value, channel);
-    cancel();
+    const submission = beginSeedSubmission();
+    if (submission != null) completeSeedSubmission(submission, value);
   };
 
   const verifyImportedSeed = async () => {
@@ -49,15 +49,19 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
       return;
     }
 
+    const submission = beginSeedSubmission();
+    if (submission == null) return;
     Keyboard.dismiss();
     setImportLoading(true);
     setImportError(null);
 
     try {
       await parseDlightSeed(trimmedValue);
+      if (!seedSubmissionIsCurrent(submission)) return;
       setImportLoading(false);
-      finish(trimmedValue);
+      completeSeedSubmission(submission, trimmedValue);
     } catch (error) {
+      if (!failSeedSubmission(submission)) return;
       setImportError(
         'Enter a valid BIP39 Secret Recovery Phrase or an extended spending key belonging to a Z address.',
       );
@@ -66,6 +70,8 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
   };
 
   const goBack = () => {
+    resetSeedSubmission();
+    setImportLoading(false);
     Keyboard.dismiss();
 
     if (stage === 'intro') {
@@ -160,6 +166,7 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
                   Phrases created here contain 24 words.
                 </Text>
                 <AppTextInput
+                  editable={!importLoading}
                   autoComplete="off"
                   autoCorrect={false}
                   errorText={importError}
@@ -186,6 +193,7 @@ const ZSeedSetupFlow = ({cancel, channel, seed, setSeed}) => {
                 <TouchableOpacity
                   accessibilityRole="button"
                   activeOpacity={0.72}
+                  disabled={importLoading}
                   onPress={() => setStage('scan')}
                   style={styles.scanAction}>
                   <MaterialCommunityIcons

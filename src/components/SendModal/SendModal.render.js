@@ -204,6 +204,7 @@ export const SendModalRender = function () {
           }}>
           <SafeAreaView style={{flex: 1}}>
             <Root.Navigator
+              detachInactiveScreens={false}
               screenOptions={{
                 header: () => (
                   <View

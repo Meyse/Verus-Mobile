@@ -3,6 +3,7 @@
   - Overview-only identity update request review.
 */
 import React, {useState} from 'react';
+import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
 import {View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {
@@ -12,6 +13,7 @@ import {
 } from '../../components/RequestReview';
 
 const ReviewStep = ({
+  identityStateChange,
   canOpenSignerDetails,
   loadSignerFriendlyNames,
   loadSignerVerusId,
@@ -46,6 +48,7 @@ const ReviewStep = ({
           requesterLabel={requesterLabel}
           showRequestDetailsLink={false}
         />
+        <IdentityStateChangeCard change={identityStateChange} />
         <View style={{height: 24}} />
       </DeepLinkReviewScrollView>
     </>

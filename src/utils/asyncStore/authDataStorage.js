@@ -52,6 +52,27 @@ import {
 //Set storage to hold encrypted user data
 export const storeUser = (authData, users) =>
   queueUserStorageWrite(async () => {
+    const accountHash = hashAccountId(authData.userName);
+    // Check the durable list while holding the write queue. Two submissions
+    // can carry the same stale caller list even though the first has saved.
+    const storedUsersRecord = parseStoredObject(
+      await SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY),
+      "user",
+    );
+    const _users = Array.isArray(storedUsersRecord.users)
+      ? storedUsersRecord.users.slice()
+      : users
+        ? users.slice()
+        : [];
+
+    if (_users.some(user =>
+      user.accountHash === accountHash || user.id === authData.userName
+    )) {
+      const error = new Error('A profile with this name already exists.');
+      error.code = 'DUPLICATE_ACCOUNT';
+      throw error;
+    }
+
     let encryptedKeys = {...CHANNELS_NULL_TEMPLATE};
     const {seeds} = authData;
 
@@ -68,7 +89,7 @@ export const storeUser = (authData, users) =>
 
     let userObj = {
       id: authData.userName,
-      accountHash: hashAccountId(authData.userName),
+      accountHash,
       encryptedKeys,
       biometry: authData.biometry ? true : false,
       hideSeedWarnings: !!(authData.hideSeedWarnings),
@@ -88,18 +109,6 @@ export const storeUser = (authData, users) =>
     if (walletAvatar != null) {
       userObj.walletAvatar = walletAvatar;
     }
-
-    // Use the durable root once the queue is held. The caller's account list
-    // can have been captured before a password migration began.
-    const storedUsersRecord = parseStoredObject(
-      await SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY),
-      "user",
-    );
-    let _users = Array.isArray(storedUsersRecord.users)
-      ? storedUsersRecord.users.slice()
-      : users
-        ? users.slice()
-        : [];
     _users.push(userObj);
     let _toStore = {...storedUsersRecord, users: _users};
 
@@ -632,13 +641,14 @@ const setUserSetting = (accountHash, settingKey, setting) =>
   queueUserStorageWrite(() => new Promise((resolve, reject) => {
     SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(async (res) => {
-        let _users = res ? JSON.parse(res).users : [];
+        const storedRecord = res ? JSON.parse(res) : {users: []};
+        let _users = storedRecord.users;
         if(accountHash !== null) {
           let userIndex = _users.findIndex(n => n.accountHash === accountHash);
 
           if (userIndex > -1) {
             _users[userIndex][settingKey] = setting
-            await SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users: _users}))
+            await SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({...storedRecord, users: _users}))
             resolve(_users)
           } else {
             throw new Error("User with hash " + accountHash + " not found")
@@ -775,24 +785,13 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
             ) {
               let seedPotentiallyCorrupted = false;
 
+              // Legacy decryption is unauthenticated; password checks must not rewrite seeds.
               for (const channel in _decryptedSeeds) {
                 if (_decryptedSeeds[channel]) {
                   try {
                     if (alertOnCorruptedSeed) {
                       seedPotentiallyCorrupted = (SUSPICIOUS_UNICODE_CHARACTER_TEST).test(_decryptedSeeds[channel])
                     }
-
-                    store.dispatch(
-                      setAccounts(
-                        await addEncryptedKeyToUserUnlocked(
-                          hashAccountId(userName),
-                          channel,
-                          _decryptedSeeds[channel],
-                          pin,
-                          true
-                        )
-                      )
-                    );
                   } catch (e) {
                     if (alertOnInternalError) {
                       Alert.alert("Authentication Error", "Internal authentication error.");

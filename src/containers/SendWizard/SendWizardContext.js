@@ -15,6 +15,7 @@ const initialWizardState = {
   recipientAddress: '',
   preflightResult: null,
   txResult: null,
+  broadcastError: null,
 };
 
 const SendWizardContext = createContext(null);
@@ -32,6 +33,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       target,
       route,
       txResult: current.txResult,
+      broadcastError: current.broadcastError,
     }));
   }, []);
 
@@ -93,6 +95,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     setState(current => ({...current, txResult}));
   }, []);
 
+  const setBroadcastError = useCallback(broadcastError => {
+    setState(current => ({...current, broadcastError}));
+  }, []);
+
   const reset = useCallback(() => setState({...initialWizardState}), []);
 
   const value = useMemo(
@@ -107,6 +113,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setRoute,
       setPreflight,
       setTxResult,
+      setBroadcastError,
       reset,
     }),
     [
@@ -120,6 +127,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setSource,
       setTarget,
       setTxResult,
+      setBroadcastError,
       state,
     ],
   );
