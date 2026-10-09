@@ -1017,6 +1017,15 @@ const GiftCardServiceOverview = ({
       : 'This wallet exposed the redeemable link.'} ${canStartGiftCardFunding(card)
       ? 'Anyone with the key can spend funds as soon as they arrive. Fund this card only once.'
       : 'This gift card cannot be funded again.'}`;
+    // Sharing an empty card is allowed, so warn before its key is exposed.
+    const shareNotice = shared
+      ? {title: 'Shared from this wallet', body: sharedNoticeBody}
+      : capabilities.canShare && !hasGiftCardClaims(card)
+      ? {
+          title: 'Unfunded gift card',
+          body: 'If you share it before funding, anyone with the key can spend funds as soon as they arrive. Fund this card only once.',
+        }
+      : null;
     let contentsSummary = 'No confirmed contents';
     let emptyContentsMessage = pending
       ? 'There are no confirmed contents yet. Pending funding is listed separately below.'
@@ -1157,10 +1166,10 @@ const GiftCardServiceOverview = ({
             presentation={presentation}
           />
 
-          {shared ? (
+          {shareNotice ? (
             <View
               accessible
-              accessibilityLabel={`Shared from this wallet. ${sharedNoticeBody}`}
+              accessibilityLabel={`${shareNotice.title}. ${shareNotice.body}`}
               style={[
                 styles.sharedNotice,
                 {
@@ -1180,14 +1189,14 @@ const GiftCardServiceOverview = ({
                     styles.sharedNoticeTitle,
                     {color: theme.colors.textPrimary},
                   ]}>
-                  Shared from this wallet
+                  {shareNotice.title}
                 </Text>
                 <Text
                   style={[
                     styles.sharedNoticeBody,
                     {color: theme.colors.textSecondary},
                   ]}>
-                  {sharedNoticeBody}
+                  {shareNotice.body}
                 </Text>
               </View>
             </View>

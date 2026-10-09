@@ -342,6 +342,9 @@ const ContentStep = ({
   const removeCount = cmmItems.filter(
     item => item.changeType === 'removed',
   ).length;
+  // Private address changes are not content values a removal can affect.
+  const hasMixedCmmChanges =
+    removeCount > 0 && cmmItems.some(item => item.changeType !== 'removed');
   const privateCount =
     cmmItems.filter(item => contentChangeMatchesFilter(item, 'protect'))
       .length + privateInfoItems.length;
@@ -404,8 +407,10 @@ const ContentStep = ({
       <ScrollView
         style={contentStyles.contentReviewScroll}
         contentContainerStyle={contentStyles.contentReviewScrollContent}>
-        {removeCount > 0 && addCount > 0 && (
-          <Text style={styles.subtitle}>This request removes active content and adds new content. Review both changes.</Text>
+        {hasMixedCmmChanges && (
+          <Text style={[styles.subtitle, contentStyles.contentReviewNote]}>
+            A removal can also affect values added in the same update.
+          </Text>
         )}
         <VerusIdContentChanges
           cmmItems={cmmItems}

@@ -259,6 +259,11 @@ export default StyleSheet.create({
   contentReviewScrollContent: {
     paddingBottom: 18,
   },
+  contentReviewNote: {
+    marginHorizontal: 16,
+    marginTop: 0,
+    marginBottom: 12,
+  },
   contentReviewBody: {
     paddingTop: 4,
   },

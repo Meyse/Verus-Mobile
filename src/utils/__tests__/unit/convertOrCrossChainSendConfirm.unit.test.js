@@ -35,6 +35,7 @@ jest.mock('../../math', () => ({
 }));
 jest.mock('../../../styles', () => ({}));
 jest.mock('../../../components/AnimatedActivityIndicatorBox', () => 'AnimatedActivityIndicatorBox');
+jest.mock('../../../containers/DeepLink/InvoiceInfo/InvoicePaymentReview', () => 'InvoicePaymentReview');
 
 const React = require('react');
 const BigNumber = require('bignumber.js');
