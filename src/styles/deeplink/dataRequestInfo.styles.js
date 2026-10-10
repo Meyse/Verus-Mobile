@@ -4,9 +4,12 @@ import createAppEncryptionRequestInfoStyles from './appEncryptionRequestInfo.sty
 const createDataRequestInfoStyles = theme => ({
   ...createAppEncryptionRequestInfoStyles(theme),
   ...StyleSheet.create({
-    section: {marginTop: 24},
+    // The source card above already ends with its own bottom margin, so the
+    // first item starts flush. Items keep 20 points on each side of a divider.
+    section: {},
     item: {
-      paddingVertical: 20,
+      paddingBottom: 20,
+      marginBottom: 20,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
@@ -41,7 +44,7 @@ const createDataRequestInfoStyles = theme => ({
       flex: 1,
       paddingLeft: 4,
     },
-    notice: {paddingVertical: 20},
+    notice: {paddingBottom: 20},
     noticeTitle: {
       ...theme.typography.titleRow,
       color: theme.colors.textPrimary,
@@ -51,7 +54,7 @@ const createDataRequestInfoStyles = theme => ({
       ...theme.typography.bodySm,
       color: theme.colors.danger,
     },
-    loading: {paddingVertical: 24, gap: 16},
+    loading: {paddingBottom: 24, gap: 16},
     detailField: {
       paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,

@@ -8,7 +8,10 @@ import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
 import { Portal, Text } from 'react-native-paper';
 import {CommonActions} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
@@ -51,10 +54,10 @@ import WalletBackupRequestInfo from '../WalletBackupRequestInfo/WalletBackupRequ
 import SpendableKeyRequestInfo from '../SpendableKeyRequestInfo/SpendableKeyRequestInfo';
 import UserDataRequestInfo from '../UserDataRequestInfo/UserDataRequestInfo';
 import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
-import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
+import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
+import useSheetDismissal from '../../../components/useSheetDismissal';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { isDeeplinkHandlerInstalled } from '../../../utils/deeplink/isDeeplinkHandlerInstalled';
-import Colors from '../../../globals/colors';
 import {
   getFriendlyNameMap,
   getIdentity,
@@ -135,6 +138,39 @@ const autoDeliverySheetStyles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+const otherAppStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+  },
+  action: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+});
+
+// Hands the same request to another installed wallet app. Valu Mobile is the
+// only alternative today.
+const OpenInAnotherAppSheet = ({onClose, onOpenInValu, visible}) => {
+  const dismissal = useSheetDismissal({visible, onClose});
+
+  return (
+    <SelectionSheet
+      onClose={dismissal.close}
+      onClosed={dismissal.onClosed}
+      subtitle="Continue this request in another wallet app."
+      title="Open in another app"
+      visible={visible}>
+      <SelectionRow
+        onPress={() => dismissal.dismiss(onOpenInValu)}
+        title="Valu Mobile"
+      />
+    </SelectionSheet>
+  );
+};
 
 const getAutoDeliverySheetTitle = ({
   destination,
@@ -781,6 +817,7 @@ const GenericRequestHome = props => {
   ]);
 
   const insets = useSafeAreaInsets();
+  const theme = useOnboardingTheme();
 
   const screens = {
     [AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid]: () => (
@@ -898,7 +935,12 @@ const GenericRequestHome = props => {
       `${DEEPLINK_PROTOCOL_URL_STRING}://`,
       `${DEEPLINK_PROTOCOL_URL_STRING}${VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID}://`
     );
-    Linking.openURL(redirectUri).catch(e => createAlert('Error', e.message));
+    Linking.openURL(redirectUri).catch(() =>
+      createAlert(
+        'Cannot open Valu Mobile',
+        'Check that Valu Mobile is installed, then try again.',
+      ),
+    );
   };
 
   return (
@@ -911,26 +953,41 @@ const GenericRequestHome = props => {
       ) : props.loading ? (
         <AnimatedActivityIndicatorBox />
       ) : (
-        <View style={{ flex: 1, marginTop: valuInstalled ? 100 : 0 }}>
-          {screens[displayKey]()}
+        <View style={{flex: 1, backgroundColor: theme.colors.background}}>
+          {valuInstalled && (
+            // In normal flow above the review, so it never covers the
+            // screen's own title or controls.
+            <View style={[otherAppStyles.row, {paddingTop: insets.top}]}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.72}
+                onPress={() => setOpenInAnotherAppVisible(true)}
+                style={otherAppStyles.action}>
+                <Text
+                  style={[
+                    theme.typography.labelMd,
+                    {
+                      color: theme.isDark
+                        ? theme.colors.textPrimary
+                        : theme.colors.primary,
+                    },
+                  ]}>
+                  Open in another app
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {valuInstalled ? (
+            // Safe-area views measure insets from the nearest provider. This
+            // provider starts below the row, so the review does not add the
+            // status-bar inset a second time.
+            <SafeAreaProvider style={{flex: 1}}>
+              {screens[displayKey]()}
+            </SafeAreaProvider>
+          ) : (
+            <View style={{flex: 1}}>{screens[displayKey]()}</View>
+          )}
         </View>
-      )}
-      {valuInstalled && displayKey != null && !props.loading && (
-        <TouchableOpacity
-          onPress={() => setOpenInAnotherAppVisible(true)}
-          style={{
-            position: 'absolute',
-            top: insets.top + 6,
-            right: 16,
-            zIndex: 10,
-            backgroundColor: Colors.primaryColor,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 16,
-          }}
-        >
-          <Text style={{ color: Colors.secondaryColor, fontSize: 12 }}>Open in another app</Text>
-        </TouchableOpacity>
       )}
       <AutoDeliverySheet
         deliveryInfo={autoDeliveryState.deliveryInfo}
@@ -945,15 +1002,12 @@ const GenericRequestHome = props => {
         {verusIdDetailsModalProps != null && (
           <VerusIdDetailsModal {...verusIdDetailsModalProps} />
         )}
-        <ListSelectionModal
-          visible={openInAnotherAppVisible}
-          cancel={() => setOpenInAnotherAppVisible(false)}
-          title="Open in another app"
-          data={[{ key: 'valu', title: 'Open in Valu Mobile' }]}
-          onSelect={openInValu}
-          flexHeight={0.5}
-        />
       </Portal>
+      <OpenInAnotherAppSheet
+        onClose={() => setOpenInAnotherAppVisible(false)}
+        onOpenInValu={openInValu}
+        visible={openInAnotherAppVisible}
+      />
     </View>
   );
 };

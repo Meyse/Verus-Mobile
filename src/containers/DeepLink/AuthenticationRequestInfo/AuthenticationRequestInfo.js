@@ -116,8 +116,8 @@ import {
 } from '../../../theme/onboarding';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {
-  GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
+  getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {assertAuthenticationRequestNotExpired} from '../../../utils/deeplink/validator/authenticationRequestValidator';
 
@@ -358,12 +358,7 @@ const AuthenticationRequestInfoContent = props => {
     () => getGenericRequestDeliveryInfo(request),
     [request],
   );
-  const deliveryMethod =
-    deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST
-      ? 'Secure POST'
-      : deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT
-      ? 'Redirect'
-      : null;
+  const deliveryMethod = getGenericRequestDeliveryLabel(deliveryInfo);
 
   useEffect(() => {
     let cancelled = false;

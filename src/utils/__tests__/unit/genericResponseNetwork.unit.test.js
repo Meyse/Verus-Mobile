@@ -13,7 +13,7 @@ jest.mock('react-redux', () => {
   const dispatch = jest.fn();
   return {useDispatch: () => dispatch, useSelector: selector => selector(state)};
 });
-jest.mock('react-native-safe-area-context', () => ({useSafeAreaInsets: () => ({top: 0})}));
+jest.mock('react-native-safe-area-context', () => ({SafeAreaProvider: 'SafeAreaProvider', useSafeAreaInsets: () => ({top: 0})}));
 jest.mock('verusid-ts-client', () => ({primitives: require('verus-typescript-primitives')}));
 jest.mock('../../../styles', () => ({}));
 jest.mock('../../../globals/colors', () => ({}));
@@ -22,7 +22,8 @@ jest.mock('../../../components/AnimatedSuccessCheckmark', () => 'SuccessCheckmar
 jest.mock('../../../components/AppButton', () => 'AppButton');
 jest.mock('../../../components/BottomSheetModal', () => 'BottomSheetModal');
 jest.mock('../../../theme/onboarding', () => ({useOnboardingTheme: () => ({typography: {}, colors: {}})}));
-jest.mock('../../../components/ListSelectionModal/ListSelectionModal', () => 'SelectionModal');
+jest.mock('../../../components/SelectionSheet', () => ({__esModule: true, default: 'SelectionSheet', SelectionRow: 'SelectionRow'}));
+jest.mock('../../../components/useSheetDismissal', () => () => ({close: jest.fn(), dismiss: jest.fn(), onClosed: jest.fn()}));
 jest.mock('../../../components/VerusIdDetailsModal/VerusIdDetailsModal', () => 'IdentityModal');
 jest.mock('../../../containers/DeepLink/GenericRequestLoading', () => ({
   __esModule: true,

@@ -11,7 +11,10 @@ import SkeletonLoader, {
 import CopyAction from '../../../../components/CopyAction';
 import {dataRequestInfoStyles as createStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
-import {getGenericRequestDeliveryInfo} from '../../../../utils/deeplink/genericRequestDelivery';
+import {
+  getGenericRequestDeliveryInfo,
+  getGenericRequestDeliveryLabel,
+} from '../../../../utils/deeplink/genericRequestDelivery';
 import {unixToDate} from '../../../../utils/math';
 import IdentityPickerSheet from '../VerusIdIdentityPickerSheet/IdentityPickerSheet';
 import DeepLinkRequestSourceCard from './DeepLinkRequestSourceCard';
@@ -188,11 +191,7 @@ export default function DataRequestReview({
         {
           label: 'Delivery',
           value:
-            delivery.type === 'post'
-              ? 'POST response'
-              : delivery.type === 'redirect'
-              ? 'Browser handoff'
-              : 'No callback requested',
+            getGenericRequestDeliveryLabel(delivery) || 'No callback requested',
         },
         {label: 'Response URI', value: delivery.uriString},
         {label: 'Responding VerusID', value: selected?.iAddress},

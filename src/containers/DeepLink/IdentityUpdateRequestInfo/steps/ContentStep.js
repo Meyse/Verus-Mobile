@@ -10,7 +10,7 @@
 */
 import React, {useEffect, useMemo, useState} from 'react';
 import {ScrollView, TouchableOpacity, View} from 'react-native';
-import {Divider, List, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
 import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
@@ -122,6 +122,46 @@ const getPrivateInfoFallbackTitle = items => {
   return VERUSID_PRIVATE_INFO.label;
 };
 
+const PrivateInfoRow = ({darkMode, divider, item, showTitle}) => {
+  const Row = item.onPress ? TouchableOpacity : View;
+
+  return (
+    <Row
+      accessibilityHint={item.onPress ? 'Copies the value' : undefined}
+      accessibilityRole={item.onPress ? 'button' : undefined}
+      activeOpacity={0.72}
+      onPress={item.onPress}
+      style={[
+        contentStyles.privateInfoFallbackItem,
+        divider && contentStyles.privateInfoFallbackItemDivider,
+        divider && darkMode && contentStyles.privateInfoFallbackDividerDark,
+      ]}>
+      {showTitle && (
+        <Text
+          numberOfLines={2}
+          style={[
+            contentStyles.privateInfoFallbackItemTitle,
+            darkMode && contentStyles.privateInfoFallbackItemTitleDark,
+          ]}>
+          {item.title}
+        </Text>
+      )}
+      {item.description ? (
+        <Text
+          selectable
+          style={[
+            contentStyles.privateInfoFallbackItemDescription,
+            darkMode && contentStyles.privateInfoFallbackItemDescriptionDark,
+            item.key === VERUSID_PRIVATE_ADDRESS.key &&
+              contentStyles.privateInfoFallbackIdentifier,
+          ]}>
+          {item.description}
+        </Text>
+      ) : null}
+    </Row>
+  );
+};
+
 const PrivateInfoFallback = ({darkMode, items}) => {
   if (items.length === 0) return null;
 
@@ -139,29 +179,14 @@ const PrivateInfoFallback = ({darkMode, items}) => {
         {getPrivateInfoFallbackTitle(items)}
       </Text>
       {items.map((item, index) => (
-        <React.Fragment key={item.key}>
-          <List.Item
-            description={item.description}
-            descriptionStyle={[
-              contentStyles.privateInfoFallbackItemDescription,
-              darkMode && contentStyles.privateInfoFallbackItemDescriptionDark,
-            ]}
-            onPress={item.onPress}
-            title={item.title}
-            titleNumberOfLines={2}
-            titleStyle={[
-              contentStyles.privateInfoFallbackItemTitle,
-              darkMode && contentStyles.privateInfoFallbackItemTitleDark,
-            ]}
-          />
-          {index < items.length - 1 && (
-            <Divider
-              style={
-                darkMode ? contentStyles.privateInfoFallbackDividerDark : null
-              }
-            />
-          )}
-        </React.Fragment>
+        <PrivateInfoRow
+          key={item.key}
+          darkMode={darkMode}
+          divider={index < items.length - 1}
+          item={item}
+          // One item already gives the group its title.
+          showTitle={items.length > 1}
+        />
       ))}
     </View>
   );

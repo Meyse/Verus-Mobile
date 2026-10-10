@@ -1,7 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, Alert} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import Styles from '../../../styles/index';
+import {Alert} from 'react-native';
 import {primitives} from 'verusid-ts-client';
 import {useDispatch} from 'react-redux';
 import {openConvertOrCrossChainSendModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
@@ -55,7 +53,7 @@ const InvoicePaymentConfiguration = props => {
     signerFqn,
     amountDisplay,
     destinationDisplay,
-  } = props.route?.params || props;
+  } = props;
 
   const [conversionOptions, setConversionOptions] = useState({});
 
@@ -222,17 +220,13 @@ const InvoicePaymentConfiguration = props => {
 
   const sourceList = (
     <FundSourceSelectList
-      renderContent={
-        renderInvoice
-          ? sourceState => (
-              <InvoicePaymentOptions
-                {...sourceState}
-                renderInvoice={renderInvoice}
-                onSelect={onSelectFundSource}
-              />
-            )
-          : undefined
-      }
+      renderContent={sourceState => (
+        <InvoicePaymentOptions
+          {...sourceState}
+          renderInvoice={renderInvoice}
+          onSelect={onSelectFundSource}
+        />
+      )}
       animationType="slide"
       onSelect={onSelectFundSource}
       sourceOptions={conversionOptions}
@@ -256,13 +250,7 @@ const InvoicePaymentConfiguration = props => {
     />
   );
 
-  return renderInvoice ? (
-    sourceList
-  ) : (
-    <SafeAreaView style={Styles.defaultRoot}>
-      <View style={{flex: 1}}>{sourceList}</View>
-    </SafeAreaView>
-  );
+  return sourceList;
 };
 
 export default InvoicePaymentConfiguration;

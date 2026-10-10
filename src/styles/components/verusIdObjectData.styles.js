@@ -2,7 +2,8 @@
   VerusIdObjectData.styles 
   - Shared badge and content-card styles for VerusID object rendering.
 */
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { fontStyle } from '../../globals/fonts';
 import Colors from '../../globals/colors';
 
 // keep VerusID change-card presentation centralized and out of the data renderer.
@@ -367,19 +368,37 @@ export default StyleSheet.create({
   privateInfoFallbackTitleDark: {
     color: '#F4F7FB',
   },
+  privateInfoFallbackItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  privateInfoFallbackItemDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E7ECF2',
+  },
   privateInfoFallbackItemTitle: {
     color: '#111827',
+    fontSize: 15,
+    lineHeight: 20,
+    marginBottom: 2,
+    ...fontStyle('semiBold'),
   },
   privateInfoFallbackItemTitleDark: {
     color: '#F4F7FB',
   },
   privateInfoFallbackItemDescription: {
     color: '#606A7A',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  privateInfoFallbackIdentifier: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 13,
   },
   privateInfoFallbackItemDescriptionDark: {
     color: '#A9B6CA',
   },
   privateInfoFallbackDividerDark: {
-    backgroundColor: '#38527A',
+    borderBottomColor: '#38527A',
   },
 });

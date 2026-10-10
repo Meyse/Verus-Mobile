@@ -61,8 +61,8 @@ import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../utils/settings/settingsL
 import {processAppEncryptionRequest} from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {
-  GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
+  getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
@@ -272,12 +272,7 @@ const AppEncryptionRequestInfoContent = props => {
     () => getGenericRequestDeliveryInfo(request),
     [request],
   );
-  const deliveryMethod =
-    deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST
-      ? 'Secure POST'
-      : deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT
-      ? 'Redirect'
-      : null;
+  const deliveryMethod = getGenericRequestDeliveryLabel(deliveryInfo);
   const [linkedIds, setLinkedIds] = useState({});
   const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
   const [selectedIdentity, setSelectedIdentity] = useState(null);

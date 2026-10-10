@@ -90,6 +90,22 @@ export const getUriDestinationHost = uriString => {
   }
 };
 
+// The review label for how the response travels. Plain HTTP POSTs are a
+// development aid (responseDeliverySecurity.js), so they are never "secure".
+export const getGenericRequestDeliveryLabel = deliveryInfo => {
+  if (deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+    return /^https:\/\//i.test(deliveryInfo.uriString || '')
+      ? 'Secure POST'
+      : 'POST over HTTP';
+  }
+
+  if (deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT) {
+    return 'Redirect';
+  }
+
+  return null;
+};
+
 export const getGenericRequestDeliveryInfo = request => {
   const responseUri = getResponseUri(request?.responseURIs || []);
 
