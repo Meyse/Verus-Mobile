@@ -196,6 +196,7 @@ const AuthenticationRequestInfoContent = props => {
     provisioningDetailIndex,
     cancel,
     next,
+    nextStepActionLabel,
     request,
     response,
     detailIndex,
@@ -1872,9 +1873,11 @@ const AuthenticationRequestInfoContent = props => {
     !selectedIdentity &&
     !shouldShowProvisioningInChooser &&
     !hasMatchingIdentity;
+  // Another review follows in a mixed request, and nothing is sent until it
+  // finishes, so the action names that review instead of signing in.
   const primaryActionLabel = activeAccountMatchesRequest
     ? selectedIdentity
-      ? 'Sign in with VerusID'
+      ? nextStepActionLabel || 'Sign in with VerusID'
       : shouldShowLinkAsPrimary
       ? 'Link VerusID'
       : 'Choose VerusID'

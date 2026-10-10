@@ -77,6 +77,7 @@ import {
   GENERIC_REQUEST_COMPLETION_ACTIONS,
   getGenericRequestCompletionAction,
 } from './genericRequestCompletionFlow';
+import {getContinueToNextStepLabel} from './genericRequestNextStep';
 import {
   createExperimentalRequestDisabledError,
   isExperimentalGenericRequestDetailKey,
@@ -834,6 +835,12 @@ const GenericRequestHome = props => {
         setLoading={props.setLoading}
         navigation={props.navigation}
         next={next}
+        nextStepActionLabel={getContinueToNextStepLabel({
+          request,
+          currentIndex: detailIndex,
+          processedDetailIndices,
+          skipWalletBackup: !!passthrough?.skipWalletBackupRequests,
+        })}
         response={response}
         request={request}
         detailIndex={detailIndex}
