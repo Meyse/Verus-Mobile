@@ -33,7 +33,10 @@ import {
   requestWalletUnlock,
   WALLET_UNLOCK_CANCELLED,
 } from '../../../actions/actionDispatchers';
-import {setUserCoins} from '../../../actions/actionCreators';
+import {
+  resetDeeplinkData,
+  setUserCoins,
+} from '../../../actions/actionCreators';
 import {
   updateVerusIdWallet,
   updatePendingVerusIds,
@@ -964,6 +967,9 @@ const AuthenticationRequestInfoContent = props => {
 
       const finishSuccessfulModal = async () => {
         launchedSendModalRef.current = null;
+        // The request is finished. A stored request would reopen on the next
+        // link instead of that link's own request.
+        dispatch(resetDeeplinkData());
 
         props.navigation.dispatch(
           CommonActions.reset({
