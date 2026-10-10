@@ -19,7 +19,13 @@ without repeating the entire investigation.
 - Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
   isolated iOS/Android native previews, and Android build/entry checks.
   Authenticated wallet delivery remains open; see the GR-1/GR-2 log entries.
-- Current focus: **ID-1 complete and locally integrated**, committed as
+- Current focus: **GR-3** on `codex/gr3-request-matrix`. Phase 2 is done: the
+  user agreed the bug list and Phase 3 scope, and the agreed functional fixes
+  (GR3-B6, B3, B2, R1) are verified on the iOS simulator, uncommitted. GR3-B4
+  waits by user choice. Compact screenshots are deferred, and the
+  physical-iPhone run remains. Phase 3 redesign is next. GR-3 covers the
+  GR-1/GR-2 runtime follow-up.
+- Previous focus: **ID-1 complete and locally integrated**, committed as
   `33865cab` on `codex/id1-redesign` and integrated into
   `codex/integrate-generic-request-upstream`. RX-1 remains complete with the
   user-requested system amount keypad, 196 native gallery captures, 32 passing
@@ -37,6 +43,7 @@ without repeating the entire investigation.
 | --- | --- | --- | --- |
 | GR-1 | Credential and data-signing reviews use current request patterns | Ready for verification | Existing request-review primitives |
 | GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
+| GR-3 | Every GenericRequest type has runtime evidence; remaining request surfaces use the current design | In progress | GR-1, GR-2; deeplink-sim and provisioning webhook |
 | SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
 | RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
@@ -235,6 +242,144 @@ separately. Failure exit does not mark the saved request complete.
 **Acceptance:** No broad “Success” state implies a response was delivered before
 delivery occurs. Retry does not repeat already completed signing/payment work.
 Remaining legacy completion callers are documented, with deliberate exceptions.
+
+## GR-3 — GenericRequest runtime matrix and remaining request redesign
+
+**Finding (2026-10-09, source only):** Mobile accepts nine GenericRequest
+detail types. Most review screens use the current design. No authenticated
+end-to-end run covers all types. The legacy `GenericRequestComplete` screen still
+ends invoice and wallet-backup flows. `WalletBackupRequestInfo` still uses legacy
+colors and Paper controls. The “Open in another app” pill in
+`GenericRequestHome` uses legacy colors and absolute positioning. Rejected
+requests show only an alert.
+
+**Scope decisions (user, 2026-10-09):**
+
+- Exclude DeFi. That is conversion and cross-chain invoice payment. Test invoices
+  with native VRSCTEST only. The protocol has no separate DeFi detail type.
+- Do not redesign, generate, or test the deprecated LoginConsent v1 and VerusPay
+  invoice v1 links. Leave them as they are.
+- Test wallet backup and the QR scan path on a physical iPhone with an NFC tag.
+- Android gets one smoke pass per type in Phase 4, not the full matrix.
+- Add new request generators to deeplink-sim on a separate branch.
+
+**Request inventory (source verdict, 2026-10-09):**
+
+| Detail type | Screen | Design state | Test request source |
+| --- | --- | --- | --- |
+| Authentication | `AuthenticationRequestInfo` | Current (exemplar) | deeplink-sim |
+| Authentication + provision identity | `ProvisionIdentityBottomSheet` | Current | `verus-fake-provisioning-webhook` |
+| App encryption | `AppEncryptionRequestInfo` | Current (exemplar) | New deeplink-sim generator |
+| Identity update | `IdentityUpdateRequestInfo` and its steps | Current (exemplar); content step keeps Paper rows | deeplink-sim fixture setup; new variants |
+| User data (credential) | `UserDataRequestInfo` | Current (GR-1) | deeplink-sim data lab |
+| Data packet | `DataPacketRequestInfo` | Current (GR-1) | deeplink-sim data lab |
+| VerusPay invoice | `InvoiceInfo`, invoice form/review/result | Current; ends on legacy completion | deeplink-sim invoice lab |
+| Spendable key (gift card claim) | `SpendableKeyRequestInfo` | Current | Mobile Gift Card service |
+| Create wallet backup (NFC only) | `WalletBackupRequestInfo` | Partial; ends on legacy completion | Physical iPhone and NFC tag |
+
+Mixed requests are in scope: authentication with credential, data packet,
+invoice, app encryption, or provisioning; credential and data packet in both
+orders.
+
+**Test bench:** The local VRSCTEST `verusd` (RPC port 18843) signs requests as
+`TestBob.antafri@`. deeplink-sim runs from the `deeplink-sim-deps-update`
+worktree. The provisioning webhook runs from `verus-fake-provisioning-webhook`.
+Links open with `xcrun simctl openurl` on simulators that hold only the Verus
+Mobile debug build. Use only disposable VRSCTEST profiles and identities.
+
+Phase 0 — test bench:
+
+- [x] **GR-3.1** Create the task branch `codex/gr3-request-matrix` from
+  `codex/sync` and record this workstream.
+- [x] **GR-3.2** Prepare clean normal and compact iOS simulators that hold only
+  the Verus Mobile debug build, so no other app claims `verus://` links.
+- [x] **GR-3.3** Create a fresh disposable VRSCTEST profile. Enable experimental
+  GenericRequests and development HTTP callbacks.
+- [x] **GR-3.4** Give the profile a VerusID through the provisioning webhook and
+  fund it with a small VRSCTEST amount. Record this as the provisioning run.
+  Deviation: Testnet rejects every sub-ID registration ("DeFi functions
+  temporarily disabled"), and the app fails after the provisioning POST (bug
+  GR3-B1). By user choice, the daemon test ID `liveqa09482856.antafri@` got the
+  test wallet's R-address as a second primary address and its shielded address
+  as private address. The app linked it through automatic discovery in a
+  sign-in request. The provisioning row stays Blocked in the matrix.
+- [x] **GR-3.5** Add the missing deeplink-sim generators: app encryption,
+  authentication with app encryption, identity-update variants, and negative
+  cases (wrong network, expired, bad signature, unknown detail, experimental
+  setting off, over-length link).
+- [x] **GR-3.6** Confirm that `xcrun simctl openurl` delivers a harness link to
+  the debug build and reaches the review screen.
+
+Phase 1 — test run (report only; fix only bugs that block the matrix):
+
+- [x] **GR-3.7** Run each type and mixed request: approve, decline, and Back.
+  Run each delivery mode: POST, fail once, fail always, redirect, and no callback.
+  Record the observed screen, verified callback, and confirmed transaction as
+  separate facts.
+  Done on the iPhone 17 Pro simulator, except wallet backup (GR-3.9). All five
+  delivery modes ran on authentication + app encryption; identity update ran
+  POST and fail once; the other types ran POST. Two matrix-blocking bugs were
+  fixed (GR3-B1 provisioning session, GR3-B5 identity content lookup). Four
+  bugs stay open for triage (GR3-B2, B3, B4, B6).
+- [ ] **GR-3.8** Capture light/dark and normal/compact screenshots of every
+  review, processing, result, and error state.
+  Light and dark at normal size are captured. Compact is deferred (user,
+  2026-10-10): the compact simulator has no profile yet.
+- [ ] **GR-3.9** Run wallet backup and the QR scan path on the physical iPhone.
+- [ ] **GR-3.10** Write the local report and gallery. Give each row Works,
+  Broken, or Blocked with the reason.
+  Draft: local `gr3-matrix.local.md` and `docs/qa/gr3/gallery.html`. It becomes
+  final after GR-3.8 and GR-3.9.
+
+Phase 2 — triage:
+
+- [x] **GR-3.11** Agree the bug list and redesign scope with the user. Fix
+  functional bugs first. Reproduce each bug before its fix.
+  Root causes (2026-10-10, local `gr3-matrix.local.md`): B6 is a missing
+  `detachInactiveScreens={false}` on the invoice and identity-safety modal
+  navigator, so every touch reaches JS twice. B3 is the app-encryption screen's
+  own loading sheet colliding with the delivery sheet. B2 is a missing
+  `resetDeeplinkData()` after provisioning. B4 is a primitives library Buffer
+  defect under Hermes. P1 follows upstream behavior.
+  Agreed (user, 2026-10-10): fix B6, B3, B2 and R1 now; leave B4 for later
+  (harness workaround stays); all four Phase 3 groups are in scope. Done: each
+  bug was reproduced, fixed, and rerun with real taps (see the evidence log).
+  P1 stays an upstream question.
+
+Phase 3 — remaining redesign (one scoped delivery each):
+
+- [ ] **GR-3.12** Move invoice and wallet backup from `GenericRequestComplete` to
+  the centralized delivery path. Keep the payment result separate from response
+  delivery. This replaces the GR-2 exception for these two callers.
+- [ ] **GR-3.13** Migrate `WalletBackupRequestInfo` to the semantic theme and
+  shared controls. Verify it on the physical iPhone with NFC.
+- [ ] **GR-3.14** Fix the small leftovers: the “Open in another app” pill, the
+  `InvoicePaymentConfiguration` fallback root, and the Identity Update content
+  step Paper rows. Added (user, 2026-10-10): the empty band under “View request
+  details” on every review (GR3-D8), the “1 hours” expiry copy (GR3-D9), and the
+  “Secure POST” label on plain HTTP destinations (GR3-D6).
+- [ ] **GR-3.15** Replace rejection alerts with a request error state that gives
+  recovery guidance (GR3-D1). In scope by user choice, 2026-10-10.
+- [ ] **GR-3.18** Identity Update high-risk steps: show the address that gains
+  control, the current and new authorities, and full names without mid-token
+  breaks (GR3-D10, GR3-D2). Add the destination and fee to the gift-card claim
+  review. Added by the user, 2026-10-10.
+- [ ] **GR-3.19** Mixed requests: tell the user when a second step follows the
+  sign-in review (GR3-D11). Added by the user, 2026-10-10.
+
+Phase 4 — regression:
+
+- [ ] **GR-3.16** Rerun the matrix on the final branch. Run one Android smoke
+  pass per type.
+- [ ] **GR-3.17** Close GR-1.9, GR-1.10, and GR-2.6 where the evidence supports
+  it. Refresh `docs/genericrequest-types-and-chains.html`. Complete the relevant
+  QA-1 checks.
+
+**Acceptance:** Every in-scope type and mixed request has a recorded runtime
+result with its proof level. No in-scope flow ends on the legacy completion
+screen. All in-scope request surfaces belong to the current review family in
+light and dark mode. Shared changes leave the excluded and deprecated flow
+code untouched.
 
 ## SH-1 — Consistent sheet presentation and dismissal
 
@@ -629,6 +774,10 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-10 | GR-3 Phase 2 functional fixes | `codex/gr3-request-matrix`, uncommitted: `SendModal.render.js`, `AppEncryptionRequestInfo.js` + styles, `AuthenticationRequestInfo.js`, `responseDeliverySecurity.js` | iPhone 17 Pro simulator, VRSCTEST, fresh app launch with the fixed bundle (confirmed in the served bundle), real taps only. GR3-B6: invoice modal now has one `RCTTouchHandler` (lldb) and each touch reaches JS once; Payment details, Done and Send work; payment txid `198d753515400cc59f9bede57fa79ac5232e901941ebcd29bb8488f2e44b5254` (daemon mempool, then balance 4.9684); invoice-only still ends on legacy completion (GR-3.12). Revoke modal (same branch) opened with a throwaway authority: one touch handler, single touch events, back press works; nothing submitted. Recover shares the branch; not run. GR3-B3: auth + app encryption, all five delivery modes, harness-verified: POST (1 verified attempt), fail once (Try again, attempt 2), fail always (Try again fails, Leave without sending returns to Wallet), redirect (Browser opened sheet, Done), no callback (Request complete sheet, no callback). Error sheet also checked in dark mode. The new “Preparing response” button state is too short to capture. GR3-B2: reproduced (stale provisioning request on the next link), then fixed: deeplink ID is null after provisioning and the next link opens its own request. GR3-R1: HTTP response POSTs now need `__DEV__` and the env flag; existing unit tests pass. Checks: Babel parse of changed files, `responseDeliverySecurity` and `genericRequestCompletionFlow` suites pass; `genericRequestDelivery` suite fails to load (store import chain, `constants.js:159`, not touched); `check:design` and `check:safe-areas --changed` pass. New notes: a JS reload crashes the debug app while shielded sync runs (`VerusLightClient` sends on the old bridge; GR3-E2); `react-native-tab-view` 3.5.2 logs a dev “key prop spread” error in the send modal. | Phase 3 (GR-3.12 to GR-3.15, GR-3.18, GR-3.19). Android smoke for B6 in Phase 4. Commit when the user asks. |
+| 2026-10-10 | GR-3 Phase 2 triage (root causes) | `codex/gr3-request-matrix`, no new code changes | GR3-B6 reproduced on the iPhone 17 Pro simulator with a fresh invoice: a JS hook logged each touch twice inside the invoice send modal and once on the main screen, and lldb showed two `RCTTouchHandler`s in one view chain (modal root and `RNSScreenView`). Cause: the invoice and identity-safety `Root.Navigator` lacks `detachInactiveScreens={false}`, which upstream `ac501c65` added to the other modal navigators. GR3-B3 cause from source and the Phase 1 log: `AppEncryptionRequestInfo` keeps its loading sheet open while the delivery sheet presents. GR3-B2 and GR3-B4 causes confirmed in source. GR3-D12 is an alert rendered under native modals, not the B3 race. GR3-P1 matches upstream behavior. Fixes not yet applied or run. | User agreement on the bug list and scope (GR-3.11); then the functional fixes, each reproduced first. Revoke/Recover identity likely share B6 (not yet run). |
+| 2026-10-09 | GR-3 Phase 1 matrix (iOS normal size) | `codex/gr3-request-matrix`, uncommitted fixes in `ProvisionIdentityBottomSheet.js` and `getIdentityContent.js`; deeplink-sim harness fixes uncommitted on `codex/gr3-generators` | iPhone 17 Pro simulator, VRSCTEST. Harness-verified callbacks: authentication + app encryption (all five delivery modes), data packet, credential (matching, partial; missing correctly sends none), both credential/data-packet orders, authentication + data packet, + credential, + invoice. Confirmed VRSCTEST transactions: three identity updates, two invoice payments, gift card fund and spendable-key claim. All six negative cases rejected with no callback. Dark mode renders correctly. Fixed and verified: GR3-B1 (provisioning sheet session context), GR3-B5 (identity content lookup rejected testnet names). Open: GR3-B2 stale deeplink after provisioning, GR3-B3 delivery sheet not presented under the detail screen's processing sheet (stuck dim screen on failure and no-callback), GR3-B4 long FQN request IDs crash parsing under Hermes, GR3-B6 invoice send modal ignores presses. Protocol question GR3-P1 (authentication response request ID). Details: local `gr3-matrix.local.md`, `docs/qa/gr3/phase1/`. | Compact screenshots (needs simulator access approval), physical-iPhone wallet backup and QR scan (GR-3.9), then GR-3.11 triage. |
+| 2026-10-09 | GR-3 Phase 0 test bench | `codex/gr3-request-matrix` from `d4e1dbd1`; generators uncommitted on deeplink-sim `codex/gr3-generators` | Fresh iOS debug build from this checkout runs on two clean simulators (iPhone 17 Pro, iPhone SE). A disposable VRSCTEST profile exists with experimental requests on and 5 VRSCTEST funding. The app's key for `v2api.verustest.net` returns HTTP 401, so the profile uses the in-app Custom RPC override `https://api.verustest.net` (GR3-B0). A provisioning link opened with `simctl openurl` reaches the redesigned authentication review. deeplink-sim now generates app-encryption, identity-update, and negative requests (typecheck, 155 tests). Findings and screenshots: local `gr3-matrix.local.md` and `docs/qa/gr3/`. | Phase 0 done. The test VerusID is the reused daemon ID `liveqa09482856.antafri@` (update txid `48a95967…`), linked by discovery. Provisioning stays Blocked (Testnet DeFi outage, GR3-B1). Next: Phase 1 matrix. |
 | 2026-10-09 | Upstream sync review fixes | Commit on `codex/sync` after merge `c615aabc` | The review found two dropped upstream warnings. Gift Card detail now shows an "Unfunded gift card" notice before an empty card is shared. It reuses the existing shared-notice block, and the card back keeps one short line. The Identity Update content step restores upstream's caveat that a removal can affect values added in the same update. It shows only for mixed content-map changes and uses the card inset. The legacy convert confirmation suite loads again with one `InvoicePaymentReview` mock. A mutation of the uncertain-broadcast guard fails 3 of its 15 cases. Design (30 sources), safe-area (3 files), no-undef lint, `git diff --check`, and 7 related suites (120 tests) pass. Synthetic iOS fixture captures on the real overview and content step cover unfunded, funded, and shared-empty cards and mixed and private-only content, in light and dark at compact and normal sizes. Captures are local in `docs/qa/merge-review-fixes/screenshots`. | Committed locally; no push. The other review findings remain open: confirm-step state fallback, inline lock explanation, wizard funding-error guide action, share after funding, the Android Media3 pin, and the glog privacy bundle. Android runtime and authenticated journeys remain unverified. |
 | 2026-10-09 | Upstream sync with redesign preservation | `codex/sync`, based on `ccc0c256`, merges `dev-asf-parent` through `7d74cd6a` | Updated the four pinned Verus libraries together and integrated RN 0.77.3. Kept local layouts, shared primitives, themes, storage queues, and session guards. Adapted identity state/threshold review, content semantics, gift-card first-funding rules, and uncertain-broadcast protection to the redesign. Both native builds and both production JS bundles pass. Design (30 sources), targeted safe-area (5 files), parser (119 files), and focused flow checks pass. Six corrected/boundary suites pass 96 tests. The APK passes 16 KB ELF/ZIP checks for 34 libraries. Inspected 32 real-component iOS fixture captures across light/dark and normal/compact, plus actual production welcome in both themes. Corrected compact truncation of the new identity status labels. [Local receipt](docs/qa/upstream-sync/qa.local.md); [capture gallery](docs/qa/upstream-sync/gallery.local.html). | Ten imported UI suites are blocked by legacy native/theme mocks; no full-suite pass. Fixture captures do not prove authenticated journeys. Android runtime, live signing/transfers, existing-profile migration, NFC, and full accessibility remain unverified. Earlier GR/TX/RX/ID follow-ups and global QA checkboxes retain their recorded scope. No push. |
 | 2026-09-12 | ID-1 final acceptance (scoped local delivery) | Committed as `33865cab` on `codex/id1-redesign` in worktree `/private/tmp/verus-mobile-id1-01a09345`; verified and review-ready, locally integrated into `codex/integrate-generic-request-upstream` | Final verification of the ID-1 candidate. The parent independently ran 10 focused ID-1 suites (63 tests), `git diff --check`, Babel parse for all 9 changed production JS files, design contract (30 canonical sources), safe-area (9 files), search-field (15 files), identity-authority funding (PASS), and GenericRequest completion flow (9 cases). A task-owned iOS release fixture bundle compiled from the actual candidate (26 assets), and synthetic disposable VRSCTEST states were exercised on a normal 402x874 simulator and a compact iPhone SE with light/dark captures, covering no identities, several identities, long names, discovery loading/empty/error, the always-reachable manual fallback, manual validation/lookup/resolved review/failure, processing single-flight with blocked dismissal/Back, pending error/progress/READY actions, details loading/error/long values, separate accessible `CopyAction` nodes and copied feedback, unlink cancellation/failure (unlink remains a local association change only), and the rebuilt final details spot check. Native QA found a manual-row clipping, corrected before the final capture. The same and only independent Astra high-risk reviewer returned READY with all original and follow-up findings closed; the complete before/after state guard was 1,702 files, no exclusions, identical. Parent-owned visual QA applied the canonical SH-1/onboarding patterns at normal/compact and light/dark; because the user required exactly one independent reviewer, no second design-adviser reviewer was added, and the single reviewer explicitly applied `max-product-design-taste` while reviewing the final renders. Proof limits: fixture data and API are synthetic and cannot sign, spend, move funds, expose a real key, or prove live RPC or authenticated-wallet behavior, and callback or session authentication is not transaction or settlement proof; native proof is iOS only. Android runtime, full VoiceOver/TalkBack, exhaustive text scaling/reduced motion, and authenticated disposable-wallet mutation remain explicitly unverified follow-up, not implied passes. Node was 22.18.0 because the requested 22.23.2 was unavailable; checks used the canonical sibling `node_modules`, and no source depends on it. | ID-1.10–1.11 complete for the scoped local delivery. ID-1 is verified and review-ready, committed as `33865cab` and locally integrated into `codex/integrate-generic-request-upstream`; `origin/codex/integrate-generic-request-upstream` remains behind until a separately authorized push. Global QA-1 stays open for the other workstreams. |
