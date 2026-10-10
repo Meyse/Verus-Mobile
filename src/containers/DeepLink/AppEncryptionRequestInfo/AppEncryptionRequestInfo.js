@@ -9,13 +9,11 @@ import {TouchableOpacity, View} from 'react-native';
 import {CommonActions} from '@react-navigation/native';
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
-import LottieView from 'lottie-react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Check, Info} from 'lucide-react-native';
 import {GenericResponse} from 'verus-typescript-primitives';
 import AppButton from '../../../components/AppButton';
-import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {
   requestWalletUnlock,
@@ -204,37 +202,6 @@ const cloneGenericResponse = response => {
   baseResponse.details = [];
   return baseResponse;
 };
-
-const LoadingSheet = ({encrypted, styles, visible}) => (
-  <BottomSheetModal
-    closeDisabled
-    contentContainerStyle={styles.loadingSheetContainer}
-    maxHeight={190}
-    onClose={() => {}}
-    visible={visible}>
-    <View
-      accessibilityLabel={
-        encrypted ? 'Preparing encrypted reply' : 'Preparing reply'
-      }
-      accessibilityRole="progressbar"
-      style={styles.loadingSheetBody}>
-      <LottieView
-        autoPlay
-        loop
-        source={require('../../../animations/loading_7bars.json')}
-        style={styles.loadingAnimation}
-      />
-      <Text style={styles.loadingTitle}>
-        {encrypted ? 'Preparing encrypted reply' : 'Preparing reply'}
-      </Text>
-      <Text style={styles.loadingSubtitle}>
-        {encrypted
-          ? 'Deriving the encrypted response for this app.'
-          : 'Preparing the response for this app.'}
-      </Text>
-    </View>
-  </BottomSheetModal>
-);
 
 const AppEncryptionRequestInfoContent = props => {
   const {
@@ -795,7 +762,9 @@ const AppEncryptionRequestInfoContent = props => {
     );
   }, [dispatch, navigation]);
 
-  const primaryActionLabel = !activeAccountMatchesRequest
+  const primaryActionLabel = processing
+    ? 'Preparing response'
+    : !activeAccountMatchesRequest
     ? signedIn
       ? 'Switch wallet'
       : 'Unlock wallet'
@@ -949,11 +918,6 @@ const AppEncryptionRequestInfoContent = props => {
         loadVerusId={loadSignerVerusId}
         loadFriendlyNames={loadSignerFriendlyNames}
       />
-      <LoadingSheet
-        encrypted={hasEncryptResponseToAddress}
-        styles={styles}
-        visible={processing}
-      />
       <DeepLinkReviewScrollView>
         <View style={styles.header}>
           <Text style={styles.mainTitle}>Share encryption address</Text>
@@ -1062,6 +1026,7 @@ const AppEncryptionRequestInfoContent = props => {
         </AppButton>
         <AppButton
           buttonColor={theme.colors.surfaceMuted}
+          disabled={processing}
           height={56}
           onPress={cancel}
           themeMode={theme.mode}

@@ -148,38 +148,6 @@ const createAppEncryptionRequestInfoStyles = theme =>
       justifyContent: 'center',
       marginLeft: 2,
     },
-    loadingSheetContainer: {
-      paddingTop: 0,
-    },
-    loadingSheetBody: {
-      minHeight: 170,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: theme.spacing.sheetPadding,
-      paddingVertical: theme.spacing.lg,
-    },
-    loadingAnimation: {
-      width: 96,
-      height: 70,
-      marginBottom: 4,
-    },
-    loadingTitle: {
-      color: theme.colors.textPrimary,
-      fontSize: 16,
-      lineHeight: 22,
-      letterSpacing: 0,
-      textAlign: 'center',
-      ...fontStyle('semiBold'),
-    },
-    loadingSubtitle: {
-      color: theme.colors.textSecondary,
-      fontSize: 13,
-      lineHeight: 19,
-      letterSpacing: 0,
-      textAlign: 'center',
-      marginTop: 4,
-      ...fontStyle('regular'),
-    },
   });
 
 export default createAppEncryptionRequestInfoStyles;
