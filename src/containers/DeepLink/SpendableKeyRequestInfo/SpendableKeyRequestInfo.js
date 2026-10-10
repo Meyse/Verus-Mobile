@@ -11,7 +11,7 @@ import {Checkbox, Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
@@ -1403,7 +1403,7 @@ const SpendableKeyRequestInfoContent = props => {
       edges={['top', 'left', 'right']}
       style={styles.container}>
       <View style={styles.centerContent}>
-        <AnimatedActivityIndicatorBox />
+        <AnimatedActivityIndicator />
         <Text style={styles.loadingText}>{label}</Text>
         <Text style={styles.loadingDescription}>{description}</Text>
       </View>

@@ -719,7 +719,8 @@ const ProvisioningStatusRow = ({body, icon, styles, theme, title}) => (
 const IdentityRow = ({disabled, identity, isSelected, onSelect, styles, theme}) => (
   <TouchableOpacity
     accessibilityRole="button"
-    accessibilityState={{selected: isSelected}}
+    // Android rejects a null accessibility state value, so pass a boolean.
+    accessibilityState={{selected: !!isSelected}}
     activeOpacity={disabled ? 1 : 0.74}
     disabled={disabled}
     onPress={onSelect}
