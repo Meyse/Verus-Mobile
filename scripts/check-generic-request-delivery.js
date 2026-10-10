@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const assert = require('node:assert');
-const fs = require('node:fs');
 const Module = require('node:module');
 const path = require('node:path');
 const {transformFileSync} = require('@babel/core');
@@ -134,30 +133,6 @@ const main = async () => {
   assert.deepStrictEqual(postedBody, response.toBuffer());
   assert.strictEqual(response.details.length, 1);
 
-  const completionSource = fs.readFileSync(
-    path.resolve(
-      __dirname,
-      '../src/containers/DeepLink/GenericRequestComplete/GenericRequestComplete.js',
-    ),
-    'utf8',
-  );
-  const onCancelBody = completionSource.match(
-    /const onCancel = async \(\) => \{([\s\S]*?)\n  \};/,
-  )?.[1];
-  assert(onCancelBody, 'cancel handler must remain present');
-  assert(onCancelBody.includes('if (shouldCancel)'));
-  assert(onCancelBody.includes('completeRequest();'));
-  assert(!onCancelBody.includes('markSavedPendingRequestComplete'));
-  assert(completionSource.includes('{postFailed && ('));
-  assert(
-    completionSource.includes("if (e?.isResponsePostError) {\n        setPostFailed(true);"),
-  );
-  assert(
-    completionSource.includes(
-      'await completeGenericResponseDelivery({\n        requestBufferString,\n        responseBufferString,\n      });\n      await markSavedPendingRequestComplete();',
-    ),
-  );
-
   console.log(
     JSON.stringify(
       {
@@ -168,9 +143,6 @@ const main = async () => {
           firstPostFailureTaggedForRetryUi: true,
           retrySucceeded: true,
           redirectNotOpenedWhenPostExists: true,
-          cancelOnlyAfterPostFailure: true,
-          leaveWithoutSendingDoesNotMarkPendingComplete: true,
-          successfulDeliveryMarksPendingComplete: true,
         },
         postAttempts,
         redirectAttempts,

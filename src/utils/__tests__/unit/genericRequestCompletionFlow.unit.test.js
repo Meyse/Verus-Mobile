@@ -88,15 +88,28 @@ describe('generic request completion flow', () => {
       GENERIC_REQUEST_COMPLETION_ACTIONS.WAIT,
     ],
     [
-      'uses legacy completion when automatic delivery was not requested',
+      'finishes without a delivery sheet when nothing is sent and no detail asked for one',
       {
         autoDeliveryRequested: false,
         autoDeliveryStatus: 'idle',
         detailCount: 2,
         detailsProcessed: 2,
+        hasResponseDetails: false,
         inlineDeliveryInProgress: false,
       },
-      GENERIC_REQUEST_COMPLETION_ACTIONS.SHOW_LEGACY_COMPLETION,
+      GENERIC_REQUEST_COMPLETION_ACTIONS.COMPLETE_WITHOUT_RESPONSE,
+    ],
+    [
+      'delivers a response even when no detail asked for delivery',
+      {
+        autoDeliveryRequested: false,
+        autoDeliveryStatus: 'idle',
+        detailCount: 2,
+        detailsProcessed: 2,
+        hasResponseDetails: true,
+        inlineDeliveryInProgress: false,
+      },
+      GENERIC_REQUEST_COMPLETION_ACTIONS.RUN_AUTO_DELIVERY,
     ],
     [
       'waits while inline delivery is active',

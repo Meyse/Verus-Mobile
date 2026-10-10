@@ -25,7 +25,6 @@ export {default as confirmPayStepStyles} from './deeplink/confirmPayStep.styles'
 export {default as copyActionStyles} from './components/copyAction.styles';
 export {default as dataRequestInfoStyles} from './deeplink/dataRequestInfo.styles';
 export {default as deepLinkRequestReviewStyles} from './components/deepLinkRequestReview.styles';
-export {default as genericRequestCompleteStyles} from './deeplink/genericRequestComplete.styles';
 export {default as gradientButtonStyles} from './components/gradientButton.styles';
 export {default as highRiskStepStyles} from './deeplink/highRiskStep.styles';
 export {default as identityPickerSheetStyles} from './deeplink/identityPickerSheet.styles';

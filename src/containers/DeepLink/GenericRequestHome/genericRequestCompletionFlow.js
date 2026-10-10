@@ -2,7 +2,7 @@ export const GENERIC_REQUEST_COMPLETION_ACTIONS = {
   WAIT: 'wait',
   PROCESS_NEXT_DETAIL: 'process-next-detail',
   RUN_AUTO_DELIVERY: 'run-auto-delivery',
-  SHOW_LEGACY_COMPLETION: 'show-legacy-completion',
+  COMPLETE_WITHOUT_RESPONSE: 'complete-without-response',
 };
 
 const IDLE_DELIVERY_STATUS = 'idle';
@@ -36,6 +36,7 @@ export const getGenericRequestCompletionAction = ({
   autoDeliveryStatus,
   detailCount,
   detailsProcessed,
+  hasResponseDetails,
   inlineDeliveryInProgress,
 }) => {
   if (inlineDeliveryInProgress || detailsProcessed < 0) {
@@ -46,11 +47,13 @@ export const getGenericRequestCompletionAction = ({
     return GENERIC_REQUEST_COMPLETION_ACTIONS.PROCESS_NEXT_DETAIL;
   }
 
-  if (autoDeliveryRequested) {
+  if (autoDeliveryRequested || hasResponseDetails) {
     return autoDeliveryStatus === IDLE_DELIVERY_STATUS
       ? GENERIC_REQUEST_COMPLETION_ACTIONS.RUN_AUTO_DELIVERY
       : GENERIC_REQUEST_COMPLETION_ACTIONS.WAIT;
   }
 
-  return GENERIC_REQUEST_COMPLETION_ACTIONS.SHOW_LEGACY_COMPLETION;
+  // Invoice and wallet-backup details add nothing to the response, and their
+  // own screens already show the outcome.
+  return GENERIC_REQUEST_COMPLETION_ACTIONS.COMPLETE_WITHOUT_RESPONSE;
 };

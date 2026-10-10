@@ -2,7 +2,6 @@ import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import DeepLink from '../../DeepLink/DeepLink';
-import GenericRequestComplete from '../../DeepLink/GenericRequestComplete/GenericRequestComplete';
 import LoginRequestIdentity from '../../DeepLink/LoginRequestIdentity/LoginRequestIdentity';
 import LoginRequestComplete from '../../DeepLink/LoginRequestComplete/LoginRequestComplete';
 import InvoicePaymentConfiguration from '../../DeepLink/InvoicePaymentConfiguration/InvoicePaymentConfiguration';
@@ -32,13 +31,6 @@ const DeepLinkStackScreens = props => {
       <DeepLinkStack.Screen
         name="LoginRequestComplete"
         component={LoginRequestComplete}
-        options={{
-          headerShown: false
-        }}
-      />
-      <DeepLinkStack.Screen
-        name="GenericRequestComplete"
-        component={GenericRequestComplete}
         options={{
           headerShown: false
         }}

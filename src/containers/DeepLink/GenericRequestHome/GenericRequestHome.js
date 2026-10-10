@@ -563,6 +563,15 @@ const GenericRequestHome = props => {
     request,
   ]);
 
+  const completeWithoutResponse = useCallback(async () => {
+    if (!autoDeliverySingleFlightRef.current.tryStart()) return;
+    const generation = processGenerationRef.current;
+
+    await markSavedPendingRequestComplete();
+    if (generation !== processGenerationRef.current) return;
+    completeRequest();
+  }, [completeRequest, markSavedPendingRequestComplete]);
+
   const commitResponseProgress = (updatedResponse, handledIndices) => {
     if (request.isTestnet()) updatedResponse.setIsTestnet();
     let newDetailsProcessed = detailsProcessed;
@@ -614,9 +623,8 @@ const GenericRequestHome = props => {
   }
 
   /**
-   * Shared completion adapter for detail screens that should use the
-   * centralized POST/redirect delivery sheet instead of the legacy
-   * GenericRequestComplete route.
+   * Shared completion adapter for detail screens that should always show the
+   * centralized delivery sheet, even when no response is sent.
    */
   const completeWithDelivery = async (updatedResponse, handledIndices) => {
     return next(updatedResponse, handledIndices, {
@@ -733,6 +741,7 @@ const GenericRequestHome = props => {
         autoDeliveryStatus: autoDeliveryState.status,
         detailCount: request.details.length,
         detailsProcessed,
+        hasResponseDetails: !!(response.details && response.details.length > 0),
         inlineDeliveryInProgress,
       });
 
@@ -758,19 +767,12 @@ const GenericRequestHome = props => {
         return;
       }
 
-      const responseBufferString = response.details && response.details.length > 0
-        ? response.toBuffer().toString('hex')
-        : '';
-      const requestBufferString = request.toBuffer().toString('hex');
-
-      props.navigation.navigate('GenericRequestComplete', {
-        requestBufferString,
-        responseBufferString
-      });
+      completeWithoutResponse();
     }
   }, [
     autoDeliveryRequested,
     autoDeliveryState.status,
+    completeWithoutResponse,
     detailsProcessed,
     inlineDeliveryInProgress,
     request,

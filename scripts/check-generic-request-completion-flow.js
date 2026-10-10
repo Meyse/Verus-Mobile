@@ -72,8 +72,18 @@ assert.strictEqual(
 );
 assert.strictEqual(
   getAction({}),
-  ACTIONS.SHOW_LEGACY_COMPLETION,
-  'unmigrated details retain the legacy completion route',
+  ACTIONS.COMPLETE_WITHOUT_RESPONSE,
+  'invoice and wallet-backup details finish without a delivery sheet',
+);
+assert.strictEqual(
+  getAction({hasResponseDetails: true}),
+  ACTIONS.RUN_AUTO_DELIVERY,
+  'a response is delivered even if no detail asked for delivery',
+);
+assert.strictEqual(
+  getAction({autoDeliveryRequested: true, hasResponseDetails: false}),
+  ACTIONS.RUN_AUTO_DELIVERY,
+  'an explicit delivery request keeps the no-response notice',
 );
 assert.strictEqual(
   getAction({detailsProcessed: -1}),
@@ -129,4 +139,4 @@ assert.strictEqual(
   );
 }
 
-console.log('GenericRequest completion flow checks passed (9 cases).');
+console.log('GenericRequest completion flow checks passed (11 cases).');
