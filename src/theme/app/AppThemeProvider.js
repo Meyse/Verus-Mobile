@@ -55,6 +55,15 @@ const resolveAppearance = (preference, systemColorScheme) => {
     : ONBOARDING_THEME_MODE.LIGHT;
 };
 
+// Paper's backdrop takes one color, so fold the scrim opacity into it.
+const scrimColor = ({scrim, scrimOpacity}) => {
+  const value = parseInt(scrim.slice(1), 16);
+
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${
+    value & 255
+  }, ${scrimOpacity})`;
+};
+
 const createPaperTheme = semanticTheme => {
   const baseTheme = semanticTheme.isDark ? MD2DarkTheme : MD2LightTheme;
 
@@ -69,7 +78,7 @@ const createPaperTheme = semanticTheme => {
       surface: semanticTheme.colors.surface,
       text: semanticTheme.colors.textPrimary,
       placeholder: semanticTheme.colors.textSubtle,
-      backdrop: semanticTheme.colors.scrim,
+      backdrop: scrimColor(semanticTheme.colors),
       notification: semanticTheme.colors.danger,
     },
     fonts: configureFonts({config: fontConfig, isV3: false}),

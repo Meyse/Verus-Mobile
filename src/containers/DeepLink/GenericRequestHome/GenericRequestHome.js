@@ -78,10 +78,11 @@ import {
   getGenericRequestCompletionAction,
 } from './genericRequestCompletionFlow';
 import {
-  EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE,
+  createExperimentalRequestDisabledError,
   isExperimentalGenericRequestDetailKey,
   isExperimentalGenericRequestsEnabled,
 } from '../../../utils/deeplink/experimentalDeeplinks';
+import {getGenericRequestRejection} from '../../../utils/deeplink/genericRequestRejection';
 
 const AUTO_DELIVERY_STATUS = {
   IDLE: 'idle',
@@ -357,6 +358,7 @@ const GenericRequestHome = props => {
   const [displayProps, setDisplayProps] = useState({});
 
   const [displayKey, setDisplayKey] = useState(null);
+  const [requestError, setRequestError] = useState(null);
 
   const [detailIndex, setDetailIndex] = useState(0);
 
@@ -435,7 +437,7 @@ const GenericRequestHome = props => {
         !experimentalRequestsAllowed &&
         isExperimentalGenericRequestDetailKey(iaddr)
       ) {
-        throw new Error(EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE);
+        throw createExperimentalRequestDisabledError();
       }
 
       if (detailHandlers.has(iaddr)) {
@@ -500,9 +502,14 @@ const GenericRequestHome = props => {
           } catch (e) {
             if (processGenerationRef.current !== processGeneration) return;
 
-            createAlert("Error", e.message)
-            cancelRequest()
             console.warn(e)
+            // Stop here: later details must not run past a failed one.
+            setRequestError(
+              getGenericRequestRejection(e, {
+                requestIsTestnet: request.isTestnet(),
+              }),
+            );
+            return;
           }
         }
       }
@@ -948,7 +955,12 @@ const GenericRequestHome = props => {
       {displayKey == null ? (
         <GenericRequestLoading
           activeStep={GENERIC_REQUEST_LOADING_STEPS.REVIEW}
+          error={requestError}
           onCancel={cancelRequest}
+          onRetry={() => {
+            setRequestError(null);
+            processNextDetail();
+          }}
         />
       ) : props.loading ? (
         <AnimatedActivityIndicatorBox />

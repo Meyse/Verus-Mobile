@@ -20,6 +20,10 @@ import { coinsList } from "../../CoinData/CoinsList";
 import { VRPC } from "../../constants/intervalConstants";
 import { VerusIdInterface } from "verusid-ts-client";
 import { createDelegatedSignerAccountError } from "../delegatedSignerGate";
+import {
+  createGenericRequestRejectionError,
+  GENERIC_REQUEST_REJECTION_CODES,
+} from "../genericRequestRejection";
 
 /**
  * Checks if a generic envelope has anything in its details that requires
@@ -53,7 +57,10 @@ export const getValidatorForDetail = (detailKey) => {
   if (Object.keys(detailValidators).includes(detailKey)) {
     return detailValidators[detailKey];
   } else {
-    throw new Error("No validator function found for key " + detailKey)
+    throw createGenericRequestRejectionError(
+      GENERIC_REQUEST_REJECTION_CODES.DETAIL_UNSUPPORTED,
+      "No validator function found for key " + detailKey,
+    )
   }
 }
 
@@ -69,14 +76,20 @@ export const validateGenericRequest = async (request) => {
     VrpcProvider.initEndpoint(coinObj.system_id, coinObj.vrpc_endpoints[0])
 
     if (!!coinObj.testnet !== request.isTestnet()) {
-      throw new Error(`Cannot validate request made for ${request.isTestnet() ? "testnet" : "mainnet"} on ${coinObj.testnet ? "testnet" : "mainnet"}`)
+      throw createGenericRequestRejectionError(
+        GENERIC_REQUEST_REJECTION_CODES.INVALID,
+        `Cannot validate request made for ${request.isTestnet() ? "testnet" : "mainnet"} on ${coinObj.testnet ? "testnet" : "mainnet"}`,
+      )
     }
 
     const signedBy = await getIdentity(coinObj.system_id, request.signature.identityID.toIAddress())
     if (signedBy.error) throw new Error(signedBy.error.message)
 
     if (!await verifyGenericRequest(coinObj, request, signedBy.result, false)) {
-      throw new Error("Failed to verify request signature")
+      throw createGenericRequestRejectionError(
+        GENERIC_REQUEST_REJECTION_CODES.SIGNATURE_INVALID,
+        "Failed to verify request signature",
+      )
     }
 
     if (request.hasAppOrDelegatedID()) {
@@ -108,10 +121,16 @@ export const validateGenericRequest = async (request) => {
       }
     }
   } else if (isRequestRequiredSignature(request) || request.hasAppOrDelegatedID()) {
-    throw new Error("This type of request requires a signature")
+    throw createGenericRequestRejectionError(
+      GENERIC_REQUEST_REJECTION_CODES.INVALID,
+      "This type of request requires a signature",
+    )
   } else {
     if (!VerusIdInterface.validateUnsignedGenericRequest(request)) {
-      throw new Error("Failed to verify request")
+      throw createGenericRequestRejectionError(
+        GENERIC_REQUEST_REJECTION_CODES.INVALID,
+        "Failed to verify request",
+      )
     }
   }
 

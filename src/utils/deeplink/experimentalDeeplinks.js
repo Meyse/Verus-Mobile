@@ -4,9 +4,19 @@ import {
   IDENTITY_UPDATE_REQUEST_VDXF_KEY,
   USER_DATA_REQUEST_VDXF_KEY,
 } from 'verus-typescript-primitives';
+import {
+  createGenericRequestRejectionError,
+  GENERIC_REQUEST_REJECTION_CODES,
+} from './genericRequestRejection';
 
 export const EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE =
   'This type of request is currently experimental and disabled in your general wallet settings.';
+
+export const createExperimentalRequestDisabledError = () =>
+  createGenericRequestRejectionError(
+    GENERIC_REQUEST_REJECTION_CODES.EXPERIMENTAL_DISABLED,
+    EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE,
+  );
 
 export const EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEYS = [
   IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid,
@@ -44,7 +54,7 @@ export const assertExperimentalGenericRequestAllowed = (request, state) => {
     !isExperimentalGenericRequestsEnabled(state) &&
     hasExperimentalGenericRequestDetails(request)
   ) {
-    throw new Error(EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE);
+    throw createExperimentalRequestDisabledError();
   }
 };
 
@@ -53,6 +63,6 @@ export const assertExperimentalDeeplinkAllowed = (deeplinkId, state) => {
     !isExperimentalGenericRequestsEnabled(state) &&
     isExperimentalDeeplinkId(deeplinkId)
   ) {
-    throw new Error(EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE);
+    throw createExperimentalRequestDisabledError();
   }
 };

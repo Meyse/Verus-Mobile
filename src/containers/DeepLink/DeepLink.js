@@ -59,6 +59,11 @@ import {
   VERUSPAY_BURN_OWN_ADDRESS_DISPLAY,
 } from '../../utils/deeplink/verusPayBurnChangePrice';
 import {assertRequestNetworkMatchesAccount} from '../../utils/deeplink/requestAccounts';
+import {
+  createGenericRequestRejectionError,
+  GENERIC_REQUEST_REJECTION_CODES,
+  getGenericRequestRejection,
+} from '../../utils/deeplink/genericRequestRejection';
 
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -78,6 +83,7 @@ const DeepLink = (props) => {
   const [genericRequestLoadingStep, setGenericRequestLoadingStep] = useState(
     GENERIC_REQUEST_LOADING_STEPS.READ
   )
+  const [genericRequestError, setGenericRequestError] = useState(null)
   const dispatch = useDispatch()
   const processGenerationRef = useRef(0)
 
@@ -161,12 +167,11 @@ const DeepLink = (props) => {
       validationResult.outcome ===
       DELEGATED_SIGNER_GATE_OUTCOMES.NO_MATCHING_PROFILES
     ) {
-      createAlert(
-        "Cannot continue",
+      throw createGenericRequestRejectionError(
+        GENERIC_REQUEST_REJECTION_CODES.DELEGATED_SIGNER_NO_WALLET,
         `No ${request.isTestnet() ? 'testnet' : 'mainnet'} wallets found, cannot verify delegated request signer.`,
+        {requestIsTestnet: request.isTestnet()},
       );
-      cancel();
-      return;
     }
 
     if (
@@ -605,12 +610,25 @@ const DeepLink = (props) => {
     } catch (e) {
       if (processGenerationRef.current !== processGeneration) return;
 
+      if (deeplinkId === primitives.GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid) {
+        console.warn(e)
+        setGenericRequestError(getGenericRequestRejection(e));
+        return;
+      }
+
       console.error(e)
 
       createAlert('Error', e.message);
       cancel();
     }
   };
+
+  const retryGenericRequest = () => {
+    const processGeneration = processGenerationRef.current + 1
+    processGenerationRef.current = processGeneration
+    setGenericRequestError(null)
+    processDeeplink(processGeneration)
+  }
 
   useEffect(() => {
     const processGeneration = processGenerationRef.current + 1
@@ -667,7 +685,9 @@ const DeepLink = (props) => {
       {showGenericRequestOpening ? (
         <GenericRequestLoading
           activeStep={genericRequestLoadingStep}
+          error={genericRequestError}
           onCancel={cancel}
+          onRetry={retryGenericRequest}
         />
       ) : displayKey == null || loading ? (
         <AnimatedActivityIndicatorBox />

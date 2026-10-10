@@ -83,9 +83,47 @@ const StepSpinner = ({styles}) => {
   );
 };
 
-const GenericRequestLoadingContent = ({activeStep, onCancel}) => {
+const GenericRequestLoadingContent = ({activeStep, error, onCancel, onRetry}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+
+  if (error != null) {
+    return (
+      <View style={styles.root}>
+        <StatusBar
+          barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.colors.background}
+        />
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={styles.content}>
+          <Text style={styles.title}>{error.title}</Text>
+          <Text style={[styles.status, styles.errorMessage]}>
+            {error.message}
+          </Text>
+        </View>
+        <SafeBottomActionStack gap={10}>
+          {error.canRetry && onRetry != null && (
+            <AppButton
+              onPress={onRetry}
+              variant="primary"
+              height={56}
+              themeMode={theme.mode}>
+              {'Try again'}
+            </AppButton>
+          )}
+          <AppButton
+            onPress={onCancel}
+            variant="secondary"
+            height={56}
+            themeMode={theme.mode}>
+            {'Close'}
+          </AppButton>
+        </SafeBottomActionStack>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -187,6 +225,9 @@ const createStyles = theme =>
       marginBottom: 30,
       textAlign: 'center',
       ...fontStyle('regular'),
+    },
+    errorMessage: {
+      marginBottom: 0,
     },
     steps: {
       width: '100%',

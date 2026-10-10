@@ -10,6 +10,7 @@ import { getSystemNameFromSystemId } from "../../CoinData/CoinData";
 import { createUpdateIdentityTx, getUpdatableIdentity } from "../../api/channels/verusid/requests/updateIdentity";
 import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
 import { capitalizeString } from "../../stringUtils";
+import { createGenericRequestRejectionError, GENERIC_REQUEST_REJECTION_CODES } from "../genericRequestRejection";
 import { getKnownVDXFKeyName } from "../../vdxf/vdxfTypeLabels";
 
 /**
@@ -106,7 +107,10 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
 
   if (requestDetails.expires() && requestDetails.expiryHeight.toNumber() - chainInfo.result.longestchain < 0) {
     const age = (requestDetails.expiryHeight.toNumber() - chainInfo.result.longestchain) * -1;
-    throw new Error(`This request is expired (expired for approx. ${age} blocks).`);
+    throw createGenericRequestRejectionError(
+      GENERIC_REQUEST_REJECTION_CODES.EXPIRED,
+      `This request is expired (expired for approx. ${age} blocks).`,
+    );
   }
 
   let cmmDataKeys = {};

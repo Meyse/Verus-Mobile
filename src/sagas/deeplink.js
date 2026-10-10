@@ -16,6 +16,11 @@ import {
   getPendingDeeplinkPassthrough,
   savePendingDeeplinkRequest,
 } from '../utils/deeplink/pendingDeeplinkStorage';
+import {
+  createGenericRequestRejectionError,
+  GENERIC_REQUEST_REJECTION_CODES,
+  getRequestLinkRejection,
+} from '../utils/deeplink/genericRequestRejection';
 
 export default function* deeplinkSaga() {
   yield all([takeEvery(SET_DEEPLINK_URL, handleDeeplinkUrl)]);
@@ -26,7 +31,12 @@ function* handleDeeplinkUrl(action) {
 
   if (urlstring != null) {
     try {
-      if (urlstring.length >= MAX_DEEPLINK_STRING_LENGTH) throw new Error("Deeplink URL max length exceeded.");
+      if (urlstring.length >= MAX_DEEPLINK_STRING_LENGTH) {
+        throw createGenericRequestRejectionError(
+          GENERIC_REQUEST_REJECTION_CODES.LINK_TOO_LONG,
+          "Deeplink URL max length exceeded.",
+        );
+      }
       const url = new URL(urlstring);
 
       const isInternalProtocol = url.protocol === `${DEEPLINK_PROTOCOL_URL_STRING}${VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID}:`;
@@ -156,8 +166,9 @@ function* handleDeeplinkUrl(action) {
       }
     } catch (e) {
       console.error(e)
-      
-      createAlert('Error', e.message);
+
+      const rejection = getRequestLinkRejection(e);
+      createAlert(rejection.title, rejection.message);
     }
   }
 }
