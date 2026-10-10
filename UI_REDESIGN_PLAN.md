@@ -957,6 +957,10 @@ patch exists.
 
 ### Resume note
 
+- Branches: `redesign` is the integration branch. It started on 2026-10-10 at
+  `8a80f4d6`, the tip of `codex/gr3-request-matrix`, which contains all earlier
+  redesign branches. Start each new task branch from `redesign`. Merge it back
+  with `git merge --no-ff` after its checks pass and this plan is current.
 - ID-1 is complete and locally integrated. The implementation and its
   high-risk review corrections (including the two final P2 lifecycle defects)
   are committed as `33865cab` on `codex/id1-redesign` and locally integrated
