@@ -1,4 +1,4 @@
-import {StyleSheet} from 'react-native';
+import {Platform, StyleSheet} from 'react-native';
 import {fontStyle} from '../../globals/fonts';
 
 const createSpendableKeyRequestInfoStyles = theme =>
@@ -213,6 +213,29 @@ const createSpendableKeyRequestInfoStyles = theme =>
     rowWarningSubtitle: {
       color: theme.isDark ? theme.colors.warning : '#9A3412',
       ...fontStyle('semiBold'),
+    },
+    claimDetailRow: {
+      minHeight: 46,
+      paddingVertical: 10,
+    },
+    claimDetailHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+    },
+    claimDetailLabel: {
+      color: theme.colors.textSecondary,
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 20,
+      minWidth: 0,
+      ...fontStyle('regular'),
+    },
+    claimDetailAddress: {
+      color: theme.colors.textSecondary,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 4,
     },
     rowAmount: {
       color: theme.colors.textPrimary,

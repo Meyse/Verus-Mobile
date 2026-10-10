@@ -36,6 +36,7 @@ import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 import {SEND_MODAL_IDENTITY_TO_PROVISION_FIELD} from '../../../utils/constants/sendModal';
 import {LoadingNotification} from '../../../utils/notification';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {withNameBreaks} from '../../../utils/fullyqualifiedname';
 import Store from '../../../store';
 import {assertProvisioningSessionCurrent} from './ProvisionIdentityConfirm/ProvisionIdentityConfirm';
 import {
@@ -893,13 +894,12 @@ const NameStep = ({
           availabilityState === 'unavailable' && styles.previewCardUnavailable,
         ]}>
         <Text
-          ellipsizeMode="tail"
-          numberOfLines={1}
+          numberOfLines={2}
           style={[
             styles.previewValue,
             !previewName && styles.previewValuePlaceholder,
           ]}>
-          {previewName || previewPlaceholder}
+          {previewName ? withNameBreaks(previewName) : previewPlaceholder}
         </Text>
         {availabilityState === 'available' && (
           <View style={styles.previewStatusIcon}>
@@ -1002,7 +1002,7 @@ const ReviewRow = ({row, styles}) => (
   <View style={[styles.reviewRow, row.showDivider && styles.reviewRowDivider]}>
     <Text style={styles.reviewLabel}>{row.label}</Text>
     <Text numberOfLines={2} style={styles.reviewValue}>
-      {row.value}
+      {row.isName ? withNameBreaks(row.value) : row.value}
     </Text>
   </View>
 );
@@ -1030,6 +1030,7 @@ const getReviewRows = ({coinObj, reviewData}) => {
     key: 'identity',
     label: 'VerusID',
     value: requestedIdentity,
+    isName: true,
   });
   addRow({
     key: 'network',

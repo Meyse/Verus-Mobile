@@ -10,6 +10,9 @@ import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
 import {capitalizeString} from '../utils/stringUtils';
 import {getVDXFKeyLabel} from '../utils/vdxf/vdxfTypeLabels';
 
+const abbreviateKeyId = iAddr =>
+  `${iAddr.substring(0, 4)}...${iAddr.substring(iAddr.length - 4)}`;
+
 export const getCmmDataKeyLabel = (iAddr, cmmDataKeys) => {
   const keyLabel = getVDXFKeyLabel(iAddr, true);
 
@@ -22,11 +25,18 @@ export const getCmmDataKeyLabel = (iAddr, cmmDataKeys) => {
   }
 
   if (typeof iAddr === 'string' && iAddr.length > 8) {
-    return `${iAddr.substring(0, 4)}...${iAddr.substring(iAddr.length - 4)}`;
+    return abbreviateKeyId(iAddr);
   }
 
   return iAddr || 'Unknown key';
 };
+
+// A key with no known name has only its abbreviated i-address as a title.
+// The card then names it plainly and shows the full i-address instead.
+const isUnnamedKeyTitle = item =>
+  typeof item.keyId === 'string' &&
+  item.keyId.length > 8 &&
+  item.title === abbreviateKeyId(item.keyId);
 
 export const getCmmDataPreview = (
   data,
@@ -164,6 +174,7 @@ export const buildVerusIdContentChangeItems = ({
 
           return {
             key: `${key}:active:${iAddrKey}`,
+            keyId: iAddrKey,
             title: entryLabel,
             data: getCmmDataPreview(currentContentMultiMap[iAddrKey]),
             hideOldData: false,
@@ -196,6 +207,7 @@ export const buildVerusIdContentChangeItems = ({
 
       return {
         key,
+        keyId: targetKey,
         title:
           updateEntry && updateEntry.displayTitle
             ? updateEntry.displayTitle
@@ -229,6 +241,7 @@ export const buildVerusIdContentChangeItems = ({
 
       contentMultiMapInfo[updateKey] = {
         key: updateKey,
+        keyId: iAddrKey,
         title: getCmmDataKey(iAddrKey),
         data: getCmmDataPreview(currentContentMultiMap[iAddrKey]),
         hideOldData: existingClearedByRequest,
@@ -254,6 +267,7 @@ export const buildVerusIdContentChangeItems = ({
 
       contentMultiMapInfo[key] = {
         key,
+        keyId: targetKey,
         title:
           updateEntry && updateEntry.displayTitle
             ? updateEntry.displayTitle
@@ -515,6 +529,7 @@ const VerusIdContentChangeCard = ({
   const darkMode = darkModeProp ?? theme.isDark;
   const encryptedInfoColor = darkMode ? '#8FB1FF' : Colors.primaryColor;
   const badges = getContentChangeBadges(item);
+  const unnamedKey = isUnnamedKeyTitle(item);
   const onPress =
     updateEntry && updateEntry.onPress ? updateEntry.onPress : item.onPress;
 
@@ -532,13 +547,25 @@ const VerusIdContentChangeCard = ({
         style,
       ]}>
       <View style={LocalStyles.cmmCardHeader}>
-        <Text
-          style={[
-            LocalStyles.cmmCardTitle,
-            darkMode && LocalStyles.cmmCardTitleDark,
-          ]}>
-          {item.title}
-        </Text>
+        <View style={LocalStyles.cmmCardTitleBlock}>
+          <Text
+            style={[
+              LocalStyles.cmmCardTitle,
+              darkMode && LocalStyles.cmmCardTitleDark,
+            ]}>
+            {unnamedKey ? 'Unnamed key' : item.title}
+          </Text>
+          {unnamedKey && (
+            <Text
+              selectable
+              style={[
+                LocalStyles.cmmCardKeyId,
+                darkMode && LocalStyles.cmmCardKeyIdDark,
+              ]}>
+              {item.keyId}
+            </Text>
+          )}
+        </View>
         {badges.length > 0 && (
           <View style={LocalStyles.cmmCardBadgeRow}>
             {badges.map((badge, idx) => (

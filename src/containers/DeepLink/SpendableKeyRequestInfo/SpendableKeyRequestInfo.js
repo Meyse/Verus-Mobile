@@ -379,6 +379,9 @@ const getIdentityDisplay = identity => {
 const getSystemLabel = system =>
   `${system.coinObj.display_ticker || system.coinObj.id} Chain`;
 
+const hasClaimFee = system =>
+  system.feeAmount != null && Number(system.feeAmount) > 0;
+
 const getExplorerBase = coinObj => {
   if (!coinObj) return null;
 
@@ -2000,6 +2003,56 @@ const SpendableKeyRequestInfoContent = props => {
                 })}
               </View>
             )}
+
+            {reviewModel.systems.map(system => {
+              const destination = destinationBySystem[system.systemId];
+              const showFee = hasClaimFee(system);
+
+              if (!destination && !showFee) return null;
+
+              return (
+                <View
+                  style={[styles.itemSection, styles.systemGroup]}
+                  key={`details:${system.systemId}`}>
+                  {reviewModel.hasMultipleSystems && (
+                    <Text style={styles.systemGroupLabel}>
+                      {getSystemLabel(system)}
+                    </Text>
+                  )}
+                  <View style={styles.flatRows}>
+                    {destination && (
+                      <View style={styles.claimDetailRow}>
+                        <View style={styles.claimDetailHeader}>
+                          <Text style={styles.claimDetailLabel}>To</Text>
+                          <Text numberOfLines={2} style={styles.rowAmount}>
+                            {activeAccount?.id}
+                          </Text>
+                        </View>
+                        <Text selectable style={styles.claimDetailAddress}>
+                          {destination}
+                        </Text>
+                      </View>
+                    )}
+                    {showFee && (
+                      <View
+                        style={[
+                          styles.flatRow,
+                          destination && styles.flatRowBorder,
+                        ]}>
+                        <Text style={styles.claimDetailLabel}>
+                          Network fee
+                        </Text>
+                        <Text numberOfLines={2} style={styles.rowAmount}>
+                          {`${system.feeAmount} ${
+                            system.coinObj.display_ticker || system.coinObj.id
+                          }`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
           </>
         )}
         <View style={styles.scrollEndSpacer} />

@@ -16,6 +16,7 @@ import {
   highRiskStepStyles as createHighRiskStepStyles,
 } from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
+import {withNameBreaks} from '../../../../utils/fullyqualifiedname';
 
 const PRIMARY_REVIEW_KEY = 'primary-control';
 
@@ -189,6 +190,26 @@ const primaryActionValue = (addedCount, removedCount) => {
   return 'Changed';
 };
 
+// Shown on the step itself, so the user sees each address without opening
+// the details.
+const primaryChangeLines = (added, removed) => [
+  ...removed.map(change => ({
+    label: 'Removed',
+    value: change.rawData || change.data,
+    mono: true,
+  })),
+  ...added.map(change => ({
+    label: 'Added',
+    value: change.rawData || change.data,
+    mono: true,
+    emphasis: true,
+  })),
+];
+
+// A name, with its i-address on the next line when both are known.
+const nameWithAddress = (name, address) =>
+  name && address && name !== address ? `${name}\n${address}` : address || name;
+
 const addAuthorityDetailRows = (rows, type, currentAuthority, change) => {
   const label = type === 'recovery' ? 'recovery' : 'revocation';
   const current = normalizeAuthority(currentAuthority);
@@ -238,6 +259,7 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     ? 'External address remains a controller'
     : 'Wallet remains a primary controller';
   const rows = primaryAddressRows(added, removed, primaryInfo, result);
+  const lines = primaryChangeLines(added, removed);
   if (hasPrimaryInfo) rows.push(['Required signatures', primaryInfo.minimumSignatures ?? 1]);
   const ackRows = primaryAckRows(added, removed);
   const actionValue = primaryActionValue(added.length, removed.length);
@@ -248,6 +270,7 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
       kind: 'primary',
       kicker: 'Primary control',
       value: actionValue,
+      lines,
       caption: 'Wallet loses control',
       tone: 'danger',
       losesWalletControl: true,
@@ -274,6 +297,7 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     kind: 'primary',
     kicker: 'Primary control',
     value: actionValue,
+    lines,
     caption: needsAdditionalSignatures
       ? 'Your wallet will need additional signatures after this update'
       : addsExternalPrimary
@@ -310,11 +334,22 @@ const buildAuthorityReviewItem = (change, type, currentAuthorities) => {
   const rows = [];
   addAuthorityDetailRows(rows, type, current, change);
 
+  const currentName = current.display || current.raw;
+  const label = type === 'recovery' ? 'recovery' : 'revocation';
+
   return {
     key: type,
     kind: 'authority',
     kicker: copy.kicker,
     value: change.data || displayValue(newRaw),
+    lines: [
+      currentName ? {label: 'Current', value: currentName} : null,
+      {
+        label: 'New',
+        value: change.data || newRaw || 'Not available',
+        emphasis: true,
+      },
+    ].filter(Boolean),
     caption: copy.caption,
     tone: type === 'revocation' ? 'danger' : undefined,
     detailTitle: copy.detailTitle,
@@ -324,10 +359,13 @@ const buildAuthorityReviewItem = (change, type, currentAuthorities) => {
     rows,
     risk: copy.risk,
     ackRows: [
-      current.raw || current.display
-        ? [`Current ${copy.ackTitle}`, current.raw || current.display]
+      currentName
+        ? [`Current ${label} ID`, nameWithAddress(current.display, current.raw)]
         : null,
-      [`New ${copy.ackTitle}`, newRaw || 'Not available'],
+      [
+        `New ${label} ID`,
+        nameWithAddress(change.data, newRaw) || 'Not available',
+      ],
     ].filter(Boolean),
   };
 };
@@ -679,40 +717,18 @@ const HighRiskStep = ({
         <View style={localStyles.summaryPanel}>
           <Text style={localStyles.panelLabel}>What changes</Text>
           <View style={localStyles.changeList}>
-            {reviewItems.map((item, index) => (
-              <TouchableOpacity
-                key={item.key}
-                accessibilityLabel={`View ${item.kicker}: ${item.value} details`}
-                accessibilityRole="button"
-                activeOpacity={0.74}
-                onPress={() => setActiveDetailKey(item.key)}
-                style={[
-                  localStyles.changeRow,
-                  index === 0 && localStyles.changeRowFirst,
-                  index === reviewItems.length - 1 && localStyles.changeRowLast,
-                ]}>
-                <View style={localStyles.changeMain}>
-                  <Text
-                    style={[
-                      localStyles.changeKicker,
-                      item.tone === 'warning' &&
-                        localStyles.changeKickerWarning,
-                      item.tone === 'danger' && localStyles.changeKickerDanger,
-                    ]}>
-                    {item.kicker}
-                  </Text>
-                  <Text
-                    ellipsizeMode="middle"
-                    numberOfLines={
-                      ['identity-state', 'signature-threshold'].includes(item.highRiskType)
-                        ? undefined
-                        : 1
-                    }
-                    style={localStyles.changeValue}>
-                    {item.value}
-                  </Text>
-                  <Text style={localStyles.changeCaption}>{item.caption}</Text>
-                </View>
+            {reviewItems.map((item, index) => {
+              const kicker = (
+                <Text
+                  style={[
+                    localStyles.changeKicker,
+                    item.tone === 'warning' && localStyles.changeKickerWarning,
+                    item.tone === 'danger' && localStyles.changeKickerDanger,
+                  ]}>
+                  {item.kicker}
+                </Text>
+              );
+              const viewAffordance = (
                 <View style={localStyles.changeViewGroup}>
                   <Eye
                     color={theme.colors.textSubtle}
@@ -721,8 +737,76 @@ const HighRiskStep = ({
                   />
                   <Text style={localStyles.changeView}>View</Text>
                 </View>
-              </TouchableOpacity>
-            ))}
+              );
+              const caption = (
+                <Text style={localStyles.changeCaption}>{item.caption}</Text>
+              );
+
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  accessibilityLabel={`View ${item.kicker}: ${item.value} details`}
+                  accessibilityRole="button"
+                  activeOpacity={0.74}
+                  onPress={() => setActiveDetailKey(item.key)}
+                  style={[
+                    localStyles.changeRow,
+                    index === 0 && localStyles.changeRowFirst,
+                    index === reviewItems.length - 1 &&
+                      localStyles.changeRowLast,
+                  ]}>
+                  {item.lines ? (
+                    // Names and addresses get the full row width, so they
+                    // show in full instead of a cut middle.
+                    <View style={localStyles.changeMain}>
+                      <View style={localStyles.changeHeader}>
+                        {kicker}
+                        {viewAffordance}
+                      </View>
+                      {item.lines.map((line, lineIndex) => (
+                        <View
+                          key={`${line.label}-${lineIndex}`}
+                          style={localStyles.changeLine}>
+                          <Text style={localStyles.changeLineLabel}>
+                            {line.label}
+                          </Text>
+                          <Text
+                            style={[
+                              localStyles.changeLineValue,
+                              line.emphasis &&
+                                localStyles.changeLineValueEmphasis,
+                              line.mono && localStyles.changeLineValueMono,
+                            ]}>
+                            {line.mono ? line.value : withNameBreaks(line.value)}
+                          </Text>
+                        </View>
+                      ))}
+                      {caption}
+                    </View>
+                  ) : (
+                    <>
+                      <View style={localStyles.changeMain}>
+                        {kicker}
+                        <Text
+                          ellipsizeMode="middle"
+                          numberOfLines={
+                            ['identity-state', 'signature-threshold'].includes(
+                              item.highRiskType,
+                            )
+                              ? undefined
+                              : 1
+                          }
+                          style={localStyles.changeValue}>
+                          {item.value}
+                        </Text>
+                        {caption}
+                      </View>
+                      {viewAffordance}
+                    </>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 

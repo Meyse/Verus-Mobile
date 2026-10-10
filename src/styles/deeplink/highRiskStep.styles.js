@@ -87,6 +87,40 @@ const createHighRiskStepStyles = theme =>
       alignItems: 'center',
       gap: 5,
     },
+    changeHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: theme.spacing.md,
+    },
+    changeLine: {
+      marginTop: 8,
+    },
+    changeLineLabel: {
+      color: theme.colors.textSubtle,
+      fontSize: 12,
+      lineHeight: 17,
+      letterSpacing: 0,
+      ...fontStyle('semiBold'),
+    },
+    changeLineValue: {
+      marginTop: 2,
+      color: theme.colors.textSecondary,
+      fontSize: 15,
+      lineHeight: 21,
+      letterSpacing: 0,
+      ...fontStyle('regular'),
+    },
+    changeLineValueEmphasis: {
+      color: theme.colors.textPrimary,
+      ...fontStyle('semiBold'),
+    },
+    changeLineValueMono: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontFamily: monospaceFont,
+      fontWeight: Platform.OS === 'ios' ? '500' : 'normal',
+    },
     changeView: {
       color: theme.colors.textSubtle,
       fontSize: 14,

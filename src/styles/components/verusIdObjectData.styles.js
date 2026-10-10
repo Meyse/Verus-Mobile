@@ -89,9 +89,21 @@ export default StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  cmmCardTitle: {
+  cmmCardTitleBlock: {
     flex: 1,
     minWidth: 0,
+  },
+  cmmCardKeyId: {
+    marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#6B7280',
+  },
+  cmmCardKeyIdDark: {
+    color: '#A9B6CA',
+  },
+  cmmCardTitle: {
     fontSize: 18,
     lineHeight: 23,
     fontWeight: '600',

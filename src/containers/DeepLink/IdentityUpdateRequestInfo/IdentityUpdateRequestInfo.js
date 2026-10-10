@@ -59,6 +59,7 @@ import {
 import {getCmmDataLabel} from '../../../utils/vdxf/cmmDataLabel';
 import {getVDXFKeyLabel} from '../../../utils/vdxf/vdxfTypeLabels';
 import {capitalizeString} from '../../../utils/stringUtils';
+import {withNameBreaks} from '../../../utils/fullyqualifiedname';
 import {
   ContentMultiMapRemoveKey,
   DATA_TYPE_DEFINEDKEY,
@@ -1117,9 +1118,9 @@ const IdentityUpdateRequestInfoContent = props => {
               <View style={styles.footerDetailRow}>
                 <Text style={styles.footerDetailLabel}>Updating identity</Text>
                 <Text
-                  numberOfLines={1}
+                  numberOfLines={2}
                   style={styles.footerDetailValue}>
-                  {fullyqualifiedname}
+                  {withNameBreaks(fullyqualifiedname)}
                 </Text>
               </View>
               <View

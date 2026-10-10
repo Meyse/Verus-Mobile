@@ -1008,15 +1008,13 @@ export const discoverSpendableKeyClaims = async ({
       );
     }
 
-    subtractBalanceMap(
-      balanceMap,
-      coinObj.system_id,
-      getDisplayFeeSats({
-        systemId: coinObj.system_id,
-        spendableUtxos,
-        identities,
-      }),
-    );
+    const displayFeeSats = getDisplayFeeSats({
+      systemId: coinObj.system_id,
+      spendableUtxos,
+      identities,
+    });
+
+    subtractBalanceMap(balanceMap, coinObj.system_id, displayFeeSats);
 
     const currencies = [];
 
@@ -1041,6 +1039,8 @@ export const discoverSpendableKeyClaims = async ({
       observedUtxos: utxosRes.result || [],
       utxos: spendableUtxos,
       currencies,
+      // The balances above are already net of this fee.
+      feeAmount: satsToCoins(displayFeeSats).toString(),
       identities,
       identityLookupError,
       identityLookupSucceeded,
