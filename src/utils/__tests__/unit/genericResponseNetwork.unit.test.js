@@ -1,17 +1,34 @@
 const mockHandleAuthentication = jest.fn();
+const mockDeliverResponse = jest.fn();
 
-jest.mock('react-native', () => ({View: 'View', TouchableOpacity: 'TouchableOpacity'}));
-jest.mock('react-native-paper', () => ({Portal: 'Portal', Text: 'Text'}));
-jest.mock('react-redux', () => ({
-  useSelector: selector => selector({deeplink: {passthrough: {}}}),
+jest.mock('react-native', () => ({
+  StyleSheet: {create: styles => styles},
+  View: 'View',
+  TouchableOpacity: 'TouchableOpacity',
 }));
+jest.mock('react-native-paper', () => ({Portal: 'Portal', Text: 'Text'}));
+jest.mock('react-redux', () => {
+  // Like a real store, keep state and dispatch stable across renders.
+  const state = {deeplink: {passthrough: {}}, authentication: {}};
+  const dispatch = jest.fn();
+  return {useDispatch: () => dispatch, useSelector: selector => selector(state)};
+});
 jest.mock('react-native-safe-area-context', () => ({useSafeAreaInsets: () => ({top: 0})}));
 jest.mock('verusid-ts-client', () => ({primitives: require('verus-typescript-primitives')}));
 jest.mock('../../../styles', () => ({}));
 jest.mock('../../../globals/colors', () => ({}));
 jest.mock('../../../components/AnimatedActivityIndicatorBox', () => 'ActivityIndicator');
+jest.mock('../../../components/AnimatedSuccessCheckmark', () => 'SuccessCheckmark');
+jest.mock('../../../components/AppButton', () => 'AppButton');
+jest.mock('../../../components/BottomSheetModal', () => 'BottomSheetModal');
+jest.mock('../../../theme/onboarding', () => ({useOnboardingTheme: () => ({typography: {}, colors: {}})}));
 jest.mock('../../../components/ListSelectionModal/ListSelectionModal', () => 'SelectionModal');
 jest.mock('../../../components/VerusIdDetailsModal/VerusIdDetailsModal', () => 'IdentityModal');
+jest.mock('../../../containers/DeepLink/GenericRequestLoading', () => ({
+  __esModule: true,
+  default: 'GenericRequestLoading',
+  GENERIC_REQUEST_LOADING_STEPS: {},
+}));
 jest.mock('../../../containers/DeepLink/InvoiceInfo/InvoiceInfo', () => 'InvoiceInfo');
 jest.mock('../../../containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo', () => 'AuthenticationRequestInfo');
 jest.mock('../../../containers/DeepLink/IdentityUpdateRequestInfo/IdentityUpdateRequestInfo', () => 'IdentityUpdateRequestInfo');
@@ -31,11 +48,18 @@ jest.mock('../../deeplink/handlers/createWalletBackupDetailsHandler', () => ({})
 jest.mock('../../deeplink/handlers/spendableKeyDetailsHandler', () => ({}));
 jest.mock('../../deeplink/handlers/userDataRequestHandler', () => ({}));
 jest.mock('../../deeplink/handlers/dataPacketRequestHandler', () => ({}));
+jest.mock('../../deeplink/genericRequestDelivery', () => ({
+  GENERIC_REQUEST_DELIVERY_TYPES: {NONE: 'none', POST: 'post', REDIRECT: 'redirect'},
+  createGenericResponseDelivery: () => mockDeliverResponse,
+  getGenericRequestDeliveryInfo: () => ({type: 'none'}),
+}));
+jest.mock('../../deeplink/pendingDeeplinkStorage', () => ({markPendingDeeplinkComplete: jest.fn()}));
 jest.mock('../../deeplink/isDeeplinkHandlerInstalled', () => ({
   isDeeplinkHandlerInstalled: async () => false,
 }));
 jest.mock('../../api/channels/verusid/callCreators', () => ({}));
 jest.mock('../../../actions/actions/alert/dispatchers/alert', () => ({createAlert: jest.fn()}));
+jest.mock('../../../actions/actionCreators', () => ({resetDeeplinkData: jest.fn()}));
 
 const React = require('react');
 const {act, create} = require('react-test-renderer');
@@ -60,6 +84,7 @@ describe('generic response network context during request handling', () => {
       displayProps: {},
       handledIndices: [],
     }));
+    mockDeliverResponse.mockResolvedValue({type: 'none'});
   });
 
   afterEach(() => {
@@ -82,12 +107,11 @@ describe('generic response network context during request handling', () => {
       })],
     });
     if (isTestnet) request.setIsTestnet();
-    const navigation = {navigate: jest.fn()};
 
     await act(async () => {
       renderer = create(<GenericRequestHome
         deeplinkData={request.toBuffer().toString('hex')}
-        navigation={navigation}
+        navigation={{}}
         cancel={jest.fn()}
       />);
     });
@@ -114,11 +138,10 @@ describe('generic response network context during request handling', () => {
       await screen.props.next(response, [0]);
     });
 
-    expect(navigation.navigate).toHaveBeenCalledTimes(1);
-    const [destination, params] = navigation.navigate.mock.calls[0];
-    expect(destination).toBe('GenericRequestComplete');
+    expect(mockDeliverResponse).toHaveBeenCalledTimes(1);
+    const [{responseBufferString}] = mockDeliverResponse.mock.calls[0];
     const received = new GenericResponse();
-    received.fromBuffer(Buffer.from(params.responseBufferString, 'hex'));
+    received.fromBuffer(Buffer.from(responseBufferString, 'hex'));
     expect(received.isTestnet()).toBe(isTestnet);
     expect(received.details[0].data.requestID.rootSystemName).toBe(rootSystemName);
     expect(received.details[0].data.requestID.toIAddress()).toBe(requestID.toIAddress());
