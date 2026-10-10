@@ -18,6 +18,10 @@ import AppButton from '../../AppButton';
 import AppTextInput from '../../AppTextInput';
 import BottomSheetModal from '../../BottomSheetModal';
 import {closeSendModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import {
+  captureSessionScope,
+  sessionScopeIsCurrent,
+} from '../../../actions/actions/updates/sessionRequests';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {dispatchAddNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
 import {fontStyle} from '../../../globals/fonts';
@@ -32,6 +36,8 @@ import {VERUSID_SERVICE_ID} from '../../../utils/constants/services';
 import {SEND_MODAL_IDENTITY_TO_PROVISION_FIELD} from '../../../utils/constants/sendModal';
 import {LoadingNotification} from '../../../utils/notification';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import Store from '../../../store';
+import {assertProvisioningSessionCurrent} from './ProvisionIdentityConfirm/ProvisionIdentityConfirm';
 import {
   getProvisioningRequestState,
   getStoredProvisioningRequestKey,
@@ -236,9 +242,6 @@ const ProvisionIdentityBottomSheet = ({
   );
   const [availabilityCheckValue, setAvailabilityCheckValue] = useState('');
   const [reviewData, setReviewData] = useState(null);
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
   const chainTicker = sendModal.coinObj ? sendModal.coinObj.id : null;
   const addresses = useObjectSelector(state =>
     chainTicker &&
@@ -534,6 +537,11 @@ const ProvisionIdentityBottomSheet = ({
   const handleSubmitRequest = async () => {
     if (reviewData == null) return;
     let existingProvisioningRequestState = null;
+    const requestContext = {
+      sessionScope:
+        sendModal.sessionScope || captureSessionScope(Store.getState()),
+      modalRequestId: sendModal.requestId || null,
+    };
 
     await setLoading(true, true);
     await setPreventExit(true);
@@ -635,6 +643,7 @@ const ProvisionIdentityBottomSheet = ({
       const signedRequest = await signIdProvisioningRequest(
         coinObj,
         provisionRequest,
+        requestContext,
       );
       const requestPayload =
         provisioningRequestType === 'generic'
@@ -670,6 +679,8 @@ const ProvisionIdentityBottomSheet = ({
         throw alreadyRequestedError;
       }
 
+      // The POST is the irreversible external side effect.
+      assertProvisioningSessionCurrent(requestContext);
       const res = await axios.post(webhookUrl, signedRequest);
       const provisioningSignerId =
         sendModal.data.provisioningSignerId ||
@@ -698,7 +709,7 @@ const ProvisionIdentityBottomSheet = ({
         newLoadingNotification.uid,
         nameId,
         requestedFqn,
-        async () => {
+        async originatingContext => {
           newLoadingNotification.body = '';
           const lastDotIndex = requestedFqn.lastIndexOf('.');
           const formattedName =
@@ -711,7 +722,8 @@ const ProvisionIdentityBottomSheet = ({
             ' is being created by ',
             `${provisioningName}@`,
           ];
-          newLoadingNotification.acchash = activeAccount?.accountHash;
+          newLoadingNotification.acchash =
+            originatingContext.sessionScope.accountHash;
           newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 
           dispatchAddNotification(newLoadingNotification);
@@ -719,6 +731,7 @@ const ProvisionIdentityBottomSheet = ({
         provisioningRequestType,
         provisioningSignerId,
         hasResponseUris,
+        requestContext,
       );
 
       const response = new primitives.LoginConsentProvisioningResponse(
@@ -740,6 +753,14 @@ const ProvisionIdentityBottomSheet = ({
       closeSendModal();
       await setPreventExit(false);
     } catch (e) {
+      // The sheet belongs to the session that started the request. Do not
+      // show its result in another account.
+      if (
+        !sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)
+      ) {
+        return;
+      }
+
       setStep(SHEET_STEPS.REVIEW);
       await setLoading(false);
       await setPreventExit(false);
