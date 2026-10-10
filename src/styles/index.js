@@ -42,6 +42,7 @@ export {createSignedOutFlowStyles} from './components/signedOutFlow.styles';
 export {createSignedOutSheetStyles} from './components/signedOutSheet.styles';
 export {default as vdxfUniValueModalInnerAreaStyles} from './components/vdxfUniValueModalInnerArea.styles';
 export {default as verusIdObjectDataStyles} from './components/verusIdObjectData.styles';
+export {default as walletBackupRequestInfoStyles} from './deeplink/walletBackupRequestInfo.styles';
 
 export {createSelectionSheetStyles} from './components/selectionSheet.styles';
 

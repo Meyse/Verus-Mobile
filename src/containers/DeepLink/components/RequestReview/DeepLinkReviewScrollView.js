@@ -9,6 +9,8 @@ const SCROLL_THRESHOLD = 48;
 const DeepLinkReviewScrollView = ({
   children,
   contentContainerStyle,
+  keyboardDismissMode,
+  keyboardShouldPersistTaps,
   style,
   showScrollCue = false,
 }) => {
@@ -33,6 +35,8 @@ const DeepLinkReviewScrollView = ({
       alwaysBounceVertical={false}
       bounces={false}
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+      keyboardDismissMode={keyboardDismissMode}
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       onContentSizeChange={(_, height) => setContentHeight(height)}
       onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
       onScroll={

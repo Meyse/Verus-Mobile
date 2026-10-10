@@ -1,13 +1,9 @@
 import React from 'react';
 import WalletBackupRequestInfo from '../../../DeepLink/WalletBackupRequestInfo/WalletBackupRequestInfo';
-import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 
 const NfcBackup = props => {
+  // The backup screen shows its own "Backup written" result before this runs.
   const finishBackup = async () => {
-    createAlert(
-      'Backup Complete',
-      'Your Secret Recovery Phrase has been written to the NFC card.',
-    );
     props.navigation.goBack();
   };
 

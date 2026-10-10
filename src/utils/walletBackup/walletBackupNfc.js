@@ -526,7 +526,7 @@ export const writeWalletBackupToNfc = async (
 
   try {
     onStatus &&
-      onStatus('Hold your NFC wallet backup request card against the device.');
+      onStatus('Hold the NFC card against the device.');
     nfcRequestStarted = true;
     const connectedTech = await requestNdefTechnology(timeoutMs);
 

@@ -3,18 +3,11 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  StyleSheet,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {
-  ActivityIndicator,
-  Checkbox,
-  Menu,
-  Text,
-} from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {Text} from 'react-native-paper';
+import {Info} from 'lucide-react-native';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import store from '../../../store';
@@ -25,13 +18,13 @@ import {
 import {
   closeLoadingModal,
   openLoadingModal,
+  requestWalletUnlock,
+  WALLET_UNLOCK_CANCELLED,
 } from '../../../actions/actionDispatchers';
 import {
   createAlert,
   resolveAlert,
 } from '../../../actions/actions/alert/dispatchers/alert';
-import {openAuthenticateUserModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
-import Colors from '../../../globals/colors';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import scorePassword from '../../../utils/auth/scorePassword';
 import {requestPassword, requestSeeds} from '../../../utils/auth/authBox';
@@ -41,7 +34,6 @@ import {
   PASS_SCORE_LIMIT,
 } from '../../../utils/constants/constants';
 import {ELECTRUM} from '../../../utils/constants/intervalConstants';
-import {SEND_MODAL_USER_ALLOWLIST} from '../../../utils/constants/sendModal';
 import {getKey} from '../../../utils/keyGenerator/keyGenerator';
 import {withKeepAwake} from '../../../utils/keepAwake/keepAwake';
 import {getSupportedBiometryType} from '../../../utils/keychain/keychain';
@@ -61,45 +53,78 @@ import {
   endWalletBackupNfcSession,
   writeWalletBackupToNfc,
 } from '../../../utils/walletBackup/walletBackupNfc';
+import {walletBackupRequestInfoStyles as createStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
+import BiometricAffordanceIcon, {
+  getBiometryPresentation,
+} from '../../../components/BiometricAffordanceIcon';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
-import {fontStyle} from '../../../globals/fonts';
+import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
+import useSheetDismissal from '../../../components/useSheetDismissal';
+import {
+  SettingsProfileSummary,
+  SettingsRow,
+  SettingsSection,
+  SettingsSwitchRow,
+} from '../../Settings/components/SettingsScaffold';
+import {DeepLinkReviewScrollView} from '../components/RequestReview';
 
-const passwordAutofillProps = {
-  autoComplete: 'off',
-  importantForAutofill: 'no',
-  textContentType: 'none',
-};
+// Same settings as onboarding: on iOS, 'oneTimeCode' stops the strong-password
+// suggestion, which can leave a value in the field state that the user never
+// saw.
+const passwordAutofillProps = Platform.select({
+  ios: {
+    textContentType: 'oneTimeCode',
+    spellCheck: false,
+  },
+  default: {
+    autoComplete: 'off',
+    importantForAutofill: 'no',
+    textContentType: 'none',
+    spellCheck: false,
+  },
+});
+const KEYBOARD_FOOTER_SPACING = 8;
 const waitForSpinnerFrame = () =>
   new Promise(resolve => setTimeout(resolve, 0));
 
-const formatKdfIterations = iterations => `${iterations / 1000}k`;
-const formatBackupKdfOptionLabel = option =>
-  `${option.label} (${formatKdfIterations(option.iterations)})`;
+const formatKdfIterations = iterations => `${iterations / 1000}k iterations`;
+
+// How the written card is protected. The result screen names the password
+// that restores the wallet.
+const BACKUP_PROTECTION = {
+  WALLET_PASSWORD: 'wallet-password',
+  BACKUP_PASSWORD: 'backup-password',
+  NONE: 'none',
+};
+
+const BACKUP_RESULT_SUBTITLES = {
+  [BACKUP_PROTECTION.WALLET_PASSWORD]:
+    'Restore it with your wallet password. Keep the card somewhere safe.',
+  [BACKUP_PROTECTION.BACKUP_PASSWORD]:
+    'Restore it with your backup password. Keep the card somewhere safe.',
+  [BACKUP_PROTECTION.NONE]:
+    'Anyone who has the card can restore this wallet. Keep it somewhere safe.',
+};
 
 const isTestProfile = account => {
   return Object.keys(account?.testnetOverrides || {}).length > 0;
 };
 
-const passwordStrengthDetails = password => {
-  if (!password) {
-    return {
-      score: 0,
-      text: 'strength',
-      color: Colors.tertiaryColor,
-    };
-  }
+const passwordStrengthDetails = (password, theme) => {
+  if (!password) return null;
 
   const score = scorePassword(password, MIN_PASS_LENGTH, PASS_SCORE_LIMIT);
 
   if (score < MIN_PASS_SCORE) {
-    return {score, text: 'weak', color: Colors.warningButtonColor};
+    return {text: 'weak', color: theme.colors.warning};
   } else if (score < PASS_SCORE_LIMIT - ((PASS_SCORE_LIMIT - MIN_PASS_SCORE) / 2)) {
-    return {score, text: 'mediocre', color: Colors.infoButtonColor};
+    return {text: 'fair', color: theme.colors.textSecondary};
   } else {
-    return {score, text: 'strong', color: Colors.verusGreenColor};
+    return {text: 'strong', color: theme.colors.success};
   }
 };
 
@@ -111,6 +136,29 @@ const validatePasswordPair = (password, confirmPassword) => {
   }
 
   return null;
+};
+
+const BackupKdfSheet = ({onClose, onSelect, selectedIterations, visible}) => {
+  const dismissal = useSheetDismissal({visible, onClose});
+
+  return (
+    <SelectionSheet
+      onClose={dismissal.close}
+      onClosed={dismissal.onClosed}
+      subtitle="Higher resistance takes longer to encrypt and to restore."
+      title="Brute-force resistance"
+      visible={visible}>
+      {WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS.map(option => (
+        <SelectionRow
+          key={option.key}
+          onPress={() => dismissal.dismiss(() => onSelect(option.iterations))}
+          selected={option.iterations === selectedIterations}
+          subtitle={formatKdfIterations(option.iterations)}
+          title={option.label}
+        />
+      ))}
+    </SelectionSheet>
+  );
 };
 
 const WalletBackupRequestInfo = props => {
@@ -144,17 +192,7 @@ const WalletBackupRequestInfo = props => {
       : signedIn &&
         activeAccount &&
         activeAccountIsTestnet === requestIsTestnet;
-  let backupDescription;
-
-  if (requestIsTestnet) {
-    backupDescription = profileBackup
-      ? 'This will create a testnet wallet backup for the current wallet on an NFC card.'
-      : 'This request will create a testnet wallet backup on an NFC card.';
-  } else {
-    backupDescription = profileBackup
-      ? 'This will create a wallet backup for the current wallet on an NFC card.'
-      : 'This request will create a wallet backup on an NFC card.';
-  }
+  const networkName = requestIsTestnet ? 'testnet' : 'mainnet';
 
   const matchingAccounts = useMemo(() => {
     return accounts.filter(account => isTestProfile(account) === requestIsTestnet);
@@ -177,23 +215,40 @@ const WalletBackupRequestInfo = props => {
   const [backupKdfIters, setBackupKdfIters] = useState(
     WALLET_BACKUP_ENCRYPTION_ITERS_MEDIUM,
   );
-  const [backupKdfMenuVisible, setBackupKdfMenuVisible] = useState(false);
+  const [backupKdfSheetVisible, setBackupKdfSheetVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [nfcStatus, setNfcStatus] = useState(null);
+  const [backupResult, setBackupResult] = useState(null);
+  const [finishing, setFinishing] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [backupChoiceMade, setBackupChoiceMade] = useState(
     !showSpendableKeyBackupChoice,
   );
   const walletBackupCacheRef = useRef(null);
   const creatingProfileRef = useRef(false);
   const writingBackupRef = useRef(false);
+  const finishingRef = useRef(false);
+  // Settings shows a navigation header above this screen. The keyboard offset
+  // must include it, or the footer stays partly under the keyboard.
+  const keyboardFrameRef = useRef(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
-  const profilePasswordDetails = passwordStrengthDetails(profilePassword);
-  const backupPasswordDetails = passwordStrengthDetails(backupPassword);
+  const profilePasswordDetails = passwordStrengthDetails(profilePassword, theme);
+  const backupPasswordDetails = passwordStrengthDetails(backupPassword, theme);
   const selectedBackupKdfOption =
     WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS.find(
       option => option.iterations === backupKdfIters,
     ) || WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS[1];
+  // Settings opens this screen under its own header, which already clears the
+  // status bar. A request opens it full screen.
+  const safeAreaEdges = profileBackup
+    ? ['left', 'right']
+    : ['top', 'left', 'right'];
+  const moreDetailsFollow =
+    !profileBackup &&
+    request?.details != null &&
+    request.details.length > detailIndex + 1;
 
   useEffect(() => {
     let mounted = true;
@@ -232,18 +287,48 @@ const WalletBackupRequestInfo = props => {
     setBackupChoiceMade(!showSpendableKeyBackupChoice);
   }, [showSpendableKeyBackupChoice]);
 
-  const openLogin = () => {
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () =>
+      setKeyboardVisible(true),
+    );
+    const hideSubscription = Keyboard.addListener(hideEvent, () =>
+      setKeyboardVisible(false),
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  const openLogin = async () => {
     if (matchingAccounts.length === 0) {
       createAlert(
         'No wallet found',
-        `No ${requestIsTestnet ? 'testnet' : 'mainnet'} wallet is available for this request.`,
+        `No ${networkName} wallet is available for this request.`,
       );
       return;
     }
 
-    openAuthenticateUserModal({
-      [SEND_MODAL_USER_ALLOWLIST]: matchingAccounts,
-    });
+    try {
+      await requestWalletUnlock({
+        reason: 'wallet-backup-request',
+        title: signedIn
+          ? 'Switch wallet to continue'
+          : 'Unlock wallet to continue',
+        requestLabel: 'Wallet backup',
+        accountHashes: matchingAccounts.map(account => account.accountHash),
+        networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
+      });
+    } catch (e) {
+      if (e?.code !== WALLET_UNLOCK_CANCELLED) {
+        createAlert('Cannot continue', e?.message || 'Unable to unlock wallet.');
+      }
+    }
   };
 
   const validateProfileForm = () => {
@@ -287,12 +372,9 @@ const WalletBackupRequestInfo = props => {
         includeDlightSeed: true,
         useBiometrics,
       });
+      // The screen moves on to the backup options for the new wallet, which
+      // shows that the wallet exists.
       profileCreated = true;
-
-      createAlert(
-        'Wallet created',
-        `Your '${profileName}' wallet has been created and is ready for backup.`,
-      );
     } catch (e) {
       console.error(e);
       createAlert('Error', e.message);
@@ -306,20 +388,12 @@ const WalletBackupRequestInfo = props => {
     }
   };
 
-  const toggleUseBiometrics = () => {
-    if (useBiometrics) {
-      setUseBiometrics(false);
-    } else {
-      setUseBiometrics(true);
-    }
-  };
-
   const confirmUnencryptedBackup = async () => {
     if (encryptBackup) return true;
 
     return createAlert(
-      'Unencrypted Backup',
-      'This will write your Secret Recovery Phrase to the NFC card without a backup password. Continue?',
+      'Back up without a password?',
+      'Anyone who has the NFC card can restore this wallet.',
       [
         {
           text: 'Cancel',
@@ -358,7 +432,7 @@ const WalletBackupRequestInfo = props => {
       cachedWalletBackup.password === backupEncryptionPassword &&
       cachedWalletBackup.kdfIters === effectiveKdfIters
     ) {
-      setNfcStatus('Using prepared wallet backup. Wait for the NFC tap prompt.');
+      setNfcStatus('Using the prepared backup. Wait for the NFC prompt.');
       await waitForSpinnerFrame();
       assertAccountCurrent();
 
@@ -367,8 +441,8 @@ const WalletBackupRequestInfo = props => {
 
     setNfcStatus(
       encryptBackup
-        ? 'Encrypting your wallet backup. This can take a few minutes. Keep this screen open and wait for the NFC tap prompt.'
-        : 'Preparing secure backup. Keep the card nearby, but wait for the tap prompt.',
+        ? 'Encrypting the backup. This can take a few minutes. Keep this screen open.'
+        : 'Preparing the backup. Wait for the NFC prompt before you tap the card.',
     );
     await waitForSpinnerFrame();
 
@@ -444,7 +518,7 @@ const WalletBackupRequestInfo = props => {
       if (!(await confirmUnencryptedBackup())) return;
 
       setLoading(true);
-      setNfcStatus('Preparing secure backup. Do not tap the card yet.');
+      setNfcStatus('Preparing the backup. Do not tap the card yet.');
       assertAccountCurrent();
       nfcSessionPreRegistered = await beginWalletBackupNfcSession({
         onStatus: setNfcStatus,
@@ -470,13 +544,23 @@ const WalletBackupRequestInfo = props => {
         );
 
       await markWalletBackupRequestComplete(completionKey);
-      await next(response, [detailIndex]);
+      setBackupResult({
+        protection: !encryptBackup
+          ? BACKUP_PROTECTION.NONE
+          : useProfilePasswordForBackup
+          ? BACKUP_PROTECTION.WALLET_PASSWORD
+          : BACKUP_PROTECTION.BACKUP_PASSWORD,
+      });
       backupCompleted = true;
     } catch (e) {
       console.error(e);
       createAlert(
-        'Backup Failed',
-        `${e.message || 'Unable to write wallet backup to NFC card.'}\n\nYour Secret Recovery Phrase was not backed up by this request. You can back it up later from the app settings.`,
+        'Backup not written',
+        `${e.message || 'Unable to write wallet backup to NFC card.'}\n\n${
+          profileBackup
+            ? 'You can try again.'
+            : 'You can try again, or back up this wallet later in Settings.'
+        }`,
       );
     } finally {
       try {
@@ -485,12 +569,30 @@ const WalletBackupRequestInfo = props => {
         }
       } finally {
         setNfcStatus(null);
-        // Keep successful submissions latched while navigation catches up.
+        setLoading(false);
+        // A written card stays latched: the result screen replaces the form,
+        // and the card must not be written a second time.
         if (!backupCompleted) {
-          setLoading(false);
           writingBackupRef.current = false;
         }
       }
+    }
+  };
+
+  const finishBackup = async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    setFinishing(true);
+
+    try {
+      await next(response, [detailIndex]);
+    } catch (e) {
+      finishingRef.current = false;
+      setFinishing(false);
+      createAlert(
+        'Cannot finish request',
+        e?.message || 'Unable to continue the request.',
+      );
     }
   };
 
@@ -498,413 +600,337 @@ const WalletBackupRequestInfo = props => {
     await next(response, [detailIndex]);
   };
 
-  if (!backupChoiceMade) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={styles.choiceContent}
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.form}>
-            <MaterialCommunityIcons
-              color={theme.colors.primary}
-              name="credit-card-wireless-outline"
-              size={58}
-              style={styles.heroIcon}
-            />
-            <Text style={styles.title}>
-              Choose NFC Card Action
+  const renderScreen = ({title, subtitle, body, footer, keyboard = false}) => {
+    const content = (
+      <SafeAreaView edges={safeAreaEdges} style={styles.container}>
+        <DeepLinkReviewScrollView
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text accessibilityRole="header" style={styles.mainTitle}>
+              {title}
             </Text>
-            <Text style={styles.body}>
-              This NFC card can back up a Secret Recovery Phrase and redeem a spendable key. You can claim the spendable key to an existing matching wallet, or back up a wallet to the card first and then claim to that backed-up wallet.
-            </Text>
-            <AppButton
-              height={56}
-              icon="wallet-outline"
-              onPress={skipBackupAndClaimSpendableKey}
-              style={styles.stackedButton}
-              variant="primary">
-              Claim to Existing Wallet
-            </AppButton>
-            <AppButton
-              height={52}
-              icon="backup-restore"
-              onPress={() => setBackupChoiceMade(true)}
-              style={styles.stackedButton}
-              variant="secondary">
-              Back Up Then Claim
-            </AppButton>
-            <AppButton onPress={cancel} variant="text">
-              Cancel
-            </AppButton>
+            {subtitle ? (
+              <Text style={styles.mainSubtitle}>{subtitle}</Text>
+            ) : null}
           </View>
-        </ScrollView>
+          {body}
+        </DeepLinkReviewScrollView>
+        <SafeBottomActionStack
+          bottomSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30}
+          gap={10}
+          horizontalSpacing={24}
+          includeBottomInset={!keyboardVisible}
+          style={styles.footer}>
+          {footer}
+        </SafeBottomActionStack>
       </SafeAreaView>
     );
+
+    if (!keyboard) return content;
+
+    return (
+      <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
+        <View
+          onLayout={() =>
+            keyboardFrameRef.current?.measureInWindow((_x, y) =>
+              setKeyboardOffset(Math.max(0, y)),
+            )
+          }
+          ref={keyboardFrameRef}
+          style={styles.keyboardFrame}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={keyboardOffset}
+            style={styles.keyboardFrame}>
+            {content}
+          </KeyboardAvoidingView>
+        </View>
+      </TouchableWithoutFeedback>
+    );
+  };
+
+  const renderSecondaryButton = (label, onPress) => (
+    <AppButton
+      buttonColor={theme.colors.surfaceMuted}
+      height={56}
+      onPress={onPress}
+      textColor={theme.isDark ? theme.colors.textPrimary : theme.colors.primary}
+      variant="secondary">
+      {label}
+    </AppButton>
+  );
+  const cancelButton = renderSecondaryButton('Cancel', cancel);
+
+  if (!backupChoiceMade) {
+    return renderScreen({
+      title: 'Claim this card',
+      subtitle:
+        'Claim it to a wallet you already have, or back up a wallet to this card first.',
+      footer: (
+        <>
+          <AppButton
+            height={56}
+            onPress={skipBackupAndClaimSpendableKey}
+            variant="primary">
+            Claim to existing wallet
+          </AppButton>
+          {renderSecondaryButton('Back up first', () =>
+            setBackupChoiceMade(true),
+          )}
+          <AppButton onPress={cancel} variant="text">
+            Cancel
+          </AppButton>
+        </>
+      ),
+    });
+  }
+
+  if (backupResult) {
+    return renderScreen({
+      title: 'Backup written',
+      subtitle: BACKUP_RESULT_SUBTITLES[backupResult.protection],
+      footer: (
+        <AppButton
+          disabled={finishing}
+          height={56}
+          onPress={finishBackup}
+          variant="primary">
+          {moreDetailsFollow ? 'Continue' : 'Done'}
+        </AppButton>
+      ),
+    });
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.loadingContent}>
-          <MaterialCommunityIcons
-            color={theme.colors.primary}
-            name="credit-card-wireless"
-            size={64}
-            style={styles.loadingIcon}
-          />
-          <ActivityIndicator
-            animating
-            color={theme.colors.primary}
-            size="large"
-            style={styles.loadingSpinner}
-          />
-          {nfcStatus && (
-            <Text style={styles.loadingStatus}>
-              {nfcStatus}
-            </Text>
-          )}
+      <SafeAreaView edges={safeAreaEdges} style={styles.container}>
+        <View style={styles.centerContent}>
+          <AnimatedActivityIndicator />
+          <Text style={styles.processingTitle}>Writing NFC backup</Text>
+          {nfcStatus ? (
+            <Text style={styles.processingStatus}>{nfcStatus}</Text>
+          ) : null}
         </View>
       </SafeAreaView>
     );
   }
 
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={styles.screen}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.screen}>
-          <ScrollView
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <View style={styles.form}>
-              <View style={styles.header}>
-                <MaterialCommunityIcons
-                  color={theme.colors.primary}
-                  name="credit-card-wireless"
-                  size={48}
-                />
-                <Text style={styles.title}>
-                  {!activeAccountMatchesRequest && showCreateProfile
-                    ? 'Create & Backup Wallet'
-                    : 'Backup Wallet'}
-                </Text>
-                <Text style={styles.body}>
-                  {backupDescription}
-                </Text>
-              </View>
+  if (!activeAccountMatchesRequest) {
+    const biometryAvailable =
+      supportedBiometryType != null && supportedBiometryType.biometry;
+    const switchAccountChoice = matchingAccounts.length > 0 ? (
+      <AppButton
+        onPress={() => setShowCreateProfile(!showCreateProfile)}
+        variant="text">
+        {showCreateProfile ? 'Use an existing wallet' : 'Create a new wallet'}
+      </AppButton>
+    ) : null;
 
-              {!activeAccountMatchesRequest ? (
-                <View>
-                  {matchingAccounts.length > 0 ? (
-                    <AppButton
-                      onPress={openLogin}
-                      style={styles.stackedButton}
-                      variant="primary">
-                      Unlock Wallet
-                    </AppButton>
-                  ) : null}
-                  {matchingAccounts.length > 0 ? (
-                    <AppButton
-                      onPress={() => setShowCreateProfile(!showCreateProfile)}
-                      style={styles.stackedButton}
-                      variant="text">
-                      {showCreateProfile ? 'Hide New Wallet' : 'Create New Wallet'}
-                    </AppButton>
-                  ) : null}
-                  {showCreateProfile ? (
-                    <View style={styles.inputStack}>
-                      <AppTextInput
-                        label="Wallet name"
-                        onChangeText={setProfileName}
-                        returnKeyType="done"
-                        value={profileName}
-                      />
-                      <AppTextInput
-                        {...passwordAutofillProps}
-                        helperText={`Password strength: ${profilePasswordDetails.text}`}
-                        label="Wallet password"
-                        onChangeText={setProfilePassword}
-                        returnKeyType="done"
-                        secureTextEntry
-                        supportingTextStyle={{color: profilePasswordDetails.color}}
-                        value={profilePassword}
-                      />
-                      <AppTextInput
-                        {...passwordAutofillProps}
-                        label="Confirm wallet password"
-                        onChangeText={setProfilePasswordConfirm}
-                        returnKeyType="done"
-                        secureTextEntry
-                        value={profilePasswordConfirm}
-                      />
-                      {supportedBiometryType && supportedBiometryType.biometry ? (
-                        <Checkbox.Item
-                          color={theme.colors.primary}
-                          label={`Enable ${supportedBiometryType.display_name} login`}
-                          labelStyle={styles.checkboxLabel}
-                          mode="android"
-                          onPress={toggleUseBiometrics}
-                          position="leading"
-                          status={useBiometrics ? 'checked' : 'unchecked'}
-                          style={styles.checkbox}
-                        />
-                      ) : null}
-                      <AppButton
-                        disabled={
-                          creatingProfile || !profileName ||
-                          !profilePassword ||
-                          !profilePasswordConfirm
-                        }
-                        onPress={createProfile}
-                      loading={creatingProfile}
-                        variant="primary">
-                        Create Wallet
-                      </AppButton>
-                    </View>
-                  ) : null}
-                </View>
-              ) : (
-                <View>
-                  <View style={styles.profileCard}>
-                    <Text style={styles.profileName}>{activeAccount.id}</Text>
-                    <Text style={styles.profileNetwork}>
-                      {requestIsTestnet ? 'Testnet wallet' : 'Mainnet wallet'}
-                    </Text>
-                  </View>
-                  <Checkbox.Item
-                    color={theme.colors.primary}
-                    label="Encrypt backup with password"
-                    labelStyle={styles.checkboxLabel}
-                    mode="android"
-                    onPress={() => setEncryptBackup(!encryptBackup)}
-                    position="leading"
-                    status={encryptBackup ? 'checked' : 'unchecked'}
-                    style={styles.checkbox}
-                  />
-                  {encryptBackup ? (
-                    <View>
-                      <Checkbox.Item
-                        color={theme.colors.primary}
-                        label="Use wallet password for backup"
-                        labelStyle={styles.checkboxLabel}
-                        mode="android"
-                        onPress={() =>
-                          setUseProfilePasswordForBackup(
-                            !useProfilePasswordForBackup,
-                          )
-                        }
-                        position="leading"
-                        status={
-                          useProfilePasswordForBackup ? 'checked' : 'unchecked'
-                        }
-                        style={styles.checkbox}
-                      />
-                      {!useProfilePasswordForBackup ? (
-                        <View style={styles.inputStack}>
-                          <AppTextInput
-                            {...passwordAutofillProps}
-                            helperText={`Password strength: ${backupPasswordDetails.text}`}
-                            label="Backup password"
-                            onChangeText={setBackupPassword}
-                            returnKeyType="done"
-                            secureTextEntry
-                            supportingTextStyle={{color: backupPasswordDetails.color}}
-                            value={backupPassword}
-                          />
-                          <AppTextInput
-                            {...passwordAutofillProps}
-                            label="Confirm backup password"
-                            onChangeText={setBackupPasswordConfirm}
-                            returnKeyType="done"
-                            secureTextEntry
-                            value={backupPasswordConfirm}
-                          />
-                        </View>
-                      ) : null}
-                      <Menu
-                        anchor={
-                          <View style={styles.kdfAnchor}>
-                            <Text style={styles.fieldLabel}>
-                              Brute-force resistance (iterations)
-                            </Text>
-                            <AppButton
-                              icon="shield-key-outline"
-                              onPress={() => setBackupKdfMenuVisible(true)}
-                              variant="secondary">
-                              {formatBackupKdfOptionLabel(selectedBackupKdfOption)}
-                            </AppButton>
-                          </View>
-                        }
-                        onDismiss={() => setBackupKdfMenuVisible(false)}
-                        visible={backupKdfMenuVisible}>
-                        {WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS.map(option => (
-                          <Menu.Item
-                            key={option.key}
-                            onPress={() => {
-                              setBackupKdfIters(option.iterations);
-                              setBackupKdfMenuVisible(false);
-                            }}
-                            title={formatBackupKdfOptionLabel(option)}
-                          />
-                        ))}
-                      </Menu>
-                      <Text style={styles.helperText}>
-                        Higher resistance takes longer to encrypt and decrypt.
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              )}
-            </View>
-          </ScrollView>
-          <SafeBottomActionStack gap={10}>
-            {activeAccountMatchesRequest ? (
-              <AppButton
-                disabled={
-                  encryptBackup &&
-                  !useProfilePasswordForBackup &&
-                  (!backupPassword || !backupPasswordConfirm)
+    if (showCreateProfile) {
+      return renderScreen({
+        keyboard: true,
+        title: 'Create wallet',
+        subtitle: `Create a ${networkName} wallet, then write its Secret Recovery Phrase to an NFC card.`,
+        body: (
+          <>
+            <View style={styles.inputStack}>
+              <AppTextInput
+                label="Wallet name"
+                onChangeText={setProfileName}
+                returnKeyType="done"
+                value={profileName}
+              />
+              <AppTextInput
+                {...passwordAutofillProps}
+                helperText={
+                  profilePasswordDetails
+                    ? `Password strength: ${profilePasswordDetails.text}`
+                    : undefined
                 }
-                height={56}
-                onPress={writeBackup}
-                variant="primary">
-                Write NFC Backup
-              </AppButton>
+                label="Wallet password"
+                onChangeText={setProfilePassword}
+                returnKeyType="done"
+                secureTextEntry
+                supportingTextStyle={
+                  profilePasswordDetails
+                    ? {color: profilePasswordDetails.color}
+                    : undefined
+                }
+                value={profilePassword}
+              />
+              <AppTextInput
+                {...passwordAutofillProps}
+                label="Confirm wallet password"
+                onChangeText={setProfilePasswordConfirm}
+                returnKeyType="done"
+                secureTextEntry
+                value={profilePasswordConfirm}
+              />
+            </View>
+            {biometryAvailable ? (
+              <SettingsSwitchRow
+                last
+                leading={
+                  <BiometricAffordanceIcon
+                    size={19}
+                    supportedBiometryType={supportedBiometryType}
+                  />
+                }
+                onValueChange={setUseBiometrics}
+                title={getBiometryPresentation(supportedBiometryType).settingsTitle}
+                value={useBiometrics}
+              />
             ) : null}
-            <AppButton onPress={cancel} variant="text">
-              Cancel
+            {switchAccountChoice}
+          </>
+        ),
+        footer: (
+          <>
+            <AppButton
+              disabled={
+                creatingProfile ||
+                !profileName ||
+                !profilePassword ||
+                !profilePasswordConfirm
+              }
+              height={56}
+              loading={creatingProfile}
+              onPress={createProfile}
+              variant="primary">
+              Create wallet
             </AppButton>
-          </SafeBottomActionStack>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
-  );
-};
+            {cancelButton}
+          </>
+        ),
+      });
+    }
 
-const createStyles = theme =>
-  StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    scrollContent: {
-      flexGrow: 1,
-      paddingHorizontal: 22,
-      paddingTop: 24,
-      paddingBottom: 32,
-    },
-    choiceContent: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      paddingHorizontal: 22,
-      paddingVertical: 48,
-    },
-    form: {
-      width: '100%',
-      maxWidth: 430,
-      alignSelf: 'center',
-    },
-    header: {
-      alignItems: 'center',
-      marginBottom: 24,
-    },
-    heroIcon: {
-      alignSelf: 'center',
-      marginBottom: 18,
-    },
-    title: {
-      marginTop: 12,
-      color: theme.colors.textPrimary,
-      fontSize: 24,
-      lineHeight: 31,
-      textAlign: 'center',
-      ...fontStyle('semiBold'),
-    },
-    body: {
-      marginTop: 10,
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 21,
-      textAlign: 'center',
-      ...fontStyle('regular'),
-    },
-    stackedButton: {
-      marginTop: 12,
-    },
-    inputStack: {
-      gap: 12,
-      marginTop: 12,
-    },
-    profileCard: {
-      marginBottom: 8,
-      padding: 14,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderRadius: 12,
-    },
-    profileName: {
-      color: theme.colors.textPrimary,
-      fontSize: 14,
-      lineHeight: 20,
-      ...fontStyle('semiBold'),
-    },
-    profileNetwork: {
-      marginTop: 3,
-      color: theme.colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 17,
-      ...fontStyle('regular'),
-    },
-    checkbox: {
-      paddingLeft: 0,
-    },
-    checkboxLabel: {
-      color: theme.colors.textPrimary,
-      fontSize: 14,
-    },
-    kdfAnchor: {
-      marginTop: 14,
-    },
-    fieldLabel: {
-      marginBottom: 6,
-      color: theme.colors.textSecondary,
-      fontSize: 13,
-      lineHeight: 18,
-      ...fontStyle('semiBold'),
-    },
-    helperText: {
-      marginTop: 8,
-      marginBottom: 12,
-      color: theme.colors.textSecondary,
-      fontSize: 13,
-      lineHeight: 19,
-      textAlign: 'center',
-      ...fontStyle('regular'),
-    },
-    loadingContent: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 32,
-    },
-    loadingIcon: {
-      marginBottom: 24,
-    },
-    loadingSpinner: {
-      marginVertical: 8,
-    },
-    loadingStatus: {
-      marginTop: 24,
-      color: theme.colors.textPrimary,
-      fontSize: 22,
-      lineHeight: 30,
-      textAlign: 'center',
-      ...fontStyle('semiBold'),
-    },
+    return renderScreen({
+      title: 'Back up wallet',
+      subtitle: "Write a wallet's Secret Recovery Phrase to an NFC card.",
+      body: switchAccountChoice,
+      footer: (
+        <>
+          <View style={styles.footerInfoRow}>
+            <View style={styles.footerInfoIcon}>
+              <Info
+                color={theme.colors.textSubtle}
+                size={16}
+                strokeWidth={2.1}
+              />
+            </View>
+            <Text style={styles.footerInfoText}>
+              {signedIn
+                ? `Switch to a ${networkName} wallet to continue.`
+                : `Unlock a ${networkName} wallet to continue.`}
+            </Text>
+          </View>
+          <AppButton height={56} onPress={openLogin} variant="primary">
+            {signedIn ? 'Switch wallet' : 'Unlock wallet'}
+          </AppButton>
+          {cancelButton}
+        </>
+      ),
+    });
+  }
+
+  const customPasswordIncomplete =
+    encryptBackup &&
+    !useProfilePasswordForBackup &&
+    (!backupPassword || !backupPasswordConfirm);
+
+  return renderScreen({
+    keyboard: true,
+    title: 'Back up wallet',
+    subtitle: "Write this wallet's Secret Recovery Phrase to an NFC card.",
+    body: (
+      <>
+        <BackupKdfSheet
+          onClose={() => setBackupKdfSheetVisible(false)}
+          onSelect={setBackupKdfIters}
+          selectedIterations={backupKdfIters}
+          visible={backupKdfSheetVisible}
+        />
+        <SettingsProfileSummary
+          name={activeAccount.id}
+          subtitle={requestIsTestnet ? 'Testnet wallet' : null}
+          walletAvatar={activeAccount.walletAvatar}
+        />
+        <SettingsSection title="Encryption">
+          <SettingsSwitchRow
+            icon="lock-outline"
+            last={!encryptBackup}
+            onValueChange={setEncryptBackup}
+            title="Encrypt backup"
+            value={encryptBackup}
+          />
+          {encryptBackup ? (
+            <>
+              <SettingsSwitchRow
+                icon="key-outline"
+                onValueChange={setUseProfilePasswordForBackup}
+                title="Use wallet password"
+                value={useProfilePasswordForBackup}
+              />
+              {!useProfilePasswordForBackup ? (
+                <View style={styles.passwordStack}>
+                  <AppTextInput
+                    {...passwordAutofillProps}
+                    helperText={
+                      backupPasswordDetails
+                        ? `Password strength: ${backupPasswordDetails.text}`
+                        : undefined
+                    }
+                    label="Backup password"
+                    onChangeText={setBackupPassword}
+                    returnKeyType="done"
+                    secureTextEntry
+                    supportingTextStyle={
+                      backupPasswordDetails
+                        ? {color: backupPasswordDetails.color}
+                        : undefined
+                    }
+                    value={backupPassword}
+                  />
+                  <AppTextInput
+                    {...passwordAutofillProps}
+                    label="Confirm backup password"
+                    onChangeText={setBackupPasswordConfirm}
+                    returnKeyType="done"
+                    secureTextEntry
+                    value={backupPasswordConfirm}
+                  />
+                </View>
+              ) : null}
+              <SettingsRow
+                icon="shield-key-outline"
+                last
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setBackupKdfSheetVisible(true);
+                }}
+                title="Brute-force resistance"
+                value={selectedBackupKdfOption.label}
+              />
+            </>
+          ) : null}
+        </SettingsSection>
+      </>
+    ),
+    footer: (
+      <>
+        <AppButton
+          disabled={customPasswordIncomplete}
+          height={56}
+          onPress={writeBackup}
+          variant="primary">
+          Write to NFC card
+        </AppButton>
+        {cancelButton}
+      </>
+    ),
   });
+};
 
 export default WalletBackupRequestInfo;
