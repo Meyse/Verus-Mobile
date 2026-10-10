@@ -7,26 +7,27 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-09.
+- Last updated: 2026-10-10.
 - Status: SH-1, RX-1, and ID-1 complete for their scoped local deliveries. The
   scoped ID-1 delivery is committed as `33865cab` and locally integrated into
   `codex/integrate-generic-request-upstream`; its rendered/native QA and the
-  single independent high-risk review are done. GR-1 and GR-2 implementation is
-  present; their remaining native runtime QA is tracked below. Global QA-1 stays
-  open across workstreams.
+  single independent high-risk review are done. GR-1 and GR-2 are complete:
+  the GR-3 runtime matrix closed GR-1.9, GR-1.10, and GR-2.6 on 2026-10-10.
+  Global QA-1 stays open across workstreams.
 - Source-analysis baseline: `fecfbce4e5eba42e238a9960f30e7cd049ed08ba` on
   `codex/integrate-generic-request-upstream`.
 - Evidence: source and fixture behavior checks, the data-lab Mobile contract suite,
   isolated iOS/Android native previews, and Android build/entry checks.
-  Authenticated wallet delivery remains open; see the GR-1/GR-2 log entries.
+  Authenticated wallet delivery is now verified on iOS and in an Android smoke
+  pass; see the GR-3 log entries.
 - Current focus: **GR-3** on `codex/gr3-request-matrix`. Phase 2 is done: the
   user agreed the bug list and Phase 3 scope, and the agreed functional fixes
   (GR3-B6, B3, B2, R1) are verified on the iOS simulator. GR3-B4
   waits by user choice. Compact screenshots are deferred, and the
   physical-iPhone run remains. Phase 3 is implemented (GR-3.12 to GR-3.15,
-  GR-3.18, GR-3.19). Phase 4 (GR-3.16) is running: iOS rerun and Android smoke
-  done with gaps; GR3-B8 is recorded for later. GR-3 covers the GR-1/GR-2
-  runtime follow-up.
+  GR-3.18, GR-3.19). Phase 4: GR-3.16 ran (iOS rerun and Android smoke) and
+  waits only on wallet backup (GR-3.9); GR-3.17 closed the GR-1/GR-2 runtime
+  follow-up. GR3-B8 is recorded for later.
 - Previous focus: **ID-1 complete and locally integrated**, committed as
   `33865cab` on `codex/id1-redesign` and integrated into
   `codex/integrate-generic-request-upstream`. RX-1 remains complete with the
@@ -170,9 +171,23 @@ uses the canonical sheet. Both request types are experimentally gated.
   Do not report “no credentials” before a lookup has completed successfully.
 - [x] **GR-1.8** Give each state an accurate action label and recovery path. Make
   clear when continuing returns only some requested credentials or none.
-- [ ] **GR-1.9** Verify consent gates, scope/signer/network restrictions, encrypted
+- [x] **GR-1.9** Verify consent gates, scope/signer/network restrictions, encrypted
   responses, signed-out entry, and mixed-detail requests using disposable data.
-- [ ] **GR-1.10** Complete relevant QA-1 checks and record delivery evidence.
+  Done 2026-10-10 in GR-3 on VRSCTEST with real taps (GR-3.7, GR-3.16,
+  GR-3.17): “Sign data” stays disabled until every item is checked (iOS and
+  Android); matching, partial, and missing credential scopes; a required
+  signer the wallet does not control shows “Required VerusID unavailable”
+  with Switch wallet and sends nothing, and its own ID proceeds; wrong-network
+  requests are rejected; credential responses arrive encrypted (harness);
+  signed-out entry opens “Unlock wallet to review”, then the review after
+  Face ID, and the signed response is verified; credential/data-packet in
+  both orders and sign-in + credentials or data packet are verified. Consent
+  reset on an identity change is covered by the GR-1 state checks only (the
+  test wallet has one eligible VerusID).
+- [x] **GR-1.10** Complete relevant QA-1 checks and record delivery evidence.
+  Done 2026-10-10 with the GR-3.17 QA-1 record in the evidence log. Recorded
+  follow-ups: full VoiceOver/TalkBack walkthrough, reduced motion, and the
+  app-wide text-scaling decision.
 
 **Implemented design contract (2026-09-10):** Authentication and app-encryption
 review are the exemplars. Both screens reuse semantic theme/typography,
@@ -228,7 +243,12 @@ Without another detail opting into automatic delivery, they reach the legacy
 - [x] **GR-2.5** Verify POST success/failure/retry, redirect handoff, no-callback,
   mixed-detail requests, and repeated button taps using controlled fixtures.
   Record which result was observed and which remains unverified.
-- [ ] **GR-2.6** Complete relevant QA-1 checks and record delivery evidence.
+- [x] **GR-2.6** Complete relevant QA-1 checks and record delivery evidence.
+  Done 2026-10-10: real delivery on iOS for POST, fail once, fail always,
+  redirect, and no callback (sign-in + app encryption), data packet fail
+  always with Leave without sending, credentials with no response, and an
+  identity update retry that redelivered the same txid; Android POST. QA-1
+  record in the GR-3.17 evidence row.
 
 **Completion inventory (2026-09-10):** Credential and Data Packet now opt into
 centralized delivery. Authentication, app-encryption, and spendable-key flows
@@ -379,7 +399,7 @@ Phase 3 — remaining redesign (one scoped delivery each):
   write logic, session guards, and completion markers are unchanged. Simulator
   evidence covers every state except a real NFC write (stubbed); the physical
   iPhone run (GR-3.9) is still required.
-- [ ] **GR-3.14** Fix the small leftovers: the “Open in another app” pill, the
+- [x] **GR-3.14** Fix the small leftovers: the “Open in another app” pill, the
   `InvoicePaymentConfiguration` fallback root, and the Identity Update content
   step Paper rows. Added (user, 2026-10-10): the empty band under “View request
   details” on every review (GR3-D8), the “1 hours” expiry copy (GR3-D9), and the
@@ -400,7 +420,7 @@ Phase 3 — remaining redesign (one scoped delivery each):
   zero units (“1 hour”, “1 hour 1 minute”). D6: one shared delivery label —
   “Secure POST” only for HTTPS, “POST over HTTP” otherwise — in sign-in, app
   encryption, and the data-review details.
-- [ ] **GR-3.15** Replace rejection alerts with a request error state that gives
+- [x] **GR-3.15** Replace rejection alerts with a request error state that gives
   recovery guidance (GR3-D1). In scope by user choice, 2026-10-10.
   Implemented 2026-10-10, commit `39dabf36`. A rejected GenericRequest stays on the
   opening screen, which turns into an error state: one title, one recovery
@@ -415,7 +435,7 @@ Phase 3 — remaining redesign (one scoped delivery each):
   with translated copy. The shared Paper alert backdrop was opaque black
   because the theme dropped `scrimOpacity`; it now dims the screen. Deprecated
   LoginConsent v1 and VerusPay invoice v1 keep their alerts.
-- [ ] **GR-3.18** Identity Update high-risk steps: show the address that gains
+- [x] **GR-3.18** Identity Update high-risk steps: show the address that gains
   control, the current and new authorities, and full names without mid-token
   breaks (GR3-D10, GR3-D2). Add the destination and fee to the gift-card claim
   review. Added by the user, 2026-10-10.
@@ -431,7 +451,7 @@ Phase 3 — remaining redesign (one scoped delivery each):
   provisioning review. The gift-card claim review shows "To" (wallet name and
   receiving address) and "Network fee"; the claim plan now keeps the fee that
   was already subtracted from the shown balance.
-- [ ] **GR-3.19** Mixed requests: tell the user when a second step follows the
+- [x] **GR-3.19** Mixed requests: tell the user when a second step follows the
   sign-in review (GR3-D11). Added by the user, 2026-10-10.
   Implemented 2026-10-10, commit `8270ae32`. When another review follows sign-in,
   the sign-in primary action names it instead of signing in: “Continue to sign
@@ -450,7 +470,7 @@ Phase 4 — regression:
 
 - [ ] **GR-3.16** Rerun the matrix on the final branch. Run one Android smoke
   pass per type.
-  Run 2026-10-10 on `8270ae32` plus two fixes (uncommitted). iOS: every
+  Run 2026-10-10 on `8270ae32` plus two fixes (commit `dd3a476f`). iOS: every
   in-scope type and mixed request passed again with real taps, including all
   five delivery modes on sign-in + app encryption, fail-once identity update
   with one transaction, both credential/data-packet orders, sign-in + invoice,
@@ -465,10 +485,19 @@ Phase 4 — regression:
   the second is a byte-identical rebroadcast that the app reports as
   submitted. Gaps: credential matching and provisioning registration (testnet
   sub-ID registration blocked, GR3-E1); wallet backup (no NFC, GR-3.9);
-  compact size (deferred).
-- [ ] **GR-3.17** Close GR-1.9, GR-1.10, and GR-2.6 where the evidence supports
+  compact size (deferred). GR-3.14, GR-3.15, GR-3.18, and GR-3.19 are checked
+  on this rerun; GR-3.12, GR-3.13, and this item wait for GR-3.9.
+- [x] **GR-3.17** Close GR-1.9, GR-1.10, and GR-2.6 where the evidence supports
   it. Refresh `docs/genericrequest-types-and-chains.html`. Complete the relevant
   QA-1 checks.
+  Done 2026-10-10. GR-1.9, GR-1.10, and GR-2.6 are closed (see each item). The
+  missing runtime checks ran first: required signer (unavailable and own),
+  signed-out data-packet entry, request-details sheet close and reopen, and
+  Android hardware Back and accessibility labels. The local protocol map
+  (`docs/` is ignored by Git) now shows nine supported details, the unsigned
+  order rules, the shared delivery path, the error state, the runtime
+  evidence per type, and the open items; it renders at desktop and phone
+  width in light and dark. Global QA-1 stays open (TX-1 and other workstreams).
 
 Recorded for later (user, 2026-10-10; outside the request redesign):
 
@@ -485,6 +514,14 @@ Recorded for later (user, 2026-10-10; outside the request redesign):
   run: two payments with different outputs (expected to conflict and fail
   instead). Needs its own task on send input selection; reproduce in a
   failing test first.
+- **GR3-D15** (P3) Android hardware Back on a request review returns to
+  Wallet and sends nothing, but skips the screen's Cancel handler, so
+  `deeplink.id` stays set (Cancel clears it). Reopening the same link works;
+  no visible effect seen.
+- **Text scaling** (app-wide, QA-1.3): `src/utils/applyGlobalTypography.js`
+  sets `allowFontScaling = false` for every `Text` and `TextInput`, so the
+  system text size has no effect (checked at the largest iOS size). This is a
+  product decision outside GR, not a GR regression.
 
 **Acceptance:** Every in-scope type and mixed request has a recorded runtime
 result with its proof level. No in-scope flow ends on the legacy completion
@@ -885,7 +922,8 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
-| 2026-10-10 | GR-3.16 matrix rerun and Android smoke | `codex/gr3-request-matrix` at `8270ae32` plus uncommitted `SpendableKeyRequestInfo.js` (claiming spinner) and `IdentityPickerSheet.js` (boolean `accessibilityState`) | iOS `Verus GR3 QA`, profile `GR3 Test 2`, cold launch, real taps. Harness-verified: sign-in + app encryption in POST, fail once (attempt 2), fail always (Leave without sending), redirect (Safari verified, Browser opened sheet), no callback (Request complete); identity update content add `12eecb53…` and content replace with fail once `d33d60ce…` (one transaction, same txid redelivered), both confirmed; high-risk authorities cancelled with no callback; data packet POST and fail always; credential missing; both credential/data-packet orders; sign-in + credentials and sign-in + invoice (`4c74bb97…`) with the GR-3.19 labels; invoice only `2f6e9187…`; six rejected-request cases with no callbacks; provisioning accepted by the webhook, then the expected failure notice (GR3-E1). Claiming state held with a QA-only debugger hold (removed): before/after in light and dark, claim `cfdafdc8…`. Android `Pixel_8_API_35`, debug APK, new disposable profile `GR3 Android`: app encryption POST, sign-in + data packet (“Continue to sign data”), identity update `b2b03cdb…`, credential missing, wrong network and over-length, provisioning accepted, invoice `eeede94a…`, gift-card claim `3e55575c…` with the fixed claiming state in light and dark. GR3-B9 reproduced on Android before the fix and gone after it. GR3-B8 reproduced three times on iOS; a debugger counter showed an identical signed transaction returned as success. Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: identity picker and spendable key suites, 38 tests pass. | GR3-B8 triage (outside the redesign). Credential matching and provisioning registration need GR3-E1 cleared. Wallet backup on the physical iPhone (GR-3.9). Compact deferred. Android: GR3-D12 also hits the unlock sheet after a sync failure. |
+| 2026-10-10 | GR-3.17 GR-1/GR-2 closure and QA-1 record | `codex/gr3-request-matrix` at `dd3a476f`; local `docs/genericrequest-types-and-chains.html` (ignored) | Runtime gap checks first (iOS `Verus GR3 QA`, profile `GR3 Test 2`; Android emulator, profile `GR3 Android`): credential request with a required signer the wallet does not control showed “Required VerusID unavailable” with Switch wallet and sent nothing; with its own ID it proceeded; the request-details sheet showed the full required ID and closed and reopened; a data-packet request opened while locked showed “Unlock wallet to review”, unlocked with Face ID from the request, kept every item unchecked with “Sign data” disabled, and after consent the harness verified 4 signatures; the iOS picker opened and showed the selected state after the GR3-B9 fix; Android hardware Back on a review returned to Wallet and sent nothing (GR3-D15: request state not cleared). QA-1 for GR-1/GR-2/GR-3: QA-1.1 contracts, commits, and touched paths are in the GR rows above. QA-1.2 light and dark at normal size on the real app; compact from the GR-1 fixtures and GR-3.13; GR-3 compact deferred by the user. QA-1.3 labels and enabled states from the Android accessibility tree (every control labelled, “Sign data” disabled until consent; each checkbox row also exposes an inner unlabelled disabled node, possible duplicate announcement, not confirmed); sheet close/reopen; Android hardware Back; safe areas and scroll cues in screenshots; text scaling has no effect app-wide; reduced motion and full VoiceOver/TalkBack not run. QA-1.4 design, safe-area, parser, and focused Jest checks pass for every GR-3 commit. QA-1.5 GR-1/GR-2 independent design and signing reviews READY (GR-1/GR-2 report); GR-3 changes have no separate independent review. QA-1.6 shared changes rechecked on sign-in, identity update, invoice, and claim in GR-3.16. QA-1.7 screens, callbacks, and transactions recorded separately. QA-1.8 open items have owners: GR3-B8 task, GR-3.9 user device, GR3-B4 and P1 deferred, GR3-D12 and D15 recorded. Protocol map refreshed: nine supported details, unsigned order rules, delivery path, error state, runtime evidence per type, open items; renders at desktop and 375 px width without page overflow, light and dark tokens. | Full VoiceOver/TalkBack walkthrough, reduced motion, and the text-scaling decision stay as QA-1 follow-ups. GR-3 has no separate independent review. GR-3.12, GR-3.13, and GR-3.16 wait for GR-3.9. |
+| 2026-10-10 | GR-3.16 matrix rerun and Android smoke | `codex/gr3-request-matrix` at `8270ae32`, fixes in commit `dd3a476f`: `SpendableKeyRequestInfo.js` (claiming spinner) and `IdentityPickerSheet.js` (boolean `accessibilityState`) | iOS `Verus GR3 QA`, profile `GR3 Test 2`, cold launch, real taps. Harness-verified: sign-in + app encryption in POST, fail once (attempt 2), fail always (Leave without sending), redirect (Safari verified, Browser opened sheet), no callback (Request complete); identity update content add `12eecb53…` and content replace with fail once `d33d60ce…` (one transaction, same txid redelivered), both confirmed; high-risk authorities cancelled with no callback; data packet POST and fail always; credential missing; both credential/data-packet orders; sign-in + credentials and sign-in + invoice (`4c74bb97…`) with the GR-3.19 labels; invoice only `2f6e9187…`; six rejected-request cases with no callbacks; provisioning accepted by the webhook, then the expected failure notice (GR3-E1). Claiming state held with a QA-only debugger hold (removed): before/after in light and dark, claim `cfdafdc8…`. Android `Pixel_8_API_35`, debug APK, new disposable profile `GR3 Android`: app encryption POST, sign-in + data packet (“Continue to sign data”), identity update `b2b03cdb…`, credential missing, wrong network and over-length, provisioning accepted, invoice `eeede94a…`, gift-card claim `3e55575c…` with the fixed claiming state in light and dark. GR3-B9 reproduced on Android before the fix and gone after it. GR3-B8 reproduced three times on iOS; a debugger counter showed an identical signed transaction returned as success. Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: identity picker and spendable key suites, 38 tests pass. | GR3-B8 triage (outside the redesign). Credential matching and provisioning registration need GR3-E1 cleared. Wallet backup on the physical iPhone (GR-3.9). Compact deferred. Android: GR3-D12 also hits the unlock sheet after a sync failure. |
 | 2026-10-10 | GR-3.19 mixed-request next step | `codex/gr3-request-matrix`, commit `8270ae32`: new `genericRequestNextStep.js`; `GenericRequestHome.js`, `AuthenticationRequestInfo.js` | iPhone 17 Pro simulator, VRSCTEST, profile `GR3 Test 2`, real taps. Before: auth + data packet showed “Sign in with VerusID”, then “Sign data” with no hint. After: the same request showed “Continue to sign data” once a VerusID was selected; it opened “Sign data”; signing all four items delivered one response (harness: authentication verified, 4 signatures, 1 attempt) and the app returned to Wallet. Auth + credential: “Continue to share credentials” (about 231 of about 295 points available on iPhone SE, so no truncation) opened “Share credentials” (light and dark); cancelled. Auth + provisioning (local webhook): the label stays “Sign in with VerusID”; cancelled, nothing submitted. Cancel at step 2 sent nothing (harness `waiting`, 0 attempts). A node script on the real helper with real VDXF keys covers 15 mixes (each type, provisioning, skipped backup, auth last, already processed). Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: completion and link-failure suites, 11 tests pass. | Invoice, Identity Update, wallet backup and claim labels verified by script only. Compact size not run. |
 | 2026-10-10 | GR-3.18 high-risk steps, names, claim review | `codex/gr3-request-matrix`, commit `50727421`: `HighRiskStep.js` + `highRiskStep.styles.js`, `VerusIdContentChangeCard.js` + `verusIdObjectData.styles.js`, `IdentityUpdateRequestInfo.js`, `ProvisionIdentityBottomSheet.js`, `fullyqualifiedname.js`, `SpendableKeyRequestInfo.js` + `spendableKeyRequestInfo.styles.js`, `spendableKey.js` | iPhone 17 Pro simulator, VRSCTEST, new disposable profile `GR3 Test 2` (Face ID), real taps, light and dark. Before/after with deeplink-sim high-risk requests on `liveqa09482856.antafri@` (all cancelled, nothing approved): authorities step shows current and new recovery and revocation IDs in full (was `TestBob....SCTEST@` only); shared-control step shows the added address `RSRGXw62…` (was “Added”); acknowledgement sheet shows names with i-addresses; clear-content cards read “Unnamed key” with the full i-address (was `iDdo...GC45`); “Updating identity” wraps after a dot. Provisioning (local webhook, not submitted; request stayed `qr_generated`): the name preview and the review row wrap after a dot. Gift-card claim: card funded from the daemon with 0.05 VRSCTEST (txid `d7e1b9ca1a0c0b6830c43e65f079cb90bed75dc872cb3499cf34db90585e3562`); the review showed To `GR3 Test 2` / `RXW9b6Pg…` and Network fee 0.0001 VRSCTEST; claim txid `4dacbc0b869dea3b2b2f81bdcb66d76569a25196b87e8f1ca44992c2b8cedb35` pays 0.0499 to `RXW9b6Pg…` with a 0.0001 fee (daemon). Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: 6 related suites, 59 tests pass. | Compact size not run. Loss-of-control and multi-address primary changes use the same rows but were not rendered. The identity picker and the “Request from” card still cut long names with an ellipsis (shared components, out of scope). |
 | 2026-10-10 | GR-3.15 request error state | `codex/gr3-request-matrix`, commit `39dabf36`: new `genericRequestRejection.js`; `GenericRequestLoading.js`, `DeepLink.js`, `GenericRequestHome.js`, `sagas/deeplink.js`, `AppThemeProvider.js`; error codes in `requestAccounts.js`, `experimentalDeeplinks.js`, `envelopeValidator.js`, `identityUpdateRequestDetailsHandler.js`, `verusPayInvoiceDetailsValidator.js` | iPhone 17 Pro simulator, VRSCTEST, real taps, light and dark. Signed in: wrong-network-flag “Wrong network”, wrong-network-system “Request not valid”, expired-auth “Request expired”, bad-signature “Cannot verify signer”, unknown-detail “Unsupported request”; Close returned to Wallet each time. Signed out: wrong-network-flag “Request not valid”, Close returned to the signed-out home. Over-length: translated alert, and the backdrop now dims the Wallet (light) and the signed-out home (dark). Network failure injected through the Hermes debugger (QA-only switch on the RPC client, removed, app relaunched): signer lookup failure shows “Network unavailable” with Try again; Try again with the failure still on made one new lookup and showed the error again; with the failure off it opened the sign-in review. Identity Update content lookup failure (content-add request, signed out) showed the error from `GenericRequestHome`; Try again opened “Review VerusID changes”; Close returned to the signed-out home with the deeplink cleared. No request was approved. Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: 10 related suites, 55 tests pass; a node script on the real translator covers every mapping. | Experimental-off and delegated-signer copy verified by script only. Compact size not run (deferred). The GR3 Test profile password was lost when the machine crashed (it lived only in `/tmp`), so the signed-in checks after the crash ran signed out. |
@@ -945,10 +983,9 @@ patch exists.
   authenticated back-navigation walkthroughs. Global QA-1 retains broader
   authenticated/runtime and accessibility proof beyond RX-1's sampled native
   and source verification; see the RX-1 QA report for exact limits.
-- Earlier GR-1/GR-2 runtime follow-up remains open: GR-1.9–1.10, GR-2.6,
-  authenticated mixed-detail delivery on both platforms, and remaining
-  accessibility checks. Local delivery and reviewer evidence are in the linked
-  GR reports.
+- GR-1/GR-2 runtime follow-up is closed (GR-3.17, 2026-10-10). Recorded
+  accessibility follow-ups remain: full VoiceOver/TalkBack walkthrough, reduced
+  motion, and the app-wide text-scaling decision.
 - Previously recorded GR runtime gap: the normal simulator has competing preview-app deeplink handlers;
   the compact simulator reaches the actual Testnet unlock sheet but its selected
   disposable profile could not be unlocked with the available setup. Isolated
