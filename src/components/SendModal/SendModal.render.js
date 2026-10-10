@@ -175,7 +175,12 @@ export const SendModalRender = function () {
           <PortalHost>
             <NavigationContainer
               key={this.props.sendModal.requestId || 'identity-safety-modal'}>
-              <Root.Navigator screenOptions={{headerShown: false}}>
+              {/* Native screens inside a native modal add a second iOS touch
+                  handler, so every touch reaches JS twice and presses never
+                  fire. Android modal windows cannot host screen fragments. */}
+              <Root.Navigator
+                detachInactiveScreens={false}
+                screenOptions={{headerShown: false}}>
                 <Root.Screen name="IdentitySafetyModal">
                   {SendModalInnerAreaRender.call(this)}
                 </Root.Screen>
