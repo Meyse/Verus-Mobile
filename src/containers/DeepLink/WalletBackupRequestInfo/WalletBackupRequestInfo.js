@@ -50,14 +50,21 @@ import {
 } from '../../../utils/walletBackup/walletBackupCompletionStorage';
 import {
   beginWalletBackupNfcSession,
+  cancelWalletBackupNfcRequest,
   endWalletBackupNfcSession,
   writeWalletBackupToNfc,
 } from '../../../utils/walletBackup/walletBackupNfc';
+import {
+  getNfcTapFailure,
+  getNfcTapText,
+  NFC_TAP_PHASE,
+  NFC_TAP_TASK,
+} from '../../../utils/walletBackup/nfcTapText';
 import {walletBackupRequestInfoStyles as createStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
-import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
+import NfcTapView from '../../../components/NfcTap/NfcTapView';
 import BiometricAffordanceIcon, {
   getBiometryPresentation,
 } from '../../../components/BiometricAffordanceIcon';
@@ -216,9 +223,9 @@ const WalletBackupRequestInfo = props => {
     WALLET_BACKUP_ENCRYPTION_ITERS_MEDIUM,
   );
   const [backupKdfSheetVisible, setBackupKdfSheetVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [creatingProfile, setCreatingProfile] = useState(false);
-  const [nfcStatus, setNfcStatus] = useState(null);
+  // The NFC tap step while the backup is written, or the failed write.
+  const [nfcTap, setNfcTap] = useState(null);
   const [backupResult, setBackupResult] = useState(null);
   const [finishing, setFinishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -432,18 +439,20 @@ const WalletBackupRequestInfo = props => {
       cachedWalletBackup.password === backupEncryptionPassword &&
       cachedWalletBackup.kdfIters === effectiveKdfIters
     ) {
-      setNfcStatus('Using the prepared backup. Wait for the NFC prompt.');
+      setNfcTap(getNfcTapText(NFC_TAP_TASK.BACKUP, NFC_TAP_PHASE.PREPARING));
       await waitForSpinnerFrame();
       assertAccountCurrent();
 
       return cachedWalletBackup.walletBackup;
     }
 
-    setNfcStatus(
-      encryptBackup
-        ? 'Encrypting the backup. This can take a few minutes. Keep this screen open.'
-        : 'Preparing the backup. Wait for the NFC prompt before you tap the card.',
-    );
+    setNfcTap({
+      ...getNfcTapText(NFC_TAP_TASK.BACKUP, NFC_TAP_PHASE.PREPARING),
+      ...(encryptBackup && {
+        detail:
+          'Encrypting can take a few minutes. Keep this screen open, and do not hold the card yet.',
+      }),
+    });
     await waitForSpinnerFrame();
 
     return withKeepAwake(async () => {
@@ -477,8 +486,10 @@ const WalletBackupRequestInfo = props => {
     });
   };
 
-  const writeBackup = async () => {
+  // A retry after a failed write keeps the choice the user already confirmed.
+  const writeBackup = async options => {
     if (writingBackupRef.current) return;
+    const retry = options?.retry === true;
     Keyboard.dismiss();
 
     if (!activeAccountMatchesRequest) {
@@ -514,15 +525,14 @@ const WalletBackupRequestInfo = props => {
     let nfcWriterStarted = false;
     let backupCompleted = false;
 
-    try {
-      if (!(await confirmUnencryptedBackup())) return;
+    let failedStep = null;
 
-      setLoading(true);
-      setNfcStatus('Preparing the backup. Do not tap the card yet.');
+    try {
+      if (!retry && !(await confirmUnencryptedBackup())) return;
+
+      setNfcTap(getNfcTapText(NFC_TAP_TASK.BACKUP, NFC_TAP_PHASE.PREPARING));
       assertAccountCurrent();
-      nfcSessionPreRegistered = await beginWalletBackupNfcSession({
-        onStatus: setNfcStatus,
-      });
+      nfcSessionPreRegistered = await beginWalletBackupNfcSession();
       assertAccountCurrent();
 
       const walletBackup = await getWalletBackupForWrite(assertAccountCurrent);
@@ -530,7 +540,8 @@ const WalletBackupRequestInfo = props => {
 
       nfcWriterStarted = true;
       await writeWalletBackupToNfc(walletBackup, {
-        onStatus: setNfcStatus,
+        onPhase: phase =>
+          setNfcTap(getNfcTapText(NFC_TAP_TASK.BACKUP, phase)),
         sessionPreRegistered: nfcSessionPreRegistered,
         beforeWrite: assertAccountCurrent,
       });
@@ -553,23 +564,17 @@ const WalletBackupRequestInfo = props => {
       });
       backupCompleted = true;
     } catch (e) {
-      console.error(e);
-      createAlert(
-        'Backup not written',
-        `${e.message || 'Unable to write wallet backup to NFC card.'}\n\n${
-          profileBackup
-            ? 'You can try again.'
-            : 'You can try again, or back up this wallet later in Settings.'
-        }`,
-      );
+      // A cancelled session goes back to the options without a message.
+      failedStep = getNfcTapFailure(NFC_TAP_TASK.BACKUP, e);
+      // Known card results are normal steps. Log only unexpected errors.
+      if (failedStep != null && e?.code == null) console.error(e);
     } finally {
       try {
         if (nfcSessionPreRegistered && !nfcWriterStarted) {
           await endWalletBackupNfcSession();
         }
       } finally {
-        setNfcStatus(null);
-        setLoading(false);
+        setNfcTap(failedStep);
         // A written card stays latched: the result screen replaces the form,
         // and the card must not be written a second time.
         if (!backupCompleted) {
@@ -686,33 +691,52 @@ const WalletBackupRequestInfo = props => {
     });
   }
 
+  const renderNfcTap = (step, actions = []) => (
+    <SafeAreaView edges={safeAreaEdges} style={styles.container}>
+      <NfcTapView {...step} actions={actions} testID="walletBackup.nfcTap" />
+    </SafeAreaView>
+  );
+
   if (backupResult) {
-    return renderScreen({
-      title: 'Backup written',
-      subtitle: BACKUP_RESULT_SUBTITLES[backupResult.protection],
-      footer: (
-        <AppButton
-          disabled={finishing}
-          height={56}
-          onPress={finishBackup}
-          variant="primary">
-          {moreDetailsFollow ? 'Continue' : 'Done'}
-        </AppButton>
-      ),
-    });
+    return renderNfcTap(
+      {
+        phase: NFC_TAP_PHASE.DONE,
+        title: 'Backup written',
+        detail: BACKUP_RESULT_SUBTITLES[backupResult.protection],
+      },
+      [
+        {
+          disabled: finishing,
+          label: moreDetailsFollow ? 'Continue' : 'Done',
+          onPress: finishBackup,
+          variant: 'primary',
+        },
+      ],
+    );
   }
 
-  if (loading) {
-    return (
-      <SafeAreaView edges={safeAreaEdges} style={styles.container}>
-        <View style={styles.centerContent}>
-          <AnimatedActivityIndicator />
-          <Text style={styles.processingTitle}>Writing NFC backup</Text>
-          {nfcStatus ? (
-            <Text style={styles.processingStatus}>{nfcStatus}</Text>
-          ) : null}
-        </View>
-      </SafeAreaView>
+  if (nfcTap != null) {
+    const ended =
+      nfcTap.phase === NFC_TAP_PHASE.FAILED ||
+      nfcTap.phase === NFC_TAP_PHASE.NOTICE;
+    // iOS has its own Cancel in the scan sheet.
+    const canCancel =
+      nfcTap.phase === NFC_TAP_PHASE.WAITING && Platform.OS === 'android';
+
+    return renderNfcTap(
+      nfcTap,
+      ended
+        ? [
+            {
+              label: 'Try again',
+              onPress: () => writeBackup({retry: true}),
+              variant: 'primary',
+            },
+            {cancel: true, label: 'Cancel', onPress: () => setNfcTap(null)},
+          ]
+        : canCancel
+        ? [{cancel: true, label: 'Cancel', onPress: cancelWalletBackupNfcRequest}]
+        : [],
     );
   }
 

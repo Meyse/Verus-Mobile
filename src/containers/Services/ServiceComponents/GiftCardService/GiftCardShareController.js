@@ -1,24 +1,25 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {
-  AccessibilityInfo,
-  Alert,
-  Modal,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import {AccessibilityInfo, Platform, Share} from 'react-native';
 import Clipboard from 'react-native/Libraries/Components/Clipboard/Clipboard';
-import {ActivityIndicator} from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useAppTheme} from '../../../../theme/app';
+import NfcTapModal from '../../../../components/NfcTap/NfcTapModal';
 import {buildGiftCardNfcDeeplinkUri} from '../../../../utils/giftCard/giftCard';
-import {writeDeeplinkUriToNfc} from '../../../../utils/walletBackup/walletBackupNfc';
+import {
+  cancelWalletBackupNfcRequest,
+  NFC_PHASE,
+  writeDeeplinkUriToNfc,
+} from '../../../../utils/walletBackup/walletBackupNfc';
+import {
+  getNfcTapFailure,
+  getNfcTapText,
+  NFC_TAP_PHASE,
+  NFC_TAP_TASK,
+} from '../../../../utils/walletBackup/nfcTapText';
 
 export const useGiftCardSharing = card => {
   const copyFeedbackTimeoutRef = useRef(null);
   const [copied, setCopied] = useState(false);
-  const [nfcStatus, setNfcStatus] = useState(null);
+  // The NFC tap step while the gift card is written.
+  const [nfcTap, setNfcTap] = useState(null);
   const resetSharing = useCallback(() => {
     setCopied(false);
 
@@ -30,7 +31,7 @@ export const useGiftCardSharing = card => {
 
   useEffect(() => {
     resetSharing();
-    setNfcStatus(null);
+    setNfcTap(null);
 
     return () => {
       if (copyFeedbackTimeoutRef.current) {
@@ -72,85 +73,99 @@ export const useGiftCardSharing = card => {
     return result?.action !== Share.dismissedAction;
   }, [card]);
 
+  // Resolves true when the card was written, and false when the user stopped.
   const shareNfc = useCallback(async cardOverride => {
     const cardToShare = cardOverride || card;
     if (!cardToShare) {
       throw new Error('Gift card is unavailable.');
     }
 
-    setNfcStatus('Preparing NFC writer...');
+    const uri = buildGiftCardNfcDeeplinkUri(cardToShare);
+    // Shows a result step and waits for one of its actions.
+    const choose = (step, actions) =>
+      new Promise(resolve => {
+        let chosen = false;
+        setNfcTap({
+          ...step,
+          actions: actions.map(action => ({
+            ...action,
+            onPress: () => {
+              if (chosen) return;
+              chosen = true;
+              resolve(action.value);
+            },
+          })),
+        });
+      });
 
     try {
-      await writeDeeplinkUriToNfc(buildGiftCardNfcDeeplinkUri(cardToShare), {
-        onStatus: setNfcStatus,
-      });
-      Alert.alert('Success', 'Gift card written to NFC card.');
+      for (;;) {
+        let cancelled = false;
+        const cancelAction = {
+          cancel: true,
+          label: 'Cancel',
+          onPress: () => {
+            if (cancelled) return;
+            cancelled = true;
+            cancelWalletBackupNfcRequest();
+          },
+        };
+        const showPhase = phase => {
+          // iOS has its own Cancel in the scan sheet.
+          const canCancel =
+            phase === NFC_PHASE.WAITING && Platform.OS === 'android';
+          setNfcTap({
+            ...getNfcTapText(NFC_TAP_TASK.GIFT_CARD, phase),
+            actions: canCancel ? [cancelAction] : [],
+          });
+        };
+
+        showPhase(NFC_PHASE.WAITING);
+
+        try {
+          await writeDeeplinkUriToNfc(uri, {onPhase: showPhase});
+        } catch (e) {
+          const failure = getNfcTapFailure(NFC_TAP_TASK.GIFT_CARD, e);
+          if (cancelled || failure == null) return false;
+
+          const choice = await choose(failure, [
+            {label: 'Try again', value: 'retry', variant: 'primary'},
+            {cancel: true, label: 'Cancel', value: 'cancel'},
+          ]);
+
+          if (choice === 'retry') continue;
+          return false;
+        }
+
+        await choose(
+          {
+            phase: NFC_TAP_PHASE.DONE,
+            title: 'Gift card written',
+            detail: null,
+          },
+          [{cancel: true, label: 'Done', value: 'done', variant: 'primary'}],
+        );
+        return true;
+      }
     } finally {
-      setNfcStatus(null);
+      setNfcTap(null);
     }
   }, [card]);
 
   return {
     copied,
     copyLink,
-    nfcStatus,
+    nfcTap,
     resetSharing,
     shareNative,
     shareNfc,
   };
 };
 
-export const GiftCardNfcProgressModal = ({nfcStatus}) => {
-  const theme = useAppTheme();
-
-  return (
-    <Modal
-      animationType="fade"
-      onRequestClose={() => {}}
-      transparent={false}
-      visible={nfcStatus != null}>
-      <View
-        accessibilityLiveRegion="polite"
-        style={[
-          styles.nfcProgress,
-          {backgroundColor: theme.colors.background},
-        ]}>
-        <MaterialCommunityIcons
-          color={theme.colors.primary}
-          name="credit-card-wireless-outline"
-          size={64}
-        />
-        <ActivityIndicator
-          animating
-          color={theme.colors.primary}
-          size="large"
-          style={styles.nfcSpinner}
-        />
-        <Text
-          style={[
-            theme.typography.titleSheet,
-            styles.nfcStatus,
-            {color: theme.colors.textPrimary},
-          ]}>
-          {nfcStatus}
-        </Text>
-      </View>
-    </Modal>
-  );
-};
-
-const styles = StyleSheet.create({
-  nfcProgress: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  nfcSpinner: {
-    marginTop: 28,
-  },
-  nfcStatus: {
-    marginTop: 24,
-    textAlign: 'center',
-  },
-});
+export const GiftCardNfcProgressModal = ({nfcTap}) => (
+  <NfcTapModal
+    {...nfcTap}
+    testID="giftCard.nfcTap"
+    visible={nfcTap != null}
+  />
+);

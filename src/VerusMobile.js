@@ -36,6 +36,8 @@ import { Portal } from 'react-native-paper';
 import SendModal from "./components/SendModal/SendModal";
 import { NavigationContainer } from "@react-navigation/native";
 import LoadingModal from "./components/LoadingModal/LoadingModal";
+import NfcTapHost from "./components/NfcTap/NfcTapHost";
+import { isNfcSessionActive } from "./utils/walletBackup/walletBackupNfc";
 import { CoinDirectory } from "./utils/CoinData/CoinDirectory";
 import { removeInactiveCurrencyDefinitions } from "./utils/asyncStore/currencyDefinitionStorage";
 import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDefinitionStorage";
@@ -80,7 +82,9 @@ export class VerusMobile extends React.Component {
   };
 
   handleInactivity() {
-    if (this.props.sendModal.type == null) {
+    // The iOS NFC scan sheet makes the app inactive. The NFC tap screen behind
+    // the sheet must stay visible, so it is not covered.
+    if (this.props.sendModal.type == null && !isNfcSessionActive()) {
       this.setSecurityCover(true)
     }
     
@@ -220,6 +224,7 @@ export class VerusMobile extends React.Component {
           <AlertModal />
           {this.props.sendModal.type != null && <SendModal />}
           {this.props.loadingModal.visible && <LoadingModal />}
+          <NfcTapHost />
           <WalletUnlockCoordinator />
           <ThemedNavigationContainer>
             <RootStackScreens

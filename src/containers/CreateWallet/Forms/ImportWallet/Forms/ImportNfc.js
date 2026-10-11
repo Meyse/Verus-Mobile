@@ -1,13 +1,15 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
+  Platform,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {ActivityIndicator, Button, Text, TextInput} from 'react-native-paper';
+import {Button, Text, TextInput} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
+import NfcTapView from '../../../../../components/NfcTap/NfcTapView';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {
   isValid24WordBip39Mnemonic,
@@ -16,15 +18,25 @@ import {
 } from '../../../../../utils/walletBackup/walletBackup';
 import {
   beginWalletBackupNfcSession,
+  cancelWalletBackupNfcRequest,
   endWalletBackupNfcSession,
   readWalletBackupFromNfc,
 } from '../../../../../utils/walletBackup/walletBackupNfc';
+import {
+  getNfcTapFailure,
+  getNfcTapText,
+  NFC_TAP_PHASE,
+  NFC_TAP_TASK,
+} from '../../../../../utils/walletBackup/nfcTapText';
 import {
   activateKeepAwake,
   deactivateKeepAwake,
 } from '../../../../../utils/keepAwake/keepAwake';
 
 const fieldWidth = 300;
+// How long the check stays on screen before the next step.
+const DONE_HOLD_MS = 900;
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export default function ImportNfc({
   autoStart = false,
@@ -46,8 +58,8 @@ export default function ImportNfc({
     }),
     [theme],
   );
-  const [loading, setLoading] = useState(false);
-  const [nfcStatus, setNfcStatus] = useState(null);
+  // The NFC tap step while the card is read, or the failed read.
+  const [nfcTap, setNfcTap] = useState(null);
   const [walletBackupOrdinal, setWalletBackupOrdinal] = useState(null);
   const [backupPassword, setBackupPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -109,23 +121,25 @@ export default function ImportNfc({
 
     let nfcSessionPreRegistered = false;
     let nfcReaderStarted = false;
-    let scannedBackupOrdinal = null;
+    let failedStep = null;
+    let doneAt = null;
 
     try {
       Keyboard.dismiss();
-      setLoading(true);
-      setNfcStatus('Preparing NFC scanner. Do not tap the card yet.');
-      nfcSessionPreRegistered = await beginWalletBackupNfcSession({
-        onStatus: setNfcStatus,
-      });
+      setNfcTap(getNfcTapText(NFC_TAP_TASK.RESTORE, NFC_TAP_PHASE.WAITING));
+      nfcSessionPreRegistered = await beginWalletBackupNfcSession();
 
       nfcReaderStarted = true;
-      scannedBackupOrdinal = await readWalletBackupFromNfc({
-        onStatus: setNfcStatus,
+      const scannedBackupOrdinal = await readWalletBackupFromNfc({
+        onPhase: phase => {
+          if (phase === NFC_TAP_PHASE.DONE) doneAt = Date.now();
+          setNfcTap(getNfcTapText(NFC_TAP_TASK.RESTORE, phase));
+        },
         sessionPreRegistered: nfcSessionPreRegistered,
       });
 
-      if (scannedBackupOrdinal == null) return;
+      const shownFor = doneAt == null ? 0 : Date.now() - doneAt;
+      if (shownFor < DONE_HOLD_MS) await delay(DONE_HOLD_MS - shownFor);
 
       if (walletBackupRequiresPassword(scannedBackupOrdinal)) {
         setWalletBackupOrdinal(scannedBackupOrdinal);
@@ -135,19 +149,17 @@ export default function ImportNfc({
 
       await importWalletBackup(scannedBackupOrdinal, null);
     } catch (e) {
-      console.error(e);
-      createAlert(
-        'NFC Import Failed',
-        e.message || 'Unable to read wallet backup from NFC card.',
-      );
+      // A cancelled session goes back to the start without a message.
+      failedStep = getNfcTapFailure(NFC_TAP_TASK.RESTORE, e);
+      // Known card results are normal steps. Log only unexpected errors.
+      if (failedStep != null && e?.code == null) console.error(e);
     } finally {
       try {
         if (nfcSessionPreRegistered && !nfcReaderStarted) {
           await endWalletBackupNfcSession();
         }
       } finally {
-        setNfcStatus(null);
-        setLoading(false);
+        setNfcTap(failedStep);
         importInProgressRef.current = false;
       }
     }
@@ -172,29 +184,35 @@ export default function ImportNfc({
     }
   };
 
-  if (loading) {
+  if (nfcTap != null) {
+    const ended =
+      nfcTap.phase === NFC_TAP_PHASE.FAILED ||
+      nfcTap.phase === NFC_TAP_PHASE.NOTICE;
+    // iOS has its own Cancel in the scan sheet.
+    const canCancel =
+      nfcTap.phase === NFC_TAP_PHASE.WAITING && Platform.OS === 'android';
+
     return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
-          <MaterialCommunityIcons
-            name="credit-card-wireless"
-            size={64}
-            color={theme.colors.primary}
-            style={{marginBottom: 24}}
-          />
-          <ActivityIndicator
-            animating
-            color={theme.colors.primary}
-            size="large"
-            style={{marginVertical: 8}}
-          />
-          {nfcStatus && (
-            <Text style={styles.loadingText}>
-              {nfcStatus}
-            </Text>
-          )}
-        </View>
-      </View>
+      <NfcTapView
+        {...nfcTap}
+        actions={
+          ended
+            ? [
+                {label: 'Try again', onPress: scanCard, variant: 'primary'},
+                {cancel: true, label: 'Cancel', onPress: () => setNfcTap(null)},
+              ]
+            : canCancel
+            ? [
+                {
+                  cancel: true,
+                  label: 'Cancel',
+                  onPress: cancelWalletBackupNfcRequest,
+                },
+              ]
+            : []
+        }
+        testID="importNfc.nfcTap"
+      />
     );
   }
 
@@ -296,25 +314,11 @@ const createStyles = theme =>
       flex: 1,
       backgroundColor: theme.colors.background,
     },
-    centerContent: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 32,
-    },
     centerContentCompact: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 24,
-    },
-    loadingText: {
-      color: theme.colors.textSecondary,
-      fontSize: 24,
-      fontWeight: 'bold',
-      lineHeight: 32,
-      marginTop: 24,
-      textAlign: 'center',
     },
     title: {
       ...theme.typography.headlineMd,

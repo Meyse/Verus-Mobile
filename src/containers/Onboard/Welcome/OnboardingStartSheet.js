@@ -11,12 +11,14 @@ import {
   ArrowDownToLine,
   ChevronLeft,
   CirclePlus,
+  Gift,
   KeyRound,
   QrCode,
   SmartphoneNfc,
 } from 'lucide-react-native';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SignedOutActionRow from '../../../components/SignedOutActionRow';
+import {useNfcSupported} from '../../../hooks/useNfcSupported';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
@@ -61,6 +63,15 @@ const START_ACTIONS = [
   },
 ];
 
+// Shown only to callers that pass onClaimFromNfc, on devices with NFC.
+const CLAIM_FROM_NFC_ACTION = {
+  label: 'Claim from NFC card',
+  IconComponent: Gift,
+  testID: 'onboarding.startSheet.claimNfc',
+  claimFromNfc: true,
+};
+const MAX_ROW_COUNT = START_ACTIONS.length + 1;
+
 const IMPORT_ACTIONS = [
   {
     label: 'Import Secret Recovery Phrase',
@@ -91,8 +102,14 @@ const IMPORT_ACTIONS = [
   },
 ];
 
-const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
+const OnboardingStartSheet = ({
+  visible,
+  onClose,
+  onSelectSetup,
+  onClaimFromNfc,
+}) => {
   const theme = useOnboardingTheme();
+  const nfcSupported = useNfcSupported();
   const styles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const [sheetMode, setSheetMode] = useState(SHEET_MODES.START);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -102,10 +119,17 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
   const headerProgress = useRef(new Animated.Value(0)).current;
   const reduceMotionRef = useRef(false);
   const rowAnimations = useRef(
-    [0, 1, 2].map(() => new Animated.Value(1)),
+    Array.from({length: MAX_ROW_COUNT}, () => new Animated.Value(1)),
   ).current;
+  const startActions = useMemo(
+    () =>
+      typeof onClaimFromNfc === 'function' && nfcSupported
+        ? [...START_ACTIONS, CLAIM_FROM_NFC_ACTION]
+        : START_ACTIONS,
+    [nfcSupported, onClaimFromNfc],
+  );
   const actions =
-    sheetMode === SHEET_MODES.IMPORT ? IMPORT_ACTIONS : START_ACTIONS;
+    sheetMode === SHEET_MODES.IMPORT ? IMPORT_ACTIONS : startActions;
 
   useEffect(() => {
     if (visible) {
@@ -167,7 +191,7 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
     if (nextMode === sheetMode || isTransitioning) return;
 
     const nextActions =
-      nextMode === SHEET_MODES.IMPORT ? IMPORT_ACTIONS : START_ACTIONS;
+      nextMode === SHEET_MODES.IMPORT ? IMPORT_ACTIONS : startActions;
     const forward = nextMode === SHEET_MODES.IMPORT;
 
     if (reduceMotionRef.current) {
@@ -264,6 +288,15 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
     onClose();
   };
 
+  // The read starts after the sheet closes, so the system NFC prompt does not
+  // cover a closing sheet.
+  const handleClaimFromNfc = () => {
+    if (isTransitioning) return;
+
+    pendingActionRef.current = onClaimFromNfc;
+    onClose();
+  };
+
   const handleClosed = () => {
     const pendingAction = pendingActionRef.current;
     pendingActionRef.current = null;
@@ -345,7 +378,9 @@ const OnboardingStartSheet = ({visible, onClose, onSelectSetup}) => {
               IconComponent={action.IconComponent}
               testID={action.testID}
               onPress={
-                action.nextMode
+                action.claimFromNfc
+                  ? handleClaimFromNfc
+                  : action.nextMode
                   ? () => transitionToMode(action.nextMode)
                   : () => handleSelection(action.selection)
               }

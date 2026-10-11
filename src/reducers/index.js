@@ -32,6 +32,7 @@ import { keyboard } from './keyboard'
 import identity from './identity';
 import { sendModal } from './sendModal';
 import { loadingModal } from './loadingModal';
+import { nfcTap } from './nfcTap';
 import { secureLoading } from './secureLoading';
 import { deeplink } from './deeplink';
 import { walletUnlock } from './walletUnlock';
@@ -74,6 +75,7 @@ const combinedReducer = combineReducers({
   services,
   sendModal,
   loadingModal,
+  nfcTap,
   secureLoading,
   deeplink,
   walletUnlock

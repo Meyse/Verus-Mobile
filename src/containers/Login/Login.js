@@ -43,7 +43,12 @@ import {
 import UnlockWalletSheet from './components/UnlockWalletSheet';
 import {normalizeWalletAvatar} from '../../utils/walletAvatar';
 import OnboardingStartSheet from '../Onboard/Welcome/OnboardingStartSheet';
-import {normalizeSetupSelection} from '../Onboard/onboardingSetupFlow';
+import {
+  IMPORT_METHODS,
+  normalizeSetupSelection,
+  SETUP_PATHS,
+} from '../Onboard/onboardingSetupFlow';
+import {readDeeplinkFromNfc} from '../../actions/actionDispatchers';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {getSupportedBiometryType} from '../../utils/keychain/keychain';
 
@@ -214,6 +219,16 @@ const Login = props => {
     props.navigation.navigate('ProvisioningDeeplinks');
   };
 
+  // A wallet-backup card leads to the NFC restore instead.
+  const handleClaimFromNfc = () =>
+    readDeeplinkFromNfc({
+      onWalletBackupDetected: () =>
+        handleSetupSelection({
+          setupPath: SETUP_PATHS.IMPORT,
+          importMethod: IMPORT_METHODS.NFC,
+        }),
+    });
+
   const handleChooseWalletAccount = account => {
     setChooseWalletVisible(false);
     setPendingUnlockAccount(account);
@@ -333,6 +348,7 @@ const Login = props => {
       <OtherOptionsSheet
         visible={otherOptionsVisible}
         onClose={() => setOtherOptionsVisible(false)}
+        onClaimFromNfc={resumePendingDeeplinkId ? undefined : handleClaimFromNfc}
         onRecoverProfileSeed={handleRecoverSeed}
         onRevokeRecoverVerusId={handleRevokeRecover}
         onProvisioningRequests={handleProvisioningRequests}

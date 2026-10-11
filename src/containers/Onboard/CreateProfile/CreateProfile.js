@@ -265,6 +265,18 @@ export default function CreateProfileStackScreens(props) {
 
   const handleScan = seed => {
     setScannerVisible(false);
+
+    // A Verus request link, such as a gift card, is not a seed. Leave setup
+    // and open it as a request instead of creating a wallet from its text.
+    if (
+      typeof seed === 'string' &&
+      seed.trim().toLowerCase().startsWith('verus://')
+    ) {
+      if (props.navigation.canGoBack()) props.navigation.goBack();
+      dispatch(setDeeplinkUrl(seed.trim()));
+      return;
+    }
+
     setImportedSeed(seed);
 
     if (collectImportBeforeProfile) {

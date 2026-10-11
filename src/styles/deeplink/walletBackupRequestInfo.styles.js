@@ -59,30 +59,6 @@ const createWalletBackupRequestInfoStyles = theme =>
       letterSpacing: 0,
       ...fontStyle('regular'),
     },
-    centerContent: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: theme.spacing.xl,
-    },
-    processingTitle: {
-      color: theme.colors.textPrimary,
-      fontSize: 18,
-      lineHeight: 24,
-      letterSpacing: 0,
-      marginTop: theme.spacing.md,
-      textAlign: 'center',
-      ...fontStyle('semiBold'),
-    },
-    processingStatus: {
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 20,
-      letterSpacing: 0,
-      marginTop: theme.spacing.sm,
-      textAlign: 'center',
-      ...fontStyle('regular'),
-    },
   });
 
 export default createWalletBackupRequestInfoStyles;
