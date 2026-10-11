@@ -31,6 +31,7 @@ export {default as identityPickerSheetStyles} from './deeplink/identityPickerShe
 export {default as identityUpdateRequestInfoStyles} from './deeplink/identityUpdateRequestInfo.styles';
 export {default as invoiceInfoStyles} from './deeplink/invoiceInfo.styles';
 export {default as listSelectionModalStyles} from './components/listSelectionModal.styles';
+export {default as nfcTapStyles} from './components/nfcTap.styles';
 export {default as reviewStepStyles} from './deeplink/reviewStep.styles';
 export {default as revokeRecoverFlowStyles} from './components/revokeRecoverFlow.styles';
 export {default as spendableKeyRequestInfoStyles} from './deeplink/spendableKeyRequestInfo.styles';

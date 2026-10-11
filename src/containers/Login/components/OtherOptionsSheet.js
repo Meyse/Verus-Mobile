@@ -1,11 +1,12 @@
 import React, {useMemo, useRef} from 'react';
 import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import {FileClock, KeyRound, ShieldCheck} from 'lucide-react-native';
+import {FileClock, Gift, KeyRound, ShieldCheck} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {useNfcSupported} from '../../../hooks/useNfcSupported';
 
 const OTHER_ACTIONS = [
   {
@@ -23,12 +24,16 @@ const OTHER_ACTIONS = [
 const OtherOptionsSheet = ({
   visible,
   onClose,
+  onClaimFromNfc,
   onRecoverProfileSeed,
   onRevokeRecoverVerusId,
   onProvisioningRequests,
   walletCount,
 }) => {
   const theme = useOnboardingTheme();
+  const nfcSupported = useNfcSupported();
+  const showClaimFromNfc =
+    typeof onClaimFromNfc === 'function' && nfcSupported;
   const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const pendingActionRef = useRef(null);
   const recoveryDisabled = walletCount === 0;
@@ -59,6 +64,16 @@ const OtherOptionsSheet = ({
       onClosed={handleClosed}
       maxHeight="78%">
       <View style={[sheetStyles.body, sheetStyles.bodyShort]}>
+        {showClaimFromNfc && (
+          <OtherActionRow
+            label="Claim from NFC card"
+            IconComponent={Gift}
+            sheetStyles={sheetStyles}
+            testID="login.otherOptions.claimNfc"
+            theme={theme}
+            onPress={() => handleAction(onClaimFromNfc)}
+          />
+        )}
         <OtherActionRow
           disabled={recoveryDisabled}
           label="View wallet recovery secrets"
@@ -87,6 +102,7 @@ const OtherActionRow = ({
   label,
   IconComponent,
   sheetStyles,
+  testID,
   theme,
   onPress,
 }) => (
@@ -96,6 +112,7 @@ const OtherActionRow = ({
     activeOpacity={0.74}
     disabled={disabled}
     onPress={onPress}
+    testID={testID}
     style={[sheetStyles.actionRow, disabled && styles.actionRowDisabled]}>
     <View style={[sheetStyles.actionIconContainer, sheetStyles.actionIcon]}>
       <IconComponent size={24} color={theme.colors.textPrimary} />

@@ -1,16 +1,26 @@
-import React from 'react';
-import {SafeAreaView, View} from 'react-native';
-import {Button, Portal, Text} from 'react-native-paper';
-import {useSelector} from 'react-redux';
-import Colors from '../../globals/colors';
-import styles from '../../styles';
+import React, {useMemo} from 'react';
+import {StyleSheet} from 'react-native';
+import {Portal, Text} from 'react-native-paper';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import AnimatedActivityIndicator from '../AnimatedActivityIndicator';
+import AppButton from '../AppButton';
 import SemiModal from '../SemiModal';
-import { useObjectSelector } from '../../hooks/useObjectSelector';
+import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {useAppTheme} from '../../theme/app';
 
-export default function LoadingModal(props) {
+// SemiModal supplies the theme's sheet color, so this modal follows dark mode.
+export default function LoadingModal() {
+  const theme = useAppTheme();
   const {visible, message, height, onCancel, cancelLabel} = useObjectSelector(
     state => state.loadingModal,
+  );
+  const messageStyle = useMemo(
+    () => [
+      theme.typography.titleSheet,
+      localStyles.message,
+      {color: theme.colors.textPrimary},
+    ],
+    [theme],
   );
 
   return (
@@ -22,37 +32,45 @@ export default function LoadingModal(props) {
         contentContainerStyle={{
           height,
           flex: 0,
-          backgroundColor: 'white',
         }}>
-        <SafeAreaView style={styles.focalCenter}>
+        <SafeAreaView edges={['bottom']} style={localStyles.body}>
           <AnimatedActivityIndicator
             style={{
               width: 128,
             }}
           />
           {message != null && message.length > 0 && (
-            <Text
-              style={{
-                textAlign: 'center',
-                color: Colors.primaryColor,
-                fontSize: 22,
-                fontWeight: 'bold',
-                marginTop: 8
-              }}>
+            <Text accessibilityLiveRegion="polite" style={messageStyle}>
               {message}
             </Text>
           )}
           {onCancel != null && (
-            <Button
-              mode="text"
+            <AppButton
               onPress={onCancel}
-              textColor={Colors.primaryColor}
-              style={{marginTop: 16}}>
+              style={localStyles.cancel}
+              variant="text">
               {cancelLabel}
-            </Button>
+            </AppButton>
           )}
         </SafeAreaView>
       </SemiModal>
     </Portal>
   );
 }
+
+const localStyles = StyleSheet.create({
+  // Like the shared focalCenter layout, without its fixed white background.
+  body: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  message: {
+    marginTop: 8,
+    paddingHorizontal: 24,
+    textAlign: 'center',
+  },
+  cancel: {
+    marginTop: 16,
+  },
+});

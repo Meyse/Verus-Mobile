@@ -28,6 +28,10 @@ without repeating the entire investigation.
   GR-3.18, GR-3.19). Phase 4: GR-3.16 ran (iOS rerun and Android smoke) and
   waits only on wallet backup (GR-3.9); GR-3.17 closed the GR-1/GR-2 runtime
   follow-up. GR3-B8 is recorded for later.
+- Next focus (user, 2026-10-11): **NFC-1** on `codex/nfc-1-claim-from-card`.
+  NFC-1.1–1.7 and the NFC tap screen (NFC-1.9–1.11) are done on the simulator,
+  in one commit with NFC-1 (user). Next, one physical-iPhone session runs
+  GR-3.9 and NFC-1.8 together.
 - Previous focus: **ID-1 complete and locally integrated**, committed as
   `33865cab` on `codex/id1-redesign` and integrated into
   `codex/integrate-generic-request-upstream`. RX-1 remains complete with the
@@ -47,6 +51,7 @@ without repeating the entire investigation.
 | GR-1 | Credential and data-signing reviews use current request patterns | Ready for verification | Existing request-review primitives |
 | GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
 | GR-3 | Every GenericRequest type has runtime evidence; remaining request surfaces use the current design | In progress | GR-1, GR-2; deeplink-sim and provisioning webhook |
+| NFC-1 | A gift card on an NFC card can be claimed signed in and signed out | In progress | GR-3.13 claim flow; physical iPhone (with GR-3.9) |
 | SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
 | RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
@@ -529,6 +534,162 @@ screen. All in-scope request surfaces belong to the current review family in
 light and dark mode. Shared changes leave the excluded and deprecated flow
 code untouched.
 
+## NFC-1 — Claim from an NFC card
+
+**Finding (2026-10-11, source; GR3-B10):** The app cannot read a Verus NFC
+card. Upstream has two signed-out entries that call `readDeeplinkFromNfc`:
+“Initialize from NFC” on the first-run screen and “Read deeplink from NFC” in
+the signed-out menu. The signed-out redesign removed both (`62c9b54d`,
+`5720414d`, 2026-06-08). No record shows that this was intended. iOS does not
+open `verus://` links from tags (background tag reading supports only universal
+links and system schemes), so an iPhone has no other path. Effects: a gift card
+on an NFC card cannot be claimed with Verus Mobile alone, and the “Claim this
+card” choice in `WalletBackupRequestInfo` (it needs `passthrough.fromNfc`) never
+appears. Upstream never had a signed-in entry.
+
+Related finding (source): onboarding “Scan QR code” (`CreateProfile`
+`handleScan`) uses any scanned text as the imported seed, without a review
+step. A gift-card QR scanned there becomes the new wallet's seed.
+
+**Decisions (user, 2026-10-11):**
+
+- Use the label “Claim from NFC card” in all three places.
+- Signed out, no wallets: a row in the “Get started” sheet.
+- Signed out, with wallets: a row in Login → Other options.
+- Signed in: a button on Home → Scan.
+- Hide the entries on devices without NFC.
+- Include the onboarding QR fix.
+- Build NFC-1 first. Then one physical-iPhone session covers GR-3.9 and NFC-1.
+- Added (user, 2026-10-11): put the NFC tap screen from the “NFC Tap Moments”
+  page (the simple version) into every NFC read and write, in the same commit
+  as NFC-1. A card with other content (a wallet backup, no Verus link) shows one
+  line and one action in the same screen, not an alert (proposed in the
+  integration report; the user continued without a change).
+
+**Design contract:** Scope is the two signed-out sheets, the Scan screen's
+bottom button, the shared read action and its messages, the global
+`LoadingModal` (the read status surface), and the onboarding QR result.
+Exemplars are the existing rows of each sheet (`SignedOutActionRow` in the start
+sheet, the Other options rows) and the scanner's safe bottom button slot as
+`SendWizardRecipient` uses it. Shared primitives: `BottomSheetModal`,
+`createSignedOutSheetStyles`, `AppButton`, `readDeeplinkFromNfc`. States: entry
+shown or hidden by NFC support; reading (iOS system sheet, Android status with
+Cancel); cancelled; failed; wallet-backup card; card without a Verus link;
+success into the request flow. Deviation: `LoadingModal` gets semantic theme
+colors so that it follows dark mode. It also serves the onboarding and
+wallet-backup wallet setup. The NFC tap screen (NFC-1.9) replaced
+`LoadingModal` as the read status surface.
+
+**Tap screen design contract (NFC-1.9–1.11):** Scope is the status screen of
+all four NFC operations: claim read (the three entries), wallet backup write
+(Settings and request), wallet backup read (restore), and gift card write.
+Exemplar: the simple version on the “NFC Tap Moments” page (one contactless
+symbol, one line, help only after a failure; symbol at the top on iPhone and
+in the middle on Android). Shared primitives: new `NfcTapView` (and
+`NfcTapModal` / `NfcTapHost` for full-screen use), `AppButton` at 56 points
+with the request-review secondary style, `SafeBottomActionStack`, theme roles
+`titleSheet` and `bodySm`, one new token `primaryBackground` (existing values
+`#EEF2F8` and `rgba(49, 101, 212, 0.24)`). States: preparing (backup only),
+waiting, active, release (Android), done, failed, notice; light and dark;
+normal and compact; reduced motion. Deviations: no Cancel while a backup is
+prepared, because the encryption blocks the JS thread and a Cancel could not
+respond; failures name the cause where the app knows it (“No card found”,
+“Card moved too soon”, “NFC is off”), not only “Card moved too soon”.
+
+Tasks:
+
+- [x] **NFC-1.1** Record GR3-B10 and this plan.
+- [x] **NFC-1.2** Shared read action: plain prompts and messages; no alert
+  after a user cancel; a wallet-backup card leads to “Restore from NFC backup”
+  when signed out and gets an explanation when signed in; an NFC support check
+  for the entries; theme colors for `LoadingModal`.
+  Done 2026-10-11. `readDeeplinkUriFromNfc` uses plain wording and returns
+  codes for a user cancel (`NFC_READ_CANCELLED`, no alert) and a card without
+  a Verus link (`NFC_NO_VERUS_LINK`, “Nothing to claim”); other failures show
+  “Card not read”. `isNfcSupported` plus `useNfcSupported` hide the entries.
+  `LoadingModal` uses the sheet color, `titleSheet`, and `AppButton`; it was
+  white in dark mode before, also in onboarding wallet setup. Found and fixed
+  during QA: a read that ended while the status modal still slid in left the
+  native modal on screen above the next alert (Redux said closed). The status
+  modal now stays at least 500 ms; this also covers a card already at the phone.
+  NFC-1.9 replaced the status modal and the alerts with the tap screen; it keeps
+  the 500 ms minimum, and a result no longer closes one modal to open another.
+- [x] **NFC-1.3** “Get started” row (signed out, no wallets).
+  The row shows only when no claim is in progress (`resumePendingDeeplinkId`).
+- [x] **NFC-1.4** Other options row (signed out, with wallets). First row.
+- [x] **NFC-1.5** Scan button (signed in). Uses the scanner's bottom button
+  slot; the no-camera view shows it too. Address-only scanners and callers
+  with their own button are unchanged.
+- [x] **NFC-1.6** Onboarding QR: a scanned `verus://` link opens as a request,
+  not as a seed. Setup closes first, so Cancel returns to Welcome.
+- [x] **NFC-1.7** Simulator evidence: the rows and the button in light and dark,
+  normal and compact (NFC support stubbed for capture only); the request flow
+  from a simulated read; parser, design, and safe-area checks; the existing NFC
+  read tests.
+- [ ] **NFC-1.8** Physical iPhone with a card, in the GR-3.9 session: each entry
+  reads a funded gift card; signed in, “Claim to existing wallet”; signed out
+  with wallets, “Claim this card”; no wallets, create a wallet, back it up to
+  the card, then claim; cancel; wrong card. Android: emulator UI only (no NFC
+  hardware). Tap screen on the phone: the iOS scan sheet text per step, the
+  success and error close of the sheet, the haptics, the timing of the check,
+  and that the app's security cover does not hide the tap screen while the
+  sheet is open.
+- [x] **NFC-1.9** NFC tap screen. `walletBackupNfc.js` runs every card
+  operation through one runner that reports a phase (waiting, active, done,
+  release) and gives errors codes (cancelled, NFC off, timeout, card moved,
+  no Verus link, no wallet backup). It sets the iOS scan sheet text (“Hold
+  still.”, “Done.”, “Backup written.”) and closes the sheet with an error text
+  on a failure. Card checks, overwrite guards, and the Android release hold are
+  unchanged. `NfcTapView` draws the symbol (Animated plus SVG, native driver
+  for the loops): waves pulse while waiting, a ring turns while active, a green
+  check with one ripple when done, a red mark with a shake on failure, an
+  orange mark for a notice. Haptics: light on card found (Android), success,
+  error, warning. Reduced motion stops the loops, the shake, and the ripple.
+  The security cover is not shown while an NFC session is open (iOS makes the
+  app inactive under the scan sheet; to confirm on the phone).
+- [x] **NFC-1.10** The tap screen in all four operations. Claim read: an
+  app-wide host (`state.nfcTap`) replaces the status modal and the alerts;
+  results offer Try again, Restore wallet, or Close in the same screen.
+  Wallet backup: preparing, the card steps, and the result with its protection
+  text and Done or Continue in one view; a failure offers Try again (keeps the
+  confirmed options) and Cancel. Restore: the card steps, then the password
+  step or the import. Gift card: the card steps, then “Gift card written” with
+  Done instead of the system “Success” alert; Cancel after a failure rolls the
+  share back without an alert. A user cancel ends without a message everywhere.
+- [x] **NFC-1.11** Simulator evidence with an in-app fake NFC chip (installed
+  through the debugger, no app code); see the evidence log.
+
+Recorded for later (found in NFC-1 QA; existing claim-flow behavior):
+
+- **GR3-D16** After “Claim submitted” → Done, the delivery step adds a
+  “Request complete / No response was sent to the requester” sheet. A gift
+  card has no requester, so the second confirmation is noise. Source: the
+  claim's Done calls `completeWithDelivery` / `next(..., {autoDeliverOnComplete:
+  true})` (since `33eb5624`).
+- **GR3-D17** Reading a card whose claim is still unconfirmed shows “Pending
+  claim transaction / Retry when your connection is available”. The broadcast
+  worked (the transaction was in the mempool), so the connection hint is wrong.
+  Seen again in the tap screen QA after “Backup written” → Continue on the
+  same, already claimed test link.
+
+Recorded for later (found in the tap screen QA; existing behavior):
+
+- **NFC-D1** Android keeps the card session open for 5 seconds after a success
+  (`NFC_POST_WRITE_ANDROID_HOLD_MS`, so that the phone does not read the card
+  again). The check therefore stays 5 seconds before the claim or restore
+  screen opens. Option: open the next screen during the hold.
+- **NFC-D2** Back from the restore setup step returns to the NFC step, which
+  starts a new read by itself (`autoStart` on mount). On iPhone the scan sheet
+  opens again.
+- **NFC-D3** After the signed-out unlock in a wallet-backup request, the
+  request starts again and shows “Claim this card” a second time.
+- **NFC-D4** The restore start screen (“Import using NFC”, Paper button) is
+  legacy UI; only its scan states use the tap screen.
+
+**Acceptance:** From each of the three entries, a funded gift card on an NFC
+card opens the claim flow on a physical iPhone, and the funds arrive. Cancel
+and wrong-card cases show no technical text. Devices without NFC show no entry.
+
 ## SH-1 — Consistent sheet presentation and dismissal
 
 **Finding:** Many transfer and VerusID sheets use the shared shell but explicitly
@@ -922,6 +1083,8 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-11 | NFC-1 tap screen (NFC-1.9–1.11) | `codex/nfc-1-claim-from-card`, same commit as NFC-1.1–1.7: `walletBackupNfc.js` (phase runner, error codes, iOS sheet text, session flag), new `nfcTapText.js`, new `components/NfcTap/` (`NfcTapSymbol`, `NfcTapView`, `NfcTapModal`, `NfcTapHost`), new `nfcTap.styles.js`, new `useReduceMotion.js`, `nfcTap` reducer and dispatchers, `VerusMobile.js` (host, security cover), `deeplinkNfc.js`, `WalletBackupRequestInfo.js` and its styles, `ImportNfc.js`, `GiftCardShareController.js`, `GiftCardShareSheet.js`, `GiftCardServiceOverview.js`, `tokens.js` (`primaryBackground`); `deeplinkNfcSubmission.unit.test.js` ported to the tap screen | iOS simulators `Verus GR3 QA` (402 pt) and `Verus GR3 Compact` (iPhone SE), Metro, real taps. NFC came from a fake chip patched into the running debug app through the debugger (`NfcManager` methods replaced in memory; no app code; gone after the app stopped). The fake recorded the iOS sheet calls. Claim read signed out: waiting (“Hold the card here”, waves up), active (“Hold still”, ring), done (check) → “Claim this card” opened by itself; sheet “Hold still.” → “Done.”. Card moved → “Card moved too soon” with Try again and Cancel; sheet error “Card moved too soon.”; Try again → waiting. Wallet-backup card signed out → “Wallet backup found” with Restore wallet; from Login → Other options it closed and opened the restore step, which started its own read. Signed in → “Wallet backup found” with Close only. Restore: no backup (notice), no card (failed), sheet Cancel (back to start, no text), a fresh unencrypted throwaway backup → “Backup found” → “Personalize your wallet” (stopped there; no wallet created). Backup from Settings (GR3 Test 2, encrypted): preparing with grey ring during the multi-minute encryption (JS thread busy, ring kept turning), waiting, active, “Backup written” with the wallet-password text, Done → Security & recovery. Unencrypted: card moved → failed → Try again → written with the no-password text. Request mode (dark, from “Back up first”): failed → Try again went straight to the read after the fix (first run asked the no-password question again) → “Backup written” with Continue → GR3-D17 screen, cancelled. Gift card write (new unfunded draft “NFC2 tap test”): waiting, card moved → failed, Try again → “Gift card written” with Done → card shows “Shared from this wallet”. Light and dark at 402 pt; compact dark (no card found, notice with two actions). Normal-size “Get started” has three rows on the simulator: the NFC support check runs before the fake loads. Fixed during QA: repeated no-password question on Try again; a program error (TypeError) showed its raw text, now the general hint; known card results no longer log as errors. Checks: Babel parse (32 files), `check:design`, `check:safe-areas --changed` (22 files), `git diff --check`; Jest: NFC read (4, ported) and NFC module (33) pass. `nfcImportSubmission` and `walletBackupRequestSession` fail to load before and after (incomplete `react-native` mock). Evidence: `docs/qa/nfc2/` (ignored). | NFC-1.8 on the physical iPhone: real card, real iOS sheet, haptics, timing, security cover. Android not run (5-second hold, centered layout, Cancel button, translucent status bar). NFC-D1–D4 recorded. |
+| 2026-10-11 | NFC-1 claim from an NFC card (NFC-1.1–1.7) | `codex/nfc-1-claim-from-card` from `redesign` (`74706a68`), uncommitted: `deeplinkNfc.js`, `walletBackupNfc.js`, new `useNfcSupported.js`, `LoadingModal.js`, `OnboardingStartSheet.js`, `LandingScreen.js`, `OtherOptionsSheet.js`, `Login.js`, `VerusPay.js`, `CreateProfile.js`; test mock in `deeplinkNfcSubmission.unit.test.js` | iOS simulators (`Verus GR3 QA`, `Verus GR3 Compact` iPhone SE), Metro, real taps. The simulator has no NFC, so a temporary, uncommitted stub made `isNfcSupported` true and returned a chosen card result; the stub is removed and no QA code remains. Card link: an unsigned VRSCTEST wallet-backup + spendable-key request with a new throwaway key (address derived with the app's own key code), funded 0.01 (`5b8090f3…`). Signed out with wallets: Other options → “Claim from NFC card” → status modal → “Claim this card” (first time this choice is reachable) → Claim to existing wallet → 0.0099 found after one confirmation → unlock GR3 Test 2 → claim `d6a1b0a8…` (mempool, spends the funding) → balance 5.0289 → 5.0388. Signed in: Scan → button → “Claim this card”; reopening the claimed card showed GR3-D17. No wallets (compact): “Get started” has four rows; Import and Back keep them; the read opens “Create wallet” for the card. Onboarding Scan QR code with the card link (scanner `onScan` called through the debugger; no simulator camera) opens the same request; Cancel returns to Welcome. Messages: wallet-backup card signed in (explanation) and signed out (Continue opens the NFC restore step); “Nothing to claim”; “Card not read”; cancel shows nothing. Light and dark: Other options, status modal, claim choice, Scan button, Get started (compact). The stuck-modal race was reproduced at 0 ms and gone after the fix. A JS reload while signed in closed the debug app once (fits GR3-E2; no crash report). Checks: Babel parse (11 files), `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: NFC read and NFC backup suites, 37 tests pass. `profileCreationSubmission` and `walletBackupRequestSession` fail to load before and after (no VisionCamera mock; missing `StyleSheet` mock). Evidence: `docs/qa/nfc1/` (ignored). | NFC-1.8 on the physical iPhone with a card (GR-3.9 session): real NFC reads from all three entries, the Scan button over the live camera, the iOS NFC sheet and cancel. Normal-size “Get started” not captured (the normal simulator has wallets). Android not run. GR3-D16 and GR3-D17 recorded for later. |
 | 2026-10-10 | GR-3.17 GR-1/GR-2 closure and QA-1 record | `codex/gr3-request-matrix` at `dd3a476f`; local `docs/genericrequest-types-and-chains.html` (ignored) | Runtime gap checks first (iOS `Verus GR3 QA`, profile `GR3 Test 2`; Android emulator, profile `GR3 Android`): credential request with a required signer the wallet does not control showed “Required VerusID unavailable” with Switch wallet and sent nothing; with its own ID it proceeded; the request-details sheet showed the full required ID and closed and reopened; a data-packet request opened while locked showed “Unlock wallet to review”, unlocked with Face ID from the request, kept every item unchecked with “Sign data” disabled, and after consent the harness verified 4 signatures; the iOS picker opened and showed the selected state after the GR3-B9 fix; Android hardware Back on a review returned to Wallet and sent nothing (GR3-D15: request state not cleared). QA-1 for GR-1/GR-2/GR-3: QA-1.1 contracts, commits, and touched paths are in the GR rows above. QA-1.2 light and dark at normal size on the real app; compact from the GR-1 fixtures and GR-3.13; GR-3 compact deferred by the user. QA-1.3 labels and enabled states from the Android accessibility tree (every control labelled, “Sign data” disabled until consent; each checkbox row also exposes an inner unlabelled disabled node, possible duplicate announcement, not confirmed); sheet close/reopen; Android hardware Back; safe areas and scroll cues in screenshots; text scaling has no effect app-wide; reduced motion and full VoiceOver/TalkBack not run. QA-1.4 design, safe-area, parser, and focused Jest checks pass for every GR-3 commit. QA-1.5 GR-1/GR-2 independent design and signing reviews READY (GR-1/GR-2 report); GR-3 changes have no separate independent review. QA-1.6 shared changes rechecked on sign-in, identity update, invoice, and claim in GR-3.16. QA-1.7 screens, callbacks, and transactions recorded separately. QA-1.8 open items have owners: GR3-B8 task, GR-3.9 user device, GR3-B4 and P1 deferred, GR3-D12 and D15 recorded. Protocol map refreshed: nine supported details, unsigned order rules, delivery path, error state, runtime evidence per type, open items; renders at desktop and 375 px width without page overflow, light and dark tokens. | Full VoiceOver/TalkBack walkthrough, reduced motion, and the text-scaling decision stay as QA-1 follow-ups. GR-3 has no separate independent review. GR-3.12, GR-3.13, and GR-3.16 wait for GR-3.9. |
 | 2026-10-10 | GR-3.16 matrix rerun and Android smoke | `codex/gr3-request-matrix` at `8270ae32`, fixes in commit `dd3a476f`: `SpendableKeyRequestInfo.js` (claiming spinner) and `IdentityPickerSheet.js` (boolean `accessibilityState`) | iOS `Verus GR3 QA`, profile `GR3 Test 2`, cold launch, real taps. Harness-verified: sign-in + app encryption in POST, fail once (attempt 2), fail always (Leave without sending), redirect (Safari verified, Browser opened sheet), no callback (Request complete); identity update content add `12eecb53…` and content replace with fail once `d33d60ce…` (one transaction, same txid redelivered), both confirmed; high-risk authorities cancelled with no callback; data packet POST and fail always; credential missing; both credential/data-packet orders; sign-in + credentials and sign-in + invoice (`4c74bb97…`) with the GR-3.19 labels; invoice only `2f6e9187…`; six rejected-request cases with no callbacks; provisioning accepted by the webhook, then the expected failure notice (GR3-E1). Claiming state held with a QA-only debugger hold (removed): before/after in light and dark, claim `cfdafdc8…`. Android `Pixel_8_API_35`, debug APK, new disposable profile `GR3 Android`: app encryption POST, sign-in + data packet (“Continue to sign data”), identity update `b2b03cdb…`, credential missing, wrong network and over-length, provisioning accepted, invoice `eeede94a…`, gift-card claim `3e55575c…` with the fixed claiming state in light and dark. GR3-B9 reproduced on Android before the fix and gone after it. GR3-B8 reproduced three times on iOS; a debugger counter showed an identical signed transaction returned as success. Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: identity picker and spendable key suites, 38 tests pass. | GR3-B8 triage (outside the redesign). Credential matching and provisioning registration need GR3-E1 cleared. Wallet backup on the physical iPhone (GR-3.9). Compact deferred. Android: GR3-D12 also hits the unlock sheet after a sync failure. |
 | 2026-10-10 | GR-3.19 mixed-request next step | `codex/gr3-request-matrix`, commit `8270ae32`: new `genericRequestNextStep.js`; `GenericRequestHome.js`, `AuthenticationRequestInfo.js` | iPhone 17 Pro simulator, VRSCTEST, profile `GR3 Test 2`, real taps. Before: auth + data packet showed “Sign in with VerusID”, then “Sign data” with no hint. After: the same request showed “Continue to sign data” once a VerusID was selected; it opened “Sign data”; signing all four items delivered one response (harness: authentication verified, 4 signatures, 1 attempt) and the app returned to Wallet. Auth + credential: “Continue to share credentials” (about 231 of about 295 points available on iPhone SE, so no truncation) opened “Share credentials” (light and dark); cancelled. Auth + provisioning (local webhook): the label stays “Sign in with VerusID”; cancelled, nothing submitted. Cancel at step 2 sent nothing (harness `waiting`, 0 attempts). A node script on the real helper with real VDXF keys covers 15 mixes (each type, provisioning, skipped backup, auth last, already processed). Checks: Babel parse, `check:design`, `check:safe-areas --changed`, `git diff --check`; Jest: completion and link-failure suites, 11 tests pass. | Invoice, Identity Update, wallet backup and claim labels verified by script only. Compact size not run. |
@@ -961,6 +1124,9 @@ patch exists.
   `8a80f4d6`, the tip of `codex/gr3-request-matrix`, which contains all earlier
   redesign branches. Start each new task branch from `redesign`. Merge it back
   with `git merge --no-ff` after its checks pass and this plan is current.
+- NFC-1 (2026-10-11) restores reading a Verus NFC card in three places and
+  adds the NFC tap screen to every NFC read and write (one commit). The GR-3.9
+  phone session waits for it, so one session covers both.
 - ID-1 is complete and locally integrated. The implementation and its
   high-risk review corrections (including the two final P2 lifecycle defects)
   are committed as `33865cab` on `codex/id1-redesign` and locally integrated

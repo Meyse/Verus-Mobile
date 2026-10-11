@@ -5,6 +5,7 @@ import NfcManager, {
   Ndef,
   NdefStatus,
   NfcAdapter,
+  NfcError,
   NfcTech,
 } from 'react-native-nfc-manager';
 import {
@@ -32,14 +33,53 @@ const NFC_DEEPLINK_REQUEST_TIMEOUT_MS = 60000;
 const NFC_POST_WRITE_ANDROID_HOLD_MS = 5000;
 export const NFC_DEEPLINK_WALLET_BACKUP_DETECTED =
   'NFC_DEEPLINK_WALLET_BACKUP_DETECTED';
+export const NFC_CANCELLED = 'NFC_CANCELLED';
+export const NFC_DISABLED = 'NFC_DISABLED';
+export const NFC_TIMEOUT = 'NFC_TIMEOUT';
+export const NFC_TAG_LOST = 'NFC_TAG_LOST';
+export const NFC_NO_VERUS_LINK = 'NFC_NO_VERUS_LINK';
+export const NFC_NO_WALLET_BACKUP = 'NFC_NO_WALLET_BACKUP';
+
+// The steps of one card operation, in order. RELEASE is Android only: a failed
+// session stays open for a short time so that the phone does not read the card
+// again.
+export const NFC_PHASE = {
+  WAITING: 'waiting',
+  ACTIVE: 'active',
+  DONE: 'done',
+  RELEASE: 'release',
+};
+
+// Apple asks for "hold near" wording and no words like NFC or tag.
+const IOS_SHEET_TEXT = {
+  waiting: 'Hold the card near the top of your iPhone.',
+  active: 'Hold still.',
+};
+
+const NFC_NO_VERUS_LINK_MESSAGE =
+  'This card does not hold a Verus gift card or request.';
+const NFC_NO_WALLET_BACKUP_MESSAGE =
+  'This NFC card does not contain a wallet backup.';
+const NFC_DISABLED_MESSAGE =
+  'NFC is off. Turn it on in Settings, then try again.';
+const NFC_TIMEOUT_MESSAGE =
+  'Timed out waiting for an NFC card. Please try again and hold the card against the device.';
+
+const withCode = (error, code) => {
+  if (code) error.code = code;
+  return error;
+};
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const withTimeout = (promise, timeoutMs, timeoutMessage) => {
+const withTimeout = (promise, timeoutMs, timeoutMessage, timeoutCode) => {
   let timeout;
 
   const timeoutPromise = new Promise((resolve, reject) => {
-    timeout = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    timeout = setTimeout(
+      () => reject(withCode(new Error(timeoutMessage), timeoutCode)),
+      timeoutMs,
+    );
   });
 
   return Promise.race([promise, timeoutPromise]).finally(() => {
@@ -386,9 +426,8 @@ const shouldHoldAndroidNfcRelease = ({completed, error, requestStarted}) => {
   if (completed) return true;
   if (!requestStarted || error == null) return false;
 
-  const message = String(error.message || error).toLowerCase();
-
-  return !message.includes('timed out waiting') && !message.includes('cancel');
+  // A timeout or cancel means no card was at the phone.
+  return error.code !== NFC_TIMEOUT && error.code !== NFC_CANCELLED;
 };
 
 const getAndroidNfcReleaseDelay = ({completed, error, requestStarted}) => {
@@ -397,15 +436,7 @@ const getAndroidNfcReleaseDelay = ({completed, error, requestStarted}) => {
     : 0;
 };
 
-const showAndroidMoveAwayStatus = ({onStatus, completed, releaseDelayMs}) => {
-  if (Platform.OS === 'android' && !completed && releaseDelayMs > 0) {
-    onStatus && onStatus('Move the NFC card away from the device.');
-  }
-};
-
-const getNdefRequestOptions = (
-  alertMessage = 'Hold your NFC card near the device.',
-) => {
+const getNdefRequestOptions = (alertMessage = IOS_SHEET_TEXT.waiting) => {
   if (Platform.OS !== 'android') {
     return {
       alertMessage,
@@ -437,7 +468,8 @@ const requestNdefTechnology = async timeoutMs => {
   const connectedTech = await withTimeout(
     NfcManager.requestTechnology(getRequestedTechnologies(), getNdefRequestOptions()),
     timeoutMs,
-    'Timed out waiting for an NFC card. Please try again and hold the card against the device.',
+    NFC_TIMEOUT_MESSAGE,
+    NFC_TIMEOUT,
   );
 
   if (
@@ -452,32 +484,171 @@ const requestNdefTechnology = async timeoutMs => {
 
 const requestNdefReadTechnology = async (
   timeoutMs,
-  unsupportedMessage = 'This NFC card does not contain an NDEF wallet backup.',
-  alertMessage,
+  unsupportedMessage,
+  unsupportedCode,
 ) => {
   const connectedTech = await withTimeout(
-    NfcManager.requestTechnology(NfcTech.Ndef, getNdefRequestOptions(alertMessage)),
+    NfcManager.requestTechnology(NfcTech.Ndef, getNdefRequestOptions()),
     timeoutMs,
-    'Timed out waiting for an NFC card. Please try again and hold the card against the device.',
+    NFC_TIMEOUT_MESSAGE,
+    NFC_TIMEOUT,
   );
 
   if (connectedTech !== NfcTech.Ndef) {
-    throw new Error(unsupportedMessage);
+    throw withCode(new Error(unsupportedMessage), unsupportedCode);
   }
 
   return connectedTech;
 };
 
-export const beginWalletBackupNfcSession = async ({onStatus} = {}) => {
-  if (Platform.OS !== 'android') return false;
+const isNfcErrorType = (error, name) =>
+  NfcError != null && NfcError[name] != null && error instanceof NfcError[name];
 
+// Gives library errors the codes that the screens and the release logic use.
+const normalizeNfcError = error => {
+  if (error?.code) return error;
+
+  if (isNfcErrorType(error, 'UserCancel')) {
+    return withCode(new Error('NFC session cancelled.'), NFC_CANCELLED);
+  }
+
+  if (isNfcErrorType(error, 'Timeout')) {
+    return withCode(new Error(NFC_TIMEOUT_MESSAGE), NFC_TIMEOUT);
+  }
+
+  if (
+    isNfcErrorType(error, 'TagConnectionLost') ||
+    /tag\b.*\blost/i.test(String(error?.message || ''))
+  ) {
+    return withCode(
+      new Error('The card moved away before the phone finished.'),
+      NFC_TAG_LOST,
+    );
+  }
+
+  return error;
+};
+
+const IOS_SHEET_FAILURE_TEXT = {
+  [NFC_TIMEOUT]: 'No card found.',
+  [NFC_TAG_LOST]: 'Card moved too soon.',
+  [NFC_DEEPLINK_WALLET_BACKUP_DETECTED]: 'This card holds a wallet backup.',
+  [NFC_NO_VERUS_LINK]: 'Nothing to claim on this card.',
+  [NFC_NO_WALLET_BACKUP]: 'No wallet backup on this card.',
+};
+
+const getIosSheetFailureText = (error, fallback) =>
+  IOS_SHEET_FAILURE_TEXT[error.code] || fallback;
+
+// The iOS scan sheet text is best effort. The session still closes after it.
+const showIosSheetText = async ({text, failed = false}) => {
+  if (Platform.OS !== 'ios' || !text) return;
+
+  try {
+    if (failed) {
+      await NfcManager.invalidateSessionWithErrorIOS(text);
+    } else {
+      await NfcManager.setAlertMessageIOS(text);
+    }
+  } catch (_) {}
+};
+
+const releaseNfcRequest = async ({sessionPreRegistered, releaseDelayMs}) => {
+  if (sessionPreRegistered) {
+    await endWalletBackupNfcSession({releaseDelayMs});
+  } else if (Platform.OS === 'android') {
+    await NfcManager.cancelTechnologyRequest({
+      delayMsAndroid: releaseDelayMs,
+    }).catch(() => {});
+  } else {
+    await NfcManager.cancelTechnologyRequest().catch(() => {});
+  }
+};
+
+let nfcSessionActive = false;
+
+// True while the app waits for or talks to a card. The iOS scan sheet makes the
+// app inactive, and the app must not cover its own NFC screen then.
+export const isNfcSessionActive = () => nfcSessionActive;
+
+const assertNfcAvailable = async () => {
   const supported = await NfcManager.isSupported();
   if (!supported) throw new Error('NFC is not supported on this device.');
 
   const enabled = await NfcManager.isEnabled();
-  if (!enabled) throw new Error('NFC is disabled on this device.');
+  if (!enabled) throw withCode(new Error(NFC_DISABLED_MESSAGE), NFC_DISABLED);
+};
 
-  onStatus && onStatus('Preparing NFC scanner. Do not tap the card yet.');
+// Runs one card operation. onPhase reports WAITING, ACTIVE, DONE, and on
+// Android RELEASE while a failed session stays open until the card is away.
+// The promise settles after the session is released.
+const runNfcSession = async ({
+  onPhase,
+  timeoutMs,
+  sessionPreRegistered = false,
+  requestTechnology,
+  operate,
+  doneSheetText,
+  failedSheetText,
+}) => {
+  await assertNfcAvailable();
+
+  let completed = false;
+  let requestStarted = false;
+  let nfcError = null;
+
+  await NfcManager.start();
+
+  try {
+    onPhase && onPhase(NFC_PHASE.WAITING);
+    requestStarted = true;
+    nfcSessionActive = true;
+    const connectedTech = await requestTechnology(timeoutMs);
+
+    onPhase && onPhase(NFC_PHASE.ACTIVE);
+    await showIosSheetText({text: IOS_SHEET_TEXT.active});
+
+    const result = await operate(connectedTech);
+    completed = true;
+
+    await showIosSheetText({text: doneSheetText});
+    onPhase && onPhase(NFC_PHASE.DONE);
+
+    return result;
+  } catch (e) {
+    nfcError = normalizeNfcError(e);
+
+    if (nfcError.code !== NFC_CANCELLED) {
+      await showIosSheetText({
+        text: getIosSheetFailureText(nfcError, failedSheetText),
+        failed: true,
+      });
+    }
+
+    throw nfcError;
+  } finally {
+    const releaseDelayMs = getAndroidNfcReleaseDelay({
+      completed,
+      error: nfcError,
+      requestStarted,
+    });
+
+    if (!completed && releaseDelayMs > 0) {
+      onPhase && onPhase(NFC_PHASE.RELEASE);
+    }
+
+    try {
+      await releaseNfcRequest({sessionPreRegistered, releaseDelayMs});
+    } finally {
+      nfcSessionActive = false;
+    }
+  }
+};
+
+export const beginWalletBackupNfcSession = async () => {
+  if (Platform.OS !== 'android') return false;
+
+  await assertNfcAvailable();
   await NfcManager.start();
   await NfcManager.registerTagEvent(getNdefRequestOptions());
 
@@ -500,317 +671,162 @@ export const cancelWalletBackupNfcRequest = async () => {
   }
 };
 
+const inspectAndWriteNdef = async ({connectedTech, bytes, beforeWrite}) => {
+  if (connectedTech === NfcTech.Ndef) {
+    await assertWritableStatus(bytes);
+
+    let existingTag;
+
+    try {
+      existingTag = await NfcManager.ndefHandler.getNdefMessage();
+    } catch (_) {
+      throw new Error(
+        'Unable to inspect the existing NFC data. Refusing to overwrite it.',
+      );
+    }
+
+    await assertNfcTagCanBeOverwritten(existingTag);
+
+    beforeWrite && beforeWrite();
+    await NfcManager.ndefHandler.writeNdefMessage(bytes, {
+      reconnectAfterWrite: true,
+    });
+  } else if (connectedTech === NfcTech.NdefFormatable) {
+    beforeWrite && beforeWrite();
+    await NfcManager.ndefFormatableHandlerAndroid.formatNdef(bytes);
+  }
+};
+
 export const writeWalletBackupToNfc = async (
   walletBackupOrdinal,
   {
-    onStatus,
+    onPhase,
     timeoutMs = NFC_REQUEST_TIMEOUT_MS,
     sessionPreRegistered = false,
     // Synchronous guard after NFC awaits, immediately before writing the card.
     beforeWrite,
   } = {},
 ) => {
-  const supported = await NfcManager.isSupported();
-  if (!supported) throw new Error('NFC is not supported on this device.');
-
-  const enabled = await NfcManager.isEnabled();
-  if (!enabled) throw new Error('NFC is disabled on this device.');
-
   const backupBytes = createWalletBackupNdefBytes(walletBackupOrdinal);
-  let backupWriteCompleted = false;
-  let nfcRequestStarted = false;
-  let nfcError = null;
 
-  onStatus && onStatus('Preparing NFC writer...');
-  await NfcManager.start();
-
-  try {
-    onStatus &&
-      onStatus('Hold the NFC card against the device.');
-    nfcRequestStarted = true;
-    const connectedTech = await requestNdefTechnology(timeoutMs);
-
-    onStatus && onStatus('Checking NFC card...');
-
-    if (connectedTech === NfcTech.Ndef) {
-      await assertWritableStatus(backupBytes);
-
-      let existingTag;
-
-      try {
-        existingTag = await NfcManager.ndefHandler.getNdefMessage();
-      } catch (_) {
-        throw new Error(
-          'Unable to inspect the existing NFC data. Refusing to overwrite it.',
-        );
-      }
-
-      await assertNfcTagCanBeOverwritten(existingTag);
-
-      onStatus && onStatus('Writing wallet backup...');
-      beforeWrite && beforeWrite();
-      await NfcManager.ndefHandler.writeNdefMessage(backupBytes, {
-        reconnectAfterWrite: true,
+  return runNfcSession({
+    onPhase,
+    timeoutMs,
+    sessionPreRegistered,
+    requestTechnology: requestNdefTechnology,
+    doneSheetText: 'Backup written.',
+    failedSheetText: 'Card not written.',
+    operate: async connectedTech => {
+      await inspectAndWriteNdef({
+        connectedTech,
+        bytes: backupBytes,
+        beforeWrite,
       });
-    } else if (connectedTech === NfcTech.NdefFormatable) {
-      onStatus && onStatus('Formatting and writing wallet backup...');
-      beforeWrite && beforeWrite();
-      await NfcManager.ndefFormatableHandlerAndroid.formatNdef(backupBytes);
-    }
-    backupWriteCompleted = true;
 
-    onStatus && onStatus('Backup written. Move the card away from the device.');
-
-    return {written: true};
-  } catch (e) {
-    nfcError = e;
-    throw e;
-  } finally {
-    const releaseDelayMs = getAndroidNfcReleaseDelay({
-      completed: backupWriteCompleted,
-      error: nfcError,
-      requestStarted: nfcRequestStarted,
-    });
-
-    showAndroidMoveAwayStatus({
-      onStatus,
-      completed: backupWriteCompleted,
-      releaseDelayMs,
-    });
-
-    if (sessionPreRegistered) {
-      await endWalletBackupNfcSession({releaseDelayMs});
-    } else {
-      if (Platform.OS === 'android') {
-        await NfcManager.cancelTechnologyRequest({
-          delayMsAndroid: releaseDelayMs,
-        }).catch(() => {});
-      } else {
-        await NfcManager.cancelTechnologyRequest().catch(() => {});
-      }
-    }
-  }
+      return {written: true};
+    },
+  });
 };
 
 export const writeDeeplinkUriToNfc = async (
   uri,
   {
-    onStatus,
+    onPhase,
     timeoutMs = NFC_REQUEST_TIMEOUT_MS,
   } = {},
 ) => {
-  const supported = await NfcManager.isSupported();
-  if (!supported) throw new Error('NFC is not supported on this device.');
-
-  const enabled = await NfcManager.isEnabled();
-  if (!enabled) throw new Error('NFC is disabled on this device.');
-
   const deeplinkBytes = createDeeplinkUriNdefBytes(uri);
-  let deeplinkWriteCompleted = false;
-  let nfcRequestStarted = false;
-  let nfcError = null;
 
-  onStatus && onStatus('Preparing NFC writer...');
-  await NfcManager.start();
+  return runNfcSession({
+    onPhase,
+    timeoutMs,
+    requestTechnology: requestNdefTechnology,
+    doneSheetText: 'Gift card written.',
+    failedSheetText: 'Card not written.',
+    operate: async connectedTech => {
+      await inspectAndWriteNdef({connectedTech, bytes: deeplinkBytes});
 
-  try {
-    onStatus && onStatus('Hold the NFC card against the device.');
-    nfcRequestStarted = true;
-    const connectedTech = await requestNdefTechnology(timeoutMs);
-
-    onStatus && onStatus('Checking NFC card...');
-
-    if (connectedTech === NfcTech.Ndef) {
-      await assertWritableStatus(deeplinkBytes);
-
-      let existingTag;
-
-      try {
-        existingTag = await NfcManager.ndefHandler.getNdefMessage();
-      } catch (_) {
-        throw new Error(
-          'Unable to inspect the existing NFC data. Refusing to overwrite it.',
-        );
-      }
-
-      await assertNfcTagCanBeOverwritten(existingTag);
-
-      onStatus && onStatus('Writing gift card...');
-      await NfcManager.ndefHandler.writeNdefMessage(deeplinkBytes, {
-        reconnectAfterWrite: true,
-      });
-    } else if (connectedTech === NfcTech.NdefFormatable) {
-      onStatus && onStatus('Formatting and writing gift card...');
-      await NfcManager.ndefFormatableHandlerAndroid.formatNdef(deeplinkBytes);
-    }
-
-    deeplinkWriteCompleted = true;
-    onStatus && onStatus('Gift card written. Move the card away from the device.');
-
-    return {written: true};
-  } catch (e) {
-    nfcError = e;
-    throw e;
-  } finally {
-    const releaseDelayMs = getAndroidNfcReleaseDelay({
-      completed: deeplinkWriteCompleted,
-      error: nfcError,
-      requestStarted: nfcRequestStarted,
-    });
-
-    showAndroidMoveAwayStatus({
-      onStatus,
-      completed: deeplinkWriteCompleted,
-      releaseDelayMs,
-    });
-
-    if (Platform.OS === 'android') {
-      await NfcManager.cancelTechnologyRequest({
-        delayMsAndroid: releaseDelayMs,
-      }).catch(() => {});
-    } else {
-      await NfcManager.cancelTechnologyRequest().catch(() => {});
-    }
-  }
+      return {written: true};
+    },
+  });
 };
 
 export const readWalletBackupFromNfc = async (
   {
-    onStatus,
+    onPhase,
     timeoutMs = NFC_REQUEST_TIMEOUT_MS,
     sessionPreRegistered = false,
   } = {},
 ) => {
-  const supported = await NfcManager.isSupported();
-  if (!supported) throw new Error('NFC is not supported on this device.');
+  return runNfcSession({
+    onPhase,
+    timeoutMs,
+    sessionPreRegistered,
+    requestTechnology: ms =>
+      requestNdefReadTechnology(
+        ms,
+        NFC_NO_WALLET_BACKUP_MESSAGE,
+        NFC_NO_WALLET_BACKUP,
+      ),
+    doneSheetText: 'Backup found.',
+    failedSheetText: 'Card not read.',
+    operate: async () => {
+      const tag = await NfcManager.ndefHandler.getNdefMessage();
+      const walletBackupOrdinal = getWalletBackupOrdinalFromTag(tag);
 
-  const enabled = await NfcManager.isEnabled();
-  if (!enabled) throw new Error('NFC is disabled on this device.');
-
-  let backupReadCompleted = false;
-  let nfcRequestStarted = false;
-  let nfcError = null;
-
-  onStatus && onStatus('Preparing NFC reader...');
-  await NfcManager.start();
-
-  try {
-    onStatus && onStatus('Hold your NFC backup card against the device.');
-    nfcRequestStarted = true;
-    await requestNdefReadTechnology(timeoutMs);
-
-    onStatus && onStatus('Reading wallet backup...');
-    const tag = await NfcManager.ndefHandler.getNdefMessage();
-    const walletBackupOrdinal = getWalletBackupOrdinalFromTag(tag);
-
-    if (walletBackupOrdinal == null) {
-      throw new Error('This NFC card does not contain a wallet backup.');
-    }
-
-    backupReadCompleted = true;
-    onStatus && onStatus('Wallet backup found. Move the card away from the device.');
-
-    return walletBackupOrdinal;
-  } catch (e) {
-    nfcError = e;
-    throw e;
-  } finally {
-    const releaseDelayMs = getAndroidNfcReleaseDelay({
-      completed: backupReadCompleted,
-      error: nfcError,
-      requestStarted: nfcRequestStarted,
-    });
-
-    showAndroidMoveAwayStatus({
-      onStatus,
-      completed: backupReadCompleted,
-      releaseDelayMs,
-    });
-
-    if (sessionPreRegistered) {
-      await endWalletBackupNfcSession({releaseDelayMs});
-    } else {
-      if (Platform.OS === 'android') {
-        await NfcManager.cancelTechnologyRequest({
-          delayMsAndroid: releaseDelayMs,
-        }).catch(() => {});
-      } else {
-        await NfcManager.cancelTechnologyRequest().catch(() => {});
+      if (walletBackupOrdinal == null) {
+        throw withCode(
+          new Error(NFC_NO_WALLET_BACKUP_MESSAGE),
+          NFC_NO_WALLET_BACKUP,
+        );
       }
-    }
+
+      return walletBackupOrdinal;
+    },
+  });
+};
+
+// Entry points that start an NFC read stay hidden on devices without NFC.
+export const isNfcSupported = async () => {
+  try {
+    return (await NfcManager.isSupported()) === true;
+  } catch (_) {
+    return false;
   }
 };
 
 export const readDeeplinkUriFromNfc = async (
   {
-    onStatus,
+    onPhase,
     timeoutMs = NFC_DEEPLINK_REQUEST_TIMEOUT_MS,
   } = {},
 ) => {
-  const supported = await NfcManager.isSupported();
-  if (!supported) throw new Error('NFC is not supported on this device.');
+  return runNfcSession({
+    onPhase,
+    timeoutMs,
+    requestTechnology: ms =>
+      requestNdefReadTechnology(ms, NFC_NO_VERUS_LINK_MESSAGE, NFC_NO_VERUS_LINK),
+    doneSheetText: 'Done.',
+    failedSheetText: 'Card not read.',
+    operate: async () => {
+      const tag = await NfcManager.ndefHandler.getNdefMessage();
+      const uri = getDeeplinkUriFromTag(tag);
 
-  const enabled = await NfcManager.isEnabled();
-  if (!enabled) throw new Error('NFC is disabled on this device.');
+      if (uri == null) {
+        if (getWalletBackupOrdinalFromTag(tag) != null) {
+          throw withCode(
+            new Error('This NFC card holds a wallet backup.'),
+            NFC_DEEPLINK_WALLET_BACKUP_DETECTED,
+          );
+        }
 
-  let deeplinkReadCompleted = false;
-  let nfcRequestStarted = false;
-  let nfcError = null;
-
-  onStatus && onStatus('Preparing NFC reader...');
-  await NfcManager.start();
-
-  try {
-    onStatus && onStatus('Hold the NFC card with the Verus deeplink against the device.');
-    nfcRequestStarted = true;
-    await requestNdefReadTechnology(
-      timeoutMs,
-      'This NFC card does not contain an NDEF deeplink.',
-      'Hold the NFC card with the Verus deeplink near the device.',
-    );
-
-    onStatus && onStatus('Reading NFC deeplink...');
-    const tag = await NfcManager.ndefHandler.getNdefMessage();
-    const uri = getDeeplinkUriFromTag(tag);
-
-    if (uri == null) {
-      if (getWalletBackupOrdinalFromTag(tag) != null) {
-        const walletBackupError = new Error(
-          'This NFC card contains a wallet backup, not a verus:// deeplink.',
+        throw withCode(
+          new Error(NFC_NO_VERUS_LINK_MESSAGE),
+          NFC_NO_VERUS_LINK,
         );
-        walletBackupError.code = NFC_DEEPLINK_WALLET_BACKUP_DETECTED;
-        throw walletBackupError;
       }
 
-      throw new Error('This NFC card does not contain a verus:// deeplink.');
-    }
-
-    deeplinkReadCompleted = true;
-    onStatus && onStatus('Verus deeplink found. Move the card away from the device.');
-
-    return uri;
-  } catch (e) {
-    nfcError = e;
-    throw e;
-  } finally {
-    const releaseDelayMs = getAndroidNfcReleaseDelay({
-      completed: deeplinkReadCompleted,
-      error: nfcError,
-      requestStarted: nfcRequestStarted,
-    });
-
-    showAndroidMoveAwayStatus({
-      onStatus,
-      completed: deeplinkReadCompleted,
-      releaseDelayMs,
-    });
-
-    if (Platform.OS === 'android') {
-      await NfcManager.cancelTechnologyRequest({
-        delayMsAndroid: releaseDelayMs,
-      }).catch(() => {});
-    } else {
-      await NfcManager.cancelTechnologyRequest().catch(() => {});
-    }
-  }
+      return uri;
+    },
+  });
 };

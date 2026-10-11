@@ -8,7 +8,12 @@ import {VerusLogo} from '../../../images/customIcons';
 import WelcomeBackgroundVideo from '../../../components/WelcomeBackgroundVideo';
 import OnboardingStartSheet from './OnboardingStartSheet';
 import SignedOutNetworkSelector from '../../../components/SignedOutNetworkSelector';
-import {normalizeSetupSelection} from '../onboardingSetupFlow';
+import {readDeeplinkFromNfc} from '../../../actions/actionDispatchers';
+import {
+  IMPORT_METHODS,
+  normalizeSetupSelection,
+  SETUP_PATHS,
+} from '../onboardingSetupFlow';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const LOGO_ASPECT_RATIO = 2084 / 7305;
@@ -42,6 +47,16 @@ export default function LandingScreen(props) {
     props.navigation.navigate('CreateProfile', {
       ...normalizeSetupSelection(selection),
       resumePendingDeeplinkId,
+    });
+
+  // A wallet-backup card leads to the NFC restore instead.
+  const claimFromNfc = () =>
+    readDeeplinkFromNfc({
+      onWalletBackupDetected: () =>
+        handleSetupSelection({
+          setupPath: SETUP_PATHS.IMPORT,
+          importMethod: IMPORT_METHODS.NFC,
+        }),
     });
 
   return (
@@ -87,6 +102,9 @@ export default function LandingScreen(props) {
         visible={startSheetVisible}
         onClose={() => setStartSheetVisible(false)}
         onSelectSetup={handleSetupSelection}
+        // The sheet also opens to create a wallet for a claim in progress;
+        // reading another card is not offered then.
+        onClaimFromNfc={resumePendingDeeplinkId ? undefined : claimFromNfc}
       />
     </View>
   );

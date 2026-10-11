@@ -247,7 +247,7 @@ const GiftCardServiceOverview = ({
     [normalizedData.cards],
   );
   const selectedCard = cards.find(card => card.id === selectedCardId) || null;
-  const {nfcStatus, shareNative, shareNfc} = useGiftCardSharing(selectedCard);
+  const {nfcTap, shareNative, shareNfc} = useGiftCardSharing(selectedCard);
   useFocusEffect(
     useCallback(() => {
       qrNavigationPendingRef.current = false;
@@ -1533,7 +1533,7 @@ const GiftCardServiceOverview = ({
   return (
     <>
       {selectedCard ? renderDetail(selectedCard) : renderList()}
-      <GiftCardNfcProgressModal nfcStatus={nfcStatus} />
+      <GiftCardNfcProgressModal nfcTap={nfcTap} />
     </>
   );
 };

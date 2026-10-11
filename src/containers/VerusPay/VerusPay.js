@@ -7,7 +7,7 @@
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Alert } from 'react-native';
+import { View, Alert, StyleSheet } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import base64url from 'base64url';
 import { URL } from 'react-native-url-polyfill';
@@ -24,7 +24,10 @@ import {
   API_GET_INFO,
   IS_PBAAS,
 } from '../../utils/constants/intervalConstants';
-import { conditionallyUpdateWallet } from '../../actions/actionDispatchers';
+import {
+  conditionallyUpdateWallet,
+  readDeeplinkFromNfc,
+} from '../../actions/actionDispatchers';
 import store from '../../store';
 import { Portal } from 'react-native-paper';
 import SubWalletSelectorModal from '../SubWalletSelect/SubWalletSelectorModal';
@@ -35,6 +38,8 @@ import {
 import QrScanner from '../../utils/QrScanner/QrScanner';
 import styles from '../../styles';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
+import AppButton from '../../components/AppButton';
+import { useNfcSupported } from '../../hooks/useNfcSupported';
 import AnimatedActivityIndicator from '../../components/AnimatedActivityIndicator';
 import { openSubwalletSendModal } from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
@@ -77,6 +82,15 @@ const VerusPay = (props) => {
   const sendModal = useObjectSelector((state) => state.sendModal);
 
   const { containerStyle, acceptAddressOnly, channel, coinObj: propCoinObj, button, maskProps, cameraDisabled } = props;
+  const nfcSupported = useNfcSupported();
+  // The general Scan screen also reads Verus NFC cards. Address-only scanners
+  // and callers with their own button keep their current controls.
+  const showNfcClaim = nfcSupported && !acceptAddressOnly && button == null;
+  const renderNfcClaimButton = () => (
+    <AppButton onPress={() => readDeeplinkFromNfc()} variant="secondary">
+      Claim from NFC card
+    </AppButton>
+  );
 
   useEffect(() => {
     return () => {
@@ -418,7 +432,10 @@ const VerusPay = (props) => {
             }
             onScan={(codes) => onSuccess(codes)}
             cameraDisabled={cameraDisabled}
-            button={button}
+            button={showNfcClaim ? renderNfcClaimButton : button}
+            buttonContainerStyle={
+              showNfcClaim ? nfcClaimStyles.buttonContainer : undefined
+            }
             maskProps={maskProps}
           />
         </React.Fragment>
@@ -426,5 +443,13 @@ const VerusPay = (props) => {
     </View>
   );
 };
+
+const nfcClaimStyles = StyleSheet.create({
+  buttonContainer: {
+    width: '100%',
+    paddingHorizontal: 32,
+    paddingBottom: 24,
+  },
+});
 
 export default VerusPay;

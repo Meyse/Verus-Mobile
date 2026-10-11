@@ -28,7 +28,7 @@ const GiftCardShareSheet = ({
   const {
     copied,
     copyLink,
-    nfcStatus,
+    nfcTap,
     shareNative,
     shareNfc,
   } = useGiftCardSharing(card);
@@ -87,7 +87,7 @@ const GiftCardShareSheet = ({
         maxHeight="86%"
         onClose={onClose}
         onClosed={handleClosed}
-        visible={card != null && nfcStatus == null}>
+        visible={card != null && nfcTap == null}>
         <View style={styles.header}>
           <Text
             style={[
@@ -236,7 +236,7 @@ const GiftCardShareSheet = ({
         </ScrollView>
       </BottomSheetModal>
 
-      <GiftCardNfcProgressModal nfcStatus={nfcStatus} />
+      <GiftCardNfcProgressModal nfcTap={nfcTap} />
     </>
   );
 };
