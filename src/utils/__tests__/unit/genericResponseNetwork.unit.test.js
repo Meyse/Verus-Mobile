@@ -21,6 +21,7 @@ jest.mock('../../../components/AnimatedActivityIndicatorBox', () => 'ActivityInd
 jest.mock('../../../components/AnimatedSuccessCheckmark', () => 'SuccessCheckmark');
 jest.mock('../../../components/AppButton', () => 'AppButton');
 jest.mock('../../../components/BottomSheetModal', () => 'BottomSheetModal');
+jest.mock('../../../components/NeutralCheckMark', () => 'NeutralCheckMark');
 jest.mock('../../../theme/onboarding', () => ({useOnboardingTheme: () => ({typography: {}, colors: {}})}));
 jest.mock('../../../components/SelectionSheet', () => ({__esModule: true, default: 'SelectionSheet', SelectionRow: 'SelectionRow'}));
 jest.mock('../../../components/useSheetDismissal', () => () => ({close: jest.fn(), dismiss: jest.fn(), onClosed: jest.fn()}));
