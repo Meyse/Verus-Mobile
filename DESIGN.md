@@ -231,6 +231,10 @@ GenericRequest. Preserve its separate review, content-change, high-risk, and
 confirm/pay stages. Do not collapse that flow into the simpler authentication
 or app-encryption review hierarchy.
 
+A completion sheet shows the animated green check only when delivery or broadcast
+is confirmed. For "No response was sent" and "Browser opened", use
+`src/components/NeutralCheckMark.js`.
+
 Do not expose raw RPC, daemon, or indexer errors. Translate them into short
 recovery guidance and keep a safe fallback available.
 

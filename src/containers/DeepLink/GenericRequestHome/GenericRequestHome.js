@@ -19,6 +19,7 @@ import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIn
 import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
+import NeutralCheckMark from '../../../components/NeutralCheckMark';
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
@@ -263,10 +264,13 @@ const AutoDeliverySheetContent = ({
     <View style={autoDeliverySheetStyles.body}>
       {(isSuccess || isLoading) && (
         <View style={autoDeliverySheetStyles.visualSlot}>
-          {isSuccess ? (
+          {isSuccess && isPost ? (
             <AnimatedSuccessCheckmark
               style={autoDeliverySheetStyles.successAnimation}
             />
+          ) : isSuccess ? (
+            // Redirect and no-response outcomes confirm no delivery.
+            <NeutralCheckMark />
           ) : (
             <LottieView
               autoPlay
