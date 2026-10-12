@@ -78,6 +78,10 @@ import {
   savePendingDeeplinkRequest,
   setPendingDeeplinkBroadcast,
 } from '../../../utils/deeplink/pendingDeeplinkStorage';
+import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericRequestDeliveryInfo,
+} from '../../../utils/deeplink/genericRequestDelivery';
 
 const CLAIM_PASSWORD_ERROR =
   'That password didn’t decrypt this key. Check it and try again.';
@@ -1593,6 +1597,9 @@ const SpendableKeyRequestInfoContent = props => {
       ? getSpendableKeyReviewSubtitle(reviewModel)
       : getStatusSubtitle({claimResult, requestError, status});
   const mainTitle = getScreenTitle({claimResult, requestError, status});
+  const hasResponseDestination =
+    getGenericRequestDeliveryInfo(request).type !==
+    GENERIC_REQUEST_DELIVERY_TYPES.NONE;
   const primaryAction = async () => {
     if (status === 'error') {
       if (!requestError?.retry) {
@@ -1615,7 +1622,11 @@ const SpendableKeyRequestInfoContent = props => {
       setFinishing(true);
 
       try {
-        if (typeof completeWithDelivery === 'function') {
+        if (!hasResponseDestination) {
+          // A gift card has no requester. Finish without a delivery sheet that
+          // reports a response nobody asked for.
+          await next(response, [detailIndex]);
+        } else if (typeof completeWithDelivery === 'function') {
           await completeWithDelivery(response, [detailIndex]);
         } else {
           await next(response, [detailIndex], {autoDeliverOnComplete: true});

@@ -1,9 +1,10 @@
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
 import axios from 'axios';
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
   Keyboard,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -283,6 +284,25 @@ const ProvisionIdentityBottomSheet = ({
     [parentName, trimmedInputValue],
   );
   const sheetMaxHeight = '70%';
+  const scrollRef = useRef(null);
+
+  // On compact screens the open keyboard leaves less room than the name step
+  // needs. Keep the sheet scrollable and bring the Continue button into view.
+  useEffect(() => {
+    if (!visible) return undefined;
+    let timer;
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => scrollRef.current?.scrollToEnd({animated: true}),
+        80,
+      );
+    });
+    return () => {
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [visible]);
   const disableActions = loading || initializing;
   const availabilityMatchesInput =
     assignedIdentity != null ||
@@ -790,50 +810,57 @@ const ProvisionIdentityBottomSheet = ({
       avoidKeyboard
       closeDisabled={preventExit}
       maxHeight={sheetMaxHeight}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.body}>
-          {step === SHEET_STEPS.NAME && (
-            <NameStep
-              displayedIdentity={displayedIdentity}
-              editable={!disableActions && assignedIdentity == null}
-              availabilityLabel={previewAvailabilityLabel}
-              availabilityState={previewAvailabilityState}
-              continueDisabled={continueDisabled}
-              disableBack={disableActions}
-              loading={loading}
-              onBack={onBack}
-              onChangeIdentity={text => {
-                if (assignedIdentity == null && !text.endsWith('@')) {
-                  updateSendFormData(
-                    SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
-                    text,
-                  );
-                }
-              }}
-              onContinue={handleContinue}
-              onTrim={trimProvisionIdentityInput}
-              previewName={previewName}
-              previewPlaceholder={previewPlaceholder}
-              styles={styles}
-              theme={theme}
-            />
-          )}
-          {step === SHEET_STEPS.REVIEW && (
-            <ReviewStep
-              coinObj={sendModal.coinObj}
-              disableActions={disableActions}
-              onBack={() => setStep(SHEET_STEPS.NAME)}
-              onRequest={handleSubmitRequest}
-              reviewData={reviewData}
-              styles={styles}
-              theme={theme}
-            />
-          )}
-          {step === SHEET_STEPS.RESULT && (
-            <ResultStep styles={styles} />
-          )}
-        </View>
-      </TouchableWithoutFeedback>
+      <ScrollView
+        ref={scrollRef}
+        bounces={false}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.body}>
+            {step === SHEET_STEPS.NAME && (
+              <NameStep
+                displayedIdentity={displayedIdentity}
+                editable={!disableActions && assignedIdentity == null}
+                availabilityLabel={previewAvailabilityLabel}
+                availabilityState={previewAvailabilityState}
+                continueDisabled={continueDisabled}
+                disableBack={disableActions}
+                loading={loading}
+                onBack={onBack}
+                onChangeIdentity={text => {
+                  if (assignedIdentity == null && !text.endsWith('@')) {
+                    updateSendFormData(
+                      SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
+                      text,
+                    );
+                  }
+                }}
+                onContinue={handleContinue}
+                onTrim={trimProvisionIdentityInput}
+                previewName={previewName}
+                previewPlaceholder={previewPlaceholder}
+                styles={styles}
+                theme={theme}
+              />
+            )}
+            {step === SHEET_STEPS.REVIEW && (
+              <ReviewStep
+                coinObj={sendModal.coinObj}
+                disableActions={disableActions}
+                onBack={() => setStep(SHEET_STEPS.NAME)}
+                onRequest={handleSubmitRequest}
+                reviewData={reviewData}
+                styles={styles}
+                theme={theme}
+              />
+            )}
+            {step === SHEET_STEPS.RESULT && (
+              <ResultStep styles={styles} />
+            )}
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
     </BottomSheetModal>
   );
 };
