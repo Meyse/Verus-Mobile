@@ -21,6 +21,7 @@ import DeepLinkRequestSourceCard from './DeepLinkRequestSourceCard';
 import DeepLinkRequestDetailsSheet from './DeepLinkRequestDetailsSheet';
 import DeepLinkRequestSheetScaffold from './DeepLinkRequestSheetScaffold';
 import DeepLinkReviewScrollView from './DeepLinkReviewScrollView';
+import RequestTitle from './RequestTitle';
 
 export const formatReviewValue = value => {
   if (typeof value === 'string') return value;
@@ -251,7 +252,7 @@ export default function DataRequestReview({
       />
       <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>{title}</Text>
+          <RequestTitle>{title}</RequestTitle>
           <Text style={styles.mainSubtitle}>{description}</Text>
         </View>
         <DeepLinkRequestSourceCard

@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import {Portal} from 'react-native-paper';
+import {useSelector} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Colors from '../globals/colors';
 import SemiModal from './SemiModal';
@@ -37,6 +38,9 @@ const BottomSheetModal = ({
   ...modalProps
 }) => {
   const insets = useSafeAreaInsets();
+  // The app alert is a Paper dialog under the root. A native modal covers it,
+  // so step the sheet aside while an alert is open. The sheet keeps its state.
+  const alertActive = useSelector(state => state.alert?.active != null);
   const {height: windowHeight} = useWindowDimensions();
   const theme = useOnboardingTheme();
   const animation = useRef(new Animated.Value(visible ? 1 : 0)).current;
@@ -225,7 +229,7 @@ const BottomSheetModal = ({
 
   return (
     <Portal>
-      {renderVisible && (
+      {renderVisible && !alertActive && (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -249,7 +253,7 @@ const BottomSheetModal = ({
         showHeader={false}
         showOverlay={false}
         transparent
-        visible={renderVisible}>
+        visible={renderVisible && !alertActive}>
         <OnboardingThemeProvider modeOverride={theme.mode}>
           {children}
         </OnboardingThemeProvider>

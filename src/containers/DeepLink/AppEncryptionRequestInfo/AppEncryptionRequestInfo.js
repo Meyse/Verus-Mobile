@@ -85,6 +85,7 @@ import {
   DeepLinkRequestSourceCard,
   DeepLinkReviewScrollView,
   DeepLinkVerusIdDetailsSheet,
+  RequestTitle,
 } from '../components/RequestReview';
 
 const ROOT_CHAIN_BY_NETWORK = {
@@ -915,7 +916,7 @@ const AppEncryptionRequestInfoContent = props => {
       />
       <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>Share encryption address</Text>
+          <RequestTitle>Share encryption address</RequestTitle>
           <Text style={styles.mainSubtitle}>
             This creates an app-specific encryption address from the selected VerusID.
           </Text>

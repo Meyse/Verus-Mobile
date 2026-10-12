@@ -3,6 +3,7 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
@@ -22,6 +23,7 @@ import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import WalletUnlockLoadingContent from '../../../components/WalletUnlockLoadingContent';
 import WalletAvatar from '../../../components/WalletAvatar';
 import {fontStyle} from '../../../globals/fonts';
+import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {getBiometricPassword} from '../../../utils/keychain/biometrics';
@@ -31,6 +33,11 @@ import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
 const BIOMETRY_UNAVAILABLE_MESSAGE =
   'Biometric unlock is unavailable. Enter your password to continue.';
 const PASSWORD_AUTO_FOCUS_DELAY_MS = 260;
+// The Android modal root starts below the status bar, but keyboard avoidance
+// measures from the window top. Without this offset the sheet ends below the
+// keyboard top by the status bar height.
+const KEYBOARD_ROOT_OFFSET =
+  Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
 const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
 const KEYBOARD_SHEET_TOP_SPACING = 12;
 const PASSWORD_FIELD_HEIGHT = 83;
@@ -76,6 +83,7 @@ const UnlockWalletSheet = ({
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
+  const {smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
   const signedOutSheetStyles = useMemo(
     () => createSignedOutSheetStyles(theme),
     [theme],
@@ -90,6 +98,7 @@ const UnlockWalletSheet = ({
   const [displayAccount, setDisplayAccount] = useState(account);
   const [keyboardTop, setKeyboardTop] = useState(null);
   const passwordInputRef = useRef(null);
+  const scrollRef = useRef(null);
 
   const focusPasswordInput = useCallback(() => {
     if (passwordInputRef.current != null) {
@@ -275,6 +284,20 @@ const UnlockWalletSheet = ({
     tryBiometricUnlock(false);
   }, [account, biometryAttempted, loading, tryBiometricUnlock, visible]);
 
+  // With the keyboard open the form can be taller than the sheet. Show the
+  // field and its spacing above the Unlock button.
+  useEffect(() => {
+    if (keyboardTop == null || loading) return undefined;
+
+    const timer = setTimeout(() => {
+      if (scrollRef.current != null) {
+        scrollRef.current.scrollToEnd({animated: false});
+      }
+    }, 80);
+
+    return () => clearTimeout(timer);
+  }, [keyboardTop, loading]);
+
   const walletAvatar = normalizeWalletAvatar(
     displayAccount ? displayAccount.walletAvatar : null,
   );
@@ -303,6 +326,7 @@ const UnlockWalletSheet = ({
       onClose={loading ? () => {} : onClose}
       onClosed={onClosed}
       avoidKeyboard
+      keyboardVerticalOffset={KEYBOARD_ROOT_OFFSET}
       maxHeight={keyboardVisible ? keyboardSheetHeight : '64%'}
       contentContainerStyle={
         keyboardVisible && {marginBottom: KEYBOARD_SHEET_BOTTOM_SPACING}
@@ -310,6 +334,7 @@ const UnlockWalletSheet = ({
       <View style={styles.sheetLayout}>
         <View style={styles.scrollFrame}>
           <ScrollView
+            ref={scrollRef}
             bounces={false}
             contentContainerStyle={[
               signedOutSheetStyles.body,
@@ -319,14 +344,22 @@ const UnlockWalletSheet = ({
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled">
             {(title || requestLabel) && (
-              <View style={styles.contextHeader}>
+              <View
+                style={[
+                  styles.contextHeader,
+                  smallDeviceKeyboardVisible && styles.contextHeaderTight,
+                ]}>
                 {title && <Text style={styles.contextTitle}>{title}</Text>}
                 {requestLabel && (
                   <Text style={styles.contextLabel}>{requestLabel}</Text>
                 )}
               </View>
             )}
-            <View style={styles.header}>
+            <View
+              style={[
+                styles.header,
+                smallDeviceKeyboardVisible && styles.headerTight,
+              ]}>
               <View style={styles.walletIdentity}>
                 <View style={styles.walletIcon}>
                   {walletAvatar ? (
@@ -440,6 +473,9 @@ const createStyles = theme =>
   contextHeader: {
     marginBottom: 20,
   },
+  contextHeaderTight: {
+    marginBottom: 12,
+  },
   contextTitle: {
     color: theme.colors.textPrimary,
     fontSize: 20,
@@ -458,6 +494,9 @@ const createStyles = theme =>
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  headerTight: {
+    marginBottom: 12,
   },
   walletIdentity: {
     minWidth: 0,

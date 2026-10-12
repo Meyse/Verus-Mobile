@@ -12,6 +12,10 @@ current source of truth for touched signed-in flows.
 - `titleSheet`: prominent sheet titles.
 - `AppButton`: shared action-label weight and tracking.
 
+GenericRequest screen titles use `RequestTitle`. It applies `headlineLg` and switches to
+`headlineCompact` on small devices (window height 667 or less). Do not set a local
+title size on those screens.
+
 Apply the typography token before local layout and semantic-color overrides:
 
 ```js

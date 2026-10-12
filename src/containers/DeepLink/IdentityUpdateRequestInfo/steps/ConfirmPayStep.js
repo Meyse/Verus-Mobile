@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
+import {RequestTitle} from '../../components/RequestReview';
 import { useSelector } from 'react-redux';
 import { formatCurrency } from 'react-native-format-currency';
 import { Check } from 'lucide-react-native';
@@ -592,7 +593,7 @@ const ConfirmPayStep = ({
         showsVerticalScrollIndicator={false}
       >
         <View style={parentStyles.header}>
-          <Text style={parentStyles.mainTitle}>Confirm update</Text>
+          <RequestTitle>Confirm update</RequestTitle>
           <Text style={parentStyles.subtitle}>Select a payment source and confirm the identity update</Text>
         </View>
 

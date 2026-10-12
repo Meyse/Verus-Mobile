@@ -6,6 +6,7 @@ import React, {useMemo, useState} from 'react';
 import {ScrollView, TouchableOpacity, View} from 'react-native';
 import {Eye} from 'lucide-react-native';
 import {Text} from 'react-native-paper';
+import {RequestTitle} from '../../components/RequestReview';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {
@@ -710,7 +711,7 @@ const HighRiskStep = ({
         contentContainerStyle={parentStyles.scrollContent}
         showsVerticalScrollIndicator={false}>
         <View style={parentStyles.header}>
-          <Text style={parentStyles.mainTitle}>{screenCopy.title}</Text>
+          <RequestTitle>{screenCopy.title}</RequestTitle>
           <Text style={parentStyles.subtitle}>{screenCopy.subtitle}</Text>
         </View>
 
