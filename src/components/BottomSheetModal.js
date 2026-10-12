@@ -5,8 +5,10 @@ import {
   Easing,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
   StyleSheet,
   TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {Portal} from 'react-native-paper';
@@ -35,6 +37,7 @@ const BottomSheetModal = ({
   ...modalProps
 }) => {
   const insets = useSafeAreaInsets();
+  const {height: windowHeight} = useWindowDimensions();
   const theme = useOnboardingTheme();
   const animation = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const renderVisibleRef = useRef(visible);
@@ -42,6 +45,20 @@ const BottomSheetModal = ({
   const reduceMotionRef = useRef(false);
   const [renderVisible, setRenderVisible] = useState(visible);
   const bottomSpacing = floating ? Math.max(insets.bottom, 12) : 0;
+  // A percentage max height resolves against the modal root. On a short
+  // Android window the root grows with a tall sheet, so the sheet's bottom,
+  // and its action button, fall below the screen. Resolve the percentage
+  // against the visible window instead.
+  const resolvedMaxHeight =
+    Platform.OS === 'android' &&
+    typeof maxHeight === 'string' &&
+    maxHeight.endsWith('%')
+      ? Math.floor(
+          ((windowHeight - (StatusBar.currentHeight || 0)) *
+            parseFloat(maxHeight)) /
+            100,
+        )
+      : maxHeight;
   const safeAreaPadding = floating ? 0 : insets.bottom;
 
   const setInternalVisible = useCallback(nextVisible => {
@@ -136,7 +153,7 @@ const BottomSheetModal = ({
     {
       marginBottom: bottomSpacing,
       paddingBottom: safeAreaPadding,
-      maxHeight,
+      maxHeight: resolvedMaxHeight,
       backgroundColor: theme.colors.sheet,
       borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
       borderColor: theme.colors.border,

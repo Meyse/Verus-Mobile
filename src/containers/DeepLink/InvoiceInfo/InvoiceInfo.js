@@ -1,7 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {ScrollView, View} from 'react-native';
+import {View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {DeepLinkReviewScrollView} from '../components/RequestReview';
 import {useSelector} from 'react-redux';
 import {primitives} from 'verusid-ts-client';
 import BigNumber from 'bignumber.js';
@@ -164,7 +165,10 @@ const InvoiceInfo = props => {
     onReviewPayment,
   } = {}) => (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <DeepLinkReviewScrollView
+        showScrollCue
+        style={styles.scroll}
+        contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           {isBurn ? 'Review burn request' : 'Pay invoice'}
         </Text>
@@ -216,7 +220,7 @@ const InvoiceInfo = props => {
           label="Invoice details"
           onPress={() => setSheet('details')}
         />
-      </ScrollView>
+      </DeepLinkReviewScrollView>
       <SafeBottomActionStack horizontalSpacing={24} style={styles.footer}>
         {selectedSource && (
           <>

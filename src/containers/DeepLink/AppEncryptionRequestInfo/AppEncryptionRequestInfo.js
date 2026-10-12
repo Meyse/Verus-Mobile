@@ -913,7 +913,7 @@ const AppEncryptionRequestInfoContent = props => {
         loadVerusId={loadSignerVerusId}
         loadFriendlyNames={loadSignerFriendlyNames}
       />
-      <DeepLinkReviewScrollView>
+      <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
           <Text style={styles.mainTitle}>Share encryption address</Text>
           <Text style={styles.mainSubtitle}>

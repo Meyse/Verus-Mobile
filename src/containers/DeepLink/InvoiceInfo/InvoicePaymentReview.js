@@ -1,7 +1,8 @@
 import React, {useState} from 'react';
-import {ScrollView, View} from 'react-native';
+import {View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {DeepLinkReviewScrollView} from '../components/RequestReview';
 import BigNumber from 'bignumber.js';
 import AppButton from '../../../components/AppButton';
 import ProgressHeader from '../../../components/ProgressHeader';
@@ -52,7 +53,10 @@ const InvoicePaymentReview = ({
         showBack={!submitting}
         onBack={onBack}
       />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <DeepLinkReviewScrollView
+        showScrollCue
+        style={styles.scroll}
+        contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           {burn ? 'Review burn' : 'Review payment'}
         </Text>
@@ -129,7 +133,7 @@ const InvoicePaymentReview = ({
           label="Payment details"
           onPress={() => setShowDetails(true)}
         />
-      </ScrollView>
+      </DeepLinkReviewScrollView>
       <SafeBottomActionStack horizontalSpacing={24} style={styles.footer}>
         <Text style={styles.footnote}>{broadcastStatusUnknown
           ? 'The payment may have been sent. Check your transaction history before starting another payment.'

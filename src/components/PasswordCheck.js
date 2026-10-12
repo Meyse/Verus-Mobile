@@ -1,5 +1,17 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {ActivityIndicator, ScrollView, StyleSheet, View} from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  ActivityIndicator,
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {checkPinForUser} from '../utils/asyncStore/asyncStore';
@@ -51,6 +63,25 @@ const PasswordCheck = props => {
     !preferBiometry,
   );
   const walletAvatar = normalizeWalletAvatar(account?.walletAvatar);
+  const scrollRef = useRef(null);
+
+  // On compact screens the open keyboard leaves no room for the whole sheet.
+  // Bring the field and the actions into view so Continue stays reachable.
+  useEffect(() => {
+    if (!redesigned || !visible) return undefined;
+    let timer;
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => scrollRef.current?.scrollToEnd({animated: true}),
+        80,
+      );
+    });
+    return () => {
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [redesigned, visible]);
 
   useEffect(() => {
     let active = true;
@@ -230,6 +261,7 @@ const PasswordCheck = props => {
         onClose={cancel}
         visible={visible}>
         <ScrollView
+          ref={scrollRef}
           bounces={false}
           contentContainerStyle={styles.content}
           keyboardDismissMode="interactive"
@@ -280,7 +312,13 @@ const PasswordCheck = props => {
                   importantForAutofill="no"
                   label="Wallet password"
                   onChangeText={updatePassword}
+                  onSubmitEditing={() => {
+                    if (!freeze && password.length > 0) {
+                      submitPassword(password);
+                    }
+                  }}
                   placeholder="Enter password"
+                  returnKeyType="go"
                   secureTextEntry
                   testID="settings.passwordCheck.password"
                   textContentType="none"

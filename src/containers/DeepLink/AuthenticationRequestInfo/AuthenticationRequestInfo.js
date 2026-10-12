@@ -1994,7 +1994,7 @@ const AuthenticationRequestInfoContent = props => {
         loadFriendlyNames={loadSignerFriendlyNames}
       />
       <AutoLinkingSheet visible={autoLinkingVisible} styles={styles} />
-      <DeepLinkReviewScrollView>
+      <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
           <Text style={styles.mainTitle}>{mainTitle}</Text>
         </View>
