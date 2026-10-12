@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import {Modal, Platform, StyleSheet, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {Text, Portal, Button} from 'react-native-paper';
 import Colors from '../../globals/colors';
 import {
@@ -158,6 +158,10 @@ export const SendModalRender = function () {
 
   if (isIdentitySafetyModal || isInvoiceModal) {
     const PortalHost = isInvoiceModal ? Portal.Host : React.Fragment;
+    // A native modal is its own window. Android starts it below the status
+    // bar, so the review must measure insets from inside the modal, not from
+    // the app window. Otherwise it adds the status bar height a second time.
+    const InsetsProvider = isInvoiceModal ? SafeAreaProvider : React.Fragment;
     const ThemeProvider = isInvoiceModal
       ? React.Fragment
       : OnboardingThemeProvider;
@@ -173,19 +177,21 @@ export const SendModalRender = function () {
         visible={visible}>
         <ThemeProvider>
           <PortalHost>
-            <NavigationContainer
-              key={this.props.sendModal.requestId || 'identity-safety-modal'}>
-              {/* Native screens inside a native modal add a second iOS touch
-                  handler, so every touch reaches JS twice and presses never
-                  fire. Android modal windows cannot host screen fragments. */}
-              <Root.Navigator
-                detachInactiveScreens={false}
-                screenOptions={{headerShown: false}}>
-                <Root.Screen name="IdentitySafetyModal">
-                  {SendModalInnerAreaRender.call(this)}
-                </Root.Screen>
-              </Root.Navigator>
-            </NavigationContainer>
+            <InsetsProvider>
+              <NavigationContainer
+                key={this.props.sendModal.requestId || 'identity-safety-modal'}>
+                {/* Native screens inside a native modal add a second iOS touch
+                    handler, so every touch reaches JS twice and presses never
+                    fire. Android modal windows cannot host screen fragments. */}
+                <Root.Navigator
+                  detachInactiveScreens={false}
+                  screenOptions={{headerShown: false}}>
+                  <Root.Screen name="IdentitySafetyModal">
+                    {SendModalInnerAreaRender.call(this)}
+                  </Root.Screen>
+                </Root.Navigator>
+              </NavigationContainer>
+            </InsetsProvider>
           </PortalHost>
         </ThemeProvider>
       </Modal>

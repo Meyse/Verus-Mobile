@@ -18,11 +18,6 @@ const createSpendableKeyRequestInfoStyles = theme =>
     header: {
       marginBottom: theme.spacing.sm,
     },
-    mainTitle: {
-      color: theme.colors.textPrimary,
-      letterSpacing: 0,
-      ...theme.typography.headlineLg,
-    },
     subtitle: {
       color: theme.colors.textSecondary,
       fontSize: 14,
@@ -83,9 +78,7 @@ const createSpendableKeyRequestInfoStyles = theme =>
       alignSelf: 'center',
     },
     passwordTitle: {
-      color: theme.colors.textPrimary,
       marginBottom: 18,
-      ...theme.typography.headlineLg,
     },
     passwordDescription: {
       color: theme.colors.textSecondary,

@@ -10,11 +10,6 @@ const createAppEncryptionRequestInfoStyles = theme =>
     header: {
       marginBottom: 28,
     },
-    mainTitle: {
-      color: theme.colors.textPrimary,
-      letterSpacing: 0,
-      ...theme.typography.headlineLg,
-    },
     mainSubtitle: {
       color: theme.colors.textSecondary,
       fontSize: 14,

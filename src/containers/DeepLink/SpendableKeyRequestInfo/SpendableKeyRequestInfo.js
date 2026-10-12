@@ -72,7 +72,10 @@ import {
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
-import {DeepLinkReviewScrollView} from '../components/RequestReview';
+import {
+  DeepLinkReviewScrollView,
+  RequestTitle,
+} from '../components/RequestReview';
 import {
   getPendingDeeplinkRequest,
   savePendingDeeplinkRequest,
@@ -1502,7 +1505,9 @@ const SpendableKeyRequestInfoContent = props => {
                   color={theme.colors.textPrimary}
                   style={styles.passwordHeroIcon}
                 />
-                <Text style={styles.passwordTitle}>Decrypt spendable key</Text>
+                <RequestTitle style={styles.passwordTitle}>
+                  Decrypt spendable key
+                </RequestTitle>
                 <Text style={styles.passwordDescription}>
                   This key is encrypted. Enter or scan its claim password to
                   review the funds and VerusIDs it can claim.
@@ -1694,7 +1699,7 @@ const SpendableKeyRequestInfoContent = props => {
       style={styles.container}>
       <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>{mainTitle}</Text>
+          <RequestTitle>{mainTitle}</RequestTitle>
           <Text style={styles.subtitle}>{statusSubtitle}</Text>
         </View>
 

@@ -11,6 +11,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {ScrollView, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import {RequestTitle} from '../../components/RequestReview';
 import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
@@ -395,11 +396,11 @@ const ContentStep = ({
   return (
     <View style={contentStyles.contentReviewRoot}>
       <View style={[styles.header, contentStyles.contentReviewHeader]}>
-        <Text style={styles.mainTitle}>
+        <RequestTitle>
           {totalContentCount === 1
             ? 'Review content change'
             : 'Review content changes'}
-        </Text>
+        </RequestTitle>
         {singleChangeSummaryLabel ? (
           <SummaryChip
             darkMode={darkMode}

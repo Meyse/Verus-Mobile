@@ -5,3 +5,4 @@ export {default as DeepLinkRequestSheetScaffold} from './DeepLinkRequestSheetSca
 export {default as DeepLinkRequestSourceCard} from './DeepLinkRequestSourceCard';
 export {default as DeepLinkReviewScrollView} from './DeepLinkReviewScrollView';
 export {default as DeepLinkVerusIdDetailsSheet} from './DeepLinkVerusIdDetailsSheet';
+export {default as RequestTitle} from './RequestTitle';

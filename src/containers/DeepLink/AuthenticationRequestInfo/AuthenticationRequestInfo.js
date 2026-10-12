@@ -107,6 +107,7 @@ import {
   DeepLinkRequestSourceCard,
   DeepLinkReviewScrollView,
   DeepLinkVerusIdDetailsSheet,
+  RequestTitle,
 } from '../components/RequestReview';
 import {markPendingDeeplinkComplete} from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
@@ -1996,7 +1997,7 @@ const AuthenticationRequestInfoContent = props => {
       <AutoLinkingSheet visible={autoLinkingVisible} styles={styles} />
       <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>{mainTitle}</Text>
+          <RequestTitle>{mainTitle}</RequestTitle>
         </View>
 
         {(signerFqn || sigDateString || systemLabel) && (

@@ -5,11 +5,11 @@
 import React, {useState} from 'react';
 import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
 import {View} from 'react-native';
-import {Text} from 'react-native-paper';
 import {
   DeepLinkRequestSourceCard,
   DeepLinkReviewScrollView,
   DeepLinkVerusIdDetailsSheet,
+  RequestTitle,
 } from '../../components/RequestReview';
 
 const ReviewStep = ({
@@ -34,7 +34,7 @@ const ReviewStep = ({
       />
       <DeepLinkReviewScrollView>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>Review VerusID changes</Text>
+          <RequestTitle>Review VerusID changes</RequestTitle>
         </View>
 
         <DeepLinkRequestSourceCard

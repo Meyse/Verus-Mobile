@@ -1,7 +1,8 @@
-import React from 'react';
-import {Alert, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useState} from 'react';
+import {ScrollView, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AcknowledgeSheet from '../../../../../components/AcknowledgeSheet';
 import AppButton from '../../../../../components/AppButton';
 import OnboardingBackButton from '../../../../../components/OnboardingBackButton';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
@@ -9,19 +10,7 @@ import {useAppTheme} from '../../../../../theme/app';
 
 const GiftCardServiceIntroSlider = ({onBack, onDone}) => {
   const theme = useAppTheme();
-
-  const finishIntro = () => {
-    Alert.alert(
-      'Treat Gift Cards as Secrets',
-      'Gift cards are spendable secrets. Anyone with access to one can redeem its funds now, and can also redeem funds added to it later.',
-      [
-        {
-          text: 'I Understand',
-          onPress: onDone,
-        },
-      ],
-    );
-  };
+  const [warningVisible, setWarningVisible] = useState(false);
 
   return (
     <SafeAreaView
@@ -100,10 +89,17 @@ const GiftCardServiceIntroSlider = ({onBack, onDone}) => {
         <AppButton
           accessibilityLabel="Open gift cards"
           mode="contained"
-          onPress={finishIntro}>
+          onPress={() => setWarningVisible(true)}>
           Open gift cards
         </AppButton>
       </SafeBottomActionStack>
+      <AcknowledgeSheet
+        message="Anyone with access to a gift card can redeem its funds now, and any funds added later."
+        onAcknowledged={onDone}
+        onClose={() => setWarningVisible(false)}
+        title="Treat gift cards as secrets"
+        visible={warningVisible}
+      />
     </SafeAreaView>
   );
 };

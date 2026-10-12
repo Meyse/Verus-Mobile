@@ -77,7 +77,10 @@ import {
   SettingsSection,
   SettingsSwitchRow,
 } from '../../Settings/components/SettingsScaffold';
-import {DeepLinkReviewScrollView} from '../components/RequestReview';
+import {
+  DeepLinkReviewScrollView,
+  RequestTitle,
+} from '../components/RequestReview';
 
 // Same settings as onboarding: on iOS, 'oneTimeCode' stops the strong-password
 // suggestion, which can leave a value in the field state that the user never
@@ -612,9 +615,7 @@ const WalletBackupRequestInfo = props => {
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.mainTitle}>
-              {title}
-            </Text>
+            <RequestTitle>{title}</RequestTitle>
             {subtitle ? (
               <Text style={styles.mainSubtitle}>{subtitle}</Text>
             ) : null}

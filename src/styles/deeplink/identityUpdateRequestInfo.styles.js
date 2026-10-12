@@ -42,11 +42,6 @@ const createIdentityUpdateRequestInfoStyles = theme =>
     header: {
       marginBottom: 28,
     },
-    mainTitle: {
-      color: theme.colors.textPrimary,
-      letterSpacing: 0,
-      ...theme.typography.headlineLg,
-    },
     subtitle: {
       color: theme.colors.textSecondary,
       fontSize: 14,
