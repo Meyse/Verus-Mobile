@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
+  BackHandler,
   Image,
   Platform,
   StyleSheet,
@@ -231,6 +232,23 @@ const GiftCardServiceOverview = ({
     useCallback(() => {
       qrNavigationPendingRef.current = false;
     }, []),
+  );
+  const detailShown = selectedCard != null;
+  // The detail is local state, so Android Back must close it like the arrow.
+  useFocusEffect(
+    useCallback(() => {
+      if (!detailShown) return undefined;
+
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          setSelectedCardId(null);
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [detailShown]),
   );
   const navigateToQr = useCallback(cardToShare => {
     if (!cardToShare?.id || qrNavigationPendingRef.current) return;
@@ -1273,10 +1291,11 @@ const GiftCardServiceOverview = ({
               </Text>
               {pendingTxids.map(txid => (
                 <View key={txid} style={styles.transactionRow}>
+                  {/* Not selectable: Android does not ellipsize selectable
+                      text. CopyAction copies the full ID. */}
                   <Text
                     ellipsizeMode="middle"
                     numberOfLines={1}
-                    selectable
                     style={[
                       styles.monospaceValue,
                       styles.transactionValue,
