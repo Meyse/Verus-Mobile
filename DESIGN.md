@@ -66,6 +66,9 @@ methods, never Verus Mobile's visual direction.
   through `src/components/SafeBottomActionStack.js`.
 - Use monospace only for raw technical identifiers such as addresses, hashes,
   transaction IDs, and public keys.
+- Show a status as the tinted status badge: a pill with a semantic background
+  and colored text, as `GiftCardStatusBadge` draws it. Do not put a colored dot
+  beside status text.
 
 ## Canonical pattern map
 
@@ -77,11 +80,15 @@ methods, never Verus Mobile's visual direction.
 | Selection BottomSheet | `src/containers/DeepLink/components/VerusIdIdentityPickerSheet/IdentityPickerSheet.js` as opened by `src/containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo.js` | Reuse the component or match its choose, selected, provisioning, and link modes exactly. |
 | Informational BottomSheet | `src/containers/DeepLink/components/RequestReview/DeepLinkRequestDetailsSheet.js` and `src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js` | Reuse the scaffold, section rows, scroll cue, and Done action. |
 | BottomSheet shell | `src/components/BottomSheetModal.js`, `src/styles/components/signedOutSheet.styles.js` | Do not construct a new modal shell. |
-| Acknowledgement BottomSheet | `src/components/AcknowledgeSheet.js`, matching the seed warning sheet in `src/containers/CreateWallet/Forms/CreateSeed/Forms/SeedIntro.js` | Use it for a one-button warning that the user must confirm. Do not use a native `Alert` for it. |
+| Acknowledgement BottomSheet | `src/components/AcknowledgeSheet.js`, matching the seed warning sheet in `src/containers/CreateWallet/Forms/CreateSeed/Forms/SeedIntro.js` | Use it for a warning that the user must confirm. Pass `dismissLabel` when the user may back out. Do not use a native `Alert` for it. |
 | GenericRequest screen title | `src/containers/DeepLink/components/RequestReview/RequestTitle.js` | Use it for review, result, and password titles. It applies `headlineLg`, and `headlineCompact` on small devices (window height 667 or less). |
 | GenericRequest review | `src/containers/DeepLink/components/RequestReview`, `src/containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo.js`, `src/containers/DeepLink/AppEncryptionRequestInfo/AppEncryptionRequestInfo.js` | Reuse the request-review primitives and hierarchy. |
 | Multi-step identity update | `src/containers/DeepLink/IdentityUpdateRequestInfo/IdentityUpdateRequestInfo.js`, `src/styles/deeplink/identityUpdateRequestInfo.styles.js` | Preserve the dedicated review, content, high-risk, and confirm/pay sequence. |
+| Services home | `src/containers/Services/SignedInServicesHome.js` and [Services home](#services-home) below | Use the two-column tile grid. Do not add artwork or descriptions to used services. |
 | Service list or manager | `src/components/ServiceManagerHeader.js`, `src/containers/Services/AddressBook/AddressBook.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the shared header and established list rhythm. |
+| Gift card detail | [Gift card detail](#gift-card-detail) below, with the card material from `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFlipCard.js` | Use the fixed card. Say each fact once. |
+| Status label | `GiftCardStatusBadge` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the tinted badge. When SV-1 moves it to a shared component, update this row. |
+| Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
 | Settings | `src/containers/Settings/components/SettingsScaffold.js` | Compose with `SettingsScreen`, `SettingsTitle`, `SettingsSection`, and `SettingsRow`. |
 | Ambiguous vertical overflow | `SettingsScreen` in `src/containers/Settings/components/SettingsScaffold.js`; `DeepLinkRequestSheetScaffold` for request sheets | Show the existing bottom fade and centered chevron only while more content remains below. |
@@ -145,6 +152,17 @@ Both information and selection sheets use `src/components/SheetScrollView.js`
 for measured overflow cues. Below a 128-point scroll viewport, use the native
 scroll indicator instead of a fade that would obscure the visible content.
 
+### Confirmation
+
+Use `AcknowledgeSheet` before an action that cannot be undone, such as sharing
+a gift card key. It shows a 21/27 title, one short message in the 16/24 body
+role, and one 56-point primary `AppButton`. When the user may back out, pass
+`dismissLabel` (for example "Not now"). The sheet then shows an `AppButton`
+with `variant="text"` under the primary action. Do not rely on an outside tap
+as the only visible way out: users do not reliably know they can tap outside a
+sheet. A warning that the user must accept, such as the seed warning, keeps the
+single button.
+
 ### Shared behavior
 
 - Do not wrap `BottomSheetModal` in another Paper `Portal`.
@@ -201,6 +219,66 @@ Settings work must compose `SettingsScaffold` rather than recreate its page,
 section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
 rows and dividers. Omit row icons unless they are necessary or already part of
 the selected canonical setting pattern.
+
+## Services home
+
+The user approved this pattern on 2026-10-15 (SV-1 in `UI_REDESIGN_PLAN.md`).
+The Services tab root shows each service as a tile in a two-column grid. This is
+an approved exception to "Keep pages flat". It applies to the Services root
+only and does not permit cards on other pages.
+
+- Title: `headlineMd` "Services" with the existing header spacing (20-point
+  inset, 12-point top, 16-point bottom).
+- Grid: 20-point screen inset, two equal columns, and a 12-point gap in both
+  directions.
+- Tile: `surfaceMuted` fill, 18-point radius, 16-point padding, and a minimum
+  height of 140 points. No border and no shadow.
+- Icon: one 24-point line icon at the top left, in `primary` (light) and
+  `textPrimary` (dark). It identifies the service.
+- Text at the bottom of the tile: the name in `titleRow`, then one line in the
+  13/18 caption size and `textSecondary`.
+- That line shows a count for a service in use ("3 cards", "4 saved"). For a
+  service not in use, it says what the service does in two or three words
+  ("Save addresses").
+- Do not show artwork, long descriptions, status counts, pending counts,
+  badges, or dots on a tile.
+- A new service adds one tile: an icon, a name, a count rule, and a purpose
+  line. It needs no new artwork.
+
+## Gift card detail
+
+The user approved this pattern on 2026-10-15 (SV-1 in `UI_REDESIGN_PLAN.md`).
+The detail screen shows one fixed card and says each fact once.
+
+- Header: back on the left, then refresh and the ⋯ options button on the right.
+  There is no screen title, because the card shows the name.
+- Card: the existing material and notched shape from `GiftCardFlipCard.js`, at
+  the full content width. The card does not flip. It has no swipe hint, no
+  "VERUS GIFT CARD" label, and no issued date.
+- On the card: the card name (17-point semibold) and the status badge on the
+  top row. The first content item is large at the bottom ("25 VRSC"), and the
+  other items follow on one line ("+ sam@"). An empty card shows "No contents
+  yet". A claimed card shows "Empty". A pending amount is dimmed.
+- Status: one badge on the card. Ready uses the success pair, Pending uses the
+  warning pair, and Not funded, Shared, and Claimed use the neutral pair. The
+  card material is dark, so the badge uses the dark-mode semantic pairs in both
+  appearances.
+- Sharing: when sharing is possible, Share, QR code, and NFC sit under the card
+  as three equal 76-point tiles (`surfaceMuted`, 18-point radius). These tiles
+  are part of this approved pattern only. The first share of an unshared card
+  opens the confirmation sheet with "Not now". A shared card shares again
+  without the sheet.
+- Facts: label/value rows with hairline dividers under the card, only for facts
+  the card does not show: Shared, Claimed by, Claimed, Claim protection, and
+  Created. Copyable values use `CopyAction`.
+- Pending: one "Funding transaction" row with the transaction ID in monospace
+  and `CopyAction`, and one line: "Sharing unlocks after it confirms."
+- Actions: a bottom primary action appears only when the card is not funded
+  ("Add contents", with "Fund from another wallet" as a text button). Less
+  frequent actions stay in ⋯, drawn with the sheet action rows.
+- Warnings appear in the share confirmation, not as permanent notice boxes.
+- Wording: use "Claimed", not "Redeemed" or "Claim completed". Use "Shared" as
+  the status after the link leaves the wallet.
 
 ## Scroll affordances
 

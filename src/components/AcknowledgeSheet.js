@@ -6,15 +6,18 @@ import {useOnboardingTheme} from '../theme/onboarding';
 import AppButton from './AppButton';
 import BottomSheetModal from './BottomSheetModal';
 
-// One-button warning sheet. It matches the "Protect your Secret Recovery
-// Phrase" sheet in CreateSeed/SeedIntro. `onClose` runs on outside tap, system
-// back, and after "I understand". `onAcknowledged` runs once the closing
-// animation ends, and only after "I understand".
+// Warning sheet. It matches the "Protect your Secret Recovery Phrase" sheet in
+// CreateSeed/SeedIntro. `onClose` runs on outside tap, system back, the
+// confirm button, and the optional dismiss button. `onAcknowledged` runs once
+// the closing animation ends, and only after the confirm button. Pass
+// `dismissLabel` (for example "Not now") to show a text button under the
+// confirm button, so the user can see how to back out.
 const AcknowledgeSheet = ({
   visible,
   title,
   message,
   confirmLabel = 'I understand',
+  dismissLabel,
   onClose,
   onAcknowledged,
   testID,
@@ -57,6 +60,16 @@ const AcknowledgeSheet = ({
           variant="primary">
           {confirmLabel}
         </AppButton>
+        {dismissLabel ? (
+          <AppButton
+            height={56}
+            onPress={onClose}
+            style={styles.dismissButton}
+            testID={testID ? `${testID}.dismiss` : undefined}
+            variant="text">
+            {dismissLabel}
+          </AppButton>
+        ) : null}
       </View>
     </BottomSheetModal>
   );
@@ -80,6 +93,9 @@ const createStyles = theme =>
     },
     button: {
       marginTop: 22,
+    },
+    dismissButton: {
+      marginTop: 4,
     },
   });
 
