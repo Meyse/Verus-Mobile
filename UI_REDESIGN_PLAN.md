@@ -1163,11 +1163,11 @@ Android follow-ups from the 2026-10-15 Android run (see its log row):
   (`selectedCardId`) on the list screen, with no `BackHandler`. Back from the
   detail must return to the list, as the on-screen back arrow does. Older than
   SV-1.
-- [ ] **SV-1.17** Decision needed: on Android, React Native `Share.share` never
-  reports a dismissal, so opening the system share sheet marks the card Shared
-  even when nothing was sent, and the next share skips the confirmation. Decide
-  whether this stays (the link may have left through Copy) or changes. Older
-  than SV-1; SV-1 made the Shared status visible.
+- [x] **SV-1.17** On Android, React Native `Share.share` never reports a
+  dismissal, so opening the system share sheet marks the card Shared even when
+  nothing was sent, and the next share skips the confirmation. Decision (user,
+  2026-10-15): keep this behavior, because the link may have left through Copy.
+  No code change. Recorded in DESIGN.md "Gift card detail" (Sharing).
 
 **Acceptance:** Each fact appears once on the gift card screen. Sharing is
 visible without a gesture and asks once before the key leaves the wallet. The
