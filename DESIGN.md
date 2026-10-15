@@ -270,6 +270,10 @@ The detail screen shows one fixed card and says each fact once.
   opens the confirmation sheet with "Not now". A shared card shares again
   without the sheet. A card that is not funded shows no tiles; "Share before
   funding" in ⋯ opens the same sheet.
+- Shared on Android: Android does not report when the system share sheet is
+  closed without a send. Opening the sheet therefore marks the card Shared,
+  because the link may have left through Copy. Keep this (user decision,
+  2026-10-15). On iOS a dismissed sheet leaves the card unshared.
 - Facts: label/value rows with hairline dividers under the card, only for facts
   the card does not show: Shared, Claimed by, Claimed, Claim protection, and
   Created. Copyable values use `CopyAction`.
