@@ -74,6 +74,7 @@ import {
 } from '../../../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {setUserCoins} from '../../../../../actions/actionCreators';
 import {useObjectSelector} from '../../../../../hooks/useObjectSelector';
+import {sanitizeNumericInput} from '../../../../Transfer/receiveInvoice';
 
 const STEP_DETAILS = 'details';
 const STEP_CONTENTS = 'contents';
@@ -1892,7 +1893,7 @@ const GiftCardFund = props => {
                     onChangeText={value =>
                       setFundAmounts(current => ({
                         ...current,
-                        [key]: value,
+                        [key]: sanitizeNumericInput(value),
                       }))
                     }
                     placeholder="0"
