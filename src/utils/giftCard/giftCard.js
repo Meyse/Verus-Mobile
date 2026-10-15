@@ -74,7 +74,7 @@ export const GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS = 10 * 60 * 1000;
 export const GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE =
   'Gift card sharing is in progress. Wait for it to finish before funding.';
 export const GIFT_CARD_REDEEMED_SHARE_MESSAGE =
-  'Redeemed gift cards cannot be shared.';
+  'Claimed gift cards cannot be shared.';
 
 const DEFAULT_LABEL = 'Gift Card';
 const IDENTITY_DEFINITION_FIELDS = [

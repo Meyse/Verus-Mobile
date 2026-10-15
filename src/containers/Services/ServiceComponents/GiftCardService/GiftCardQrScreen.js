@@ -25,10 +25,16 @@ import {requestServiceStoredData} from '../../../../utils/auth/authBox';
 import {GIFT_CARD_SERVICE_ID} from '../../../../utils/constants/services';
 import {
   hasGiftCardBeenShared,
+  hasGiftCardShareReservation,
   normalizeGiftCardServiceData,
 } from '../../../../utils/giftCard/giftCard';
 
 const VERUS_LOGO = require('../../../../images/customIcons/Verus.png');
+// The first share opens this screen before the share is saved. While the
+// share is reserved, wait briefly for the saved share instead of failing.
+const SHARE_RECORD_RETRY_MS = 250;
+const SHARE_RECORD_MAX_RETRIES = 20;
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const GiftCardQrScreen = ({navigation, route}) => {
   const theme = useAppTheme();
@@ -52,12 +58,27 @@ const GiftCardQrScreen = ({navigation, route}) => {
     setLoading(true);
 
     try {
-      const serviceData = normalizeGiftCardServiceData(
-        await requestServiceStoredData(GIFT_CARD_SERVICE_ID),
-      );
-      const storedCard = cardId ? serviceData.cards?.[cardId] : null;
+      let storedCard = null;
 
-      if (loadGenerationRef.current !== loadGeneration) return;
+      for (let attempt = 0; ; attempt += 1) {
+        const serviceData = normalizeGiftCardServiceData(
+          await requestServiceStoredData(GIFT_CARD_SERVICE_ID),
+        );
+        storedCard = cardId ? serviceData.cards?.[cardId] : null;
+
+        if (loadGenerationRef.current !== loadGeneration) return;
+
+        if (
+          attempt >= SHARE_RECORD_MAX_RETRIES ||
+          hasGiftCardBeenShared(storedCard) ||
+          !hasGiftCardShareReservation(storedCard)
+        ) {
+          break;
+        }
+
+        await wait(SHARE_RECORD_RETRY_MS);
+        if (loadGenerationRef.current !== loadGeneration) return;
+      }
 
       if (
         !storedCard?.requestUri ||

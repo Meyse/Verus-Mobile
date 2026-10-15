@@ -3,6 +3,7 @@ const {
   GIFT_CARD_DISPLAY_STATUS_PENDING,
   GIFT_CARD_DISPLAY_STATUS_READY,
   GIFT_CARD_DISPLAY_STATUS_REDEEMED,
+  GIFT_CARD_DISPLAY_STATUS_SHARED,
   getGiftCardPresentation,
 } = require('../../giftCard/giftCardPresentation');
 
@@ -114,26 +115,53 @@ describe('gift card presentation', () => {
     expect(presentation.pendingCount).toBe(1);
   });
 
-  it('distinguishes not-funded and redeemed cards', () => {
+  it('distinguishes not-funded, shared, and claimed cards', () => {
     const notFunded = getGiftCardPresentation(
       buildCard({
         status: {state: 'new', systems: []},
       }),
     );
+    const shared = getGiftCardPresentation(
+      buildCard({
+        sharedAt: 1760000000000,
+        status: {
+          state: 'funded',
+          systems: [
+            {
+              systemId: 'VRSC',
+              currencies: [currency('VRSC', '4')],
+              identities: [],
+            },
+          ],
+        },
+      }),
+    );
+    const sharedPending = getGiftCardPresentation(
+      buildCard({
+        sharedAt: 1760000000000,
+        fundingHistory: [{status: 'pending', txids: ['transaction-id']}],
+        status: {state: 'new', systems: []},
+      }),
+    );
     const redeemed = getGiftCardPresentation(
       buildCard({
+        sharedAt: 1760000000000,
         fundingHistory: [{status: 'pending', txids: ['transaction-id']}],
         status: {state: 'redeemed', redeemed: true, systems: []},
       }),
     );
 
     expect(notFunded.status).toBe(GIFT_CARD_DISPLAY_STATUS_NOT_FUNDED);
-    expect(notFunded.primaryContent.value).toBe('Ready to fund');
+    expect(notFunded.primaryContent.value).toBe('No contents yet');
+    expect(shared.status).toBe(GIFT_CARD_DISPLAY_STATUS_SHARED);
+    expect(shared.statusLabel).toBe('Shared');
+    expect(sharedPending.status).toBe(GIFT_CARD_DISPLAY_STATUS_PENDING);
     expect(redeemed.status).toBe(GIFT_CARD_DISPLAY_STATUS_REDEEMED);
+    expect(redeemed.statusLabel).toBe('Claimed');
     expect(redeemed.primaryContent).toEqual({
       type: 'redeemed',
-      value: 'Claim completed',
-      label: 'No contents remain',
+      value: 'Empty',
+      label: null,
     });
     expect(redeemed.confirmedItemCount).toBe(0);
     expect(redeemed.hasPending).toBe(false);
