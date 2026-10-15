@@ -1,5 +1,5 @@
 import React, {useId} from 'react';
-import {StyleSheet} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useAppTheme} from '../theme/app';
 
@@ -18,47 +18,47 @@ const ScrollEdgeFade = ({
   const gradientId = `scrollEdgeFade${id}`;
 
   return (
-    <Svg
-      accessible={false}
-      height={isHorizontal ? '100%' : length}
+    <View
       pointerEvents="none"
       style={[
         styles.fade,
         styles[edge],
+        isHorizontal ? {width: length} : {height: length},
         {
           opacity: visible ? 1 : 0,
         },
         style,
-      ]}
-      width={isHorizontal ? length : '100%'}>
-      <Defs>
-        <LinearGradient
-          id={gradientId}
-          x1="0"
-          x2={isHorizontal ? '1' : '0'}
-          y1="0"
-          y2={isHorizontal ? '0' : '1'}>
-          <Stop
-            offset="0"
-            stopColor={fadeColor}
-            stopOpacity={isStartEdge ? 1 : 0}
-          />
-          <Stop offset="0.55" stopColor={fadeColor} stopOpacity={0.45} />
-          <Stop
-            offset="1"
-            stopColor={fadeColor}
-            stopOpacity={isStartEdge ? 0 : 1}
-          />
-        </LinearGradient>
-      </Defs>
-      <Rect
-        fill={`url(#${gradientId})`}
-        height="100%"
-        width="100%"
-        x="0"
-        y="0"
-      />
-    </Svg>
+      ]}>
+      <Svg accessible={false} height="100%" width="100%">
+        <Defs>
+          <LinearGradient
+            id={gradientId}
+            x1="0"
+            x2={isHorizontal ? '1' : '0'}
+            y1="0"
+            y2={isHorizontal ? '0' : '1'}>
+            <Stop
+              offset="0"
+              stopColor={fadeColor}
+              stopOpacity={isStartEdge ? 1 : 0}
+            />
+            <Stop offset="0.55" stopColor={fadeColor} stopOpacity={0.45} />
+            <Stop
+              offset="1"
+              stopColor={fadeColor}
+              stopOpacity={isStartEdge ? 0 : 1}
+            />
+          </LinearGradient>
+        </Defs>
+        <Rect
+          fill={`url(#${gradientId})`}
+          height="100%"
+          width="100%"
+          x="0"
+          y="0"
+        />
+      </Svg>
+    </View>
   );
 };
 
