@@ -67,8 +67,8 @@ methods, never Verus Mobile's visual direction.
 - Use monospace only for raw technical identifiers such as addresses, hashes,
   transaction IDs, and public keys.
 - Show a status as the tinted status badge: a pill with a semantic background
-  and colored text, as `GiftCardStatusBadge` draws it. Do not put a colored dot
-  beside status text.
+  and colored text, as `src/components/StatusBadge.js` draws it. Do not put a
+  colored dot beside status text.
 
 ## Canonical pattern map
 
@@ -86,8 +86,8 @@ methods, never Verus Mobile's visual direction.
 | Multi-step identity update | `src/containers/DeepLink/IdentityUpdateRequestInfo/IdentityUpdateRequestInfo.js`, `src/styles/deeplink/identityUpdateRequestInfo.styles.js` | Preserve the dedicated review, content, high-risk, and confirm/pay sequence. |
 | Services home | `src/containers/Services/SignedInServicesHome.js` and [Services home](#services-home) below | Use the two-column tile grid. Do not add artwork or descriptions to used services. |
 | Service list or manager | `src/components/ServiceManagerHeader.js`, `src/containers/Services/AddressBook/AddressBook.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the shared header and established list rhythm. |
-| Gift card detail | [Gift card detail](#gift-card-detail) below, with the card material from `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFlipCard.js` | Use the fixed card. Say each fact once. |
-| Status label | `GiftCardStatusBadge` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the tinted badge. When SV-1 moves it to a shared component, update this row. |
+| Gift card detail | [Gift card detail](#gift-card-detail) below, with `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFixedCard.js` | Use the fixed card. Say each fact once. |
+| Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
 | Settings | `src/containers/Settings/components/SettingsScaffold.js` | Compose with `SettingsScreen`, `SettingsTitle`, `SettingsSection`, and `SettingsRow`. |
@@ -252,22 +252,24 @@ The detail screen shows one fixed card and says each fact once.
 
 - Header: back on the left, then refresh and the ⋯ options button on the right.
   There is no screen title, because the card shows the name.
-- Card: the existing material and notched shape from `GiftCardFlipCard.js`, at
-  the full content width. The card does not flip. It has no swipe hint, no
-  "VERUS GIFT CARD" label, and no issued date.
+- Card: `GiftCardFixedCard.js`, with the material and notched shape of the
+  earlier flip card, at the full content width. The card does not flip. It has
+  no swipe hint, no "VERUS GIFT CARD" label, and no issued date.
 - On the card: the card name (17-point semibold) and the status badge on the
   top row. The first content item is large at the bottom ("25 VRSC"), and the
   other items follow on one line ("+ sam@"). An empty card shows "No contents
   yet". A claimed card shows "Empty". A pending amount is dimmed.
 - Status: one badge on the card. Ready uses the success pair, Pending uses the
   warning pair, and Not funded, Shared, and Claimed use the neutral pair. The
-  card material is dark, so the badge uses the dark-mode semantic pairs in both
-  appearances.
+  card material is dark, so the badge uses the dark-mode success and warning
+  pairs in both appearances. Its neutral pair is a light tint of the card
+  material, as in the approved mockup.
 - Sharing: when sharing is possible, Share, QR code, and NFC sit under the card
   as three equal 76-point tiles (`surfaceMuted`, 18-point radius). These tiles
   are part of this approved pattern only. The first share of an unshared card
   opens the confirmation sheet with "Not now". A shared card shares again
-  without the sheet.
+  without the sheet. A card that is not funded shows no tiles; "Share before
+  funding" in ⋯ opens the same sheet.
 - Facts: label/value rows with hairline dividers under the card, only for facts
   the card does not show: Shared, Claimed by, Claimed, Claim protection, and
   Created. Copyable values use `CopyAction`.

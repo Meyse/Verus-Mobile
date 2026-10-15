@@ -23,8 +23,8 @@ without repeating the entire investigation.
 - Current focus (user, 2026-10-15): **SV-1**, the Services tiles and the
   fixed gift card screen. `claude/sv1-prep` added the DESIGN.md patterns, the
   `AcknowledgeSheet` `dismissLabel`, and the SV-1 brief. Track A (Services) and
-  Track B (gift card) run in two parallel sessions, each on its own branch
-  from `redesign`.
+  Track B (gift card) ran in two parallel sessions and are both merged into
+  `redesign`; see the two SV-1 log rows for what stays open.
 - Earlier focus: **GR-3** on `codex/gr3-request-matrix`. Phase 2 is done: the
   user agreed the bug list and Phase 3 scope, and the agreed functional fixes
   (GR3-B6, B3, B2, R1) are verified on the iOS simulator. GR3-B4
@@ -61,7 +61,7 @@ without repeating the entire investigation.
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
 | RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Done | SH-1 where a shared sheet is needed |
-| SV-1 | The Services root uses tiles; the gift card screen uses the fixed card | In progress | DESIGN.md "Services home" and "Gift card detail"; `AcknowledgeSheet` `dismissLabel` |
+| SV-1 | The Services root uses tiles; the gift card screen uses the fixed card | Done (iOS simulator; Android and NFC open) | DESIGN.md "Services home" and "Gift card detail"; `AcknowledgeSheet` `dismissLabel` |
 | QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
 Recommended sequence: GR-1 and GR-2 together, SH-1 with its first real consumer,
@@ -1115,38 +1115,38 @@ fixed card component, `GiftCardFlipCard.js` (delete when unused),
 `src/utils/giftCard/giftCardPresentation.js` and its unit test, and a shared
 status badge. Do not touch `SignedInServicesHome.js`.
 
-- [ ] **SV-1.6** Presentation: add the Shared display status, the "Claimed"
+- [x] **SV-1.6** Presentation: add the Shared display status, the "Claimed"
   label, and the card texts "No contents yet" and "Empty". Update the expected
   wording in `giftCardPresentation.unit.test.js`. This is a spec change from
   this decision list; record it in the log.
-- [ ] **SV-1.7** Move `GiftCardStatusBadge` to a shared status badge with a
+- [x] **SV-1.7** Move `GiftCardStatusBadge` to a shared status badge with a
   card variant that uses the dark-mode pairs. Use it in the list and on the
   card. Update the DESIGN.md "Status label" row.
-- [ ] **SV-1.8** Build the fixed card from the `GiftCardFlipCard` material and
+- [x] **SV-1.8** Build the fixed card from the `GiftCardFlipCard` material and
   shape: name and badge on top, contents at the bottom, no flip, swipe hint,
   "VERUS GIFT CARD" label, or issued date. Delete `GiftCardFlipCard.js` when
   nothing imports it.
-- [ ] **SV-1.9** Rebuild the detail screen from DESIGN.md "Gift card detail":
+- [x] **SV-1.9** Rebuild the detail screen from DESIGN.md "Gift card detail":
   header with back, refresh, and ⋯; the card; the Share, QR code, and NFC
   tiles; the fact rows; the pending transaction row; the Not funded footer.
   Remove the notice boxes, the Contents and Funding addresses sections, and the
   "Gift card options" button. "Fund from another wallet" keeps its route
   (`openFunding(card, {startExternal: true})`).
-- [ ] **SV-1.10** Share confirmation: the first share of an unshared card goes
+- [x] **SV-1.10** Share confirmation: the first share of an unshared card goes
   through `AcknowledgeSheet` (`dismissLabel="Not now"`), then the existing
   `runShareAction` with `shareNative`, `navigateToQr`, or `shareNfc`. Start the
   share after `onAcknowledged`, so the sheet has finished closing.
-- [ ] **SV-1.11** ⋯ options: keep `GiftCardOptionsSheet` and its actions. Add
+- [x] **SV-1.11** ⋯ options: keep `GiftCardOptionsSheet` and its actions. Add
   "Share before funding" for a not-funded card, through the same confirmation.
-- [ ] **SV-1.12** List: badge colors, the six filters, and the summary without
+- [x] **SV-1.12** List: badge colors, the six filters, and the summary without
   the "Shared ·" prefix.
-- [ ] **SV-1.13** Verify the five states with real taps on VRSCTEST, light and
+- [x] **SV-1.13** Verify the five states with real taps on VRSCTEST, light and
   dark, normal and compact: Not funded (a new card), Pending (right after
   funding), Ready (after confirmation), Shared (share by QR code), and Claimed
   (claim from a second disposable profile or with deeplink-sim). Check the
   confirmation's Share, Not now, and outside tap. Run `check:design`,
   `check:safe-areas`, a Babel parse, and the gift card unit suites.
-- [ ] **SV-1.14** Run one independent, report-only review of the Track B diff
+- [x] **SV-1.14** Run one independent, report-only review of the Track B diff
   against DESIGN.md, the mockup, and the preserved behavior. Resolve blocking
   findings before the merge.
 
@@ -1200,6 +1200,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-15 | SV-1 Track B: fixed gift card screen (SV-1.6–1.14) | `claude/sv1-gift-card-detail-7ab6e6` from `redesign` (`87566047`): `GiftCardServiceOverview.js`, new `GiftCardFixedCard.js`, new `src/components/StatusBadge.js` and `statusBadge.styles.js` (exported from `src/styles/index.js`), `GiftCardQrScreen.js`, `giftCardPresentation.js` and its unit test, `giftCard.js` (one message), `DESIGN.md`; `GiftCardFlipCard.js` deleted | Spec change (SV-1.6): the presentation unit test now expects "Claimed", "Shared", "No contents yet" and "Empty" instead of "Redeemed", "Ready to fund" and "Claim completed"; internal `redeemed` names kept. Pending amounts come only from the outputs that `addGiftCardPendingFunding` stores from the pending broadcast; a record without outputs shows its VerusIDs or "No contents yet". Real taps on `Verus GR3 QA` (`GR3 Test 2`, Testnet, Face ID) and `Verus GR3 Compact` (`SE QA`, Testnet, disposable password), Metro from this worktree. Card "SV1 detail QA": Not funded (light) → ⋯ with "Share before funding" → confirmation with the empty-card text; Not now, outside tap and Share each checked (Share opened the system sheet; dismissing it rolled the attempt back, card stayed Not funded) → funded 0.01 VRSCTEST (`96ae4b21…`) → Pending with the dimmed recorded amount, the funding transaction row and copy (light, dark) → Ready (dark) → QR code → funded-card confirmation → Share → Shared (dark) → ⋯ Cancel gift card → existing cancel sheet → claim `918e3b70…` → Claimed with Claimed by (copy verified on the clipboard), Claimed and Created (light, dark). SE card with a long name: Not funded with footer, Fund from another wallet opens the external step, funded 0.01, Ready, confirmation, QR, Shared (light, dark). List: neutral Shared and Claimed badges, summaries without "Shared ·", Shared and Claimed filters (dark). A shared card skips the sheet. Fixed during QA: the QR screen showed "Gift card unavailable" on a first share (it read storage before the share was saved; it now waits while the share is reserved); the funding footer vanished during a share attempt; the card shadow was clipped at the top. Independent review (SV-1.14, report only): nothing blocking; fixed visible "Redeemed" wording, a hidden pending addition on a funded card, plural wording and dead code. Checks: `check:design` (30 sources), `check:safe-areas` (8 files), Babel parse, `git diff --check`, `giftCardPresentation` and `giftCard` unit suites (53 tests), an ESLint undefined/unused pass. Evidence: `docs/qa/sv1-track-b/` (ignored). | Not run: NFC write (no NFC on the simulator), Android, large text size, the native Share sheet completing a real send, Claimed reached through a second profile (this run cancelled the card back to its own wallet). Seen, not changed: the fund amount field rejects a comma decimal from the iOS keypad ("0,01"); the left fade of the filter row swallows taps on the left part of "All" after scrolling. Decisions: a Not funded card shows no share tiles ("Share before funding" in ⋯ uses the system share after the sheet); the card-variant neutral badge uses the mockup's light tint; a shared card that is still empty keeps the funding footer. |
 | 2026-10-15 | SV-1 Track A: Services tiles (SV-1.1–1.5) | `claude/sv1-services-tiles-1b8f39` from `redesign` (`87566047`): `SignedInServicesHome.js`, `signedIn.js` (purpose lines replace the two descriptions); deleted `services-gift-card-folded.png` and `services-address-book-folded.png` (nothing else imported them) | iOS simulators `Verus GR3 QA` (402 pt) and `Verus GR3 Compact` (iPhone SE), Metro from the worktree, real taps, Testnet. The tile is local to the Services root, so its styles stay in the screen. The gift card count reads `requestServiceStoredData(GIFT_CARD_SERVICE_ID)` through `normalizeGiftCardServiceData`, as `GiftCardService` does; both counts load on focus. `GR3 Test 2`: dark and light, "3 cards" (the list holds 3 cards); the address line went "Save addresses" → "1 saved" → "2 saved" → "1 saved" → "Save addresses" as test records were added and removed, each on return to the tab. SE: a new disposable Testnet profile `SV1 Tiles QA`, dark and light with no cards and no addresses ("Send funds or IDs", "Save addresses"), then "1 card" after one unfunded card was saved through "Fund from another wallet". Measured tiles: 175×140 (402 pt) and 161×140 (SE); the mockup gives 170.5×140 at 393 pt. Both tiles open their screens. At the largest accessibility text size nothing changes, because `applyGlobalTypography.js` turns off font scaling. Checks: `check:design` (30 sources), `check:safe-areas` on `SignedInServicesHome.js`, a Babel parse (2 files), `git diff --check`. ESLint does not start in this checkout (`eslint-plugin-import` cannot load; environment). Evidence: `docs/qa/sv1-track-a/` (ignored). | Icons use the Lucide default stroke (2), as the sheet action rows do; the mockup draws 1.8. The user kept 2 (2026-10-15). Not run: Android, VoiceOver (labels from source, for example "Gift cards. 3 cards"), the loading state (the line stays empty until the first load ends; too fast to capture), and the load-error path (falls back to the purpose line; source only). The SE keeps `SV1 Tiles QA` with one unfunded card. |
 | 2026-10-15 | SV-1 preparation | `claude/sv1-prep` from `redesign` (`c817c795`): `DESIGN.md`, `AcknowledgeSheet.js`, this plan | The user chose the Services tiles and the fixed gift card from HTML mockups (artifact and `docs/qa/sv1/mockup.html`), then corrected the copy button, the sheet action rows, the status dot, and the missing "Not now". DESIGN.md now has the status badge rule, the Confirmation sheet rule, the "Services home" and "Gift card detail" patterns, and four pattern-map rows. `AcknowledgeSheet` takes an optional `dismissLabel` that renders an `AppButton` with `variant="text"`; without it the sheet is unchanged. Checks: `check:design` (30 sources), `check:safe-areas` on `AcknowledgeSheet.js`, a Babel parse, `git diff --check`. | The dismiss button is not rendered yet; Track B renders it on the simulator (SV-1.13). Next: Track A (SV-1.1–1.5) and Track B (SV-1.6–1.14) in parallel. If both merges touch this log, keep both rows. |
 | 2026-10-12 | O7 completion feedback | `claude/request-completion-feedback` from `redesign` (`9ea5133d`), merged into `redesign`: `NeutralCheckMark.js` (new), `GenericRequestHome.js`, `DESIGN.md`, one mock line in `genericResponseNetwork.unit.test.js` (the test mocks each component that `GenericRequestHome` imports) | iPhone SE, Metro, real taps, deeplink-sim, screen video frames. The first-pass O7 finding was wrong: a POST sign in shows “Preparing response”, “Sending response” and “Response sent” (the check animates, then holds about a second) before it returns to the wallet. The first-pass screenshots caught only the wallet. Changed: the “Request complete” (no response sent) and “Browser opened” sheets use a neutral mark instead of the green check, because they confirm no delivery. Verified in dark and light mode; the POST sheet keeps the green check. `check:design`, `check:safe-areas`, parse, and the three nearby unit suites pass. The full jest run has 25 failing suites; the ones I read fail on the `react-native-svg` and native-module setup, and the `lucide-react-native` import in `HighRiskStep.js` predates my work. | Not changed: a POST success closes by itself after 0.9 s while the other two wait for Done; the identity-update sheet is a near copy of this sheet; app encryption, data and credential flows share this code path but were not re-recorded; Android not re-run. |

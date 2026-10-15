@@ -39,6 +39,7 @@ export {default as signedOutFlowStyles} from './components/signedOutFlow.styles'
 export {default as signedOutSheetStyles} from './components/signedOutSheet.styles';
 export {default as createSignedInStyles} from './components/signedIn.styles';
 export {default as skeletonLoaderStyles} from './components/skeletonLoader.styles';
+export {default as statusBadgeStyles} from './components/statusBadge.styles';
 export {createSignedOutFlowStyles} from './components/signedOutFlow.styles';
 export {createSignedOutSheetStyles} from './components/signedOutSheet.styles';
 export {default as vdxfUniValueModalInnerAreaStyles} from './components/vdxfUniValueModalInnerArea.styles';
