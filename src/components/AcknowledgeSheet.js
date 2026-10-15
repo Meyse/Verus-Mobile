@@ -66,7 +66,7 @@ const AcknowledgeSheet = ({
             onPress={onClose}
             style={styles.dismissButton}
             testID={testID ? `${testID}.dismiss` : undefined}
-            variant="text">
+            variant="secondary">
             {dismissLabel}
           </AppButton>
         ) : null}
@@ -95,7 +95,7 @@ const createStyles = theme =>
       marginTop: 22,
     },
     dismissButton: {
-      marginTop: 4,
+      marginTop: 10,
     },
   });
 

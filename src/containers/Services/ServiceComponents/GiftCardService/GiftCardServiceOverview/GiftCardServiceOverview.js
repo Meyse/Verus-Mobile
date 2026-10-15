@@ -1369,7 +1369,10 @@ const GiftCardServiceOverview = ({
         </FadedScrollView>
 
         {showFundingFooter ? (
-          <SafeBottomActionStack horizontalSpacing={20} safeAreaSpacing={0}>
+          <SafeBottomActionStack
+            gap={10}
+            horizontalSpacing={20}
+            safeAreaSpacing={0}>
             <AppButton
               disabled={busy}
               onPress={() => openFunding(card)}
@@ -1379,7 +1382,7 @@ const GiftCardServiceOverview = ({
             <AppButton
               disabled={busy}
               onPress={() => openFunding(card, {startExternal: true})}
-              variant="text">
+              variant="secondary">
               Fund from another wallet
             </AppButton>
           </SafeBottomActionStack>

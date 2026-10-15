@@ -69,6 +69,11 @@ methods, never Verus Mobile's visual direction.
 - Show a status as the tinted status badge: a pill with a semantic background
   and colored text, as `src/components/StatusBadge.js` draws it. Do not put a
   colored dot beside status text.
+- A second button under a primary action uses `AppButton` with
+  `variant="secondary"` (the filled tint), 10 points below the primary, as in
+  `src/containers/Services/AddressBook/AddressBookEditSheet.js`. This includes
+  back-out actions such as "Cancel" and "Not now". Use `variant="text"` only
+  for a third, low-emphasis link, such as "Other options" on the login screen.
 
 ## Canonical pattern map
 
@@ -158,9 +163,9 @@ Use `AcknowledgeSheet` before an action that cannot be undone, such as sharing
 a gift card key. It shows a 21/27 title, one short message in the 16/24 body
 role, and one 56-point primary `AppButton`. When the user may back out, pass
 `dismissLabel` (for example "Not now"). The sheet then shows an `AppButton`
-with `variant="text"` under the primary action. Do not rely on an outside tap
-as the only visible way out: users do not reliably know they can tap outside a
-sheet. A warning that the user must accept, such as the seed warning, keeps the
+with `variant="secondary"` 10 points under the primary action. Do not rely on
+an outside tap as the only visible way out: users do not reliably know they can
+tap outside a sheet. A warning that the user must accept, such as the seed warning, keeps the
 single button.
 
 ### Shared behavior
@@ -280,7 +285,7 @@ The detail screen shows one fixed card and says each fact once.
 - Pending: one "Funding transaction" row with the transaction ID in monospace
   and `CopyAction`, and one line: "Sharing unlocks after it confirms."
 - Actions: a bottom primary action appears only when the card is not funded
-  ("Add contents", with "Fund from another wallet" as a text button). Less
+  ("Add contents", with "Fund from another wallet" as a secondary button). Less
   frequent actions stay in ⋯, drawn with the sheet action rows.
 - Warnings appear in the share confirmation, not as permanent notice boxes.
 - Wording: use "Claimed", not "Redeemed" or "Claim completed". Use "Shared" as
