@@ -167,9 +167,11 @@ const SendWizardAmount = () => {
     }
 
     let active = true;
+    setEstimate(null);
+    setRouteEstimates({});
+    setEstimateLoading(true);
+    setEstimateError(null);
     const timeout = setTimeout(async () => {
-      setEstimateLoading(true);
-      setEstimateError(null);
       try {
         const routes = target.routes?.length ? target.routes : [route];
         const results = await Promise.all(
@@ -179,57 +181,63 @@ const SendWizardAmount = () => {
                 channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
                 sourceCoin.currency_id || sourceCoin.id,
                 target.transactionCurrency,
-                cryptoAmount.toString(),
-                candidate?.via || null,
+                cryptoAmount,
+                candidate?.via,
                 Boolean(candidate?.preconvert),
               );
 
-              if (result?.result?.estimatedcurrencyout != null) {
-                return {estimate: result.result, route: candidate};
+              if (result?.error) {
+                throw new Error(result.error.message || 'Estimate unavailable.');
               }
-            } catch (error) {}
-
-            if (candidate?.price != null) {
-              return {
-                estimate: {
-                  estimatedcurrencyout: cryptoAmount
-                    .multipliedBy(candidate.price)
-                    .toString(),
-                  price: String(candidate.price),
-                  precomputed: true,
-                },
-                route: candidate,
-              };
+              const output = result?.result?.estimatedcurrencyout;
+              if (
+                output == null ||
+                !BigNumber(output).isFinite() ||
+                BigNumber(output).isNegative()
+              ) {
+                throw new Error('Estimate unavailable.');
+              }
+              return {estimate: result.result, route: candidate};
+            } catch (error) {
+              if (__DEV__) {
+                console.warn('Conversion estimate unavailable:', error.message);
+              }
+              return {estimate: null, route: candidate};
             }
-
-            return null;
           }),
         );
         if (!active) return;
-        const available = results.filter(Boolean);
-        if (!available.length) throw new Error('Estimate unavailable.');
-
         const nextEstimates = Object.fromEntries(
-          available.map(item => [item.route.key, item.estimate]),
+          results.map(item => [item.route.key, item.estimate]),
         );
-        const best = available.reduce((current, candidate) =>
-          BigNumber(candidate.estimate.estimatedcurrencyout).isGreaterThan(
-            current.estimate.estimatedcurrencyout,
-          )
-            ? candidate
-            : current,
+        const available = results.filter(item => item.estimate != null);
+        const best = available.reduce(
+          (current, candidate) =>
+            !current ||
+            BigNumber(candidate.estimate.estimatedcurrencyout).isGreaterThan(
+              current.estimate.estimatedcurrencyout,
+            )
+              ? candidate
+              : current,
+          null,
         );
-        const selected =
-          available.find(item => item.route.key === preferredRouteKey) || best;
+        const selectedRoute =
+          routes.find(candidate => candidate.key === preferredRouteKey) ||
+          best?.route ||
+          route;
+        const selectedEstimate = nextEstimates[selectedRoute?.key] || null;
 
         setRouteEstimates(nextEstimates);
-        if (selected.route.key !== route?.key) setRoute(selected.route);
-        setEstimate(selected.estimate);
+        if (selectedRoute && selectedRoute.key !== route?.key) {
+          setRoute(selectedRoute);
+        }
+        setEstimate(selectedEstimate);
+        setEstimateError(selectedEstimate ? null : 'Estimate unavailable.');
       } catch (error) {
         if (!active) return;
         setRouteEstimates({});
         setEstimate(null);
-        setEstimateError(error.message || 'Estimate unavailable.');
+        setEstimateError('Estimate unavailable.');
       } finally {
         if (active) setEstimateLoading(false);
       }
@@ -459,7 +467,15 @@ const SendWizardAmount = () => {
                       </View>
                     </View>
                   </View>
-                  <View style={[styles.divider, {backgroundColor: theme.colors.border}]} />
+                </>
+              ) : !estimateError ? (
+                <Text style={[styles.estimateEmpty, {color: theme.colors.textSecondary}]}>Enter amount to see estimate</Text>
+              ) : null}
+              {!estimateLoading && validAmount ? (
+                <>
+                  {estimatedOutput != null ? (
+                    <View style={[styles.divider, {backgroundColor: theme.colors.border}]} />
+                  ) : null}
                   <Pressable
                     disabled={(target.routes || []).length < 2}
                     onPress={() => setRouteSheetOpen(true)}
@@ -481,9 +497,7 @@ const SendWizardAmount = () => {
                     </View>
                   ) : null}
                 </>
-              ) : (
-                <Text style={[styles.estimateEmpty, {color: theme.colors.textSecondary}]}>Enter amount to see estimate</Text>
-              )}
+              ) : null}
             </View>
           ) : null}
         </ScrollView>
@@ -503,6 +517,7 @@ const SendWizardAmount = () => {
           setPreferredRouteKey(nextRoute.key);
           setRoute(nextRoute);
           setEstimate(routeEstimates[nextRoute.key] || null);
+          setEstimateError(routeEstimates[nextRoute.key] ? null : 'Estimate unavailable.');
           setRouteSheetOpen(false);
         }}
       />
