@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useCallback, useEffect, useRef} from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +30,52 @@ export const WizardFormLayout = ({
 }) => {
   const headerHeight = useHeaderHeight();
   const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  const scrollRef = useRef(null);
+  const errorLayoutRef = useRef(null);
+  const viewportHeightRef = useRef(0);
+  const revealFrameRef = useRef(null);
+
+  const revealError = useCallback(() => {
+    if (revealFrameRef.current != null) {
+      cancelAnimationFrame(revealFrameRef.current);
+    }
+    if (!error) return;
+
+    // Wait for content and keyboard/footer layout to settle. Scroll only far
+    // enough to reveal the error, leaving the related field above it in view.
+    revealFrameRef.current = requestAnimationFrame(() => {
+      revealFrameRef.current = null;
+      const layout = errorLayoutRef.current;
+      const viewportHeight = viewportHeightRef.current;
+      if (!layout || viewportHeight <= 0) return;
+
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, layout.y + layout.height - viewportHeight),
+        animated: false,
+      });
+    });
+  }, [error]);
+
+  useEffect(() => {
+    revealError();
+    return () => {
+      if (revealFrameRef.current != null) {
+        cancelAnimationFrame(revealFrameRef.current);
+      }
+    };
+  }, [keyboardVisible, revealError]);
+
+  // Render this slot directly in the ScrollView, immediately after the field.
+  // Its onLayout coordinates must share the scroll content's origin.
+  const errorMessage = error ? (
+    <View
+      onLayout={event => {
+        errorLayoutRef.current = event.nativeEvent.layout;
+        revealError();
+      }}>
+      <ErrorMessage style={styles.formError}>{error}</ErrorMessage>
+    </View>
+  ) : null;
 
   return (
     <KeyboardAvoidingView
@@ -37,11 +83,16 @@ export const WizardFormLayout = ({
       keyboardVerticalOffset={headerHeight}
       style={styles.screen}>
       <ScrollView
+        ref={scrollRef}
         keyboardShouldPersistTaps="handled"
+        onContentSizeChange={revealError}
+        onLayout={event => {
+          viewportHeightRef.current = event.nativeEvent.layout.height;
+          revealError();
+        }}
         style={styles.screen}
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}>
-        {children}
-        <ErrorMessage style={styles.formError}>{error}</ErrorMessage>
+        {children(errorMessage)}
       </ScrollView>
       <WizardFooter
         {...footerProps}
@@ -297,7 +348,7 @@ const styles = StyleSheet.create({
   footer: {paddingTop: 16},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
-  formError: {marginHorizontal: 0},
+  formError: {marginHorizontal: 0, marginVertical: 8},
   subtitle: {marginTop: 8},
   search: {
     height: 52,

@@ -350,6 +350,7 @@ const SendWizardAmount = () => {
         error={amountError || estimateError}
         disabled={!validAmount || estimateLoading}
         onPress={continueToRecipient}>
+        {errorMessage => <>
           <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
           <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
           {mode === SEND_WIZARD_MODE.SEND &&
@@ -427,6 +428,9 @@ const SendWizardAmount = () => {
               style={[styles.amountInput, {color: theme.colors.textPrimary}]}
               value={input}
             />
+          </View>
+          {errorMessage}
+          <View style={styles.amountControls}>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{disabled: rate == null}}
@@ -507,6 +511,7 @@ const SendWizardAmount = () => {
               ) : null}
             </View>
           ) : null}
+        </>}
       </WizardFormLayout>
       <RouteSheet
         estimates={routeEstimates}
@@ -556,7 +561,8 @@ const styles = StyleSheet.create({
   networkStatus: {minWidth: 28, alignItems: 'flex-end'},
   networkHint: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
   networkError: {fontSize: 12, lineHeight: 17, marginBottom: 4, ...fontStyle('regular')},
-  amountBlock: {alignItems: 'center', marginTop: 8, marginBottom: 8},
+  amountBlock: {alignItems: 'center', marginTop: 8},
+  amountControls: {alignItems: 'center', marginBottom: 8},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
   modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
