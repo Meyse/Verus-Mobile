@@ -8,6 +8,11 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-10-17.
+- Scoped Amount/Recipient fixes: A-23/I-9, A-9/I-11, A-10/I-10,
+  A-12/I-14, and I-13 on `claude/fix-wizard-amount-recipient` from
+  `a1e758fd` are ready for orchestrator device QA. Shared keyboard layout,
+  amount precision, Continue-time identity lookup, network subtitle, and saved
+  address filtering have source/fixture evidence. No Metro or device work ran.
 - Scoped correctness follow-up: A-15/A-20 conversion estimates on
   `claude/fix-conversion-estimates` from `f22b7ab9` are ready for device QA.
   Numeric RPC serialization and daemon-only Amount estimates have local fixture
@@ -828,6 +833,22 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 - [x] **TX-1.A22** Use the asset portion of an unknown currency's qualified
   name for its fallback ticker. The MKR.vETH network rows now say "Receive as MKR".
 
+- [x] **TX-1.A23** Share measured-header keyboard avoidance between Amount and
+  Recipient. Keep the existing error message above the safe action footer.
+- [x] **TX-1.A9** Reject asset input beyond the source coin's decimal precision
+  before the existing amount rounding. Disable Continue and show the inline error.
+- [x] **TX-1.A10** Resolve a VerusID name on Continue with the source system's
+  existing identity helper. Show checking, not-found, and retry states. Ignore
+  late replies after edit or navigation away. Preserve raw-address validation.
+- [x] **TX-1.A12** Name the source network in the direct-send Amount subtitle.
+- [x] **TX-1.I13** Permit a valid R-address contact across currencies on its
+  Verus network. Use the same context filter for the saved count and chooser.
+- [ ] **TX-1.AmountRecipient-QA** Orchestrator: inspect Amount and Recipient on
+  Android and iOS with the keyboard open/closed, light/dark themes, and normal/
+  compact sizes. Check precision errors, identity lookup loading/error/retry,
+  Back during lookup, source-network subtitle, and count/chooser agreement.
+  No transaction broadcast is needed for these checks.
+
 **Acceptance:** The active wizard uses the current stepped-task and sheet
 patterns without obscuring source/destination networks, route choice, fees, or
 recipient. Existing transfer restrictions and state transitions still hold.
@@ -1245,6 +1266,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-17 | Amount/Recipient: A-23/I-9, A-9/I-11, A-10/I-10, A-12/I-14, I-13 | `claude/fix-wizard-amount-recipient` from `a1e758fd`: `WizardUI.js`, `SendWizardAmount.js`, `SendWizardRecipient.js`, `AddressBookSheet.js`, `addressBook.js` | Contract: touch Amount/Recipient only; retain Gift Card keyboard/action composition, `SafeBottomActionStack`, `WizardFooter`, `ErrorMessage`, selection sheets, and theme typography. Intentional change: pin validation above Continue and use the measured stack-header height on both platforms. Required states are keyboard open/closed, precision error, identity checking/not-found/retry, late replies after edit/Back, and saved count/list agreement. Temporary non-Jest source fixtures: 12 pass; 9 fail against the base commit. Five keyboard layout/arithmetic checks pass for normal/compact iOS/Android and keyboard dismissal; these are synthetic, not rendered evidence. The existing RPC client produces `getidentity` with params `["nobodyqa123@"]`; both the user-specified request and this exact serialized shape return code -5 (Identity not found) from the private daemon. Babel parse (five JS files), design check (30 canonical sources), safe-area check (five JS files), send-wizard option matrix, and diff whitespace check pass. `pnpm` initially tried automatic installs in this worktree; stopped, then ran checks with `pnpm_config_verify_deps_before_run=false`. No tracked dependency files changed. | Orchestrator owns rendered/device verification in both themes and sizes, including keyboard clearance under Android adjustPan. No Metro, device, simulator, emulator, native changes, signing, or broadcast. Broader TX-1 verification stays open. |
 | 2026-10-17 | A-19: successful Send/Convert cannot return to live Confirm | `claude/fix-send-success-back` from `f22b7ab9`: `SendWizardConfirm.js`, `SendWizardSuccess.js`, `SendWizardNavigator.js`, new `wizardNavigation.js` | React Navigation native 6.0.13 / stack 6.3.4. Shared submit resets the inner stack to Success only. A synchronous latch and the existing context `txResult` block further submit calls and disable the hold button. Success hardware Back consumes the event and runs Done (unchanged: reset to Wallet home). Header Close keeps the shared exit to the opener. The result back arrow stays absent; the inner swipe stays disabled. Temporary non-Jest checks run the source submit callback with mocked send boundaries and the installed StackRouter: four regression cases fail before the fix; six cases pass after it, including definite-failure retry and ambiguous-broadcast blocking. Babel parse (four source files), `check:design` (30 canonical sources), `check:safe-areas --changed`, and `git diff --check` pass. | Source and synthetic navigation evidence only. No Metro, device, emulator, or simulator work. Orchestrator owns native Back/swipe, new-send, conversion, and cross-chain QA. Broader TX-1 remains open. |
 | 2026-10-17 | TX-1 correctness: A-15/A-20 conversion estimates | `claude/fix-conversion-estimates` from `f22b7ab9`: `estimateConversion.js`, `SendWizardAmount.js`, `SelectionSheets.js` | Shared RPC helper sends a JSON number, rejects nonfinite or lossy decimal conversion, omits absent `via`/`preconvert`, and retains `preconvert: false`. Amount estimates and best-route choice use only daemon outputs. Failed routes retain selection with the existing error wording; existing skeleton, error, row, theme, and layout styles remain. One-off non-Jest React/RPC fixtures reproduce the old vETH fallback (8.550589563), then check daemon output, partial/all failures, failed-route selection, amount-change cancellation, and 8-decimal serialization. Read-only curl through the installed client serializer: four required routes succeed with names and `preconvert: false`, names with `preconvert` omitted, and currency IDs with `preconvert: false`. Outputs: 0.99973259 USD, 0.99974158 VRSC-USD, 0.00000596 vETH, 0.99926542 VRSCTEST. String control returns -32601. Full responses: untracked `conversion-estimates-qa.local.md`. Babel parse (3 files), design (30 canonical sources), safe-area (2 files), Send wizard option matrix, and diff whitespace checks pass. Review/preflight calculations are unchanged. | Orchestrator owns device QA: success, loading, unavailable estimate, failed-route selection, amount edit/retry, and Back, in light/dark and normal/compact layouts. No Metro, device, signing, broadcast, mainnet, merge, or push actions in this implementation task. TX-1.8/TX-1.9 remain open. |
 | 2026-10-17 | TX-1 A-21/A-22: Ethereum export recipient and received-asset label | `claude/fix-eth-export-recipient` from `f22b7ab9`; `wizardUtils.js` and the existing non-Jest option check | Design contract: retain `SelectionSheet` / `SelectionRow`, layout, and dismissal behavior; correct route classification and asset text only. The option matrix reproduced both defects before their fixes, then passed with private/mainnet vETH definitions, renamed Ethereum systems, non-Ethereum systems, and MKR network labels. Live private/mainnet `getcurrency vETH` both report proof protocol 3 and native destination type 9 (`DEST_ETH`). Executed source callbacks accept a valid Ethereum recipient, reject Verus destinations, select ETH/ERC20 self addresses, and build `DEST_ETH`. Existing intent context and validator accept the private-chain zero-amount fee quote and 0.05 unsigned candidate from `sendcurrency` with `returntx=true`: zero inputs, one output, Ethereum recipient. Babel parse and `check:design` pass. | Parent QA owns native recipient, sheet, Back/retry, and success-state checks. No devices, Metro, signing, broadcast, mainnet build, merge, or push in this task. |

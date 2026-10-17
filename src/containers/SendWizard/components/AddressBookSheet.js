@@ -15,7 +15,7 @@ import {
   loadAddressBook,
 } from '../../../utils/addressBook/addressBook';
 
-const AddressBookSheet = ({context, onClose, onSelect, visible}) => {
+const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}) => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
@@ -53,7 +53,10 @@ const AddressBookSheet = ({context, onClose, onSelect, visible}) => {
     setError(null);
     loadAddressBook()
       .then(result => {
-        if (active) setRecords(result);
+        if (active) {
+          setRecords(result);
+          onRecordsLoaded?.(result);
+        }
       })
       .catch(() => {
         if (active)
@@ -65,7 +68,7 @@ const AddressBookSheet = ({context, onClose, onSelect, visible}) => {
     return () => {
       active = false;
     };
-  }, [visible]);
+  }, [onRecordsLoaded, visible]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

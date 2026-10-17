@@ -1,6 +1,8 @@
 import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
 import {requestServiceStoredData} from '../auth/authBox';
 import {ADDRESS_BOOK_SERVICE_ID} from '../constants/services';
+import {fromBase58Check} from 'verus-typescript-primitives';
+import {R_ADDRESS_VERSION} from '../constants/constants';
 
 const normalizeRecord = record => ({
   id: String(record.id || ''),
@@ -35,7 +37,17 @@ export const addressBookRecordMatchesContext = (record, context = {}) => {
   const asset = String(context.asset || '').toUpperCase();
   const network = String(context.network || '');
 
-  if (record.asset && asset && record.asset !== asset) return false;
   if (record.network && network && record.network !== network) return false;
+  if (record.asset && asset && record.asset !== asset) {
+    // Transparent Verus addresses belong to a network, not one currency.
+    if (context.addressType !== 'verus' || !record.network || !network) {
+      return false;
+    }
+    try {
+      return fromBase58Check(record.address).version === R_ADDRESS_VERSION;
+    } catch (error) {
+      return false;
+    }
+  }
   return true;
 };

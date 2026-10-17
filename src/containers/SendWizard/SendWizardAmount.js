@@ -1,7 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,7 +25,7 @@ import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
-  WizardFooter,
+  WizardFormLayout,
   WizardHeading,
   WizardScreen,
 } from './components/WizardUI';
@@ -37,6 +35,7 @@ import {
 } from './components/SelectionSheets';
 import {
   buildSendTarget,
+  getCurrencyDisplay,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
@@ -146,12 +145,20 @@ const SendWizardAmount = () => {
   const cryptoAmountValue = cryptoAmount.isFinite()
     ? cryptoAmount.toString()
     : '';
+  const decimals = sourceCoin?.decimals ?? 8;
+  // Validate the entered asset amount before the existing rounding step.
+  const excessivePrecision =
+    !fiatMode &&
+    BigNumber(String(input || 0).replace(',', '.')).decimalPlaces() > decimals;
   const validAmount =
+    !excessivePrecision &&
     cryptoAmount.isFinite() &&
     cryptoAmount.isGreaterThan(0) &&
     cryptoAmount.isLessThanOrEqualTo(sourceBalance || 0);
   let amountError = null;
-  if (input && !validAmount) {
+  if (excessivePrecision) {
+    amountError = `Use no more than ${decimals} decimal places.`;
+  } else if (input && !validAmount) {
     amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
       ? 'Amount exceeds this Card’s spendable balance.'
       : 'Enter a valid amount.';
@@ -323,7 +330,9 @@ const SendWizardAmount = () => {
       }`
     : route.isCrossChain
     ? `Send ${sourceCoin.display_ticker} to ${route.exportToFqn || route.exportTo}`
-    : `Send ${sourceCoin.display_ticker} on ${sourceCoin.display_name}`;
+    : `Send ${sourceCoin.display_ticker} on ${getCurrencyDisplay(
+        channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
+      ).name}`;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
   const rateDisplay = state.estimate?.price;
   const routeName = route.viaFqn || route.via || route.label || 'Direct';
@@ -337,10 +346,10 @@ const SendWizardAmount = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        style={styles.flex}>
+      <WizardFormLayout
+        error={amountError || estimateError}
+        disabled={!validAmount || estimateLoading}
+        onPress={continueToRecipient}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
           <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
@@ -445,7 +454,6 @@ const SendWizardAmount = () => {
               </Pressable>
             </View>
           </View>
-          <ErrorMessage>{amountError || estimateError}</ErrorMessage>
           {target.isConversion ? (
             <View style={[styles.estimateCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
               {estimateLoading ? (
@@ -501,10 +509,7 @@ const SendWizardAmount = () => {
             </View>
           ) : null}
         </ScrollView>
-        <WizardFooter disabled={!validAmount || estimateLoading} onPress={continueToRecipient}>
-          Continue
-        </WizardFooter>
-      </KeyboardAvoidingView>
+      </WizardFormLayout>
       <RouteSheet
         estimates={routeEstimates}
         selectedKey={route?.key}
@@ -534,7 +539,6 @@ const SendWizardAmount = () => {
 };
 
 const styles = StyleSheet.create({
-  flex: {flex: 1},
   content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12},
   headingInset: {marginHorizontal: -16},
   contextLine: {fontSize: 14, lineHeight: 20, marginBottom: 8, ...fontStyle('regular')},

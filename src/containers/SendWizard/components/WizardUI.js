@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {useHeaderHeight} from '@react-navigation/elements';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import GradientButton from '../../../components/GradientButton';
 import AppButton from '../../../components/AppButton';
@@ -17,6 +20,28 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 
 export const WIZARD_CONTENT_INSET = 16;
+
+// The stack header is outside this view. Keyboard coordinates include it.
+export const WizardFormLayout = ({children, error, ...footerProps}) => {
+  const headerHeight = useHeaderHeight();
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
+      style={styles.screen}>
+      {children}
+      <ErrorMessage>{error}</ErrorMessage>
+      <WizardFooter
+        {...footerProps}
+        bottomSpacing={keyboardVisible ? 8 : 24}
+        includeBottomInset={!keyboardVisible}
+        safeAreaSpacing={keyboardVisible ? 0 : 12}
+      />
+    </KeyboardAvoidingView>
+  );
+};
 
 export const WizardScreen = ({children, contentContainerStyle, scroll = true}) => {
   const theme = useOnboardingTheme();
@@ -205,9 +230,11 @@ export const WizardFooter = ({
   holdToConfirm = false,
   holdingText = 'Hold to confirm...',
   horizontalSpacing = 16,
+  includeBottomInset = true,
   loading,
   loadingText = 'Please wait…',
   onPress,
+  safeAreaSpacing = 12,
 }) => {
   const theme = useOnboardingTheme();
   const buttonLabel = loading ? loadingText : children;
@@ -215,6 +242,8 @@ export const WizardFooter = ({
     <SafeBottomActionStack
       horizontalSpacing={horizontalSpacing}
       bottomSpacing={bottomSpacing}
+      includeBottomInset={includeBottomInset}
+      safeAreaSpacing={safeAreaSpacing}
       style={styles.footer}>
       {holdToConfirm ? (
         <GradientButton
