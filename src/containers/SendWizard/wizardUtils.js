@@ -66,7 +66,8 @@ export const getCurrencyDisplay = (currencyId, fallback) => {
   } catch (error) {
     const name = fallback || currencyId || 'Unknown asset';
     const pieces = String(name).split('.');
-    const ticker = pieces.length > 1 ? pieces.slice(0, -1).join('.') : name;
+    // A Verus name is `currency.parent`; the first part is the currency's own name.
+    const ticker = pieces[0] || name;
     return {coinId: currencyId, name, ticker};
   }
 };
