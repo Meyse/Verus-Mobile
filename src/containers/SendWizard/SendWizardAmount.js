@@ -162,11 +162,12 @@ const SendWizardAmount = () => {
     channel?.split('.')[0] === 'vrpc' &&
     route?.isCrossChain &&
     route?.addressType === ADDRESS_TYPE.ETHEREUM;
-  // Bind the result to the complete request. A changed route/amount must not
+  // Bind the result to the complete route request. A changed route must not
   // briefly display an old fee or enable Continue before its effect runs.
+  // verusd prices this fee from gas and Bridge prices, not from the amount,
+  // so typing an amount does not refetch it.
   const exportFeeRequest = ethereumExport ? JSON.stringify({
     channel,
-    amount: cryptoAmountValue,
     currency: sourceCoin?.currency_id || sourceCoin?.id,
     ...(target?.isConversion ? {convertto: target.transactionCurrency} : {}),
     exportto: route.exportTo,
@@ -207,8 +208,7 @@ const SendWizardAmount = () => {
     if (!exportFeeRequest) return undefined;
     let active = true;
     const timer = setTimeout(async () => {
-      const {channel: requestChannel, amount: _amount, ...output} =
-        JSON.parse(exportFeeRequest);
+      const {channel: requestChannel, ...output} = JSON.parse(exportFeeRequest);
       const [, source, systemId] = requestChannel.split('.');
       try {
         const fee = await timeout(15000, estimateEthereumExportFee(systemId, source, output));
