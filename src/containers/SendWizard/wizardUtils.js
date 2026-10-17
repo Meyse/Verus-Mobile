@@ -1,4 +1,5 @@
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import {DEST_ETH} from 'verus-typescript-primitives';
 
 export const SEND_WIZARD_MODE = {
   CONVERT: 'convert',
@@ -65,13 +66,17 @@ export const getCurrencyDisplay = (currencyId, fallback) => {
   } catch (error) {
     const name = fallback || currencyId || 'Unknown asset';
     const pieces = String(name).split('.');
-    const ticker = pieces[pieces.length - 1] || name;
+    // A Verus name is `currency.parent`; the first part is the currency's own name.
+    const ticker = pieces[0] || name;
     return {coinId: currencyId, name, ticker};
   }
 };
 
-const getAddressType = (sourceCoin, path, exportName) => {
-  if (path?.ethdest === true || /(^|\.)eth(ereum)?($|\.)/i.test(exportName || '')) {
+const getAddressType = (sourceCoin, path) => {
+  if (
+    path?.ethdest === true ||
+    path?.exportto?.nativecurrencyid?.type === DEST_ETH.toNumber()
+  ) {
     return ADDRESS_TYPE.ETHEREUM;
   }
 
@@ -144,7 +149,7 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
     preconvert,
     bridgePrelaunch: Boolean(path?.bridgeprelaunch),
     isCrossChain: Boolean(exportTo),
-    addressType: getAddressType(sourceCoin, path, exportToFqn),
+    addressType: getAddressType(sourceCoin, path),
   };
 
   return {
