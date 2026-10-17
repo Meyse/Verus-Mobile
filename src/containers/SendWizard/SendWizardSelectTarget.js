@@ -19,7 +19,7 @@ import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
   WIZARD_CONTENT_INSET,
-  WizardHeading,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {TargetNetworkSheet} from './components/SelectionSheets';
@@ -168,16 +168,14 @@ const SendWizardSelectTarget = () => {
 
   if (!sourceCoin) {
     return (
-      <WizardScreen>
-        <WizardHeading>Select a source first</WizardHeading>
-        <ErrorMessage>The transfer source is missing. Go back and choose an Asset and Card.</ErrorMessage>
+      <WizardScreen contentContainerStyle={styles.fallbackContent}>
+        <ErrorMessage style={styles.fallbackError}>Select a source first. Go back and choose an Asset and Card.</ErrorMessage>
       </WizardScreen>
     );
   }
 
   return (
     <WizardScreen scroll={false}>
-      <WizardHeading>What should the recipient receive?</WizardHeading>
       <AppSearchField
         accessibilityLabel="Search currencies"
         onChangeText={setQuery}
@@ -229,12 +227,15 @@ const SendWizardSelectTarget = () => {
 };
 
 const styles = StyleSheet.create({
+  fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
+  fallbackError: {marginVertical: 0},
   content: {paddingBottom: 32},
   skeleton: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     paddingTop: 20,
   },
   searchSpacing: {
+    marginTop: WIZARD_CONTENT_TOP_INSET,
     marginHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 14,
   },

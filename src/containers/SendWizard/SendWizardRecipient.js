@@ -38,7 +38,7 @@ import AddressBookSheet from './components/AddressBookSheet';
 import SelfAddressSheet from './components/SelfAddressSheet';
 import {
   WizardFormLayout,
-  WizardHeading,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {ADDRESS_TYPE} from './wizardUtils';
@@ -315,11 +315,6 @@ const SendWizardRecipient = () => {
         loadingText="Checking VerusID…"
         onPress={continueToReview}>
         {errorMessage => <>
-          <WizardHeading
-            style={styles.headingInset}
-            subtitle="Enter the destination address">
-            Recipient
-          </WizardHeading>
           <View
             style={[
               styles.inputShell,
@@ -453,8 +448,7 @@ const SendWizardRecipient = () => {
 };
 
 const styles = StyleSheet.create({
-  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 20},
-  headingInset: {marginHorizontal: -16},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   inputShell: {minHeight: 56, marginBottom: 12, borderRadius: 12, borderWidth: 1, position: 'relative', flexDirection: 'row', alignItems: 'center'},
   inputWithError: {marginBottom: 0},
   input: {flex: 1, minHeight: 56, maxHeight: 96, paddingLeft: 16, paddingRight: 90, paddingTop: 19, paddingBottom: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},

@@ -60,7 +60,7 @@ import {refreshSourceBalance} from './refreshSourceBalance';
 import {
   ErrorMessage,
   WizardFooter,
-  WizardHeading,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {getCurrencyDisplay} from './wizardUtils';
@@ -509,11 +509,6 @@ const SendWizardConfirm = () => {
   return (
     <WizardScreen scroll={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        <WizardHeading
-          style={styles.headingInset}
-          subtitle="Review your transaction">
-          Confirm
-        </WizardHeading>
         <View style={[styles.amountSection, {backgroundColor: theme.colors.surfaceMuted}]}>
           <View style={styles.amountBlock}>
             <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>YOU’RE SENDING</Text>
@@ -612,8 +607,7 @@ const SendWizardConfirm = () => {
 };
 
 const styles = StyleSheet.create({
-  content: {paddingHorizontal: 16, paddingBottom: 20},
-  headingInset: {marginHorizontal: -16},
+  content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   amountSection: {borderRadius: 12, padding: 16, marginBottom: 16},
   amountBlock: {paddingVertical: 4, position: 'relative'},
   amountLabel: {fontSize: 11, lineHeight: 15, marginBottom: 6, letterSpacing: 0.3, ...fontStyle('medium')},

@@ -25,7 +25,7 @@ import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
   WizardFormLayout,
-  WizardHeading,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {
@@ -308,9 +308,8 @@ const SendWizardAmount = () => {
 
   if (!sourceCoin || !target || !route) {
     return (
-      <WizardScreen>
-        <WizardHeading>Amount</WizardHeading>
-        <ErrorMessage>Source or recipient Asset selection is missing.</ErrorMessage>
+      <WizardScreen contentContainerStyle={styles.fallbackContent}>
+        <ErrorMessage style={styles.fallbackError}>Source or recipient Asset selection is missing.</ErrorMessage>
       </WizardScreen>
     );
   }
@@ -351,7 +350,6 @@ const SendWizardAmount = () => {
         disabled={!validAmount || estimateLoading}
         onPress={continueToRecipient}>
         {errorMessage => <>
-          <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
           <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
           {mode === SEND_WIZARD_MODE.SEND &&
           isConversionChannel(channel) ? (
@@ -542,8 +540,9 @@ const SendWizardAmount = () => {
 };
 
 const styles = StyleSheet.create({
-  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12},
-  headingInset: {marginHorizontal: -16},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 12},
+  fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
+  fallbackError: {marginVertical: 0},
   contextLine: {fontSize: 14, lineHeight: 20, marginBottom: 8, ...fontStyle('regular')},
   networkRow: {
     minHeight: 58,

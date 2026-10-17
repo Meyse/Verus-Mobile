@@ -20,6 +20,7 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 
 export const WIZARD_CONTENT_INSET = 16;
+export const WIZARD_CONTENT_TOP_INSET = 24;
 
 // The stack header is outside this view. Keyboard coordinates include it.
 export const WizardFormLayout = ({
@@ -122,46 +123,6 @@ export const WizardScreen = ({children, contentContainerStyle, scroll = true}) =
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}>
       {children}
     </ScrollView>
-  );
-};
-
-export const WizardHeading = ({children, style, subtitle}) => {
-  const theme = useOnboardingTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
-  return (
-    <View
-      style={[
-        {
-          paddingHorizontal: WIZARD_CONTENT_INSET,
-          paddingTop: smallDevice
-            ? theme.spacing.md
-            : theme.spacing.lg,
-          paddingBottom: smallDevice
-            ? theme.spacing.stepTitleMarginSmallDevice
-            : theme.spacing.md,
-        },
-        style,
-      ]}>
-      <Text
-        style={[
-          smallDevice
-            ? theme.typography.headlineCompact
-            : theme.typography.headlineMd,
-          {color: theme.colors.textPrimary},
-        ]}>
-        {children}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[
-            styles.subtitle,
-            theme.typography.bodyMd,
-            {color: theme.colors.textSecondary},
-          ]}>
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
   );
 };
 
@@ -349,7 +310,6 @@ const styles = StyleSheet.create({
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
   formError: {marginHorizontal: 0, marginVertical: 8},
-  subtitle: {marginTop: 8},
   search: {
     height: 52,
     marginHorizontal: WIZARD_CONTENT_INSET,
