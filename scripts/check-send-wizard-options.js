@@ -3,6 +3,7 @@
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const {DEST_ETH} = require('verus-typescript-primitives');
 
 const loadWizardUtils = coinDirectory => {
   const filename = path.resolve(
@@ -15,16 +16,18 @@ const loadWizardUtils = coinDirectory => {
       "import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';",
       '',
     )
+    .replace("import {DEST_ETH} from 'verus-typescript-primitives';", '')
     .replace(/export const /g, 'const ')
     .concat(
       '\nmodule.exports = {buildSendTarget, buildTargetOptions, isConversionChannel};\n',
     );
   const appModule = {exports: {}};
 
-  new Function('module', 'exports', 'CoinDirectory', source)(
+  new Function('module', 'exports', 'CoinDirectory', 'DEST_ETH', source)(
     appModule,
     appModule.exports,
     coinDirectory,
+    DEST_ETH,
   );
 
   return appModule.exports;
@@ -252,6 +255,70 @@ const main = () => {
     ethereum.routes.every(route => route.addressType === 'ethereum'),
     'the selected receive network must keep its destination address contract',
   );
+
+  // Daemon-derived Verus-source routes have export definitions, not ethdest.
+  for (const [sourceId, exportId] of [
+    [VRSCTEST_ID, 'iCtawpxUiCc2sEupt7Z4u8SDAncGZpgSKm'],
+    ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV', 'i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X'],
+  ]) {
+    const source = {
+      ...coins.VRSCTEST,
+      currency_id: sourceId,
+      system_id: sourceId,
+    };
+    const exportDefinition = {
+      ...currency(exportId, 'vETH', 'vETH', sourceId),
+      proofprotocol: 3,
+      nativecurrencyid: {
+        address: '0x0000000000000000000000000000000000000001',
+        type: 9,
+      },
+    };
+    const mkr = currency('iMakerFixture', 'MKR.vETH', 'MKR.vETH', sourceId);
+    const paths = {
+      [mkr.currencyid]: [
+        {destination: mkr, via: bridge},
+        {destination: mkr, via: bridge, exportto: exportDefinition},
+      ],
+      [exportId]: [
+        {destination: exportDefinition, via: bridge, exportto: exportDefinition},
+      ],
+    };
+    const targets = buildTargetOptions(paths, source, false);
+    const ethTarget = targets.find(target => target.id === exportId);
+    assert.strictEqual(ethTarget.routes[0].addressType, 'ethereum');
+    assert.strictEqual(ethTarget.routes[0].networkKey, '.eth');
+    assert.strictEqual(ethTarget.routes[0].networkName, 'Ethereum');
+    assert.strictEqual(ethTarget.transactionCurrency, exportId);
+    assert.strictEqual(ethTarget.convertToFqn, 'vETH');
+    assert.strictEqual(ethTarget.routes[0].exportTo, exportId);
+
+    const maker = targets.find(target => target.id === 'MKR');
+    assert.strictEqual(
+      maker.ticker,
+      'MKR',
+      'MKR.vETH must name the asset, not its network',
+    );
+    assert.deepStrictEqual(
+      maker.networkOptions.map(network => network.networkKey).sort(),
+      ['.eth', sourceId].sort(),
+    );
+    assert(maker.networkOptions.every(network => network.ticker === 'MKR'));
+
+    const exportAddressType = definition => buildTargetOptions({
+      [exportId]: [{destination: exportDefinition, exportto: definition}],
+    }, source, false).find(target => target.isConversion).routes[0].addressType;
+
+    assert.strictEqual(exportAddressType({
+      ...exportDefinition,
+      fullyqualifiedname: 'RenamedGateway',
+    }), 'ethereum');
+    assert.strictEqual(exportAddressType({
+      ...exportDefinition,
+      fullyqualifiedname: 'Ethereum',
+      nativecurrencyid: {type: 2},
+    }), 'verus');
+  }
 
   console.log('Send wizard option matrix: PASS');
 };
