@@ -5,6 +5,7 @@ import { VERUS_BRIDGE_DELEGATOR_ABI } from '../constants/abis/verusBridgeDelegat
 import { coinsList } from '../CoinData/CoinsList';
 import { ERC20 } from '../constants/intervalConstants';
 import { HistorySupportingEtherscanProvider } from './etherscan';
+import { SepoliaReadProvider } from './sepoliaReadProvider';
 import { getTestnetBridgeDelegator } from '../testnetEnvironment';
 
 class Web3Interface {
@@ -15,11 +16,13 @@ class Web3Interface {
     this.web3Contracts = {}; // { [key: contractAddress]: Array[contractAddress, contractAbi]}
 
     /** @type {import('ethers').Provider} */
-    this.DefaultProvider = new ethers.getDefaultProvider(this.network, {
-      etherscan: apiKeys.etherscan,
-      infura: apiKeys.infura,
-      exclusive: [ "etherscan", "infura" ]
-    })
+    this.DefaultProvider = this.network === ETH_SEPOLIA
+      ? new SepoliaReadProvider(apiKeys.infura)
+      : new ethers.getDefaultProvider(this.network, {
+          etherscan: apiKeys.etherscan,
+          infura: apiKeys.infura,
+          exclusive: [ "etherscan", "infura" ]
+        })
 
     /** @type {HistorySupportingEtherscanProvider} */
     this.EtherscanProvider = new HistorySupportingEtherscanProvider(

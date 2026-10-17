@@ -12,11 +12,13 @@ export const TESTNET_ENVIRONMENTS = {
   [TESTNET_ENVIRONMENT_PUBLIC]: {
     vrpcEndpoints: null, // null keeps the default VRSCTEST endpoints
     disableDlight: false,
+    explorerUrl: 'https://testex.verus.io',
     bridgeDelegator: '0xcaa98a4ec79dac8a06cb3bfdcf5351b6576d939f',
   },
   [TESTNET_ENVIRONMENT_PRIVATE]: {
     vrpcEndpoints: ['https://ptestapi.verustest.net'],
     disableDlight: true,
+    explorerUrl: null, // Private-chain transactions have no public explorer.
     bridgeDelegator: '0x98f58684b05e7d40719e61955015af91ef7e77d3',
   },
 };
@@ -36,6 +38,9 @@ export const getTestnetEnvironment = () => activeEnvironment;
 
 export const getTestnetBridgeDelegator = () =>
   TESTNET_ENVIRONMENTS[activeEnvironment].bridgeDelegator;
+
+export const getTestnetExplorer = () =>
+  TESTNET_ENVIRONMENTS[activeEnvironment].explorerUrl;
 
 // Endpoint overrides keyed by system ID, in the shape of the user's
 // `vrpcOverrides` setting. They take precedence over the user's.
