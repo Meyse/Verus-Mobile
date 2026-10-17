@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -31,6 +31,7 @@ export const WizardFormLayout = ({
 }) => {
   const headerHeight = useHeaderHeight();
   const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  const [footerHeight, setFooterHeight] = useState(0);
   const scrollRef = useRef(null);
   const errorLayoutRef = useRef(null);
   const viewportHeightRef = useRef(0);
@@ -92,15 +93,26 @@ export const WizardFormLayout = ({
           revealError();
         }}
         style={styles.screen}
-        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}>
+        contentContainerStyle={[
+          styles.scrollContent,
+          contentContainerStyle,
+          // Keep a footer-sized scroll reserve when the keyboard contracts
+          // the form. Apply it after caller padding so tail controls can clear
+          // Continue even on compact Android screens.
+          keyboardVisible && {paddingBottom: footerHeight + 24},
+        ]}>
         {children(errorMessage)}
       </ScrollView>
-      <WizardFooter
-        {...footerProps}
-        bottomSpacing={keyboardVisible ? 8 : 24}
-        includeBottomInset={!keyboardVisible}
-        safeAreaSpacing={keyboardVisible ? 0 : 12}
-      />
+      <View
+        style={styles.formFooter}
+        onLayout={event => setFooterHeight(event.nativeEvent.layout.height)}>
+        <WizardFooter
+          {...footerProps}
+          bottomSpacing={keyboardVisible ? 8 : 24}
+          includeBottomInset={!keyboardVisible}
+          safeAreaSpacing={keyboardVisible ? 0 : 12}
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -307,6 +319,7 @@ export const wizardTextStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   footer: {paddingTop: 16},
+  formFooter: {flexShrink: 0},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
   formError: {marginHorizontal: 0, marginVertical: 8},

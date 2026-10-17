@@ -181,9 +181,12 @@ const SendWizardAmount = () => {
   );
   const sourcePaysExportFee = Boolean(exportFee && exportFee.currencyId ===
     (sourceCoin?.currency_id || sourceCoin?.id));
+  const exportFeeBlocksRoute = sourcePaysExportFee &&
+    BigNumber(sourceBalance || 0).isLessThanOrEqualTo(exportFee.amount);
   const insufficientExportFunds = sourcePaysExportFee &&
-    cryptoAmount.isFinite() && cryptoAmount.isGreaterThan(0) &&
-    cryptoAmount.plus(exportFee.amount).isGreaterThan(sourceBalance || 0);
+    (exportFeeBlocksRoute || (cryptoAmount.isFinite() && cryptoAmount.isGreaterThan(0) &&
+      cryptoAmount.plus(exportFee.amount).isGreaterThan(sourceBalance || 0)));
+  const maximumDisabled = exportFeeLoading || exportFeeBlocksRoute;
   const exportFeeTicker = exportFee
     ? sourcePaysExportFee ? sourceCoin.display_ticker
       : getCurrencyDisplay(exportFee.currencyId).ticker
@@ -325,7 +328,7 @@ const SendWizardAmount = () => {
   ]);
 
   const useMaximum = () => {
-    if (exportFeeLoading) return;
+    if (maximumDisabled) return;
     const maximum = BigNumber.maximum(0, BigNumber(sourceBalance || 0)
       .minus(sourcePaysExportFee ? exportFee.amount : 0));
     if (sourcePaysExportFee) {
@@ -392,10 +395,10 @@ const SendWizardAmount = () => {
       : null;
   const contextLine = target.isConversion
     ? `Convert ${sourceCoin.display_ticker} → ${target.ticker}${
-        route.isCrossChain && route.exportToFqn ? ` on ${route.exportToFqn}` : ''
+        route.isCrossChain && route.networkName ? ` on ${route.networkName}` : ''
       }`
     : route.isCrossChain
-    ? `Send ${sourceCoin.display_ticker} to ${route.exportToFqn || route.exportTo}`
+    ? `Send ${sourceCoin.display_ticker} to ${route.networkName || route.exportToFqn || route.exportTo}`
     : `Send ${sourceCoin.display_ticker} on ${getCurrencyDisplay(
         channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
       ).name}`;
@@ -414,7 +417,7 @@ const SendWizardAmount = () => {
     <WizardScreen scroll={false}>
       <WizardFormLayout
         contentContainerStyle={styles.content}
-        error={amountError || exportFeeError || estimateError}
+        error={(exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError}
         disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
         onPress={continueToRecipient}>
         {errorMessage => <>
@@ -517,10 +520,10 @@ const SendWizardAmount = () => {
               <Text style={[styles.balance, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{disabled: exportFeeLoading}}
-                disabled={exportFeeLoading}
+                accessibilityState={{disabled: maximumDisabled}}
+                disabled={maximumDisabled}
                 onPress={useMaximum}
-                style={[styles.maxButton, {borderColor: theme.colors.primary}]}>
+                style={[styles.maxButton, {borderColor: theme.colors.primary}, maximumDisabled && styles.maxDisabled]}>
                 <Text style={[styles.maxText, {color: theme.colors.primary}]}>MAX</Text>
               </Pressable>
             </View>
@@ -653,6 +656,7 @@ const styles = StyleSheet.create({
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},
+  maxDisabled: {opacity: 0.4},
   maxText: {fontSize: 11, lineHeight: 15, letterSpacing: 0.5, ...fontStyle('bold')},
   estimateCard: {borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 10, marginBottom: 10},
   estimateLabel: {fontSize: 12, lineHeight: 17, marginBottom: 6, ...fontStyle('bold')},
