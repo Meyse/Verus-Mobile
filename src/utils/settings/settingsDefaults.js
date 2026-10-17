@@ -1,6 +1,7 @@
 import {ADDRESS_BLOCKLIST_FROM_WEBSERVER} from '../constants/constants';
 import {USD} from '../constants/currencies';
 import {normalizeLastOpenedAccountTimestamps} from '../account/accountActivity';
+import {TESTNET_ENVIRONMENT_PUBLIC} from '../testnetEnvironment';
 
 export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   maxTxCount: 10,
@@ -19,6 +20,7 @@ export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   },
   addressBlocklist: [],
   vrpcOverrides: {},
+  testnetEnvironment: TESTNET_ENVIRONMENT_PUBLIC,
 };
 
 export const DEFAULT_SETTINGS = {

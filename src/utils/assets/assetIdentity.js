@@ -10,7 +10,7 @@ export const assetNetworkKey = account =>
     : 'mainnet';
 
 export const ethereumNetwork = coin => coin.network ||
-  (coin.testnet ? 'goerli' : 'homestead');
+  (coin.testnet ? 'sepolia' : 'homestead');
 
 // Currency identity belongs to a network, never to a display name or ticker.
 // A Verus currency can have holdings on several systems, represented by cards.

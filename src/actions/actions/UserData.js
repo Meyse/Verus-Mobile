@@ -399,7 +399,7 @@ export const fetchUsers = async () => {
           !value.testnetOverrides.hasOwnProperty('ETH'),
       )
     ) {
-      console.warn('Updating testnet profile to account for goerli ETH');
+      console.warn('Updating testnet profile to account for testnet ETH');
 
       nextUsers = nextUsers.map(user => {
         if (

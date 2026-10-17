@@ -107,7 +107,7 @@ export const explorers = {
   VRSC: 'https://insight.verus.io',
   VRSCTEST: 'https://testex.verus.io',
   ETH: 'https://etherscan.io',
-  GETH: 'https://goerli.etherscan.io',
+  GETH: 'https://sepolia.etherscan.io',
   RFOX: 'https://etherscan.io',
   BAT: 'https://etherscan.io',
   DAI: 'https://etherscan.io',

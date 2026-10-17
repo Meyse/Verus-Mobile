@@ -26,9 +26,9 @@ import { truncateDecimal } from '../../utils/math';
 import { USD } from '../../utils/constants/currencies';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import {
-  VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT,
   VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT,
 } from '../../utils/constants/web3Constants';
+import { getTestnetBridgeDelegator } from '../../utils/testnetEnvironment';
 import {
   createAlert,
   resolveAlert,
@@ -225,7 +225,7 @@ const DynamicHeader = ({ switchTab }) => {
 
   const openTokenAddressExplorer = (address, testnet) => {
     const baseUrl = testnet
-      ? 'https://goerli.etherscan.io/token/'
+      ? 'https://sepolia.etherscan.io/token/'
       : 'https://etherscan.io/token/';
 
     return createAlert(
@@ -476,7 +476,7 @@ const DynamicHeader = ({ switchTab }) => {
     activeCoin.mapped_to != null &&
     mappedCoinObj != null &&
     (mappedCoinObj.currency_id.toLowerCase() ===
-      VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT.toLowerCase() ||
+      getTestnetBridgeDelegator().toLowerCase() ||
       mappedCoinObj.currency_id.toLowerCase() ===
         VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT.toLowerCase());
 

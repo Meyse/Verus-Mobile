@@ -520,7 +520,7 @@ export const coinsList = {
     tags: [],
     proto: 'eth',
     decimals: ETHERS,
-    network: "goerli",
+    network: "sepolia",
     testnet: true
   },
   BAT: {

@@ -41,7 +41,8 @@ import {
   ERC20
 } from "../../../utils/constants/intervalConstants";
 import { selectTransactions } from '../../../selectors/transactions';
-import { DEFAULT_DECIMALS, ETHERS, VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
+import { DEFAULT_DECIMALS, ETHERS, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
+import { getTestnetBridgeDelegator } from "../../../utils/testnetEnvironment";
 import { Portal } from "react-native-paper";
 import BigNumber from "bignumber.js";
 import { formatCurrency } from "react-native-format-currency";
@@ -791,8 +792,7 @@ class Overview extends Component {
         ) {
           if (
             (!!(this.props.activeCoin.testnet) &&
-              VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT != null &&
-              subtitle.toLowerCase() === VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT.toLowerCase()) ||
+              subtitle.toLowerCase() === getTestnetBridgeDelegator().toLowerCase()) ||
             (!this.props.activeCoin.testnet &&
               VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT != null &&
               subtitle.toLowerCase() === VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT.toLowerCase())
