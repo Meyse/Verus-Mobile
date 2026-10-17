@@ -8,6 +8,7 @@ import signedInCopy from '../copy/signedIn';
 import AppButton from './AppButton';
 
 const ACTION_ICON_SIZE = 20;
+const ACTION_BUTTON_HEIGHT = 48;
 const ACTION_ICONS = {
   receive: ({color}) => (
     <MaterialCommunityIcons
@@ -72,6 +73,7 @@ const SignedInActionBar = ({
           }
           accessibilityLabel={signedInCopy.actions.receive}
           compact
+          height={ACTION_BUTTON_HEIGHT}
           disabled={receiveDisabled}
           icon={ACTION_ICONS.receive}
           labelStyle={styles.label}
@@ -86,6 +88,7 @@ const SignedInActionBar = ({
           }
           accessibilityLabel={signedInCopy.actions.send}
           compact
+          height={ACTION_BUTTON_HEIGHT}
           disabled={sendDisabled}
           icon={ACTION_ICONS.send}
           labelStyle={styles.label}
@@ -102,6 +105,7 @@ const SignedInActionBar = ({
           }
           accessibilityLabel={signedInCopy.actions.convert}
           compact
+          height={ACTION_BUTTON_HEIGHT}
           disabled={convertDisabled}
           icon={ACTION_ICONS.convert}
           labelStyle={styles.label}
@@ -195,7 +199,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 20,
     marginLeft: 10,
     marginRight: 12,
