@@ -16,6 +16,24 @@ const CONVERSION_CHANNEL_TYPES = new Set([
 export const isConversionChannel = channel =>
   CONVERSION_CHANNEL_TYPES.has(channel?.split('.')[0]);
 
+// Use the selected Card's address, which can differ from another Card's keys.
+export const isOwnChannelAddress = ({
+  activeAccount,
+  channel,
+  recipientAddress,
+  sourceCoin,
+}) => {
+  const [channelType, channelAddress] = String(channel || '').split('.');
+  const sourceAddress = channelType === 'vrpc'
+    ? channelAddress
+    : activeAccount?.keys?.[sourceCoin?.id]?.[channelType]?.addresses?.[0];
+
+  return Boolean(sourceAddress) && typeof recipientAddress === 'string' &&
+    (['eth', 'erc20'].includes(channelType)
+      ? recipientAddress.toLowerCase() === sourceAddress.toLowerCase()
+      : recipientAddress === sourceAddress);
+};
+
 export const ADDRESS_TYPE = {
   ETHEREUM: 'ethereum',
   GENERIC: 'generic',
