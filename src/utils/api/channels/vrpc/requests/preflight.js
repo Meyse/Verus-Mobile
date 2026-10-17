@@ -6,7 +6,7 @@ import { Transaction, networks, smarttxs } from "@bitgo/utxo-lib";
 import { calculateCurrencyTransferFee } from "./calculateCurrencyTransferFee";
 import { getInfo } from "./getInfo";
 import { fundRawTransaction } from "./fundRawTransaction";
-import { getAddressUtxos, getSpendableUtxos } from "./getAddressUtxos";
+import { getSpendableUtxosWithMempoolInfo } from "./getAddressUtxos";
 import { getCurrency, getIdentity } from "../../verusid/callCreators";
 import { getSystemNameFromSystemId } from "../../../../CoinData/CoinData";
 import { estimateConversion } from "./estimateConversion";
@@ -231,6 +231,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
   const currencyDefs = new Map();
   let nativeFeesPaid = BigNumber(0);
   let _feeamount;
+  let mempoolSpentUtxoCount = 0;
   delete output.bridgeprelaunch
 
   try {
@@ -514,7 +515,9 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       }
     }
 
-    const utxoList = await getSpendableUtxos(systemId, currency, [source]);
+    const fundingUtxos = await getSpendableUtxosWithMempoolInfo(systemId, currency, [source]);
+    const utxoList = fundingUtxos.utxos;
+    mempoolSpentUtxoCount = fundingUtxos.mempoolSpentUtxoCount;
 
     const fundRes = await fundRawTransaction(
       systemId,
@@ -629,21 +632,25 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     let message = e.message;
 
     if (message != null && typeof message === 'string' && message.includes('Insufficient funds')) {
-      const systemName = friendlyNames.has(systemId)
-        ? friendlyNames.get(systemId)
-        : systemId
-      const feeCurrencyName = output.feecurrency
-        ? friendlyNames.has(output.feecurrency)
-          ? friendlyNames.get(output.feecurrency)
-          : output.feecurrency
-        : systemName;
-      const nativeFeeAmount = satsToCoins(nativeFeesPaid).toString();
+      if (mempoolSpentUtxoCount > 0) {
+        message = 'Part of your balance is still being confirmed. Wait for the next block, then try again.';
+      } else {
+        const systemName = friendlyNames.has(systemId)
+          ? friendlyNames.get(systemId)
+          : systemId
+        const feeCurrencyName = output.feecurrency
+          ? friendlyNames.has(output.feecurrency)
+            ? friendlyNames.get(output.feecurrency)
+            : output.feecurrency
+          : systemName;
+        const nativeFeeAmount = satsToCoins(nativeFeesPaid).toString();
 
-      message = `Insufficient funds. Ensure you have at least ${
-        (output.feecurrency == null || output.feecurrency === systemId)
-          ? nativeFeeAmount
-            : satsToCoins(BigNumber(_feeamount)).toString()
-            } ${feeCurrencyName} on the ${systemName} network to fund the fee for transaction.`;
+        message = `Insufficient funds. Ensure you have at least ${
+          (output.feecurrency == null || output.feecurrency === systemId)
+            ? nativeFeeAmount
+              : satsToCoins(BigNumber(_feeamount)).toString()
+              } ${feeCurrencyName} on the ${systemName} network to fund the fee for transaction.`;
+      }
     }
 
     return {

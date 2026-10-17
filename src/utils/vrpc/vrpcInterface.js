@@ -94,9 +94,10 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
    * to refactor the way update polling/intervals work so that multiple PBaaS currencies can 
    * fetch info from one interval as long as they exist on the same system (TODO)
    * @param {ApiRequest} req 
+   * @param {{skipCache?: boolean}} options Bypass cached reads for funding checks.
    * @returns 
    */
-  async request(req) {
+  async request(req, {skipCache = false} = {}) {
     const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
     const callDelay = this.registerCallStart(cacheId);
 
@@ -105,7 +106,7 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
         try {
           const cmd = req.cmd;
           const saveToCache = isVrpcResponseCacheable(cmd);
-          const getFromCache = shouldUseCachedVrpcResponse({
+          const getFromCache = !skipCache && shouldUseCachedVrpcResponse({
             command: cmd,
             lastNetworkResponseAt: this.getLastNetworkResponseTime(cacheId),
           });
