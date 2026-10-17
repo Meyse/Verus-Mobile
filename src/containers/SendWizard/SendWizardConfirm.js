@@ -45,6 +45,7 @@ import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_TRANSACTIONS,
+  VRPC,
 } from '../../utils/constants/intervalConstants';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
@@ -455,12 +456,17 @@ const SendWizardConfirm = () => {
   );
   // Match the selected send channel's preflight source. Other Cards can use
   // different addresses for the same coin. This affects the display only.
+  // A VRPC channel carries its address (`vrpc.<address>.<systemId>`); other
+  // channels keep their keys by channel type.
+  const [channelType, channelAddress] = String(channel || '').split('.');
   const sourceAddress =
-    activeAccount?.keys?.[sourceCoin?.id]?.[channel]?.addresses?.[0];
+    channelType === VRPC
+      ? channelAddress
+      : activeAccount?.keys?.[sourceCoin?.id]?.[channelType]?.addresses?.[0];
   const isSelfSend =
     simpleSend &&
     Boolean(sourceAddress) &&
-    ([ETH, ERC20].includes(channel?.split('.')[0])
+    ([ETH, ERC20].includes(channelType)
       ? recipientAddress.toLowerCase() === sourceAddress.toLowerCase()
       : recipientAddress === sourceAddress);
   const balanceAfter = BigNumber(sourceBalance || 0)
