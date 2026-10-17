@@ -55,6 +55,7 @@ import {
   R_ADDRESS_VERSION,
 } from '../../utils/constants/constants';
 import {useSendWizard} from './SendWizardContext';
+import {refreshSourceBalance} from './refreshSourceBalance';
 import {
   ErrorMessage,
   WizardFooter,
@@ -365,6 +366,7 @@ const SendWizardConfirm = () => {
 
       // Block stale hold callbacks before context and navigation update.
       submitted.current = true;
+      void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
       navigation.reset({
         index: 0,
