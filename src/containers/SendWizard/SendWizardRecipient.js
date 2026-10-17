@@ -2,7 +2,6 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Clipboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -261,7 +260,7 @@ const SendWizardRecipient = () => {
   const inputAlreadySaved = savedAddresses.some(
     record => record.address.toLowerCase() === input.trim().toLowerCase(),
   );
-  const showSaveOption = validation.valid && !inputAlreadySaved;
+  const showSaveOption = validation.valid && !error && !inputAlreadySaved;
 
   const saveNewAddress = async record => {
     try {
@@ -309,12 +308,12 @@ const SendWizardRecipient = () => {
   return (
     <WizardScreen scroll={false}>
       <WizardFormLayout
+        contentContainerStyle={styles.content}
         error={error || validation.message}
         disabled={!validation.valid}
         loading={resolving}
         loadingText="Checking VerusID…"
         onPress={continueToReview}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <WizardHeading
             style={styles.headingInset}
             subtitle="Enter the destination address">
@@ -420,7 +419,6 @@ const SendWizardRecipient = () => {
             ) : null}
             </View>
           ) : null}
-        </ScrollView>
       </WizardFormLayout>
       <AddressBookSheet
         visible={addressBookOpen}

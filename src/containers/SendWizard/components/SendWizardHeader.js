@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useIsFocused} from '@react-navigation/native';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {SEND_WIZARD_MODE} from '../wizardUtils';
 import {WIZARD_CONTENT_INSET} from './WizardUI';
@@ -69,6 +70,7 @@ const SendWizardHeader = ({
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
+  const isFocused = useIsFocused();
   const clampedProgress = Math.max(0, Math.min(progress, 1));
   const progressPercent = Math.round(clampedProgress * 100);
   const localProgressAnimation = useRef({
@@ -88,6 +90,10 @@ const SendWizardHeader = ({
   );
 
   useEffect(() => {
+    // Stack headers stay mounted on Back. Only the focused step owns the
+    // shared animation, and it must restore its value when focused again.
+    if (!isFocused) return undefined;
+
     let active = true;
     let animation;
     const generation = progressAnimation.generation + 1;
@@ -125,7 +131,7 @@ const SendWizardHeader = ({
         animation.stop();
       }
     };
-  }, [animatedProgress, clampedProgress, progressAnimation]);
+  }, [animatedProgress, clampedProgress, isFocused, progressAnimation]);
 
   return (
     <View

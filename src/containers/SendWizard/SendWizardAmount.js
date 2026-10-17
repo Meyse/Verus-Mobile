@@ -1,7 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -347,10 +346,10 @@ const SendWizardAmount = () => {
   return (
     <WizardScreen scroll={false}>
       <WizardFormLayout
+        contentContainerStyle={styles.content}
         error={amountError || estimateError}
         disabled={!validAmount || estimateLoading}
         onPress={continueToRecipient}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
           <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
           {mode === SEND_WIZARD_MODE.SEND &&
@@ -508,7 +507,6 @@ const SendWizardAmount = () => {
               ) : null}
             </View>
           ) : null}
-        </ScrollView>
       </WizardFormLayout>
       <RouteSheet
         estimates={routeEstimates}

@@ -45,6 +45,7 @@ import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_TRANSACTIONS,
+  VRPC,
 } from '../../utils/constants/intervalConstants';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
@@ -66,7 +67,7 @@ import {getCurrencyDisplay} from './wizardUtils';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
-  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known|txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent)\b/i.test(message)
+  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known|txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
     ? 'Your previous transaction is still being confirmed. Wait for the next block, then review this transaction again.'
     : message;
 
@@ -453,8 +454,23 @@ const SendWizardConfirm = () => {
         : total,
     BigNumber(0),
   );
+  // Match the selected send channel's preflight source. Other Cards can use
+  // different addresses for the same coin. This affects the display only.
+  // A VRPC channel carries its address (`vrpc.<address>.<systemId>`); other
+  // channels keep their keys by channel type.
+  const [channelType, channelAddress] = String(channel || '').split('.');
+  const sourceAddress =
+    channelType === VRPC
+      ? channelAddress
+      : activeAccount?.keys?.[sourceCoin?.id]?.[channelType]?.addresses?.[0];
+  const isSelfSend =
+    simpleSend &&
+    Boolean(sourceAddress) &&
+    ([ETH, ERC20].includes(channelType)
+      ? recipientAddress.toLowerCase() === sourceAddress.toLowerCase()
+      : recipientAddress === sourceAddress);
   const balanceAfter = BigNumber(sourceBalance || 0)
-    .minus(displayAmount)
+    .minus(isSelfSend ? 0 : displayAmount)
     .minus(sourceFees);
   const submittedAmount = preflightResult?.submittedsats != null
     ? satsToCoins(BigNumber(preflightResult.submittedsats))
@@ -568,7 +584,7 @@ const SendWizardConfirm = () => {
             <Text numberOfLines={2} style={[styles.detailValue, {color: theme.colors.textPrimary}]}>{`${sourceCoin?.display_name || ''} · ${sourceSubWallet?.name || ''}`}</Text>
           </View>
         </View>
-        <Text style={[styles.balanceAfter, {color: theme.colors.textSubtle}]}>Balance after: {truncateDecimal(balanceAfter, 8)} {sourceCoin?.display_ticker}</Text>
+        <Text style={[styles.balanceAfter, {color: theme.colors.textSubtle, marginBottom: warnings.length ? theme.spacing.md : 0}]}>Balance after: {truncateDecimal(balanceAfter, 8)} {sourceCoin?.display_ticker}</Text>
         {warnings.map(message => (
           <View key={message} style={[styles.warning, {backgroundColor: theme.colors.surfaceMuted}]}>
             <Text style={[styles.warningText, {color: theme.colors.warning}]}>{message}</Text>
