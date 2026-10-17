@@ -12,7 +12,6 @@ import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {useSendWizard} from './SendWizardContext';
 import {WizardFooter, WizardScreen} from './components/WizardUI';
 import {getTransactionId} from './wizardUtils';
-import {closeWizard} from './wizardNavigation';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
@@ -51,7 +50,17 @@ const SendWizardSuccess = () => {
     ? 'Your cross-chain transfer is on its way.'
     : 'Your transaction has been submitted to the network.';
 
-  const finish = useCallback(() => closeWizard(navigation), [navigation]);
+  const finish = useCallback(() => {
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.reset === 'function') {
+      parent.reset({
+        index: 0,
+        routes: [{name: 'Home', params: {screen: 'WalletHome'}}],
+      });
+      return;
+    }
+    navigation.navigate('Home', {screen: 'WalletHome'});
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
