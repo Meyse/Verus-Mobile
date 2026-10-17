@@ -41,7 +41,7 @@ const assetNetworks = (coin, {cards, systemId}) => {
   if (coin.system_id === '.wyre') return [{id: '.wyre', label: 'Wyre', iconId: null}];
   if (coin.proto === 'eth' || coin.proto === 'erc20') {
     const id = ethereumNetwork(coin);
-    return [{id, label: id === 'homestead' ? 'Ethereum' : id === 'goerli' ? 'Goerli testnet' : id, iconId: 'ETH'}];
+    return [{id, label: id === 'homestead' ? 'Ethereum' : id === 'sepolia' ? 'Sepolia testnet' : id, iconId: 'ETH'}];
   }
   if (coin.proto !== 'vrsc') {
     return [{id: coin.id, label: coin.proto === 'fiat' ? 'Fiat' : coin.display_name, iconId: coin.id}];
@@ -123,7 +123,7 @@ export const getAssetLookupNetworks = (account, activeCoins, kind) => {
   if (kind === 'erc20') {
     const coin = readCoin(account?.testnetOverrides?.ETH || (testnet ? 'GETH' : 'ETH'));
     if (!coin || Boolean(coin.testnet) !== testnet) return [];
-    return [{id: ethereumNetwork(coin), label: testnet ? 'Goerli testnet' : 'Ethereum mainnet', coin}];
+    return [{id: ethereumNetwork(coin), label: testnet ? 'Sepolia testnet' : 'Ethereum mainnet', coin}];
   }
   const root = readCoin(account?.testnetOverrides?.VRSC || (testnet ? 'VRSCTEST' : 'VRSC'));
   const rootNetwork = root && getVrpcNetwork(root.currency_id, testnet);

@@ -127,6 +127,7 @@ export class VerusMobile extends React.Component {
 
       this.props.dispatch(initInstanceKey(await initInstance()));
 
+      CoinDirectory.setTestnetEnvironment(settingsAction.settings.generalWalletSettings ? settingsAction.settings.generalWalletSettings.testnetEnvironment : null);
       CoinDirectory.setVrpcOverrides(settingsAction.settings.generalWalletSettings ? settingsAction.settings.generalWalletSettings.vrpcOverrides : {});
 
       await clearCachedVrpcResponses()

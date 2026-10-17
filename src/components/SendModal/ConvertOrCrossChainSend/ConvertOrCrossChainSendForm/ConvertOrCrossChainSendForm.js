@@ -981,7 +981,7 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
       ) {
         try {
           const provider = getWeb3ProviderForNetwork(
-            coinObj.testnet ? 'goerli' : 'homestead',
+            coinObj.testnet ? 'sepolia' : 'homestead',
           );
 
           if (!(await provider.isVerusBridgeDelegatorActive())) {

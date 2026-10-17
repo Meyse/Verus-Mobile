@@ -6,9 +6,11 @@
 
 import React, {useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, Alert} from 'react-native';
+import AlertAsync from 'react-native-alert-async';
 import {Portal} from 'react-native-paper';
 import {useDispatch} from 'react-redux';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
+import {switchTestnetEnvironment} from '../../../../actions/actions/testnetEnvironment';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import ListSelectionModal from '../../../../components/ListSelectionModal/ListSelectionModal';
 import NumberPadModal from '../../../../components/NumberPadModal/NumberPadModal';
@@ -19,6 +21,10 @@ import {
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../../../utils/constants/currencies';
 import {MINIMUM_GAS_PRICE_GWEI} from '../../../../utils/constants/web3Constants';
+import {
+  TESTNET_ENVIRONMENT_PRIVATE,
+  TESTNET_ENVIRONMENT_PUBLIC,
+} from '../../../../utils/testnetEnvironment';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../../env/index';
 import {
   SettingsRow,
@@ -35,6 +41,7 @@ const SETTING_LABELS = {
   homeCardDragDetection: 'automatic drag detection',
   maxTxCount: 'maximum displayed transactions',
   minGasPriceGwei: 'minimum ETH gas price',
+  testnetEnvironment: 'testnet environment',
 };
 
 const hasSetting = (settings, key) =>
@@ -136,6 +143,41 @@ const GeneralWalletSettings = () => {
       console.warn(`Failed to save ${key}: ${errorMessage}`);
     } finally {
       clearPendingSetting(key);
+    }
+  };
+
+  const toggleTestnetEnvironment = async value => {
+    const environment = value
+      ? TESTNET_ENVIRONMENT_PRIVATE
+      : TESTNET_ENVIRONMENT_PUBLIC;
+
+    if (hasSetting(pendingSettingsRef.current, 'testnetEnvironment')) return;
+
+    const confirmed = await AlertAsync(
+      value ? 'Switch to private testnet?' : 'Switch to public testnet?',
+      'The app reloads. Testnet currencies you added are removed and need to be added again.',
+      [
+        {text: 'Cancel', onPress: () => Promise.resolve(false), style: 'cancel'},
+        {text: 'Switch', onPress: () => Promise.resolve(true)},
+      ],
+      {cancelable: false},
+    );
+
+    if (!confirmed || !isMounted.current) return;
+
+    setPendingSetting('testnetEnvironment', environment);
+
+    try {
+      await switchTestnetEnvironment(environment, dispatch);
+    } catch (err) {
+      const errorMessage =
+        err && err.message ? err.message : 'The settings store was unavailable.';
+      createAlert(
+        `Unable to save ${SETTING_LABELS.testnetEnvironment}`,
+        `${errorMessage}\n\nPlease try again.`,
+      );
+      console.warn(`Failed to switch testnet environment: ${errorMessage}`);
+      clearPendingSetting('testnetEnvironment');
     }
   };
 
@@ -314,6 +356,24 @@ const GeneralWalletSettings = () => {
             }
           />
         </SettingsSection>
+
+        {__DEV__ && (
+          <SettingsSection title="Developer">
+            <SettingsSwitchRow
+              busy={isSaving('testnetEnvironment')}
+              description="Use the private Verus API and bridge contract"
+              icon="flask-outline"
+              last
+              onValueChange={toggleTestnetEnvironment}
+              testID="settings.general.testnetEnvironment"
+              title="Private testnet"
+              value={
+                displayedSetting('testnetEnvironment') ===
+                TESTNET_ENVIRONMENT_PRIVATE
+              }
+            />
+          </SettingsSection>
+        )}
       </SettingsScreen>
     </>
   );

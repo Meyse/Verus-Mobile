@@ -86,6 +86,7 @@ export const ETH_NETWORK_IDS = {
     ['ropsten']: BigInt(3),
     ['rinkeby']: BigInt(4),
     ['goerli']: BigInt(5),
+    ['sepolia']: BigInt(11155111),
     ['kovan']: BigInt(42)
 }
 

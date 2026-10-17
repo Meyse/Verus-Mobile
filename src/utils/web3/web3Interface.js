@@ -1,10 +1,11 @@
 import { ethers } from 'ethers';
 import { DEFAULT_ERC20_ABI } from '../constants/abi';
-import { ETHERS, VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from '../constants/web3Constants';
+import { ETHERS, ETH_SEPOLIA, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from '../constants/web3Constants';
 import { VERUS_BRIDGE_DELEGATOR_ABI } from '../constants/abis/verusBridgeDelegatorAbi';
 import { coinsList } from '../CoinData/CoinsList';
 import { ERC20 } from '../constants/intervalConstants';
 import { HistorySupportingEtherscanProvider } from './etherscan';
+import { getTestnetBridgeDelegator } from '../testnetEnvironment';
 
 class Web3Interface {
   constructor(network, apiKeys) {
@@ -106,7 +107,7 @@ class Web3Interface {
     for (const key in coinsList) {
       if (
         coinsList[key].proto === ERC20 &&
-        ((!!coinsList[key].testnet && this.network === 'goerli') ||
+        ((!!coinsList[key].testnet && this.network === ETH_SEPOLIA) ||
           (!coinsList[key].testnet && this.network === 'homestead')) &&
         coinsList[key].currency_id.toLowerCase() === contractAddress.toLowerCase()
       ) {
@@ -153,9 +154,9 @@ class Web3Interface {
 
   getVerusBridgeDelegatorContract = (provider = this.DefaultProvider) => {
     switch (this.network) {
-      case 'goerli':
+      case ETH_SEPOLIA:
         return new ethers.Contract(
-          VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT,
+          getTestnetBridgeDelegator(),
           VERUS_BRIDGE_DELEGATOR_ABI,
           provider
         );
@@ -173,7 +174,7 @@ class Web3Interface {
   isVerusBridgeDelegatorActive = () => {
     const delegatorContract = this.getVerusBridgeDelegatorContract();
     const signer = new ethers.VoidSigner(
-      this.network === 'homestead' ? VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT : VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT, 
+      this.network === 'homestead' ? VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT : getTestnetBridgeDelegator(), 
       this.DefaultProvider
     );
 
