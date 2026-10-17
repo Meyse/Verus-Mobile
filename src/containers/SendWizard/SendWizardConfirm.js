@@ -45,8 +45,8 @@ import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_TRANSACTIONS,
-  VRPC,
 } from '../../utils/constants/intervalConstants';
+import {captureAssetContext} from '../../utils/assets/assetManagementService';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
@@ -57,13 +57,14 @@ import {
 } from '../../utils/constants/constants';
 import {useSendWizard} from './SendWizardContext';
 import {refreshSourceBalance} from './refreshSourceBalance';
+import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
   ErrorMessage,
   WizardFooter,
   WizardHeading,
   WizardScreen,
 } from './components/WizardUI';
-import {getCurrencyDisplay} from './wizardUtils';
+import {getCurrencyDisplay, isOwnChannelAddress} from './wizardUtils';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
@@ -318,6 +319,7 @@ const SendWizardConfirm = () => {
     setSending(true);
     setError(null);
     try {
+      const assetContext = captureAssetContext();
       const validatedSendAmount =
         simpleSend && preflightResult.value != null
           ? BigNumber(preflightResult.value)
@@ -353,6 +355,15 @@ const SendWizardConfirm = () => {
       navigation.reset({
         index: 0,
         routes: [{name: 'SendWizardSuccess'}],
+      });
+      void autoAddConversionAsset({
+        activeAccount,
+        channel,
+        context: assetContext,
+        recipientAddress,
+        route,
+        sourceCoin,
+        target,
       });
     } catch (sendError) {
       if (sendError.ambiguousBroadcast) {
@@ -454,21 +465,10 @@ const SendWizardConfirm = () => {
         : total,
     BigNumber(0),
   );
-  // Match the selected send channel's preflight source. Other Cards can use
-  // different addresses for the same coin. This affects the display only.
-  // A VRPC channel carries its address (`vrpc.<address>.<systemId>`); other
-  // channels keep their keys by channel type.
-  const [channelType, channelAddress] = String(channel || '').split('.');
-  const sourceAddress =
-    channelType === VRPC
-      ? channelAddress
-      : activeAccount?.keys?.[sourceCoin?.id]?.[channelType]?.addresses?.[0];
   const isSelfSend =
-    simpleSend &&
-    Boolean(sourceAddress) &&
-    ([ETH, ERC20].includes(channelType)
-      ? recipientAddress.toLowerCase() === sourceAddress.toLowerCase()
-      : recipientAddress === sourceAddress);
+    simpleSend && isOwnChannelAddress({
+      activeAccount, channel, recipientAddress, sourceCoin,
+    });
   const balanceAfter = BigNumber(sourceBalance || 0)
     .minus(isSelfSend ? 0 : displayAmount)
     .minus(sourceFees);
