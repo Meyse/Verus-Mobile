@@ -22,7 +22,12 @@ import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 export const WIZARD_CONTENT_INSET = 16;
 
 // The stack header is outside this view. Keyboard coordinates include it.
-export const WizardFormLayout = ({children, error, ...footerProps}) => {
+export const WizardFormLayout = ({
+  children,
+  contentContainerStyle,
+  error,
+  ...footerProps
+}) => {
   const headerHeight = useHeaderHeight();
   const {keyboardVisible} = useOnboardingSmallDeviceLayout();
 
@@ -31,8 +36,13 @@ export const WizardFormLayout = ({children, error, ...footerProps}) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={headerHeight}
       style={styles.screen}>
-      {children}
-      <ErrorMessage>{error}</ErrorMessage>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        style={styles.screen}
+        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}>
+        {children}
+        <ErrorMessage style={styles.formError}>{error}</ErrorMessage>
+      </ScrollView>
       <WizardFooter
         {...footerProps}
         bottomSpacing={keyboardVisible ? 8 : 24}
@@ -206,11 +216,11 @@ export const DetailRow = ({label, value}) => {
   );
 };
 
-export const ErrorMessage = ({children}) => {
+export const ErrorMessage = ({children, style}) => {
   const theme = useOnboardingTheme();
   if (!children) return null;
   return (
-    <View style={[styles.errorBox, {backgroundColor: theme.colors.surfaceMuted}]}>
+    <View style={[styles.errorBox, {backgroundColor: theme.colors.surfaceMuted}, style]}>
       <MaterialCommunityIcons
         name="alert-circle-outline"
         size={19}
@@ -287,6 +297,7 @@ const styles = StyleSheet.create({
   footer: {paddingTop: 16},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
+  formError: {marginHorizontal: 0},
   subtitle: {marginTop: 8},
   search: {
     height: 52,
