@@ -1,6 +1,6 @@
-import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import React, {useCallback} from 'react';
+import {BackHandler, StyleSheet, Text, View} from 'react-native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
@@ -12,6 +12,7 @@ import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {useSendWizard} from './SendWizardContext';
 import {WizardFooter, WizardScreen} from './components/WizardUI';
 import {getTransactionId} from './wizardUtils';
+import {closeWizard} from './wizardNavigation';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
@@ -50,17 +51,17 @@ const SendWizardSuccess = () => {
     ? 'Your cross-chain transfer is on its way.'
     : 'Your transaction has been submitted to the network.';
 
-  const finish = () => {
-    const parent = navigation.getParent?.();
-    if (parent && typeof parent.reset === 'function') {
-      parent.reset({
-        index: 0,
-        routes: [{name: 'Home', params: {screen: 'WalletHome'}}],
+  const finish = useCallback(() => closeWizard(navigation), [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        finish();
+        return true;
       });
-      return;
-    }
-    navigation.navigate('Home', {screen: 'WalletHome'});
-  };
+      return () => subscription.remove();
+    }, [finish]),
+  );
 
   return (
     <WizardScreen scroll={false}>
