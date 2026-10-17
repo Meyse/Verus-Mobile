@@ -122,6 +122,9 @@ class TxDetailsModal extends Component {
       activeCoinDisplayTicker,
       activeCoinExplorerId
     } = this.props;
+    const { theme } = this.props;
+    const actionColor = theme.isDark ? theme.colors.textPrimary : Colors.primaryColor;
+    const detailsDisabled = !explorers[activeCoinExplorerId];
     
     return (
       <SemiModal
@@ -136,38 +139,35 @@ class TxDetailsModal extends Component {
             style={{
               ...Styles.headerContainer,
               minHeight: 48,
-              backgroundColor: this.props.theme.isDark
-                ? this.props.theme.colors.sheet
+              backgroundColor: theme.isDark
+                ? theme.colors.sheet
                 : Colors.secondaryColor,
-              borderColor: this.props.theme.isDark
-                ? this.props.theme.colors.border
+              borderColor: theme.isDark
+                ? theme.colors.border
                 : Colors.tertiaryColor,
             }}>
             <View style={Styles.semiModalHeaderContainer}>
               <Button
                 onPress={cancel}
-                textColor={this.props.theme.isDark
-                  ? this.props.theme.colors.primary
-                  : Colors.primaryColor}>
+                textColor={actionColor}>
                 {"Close"}
               </Button>
               <Text
                 style={{
                   ...Styles.centralHeader,
                   ...Styles.smallMediumFont,
-                  color: this.props.theme.isDark
-                    ? this.props.theme.colors.textPrimary
-                    : undefined,
+                  ...(theme.isDark ? { color: theme.colors.textPrimary } : {}),
                 }}
               >
                 {"Transaction"}
               </Text>
               <Button
                 onPress={() => this.openExplorer()}
-                textColor={this.props.theme.isDark
-                  ? this.props.theme.colors.primary
-                  : Colors.primaryColor}
-                disabled={!explorers[activeCoinExplorerId]}
+                textColor={actionColor}
+                labelStyle={theme.isDark ? {
+                  color: detailsDisabled ? theme.colors.disabledText : actionColor,
+                } : undefined}
+                disabled={detailsDisabled}
               >
                 {"Details"}
               </Button>

@@ -295,7 +295,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
 
 const styles = StyleSheet.create({
   screen: {flex: 1},
-  transactions: {flex: 1, zIndex: 1},
+  transactions: {flex: 1},
   topFade: {
     position: 'absolute',
     top: 0,

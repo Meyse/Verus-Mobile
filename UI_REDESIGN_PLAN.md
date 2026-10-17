@@ -8,6 +8,11 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-10-17.
+- Scoped history tap/detail follow-up: I-21, A-29/I-30, and A-28 on
+  `claude/fix-history-tap-detail` from `5cbbac30`. The native View around
+  `SignedInEdgeFade` blocks SVG hit testing before it can cover the first row.
+  Conversion Type case and dark header/action colors are corrected. Source
+  checks pass; the orchestrator owns new iOS/Android rendered and touch QA.
 - Scoped Confirm/Success follow-up: A-5/A-6/A-7, I-7/I-8/I-12, and
   I-16 rejection copy on `claude/fix-wizard-review-success` from `a1e758fd`.
   Implementation and source fixture checks are complete. The orchestrator owns
@@ -896,6 +901,15 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   fixture does not reproduce the native C6 tap failure. The extra safe-area
   check flags the existing legacy modal `SafeAreaView` import on both the base
   and candidate; this copy-only change retains the modal shell.
+- [x] **TX-1.HISTORY-TAP-DETAIL** Add a native no-touch wrapper to the signed-in
+  edge fade. Keep the carousel, list, and gradient geometry. Preserve conversion
+  currency case and use sheet theme colors for the dark detail header/actions.
+- [ ] **TX-1.HISTORY-TAP-DETAIL-QA** Orchestrator: verify the newest row at
+  several x positions, above and below the 32-point top fade boundary. Check
+  scrolling, return to top, older rows, Card swipes/copy, sheet close/reopen,
+  conversion Type, and enabled/disabled Details on iOS/Android in both themes
+  and normal/compact sizes. The native interception cause has high source
+  confidence; no new native execution ran in this worktree.
 
 **Acceptance:** The active wizard uses the current stepped-task and sheet
 patterns without obscuring source/destination networks, route choice, fees, or
@@ -1362,6 +1376,8 @@ plan into a repository-wide migration test project.
 | 2026-09-10 | GR-1 Android QA and layout corrections | Task-owned candidate over `4decf026` | Android native build/entry and 41 fixture screenshots recorded. Corrected tall details-sheet overflow and kept signing errors beside the action. Native iOS/Android light/dark, normal/compact layout and consent/failure checks pass; design, safe-area, parser and iOS bundle checks pass. [Android QA](docs/gr12-android-qa-20260910/qa.local.md); [correction evidence](docs/gr12-ui-fix-20260910/qa.local.md) | Authenticated wallet signing/callbacks and remaining accessibility evidence remain open. The original overflow reproduced on Android; the normal iOS baseline already fit. |
 | 2026-09-10 | GR-1 / GR-2 local implementation | Task-owned candidate over `75592c0f` on `codex/integrate-generic-request-upstream` | Shared themed credential/Data Packet review; explicit consent; cached completion retry; authoritative session/lifecycle/expiry guards before signing. Design/safe-area/parser/iOS bundle, focused non-Jest state/delivery checks, and harness contract checks pass. iOS fixture render/interaction evidence and independent review records: [local QA report](gr12-qa.local.md) | GR-1.9–1.10 and GR-2.6 remain open for authenticated native callbacks/mixed-order walkthrough, Android, and remaining accessibility evidence. No mainnet wallet accessed. |
 | 2026-09-10 | Initial analysis | `fecfbce4` | Source/routing review; design check passed for 27 canonical sources; no authenticated visual walkthrough | Plan created; implementation tasks remain unchecked |
+
+| 2026-10-17 | I-21, A-29/I-30, A-28 history tap/detail | `claude/fix-history-tap-detail` from `5cbbac30`; `SignedInActionBar.js`, `TxDetailsModal.js` | Native `View` with `pointerEvents="none"` wraps the edge-fade SVG, using the existing `ScrollEdgeFade` pattern. Source layout places the invisible 32-point top fade over the first 60-point row. Installed iOS SVG hit testing lacks the native View pointer-events guard; Android checks it before SVG traversal. Conversion Type bypasses title-case transformation only for conversions. Dark header uses sheet/border/text roles, and Details uses readable enabled/disabled text; light colors and explorer availability stay unchanged. Temporary non-Jest source/component checks: 16 baseline failures, 34/34 candidate passes. Babel parse (three JS files, including the reverted preliminary zIndex change), design (30 sources), and whitespace checks pass. [Layout trace and evidence limits](history-tap-detail-qa.local.md). | High-confidence source diagnosis, not native proof. Supplied screenshots inspected read-only. Orchestrator owns new iOS/Android light/dark normal/compact touch and visual QA. No Metro, reload, device, simulator, emulator, merge, or push actions. Broader TX-1 and QA-1 stay open. |
 
 Append one row per coherent delivery. Link safe local QA notes or durable evidence
 where appropriate, and distinguish worktree verification from integration into

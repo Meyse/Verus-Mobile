@@ -126,38 +126,42 @@ export const SignedInEdgeFade = ({
   const gradientId = `signedIn${fadesFromTop ? 'Top' : 'Bottom'}Fade`;
 
   return (
-    <Svg
-      height={height}
+    <View
+      accessible={false}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
-      width="100%"
-      style={[style, {height, opacity: visible ? 1 : 0}]}>
-      <Defs>
-        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <Stop
-            offset="0"
-            stopColor={theme.colors.background}
-            stopOpacity={fadesFromTop ? 1 : 0}
-          />
-          <Stop
-            offset="0.45"
-            stopColor={theme.colors.background}
-            stopOpacity={0.45}
-          />
-          <Stop
-            offset="1"
-            stopColor={theme.colors.background}
-            stopOpacity={fadesFromTop ? 0 : 1}
-          />
-        </LinearGradient>
-      </Defs>
-      <Rect
-        x="0"
-        y="0"
-        width="100%"
-        height={height}
-        fill={`url(#${gradientId})`}
-      />
-    </Svg>
+      style={[style, {width: '100%', height, opacity: visible ? 1 : 0}]}>
+      {/* Guard native hit testing before it reaches the iOS SVG view. */}
+      <Svg accessible={false} height={height} width="100%">
+        <Defs>
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <Stop
+              offset="0"
+              stopColor={theme.colors.background}
+              stopOpacity={fadesFromTop ? 1 : 0}
+            />
+            <Stop
+              offset="0.45"
+              stopColor={theme.colors.background}
+              stopOpacity={0.45}
+            />
+            <Stop
+              offset="1"
+              stopColor={theme.colors.background}
+              stopOpacity={fadesFromTop ? 0 : 1}
+            />
+          </LinearGradient>
+        </Defs>
+        <Rect
+          x="0"
+          y="0"
+          width="100%"
+          height={height}
+          fill={`url(#${gradientId})`}
+        />
+      </Svg>
+    </View>
   );
 };
 
