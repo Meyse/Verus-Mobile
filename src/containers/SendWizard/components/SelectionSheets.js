@@ -133,7 +133,9 @@ export const RouteSheet = ({
           : 'Direct conversion route';
         const estimateDescription =
           estimate == null
-            ? ''
+            ? Object.prototype.hasOwnProperty.call(estimates, item.key)
+              ? '\nEstimate unavailable.'
+              : ''
             : `\n≈ ${truncateDecimal(BigNumber(estimate), 8)} ${
                 target?.ticker || ''
               }${item.key === bestRouteKey ? ' · Best estimate' : ''}`;
