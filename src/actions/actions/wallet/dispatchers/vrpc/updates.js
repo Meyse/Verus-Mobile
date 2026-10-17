@@ -1,5 +1,7 @@
 import BigNumber from "bignumber.js";
-import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo } from "../../../../../utils/api/channels/vrpc/callCreators";
+import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo, getTransaction } from "../../../../../utils/api/channels/vrpc/callCreators";
+import { getCurrency } from "../../../../../utils/api/channels/verusid/requests/getCurrency";
+import { RESERVE_TRANSFER_DESTINATION } from "verus-typescript-primitives";
 import { satsToCoins } from "../../../../../utils/math";
 import { standardizeVrpcTxObj } from "../../../../../utils/standardization/standardizeTxObj";
 import {finiteBalance} from '../../../../../utils/assets/assetIdentity';
@@ -70,47 +72,75 @@ export const updateVrpcTransactions = async (coinObj, channelId) => {
     console.error(e)
   }
   
-  const formattedDeltas = []
+  const grouped = new Map();
+  const currencyNames = {};
+  const confirmedTxids = new Set(txs.filter(tx => !tx.mempool).map(tx => tx.txid));
 
-  // Format address deltas to account for change
-  for (let i = 0; i < txs.length; i++) {
-    let deltaValue = BigNumber(0)
+  // Group by identity, not index order. Keep spend metadata even when the
+  // last delta is change. Prefer confirmed data if the two RPC snapshots overlap.
+  for (const delta of txs) {
+    Object.assign(currencyNames, delta.currencynames);
+    if (delta.mempool && confirmedTxids.has(delta.txid)) continue;
 
-    const {currencyvalues, satoshis, txid} = txs[i];
-
-    if (isNative) deltaValue = satsToCoins(BigNumber(satoshis))
-    else if (currencyvalues && currencyvalues[currencyId]) {
-      deltaValue = BigNumber(currencyvalues[currencyId])
-    }
-
-    // Deltas are returned in array where those that share txids are next to
-    // eachother
-    for (
-      let j = i + 1;
-      j < txs.length && txs[j].txid === txid;
-      j++
-    ) {
-      i++;
-
-      if (isNative) deltaValue = deltaValue.plus(satsToCoins(BigNumber(txs[j].satoshis)))
-      else if (txs[j].currencyvalues && txs[j].currencyvalues[currencyId]) {
-        deltaValue = deltaValue.plus(txs[j].currencyvalues[currencyId])
-      }
-    }
-
-    if (!deltaValue.isEqualTo(0)) {
-      formattedDeltas.push(
-        standardizeVrpcTxObj(
-          {
-            ...txs[i],
-            amount: deltaValue.toString(),
-          },
-          coinObj,
-          infoRes.result ? infoRes.result.longestchain : null,
-        ),
-      );
-    }
+    const previous = grouped.get(delta.txid);
+    const value = isNative
+      ? satsToCoins(BigNumber(delta.satoshis))
+      : BigNumber(delta.currencyvalues?.[currencyId] || 0);
+    grouped.set(delta.txid, {
+      ...delta,
+      sent: delta.sent || previous?.sent,
+      timestamp: previous?.timestamp ?? delta.timestamp,
+      amount: BigNumber(previous?.amount || 0).plus(value).toString(),
+    });
   }
+
+  const reserveTransferAddress = RESERVE_TRANSFER_DESTINATION.getAddressString();
+  const formattedDeltas = await Promise.all(
+    [...grouped.values()].filter(tx => !BigNumber(tx.amount).isZero()).map(async tx => {
+      // The address index only identifies the reserve-transfer output. Decode
+      // its intent from the transaction; ordinary sends need no extra RPC.
+      const hasReserveTransfer = tx.sent?.outputs?.some(output =>
+        Array.isArray(output.addresses)
+          ? output.addresses.includes(reserveTransferAddress)
+          : output.addresses === reserveTransferAddress,
+      );
+      if (BigNumber(tx.amount).isNegative() && hasReserveTransfer) {
+        try {
+          const raw = await getTransaction(systemId, tx.txid, 1);
+          if (raw.error || raw.result?.txid !== tx.txid) throw new Error('Transaction unavailable');
+          const transfers = raw.result.vout
+            .map(output => output.scriptPubKey?.reservetransfer)
+            .filter(Boolean);
+          // Do not summarize a multi-transfer transaction as one conversion.
+          if (transfers.length === 1 && transfers[0].convert === true) {
+            const transfer = transfers[0];
+            const targetCurrencyId = transfer.destinationcurrencyid;
+            if (targetCurrencyId) {
+              tx.conversion = {
+                targetCurrencyId,
+                targetCurrencyName: currencyNames[targetCurrencyId] || targetCurrencyId,
+                destination: transfer.destination?.address,
+              };
+              if (!currencyNames[targetCurrencyId]) {
+                const currency = await getCurrency(systemId, targetCurrencyId);
+                if (!currency.error && currency.result?.currencyid === targetCurrencyId) {
+                  currencyNames[targetCurrencyId] = currency.result.fullyqualifiedname;
+                  tx.conversion.targetCurrencyName = currency.result.fullyqualifiedname || targetCurrencyId;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Optional metadata must not remove an otherwise valid history row.
+        }
+      }
+      return standardizeVrpcTxObj(
+        tx,
+        coinObj,
+        infoRes.result ? infoRes.result.longestchain : null,
+      );
+    }),
+  );
 
   return {
     chainTicker: coinObj.id,
