@@ -1,10 +1,11 @@
 import React, {useCallback} from 'react';
-import {BackHandler, StyleSheet, Text, View} from 'react-native';
+import {BackHandler, Platform, StyleSheet, Text, View} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
 import CopyAction from '../../components/CopyAction';
+import FadedScrollView from '../../components/FadedScrollView';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
@@ -74,7 +75,10 @@ const SendWizardSuccess = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <View style={styles.content}>
+      <FadedScrollView
+        containerStyle={styles.scrollViewport}
+        contentContainerStyle={styles.content}
+        fadeBackgroundColor={theme.colors.background}>
         <AnimatedSuccessCheckmark style={styles.successAnimation} />
         <Text
           style={[
@@ -133,7 +137,6 @@ const SendWizardSuccess = () => {
                 <Text
                   ellipsizeMode="middle"
                   numberOfLines={1}
-                  selectable
                   style={[styles.txid, {color: theme.colors.textPrimary}]}>
                   {txid}
                 </Text>
@@ -153,14 +156,15 @@ const SendWizardSuccess = () => {
             ? 'Cross-chain transfers need confirmations on both networks.'
             : 'You can follow the transaction from this Asset’s activity.'}
         </Text>
-      </View>
+      </FadedScrollView>
       <WizardFooter bottomSpacing={40} horizontalSpacing={24} onPress={finish}>Done</WizardFooter>
     </WizardScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  content: {flex: 1, paddingHorizontal: 24, paddingTop: 80, alignItems: 'center'},
+  scrollViewport: {flex: 1},
+  content: {flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28, alignItems: 'center'},
   successAnimation: {width: 90, height: 90},
   title: {textAlign: 'center', marginTop: 18},
   subtitle: {fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8, marginBottom: 32, maxWidth: 320, ...fontStyle('regular')},
@@ -174,9 +178,9 @@ const styles = StyleSheet.create({
   detailLabel: {fontSize: 14, lineHeight: 19, ...fontStyle('regular')},
   detailValue: {maxWidth: '60%', textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
   txRow: {minHeight: 58, paddingTop: 16, marginTop: 16, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center'},
-  txCopy: {flex: 1, minWidth: 0},
+  txCopy: {flex: 1, minWidth: 0, marginRight: 8},
   txLabel: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
-  txid: {fontSize: 12, lineHeight: 17, marginTop: 4, fontFamily: 'Menlo'},
+  txid: {fontSize: 12, lineHeight: 17, marginTop: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'},
   infoNote: {fontSize: 13, lineHeight: 18, textAlign: 'center', ...fontStyle('regular')},
 });
 
