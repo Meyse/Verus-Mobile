@@ -16,7 +16,7 @@ import {
   IS_TOKEN_FLAG,
 } from "../../../../constants/currencies";
 import { coinsList } from "../../../../CoinData/CoinsList";
-import { getSendCurrencyTransaction } from "./getSendCurrencyTransaction";
+import { getSendCurrencyTransaction, SEND_CURRENCY_PARENT_FEE } from "./getSendCurrencyTransaction";
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
 import { Alert } from "react-native";
@@ -318,7 +318,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       output.burn === true
         ? BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE
         : isConversionOrExport || isBasicNativeSend
-          ? 0.0001
+          ? SEND_CURRENCY_PARENT_FEE
           : 0.0002;
 
     const useSendCurrencyOutput =
