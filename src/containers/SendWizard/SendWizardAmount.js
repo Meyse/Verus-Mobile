@@ -394,7 +394,7 @@ const SendWizardAmount = () => {
         })[0]
       : null;
   const contextLine = target.isConversion
-    ? `Convert ${sourceCoin.display_ticker} → ${target.name || target.ticker}${
+    ? `Convert ${sourceCoin.display_ticker} → ${target.ticker}${
         route.isCrossChain && route.networkName ? ` on ${route.networkName}` : ''
       }`
     : route.isCrossChain
