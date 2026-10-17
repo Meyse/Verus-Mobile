@@ -1,6 +1,6 @@
-import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import React, {useCallback} from 'react';
+import {BackHandler, StyleSheet, Text, View} from 'react-native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
@@ -50,7 +50,7 @@ const SendWizardSuccess = () => {
     ? 'Your cross-chain transfer is on its way.'
     : 'Your transaction has been submitted to the network.';
 
-  const finish = () => {
+  const finish = useCallback(() => {
     const parent = navigation.getParent?.();
     if (parent && typeof parent.reset === 'function') {
       parent.reset({
@@ -60,7 +60,17 @@ const SendWizardSuccess = () => {
       return;
     }
     navigation.navigate('Home', {screen: 'WalletHome'});
-  };
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        finish();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [finish]),
+  );
 
   return (
     <WizardScreen scroll={false}>

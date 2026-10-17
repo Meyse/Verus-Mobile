@@ -22,6 +22,7 @@ import SendWizardAmount from './SendWizardAmount';
 import SendWizardRecipient from './SendWizardRecipient';
 import SendWizardConfirm from './SendWizardConfirm';
 import SendWizardSuccess from './SendWizardSuccess';
+import {closeWizard} from './wizardNavigation';
 import SendWizardHeader, {
   getSendWizardProgress,
 } from './components/SendWizardHeader';
@@ -32,12 +33,6 @@ import {
 } from './wizardUtils';
 
 const Stack = createStackNavigator();
-
-const closeWizard = navigation => {
-  const parent = navigation.getParent?.();
-  if (parent?.goBack) parent.goBack();
-  else navigation.goBack();
-};
 
 const goBackOrClose = navigation => {
   if (navigation.canGoBack?.()) navigation.goBack();
