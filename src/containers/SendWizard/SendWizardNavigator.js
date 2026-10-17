@@ -55,7 +55,7 @@ const SendWizardNavigator = () => {
   const balances = useObjectSelector(state =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
-  const initialSource = useMemo(() => {
+  const candidateInitialSource = useMemo(() => {
     if (!initialCoinId) return null;
     const sourceCoin = coins.find(coin => coin.id === initialCoinId);
     if (!sourceCoin) return null;
@@ -111,6 +111,17 @@ const SendWizardNavigator = () => {
     initialSubWalletId,
     mode,
   ]);
+  const sourceAtEntry = useRef(null);
+  const entryKey = `${mode}:${initialCoinId || ''}:${initialSubWalletId || ''}`;
+  if (sourceAtEntry.current?.key !== entryKey) {
+    sourceAtEntry.current = {key: entryKey, source: null};
+  }
+  if (!sourceAtEntry.current.source && candidateInitialSource) {
+    sourceAtEntry.current.source = candidateInitialSource;
+  }
+  // Keep the entry route/source stable when a send empties its Card. The
+  // provider reads the live balance; a refresh must not unmount Success.
+  const initialSource = sourceAtEntry.current.source;
   const initialState = useMemo(() => {
     if (!initialSource || mode !== SEND_WIZARD_MODE.SEND) {
       return initialSource;

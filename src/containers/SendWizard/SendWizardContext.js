@@ -1,4 +1,6 @@
 import React, {createContext, useCallback, useContext, useMemo, useState} from 'react';
+import {useSelector} from 'react-redux';
+import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
 
 const initialWizardState = {
   sourceCoin: null,
@@ -25,6 +27,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     ...initialWizardState,
     ...(initialState || {}),
   }));
+  const sourceBalance = useSelector(ledgerState => {
+    const balanceChannel = state.sourceSubWallet?.api_channels?.[API_GET_BALANCES];
+    return ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]?.total ?? '0';
+  });
 
   const setSource = useCallback((source, target = null, route = null) => {
     setState(current => ({
@@ -104,7 +110,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
   const value = useMemo(
     () => ({
       mode,
-      state,
+      state: {...state, sourceBalance: String(sourceBalance)},
       setSource,
       setTarget,
       setAmount,
@@ -129,6 +135,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setTxResult,
       setBroadcastError,
       state,
+      sourceBalance,
     ],
   );
 

@@ -29,6 +29,36 @@ export const updateVrpcBalances = async (coinObj, channelId) => {
   }
   currencies[systemId] = satsToCoins(nativeBalance).toString();
 
+  const confirmedBalance = currencies[currencyId] || '0';
+  const mempoolRes = await getAddressMempool(systemId, [iAddress], false, 1);
+  if (mempoolRes.error) throw new Error(mempoolRes.error.message);
+  if (!Array.isArray(mempoolRes.result)) throw new Error('Mempool response unavailable');
+
+  // Native deltas are signed satoshis. Reserve deltas are signed coin amounts.
+  // Use satoshis for the system currency so currencyvalues cannot count it twice.
+  for (const delta of mempoolRes.result) {
+    if (delta?.satoshis == null || delta.satoshis === '' || typeof delta.satoshis === 'boolean' ||
+        !BigNumber(delta.satoshis).isFinite() ||
+        !BigNumber(delta.satoshis).isInteger()) {
+      throw new Error('Mempool balance unavailable');
+    }
+    const reserves = delta.currencyvalues || {};
+    if (typeof reserves !== 'object' || Array.isArray(reserves)) {
+      throw new Error('Mempool currency balance unavailable');
+    }
+    const changes = {...reserves, [systemId]: satsToCoins(BigNumber(delta.satoshis)).toString()};
+    for (const [id, value] of Object.entries(changes)) {
+      if (value == null || value === '' || typeof value === 'boolean' ||
+          !BigNumber(value).isFinite()) {
+        throw new Error('Mempool currency balance unavailable');
+      }
+      currencies[id] = BigNumber(currencies[id] || 0).plus(value).toString();
+    }
+  }
+  // Inconsistent chain/mempool snapshots must not replace a known balance.
+  if (Object.values(currencies).some(value => finiteBalance(value) == null)) {
+    throw new Error('Balance response inconsistent with mempool');
+  }
   const totalBalance = currencies[currencyId] || '0';
 
   return {
@@ -36,8 +66,8 @@ export const updateVrpcBalances = async (coinObj, channelId) => {
     channel: channelId,
     assetDiscovery: {systemId, address: iAddress, testnet: Boolean(coinObj.testnet), currencies},
     body: {
-      confirmed: totalBalance,
-      pending: '0',
+      confirmed: confirmedBalance,
+      pending: BigNumber(totalBalance).minus(confirmedBalance).toString(),
       total: totalBalance,
     },
   };
