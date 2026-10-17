@@ -4,6 +4,7 @@ import {
   Animated,
   Easing,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -67,6 +68,7 @@ const SendWizardHeader = ({
   onClose,
   progress,
   progressAnimation: sharedProgressAnimation,
+  title,
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
@@ -164,6 +166,19 @@ const SendWizardHeader = ({
         ) : (
           <View style={styles.headerSpacer} />
         )}
+        {title ? (
+          <Text
+            accessibilityRole="header"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              styles.title,
+              theme.typography.titleSheet,
+              {color: theme.colors.textPrimary},
+            ]}>
+            {title}
+          </Text>
+        ) : null}
         <TouchableOpacity
           accessibilityLabel="Close transfer"
           accessibilityRole="button"
@@ -229,6 +244,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginLeft: -8,
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
   },
   disabled: {
     opacity: 0.4,

@@ -195,6 +195,7 @@ const SendWizardNavigator = () => {
           cardStyle: {backgroundColor: theme.colors.background},
           header: ({navigation, options, route: headerRoute}) => (
             <SendWizardHeader
+              title={options.title}
               disabled={Boolean(options.wizardNavigationDisabled)}
               onBack={
                 headerRoute.name === 'SendWizardSuccess'
@@ -211,11 +212,31 @@ const SendWizardNavigator = () => {
             />
           ),
         })}>
-        <Stack.Screen name="SendWizardSelectSource" component={SendWizardSelectSource} />
-        <Stack.Screen name="SendWizardSelectTarget" component={SendWizardSelectTarget} />
-        <Stack.Screen name="SendWizardAmount" component={SendWizardAmount} />
-        <Stack.Screen name="SendWizardRecipient" component={SendWizardRecipient} />
-        <Stack.Screen name="SendWizardConfirm" component={SendWizardConfirm} />
+        <Stack.Screen
+          name="SendWizardSelectSource"
+          component={SendWizardSelectSource}
+          options={{title: 'Select asset'}}
+        />
+        <Stack.Screen
+          name="SendWizardSelectTarget"
+          component={SendWizardSelectTarget}
+          options={{title: 'Convert to'}}
+        />
+        <Stack.Screen
+          name="SendWizardAmount"
+          component={SendWizardAmount}
+          options={{title: 'Amount'}}
+        />
+        <Stack.Screen
+          name="SendWizardRecipient"
+          component={SendWizardRecipient}
+          options={{title: 'Recipient'}}
+        />
+        <Stack.Screen
+          name="SendWizardConfirm"
+          component={SendWizardConfirm}
+          options={{title: 'Confirm'}}
+        />
         <Stack.Screen
           name="SendWizardSuccess"
           component={SendWizardSuccess}

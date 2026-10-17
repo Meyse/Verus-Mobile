@@ -22,7 +22,7 @@ import {truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
 import {
   WIZARD_CONTENT_INSET,
-  WizardHeading,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {SourceCardSheet} from './components/SelectionSheets';
@@ -155,11 +155,6 @@ const SendWizardSelectSource = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <WizardHeading>
-        {mode === SEND_WIZARD_MODE.CONVERT
-          ? 'Select asset to convert'
-          : 'Select asset to send'}
-      </WizardHeading>
       <AppSearchField
         accessibilityLabel="Search currencies"
         onChangeText={setQuery}
@@ -232,6 +227,7 @@ const SendWizardSelectSource = () => {
 const styles = StyleSheet.create({
   list: {paddingBottom: 24},
   searchSpacing: {
+    marginTop: WIZARD_CONTENT_TOP_INSET,
     marginHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 14,
   },
