@@ -38,7 +38,8 @@ import {
   API_GET_SERVICE_NOTIFICATIONS,
   IS_PBAAS_ROOT,
   IS_PBAAS,
-  ERC20
+  ERC20,
+  VRPC
 } from "../../../utils/constants/intervalConstants";
 import { selectTransactions } from '../../../selectors/transactions';
 import { DEFAULT_DECIMALS, ETHERS, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
@@ -820,6 +821,12 @@ class Overview extends Component {
     if (!item.confirmed || item.status === "pending")
       AvatarImg = TX_LOGOS.pending;
 
+    if (item.conversion) {
+      subtitle = `Convert to ${item.conversion.targetCurrencyName}`;
+      counterpartyIsAddress = false;
+      counterpartySuffix = "";
+    }
+
     let displayAmount = null
 
     // Handle possible int overflows
@@ -892,7 +899,7 @@ class Overview extends Component {
         ? transactions.results
         : [];
 
-    return txs.sort((a, b) => {
+    return [...txs].sort((a, b) => {
       a = Array.isArray(a) ? a[0] : a
       b = Array.isArray(b) ? b[0] : b
       
@@ -959,7 +966,11 @@ class Overview extends Component {
             </NativeText>
           </View>
         }
-        keyExtractor={(item, index) => index}
+        keyExtractor={(item, index) =>
+          this.props.transactions?.channel?.split('.')[0] === VRPC && item.txid
+            ? item.txid
+            : String(index)
+        }
         refreshing={this.state.refreshing}
         onRefresh={this.forceUpdate}
         onContentSizeChange={this.handleTransactionContentSizeChange}

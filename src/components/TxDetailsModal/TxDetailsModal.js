@@ -193,7 +193,9 @@ class TxDetailsModal extends Component {
               {
                 key: "Type",
                 data:
-                  (txData.type === "sent"
+                  (txData.conversion
+                    ? `Conversion to ${txData.conversion.targetCurrencyName}`
+                    : txData.type === "sent"
                     ? "Outgoing"
                     : txData.type === "received"
                     ? "Incoming"
