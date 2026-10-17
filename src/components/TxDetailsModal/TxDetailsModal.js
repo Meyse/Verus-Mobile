@@ -26,6 +26,7 @@ import { API_GET_DEPOSIT_SOURCES, API_GET_PENDING_DEPOSITS } from "../../utils/c
 import { conditionallyUpdateWallet } from "../../actions/actionDispatchers";
 import store from "../../store";
 import { openUrl } from "../../utils/linking";
+import { useOnboardingTheme } from "../../theme/onboarding";
 
 class TxDetailsModal extends Component {
   constructor(props) {
@@ -131,22 +132,41 @@ class TxDetailsModal extends Component {
         flexHeight={4}
       >
         <SafeAreaView style={Styles.centerContainer}>
-          <View style={{ ...Styles.headerContainer, minHeight: 48 }}>
+          <View
+            style={{
+              ...Styles.headerContainer,
+              minHeight: 48,
+              backgroundColor: this.props.theme.isDark
+                ? this.props.theme.colors.sheet
+                : Colors.secondaryColor,
+              borderColor: this.props.theme.isDark
+                ? this.props.theme.colors.border
+                : Colors.tertiaryColor,
+            }}>
             <View style={Styles.semiModalHeaderContainer}>
-              <Button onPress={cancel} textColor={Colors.primaryColor}>
+              <Button
+                onPress={cancel}
+                textColor={this.props.theme.isDark
+                  ? this.props.theme.colors.primary
+                  : Colors.primaryColor}>
                 {"Close"}
               </Button>
               <Text
                 style={{
                   ...Styles.centralHeader,
                   ...Styles.smallMediumFont,
+                  color: this.props.theme.isDark
+                    ? this.props.theme.colors.textPrimary
+                    : undefined,
                 }}
               >
                 {"Transaction"}
               </Text>
               <Button
                 onPress={() => this.openExplorer()}
-                textColor={Colors.primaryColor}
+                textColor={this.props.theme.isDark
+                  ? this.props.theme.colors.primary
+                  : Colors.primaryColor}
                 disabled={!explorers[activeCoinExplorerId]}
               >
                 {"Details"}
@@ -200,7 +220,7 @@ class TxDetailsModal extends Component {
                     : txData.type === "received"
                     ? "Incoming"
                     : txData.type) || "Unknown",
-                capitalized: true,
+                capitalized: !txData.conversion,
               },
               {
                 key: "Amount",
@@ -270,4 +290,9 @@ class TxDetailsModal extends Component {
   }
 }
 
-export default TxDetailsModal;
+const ThemedTxDetailsModal = props => {
+  const theme = useOnboardingTheme();
+  return <TxDetailsModal {...props} theme={theme} />;
+};
+
+export default ThemedTxDetailsModal;
