@@ -1,16 +1,13 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Clipboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {ethers} from 'ethers';
@@ -29,17 +26,19 @@ import {
 } from '../../utils/constants/constants';
 import {ERC20, ETH} from '../../utils/constants/intervalConstants';
 import {
+  addressBookRecordMatchesContext,
   loadAddressBook,
   saveAddressBook,
 } from '../../utils/addressBook/addressBook';
+import {getIdentity} from '../../utils/api/channels/verusid/requests/getIdentity';
+import {timeout} from '../../utils/promises';
 import AddressBookEditSheet from '../Services/AddressBook/AddressBookEditSheet';
 import {useSendWizard} from './SendWizardContext';
 import AddressBookSheet from './components/AddressBookSheet';
 import SelfAddressSheet from './components/SelfAddressSheet';
 import {
-  ErrorMessage,
-  WizardFooter,
-  WizardHeading,
+  WizardFormLayout,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {ADDRESS_TYPE} from './wizardUtils';
@@ -48,7 +47,7 @@ const SendWizardRecipient = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const {state, setRecipient} = useSendWizard();
-  const {sourceCoin, target, route} = state;
+  const {channel, sourceCoin, target, route} = state;
   const blocklist = useSelector(selectAddressBlocklist);
   const activeAccount = useObjectSelector(
     stateValue => stateValue.authentication.activeAccount,
@@ -64,6 +63,17 @@ const SendWizardRecipient = () => {
   const [selfAddressOpen, setSelfAddressOpen] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [inputFocused, setInputFocused] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const lookup = useRef({generation: 0, pending: false});
+
+  const cancelLookup = useCallback(() => {
+    lookup.current.generation += 1;
+    lookup.current.pending = false;
+    setResolving(false);
+  }, []);
+
+  useEffect(cancelLookup, [cancelLookup, channel, input, route]);
+  useFocusEffect(useCallback(() => cancelLookup, [cancelLookup]));
 
   useEffect(() => {
     let active = true;
@@ -184,12 +194,43 @@ const SendWizardRecipient = () => {
     }
   };
 
-  const continueToReview = () => {
+  const continueToReview = async () => {
+    if (lookup.current.pending) return;
     if (!validation.valid) {
       setError(validation.message || 'Enter a recipient.');
       return;
     }
-    setRecipient(input.trim());
+    const address = input.trim();
+    if (route?.addressType === ADDRESS_TYPE.VERUS && address.endsWith('@')) {
+      const generation = ++lookup.current.generation;
+      lookup.current.pending = true;
+      setResolving(true);
+      setError(null);
+      try {
+        // Match preflight: resolve on the source system's existing endpoint.
+        const systemId = channel?.split('.')[2] || sourceCoin?.system_id;
+        const result = await timeout(15000, getIdentity(systemId, address));
+        if (generation !== lookup.current.generation) return;
+        if (result?.error || !result?.result?.identity?.identityaddress) {
+          setError(
+            result?.error?.code === -5
+              ? 'VerusID not found. Check the name and try again.'
+              : 'Could not verify this VerusID. Try again.',
+          );
+          return;
+        }
+      } catch (lookupError) {
+        if (generation !== lookup.current.generation) return;
+        setError('Could not verify this VerusID. Try again.');
+        return;
+      } finally {
+        if (generation === lookup.current.generation) {
+          lookup.current.pending = false;
+          setResolving(false);
+        }
+      }
+    }
+    setRecipient(address);
     navigation.navigate('SendWizardConfirm');
   };
 
@@ -206,12 +247,20 @@ const SendWizardRecipient = () => {
 
   const context = {
     asset: target?.ticker,
-    network: route?.exportToFqn || sourceCoin?.system_id || sourceCoin?.id,
+    network:
+      route?.exportToFqn ||
+      channel?.split('.')[2] ||
+      sourceCoin?.system_id ||
+      sourceCoin?.id,
+    addressType: route?.addressType,
   };
+  const matchingSavedAddresses = savedAddresses.filter(record =>
+    addressBookRecordMatchesContext(record, context),
+  );
   const inputAlreadySaved = savedAddresses.some(
     record => record.address.toLowerCase() === input.trim().toLowerCase(),
   );
-  const showSaveOption = validation.valid && !inputAlreadySaved;
+  const showSaveOption = validation.valid && !error && !inputAlreadySaved;
 
   const saveNewAddress = async record => {
     try {
@@ -258,19 +307,18 @@ const SendWizardRecipient = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        style={styles.flex}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <WizardHeading
-            style={styles.headingInset}
-            subtitle="Enter the destination address">
-            Recipient
-          </WizardHeading>
+      <WizardFormLayout
+        contentContainerStyle={styles.content}
+        error={error || validation.message}
+        disabled={!validation.valid}
+        loading={resolving}
+        loadingText="Checking VerusID…"
+        onPress={continueToReview}>
+        {errorMessage => <>
           <View
             style={[
               styles.inputShell,
+              (error || validation.message) && styles.inputWithError,
               {
                 backgroundColor: inputFocused
                   ? theme.colors.inputFocused
@@ -313,7 +361,7 @@ const SendWizardRecipient = () => {
               </Pressable>
             </View>
           </View>
-          <ErrorMessage>{error || validation.message}</ErrorMessage>
+          {errorMessage}
           <View style={styles.hints}>
             <Text style={[styles.hint, {color: theme.colors.textSubtle}]}>
               {route?.addressType === ADDRESS_TYPE.ETHEREUM
@@ -332,9 +380,9 @@ const SendWizardRecipient = () => {
               <Text style={[styles.saveAddressText, {color: theme.colors.primary}]}>Save to address book</Text>
             </Pressable>
           ) : null}
-          {savedAddresses.length > 0 || ownAddresses.length > 0 ? (
+          {matchingSavedAddresses.length > 0 || ownAddresses.length > 0 ? (
             <View style={styles.quickAccess}>
-            {savedAddresses.length > 0 ? (
+            {matchingSavedAddresses.length > 0 ? (
               <Pressable
               accessibilityRole="button"
               onPress={() => setAddressBookOpen(true)}
@@ -350,7 +398,7 @@ const SendWizardRecipient = () => {
                 style={styles.quickIcon}
               />
               <Text style={[styles.quickTitle, {color: theme.colors.textPrimary}]}>Saved addresses</Text>
-              <Text style={[styles.quickDescription, {color: theme.colors.textSecondary}]}>{`${savedAddresses.length} saved`}</Text>
+              <Text style={[styles.quickDescription, {color: theme.colors.textSecondary}]}>{`${matchingSavedAddresses.length} saved`}</Text>
             </Pressable>
             ) : null}
             {ownAddresses.length > 0 ? (
@@ -369,12 +417,12 @@ const SendWizardRecipient = () => {
             ) : null}
             </View>
           ) : null}
-        </ScrollView>
-        <WizardFooter disabled={!validation.valid} onPress={continueToReview}>Continue</WizardFooter>
-      </KeyboardAvoidingView>
+        </>}
+      </WizardFormLayout>
       <AddressBookSheet
         visible={addressBookOpen}
         context={context}
+        onRecordsLoaded={setSavedAddresses}
         onClose={() => setAddressBookOpen(false)}
         onSelect={record => {
           setInput(record.address);
@@ -400,10 +448,9 @@ const SendWizardRecipient = () => {
 };
 
 const styles = StyleSheet.create({
-  flex: {flex: 1},
-  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 20},
-  headingInset: {marginHorizontal: -16},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   inputShell: {minHeight: 56, marginBottom: 12, borderRadius: 12, borderWidth: 1, position: 'relative', flexDirection: 'row', alignItems: 'center'},
+  inputWithError: {marginBottom: 0},
   input: {flex: 1, minHeight: 56, maxHeight: 96, paddingLeft: 16, paddingRight: 90, paddingTop: 19, paddingBottom: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
   inputActions: {position: 'absolute', right: 8, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center'},
   inputAction: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},

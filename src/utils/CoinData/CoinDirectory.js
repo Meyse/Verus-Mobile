@@ -5,7 +5,7 @@ import { ENABLE_VERUS_IDENTITIES } from '../../../env/index'
 import { VerusdRpcInterface } from "verusd-rpc-ts-client";
 import { VERUS_APPS, coinsList } from "./CoinsList";
 import { DEFAULT_DECIMALS, ETH_SEPOLIA, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../constants/web3Constants";
-import { getTestnetBridgeDelegator, getTestnetVrpcOverrides, setTestnetEnvironment } from "../testnetEnvironment";
+import { getTestnetBridgeDelegator, getTestnetVrpcOverrides, setTestnetEnvironment, shouldDisableTestnetDlight } from "../testnetEnvironment";
 import { getStoredCurrencyDefinitions, storeCurrencyDefinitionForCurrencyId } from "../asyncStore/currencyDefinitionStorage";
 import { timeout } from "../promises";
 import { getStoredContractDefinitions, storeContractDefinitionForNetwork } from "../asyncStore/contractDefinitionStorage";
@@ -38,7 +38,21 @@ class _CoinDirectory {
     if (id === 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq') searchId = 'VRSCTEST'
     else if (id === 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV') searchId = 'VRSC'
 
-    if (this.coinExistsInDirectory(searchId)) return this.coins[searchId]
+    if (this.coinExistsInDirectory(searchId)) {
+      const coinObj = this.coins[searchId];
+
+      // Keep the base directory intact so public lookups retain their fields
+      // and references. The private chain has no lightwalletd server.
+      return searchId === 'VRSCTEST' && shouldDisableTestnetDlight()
+        ? {
+            ...coinObj,
+            compatible_channels: coinObj.compatible_channels.filter(
+              channel => channel !== DLIGHT_PRIVATE,
+            ),
+            dlight_endpoints: [],
+          }
+        : coinObj;
+    }
     else {
       throw new Error(searchId + " not found in coin list!")
     }
@@ -87,7 +101,7 @@ class _CoinDirectory {
       ? 'VRSC'
       : key;
 
-    let coinObj = this.coins[id]
+    let coinObj = this.coins[id] ? this.getBasicCoinObj(id) : null;
   
     if (coinObj) {
       coinObj.electrum_endpoints = coinObj.compatible_channels.includes(ELECTRUM) ? electrumServers[id.toLowerCase()].serverList : []

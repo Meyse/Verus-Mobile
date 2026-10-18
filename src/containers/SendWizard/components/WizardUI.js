@@ -1,5 +1,7 @@
-import React from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {useHeaderHeight} from '@react-navigation/elements';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import GradientButton from '../../../components/GradientButton';
 import AppButton from '../../../components/AppButton';
@@ -17,6 +20,102 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 
 export const WIZARD_CONTENT_INSET = 16;
+export const WIZARD_CONTENT_TOP_INSET = 24;
+
+// The stack header is outside this view. Keyboard coordinates include it.
+export const WizardFormLayout = ({
+  children,
+  contentContainerStyle,
+  error,
+  ...footerProps
+}) => {
+  const headerHeight = useHeaderHeight();
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  const [footerHeight, setFooterHeight] = useState(0);
+  const scrollRef = useRef(null);
+  const errorLayoutRef = useRef(null);
+  const viewportHeightRef = useRef(0);
+  const revealFrameRef = useRef(null);
+
+  const revealError = useCallback(() => {
+    if (revealFrameRef.current != null) {
+      cancelAnimationFrame(revealFrameRef.current);
+    }
+    if (!error) return;
+
+    // Wait for content and keyboard/footer layout to settle. Scroll only far
+    // enough to reveal the error, leaving the related field above it in view.
+    revealFrameRef.current = requestAnimationFrame(() => {
+      revealFrameRef.current = null;
+      const layout = errorLayoutRef.current;
+      const viewportHeight = viewportHeightRef.current;
+      if (!layout || viewportHeight <= 0) return;
+
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, layout.y + layout.height - viewportHeight),
+        animated: false,
+      });
+    });
+  }, [error]);
+
+  useEffect(() => {
+    revealError();
+    return () => {
+      if (revealFrameRef.current != null) {
+        cancelAnimationFrame(revealFrameRef.current);
+      }
+    };
+  }, [keyboardVisible, revealError]);
+
+  // Render this slot directly in the ScrollView, immediately after the field.
+  // Its onLayout coordinates must share the scroll content's origin.
+  const errorMessage = error ? (
+    <View
+      onLayout={event => {
+        errorLayoutRef.current = event.nativeEvent.layout;
+        revealError();
+      }}>
+      <ErrorMessage style={styles.formError}>{error}</ErrorMessage>
+    </View>
+  ) : null;
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
+      style={styles.screen}>
+      <ScrollView
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={revealError}
+        onLayout={event => {
+          viewportHeightRef.current = event.nativeEvent.layout.height;
+          revealError();
+        }}
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.scrollContent,
+          contentContainerStyle,
+          // Keep a footer-sized scroll reserve when the keyboard contracts
+          // the form. Apply it after caller padding so tail controls can clear
+          // Continue even on compact Android screens.
+          keyboardVisible && {paddingBottom: footerHeight + 24},
+        ]}>
+        {children(errorMessage)}
+      </ScrollView>
+      <View
+        style={styles.formFooter}
+        onLayout={event => setFooterHeight(event.nativeEvent.layout.height)}>
+        <WizardFooter
+          {...footerProps}
+          bottomSpacing={keyboardVisible ? 8 : 24}
+          includeBottomInset={!keyboardVisible}
+          safeAreaSpacing={keyboardVisible ? 0 : 12}
+        />
+      </View>
+    </KeyboardAvoidingView>
+  );
+};
 
 export const WizardScreen = ({children, contentContainerStyle, scroll = true}) => {
   const theme = useOnboardingTheme();
@@ -36,46 +135,6 @@ export const WizardScreen = ({children, contentContainerStyle, scroll = true}) =
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}>
       {children}
     </ScrollView>
-  );
-};
-
-export const WizardHeading = ({children, style, subtitle}) => {
-  const theme = useOnboardingTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
-  return (
-    <View
-      style={[
-        {
-          paddingHorizontal: WIZARD_CONTENT_INSET,
-          paddingTop: smallDevice
-            ? theme.spacing.md
-            : theme.spacing.lg,
-          paddingBottom: smallDevice
-            ? theme.spacing.stepTitleMarginSmallDevice
-            : theme.spacing.md,
-        },
-        style,
-      ]}>
-      <Text
-        style={[
-          smallDevice
-            ? theme.typography.headlineCompact
-            : theme.typography.headlineMd,
-          {color: theme.colors.textPrimary},
-        ]}>
-        {children}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[
-            styles.subtitle,
-            theme.typography.bodyMd,
-            {color: theme.colors.textSecondary},
-          ]}>
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
   );
 };
 
@@ -181,11 +240,11 @@ export const DetailRow = ({label, value}) => {
   );
 };
 
-export const ErrorMessage = ({children}) => {
+export const ErrorMessage = ({children, style}) => {
   const theme = useOnboardingTheme();
   if (!children) return null;
   return (
-    <View style={[styles.errorBox, {backgroundColor: theme.colors.surfaceMuted}]}>
+    <View style={[styles.errorBox, {backgroundColor: theme.colors.surfaceMuted}, style]}>
       <MaterialCommunityIcons
         name="alert-circle-outline"
         size={19}
@@ -205,9 +264,11 @@ export const WizardFooter = ({
   holdToConfirm = false,
   holdingText = 'Hold to confirm...',
   horizontalSpacing = 16,
+  includeBottomInset = true,
   loading,
   loadingText = 'Please wait…',
   onPress,
+  safeAreaSpacing = 12,
 }) => {
   const theme = useOnboardingTheme();
   const buttonLabel = loading ? loadingText : children;
@@ -215,6 +276,8 @@ export const WizardFooter = ({
     <SafeBottomActionStack
       horizontalSpacing={horizontalSpacing}
       bottomSpacing={bottomSpacing}
+      includeBottomInset={includeBottomInset}
+      safeAreaSpacing={safeAreaSpacing}
       style={styles.footer}>
       {holdToConfirm ? (
         <GradientButton
@@ -256,9 +319,10 @@ export const wizardTextStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   footer: {paddingTop: 16},
+  formFooter: {flexShrink: 0},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
-  subtitle: {marginTop: 8},
+  formError: {marginHorizontal: 0, marginVertical: 8},
   search: {
     height: 52,
     marginHorizontal: WIZARD_CONTENT_INSET,

@@ -22,6 +22,7 @@ import SendWizardAmount from './SendWizardAmount';
 import SendWizardRecipient from './SendWizardRecipient';
 import SendWizardConfirm from './SendWizardConfirm';
 import SendWizardSuccess from './SendWizardSuccess';
+import {closeWizard} from './wizardNavigation';
 import SendWizardHeader, {
   getSendWizardProgress,
 } from './components/SendWizardHeader';
@@ -29,14 +30,16 @@ import {
   buildSendTarget,
   isConversionChannel,
   SEND_WIZARD_MODE,
+  WIZARD_CONTEXT_STEP,
 } from './wizardUtils';
 
 const Stack = createStackNavigator();
 
-const closeWizard = navigation => {
-  const parent = navigation.getParent?.();
-  if (parent?.goBack) parent.goBack();
-  else navigation.goBack();
+// The band under the header reminds the user what is moving and where. Confirm
+// and Success already show all of it.
+const CONTEXT_STEPS = {
+  SendWizardAmount: WIZARD_CONTEXT_STEP.AMOUNT,
+  SendWizardRecipient: WIZARD_CONTEXT_STEP.RECIPIENT,
 };
 
 const goBackOrClose = navigation => {
@@ -60,7 +63,7 @@ const SendWizardNavigator = () => {
   const balances = useObjectSelector(state =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
-  const initialSource = useMemo(() => {
+  const candidateInitialSource = useMemo(() => {
     if (!initialCoinId) return null;
     const sourceCoin = coins.find(coin => coin.id === initialCoinId);
     if (!sourceCoin) return null;
@@ -116,6 +119,17 @@ const SendWizardNavigator = () => {
     initialSubWalletId,
     mode,
   ]);
+  const sourceAtEntry = useRef(null);
+  const entryKey = `${mode}:${initialCoinId || ''}:${initialSubWalletId || ''}`;
+  if (sourceAtEntry.current?.key !== entryKey) {
+    sourceAtEntry.current = {key: entryKey, source: null};
+  }
+  if (!sourceAtEntry.current.source && candidateInitialSource) {
+    sourceAtEntry.current.source = candidateInitialSource;
+  }
+  // Keep the entry route/source stable when a send empties its Card. The
+  // provider reads the live balance; a refresh must not unmount Success.
+  const initialSource = sourceAtEntry.current.source;
   const initialState = useMemo(() => {
     if (!initialSource || mode !== SEND_WIZARD_MODE.SEND) {
       return initialSource;
@@ -189,6 +203,8 @@ const SendWizardNavigator = () => {
           cardStyle: {backgroundColor: theme.colors.background},
           header: ({navigation, options, route: headerRoute}) => (
             <SendWizardHeader
+              contextStep={CONTEXT_STEPS[headerRoute.name]}
+              title={options.title}
               disabled={Boolean(options.wizardNavigationDisabled)}
               onBack={
                 headerRoute.name === 'SendWizardSuccess'
@@ -205,11 +221,31 @@ const SendWizardNavigator = () => {
             />
           ),
         })}>
-        <Stack.Screen name="SendWizardSelectSource" component={SendWizardSelectSource} />
-        <Stack.Screen name="SendWizardSelectTarget" component={SendWizardSelectTarget} />
-        <Stack.Screen name="SendWizardAmount" component={SendWizardAmount} />
-        <Stack.Screen name="SendWizardRecipient" component={SendWizardRecipient} />
-        <Stack.Screen name="SendWizardConfirm" component={SendWizardConfirm} />
+        <Stack.Screen
+          name="SendWizardSelectSource"
+          component={SendWizardSelectSource}
+          options={{title: 'Select asset'}}
+        />
+        <Stack.Screen
+          name="SendWizardSelectTarget"
+          component={SendWizardSelectTarget}
+          options={{title: 'Convert to'}}
+        />
+        <Stack.Screen
+          name="SendWizardAmount"
+          component={SendWizardAmount}
+          options={{title: 'Amount'}}
+        />
+        <Stack.Screen
+          name="SendWizardRecipient"
+          component={SendWizardRecipient}
+          options={{title: 'Recipient'}}
+        />
+        <Stack.Screen
+          name="SendWizardConfirm"
+          component={SendWizardConfirm}
+          options={{title: 'Confirm'}}
+        />
         <Stack.Screen
           name="SendWizardSuccess"
           component={SendWizardSuccess}

@@ -4,14 +4,17 @@ import {
   Animated,
   Easing,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useIsFocused} from '@react-navigation/native';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {SEND_WIZARD_MODE} from '../wizardUtils';
 import {WIZARD_CONTENT_INSET} from './WizardUI';
+import WizardContextBand from './WizardContextBand';
 
 const HEADER_HORIZONTAL_PADDING = 24;
 
@@ -61,14 +64,17 @@ export const getSendWizardProgress = (
 };
 
 const SendWizardHeader = ({
+  contextStep,
   disabled = false,
   onBack,
   onClose,
   progress,
   progressAnimation: sharedProgressAnimation,
+  title,
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
+  const isFocused = useIsFocused();
   const clampedProgress = Math.max(0, Math.min(progress, 1));
   const progressPercent = Math.round(clampedProgress * 100);
   const localProgressAnimation = useRef({
@@ -88,6 +94,10 @@ const SendWizardHeader = ({
   );
 
   useEffect(() => {
+    // Stack headers stay mounted on Back. Only the focused step owns the
+    // shared animation, and it must restore its value when focused again.
+    if (!isFocused) return undefined;
+
     let active = true;
     let animation;
     const generation = progressAnimation.generation + 1;
@@ -125,9 +135,9 @@ const SendWizardHeader = ({
         animation.stop();
       }
     };
-  }, [animatedProgress, clampedProgress, progressAnimation]);
+  }, [animatedProgress, clampedProgress, isFocused, progressAnimation]);
 
-  return (
+  const header = (
     <View
       style={[
         styles.container,
@@ -158,6 +168,19 @@ const SendWizardHeader = ({
         ) : (
           <View style={styles.headerSpacer} />
         )}
+        {title ? (
+          <Text
+            accessibilityRole="header"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              styles.title,
+              theme.typography.titleSheet,
+              {color: theme.colors.textPrimary},
+            ]}>
+            {title}
+          </Text>
+        ) : null}
         <TouchableOpacity
           accessibilityLabel="Close transfer"
           accessibilityRole="button"
@@ -193,6 +216,15 @@ const SendWizardHeader = ({
       </View>
     </View>
   );
+
+  if (!contextStep) return header;
+
+  return (
+    <>
+      {header}
+      <WizardContextBand step={contextStep} />
+    </>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -223,6 +255,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginLeft: -8,
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
   },
   disabled: {
     opacity: 0.4,

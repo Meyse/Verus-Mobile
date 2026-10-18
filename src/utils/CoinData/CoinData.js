@@ -15,6 +15,7 @@ import {
   WALLET_APP_MANAGE
 } from "../constants/apps";
 import { CoinDirectory } from './CoinDirectory';
+import { getTestnetExplorer } from '../testnetEnvironment';
 
 export const getDefaultApps = (coinObj) => {
   const coinName = coinObj.display_name
@@ -105,7 +106,8 @@ export const explorers = {
   KMD: 'https://kmdexplorer.io',
   OOT: 'https://explorer.utrum.io',
   VRSC: 'https://insight.verus.io',
-  VRSCTEST: 'https://testex.verus.io',
+  // Resolve after startup settings load, as with endpoint/bridge overrides.
+  get VRSCTEST() { return getTestnetExplorer(); },
   ETH: 'https://etherscan.io',
   GETH: 'https://sepolia.etherscan.io',
   RFOX: 'https://etherscan.io',

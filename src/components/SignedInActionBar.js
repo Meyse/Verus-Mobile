@@ -8,6 +8,7 @@ import signedInCopy from '../copy/signedIn';
 import AppButton from './AppButton';
 
 const ACTION_ICON_SIZE = 20;
+const ACTION_BUTTON_HEIGHT = 48;
 const ACTION_ICONS = {
   receive: ({color}) => (
     <MaterialCommunityIcons
@@ -72,6 +73,7 @@ const SignedInActionBar = ({
           }
           accessibilityLabel={signedInCopy.actions.receive}
           compact
+          height={ACTION_BUTTON_HEIGHT}
           disabled={receiveDisabled}
           icon={ACTION_ICONS.receive}
           labelStyle={styles.label}
@@ -86,6 +88,7 @@ const SignedInActionBar = ({
           }
           accessibilityLabel={signedInCopy.actions.send}
           compact
+          height={ACTION_BUTTON_HEIGHT}
           disabled={sendDisabled}
           icon={ACTION_ICONS.send}
           labelStyle={styles.label}
@@ -102,6 +105,7 @@ const SignedInActionBar = ({
           }
           accessibilityLabel={signedInCopy.actions.convert}
           compact
+          height={ACTION_BUTTON_HEIGHT}
           disabled={convertDisabled}
           icon={ACTION_ICONS.convert}
           labelStyle={styles.label}
@@ -126,38 +130,42 @@ export const SignedInEdgeFade = ({
   const gradientId = `signedIn${fadesFromTop ? 'Top' : 'Bottom'}Fade`;
 
   return (
-    <Svg
-      height={height}
+    <View
+      accessible={false}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
-      width="100%"
-      style={[style, {height, opacity: visible ? 1 : 0}]}>
-      <Defs>
-        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <Stop
-            offset="0"
-            stopColor={theme.colors.background}
-            stopOpacity={fadesFromTop ? 1 : 0}
-          />
-          <Stop
-            offset="0.45"
-            stopColor={theme.colors.background}
-            stopOpacity={0.45}
-          />
-          <Stop
-            offset="1"
-            stopColor={theme.colors.background}
-            stopOpacity={fadesFromTop ? 0 : 1}
-          />
-        </LinearGradient>
-      </Defs>
-      <Rect
-        x="0"
-        y="0"
-        width="100%"
-        height={height}
-        fill={`url(#${gradientId})`}
-      />
-    </Svg>
+      style={[style, {width: '100%', height, opacity: visible ? 1 : 0}]}>
+      {/* Guard native hit testing before it reaches the iOS SVG view. */}
+      <Svg accessible={false} height={height} width="100%">
+        <Defs>
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <Stop
+              offset="0"
+              stopColor={theme.colors.background}
+              stopOpacity={fadesFromTop ? 1 : 0}
+            />
+            <Stop
+              offset="0.45"
+              stopColor={theme.colors.background}
+              stopOpacity={0.45}
+            />
+            <Stop
+              offset="1"
+              stopColor={theme.colors.background}
+              stopOpacity={fadesFromTop ? 0 : 1}
+            />
+          </LinearGradient>
+        </Defs>
+        <Rect
+          x="0"
+          y="0"
+          width="100%"
+          height={height}
+          fill={`url(#${gradientId})`}
+        />
+      </Svg>
+    </View>
   );
 };
 
@@ -191,7 +199,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 20,
     marginLeft: 10,
     marginRight: 12,

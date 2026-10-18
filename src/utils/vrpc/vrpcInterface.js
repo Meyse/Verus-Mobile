@@ -21,6 +21,7 @@ import {
   CACHED_VRPC_REQUESTS,
   DEFAULT_VRPC_CACHE_MAX_AGE_MS,
   VRPC_CACHE_MAX_AGE_MS,
+  VRPC_ADDRESS_CACHE_REQUESTS,
   isVrpcResponseCacheable,
   shouldUseCachedVrpcResponse,
 } from './vrpcCachePolicy';
@@ -37,6 +38,15 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
   endpoint;
   
   callswaiting = {};
+  addressCacheIds = new Set();
+  addressCacheGeneration = 0;
+
+  expireAddressResponses() {
+    this.addressCacheGeneration++;
+    for (const cacheId of this.addressCacheIds) {
+      this.setLastNetworkResponseTime(cacheId, 0);
+    }
+  }
 
   /**
    * @param {string} systemId 
@@ -94,9 +104,10 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
    * to refactor the way update polling/intervals work so that multiple PBaaS currencies can 
    * fetch info from one interval as long as they exist on the same system (TODO)
    * @param {ApiRequest} req 
+   * @param {{skipCache?: boolean}} options Bypass cached reads for funding checks.
    * @returns 
    */
-  async request(req) {
+  async request(req, {skipCache = false} = {}) {
     const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
     const callDelay = this.registerCallStart(cacheId);
 
@@ -104,8 +115,11 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
       setTimeout(async () => {
         try {
           const cmd = req.cmd;
+          const addressResponse = VRPC_ADDRESS_CACHE_REQUESTS.includes(cmd);
+          if (addressResponse) this.addressCacheIds.add(cacheId);
+          const cacheGeneration = this.addressCacheGeneration;
           const saveToCache = isVrpcResponseCacheable(cmd);
-          const getFromCache = shouldUseCachedVrpcResponse({
+          const getFromCache = !skipCache && shouldUseCachedVrpcResponse({
             command: cmd,
             lastNetworkResponseAt: this.getLastNetworkResponseTime(cacheId),
           });
@@ -114,7 +128,8 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
             try {
               const cachedRes = await getCachedVrpcResponse(this.chain, this.endpoint, req);
         
-              if (cachedRes != null) {
+              if (cachedRes != null &&
+                  (!addressResponse || cacheGeneration === this.addressCacheGeneration)) {
                 this.registerCallComplete(cacheId);
                 resolve(cachedRes);
                 return;
@@ -133,10 +148,18 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
 
           if (fundingError) throw fundingError;
       
-          if (saveToCache && res.error == null) {
+          if (saveToCache && res.error == null &&
+              (!addressResponse || cacheGeneration === this.addressCacheGeneration)) {
             try {
               await setCachedVrpcResponse(this.chain, this.endpoint, req, res);
-              this.setLastNetworkResponseTime(cacheId, Date.now());
+              // A response started before broadcast must not renew the cache,
+              // including when expiry happens during the AsyncStorage write.
+              this.setLastNetworkResponseTime(
+                cacheId,
+                !addressResponse || cacheGeneration === this.addressCacheGeneration
+                  ? Date.now()
+                  : 0,
+              );
             } catch(e) {
               console.log("Failed to save cached response:")
               console.log(e.message)
@@ -168,6 +191,13 @@ class VrpcInterface {
   cacheInterfaces = {};
 
   lastNetworkResponseTimes = new Map();
+
+  expireAddressResponses(systemId) {
+    // The next request may choose another endpoint for the same system.
+    for (const rpc of Object.values(this.cacheInterfaces)) {
+      if (rpc.chain === systemId) rpc.expireAddressResponses();
+    }
+  }
 
   static getEndpointId(systemId, endpoint) {
     return hashAccountId(`${systemId}:${endpoint}`).toString('hex');

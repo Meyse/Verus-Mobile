@@ -134,11 +134,11 @@ export const standardizeWyreTxObj = (transaction, accountAddress, coinObj) => {
 };
 
 export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
-  const {amount, txid, height, address, blocktime, sent, mempool} = transaction;
+  const {amount, txid, height, address, blocktime, sent, mempool, timestamp, conversion} = transaction;
   const amountBn = BigNumber(amount)
   let timeEstimate;
 
-  if (!blocktime && currHeight && height) {
+  if (!blocktime && timestamp == null && !mempool && currHeight && height) {
     const confirmations = BigNumber(currHeight).minus(BigNumber(height));
     const currTime = BigNumber(new Date().getTime()).dividedBy(BigNumber(1000));
 
@@ -150,7 +150,7 @@ export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
   let addresses = [];
 
   if (sent) {
-    for (const out of sent.outputs) {
+    for (const out of sent.outputs || []) {
       if (Array.isArray(out.addresses))
         addresses = [...new Set([...addresses, ...out.addresses])];
       else if (!addresses.includes(out.addresses))
@@ -161,19 +161,20 @@ export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
   // Filter out the reserve transfer address
   const reserveTransferAddress = RESERVE_TRANSFER_DESTINATION.getAddressString()
   addresses = addresses.filter(x => {
-    return x !== reserveTransferAddress
+    return typeof x === 'string' && x !== reserveTransferAddress
   })
 
   return {
-    address: addresses.length === 0 ? null : addresses.sort((a, b) => {
+    address: conversion?.destination || (addresses.length === 0 ? null : addresses.sort((a, b) => {
       if (b !== address) return 1;
       else return -1;
-    }).join(' & '),
+    }).join(' & ')),
     amount: amountBn.abs().toString(),
     type: amountBn.isGreaterThan(0) ? 'received' : 'sent',
     confirmed: mempool ? false : true,
     height,
-    timestamp: blocktime ? blocktime : timeEstimate,
+    timestamp: blocktime || timestamp || timeEstimate,
     txid,
+    ...(conversion ? {conversion} : {}),
   };
 };

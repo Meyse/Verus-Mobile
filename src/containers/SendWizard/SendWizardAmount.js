@@ -1,9 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,6 +16,8 @@ import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
 import {estimateConversion} from '../../utils/api/channels/vrpc/requests/estimateConversion';
+import {estimateEthereumExportFee} from '../../utils/api/channels/vrpc/requests/estimateEthereumExportFee';
+import {timeout} from '../../utils/promises';
 import {USD} from '../../utils/constants/currencies';
 import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
@@ -27,8 +26,8 @@ import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
-  WizardFooter,
-  WizardHeading,
+  WizardFormLayout,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
 import {
@@ -37,6 +36,8 @@ import {
 } from './components/SelectionSheets';
 import {
   buildSendTarget,
+  ADDRESS_TYPE,
+  getCurrencyDisplay,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
@@ -64,6 +65,7 @@ const SendWizardAmount = () => {
   const [networkLoading, setNetworkLoading] = useState(false);
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
+  const [exportFeeQuote, setExportFeeQuote] = useState(null);
 
   const displayCurrency = useSelector(
     stateValue =>
@@ -146,16 +148,83 @@ const SendWizardAmount = () => {
   const cryptoAmountValue = cryptoAmount.isFinite()
     ? cryptoAmount.toString()
     : '';
+  const decimals = sourceCoin?.decimals ?? 8;
+  // Validate the entered asset amount before the existing rounding step.
+  const excessivePrecision =
+    !fiatMode &&
+    BigNumber(String(input || 0).replace(',', '.')).decimalPlaces() > decimals;
   const validAmount =
+    !excessivePrecision &&
     cryptoAmount.isFinite() &&
     cryptoAmount.isGreaterThan(0) &&
     cryptoAmount.isLessThanOrEqualTo(sourceBalance || 0);
+  const ethereumExport =
+    channel?.split('.')[0] === 'vrpc' &&
+    route?.isCrossChain &&
+    route?.addressType === ADDRESS_TYPE.ETHEREUM;
+  // Bind the result to the complete route request. A changed route must not
+  // briefly display an old fee or enable Continue before its effect runs.
+  // verusd prices this fee from gas and Bridge prices, not from the amount,
+  // so typing an amount does not refetch it.
+  const exportFeeRequest = ethereumExport ? JSON.stringify({
+    channel,
+    currency: sourceCoin?.currency_id || sourceCoin?.id,
+    ...(target?.isConversion ? {convertto: target.transactionCurrency} : {}),
+    exportto: route.exportTo,
+    ...(route.via ? {via: route.via} : {}),
+    ...(route.preconvert ? {preconvert: true} : {}),
+  }) : null;
+  const exportFee = exportFeeQuote?.request === exportFeeRequest
+    ? exportFeeQuote?.fee : null;
+  const exportFeeLoading = Boolean(
+    exportFeeRequest && exportFeeQuote?.request !== exportFeeRequest,
+  );
+  const sourcePaysExportFee = Boolean(exportFee && exportFee.currencyId ===
+    (sourceCoin?.currency_id || sourceCoin?.id));
+  const exportFeeBlocksRoute = sourcePaysExportFee &&
+    BigNumber(sourceBalance || 0).isLessThanOrEqualTo(exportFee.amount);
+  const insufficientExportFunds = sourcePaysExportFee &&
+    (exportFeeBlocksRoute || (cryptoAmount.isFinite() && cryptoAmount.isGreaterThan(0) &&
+      cryptoAmount.plus(exportFee.amount).isGreaterThan(sourceBalance || 0)));
+  const maximumDisabled = exportFeeLoading || exportFeeBlocksRoute;
+  const exportFeeTicker = exportFee
+    ? sourcePaysExportFee ? sourceCoin.display_ticker
+      : getCurrencyDisplay(exportFee.currencyId).ticker
+    : '';
+  const exportFeeDisplay = exportFee
+    ? `${BigNumber(exportFee.amount).isLessThan(0.01)
+      ? truncateDecimal(BigNumber(exportFee.amount), 8)
+      : BigNumber(exportFee.amount).toFixed(2)} ${exportFeeTicker}` : '';
   let amountError = null;
-  if (input && !validAmount) {
+  if (excessivePrecision) {
+    amountError = `Use no more than ${decimals} decimal places.`;
+  } else if (input && !validAmount) {
     amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
       ? 'Amount exceeds this Card’s spendable balance.'
       : 'Enter a valid amount.';
   }
+  const exportFeeError = insufficientExportFunds
+    ? `Not enough ${sourceCoin.display_ticker} for the Ethereum network fee (about ${exportFeeDisplay}).`
+    : null;
+
+  useEffect(() => {
+    if (!exportFeeRequest) return undefined;
+    let active = true;
+    const timer = setTimeout(async () => {
+      const {channel: requestChannel, ...output} = JSON.parse(exportFeeRequest);
+      const [, source, systemId] = requestChannel.split('.');
+      try {
+        const fee = await timeout(15000, estimateEthereumExportFee(systemId, source, output));
+        if (active) setExportFeeQuote({request: exportFeeRequest, fee});
+      } catch (_) {
+        if (active) setExportFeeQuote({request: exportFeeRequest, fee: null});
+      }
+    }, 280);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [exportFeeRequest]);
 
   useEffect(() => {
     if (!target?.isConversion || !validAmount) {
@@ -167,9 +236,11 @@ const SendWizardAmount = () => {
     }
 
     let active = true;
+    setEstimate(null);
+    setRouteEstimates({});
+    setEstimateLoading(true);
+    setEstimateError(null);
     const timeout = setTimeout(async () => {
-      setEstimateLoading(true);
-      setEstimateError(null);
       try {
         const routes = target.routes?.length ? target.routes : [route];
         const results = await Promise.all(
@@ -179,57 +250,63 @@ const SendWizardAmount = () => {
                 channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
                 sourceCoin.currency_id || sourceCoin.id,
                 target.transactionCurrency,
-                cryptoAmount.toString(),
-                candidate?.via || null,
+                cryptoAmount,
+                candidate?.via,
                 Boolean(candidate?.preconvert),
               );
 
-              if (result?.result?.estimatedcurrencyout != null) {
-                return {estimate: result.result, route: candidate};
+              if (result?.error) {
+                throw new Error(result.error.message || 'Estimate unavailable.');
               }
-            } catch (error) {}
-
-            if (candidate?.price != null) {
-              return {
-                estimate: {
-                  estimatedcurrencyout: cryptoAmount
-                    .multipliedBy(candidate.price)
-                    .toString(),
-                  price: String(candidate.price),
-                  precomputed: true,
-                },
-                route: candidate,
-              };
+              const output = result?.result?.estimatedcurrencyout;
+              if (
+                output == null ||
+                !BigNumber(output).isFinite() ||
+                BigNumber(output).isNegative()
+              ) {
+                throw new Error('Estimate unavailable.');
+              }
+              return {estimate: result.result, route: candidate};
+            } catch (error) {
+              if (__DEV__) {
+                console.warn('Conversion estimate unavailable:', error.message);
+              }
+              return {estimate: null, route: candidate};
             }
-
-            return null;
           }),
         );
         if (!active) return;
-        const available = results.filter(Boolean);
-        if (!available.length) throw new Error('Estimate unavailable.');
-
         const nextEstimates = Object.fromEntries(
-          available.map(item => [item.route.key, item.estimate]),
+          results.map(item => [item.route.key, item.estimate]),
         );
-        const best = available.reduce((current, candidate) =>
-          BigNumber(candidate.estimate.estimatedcurrencyout).isGreaterThan(
-            current.estimate.estimatedcurrencyout,
-          )
-            ? candidate
-            : current,
+        const available = results.filter(item => item.estimate != null);
+        const best = available.reduce(
+          (current, candidate) =>
+            !current ||
+            BigNumber(candidate.estimate.estimatedcurrencyout).isGreaterThan(
+              current.estimate.estimatedcurrencyout,
+            )
+              ? candidate
+              : current,
+          null,
         );
-        const selected =
-          available.find(item => item.route.key === preferredRouteKey) || best;
+        const selectedRoute =
+          routes.find(candidate => candidate.key === preferredRouteKey) ||
+          best?.route ||
+          route;
+        const selectedEstimate = nextEstimates[selectedRoute?.key] || null;
 
         setRouteEstimates(nextEstimates);
-        if (selected.route.key !== route?.key) setRoute(selected.route);
-        setEstimate(selected.estimate);
+        if (selectedRoute && selectedRoute.key !== route?.key) {
+          setRoute(selectedRoute);
+        }
+        setEstimate(selectedEstimate);
+        setEstimateError(selectedEstimate ? null : 'Estimate unavailable.');
       } catch (error) {
         if (!active) return;
         setRouteEstimates({});
         setEstimate(null);
-        setEstimateError(error.message || 'Estimate unavailable.');
+        setEstimateError('Estimate unavailable.');
       } finally {
         if (active) setEstimateLoading(false);
       }
@@ -251,7 +328,15 @@ const SendWizardAmount = () => {
   ]);
 
   const useMaximum = () => {
-    const maximum = BigNumber(sourceBalance || 0);
+    if (maximumDisabled) return;
+    const maximum = BigNumber.maximum(0, BigNumber(sourceBalance || 0)
+      .minus(sourcePaysExportFee ? exportFee.amount : 0));
+    if (sourcePaysExportFee) {
+      // Keep MAX exact. Rounding a fiat value could spend the reserved fee.
+      setFiatMode(false);
+      setInput(maximum.decimalPlaces(8, BigNumber.ROUND_DOWN).toFixed());
+      return;
+    }
     setInput(
       fiatMode && rate != null
         ? maximum.multipliedBy(rate).decimalPlaces(2).toFixed(2)
@@ -268,7 +353,7 @@ const SendWizardAmount = () => {
   };
 
   const continueToRecipient = () => {
-    if (!validAmount) return;
+    if (!validAmount || exportFeeLoading || insufficientExportFunds) return;
     setAmount(
       cryptoAmount.toString(),
       coinsToSats(cryptoAmount).toString(),
@@ -294,9 +379,8 @@ const SendWizardAmount = () => {
 
   if (!sourceCoin || !target || !route) {
     return (
-      <WizardScreen>
-        <WizardHeading>Amount</WizardHeading>
-        <ErrorMessage>Source or recipient Asset selection is missing.</ErrorMessage>
+      <WizardScreen contentContainerStyle={styles.fallbackContent}>
+        <ErrorMessage style={styles.fallbackError}>Source or recipient Asset selection is missing.</ErrorMessage>
       </WizardScreen>
     );
   }
@@ -309,13 +393,6 @@ const SendWizardAmount = () => {
           code: displayCurrency,
         })[0]
       : null;
-  const contextLine = target.isConversion
-    ? `Convert ${sourceCoin.display_ticker} → ${target.ticker}${
-        route.isCrossChain && route.exportToFqn ? ` on ${route.exportToFqn}` : ''
-      }`
-    : route.isCrossChain
-    ? `Send ${sourceCoin.display_ticker} to ${route.exportToFqn || route.exportTo}`
-    : `Send ${sourceCoin.display_ticker} on ${sourceCoin.display_name}`;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
   const rateDisplay = state.estimate?.price;
   const routeName = route.viaFqn || route.via || route.label || 'Direct';
@@ -329,13 +406,12 @@ const SendWizardAmount = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        style={styles.flex}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <WizardHeading style={styles.headingInset}>Amount</WizardHeading>
-          <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
+      <WizardFormLayout
+        contentContainerStyle={styles.content}
+        error={(exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError}
+        disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
+        onPress={continueToRecipient}>
+        {errorMessage => <>
           {mode === SEND_WIZARD_MODE.SEND &&
           isConversionChannel(channel) ? (
             <>
@@ -411,6 +487,9 @@ const SendWizardAmount = () => {
               style={[styles.amountInput, {color: theme.colors.textPrimary}]}
               value={input}
             />
+          </View>
+          {errorMessage}
+          <View style={styles.amountControls}>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{disabled: rate == null}}
@@ -431,16 +510,17 @@ const SendWizardAmount = () => {
               <Text style={[styles.balance, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{disabled: maximumDisabled}}
+                disabled={maximumDisabled}
                 onPress={useMaximum}
-                style={[styles.maxButton, {borderColor: theme.colors.primary}]}>
+                style={[styles.maxButton, {borderColor: theme.colors.primary}, maximumDisabled && styles.maxDisabled]}>
                 <Text style={[styles.maxText, {color: theme.colors.primary}]}>MAX</Text>
               </Pressable>
             </View>
           </View>
-          <ErrorMessage>{amountError || estimateError}</ErrorMessage>
-          {target.isConversion ? (
+          {target.isConversion || ethereumExport ? (
             <View style={[styles.estimateCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-              {estimateLoading ? (
+              {target.isConversion && (estimateLoading ? (
                 <SkeletonLoader accessibilityLabel="Estimating conversion" style={styles.estimateSkeleton}>
                   <SkeletonRow labelWidth="28%" valueWidth="60%" />
                   <SkeletonRow labelWidth="28%" valueWidth="45%" />
@@ -459,7 +539,15 @@ const SendWizardAmount = () => {
                       </View>
                     </View>
                   </View>
-                  <View style={[styles.divider, {backgroundColor: theme.colors.border}]} />
+                </>
+              ) : !estimateError ? (
+                <Text style={[styles.estimateEmpty, {color: theme.colors.textSecondary}]}>Enter amount to see estimate</Text>
+              ) : null)}
+              {target.isConversion && !estimateLoading && validAmount ? (
+                <>
+                  {estimatedOutput != null ? (
+                    <View style={[styles.divider, {backgroundColor: theme.colors.border}]} />
+                  ) : null}
                   <Pressable
                     disabled={(target.routes || []).length < 2}
                     onPress={() => setRouteSheetOpen(true)}
@@ -481,16 +569,25 @@ const SendWizardAmount = () => {
                     </View>
                   ) : null}
                 </>
-              ) : (
-                <Text style={[styles.estimateEmpty, {color: theme.colors.textSecondary}]}>Enter amount to see estimate</Text>
-              )}
+              ) : null}
+              {ethereumExport ? (
+                exportFeeLoading ? (
+                  <SkeletonLoader accessibilityLabel="Estimating Ethereum network fee" style={styles.estimateSkeleton}>
+                    <SkeletonRow labelWidth="50%" valueWidth="42%" />
+                  </SkeletonLoader>
+                ) : (
+                  <View style={styles.routeRow}>
+                    <Text style={[styles.routeLabel, {color: theme.colors.textSecondary}]}>Ethereum network fee</Text>
+                    <Text style={[styles.routeValue, {color: theme.colors.textPrimary}]}>
+                      {exportFee ? `≈ ${exportFeeDisplay}` : 'Fee unavailable.'}
+                    </Text>
+                  </View>
+                )
+              ) : null}
             </View>
           ) : null}
-        </ScrollView>
-        <WizardFooter disabled={!validAmount || estimateLoading} onPress={continueToRecipient}>
-          Continue
-        </WizardFooter>
-      </KeyboardAvoidingView>
+        </>}
+      </WizardFormLayout>
       <RouteSheet
         estimates={routeEstimates}
         selectedKey={route?.key}
@@ -503,6 +600,7 @@ const SendWizardAmount = () => {
           setPreferredRouteKey(nextRoute.key);
           setRoute(nextRoute);
           setEstimate(routeEstimates[nextRoute.key] || null);
+          setEstimateError(routeEstimates[nextRoute.key] ? null : 'Estimate unavailable.');
           setRouteSheetOpen(false);
         }}
       />
@@ -519,10 +617,9 @@ const SendWizardAmount = () => {
 };
 
 const styles = StyleSheet.create({
-  flex: {flex: 1},
-  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12},
-  headingInset: {marginHorizontal: -16},
-  contextLine: {fontSize: 14, lineHeight: 20, marginBottom: 8, ...fontStyle('regular')},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 12},
+  fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
+  fallbackError: {marginVertical: 0},
   networkRow: {
     minHeight: 58,
     borderRadius: 12,
@@ -539,7 +636,8 @@ const styles = StyleSheet.create({
   networkStatus: {minWidth: 28, alignItems: 'flex-end'},
   networkHint: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
   networkError: {fontSize: 12, lineHeight: 17, marginBottom: 4, ...fontStyle('regular')},
-  amountBlock: {alignItems: 'center', marginTop: 8, marginBottom: 8},
+  amountBlock: {alignItems: 'center', marginTop: 8},
+  amountControls: {alignItems: 'center', marginBottom: 8},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
   modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
@@ -547,6 +645,7 @@ const styles = StyleSheet.create({
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},
+  maxDisabled: {opacity: 0.4},
   maxText: {fontSize: 11, lineHeight: 15, letterSpacing: 0.5, ...fontStyle('bold')},
   estimateCard: {borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 10, marginBottom: 10},
   estimateLabel: {fontSize: 12, lineHeight: 17, marginBottom: 6, ...fontStyle('bold')},

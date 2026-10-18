@@ -46,6 +46,7 @@ import {
   API_GET_FIATPRICE,
   API_GET_TRANSACTIONS,
 } from '../../utils/constants/intervalConstants';
+import {captureAssetContext} from '../../utils/assets/assetManagementService';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
@@ -55,21 +56,21 @@ import {
   R_ADDRESS_VERSION,
 } from '../../utils/constants/constants';
 import {useSendWizard} from './SendWizardContext';
+import {refreshSourceBalance} from './refreshSourceBalance';
+import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
   ErrorMessage,
   WizardFooter,
-  WizardHeading,
+  WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
-import {getCurrencyDisplay} from './wizardUtils';
+import {getCurrencyDisplay, isOwnChannelAddress} from './wizardUtils';
 
-const formatFeeAmount = value => {
-  const amount = BigNumber(value || 0);
-
-  if (amount.isLessThan(0.0001)) return amount.decimalPlaces(8).toString();
-  if (amount.isLessThan(0.01)) return amount.decimalPlaces(6).toString();
-  return amount.decimalPlaces(4).toString();
-};
+// Apply only to explicit rejection responses, never transport/unknown outcomes.
+const getRejectionMessage = message =>
+  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known|txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
+    ? 'Your previous transaction is still being confirmed. Wait for the next block, then review this transaction again.'
+    : message;
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -98,6 +99,7 @@ const SendWizardConfirm = () => {
   const [preflighting, setPreflighting] = useState(true);
   const [sending, setSending] = useState(false);
   const submissionInFlight = useRef(false);
+  const submitted = useRef(Boolean(state.txResult));
   const broadcastUnknown = useRef(Boolean(state.broadcastError));
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
@@ -273,28 +275,6 @@ const SendWizardConfirm = () => {
           }
         }
 
-        if (preflight?.submittedsats && preflight?.output?.satoshis) {
-          const submitted = BigNumber(preflight.submittedsats);
-          const actual = BigNumber(preflight.output.satoshis);
-          if (!submitted.isEqualTo(actual)) {
-            nextWarnings.push(
-              `The send amount was adjusted from ${satsToCoins(submitted).toString()} to ${satsToCoins(actual).toString()} to pay transaction fees.`,
-            );
-          }
-        } else if (simpleSend && preflight?.value != null) {
-          const submitted = BigNumber(preflight.amountSubmitted ?? amount);
-          const actual = BigNumber(preflight.value);
-          if (
-            submitted.isFinite() &&
-            actual.isFinite() &&
-            !submitted.isEqualTo(actual)
-          ) {
-            nextWarnings.push(
-              `The send amount was adjusted from ${submitted.toString()} to ${actual.toString()} to pay transaction fees.`,
-            );
-          }
-        }
-
         setWarnings(nextWarnings);
         setPreflight(preflight);
       } catch (preflightError) {
@@ -327,11 +307,19 @@ const SendWizardConfirm = () => {
   ]);
 
   const submit = async () => {
-    if (!preflightResult || submissionInFlight.current || broadcastUnknown.current || state.broadcastError) return;
+    if (
+      !preflightResult ||
+      submissionInFlight.current ||
+      submitted.current ||
+      state.txResult ||
+      broadcastUnknown.current ||
+      state.broadcastError
+    ) return;
     submissionInFlight.current = true;
     setSending(true);
     setError(null);
     try {
+      const assetContext = captureAssetContext();
       const validatedSendAmount =
         simpleSend && preflightResult.value != null
           ? BigNumber(preflightResult.value)
@@ -352,17 +340,43 @@ const SendWizardConfirm = () => {
             preflightResult,
           );
       if (result?.err || result?.error) {
-        throw new Error(result.result || result.error?.message || 'Transaction failed.');
+        const rejection = new Error(
+          result.result?.message || result.result || result.error?.message || 'Transaction failed.',
+        );
+        rejection.ambiguousBroadcast = result.ambiguousBroadcast;
+        rejection.rejected = true;
+        throw rejection;
       }
 
+      // Block stale hold callbacks before context and navigation update.
+      submitted.current = true;
+      void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
-      navigation.navigate('SendWizardSuccess');
+      navigation.reset({
+        index: 0,
+        routes: [{name: 'SendWizardSuccess'}],
+      });
+      void autoAddConversionAsset({
+        activeAccount,
+        channel,
+        context: assetContext,
+        recipientAddress,
+        route,
+        sourceCoin,
+        target,
+      });
     } catch (sendError) {
       if (sendError.ambiguousBroadcast) {
         broadcastUnknown.current = true;
         setBroadcastError(sendError.message || 'The transaction may have been sent. Check your transaction history before starting another send.');
       } else {
-        setError(sendError.message || 'Transaction failed.');
+        // Electrum preserves an explicit rejection on the thrown error.
+        const message = sendError.message || 'Transaction failed.';
+        setError(
+          sendError.rejected || sendError.ambiguousBroadcast === false
+            ? getRejectionMessage(message)
+            : message,
+        );
       }
     } finally {
       dispatch(expireCoinData(sourceCoin.id, API_GET_BALANCES));
@@ -385,19 +399,20 @@ const SendWizardConfirm = () => {
     if (!preflightResult) return [];
 
     const directFee =
-      preflightResult.fee ||
-      preflightResult.txfee ||
+      preflightResult.fee ??
+      preflightResult.txfee ??
       preflightResult.networkfee;
     if (directFee != null) {
       const currencyId =
-        preflightResult.feeCurr || sourceCoin?.id || sourceCoin?.currency_id;
+        preflightResult.feeCurr || sourceCoin?.currency_id || sourceCoin?.id;
       const display = getCurrencyDisplay(
         currencyId,
         preflightResult.feeCurr || sourceCoin?.display_ticker,
       );
       return [
         {
-          amount: formatFeeAmount(directFee),
+          amount: BigNumber(directFee).toFixed(),
+          currencyId,
           currency: display.ticker,
         },
       ];
@@ -413,7 +428,8 @@ const SendWizardConfirm = () => {
         );
 
         return {
-          amount: formatFeeAmount(satsToCoins(BigNumber(feeSats))),
+          amount: satsToCoins(BigNumber(feeSats)).toFixed(),
+          currencyId,
           currency: display.ticker,
         };
       });
@@ -440,7 +456,28 @@ const SendWizardConfirm = () => {
         : estimatedTime,
     ],
   ];
-  const balanceAfter = BigNumber(sourceBalance || 0).minus(displayAmount);
+  // Keep the exact preflight fee amounts and currency IDs for balance math.
+  // Tickers alone are not currency identity (a token can share a system ticker).
+  const sourceFees = feeItems.reduce(
+    (total, item) =>
+      [sourceCoin?.id, sourceCoin?.currency_id].includes(item.currencyId)
+        ? total.plus(item.amount)
+        : total,
+    BigNumber(0),
+  );
+  const isSelfSend =
+    simpleSend && isOwnChannelAddress({
+      activeAccount, channel, recipientAddress, sourceCoin,
+    });
+  const balanceAfter = BigNumber(sourceBalance || 0)
+    .minus(isSelfSend ? 0 : displayAmount)
+    .minus(sourceFees);
+  const submittedAmount = preflightResult?.submittedsats != null
+    ? satsToCoins(BigNumber(preflightResult.submittedsats))
+    : BigNumber(preflightResult?.amountSubmitted ?? amount ?? 0);
+  const amountAdjustment = submittedAmount.isGreaterThan(displayAmount)
+    ? `Reduced from ${truncateDecimal(submittedAmount, 8)} ${sourceCoin?.display_ticker || ''} to cover transaction fees.`
+    : null;
 
   if (preflighting) {
     return (
@@ -472,11 +509,6 @@ const SendWizardConfirm = () => {
   return (
     <WizardScreen scroll={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        <WizardHeading
-          style={styles.headingInset}
-          subtitle="Review your transaction">
-          Confirm
-        </WizardHeading>
         <View style={[styles.amountSection, {backgroundColor: theme.colors.surfaceMuted}]}>
           <View style={styles.amountBlock}>
             <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>YOU’RE SENDING</Text>
@@ -489,6 +521,11 @@ const SendWizardConfirm = () => {
                 </View>
               </View>
             </View>
+            {amountAdjustment ? (
+              <Text style={[theme.typography.caption, styles.amountAdjustment, {color: theme.colors.textSecondary}]}>
+                {amountAdjustment}
+              </Text>
+            ) : null}
           </View>
           {target?.isConversion && estimatedReceive != null ? (
             <>
@@ -531,7 +568,7 @@ const SendWizardConfirm = () => {
             <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>Fees</Text>
             <View style={styles.infoValue}>
               <View style={styles.feeValueContainer}>
-                <Text numberOfLines={1} style={[styles.detailValue, {color: theme.colors.textPrimary}]}>{feeSummary}</Text>
+                <Text style={[styles.feeValue, {color: theme.colors.textPrimary}]}>{feeSummary}</Text>
                 <Text style={[styles.feeHint, {color: theme.colors.textSubtle}]}>Tap for details</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.infoIcon} />
@@ -542,7 +579,7 @@ const SendWizardConfirm = () => {
             <Text numberOfLines={2} style={[styles.detailValue, {color: theme.colors.textPrimary}]}>{`${sourceCoin?.display_name || ''} · ${sourceSubWallet?.name || ''}`}</Text>
           </View>
         </View>
-        <Text style={[styles.balanceAfter, {color: theme.colors.textSubtle}]}>Balance after: {truncateDecimal(balanceAfter, 8)} {sourceCoin?.display_ticker}</Text>
+        <Text style={[styles.balanceAfter, {color: theme.colors.textSubtle, marginBottom: warnings.length ? theme.spacing.md : 0}]}>Balance after: {truncateDecimal(balanceAfter, 8)} {sourceCoin?.display_ticker}</Text>
         {warnings.map(message => (
           <View key={message} style={[styles.warning, {backgroundColor: theme.colors.surfaceMuted}]}>
             <Text style={[styles.warningText, {color: theme.colors.warning}]}>{message}</Text>
@@ -551,7 +588,12 @@ const SendWizardConfirm = () => {
         <ErrorMessage>{state.broadcastError || error}</ErrorMessage>
       </ScrollView>
       <WizardFooter
-        disabled={!preflightResult || Boolean(state.broadcastError)}
+        disabled={
+          !preflightResult ||
+          submitted.current ||
+          Boolean(state.txResult) ||
+          Boolean(state.broadcastError)
+        }
         holdToConfirm
         loading={sending}
         holdingText="Hold to confirm..."
@@ -565,8 +607,7 @@ const SendWizardConfirm = () => {
 };
 
 const styles = StyleSheet.create({
-  content: {paddingHorizontal: 16, paddingBottom: 20},
-  headingInset: {marginHorizontal: -16},
+  content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   amountSection: {borderRadius: 12, padding: 16, marginBottom: 16},
   amountBlock: {paddingVertical: 4, position: 'relative'},
   amountLabel: {fontSize: 11, lineHeight: 15, marginBottom: 6, letterSpacing: 0.3, ...fontStyle('medium')},
@@ -574,6 +615,7 @@ const styles = StyleSheet.create({
   amountCopy: {flex: 1, marginLeft: 10},
   amountValueRow: {flexDirection: 'row', alignItems: 'baseline'},
   amountValue: {fontSize: 22, lineHeight: 28, ...fontStyle('bold')},
+  amountAdjustment: {marginTop: 8},
   amountTicker: {fontSize: 14, lineHeight: 19, marginLeft: 6, ...fontStyle('semiBold')},
   conversionDivider: {flexDirection: 'row', alignItems: 'center', marginVertical: 12},
   dividerLine: {flex: 1, height: StyleSheet.hairlineWidth},
@@ -585,9 +627,10 @@ const styles = StyleSheet.create({
   detailRowLast: {borderBottomWidth: 0},
   detailLabel: {fontSize: 14, lineHeight: 19, ...fontStyle('regular')},
   detailValue: {maxWidth: '60%', textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
-  infoValue: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
+  infoValue: {flex: 1, minWidth: 0, marginLeft: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
   infoIcon: {marginLeft: 6},
-  feeValueContainer: {maxWidth: '72%', alignItems: 'flex-end'},
+  feeValueContainer: {flex: 1, minWidth: 0, alignItems: 'flex-end'},
+  feeValue: {alignSelf: 'stretch', textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
   feeHint: {fontSize: 12, lineHeight: 16, marginTop: 2, ...fontStyle('regular')},
   balanceAfter: {fontSize: 13, lineHeight: 18, textAlign: 'center', ...fontStyle('regular')},
   centeredState: {flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center'},

@@ -1,5 +1,6 @@
 import {DevSettings} from 'react-native';
 import {coinsList} from '../../utils/CoinData/CoinsList';
+import {clearActiveAccountLifecycles} from './account/dispatchers/account';
 import {storeContractDefinitionsForNetwork} from '../../utils/asyncStore/contractDefinitionStorage';
 import {storeCurrencyDefinitionsForSystemId} from '../../utils/asyncStore/currencyDefinitionStorage';
 import {ETH_SEPOLIA} from '../../utils/constants/web3Constants';
@@ -16,6 +17,10 @@ import {saveGeneralSettings} from './WalletSettings';
  * @param {Function} dispatch Redux dispatch
  */
 export const switchTestnetEnvironment = async (environment, dispatch) => {
+  // Native synchronizers survive a JS reload. Use the bounded sign-out teardown
+  // before changing settings; a failed close must prevent the reload.
+  await clearActiveAccountLifecycles();
+
   await clearCacheData(dispatch);
   await storeCurrencyDefinitionsForSystemId(coinsList.VRSCTEST.currency_id, {});
   await storeContractDefinitionsForNetwork(ETH_SEPOLIA, {});

@@ -1,4 +1,5 @@
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import {DEST_ETH} from 'verus-typescript-primitives';
 
 export const SEND_WIZARD_MODE = {
   CONVERT: 'convert',
@@ -14,6 +15,89 @@ const CONVERSION_CHANNEL_TYPES = new Set([
 
 export const isConversionChannel = channel =>
   CONVERSION_CHANNEL_TYPES.has(channel?.split('.')[0]);
+
+export const WIZARD_CONTEXT_STEP = {
+  AMOUNT: 'amount',
+  RECIPIENT: 'recipient',
+};
+
+// "VRSC [ERC20]" is the Ethereum token. Its logo badge already says so, and
+// the context band has little room.
+const getShortTicker = ticker =>
+  String(ticker || '').replace(/\s*\[ERC20\]\s*$/i, '').trim();
+
+// What the context band under the wizard header shows: the asset that moves,
+// where it goes, and the chain only when it is not the asset's own chain.
+// Amount already has a Network row for Send from a conversion channel, so
+// the band does not repeat the chain there.
+export const getWizardContextSummary = ({
+  mode,
+  step,
+  sourceCoin,
+  target,
+  route,
+  channel,
+}) => {
+  if (!sourceCoin || !target || !route) return null;
+
+  const sourceLabel = getShortTicker(sourceCoin.display_ticker);
+  const source = {coinId: sourceCoin.id, label: sourceLabel};
+  const chain =
+    route.isCrossChain && route.networkName
+      ? {iconId: route.networkIcon, label: route.networkName}
+      : null;
+
+  if (target.isConversion) {
+    const targetLabel = getShortTicker(target.ticker);
+
+    return {
+      source,
+      destination: {
+        kind: 'coin',
+        coinId: target.coinId || target.id,
+        label: targetLabel,
+        // The tail names the chain, so the logo badge would say it twice.
+        showBadge: !chain,
+      },
+      chain,
+      description: `Convert ${sourceLabel} to ${targetLabel}${
+        chain ? ` on ${chain.label}` : ''
+      }`,
+    };
+  }
+
+  const networkRowShown =
+    mode === SEND_WIZARD_MODE.SEND && isConversionChannel(channel);
+  const showChain =
+    chain && !(step === WIZARD_CONTEXT_STEP.AMOUNT && networkRowShown);
+
+  return {
+    source,
+    destination: showChain ? {kind: 'chain', ...chain} : null,
+    chain: null,
+    description: showChain
+      ? `Send ${sourceLabel} to ${chain.label}`
+      : `Send ${sourceLabel}`,
+  };
+};
+
+// Use the selected Card's address, which can differ from another Card's keys.
+export const isOwnChannelAddress = ({
+  activeAccount,
+  channel,
+  recipientAddress,
+  sourceCoin,
+}) => {
+  const [channelType, channelAddress] = String(channel || '').split('.');
+  const sourceAddress = channelType === 'vrpc'
+    ? channelAddress
+    : activeAccount?.keys?.[sourceCoin?.id]?.[channelType]?.addresses?.[0];
+
+  return Boolean(sourceAddress) && typeof recipientAddress === 'string' &&
+    (['eth', 'erc20'].includes(channelType)
+      ? recipientAddress.toLowerCase() === sourceAddress.toLowerCase()
+      : recipientAddress === sourceAddress);
+};
 
 export const ADDRESS_TYPE = {
   ETHEREUM: 'ethereum',
@@ -65,13 +149,17 @@ export const getCurrencyDisplay = (currencyId, fallback) => {
   } catch (error) {
     const name = fallback || currencyId || 'Unknown asset';
     const pieces = String(name).split('.');
-    const ticker = pieces[pieces.length - 1] || name;
+    // A Verus name is `currency.parent`; the first part is the currency's own name.
+    const ticker = pieces[0] || name;
     return {coinId: currencyId, name, ticker};
   }
 };
 
-const getAddressType = (sourceCoin, path, exportName) => {
-  if (path?.ethdest === true || /(^|\.)eth(ereum)?($|\.)/i.test(exportName || '')) {
+const getAddressType = (sourceCoin, path) => {
+  if (
+    path?.ethdest === true ||
+    path?.exportto?.nativecurrencyid?.type === DEST_ETH.toNumber()
+  ) {
     return ADDRESS_TYPE.ETHEREUM;
   }
 
@@ -144,7 +232,7 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
     preconvert,
     bridgePrelaunch: Boolean(path?.bridgeprelaunch),
     isCrossChain: Boolean(exportTo),
-    addressType: getAddressType(sourceCoin, path, exportToFqn),
+    addressType: getAddressType(sourceCoin, path),
   };
 
   return {

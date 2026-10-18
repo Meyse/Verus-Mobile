@@ -81,7 +81,7 @@ methods, never Verus Mobile's visual direction.
 | --- | --- | --- |
 | Theme, spacing, shapes, typography | `src/theme/onboarding/tokens.js`, `TYPOGRAPHY.md` | Consume the existing semantic roles. |
 | Signed-out onboarding step | `src/styles/components/signedOutFlow.styles.js`, `src/containers/Onboard/CreateProfile/CreateProfile.js` | Reuse the signed-out flow styles and compact-device rules. |
-| Full-screen stepped task | `src/components/ProgressHeader.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund.js` | Reuse `ProgressHeader` and the Gift Card step/action composition. |
+| Full-screen stepped task | `src/components/ProgressHeader.js`, `src/containers/SendWizard/components/SendWizardHeader.js`, [Stepped tasks](#stepped-tasks) below | Reuse the shared header title treatment and safe-action composition. |
 | Selection BottomSheet | `src/containers/DeepLink/components/VerusIdIdentityPickerSheet/IdentityPickerSheet.js` as opened by `src/containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo.js` | Reuse the component or match its choose, selected, provisioning, and link modes exactly. |
 | Informational BottomSheet | `src/containers/DeepLink/components/RequestReview/DeepLinkRequestDetailsSheet.js` and `src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js` | Reuse the scaffold, section rows, scroll cue, and Done action. |
 | BottomSheet shell | `src/components/BottomSheetModal.js`, `src/styles/components/signedOutSheet.styles.js` | Do not construct a new modal shell. |
@@ -188,26 +188,48 @@ For signed-out setup, use `createSignedOutFlowStyles(theme)` directly: its
 normal and compact padding, title metrics, width limit, keyboard clearance, and
 footer spacing are one unit.
 
-For a signed-in task wizard, start from the Gift Card flow's composition:
+Signed-in task wizards show a short step title in the header bar, centered
+between back and close, in `theme.typography.titleSheet`. Do not show a large
+step title below the header. The owner approved this pattern for Send/Convert
+on 2026-10-17. The Gift Card fund flow is not migrated yet.
 
-- `ProgressHeader` for back navigation and progress.
+For a signed-in task wizard:
+
+- Match the `ProgressHeader` title treatment. Send/Convert uses
+  `SendWizardHeader` for back, close, the title, and progress below that row.
 - 20-point horizontal content inset, 24-point top inset, and 28-point bottom
-  inset.
-- `theme.typography.headlineMd` for the step title (28/36) and 22-point space
-  below the title block.
-- One short title, no eyebrow, and helper copy only when necessary.
+  inset. Send/Convert retains its existing 16-point horizontal inset and uses
+  the 24-point top inset on normal and compact devices.
+- No eyebrow. Keep helper copy only when it adds information.
 - One primary bottom action through `SafeBottomActionStack`; back navigation
   stays in the header.
 - Stable loading, error, review, processing, and result states within the same
   flow structure.
 
+Send/Convert also shows a context band directly under the header on Amount and
+Recipient. The owner approved it on 2026-10-17 (option C of the review mockup).
+It reminds the user what moves and where, in one line, without a second title.
+
+- `WizardContextBand` draws it through the `context` slot of `SendWizardHeader`.
+  `getWizardContextSummary` in `wizardUtils.js` decides what it shows.
+- Full-bleed `surfaceMuted` band, 32-point minimum height, 16-point inset. Asset
+  names use `labelSm`, connector words and the chain name use `caption`. Logos are
+  `AssetCoinLogo` at 16 points.
+- Left: the source asset and, for a conversion, an arrow and the target asset.
+  Right: "on" and the chain, only for a conversion to another chain.
+- Send shows the source asset alone. On Recipient, a Send to another chain adds an
+  arrow and the chain. Amount does not, because its Network row is right below.
+- Drop `[ERC20]` from asset names. The logo badge says it. Hide the target's badge
+  when the chain is named on the right.
+- When the line is too long, the chain name shortens first, then the asset names.
+- No band on Confirm or Success. They already show the whole route.
+
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.
 
-Gift Card currently has a local 28/35 step-title declaration. That one-point
-line-height drift is a known cleanup gap, not a reusable metric. New work must
-use the shared 28/36 `headlineMd` role; do not silently alter the existing Gift
-Card screen unless its task explicitly includes that cleanup.
+`src/containers/Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund.js`
+still has a local 28/35 step title below the header. Keep that legacy layout
+until a task explicitly migrates it.
 
 ## Lists, forms, and settings
 

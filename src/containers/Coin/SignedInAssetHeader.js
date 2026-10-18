@@ -43,6 +43,7 @@ import {USD} from '../../utils/constants/currencies';
 import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
+  VRPC,
 } from '../../utils/constants/intervalConstants';
 import {
   extractErrorData,
@@ -59,6 +60,11 @@ import {
 } from '../../utils/subwallet/cardPresentation';
 
 const CONTAINER_PADDING = 20;
+// VRPC total includes pending spends/change, as Wallet and the send source do.
+const getCardBalance = (entry, wallet) =>
+  wallet?.api_channels?.[API_GET_BALANCES]?.startsWith(`${VRPC}.`)
+    ? entry?.total
+    : getLedgerConfirmed(entry);
 const CARD_WIDTH_RATIO = 0.78;
 const MAX_CARD_WIDTH = 314;
 const CARD_HEIGHT = 206;
@@ -679,13 +685,13 @@ const SignedInAssetHeader = () => {
   const itemCount = walletItems.length;
   const circularRail = itemCount >= CIRCULAR_RAIL_MIN_CARDS;
 
-  const totalConfirmedBalance = useMemo(
+  const totalDisplayedBalance = useMemo(
     () =>
-      Object.values(balances || {}).reduce((total, ledgerEntry) => {
-        const confirmed = getLedgerConfirmed(ledgerEntry);
-        return confirmed == null ? total : total.plus(BigNumber(confirmed));
+      allSubWallets.reduce((total, wallet) => {
+        const balance = getCardBalance(balances?.[wallet.id], wallet);
+        return balance == null ? total : total.plus(BigNumber(balance));
       }, BigNumber(0)),
-    [balances],
+    [allSubWallets, balances],
   );
 
   useEffect(() => {
@@ -790,12 +796,12 @@ const SignedInAssetHeader = () => {
 
   const totalFiatDisplay = useMemo(() => {
     for (const wallet of allSubWallets) {
-      const fiatDisplay = getWalletFiatDisplay(wallet, totalConfirmedBalance);
+      const fiatDisplay = getWalletFiatDisplay(wallet, totalDisplayedBalance);
       if (fiatDisplay != null) return fiatDisplay;
     }
 
     return null;
-  }, [allSubWallets, getWalletFiatDisplay, totalConfirmedBalance]);
+  }, [allSubWallets, getWalletFiatDisplay, totalDisplayedBalance]);
 
   const getDisplayIdentifier = useCallback(
     wallet =>
@@ -1006,7 +1012,7 @@ const SignedInAssetHeader = () => {
       const networkTicker = getNetworkTicker(item.network);
       const systemLabel = networkTicker || displayTicker;
       const ledgerEntry = balances?.[item.id];
-      const walletBalance = getLedgerConfirmed(ledgerEntry);
+      const walletBalance = getCardBalance(ledgerEntry, item);
       const walletHasError = Boolean(balanceErrors?.[item.id]);
 
       let amountText = '—';
@@ -1180,7 +1186,7 @@ const SignedInAssetHeader = () => {
 
   if (!activeCoin) return null;
 
-  const totalAmountText = truncateDecimal(totalConfirmedBalance, 4);
+  const totalAmountText = truncateDecimal(totalDisplayedBalance, 4);
   const shouldShowTotalFiat = totalFiatDisplay != null || activeCoin.testnet;
   const totalFiatText = shouldShowTotalFiat ? totalFiatDisplay ?? '—' : null;
   const totalBalanceAccessibilityLabel = showBalance

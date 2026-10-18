@@ -210,7 +210,11 @@ const SignedInWalletHome = ({
           <View style={styles.assetLine}>
             <Text
               numberOfLines={2}
-              style={[styles.assetName, {color: theme.colors.textPrimary}]}>
+              style={[
+                theme.typography.titleRow,
+                styles.assetName,
+                {color: theme.colors.textPrimary},
+              ]}>
               {presentation.name}
             </Text>
             {fiatUnavailable ? (
@@ -238,15 +242,27 @@ const SignedInWalletHome = ({
                 color={theme.colors.textSecondary}
                 hidden={!showBalance}
                 revealProgress={balanceRevealProgress}
-                style={styles.cryptoAmount}>
+                style={theme.typography.bodySm}>
                 {cryptoAmountText}
               </PrivacyBlurredText>
-              <Text numberOfLines={1} style={[styles.cryptoTicker, {color: theme.colors.textSecondary}]}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  theme.typography.bodySm,
+                  styles.cryptoTicker,
+                  {color: theme.colors.textSecondary},
+                ]}>
                 {presentation.ticker}
               </Text>
             </View>
             {rateText ? (
-              <Text numberOfLines={1} style={[styles.fiatRate, {color: theme.colors.textSubtle}]}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  theme.typography.bodySm,
+                  styles.fiatRate,
+                  {color: theme.colors.textSubtle},
+                ]}>
                 {rateText}
               </Text>
             ) : null}
@@ -313,7 +329,7 @@ const SignedInWalletHome = ({
         ListEmptyComponent={
           !assetsReady && !assetsLoadError ? (
             <SkeletonLoader accessibilityLabel="Loading your assets" style={{padding: 20}}>
-              {[0, 1, 2].map(row => <SkeletonBlock key={row} height={56} style={{marginBottom: 20}} />)}
+              {[0, 1, 2].map(row => <SkeletonBlock key={row} height={48} style={{marginBottom: 20}} />)}
             </SkeletonLoader>
           ) : (
             <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary, padding: 20}]}>
@@ -358,22 +374,21 @@ const styles = StyleSheet.create({
   iconButton: {padding: 6},
   heroValueRow: {flexDirection: 'row', alignItems: 'flex-start', marginVertical: 12},
   heroSymbolFrame: {marginRight: 4, marginTop: 2},
-  heroSymbol: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 24},
+  heroSymbol: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 22},
   heroAmountFrame: {flexShrink: 1},
-  heroAmount: {...fontStyle('bold'), fontSize: 40, lineHeight: 44, letterSpacing: -0.5},
+  heroAmount: {...fontStyle('bold'), fontSize: 34, lineHeight: 40, letterSpacing: -0.5},
   listContent: {paddingBottom: 16},
-  assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row'},
+  assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row'},
   logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},
   assetCopy: {flex: 1, minWidth: 0, justifyContent: 'center'},
   assetLine: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  assetSecondaryLine: {marginTop: 6},
-  assetName: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 21, flexShrink: 1, marginRight: 12},
+  assetSecondaryLine: {marginTop: 2},
+  assetName: {flexShrink: 1, marginRight: 12},
   fiatValue: {...fontStyle('semiBold'), fontSize: 16, lineHeight: 20, textAlign: 'right'},
   fiatUnavailable: {...fontStyle('regular'), fontSize: 13, lineHeight: 18, textAlign: 'right'},
   cryptoValue: {alignItems: 'center', flexDirection: 'row', flexShrink: 1, marginRight: 12},
-  cryptoAmount: {...fontStyle('medium'), fontSize: 16, lineHeight: 20},
-  cryptoTicker: {...fontStyle('medium'), fontSize: 16, lineHeight: 20, marginLeft: 5, flexShrink: 1},
-  fiatRate: {...fontStyle('regular'), fontSize: 12, lineHeight: 16, textAlign: 'right'},
+  cryptoTicker: {marginLeft: 4, flexShrink: 1},
+  fiatRate: {textAlign: 'right'},
 });
 
 export default SignedInWalletHome;

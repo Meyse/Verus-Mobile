@@ -71,6 +71,9 @@ const HomeTabScreens = () => {
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: 'transparent',
+          borderTopWidth: 0,
+          // The library default (8) draws a line-like shadow on Android.
+          elevation: 0,
         },
         tabBarLabelStyle: {
           fontSize: 12,
