@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
 import {truncateDecimal} from '../../../utils/math';
@@ -67,4 +68,11 @@ export const getConversionPriceSummary = ({
       : null,
     unitPrice,
   };
+};
+
+// An estimated amount for display. Four decimals once it reaches one, eight
+// below that: the quote is approximate, so more digits only add noise.
+export const formatEstimatedAmount = value => {
+  const amount = BigNumber(value);
+  return truncateDecimal(amount, amount.isGreaterThanOrEqualTo(1) ? 4 : 8);
 };

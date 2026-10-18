@@ -1,6 +1,5 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import BigNumber from 'bignumber.js';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import SkeletonLoader, {SkeletonRow} from '../../../components/SkeletonLoader';
 import StatusBadge from '../../../components/StatusBadge';
@@ -10,6 +9,7 @@ import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 import {truncateDecimal} from '../../../utils/math';
 import {formatImpact, getUnitPrice, IMPACT_LEVEL} from '../priceImpact';
 import {
+  formatEstimatedAmount,
   formatUnitPrice,
   getImpactBadgeLabel,
   getImpactLossText,
@@ -107,7 +107,7 @@ const AmountEstimate = ({
             </View>
             <View style={styles.receiveValue}>
               <Text style={[styles.receiveAmount, {color: colors.textPrimary}]}>
-                ≈ {truncateDecimal(BigNumber(estimatedOutput), 8)}
+                ≈ {formatEstimatedAmount(estimatedOutput)}
                 <Text style={[styles.receiveTicker, {color: colors.textSecondary}]}>
                   {' '}
                   {target.ticker}

@@ -36,6 +36,7 @@ import {
 } from './components/TransferSummary';
 import ConfirmFacts, {ConfirmNotice} from './components/ConfirmFacts';
 import {
+  formatEstimatedAmount,
   formatUnitPrice,
   getConversionPriceSummary,
 } from './components/impactFormat';
@@ -572,7 +573,7 @@ const SendWizardConfirm = () => {
               <TransferConnector>{connectorText}</TransferConnector>
             ) : null}
             <TransferNode
-              amount={`≈ ${truncateDecimal(BigNumber(estimatedReceive), 8)}`}
+              amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
               coinId={target.coinId || target.id}
               fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
               name={recipientLabel}

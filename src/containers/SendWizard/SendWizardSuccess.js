@@ -13,6 +13,7 @@ import {
   TransferConnector,
   TransferNode,
 } from './components/TransferSummary';
+import {formatEstimatedAmount} from './components/impactFormat';
 import {FlatRow, WizardFooter, WizardScreen} from './components/WizardUI';
 import {useWizardFiat} from './useWizardFiat';
 import {
@@ -113,7 +114,7 @@ const SendWizardSuccess = () => {
                 <TransferConnector>{`via ${route.viaFqn || route.via}`}</TransferConnector>
               ) : null}
               <TransferNode
-                amount={`≈ ${truncateDecimal(BigNumber(estimatedReceive), 8)}`}
+                amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
                 coinId={target.coinId || target.id}
                 fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
                 name={recipientLabel}

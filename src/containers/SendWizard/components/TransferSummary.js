@@ -8,8 +8,8 @@ const LOGO_SIZE = 40;
 
 // One end of a transfer: the asset logo, who or what it is, and the amount.
 // Pass `label` for a plain label ("You pay") or `name` and `suffix` for a
-// recipient ("sam@" "receives"): a long name shortens in the middle and the
-// suffix always stays whole. A long amount shrinks before the label does.
+// recipient: the name sits above "receives" so a long address keeps room and
+// shortens in the middle. A long amount shrinks before the label does.
 export const TransferNode = ({
   amount,
   coinId,
@@ -31,13 +31,12 @@ export const TransferNode = ({
             <Text
               ellipsizeMode="middle"
               numberOfLines={1}
-              style={[theme.typography.labelMd, styles.name, {color: colors.textPrimary}]}>
+              style={[theme.typography.labelMd, {color: colors.textPrimary}]}>
               {name}
             </Text>
             <Text
               numberOfLines={1}
-              style={[theme.typography.bodySm, styles.suffix, {color: colors.textSecondary}]}>
-              {' '}
+              style={[theme.typography.caption, {color: colors.textSecondary}]}>
               {suffix}
             </Text>
           </>
@@ -82,9 +81,7 @@ export const TransferConnector = ({children}) => {
 
 const styles = StyleSheet.create({
   node: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
-  labelWrap: {flex: 1, minWidth: 0, marginLeft: 14, marginRight: 8, flexDirection: 'row', alignItems: 'center'},
-  name: {flexShrink: 1},
-  suffix: {flexShrink: 0},
+  labelWrap: {flex: 1, minWidth: 0, marginLeft: 14, marginRight: 8, justifyContent: 'center'},
   value: {alignItems: 'flex-end', flexShrink: 1, maxWidth: '64%'},
   amount: {fontSize: 20, lineHeight: 26, ...fontStyle('bold')},
   connector: {
