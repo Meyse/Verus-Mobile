@@ -206,6 +206,24 @@ For a signed-in task wizard:
 - Stable loading, error, review, processing, and result states within the same
   flow structure.
 
+Send/Convert also shows a context band directly under the header on Amount and
+Recipient. The owner approved it on 2026-10-17 (option C of the review mockup).
+It reminds the user what moves and where, in one line, without a second title.
+
+- `WizardContextBand` draws it through the `context` slot of `SendWizardHeader`.
+  `getWizardContextSummary` in `wizardUtils.js` decides what it shows.
+- Full-bleed `surfaceMuted` band, 32-point minimum height, 16-point inset. Asset
+  names use `labelSm`, connector words and the chain name use `caption`. Logos are
+  `AssetCoinLogo` at 16 points.
+- Left: the source asset and, for a conversion, an arrow and the target asset.
+  Right: "on" and the chain, only for a conversion to another chain.
+- Send shows the source asset alone. On Recipient, a Send to another chain adds an
+  arrow and the chain. Amount does not, because its Network row is right below.
+- Drop `[ERC20]` from asset names. The logo badge says it. Hide the target's badge
+  when the chain is named on the right.
+- When the line is too long, the chain name shortens first, then the asset names.
+- No band on Confirm or Success. They already show the whole route.
+
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.
 

@@ -16,6 +16,71 @@ const CONVERSION_CHANNEL_TYPES = new Set([
 export const isConversionChannel = channel =>
   CONVERSION_CHANNEL_TYPES.has(channel?.split('.')[0]);
 
+export const WIZARD_CONTEXT_STEP = {
+  AMOUNT: 'amount',
+  RECIPIENT: 'recipient',
+};
+
+// "VRSC [ERC20]" is the Ethereum token. Its logo badge already says so, and
+// the context band has little room.
+const getShortTicker = ticker =>
+  String(ticker || '').replace(/\s*\[ERC20\]\s*$/i, '').trim();
+
+// What the context band under the wizard header shows: the asset that moves,
+// where it goes, and the chain only when it is not the asset's own chain.
+// Amount already has a Network row for Send from a conversion channel, so
+// the band does not repeat the chain there.
+export const getWizardContextSummary = ({
+  mode,
+  step,
+  sourceCoin,
+  target,
+  route,
+  channel,
+}) => {
+  if (!sourceCoin || !target || !route) return null;
+
+  const sourceLabel = getShortTicker(sourceCoin.display_ticker);
+  const source = {coinId: sourceCoin.id, label: sourceLabel};
+  const chain =
+    route.isCrossChain && route.networkName
+      ? {iconId: route.networkIcon, label: route.networkName}
+      : null;
+
+  if (target.isConversion) {
+    const targetLabel = getShortTicker(target.ticker);
+
+    return {
+      source,
+      destination: {
+        kind: 'coin',
+        coinId: target.coinId || target.id,
+        label: targetLabel,
+        // The tail names the chain, so the logo badge would say it twice.
+        showBadge: !chain,
+      },
+      chain,
+      description: `Convert ${sourceLabel} to ${targetLabel}${
+        chain ? ` on ${chain.label}` : ''
+      }`,
+    };
+  }
+
+  const networkRowShown =
+    mode === SEND_WIZARD_MODE.SEND && isConversionChannel(channel);
+  const showChain =
+    chain && !(step === WIZARD_CONTEXT_STEP.AMOUNT && networkRowShown);
+
+  return {
+    source,
+    destination: showChain ? {kind: 'chain', ...chain} : null,
+    chain: null,
+    description: showChain
+      ? `Send ${sourceLabel} to ${chain.label}`
+      : `Send ${sourceLabel}`,
+  };
+};
+
 // Use the selected Card's address, which can differ from another Card's keys.
 export const isOwnChannelAddress = ({
   activeAccount,
