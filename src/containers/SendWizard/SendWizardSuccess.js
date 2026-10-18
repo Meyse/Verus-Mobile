@@ -19,7 +19,7 @@ import {useWizardFiat} from './useWizardFiat';
 import {
   getDestinationNetwork,
   getTransactionId,
-  shortenRecipient,
+  isLongRecipient,
 } from './wizardUtils';
 
 const SendWizardSuccess = () => {
@@ -56,9 +56,8 @@ const SendWizardSuccess = () => {
     ? 'Bridge transaction sent'
     : 'Transaction sent';
   const showReceive = Boolean(isConversion && estimatedReceive != null);
-  const recipientLabel = shortenRecipient(recipientAddress);
   const showRecipientRow =
-    !showReceive || recipientLabel !== recipientAddress;
+    !showReceive || isLongRecipient(recipientAddress);
 
   const finish = useCallback(() => {
     const parent = navigation.getParent?.();
@@ -117,7 +116,7 @@ const SendWizardSuccess = () => {
                 amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
                 coinId={target.coinId || target.id}
                 fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-                name={recipientLabel}
+                name={recipientAddress}
                 suffix="receives"
                 ticker={target.ticker}
               />

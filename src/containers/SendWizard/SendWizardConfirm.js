@@ -79,7 +79,7 @@ import {
   getDestinationNetwork,
   getRouteName,
   isOwnChannelAddress,
-  shortenRecipient,
+  isLongRecipient,
 } from './wizardUtils';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
@@ -517,10 +517,9 @@ const SendWizardConfirm = () => {
   }
 
   const showReceive = Boolean(target?.isConversion && estimatedReceive != null);
-  const recipientLabel = shortenRecipient(recipientAddress);
   // A conversion names the recipient in its receive line. Every other review
   // lists the full recipient, and so does a conversion to a long address.
-  const showRecipientRow = !showReceive || recipientLabel !== recipientAddress;
+  const showRecipientRow = !showReceive || isLongRecipient(recipientAddress);
   const {impact, level, lossText, unitPrice} = showReceive
     ? getConversionPriceSummary({
         amount: displayAmount,
@@ -576,7 +575,7 @@ const SendWizardConfirm = () => {
               amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
               coinId={target.coinId || target.id}
               fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-              name={recipientLabel}
+              name={recipientAddress}
               suffix="receives"
               ticker={target.ticker}
             />

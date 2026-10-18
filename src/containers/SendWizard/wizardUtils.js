@@ -550,13 +550,11 @@ export const getTransactionId = result => {
   );
 };
 
-// A recipient short enough for a summary line. VerusID names and short
-// addresses stay whole; long addresses keep the start and the end.
-export const shortenRecipient = address => {
+// True for a recipient too long for a summary line: a full address rather
+// than a VerusID name or a short address.
+export const isLongRecipient = address => {
   const value = String(address || '');
-  return value.endsWith('@') || value.length <= 22
-    ? value
-    : `${value.slice(0, 8)}…${value.slice(-6)}`;
+  return !value.endsWith('@') && value.length > 22;
 };
 
 // The network a cross-chain transfer arrives on, named as the Network sheet
