@@ -827,6 +827,13 @@ class Overview extends Component {
       counterpartySuffix = "";
     }
 
+    if (item.conversionProceeds) {
+      const sourceName = item.conversionProceeds.sourceCurrencyName;
+      subtitle = sourceName ? `Converted from ${sourceName}` : "Conversion proceeds";
+      counterpartyIsAddress = false;
+      counterpartySuffix = "";
+    }
+
     let displayAmount = null
 
     // Handle possible int overflows

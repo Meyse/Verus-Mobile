@@ -134,7 +134,7 @@ export const standardizeWyreTxObj = (transaction, accountAddress, coinObj) => {
 };
 
 export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
-  const {amount, txid, height, address, blocktime, sent, mempool, timestamp, conversion} = transaction;
+  const {amount, txid, height, address, blocktime, sent, mempool, timestamp, conversion, conversionProceeds} = transaction;
   const amountBn = BigNumber(amount)
   let timeEstimate;
 
@@ -176,5 +176,6 @@ export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
     timestamp: blocktime || timestamp || timeEstimate,
     txid,
     ...(conversion ? {conversion} : {}),
+    ...(conversionProceeds ? {conversionProceeds} : {}),
   };
 };
