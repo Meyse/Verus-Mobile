@@ -28,7 +28,7 @@ const ImpactRow = ({impact, level, lossText}) => {
                   : theme.colors.textPrimary,
             },
           ]}>
-          −{lossText}
+          {lossText}
         </Text>
       ) : null}
       <StatusBadge label={getImpactBadgeLabel(impact)} tone={getImpactTone(level)} />

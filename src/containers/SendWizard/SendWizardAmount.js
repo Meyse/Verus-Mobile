@@ -23,6 +23,7 @@ import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
+import {compareRoutes} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
 import {
   ErrorMessage,
@@ -429,7 +430,20 @@ const SendWizardAmount = () => {
         })[0]
       : null;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
-  const routeName = getRouteName(route);
+  // A route row only makes sense when there is a choice. Best is the route
+  // with the most output; the chosen one may differ if the user picked it.
+  const routeComparison = compareRoutes(target.routes || [], routeEstimates);
+  const selectedRoute = routeComparison.find(
+    entry => entry.route.key === route.key,
+  );
+  const routeChoice =
+    routeComparison.length > 1 && selectedRoute
+      ? {
+          isBest: selectedRoute.isBest,
+          lessPercent: selectedRoute.lessPercent,
+          name: getRouteName(route),
+        }
+      : null;
   const enteredCryptoAmount = truncateDecimal(
     cryptoAmount.isFinite() ? cryptoAmount : 0,
     8,
@@ -567,8 +581,7 @@ const SendWizardAmount = () => {
               onUseSuggestion={applySuggestedAmount}
               priceImpact={priceImpact}
               rate={rate}
-              routeName={routeName}
-              routeSelectable={(target.routes || []).length > 1}
+              routeChoice={routeChoice}
               sourceCoin={sourceCoin}
               target={target}
               validAmount={validAmount}
@@ -580,7 +593,6 @@ const SendWizardAmount = () => {
         estimates={routeEstimates}
         selectedKey={route?.key}
         target={target}
-        title="Choose a conversion route"
         routes={target.routes || []}
         visible={routeSheetOpen}
         onClose={() => setRouteSheetOpen(false)}

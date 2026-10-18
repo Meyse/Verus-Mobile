@@ -7,6 +7,7 @@ import {
   getImpactLevel,
   getImpactLoss,
   getPriceImpact,
+  getTargetShortfall,
   getUnitPrice,
   IMPACT_LEVEL,
 } from '../priceImpact';
@@ -18,22 +19,31 @@ export const getImpactTone = level =>
     ? STATUS_BADGE_TONE.WARNING
     : STATUS_BADGE_TONE.NEUTRAL;
 
-export const getImpactBadgeLabel = impact =>
-  impact.isLessThan(0.1) ? '<0.1%' : `−${formatImpact(impact)}%`;
+export const getImpactBadgeLabel = impact => `${formatImpact(impact)}% less`;
 
-// What the impact costs the user, in the display currency when a price is
-// known, otherwise in the source asset. Returns null when the sum rounds to
-// nothing, so a tiny loss never reads as "$0.00".
-export const getImpactLossText = ({loss, rate, displayCurrency, ticker}) => {
-  if (!loss) return null;
-  if (rate == null) {
-    return `${truncateDecimal(loss, loss.isGreaterThanOrEqualTo(1) ? 4 : 8)} ${ticker}`;
+// What the impact costs the user. The display currency comes first when the
+// ledger holds a price for the asset the user pays with. Otherwise the amount
+// is counted in the asset the user receives, so it reads next to the receive
+// row. Returns null when nothing can be said.
+export const getImpactLossText = ({
+  displayCurrency,
+  loss,
+  rate,
+  targetLoss,
+  targetTicker,
+}) => {
+  if (rate != null && loss) {
+    const fiat = loss.multipliedBy(rate).decimalPlaces(2);
+    if (fiat.isGreaterThan(0)) {
+      return formatCurrency({amount: fiat.toFixed(2), code: displayCurrency})[0];
+    }
   }
 
-  const fiat = loss.multipliedBy(rate).decimalPlaces(2);
-  if (!fiat.isGreaterThan(0)) return null;
+  if (targetLoss && targetLoss.isGreaterThan(0)) {
+    return `${formatEstimatedAmount(targetLoss)} ${targetTicker}`;
+  }
 
-  return formatCurrency({amount: fiat.toFixed(2), code: displayCurrency})[0];
+  return null;
 };
 
 // Output per input unit for display: four decimals once it reaches one, more
@@ -50,7 +60,7 @@ export const getConversionPriceSummary = ({
   marketPrice,
   output,
   rate,
-  sourceTicker,
+  targetTicker,
 }) => {
   const unitPrice = getUnitPrice(amount, output);
   const impact = getPriceImpact({amount, output, marketPrice});
@@ -63,7 +73,8 @@ export const getConversionPriceSummary = ({
           displayCurrency,
           loss: getImpactLoss(amount, impact),
           rate,
-          ticker: sourceTicker,
+          targetLoss: getTargetShortfall({amount, output, marketPrice}),
+          targetTicker,
         })
       : null,
     unitPrice,

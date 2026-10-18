@@ -111,3 +111,56 @@ export const formatImpact = impact =>
   impact.isLessThan(0.1)
     ? '<0.1'
     : impact.decimalPlaces(1, BigNumber.ROUND_HALF_UP).toFixed(1);
+
+// How much less of the target asset the user receives than the market price
+// would give for this amount. Zero when the quote is at or above market.
+export const getTargetShortfall = ({amount, output, marketPrice}) => {
+  const inputValue = toFinite(amount);
+  const outputValue = toFinite(output);
+  const market = toFinite(marketPrice);
+
+  if (!inputValue || !outputValue || !market) return null;
+
+  return BigNumber.maximum(0, inputValue.multipliedBy(market).minus(outputValue));
+};
+
+// Routes (baskets) a conversion can take, best first. `estimates` maps a route
+// key to the daemon's estimate. Best is the most output. `lessPercent` is how
+// much less a route gives than the best one; null when it has no quote.
+export const compareRoutes = (routes, estimates = {}) => {
+  const entries = (routes || []).map(route => {
+    const output = toFinite(estimates[route.key]?.estimatedcurrencyout);
+    return {route, output: output && output.isFinite() ? output : null};
+  });
+  const best = entries.reduce(
+    (current, entry) =>
+      entry.output && (!current || entry.output.isGreaterThan(current.output))
+        ? entry
+        : current,
+    null,
+  );
+
+  return entries
+    .map(entry => ({
+      ...entry,
+      isBest: Boolean(best && entry === best),
+      lessPercent:
+        best && entry.output && best.output.isGreaterThan(0)
+          ? best.output.minus(entry.output).dividedBy(best.output).multipliedBy(100)
+          : null,
+    }))
+    .sort((a, b) => {
+      if (a.output && b.output) return b.output.comparedTo(a.output);
+      if (a.output) return -1;
+      if (b.output) return 1;
+      return 0;
+    });
+};
+
+// A share for the "x% less" labels: two decimals under 1%, one from there.
+export const formatLessPercent = percent =>
+  percent.isLessThan(0.01)
+    ? '<0.01'
+    : percent.isLessThan(1)
+    ? percent.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toFixed(2)
+    : percent.decimalPlaces(1, BigNumber.ROUND_HALF_UP).toFixed(1);

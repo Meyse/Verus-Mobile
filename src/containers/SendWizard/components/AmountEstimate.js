@@ -2,12 +2,18 @@ import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import SkeletonLoader, {SkeletonRow} from '../../../components/SkeletonLoader';
-import StatusBadge from '../../../components/StatusBadge';
+import StatusBadge, {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 import {truncateDecimal} from '../../../utils/math';
-import {formatImpact, getUnitPrice, IMPACT_LEVEL} from '../priceImpact';
+import {
+  formatImpact,
+  formatLessPercent,
+  getTargetShortfall,
+  getUnitPrice,
+  IMPACT_LEVEL,
+} from '../priceImpact';
 import {
   formatEstimatedAmount,
   formatUnitPrice,
@@ -54,8 +60,7 @@ const AmountEstimate = ({
   onUseSuggestion,
   priceImpact,
   rate,
-  routeName,
-  routeSelectable,
+  routeChoice,
   sourceCoin,
   target,
   validAmount,
@@ -74,7 +79,15 @@ const AmountEstimate = ({
     displayCurrency,
     loss,
     rate,
-    ticker: sourceTicker,
+    targetLoss:
+      estimatedOutput != null && cryptoAmount.isFinite() && marketPrice
+        ? getTargetShortfall({
+            amount: cryptoAmount,
+            output: estimatedOutput,
+            marketPrice,
+          })
+        : null,
+    targetTicker: target.ticker,
   });
   const lossIsVisible = lossValue != null;
   const emphasis =
@@ -139,7 +152,9 @@ const AmountEstimate = ({
                           : colors.textPrimary,
                     },
                   ]}>
-                  {lossValue ? `−${lossValue} vs market price` : 'Below market price'}
+                  {lossValue
+                    ? `${lossValue} less than the market price`
+                    : 'Less than the market price'}
                 </Text>
                 <StatusBadge
                   label={getImpactBadgeLabel(impact)}
@@ -153,7 +168,7 @@ const AmountEstimate = ({
                     8,
                   )} ${sourceTicker} instead, ${formatImpact(
                     suggestion.impact,
-                  )}% impact`}
+                  )}% less`}
                   accessibilityRole="button"
                   onPress={() => onUseSuggestion(suggestion.amount)}
                   style={({pressed}) => [
@@ -180,7 +195,7 @@ const AmountEstimate = ({
                       theme.typography.caption,
                       {color: theme.isDark ? colors.textSecondary : colors.primary},
                     ]}>
-                    {formatImpact(suggestion.impact)}% impact
+                    {formatImpact(suggestion.impact)}% less
                   </Text>
                 </Pressable>
               ) : null}
@@ -192,26 +207,39 @@ const AmountEstimate = ({
                 styles.quietLine,
                 {color: colors.textSecondary},
               ]}>
-              {lossValue} below market price
+              {lossValue} less than the market price
             </Text>
           ) : null}
-          <Row
-            label="Route"
-            onPress={routeSelectable ? onOpenRoute : undefined}
-            theme={theme}>
-            <View style={styles.routeValue}>
-              <Text style={[theme.typography.labelMd, {color: colors.textPrimary}]}>
-                {routeName}
-              </Text>
-              {routeSelectable ? (
+          {routeChoice ? (
+            <Row label="Via" onPress={onOpenRoute} theme={theme}>
+              <View style={styles.routeValue}>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    theme.typography.labelMd,
+                    styles.routeName,
+                    {color: colors.textPrimary},
+                  ]}>
+                  {routeChoice.name}
+                </Text>
+                {routeChoice.isBest ? (
+                  <StatusBadge
+                    label="Best price"
+                    tone={STATUS_BADGE_TONE.SUCCESS}
+                  />
+                ) : routeChoice.lessPercent ? (
+                  <StatusBadge
+                    label={`${formatLessPercent(routeChoice.lessPercent)}% less`}
+                  />
+                ) : null}
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={20}
                   color={colors.textSubtle}
                 />
-              ) : null}
-            </View>
-          </Row>
+              </View>
+            </Row>
+          ) : null}
         </>
       ) : null}
 
@@ -289,6 +317,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   routeValue: {flexDirection: 'row', alignItems: 'center', flexShrink: 1},
+  routeName: {flexShrink: 1, marginRight: 8},
 });
 
 export default AmountEstimate;

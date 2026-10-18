@@ -12,8 +12,8 @@ const ConfirmFacts = ({
   arrives,
   destinationNetwork,
   fees,
+  hasRoute,
   impact,
-  isConversion,
   onOpenDetails,
   onOpenFees,
   recipient,
@@ -47,7 +47,7 @@ const ConfirmFacts = ({
         label="More details"
         onPress={onOpenDetails}
         quiet
-        value={isConversion ? 'Route, from, balance' : 'From, balance'}
+        value={hasRoute ? 'Route, from, balance' : 'From, balance'}
       />
     </View>
   );

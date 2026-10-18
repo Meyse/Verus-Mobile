@@ -527,7 +527,7 @@ const SendWizardConfirm = () => {
         marketPrice: state.marketPrice,
         output: estimatedReceive,
         rate: getRate(sourceCoin?.id),
-        sourceTicker: sourceCoin?.display_ticker || '',
+        targetTicker: target?.ticker || '',
       })
     : {};
   const connectorText = [
@@ -543,9 +543,7 @@ const SendWizardConfirm = () => {
     route?.isCrossChain
       ? {label: 'Destination network', value: destinationNetwork}
       : null,
-    target?.isConversion
-      ? {label: 'Route', value: getRouteName(route)}
-      : null,
+    route?.via ? {label: 'Route', value: getRouteName(route)} : null,
     {
       label: 'From',
       value: `${sourceCoin?.display_name || ''} · ${sourceSubWallet?.name || ''}`,
@@ -591,7 +589,7 @@ const SendWizardConfirm = () => {
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
           impact={impact ? {impact, level, lossText} : null}
-          isConversion={Boolean(target?.isConversion)}
+          hasRoute={Boolean(route?.via)}
           onOpenDetails={() => setDetailsOpen(true)}
           onOpenFees={() => setFeeSheetOpen(true)}
           recipient={recipientAddress}

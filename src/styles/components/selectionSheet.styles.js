@@ -38,6 +38,7 @@ export const createSelectionSheetStyles = theme =>
       marginTop: 3,
     },
     identifier: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'},
+    badge: {marginLeft: 8, flexShrink: 0},
     value: {alignItems: 'flex-end', marginLeft: 12, flexShrink: 1},
     valueText: {...theme.typography.titleRow, color: theme.colors.textPrimary},
     valueLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary},

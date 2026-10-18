@@ -241,18 +241,30 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   valid amount a quiet "Market price" row shows the price of a small trade.
   With an amount: a receive row (target logo at 24 points, "You receive", the
   bold "≈ output ticker" on the right, the caption "1 SRC = price TGT"), a
-  hairline, the price impact lines, then a "Route" row (chevron only with more
-  than one route). The Ethereum network fee row stays for Ethereum exports.
+  hairline, the price impact lines, then a "Via" row. The Ethereum network fee
+  row stays for Ethereum exports.
+- **Via row.** It shows only when the conversion can take more than one route
+  (basket). With one basket or a direct route the Amount step says nothing about
+  a route, and never says "Same network"; Confirm still names the basket on its
+  route line. The system picks the best price (the most output). The row shows
+  the basket name and a `success` badge "Best price" for the best one, or a
+  neutral "x% less" badge for a route the user picked instead. Tapping it opens
+  the "Convert via" `SelectionSheet`: baskets best first, each with "≈ output
+  ticker" and the same badge, the selected one with the check. Name a basket by
+  what it holds (for example "VRSC-KMD-GOLD").
 - **Price impact** is how far this conversion's price is below the market price.
   The market price is the output per unit of a small sample trade (worth about
   one display-currency unit) on the same route, fetched once per route. Levels:
-  under 0.1% shows nothing; 0.1% to 1% shows one quiet caption in money ("$0.14
-  below market price"); 1% to 5% shows "−<money> vs market price" and a
-  `warning` badge "−x.x%"; 5% and up shows the line in `danger` with a `danger`
-  badge and, after a real quote, an `AppButton variant="secondary"` "Use <N>
-  <SRC> instead · x.x% impact". Show the measured impact, never the one the
-  suggestion formula aimed for. Money uses the display currency when the ledger
-  holds a price, otherwise the source asset.
+  under 0.1% shows nothing; 0.1% to 1% shows one quiet caption ("$0.14 less than
+  the market price"); 1% to 5% shows "<money> less than the market price" and a
+  `warning` badge "x.x% less"; 5% and up shows the line in `danger` with a
+  `danger` badge and, after a real quote, an "Use <N> <SRC> instead | x.x% less"
+  row in the secondary tint. Show the measured impact, never the one the
+  suggestion formula aimed for. Say the money in what the user receives, so it
+  reads next to the receive row: the display currency when the ledger holds a
+  price for the asset the user pays with ("$204.44 less"), otherwise the
+  received asset ("0.0681 ETH less"). Never use a minus sign and never count
+  the loss in the asset the user pays when there is no price.
 - **Recipient.** The address field is followed by flat 62-point rows ("Saved
   addresses | N ›", "Send to self | N ›") with hairlines. No cards, no icons and
   no helper line under the field.
@@ -261,10 +273,10 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   for conversions. Nodes use a 40-point logo, a 14-point label and a bold 20-point
   amount; fiat captions appear only when the ledger holds a price. Then a flat
   list: "To" (full address in monospace) unless a short name is already in the
-  receive node, "Destination network" for cross-chain, "Price impact" with its
-  badge, "Fees ›", "Arrives", and "More details ›", which opens the
-  "Transaction details" `InfoSheet` (To, Destination network, Route, From,
-  Balance after). Fees and addresses wrap and never truncate. The footer stays
+  receive node, "Destination network" for cross-chain, "Price impact" (the money
+  when 1% or more, then the "x.x% less" badge), "Fees ›", "Arrives", and "More
+  details ›", which opens the "Transaction details" `InfoSheet` (To, Destination
+  network, Route when a basket is used, From, Balance after). Fees and addresses wrap and never truncate. The footer stays
   Hold to confirm.
 - **Sent.** The header has no title and no back. The small animated check sits
   beside the 28/36 title. Then the same nodes ("You paid", "<recipient>

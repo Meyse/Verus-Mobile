@@ -562,6 +562,7 @@ export const isLongRecipient = address => {
 export const getDestinationNetwork = (route, fallback = '') =>
   route?.networkName || route?.exportToFqn || route?.exportTo || fallback;
 
-// How a route reads in the Amount step and in the review details.
+// How a route reads where the user can choose between routes: the basket it
+// goes through. A route with no basket is "Direct".
 export const getRouteName = route =>
-  route?.viaFqn || route?.via || route?.label || 'Direct';
+  route?.viaFqn || route?.via || 'Direct';

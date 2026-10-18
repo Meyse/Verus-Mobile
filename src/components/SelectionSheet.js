@@ -20,6 +20,7 @@ export const SelectionRow = ({
   value,
   valueLabel,
   leading,
+  badge,
   accessibilityLabel,
 }) => {
   const theme = useOnboardingTheme();
@@ -52,6 +53,7 @@ export const SelectionRow = ({
           </Text>
         ) : null}
       </View>
+      {badge ? <View style={styles.badge}>{badge}</View> : null}
       {value != null ? (
         <View style={styles.value}>
           <Text style={styles.valueText}>{value}</Text>
