@@ -24,6 +24,7 @@ import SkeletonLoader, {
   SkeletonBlock,
   SkeletonText,
 } from '../../../components/SkeletonLoader';
+import StatusBadge, {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
 import {
   API_ABORTED,
   API_GET_FIATPRICE,
@@ -51,7 +52,6 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronRight,
-  Clock3,
   History,
 } from "lucide-react-native";
 import { TransactionLogos } from '../../../images/customIcons/index'
@@ -135,19 +135,7 @@ const FocusedTransactionRow = ({
   timestamp,
 }) => {
   const theme = useOnboardingTheme();
-  const StatusIcon = pending ? Clock3 : incoming ? ArrowDown : ArrowUp;
-  const iconColor = pending
-    ? theme.colors.warning
-    : incoming
-      ? theme.colors.success
-      : theme.colors.primary;
-  const iconBackground = pending
-    ? theme.isDark
-      ? "rgba(255, 178, 92, 0.16)"
-      : "#FFF4E8"
-    : incoming
-      ? theme.colors.successBackground
-      : "rgba(49, 101, 212, 0.16)";
+  const DirectionIcon = incoming ? ArrowDown : ArrowUp;
   const accessibilityDirection = incoming ? "Received" : "Sent";
   const accessibilityStatus = pending ? "Pending" : "Confirmed";
   const displayCounterparty = counterpartyIsAddress
@@ -163,10 +151,14 @@ const FocusedTransactionRow = ({
       style={transactionStyles.row}>
       <View
         style={[
-          transactionStyles.statusIcon,
-          {backgroundColor: iconBackground},
+          transactionStyles.directionMark,
+          {backgroundColor: theme.colors.surfaceMuted},
         ]}>
-        <StatusIcon color={iconColor} size={16} strokeWidth={2.2} />
+        <DirectionIcon
+          color={theme.colors.textSecondary}
+          size={16}
+          strokeWidth={2.2}
+        />
       </View>
 
       <View style={transactionStyles.descriptionColumn}>
@@ -179,15 +171,23 @@ const FocusedTransactionRow = ({
           ]}>
           {displayCounterparty}
         </NativeText>
-        {timestamp != null && (
-          <NativeText
-            numberOfLines={1}
-            style={[
-              transactionStyles.timestamp,
-              {color: theme.colors.textSubtle},
-            ]}>
-            {timestamp}
-          </NativeText>
+        {pending ? (
+          <StatusBadge
+            label="Pending"
+            style={transactionStyles.pendingBadge}
+            tone={STATUS_BADGE_TONE.WARNING}
+          />
+        ) : (
+          timestamp != null && (
+            <NativeText
+              numberOfLines={1}
+              style={[
+                transactionStyles.timestamp,
+                {color: theme.colors.textSubtle},
+              ]}>
+              {timestamp}
+            </NativeText>
+          )
         )}
       </View>
 
@@ -279,7 +279,7 @@ const transactionStyles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
   },
-  statusIcon: {
+  directionMark: {
     width: 32,
     height: 32,
     flexShrink: 0,
@@ -300,6 +300,10 @@ const transactionStyles = StyleSheet.create({
   addressCounterparty: {
     fontFamily: MONOSPACE_FONT,
     fontWeight: "400",
+  },
+  pendingBadge: {
+    alignSelf: "flex-start",
+    marginTop: 2,
   },
   timestamp: {
     marginTop: 2,
@@ -820,19 +824,6 @@ class Overview extends Component {
 
     if (!item.confirmed || item.status === "pending")
       AvatarImg = TX_LOGOS.pending;
-
-    if (item.conversion) {
-      subtitle = `Convert to ${item.conversion.targetCurrencyName}`;
-      counterpartyIsAddress = false;
-      counterpartySuffix = "";
-    }
-
-    if (item.conversionProceeds) {
-      const sourceName = item.conversionProceeds.sourceCurrencyName;
-      subtitle = sourceName ? `Converted from ${sourceName}` : "Conversion proceeds";
-      counterpartyIsAddress = false;
-      counterpartySuffix = "";
-    }
 
     let displayAmount = null
 

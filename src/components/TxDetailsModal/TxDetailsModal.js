@@ -213,18 +213,12 @@ class TxDetailsModal extends Component {
               {
                 key: "Type",
                 data:
-                  (txData.conversion
-                    ? `Conversion to ${txData.conversion.targetCurrencyName}`
-                    : txData.conversionProceeds
-                    ? txData.conversionProceeds.sourceCurrencyName
-                      ? `Conversion from ${txData.conversionProceeds.sourceCurrencyName}`
-                      : "Conversion proceeds"
-                    : txData.type === "sent"
+                  (txData.type === "sent"
                     ? "Outgoing"
                     : txData.type === "received"
                     ? "Incoming"
                     : txData.type) || "Unknown",
-                capitalized: !txData.conversion && !txData.conversionProceeds,
+                capitalized: true,
               },
               {
                 key: "Amount",

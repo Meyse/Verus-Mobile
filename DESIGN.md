@@ -247,6 +247,24 @@ section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
 rows and dividers. Omit row icons unless they are necessary or already part of
 the selected canonical setting pattern.
 
+## Transaction history row
+
+The owner approved this row on 2026-10-19 (option A of the history mockup, task
+TX-1.HISTORY-NEUTRAL in `UI_REDESIGN_PLAN.md`). It applies to the transaction list
+on the Coin Overview, drawn by `FocusedTransactionRow` in
+`src/containers/Coin/Overview/Overview.js`.
+
+- Mark: a 32-point circle in `surfaceMuted` with a 16-point `textSecondary` arrow,
+  down for incoming and up for outgoing. Every row uses the same gray. The mark
+  has no color and no pending clock.
+- Color: green stays on the amount of an incoming row. Nothing else in the row is
+  colored.
+- Pending: the `StatusBadge` with the warning tone and the label "Pending" takes
+  the place of the date line.
+- Title: the counterparty address, or "My transparent address". Do not label a row
+  as a conversion; the owner removed those labels on 2026-10-19.
+- Keep the chevron, the amount, ticker and fiat value column, and the skeleton rows.
+
 ## Services home
 
 The user approved this pattern on 2026-10-15 (SV-1 in `UI_REDESIGN_PLAN.md`).

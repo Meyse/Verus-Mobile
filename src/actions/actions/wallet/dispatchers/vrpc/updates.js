@@ -1,7 +1,5 @@
 import BigNumber from "bignumber.js";
-import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo, getTransaction } from "../../../../../utils/api/channels/vrpc/callCreators";
-import { getCurrency } from "../../../../../utils/api/channels/verusid/requests/getCurrency";
-import { RESERVE_TRANSFER_DESTINATION } from "verus-typescript-primitives";
+import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo } from "../../../../../utils/api/channels/vrpc/callCreators";
 import { satsToCoins } from "../../../../../utils/math";
 import { standardizeVrpcTxObj } from "../../../../../utils/standardization/standardizeTxObj";
 import {finiteBalance} from '../../../../../utils/assets/assetIdentity';
@@ -75,48 +73,6 @@ export const updateVrpcBalances = async (coinObj, channelId) => {
   };
 }
 
-// A transaction never changes, so each one is read for import data once.
-const importLookups = new Map();
-// Bounds the extra reads in one update. A long history fills in over later updates.
-const MAX_IMPORT_LOOKUPS = 25;
-
-const isReceipt = tx => !tx.sent && BigNumber(tx.amount).isGreaterThan(0);
-
-// The chain pays conversion proceeds in a later import transaction, so the received
-// delta shows no sign of the conversion. Only the transaction itself shows it.
-const readImport = async (systemId, txid) => {
-  if (importLookups.has(txid)) return importLookups.get(txid);
-
-  const raw = await getTransaction(systemId, txid, 1);
-  if (raw.error || raw.result?.txid !== txid) throw new Error('Transaction unavailable');
-
-  const imported = raw.result.vout
-    .map(output => output.scriptPubKey?.crosschainimport)
-    .find(Boolean);
-  const details = imported
-    ? {sourceSystemId: imported.sourcesystemid, valueIn: Object.keys(imported.valuein || {})}
-    : null;
-
-  importLookups.set(txid, details);
-  return details;
-};
-
-const resolveCurrencyName = async (systemId, currencyId, currencyNames) => {
-  if (currencyNames[currencyId]) return currencyNames[currencyId];
-
-  try {
-    const currency = await getCurrency(systemId, currencyId);
-    if (!currency.error && currency.result?.currencyid === currencyId && currency.result.fullyqualifiedname) {
-      currencyNames[currencyId] = currency.result.fullyqualifiedname;
-      return currencyNames[currencyId];
-    }
-  } catch (e) {
-    // A name is optional. The currency ID stands in for it.
-  }
-
-  return currencyId;
-};
-
 export const updateVrpcTransactions = async (coinObj, channelId) => {
   const [channelName, iAddress, systemId] = channelId.split('.')
 
@@ -145,13 +101,11 @@ export const updateVrpcTransactions = async (coinObj, channelId) => {
   }
   
   const grouped = new Map();
-  const currencyNames = {};
   const confirmedTxids = new Set(txs.filter(tx => !tx.mempool).map(tx => tx.txid));
 
   // Group by identity, not index order. Keep spend metadata even when the
   // last delta is change. Prefer confirmed data if the two RPC snapshots overlap.
   for (const delta of txs) {
-    Object.assign(currencyNames, delta.currencynames);
     if (delta.mempool && confirmedTxids.has(delta.txid)) continue;
 
     const previous = grouped.get(delta.txid);
@@ -166,71 +120,15 @@ export const updateVrpcTransactions = async (coinObj, channelId) => {
     });
   }
 
-  // Newest first, so recent conversions are labeled before older ones.
-  const unread = [...grouped.values()]
-    .filter(tx => isReceipt(tx) && !importLookups.has(tx.txid))
-    .sort((a, b) => (b.height || Number.MAX_SAFE_INTEGER) - (a.height || Number.MAX_SAFE_INTEGER))
-    .slice(0, MAX_IMPORT_LOOKUPS);
-  // A failed read leaves the row as a plain receipt. The next update tries again.
-  await Promise.all(unread.map(tx => readImport(systemId, tx.txid).catch(() => {})));
-
-  const reserveTransferAddress = RESERVE_TRANSFER_DESTINATION.getAddressString();
-  const formattedDeltas = await Promise.all(
-    [...grouped.values()].filter(tx => !BigNumber(tx.amount).isZero()).map(async tx => {
-      // The address index only identifies the reserve-transfer output. Decode
-      // its intent from the transaction; ordinary sends need no extra RPC.
-      const hasReserveTransfer = tx.sent?.outputs?.some(output =>
-        Array.isArray(output.addresses)
-          ? output.addresses.includes(reserveTransferAddress)
-          : output.addresses === reserveTransferAddress,
-      );
-      if (BigNumber(tx.amount).isNegative() && hasReserveTransfer) {
-        try {
-          const raw = await getTransaction(systemId, tx.txid, 1);
-          if (raw.error || raw.result?.txid !== tx.txid) throw new Error('Transaction unavailable');
-          const transfers = raw.result.vout
-            .map(output => output.scriptPubKey?.reservetransfer)
-            .filter(Boolean);
-          // Do not summarize a multi-transfer transaction as one conversion.
-          if (transfers.length === 1 && transfers[0].convert === true) {
-            const transfer = transfers[0];
-            const targetCurrencyId = transfer.destinationcurrencyid;
-            if (targetCurrencyId) {
-              tx.conversion = {
-                targetCurrencyId,
-                targetCurrencyName: await resolveCurrencyName(systemId, targetCurrencyId, currencyNames),
-                destination: transfer.destination?.address,
-              };
-            }
-          }
-        } catch (e) {
-          // Optional metadata must not remove an otherwise valid history row.
-        }
-      }
-
-      // An import from the wallet's own system only carries reserve transfers
-      // for conversions. An import from another system could be a plain bridge
-      // arrival, so it is not labeled.
-      const imported = isReceipt(tx) ? importLookups.get(tx.txid) : null;
-      if (imported && imported.sourceSystemId === systemId) {
-        tx.conversionProceeds = {};
-        // The imported value lists the source currency. It also lists the fee
-        // currency, so a single other currency is the only safe name.
-        const sourceIds = imported.valueIn.filter(id => id !== currencyId);
-        if (sourceIds.length === 1) {
-          tx.conversionProceeds.sourceCurrencyId = sourceIds[0];
-          tx.conversionProceeds.sourceCurrencyName =
-            await resolveCurrencyName(systemId, sourceIds[0], currencyNames);
-        }
-      }
-
-      return standardizeVrpcTxObj(
+  const formattedDeltas = [...grouped.values()]
+    .filter(tx => !BigNumber(tx.amount).isZero())
+    .map(tx =>
+      standardizeVrpcTxObj(
         tx,
         coinObj,
         infoRes.result ? infoRes.result.longestchain : null,
-      );
-    }),
-  );
+      ),
+    );
 
   return {
     chainTicker: coinObj.id,
