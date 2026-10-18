@@ -7,22 +7,54 @@ import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 const LOGO_SIZE = 40;
 
 // One end of a transfer: the asset logo, who or what it is, and the amount.
-// `children` is the label, so a part of it can be emphasised.
-export const TransferNode = ({amount, children, coinId, fiat, ticker}) => {
+// Pass `label` for a plain label ("You pay") or `name` and `suffix` for a
+// recipient ("sam@" "receives"): a long name shortens in the middle and the
+// suffix always stays whole. A long amount shrinks before the label does.
+export const TransferNode = ({
+  amount,
+  coinId,
+  fiat,
+  label,
+  name,
+  suffix,
+  ticker,
+}) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
 
   return (
     <View style={styles.node}>
       <AssetCoinLogo coinId={coinId} size={LOGO_SIZE} />
-      <Text
-        ellipsizeMode="middle"
-        numberOfLines={1}
-        style={[theme.typography.bodySm, styles.label, {color: colors.textSecondary}]}>
-        {children}
-      </Text>
+      <View style={styles.labelWrap}>
+        {name ? (
+          <>
+            <Text
+              ellipsizeMode="middle"
+              numberOfLines={1}
+              style={[theme.typography.labelMd, styles.name, {color: colors.textPrimary}]}>
+              {name}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={[theme.typography.bodySm, styles.suffix, {color: colors.textSecondary}]}>
+              {' '}
+              {suffix}
+            </Text>
+          </>
+        ) : (
+          <Text
+            numberOfLines={1}
+            style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
+            {label}
+          </Text>
+        )}
+      </View>
       <View style={styles.value}>
-        <Text style={[styles.amount, {color: colors.textPrimary}]}>
+        <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          numberOfLines={1}
+          style={[styles.amount, {color: colors.textPrimary}]}>
           {amount} {ticker}
         </Text>
         {fiat ? (
@@ -32,16 +64,6 @@ export const TransferNode = ({amount, children, coinId, fiat, ticker}) => {
         ) : null}
       </View>
     </View>
-  );
-};
-
-// A name inside a node label, for example the recipient.
-export const TransferNodeName = ({children}) => {
-  const theme = useOnboardingTheme();
-  return (
-    <Text style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>
-      {children}
-    </Text>
   );
 };
 
@@ -60,8 +82,10 @@ export const TransferConnector = ({children}) => {
 
 const styles = StyleSheet.create({
   node: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
-  label: {flex: 1, minWidth: 0, marginLeft: 14, marginRight: 8},
-  value: {alignItems: 'flex-end', flexShrink: 0},
+  labelWrap: {flex: 1, minWidth: 0, marginLeft: 14, marginRight: 8, flexDirection: 'row', alignItems: 'center'},
+  name: {flexShrink: 1},
+  suffix: {flexShrink: 0},
+  value: {alignItems: 'flex-end', flexShrink: 1, maxWidth: '64%'},
   amount: {fontSize: 20, lineHeight: 26, ...fontStyle('bold')},
   connector: {
     minHeight: 40,

@@ -858,6 +858,22 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 - [ ] **TX-1.CONTEXT-BAND-QA** Orchestrator: verify the band on Android and iOS in
   light/dark, 360dp Android and 375pt iPhone SE, with long names, Send to another
   chain on Recipient, keyboard open, and large text.
+- [x] **TX-1.NETWORK-GROUPS** Group the Send/Convert network sheet into "Same
+  network" (always first) and "Other networks". Plain network names, no "· Same
+  network" suffix (owner-approved option 1, 2026-10-18). Contract: `DESIGN.md`.
+- [x] **TX-1.AMOUNT-IMPACT** Replace the Amount estimate card with a flat estimate:
+  price caption, market price row, and price impact in money with a warning or
+  danger `StatusBadge` and a verified "Use <N> instead" suggestion (owner-approved
+  option C "say it in money", 2026-10-18). Remove "Enter amount to see estimate".
+- [x] **TX-1.RECIPIENT-ROWS** Turn the Recipient quick cards into flat rows and
+  drop the helper line (owner-approved option A, 2026-10-18).
+- [x] **TX-1.CONFIRM-SENT-SPINE** Draw Confirm and Sent as a pay and receive
+  spine with a flat fact list and a "Transaction details" sheet (owner-approved
+  option B, 2026-10-18).
+- [ ] **TX-1.UX2-QA** Orchestrator: see the 2026-10-18 evidence row for what was
+  rendered. Still open: iPhone SE 375pt and Android 360dp, large text, Send to
+  another chain on Confirm when the Ethereum fee is affordable, long recipient
+  names.
 - [x] **TX-1.HISTORY-PROCEEDS** Label conversion proceeds in the Verus history
   list and the transaction sheet. A received transaction that is an import from the
   wallet's own system reads "Converted from X" (sheet: "Conversion from X") instead

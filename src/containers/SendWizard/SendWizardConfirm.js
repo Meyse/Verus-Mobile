@@ -7,7 +7,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,9 +33,8 @@ import TransferDetailsSheet from './components/TransferDetailsSheet';
 import {
   TransferConnector,
   TransferNode,
-  TransferNodeName,
 } from './components/TransferSummary';
-import ImpactRow from './components/ImpactRow';
+import ConfirmFacts, {ConfirmNotice} from './components/ConfirmFacts';
 import {
   formatUnitPrice,
   getConversionPriceSummary,
@@ -70,7 +68,6 @@ import {refreshSourceBalance} from './refreshSourceBalance';
 import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
   ErrorMessage,
-  FlatRow,
   WizardFooter,
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
@@ -78,6 +75,8 @@ import {
 import {useWizardFiat} from './useWizardFiat';
 import {
   getCurrencyDisplay,
+  getDestinationNetwork,
+  getRouteName,
   isOwnChannelAddress,
   shortenRecipient,
 } from './wizardUtils';
@@ -457,8 +456,10 @@ const SendWizardConfirm = () => {
   const feeSummary = feeItems.length
     ? feeItems.map(item => `${item.amount} ${item.currency}`).join(' + ')
     : 'Calculated by wallet';
-  const destinationNetwork =
-    route?.exportToFqn || route?.exportTo || sourceCoin?.display_name || '';
+  const destinationNetwork = getDestinationNetwork(
+    route,
+    sourceCoin?.display_name,
+  );
   const estimatedTime = route?.isCrossChain
     ? '1-3 hours'
     : target?.isConversion
@@ -516,7 +517,6 @@ const SendWizardConfirm = () => {
 
   const showReceive = Boolean(target?.isConversion && estimatedReceive != null);
   const recipientLabel = shortenRecipient(recipientAddress);
-  const recipientIsName = recipientAddress.endsWith('@');
   // A conversion names the recipient in its receive line. Every other review
   // lists the full recipient, and so does a conversion to a long address.
   const showRecipientRow = !showReceive || recipientLabel !== recipientAddress;
@@ -544,7 +544,7 @@ const SendWizardConfirm = () => {
       ? {label: 'Destination network', value: destinationNetwork}
       : null,
     target?.isConversion
-      ? {label: 'Route', value: route?.via ? route.viaFqn || route.via : 'Direct'}
+      ? {label: 'Route', value: getRouteName(route)}
       : null,
     {
       label: 'From',
@@ -563,9 +563,9 @@ const SendWizardConfirm = () => {
           amount={truncateDecimal(displayAmount, 8)}
           coinId={sourceCoin?.id}
           fiat={formatFiat(displayAmount, sourceCoin?.id)}
-          ticker={sourceCoin?.display_ticker || ''}>
-          {showReceive ? 'You pay' : 'You send'}
-        </TransferNode>
+          label={showReceive ? 'You pay' : 'You send'}
+          ticker={sourceCoin?.display_ticker || ''}
+        />
         {showReceive ? (
           <>
             {connectorText ? (
@@ -575,9 +575,10 @@ const SendWizardConfirm = () => {
               amount={`≈ ${truncateDecimal(BigNumber(estimatedReceive), 8)}`}
               coinId={target.coinId || target.id}
               fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-              ticker={target.ticker}>
-              <TransferNodeName>{recipientLabel}</TransferNodeName> receives
-            </TransferNode>
+              name={recipientLabel}
+              suffix="receives"
+              ticker={target.ticker}
+            />
           </>
         ) : null}
         {amountAdjustment ? (
@@ -585,39 +586,19 @@ const SendWizardConfirm = () => {
             {amountAdjustment}
           </Text>
         ) : null}
-        <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-          {showRecipientRow ? (
-            <FlatRow
-              label="To"
-              numberOfLines={0}
-              value={recipientAddress}
-              valueStyle={recipientIsName ? null : styles.address}
-            />
-          ) : null}
-          {route?.isCrossChain ? (
-            <FlatRow label="Destination network" value={destinationNetwork} />
-          ) : null}
-          {impact ? (
-            <ImpactRow impact={impact} level={level} lossText={lossText} />
-          ) : null}
-          <FlatRow
-            label="Fees"
-            numberOfLines={0}
-            onPress={() => setFeeSheetOpen(true)}
-            value={feeSummary}
-          />
-          <FlatRow label="Arrives" value={estimatedTime} />
-          <FlatRow
-            label="More details"
-            onPress={() => setDetailsOpen(true)}
-            quiet
-            value="Route, from, balance"
-          />
-        </View>
+        <ConfirmFacts
+          arrives={estimatedTime}
+          destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
+          fees={feeSummary}
+          impact={impact ? {impact, level, lossText} : null}
+          isConversion={Boolean(target?.isConversion)}
+          onOpenDetails={() => setDetailsOpen(true)}
+          onOpenFees={() => setFeeSheetOpen(true)}
+          recipient={recipientAddress}
+          showRecipient={showRecipientRow}
+        />
         {warnings.map(message => (
-          <View key={message} style={[styles.warning, {backgroundColor: theme.colors.surfaceMuted}]}>
-            <Text style={[styles.warningText, {color: theme.colors.warning}]}>{message}</Text>
-          </View>
+          <ConfirmNotice key={message}>{message}</ConfirmNotice>
         ))}
         <ErrorMessage>{state.broadcastError || error}</ErrorMessage>
       </ScrollView>
@@ -644,14 +625,10 @@ const SendWizardConfirm = () => {
 const styles = StyleSheet.create({
   content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   adjustment: {marginTop: 8},
-  rows: {marginTop: 24, marginBottom: 16, borderTopWidth: StyleSheet.hairlineWidth},
-  address: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13, lineHeight: 18},
   centeredState: {flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center'},
   preparingSkeleton: {width: '100%', marginBottom: 24},
   stateTitle: {fontSize: 20, lineHeight: 26, textAlign: 'center', marginTop: 18, ...fontStyle('bold')},
   stateBody: {fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, ...fontStyle('regular')},
-  warning: {borderRadius: 10, padding: 10, marginBottom: 8},
-  warningText: {fontSize: 13, lineHeight: 19, ...fontStyle('regular')},
 });
 
 export default SendWizardConfirm;

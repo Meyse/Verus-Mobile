@@ -558,3 +558,12 @@ export const shortenRecipient = address => {
     ? value
     : `${value.slice(0, 8)}…${value.slice(-6)}`;
 };
+
+// The network a cross-chain transfer arrives on, named as the Network sheet
+// names it ("Ethereum", not "vETH").
+export const getDestinationNetwork = (route, fallback = '') =>
+  route?.networkName || route?.exportToFqn || route?.exportTo || fallback;
+
+// How a route reads in the Amount step and in the review details.
+export const getRouteName = route =>
+  route?.viaFqn || route?.via || route?.label || 'Direct';

@@ -92,7 +92,7 @@ methods, never Verus Mobile's visual direction.
 | Services home | `src/containers/Services/SignedInServicesHome.js` and [Services home](#services-home) below | Use the two-column tile grid. Do not add artwork or descriptions to used services. |
 | Service list or manager | `src/components/ServiceManagerHeader.js`, `src/containers/Services/AddressBook/AddressBook.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the shared header and established list rhythm. |
 | Gift card detail | [Gift card detail](#gift-card-detail) below, with `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFixedCard.js` | Use the fixed card. Say each fact once. |
-| Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
+| Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
 | Settings | `src/containers/Settings/components/SettingsScaffold.js` | Compose with `SettingsScreen`, `SettingsTitle`, `SettingsSection`, and `SettingsRow`. |
@@ -142,6 +142,12 @@ Android uses native modal resizing; iOS retains keyboard avoidance. This keeps
 a complete address choice readable on compact screens. Normal states remain at
 76%. Nested identity linking and the searchable Coin Card picker retain their
 specialized composition and behavior.
+
+The Send/Convert network sheet ("Choose a network") groups its rows with
+`SelectionGroup`. "Same network" holds the asset's own network and is always
+first; "Other networks" holds the rest in route order. Row titles are the plain
+network name and subtitles read "Receive as <ticker>". Do not add a "Default"
+badge or repeat "network" in a row. The owner approved this on 2026-10-18.
 
 ### Information
 
@@ -223,6 +229,47 @@ It reminds the user what moves and where, in one line, without a second title.
   when the chain is named on the right.
 - When the line is too long, the chain name shortens first, then the asset names.
 - No band on Confirm or Success. They already show the whole route.
+
+### Send/Convert Amount, Recipient, Confirm and Sent
+
+The owner approved these on 2026-10-18 (round 2 of the HTML mockups: Amount
+option C "say it in money", Recipient option A, Confirm and Sent option B).
+They stay flat: hairline rows, no cards, no capital-letter labels.
+
+- **Amount, conversions.** The estimate sits under the Available line. There is
+  no "Enter amount to see estimate" text and the keypad opens on arrival. With no
+  valid amount a quiet "Market price" row shows the price of a small trade.
+  With an amount: a receive row (target logo at 24 points, "You receive", the
+  bold "≈ output ticker" on the right, the caption "1 SRC = price TGT"), a
+  hairline, the price impact lines, then a "Route" row (chevron only with more
+  than one route). The Ethereum network fee row stays for Ethereum exports.
+- **Price impact** is how far this conversion's price is below the market price.
+  The market price is the output per unit of a small sample trade (worth about
+  one display-currency unit) on the same route, fetched once per route. Levels:
+  under 0.1% shows nothing; 0.1% to 1% shows one quiet caption in money ("$0.14
+  below market price"); 1% to 5% shows "−<money> vs market price" and a
+  `warning` badge "−x.x%"; 5% and up shows the line in `danger` with a `danger`
+  badge and, after a real quote, an `AppButton variant="secondary"` "Use <N>
+  <SRC> instead · x.x% impact". Show the measured impact, never the one the
+  suggestion formula aimed for. Money uses the display currency when the ledger
+  holds a price, otherwise the source asset.
+- **Recipient.** The address field is followed by flat 62-point rows ("Saved
+  addresses | N ›", "Send to self | N ›") with hairlines. No cards, no icons and
+  no helper line under the field.
+- **Confirm.** A pay node ("You pay", or "You send" for a plain send), a vertical
+  connector with the price and route, and a receive node ("<recipient> receives")
+  for conversions. Nodes use a 40-point logo, a 14-point label and a bold 20-point
+  amount; fiat captions appear only when the ledger holds a price. Then a flat
+  list: "To" (full address in monospace) unless a short name is already in the
+  receive node, "Destination network" for cross-chain, "Price impact" with its
+  badge, "Fees ›", "Arrives", and "More details ›", which opens the
+  "Transaction details" `InfoSheet` (To, Destination network, Route, From,
+  Balance after). Fees and addresses wrap and never truncate. The footer stays
+  Hold to confirm.
+- **Sent.** The header has no title and no back. The small animated check sits
+  beside the 28/36 title. Then the same nodes ("You paid", "<recipient>
+  receives"), flat rows ("To" when needed, "Destination" for a bridge,
+  "Arrives", "Transaction ID" with `CopyAction`), one caption, and Done.
 
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.

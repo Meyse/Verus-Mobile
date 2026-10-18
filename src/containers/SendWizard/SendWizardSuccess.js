@@ -12,11 +12,14 @@ import {useSendWizard} from './SendWizardContext';
 import {
   TransferConnector,
   TransferNode,
-  TransferNodeName,
 } from './components/TransferSummary';
 import {FlatRow, WizardFooter, WizardScreen} from './components/WizardUI';
 import {useWizardFiat} from './useWizardFiat';
-import {getTransactionId, shortenRecipient} from './wizardUtils';
+import {
+  getDestinationNetwork,
+  getTransactionId,
+  shortenRecipient,
+} from './wizardUtils';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
@@ -101,9 +104,9 @@ const SendWizardSuccess = () => {
             amount={truncateDecimal(displayAmount, 8)}
             coinId={sourceCoin?.id}
             fiat={formatFiat(displayAmount, sourceCoin?.id)}
-            ticker={sourceCoin?.display_ticker || ''}>
-            {showReceive ? 'You paid' : 'You sent'}
-          </TransferNode>
+            label={showReceive ? 'You paid' : 'You sent'}
+            ticker={sourceCoin?.display_ticker || ''}
+          />
           {showReceive ? (
             <>
               {route?.via ? (
@@ -113,9 +116,10 @@ const SendWizardSuccess = () => {
                 amount={`≈ ${truncateDecimal(BigNumber(estimatedReceive), 8)}`}
                 coinId={target.coinId || target.id}
                 fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-                ticker={target.ticker}>
-                <TransferNodeName>{recipientLabel}</TransferNodeName> receives
-              </TransferNode>
+                name={recipientLabel}
+                suffix="receives"
+                ticker={target.ticker}
+              />
             </>
           ) : null}
         </View>
@@ -131,7 +135,7 @@ const SendWizardSuccess = () => {
           {isBridge ? (
             <FlatRow
               label="Destination"
-              value={route?.exportToFqn || route?.exportTo || ''}
+              value={getDestinationNetwork(route)}
             />
           ) : null}
           <FlatRow

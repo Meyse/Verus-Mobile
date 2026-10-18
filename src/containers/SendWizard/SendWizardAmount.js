@@ -1,12 +1,13 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  InteractionManager,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
@@ -38,6 +39,7 @@ import {
   buildSendTarget,
   ADDRESS_TYPE,
   getCurrencyDisplay,
+  getRouteName,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
@@ -66,6 +68,21 @@ const SendWizardAmount = () => {
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
+  const amountInputRef = useRef(null);
+
+  // `autoFocus` only covers the first mount. A step reached while a sheet is
+  // still closing, or reached again with Back, needs the keypad opened here.
+  useFocusEffect(
+    useCallback(() => {
+      const focus = () => amountInputRef.current?.focus();
+      const task = InteractionManager.runAfterInteractions(focus);
+      const timer = setTimeout(focus, 450);
+      return () => {
+        task.cancel();
+        clearTimeout(timer);
+      };
+    }, []),
+  );
 
   const displayCurrency = useSelector(
     stateValue =>
@@ -412,7 +429,7 @@ const SendWizardAmount = () => {
         })[0]
       : null;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
-  const routeName = route.viaFqn || route.via || route.label || 'Direct';
+  const routeName = getRouteName(route);
   const enteredCryptoAmount = truncateDecimal(
     cryptoAmount.isFinite() ? cryptoAmount : 0,
     8,
@@ -495,6 +512,7 @@ const SendWizardAmount = () => {
           ) : null}
           <View style={styles.amountBlock}>
             <TextInput
+              ref={amountInputRef}
               autoFocus
               keyboardType="decimal-pad"
               onChangeText={setInput}

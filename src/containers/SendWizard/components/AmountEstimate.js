@@ -2,7 +2,6 @@ import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import BigNumber from 'bignumber.js';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AppButton from '../../../components/AppButton';
 import SkeletonLoader, {SkeletonRow} from '../../../components/SkeletonLoader';
 import StatusBadge from '../../../components/StatusBadge';
 import {fontStyle} from '../../../globals/fonts';
@@ -126,7 +125,7 @@ const AmountEstimate = ({
             </View>
           </View>
           <View style={hairline} />
-          {emphasis && lossIsVisible ? (
+          {emphasis ? (
             <>
               <View style={styles.impactRow}>
                 <Text
@@ -140,7 +139,7 @@ const AmountEstimate = ({
                           : colors.textPrimary,
                     },
                   ]}>
-                  −{lossValue} vs market price
+                  {lossValue ? `−${lossValue} vs market price` : 'Below market price'}
                 </Text>
                 <StatusBadge
                   label={getImpactBadgeLabel(impact)}
@@ -148,19 +147,42 @@ const AmountEstimate = ({
                 />
               </View>
               {suggestion ? (
-                <AppButton
+                <Pressable
                   accessibilityLabel={`Use ${truncateDecimal(
                     suggestion.amount,
                     8,
-                  )} ${sourceTicker} instead`}
-                  height={40}
-                  onPress={() => onUseSuggestion(suggestion.amount)}
-                  style={styles.suggestion}
-                  variant="secondary">
-                  {`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead · ${formatImpact(
+                  )} ${sourceTicker} instead, ${formatImpact(
                     suggestion.impact,
                   )}% impact`}
-                </AppButton>
+                  accessibilityRole="button"
+                  onPress={() => onUseSuggestion(suggestion.amount)}
+                  style={({pressed}) => [
+                    styles.suggestion,
+                    {
+                      backgroundColor: theme.isDark
+                        ? colors.surfaceMuted
+                        : colors.primaryBackground,
+                    },
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      theme.typography.labelMd,
+                      styles.suggestionLabel,
+                      {color: theme.isDark ? colors.textPrimary : colors.primary},
+                    ]}>
+                    Use {truncateDecimal(suggestion.amount, 8)} {sourceTicker} instead
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      theme.typography.caption,
+                      {color: theme.isDark ? colors.textSecondary : colors.primary},
+                    ]}>
+                    {formatImpact(suggestion.impact)}% impact
+                  </Text>
+                </Pressable>
               ) : null}
             </>
           ) : level === IMPACT_LEVEL.QUIET && lossIsVisible ? (
@@ -248,7 +270,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   impactText: {flexShrink: 1, marginRight: 8},
-  suggestion: {marginTop: 8},
+  suggestion: {
+    minHeight: 40,
+    marginTop: 8,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  suggestionLabel: {flexShrink: 1, marginRight: 8},
+  pressed: {opacity: 0.7},
   quietLine: {marginTop: 12},
   row: {
     minHeight: 36,

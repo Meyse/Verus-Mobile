@@ -25,7 +25,9 @@ export const getImpactBadgeLabel = impact =>
 // nothing, so a tiny loss never reads as "$0.00".
 export const getImpactLossText = ({loss, rate, displayCurrency, ticker}) => {
   if (!loss) return null;
-  if (rate == null) return `${truncateDecimal(loss, 8)} ${ticker}`;
+  if (rate == null) {
+    return `${truncateDecimal(loss, loss.isGreaterThanOrEqualTo(1) ? 4 : 8)} ${ticker}`;
+  }
 
   const fiat = loss.multipliedBy(rate).decimalPlaces(2);
   if (!fiat.isGreaterThan(0)) return null;
