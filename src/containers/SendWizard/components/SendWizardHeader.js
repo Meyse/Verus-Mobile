@@ -14,6 +14,7 @@ import {useIsFocused} from '@react-navigation/native';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {SEND_WIZARD_MODE} from '../wizardUtils';
 import {WIZARD_CONTENT_INSET} from './WizardUI';
+import WizardContextBand from './WizardContextBand';
 
 const HEADER_HORIZONTAL_PADDING = 24;
 
@@ -63,6 +64,7 @@ export const getSendWizardProgress = (
 };
 
 const SendWizardHeader = ({
+  contextStep,
   disabled = false,
   onBack,
   onClose,
@@ -135,7 +137,7 @@ const SendWizardHeader = ({
     };
   }, [animatedProgress, clampedProgress, isFocused, progressAnimation]);
 
-  return (
+  const header = (
     <View
       style={[
         styles.container,
@@ -213,6 +215,15 @@ const SendWizardHeader = ({
         />
       </View>
     </View>
+  );
+
+  if (!contextStep) return header;
+
+  return (
+    <>
+      {header}
+      <WizardContextBand step={contextStep} />
+    </>
   );
 };
 

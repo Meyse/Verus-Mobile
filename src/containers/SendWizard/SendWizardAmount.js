@@ -393,15 +393,6 @@ const SendWizardAmount = () => {
           code: displayCurrency,
         })[0]
       : null;
-  const contextLine = target.isConversion
-    ? `Convert ${sourceCoin.display_ticker} → ${target.ticker}${
-        route.isCrossChain && route.networkName ? ` on ${route.networkName}` : ''
-      }`
-    : route.isCrossChain
-    ? `Send ${sourceCoin.display_ticker} to ${route.networkName || route.exportToFqn || route.exportTo}`
-    : `Send ${sourceCoin.display_ticker} on ${getCurrencyDisplay(
-        channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
-      ).name}`;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
   const rateDisplay = state.estimate?.price;
   const routeName = route.viaFqn || route.via || route.label || 'Direct';
@@ -421,7 +412,6 @@ const SendWizardAmount = () => {
         disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
         onPress={continueToRecipient}>
         {errorMessage => <>
-          <Text style={[styles.contextLine, {color: theme.colors.textSecondary}]}>{contextLine}</Text>
           {mode === SEND_WIZARD_MODE.SEND &&
           isConversionChannel(channel) ? (
             <>
@@ -630,7 +620,6 @@ const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 12},
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},
-  contextLine: {fontSize: 14, lineHeight: 20, marginBottom: 8, ...fontStyle('regular')},
   networkRow: {
     minHeight: 58,
     borderRadius: 12,

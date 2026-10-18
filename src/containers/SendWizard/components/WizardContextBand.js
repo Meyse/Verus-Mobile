@@ -1,0 +1,152 @@
+import React from 'react';
+import {StyleSheet, Text, View} from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {fontStyle} from '../../../globals/fonts';
+import {useOnboardingTheme} from '../../../theme/onboarding';
+import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
+import {useSendWizard} from '../SendWizardContext';
+import {getWizardContextSummary} from '../wizardUtils';
+import {WIZARD_CONTENT_INSET} from './WizardUI';
+
+const LOGO_SIZE = 16;
+
+const Entity = ({coinId, iconId, label, showBadge = true, tone}) => {
+  const theme = useOnboardingTheme();
+  const logoId = coinId || iconId;
+
+  return (
+    <View style={styles.entity}>
+      {logoId ? (
+        <View style={styles.logo}>
+          <AssetCoinLogo
+            coinId={logoId}
+            showBadge={showBadge}
+            size={LOGO_SIZE}
+          />
+        </View>
+      ) : null}
+      <Text
+        ellipsizeMode="tail"
+        numberOfLines={1}
+        style={[
+          theme.typography.labelSm,
+          styles.label,
+          {color: tone === 'quiet' ? theme.colors.textSecondary : theme.colors.textPrimary},
+          tone === 'quiet' && styles.quietLabel,
+        ]}>
+        {label}
+      </Text>
+    </View>
+  );
+};
+
+// A slim band under the wizard header: the asset that moves on the left and,
+// when it matters, the chain on the right. The gap between them gives way
+// first, then the chain name, then the asset names.
+const WizardContextBand = ({step}) => {
+  const theme = useOnboardingTheme();
+  const insets = useSafeAreaInsets();
+  const {mode, state} = useSendWizard();
+  const summary = getWizardContextSummary({
+    mode,
+    step,
+    sourceCoin: state.sourceCoin,
+    target: state.target,
+    route: state.route,
+    channel: state.channel,
+  });
+
+  if (!summary) return null;
+
+  const {source, destination, chain} = summary;
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={summary.description}
+      accessibilityRole="text"
+      style={[
+        styles.band,
+        {
+          backgroundColor: theme.colors.surfaceMuted,
+          paddingLeft: insets.left + WIZARD_CONTENT_INSET,
+          paddingRight: insets.right + WIZARD_CONTENT_INSET,
+        },
+      ]}>
+      <View style={styles.route}>
+        <Entity {...source} />
+        {destination ? (
+          <>
+            <MaterialCommunityIcons
+              color={theme.colors.textSubtle}
+              name="arrow-right"
+              size={14}
+              style={styles.arrow}
+            />
+            <Entity
+              {...destination}
+              coinId={destination.kind === 'coin' ? destination.coinId : null}
+              iconId={destination.kind === 'chain' ? destination.iconId : null}
+            />
+          </>
+        ) : null}
+      </View>
+      {chain ? (
+        <View style={styles.chain}>
+          <Text
+            style={[
+              theme.typography.caption,
+              styles.on,
+              {color: theme.colors.textSecondary},
+            ]}>
+            on
+          </Text>
+          <Entity {...chain} showBadge={false} tone="quiet" />
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  band: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  route: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  chain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 200,
+    marginLeft: 12,
+  },
+  entity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  logo: {
+    marginRight: 5,
+  },
+  label: {
+    flexShrink: 1,
+  },
+  quietLabel: {
+    ...fontStyle('regular'),
+  },
+  arrow: {
+    marginHorizontal: 6,
+  },
+  on: {
+    marginRight: 6,
+  },
+});
+
+export default WizardContextBand;

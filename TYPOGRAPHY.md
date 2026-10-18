@@ -34,3 +34,9 @@ emphasis.
 Legacy screens can keep their existing typography until they are intentionally
 migrated. When a redesigned title is touched, prefer moving it onto the nearest
 shared role instead of adding another local combination.
+
+## Shared label roles
+
+- `labelMd`: 14/19 semibold labels.
+- `labelSm`: 13/18 semibold labels for compact one-line surfaces, such as the
+  Send/Convert context band. Pair it with `caption` for the quieter words.

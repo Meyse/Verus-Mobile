@@ -30,9 +30,17 @@ import {
   buildSendTarget,
   isConversionChannel,
   SEND_WIZARD_MODE,
+  WIZARD_CONTEXT_STEP,
 } from './wizardUtils';
 
 const Stack = createStackNavigator();
+
+// The band under the header reminds the user what is moving and where. Confirm
+// and Success already show all of it.
+const CONTEXT_STEPS = {
+  SendWizardAmount: WIZARD_CONTEXT_STEP.AMOUNT,
+  SendWizardRecipient: WIZARD_CONTEXT_STEP.RECIPIENT,
+};
 
 const goBackOrClose = navigation => {
   if (navigation.canGoBack?.()) navigation.goBack();
@@ -195,6 +203,7 @@ const SendWizardNavigator = () => {
           cardStyle: {backgroundColor: theme.colors.background},
           header: ({navigation, options, route: headerRoute}) => (
             <SendWizardHeader
+              contextStep={CONTEXT_STEPS[headerRoute.name]}
               title={options.title}
               disabled={Boolean(options.wizardNavigationDisabled)}
               onBack={

@@ -82,6 +82,11 @@ const shared = {
       lineHeight: 19,
       ...fontStyle('semiBold'),
     },
+    labelSm: {
+      fontSize: 13,
+      lineHeight: 18,
+      ...fontStyle('semiBold'),
+    },
     caption: {
       fontSize: 13,
       lineHeight: 18,
