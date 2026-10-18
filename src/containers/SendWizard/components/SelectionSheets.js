@@ -63,6 +63,22 @@ export const TargetNetworkSheet = ({
   visible,
 }) => {
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
+  // The asset's own network is the standard choice, so it always comes first
+  // and is named by its group. Other networks keep the daemon's route order.
+  const groups = useMemo(
+    () =>
+      [
+        {
+          title: 'Same network',
+          items: options.filter(item => item.isSameNetwork),
+        },
+        {
+          title: 'Other networks',
+          items: options.filter(item => !item.isSameNetwork),
+        },
+      ].filter(group => group.items.length > 0),
+    [options],
+  );
   return (
     <SelectionSheet
       title="Choose a network"
@@ -72,24 +88,28 @@ export const TargetNetworkSheet = ({
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
-      {options.map(item => (
-        <SelectionRow
-          key={`${item.networkKey}:${item.transactionCurrency}`}
-          title={`${item.networkName} network`}
-          subtitle={`Receive as ${item.ticker || item.name}${
-            item.isSameNetwork ? ' · Same network' : ''
-          }`}
-          selected={
-            selectedKey == null ? undefined : item.networkKey === selectedKey
-          }
-          leading={RenderPlainCoinLogo(
-            item.networkIcon || item.coinId || item.id,
-            {},
-            28,
-            28,
-          )}
-          onPress={() => dismissal.dismiss(() => onSelect(item))}
-        />
+      {groups.map(group => (
+        <SelectionGroup key={group.title} title={group.title}>
+          {group.items.map(item => (
+            <SelectionRow
+              key={`${item.networkKey}:${item.transactionCurrency}`}
+              title={item.networkName}
+              subtitle={`Receive as ${item.ticker || item.name}`}
+              selected={
+                selectedKey == null
+                  ? undefined
+                  : item.networkKey === selectedKey
+              }
+              leading={RenderPlainCoinLogo(
+                item.networkIcon || item.coinId || item.id,
+                {},
+                28,
+                28,
+              )}
+              onPress={() => dismissal.dismiss(() => onSelect(item))}
+            />
+          ))}
+        </SelectionGroup>
       ))}
     </SelectionSheet>
   );

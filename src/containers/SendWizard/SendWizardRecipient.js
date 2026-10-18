@@ -362,15 +362,6 @@ const SendWizardRecipient = () => {
             </View>
           </View>
           {errorMessage}
-          <View style={styles.hints}>
-            <Text style={[styles.hint, {color: theme.colors.textSubtle}]}>
-              {route?.addressType === ADDRESS_TYPE.ETHEREUM
-                ? 'Ethereum address (0x…)'
-                : route?.addressType === ADDRESS_TYPE.VERUS
-                ? 'Verus R-address, i-address, or VerusID'
-                : `Address supported by ${sourceCoin?.display_name || 'this network'}`}
-            </Text>
-          </View>
           {showSaveOption ? (
             <Pressable
               accessibilityRole="button"
@@ -381,40 +372,21 @@ const SendWizardRecipient = () => {
             </Pressable>
           ) : null}
           {matchingSavedAddresses.length > 0 || ownAddresses.length > 0 ? (
-            <View style={styles.quickAccess}>
-            {matchingSavedAddresses.length > 0 ? (
-              <Pressable
-              accessibilityRole="button"
-              onPress={() => setAddressBookOpen(true)}
-              style={({pressed}) => [
-                styles.quickCard,
-                {backgroundColor: theme.colors.surface, borderColor: theme.colors.border},
-                pressed && styles.pressed,
-              ]}>
-              <MaterialCommunityIcons
-                name="book-open-page-variant"
-                size={23}
-                color={theme.colors.textPrimary}
-                style={styles.quickIcon}
-              />
-              <Text style={[styles.quickTitle, {color: theme.colors.textPrimary}]}>Saved addresses</Text>
-              <Text style={[styles.quickDescription, {color: theme.colors.textSecondary}]}>{`${matchingSavedAddresses.length} saved`}</Text>
-            </Pressable>
-            ) : null}
-            {ownAddresses.length > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={openOwnAddresses}
-                style={({pressed}) => [
-                  styles.quickCard,
-                  {backgroundColor: theme.colors.surface, borderColor: theme.colors.border},
-                  pressed && styles.pressed,
-                ]}>
-                <MaterialCommunityIcons name="account-arrow-right-outline" size={23} color={theme.colors.textPrimary} style={styles.quickIcon} />
-                <Text style={[styles.quickTitle, {color: theme.colors.textPrimary}]}>Send to self</Text>
-                <Text style={[styles.quickDescription, {color: theme.colors.textSecondary}]}>{`${ownAddresses.length} address${ownAddresses.length === 1 ? '' : 'es'}`}</Text>
-              </Pressable>
-            ) : null}
+            <View style={[styles.actionRows, {borderTopColor: theme.colors.border}]}>
+              {matchingSavedAddresses.length > 0 ? (
+                <RecipientActionRow
+                  count={`${matchingSavedAddresses.length}`}
+                  label="Saved addresses"
+                  onPress={() => setAddressBookOpen(true)}
+                />
+              ) : null}
+              {ownAddresses.length > 0 ? (
+                <RecipientActionRow
+                  count={`${ownAddresses.length}`}
+                  label="Send to self"
+                  onPress={openOwnAddresses}
+                />
+              ) : null}
             </View>
           ) : null}
         </>}
@@ -447,6 +419,26 @@ const SendWizardRecipient = () => {
   );
 };
 
+// Flat list action under the address field; the list container draws the top
+// hairline.
+const RecipientActionRow = ({count, label, onPress}) => {
+  const theme = useOnboardingTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({pressed}) => [
+        styles.actionRow,
+        {borderBottomColor: theme.colors.border},
+        pressed && styles.actionPressed,
+      ]}>
+      <Text style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>{label}</Text>
+      <Text style={[styles.actionCount, {color: theme.colors.textSecondary}]}>{count}</Text>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.textSubtle} />
+    </Pressable>
+  );
+};
+
 const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   inputShell: {minHeight: 56, marginBottom: 12, borderRadius: 12, borderWidth: 1, position: 'relative', flexDirection: 'row', alignItems: 'center'},
@@ -454,16 +446,13 @@ const styles = StyleSheet.create({
   input: {flex: 1, minHeight: 56, maxHeight: 96, paddingLeft: 16, paddingRight: 90, paddingTop: 19, paddingBottom: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
   inputActions: {position: 'absolute', right: 8, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center'},
   inputAction: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
-  hints: {marginTop: 12, paddingHorizontal: 4},
-  hint: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   saveAddress: {alignSelf: 'flex-start', borderRadius: 20, marginTop: 8, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center'},
   saveAddressText: {fontSize: 13, lineHeight: 18, marginLeft: 6, ...fontStyle('semiBold')},
-  quickAccess: {gap: 10, flexDirection: 'row', marginTop: 8, marginBottom: 24},
-  quickCard: {flex: 1, minHeight: 70, borderWidth: 1, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center'},
-  quickIcon: {marginBottom: 6},
-  quickTitle: {fontSize: 14, lineHeight: 19, textAlign: 'center', ...fontStyle('semiBold')},
-  quickDescription: {fontSize: 11, lineHeight: 15, marginTop: 2, textAlign: 'center', ...fontStyle('medium')},
-  pressed: {opacity: 0.7},
+  actionRows: {marginTop: 8, marginBottom: 24, borderTopWidth: StyleSheet.hairlineWidth},
+  actionPressed: {opacity: 0.7},
+  actionRow: {minHeight: 62, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center'},
+  actionLabel: {flex: 1, fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
+  actionCount: {fontSize: 14, lineHeight: 20, marginRight: 6, ...fontStyle('regular')},
   scanner: {flex: 1, backgroundColor: 'black'},
   cancelScan: {minWidth: 180},
 });

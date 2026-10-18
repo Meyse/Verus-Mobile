@@ -14,6 +14,9 @@ const initialWizardState = {
   amountSats: null,
   fiatMode: false,
   estimate: null,
+  // Output per input unit for a small trade on the selected route. It is the
+  // reference that price impact is measured against.
+  marketPrice: null,
   recipientAddress: '',
   preflightResult: null,
   txResult: null,
@@ -53,6 +56,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       amountSats: null,
       fiatMode: false,
       estimate: null,
+      marketPrice: null,
       recipientAddress: '',
       preflightResult: null,
     }));
@@ -63,6 +67,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       ...current,
       route,
       estimate: null,
+      marketPrice: null,
       preflightResult: null,
     }));
   }, []);
@@ -87,6 +92,12 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
 
   const setEstimate = useCallback(estimate => {
     setState(current => ({...current, estimate}));
+  }, []);
+
+  const setMarketPrice = useCallback(marketPrice => {
+    setState(current =>
+      current.marketPrice === marketPrice ? current : {...current, marketPrice},
+    );
   }, []);
 
   const setRecipient = useCallback(recipientAddress => {
@@ -115,6 +126,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setTarget,
       setAmount,
       setEstimate,
+      setMarketPrice,
       setRecipient,
       setRoute,
       setPreflight,
@@ -127,6 +139,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       reset,
       setAmount,
       setEstimate,
+      setMarketPrice,
       setPreflight,
       setRecipient,
       setRoute,

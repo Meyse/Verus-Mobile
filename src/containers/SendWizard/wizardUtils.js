@@ -549,3 +549,12 @@ export const getTransactionId = result => {
     null
   );
 };
+
+// A recipient short enough for a summary line. VerusID names and short
+// addresses stay whole; long addresses keep the start and the end.
+export const shortenRecipient = address => {
+  const value = String(address || '');
+  return value.endsWith('@') || value.length <= 22
+    ? value
+    : `${value.slice(0, 8)}…${value.slice(-6)}`;
+};

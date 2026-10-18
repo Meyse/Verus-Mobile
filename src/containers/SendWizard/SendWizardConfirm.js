@@ -7,10 +7,10 @@ import React, {
   useState,
 } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
@@ -30,6 +30,17 @@ import {
 } from 'verus-typescript-primitives';
 import SkeletonLoader, {SkeletonSection} from '../../components/SkeletonLoader';
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
+import TransferDetailsSheet from './components/TransferDetailsSheet';
+import {
+  TransferConnector,
+  TransferNode,
+  TransferNodeName,
+} from './components/TransferSummary';
+import ImpactRow from './components/ImpactRow';
+import {
+  formatUnitPrice,
+  getConversionPriceSummary,
+} from './components/impactFormat';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -48,7 +59,6 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {captureAssetContext} from '../../utils/assets/assetManagementService';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
-import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
   I_ADDRESS_VERSION,
   MID_VERIFICATION,
@@ -60,11 +70,17 @@ import {refreshSourceBalance} from './refreshSourceBalance';
 import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
   ErrorMessage,
+  FlatRow,
   WizardFooter,
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
-import {getCurrencyDisplay, isOwnChannelAddress} from './wizardUtils';
+import {useWizardFiat} from './useWizardFiat';
+import {
+  getCurrencyDisplay,
+  isOwnChannelAddress,
+  shortenRecipient,
+} from './wizardUtils';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
@@ -104,6 +120,10 @@ const SendWizardConfirm = () => {
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const {displayCurrency, format: formatFiat, getRate} = useWizardFiat(
+    sourceSubWallet,
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -444,18 +464,6 @@ const SendWizardConfirm = () => {
     : target?.isConversion
     ? '2-10 minutes'
     : '1-5 minutes';
-  const detailRows = [
-    ['To', recipientAddress],
-    ...(route?.isCrossChain
-      ? [['Destination network', destinationNetwork]]
-      : []),
-    [
-      route?.via ? 'Route' : 'Estimated time',
-      route?.via
-        ? `${route.viaFqn || route.via} · ${estimatedTime}`
-        : estimatedTime,
-    ],
-  ];
   // Keep the exact preflight fee amounts and currency IDs for balance math.
   // Tickers alone are not currency identity (a token can share a system ticker).
   const sourceFees = feeItems.reduce(
@@ -506,80 +514,106 @@ const SendWizardConfirm = () => {
     );
   }
 
+  const showReceive = Boolean(target?.isConversion && estimatedReceive != null);
+  const recipientLabel = shortenRecipient(recipientAddress);
+  const recipientIsName = recipientAddress.endsWith('@');
+  // A conversion names the recipient in its receive line. Every other review
+  // lists the full recipient, and so does a conversion to a long address.
+  const showRecipientRow = !showReceive || recipientLabel !== recipientAddress;
+  const {impact, level, lossText, unitPrice} = showReceive
+    ? getConversionPriceSummary({
+        amount: displayAmount,
+        displayCurrency,
+        marketPrice: state.marketPrice,
+        output: estimatedReceive,
+        rate: getRate(sourceCoin?.id),
+        sourceTicker: sourceCoin?.display_ticker || '',
+      })
+    : {};
+  const connectorText = [
+    unitPrice
+      ? `1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`
+      : null,
+    route?.via ? `via ${route.viaFqn || route.via}` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const detailRows = [
+    {label: 'To', value: recipientAddress},
+    route?.isCrossChain
+      ? {label: 'Destination network', value: destinationNetwork}
+      : null,
+    target?.isConversion
+      ? {label: 'Route', value: route?.via ? route.viaFqn || route.via : 'Direct'}
+      : null,
+    {
+      label: 'From',
+      value: `${sourceCoin?.display_name || ''} · ${sourceSubWallet?.name || ''}`,
+    },
+    {
+      label: 'Balance after',
+      value: `${truncateDecimal(balanceAfter, 8)} ${sourceCoin?.display_ticker || ''}`,
+    },
+  ].filter(Boolean);
+
   return (
     <WizardScreen scroll={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.amountSection, {backgroundColor: theme.colors.surfaceMuted}]}>
-          <View style={styles.amountBlock}>
-            <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>YOU’RE SENDING</Text>
-            <View style={styles.amountRow}>
-              <AssetCoinLogo coinId={sourceCoin?.id} size={28} />
-              <View style={styles.amountCopy}>
-                <View style={styles.amountValueRow}>
-                  <Text style={[styles.amountValue, {color: theme.colors.textPrimary}]}>{truncateDecimal(displayAmount, 8)}</Text>
-                  <Text style={[styles.amountTicker, {color: theme.colors.textSecondary}]}>{sourceCoin?.display_ticker || ''}</Text>
-                </View>
-              </View>
-            </View>
-            {amountAdjustment ? (
-              <Text style={[theme.typography.caption, styles.amountAdjustment, {color: theme.colors.textSecondary}]}>
-                {amountAdjustment}
-              </Text>
+        <TransferNode
+          amount={truncateDecimal(displayAmount, 8)}
+          coinId={sourceCoin?.id}
+          fiat={formatFiat(displayAmount, sourceCoin?.id)}
+          ticker={sourceCoin?.display_ticker || ''}>
+          {showReceive ? 'You pay' : 'You send'}
+        </TransferNode>
+        {showReceive ? (
+          <>
+            {connectorText ? (
+              <TransferConnector>{connectorText}</TransferConnector>
             ) : null}
-          </View>
-          {target?.isConversion && estimatedReceive != null ? (
-            <>
-              <View style={styles.conversionDivider}>
-                <View style={[styles.dividerLine, {backgroundColor: theme.colors.border}]} />
-                <View style={[styles.arrowCircle, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-                  <MaterialCommunityIcons name="arrow-down" size={16} color={theme.colors.textSecondary} />
-                </View>
-                <View style={[styles.dividerLine, {backgroundColor: theme.colors.border}]} />
-              </View>
-              <View style={styles.amountBlock}>
-                <View style={styles.estimateBadge}>
-                  <Text style={[styles.estimateBadgeText, {color: theme.colors.primary}]}>Estimated</Text>
-                  <MaterialCommunityIcons name="information-outline" size={14} color={theme.colors.primary} />
-                </View>
-                <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>THEY RECEIVE</Text>
-                <View style={styles.amountRow}>
-                  <AssetCoinLogo coinId={target.coinId || target.id} size={28} />
-                  <View style={styles.amountCopy}>
-                    <View style={styles.amountValueRow}>
-                      <Text style={[styles.amountValue, {color: theme.colors.textPrimary}]}>{truncateDecimal(BigNumber(estimatedReceive), 8)}</Text>
-                      <Text style={[styles.amountTicker, {color: theme.colors.textSecondary}]}>{target.ticker}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </>
+            <TransferNode
+              amount={`≈ ${truncateDecimal(BigNumber(estimatedReceive), 8)}`}
+              coinId={target.coinId || target.id}
+              fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
+              ticker={target.ticker}>
+              <TransferNodeName>{recipientLabel}</TransferNodeName> receives
+            </TransferNode>
+          </>
+        ) : null}
+        {amountAdjustment ? (
+          <Text style={[theme.typography.caption, styles.adjustment, {color: theme.colors.textSecondary}]}>
+            {amountAdjustment}
+          </Text>
+        ) : null}
+        <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
+          {showRecipientRow ? (
+            <FlatRow
+              label="To"
+              numberOfLines={0}
+              value={recipientAddress}
+              valueStyle={recipientIsName ? null : styles.address}
+            />
           ) : null}
-        </View>
-        <View style={[styles.detailsCard, {backgroundColor: theme.colors.surfaceRaised}]}>
-          {detailRows.map(([label, value]) => (
-            <View key={label} style={[styles.detailRow, {borderBottomColor: theme.colors.border}]}>
-              <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>{label}</Text>
-              <Text numberOfLines={2} style={[styles.detailValue, {color: theme.colors.textPrimary}]}>{value}</Text>
-            </View>
-          ))}
-          <TouchableOpacity
+          {route?.isCrossChain ? (
+            <FlatRow label="Destination network" value={destinationNetwork} />
+          ) : null}
+          {impact ? (
+            <ImpactRow impact={impact} level={level} lossText={lossText} />
+          ) : null}
+          <FlatRow
+            label="Fees"
+            numberOfLines={0}
             onPress={() => setFeeSheetOpen(true)}
-            style={[styles.detailRow, {borderBottomColor: theme.colors.border}]}>
-            <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>Fees</Text>
-            <View style={styles.infoValue}>
-              <View style={styles.feeValueContainer}>
-                <Text style={[styles.feeValue, {color: theme.colors.textPrimary}]}>{feeSummary}</Text>
-                <Text style={[styles.feeHint, {color: theme.colors.textSubtle}]}>Tap for details</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.infoIcon} />
-            </View>
-          </TouchableOpacity>
-          <View style={[styles.detailRow, styles.detailRowLast]}>
-            <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>From</Text>
-            <Text numberOfLines={2} style={[styles.detailValue, {color: theme.colors.textPrimary}]}>{`${sourceCoin?.display_name || ''} · ${sourceSubWallet?.name || ''}`}</Text>
-          </View>
+            value={feeSummary}
+          />
+          <FlatRow label="Arrives" value={estimatedTime} />
+          <FlatRow
+            label="More details"
+            onPress={() => setDetailsOpen(true)}
+            quiet
+            value="Route, from, balance"
+          />
         </View>
-        <Text style={[styles.balanceAfter, {color: theme.colors.textSubtle, marginBottom: warnings.length ? theme.spacing.md : 0}]}>Balance after: {truncateDecimal(balanceAfter, 8)} {sourceCoin?.display_ticker}</Text>
         {warnings.map(message => (
           <View key={message} style={[styles.warning, {backgroundColor: theme.colors.surfaceMuted}]}>
             <Text style={[styles.warningText, {color: theme.colors.warning}]}>{message}</Text>
@@ -602,37 +636,16 @@ const SendWizardConfirm = () => {
         {state.broadcastError ? 'Status unknown' : 'Hold to confirm & send'}
       </WizardFooter>
       <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />
+      <TransferDetailsSheet onClose={() => setDetailsOpen(false)} rows={detailRows} visible={detailsOpen} />
     </WizardScreen>
   );
 };
 
 const styles = StyleSheet.create({
   content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
-  amountSection: {borderRadius: 12, padding: 16, marginBottom: 16},
-  amountBlock: {paddingVertical: 4, position: 'relative'},
-  amountLabel: {fontSize: 11, lineHeight: 15, marginBottom: 6, letterSpacing: 0.3, ...fontStyle('medium')},
-  amountRow: {flexDirection: 'row', alignItems: 'center'},
-  amountCopy: {flex: 1, marginLeft: 10},
-  amountValueRow: {flexDirection: 'row', alignItems: 'baseline'},
-  amountValue: {fontSize: 22, lineHeight: 28, ...fontStyle('bold')},
-  amountAdjustment: {marginTop: 8},
-  amountTicker: {fontSize: 14, lineHeight: 19, marginLeft: 6, ...fontStyle('semiBold')},
-  conversionDivider: {flexDirection: 'row', alignItems: 'center', marginVertical: 12},
-  dividerLine: {flex: 1, height: StyleSheet.hairlineWidth},
-  arrowCircle: {width: 28, height: 28, borderRadius: 14, borderWidth: 1, marginHorizontal: 12, alignItems: 'center', justifyContent: 'center'},
-  estimateBadge: {position: 'absolute', top: -8, right: 0, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(49, 101, 212, 0.35)', flexDirection: 'row', alignItems: 'center'},
-  estimateBadgeText: {fontSize: 11, lineHeight: 15, marginRight: 4, ...fontStyle('semiBold')},
-  detailsCard: {borderRadius: 12, paddingHorizontal: 16, marginBottom: 16},
-  detailRow: {minHeight: 44, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  detailRowLast: {borderBottomWidth: 0},
-  detailLabel: {fontSize: 14, lineHeight: 19, ...fontStyle('regular')},
-  detailValue: {maxWidth: '60%', textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
-  infoValue: {flex: 1, minWidth: 0, marginLeft: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
-  infoIcon: {marginLeft: 6},
-  feeValueContainer: {flex: 1, minWidth: 0, alignItems: 'flex-end'},
-  feeValue: {alignSelf: 'stretch', textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
-  feeHint: {fontSize: 12, lineHeight: 16, marginTop: 2, ...fontStyle('regular')},
-  balanceAfter: {fontSize: 13, lineHeight: 18, textAlign: 'center', ...fontStyle('regular')},
+  adjustment: {marginTop: 8},
+  rows: {marginTop: 24, marginBottom: 16, borderTopWidth: StyleSheet.hairlineWidth},
+  address: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13, lineHeight: 18},
   centeredState: {flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center'},
   preparingSkeleton: {width: '100%', marginBottom: 24},
   stateTitle: {fontSize: 20, lineHeight: 26, textAlign: 'center', marginTop: 18, ...fontStyle('bold')},
