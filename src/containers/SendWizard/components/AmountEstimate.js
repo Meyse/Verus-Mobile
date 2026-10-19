@@ -44,10 +44,47 @@ const Row = ({children, label, onPress, theme}) => {
   );
 };
 
-// The conversion estimate under the amount. It says what the user receives,
-// the price, and, when the amount is large for the route, what that costs in
-// money. It stays flat: hairline rows, no card.
+// The "Via" row: which basket carries the conversion. It shows only when the
+// route offers a choice. On a short screen it can leave the pinned block, so it
+// is exported for the scroll content.
+export const RouteRow = ({onPress, routeChoice, theme}) => {
+  if (!routeChoice) return null;
+
+  return (
+    <Row label="Via" onPress={onPress} theme={theme}>
+      <View style={styles.routeValue}>
+        <Text
+          numberOfLines={1}
+          style={[
+            theme.typography.labelMd,
+            styles.routeName,
+            {color: theme.colors.textPrimary},
+          ]}>
+          {routeChoice.name}
+        </Text>
+        {routeChoice.isBest ? (
+          <StatusBadge label="Best price" tone={STATUS_BADGE_TONE.SUCCESS} />
+        ) : routeChoice.lessPercent ? (
+          <StatusBadge
+            label={`${formatLessPercent(routeChoice.lessPercent)}% less`}
+          />
+        ) : null}
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={20}
+          color={theme.colors.textSubtle}
+        />
+      </View>
+    </Row>
+  );
+};
+
+// The conversion estimate. It says what the user receives, the price, and, when
+// the amount is large for the route, what that costs in money. The wizard pins
+// it above the action so it is never below the fold on a short screen. It stays
+// flat: hairline rows, no card.
 const AmountEstimate = ({
+  compact,
   cryptoAmount,
   displayCurrency,
   estimateLoading,
@@ -61,6 +98,7 @@ const AmountEstimate = ({
   priceImpact,
   rate,
   routeChoice,
+  showRoute = true,
   sourceCoin,
   target,
   validAmount,
@@ -92,9 +130,28 @@ const AmountEstimate = ({
   const lossIsVisible = lossValue != null;
   const emphasis =
     level === IMPACT_LEVEL.DANGER || level === IMPACT_LEVEL.WARNING;
+  const showsEstimate =
+    target.isConversion && (estimateLoading || estimatedOutput != null);
+  const showsMarketPrice =
+    target.isConversion && !validAmount && Boolean(marketPrice);
+
+  if (!showsEstimate && !showsMarketPrice && !ethereumExport) return null;
+
+  // The badge sits right of the money line. A compact layout puts it next to
+  // "You receive", so the money line has the whole width and stays on one line.
+  const impactBadge = emphasis ? (
+    <StatusBadge
+      label={getImpactBadgeLabel(impact)}
+      tone={getImpactTone(level)}
+    />
+  ) : null;
+
+  // The context band above already shows the target asset, so the logo makes
+  // way for the badge.
+  const badgeBesideLabel = Boolean(compact && impactBadge);
 
   return (
-    <View style={styles.estimate}>
+    <View style={[styles.estimate, {borderTopColor: colors.border}]}>
       {target.isConversion && estimateLoading ? (
         <SkeletonLoader
           accessibilityLabel="Estimating conversion"
@@ -106,27 +163,36 @@ const AmountEstimate = ({
 
       {target.isConversion && !estimateLoading && estimatedOutput != null ? (
         <>
-          <View style={styles.receiveRow}>
+          <View style={[styles.receiveRow, compact && styles.receiveRowCompact]}>
             <View style={styles.receiveLabel}>
-              <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
+              {badgeBesideLabel ? null : (
+                <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
+              )}
               <Text
                 style={[
                   theme.typography.bodySm,
-                  styles.receiveText,
+                  !badgeBesideLabel && styles.receiveText,
                   {color: colors.textSecondary},
                 ]}>
                 You receive
               </Text>
+              {badgeBesideLabel ? (
+                <View style={styles.receiveBadge}>{impactBadge}</View>
+              ) : null}
             </View>
             <View style={styles.receiveValue}>
-              <Text style={[styles.receiveAmount, {color: colors.textPrimary}]}>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                numberOfLines={1}
+                style={[styles.receiveAmount, {color: colors.textPrimary}]}>
                 ≈ {formatEstimatedAmount(estimatedOutput)}
                 <Text style={[styles.receiveTicker, {color: colors.textSecondary}]}>
                   {' '}
                   {target.ticker}
                 </Text>
               </Text>
-              {unitPrice ? (
+              {unitPrice && !compact ? (
                 <Text
                   style={[
                     theme.typography.caption,
@@ -140,12 +206,13 @@ const AmountEstimate = ({
           <View style={hairline} />
           {emphasis ? (
             <>
-              <View style={styles.impactRow}>
+              <View style={[styles.impactRow, compact && styles.impactRowCompact]}>
                 <Text
                   numberOfLines={2}
                   style={[
                     theme.typography.labelMd,
                     styles.impactText,
+                    compact && styles.impactTextCompact,
                     {
                       color:
                         level === IMPACT_LEVEL.DANGER
@@ -157,10 +224,7 @@ const AmountEstimate = ({
                     ? `${lossValue} less than the market price`
                     : 'Less than the market price'}
                 </Text>
-                <StatusBadge
-                  label={getImpactBadgeLabel(impact)}
-                  tone={getImpactTone(level)}
-                />
+                {compact ? null : impactBadge}
               </View>
               {suggestion ? (
                 <Pressable
@@ -174,6 +238,7 @@ const AmountEstimate = ({
                   onPress={() => onUseSuggestion(suggestion.amount)}
                   style={({pressed}) => [
                     styles.suggestion,
+                    compact && styles.suggestionCompact,
                     {
                       backgroundColor: theme.isDark
                         ? colors.surfaceMuted
@@ -206,47 +271,24 @@ const AmountEstimate = ({
               style={[
                 theme.typography.caption,
                 styles.quietLine,
+                compact && styles.quietLineCompact,
                 {color: colors.textSecondary},
               ]}>
               {lossValue} less than the market price
             </Text>
           ) : null}
-          {routeChoice ? (
-            <Row label="Via" onPress={onOpenRoute} theme={theme}>
-              <View style={styles.routeValue}>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    theme.typography.labelMd,
-                    styles.routeName,
-                    {color: colors.textPrimary},
-                  ]}>
-                  {routeChoice.name}
-                </Text>
-                {routeChoice.isBest ? (
-                  <StatusBadge
-                    label="Best price"
-                    tone={STATUS_BADGE_TONE.SUCCESS}
-                  />
-                ) : routeChoice.lessPercent ? (
-                  <StatusBadge
-                    label={`${formatLessPercent(routeChoice.lessPercent)}% less`}
-                  />
-                ) : null}
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={colors.textSubtle}
-                />
-              </View>
-            </Row>
+          {showRoute ? (
+            <RouteRow
+              onPress={onOpenRoute}
+              routeChoice={routeChoice}
+              theme={theme}
+            />
           ) : null}
         </>
       ) : null}
 
-      {target.isConversion && !validAmount && marketPrice ? (
+      {showsMarketPrice ? (
         <>
-          <View style={hairline} />
           <Row label="Market price" theme={theme}>
             <Text style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
               1 {sourceTicker} = {formatUnitPrice(marketPrice)} {target.ticker}
@@ -257,7 +299,7 @@ const AmountEstimate = ({
 
       {ethereumExport ? (
         <>
-          <View style={hairline} />
+          {showsEstimate ? <View style={hairline} /> : null}
           {exportFeeLoading ? (
             <SkeletonLoader
               accessibilityLabel="Estimating Ethereum network fee"
@@ -278,7 +320,11 @@ const AmountEstimate = ({
 };
 
 const styles = StyleSheet.create({
-  estimate: {paddingHorizontal: 4, marginTop: 6, marginBottom: 10},
+  estimate: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   skeleton: {paddingVertical: 4},
   hairline: {height: StyleSheet.hairlineWidth, marginTop: 2},
   receiveRow: {
@@ -287,8 +333,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  receiveLabel: {flexDirection: 'row', alignItems: 'center'},
+  receiveRowCompact: {minHeight: 38},
+  receiveLabel: {flexDirection: 'row', alignItems: 'center', flexShrink: 1},
   receiveText: {marginLeft: 10},
+  receiveBadge: {marginLeft: 8, flexShrink: 0},
   receiveValue: {alignItems: 'flex-end', flexShrink: 1, marginLeft: 12},
   receiveAmount: {fontSize: 17, lineHeight: 22, ...fontStyle('bold')},
   receiveTicker: {fontSize: 14, ...fontStyle('semiBold')},
@@ -298,7 +346,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  impactRowCompact: {marginTop: 2},
   impactText: {flexShrink: 1, marginRight: 8},
+  impactTextCompact: {marginRight: 0},
   suggestion: {
     minHeight: 36,
     marginTop: 6,
@@ -308,9 +358,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  suggestionCompact: {marginTop: 4},
   suggestionLabel: {flexShrink: 1, marginRight: 8},
   pressed: {opacity: 0.7},
   quietLine: {marginTop: 12},
+  quietLineCompact: {marginTop: 4},
   row: {
     minHeight: 36,
     flexDirection: 'row',
