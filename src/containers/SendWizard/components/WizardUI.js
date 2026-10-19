@@ -327,7 +327,9 @@ export const ErrorMessage = ({children, style}) => {
   );
 };
 
+// `above` sits over the action in the same safe stack, outside any scroll area.
 export const WizardFooter = ({
+  above,
   children = 'Continue',
   disabled,
   bottomSpacing = 24,
@@ -349,6 +351,7 @@ export const WizardFooter = ({
       includeBottomInset={includeBottomInset}
       safeAreaSpacing={safeAreaSpacing}
       style={styles.footer}>
+      {above}
       {holdToConfirm ? (
         <GradientButton
           disabled={disabled || loading}

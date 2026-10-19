@@ -600,27 +600,32 @@ const SendWizardAmount = () => {
           </View>
           {errorMessage}
           <View style={styles.amountControls}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{disabled: rate == null}}
-              disabled={rate == null}
-              onPress={toggleInputMode}
+            {rate != null ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={toggleInputMode}
+                style={[
+                  styles.modeChip,
+                  smallDevice && styles.modeChipCompact,
+                  {backgroundColor: theme.colors.surfaceMuted},
+                ]}>
+                <Text style={[styles.modeText, {color: theme.colors.textPrimary}]}>
+                  {modeText}
+                </Text>
+                <MaterialCommunityIcons
+                  name="swap-vertical"
+                  size={16}
+                  color={theme.colors.textSecondary}
+                  style={styles.modeIcon}
+                />
+              </Pressable>
+            ) : null}
+            <View
               style={[
-                styles.modeChip,
-                smallDevice && styles.modeChipCompact,
-                {backgroundColor: theme.colors.surfaceMuted},
+                styles.balanceRow,
+                rate == null && styles.balanceRowNoChip,
+                rate == null && smallDevice && styles.balanceRowNoChipCompact,
               ]}>
-              <Text style={[styles.modeText, {color: theme.colors.textPrimary}]}>
-                {modeText}
-              </Text>
-              <MaterialCommunityIcons
-                name="swap-vertical"
-                size={16}
-                color={theme.colors.textSecondary}
-                style={styles.modeIcon}
-              />
-            </Pressable>
-            <View style={styles.balanceRow}>
               <Text style={[styles.balance, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
               <Pressable
                 accessibilityRole="button"
@@ -702,6 +707,8 @@ const styles = StyleSheet.create({
   modeChipCompact: {marginBottom: 6},
   modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
   modeIcon: {marginLeft: 6},
+  balanceRowNoChip: {marginTop: 12},
+  balanceRowNoChipCompact: {marginTop: 6},
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},

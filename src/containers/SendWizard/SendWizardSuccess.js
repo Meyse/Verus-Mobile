@@ -6,6 +6,7 @@ import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark'
 import CopyAction from '../../components/CopyAction';
 import FadedScrollView from '../../components/FadedScrollView';
 import {fontStyle} from '../../globals/fonts';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
@@ -25,6 +26,7 @@ import {
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const {state} = useSendWizard();
   const {
     amount,
@@ -85,10 +87,12 @@ const SendWizardSuccess = () => {
     <WizardScreen scroll={false}>
       <FadedScrollView
         containerStyle={styles.scrollViewport}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, smallDevice && styles.contentCompact]}
         fadeBackgroundColor={theme.colors.background}>
         <View style={styles.titleRow}>
-          <AnimatedSuccessCheckmark style={styles.successAnimation} />
+          <AnimatedSuccessCheckmark
+            style={smallDevice ? styles.successAnimationCompact : styles.successAnimation}
+          />
           <Text
             accessibilityRole="header"
             style={[
@@ -99,7 +103,7 @@ const SendWizardSuccess = () => {
             {title}
           </Text>
         </View>
-        <View style={styles.summary}>
+        <View style={[styles.summary, smallDevice && styles.sectionCompact]}>
           <TransferNode
             amount={truncateDecimal(displayAmount, 8)}
             coinId={sourceCoin?.id}
@@ -123,7 +127,12 @@ const SendWizardSuccess = () => {
             </>
           ) : null}
         </View>
-        <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
+        <View
+          style={[
+            styles.rows,
+            smallDevice && styles.sectionCompact,
+            {borderTopColor: theme.colors.border},
+          ]}>
           {showRecipientRow ? (
             <FlatRow
               label="To"
@@ -169,7 +178,12 @@ const SendWizardSuccess = () => {
             : 'You can follow the transaction from this Asset’s activity.'}
         </Text>
       </FadedScrollView>
-      <WizardFooter bottomSpacing={40} horizontalSpacing={24} onPress={finish}>Done</WizardFooter>
+      <WizardFooter
+        bottomSpacing={smallDevice ? 24 : 40}
+        horizontalSpacing={24}
+        onPress={finish}>
+        Done
+      </WizardFooter>
     </WizardScreen>
   );
 };
@@ -178,7 +192,10 @@ const styles = StyleSheet.create({
   scrollViewport: {flex: 1},
   content: {flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28},
   titleRow: {flexDirection: 'row', alignItems: 'center'},
+  contentCompact: {paddingTop: 8},
   successAnimation: {width: 64, height: 64, marginLeft: -10},
+  successAnimationCompact: {width: 48, height: 48, marginLeft: -6},
+  sectionCompact: {marginTop: 12},
   title: {flex: 1, marginLeft: 4},
   summary: {marginTop: 24},
   rows: {marginTop: 24, borderTopWidth: StyleSheet.hairlineWidth},
