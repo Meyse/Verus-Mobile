@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   InteractionManager,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -72,28 +73,40 @@ const SendWizardAmount = () => {
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
   const amountInputRef = useRef(null);
 
+  // The field is focused for the JavaScript side but Android does not always
+  // show the keyboard for it, for example when the field gains focus while a
+  // sheet is still closing. Toggling focus asks the keyboard to show again.
+  const refocusAmount = useCallback(() => {
+    const input = amountInputRef.current;
+    if (!input) return;
+    input.blur();
+    input.focus();
+  }, []);
+  const refocusAfterSheet = useCallback(() => {
+    if (Platform.OS === 'android') setTimeout(refocusAmount, 150);
+  }, [refocusAmount]);
+
   // `autoFocus` only covers the first mount. A step reached while a sheet is
   // still closing, or reached again with Back, needs the keypad opened here.
   useFocusEffect(
     useCallback(() => {
       const focus = () => amountInputRef.current?.focus();
-      // Android does not show the keyboard for a field that gains focus while
-      // a closing sheet still holds the window. Toggle focus once the sheet is
-      // gone so the keyboard shows.
-      const refocus = () => {
-        const input = amountInputRef.current;
-        if (!input) return;
-        input.blur();
-        input.focus();
-      };
       const task = InteractionManager.runAfterInteractions(focus);
       const timers = [setTimeout(focus, 450)];
-      if (Platform.OS === 'android') timers.push(setTimeout(refocus, 900));
+      // Late check, long after a normal keyboard has shown: only act when it
+      // is still missing, so a slow keyboard is never interrupted.
+      if (Platform.OS === 'android') {
+        timers.push(
+          setTimeout(() => {
+            if (!Keyboard.isVisible()) refocusAmount();
+          }, 2500),
+        );
+      }
       return () => {
         task.cancel();
         timers.forEach(clearTimeout);
       };
-    }, []),
+    }, [refocusAmount]),
   );
 
   const displayCurrency = useSelector(
@@ -607,6 +620,7 @@ const SendWizardAmount = () => {
         routes={target.routes || []}
         visible={routeSheetOpen}
         onClose={() => setRouteSheetOpen(false)}
+        onClosed={refocusAfterSheet}
         onSelect={nextRoute => {
           setPreferredRouteKey(nextRoute.key);
           setRoute(nextRoute);
@@ -618,6 +632,7 @@ const SendWizardAmount = () => {
       <TargetNetworkSheet
         selectedKey={route?.networkKey}
         onClose={() => setNetworkSheetOpen(false)}
+        onClosed={refocusAfterSheet}
         onSelect={chooseSendNetwork}
         options={sendNetworkOptions}
         target={sendTarget}
