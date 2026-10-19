@@ -230,6 +230,21 @@ It reminds the user what moves and where, in one line, without a second title.
 - When the line is too long, the chain name shortens first, then the asset names.
 - No band on Confirm or Success. They already show the whole route.
 
+Send/Convert Amount pins its conversion estimate above Continue. The owner approved
+it on 2026-10-19 after the small-device run showed the receive row, the price-impact
+warning and the Via row below the fold with the keypad open.
+
+- `WizardFormLayout` takes a `pinned` slot. It sits in the footer, outside the scroll
+  area, with a hairline on top. The estimate is `AmountEstimate`: receive row, money
+  line and badge, suggestion, and the Via row.
+- The amount, the unit chip and "Available / MAX" scroll above it. On a short screen
+  with the keypad open the chip and "Available / MAX" can be partly below the pinned
+  block. They stay reachable by scrolling. The estimate does not scroll.
+- On a window of 667 points or less (`useOnboardingSmallDeviceLayout`), the block is
+  compact: less top spacing above the amount, no unit price line, and the impact badge
+  beside "You receive" (the logo makes way), so the money line fits on one line. A
+  warning moves the Via row into the scroll content, under "Available / MAX".
+
 ### Send/Convert Amount, Recipient, Confirm and Sent
 
 The owner approved these on 2026-10-18 (round 2 of the HTML mockups: Amount

@@ -19,6 +19,7 @@ import {formatCurrency} from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {estimateConversion} from '../../utils/api/channels/vrpc/requests/estimateConversion';
 import {estimateEthereumExportFee} from '../../utils/api/channels/vrpc/requests/estimateEthereumExportFee';
@@ -28,7 +29,7 @@ import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
-import {compareRoutes} from './priceImpact';
+import {compareRoutes, IMPACT_LEVEL} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
 import {
   ErrorMessage,
@@ -36,7 +37,7 @@ import {
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
-import AmountEstimate from './components/AmountEstimate';
+import AmountEstimate, {RouteRow} from './components/AmountEstimate';
 import {
   RouteSheet,
   TargetNetworkSheet,
@@ -54,6 +55,7 @@ const SendWizardAmount = () => {
   const navigation = useNavigation();
   const {params} = useRoute();
   const theme = useOnboardingTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const {mode, state, setAmount, setEstimate, setRoute} = useSendWizard();
   const {
     channel,
@@ -474,6 +476,15 @@ const SendWizardAmount = () => {
     cryptoAmount.isFinite() ? cryptoAmount : 0,
     8,
   );
+  // With a warning on show, a short screen has no room for the Via row in the
+  // pinned block. It then moves to the scroll content under the amount.
+  const routeInScroll =
+    smallDevice &&
+    routeChoice != null &&
+    !estimateLoading &&
+    estimatedOutput != null &&
+    (priceImpact.level === IMPACT_LEVEL.DANGER ||
+      priceImpact.level === IMPACT_LEVEL.WARNING);
   const modeText = fiatMode
     ? `${enteredCryptoAmount} ${sourceCoin.display_ticker}`
     : convertedFiat || `— ${displayCurrency}`;
@@ -481,8 +492,32 @@ const SendWizardAmount = () => {
   return (
     <WizardScreen scroll={false}>
       <WizardFormLayout
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, smallDevice && styles.contentCompact]}
         error={(exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError}
+        pinned={
+          target.isConversion || ethereumExport ? (
+            <AmountEstimate
+              compact={smallDevice}
+              cryptoAmount={cryptoAmount}
+              displayCurrency={displayCurrency}
+              estimateLoading={estimateLoading}
+              estimatedOutput={estimatedOutput}
+              ethereumExport={ethereumExport}
+              exportFeeDisplay={exportFeeDisplay}
+              exportFeeLoading={exportFeeLoading}
+              hasExportFee={Boolean(exportFee)}
+              onOpenRoute={() => setRouteSheetOpen(true)}
+              onUseSuggestion={applySuggestedAmount}
+              priceImpact={priceImpact}
+              rate={rate}
+              routeChoice={routeChoice}
+              showRoute={!routeInScroll}
+              sourceCoin={sourceCoin}
+              target={target}
+              validAmount={validAmount}
+            />
+          ) : null
+        }
         disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
         onPress={continueToRecipient}>
         {errorMessage => <>
@@ -550,7 +585,7 @@ const SendWizardAmount = () => {
               ) : null}
             </>
           ) : null}
-          <View style={styles.amountBlock}>
+          <View style={[styles.amountBlock, smallDevice && styles.amountBlockCompact]}>
             <TextInput
               ref={amountInputRef}
               autoFocus
@@ -570,7 +605,11 @@ const SendWizardAmount = () => {
               accessibilityState={{disabled: rate == null}}
               disabled={rate == null}
               onPress={toggleInputMode}
-              style={[styles.modeChip, {backgroundColor: theme.colors.surfaceMuted}]}>
+              style={[
+                styles.modeChip,
+                smallDevice && styles.modeChipCompact,
+                {backgroundColor: theme.colors.surfaceMuted},
+              ]}>
               <Text style={[styles.modeText, {color: theme.colors.textPrimary}]}>
                 {modeText}
               </Text>
@@ -593,25 +632,14 @@ const SendWizardAmount = () => {
               </Pressable>
             </View>
           </View>
-          {target.isConversion || ethereumExport ? (
-            <AmountEstimate
-              cryptoAmount={cryptoAmount}
-              displayCurrency={displayCurrency}
-              estimateLoading={estimateLoading}
-              estimatedOutput={estimatedOutput}
-              ethereumExport={ethereumExport}
-              exportFeeDisplay={exportFeeDisplay}
-              exportFeeLoading={exportFeeLoading}
-              hasExportFee={Boolean(exportFee)}
-              onOpenRoute={() => setRouteSheetOpen(true)}
-              onUseSuggestion={applySuggestedAmount}
-              priceImpact={priceImpact}
-              rate={rate}
-              routeChoice={routeChoice}
-              sourceCoin={sourceCoin}
-              target={target}
-              validAmount={validAmount}
-            />
+          {routeInScroll ? (
+            <View style={styles.routeInScroll}>
+              <RouteRow
+                onPress={() => setRouteSheetOpen(true)}
+                routeChoice={routeChoice}
+                theme={theme}
+              />
+            </View>
           ) : null}
         </>}
       </WizardFormLayout>
@@ -646,6 +674,8 @@ const SendWizardAmount = () => {
 
 const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 12},
+  routeInScroll: {paddingHorizontal: 4},
+  contentCompact: {paddingTop: 8},
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},
   networkRow: {
@@ -665,9 +695,11 @@ const styles = StyleSheet.create({
   networkHint: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
   networkError: {fontSize: 12, lineHeight: 17, marginBottom: 4, ...fontStyle('regular')},
   amountBlock: {alignItems: 'center', marginTop: 8},
+  amountBlockCompact: {marginTop: 4},
   amountControls: {alignItems: 'center', marginBottom: 8},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
+  modeChipCompact: {marginBottom: 6},
   modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
   modeIcon: {marginLeft: 6},
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},

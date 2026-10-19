@@ -24,10 +24,14 @@ export const WIZARD_CONTENT_INSET = 16;
 export const WIZARD_CONTENT_TOP_INSET = 24;
 
 // The stack header is outside this view. Keyboard coordinates include it.
+//
+// `pinned` sits above the action, outside the scroll area, so a result the user
+// must see before continuing is never below the fold on a short screen.
 export const WizardFormLayout = ({
   children,
   contentContainerStyle,
   error,
+  pinned,
   ...footerProps
 }) => {
   const headerHeight = useHeaderHeight();
@@ -104,15 +108,17 @@ export const WizardFormLayout = ({
         ]}>
         {children(errorMessage)}
       </ScrollView>
-      <View
-        style={styles.formFooter}
-        onLayout={event => setFooterHeight(event.nativeEvent.layout.height)}>
-        <WizardFooter
-          {...footerProps}
-          bottomSpacing={keyboardVisible ? 8 : 24}
-          includeBottomInset={!keyboardVisible}
-          safeAreaSpacing={keyboardVisible ? 0 : 12}
-        />
+      <View style={styles.formFooter}>
+        {pinned ? <View style={styles.formPinned}>{pinned}</View> : null}
+        <View
+          onLayout={event => setFooterHeight(event.nativeEvent.layout.height)}>
+          <WizardFooter
+            {...footerProps}
+            bottomSpacing={keyboardVisible ? 8 : 24}
+            includeBottomInset={!keyboardVisible}
+            safeAreaSpacing={keyboardVisible ? 0 : 12}
+          />
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -384,6 +390,7 @@ export const wizardTextStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   footer: {paddingTop: 16},
   formFooter: {flexShrink: 0},
+  formPinned: {paddingHorizontal: WIZARD_CONTENT_INSET},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
   formError: {marginHorizontal: 0, marginVertical: 8},
