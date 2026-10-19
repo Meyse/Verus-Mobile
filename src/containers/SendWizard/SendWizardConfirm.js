@@ -27,7 +27,6 @@ import {
   toLowerCaseCLocale,
 } from 'verus-typescript-primitives';
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
-import TransferDetailsSheet from './components/TransferDetailsSheet';
 import {
   TransferConnector,
   TransferNode,
@@ -79,7 +78,6 @@ import {
   getDestinationNetwork,
   getRouteName,
   isOwnChannelAddress,
-  isLongRecipient,
 } from './wizardUtils';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
@@ -120,7 +118,6 @@ const SendWizardConfirm = () => {
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const {displayCurrency, format: formatFiat, getRate} = useWizardFiat(
     sourceSubWallet,
   );
@@ -262,12 +259,6 @@ const SendWizardConfirm = () => {
         }
         const preflight = result?.result;
         const nextWarnings = [];
-
-        if (preflight?.converterdef?.proofprotocol === 2) {
-          nextWarnings.push(
-            'This conversion involves a centrally controlled currency. Verify the issuer and route.',
-          );
-        }
 
         const preflightEstimate = preflight?.estimate;
         if (
@@ -499,11 +490,9 @@ const SendWizardConfirm = () => {
         <ConfirmPreparing
           amount={displayAmount}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
-          hasRoute={Boolean(route?.via)}
           isConversion={preparingReceive}
           recipient={recipientAddress}
           showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
-          showRecipient={!preparingReceive || isLongRecipient(recipientAddress)}
           sourceCoin={sourceCoin}
           target={target}
         />
@@ -533,9 +522,6 @@ const SendWizardConfirm = () => {
   }
 
   const showReceive = Boolean(target?.isConversion && estimatedReceive != null);
-  // A conversion names the recipient in its receive line. Every other review
-  // lists the full recipient, and so does a conversion to a long address.
-  const showRecipientRow = !showReceive || isLongRecipient(recipientAddress);
   const {impact, level, lossText, unitPrice} = showReceive
     ? getConversionPriceSummary({
         amount: displayAmount,
@@ -555,21 +541,6 @@ const SendWizardConfirm = () => {
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
   const pinnedMessage = state.broadcastError || error;
-  const detailRows = [
-    {label: 'To', value: recipientAddress},
-    route?.isCrossChain
-      ? {label: 'Destination network', value: destinationNetwork}
-      : null,
-    route?.via ? {label: 'Route', value: getRouteName(route)} : null,
-    {
-      label: 'From',
-      value: `${sourceCoin?.display_name || ''} · ${sourceSubWallet?.name || ''}`,
-    },
-    {
-      label: 'Balance after',
-      value: `${truncateDecimal(balanceAfter, 8)} ${sourceCoin?.display_ticker || ''}`,
-    },
-  ].filter(Boolean);
 
   return (
     <WizardScreen scroll={false}>
@@ -593,8 +564,7 @@ const SendWizardConfirm = () => {
               amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
               coinId={target.coinId || target.id}
               fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-              name={recipientAddress}
-              suffix="receives"
+              label="You receive"
               ticker={target.ticker}
             />
           </>
@@ -609,11 +579,8 @@ const SendWizardConfirm = () => {
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
           impact={impact ? {impact, level, lossText} : null}
-          hasRoute={Boolean(route?.via)}
-          onOpenDetails={() => setDetailsOpen(true)}
           onOpenFees={() => setFeeSheetOpen(true)}
           recipient={recipientAddress}
-          showRecipient={showRecipientRow}
         />
       </FadedScrollView>
       <WizardFooter
@@ -643,7 +610,6 @@ const SendWizardConfirm = () => {
         {state.broadcastError ? 'Status unknown' : 'Hold to confirm & send'}
       </WizardFooter>
       <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />
-      <TransferDetailsSheet onClose={() => setDetailsOpen(false)} rows={detailRows} visible={detailsOpen} />
     </WizardScreen>
   );
 };

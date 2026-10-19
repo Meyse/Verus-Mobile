@@ -1,6 +1,7 @@
 import React, {useCallback} from 'react';
 import {BackHandler, Platform, StyleSheet, Text, View} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import BigNumber from 'bignumber.js';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
 import CopyAction from '../../components/CopyAction';
@@ -20,19 +21,18 @@ import {useWizardFiat} from './useWizardFiat';
 import {
   getDestinationNetwork,
   getTransactionId,
-  isLongRecipient,
 } from './wizardUtils';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
+  const insets = useSafeAreaInsets();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const {state} = useSendWizard();
   const {
     amount,
     estimate,
     preflightResult,
-    recipientAddress,
     route,
     sourceCoin,
     sourceSubWallet,
@@ -58,8 +58,6 @@ const SendWizardSuccess = () => {
     ? 'Bridge transaction sent'
     : 'Transaction sent';
   const showReceive = Boolean(isConversion && estimatedReceive != null);
-  const showRecipientRow =
-    !showReceive || isLongRecipient(recipientAddress);
 
   const finish = useCallback(() => {
     const parent = navigation.getParent?.();
@@ -86,7 +84,7 @@ const SendWizardSuccess = () => {
   return (
     <WizardScreen scroll={false}>
       <FadedScrollView
-        containerStyle={styles.scrollViewport}
+        containerStyle={[styles.scrollViewport, {marginTop: insets.top}]}
         contentContainerStyle={[styles.content, smallDevice && styles.contentCompact]}
         fadeBackgroundColor={theme.colors.background}>
         <View style={styles.titleRow}>
@@ -120,8 +118,7 @@ const SendWizardSuccess = () => {
                 amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
                 coinId={target.coinId || target.id}
                 fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-                name={recipientAddress}
-                suffix="receives"
+                label="You receive"
                 ticker={target.ticker}
               />
             </>
@@ -133,24 +130,12 @@ const SendWizardSuccess = () => {
             smallDevice && styles.sectionCompact,
             {borderTopColor: theme.colors.border},
           ]}>
-          {showRecipientRow ? (
-            <FlatRow
-              label="To"
-              numberOfLines={0}
-              value={recipientAddress}
-              valueStyle={recipientAddress.endsWith('@') ? null : styles.address}
-            />
-          ) : null}
           {isBridge ? (
             <FlatRow
               label="Destination"
               value={getDestinationNetwork(route)}
             />
           ) : null}
-          <FlatRow
-            label="Arrives"
-            value={isBridge ? 'After cross-chain confirmations' : 'Usually within minutes'}
-          />
           {txid ? (
             <View style={[styles.txRow, {borderBottomColor: theme.colors.border}]}>
               <View style={styles.txCopy}>
@@ -192,7 +177,7 @@ const styles = StyleSheet.create({
   scrollViewport: {flex: 1},
   content: {flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28},
   titleRow: {flexDirection: 'row', alignItems: 'center'},
-  contentCompact: {paddingTop: 8},
+  contentCompact: {paddingTop: 16},
   successAnimation: {width: 64, height: 64, marginLeft: -10},
   successAnimationCompact: {width: 48, height: 48, marginLeft: -6},
   sectionCompact: {marginTop: 12},

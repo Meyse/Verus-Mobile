@@ -19,11 +19,9 @@ const ValueSkeleton = ({width = 96}) => (
 const ConfirmPreparing = ({
   amount,
   destinationNetwork,
-  hasRoute,
   isConversion,
   recipient,
   showPriceImpact,
-  showRecipient,
   sourceCoin,
   target,
 }) => {
@@ -45,22 +43,19 @@ const ConfirmPreparing = ({
           <TransferConnector loading />
           <TransferNode
             coinId={target.coinId || target.id}
+            label="You receive"
             loading
-            name={recipient}
-            suffix="receives"
             ticker={target.ticker}
           />
         </>
       ) : null}
       <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-        {showRecipient ? (
-          <FlatRow
-            label="To"
-            numberOfLines={0}
-            value={recipient}
-            valueStyle={recipient.endsWith('@') ? null : styles.address}
-          />
-        ) : null}
+        <FlatRow
+          label="To"
+          numberOfLines={0}
+          value={recipient}
+          valueStyle={recipient.endsWith('@') ? null : styles.address}
+        />
         {destinationNetwork ? (
           <FlatRow label="Destination network" value={destinationNetwork} />
         ) : null}
@@ -75,11 +70,6 @@ const ConfirmPreparing = ({
         <FlatRow label="Arrives">
           <ValueSkeleton width={72} />
         </FlatRow>
-        <FlatRow
-          label="More details"
-          quiet
-          value={hasRoute ? 'Route, from, balance' : 'From, balance'}
-        />
       </View>
     </ScrollView>
   );

@@ -6,31 +6,27 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import ImpactRow from './ImpactRow';
 import {FlatRow} from './WizardUI';
 
-// The flat fact list under the pay and receive nodes on Confirm. The caller
-// decides which optional facts apply; this only draws them in order.
+// The flat fact list under the pay and receive nodes on Confirm. The recipient
+// shows here once, in full; the nodes carry only the amounts. The caller decides
+// which optional facts apply; this only draws them in order.
 const ConfirmFacts = ({
   arrives,
   destinationNetwork,
   fees,
-  hasRoute,
   impact,
-  onOpenDetails,
   onOpenFees,
   recipient,
-  showRecipient,
 }) => {
   const theme = useOnboardingTheme();
 
   return (
     <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-      {showRecipient ? (
-        <FlatRow
-          label="To"
-          numberOfLines={0}
-          value={recipient}
-          valueStyle={recipient.endsWith('@') ? null : styles.address}
-        />
-      ) : null}
+      <FlatRow
+        label="To"
+        numberOfLines={0}
+        value={recipient}
+        valueStyle={recipient.endsWith('@') ? null : styles.address}
+      />
       {destinationNetwork ? (
         <FlatRow label="Destination network" value={destinationNetwork} />
       ) : null}
@@ -43,12 +39,6 @@ const ConfirmFacts = ({
       ) : null}
       <FlatRow label="Fees" numberOfLines={0} onPress={onOpenFees} value={fees} />
       <FlatRow label="Arrives" value={arrives} />
-      <FlatRow
-        label="More details"
-        onPress={onOpenDetails}
-        quiet
-        value={hasRoute ? 'Route, from, balance' : 'From, balance'}
-      />
     </View>
   );
 };

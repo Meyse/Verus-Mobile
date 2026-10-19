@@ -206,11 +206,7 @@ const SendWizardNavigator = () => {
               contextStep={CONTEXT_STEPS[headerRoute.name]}
               title={options.title}
               disabled={Boolean(options.wizardNavigationDisabled)}
-              onBack={
-                headerRoute.name === 'SendWizardSuccess'
-                  ? undefined
-                  : () => goBackOrClose(navigation)
-              }
+              onBack={() => goBackOrClose(navigation)}
               onClose={() => closeWizard(navigation)}
               progress={getSendWizardProgress(
                 headerRoute.name,
@@ -218,7 +214,6 @@ const SendWizardNavigator = () => {
                 hasInitialSource,
               )}
               progressAnimation={progressAnimation}
-              showProgress={headerRoute.name !== 'SendWizardSuccess'}
             />
           ),
         })}>
@@ -250,7 +245,7 @@ const SendWizardNavigator = () => {
         <Stack.Screen
           name="SendWizardSuccess"
           component={SendWizardSuccess}
-          options={{gestureEnabled: false}}
+          options={{gestureEnabled: false, headerShown: false}}
         />
       </Stack.Navigator>
     </SendWizardProvider>

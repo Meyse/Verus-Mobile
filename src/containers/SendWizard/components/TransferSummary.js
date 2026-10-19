@@ -7,20 +7,16 @@ import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 
 const LOGO_SIZE = 40;
 
-// One end of a transfer: the asset logo, who or what it is, and the amount.
-// Pass `label` for a plain label ("You pay") or `name` and `suffix` for a
-// recipient: the name sits above "receives" so a long address keeps room. Pass
-// the whole address; the text shortens it once, in the middle. A long amount
-// shrinks before the label does. `loading` holds the amount's place with a
-// skeleton while the wallet still works it out.
+// One end of a transfer: the asset logo, a short label ("You pay", "You
+// receive") and the amount. The recipient is not named here; Confirm lists it
+// once, in full. A long amount shrinks before the label does. `loading` holds
+// the amount's place with a skeleton while the wallet still works it out.
 export const TransferNode = ({
   amount,
   coinId,
   fiat,
   label,
   loading = false,
-  name,
-  suffix,
   ticker,
 }) => {
   const theme = useOnboardingTheme();
@@ -30,27 +26,11 @@ export const TransferNode = ({
     <View style={styles.node}>
       <AssetCoinLogo coinId={coinId} size={LOGO_SIZE} />
       <View style={styles.labelWrap}>
-        {name ? (
-          <>
-            <Text
-              ellipsizeMode="middle"
-              numberOfLines={1}
-              style={[theme.typography.labelMd, {color: colors.textPrimary}]}>
-              {name}
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={[theme.typography.caption, {color: colors.textSecondary}]}>
-              {suffix}
-            </Text>
-          </>
-        ) : (
-          <Text
-            numberOfLines={1}
-            style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
-            {label}
-          </Text>
-        )}
+        <Text
+          numberOfLines={1}
+          style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
+          {label}
+        </Text>
       </View>
       <View style={styles.value}>
         {loading ? (
@@ -59,14 +39,25 @@ export const TransferNode = ({
           </SkeletonLoader>
         ) : (
           <>
-            <Text
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-              numberOfLines={1}
-              style={[styles.amount, {color: colors.textPrimary}]}>
-              {amount}
-              <Text style={[styles.ticker, {color: colors.textSecondary}]}> {ticker}</Text>
-            </Text>
+            <View style={styles.amountRow}>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+                numberOfLines={1}
+                style={[
+                  styles.amount,
+                  String(amount).length > 11 && styles.amountLong,
+                  {color: colors.textPrimary},
+                ]}>
+                {amount}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[styles.ticker, {color: colors.textSecondary}]}>
+                {' '}
+                {ticker}
+              </Text>
+            </View>
             {fiat ? (
               <Text style={[theme.typography.caption, {color: colors.textSecondary}]}>
                 ≈ {fiat}
@@ -105,12 +96,14 @@ export const TransferConnector = ({children, loading = false}) => {
 
 const styles = StyleSheet.create({
   node: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
-  labelWrap: {flex: 1, minWidth: 0, marginLeft: 14, marginRight: 8, justifyContent: 'center'},
-  value: {alignItems: 'flex-end', flexShrink: 1, maxWidth: '64%'},
+  labelWrap: {flexGrow: 1, flexShrink: 0, marginLeft: 14, marginRight: 8, justifyContent: 'center'},
+  value: {alignItems: 'flex-end', flexShrink: 1, marginLeft: 8, maxWidth: '64%'},
   valueSkeleton: {alignSelf: 'flex-end'},
+  amountRow: {flexDirection: 'row', alignItems: 'baseline', flexShrink: 1},
   connectorSkeleton: {alignSelf: 'flex-start'},
   amount: {fontSize: 20, lineHeight: 26, ...fontStyle('bold')},
-  ticker: {fontSize: 14, ...fontStyle('semiBold')},
+  amountLong: {fontSize: 17, lineHeight: 24},
+  ticker: {flexShrink: 0, fontSize: 14, ...fontStyle('semiBold')},
   connector: {
     minHeight: 40,
     marginLeft: LOGO_SIZE / 2 - 1,
