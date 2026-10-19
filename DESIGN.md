@@ -83,12 +83,13 @@ are shown before you confirm". Use "The wallet" only when the software acts.
 
 ## Button sizes
 
-On a window of 667 points or less, primary and secondary buttons are 44 points
-high; the wizard footer's top padding is 8 points. Normal windows retain the
-56-point default and 16-point wizard footer top padding. Bottom spacing stays
-the same. `AppButton` and `GradientButton` resolve this rule centrally, including
-explicit action heights. Text and tonal buttons keep their size. Compact actions
-use `hitSlop` to keep the touch target at least 48 points tall.
+On a window of 667 points or less, primary, secondary and tonal buttons are 44
+points high (a tonal button is the secondary action on a dark surface, so it
+follows the same rule); the wizard footer's top padding is 8 points. Normal
+windows retain the 56-point default and 16-point wizard footer top padding.
+Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rule
+centrally through `useButtonHeight`, including explicit action heights. Text
+buttons keep their size.
 
 ## Canonical pattern map
 

@@ -5,7 +5,7 @@ import {APP_BUTTON_HEIGHT, APP_BUTTON_SMALL_HEIGHT} from '../styles/components/a
 // Use the window, not the keyboard-contracted form, for the compact rule.
 export const useButtonHeight = (variant = 'primary', height = APP_BUTTON_HEIGHT) => {
   const {height: windowHeight} = useWindowDimensions();
-  const action = variant === 'primary' || variant === 'secondary';
+  const action = ['primary', 'secondary', 'tonal'].includes(variant);
   return action && windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT
     ? APP_BUTTON_SMALL_HEIGHT
     : height;
