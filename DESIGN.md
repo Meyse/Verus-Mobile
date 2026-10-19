@@ -230,20 +230,35 @@ It reminds the user what moves and where, in one line, without a second title.
 - When the line is too long, the chain name shortens first, then the asset names.
 - No band on Confirm or Success. They already show the whole route.
 
-Send/Convert Amount pins its conversion estimate above Continue. The owner approved
-it on 2026-10-19 after the small-device run showed the receive row, the price-impact
-warning and the Via row below the fold with the keypad open.
+Send/Convert Amount pins one receive line above Continue. The owner approved
+option A2 on 2026-10-19: a receive amount and a percent chip that opens
+"Price and route".
 
-- `WizardFormLayout` takes a `pinned` slot. It sits in the footer, outside the scroll
-  area, with a hairline on top. The estimate is `AmountEstimate`: receive row, money
-  line and badge, suggestion, and the Via row.
-- The amount, the unit chip and "Available / MAX" scroll above it. On a short screen
-  with the keypad open the chip and "Available / MAX" can be partly below the pinned
-  block. They stay reachable by scrolling. The estimate does not scroll.
-- On a window of 667 points or less (`useOnboardingSmallDeviceLayout`), the block is
-  compact: less top spacing above the amount, no unit price line, and the impact badge
-  beside "You receive" (the logo makes way), so the money line fits on one line. A
-  warning moves the Via row into the scroll content, under "Available / MAX".
+- `WizardFormLayout` keeps its `pinned` slot outside the scroll area, with a
+  hairline on top. `AmountEstimate` shows only "You receive", the chip when it
+  applies, and "≈ <amount> <ticker>". Loading uses one skeleton line. Empty and
+  invalid amounts pin nothing. There is no Market price, money, suggestion,
+  unit price, Via, or Ethereum fee row on Amount.
+- For a conversion or Ethereum export, show the chip when impact is at least
+  0.1%, more than one basket is available, or an Ethereum network fee needs a
+  quote or has a result. The label is "x.x% less", "<0.1% less" below 0.1%, or
+  "Details" when impact is unknown. Use a neutral `StatusBadge` below 1%,
+  warning from 1%, and danger from 5%, with a small chevron in a button.
+- When the chip shows, omit the receive logo. The amount shrinks to fit on one
+  line. The chip can wrap below the label when space is too tight, including
+  long amounts at 360dp. Compact top spacing and the fiat-price unit-chip rule
+  stay in place. The amount, unit chip, and "Available / MAX" remain scrollable.
+- "Price and route" reuses `InfoSheet`: the 24-point `BottomSheetModal` shell,
+  78% maximum height, `titleSheet`, and a fixed 56-point secondary Done action.
+  One `SheetScrollView` contains all details and supplies the measured bottom
+  fade and centered chevron only while more content remains below.
+- Sheet order: Price (Market price, Your price, Difference), Route, Ethereum
+  Network fee, then the verified smaller-amount suggestion. Hide absent data.
+  Multiple baskets use `SelectionRow`, best first, with receive amounts,
+  "Best price" or "x% less", and the selected check. One basket with a `via`
+  uses a plain Via info row; one direct route has no Route section. The
+  suggestion uses an unfilled 62-point action row. Route and suggestion choices
+  apply after closing through `useSheetDismissal`; Android then refocuses Amount.
 
 Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 
@@ -272,32 +287,22 @@ The owner approved these on 2026-10-18 (round 2 of the HTML mockups: Amount
 option C "say it in money", Recipient option A, Confirm and Sent option B).
 They stay flat: hairline rows, no cards, no capital-letter labels.
 
-- **Amount, conversions.** The estimate sits under the Available line. There is
-  no "Enter amount to see estimate" text and the keypad opens on arrival. With no
-  valid amount a quiet "Market price" row shows the price of a small trade.
-  With an amount: a receive row (target logo at 24 points, "You receive", the
-  bold "≈ output ticker" on the right, the caption "1 SRC = price TGT"), a
-  hairline, the price impact lines, then a "Via" row. The Ethereum network fee
-  row stays for Ethereum exports.
-- **Via row.** It shows only when the conversion can take more than one route
-  (basket). With one basket or a direct route the Amount step says nothing about
-  a route, and never says "Same network"; Confirm still names the basket on its
-  route line. The system picks the best price (the most output). The row shows
-  the basket name and a `success` badge "Best price" for the best one, or a
-  neutral "x% less" badge for a route the user picked instead. Tapping it opens
-  the "Convert via" `SelectionSheet`: baskets best first, each with "≈ output
-  ticker" and the same badge, the selected one with the check. Name a basket by
-  what it holds (for example "VRSC-KMD-GOLD").
+- **Amount, conversions and Ethereum exports.** Follow the A2 pinned receive
+  line and "Price and route" sheet rules above. They replace the earlier flat
+  estimate, Market price, money, suggestion, and Via rows on Amount. The system
+  still picks the basket with the most output. Name a basket by what it holds
+  (for example "VRSC-KMD-GOLD").
 - **Price impact** is how far this conversion's price is below the market price.
   The market price is the output per unit of a small sample trade (worth about
   one display-currency unit) on the same route, fetched once per route. Levels:
-  under 0.1% shows nothing; 0.1% to 1% shows one quiet caption ("$0.14 less than
-  the market price"); 1% to 5% shows "<money> less than the market price" and a
-  `warning` badge "x.x% less"; 5% and up shows the line in `danger` with a
-  `danger` badge and, after a real quote, an "Use <N> <SRC> instead | x.x% less"
-  row in the secondary tint. Show the measured impact, never the one the
-  suggestion formula aimed for. Say the money in what the user receives, so it
-  reads next to the receive row: the display currency when the ledger holds a
+  under 0.1% adds no chip by itself; 0.1% to 1% uses neutral, 1% to 5%
+  warning, and 5% and up danger. The chip always says the percent. The sheet
+  shows the money and percent in Difference, with danger text from 5%, primary
+  text from 1%, and secondary text below 1%. Under 0.1%, Difference shows
+  "<0.1% less". A verified "Use <N> <SRC> instead | x.x% less" action appears
+  in the sheet only while a warning or danger suggestion exists. Show the measured
+  impact, never the one the suggestion formula aimed for. Say the money in what
+  the user receives: the display currency when the ledger holds a
   price for the asset the user pays with ("$204.44 less"), otherwise the
   received asset ("0.0681 ETH less"). Never use a minus sign and never count
   the loss in the asset the user pays when there is no price.
