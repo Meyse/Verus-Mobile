@@ -40,7 +40,14 @@ export const getImpactLossText = ({
   }
 
   if (targetLoss && targetLoss.isGreaterThan(0)) {
-    return `${formatEstimatedAmount(targetLoss)} ${targetTicker}`;
+    return `${truncateDecimal(
+      targetLoss,
+      targetLoss.isGreaterThanOrEqualTo(100)
+        ? 2
+        : targetLoss.isGreaterThanOrEqualTo(1)
+        ? 4
+        : 8,
+    )} ${targetTicker}`;
   }
 
   return null;

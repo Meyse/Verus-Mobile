@@ -58,7 +58,7 @@ export const usePriceImpact = ({
   output,
   rate,
 }) => {
-  const {setMarketPrice} = useSendWizard();
+  const {setMarketPrice, state: wizardState} = useSendWizard();
   const [market, setMarket] = useState({key: null, price: null});
   const [suggestion, setSuggestion] = useState(null);
   const rateRef = useRef(rate);
@@ -99,6 +99,14 @@ export const usePriceImpact = ({
   const marketPrice = market.key === routeKey ? market.price : null;
   const amountKey = amount?.isFinite() ? amount.toString() : '';
   const outputKey = output == null ? '' : String(output);
+
+  // Anything that clears the wizard's copy while this route still has a price
+  // must not leave Confirm without it.
+  const contextPrice = wizardState.marketPrice;
+  const priceText = marketPrice ? marketPrice.toString() : null;
+  useEffect(() => {
+    if (priceText && contextPrice !== priceText) setMarketPrice(priceText);
+  }, [contextPrice, priceText, setMarketPrice]);
 
   const impact = useMemo(() => {
     if (!marketPrice || !amountKey || !outputKey) return null;

@@ -142,6 +142,7 @@ const AmountEstimate = ({
             <>
               <View style={styles.impactRow}>
                 <Text
+                  numberOfLines={2}
                   style={[
                     theme.typography.labelMd,
                     styles.impactText,
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
   skeleton: {paddingVertical: 4},
   hairline: {height: StyleSheet.hairlineWidth, marginTop: 2},
   receiveRow: {
-    minHeight: 48,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -292,15 +293,15 @@ const styles = StyleSheet.create({
   receiveAmount: {fontSize: 17, lineHeight: 22, ...fontStyle('bold')},
   receiveTicker: {fontSize: 14, ...fontStyle('semiBold')},
   impactRow: {
-    marginTop: 8,
+    marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   impactText: {flexShrink: 1, marginRight: 8},
   suggestion: {
-    minHeight: 40,
-    marginTop: 8,
+    minHeight: 36,
+    marginTop: 6,
     borderRadius: 14,
     paddingHorizontal: 14,
     flexDirection: 'row',

@@ -67,7 +67,9 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       ...current,
       route,
       estimate: null,
-      marketPrice: null,
+      // The market price belongs to a route. Choosing the same route again
+      // (the Amount step re-chooses the best one) must not lose it.
+      marketPrice: current.route?.key === route?.key ? current.marketPrice : null,
       preflightResult: null,
     }));
   }, []);

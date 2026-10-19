@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   InteractionManager,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -76,11 +77,21 @@ const SendWizardAmount = () => {
   useFocusEffect(
     useCallback(() => {
       const focus = () => amountInputRef.current?.focus();
+      // Android does not show the keyboard for a field that gains focus while
+      // a closing sheet still holds the window. Toggle focus once the sheet is
+      // gone so the keyboard shows.
+      const refocus = () => {
+        const input = amountInputRef.current;
+        if (!input) return;
+        input.blur();
+        input.focus();
+      };
       const task = InteractionManager.runAfterInteractions(focus);
-      const timer = setTimeout(focus, 450);
+      const timers = [setTimeout(focus, 450)];
+      if (Platform.OS === 'android') timers.push(setTimeout(refocus, 900));
       return () => {
         task.cancel();
-        clearTimeout(timer);
+        timers.forEach(clearTimeout);
       };
     }, []),
   );
