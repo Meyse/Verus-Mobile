@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   InteractionManager,
-  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -9,7 +8,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
@@ -49,6 +52,7 @@ import {
 
 const SendWizardAmount = () => {
   const navigation = useNavigation();
+  const {params} = useRoute();
   const theme = useOnboardingTheme();
   const {mode, state, setAmount, setEstimate, setRoute} = useSendWizard();
   const {
@@ -73,9 +77,11 @@ const SendWizardAmount = () => {
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
   const amountInputRef = useRef(null);
 
-  // The field is focused for the JavaScript side but Android does not always
-  // show the keyboard for it, for example when the field gains focus while a
-  // sheet is still closing. Toggling focus asks the keyboard to show again.
+  // Android does not show the keyboard for a field that is focused while a
+  // sheet is still closing. Toggling focus once the sheet is gone asks the
+  // keyboard to show. Do it only where a sheet was just closed: toggling a
+  // keyboard that is already showing hides it, and Keyboard.isVisible() is not
+  // reliable here because the window pans instead of resizing.
   const refocusAmount = useCallback(() => {
     const input = amountInputRef.current;
     if (!input) return;
@@ -83,8 +89,9 @@ const SendWizardAmount = () => {
     input.focus();
   }, []);
   const refocusAfterSheet = useCallback(() => {
-    if (Platform.OS === 'android') setTimeout(refocusAmount, 150);
+    if (Platform.OS === 'android') setTimeout(refocusAmount, 700);
   }, [refocusAmount]);
+  const openedAfterSheet = useRef(Boolean(params?.afterSheet));
 
   // `autoFocus` only covers the first mount. A step reached while a sheet is
   // still closing, or reached again with Back, needs the keypad opened here.
@@ -93,14 +100,9 @@ const SendWizardAmount = () => {
       const focus = () => amountInputRef.current?.focus();
       const task = InteractionManager.runAfterInteractions(focus);
       const timers = [setTimeout(focus, 450)];
-      // Late check, long after a normal keyboard has shown: only act when it
-      // is still missing, so a slow keyboard is never interrupted.
-      if (Platform.OS === 'android') {
-        timers.push(
-          setTimeout(() => {
-            if (!Keyboard.isVisible()) refocusAmount();
-          }, 2500),
-        );
+      if (Platform.OS === 'android' && openedAfterSheet.current) {
+        openedAfterSheet.current = false;
+        timers.push(setTimeout(refocusAmount, 900));
       }
       return () => {
         task.cancel();
