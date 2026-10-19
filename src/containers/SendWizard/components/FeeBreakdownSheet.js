@@ -5,7 +5,6 @@ import {InfoSheetRow} from '../../../components/InfoSheetSection';
 const FeeBreakdownSheet = ({feeItems, onClose, visible}) => (
   <InfoSheet
     title="Fee breakdown"
-    subtitle="Fees are calculated by the selected Verus Card and route during preflight."
     visible={visible}
     onClose={onClose}>
     {(feeItems.length

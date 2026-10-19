@@ -149,8 +149,10 @@ export const getCurrencyDisplay = (currencyId, fallback) => {
   } catch (error) {
     const name = fallback || currencyId || 'Unknown asset';
     const pieces = String(name).split('.');
-    // A Verus name is `currency.parent`; the first part is the currency's own name.
-    const ticker = pieces[0] || name;
+    // A Verus name is `currency.parent`; the first part is the currency's own
+    // name. A Bridge is the exception: "Bridge" alone names no currency, so it
+    // keeps its full name (Bridge.vETH).
+    const ticker = /^bridge$/i.test(pieces[0]) ? name : pieces[0] || name;
     return {coinId: currencyId, name, ticker};
   }
 };

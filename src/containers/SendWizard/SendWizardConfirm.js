@@ -7,7 +7,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -27,7 +26,6 @@ import {
   fromBase58Check,
   toLowerCaseCLocale,
 } from 'verus-typescript-primitives';
-import SkeletonLoader, {SkeletonSection} from '../../components/SkeletonLoader';
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
 import TransferDetailsSheet from './components/TransferDetailsSheet';
 import {
@@ -35,11 +33,13 @@ import {
   TransferNode,
 } from './components/TransferSummary';
 import ConfirmFacts, {ConfirmNotice} from './components/ConfirmFacts';
+import ConfirmPreparing from './components/ConfirmPreparing';
 import {
   formatEstimatedAmount,
   formatUnitPrice,
   getConversionPriceSummary,
 } from './components/impactFormat';
+import FadedScrollView from '../../components/FadedScrollView';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -490,15 +490,31 @@ const SendWizardConfirm = () => {
     : null;
 
   if (preflighting) {
+    const preparingReceive = Boolean(
+      target?.isConversion && estimatedReceive != null,
+    );
+
     return (
       <WizardScreen scroll={false}>
-        <View style={styles.centeredState}>
-          <SkeletonLoader accessibilityLabel="Preparing transaction" style={styles.preparingSkeleton}>
-            <SkeletonSection rows={3} titleWidth="36%" />
-          </SkeletonLoader>
-          <Text style={[styles.stateTitle, {color: theme.colors.textPrimary}]}>Preparing transaction…</Text>
-          <Text style={[styles.stateBody, {color: theme.colors.textSecondary}]}>Checking route, fees, and destination</Text>
-        </View>
+        <ConfirmPreparing
+          amount={displayAmount}
+          destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
+          hasRoute={Boolean(route?.via)}
+          isConversion={preparingReceive}
+          recipient={recipientAddress}
+          showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
+          showRecipient={!preparingReceive || isLongRecipient(recipientAddress)}
+          sourceCoin={sourceCoin}
+          target={target}
+        />
+        <WizardFooter
+          disabled
+          holdToConfirm
+          loading
+          loadingText="Preparing…"
+          onPress={() => {}}>
+          Hold to confirm & send
+        </WizardFooter>
       </WizardScreen>
     );
   }
@@ -530,14 +546,15 @@ const SendWizardConfirm = () => {
         targetTicker: target?.ticker || '',
       })
     : {};
-  const connectorText = [
+  const connectorLines = [
     unitPrice
       ? `1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`
       : null,
     route?.via ? `via ${route.viaFqn || route.via}` : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  ].filter(Boolean);
+  // Notices and errors stay above Hold to confirm. On a short screen they would
+  // otherwise sit below the fold, out of sight when the user holds.
+  const pinnedMessage = state.broadcastError || error;
   const detailRows = [
     {label: 'To', value: recipientAddress},
     route?.isCrossChain
@@ -556,7 +573,10 @@ const SendWizardConfirm = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <FadedScrollView
+        containerStyle={styles.scrollViewport}
+        contentContainerStyle={styles.content}
+        fadeBackgroundColor={theme.colors.background}>
         <TransferNode
           amount={truncateDecimal(displayAmount, 8)}
           coinId={sourceCoin?.id}
@@ -566,8 +586,8 @@ const SendWizardConfirm = () => {
         />
         {showReceive ? (
           <>
-            {connectorText ? (
-              <TransferConnector>{connectorText}</TransferConnector>
+            {connectorLines.length ? (
+              <TransferConnector>{connectorLines}</TransferConnector>
             ) : null}
             <TransferNode
               amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
@@ -595,12 +615,20 @@ const SendWizardConfirm = () => {
           recipient={recipientAddress}
           showRecipient={showRecipientRow}
         />
-        {warnings.map(message => (
-          <ConfirmNotice key={message}>{message}</ConfirmNotice>
-        ))}
-        <ErrorMessage>{state.broadcastError || error}</ErrorMessage>
-      </ScrollView>
+      </FadedScrollView>
       <WizardFooter
+        above={
+          pinnedMessage || warnings.length ? (
+            <View style={styles.pinnedNotices}>
+              {warnings.map(message => (
+                <ConfirmNotice key={message}>{message}</ConfirmNotice>
+              ))}
+              <ErrorMessage style={styles.pinnedError}>
+                {pinnedMessage}
+              </ErrorMessage>
+            </View>
+          ) : null
+        }
         disabled={
           !preflightResult ||
           submitted.current ||
@@ -621,10 +649,12 @@ const SendWizardConfirm = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollViewport: {flex: 1},
   content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   adjustment: {marginTop: 8},
+  pinnedNotices: {marginBottom: 4},
+  pinnedError: {marginHorizontal: 0, marginVertical: 0, marginBottom: 8},
   centeredState: {flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center'},
-  preparingSkeleton: {width: '100%', marginBottom: 24},
   stateTitle: {fontSize: 20, lineHeight: 26, textAlign: 'center', marginTop: 18, ...fontStyle('bold')},
   stateBody: {fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, ...fontStyle('regular')},
 });

@@ -245,6 +245,22 @@ warning and the Via row below the fold with the keypad open.
   beside "You receive" (the logo makes way), so the money line fits on one line. A
   warning moves the Via row into the scroll content, under "Available / MAX".
 
+Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
+
+- The Sent step has no progress bar. The header shows only the close button.
+- Confirm shows its warnings and errors above "Hold to confirm & send", outside the
+  scroll area (`above` slot of `WizardFooter`). The fact list scrolls and shows the
+  bottom fade (`FadedScrollView`) while rows remain below.
+- While the wallet prepares the transaction, Confirm draws the review as it will look
+  (`ConfirmPreparing`). What the user chose is real. The receive amount, price, fees and
+  timing are skeletons. The button reads "Preparing…" and stays disabled. There is no
+  separate loading screen and no loading text.
+- The connector between the pay and receive nodes shows the unit price and the route on
+  separate lines, so a route name never breaks in the middle.
+- A currency name keeps its full form where it names the currency. A Bridge is
+  "Bridge.vETH", never "Bridge".
+- The unit chip under the amount shows only when the paid asset has a fiat price.
+
 ### Send/Convert Amount, Recipient, Confirm and Sent
 
 The owner approved these on 2026-10-18 (round 2 of the HTML mockups: Amount

@@ -218,6 +218,7 @@ const SendWizardNavigator = () => {
                 hasInitialSource,
               )}
               progressAnimation={progressAnimation}
+              showProgress={headerRoute.name !== 'SendWizardSuccess'}
             />
           ),
         })}>

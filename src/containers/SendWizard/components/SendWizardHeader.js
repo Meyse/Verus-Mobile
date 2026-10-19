@@ -70,6 +70,7 @@ const SendWizardHeader = ({
   onClose,
   progress,
   progressAnimation: sharedProgressAnimation,
+  showProgress = true,
   title,
 }) => {
   const insets = useSafeAreaInsets();
@@ -196,24 +197,26 @@ const SendWizardHeader = ({
           />
         </TouchableOpacity>
       </View>
-      <View
-        accessibilityLabel={`Transfer ${progressPercent}% complete`}
-        accessibilityRole="progressbar"
-        accessibilityValue={{min: 0, max: 100, now: progressPercent}}
-        style={[
-          styles.progressTrack,
-          {backgroundColor: theme.colors.surfaceMuted},
-        ]}>
-        <Animated.View
+      {showProgress ? (
+        <View
+          accessibilityLabel={`Transfer ${progressPercent}% complete`}
+          accessibilityRole="progressbar"
+          accessibilityValue={{min: 0, max: 100, now: progressPercent}}
           style={[
-            styles.progressFill,
-            {
-              width: progressWidth,
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        />
-      </View>
+            styles.progressTrack,
+            {backgroundColor: theme.colors.surfaceMuted},
+          ]}>
+          <Animated.View
+            style={[
+              styles.progressFill,
+              {
+                width: progressWidth,
+                backgroundColor: theme.colors.primary,
+              },
+            ]}
+          />
+        </View>
+      ) : null}
     </View>
   );
 
