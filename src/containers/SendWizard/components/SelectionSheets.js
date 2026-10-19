@@ -6,10 +6,6 @@ import SelectionSheet, {
 import useSheetDismissal from '../../../components/useSheetDismissal';
 import {RenderPlainCoinLogo} from '../../../utils/CoinData/Graphics';
 import {truncateDecimal} from '../../../utils/math';
-import StatusBadge, {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
-import {compareRoutes, formatLessPercent} from '../priceImpact';
-import {formatEstimatedAmount} from './impactFormat';
-import {getRouteName} from '../wizardUtils';
 
 export const SourceCardSheet = ({
   cards,
@@ -113,56 +109,6 @@ export const TargetNetworkSheet = ({
             />
           ))}
         </SelectionGroup>
-      ))}
-    </SelectionSheet>
-  );
-};
-
-export const RouteSheet = ({
-  estimates = {},
-  onClose,
-  onClosed,
-  onSelect,
-  routes,
-  selectedKey,
-  target,
-  visible,
-}) => {
-  const dismissal = useSheetDismissal({visible, onClose, onClosed});
-  // Best first. A basket is named for what it holds, for example VRSC-GOLD.
-  const entries = useMemo(
-    () => compareRoutes(routes, estimates),
-    [estimates, routes],
-  );
-
-  return (
-    <SelectionSheet
-      title="Convert via"
-      subtitle="We pick the best price for you. You can choose another basket."
-      visible={visible}
-      onClose={dismissal.close}
-      onClosed={dismissal.onClosed}>
-      {entries.map(({route: item, output, isBest, lessPercent}) => (
-        <SelectionRow
-          key={item.key}
-          title={getRouteName(item)}
-          subtitle={
-            output
-              ? `≈ ${formatEstimatedAmount(output)} ${target?.ticker || ''}`
-              : Object.prototype.hasOwnProperty.call(estimates, item.key)
-              ? 'Estimate unavailable.'
-              : undefined
-          }
-          badge={
-            isBest ? (
-              <StatusBadge label="Best price" tone={STATUS_BADGE_TONE.SUCCESS} />
-            ) : lessPercent ? (
-              <StatusBadge label={`${formatLessPercent(lessPercent)}% less`} />
-            ) : null
-          }
-          selected={item.key === selectedKey}
-          onPress={() => dismissal.dismiss(() => onSelect(item))}
-        />
       ))}
     </SelectionSheet>
   );

@@ -37,16 +37,13 @@ import {
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
-import AmountEstimate, {RouteRow} from './components/AmountEstimate';
-import {
-  RouteSheet,
-  TargetNetworkSheet,
-} from './components/SelectionSheets';
+import AmountEstimate from './components/AmountEstimate';
+import PriceRouteSheet from './components/PriceRouteSheet';
+import {TargetNetworkSheet} from './components/SelectionSheets';
 import {
   buildSendTarget,
   ADDRESS_TYPE,
   getCurrencyDisplay,
-  getRouteName,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
@@ -458,33 +455,16 @@ const SendWizardAmount = () => {
         })[0]
       : null;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
-  // A route row only makes sense when there is a choice. Best is the route
-  // with the most output; the chosen one may differ if the user picked it.
-  const routeComparison = compareRoutes(target.routes || [], routeEstimates);
-  const selectedRoute = routeComparison.find(
-    entry => entry.route.key === route.key,
-  );
-  const routeChoice =
-    routeComparison.length > 1 && selectedRoute
-      ? {
-          isBest: selectedRoute.isBest,
-          lessPercent: selectedRoute.lessPercent,
-          name: getRouteName(route),
-        }
-      : null;
+  const showPriceRouteChip =
+    (target.isConversion || ethereumExport) &&
+    (priceImpact.level !== IMPACT_LEVEL.NONE ||
+      compareRoutes(target.routes || [], routeEstimates).length > 1 ||
+      ethereumExport);
+  const receiveAmount = target.isConversion ? estimatedOutput : cryptoAmountValue;
   const enteredCryptoAmount = truncateDecimal(
     cryptoAmount.isFinite() ? cryptoAmount : 0,
     8,
   );
-  // With a warning on show, a short screen has no room for the Via row in the
-  // pinned block. It then moves to the scroll content under the amount.
-  const routeInScroll =
-    smallDevice &&
-    routeChoice != null &&
-    !estimateLoading &&
-    estimatedOutput != null &&
-    (priceImpact.level === IMPACT_LEVEL.DANGER ||
-      priceImpact.level === IMPACT_LEVEL.WARNING);
   const modeText = fiatMode
     ? `${enteredCryptoAmount} ${sourceCoin.display_ticker}`
     : convertedFiat || `— ${displayCurrency}`;
@@ -495,26 +475,15 @@ const SendWizardAmount = () => {
         contentContainerStyle={[styles.content, smallDevice && styles.contentCompact]}
         error={(exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError}
         pinned={
-          target.isConversion || ethereumExport ? (
+          validAmount && (target.isConversion || ethereumExport) &&
+          (estimateLoading || receiveAmount != null || showPriceRouteChip) ? (
             <AmountEstimate
-              compact={smallDevice}
-              cryptoAmount={cryptoAmount}
-              displayCurrency={displayCurrency}
               estimateLoading={estimateLoading}
-              estimatedOutput={estimatedOutput}
-              ethereumExport={ethereumExport}
-              exportFeeDisplay={exportFeeDisplay}
-              exportFeeLoading={exportFeeLoading}
-              hasExportFee={Boolean(exportFee)}
-              onOpenRoute={() => setRouteSheetOpen(true)}
-              onUseSuggestion={applySuggestedAmount}
+              estimatedOutput={receiveAmount}
+              onOpenDetails={() => setRouteSheetOpen(true)}
               priceImpact={priceImpact}
-              rate={rate}
-              routeChoice={routeChoice}
-              showRoute={!routeInScroll}
-              sourceCoin={sourceCoin}
+              showDetails={showPriceRouteChip}
               target={target}
-              validAmount={validAmount}
             />
           ) : null
         }
@@ -637,22 +606,23 @@ const SendWizardAmount = () => {
               </Pressable>
             </View>
           </View>
-          {routeInScroll ? (
-            <View style={styles.routeInScroll}>
-              <RouteRow
-                onPress={() => setRouteSheetOpen(true)}
-                routeChoice={routeChoice}
-                theme={theme}
-              />
-            </View>
-          ) : null}
         </>}
       </WizardFormLayout>
-      <RouteSheet
+      <PriceRouteSheet
+        cryptoAmount={cryptoAmount}
+        displayCurrency={displayCurrency}
+        estimatedOutput={estimatedOutput}
+        ethereumExport={ethereumExport}
+        exportFeeDisplay={exportFeeDisplay}
+        exportFeeLoading={exportFeeLoading}
+        hasExportFee={Boolean(exportFee)}
+        onUseSuggestion={applySuggestedAmount}
+        priceImpact={priceImpact}
+        rate={rate}
+        route={route}
+        sourceCoin={sourceCoin}
         estimates={routeEstimates}
-        selectedKey={route?.key}
         target={target}
-        routes={target.routes || []}
         visible={routeSheetOpen}
         onClose={() => setRouteSheetOpen(false)}
         onClosed={refocusAfterSheet}
@@ -679,7 +649,6 @@ const SendWizardAmount = () => {
 
 const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 12},
-  routeInScroll: {paddingHorizontal: 4},
   contentCompact: {paddingTop: 8},
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},

@@ -1,320 +1,105 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import SkeletonLoader, {SkeletonRow} from '../../../components/SkeletonLoader';
-import StatusBadge, {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
+import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
+import StatusBadge from '../../../components/StatusBadge';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
-import {truncateDecimal} from '../../../utils/math';
-import {
-  formatImpact,
-  formatLessPercent,
-  getTargetShortfall,
-  getUnitPrice,
-  IMPACT_LEVEL,
-} from '../priceImpact';
 import {
   formatEstimatedAmount,
-  formatUnitPrice,
   getImpactBadgeLabel,
-  getImpactLossText,
   getImpactTone,
 } from './impactFormat';
 
-const Row = ({children, label, onPress, theme}) => {
-  const content = (
-    <>
-      <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
-        {label}
-      </Text>
-      {children}
-    </>
-  );
-
-  return onPress ? (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={styles.row}>
-      {content}
-    </Pressable>
-  ) : (
-    <View style={styles.row}>{content}</View>
-  );
-};
-
-// The "Via" row: which basket carries the conversion. It shows only when the
-// route offers a choice. On a short screen it can leave the pinned block, so it
-// is exported for the scroll content.
-export const RouteRow = ({onPress, routeChoice, theme}) => {
-  if (!routeChoice) return null;
-
-  return (
-    <Row label="Via" onPress={onPress} theme={theme}>
-      <View style={styles.routeValue}>
-        <Text
-          numberOfLines={1}
-          style={[
-            theme.typography.labelMd,
-            styles.routeName,
-            {color: theme.colors.textPrimary},
-          ]}>
-          {routeChoice.name}
-        </Text>
-        {routeChoice.isBest ? (
-          <StatusBadge label="Best price" tone={STATUS_BADGE_TONE.SUCCESS} />
-        ) : routeChoice.lessPercent ? (
-          <StatusBadge
-            label={`${formatLessPercent(routeChoice.lessPercent)}% less`}
-          />
-        ) : null}
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={theme.colors.textSubtle}
-        />
-      </View>
-    </Row>
-  );
-};
-
-// The conversion estimate. It says what the user receives, the price, and, when
-// the amount is large for the route, what that costs in money. The wizard pins
-// it above the action so it is never below the fold on a short screen. It stays
-// flat: hairline rows, no card.
+// Only the receive amount and a doorway to its details stay above Continue.
+// The label group can wrap its chip while the amount stays on one line.
 const AmountEstimate = ({
-  compact,
-  cryptoAmount,
-  displayCurrency,
   estimateLoading,
   estimatedOutput,
-  ethereumExport,
-  exportFeeDisplay,
-  exportFeeLoading,
-  hasExportFee,
-  onOpenRoute,
-  onUseSuggestion,
+  onOpenDetails,
   priceImpact,
-  rate,
-  routeChoice,
-  showRoute = true,
-  sourceCoin,
+  showDetails,
   target,
-  validAmount,
 }) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
-  const {impact, level, loss, marketPrice, suggestion} = priceImpact;
-  const sourceTicker = sourceCoin.display_ticker;
-  const hairline = [styles.hairline, {backgroundColor: colors.border}];
-
-  const unitPrice =
-    estimatedOutput != null && cryptoAmount.isFinite()
-      ? getUnitPrice(cryptoAmount, estimatedOutput)
-      : null;
-  const lossValue = getImpactLossText({
-    displayCurrency,
-    loss,
-    rate,
-    targetLoss:
-      estimatedOutput != null && cryptoAmount.isFinite() && marketPrice
-        ? getTargetShortfall({
-            amount: cryptoAmount,
-            output: estimatedOutput,
-            marketPrice,
-          })
-        : null,
-    targetTicker: target.ticker,
-  });
-  const lossIsVisible = lossValue != null;
-  const emphasis =
-    level === IMPACT_LEVEL.DANGER || level === IMPACT_LEVEL.WARNING;
-  const showsEstimate =
-    target.isConversion && (estimateLoading || estimatedOutput != null);
-  const showsMarketPrice =
-    target.isConversion && !validAmount && Boolean(marketPrice);
-
-  if (!showsEstimate && !showsMarketPrice && !ethereumExport) return null;
-
-  // The badge sits right of the money line. A compact layout puts it next to
-  // "You receive", so the money line has the whole width and stays on one line.
-  const impactBadge = emphasis ? (
-    <StatusBadge
-      label={getImpactBadgeLabel(impact)}
-      tone={getImpactTone(level)}
-    />
-  ) : null;
-
-  // The context band above already shows the target asset, so the logo makes
-  // way for the badge.
-  const badgeBesideLabel = Boolean(compact && impactBadge);
+  const chipLabel = priceImpact.impact == null
+    ? 'Details'
+    : getImpactBadgeLabel(priceImpact.impact);
 
   return (
     <View style={[styles.estimate, {borderTopColor: colors.border}]}>
-      {target.isConversion && estimateLoading ? (
+      {estimateLoading ? (
         <SkeletonLoader
           accessibilityLabel="Estimating conversion"
           style={styles.skeleton}>
-          <SkeletonRow labelWidth="28%" valueWidth="60%" />
-          <SkeletonRow labelWidth="28%" valueWidth="45%" />
-        </SkeletonLoader>
-      ) : null}
-
-      {target.isConversion && !estimateLoading && estimatedOutput != null ? (
-        <>
-          <View style={[styles.receiveRow, compact && styles.receiveRowCompact]}>
-            <View style={styles.receiveLabel}>
-              {badgeBesideLabel ? null : (
-                <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
-              )}
-              <Text
-                style={[
-                  theme.typography.bodySm,
-                  !badgeBesideLabel && styles.receiveText,
-                  {color: colors.textSecondary},
-                ]}>
-                You receive
-              </Text>
-              {badgeBesideLabel ? (
-                <View style={styles.receiveBadge}>{impactBadge}</View>
-              ) : null}
-            </View>
-            <View style={styles.receiveValue}>
-              <Text
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-                numberOfLines={1}
-                style={[styles.receiveAmount, {color: colors.textPrimary}]}>
-                ≈ {formatEstimatedAmount(estimatedOutput)}
-                <Text style={[styles.receiveTicker, {color: colors.textSecondary}]}>
-                  {' '}
-                  {target.ticker}
-                </Text>
-              </Text>
-              {unitPrice && !compact ? (
-                <Text
-                  style={[
-                    theme.typography.caption,
-                    {color: colors.textSecondary},
-                  ]}>
-                  1 {sourceTicker} = {formatUnitPrice(unitPrice)} {target.ticker}
-                </Text>
-              ) : null}
-            </View>
+          <View style={styles.skeletonRow}>
+            <SkeletonBlock height={14} radius={4} width={96} />
+            <SkeletonBlock height={20} radius={6} width={132} />
           </View>
-          <View style={hairline} />
-          {emphasis ? (
-            <>
-              <View style={[styles.impactRow, compact && styles.impactRowCompact]}>
-                <Text
-                  numberOfLines={2}
-                  style={[
-                    theme.typography.labelMd,
-                    styles.impactText,
-                    compact && styles.impactTextCompact,
-                    {
-                      color:
-                        level === IMPACT_LEVEL.DANGER
-                          ? colors.danger
-                          : colors.textPrimary,
-                    },
-                  ]}>
-                  {lossValue
-                    ? `${lossValue} less than the market price`
-                    : 'Less than the market price'}
-                </Text>
-                {compact ? null : impactBadge}
+        </SkeletonLoader>
+      ) : (
+        <View style={styles.receiveRow}>
+          <View style={styles.receiveLabel}>
+            {showDetails ? null : (
+              <View style={styles.receiveLogo}>
+                <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
               </View>
-              {suggestion ? (
-                <Pressable
-                  accessibilityLabel={`Use ${truncateDecimal(
-                    suggestion.amount,
-                    8,
-                  )} ${sourceTicker} instead, ${formatImpact(
-                    suggestion.impact,
-                  )}% less`}
-                  accessibilityRole="button"
-                  onPress={() => onUseSuggestion(suggestion.amount)}
-                  style={({pressed}) => [
-                    styles.suggestion,
-                    compact && styles.suggestionCompact,
-                    {
-                      backgroundColor: theme.isDark
-                        ? colors.surfaceMuted
-                        : colors.primaryBackground,
-                    },
-                    pressed && styles.pressed,
-                  ]}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      theme.typography.labelMd,
-                      styles.suggestionLabel,
-                      {color: theme.isDark ? colors.textPrimary : colors.primary},
-                    ]}>
-                    Use {truncateDecimal(suggestion.amount, 8)} {sourceTicker} instead
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      theme.typography.caption,
-                      {color: theme.isDark ? colors.textSecondary : colors.primary},
-                    ]}>
-                    {formatImpact(suggestion.impact)}% less
-                  </Text>
-                </Pressable>
-              ) : null}
-            </>
-          ) : level === IMPACT_LEVEL.QUIET && lossIsVisible ? (
+            )}
             <Text
+              numberOfLines={1}
               style={[
-                theme.typography.caption,
-                styles.quietLine,
-                compact && styles.quietLineCompact,
+                theme.typography.bodySm,
+                styles.receiveText,
                 {color: colors.textSecondary},
               ]}>
-              {lossValue} less than the market price
+              You receive
             </Text>
-          ) : null}
-          {showRoute ? (
-            <RouteRow
-              onPress={onOpenRoute}
-              routeChoice={routeChoice}
-              theme={theme}
-            />
-          ) : null}
-        </>
-      ) : null}
-
-      {showsMarketPrice ? (
-        <>
-          <Row label="Market price" theme={theme}>
-            <Text style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
-              1 {sourceTicker} = {formatUnitPrice(marketPrice)} {target.ticker}
+            {showDetails ? (
+              <Pressable
+                accessibilityLabel={priceImpact.impact == null
+                  ? 'Details. Opens price and route'
+                  : `Price impact ${chipLabel}. Opens price and route`}
+                accessibilityRole="button"
+                hitSlop={4}
+                onPress={onOpenDetails}
+                style={({pressed}) => [styles.chip, pressed && styles.pressed]}>
+                <StatusBadge
+                  label={chipLabel}
+                  tone={getImpactTone(priceImpact.level)}
+                />
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={14}
+                  color={colors.textSubtle}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={styles.amountRow}>
+            <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              numberOfLines={1}
+              style={[styles.receiveAmount, {color: colors.textPrimary}]}>
+              {estimatedOutput == null
+                ? '—'
+                : `≈\u00A0${formatEstimatedAmount(estimatedOutput)}`}
             </Text>
-          </Row>
-        </>
-      ) : null}
-
-      {ethereumExport ? (
-        <>
-          {showsEstimate ? <View style={hairline} /> : null}
-          {exportFeeLoading ? (
-            <SkeletonLoader
-              accessibilityLabel="Estimating Ethereum network fee"
-              style={styles.skeleton}>
-              <SkeletonRow labelWidth="50%" valueWidth="42%" />
-            </SkeletonLoader>
-          ) : (
-            <Row label="Ethereum network fee" theme={theme}>
-              <Text style={[theme.typography.labelMd, {color: colors.textPrimary}]}>
-                {hasExportFee ? `≈ ${exportFeeDisplay}` : 'Fee unavailable.'}
-              </Text>
-            </Row>
-          )}
-        </>
-      ) : null}
+            <Text
+              numberOfLines={1}
+              style={[
+                theme.typography.labelMd,
+                styles.receiveTicker,
+                {color: colors.textSecondary},
+              ]}>
+              {' '}
+              {target.ticker}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -325,52 +110,45 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  skeleton: {paddingVertical: 4},
-  hairline: {height: StyleSheet.hairlineWidth, marginTop: 2},
+  skeleton: {minHeight: 44, justifyContent: 'center'},
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   receiveRow: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  receiveRowCompact: {minHeight: 38},
-  receiveLabel: {flexDirection: 'row', alignItems: 'center', flexShrink: 1},
-  receiveText: {marginLeft: 10},
-  receiveBadge: {marginLeft: 8, flexShrink: 0},
-  receiveValue: {alignItems: 'flex-end', flexShrink: 1, marginLeft: 12},
-  receiveAmount: {fontSize: 17, lineHeight: 22, ...fontStyle('bold')},
-  receiveTicker: {fontSize: 14, ...fontStyle('semiBold')},
-  impactRow: {
-    marginTop: 6,
+  receiveLabel: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    flexShrink: 1,
   },
-  impactRowCompact: {marginTop: 2},
-  impactText: {flexShrink: 1, marginRight: 8},
-  impactTextCompact: {marginRight: 0},
-  suggestion: {
-    minHeight: 36,
-    marginTop: 6,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  suggestionCompact: {marginTop: 4},
-  suggestionLabel: {flexShrink: 1, marginRight: 8},
+  receiveLogo: {marginRight: 10},
+  receiveText: {marginRight: 8, flexShrink: 0},
+  chip: {minHeight: 36, flexDirection: 'row', alignItems: 'center', flexShrink: 0},
   pressed: {opacity: 0.7},
-  quietLine: {marginTop: 12},
-  quietLineCompact: {marginTop: 4},
-  row: {
-    minHeight: 36,
+  amountRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
+    maxWidth: '72%',
+    marginLeft: 4,
   },
-  routeValue: {flexDirection: 'row', alignItems: 'center', flexShrink: 1},
-  routeName: {flexShrink: 1, marginRight: 8},
+  receiveAmount: {
+    flexShrink: 1,
+    minWidth: 0,
+    textAlign: 'right',
+    fontSize: 17,
+    lineHeight: 22,
+    ...fontStyle('bold'),
+  },
+  receiveTicker: {flexShrink: 0},
 });
 
 export default AmountEstimate;
