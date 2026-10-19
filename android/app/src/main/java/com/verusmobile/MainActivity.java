@@ -52,7 +52,9 @@ public class MainActivity extends ReactActivity {
             int ime = insets.getInsets(WindowInsets.Type.ime()).bottom;
             int previous = lastIme[0];
             lastIme[0] = ime;
-            if (previous == -1 || previous == ime) {
+            // Emit on the first show too: React Native's own event can reach
+            // JavaScript late or not at all under load, and a repeat is harmless.
+            if (previous == ime) {
               return;
             }
             ReactContext context = getReactInstanceManager().getCurrentReactContext();
