@@ -49,3 +49,5 @@ export {default as walletBackupRequestInfoStyles} from './deeplink/walletBackupR
 export {createSelectionSheetStyles} from './components/selectionSheet.styles';
 
 export default Styles;
+
+export {createInfoSheetStyles} from './components/infoSheet.styles';

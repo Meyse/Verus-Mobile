@@ -22,6 +22,7 @@ export const SelectionRow = ({
   leading,
   badge,
   accessibilityLabel,
+  compact = false,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
@@ -37,16 +38,20 @@ export const SelectionRow = ({
       accessibilityState={selected == null ? undefined : {selected}}
       activeOpacity={0.74}
       onPress={onPress}
-      style={[styles.row, selected && styles.selectedRow]}>
+      style={[styles.row, compact && styles.compactRow, selected && styles.selectedRow]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={styles.copy}>
-        <Text style={[styles.rowTitle, titleMonospace && styles.identifier]}>
+        <Text
+          numberOfLines={compact ? 1 : undefined}
+          style={[styles.rowTitle, compact && styles.compactTitle, titleMonospace && styles.identifier]}>
           {title}
         </Text>
         {subtitle ? (
           <Text
+            numberOfLines={compact ? 1 : undefined}
             style={[
               styles.rowSubtitle,
+              compact && styles.compactSubtitle,
               subtitleMonospace && styles.identifier,
             ]}>
             {subtitle}
@@ -65,7 +70,7 @@ export const SelectionRow = ({
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={styles.indicator}>
+        style={[styles.indicator, compact && styles.compactIndicator]}>
         {selected ? (
           <Check color={theme.colors.success} size={20} strokeWidth={2.4} />
         ) : (

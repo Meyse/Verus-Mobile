@@ -54,6 +54,7 @@ const SheetScrollView = ({
   contentContainerStyle,
   fill = false,
   listProps,
+  style,
 }) => {
   const ScrollComponent = listProps ? FlatList : ScrollView;
   const theme = useOnboardingTheme();
@@ -80,7 +81,7 @@ const SheetScrollView = ({
       metrics.contentHeight - SCROLL_END_THRESHOLD;
 
   return (
-    <View style={[styles.requestSheetScrollFrame, fill && {flexGrow: 1}]}>
+    <View style={[styles.requestSheetScrollFrame, fill && {flexGrow: 1}, style]}>
       <ScrollComponent
         {...listProps}
         alwaysBounceVertical={false}
