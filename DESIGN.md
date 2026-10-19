@@ -75,6 +75,21 @@ methods, never Verus Mobile's visual direction.
   back-out actions such as "Cancel" and "Not now". Use `variant="text"` only
   for a third, low-emphasis link, such as "Other options" on the login screen.
 
+## Voice
+
+Copy never says "we", "our", or "us". The wallet is software; no company stands
+behind it. Prefer impersonal wording: "The best price is selected" and "Fees
+are shown before you confirm". Use "The wallet" only when the software acts.
+
+## Button sizes
+
+On a window of 667 points or less, primary and secondary buttons are 44 points
+high; the wizard footer's top padding is 8 points. Normal windows retain the
+56-point default and 16-point wizard footer top padding. Bottom spacing stays
+the same. `AppButton` and `GradientButton` resolve this rule centrally, including
+explicit action heights. Text and tonal buttons keep their size. Compact actions
+use `hitSlop` to keep the touch target at least 48 points tall.
+
 ## Canonical pattern map
 
 | Need | Source of truth | Required starting point |
@@ -156,7 +171,8 @@ Use `DeepLinkRequestDetailsSheet` for read-only request information. Its
 `InfoSheet` and `InfoSheetSection` directly for other informational sheets.
 The information scaffold provides the 78% maximum height, 20-point sheet title,
 sectioned label/value rows,
-overflow cue, and a 56-point quiet Done action. Keep the title literal and the
+overflow cue, and a 56-point quiet Done action (44 points on small windows).
+Keep the title literal and the
 content concise. Do not add an illustration, hero icon, or eyebrow.
 
 Both information and selection sheets use `src/components/SheetScrollView.js`
@@ -167,7 +183,7 @@ scroll indicator instead of a fade that would obscure the visible content.
 
 Use `AcknowledgeSheet` before an action that cannot be undone, such as sharing
 a gift card key. It shows a 21/27 title, one short message in the 16/24 body
-role, and one 56-point primary `AppButton`. When the user may back out, pass
+role, and one primary `AppButton` at the shared button height. When the user may back out, pass
 `dismissLabel` (for example "Not now"). The sheet then shows an `AppButton`
 with `variant="secondary"` 10 points under the primary action. Do not rely on
 an outside tap as the only visible way out: users do not reliably know they can
@@ -249,7 +265,7 @@ option A2 on 2026-10-19: a receive amount and a percent chip that opens
   long amounts at 360dp. Compact top spacing and the fiat-price unit-chip rule
   stay in place. The amount, unit chip, and "Available / MAX" remain scrollable.
 - "Price and route" reuses `InfoSheet`: the 24-point `BottomSheetModal` shell,
-  78% maximum height, `titleSheet`, and a fixed 56-point secondary Done action.
+  78% maximum height, `titleSheet`, and a fixed secondary Done action at the shared button height.
   One `SheetScrollView` contains all details and supplies the measured bottom
   fade and centered chevron only while more content remains below.
 - Sheet order: Price (Market price, Your price, Difference), Route, Ethereum

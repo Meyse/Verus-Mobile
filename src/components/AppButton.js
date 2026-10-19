@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button} from 'react-native-paper';
+import {Button, TouchableRipple} from 'react-native-paper';
 import Colors from '../globals/colors';
 import {appButtonStyles as styles} from '../styles';
 import {
@@ -7,6 +7,7 @@ import {
   useAppTheme,
 } from '../theme/app';
 import {APP_BUTTON_HEIGHT} from '../styles/components/appButton.styles';
+import {getButtonHitSlop, useButtonHeight} from '../hooks/useButtonHeight';
 
 const TONAL_ON_DARK_COLOR = 'rgba(255, 255, 255, 0.16)';
 const DISABLED_BUTTON_COLOR = '#E4E8EF';
@@ -67,9 +68,13 @@ const AppButton = ({
   contentStyle,
   labelStyle,
   style,
+  hitSlop,
   ...props
 }) => {
   const appTheme = useAppTheme();
+  const buttonHeight = useButtonHeight(variant, height);
+  const compactAction = buttonHeight < 48 &&
+    (variant === 'primary' || variant === 'secondary');
   const theme = themeMode
     ? resolveAppTheme(themeMode)
     : appTheme;
@@ -85,9 +90,20 @@ const AppButton = ({
     ? disabledVariantStyle.textColor
     : textColor || variantStyle.textColor;
 
-  return (
+  const button = (
     <Button
       {...props}
+      {...(compactAction ? {
+        onPress: undefined,
+        onPressIn: undefined,
+        onPressOut: undefined,
+        onLongPress: undefined,
+        onLayout: undefined,
+        accessible: false,
+        pointerEvents: 'none',
+        testID: props.testID ? `${props.testID}.visual` : undefined,
+      } : {})}
+      hitSlop={hitSlop}
       disabled={disabled}
       mode={mode}
       uppercase={uppercase}
@@ -96,9 +112,10 @@ const AppButton = ({
       contentStyle={[
         styles.content,
         {
-          height,
+          height: buttonHeight,
         },
         contentStyle,
+        compactAction && {height: buttonHeight, minHeight: buttonHeight},
       ]}
       labelStyle={[
         styles.label,
@@ -112,10 +129,36 @@ const AppButton = ({
         {
           backgroundColor: resolvedButtonColor,
         },
-        style,
+        !compactAction && style,
       ]}>
       {children}
     </Button>
+  );
+
+  if (!compactAction) return button;
+
+  // Paper Button forwards hitSlop to Surface, not its touchable. Keep its
+  // visuals and put the compact action on a ripple with a real 48-point target.
+  return (
+    <TouchableRipple
+      accessible={props.accessible}
+      accessibilityLabel={props.accessibilityLabel}
+      accessibilityHint={props.accessibilityHint}
+      accessibilityRole={props.accessibilityRole || 'button'}
+      accessibilityState={{...props.accessibilityState, disabled}}
+      disabled={disabled}
+      hitSlop={getButtonHitSlop(buttonHeight, hitSlop)}
+      onPress={props.onPress}
+      onPressIn={props.onPressIn}
+      onPressOut={props.onPressOut}
+      onLongPress={props.onLongPress}
+      delayLongPress={props.delayLongPress}
+      onLayout={props.onLayout}
+      rippleColor={props.rippleColor}
+      testID={props.testID}
+      style={[styles.button, style, {height: buttonHeight, minHeight: buttonHeight}]}>
+      {button}
+    </TouchableRipple>
   );
 };
 

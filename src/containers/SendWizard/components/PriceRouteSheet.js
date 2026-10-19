@@ -83,7 +83,7 @@ const PriceRouteSheet = ({
 
   return (
     // InfoSheet supplies one SheetScrollView with its measured overflow cue,
-    // a fixed 56-point Done action, and the shared 78% BottomSheetModal shell.
+    // a fixed Done action at the shared height, and the 78% BottomSheetModal shell.
     <InfoSheet
       title="Price and route"
       visible={visible}
@@ -125,7 +125,7 @@ const PriceRouteSheet = ({
               styles.routeSubtitle,
               {color: theme.colors.textSecondary},
             ]}>
-            We pick the best price. You can choose another basket.
+            The best price is selected by default. You can choose another basket.
           </Text>
           {entries.map(({route: item, output, isBest, lessPercent}) => (
             <SelectionRow

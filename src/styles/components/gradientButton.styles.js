@@ -5,7 +5,6 @@
 import { StyleSheet } from 'react-native';
 import {fontStyle} from '../../globals/fonts';
 import {
-  APP_BUTTON_HEIGHT,
   APP_BUTTON_LABEL_SIZE,
   APP_BUTTON_RADIUS,
 } from './appButton.styles';
@@ -16,7 +15,6 @@ export default StyleSheet.create({
     borderRadius: APP_BUTTON_RADIUS,
     overflow: 'hidden',
     position: 'relative',
-    height: APP_BUTTON_HEIGHT,
   },
   gradientBackground: {
     position: 'absolute',

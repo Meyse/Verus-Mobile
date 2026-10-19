@@ -2,6 +2,7 @@ import {StyleSheet} from 'react-native';
 import {fontStyle} from '../../globals/fonts';
 
 export const APP_BUTTON_HEIGHT = 56;
+export const APP_BUTTON_SMALL_HEIGHT = 44;
 export const APP_BUTTON_RADIUS = 18;
 export const APP_BUTTON_LABEL_SIZE = 17;
 
