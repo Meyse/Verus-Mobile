@@ -247,7 +247,12 @@ warning and the Via row below the fold with the keypad open.
 
 Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 
-- The Sent step has no progress bar. The header shows only the close button.
+- The Sent step has no header: no progress bar, no close button, no divider. Done
+  leaves. Sent shows the pay and receive amounts and the transaction ID. It shows no
+  "To" row and no "Arrives" row; the user saw both on Confirm.
+- Confirm shows the recipient once, in full, in the "To" row. The pay and receive nodes
+  carry only the amounts ("You pay", "You receive"). Confirm has no "More details" row.
+- Confirm does not show the "centrally controlled currency" notice (owner decision).
 - Confirm shows its warnings and errors above "Hold to confirm & send", outside the
   scroll area (`above` slot of `WizardFooter`). The fact list scrolls and shows the
   bottom fade (`FadedScrollView`) while rows remain below.

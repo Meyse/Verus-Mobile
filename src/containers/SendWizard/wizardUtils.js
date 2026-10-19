@@ -552,13 +552,6 @@ export const getTransactionId = result => {
   );
 };
 
-// True for a recipient too long for a summary line: a full address rather
-// than a VerusID name or a short address.
-export const isLongRecipient = address => {
-  const value = String(address || '');
-  return !value.endsWith('@') && value.length > 22;
-};
-
 // The network a cross-chain transfer arrives on, named as the Network sheet
 // names it ("Ethereum", not "vETH").
 export const getDestinationNetwork = (route, fallback = '') =>
