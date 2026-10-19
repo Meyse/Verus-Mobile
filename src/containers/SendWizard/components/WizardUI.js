@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import {useHeaderHeight} from '@react-navigation/elements';
@@ -240,6 +241,69 @@ export const DetailRow = ({label, value}) => {
   );
 };
 
+// One label/value row of a flat list. The list container draws the top
+// hairline; each row draws its own bottom one. Pass `onPress` for a row that
+// opens a sheet, and `children` for a value that is not plain text. Pass
+// `numberOfLines={0}` where the whole value must stay readable, as for
+// addresses and fees.
+export const FlatRow = ({
+  children,
+  label,
+  numberOfLines = 2,
+  onPress,
+  quiet = false,
+  value,
+  valueStyle,
+}) => {
+  const theme = useOnboardingTheme();
+  const content = (
+    <>
+      <Text style={[styles.flatLabel, {color: theme.colors.textSecondary}]}>
+        {label}
+      </Text>
+      <View style={styles.flatValueWrap}>
+        {children || (
+          <Text
+            numberOfLines={numberOfLines}
+            style={[
+              styles.flatValue,
+              {
+                color: quiet
+                  ? theme.colors.textSecondary
+                  : theme.colors.textPrimary,
+              },
+              quiet && styles.flatValueQuiet,
+              valueStyle,
+            ]}>
+            {value}
+          </Text>
+        )}
+        {onPress ? (
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={theme.colors.textSubtle}
+            style={styles.flatChevron}
+          />
+        ) : null}
+      </View>
+    </>
+  );
+  const rowStyle = [styles.flatRow, {borderBottomColor: theme.colors.border}];
+
+  return onPress ? (
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.74}
+      onPress={onPress}
+      style={rowStyle}>
+      {content}
+    </TouchableOpacity>
+  ) : (
+    <View style={rowStyle}>{content}</View>
+  );
+};
+
 export const ErrorMessage = ({children, style}) => {
   const theme = useOnboardingTheme();
   if (!children) return null;
@@ -378,6 +442,19 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     ...fontStyle('semiBold'),
   },
+  flatRow: {
+    minHeight: 44,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  flatLabel: {fontSize: 14, lineHeight: 19, marginRight: 16, ...fontStyle('regular')},
+  flatValueWrap: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
+  flatValue: {flexShrink: 1, textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
+  flatValueQuiet: {...fontStyle('regular')},
+  flatChevron: {marginLeft: 2},
   errorBox: {
     marginHorizontal: WIZARD_CONTENT_INSET,
     marginVertical: 12,

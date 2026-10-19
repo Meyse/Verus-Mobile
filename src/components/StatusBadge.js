@@ -8,6 +8,7 @@ export const STATUS_BADGE_TONE = {
   SUCCESS: 'success',
   WARNING: 'warning',
   NEUTRAL: 'neutral',
+  DANGER: 'danger',
 };
 
 const DARK_COLORS = ONBOARDING_THEMES.dark.colors;
@@ -24,6 +25,9 @@ const getToneColors = (tone, colors) => {
   }
   if (tone === STATUS_BADGE_TONE.WARNING) {
     return {backgroundColor: colors.warningBackground, color: colors.warning};
+  }
+  if (tone === STATUS_BADGE_TONE.DANGER) {
+    return {backgroundColor: colors.dangerBackground, color: colors.danger};
   }
   return {backgroundColor: colors.surfaceMuted, color: colors.textSecondary};
 };

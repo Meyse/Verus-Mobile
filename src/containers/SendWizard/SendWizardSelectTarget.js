@@ -117,15 +117,17 @@ const SendWizardSelectTarget = () => {
   const popular = filtered.filter(isPopularTarget);
   const other = filtered.filter(option => !isPopularTarget(option));
 
-  const chooseRoute = (target, route) => {
+  // `afterSheet` tells Amount it opens right after a sheet closed. On Android
+  // the keyboard needs a nudge in that case.
+  const chooseRoute = (target, route, afterSheet = false) => {
     setPendingTarget(null);
     setTarget(target, route);
-    navigation.navigate('SendWizardAmount');
+    navigation.navigate('SendWizardAmount', afterSheet ? {afterSheet: true} : undefined);
   };
 
-  const chooseNetwork = target => {
+  const chooseNetwork = (target, afterSheet = false) => {
     const directRoute = target.routes.find(route => !route.via) || target.routes[0];
-    chooseRoute(target, directRoute);
+    chooseRoute(target, directRoute, afterSheet);
   };
 
   const chooseTarget = target => {
@@ -220,7 +222,7 @@ const SendWizardSelectTarget = () => {
         visible={networkSheetVisible}
         onClose={() => setNetworkSheetVisible(false)}
         onClosed={() => setPendingTarget(null)}
-        onSelect={chooseNetwork}
+        onSelect={network => chooseNetwork(network, true)}
       />
     </WizardScreen>
   );

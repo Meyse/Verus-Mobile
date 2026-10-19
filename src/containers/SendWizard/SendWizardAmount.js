@@ -1,12 +1,18 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  InteractionManager,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
@@ -14,22 +20,23 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
 import {estimateConversion} from '../../utils/api/channels/vrpc/requests/estimateConversion';
 import {estimateEthereumExportFee} from '../../utils/api/channels/vrpc/requests/estimateEthereumExportFee';
 import {timeout} from '../../utils/promises';
 import {USD} from '../../utils/constants/currencies';
 import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
-import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
+import {compareRoutes} from './priceImpact';
+import {usePriceImpact} from './usePriceImpact';
 import {
   ErrorMessage,
   WizardFormLayout,
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
+import AmountEstimate from './components/AmountEstimate';
 import {
   RouteSheet,
   TargetNetworkSheet,
@@ -38,12 +45,14 @@ import {
   buildSendTarget,
   ADDRESS_TYPE,
   getCurrencyDisplay,
+  getRouteName,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
 
 const SendWizardAmount = () => {
   const navigation = useNavigation();
+  const {params} = useRoute();
   const theme = useOnboardingTheme();
   const {mode, state, setAmount, setEstimate, setRoute} = useSendWizard();
   const {
@@ -66,6 +75,41 @@ const SendWizardAmount = () => {
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
+  const amountInputRef = useRef(null);
+
+  // Android does not show the keyboard for a field that is focused while a
+  // sheet is still closing. Toggling focus once the sheet is gone asks the
+  // keyboard to show. Do it only where a sheet was just closed: toggling a
+  // keyboard that is already showing hides it, and Keyboard.isVisible() is not
+  // reliable here because the window pans instead of resizing.
+  const refocusAmount = useCallback(() => {
+    const input = amountInputRef.current;
+    if (!input) return;
+    input.blur();
+    input.focus();
+  }, []);
+  const refocusAfterSheet = useCallback(() => {
+    if (Platform.OS === 'android') setTimeout(refocusAmount, 700);
+  }, [refocusAmount]);
+  const openedAfterSheet = useRef(Boolean(params?.afterSheet));
+
+  // `autoFocus` only covers the first mount. A step reached while a sheet is
+  // still closing, or reached again with Back, needs the keypad opened here.
+  useFocusEffect(
+    useCallback(() => {
+      const focus = () => amountInputRef.current?.focus();
+      const task = InteractionManager.runAfterInteractions(focus);
+      const timers = [setTimeout(focus, 450)];
+      if (Platform.OS === 'android' && openedAfterSheet.current) {
+        openedAfterSheet.current = false;
+        timers.push(setTimeout(refocusAmount, 900));
+      }
+      return () => {
+        task.cancel();
+        timers.forEach(clearTimeout);
+      };
+    }, [refocusAmount]),
+  );
 
   const displayCurrency = useSelector(
     stateValue =>
@@ -327,6 +371,24 @@ const SendWizardAmount = () => {
     validAmount,
   ]);
 
+  const priceImpact = usePriceImpact({
+    channel,
+    sourceCoin,
+    target,
+    route,
+    amount: cryptoAmount,
+    output: validAmount ? state.estimate?.estimatedcurrencyout : null,
+    rate,
+  });
+
+  const applySuggestedAmount = suggestedAmount => {
+    setInput(
+      fiatMode && rate != null
+        ? suggestedAmount.multipliedBy(rate).decimalPlaces(2).toFixed(2)
+        : suggestedAmount.toFixed(),
+    );
+  };
+
   const useMaximum = () => {
     if (maximumDisabled) return;
     const maximum = BigNumber.maximum(0, BigNumber(sourceBalance || 0)
@@ -394,8 +456,20 @@ const SendWizardAmount = () => {
         })[0]
       : null;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
-  const rateDisplay = state.estimate?.price;
-  const routeName = route.viaFqn || route.via || route.label || 'Direct';
+  // A route row only makes sense when there is a choice. Best is the route
+  // with the most output; the chosen one may differ if the user picked it.
+  const routeComparison = compareRoutes(target.routes || [], routeEstimates);
+  const selectedRoute = routeComparison.find(
+    entry => entry.route.key === route.key,
+  );
+  const routeChoice =
+    routeComparison.length > 1 && selectedRoute
+      ? {
+          isBest: selectedRoute.isBest,
+          lessPercent: selectedRoute.lessPercent,
+          name: getRouteName(route),
+        }
+      : null;
   const enteredCryptoAmount = truncateDecimal(
     cryptoAmount.isFinite() ? cryptoAmount : 0,
     8,
@@ -478,6 +552,7 @@ const SendWizardAmount = () => {
           ) : null}
           <View style={styles.amountBlock}>
             <TextInput
+              ref={amountInputRef}
               autoFocus
               keyboardType="decimal-pad"
               onChangeText={setInput}
@@ -519,72 +594,24 @@ const SendWizardAmount = () => {
             </View>
           </View>
           {target.isConversion || ethereumExport ? (
-            <View style={[styles.estimateCard, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-              {target.isConversion && (estimateLoading ? (
-                <SkeletonLoader accessibilityLabel="Estimating conversion" style={styles.estimateSkeleton}>
-                  <SkeletonRow labelWidth="28%" valueWidth="60%" />
-                  <SkeletonRow labelWidth="28%" valueWidth="45%" />
-                </SkeletonLoader>
-              ) : estimatedOutput != null ? (
-                <>
-                  <Text style={[styles.estimateLabel, {color: theme.colors.textSecondary}]}>You receive</Text>
-                  <View style={styles.estimateOutputRow}>
-                    <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
-                    <View style={styles.estimateCopy}>
-                      <View style={styles.estimateValueRow}>
-                        <Text style={[styles.estimateValue, {color: theme.colors.textPrimary}]}>
-                          ≈ {truncateDecimal(BigNumber(estimatedOutput), 8)}
-                        </Text>
-                        <Text style={[styles.estimateTicker, {color: theme.colors.textSecondary}]}>{target.ticker}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </>
-              ) : !estimateError ? (
-                <Text style={[styles.estimateEmpty, {color: theme.colors.textSecondary}]}>Enter amount to see estimate</Text>
-              ) : null)}
-              {target.isConversion && !estimateLoading && validAmount ? (
-                <>
-                  {estimatedOutput != null ? (
-                    <View style={[styles.divider, {backgroundColor: theme.colors.border}]} />
-                  ) : null}
-                  <Pressable
-                    disabled={(target.routes || []).length < 2}
-                    onPress={() => setRouteSheetOpen(true)}
-                    style={styles.routeRow}>
-                    <Text style={[styles.routeLabel, {color: theme.colors.textSecondary}]}>Conversion route</Text>
-                    <View style={styles.routeValueRow}>
-                      <Text style={[styles.routeValue, {color: theme.colors.textPrimary}]}>{routeName}</Text>
-                      {(target.routes || []).length > 1 ? (
-                        <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.textSubtle} />
-                      ) : null}
-                    </View>
-                  </Pressable>
-                  {rateDisplay ? (
-                    <View style={styles.routeRow}>
-                      <Text style={[styles.routeLabel, {color: theme.colors.textSecondary}]}>Rate</Text>
-                      <Text style={[styles.routeValue, {color: theme.colors.textPrimary}]}>
-                        1 {sourceCoin.display_ticker} = {truncateDecimal(BigNumber(rateDisplay), 8)} {target.ticker}
-                      </Text>
-                    </View>
-                  ) : null}
-                </>
-              ) : null}
-              {ethereumExport ? (
-                exportFeeLoading ? (
-                  <SkeletonLoader accessibilityLabel="Estimating Ethereum network fee" style={styles.estimateSkeleton}>
-                    <SkeletonRow labelWidth="50%" valueWidth="42%" />
-                  </SkeletonLoader>
-                ) : (
-                  <View style={styles.routeRow}>
-                    <Text style={[styles.routeLabel, {color: theme.colors.textSecondary}]}>Ethereum network fee</Text>
-                    <Text style={[styles.routeValue, {color: theme.colors.textPrimary}]}>
-                      {exportFee ? `≈ ${exportFeeDisplay}` : 'Fee unavailable.'}
-                    </Text>
-                  </View>
-                )
-              ) : null}
-            </View>
+            <AmountEstimate
+              cryptoAmount={cryptoAmount}
+              displayCurrency={displayCurrency}
+              estimateLoading={estimateLoading}
+              estimatedOutput={estimatedOutput}
+              ethereumExport={ethereumExport}
+              exportFeeDisplay={exportFeeDisplay}
+              exportFeeLoading={exportFeeLoading}
+              hasExportFee={Boolean(exportFee)}
+              onOpenRoute={() => setRouteSheetOpen(true)}
+              onUseSuggestion={applySuggestedAmount}
+              priceImpact={priceImpact}
+              rate={rate}
+              routeChoice={routeChoice}
+              sourceCoin={sourceCoin}
+              target={target}
+              validAmount={validAmount}
+            />
           ) : null}
         </>}
       </WizardFormLayout>
@@ -592,10 +619,10 @@ const SendWizardAmount = () => {
         estimates={routeEstimates}
         selectedKey={route?.key}
         target={target}
-        title="Choose a conversion route"
         routes={target.routes || []}
         visible={routeSheetOpen}
         onClose={() => setRouteSheetOpen(false)}
+        onClosed={refocusAfterSheet}
         onSelect={nextRoute => {
           setPreferredRouteKey(nextRoute.key);
           setRoute(nextRoute);
@@ -607,6 +634,7 @@ const SendWizardAmount = () => {
       <TargetNetworkSheet
         selectedKey={route?.networkKey}
         onClose={() => setNetworkSheetOpen(false)}
+        onClosed={refocusAfterSheet}
         onSelect={chooseSendNetwork}
         options={sendNetworkOptions}
         target={sendTarget}
@@ -647,20 +675,6 @@ const styles = StyleSheet.create({
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},
   maxDisabled: {opacity: 0.4},
   maxText: {fontSize: 11, lineHeight: 15, letterSpacing: 0.5, ...fontStyle('bold')},
-  estimateCard: {borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 10, marginBottom: 10},
-  estimateLabel: {fontSize: 12, lineHeight: 17, marginBottom: 6, ...fontStyle('bold')},
-  estimateOutputRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 8},
-  estimateCopy: {flex: 1, marginLeft: 10},
-  estimateValueRow: {flexDirection: 'row', alignItems: 'baseline'},
-  estimateValue: {fontSize: 17, lineHeight: 22, ...fontStyle('bold')},
-  estimateTicker: {fontSize: 14, lineHeight: 19, marginLeft: 6, ...fontStyle('medium')},
-  divider: {height: StyleSheet.hairlineWidth, width: '100%', marginVertical: 6},
-  routeRow: {minHeight: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  routeValueRow: {flexDirection: 'row', alignItems: 'center', flexShrink: 1},
-  routeLabel: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
-  routeValue: {maxWidth: 220, textAlign: 'right', fontSize: 13, lineHeight: 18, ...fontStyle('semiBold')},
-  estimateEmpty: {paddingVertical: 8, fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
-  estimateSkeleton: {paddingVertical: 4},
 });
 
 export default SendWizardAmount;
