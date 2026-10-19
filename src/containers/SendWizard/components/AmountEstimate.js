@@ -74,16 +74,27 @@ const AmountEstimate = ({
               </Pressable>
             ) : null}
           </View>
-          <Text
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-            numberOfLines={1}
-            style={[styles.receiveAmount, {color: colors.textPrimary}]}>
-            {estimatedOutput == null ? '—' : `≈ ${formatEstimatedAmount(estimatedOutput)}`}
-            <Text style={[theme.typography.labelMd, {color: colors.textSecondary}]}>
-              {' '}{target.ticker}
+          <View style={styles.amountRow}>
+            <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              numberOfLines={1}
+              style={[styles.receiveAmount, {color: colors.textPrimary}]}>
+              {estimatedOutput == null
+                ? '—'
+                : `≈ ${formatEstimatedAmount(estimatedOutput)}`}
             </Text>
-          </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                theme.typography.labelMd,
+                styles.receiveTicker,
+                {color: colors.textSecondary},
+              ]}>
+              {' '}
+              {target.ticker}
+            </Text>
+          </View>
         </View>
       )}
     </View>
@@ -113,15 +124,23 @@ const styles = StyleSheet.create({
   receiveText: {marginRight: 8, flexShrink: 0},
   chip: {minHeight: 36, flexDirection: 'row', alignItems: 'center', flexShrink: 0},
   pressed: {opacity: 0.7},
-  receiveAmount: {
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
     flexShrink: 1,
     minWidth: 0,
     marginLeft: 4,
+  },
+  receiveAmount: {
+    flexShrink: 1,
+    minWidth: 0,
     textAlign: 'right',
     fontSize: 17,
     lineHeight: 22,
     ...fontStyle('bold'),
   },
+  receiveTicker: {flexShrink: 0},
 });
 
 export default AmountEstimate;
