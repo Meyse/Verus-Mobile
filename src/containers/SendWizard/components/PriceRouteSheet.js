@@ -136,6 +136,12 @@ const PriceRouteSheet = ({
                 : Object.prototype.hasOwnProperty.call(estimates, item.key)
                 ? 'Estimate unavailable.'
                 : undefined}
+              accessibilityLabel={[
+                getRouteName(item),
+                output ? `about ${formatEstimatedAmount(output)} ${target.ticker}` : null,
+                isBest ? 'Best price' : lessPercent ? `${formatLessPercent(lessPercent)}% less` : null,
+                item.key === route.key ? 'selected' : null,
+              ].filter(Boolean).join(', ')}
               badge={isBest ? (
                 <StatusBadge label="Best price" tone={STATUS_BADGE_TONE.SUCCESS} />
               ) : lessPercent ? (

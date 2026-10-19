@@ -1,7 +1,7 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import SkeletonLoader, {SkeletonRow} from '../../../components/SkeletonLoader';
+import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
 import StatusBadge from '../../../components/StatusBadge';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -34,7 +34,10 @@ const AmountEstimate = ({
         <SkeletonLoader
           accessibilityLabel="Estimating conversion"
           style={styles.skeleton}>
-          <SkeletonRow labelWidth="28%" valueWidth="60%" />
+          <View style={styles.skeletonRow}>
+            <SkeletonBlock height={14} radius={4} width={96} />
+            <SkeletonBlock height={20} radius={6} width={132} />
+          </View>
         </SkeletonLoader>
       ) : (
         <View style={styles.receiveRow}>
@@ -82,7 +85,7 @@ const AmountEstimate = ({
               style={[styles.receiveAmount, {color: colors.textPrimary}]}>
               {estimatedOutput == null
                 ? '—'
-                : `≈ ${formatEstimatedAmount(estimatedOutput)}`}
+                : `≈\u00A0${formatEstimatedAmount(estimatedOutput)}`}
             </Text>
             <Text
               numberOfLines={1}
@@ -107,7 +110,12 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  skeleton: {paddingVertical: 4},
+  skeleton: {minHeight: 44, justifyContent: 'center'},
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   receiveRow: {
     minHeight: 44,
     flexDirection: 'row',
@@ -128,8 +136,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'flex-end',
-    flexShrink: 1,
-    minWidth: 0,
+    flexShrink: 0,
+    maxWidth: '72%',
     marginLeft: 4,
   },
   receiveAmount: {
