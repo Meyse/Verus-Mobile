@@ -4,6 +4,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import SelectionSheet, {SelectionAction, SelectionRow} from '../../../components/SelectionSheet';
 import AppTextInput from '../../../components/AppTextInput';
 import AppButton from '../../../components/AppButton';
+import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import useSheetDismissal from '../../../components/useSheetDismissal';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -27,7 +28,7 @@ const FeeValue = ({amount, caption}) => {
 
 export {FeeValue};
 
-export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote, choice, review, confirmedReview, maximum, ticker, formatFiat, previews}) {
+export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote, choice, review, confirmedReview, maximum, ticker, formatFiat}) {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
@@ -106,6 +107,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
           {kind === 'btc' ? (
             <AppTextInput
               label="Fee rate"
+              accessibilityLabel="Fee rate, sat/vB"
               keyboardType="decimal-pad"
               value={fields.rate}
               onChangeText={setField('rate')}
@@ -118,6 +120,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
             <>
               <AppTextInput
                 label="Max base fee"
+                accessibilityLabel="Max base fee, Gwei"
                 keyboardType="decimal-pad"
                 value={fields.base}
                 onChangeText={setField('base')}
@@ -129,6 +132,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
               <AppTextInput
                 containerStyle={styles.secondField}
                 label="Priority fee"
+                accessibilityLabel="Priority fee, Gwei"
                 keyboardType="decimal-pad"
                 value={fields.priority}
                 onChangeText={setField('priority')}
@@ -152,15 +156,20 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
         <>
           {quote?.tiers?.map((fee, index) => {
             const tier = FEE_TIERS[index];
-            const result = previews?.[tier.id];
-            const amount = result ? (kind === 'eth' ? result.likelyFee : result.fee) : null;
+            const result = previewNetworkFee(kind, fee, review, quote);
+            const amount = result?.likelyFee;
             const money = amount != null ? formatFiat(amount) : null;
             return <SelectionRow
               key={tier.id}
               title={tier.title}
               subtitle={tier[kind === 'btc' ? 'btcTime' : 'ethTime']}
               selected={choice.id === tier.id}
-              value={formatFeeAmount(amount, ticker, kind === 'eth') || (result === false ? 'Unavailable' : '…')}
+              value={review ? formatFeeAmount(amount, ticker, true) || 'Unavailable' : null}
+              valueContent={!review ? (
+                <SkeletonLoader accessibilityLabel="Loading network fee">
+                  <SkeletonBlock width={96} height={18} />
+                </SkeletonLoader>
+              ) : null}
               valueLabel={money ? `≈ ${money}` : null}
               onPress={() => apply({id: tier.id})}
             />;

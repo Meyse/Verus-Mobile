@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
-import {Check} from 'lucide-react-native';
+import {Check, ChevronLeft} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from './BottomSheetModal';
 import SheetScrollView from './SheetScrollView';
@@ -19,6 +19,7 @@ export const SelectionRow = ({
   onPress,
   value,
   valueLabel,
+  valueContent,
   leading,
   badge,
   accessibilityLabel,
@@ -59,12 +60,16 @@ export const SelectionRow = ({
         ) : null}
       </View>
       {badge ? <View style={styles.badge}>{badge}</View> : null}
-      {value != null ? (
+      {value != null || valueContent ? (
         <View style={styles.value}>
-          <Text style={styles.valueText}>{value}</Text>
-          {valueLabel ? (
-            <Text style={styles.valueLabel}>{valueLabel}</Text>
-          ) : null}
+          {valueContent || (
+            <>
+              <Text style={styles.valueText}>{value}</Text>
+              {valueLabel ? (
+                <Text style={styles.valueLabel}>{valueLabel}</Text>
+              ) : null}
+            </>
+          )}
         </View>
       ) : null}
       <View
@@ -159,7 +164,7 @@ const SelectionSheet = ({
               accessibilityLabel={backAccessibilityLabel}
               onPress={onBack}
               style={styles.backButton}>
-              <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.textPrimary} />
+              <ChevronLeft size={22} color={theme.colors.textPrimary} />
             </TouchableOpacity>
           ) : null}
           <Text accessibilityRole="header" style={styles.title}>

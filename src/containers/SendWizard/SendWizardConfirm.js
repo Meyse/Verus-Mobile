@@ -28,7 +28,6 @@ import {
 } from 'verus-typescript-primitives';
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
 import NetworkFeeSheet from './components/NetworkFeeSheet';
-import AppButton from '../../components/AppButton';
 import useNetworkFee from './useNetworkFee';
 import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind} from './networkFeeUtils';
 import {
@@ -122,7 +121,6 @@ const SendWizardConfirm = () => {
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
-  const [tierPreviews, setTierPreviews] = useState({});
   const preflightSequence = useRef(0);
   const preparedParams = useRef(null);
   const lastReview = useRef(null);
@@ -356,6 +354,7 @@ const SendWizardConfirm = () => {
     networkFee.choose(next);
   };
   const retryNetworkFee = () => {
+    if (submissionInFlight.current || submitted.current || broadcastUnknown.current) return;
     preflightSequence.current++;
     preparedParams.current = null;
     setPreflight(null);
@@ -363,26 +362,6 @@ const SendWizardConfirm = () => {
     setError(null);
     networkFee.retry();
   };
-
-  // Sheet amounts use real preflights, including BTC coin selection. A choice
-  // still triggers a new authoritative preflight after the sheet closes.
-  useEffect(() => {
-    if (!feeKind || !feeSheetOpen || !networkFee.quote?.tiers) return undefined;
-    let active = true;
-    setTierPreviews({});
-    networkFee.quote.tiers.forEach(async (fee, index) => {
-      try {
-        const result = await preflightSend(sourceCoin, activeAccount, recipientAddress, BigNumber(amount), channel, {
-          ...simpleSendParams,
-          ...(feeKind === 'btc' ? {defaultFee: fee} : {networkFee: {...fee, baseFeePerGas: networkFee.quote.baseFeePerGas}}),
-        });
-        if (active) setTierPreviews(current => ({...current, [FEE_TIERS[index].id]: result?.err || result?.error ? false : result.result}));
-      } catch (_) {
-        if (active) setTierPreviews(current => ({...current, [FEE_TIERS[index].id]: false}));
-      }
-    });
-    return () => { active = false; };
-  }, [feeKind, feeSheetOpen, networkFee.quote, simpleSendParams, sourceCoin, activeAccount, recipientAddress, amount, channel]);
 
   const submit = async () => {
     if (
@@ -628,6 +607,8 @@ const SendWizardConfirm = () => {
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
   const pinnedMessage = state.broadcastError || error;
+  const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
+    !state.broadcastError && !state.txResult);
 
   return (
     <WizardScreen scroll={false}>
@@ -682,27 +663,23 @@ const SendWizardConfirm = () => {
               <ErrorMessage style={styles.pinnedError}>
                 {pinnedMessage}
               </ErrorMessage>
-              {feeKind && pinnedMessage && !state.broadcastError ? (
-                <AppButton variant="secondary" onPress={retryNetworkFee}>Retry network fee</AppButton>
-              ) : null}
             </View>
           ) : null
         }
         disabled={
-          !preflightResult ||
+          (!needsFeeRetry && (!preflightResult || preparedParams.current !== simpleSendParams)) ||
           preflighting ||
           networkFee.loading ||
-          preparedParams.current !== simpleSendParams ||
           submitted.current ||
           Boolean(state.txResult) ||
           Boolean(state.broadcastError)
         }
-        holdToConfirm
+        holdToConfirm={!needsFeeRetry}
         loading={sending || preflighting || networkFee.loading}
         holdingText="Hold to confirm..."
         loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending..."}
-        onPress={submit}>
-        {state.broadcastError ? 'Status unknown' : 'Hold to confirm & send'}
+        onPress={needsFeeRetry ? retryNetworkFee : submit}>
+        {state.broadcastError ? 'Status unknown' : needsFeeRetry ? 'Try again' : 'Hold to confirm & send'}
       </WizardFooter>
       {feeKind ? (
         <NetworkFeeSheet
@@ -717,7 +694,6 @@ const SendWizardConfirm = () => {
           maximum={maxBTCFeeRate(sourceCoin)}
           ticker={feeTicker}
           formatFiat={fee => formatFiat(fee, feeCurrencyId)}
-          previews={tierPreviews}
         />
       ) : <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />}
     </WizardScreen>

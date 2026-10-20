@@ -61,8 +61,9 @@ export const feeOptionsFromHistory = (history, automatic, floor) => {
     if (values[0] > values[1] || values[1] > values[2]) throw new Error('Invalid fee history.');
     return values;
   });
-  const slow = median(rewards.map(row => row[0]));
-  const normal = max(median(rewards.map(row => row[1])), automatic.maxPriorityFeePerGas);
+  const slowMedian = median(rewards.map(row => row[0]));
+  const normal = max(max(median(rewards.map(row => row[1])), automatic.maxPriorityFeePerGas), BigInt(1));
+  const slow = slowMedian === BigInt(0) ? max(normal / BigInt(2), BigInt(1)) : slowMedian;
   const fast = max(median(rewards.map(row => row[2])), normal);
   const tiers = [slow, normal, fast].map((tip, index) => ({
     maxPriorityFeePerGas: tip.toString(),

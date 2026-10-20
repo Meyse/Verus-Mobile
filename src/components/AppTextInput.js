@@ -131,7 +131,15 @@ const AppTextInput = forwardRef(function AppTextInput(
           ]}
           value={value}
         />
-        {rightAccessory}
+        {rightAccessory ? (
+          <View
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.rightAccessory}>
+            {rightAccessory}
+          </View>
+        ) : null}
         {rightIcon ? (
           <TouchableOpacity
             accessibilityLabel={rightAccessibilityLabel}
