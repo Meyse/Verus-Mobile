@@ -88,13 +88,13 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
   const setField = name => value => setFields(current => ({...current, [name]: value}));
   const revealFocusedField = useCallback(() => {
     if (!visible || !custom || !keyboard.visible || !focusedField || preserveKeyboard.current) return;
-    // The summary stays above the action. Reveal the last field from the end
-    // so its helper or error stays above the footer on compact keyboards.
+    // Reveal Priority with its helper, warning and summary. Start at the top
+    // for Max base fee so the next input stays reachable on compact keyboards.
     if (focusedField === 'priority') scrollRef.current?.scrollToEnd({animated: false});
     else scrollRef.current?.scrollTo({y: 0, animated: false});
   }, [visible, custom, keyboard.visible, focusedField]);
 
-  useEffect(revealFocusedField, [revealFocusedField, fields]);
+  useEffect(revealFocusedField, [revealFocusedField, fields, warning]);
 
   return (
     <SelectionSheet
@@ -114,27 +114,16 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
         onContentSizeChange: revealFocusedField,
       } : undefined}
       footer={custom ? (
-        <View style={styles.customFooter}>
-          {warning ? <Text style={[theme.typography.caption, styles.warning, {color: theme.colors.warning}]}>{warning}</Text> : null}
-          <View style={[styles.summary, {borderTopColor: theme.colors.border}]}>
-            <FlatRow label="Network fee">
-              <FeeValue
-                amount={formatFeeAmount(summary?.likelyFee, ticker, true) || 'Calculated on review'}
-                caption={kind === 'eth' && summary?.fee ? `Up to ${formatFeeAmount(summary.fee, ticker)}` : null}
-              />
-            </FlatRow>
-          </View>
-          <SafeBottomActionStack
-            horizontalSpacing={0}
-            includeBottomInset={false}
-            safeAreaSpacing={0}
-            bottomSpacing={0}
-            style={styles.footer}>
-            <AppButton disabled={!validation.fee} onPress={() => apply({id: 'custom', fee: validation.fee})}>
-              Use this fee
-            </AppButton>
-          </SafeBottomActionStack>
-        </View>
+        <SafeBottomActionStack
+          horizontalSpacing={0}
+          includeBottomInset={false}
+          safeAreaSpacing={0}
+          bottomSpacing={0}
+          style={styles.footer}>
+          <AppButton disabled={!validation.fee} onPress={() => apply({id: 'custom', fee: validation.fee})}>
+            Use this fee
+          </AppButton>
+        </SafeBottomActionStack>
       ) : null}>
       {custom ? (
         <>
@@ -183,6 +172,15 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
               />
             </>
           )}
+          {warning ? <Text style={[theme.typography.caption, styles.warning, {color: theme.colors.warning}]}>{warning}</Text> : null}
+          <View style={[styles.summary, {borderTopColor: theme.colors.border}]}>
+            <FlatRow label="Network fee">
+              <FeeValue
+                amount={formatFeeAmount(summary?.likelyFee, ticker, true) || 'Calculated on review'}
+                caption={kind === 'eth' && summary?.fee ? `Up to ${formatFeeAmount(summary.fee, ticker)}` : null}
+              />
+            </FlatRow>
+          </View>
         </>
       ) : (
         <>
@@ -229,6 +227,5 @@ const styles = StyleSheet.create({
   secondField: {marginTop: 20},
   warning: {marginTop: 8},
   summary: {marginTop: 16, borderTopWidth: StyleSheet.hairlineWidth},
-  customFooter: {flexShrink: 0},
   footer: {paddingTop: 12},
 });
