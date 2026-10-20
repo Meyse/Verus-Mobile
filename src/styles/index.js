@@ -51,3 +51,5 @@ export {createSelectionSheetStyles} from './components/selectionSheet.styles';
 export default Styles;
 
 export {createInfoSheetStyles} from './components/infoSheet.styles';
+
+export {default as paymentRequestSlipStyles} from './components/paymentRequestSlip.styles';

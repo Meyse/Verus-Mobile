@@ -62,8 +62,17 @@ methods, never Verus Mobile's visual direction.
   colors locally.
 - Treat light and dark mode as one deliverable. State, hierarchy, legibility,
   and interaction must survive both.
+- On iOS every text field takes its keyboard appearance from the in-app theme
+  through `src/utils/applyThemedKeyboard.js`. Do not set `keyboardAppearance`
+  per field. Android keyboards keep their own or the system setting.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
   through `src/components/SafeBottomActionStack.js`.
+- Wrap a form with bottom actions in `src/components/KeyboardAvoidingForm.js`
+  so the actions stay above the keyboard on both platforms. Android pans the
+  window (`adjustPan`), so a plain `KeyboardAvoidingView` there does nothing.
+  While the keyboard shows, drop the bottom inset as the onboarding steps do.
+- iOS 26 switches are 63 x 28 points; `src/utils/applyNativeSwitchSize.js`
+  sizes them. Give a switch slot a minimum width, not a fixed 51 or 52 points.
 - Use monospace only for raw technical identifiers such as addresses, hashes,
   transaction IDs, and public keys.
 - Show a status as the tinted status badge: a pill with a semantic background
@@ -480,6 +489,52 @@ The detail screen shows one fixed card and says each fact once.
 - Warnings appear in the share confirmation, not as permanent notice boxes.
 - Wording: use "Claimed", not "Redeemed" or "Claim completed". Use "Shared" as
   the status after the link leaves the wallet.
+
+## Receive and payment request
+
+The owner approved variation A ("Calm address") for Receive and variation C's
+paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
+
+- Receive keeps the native Back header with no title or options icon. A
+  40-point asset logo sits beside `headlineMd`. Under the name, show only the
+  selected card type and its network. With several cards, that line opens
+  "Choose a card" and has a 44-point touch target.
+- Center the QR and address group in the remaining space; scroll when needed.
+  The QR tile stays white in both themes, with 16-point padding, a 20-point
+  radius, and a 216-point QR (184 on small screens; on windows of 640 points
+  or less, a 160-point QR, 12-point padding and tighter spacing so the address
+  field sits above the footer). Keep the existing filled address field, middle
+  ellipsis, identifier type, and `CopyAction`. Do not group addresses into
+  four-character blocks. VerusID names keep normal type. On Android the address
+  text is not selectable, because a selectable Android text view ignores the
+  middle ellipsis; `CopyAction` is the copy path.
+- Show no supported-chain claim or repeated card/address metadata. The safe
+  footer has Share address, then Request amount as a secondary action.
+- "Choose a card" titles each card by type ("Transparent", "Private") or by
+  its VerusID name, with a transparent card's short address as a monospace
+  subtitle, so the chooser matches the context line.
+- Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
+  and 1, the Send 40/48 amount field (it shrinks to 20 points to keep the
+  amount and its unit on one line) and conversion chip, and `FlatRow` for
+  Note and Conversions. These rows show only on conversion-eligible cards.
+  The two compact form sheets follow `AddressBookEditSheet`; choices apply
+  after dismissal. The note stays out of the modern invoice QR.
+- Request ready uses `PaymentRequestSlip` at the full content width. The fixed
+  `#F6F3EC` paper, light text colors, notched SVG outline, dotted perforation,
+  and `StatusBadge variant="paper"` are an approved material exception to flat
+  pages. Use the VerusPay wordmark and conversion badge for modern invoices;
+  other cards show the asset name and logo. The amount sizes itself to the slip
+  width and the unit shrinks with it, so the number is never smaller than its
+  ticker. The result step shows no bottom scroll fade: the cut card edge
+  already shows that more is below, and a page-colored fade smears the paper
+  in dark mode. The QR
+  is 200 points (160 on compact windows), with a 14-point quiet zone. Under it,
+  show the address in one monospace line with middle ellipsis, or the human
+  VerusID name in normal type. Use an iOS shadow; no Android rectangle elevation.
+- The result footer has Share for modern invoices, or Save QR to camera roll
+  for other cards, then secondary Done. Back returns to the input with values
+  kept. The result scrolls. Generation, share, save, and interruption behavior
+  retain the existing operation guards and invoice contracts.
 
 ## Scroll affordances
 

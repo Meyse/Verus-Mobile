@@ -1,5 +1,11 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Keyboard, StyleSheet, View} from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 // Keyboard.metrics() and Keyboard.isVisible() stay empty on Android here (the
 // window pans instead of resizing), so keep the last reported keyboard frame
@@ -54,7 +60,7 @@ const AndroidKeyboardAvoidingForm = ({
       setBottom(0);
     });
 
-    // Recipient can mount while Amount's keyboard is already open.
+    // A form can mount while the previous step's keyboard is still open.
     keyboardFrameRef.current = lastKeyboardFrame;
     updateOverlap();
 
@@ -80,6 +86,25 @@ const AndroidKeyboardAvoidingForm = ({
   );
 };
 
+// Keeps a form's bottom actions above the software keyboard. iOS pads with
+// KeyboardAvoidingView. Android pans the window (adjustPan) instead of
+// resizing it, so the form pads itself from keyboard events.
+const KeyboardAvoidingForm = ({children, keyboardVerticalOffset = 0, style}) =>
+  Platform.OS === 'android' ? (
+    <AndroidKeyboardAvoidingForm
+      keyboardVerticalOffset={keyboardVerticalOffset}
+      style={style}>
+      {children}
+    </AndroidKeyboardAvoidingForm>
+  ) : (
+    <KeyboardAvoidingView
+      behavior="padding"
+      keyboardVerticalOffset={keyboardVerticalOffset}
+      style={style}>
+      {children}
+    </KeyboardAvoidingView>
+  );
+
 const styles = StyleSheet.create({content: {flex: 1}});
 
-export default AndroidKeyboardAvoidingForm;
+export default KeyboardAvoidingForm;

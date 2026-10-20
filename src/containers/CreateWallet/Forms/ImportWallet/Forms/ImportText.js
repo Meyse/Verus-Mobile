@@ -4,7 +4,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,10 +14,14 @@ import {Text} from 'react-native-paper';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
+import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
-import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
+import {
+  ONBOARDING_KEYBOARD_FOOTER_SPACING,
+  useOnboardingSmallDeviceLayout,
+} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const CONTENT_ANIMATION_DURATION = 320;
 
@@ -34,7 +37,7 @@ export default function ImportText({
   );
   const [showSeed, setShowSeed] = useState(false);
   const contentProgress = useRef(new Animated.Value(0)).current;
-  const {smallDevice, smallDeviceKeyboardVisible} =
+  const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
     useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
@@ -108,9 +111,7 @@ export default function ImportText({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={signedOutFlowStyles.container}>
+    <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
         accessible={false}
         onPress={() => Keyboard.dismiss()}>
@@ -159,7 +160,12 @@ export default function ImportText({
           </ScrollView>
         </View>
       </TouchableWithoutFeedback>
-      <SafeBottomActionStack>
+      <SafeBottomActionStack
+        bottomSpacing={keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30}
+        includeBottomInset={!keyboardVisible}
+        safeAreaSpacing={
+          keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
+        }>
         <AppButton
           disabled={importedSeed == null || importedSeed.length === 0}
           height={56}
@@ -169,7 +175,7 @@ export default function ImportText({
           {'Import'}
         </AppButton>
       </SafeBottomActionStack>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingForm>
   );
 }
 

@@ -13,6 +13,7 @@ const FadedScrollView = forwardRef(function FadedScrollView(
     onLayout,
     onScroll,
     scrollEventThrottle = 16,
+    showEndFade = true,
     showStartFade,
     ...scrollViewProps
   },
@@ -29,6 +30,7 @@ const FadedScrollView = forwardRef(function FadedScrollView(
   const startFadeVisible =
     startFadeEnabled && canOverflow && metrics.offset > 2;
   const endFadeVisible =
+    showEndFade &&
     canOverflow &&
     metrics.offset + metrics.layoutLength < metrics.contentLength - 2;
 
