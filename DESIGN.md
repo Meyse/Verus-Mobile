@@ -62,6 +62,9 @@ methods, never Verus Mobile's visual direction.
   colors locally.
 - Treat light and dark mode as one deliverable. State, hierarchy, legibility,
   and interaction must survive both.
+- On iOS every text field takes its keyboard appearance from the in-app theme
+  through `src/utils/applyThemedKeyboard.js`. Do not set `keyboardAppearance`
+  per field. Android keyboards keep their own or the system setting.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
   through `src/components/SafeBottomActionStack.js`.
 - Use monospace only for raw technical identifiers such as addresses, hashes,
