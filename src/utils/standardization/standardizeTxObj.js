@@ -134,7 +134,7 @@ export const standardizeWyreTxObj = (transaction, accountAddress, coinObj) => {
 };
 
 export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
-  const {amount, txid, height, address, blocktime, sent, mempool, timestamp, conversion, conversionProceeds} = transaction;
+  const {amount, txid, height, address, blocktime, sent, mempool, timestamp} = transaction;
   const amountBn = BigNumber(amount)
   let timeEstimate;
 
@@ -165,17 +165,15 @@ export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
   })
 
   return {
-    address: conversion?.destination || (addresses.length === 0 ? null : addresses.sort((a, b) => {
+    address: addresses.length === 0 ? null : addresses.sort((a, b) => {
       if (b !== address) return 1;
       else return -1;
-    }).join(' & ')),
+    }).join(' & '),
     amount: amountBn.abs().toString(),
     type: amountBn.isGreaterThan(0) ? 'received' : 'sent',
     confirmed: mempool ? false : true,
     height,
     timestamp: blocktime || timestamp || timeEstimate,
     txid,
-    ...(conversion ? {conversion} : {}),
-    ...(conversionProceeds ? {conversionProceeds} : {}),
   };
 };
