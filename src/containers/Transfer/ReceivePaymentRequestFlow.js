@@ -11,17 +11,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import BigNumber from 'bignumber.js';
 import {CameraRoll} from '@react-native-camera-roll/camera-roll';
 import RNFS from 'react-native-fs';
-import QRCode from 'react-native-qrcode-svg';
+import {formatCurrency} from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Checkbox, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
 import AppButton from '../../components/AppButton';
-import AppTextInput from '../../components/AppTextInput';
 import FadedScrollView from '../../components/FadedScrollView';
 import ProgressHeader from '../../components/ProgressHeader';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
@@ -34,13 +35,15 @@ import {
   validateSlippageInput,
 } from './receiveInvoice';
 import {createReceiveDetailsStyles} from './receive.styles';
+import {FlatRow} from '../SendWizard/components/WizardUI';
+import PaymentRequestSlip from './PaymentRequestSlip';
+import ReceiveNoteSheet from './ReceiveNoteSheet';
+import ReceiveConversionsSheet from './ReceiveConversionsSheet';
 
 const DEFAULT_SLIPPAGE = '0.5';
 const KEYBOARD_FOOTER_SPACING = 8;
 
 const STEP_AMOUNT = 'amount';
-const STEP_SUBJECT = 'subject';
-const STEP_SETTINGS = 'settings';
 const STEP_RESULT = 'result';
 
 // Messages the invoice pipeline already writes for people. Anything else is
@@ -73,20 +76,7 @@ export const getAmountInputError = value => {
   return validateAmountInput(sanitizeNumericInput(value));
 };
 
-const getStepTitle = step =>
-  ({
-    [STEP_AMOUNT]: 'Enter amount',
-    [STEP_SUBJECT]: 'Add a subject',
-    [STEP_SETTINGS]: 'Conversion settings',
-    [STEP_RESULT]: 'Payment request ready',
-  })[step] || 'Payment request';
-
-const getStepProgress = (step, conversionEligible) => {
-  if (step === STEP_RESULT) return 1;
-  if (step === STEP_AMOUNT) return conversionEligible ? 0.25 : 0.5;
-  if (step === STEP_SUBJECT) return 0.5;
-  return 0.75;
-};
+const getStepTitle = step => step === STEP_RESULT ? 'Request ready' : 'Request';
 
 // Keep raw RPC, endpoint and file-system failures out of the UI. Only the
 // recoverable messages the invoice pipeline writes for people pass through.
@@ -103,7 +93,6 @@ const ReceivePaymentRequestFlow = ({
   address,
   allowSlippageSetting,
   card,
-  cardContextLabel,
   coinObj,
   contextKey,
   conversionEligible,
@@ -129,9 +118,14 @@ const ReceivePaymentRequestFlow = ({
   const [snapshot, setSnapshot] = useState(null);
   const [qrSaved, setQrSaved] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [noteVisible, setNoteVisible] = useState(false);
+  const [conversionsVisible, setConversionsVisible] = useState(false);
+  const [amountWidth, setAmountWidth] = useState(40);
 
   const qrRef = useRef(null);
   const mountedRef = useRef(true);
+  const contextRef = useRef(contextKey);
+  contextRef.current = contextKey;
   const activeRunRef = useRef(0);
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
@@ -171,6 +165,8 @@ const ReceivePaymentRequestFlow = ({
     setLoading(false);
     setSnapshot(null);
     setQrSaved(false);
+    setNoteVisible(false);
+    setConversionsVisible(false);
   }, [invalidateOperations]);
 
   useEffect(() => {
@@ -207,12 +203,14 @@ const ReceivePaymentRequestFlow = ({
 
   const normalizedAmount = sanitizeNumericInput(amount);
   const amountValid = getAmountInputError(amount) == null;
-  const amountPreview = useMemo(() => {
-    if (!amountValid || !price) return null;
-    return amountFiat
-      ? `≈ ${truncateDecimal(Number(normalizedAmount) / Number(price), 8)} ${coinObj.display_ticker}`
-      : `≈ ${truncateDecimal(Number(normalizedAmount) * Number(price), 2)} ${displayCurrency}`;
-  }, [amountFiat, amountValid, coinObj, displayCurrency, normalizedAmount, price]);
+  const fiatEstimate = useMemo(() => {
+    if (!amountValid || !price || Number(price) <= 0) return null;
+    const fiat = amountFiat ? Number(normalizedAmount) : Number(normalizedAmount) * Number(price);
+    return `≈ ${formatCurrency({amount: fiat.toFixed(2), code: displayCurrency})[0]}`;
+  }, [amountFiat, amountValid, displayCurrency, normalizedAmount, price]);
+  const amountPreview = amountFiat && Number(price) > 0
+    ? `≈ ${truncateDecimal((amountValid ? Number(normalizedAmount) : 0) / Number(price), 8)} ${coinObj.display_ticker}`
+    : fiatEstimate || `≈ ${formatCurrency({amount: '0.00', code: displayCurrency})[0]}`;
 
   const currencyTicker = amountFiat
     ? displayCurrency
@@ -236,6 +234,7 @@ const ReceivePaymentRequestFlow = ({
     loadingRef.current = true;
     setLoading(true);
     setError(null);
+    Keyboard.dismiss();
 
     try {
       const result = await generateReceiveInvoice({
@@ -260,9 +259,22 @@ const ReceivePaymentRequestFlow = ({
         showVerusIcon: result.showVerusIcon,
         amountText: normalizedAmount,
         currency: currencyTicker,
+        // The slip shows what the QR requests: the coin amount, even when
+        // the amount was typed in the display currency.
+        displayAmount: amountFiat
+          ? BigNumber(result.cryptoAmount)
+              .decimalPlaces(coinObj.decimals ?? 8, BigNumber.ROUND_DOWN)
+              .toFixed()
+          : normalizedAmount,
+        displayUnit: coinObj.display_ticker,
         subject,
         address,
         conversion: conversionEligible,
+        allowConversion: conversionEligible && allowConversion,
+        fiatEstimate,
+        identityName: card?.name?.endsWith('@') ? card.name : null,
+        coinId: coinObj.id,
+        assetName: coinObj.display_name,
       });
       setQrSaved(false);
       qrSavedRef.current = false;
@@ -288,6 +300,7 @@ const ReceivePaymentRequestFlow = ({
     conversionEligible,
     currencyTicker,
     displayCurrency,
+    fiatEstimate,
     maxSlippage,
     normalizedAmount,
     priceMap,
@@ -376,20 +389,11 @@ const ReceivePaymentRequestFlow = ({
       setSnapshot(null);
       setQrSaved(false);
       setError(null);
-      setStep(conversionEligible ? STEP_SETTINGS : STEP_AMOUNT);
-      return;
-    }
-    if (step === STEP_SETTINGS) {
-      setError(null);
-      setStep(STEP_SUBJECT);
-      return;
-    }
-    if (step === STEP_SUBJECT) {
       setStep(STEP_AMOUNT);
       return;
     }
     onExit();
-  }, [cancelGeneration, conversionEligible, invalidateOperations, onExit, step]);
+  }, [cancelGeneration, invalidateOperations, onExit, step]);
 
   useEffect(() => {
     handleBackRef.current = handleBack;
@@ -421,23 +425,9 @@ const ReceivePaymentRequestFlow = ({
       );
       return;
     }
-    if (step === STEP_RESULT) return;
     const title = getStepTitle(step);
     AccessibilityInfo.announceForAccessibility(`${title}.`);
   }, [loading, step]);
-
-  const handleAmountNext = useCallback(() => {
-    if (conversionEligible) {
-      setError(null);
-      setStep(STEP_SUBJECT);
-      return;
-    }
-    createInvoice();
-  }, [conversionEligible, createInvoice]);
-
-  const startNewRequest = useCallback(() => {
-    resetFlow();
-  }, [resetFlow]);
 
   const cancelAndExit = useCallback(() => {
     cancelGeneration(false);
@@ -447,26 +437,36 @@ const ReceivePaymentRequestFlow = ({
   const renderAmountStep = () => (
     <>
       <View style={styles.amountRow}>
-        <AppTextInput
+        <Text
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          onLayout={event => setAmountWidth(event.nativeEvent.layout.width + 4)}
+          style={[styles.amountInput, styles.amountMeasure]}>
+          {amount || '0'}
+        </Text>
+        <TextInput
           accessibilityLabel={`Amount in ${currencyTicker}`}
           autoFocus
-          containerStyle={styles.amountField}
+          editable={!loading}
           inputMode="decimal"
           keyboardType="decimal-pad"
           maxLength={MAX_AMOUNT_LENGTH}
           onChangeText={setAmount}
           placeholder="0"
+          placeholderTextColor={theme.colors.textSubtle}
           returnKeyType="done"
+          selectionColor={theme.colors.primary}
+          style={[styles.amountInput, {width: amountWidth}]}
           value={amount}
         />
-        <Text style={styles.currency}>{currencyTicker}</Text>
+        <Text numberOfLines={1} style={styles.currency}>{currencyTicker}</Text>
       </View>
-      <View style={styles.estimateWrap}>
-        {amountPreview ? <Text style={styles.estimate}>{amountPreview}</Text> : null}
-      </View>
-      {price ? (
+      {price && Number(price) > 0 ? (
         <TouchableOpacity
+          accessibilityLabel={`Change amount unit. ${amountPreview}`}
           accessibilityRole="button"
+          disabled={loading}
           onPress={() => {
             if (amountValid && price && Number(price) > 0) {
               const current = Number(sanitizeNumericInput(amount));
@@ -477,130 +477,55 @@ const ReceivePaymentRequestFlow = ({
             }
             setAmountFiat(value => !value);
           }}
-          style={styles.switch}>
+          hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+          style={styles.modeChip}>
+          <Text style={styles.modeText}>{amountPreview}</Text>
           <MaterialCommunityIcons
             color={theme.colors.textSecondary}
             name="swap-vertical"
             size={16}
+            style={styles.modeIcon}
           />
-          <Text style={styles.switchText}>
-            Switch to {amountFiat ? coinObj.display_ticker : displayCurrency}
-          </Text>
         </TouchableOpacity>
       ) : null}
-      {error ? <Text style={[styles.error, styles.amountError]}>{error}</Text> : null}
-    </>
-  );
-
-  const renderSubjectStep = () => (
-    <>
-      <Text style={styles.stepHelper}>
-        Optional. Added to the share message.
-      </Text>
-      <AppTextInput
-        accessibilityLabel="Subject"
-        autoCapitalize="sentences"
-        autoFocus
-        onChangeText={setSubject}
-        placeholder="e.g. Dinner"
-        returnKeyType="done"
-        value={subject}
-      />
-    </>
-  );
-
-  const renderSettingsStep = () => (
-    <>
-      <TouchableOpacity
-        accessibilityRole="checkbox"
-        accessibilityState={{checked: allowConversion}}
-        activeOpacity={0.7}
-        disabled={loading}
-        onPress={() => setAllowConversion(value => !value)}
-        style={styles.settingRow}>
-        <View style={styles.settingCopy}>
-          <Text style={styles.settingTitle}>Allow conversions</Text>
-          <Text style={styles.settingSubtitle}>
-            Senders can pay with currencies that convert to{' '}
-            {coinObj.display_ticker}.
-          </Text>
-        </View>
-        <View pointerEvents="none">
-          <Checkbox.Android
-            color={theme.colors.primary}
-            status={allowConversion ? 'checked' : 'unchecked'}
-            uncheckedColor={theme.colors.textSubtle}
-          />
-        </View>
-      </TouchableOpacity>
-      {allowConversion && allowSlippageSetting ? (
-        <View style={styles.slippageField}>
-          <AppTextInput
-            accessibilityLabel="Maximum slippage percentage"
-            keyboardType="decimal-pad"
-            label="Max slippage (%)"
-            onChangeText={setMaxSlippage}
-            value={maxSlippage}
-          />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {conversionEligible ? (
+        <View style={styles.requestRows}>
+          <FlatRow label="Note" onPress={loading ? undefined : () => {
+            Keyboard.dismiss();
+            setNoteVisible(true);
+          }} quiet={!subject} value={subject || 'Optional'} />
+          <FlatRow label="Conversions" onPress={loading ? undefined : () => {
+            Keyboard.dismiss();
+            setConversionsVisible(true);
+          }} value={allowConversion
+            ? `Allowed${allowSlippageSetting ? `, max ${maxSlippage}%` : ''}`
+            : 'Not allowed'} />
         </View>
       ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </>
-  );
-
-  const renderResultStep = () => (
-    <>
-      <View style={styles.resultWrap}>
-        <View style={styles.resultQr}>
-          <QRCode
-            getRef={ref => {
-              qrRef.current = ref;
-            }}
-            logo={
-              snapshot.showVerusIcon
-                ? require('../../images/customIcons/Verus.png')
-                : undefined
-            }
-            logoBackgroundColor="#FFFFFF"
-            logoBorderRadius={80}
-            logoSize={snapshot.showVerusIcon ? 48 : undefined}
-            size={isSmall ? 180 : 220}
-            value={snapshot.qrString}
-          />
-        </View>
-        <Text style={styles.resultAmount}>
-          {snapshot.amountText} {snapshot.currency}
-        </Text>
-        {snapshot.address ? (
-          <Text
-            ellipsizeMode="middle"
-            numberOfLines={1}
-            style={[styles.resultAddress, styles.identifier]}>
-            {snapshot.address}
-          </Text>
-        ) : null}
-        {cardContextLabel ? (
-          <Text style={styles.resultAddress}>{cardContextLabel}</Text>
-        ) : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-      </View>
     </>
   );
 
   const getStepContent = () => {
-    if (step === STEP_SUBJECT) return renderSubjectStep();
-    if (step === STEP_SETTINGS) return renderSettingsStep();
-    if (step === STEP_RESULT && snapshot) return renderResultStep();
+    if (step === STEP_RESULT && snapshot) {
+      return (
+        <>
+          <PaymentRequestSlip isSmall={isSmall} qrRef={qrRef} snapshot={snapshot} />
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </>
+      );
+    }
     return renderAmountStep();
   };
 
   const renderActions = () => {
     const actions = {
       bottomSpacing: keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30,
-      gap: 8,
+      gap: 10,
       horizontalSpacing: 20,
       includeBottomInset: !keyboardVisible,
       safeAreaSpacing: 0,
+      style: [styles.footer, isSmall && styles.footerCompact],
     };
 
     if (step === STEP_AMOUNT) {
@@ -620,44 +545,11 @@ const ReceivePaymentRequestFlow = ({
       return (
         <SafeBottomActionStack {...actions}>
           <AppButton
-            accessibilityLabel="Next"
+            accessibilityLabel="Create request"
             accessibilityState={{disabled: !amountValid}}
             disabled={!amountValid}
-            onPress={handleAmountNext}>
-            Next
-          </AppButton>
-        </SafeBottomActionStack>
-      );
-    }
-
-    if (step === STEP_SUBJECT) {
-      return (
-        <SafeBottomActionStack {...actions}>
-          <AppButton onPress={() => setStep(STEP_SETTINGS)}>Next</AppButton>
-        </SafeBottomActionStack>
-      );
-    }
-
-    if (step === STEP_SETTINGS) {
-      if (loading) {
-        return (
-          <SafeBottomActionStack {...actions}>
-            <AppButton
-              accessibilityLabel="Cancel payment request"
-              accessibilityState={{busy: true}}
-              onPress={cancelAndExit}
-              variant="secondary">
-              Cancel
-            </AppButton>
-          </SafeBottomActionStack>
-        );
-      }
-      return (
-        <SafeBottomActionStack {...actions}>
-          <AppButton
-            accessibilityLabel="Create payment request"
             onPress={createInvoice}>
-            Create payment request
+            Create request
           </AppButton>
         </SafeBottomActionStack>
       );
@@ -673,7 +565,7 @@ const ReceivePaymentRequestFlow = ({
         <AppButton
           accessibilityLabel={
             snapshot.conversion
-              ? 'Share payment link'
+              ? 'Share'
               : savedNonConversion
                 ? 'QR image saved'
                 : 'Save QR to camera roll'
@@ -683,13 +575,10 @@ const ReceivePaymentRequestFlow = ({
           onPress={snapshot.conversion ? shareInvoice : saveQr}
           style={savedNonConversion ? {backgroundColor: theme.colors.success} : undefined}>
           {snapshot.conversion
-            ? 'Share payment link'
+            ? 'Share'
             : savedNonConversion
               ? 'QR image saved'
               : 'Save QR to camera roll'}
-        </AppButton>
-        <AppButton onPress={startNewRequest} variant="secondary">
-          New payment request
         </AppButton>
         <AppButton onPress={onExit} variant="secondary">
           Done
@@ -702,7 +591,7 @@ const ReceivePaymentRequestFlow = ({
     <View style={[styles.wizardRoot, {backgroundColor: theme.colors.background}]}>
       <ProgressHeader
         onBack={handleBack}
-        progress={getStepProgress(step, conversionEligible)}
+        progress={step === STEP_RESULT ? 1 : 0.5}
         title={getStepTitle(step)}
       />
       <KeyboardAvoidingView
@@ -710,8 +599,7 @@ const ReceivePaymentRequestFlow = ({
         // right reaction. Android runs with adjustPan in the production
         // manifest: the window keeps its size, so nothing lifts the footer and
         // the keyboard covers it. Shrinking the viewport reserves the keyboard
-        // height instead, keeping the action row reachable on the subject and
-        // slippage steps.
+        // height instead, keeping the action row reachable on the input step.
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
         style={styles.wizardViewport}>
@@ -735,6 +623,31 @@ const ReceivePaymentRequestFlow = ({
         </FadedScrollView>
         {renderActions()}
       </KeyboardAvoidingView>
+      {conversionEligible ? (
+        <>
+          <ReceiveNoteSheet
+            note={subject}
+            onApply={value => {
+              if (mountedRef.current && contextRef.current === contextKey) setSubject(value);
+            }}
+            onClose={() => setNoteVisible(false)}
+            visible={noteVisible}
+          />
+          <ReceiveConversionsSheet
+            allowConversion={allowConversion}
+            allowSlippageSetting={allowSlippageSetting}
+            maxSlippage={maxSlippage}
+            onApply={values => {
+              if (!mountedRef.current || contextRef.current !== contextKey) return;
+              setAllowConversion(values.allowConversion);
+              setMaxSlippage(values.maxSlippage);
+            }}
+            onClose={() => setConversionsVisible(false)}
+            ticker={coinObj.display_ticker}
+            visible={conversionsVisible}
+          />
+        </>
+      ) : null}
     </View>
   );
 };

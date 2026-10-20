@@ -470,6 +470,40 @@ The detail screen shows one fixed card and says each fact once.
 - Wording: use "Claimed", not "Redeemed" or "Claim completed". Use "Shared" as
   the status after the link leaves the wallet.
 
+## Receive and payment request
+
+The owner approved variation A ("Calm address") for Receive and variation C's
+paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
+
+- Receive keeps the native Back header with no title or options icon. A
+  40-point asset logo sits beside `headlineMd`. Under the name, show only the
+  selected card type and its network. With several cards, that line opens
+  "Choose a card" and has a 44-point touch target.
+- Center the QR and address group in the remaining space; scroll when needed.
+  The QR tile stays white in both themes, with 16-point padding, a 20-point
+  radius, and a 216-point QR (184 on small screens). Keep the existing filled
+  address field, middle ellipsis, identifier type, and `CopyAction`. Do not
+  group addresses into four-character blocks. VerusID names keep normal type.
+- Show no supported-chain claim or repeated card/address metadata. The safe
+  footer has Share address, then Request amount as a secondary action.
+- Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
+  and 1, the Send 40/48 amount field and conversion chip, and `FlatRow` for
+  Note and Conversions. These rows show only on conversion-eligible cards.
+  The two compact form sheets follow `AddressBookEditSheet`; choices apply
+  after dismissal. The note stays out of the modern invoice QR.
+- Request ready uses `PaymentRequestSlip` at the full content width. The fixed
+  `#F6F3EC` paper, light text colors, notched SVG outline, dotted perforation,
+  and `StatusBadge variant="paper"` are an approved material exception to flat
+  pages. Use the VerusPay wordmark and conversion badge for modern invoices;
+  other cards show the asset name and logo. The amount shrinks to fit. The QR
+  is 200 points (160 on compact windows), with a 14-point quiet zone. Under it,
+  show the address in one monospace line with middle ellipsis, or the human
+  VerusID name in normal type. Use an iOS shadow; no Android rectangle elevation.
+- The result footer has Share for modern invoices, or Save QR to camera roll
+  for other cards, then secondary Done. Back returns to the input with values
+  kept. The result scrolls. Generation, share, save, and interruption behavior
+  retain the existing operation guards and invoice contracts.
+
 ## Scroll affordances
 
 When a vertically scrollable surface does not make its overflow apparent from

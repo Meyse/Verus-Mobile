@@ -5,10 +5,16 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import {Dimensions, ScrollView, TouchableOpacity, View} from 'react-native';
+import {
+  ScrollView,
+  Share,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {
@@ -20,16 +26,15 @@ import {
 } from '../../actions/actionCreators';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
+import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import SkeletonLoader, {
   SkeletonBlock,
   SkeletonText,
 } from '../../components/SkeletonLoader';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
-import {VerusPayLogo} from '../../images/customIcons';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {AssetCoinLogo, RenderPlainCoinLogo} from '../../utils/CoinData/Graphics';
-import {coinsList} from '../../utils/CoinData/CoinsList';
+import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {WALLET_APP_RECEIVE} from '../../utils/constants/apps';
 import {
   API_GET_ADDRESSES,
@@ -40,12 +45,14 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {USD} from '../../utils/constants/currencies';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
-import {getSubWalletNetworkLabel} from '../../utils/subwallet/cardPresentation';
+import {
+  getSubWalletCardType,
+  getSubWalletNetworkLabel,
+} from '../../utils/subwallet/cardPresentation';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
 import ReceiveAddressSheet from './ReceiveAddressSheet';
 import ReceivePaymentRequestFlow from './ReceivePaymentRequestFlow';
 import ReceiveSubwalletSheet from './ReceiveSubwalletSheet';
-import SupportedChainsSheet from './SupportedChainsSheet';
 import {createReceiveDetailsStyles} from './receive.styles';
 
 // Addresses come from the keys of the active account, addressed by the Card's
@@ -72,35 +79,13 @@ const receiveCardsForCoin = (coinObj, allSubWallets) =>
       wallet.api_channels?.[API_GET_ADDRESSES] != null,
   );
 
-const getSupportedNetworks = coinObj => {
-  if (!coinObj || (coinObj.proto !== 'vrsc' && !coinObj.is_pbaas)) return [];
-
-  const root = coinObj.testnet ? coinsList.VRSCTEST : coinsList.VRSC;
-  const networks = root ? [root] : [];
-
-  Object.values(coinsList).forEach(network => {
-    if (
-      network.proto === 'vrsc' &&
-      network.id !== 'VRSC' &&
-      network.id !== 'VRSCTEST' &&
-      network.currency_id === network.system_id &&
-      !!network.testnet === !!coinObj.testnet
-    ) {
-      networks.push(network);
-    }
-  });
-
-  return networks;
-};
-
 const ReceiveAssetDetails = ({navigation, route}) => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
-  const insets = useSafeAreaInsets();
+  const {height, width} = useWindowDimensions();
   const styles = useMemo(() => createReceiveDetailsStyles(theme), [theme]);
-  const isSmall =
-    Dimensions.get('window').height <= 667 ||
-    Dimensions.get('window').width <= 375;
+  const isSmall = height <= 667 || width <= 375;
+  const qrSize = isSmall ? 184 : 216;
   const activeCoins = useObjectSelector(
     state => state.coins.activeCoinsForUser || [],
   );
@@ -149,7 +134,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const address = selectedAddressRecord?.address || null;
   const [cardSheetVisible, setCardSheetVisible] = useState(false);
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
-  const [networksVisible, setNetworksVisible] = useState(false);
+  const [shareError, setShareError] = useState(null);
   const [requestActive, setRequestActive] = useState(false);
 
   useEffect(() => {
@@ -160,6 +145,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
 
   useEffect(() => {
     setSelectedAddressIndex(0);
+    setShareError(null);
   }, [resolvedCardId, activeAccount?.accountHash]);
 
   useEffect(() => {
@@ -187,24 +173,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         elevation: 0,
         shadowOpacity: 0,
       },
-      headerRight:
-        cards.length > 1
-          ? () => (
-              <TouchableOpacity
-                accessibilityLabel="Choose Card"
-                accessibilityRole="button"
-                onPress={() => setCardSheetVisible(true)}
-                style={styles.headerRightButton}>
-                <MaterialCommunityIcons
-                  color={theme.colors.textPrimary}
-                  name="tune-vertical"
-                  size={24}
-                />
-              </TouchableOpacity>
-            )
-          : undefined,
+      headerRight: undefined,
     });
-  }, [cards.length, navigation, requestActive, styles, theme]);
+  }, [navigation, requestActive, theme]);
 
   const conversionEligible =
     coinObj?.proto === 'vrsc' &&
@@ -214,10 +185,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const priceMap =
     rates[GENERAL]?.[coinObj?.id] || rates[rateChannel]?.[coinObj?.id] || {};
   const price = priceMap[displayCurrency];
-  const supportedNetworks = useMemo(
-    () => getSupportedNetworks(coinObj),
-    [coinObj],
-  );
   const balanceMap = useMemo(
     () =>
       cards.reduce((result, card) => {
@@ -229,7 +196,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const cardContextLabel = useMemo(() => {
     if (!selectedCard) return '';
     const networkName = getSubWalletNetworkLabel(selectedCard, coinObj);
-    return [selectedCard.name, networkName].filter(Boolean).join(' · ');
+    return `${getSubWalletCardType(selectedCard)} · ${networkName}`;
   }, [coinObj, selectedCard]);
   const requestContextKey = [
     coinObj?.id,
@@ -242,8 +209,15 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const closeCardSheet = useCallback(() => setCardSheetVisible(false), []);
   const openAddressSheet = useCallback(() => setAddressSheetVisible(true), []);
   const closeAddressSheet = useCallback(() => setAddressSheetVisible(false), []);
-  const openNetworks = useCallback(() => setNetworksVisible(true), []);
-  const closeNetworks = useCallback(() => setNetworksVisible(false), []);
+  const shareAddress = useCallback(async () => {
+    if (!address) return;
+    try {
+      await Share.share({message: address});
+      setShareError(null);
+    } catch (e) {
+      setShareError('The share sheet could not be opened. Try again.');
+    }
+  }, [address]);
   const startRequest = useCallback(() => setRequestActive(true), []);
   const exitRequest = useCallback(() => setRequestActive(false), []);
   const goHome = useCallback(() => navigation.navigate('Home'), [navigation]);
@@ -363,7 +337,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           generalSettings.allowSettingVerusPaySlippage === true
         }
         card={selectedCard}
-        cardContextLabel={cardContextLabel}
         coinObj={coinObj}
         contextKey={requestContextKey}
         conversionEligible={conversionEligible}
@@ -383,145 +356,104 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              <AssetCoinLogo coinId={coinObj.id} size={32} />
+              <AssetCoinLogo coinId={coinObj.id} size={40} />
               <Text style={styles.title}>{coinObj.display_name}</Text>
             </View>
-            <Text style={styles.ticker}>{coinObj.display_ticker}</Text>
-          </View>
-          <View style={styles.qrWrap}>
-            <View style={styles.qrSurface}>
-              {addressLoading ? (
-                <SkeletonLoader accessibilityLabel="Loading receive address">
-                  <SkeletonBlock height={200} radius={8} width={200} />
-                </SkeletonLoader>
-              ) : address ? (
-                <QRCode size={200} value={address} />
-              ) : (
-                <View
-                  style={{
-                    width: 200,
-                    height: 200,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <MaterialCommunityIcons
-                    color={theme.colors.textSubtle}
-                    name="qrcode"
-                    size={72}
-                  />
-                </View>
-              )}
-            </View>
-            {supportedNetworks.length > 0 ? (
+            {cards.length > 1 ? (
               <TouchableOpacity
-                accessibilityLabel="View supported chains"
+                accessibilityLabel={`Choose a card. Current: ${getSubWalletCardType(selectedCard)} on ${getSubWalletNetworkLabel(selectedCard, coinObj)}`}
                 accessibilityRole="button"
-                activeOpacity={0.7}
-                onPress={openNetworks}
-                style={styles.networkPill}>
-                <View style={styles.networkIcons}>
-                  {supportedNetworks.slice(0, 3).map((network, index) => (
-                    <View
-                      key={network.id}
-                      style={[
-                        styles.networkIcon,
-                        {
-                          marginLeft: index > 0 ? -12 : 0,
-                          zIndex: index + 1,
-                        },
-                      ]}>
-                      {RenderPlainCoinLogo(network.id, {}, 20, 20)}
-                    </View>
-                  ))}
-                  {supportedNetworks.length > 3 ? (
-                    <View
-                      style={[
-                        styles.networkIcon,
-                        styles.moreNetworks,
-                        {marginLeft: -12, zIndex: 10},
-                      ]}>
-                      <Text style={styles.moreNetworksText}>
-                        +{supportedNetworks.length - 3}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.networkText}>Supported chains</Text>
+                onPress={openCardSheet}
+                style={styles.cardContext}>
+                <Text style={styles.contextText}>{cardContextLabel}</Text>
                 <MaterialCommunityIcons
-                  color={theme.colors.textSecondary}
-                  name="chevron-right"
-                  size={16}
+                  color={theme.colors.textSubtle}
+                  name="chevron-down"
+                  size={20}
                 />
               </TouchableOpacity>
-            ) : null}
+            ) : (
+              <View style={styles.cardContext}>
+                <Text style={styles.contextText}>{cardContextLabel}</Text>
+              </View>
+            )}
           </View>
-          {addressLoading ? (
-            <SkeletonLoader accessibilityLabel="Loading address record">
-              <SkeletonText height={13} width="28%" />
-              <SkeletonBlock height={56} radius={12} style={{marginTop: 8}} />
-            </SkeletonLoader>
-          ) : (
-            <>
-              {selectedCard.name?.endsWith('@') ? (
-                <>
-                  <Text style={styles.label}>VerusID</Text>
-                  <View style={styles.addressRow}>
-                    <Text
-                      ellipsizeMode="middle"
-                      numberOfLines={1}
-                      selectable
-                      style={styles.address}>
-                      {selectedCard.name}
-                    </Text>
-                    <CopyAction
-                      accessibilityLabel="Copy VerusID"
-                      value={selectedCard.name}
+          <View style={styles.receiveBody}>
+            <View style={styles.qrWrap}>
+              <View style={styles.qrSurface}>
+                {addressLoading ? (
+                  <SkeletonLoader accessibilityLabel="Loading receive address">
+                    <SkeletonBlock height={qrSize} radius={8} width={qrSize} />
+                  </SkeletonLoader>
+                ) : address ? (
+                  <QRCode size={qrSize} value={address} />
+                ) : (
+                  <View
+                    style={{
+                      width: qrSize,
+                      height: qrSize,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <MaterialCommunityIcons
+                      color={theme.colors.textSubtle}
+                      name="qrcode"
+                      size={72}
                     />
                   </View>
-                  <Text style={[styles.label, {marginTop: 12}]}>i-Address</Text>
-                  {renderAddressRow()}
-                </>
-              ) : (
-                <>
-                  <Text style={styles.label}>
-                    {selectedAddressRecord?.label || 'Address'}
-                  </Text>
-                  {renderAddressRow()}
-                </>
-              )}
-              {cardContextLabel ? (
-                <Text style={styles.cardMeta}>{cardContextLabel}</Text>
-              ) : null}
-            </>
-          )}
-          <TouchableOpacity
-            accessibilityLabel="Create payment request"
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            disabled={!address}
-            onPress={startRequest}
-            style={[styles.requestCard, !address && {opacity: 0.5}]}>
-            <Text style={styles.requestTitle}>
-              {conversionEligible
-                ? 'Easy to share payment request'
-                : 'Create payment request'}
-            </Text>
-            {conversionEligible ? (
-              <View style={styles.requestPreview}>
-                <VerusPayLogo height={48} width={48} />
+                )}
               </View>
-            ) : null}
-            <MaterialCommunityIcons
-              color={theme.colors.textSubtle}
-              name="chevron-right"
-              size={24}
-            />
-          </TouchableOpacity>
+            </View>
+            {addressLoading ? (
+              <SkeletonLoader accessibilityLabel="Loading address record">
+                <SkeletonText height={13} width="28%" />
+                <SkeletonBlock height={56} radius={12} style={{marginTop: 8}} />
+              </SkeletonLoader>
+            ) : (
+              <>
+                {selectedCard.name?.endsWith('@') ? (
+                  <>
+                    <Text style={styles.label}>VerusID</Text>
+                    <View style={styles.addressRow}>
+                      <Text
+                        ellipsizeMode="middle"
+                        numberOfLines={1}
+                        selectable
+                        style={styles.address}>
+                        {selectedCard.name}
+                      </Text>
+                      <CopyAction
+                        accessibilityLabel="Copy VerusID"
+                        value={selectedCard.name}
+                      />
+                    </View>
+                    <Text style={[styles.label, {marginTop: 12}]}>i-Address</Text>
+                    {renderAddressRow()}
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.label}>
+                      {selectedAddressRecord?.label || 'Address'}
+                    </Text>
+                    {renderAddressRow()}
+                  </>
+                )}
+              </>
+            )}
+          </View>
         </ScrollView>
-        <View
-          style={[styles.footer, {paddingBottom: Math.max(insets.bottom, 32)}]}>
-          <AppButton onPress={goHome}>Done</AppButton>
-        </View>
+        <SafeBottomActionStack
+          gap={10}
+          horizontalSpacing={20}
+          style={[styles.footer, height <= 667 && styles.footerCompact]}>
+          {shareError ? <Text style={styles.error}>{shareError}</Text> : null}
+          <AppButton disabled={!address} onPress={shareAddress}>
+            Share address
+          </AppButton>
+          <AppButton disabled={!address} onPress={startRequest} variant="secondary">
+            Request amount
+          </AppButton>
+        </SafeBottomActionStack>
       </View>
 
       <ReceiveAddressSheet
@@ -530,11 +462,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         onSelect={setSelectedAddressIndex}
         onClose={closeAddressSheet}
         visible={addressSheetVisible}
-      />
-      <SupportedChainsSheet
-        networks={supportedNetworks}
-        onClose={closeNetworks}
-        visible={networksVisible}
       />
       {renderCardSheet()}
     </SafeAreaView>

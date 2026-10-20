@@ -7,7 +7,11 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-17.
+- Last updated: 2026-10-20.
+- Scoped Receive restyle: **RX-2** on `claude/receive-restyle` from `e8992c94`.
+  Owner approved Calm address (A) and the payment-request paper slip (C) on
+  2026-10-20. Implementation is ready for verification. Device QA remains with
+  the orchestrator; no runtime was started in the implementation pass.
 - Scoped wizard title change: `claude/wizard-header-title` from `78ebe3c7`.
   The owner approved short header titles on 2026-10-17. Send/Convert removes
   large content titles and repeated subtitles, retains Amount context and
@@ -1133,6 +1137,41 @@ back handling are unchanged.
 Simple choices use consistent sheets. Payment-request creation has understandable
 steps, a working back path, and a result accurately tied to its generated data.
 
+## RX-2 — Receive restyle
+
+**Status:** Ready for verification. Owner approved 2026-10-20: Receive variation
+A ("Calm address") and variation C's paper slip. Keep the current address field;
+show the normal address or human VerusID name under the slip QR.
+
+- [x] **RX-2.1** Remove the supported-chain claim and sheet. Show only the
+  selected card type and network; open the existing card chooser from this line.
+- [x] **RX-2.2** Apply the flat Receive layout, white QR tile, unchanged address
+  rows, Share address, and secondary Request amount through the safe footer.
+- [x] **RX-2.3** Combine request input into one step. Add Note and Conversions
+  compact sheets with the Settings gate and existing slippage validation.
+- [x] **RX-2.4** Add the fixed paper slip, compact QR, snapshot estimate and
+  receiving address/name. Preserve invoice, share, save and operation guards.
+- [ ] **RX-2.5** Verify iOS and Android in light/dark, normal/compact sizes:
+  keyboard, scroll, long amounts/notes, VerusID, non-conversion cards, copy,
+  chooser, share/save failures, Back, cancellation and context changes.
+- [ ] **RX-2.6** Compare rendered states with the approved mockups. Decode result
+  QRs and verify the saved QR source. Inspect the iOS shadow and Android outline.
+
+**Implementation evidence (2026-10-20):** Uncommitted work in the existing
+`receive-restyle` worktree. Shared primitives: `ProgressHeader`, `FlatRow`,
+`AppTextInput`, `SettingsSwitchRow`, `BottomSheetModal`, `useSheetDismissal`,
+`StatusBadge`, `CopyAction`, `FadedScrollView`, and `SafeBottomActionStack`.
+The approved HTML/images were inspected. Design (30 sources), safe-area (10
+files), Babel parse (10 files), whitespace, and iOS/Android production bundles
+pass. Configured ESLint cannot load `eslint-plugin-import` because
+`./lib/util/glob-util` is not exported by ESLint; the isolated undefined/unused
+name check passes. Temporary Node component fixtures pass input/result,
+snapshot, single-flight, Back, context reset, stale sheet apply, decimal guard,
+failure/retry, cancellation, and slippage validation. Source comparisons keep
+address rows/styles, the invoice helper, error mapping, and operation handlers
+unchanged. These checks do not prove native layout or QR decoding. No Metro
+server, simulator, emulator, or live wallet action ran.
+
 ## ID-1 — VerusID linking, details, and status refinement
 
 **Sources:**
@@ -1467,6 +1506,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-20 | RX-2 Receive restyle | `claude/receive-restyle` from `e8992c94`, uncommitted | Approved A Receive and C paper slip; existing address field kept. One request input step, Note/Conversions sheets, snapshot estimate, SVG slip and normal-flow actions. Design, safe-area (10), parser (10), isolated undefined/unused-name lint, whitespace, Node component fixtures and iOS/Android bundles pass. Configured ESLint stops while loading its import plugin (`ERR_PACKAGE_PATH_NOT_EXPORTED`, `./lib/util/glob-util`). | Orchestrator owns RX-2.5–RX-2.6 device/visual/QR checks. No Metro server, device runtime, staging, commit, push or merge. |
 | 2026-10-17 | TX-1 round 6 Amount polish: A-35/I-36, I-37, A-36 | `claude/fix-amount-step-polish` from `0ae03b0f`; `SendWizardAmount.js`, `WizardUI.js` | Contract: keep the canonical Send wizard, existing amount field, error slot, semantic theme roles, and normal-flow `WizardFooter`/`SafeBottomActionStack`. When the source pays the Ethereum fee and Available is at or below it, show “Not enough VRSCTEST for the Ethereum network fee (about X VRSCTEST).” as soon as the quote arrives, before amount errors. Disable and dim MAX; its handler leaves the input unchanged. Funded MAX still subtracts the exact fee. Context uses the destination row's `name` and the route's `networkName`, including Ethereum and Bridge.vETH. The network sheet's ticker-based “Receive as …” wording stays unchanged (I-25). Source diagnosis for compact keyboard clipping: caller bottom padding is only 12 points on Amount and 20 on Recipient, with no footer-sized scroll reserve. `WizardFormLayout` now measures its non-shrinking footer and adds its height plus 24 points of keyboard-only end padding after caller styles. Keyboard avoidance, normal-flow Continue, and F14 error-reveal calculation stay unchanged. Temporary non-Jest React checks: baseline 3 pass/6 fail; candidate 9 pass/0 fail for fee boundaries, exact/fiat MAX, copy, other fee currencies, quote failure, measured reserve, keyboard-close reset, and F14 scrolling. Babel parse with repo config (two JS files), design (30 canonical sources), safe-area (two files), option matrix, and whitespace checks pass. Temporary dependency link removed before commit. | Source and synthetic React component evidence only; native clipping cause and rendered result still need device confirmation. Orchestrator owns Android normal/360x640 and iOS, both themes, keyboard open/closed, reachable Available/MAX and estimate card, typing visibility, and Amount/Recipient F14 regression checks. No Metro, device, simulator, emulator, `env/`, `docs/`, push, or merge actions. TX-1.8/TX-1.9 remain open. |
 | 2026-10-17 | TX-1 owner-approved wizard header titles | `claude/wizard-header-title` from `78ebe3c7`; header, navigator, five steps, `WizardUI`, `DESIGN.md`, design check | Contract: match `ProgressHeader` title treatment with `titleSheet`, one line, tail ellipsis, header accessibility role, and semantic text color between symmetric 40-point controls/spacer. Titles: Select asset, Convert to, Amount, Recipient, Confirm. Progress stays below the row. Remove large content titles and unused `WizardHeading`; keep Amount asset/network/route context, remove repeated Recipient/Confirm subtitles, and retain missing-selection errors. Content starts at 24 points on normal/compact devices; keep the existing 16-point horizontal inset. Owner approval on 2026-10-17 revises the canonical stepped-task rule; Gift Card fund is not migrated. The design check first rejected its stale headline requirement; it now enforces the approved header-title rule. Design (30 canonical sources), safe-area (eight source files), option matrix, Babel parse (nine changed JS files using repo config), and whitespace checks pass. Exact source comparison confirms `WizardFormLayout` (F14 error scrolling/keyboard handling) and Success are unchanged. Checks use a temporary link to existing local dependencies; no package files change. | Source evidence only. Orchestrator owns Android/iOS light/dark normal/compact rendering, 360dp/375pt title fit, text scaling, Back/close/progress, fallback messages, and F14 keyboard-error checks. No Metro, device, simulator, emulator, push, or merge actions. TX-1.HEADER-TITLE-QA, TX-1.8/TX-1.9 stay open. |
 | 2026-10-17 | TX-1 I-18: show received conversion asset on Home | `claude/convert-auto-add-currency` from `78ebe3c7`; Confirm, `wizardUtils.js`, `autoAddConversionAsset.js` | Behavior-only contract: no new UI, copy, or layout. After Success navigation, reuse `addManagedAsset` with `automatic: true` for an own-address VRPC conversion. Require matching route/definition system and source network; exclude exports and preserve Hidden. The submit fixture fails on the baseline and passes five scheduling/failure groups. Twenty-five non-Jest fixture groups cover activation, manual storage equivalence/readback, hidden/active assets, route/network guards, session changes, add failures, own-address matching, and pre-settlement zero balances. Native/authentication, RPC, and storage boundaries use fixtures. Read-only private RPC confirms USD, KMD, and VRSC-USD definitions belong to VRSCTEST. Babel parse (three files), design (30 sources), safe-area (three files), option matrix, and whitespace checks pass. | Orchestrator owns device, live conversion, settlement, and restart proof on private/public Testnet. Home can briefly show `—`/`N/A`, then `0.0000` before payout. Fiat `N/A` can persist for funded assets without a price; this existing presentation is unchanged. No Metro, device, signing, broadcast, merge, push, `env/`, or `docs/` changes. TX-1.8/TX-1.9 stay open. |

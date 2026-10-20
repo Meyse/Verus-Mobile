@@ -67,6 +67,7 @@ export const generateReceiveInvoice = async ({
         memo || undefined,
       ),
       showVerusIcon: false,
+      cryptoAmount,
     };
   }
 
@@ -125,5 +126,6 @@ export const generateReceiveInvoice = async ({
   return {
     qrString: invoice.toWalletDeeplinkUri(),
     showVerusIcon: true,
+    cryptoAmount,
   };
 };
