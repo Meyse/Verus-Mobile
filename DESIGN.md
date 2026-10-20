@@ -324,7 +324,9 @@ ERC-20 and BTC sends use a two-line "Network fee" `FlatRow` with the fee,
 speed and optional fee-currency fiat value. It opens the canonical `SelectionSheet`
 with Slow, Normal, Fast and Custom fee. The nested custom form uses `AppTextInput`,
 an in-sheet Back action, a fee summary and one "Use this fee" action, with the
-Address Book keyboard layout. Fee changes keep the review visible and skeleton
+Address Book keyboard layout. Custom fees above twice Fast's effective gas price
+or sat/vB rate show a warning without blocking "Use this fee".
+Fee changes keep the review visible and skeleton
 its fee and arrival time until preflight completes. Bridge, conversion and Verus
 sends keep "Fees ›" and "Fee breakdown".
 

@@ -67,6 +67,20 @@ export const arrivalForFee = (kind, choice, quote) => {
   return 'Can take a long time';
 };
 
+export const isHighNetworkFee = (kind, fee, quote) => {
+  const fast = quote?.tiers?.[2];
+  if (!fee || !fast) return false;
+  if (kind === 'btc') return BigInt(fee.feePerByte) > BigInt(fast.feePerByte) * BigInt(2);
+  if (quote.baseFeePerGas == null) return false;
+  const baseFeePerGas = BigInt(quote.baseFeePerGas);
+  const effectivePrice = candidate => {
+    const maximum = BigInt(candidate.maxFeePerGas);
+    const price = baseFeePerGas + BigInt(candidate.maxPriorityFeePerGas);
+    return price < maximum ? price : maximum;
+  };
+  return effectivePrice(fee) > effectivePrice(fast) * BigInt(2);
+};
+
 export const previewNetworkFee = (kind, fee, review, quote) => {
   if (!fee || !review) return null;
   if (kind === 'btc') {

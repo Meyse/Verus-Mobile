@@ -10,7 +10,7 @@ import useSheetDismissal from '../../../components/useSheetDismissal';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
   arrivalForFee, customNetworkFee, FEE_TIERS, formatFeeAmount,
-  formatGwei, previewNetworkFee,
+  formatGwei, isHighNetworkFee, previewNetworkFee,
 } from '../networkFeeUtils';
 import {FlatRow} from './WizardUI';
 
@@ -76,8 +76,13 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
   };
   const validation = useMemo(() => customNetworkFee(kind, fields, quote, maximum), [kind, fields, quote, maximum]);
   const summary = validation.fee ? previewNetworkFee(kind, validation.fee, review, quote) : null;
-  const slowWarning = validation.fee && quote?.tiers &&
-    arrivalForFee(kind, {id: 'custom', fee: validation.fee}, quote) === 'Can take a long time';
+  let warning = null;
+  if (validation.fee && quote?.tiers && !validation.error && !validation.baseError && !validation.priorityError) {
+    if (isHighNetworkFee(kind, validation.fee, quote)) warning = 'This fee is much higher than Fast.';
+    else if (arrivalForFee(kind, {id: 'custom', fee: validation.fee}, quote) === 'Can take a long time') {
+      warning = 'It can take a long time to confirm.';
+    }
+  }
   const keyboardHeight = Math.max(1, windowHeight - keyboard.height - insets.top - 12 - 8);
   const suffix = unit => <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary}]}>{unit}</Text>;
   const setField = name => value => setFields(current => ({...current, [name]: value}));
@@ -110,7 +115,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
       } : undefined}
       footer={custom ? (
         <View style={styles.customFooter}>
-          {slowWarning ? <Text style={[theme.typography.caption, styles.warning, {color: theme.colors.warning}]}>It can take a long time to confirm.</Text> : null}
+          {warning ? <Text style={[theme.typography.caption, styles.warning, {color: theme.colors.warning}]}>{warning}</Text> : null}
           <View style={[styles.summary, {borderTopColor: theme.colors.border}]}>
             <FlatRow label="Network fee">
               <FeeValue
