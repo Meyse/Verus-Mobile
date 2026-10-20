@@ -67,6 +67,12 @@ methods, never Verus Mobile's visual direction.
   per field. Android keyboards keep their own or the system setting.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
   through `src/components/SafeBottomActionStack.js`.
+- Wrap a form with bottom actions in `src/components/KeyboardAvoidingForm.js`
+  so the actions stay above the keyboard on both platforms. Android pans the
+  window (`adjustPan`), so a plain `KeyboardAvoidingView` there does nothing.
+  While the keyboard shows, drop the bottom inset as the onboarding steps do.
+- iOS 26 switches are 63 x 28 points; `src/utils/applyNativeSwitchSize.js`
+  sizes them. Give a switch slot a minimum width, not a fixed 51 or 52 points.
 - Use monospace only for raw technical identifiers such as addresses, hashes,
   transaction IDs, and public keys.
 - Show a status as the tinted status badge: a pill with a semantic background
