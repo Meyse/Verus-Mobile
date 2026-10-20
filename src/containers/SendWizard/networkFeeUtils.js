@@ -39,7 +39,10 @@ export const customNetworkFee = (kind, {rate = '', base = '', priority = ''}, qu
   }
   const maxBase = parseGwei(base);
   const tip = parseGwei(priority);
-  if (maxBase == null || tip == null || maxBase <= BigInt(0)) return {error: null};
+  if (maxBase == null || tip == null || maxBase <= BigInt(0)) return {
+    baseError: base.trim() && (maxBase == null || maxBase <= BigInt(0)) ? 'Enter a number above 0.' : null,
+    priorityError: priority.trim() && tip == null ? 'Enter a number of 0 or more.' : null,
+  };
   const maximumWei = maxBase + tip;
   if (maximumWei < BigInt(quote?.floor || 0)) {
     return {error: `Use a total of at least ${formatGwei(quote.floor)} Gwei.`};

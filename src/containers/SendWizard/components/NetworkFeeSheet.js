@@ -126,7 +126,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
                 onChangeText={setField('base')}
                 rightAccessory={suffix('Gwei')}
                 helperText={quote?.baseFeePerGas != null ? `Now: ${formatGwei(quote.baseFeePerGas)} Gwei` : undefined}
-                errorText={validation.error}
+                errorText={validation.baseError || validation.error}
                 themeMode={theme.mode}
               />
               <AppTextInput
@@ -138,6 +138,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
                 onChangeText={setField('priority')}
                 rightAccessory={suffix('Gwei')}
                 helperText={quote?.tiers ? `Normal: ${formatGwei(quote.tiers[1].maxPriorityFeePerGas)} Gwei` : undefined}
+                errorText={validation.priorityError}
                 themeMode={theme.mode}
               />
             </>

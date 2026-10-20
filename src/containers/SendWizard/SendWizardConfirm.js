@@ -29,7 +29,7 @@ import {
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
 import NetworkFeeSheet from './components/NetworkFeeSheet';
 import useNetworkFee from './useNetworkFee';
-import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind} from './networkFeeUtils';
+import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind, previewNetworkFee} from './networkFeeUtils';
 import {
   TransferConnector,
   TransferNode,
@@ -506,17 +506,20 @@ const SendWizardConfirm = () => {
     : sourceCoin?.network === 'sepolia' ? 'GETH' : 'ETH';
   const feeTicker = feeKind === 'btc' ? 'BTC'
     : sourceCoin?.network === 'sepolia' ? 'gETH' : 'ETH';
-  const likelyFee = feeKind === 'eth' ? reviewResult?.likelyFee : reviewResult?.fee;
+  const likelyFee = preflightResult
+    ? (feeKind === 'eth' ? preflightResult.likelyFee : preflightResult.fee)
+    : previewNetworkFee(feeKind, networkFee.fee, reviewResult, networkFee.quote)?.likelyFee;
+  const hasNetworkFee = Boolean(networkFee.fee && likelyFee != null);
   const feeMoney = formatFiat(likelyFee, feeCurrencyId);
   const feeSpeed = networkFee.quote?.tiers || networkFee.choice.id === 'custom'
     ? (networkFee.choice.id === 'custom' ? 'Custom fee' : FEE_TIERS.find(tier => tier.id === networkFee.choice.id)?.title) : null;
   const networkFeeRow = feeKind ? {
-    amount: networkFee.fee && preflightResult
+    amount: hasNetworkFee
       ? formatFeeAmount(likelyFee, feeTicker, feeKind === 'eth')
       : feeKind === 'btc' && !networkFee.fee ? 'Fee rates unavailable' : 'Fee unavailable',
-    caption: networkFee.fee && preflightResult ? [feeSpeed, feeMoney ? `≈ ${feeMoney}` : null].filter(Boolean).join(' · ') : null,
+    caption: hasNetworkFee ? [feeSpeed, feeMoney ? `≈ ${feeMoney}` : null].filter(Boolean).join(' · ') : null,
   } : null;
-  const estimatedTime = feeKind && networkFee.fee ? arrivalForFee(feeKind, networkFee.choice, networkFee.quote)
+  const estimatedTime = feeKind && hasNetworkFee ? arrivalForFee(feeKind, networkFee.choice, networkFee.quote)
     : feeKind ? '—' : route?.isCrossChain
     ? '1-3 hours'
     : target?.isConversion
