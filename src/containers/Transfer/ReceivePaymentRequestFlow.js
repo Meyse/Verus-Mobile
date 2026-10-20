@@ -13,6 +13,7 @@ import {
   Share,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import BigNumber from 'bignumber.js';
@@ -105,6 +106,7 @@ const ReceivePaymentRequestFlow = ({
 }) => {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
+  const {width: windowWidth} = useWindowDimensions();
   const styles = useMemo(() => createReceiveDetailsStyles(theme), [theme]);
 
   const [step, setStep] = useState(STEP_AMOUNT);
@@ -212,18 +214,24 @@ const ReceivePaymentRequestFlow = ({
     ? `≈ ${truncateDecimal((amountValid ? Number(normalizedAmount) : 0) / Number(price), 8)} ${coinObj.display_ticker}`
     : fiatEstimate || `≈ ${formatCurrency({amount: '0.00', code: displayCurrency})[0]}`;
 
-  // Long amounts step down so the number and its unit stay on one line.
-  const amountLength = (amount || '0').length;
-  const amountSizeStyle =
-    amountLength > 14
-      ? styles.amountInputSmall
-      : amountLength > 10
-        ? styles.amountInputMedium
-        : null;
-
   const currencyTicker = amountFiat
     ? displayCurrency
     : coinObj?.display_ticker || '';
+
+  // The amount shrinks (40 to 20 pt) so the number and its unit stay on one
+  // line at any window width. Inter bold digits are about 0.64 em wide; the
+  // unit is 20 pt semibold, about 0.62 em per character, plus an 8 pt gap.
+  const amountLength = Math.max((amount || '0').length, 1);
+  const unitWidth = currencyTicker.length * 20 * 0.62 + 8;
+  const amountRoom = windowWidth - 40 - insets.left - insets.right - unitWidth;
+  const amountFontSize = Math.max(
+    20,
+    Math.min(40, Math.floor(amountRoom / (amountLength * 0.64))),
+  );
+  const amountSizeStyle =
+    amountFontSize < 40
+      ? {fontSize: amountFontSize, lineHeight: amountFontSize + 8}
+      : null;
 
   const createInvoice = useCallback(async () => {
     if (loadingRef.current) return;
@@ -626,6 +634,7 @@ const ReceivePaymentRequestFlow = ({
           key={step}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled"
+          showEndFade={step !== STEP_RESULT}
           showStartFade={false}>
           {getStepContent()}
         </FadedScrollView>
