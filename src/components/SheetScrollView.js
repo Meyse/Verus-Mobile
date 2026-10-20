@@ -54,6 +54,7 @@ const SheetScrollView = ({
   contentContainerStyle,
   fill = false,
   listProps,
+  scrollViewProps,
   style,
 }) => {
   const ScrollComponent = listProps ? FlatList : ScrollView;
@@ -74,8 +75,11 @@ const SheetScrollView = ({
       }),
     [],
   );
+  const showNativeIndicator =
+    scrollViewProps?.showsVerticalScrollIndicator ||
+    metrics.layoutHeight < MIN_FADE_VIEWPORT_HEIGHT;
   const showCue =
-    metrics.layoutHeight >= MIN_FADE_VIEWPORT_HEIGHT &&
+    !showNativeIndicator &&
     metrics.contentHeight > metrics.layoutHeight + SCROLL_END_THRESHOLD &&
     metrics.offsetY + metrics.layoutHeight <
       metrics.contentHeight - SCROLL_END_THRESHOLD;
@@ -83,6 +87,7 @@ const SheetScrollView = ({
   return (
     <View style={[styles.requestSheetScrollFrame, fill && {flexGrow: 1}, style]}>
       <ScrollComponent
+        {...scrollViewProps}
         {...listProps}
         alwaysBounceVertical={false}
         bounces={false}
@@ -93,10 +98,14 @@ const SheetScrollView = ({
         ]}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={(_, contentHeight) => update({contentHeight})}
-        onLayout={event =>
-          update({layoutHeight: event.nativeEvent.layout.height})
-        }
+        onContentSizeChange={(contentWidth, contentHeight) => {
+          update({contentHeight});
+          scrollViewProps?.onContentSizeChange?.(contentWidth, contentHeight);
+        }}
+        onLayout={event => {
+          update({layoutHeight: event.nativeEvent.layout.height});
+          scrollViewProps?.onLayout?.(event);
+        }}
         onScroll={({
           nativeEvent: {contentOffset, contentSize, layoutMeasurement},
         }) =>
@@ -107,9 +116,7 @@ const SheetScrollView = ({
           })
         }
         scrollEventThrottle={16}
-        showsVerticalScrollIndicator={
-          metrics.layoutHeight < MIN_FADE_VIEWPORT_HEIGHT
-        }>
+        showsVerticalScrollIndicator={showNativeIndicator}>
         {listProps ? undefined : children}
       </ScrollComponent>
       {showCue ? <SheetScrollCue styles={styles} theme={theme} /> : null}

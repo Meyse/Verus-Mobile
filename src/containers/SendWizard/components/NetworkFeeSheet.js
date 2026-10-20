@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, Platform, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import SelectionSheet, {SelectionAction, SelectionRow} from '../../../components/SelectionSheet';
@@ -34,11 +34,14 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
   const {height: windowHeight} = useWindowDimensions();
   const [custom, setCustom] = useState(false);
   const [fields, setFields] = useState({rate: '', base: '', priority: ''});
+  const [focusedField, setFocusedField] = useState(null);
   const [keyboard, setKeyboard] = useState(EMPTY_KEYBOARD);
+  const scrollRef = useRef(null);
   const preserveKeyboard = useRef(false);
   const dismissal = useSheetDismissal({visible, onClose, onClosed: () => {
     preserveKeyboard.current = false;
     setCustom(false);
+    setFocusedField(null);
     setKeyboard(EMPTY_KEYBOARD);
   }});
 
@@ -78,6 +81,15 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
   const keyboardHeight = Math.max(1, windowHeight - keyboard.height - insets.top - 12 - 8);
   const suffix = unit => <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary}]}>{unit}</Text>;
   const setField = name => value => setFields(current => ({...current, [name]: value}));
+  const revealFocusedField = useCallback(() => {
+    if (!visible || !custom || !keyboard.visible || !focusedField || preserveKeyboard.current) return;
+    // The summary stays above the action. Reveal the last field from the end
+    // so its helper or error stays above the footer on compact keyboards.
+    if (focusedField === 'priority') scrollRef.current?.scrollToEnd({animated: false});
+    else scrollRef.current?.scrollTo({y: 0, animated: false});
+  }, [visible, custom, keyboard.visible, focusedField]);
+
+  useEffect(revealFocusedField, [revealFocusedField, fields]);
 
   return (
     <SelectionSheet
@@ -86,21 +98,38 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
       onClose={close}
       onClosed={dismissal.onClosed}
       backAccessibilityLabel="Back to network fee options"
-      onBack={custom ? () => { Keyboard.dismiss(); setCustom(false); } : undefined}
+      onBack={custom ? () => { Keyboard.dismiss(); setFocusedField(null); setCustom(false); } : undefined}
       avoidKeyboard={custom}
       maxHeight={custom && keyboard.visible ? keyboardHeight : '76%'}
       contentContainerStyle={custom && keyboard.visible ? {marginBottom: 8} : null}
+      scrollViewProps={custom ? {
+        ref: scrollRef,
+        showsVerticalScrollIndicator: keyboard.visible,
+        onLayout: revealFocusedField,
+        onContentSizeChange: revealFocusedField,
+      } : undefined}
       footer={custom ? (
-        <SafeBottomActionStack
-          horizontalSpacing={0}
-          includeBottomInset={false}
-          safeAreaSpacing={0}
-          bottomSpacing={0}
-          style={styles.footer}>
-          <AppButton disabled={!validation.fee} onPress={() => apply({id: 'custom', fee: validation.fee})}>
-            Use this fee
-          </AppButton>
-        </SafeBottomActionStack>
+        <View style={styles.customFooter}>
+          {slowWarning ? <Text style={[theme.typography.caption, styles.warning, {color: theme.colors.warning}]}>It can take a long time to confirm.</Text> : null}
+          <View style={[styles.summary, {borderTopColor: theme.colors.border}]}>
+            <FlatRow label="Network fee">
+              <FeeValue
+                amount={formatFeeAmount(summary?.likelyFee, ticker, true) || 'Calculated on review'}
+                caption={kind === 'eth' && summary?.fee ? `Up to ${formatFeeAmount(summary.fee, ticker)}` : null}
+              />
+            </FlatRow>
+          </View>
+          <SafeBottomActionStack
+            horizontalSpacing={0}
+            includeBottomInset={false}
+            safeAreaSpacing={0}
+            bottomSpacing={0}
+            style={styles.footer}>
+            <AppButton disabled={!validation.fee} onPress={() => apply({id: 'custom', fee: validation.fee})}>
+              Use this fee
+            </AppButton>
+          </SafeBottomActionStack>
+        </View>
       ) : null}>
       {custom ? (
         <>
@@ -111,6 +140,8 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
               keyboardType="decimal-pad"
               value={fields.rate}
               onChangeText={setField('rate')}
+              onFocus={() => setFocusedField('rate')}
+              onBlur={() => setFocusedField(null)}
               rightAccessory={suffix('sat/vB')}
               helperText={quote?.tiers ? `Normal: ${quote.tiers[1].feePerByte} sat/vB` : undefined}
               errorText={validation.error}
@@ -124,6 +155,8 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
                 keyboardType="decimal-pad"
                 value={fields.base}
                 onChangeText={setField('base')}
+                onFocus={() => setFocusedField('base')}
+                onBlur={() => setFocusedField(null)}
                 rightAccessory={suffix('Gwei')}
                 helperText={quote?.baseFeePerGas != null ? `Now: ${formatGwei(quote.baseFeePerGas)} Gwei` : undefined}
                 errorText={validation.baseError || validation.error}
@@ -136,6 +169,8 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
                 keyboardType="decimal-pad"
                 value={fields.priority}
                 onChangeText={setField('priority')}
+                onFocus={() => setFocusedField('priority')}
+                onBlur={() => setFocusedField(null)}
                 rightAccessory={suffix('Gwei')}
                 helperText={quote?.tiers ? `Normal: ${formatGwei(quote.tiers[1].maxPriorityFeePerGas)} Gwei` : undefined}
                 errorText={validation.priorityError}
@@ -143,15 +178,6 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
               />
             </>
           )}
-          {slowWarning ? <Text style={[theme.typography.caption, styles.warning, {color: theme.colors.warning}]}>It can take a long time to confirm.</Text> : null}
-          <View style={[styles.summary, {borderTopColor: theme.colors.border}]}>
-            <FlatRow label="Network fee">
-              <FeeValue
-                amount={formatFeeAmount(summary?.likelyFee, ticker, true) || 'Calculated on review'}
-                caption={kind === 'eth' && summary?.fee ? `Up to ${formatFeeAmount(summary.fee, ticker)}` : null}
-              />
-            </FlatRow>
-          </View>
         </>
       ) : (
         <>
@@ -164,6 +190,7 @@ export default function NetworkFeeSheet({visible, onClose, onChoose, kind, quote
               key={tier.id}
               title={tier.title}
               subtitle={tier[kind === 'btc' ? 'btcTime' : 'ethTime']}
+              preserveSubtitle
               selected={choice.id === tier.id}
               value={review ? formatFeeAmount(amount, ticker, true) || 'Unavailable' : null}
               valueContent={!review ? (
@@ -197,5 +224,6 @@ const styles = StyleSheet.create({
   secondField: {marginTop: 20},
   warning: {marginTop: 8},
   summary: {marginTop: 16, borderTopWidth: StyleSheet.hairlineWidth},
+  customFooter: {flexShrink: 0},
   footer: {paddingTop: 12},
 });

@@ -42,6 +42,7 @@ export const createSelectionSheetStyles = theme =>
     selectedRow: {backgroundColor: theme.colors.successBackground},
     leading: {marginRight: 12},
     copy: {flex: 1, minWidth: 0},
+    preservedCopy: {flex: 0, flexShrink: 0},
     rowTitle: {...theme.typography.titleRow, color: theme.colors.textPrimary},
     rowSubtitle: {
       ...theme.typography.bodySm,
@@ -51,6 +52,8 @@ export const createSelectionSheetStyles = theme =>
     identifier: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'},
     badge: {marginLeft: 8, flexShrink: 0},
     value: {alignItems: 'flex-end', marginLeft: 12, flexShrink: 1},
+    wrappingValue: {flex: 1, minWidth: 0},
+    wrappingValueText: {textAlign: 'right'},
     valueText: {...theme.typography.titleRow, color: theme.colors.textPrimary},
     valueLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary},
     indicator: {marginLeft: 10, width: 22, alignItems: 'center'},
