@@ -29,6 +29,7 @@ const AppTextInput = forwardRef(function AppTextInput(
     rightAccessibilityLabel,
     rightIcon,
     rightIconColor,
+    rightAccessory,
     secureTextEntry = false,
     size = 'default',
     supportingTextStyle,
@@ -130,6 +131,7 @@ const AppTextInput = forwardRef(function AppTextInput(
           ]}
           value={value}
         />
+        {rightAccessory}
         {rightIcon ? (
           <TouchableOpacity
             accessibilityLabel={rightAccessibilityLabel}

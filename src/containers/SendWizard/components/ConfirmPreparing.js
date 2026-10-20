@@ -20,6 +20,7 @@ const ConfirmPreparing = ({
   amount,
   destinationNetwork,
   isConversion,
+  networkFee = false,
   recipient,
   showPriceImpact,
   sourceCoin,
@@ -64,7 +65,7 @@ const ConfirmPreparing = ({
             <ValueSkeleton width={120} />
           </FlatRow>
         ) : null}
-        <FlatRow label="Fees">
+        <FlatRow label={networkFee ? "Network fee" : "Fees"}>
           <ValueSkeleton />
         </FlatRow>
         <FlatRow label="Arrives">

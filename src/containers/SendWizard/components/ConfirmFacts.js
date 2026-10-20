@@ -4,6 +4,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import ImpactRow from './ImpactRow';
+import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
+import {FeeValue} from './NetworkFeeSheet';
 import {FlatRow} from './WizardUI';
 
 // The flat fact list under the pay and receive nodes on Confirm. The recipient
@@ -15,6 +17,8 @@ const ConfirmFacts = ({
   fees,
   impact,
   onOpenFees,
+  networkFee,
+  feeLoading,
   recipient,
 }) => {
   const theme = useOnboardingTheme();
@@ -37,11 +41,23 @@ const ConfirmFacts = ({
           lossText={impact.lossText}
         />
       ) : null}
-      <FlatRow label="Fees" numberOfLines={0} onPress={onOpenFees} value={fees} />
-      <FlatRow label="Arrives" value={arrives} />
+      {networkFee ? (
+        <FlatRow label="Network fee" onPress={onOpenFees}>
+          {feeLoading ? <FeeSkeleton /> : <FeeValue amount={networkFee.amount} caption={networkFee.caption} />}
+        </FlatRow>
+      ) : <FlatRow label="Fees" numberOfLines={0} onPress={onOpenFees} value={fees} />}
+      <FlatRow label="Arrives" value={arrives}>
+        {feeLoading ? <FeeSkeleton /> : null}
+      </FlatRow>
     </View>
   );
 };
+
+const FeeSkeleton = () => (
+  <SkeletonLoader accessibilityLabel="Preparing network fee">
+    <SkeletonBlock width={112} height={15} radius={4} />
+  </SkeletonLoader>
+);
 
 // A notice from preflight, for example a centrally controlled currency.
 export const ConfirmNotice = ({children}) => {

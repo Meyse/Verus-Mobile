@@ -1,5 +1,5 @@
 import { getCoinPaprikaRate } from './ratesAPIs/coinPaprika';
-import { getAtomicExplorerBTCFees } from './btcFeesAPIs/atomicExplorer';
+import { getMempoolSpaceBTCFees } from './btcFeesAPIs/mempoolSpace';
 import { getBlockchainComBTCFees } from'./btcFeesAPIs/blockchainCom';
 import { getFiatExchangeRates } from './ratesAPIs/fiatExchangeRates'
 import ApiException from '../../errors/apiError';
@@ -7,56 +7,13 @@ import { GENERAL } from '../../../constants/intervalConstants';
 import { USD } from '../../../constants/currencies'
 import { CONNECTION_ERROR } from '../../errors/errorMessages';
 import { GENERAL_CONNECTION_ERROR } from '../../errors/errorCodes';
-import { truncateDecimal } from '../../../math';
 import BigNumber from 'bignumber.js';
 
-export const getRecommendedBTCFees = (testnet = false) => {
-  if (testnet)
-    return new Promise((resolve) =>
-      resolve({
-        slowest: truncateDecimal(102, 0),
-        average: truncateDecimal(102, 0),
-        fastest: truncateDecimal(102, 0),
-      })
-    );
-
-  //Fees are measured in satoshis per byte, slowest should 
-  //take around an hour, average should take around 30 minutes, 
-  //and fastest should take around 20 to 30 minutes
-  let feeFunctions = [getBlockchainComBTCFees()]
-
-  return new Promise((resolve, reject) => {
-    Promise.all(feeFunctions)
-    .then((fees) => {
-      let feesFound = []
-
-      for (let i = 0; i < fees.length; i++) {
-        if (fees[i]) {
-          feesFound.push(fees[i])
-        }
-      }
-
-      if (feesFound.length > 0) {
-        let avgFees = {slowest: 0, average: 0, fastest: 0}
-
-        for (let i = 0; i < feesFound.length; i++) {
-          avgFees.slowest += feesFound[i].slowest
-          avgFees.average += feesFound[i].average
-          avgFees.fastest += feesFound[i].fastest
-        }
-
-        for (let key in avgFees) {
-          avgFees[key] = truncateDecimal((avgFees[key]/feesFound.length), 0)
-        }
-
-        resolve(avgFees)
-      }
-      else {
-        resolve(false)
-      }
-    })
-  });
-}
+export const getRecommendedBTCFees = async (testnet = false, maximum) => {
+  const primary = await getMempoolSpaceBTCFees(maximum, testnet);
+  if (primary) return primary;
+  return await getBlockchainComBTCFees(maximum);
+};
 
 export const getCoinRates = (coinObj) => {
   // Functions that can get rates for different coins. Due to the nature of Promise.all, 

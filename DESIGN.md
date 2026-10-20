@@ -319,6 +319,15 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   "Bridge.vETH", never "Bridge".
 - The unit chip under the amount shows only when the paid asset has a fiat price.
 
+Network fee choice (owner approved variation A on 2026-10-20): plain ETH,
+ERC-20 and BTC sends use a two-line "Network fee" `FlatRow` with the fee,
+speed and optional fee-currency fiat value. It opens the canonical `SelectionSheet`
+with Slow, Normal, Fast and Custom fee. The nested custom form uses `AppTextInput`,
+an in-sheet Back action, a fee summary and one "Use this fee" action, with the
+Address Book keyboard layout. Fee changes keep the review visible and skeleton
+its fee and arrival time until preflight completes. Bridge, conversion and Verus
+sends keep "Fees ›" and "Fee breakdown".
+
 ### Send/Convert Amount, Recipient, Confirm and Sent
 
 The owner approved these on 2026-10-18 (round 2 of the HTML mockups: Amount

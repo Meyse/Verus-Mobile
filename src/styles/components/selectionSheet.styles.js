@@ -6,6 +6,8 @@ export const createSelectionSheetStyles = theme =>
     fill: {flex: 1},
     headerContent: {marginBottom: 10},
     header: {minHeight: 36, justifyContent: 'center', marginBottom: 14},
+    nestedHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start'},
+    backButton: {width: 40, height: 44, marginLeft: -8, alignItems: 'center', justifyContent: 'center'},
     title: {...theme.typography.titleSheet, color: theme.colors.textPrimary},
     subtitle: {
       ...theme.typography.bodySm,

@@ -27,6 +27,10 @@ import {
   toLowerCaseCLocale,
 } from 'verus-typescript-primitives';
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
+import NetworkFeeSheet from './components/NetworkFeeSheet';
+import AppButton from '../../components/AppButton';
+import useNetworkFee from './useNetworkFee';
+import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind} from './networkFeeUtils';
 import {
   TransferConnector,
   TransferNode,
@@ -118,6 +122,11 @@ const SendWizardConfirm = () => {
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
+  const [tierPreviews, setTierPreviews] = useState({});
+  const preflightSequence = useRef(0);
+  const preparedParams = useRef(null);
+  const lastReview = useRef(null);
+  const generalWalletSettings = useObjectSelector(value => value.settings.generalWalletSettings);
   const {displayCurrency, format: formatFiat, getRate} = useWizardFiat(
     sourceSubWallet,
   );
@@ -132,13 +141,20 @@ const SendWizardConfirm = () => {
   const simpleSend = Boolean(
     target && !target.isConversion && !route?.isCrossChain,
   );
+  const feeKind = networkFeeKind(simpleSend, channel, sourceCoin);
+  const networkFee = useNetworkFee({
+    kind: feeKind, coin: sourceCoin, channel,
+    minGasPriceGwei: generalWalletSettings?.minGasPriceGwei,
+  });
+  const reviewKey = `${sourceCoin?.id}:${channel}:${amount}:${recipientAddress}`;
   const simpleSendParams = useMemo(() => {
     const verificationLevel = coinSettings?.[sourceCoin?.id]?.verificationLvl;
     const network =
       networks[toLowerCaseCLocale(sourceCoin?.id || '')] || networks.default;
 
     return {
-      defaultFee: sourceCoin?.fee,
+      defaultFee: feeKind === 'btc' ? networkFee.fee : sourceCoin?.fee,
+      ...(feeKind === 'eth' && networkFee.fee ? {networkFee: networkFee.fee} : {}),
       network,
       verifyMerkle:
         verificationLevel == null
@@ -149,7 +165,7 @@ const SendWizardConfirm = () => {
           ? true
           : verificationLevel > NO_VERIFICATION,
     };
-  }, [coinSettings, sourceCoin]);
+  }, [coinSettings, sourceCoin, feeKind, networkFee.fee]);
 
   const buildDestination = useCallback(async () => {
     let destination = recipientAddress;
@@ -211,6 +227,8 @@ const SendWizardConfirm = () => {
   );
 
   useEffect(() => {
+    const request = ++preflightSequence.current;
+    preparedParams.current = null;
     if (
       !sourceCoin ||
       !sourceSubWallet ||
@@ -223,6 +241,7 @@ const SendWizardConfirm = () => {
     ) {
       setPreflighting(false);
       setError('Transaction details are incomplete.');
+      setPreflight(null);
       return undefined;
     }
 
@@ -231,6 +250,11 @@ const SendWizardConfirm = () => {
     setError(null);
     setWarnings([]);
     setPreflight(null);
+    if (feeKind && (networkFee.loading || !networkFee.fee)) {
+      setPreflighting(networkFee.loading);
+      setError(networkFee.loading ? null : networkFee.error);
+      return () => { active = false; };
+    }
 
     const run = async () => {
       try {
@@ -253,7 +277,7 @@ const SendWizardConfirm = () => {
               },
             );
 
-        if (!active) return;
+        if (!active || request !== preflightSequence.current) return;
         if (result?.err || result?.error) {
           throw new Error(result.result || result.error?.message || 'Preflight failed.');
         }
@@ -287,11 +311,13 @@ const SendWizardConfirm = () => {
         }
 
         setWarnings(nextWarnings);
+        preparedParams.current = simpleSendParams;
+        lastReview.current = {key: reviewKey, result: preflight};
         setPreflight(preflight);
       } catch (preflightError) {
-        if (active) setError(preflightError.message || 'Preflight failed.');
+        if (active && request === preflightSequence.current) setError(preflightError.message || 'Preflight failed.');
       } finally {
-        if (active) setPreflighting(false);
+        if (active && request === preflightSequence.current) setPreflighting(false);
       }
     };
 
@@ -301,6 +327,10 @@ const SendWizardConfirm = () => {
     };
   }, [
     activeAccount,
+    feeKind,
+    networkFee.loading,
+    networkFee.error,
+    reviewKey,
     amount,
     amountSats,
     buildDestination,
@@ -317,9 +347,49 @@ const SendWizardConfirm = () => {
     target,
   ]);
 
+  const changeNetworkFee = next => {
+    if (submissionInFlight.current || submitted.current || broadcastUnknown.current) return;
+    preflightSequence.current++;
+    preparedParams.current = null;
+    setPreflight(null);
+    setPreflighting(true);
+    networkFee.choose(next);
+  };
+  const retryNetworkFee = () => {
+    preflightSequence.current++;
+    preparedParams.current = null;
+    setPreflight(null);
+    setPreflighting(true);
+    setError(null);
+    networkFee.retry();
+  };
+
+  // Sheet amounts use real preflights, including BTC coin selection. A choice
+  // still triggers a new authoritative preflight after the sheet closes.
+  useEffect(() => {
+    if (!feeKind || !feeSheetOpen || !networkFee.quote?.tiers) return undefined;
+    let active = true;
+    setTierPreviews({});
+    networkFee.quote.tiers.forEach(async (fee, index) => {
+      try {
+        const result = await preflightSend(sourceCoin, activeAccount, recipientAddress, BigNumber(amount), channel, {
+          ...simpleSendParams,
+          ...(feeKind === 'btc' ? {defaultFee: fee} : {networkFee: {...fee, baseFeePerGas: networkFee.quote.baseFeePerGas}}),
+        });
+        if (active) setTierPreviews(current => ({...current, [FEE_TIERS[index].id]: result?.err || result?.error ? false : result.result}));
+      } catch (_) {
+        if (active) setTierPreviews(current => ({...current, [FEE_TIERS[index].id]: false}));
+      }
+    });
+    return () => { active = false; };
+  }, [feeKind, feeSheetOpen, networkFee.quote, simpleSendParams, sourceCoin, activeAccount, recipientAddress, amount, channel]);
+
   const submit = async () => {
     if (
       !preflightResult ||
+      preflighting ||
+      networkFee.loading ||
+      preparedParams.current !== simpleSendParams ||
       submissionInFlight.current ||
       submitted.current ||
       state.txResult ||
@@ -398,27 +468,28 @@ const SendWizardConfirm = () => {
     }
   };
 
-  const displayEstimate = preflightResult?.estimate || estimate;
+  const reviewResult = preflightResult || (feeKind && lastReview.current?.key === reviewKey ? lastReview.current.result : null);
+  const displayEstimate = reviewResult?.estimate || estimate;
   const estimatedReceive = displayEstimate?.estimatedcurrencyout;
   const displayAmount =
-    simpleSend && preflightResult?.value != null
-      ? BigNumber(preflightResult.value)
-      : preflightResult?.submittedsats && preflightResult?.output?.satoshis
-      ? satsToCoins(BigNumber(preflightResult.output.satoshis))
+    simpleSend && reviewResult?.value != null
+      ? BigNumber(reviewResult.value)
+      : reviewResult?.submittedsats && reviewResult?.output?.satoshis
+      ? satsToCoins(BigNumber(reviewResult.output.satoshis))
       : BigNumber(amount || 0);
   const feeItems = useMemo(() => {
-    if (!preflightResult) return [];
+    if (!reviewResult) return [];
 
     const directFee =
-      preflightResult.fee ??
-      preflightResult.txfee ??
-      preflightResult.networkfee;
+      reviewResult.fee ??
+      reviewResult.txfee ??
+      reviewResult.networkfee;
     if (directFee != null) {
       const currencyId =
-        preflightResult.feeCurr || sourceCoin?.currency_id || sourceCoin?.id;
+        reviewResult.feeCurr || sourceCoin?.currency_id || sourceCoin?.id;
       const display = getCurrencyDisplay(
         currencyId,
-        preflightResult.feeCurr || sourceCoin?.display_ticker,
+        reviewResult.feeCurr || sourceCoin?.display_ticker,
       );
       return [
         {
@@ -429,10 +500,10 @@ const SendWizardConfirm = () => {
       ];
     }
 
-    return Object.entries(preflightResult.validation?.fees || {})
+    return Object.entries(reviewResult.validation?.fees || {})
       .filter(([, feeSats]) => BigNumber(feeSats).isGreaterThan(0))
       .map(([currencyId, feeSats]) => {
-        const friendlyName = preflightResult.names?.get?.(currencyId);
+        const friendlyName = reviewResult.names?.get?.(currencyId);
         const display = getCurrencyDisplay(
           currencyId,
           /^0x0{40}$/i.test(currencyId) ? 'ETH' : friendlyName,
@@ -444,7 +515,7 @@ const SendWizardConfirm = () => {
           currency: display.ticker,
         };
       });
-  }, [preflightResult, sourceCoin]);
+  }, [reviewResult, sourceCoin]);
   const feeSummary = feeItems.length
     ? feeItems.map(item => `${item.amount} ${item.currency}`).join(' + ')
     : 'Calculated by wallet';
@@ -452,7 +523,22 @@ const SendWizardConfirm = () => {
     route,
     sourceCoin?.display_name,
   );
-  const estimatedTime = route?.isCrossChain
+  const feeCurrencyId = feeKind === 'btc' ? 'BTC'
+    : sourceCoin?.network === 'sepolia' ? 'GETH' : 'ETH';
+  const feeTicker = feeKind === 'btc' ? 'BTC'
+    : sourceCoin?.network === 'sepolia' ? 'gETH' : 'ETH';
+  const likelyFee = feeKind === 'eth' ? reviewResult?.likelyFee : reviewResult?.fee;
+  const feeMoney = formatFiat(likelyFee, feeCurrencyId);
+  const feeSpeed = networkFee.quote?.tiers || networkFee.choice.id === 'custom'
+    ? (networkFee.choice.id === 'custom' ? 'Custom fee' : FEE_TIERS.find(tier => tier.id === networkFee.choice.id)?.title) : null;
+  const networkFeeRow = feeKind ? {
+    amount: networkFee.fee && preflightResult
+      ? formatFeeAmount(likelyFee, feeTicker, feeKind === 'eth')
+      : feeKind === 'btc' && !networkFee.fee ? 'Fee rates unavailable' : 'Fee unavailable',
+    caption: networkFee.fee && preflightResult ? [feeSpeed, feeMoney ? `≈ ${feeMoney}` : null].filter(Boolean).join(' · ') : null,
+  } : null;
+  const estimatedTime = feeKind && networkFee.fee ? arrivalForFee(feeKind, networkFee.choice, networkFee.quote)
+    : feeKind ? '—' : route?.isCrossChain
     ? '1-3 hours'
     : target?.isConversion
     ? '2-10 minutes'
@@ -473,14 +559,14 @@ const SendWizardConfirm = () => {
   const balanceAfter = BigNumber(sourceBalance || 0)
     .minus(isSelfSend ? 0 : displayAmount)
     .minus(sourceFees);
-  const submittedAmount = preflightResult?.submittedsats != null
-    ? satsToCoins(BigNumber(preflightResult.submittedsats))
-    : BigNumber(preflightResult?.amountSubmitted ?? amount ?? 0);
+  const submittedAmount = reviewResult?.submittedsats != null
+    ? satsToCoins(BigNumber(reviewResult.submittedsats))
+    : BigNumber(reviewResult?.amountSubmitted ?? amount ?? 0);
   const amountAdjustment = submittedAmount.isGreaterThan(displayAmount)
     ? `Reduced from ${truncateDecimal(submittedAmount, 8)} ${sourceCoin?.display_ticker || ''} to cover transaction fees.`
     : null;
 
-  if (preflighting) {
+  if (preflighting && (!feeKind || !reviewResult)) {
     const preparingReceive = Boolean(
       target?.isConversion && estimatedReceive != null,
     );
@@ -491,6 +577,7 @@ const SendWizardConfirm = () => {
           amount={displayAmount}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           isConversion={preparingReceive}
+          networkFee={Boolean(feeKind)}
           recipient={recipientAddress}
           showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
           sourceCoin={sourceCoin}
@@ -508,7 +595,7 @@ const SendWizardConfirm = () => {
     );
   }
 
-  if (error && !preflightResult) {
+  if (error && !preflightResult && !feeKind) {
     return (
       <WizardScreen scroll={false}>
         <View style={styles.centeredState}>
@@ -578,8 +665,10 @@ const SendWizardConfirm = () => {
           arrives={estimatedTime}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
+          networkFee={networkFeeRow}
+          feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={impact ? {impact, level, lossText} : null}
-          onOpenFees={() => setFeeSheetOpen(true)}
+          onOpenFees={feeKind && (sending || state.broadcastError || state.txResult || !networkFee.canChoose) ? undefined : () => setFeeSheetOpen(true)}
           recipient={recipientAddress}
         />
       </FadedScrollView>
@@ -593,23 +682,44 @@ const SendWizardConfirm = () => {
               <ErrorMessage style={styles.pinnedError}>
                 {pinnedMessage}
               </ErrorMessage>
+              {feeKind && pinnedMessage && !state.broadcastError ? (
+                <AppButton variant="secondary" onPress={retryNetworkFee}>Retry network fee</AppButton>
+              ) : null}
             </View>
           ) : null
         }
         disabled={
           !preflightResult ||
+          preflighting ||
+          networkFee.loading ||
+          preparedParams.current !== simpleSendParams ||
           submitted.current ||
           Boolean(state.txResult) ||
           Boolean(state.broadcastError)
         }
         holdToConfirm
-        loading={sending}
+        loading={sending || preflighting || networkFee.loading}
         holdingText="Hold to confirm..."
-        loadingText="Sending..."
+        loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending..."}
         onPress={submit}>
         {state.broadcastError ? 'Status unknown' : 'Hold to confirm & send'}
       </WizardFooter>
-      <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />
+      {feeKind ? (
+        <NetworkFeeSheet
+          visible={feeSheetOpen}
+          onClose={() => setFeeSheetOpen(false)}
+          onChoose={changeNetworkFee}
+          kind={feeKind}
+          quote={networkFee.quote}
+          choice={networkFee.choice}
+          review={reviewResult}
+          confirmedReview={preflightResult}
+          maximum={maxBTCFeeRate(sourceCoin)}
+          ticker={feeTicker}
+          formatFiat={fee => formatFiat(fee, feeCurrencyId)}
+          previews={tierPreviews}
+        />
+      ) : <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />}
     </WizardScreen>
   );
 };

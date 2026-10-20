@@ -125,6 +125,9 @@ const SelectionSheet = ({
   visible,
   onClose,
   onClosed,
+  onBack,
+  backAccessibilityLabel = 'Back',
+  contentContainerStyle,
   avoidKeyboard = false,
   fillHeight = false,
   maxHeight = '76%',
@@ -140,7 +143,7 @@ const SelectionSheet = ({
       onClosed={onClosed}
       avoidKeyboard={avoidKeyboard}
       maxHeight={maxHeight}
-      contentContainerStyle={fillHeight ? {height: maxHeight} : undefined}>
+      contentContainerStyle={[fillHeight ? {height: maxHeight} : null, contentContainerStyle]}>
       <View
         style={[
           bodyStyles.body,
@@ -149,7 +152,16 @@ const SelectionSheet = ({
           fillHeight && styles.fill,
         ]}
         onAccessibilityEscape={onClose}>
-        <View style={styles.header}>
+        <View style={[styles.header, onBack && styles.nestedHeader]}>
+          {onBack ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={backAccessibilityLabel}
+              onPress={onBack}
+              style={styles.backButton}>
+              <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+          ) : null}
           <Text accessibilityRole="header" style={styles.title}>
             {title}
           </Text>
