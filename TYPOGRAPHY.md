@@ -10,6 +10,7 @@ current source of truth for touched signed-in flows.
 - `headlineMd`: primary screen, wizard, and success titles.
 - `headlineCompact`: compact-device headline variant.
 - `titleSheet`: prominent sheet titles.
+- `titleRowCompact` and `captionCompact`: the two lines in compact selection rows.
 - `AppButton`: shared action-label weight and tracking.
 
 GenericRequest screen titles use `RequestTitle`. It applies `headlineLg` and switches to

@@ -1,15 +1,12 @@
 import {StyleSheet} from 'react-native';
+import {APP_BUTTON_HEIGHT} from './appButton.styles';
 
 export const NFC_TAP_SYMBOL_SIZE = 132;
 export const NFC_TAP_CIRCLE_SIZE = 96;
-const ACTION_HEIGHT = 56;
 const ACTION_GAP = 10;
 
-// Room for two 56-point actions, so the symbol and text do not move when the
-// actions appear.
-export const NFC_TAP_ACTIONS_MIN_HEIGHT = ACTION_HEIGHT * 2 + ACTION_GAP;
-
-const createNfcTapStyles = theme =>
+// Reserve two actions at their resolved height so content stays stable.
+const createNfcTapStyles = (theme, buttonHeight = APP_BUTTON_HEIGHT) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -67,7 +64,7 @@ const createNfcTapStyles = theme =>
       textAlign: 'center',
     },
     actions: {
-      minHeight: NFC_TAP_ACTIONS_MIN_HEIGHT,
+      minHeight: buttonHeight * 2 + ACTION_GAP,
       justifyContent: 'flex-end',
       gap: ACTION_GAP,
     },

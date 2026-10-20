@@ -29,6 +29,7 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {getBiometricPassword} from '../../../utils/keychain/biometrics';
 import {getSupportedBiometryType} from '../../../utils/keychain/keychain';
 import {normalizeWalletAvatar} from '../../../utils/walletAvatar';
+import {useButtonHeight} from '../../../hooks/useButtonHeight';
 
 const BIOMETRY_UNAVAILABLE_MESSAGE =
   'Biometric unlock is unavailable. Enter your password to continue.';
@@ -41,13 +42,8 @@ const KEYBOARD_ROOT_OFFSET =
 const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
 const KEYBOARD_SHEET_TOP_SPACING = 12;
 const PASSWORD_FIELD_HEIGHT = 83;
-const UNLOCK_BUTTON_HEIGHT = 56;
 const PASSWORD_BUTTON_TOP_MARGIN = 16;
 const BIOMETRY_ACTION_TOTAL_HEIGHT = 78;
-const PASSWORD_ONLY_CONTENT_HEIGHT =
-  PASSWORD_FIELD_HEIGHT + PASSWORD_BUTTON_TOP_MARGIN + UNLOCK_BUTTON_HEIGHT;
-const BIOMETRY_CONTENT_HEIGHT =
-  PASSWORD_FIELD_HEIGHT + BIOMETRY_ACTION_TOTAL_HEIGHT + UNLOCK_BUTTON_HEIGHT;
 
 const formatErrorMessage = error => {
   const message =
@@ -81,6 +77,7 @@ const UnlockWalletSheet = ({
   onUnlocked,
 }) => {
   const theme = useOnboardingTheme();
+  const buttonHeight = useButtonHeight();
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
   const {smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
@@ -303,9 +300,8 @@ const UnlockWalletSheet = ({
   );
   const disabled = password.length === 0 || loading || !account;
   const showBiometryAction = !!(displayAccount && displayAccount.biometry);
-  const loadingContentHeight = showBiometryAction
-    ? BIOMETRY_CONTENT_HEIGHT
-    : PASSWORD_ONLY_CONTENT_HEIGHT;
+  const loadingContentHeight = PASSWORD_FIELD_HEIGHT + buttonHeight +
+    (showBiometryAction ? BIOMETRY_ACTION_TOTAL_HEIGHT : PASSWORD_BUTTON_TOP_MARGIN);
   const keyboardVisible = keyboardTop != null;
   // A percentage would shrink again inside the keyboard-avoiding container.
   // Screen coordinates also avoid subtracting the keyboard twice on Android.
@@ -445,7 +441,7 @@ const UnlockWalletSheet = ({
               themeMode={theme.mode}
               onPress={() => tryUnlockAccount(password)}
               disabled={disabled}
-              height={UNLOCK_BUTTON_HEIGHT}>
+              height={buttonHeight}>
               {'Unlock'}
             </AppButton>
           </SafeBottomActionStack>

@@ -75,6 +75,22 @@ methods, never Verus Mobile's visual direction.
   back-out actions such as "Cancel" and "Not now". Use `variant="text"` only
   for a third, low-emphasis link, such as "Other options" on the login screen.
 
+## Voice
+
+Copy never says "we", "our", or "us". The wallet is software; no company stands
+behind it. Prefer impersonal wording: "The best price is selected" and "Fees
+are shown before you confirm". Use "The wallet" only when the software acts.
+
+## Button sizes
+
+On a window of 667 points or less, primary, secondary and tonal buttons are 44
+points high (a tonal button is the secondary action on a dark surface, so it
+follows the same rule); the wizard footer's top padding is 8 points. Normal
+windows retain the 56-point default and 16-point wizard footer top padding.
+Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rule
+centrally through `useButtonHeight`, including explicit action heights. Text
+buttons keep their size.
+
 ## Canonical pattern map
 
 | Need | Source of truth | Required starting point |
@@ -156,7 +172,8 @@ Use `DeepLinkRequestDetailsSheet` for read-only request information. Its
 `InfoSheet` and `InfoSheetSection` directly for other informational sheets.
 The information scaffold provides the 78% maximum height, 20-point sheet title,
 sectioned label/value rows,
-overflow cue, and a 56-point quiet Done action. Keep the title literal and the
+overflow cue, and a 56-point quiet Done action (44 points on small windows).
+Keep the title literal and the
 content concise. Do not add an illustration, hero icon, or eyebrow.
 
 Both information and selection sheets use `src/components/SheetScrollView.js`
@@ -167,7 +184,7 @@ scroll indicator instead of a fade that would obscure the visible content.
 
 Use `AcknowledgeSheet` before an action that cannot be undone, such as sharing
 a gift card key. It shows a 21/27 title, one short message in the 16/24 body
-role, and one 56-point primary `AppButton`. When the user may back out, pass
+role, and one primary `AppButton` at the shared button height. When the user may back out, pass
 `dismissLabel` (for example "Not now"). The sheet then shows an `AppButton`
 with `variant="secondary"` 10 points under the primary action. Do not rely on
 an outside tap as the only visible way out: users do not reliably know they can
@@ -248,17 +265,38 @@ option A2 on 2026-10-19: a receive amount and a percent chip that opens
   line. The chip can wrap below the label when space is too tight, including
   long amounts at 360dp. Compact top spacing and the fiat-price unit-chip rule
   stay in place. The amount, unit chip, and "Available / MAX" remain scrollable.
-- "Price and route" reuses `InfoSheet`: the 24-point `BottomSheetModal` shell,
-  78% maximum height, `titleSheet`, and a fixed 56-point secondary Done action.
-  One `SheetScrollView` contains all details and supplies the measured bottom
-  fade and centered chevron only while more content remains below.
-- Sheet order: Price (Market price, Your price, Difference), Route, Ethereum
-  Network fee, then the verified smaller-amount suggestion. Hide absent data.
-  Multiple baskets use `SelectionRow`, best first, with receive amounts,
-  "Best price" or "x% less", and the selected check. One basket with a `via`
-  uses a plain Via info row; one direct route has no Route section. The
-  suggestion uses an unfilled 62-point action row. Route and suggestion choices
-  apply after closing through `useSheetDismissal`; Android then refocuses Amount.
+- "Price and route" uses `BottomSheetModal` directly with the shared
+  information-sheet styles in `src/styles/components/infoSheet.styles.js` and
+  `titleSheet`. The shell keeps its 24-point radius and 78% maximum height.
+  The owner chose variation A on 2026-10-19.
+  Deliberate spacing deviations: 12-point top padding, a 32-point title block
+  with a 6-point gap, 16-point bottom padding, and 12 points above Done.
+- When there is a choice, basket rows come directly under the title, best
+  first. There is no explanatory sentence and no Price or Route section title.
+  Reuse compact `SelectionRow`: 48-point rows with a 4-point gap, instead of
+  the canonical 56-point minimum. This is an owner-approved deviation; tap
+  targets remain at least 44 points. Show the basket name, estimated receive
+  amount or "Estimate unavailable.", a success "Best price" or neutral
+  "x% less" pill, and the selected green check or unselected chevron.
+- Follow the baskets with single-line, non-tappable fact rows: Market price,
+  Your price, and Difference. Labels sit left and values right, with hairline
+  dividers. Their 40-point height is an owner-approved deviation from stacked
+  information rows. Hide absent data. With one basket, omit the basket list
+  and show "Route" after the price facts only when the route has a `via`.
+  Preserve the full route name, including "Bridge.vETH". An Ethereum export
+  adds Network fee last, with a skeleton while loading or "Fee unavailable."
+- Only the basket list scrolls, in one shrinking `SheetScrollView`. It keeps
+  the established measured bottom fade and centered chevron while more content
+  remains below; short viewports use the established native indicator. Fitting
+  lists show no cue. Facts, suggestion, and Done stay fixed below the list.
+- From 1% impact, show a verified smaller-amount suggestion when its measured
+  impact is lower. Warning levels aim to halve the current impact; danger
+  levels keep the 3% target. The unfilled suggestion action is 52 points high,
+  an owner-approved deviation from 62. Show the measured percent. Choices apply
+  after closing through `useSheetDismissal`; Android then refocuses Amount.
+- Done uses `AppButton variant="secondary"` without a local height. It follows
+  the shared small-device rule: 44 points on windows of 667 points or less,
+  56 points on larger windows.
 
 Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 
@@ -299,9 +337,10 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   warning, and 5% and up danger. The chip always says the percent. The sheet
   shows the money and percent in Difference, with danger text from 5%, primary
   text from 1%, and secondary text below 1%. Under 0.1%, Difference shows
-  "<0.1% less". A verified "Use <N> <SRC> instead | x.x% less" action appears
-  in the sheet only while a warning or danger suggestion exists. Show the measured
-  impact, never the one the suggestion formula aimed for. Say the money in what
+  "<0.1% less". From 1% impact, a verified
+  "Use <N> <SRC> instead | x.x% less" action appears in the sheet while a warning
+  or danger suggestion exists. Show the measured impact, never the one the
+  suggestion formula aimed for. Say the money in what
   the user receives: the display currency when the ledger holds a
   price for the asset the user pays with ("$204.44 less"), otherwise the
   received asset ("0.0681 ETH less"). Never use a minus sign and never count

@@ -1,5 +1,6 @@
 import {StyleSheet} from 'react-native';
 import {fontStyle} from '../../globals/fonts';
+import {createInfoSheetStyles} from './infoSheet.styles';
 
 const createDeepLinkRequestReviewStyles = theme =>
   StyleSheet.create({
@@ -88,36 +89,7 @@ const createDeepLinkRequestReviewStyles = theme =>
       letterSpacing: 0,
       ...fontStyle('semiBold'),
     },
-    requestSheetBody: {
-      flexShrink: 1,
-      paddingHorizontal: theme.spacing.sheetPadding,
-      paddingTop: 8,
-      paddingBottom: 22,
-    },
-    requestSheetHeader: {
-      minHeight: 36,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 14,
-    },
-    requestSheetHeaderText: {
-      flex: 1,
-      minWidth: 0,
-    },
-    requestSheetTitle: {
-      color: theme.colors.textPrimary,
-      letterSpacing: 0,
-      ...theme.typography.titleSheet,
-    },
-    requestSheetSubtitle: {
-      color: theme.colors.textSecondary,
-      fontSize: 13,
-      lineHeight: 19,
-      letterSpacing: 0,
-      marginTop: 4,
-      ...fontStyle('regular'),
-    },
+    ...createInfoSheetStyles(theme),
     requestSheetScrollFrame: {
       position: 'relative',
       flexGrow: 0,
@@ -130,9 +102,6 @@ const createDeepLinkRequestReviewStyles = theme =>
     },
     requestSheetContent: {
       paddingBottom: theme.spacing.xs,
-    },
-    requestSheetActionButton: {
-      marginTop: 22,
     },
     requestSheetScrollCue: {
       position: 'absolute',

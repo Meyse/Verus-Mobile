@@ -19,6 +19,7 @@ import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
+import AndroidKeyboardAvoidingForm from './AndroidKeyboardAvoidingForm';
 
 export const WIZARD_CONTENT_INSET = 16;
 export const WIZARD_CONTENT_TOP_INSET = 24;
@@ -84,11 +85,8 @@ export const WizardFormLayout = ({
     </View>
   ) : null;
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={headerHeight}
-      style={styles.screen}>
+  const content = (
+    <>
       <ScrollView
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
@@ -120,6 +118,21 @@ export const WizardFormLayout = ({
           />
         </View>
       </View>
+    </>
+  );
+
+  return Platform.OS === 'android' ? (
+    <AndroidKeyboardAvoidingForm
+      keyboardVerticalOffset={headerHeight}
+      style={styles.screen}>
+      {content}
+    </AndroidKeyboardAvoidingForm>
+  ) : (
+    <KeyboardAvoidingView
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
+      style={styles.screen}>
+      {content}
     </KeyboardAvoidingView>
   );
 };
@@ -343,6 +356,7 @@ export const WizardFooter = ({
   safeAreaSpacing = 12,
 }) => {
   const theme = useOnboardingTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const buttonLabel = loading ? loadingText : children;
   return (
     <SafeBottomActionStack
@@ -350,7 +364,7 @@ export const WizardFooter = ({
       bottomSpacing={bottomSpacing}
       includeBottomInset={includeBottomInset}
       safeAreaSpacing={safeAreaSpacing}
-      style={styles.footer}>
+      style={[styles.footer, smallDevice && styles.footerCompact]}>
       {above}
       {holdToConfirm ? (
         <GradientButton
@@ -392,6 +406,7 @@ export const wizardTextStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   footer: {paddingTop: 16},
+  footerCompact: {paddingTop: 8},
   formFooter: {flexShrink: 0},
   formPinned: {paddingHorizontal: WIZARD_CONTENT_INSET},
   screen: {flex: 1},

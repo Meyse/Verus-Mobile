@@ -7,6 +7,7 @@ import {
   useAppTheme,
 } from '../theme/app';
 import {APP_BUTTON_HEIGHT} from '../styles/components/appButton.styles';
+import {useButtonHeight} from '../hooks/useButtonHeight';
 
 const TONAL_ON_DARK_COLOR = 'rgba(255, 255, 255, 0.16)';
 const DISABLED_BUTTON_COLOR = '#E4E8EF';
@@ -70,6 +71,7 @@ const AppButton = ({
   ...props
 }) => {
   const appTheme = useAppTheme();
+  const buttonHeight = useButtonHeight(variant, height);
   const theme = themeMode
     ? resolveAppTheme(themeMode)
     : appTheme;
@@ -96,7 +98,7 @@ const AppButton = ({
       contentStyle={[
         styles.content,
         {
-          height,
+          height: buttonHeight,
         },
         contentStyle,
       ]}

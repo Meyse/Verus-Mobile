@@ -62,6 +62,16 @@ const shared = {
       lineHeight: 22,
       ...fontStyle('semiBold'),
     },
+    titleRowCompact: {
+      fontSize: 15,
+      lineHeight: 19,
+      ...fontStyle('semiBold'),
+    },
+    captionCompact: {
+      fontSize: 13,
+      lineHeight: 17,
+      ...fontStyle('regular'),
+    },
     bodySm: {
       fontSize: 14,
       lineHeight: 20,

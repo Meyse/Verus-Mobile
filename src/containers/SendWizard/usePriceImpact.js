@@ -8,6 +8,7 @@ import {
   getPriceImpact,
   getSuggestedAmount,
   IMPACT_LEVEL,
+  IMPACT_SUGGESTION_TARGET,
 } from './priceImpact';
 
 // A small trade is worth about this much in the display currency. It is the
@@ -117,9 +118,17 @@ export const usePriceImpact = ({
 
   useEffect(() => {
     setSuggestion(null);
-    if (level !== IMPACT_LEVEL.DANGER) return undefined;
+    if (level !== IMPACT_LEVEL.WARNING && level !== IMPACT_LEVEL.DANGER) {
+      return undefined;
+    }
 
-    const candidate = getSuggestedAmount({amount: amountKey, impact: impactKey});
+    const candidate = getSuggestedAmount({
+      amount: amountKey,
+      impact: impactKey,
+      target: level === IMPACT_LEVEL.WARNING
+        ? Number(impactKey) / 2
+        : IMPACT_SUGGESTION_TARGET,
+    });
     if (!candidate) return undefined;
 
     let active = true;

@@ -5,10 +5,11 @@
     keeping the default gradient button API unchanged for ordinary taps.
 */
 import React, { useRef, useEffect, useState } from 'react';
-import { TouchableOpacity, View, Animated, Vibration, Platform } from 'react-native';
+import { TouchableOpacity, View, Animated, Vibration, Platform, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { gradientButtonStyles as styles } from '../styles';
+import {getButtonHitSlop, useButtonHeight} from '../hooks/useButtonHeight';
 
 const GradientButton = ({
   onPress,
@@ -26,7 +27,9 @@ const GradientButton = ({
   holdToConfirm = false,
   holdDuration = 2500,
   holdingText,
+  hitSlop,
 }) => {
+  const buttonHeight = useButtonHeight('primary', StyleSheet.flatten(style)?.height);
   const isOutlined = mode === 'outlined';
   const [isHolding, setIsHolding] = useState(false);
   const holdProgress = useRef(new Animated.Value(0)).current;
@@ -165,6 +168,7 @@ const GradientButton = ({
       onPressIn={holdToConfirm ? handlePressIn : undefined}
       onPressOut={holdToConfirm ? handlePressOut : undefined}
       disabled={disabled}
+      hitSlop={getButtonHitSlop(buttonHeight, hitSlop)}
       activeOpacity={holdToConfirm ? 1 : 0.8}
       style={[
         styles.gradientButtonWrapper,
@@ -178,6 +182,7 @@ const GradientButton = ({
           borderColor: bottomColor,
         },
         style,
+        {height: buttonHeight},
       ]}
     >
       {!isOutlined && (

@@ -5,6 +5,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../AppButton';
 import SafeBottomActionStack from '../SafeBottomActionStack';
 import useReduceMotion from '../../hooks/useReduceMotion';
+import {useButtonHeight} from '../../hooks/useButtonHeight';
 import {nfcTapStyles as createStyles} from '../../styles';
 import {useAppTheme} from '../../theme/app';
 import {triggerHaptic} from '../../utils/haptics/haptics';
@@ -30,7 +31,8 @@ export default function NfcTapView({
   testID,
 }) {
   const theme = useAppTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  const buttonHeight = useButtonHeight();
+  const styles = useMemo(() => createStyles(theme, buttonHeight), [theme, buttonHeight]);
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const textOpacity = useRef(new Animated.Value(1)).current;
@@ -76,7 +78,7 @@ export default function NfcTapView({
       <AppButton
         buttonColor={primary ? undefined : theme.colors.surfaceMuted}
         disabled={action.disabled}
-        height={56}
+        height={buttonHeight}
         key={action.label}
         onPress={action.onPress}
         testID={action.testID}
