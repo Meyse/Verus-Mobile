@@ -481,13 +481,21 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   "Choose a card" and has a 44-point touch target.
 - Center the QR and address group in the remaining space; scroll when needed.
   The QR tile stays white in both themes, with 16-point padding, a 20-point
-  radius, and a 216-point QR (184 on small screens). Keep the existing filled
-  address field, middle ellipsis, identifier type, and `CopyAction`. Do not
-  group addresses into four-character blocks. VerusID names keep normal type.
+  radius, and a 216-point QR (184 on small screens; on windows of 640 points
+  or less, a 160-point QR, 12-point padding and tighter spacing so the address
+  field sits above the footer). Keep the existing filled address field, middle
+  ellipsis, identifier type, and `CopyAction`. Do not group addresses into
+  four-character blocks. VerusID names keep normal type. On Android the address
+  text is not selectable, because a selectable Android text view ignores the
+  middle ellipsis; `CopyAction` is the copy path.
 - Show no supported-chain claim or repeated card/address metadata. The safe
   footer has Share address, then Request amount as a secondary action.
+- "Choose a card" titles each card by type ("Transparent", "Private") or by
+  its VerusID name, with a transparent card's short address as a monospace
+  subtitle, so the chooser matches the context line.
 - Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
-  and 1, the Send 40/48 amount field and conversion chip, and `FlatRow` for
+  and 1, the Send 40/48 amount field (it shrinks to 20 points to keep the
+  amount and its unit on one line) and conversion chip, and `FlatRow` for
   Note and Conversions. These rows show only on conversion-eligible cards.
   The two compact form sheets follow `AddressBookEditSheet`; choices apply
   after dismissal. The note stays out of the modern invoice QR.
@@ -495,7 +503,11 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   `#F6F3EC` paper, light text colors, notched SVG outline, dotted perforation,
   and `StatusBadge variant="paper"` are an approved material exception to flat
   pages. Use the VerusPay wordmark and conversion badge for modern invoices;
-  other cards show the asset name and logo. The amount shrinks to fit. The QR
+  other cards show the asset name and logo. The amount sizes itself to the slip
+  width and the unit shrinks with it, so the number is never smaller than its
+  ticker. The result step shows no bottom scroll fade: the cut card edge
+  already shows that more is below, and a page-colored fade smears the paper
+  in dark mode. The QR
   is 200 points (160 on compact windows), with a 14-point quiet zone. Under it,
   show the address in one monospace line with middle ellipsis, or the human
   VerusID name in normal type. Use an iOS shadow; no Android rectangle elevation.
