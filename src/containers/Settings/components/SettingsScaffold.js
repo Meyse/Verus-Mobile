@@ -308,6 +308,11 @@ const createStyles = theme =>
     footerButton: {
       flex: 1,
     },
+    // The primary action carries the longer label ("Reset password" is 127 dp
+    // and a half-width button leaves 129 dp on a 360 dp window).
+    footerPrimaryButton: {
+      flex: 1.6,
+    },
     centered: {
       flex: 1,
       alignItems: 'center',
@@ -766,7 +771,7 @@ export const SettingsActionFooter = ({
             disabled={primaryDisabled}
             height={52}
             onPress={primaryOnPress}
-            style={styles.footerButton}
+            style={styles.footerPrimaryButton}
             testID={primaryTestID}
             buttonColor={
               primaryVariant === 'danger' ? theme.colors.danger : undefined

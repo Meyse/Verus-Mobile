@@ -108,7 +108,7 @@ const getDeliveryTitle = deliveryInfo => {
 
 const getDeliveryErrorMessage = (error, deliveryInfo) => {
   if (error?.isResponsePostError) {
-    return `We couldn't send the response to ${
+    return `The response could not be sent to ${
       deliveryInfo?.destinationHost || 'the requester'
     }.`;
   }

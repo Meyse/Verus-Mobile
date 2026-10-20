@@ -205,7 +205,7 @@ const getAutoDeliverySheetMessage = ({
       // A host goes on its own line. A URL otherwise breaks after the scheme
       // ("http://" / "127.0.0.1:8787").
       const separator = destination === 'the requester' ? ' ' : '\n';
-      return `We couldn't send the response to${separator}${destination}.`;
+      return `The response could not be sent to${separator}${destination}.`;
     }
 
     return getGenericResponseDeliveryFailure(error).message;
