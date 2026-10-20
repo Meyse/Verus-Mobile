@@ -4,7 +4,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
 import {Text} from 'react-native-paper';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
+import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../../../globals/fonts';
 import {createSignedOutFlowStyles} from '../../../../../styles';
@@ -72,6 +72,8 @@ export default function SeedWords({
   const [wordErrors, setWordErrors] = useState([false, false, false]);
   const pageProgress = useRef(new Animated.Value(0)).current;
   const verifyInputRef = useRef(null);
+  const scrollRef = useRef(null);
+  const scrollMetricsRef = useRef({content: 0, viewport: 0});
   const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
     useOnboardingSmallDeviceLayout();
   const formStep =
@@ -294,10 +296,28 @@ export default function SeedWords({
     };
   };
 
+  const scrollToEndWithKeyboard = () => {
+    if (!keyboardVisible) {
+      return;
+    }
+
+    // Small screens pad the end with an empty keyboard clearance. Stop at the
+    // word field and its normal bottom padding instead.
+    const {content, viewport} = scrollMetricsRef.current;
+    const emptyClearance =
+      smallDeviceKeyboardVisible && isAtEnd
+        ? theme.spacing.keyboardFooterClearance -
+          signedOutFlowStyles.scrollContent.paddingBottom
+        : 0;
+
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, content - emptyClearance - viewport),
+      animated: true,
+    });
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={signedOutFlowStyles.container}>
+    <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       {showHeader ? (
         <CompactSetupHeader onBack={back} progress={progress} />
       ) : null}
@@ -306,6 +326,7 @@ export default function SeedWords({
         onPress={() => Keyboard.dismiss()}>
         <View style={styles.content}>
           <ScrollView
+            ref={scrollRef}
             bounces={false}
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
@@ -318,6 +339,17 @@ export default function SeedWords({
               Platform.OS === 'ios' ? 'interactive' : 'on-drag'
             }
             keyboardShouldPersistTaps="handled"
+            // The word field is last. Keep it and its error above Next when
+            // the keyboard shortens the view.
+            onContentSizeChange={(width, height) => {
+              scrollMetricsRef.current.content = height;
+              scrollToEndWithKeyboard();
+            }}
+            onLayout={event => {
+              scrollMetricsRef.current.viewport =
+                event.nativeEvent.layout.height;
+              scrollToEndWithKeyboard();
+            }}
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, pageAnimatedStyle]}>
@@ -477,7 +509,7 @@ export default function SeedWords({
           {getPrimaryLabel()}
         </AppButton>
       </SafeBottomActionStack>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingForm>
   );
 }
 

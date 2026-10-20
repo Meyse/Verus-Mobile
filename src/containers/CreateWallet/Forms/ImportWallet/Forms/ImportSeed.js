@@ -6,7 +6,6 @@ import {
   Clipboard,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,6 +17,7 @@ import {Chip, Text} from 'react-native-paper';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
+import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../../../globals/fonts';
 import {createSignedOutFlowStyles} from '../../../../../styles';
@@ -576,9 +576,7 @@ export default function ImportSeed({
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={signedOutFlowStyles.container}>
+    <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
         accessible={false}
         onPress={handleDismissKeyboard}>
@@ -768,7 +766,7 @@ export default function ImportSeed({
           </AppButton>
         </SafeBottomActionStack>
       ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingForm>
   );
 }
 
