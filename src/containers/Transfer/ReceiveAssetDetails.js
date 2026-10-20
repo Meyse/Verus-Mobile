@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import {
+  Platform,
   ScrollView,
   Share,
   TouchableOpacity,
@@ -252,7 +253,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           <Text
             ellipsizeMode="middle"
             numberOfLines={1}
-            selectable
+            selectable={Platform.OS === 'ios'}
             style={[styles.address, styles.identifier]}>
             {address}
           </Text>
@@ -418,7 +419,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                       <Text
                         ellipsizeMode="middle"
                         numberOfLines={1}
-                        selectable
+                        selectable={Platform.OS === 'ios'}
                         style={styles.address}>
                         {selectedCard.name}
                       </Text>

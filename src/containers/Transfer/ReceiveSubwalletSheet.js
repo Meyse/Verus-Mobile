@@ -8,6 +8,7 @@ import useSheetDismissal from '../../components/useSheetDismissal';
 import {createSelectionSheetStyles} from '../../styles';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import {getSubWalletCardType} from '../../utils/subwallet/cardPresentation';
 
 const getNetworkDetails = wallet => {
   const networkId =
@@ -63,19 +64,27 @@ const ReceiveSubwalletSheet = ({
       ) : (
         groups.map(group => (
           <SelectionGroup key={group.id} title={group.name}>
-            {group.wallets.map(wallet => (
-              <SelectionRow
-                key={wallet.id}
-                title={wallet.name || wallet.id}
-                accessibilityLabel={`Receive with ${wallet.name || 'Card'}`}
-                selected={
-                  selectedId == null ? undefined : wallet.id === selectedId
-                }
-                value={Number(balanceMap[wallet.id] || 0).toFixed(4)}
-                valueLabel={coinObj.display_ticker}
-                onPress={() => dismissal.dismiss(() => onSelect(wallet))}
-              />
-            ))}
+            {group.wallets.map(wallet => {
+              const cardType = getSubWalletCardType(wallet);
+              const title = cardType === 'VerusID' ? wallet.name : cardType;
+              const subtitle = cardType === 'Transparent' ? wallet.name : undefined;
+              const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
+              return (
+                <SelectionRow
+                  key={wallet.id}
+                  title={title}
+                  subtitle={subtitle}
+                  subtitleMonospace
+                  accessibilityLabel={`Receive with ${title}${subtitle ? `, ${subtitle}` : ''}, ${balance} ${coinObj.display_ticker}`}
+                  selected={
+                    selectedId == null ? undefined : wallet.id === selectedId
+                  }
+                  value={balance}
+                  valueLabel={coinObj.display_ticker}
+                  onPress={() => dismissal.dismiss(() => onSelect(wallet))}
+                />
+              );
+            })}
           </SelectionGroup>
         ))
       )}

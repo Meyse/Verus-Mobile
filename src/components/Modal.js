@@ -8,7 +8,8 @@ import { connect } from 'react-redux';
 import {
   KeyboardAvoidingView,
   Modal as NativeModal,
-  Platform
+  Platform,
+  View
 } from 'react-native'
 import getUid from '../utils/uid'
 import { PUSH_MODAL, REMOVE_MODAL } from "../utils/constants/storeType";
@@ -58,14 +59,20 @@ class Modal extends Component {
       keyboardVerticalOffset,
       ...modalProps
     } = this.props;
+    // Android's native dialog already uses adjustResize. A second height
+    // avoider caches a transient dialog frame and can leave actions under the
+    // IME after it resizes. Keep the root flexible and let the dialog resize it.
+    const KeyboardRoot = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+    const keyboardRootProps = Platform.OS === 'ios'
+      ? {behavior: 'padding', keyboardVerticalOffset: keyboardVerticalOffset || 0}
+      : {};
     const modalChildren = avoidKeyboard ? (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset || 0}
+      <KeyboardRoot
+        {...keyboardRootProps}
         style={{ flex: 1 }}
       >
         {children}
-      </KeyboardAvoidingView>
+      </KeyboardRoot>
     ) : children;
 
     return (

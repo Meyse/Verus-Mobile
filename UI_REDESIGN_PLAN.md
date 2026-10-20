@@ -10,8 +10,9 @@ without repeating the entire investigation.
 - Last updated: 2026-10-20.
 - Scoped Receive restyle: **RX-2** on `claude/receive-restyle` from `e8992c94`.
   Owner approved Calm address (A) and the payment-request paper slip (C) on
-  2026-10-20. Implementation is ready for verification. Device QA remains with
-  the orchestrator; no runtime was started in the implementation pass.
+  2026-10-20. Round-2 Android corrections pass on `Pixel_8_API_35`: native
+  modal keyboard resizing, long-address truncation, and card type labels.
+  RX-2.5–RX-2.6 remain open for the full platform and size matrix.
 - Scoped wizard title change: `claude/wizard-header-title` from `78ebe3c7`.
   The owner approved short header titles on 2026-10-17. Send/Convert removes
   large content titles and repeated subtitles, retains Amount context and
@@ -1172,6 +1173,39 @@ address rows/styles, the invoice helper, error mapping, and operation handlers
 unchanged. These checks do not prove native layout or QR decoding. No Metro
 server, simulator, emulator, or live wallet action ran.
 
+
+**Round-2 Android correction evidence (2026-10-20):** Based on `f624307d` in
+`claude/receive-restyle`; changes stay uncommitted. The canonical Address book
+Add sheet also hid Cancel behind Gboard. Android native dialogs already use
+`adjustResize`; the shared `Modal` added a second, cached-height
+`KeyboardAvoidingView`. The original Conversions sheet reproduces the hidden
+Done button; switching only the Android wrapper to a flexible `View` resolves
+it. iOS retains its padding avoider and offset. No keyboard metrics or timers
+were added. Note and Conversions keep the full field and Done visible in light
+and dark mode. Done applies values; close/reopen retains them. Invalid 101%
+slippage keeps its error and Done visible. The request keypad keeps Create
+request visible; a 1.25 VRSCTEST request reaches the result on private Testnet.
+Address book passes Label/Address focus, Cancel, and reopen; the disposable
+wallet unlock sheet also passes. Other native-sheet consumers were inspected
+in source, not run: Coin Card picker, gift currency picker, PasswordCheck,
+identity provisioning, GenericRequest identity linking, and Services identity
+linking. Embedded sheets keep their existing wrapper.
+
+Android address and VerusID rows disable selectable text so native middle
+ellipsis works. Private (78-character z-address) and gETH (42 characters) pass
+before/after checks; CopyAction copies the full Private address. The chooser
+uses card types, retains a VerusID name, and shows a monospace transparent
+address subtitle. Private/Transparent choice, balances, network group, selected
+state, and accessibility labels pass on the device in light/dark mode.
+Evidence: `/tmp/rx-fix/` (before/after PNGs and `keyboard-probe.log`). Design
+contract (30 sources), safe-area (3 JS files), Babel parse (3), whitespace, and
+production Android/iOS bundles pass. No Jest tests ran. Private testnet and
+slippage editing are restored OFF; system night mode is restored OFF. No
+new runtime, reinstall, Metro restart, staging, commit, push, or merge.
+This pass does not establish iOS runtime behavior, compact-device behavior,
+VerusID device rendering, multiple transparent-card rendering, TalkBack speech,
+or native behavior of the six source-only shared consumers.
+
 ## ID-1 — VerusID linking, details, and status refinement
 
 **Sources:**
@@ -1507,6 +1541,7 @@ plan into a repository-wide migration test project.
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
 | 2026-10-20 | RX-2 Receive restyle | `claude/receive-restyle` from `e8992c94`, uncommitted | Approved A Receive and C paper slip; existing address field kept. One request input step, Note/Conversions sheets, snapshot estimate, SVG slip and normal-flow actions. Design, safe-area (10), parser (10), isolated undefined/unused-name lint, whitespace, Node component fixtures and iOS/Android bundles pass. Configured ESLint stops while loading its import plugin (`ERR_PACKAGE_PATH_NOT_EXPORTED`, `./lib/util/glob-util`). | Orchestrator owns RX-2.5–RX-2.6 device/visual/QR checks. No Metro server, device runtime, staging, commit, push or merge. |
+| 2026-10-20 | RX-2 round 2 Android fixes | `claude/receive-restyle` from `f624307d`, uncommitted; `Modal.js`, `ReceiveAssetDetails.js`, `ReceiveSubwalletSheet.js` | Canonical Address book and Conversions reproduce keyboard-hidden actions. Android native dialog resizing replaces the duplicate height avoider; iOS keeps padding avoidance. Note/Conversions light/dark, Done/apply, close/reopen, invalid slippage, request keypad and private-Testnet request result pass on Pixel 8 API 35. Private/gETH middle ellipsis and full Private copy pass. Chooser types, address subtitle, balances, selection, network group and accessibility labels pass. Address book and unlock pass as shared consumers. Design, safe-area, parser, whitespace and Android/iOS production bundles pass. Before/after evidence: `/tmp/rx-fix/`. | Private testnet, slippage editing and night mode restored OFF. No Jest, staging, commit, push, merge, reinstall or Metro restart. iOS/compact runtime, VerusID/multiple transparent cards and six other native-sheet consumers remain unverified at runtime. RX-2.5–RX-2.6 remain open. |
 | 2026-10-17 | TX-1 round 6 Amount polish: A-35/I-36, I-37, A-36 | `claude/fix-amount-step-polish` from `0ae03b0f`; `SendWizardAmount.js`, `WizardUI.js` | Contract: keep the canonical Send wizard, existing amount field, error slot, semantic theme roles, and normal-flow `WizardFooter`/`SafeBottomActionStack`. When the source pays the Ethereum fee and Available is at or below it, show “Not enough VRSCTEST for the Ethereum network fee (about X VRSCTEST).” as soon as the quote arrives, before amount errors. Disable and dim MAX; its handler leaves the input unchanged. Funded MAX still subtracts the exact fee. Context uses the destination row's `name` and the route's `networkName`, including Ethereum and Bridge.vETH. The network sheet's ticker-based “Receive as …” wording stays unchanged (I-25). Source diagnosis for compact keyboard clipping: caller bottom padding is only 12 points on Amount and 20 on Recipient, with no footer-sized scroll reserve. `WizardFormLayout` now measures its non-shrinking footer and adds its height plus 24 points of keyboard-only end padding after caller styles. Keyboard avoidance, normal-flow Continue, and F14 error-reveal calculation stay unchanged. Temporary non-Jest React checks: baseline 3 pass/6 fail; candidate 9 pass/0 fail for fee boundaries, exact/fiat MAX, copy, other fee currencies, quote failure, measured reserve, keyboard-close reset, and F14 scrolling. Babel parse with repo config (two JS files), design (30 canonical sources), safe-area (two files), option matrix, and whitespace checks pass. Temporary dependency link removed before commit. | Source and synthetic React component evidence only; native clipping cause and rendered result still need device confirmation. Orchestrator owns Android normal/360x640 and iOS, both themes, keyboard open/closed, reachable Available/MAX and estimate card, typing visibility, and Amount/Recipient F14 regression checks. No Metro, device, simulator, emulator, `env/`, `docs/`, push, or merge actions. TX-1.8/TX-1.9 remain open. |
 | 2026-10-17 | TX-1 owner-approved wizard header titles | `claude/wizard-header-title` from `78ebe3c7`; header, navigator, five steps, `WizardUI`, `DESIGN.md`, design check | Contract: match `ProgressHeader` title treatment with `titleSheet`, one line, tail ellipsis, header accessibility role, and semantic text color between symmetric 40-point controls/spacer. Titles: Select asset, Convert to, Amount, Recipient, Confirm. Progress stays below the row. Remove large content titles and unused `WizardHeading`; keep Amount asset/network/route context, remove repeated Recipient/Confirm subtitles, and retain missing-selection errors. Content starts at 24 points on normal/compact devices; keep the existing 16-point horizontal inset. Owner approval on 2026-10-17 revises the canonical stepped-task rule; Gift Card fund is not migrated. The design check first rejected its stale headline requirement; it now enforces the approved header-title rule. Design (30 canonical sources), safe-area (eight source files), option matrix, Babel parse (nine changed JS files using repo config), and whitespace checks pass. Exact source comparison confirms `WizardFormLayout` (F14 error scrolling/keyboard handling) and Success are unchanged. Checks use a temporary link to existing local dependencies; no package files change. | Source evidence only. Orchestrator owns Android/iOS light/dark normal/compact rendering, 360dp/375pt title fit, text scaling, Back/close/progress, fallback messages, and F14 keyboard-error checks. No Metro, device, simulator, emulator, push, or merge actions. TX-1.HEADER-TITLE-QA, TX-1.8/TX-1.9 stay open. |
 | 2026-10-17 | TX-1 I-18: show received conversion asset on Home | `claude/convert-auto-add-currency` from `78ebe3c7`; Confirm, `wizardUtils.js`, `autoAddConversionAsset.js` | Behavior-only contract: no new UI, copy, or layout. After Success navigation, reuse `addManagedAsset` with `automatic: true` for an own-address VRPC conversion. Require matching route/definition system and source network; exclude exports and preserve Hidden. The submit fixture fails on the baseline and passes five scheduling/failure groups. Twenty-five non-Jest fixture groups cover activation, manual storage equivalence/readback, hidden/active assets, route/network guards, session changes, add failures, own-address matching, and pre-settlement zero balances. Native/authentication, RPC, and storage boundaries use fixtures. Read-only private RPC confirms USD, KMD, and VRSC-USD definitions belong to VRSCTEST. Babel parse (three files), design (30 sources), safe-area (three files), option matrix, and whitespace checks pass. | Orchestrator owns device, live conversion, settlement, and restart proof on private/public Testnet. Home can briefly show `—`/`N/A`, then `0.0000` before payout. Fiat `N/A` can persist for funded assets without a price; this existing presentation is unchanged. No Metro, device, signing, broadcast, merge, push, `env/`, or `docs/` changes. TX-1.8/TX-1.9 stay open. |
