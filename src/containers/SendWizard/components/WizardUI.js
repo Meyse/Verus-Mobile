@@ -1,7 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,13 +11,13 @@ import {
 import {useHeaderHeight} from '@react-navigation/elements';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import GradientButton from '../../../components/GradientButton';
+import KeyboardAvoidingForm from '../../../components/KeyboardAvoidingForm';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
-import AndroidKeyboardAvoidingForm from './AndroidKeyboardAvoidingForm';
 
 export const WIZARD_CONTENT_INSET = 16;
 export const WIZARD_CONTENT_TOP_INSET = 24;
@@ -121,19 +119,12 @@ export const WizardFormLayout = ({
     </>
   );
 
-  return Platform.OS === 'android' ? (
-    <AndroidKeyboardAvoidingForm
+  return (
+    <KeyboardAvoidingForm
       keyboardVerticalOffset={headerHeight}
       style={styles.screen}>
       {content}
-    </AndroidKeyboardAvoidingForm>
-  ) : (
-    <KeyboardAvoidingView
-      behavior="padding"
-      keyboardVerticalOffset={headerHeight}
-      style={styles.screen}>
-      {content}
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingForm>
   );
 };
 

@@ -22,7 +22,8 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   rowName: {...theme.typography.titleRow, color: theme.colors.textPrimary},
   rowDescription: {...theme.typography.bodySm, color: theme.colors.textSecondary},
   rowAction: {width: 66, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'flex-end'},
-  switchAction: {width: 52, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'center'},
+  // The slot grows with the native switch: 51 points before iOS 26, 63 from it.
+  switchAction: {minWidth: 52, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'center'},
   actionLabel: {...theme.typography.labelMd, color: theme.colors.primary},
   addedLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary},
   footer: {paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border, backgroundColor: theme.colors.background},

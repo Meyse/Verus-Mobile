@@ -4,7 +4,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import AppButton from '../../../../components/AppButton';
+import KeyboardAvoidingForm from '../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import AppTextInput from '../../../../components/AppTextInput';
@@ -56,7 +56,7 @@ export default function ChooseName({
     walletAvatar,
     DEFAULT_WALLET_AVATAR,
   );
-  const {smallDevice, smallDeviceKeyboardVisible} =
+  const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
     useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export default function ChooseName({
 
   if (!smallDevice) {
     return (
-      <View style={signedOutFlowStyles.container}>
+      <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
         <TouchableWithoutFeedback
           onPress={() => Keyboard.dismiss()}
           accessible={false}>
@@ -230,7 +230,14 @@ export default function ChooseName({
           onChange={updateWalletAvatar}
           onClose={() => setAvatarSheetVisible(false)}
         />
-        <SafeBottomActionStack>
+        <SafeBottomActionStack
+          bottomSpacing={
+            keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30
+          }
+          includeBottomInset={!keyboardVisible}
+          safeAreaSpacing={
+            keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
+          }>
           <AppButton
             onPress={next}
             disabled={profileName.length == 0}
@@ -240,14 +247,12 @@ export default function ChooseName({
             {'Next'}
           </AppButton>
         </SafeBottomActionStack>
-      </View>
+      </KeyboardAvoidingForm>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={signedOutFlowStyles.container}>
+    <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
         onPress={() => Keyboard.dismiss()}
         accessible={false}>
@@ -324,7 +329,7 @@ export default function ChooseName({
           {'Next'}
         </AppButton>
       </SafeBottomActionStack>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingForm>
   );
 }
 
