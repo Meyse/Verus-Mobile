@@ -212,6 +212,15 @@ const ReceivePaymentRequestFlow = ({
     ? `≈ ${truncateDecimal((amountValid ? Number(normalizedAmount) : 0) / Number(price), 8)} ${coinObj.display_ticker}`
     : fiatEstimate || `≈ ${formatCurrency({amount: '0.00', code: displayCurrency})[0]}`;
 
+  // Long amounts step down so the number and its unit stay on one line.
+  const amountLength = (amount || '0').length;
+  const amountSizeStyle =
+    amountLength > 14
+      ? styles.amountInputSmall
+      : amountLength > 10
+        ? styles.amountInputMedium
+        : null;
+
   const currencyTicker = amountFiat
     ? displayCurrency
     : coinObj?.display_ticker || '';
@@ -442,7 +451,7 @@ const ReceivePaymentRequestFlow = ({
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           onLayout={event => setAmountWidth(event.nativeEvent.layout.width + 4)}
-          style={[styles.amountInput, styles.amountMeasure]}>
+          style={[styles.amountInput, amountSizeStyle, styles.amountMeasure]}>
           {amount || '0'}
         </Text>
         <TextInput
@@ -457,7 +466,7 @@ const ReceivePaymentRequestFlow = ({
           placeholderTextColor={theme.colors.textSubtle}
           returnKeyType="done"
           selectionColor={theme.colors.primary}
-          style={[styles.amountInput, {width: amountWidth}]}
+          style={[styles.amountInput, amountSizeStyle, {width: amountWidth}]}
           value={amount}
         />
         <Text numberOfLines={1} style={styles.currency}>{currencyTicker}</Text>
@@ -572,8 +581,7 @@ const ReceivePaymentRequestFlow = ({
           }
           accessibilityState={{disabled: savedNonConversion}}
           disabled={savedNonConversion}
-          onPress={snapshot.conversion ? shareInvoice : saveQr}
-          style={savedNonConversion ? {backgroundColor: theme.colors.success} : undefined}>
+          onPress={snapshot.conversion ? shareInvoice : saveQr}>
           {snapshot.conversion
             ? 'Share'
             : savedNonConversion

@@ -51,7 +51,10 @@ const ReceiveConversionsSheet = ({
             errorText={error}
             keyboardType="decimal-pad"
             label="Max slippage (%)"
-            onChangeText={setSlippage}
+            onChangeText={value => {
+              setSlippage(value);
+              setError(null);
+            }}
             value={slippage}
           />
         </View>

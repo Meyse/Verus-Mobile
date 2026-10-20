@@ -269,7 +269,7 @@ export const createReceiveDetailsStyles = theme =>
     // Match SendWizardAmount's editable 40/48 amount and 16-radius mode chip.
     amountInput: {
       minWidth: 32,
-      maxWidth: '75%',
+      maxWidth: '80%',
       flexShrink: 1,
       padding: 0,
       textAlign: 'center',
@@ -278,6 +278,8 @@ export const createReceiveDetailsStyles = theme =>
       lineHeight: 48,
       ...fontStyle('bold'),
     },
+    amountInputMedium: {fontSize: 32, lineHeight: 40},
+    amountInputSmall: {fontSize: 24, lineHeight: 32},
     amountMeasure: {position: 'absolute', opacity: 0, maxWidth: undefined},
     currency: {
       flexShrink: 1,
