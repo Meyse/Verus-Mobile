@@ -12,6 +12,7 @@ export const STATUS_BADGE_TONE = {
 };
 
 const DARK_COLORS = ONBOARDING_THEMES.dark.colors;
+const PAPER_COLORS = ONBOARDING_THEMES.light.colors;
 // The gift card material is dark in both appearances. Its neutral pair is a
 // light tint of the material, as in the approved SV-1 mockup.
 const CARD_NEUTRAL = {
@@ -33,7 +34,8 @@ const getToneColors = (tone, colors) => {
 };
 
 // Tinted status pill: a semantic background with colored text and no dot.
-// `variant="card"` is for the dark gift card material in both appearances.
+// Fixed materials use their own tone pair in both appearances: dark for
+// `variant="card"`, light for the payment-request `variant="paper"`.
 const StatusBadge = ({
   label,
   style,
@@ -45,7 +47,7 @@ const StatusBadge = ({
   const {backgroundColor, color} =
     onCard && tone === STATUS_BADGE_TONE.NEUTRAL
       ? CARD_NEUTRAL
-      : getToneColors(tone, onCard ? DARK_COLORS : theme.colors);
+      : getToneColors(tone, onCard ? DARK_COLORS : variant === 'paper' ? PAPER_COLORS : theme.colors);
 
   return (
     <View
