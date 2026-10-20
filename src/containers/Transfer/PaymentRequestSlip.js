@@ -17,6 +17,30 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
   const {width: w, height: h} = size;
   const p = perforation;
   // Two true half-round cut-outs, rather than circles painted over the paper.
+  // Size the amount from the slip width so a long amount stays on one line,
+  // and keep the unit smaller than the number (Inter bold digits ~0.64 em,
+  // the semibold unit ~0.62 em per character, 8 pt gap, 22 pt side padding).
+  const amountText = String(snapshot.displayAmount ?? snapshot.amountText ?? '');
+  const unitText = String(snapshot.displayUnit ?? snapshot.currency ?? '');
+  const baseAmountSize = compact ? 36 : 44;
+  const amountRoom = Math.max(0, w - 44 - 8);
+  const fitAmount = unitSize =>
+    Math.floor(
+      (amountRoom - unitText.length * unitSize * 0.62) /
+        (Math.max(amountText.length, 1) * 0.64),
+    );
+  let unitSize = 20;
+  let amountSize = w > 0 ? Math.min(baseAmountSize, fitAmount(unitSize)) : baseAmountSize;
+  if (w > 0 && amountSize < unitSize * 1.4) {
+    unitSize = Math.max(12, Math.round(amountSize * 0.6));
+    amountSize = Math.min(baseAmountSize, fitAmount(unitSize));
+  }
+  const amountSizeStyle =
+    amountSize < baseAmountSize
+      ? {fontSize: amountSize, lineHeight: amountSize + 6, letterSpacing: -0.5}
+      : null;
+  const unitSizeStyle =
+    unitSize < 20 ? {fontSize: unitSize, lineHeight: unitSize + 6} : null;
   const outline = `M22 0H${w - 22}Q${w} 0 ${w} 22V${p - 11}A11 11 0 0 0 ${w} ${p + 11}V${h - 22}Q${w} ${h} ${w - 22} ${h}H22Q0 ${h} 0 ${h - 22}V${p + 11}A11 11 0 0 0 0 ${p - 11}V22Q0 0 22 0Z`;
 
   return (
@@ -77,11 +101,11 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
             adjustsFontSizeToFit
             minimumFontScale={0.25}
             numberOfLines={1}
-            style={[styles.amount, compact && styles.amountCompact]}>
-            {snapshot.displayAmount ?? snapshot.amountText}
+            style={[styles.amount, compact && styles.amountCompact, amountSizeStyle]}>
+            {amountText}
           </Text>
-          <Text adjustsFontSizeToFit numberOfLines={1} style={styles.unit}>
-            {snapshot.displayUnit ?? snapshot.currency}
+          <Text numberOfLines={1} style={[styles.unit, unitSizeStyle]}>
+            {unitText}
           </Text>
         </View>
         {snapshot.fiatEstimate ? (

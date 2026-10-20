@@ -171,6 +171,7 @@ export const createReceiveDetailsStyles = theme =>
     safe: {flex: 1, backgroundColor: theme.colors.background},
     root: {flex: 1},
     scroll: {flexGrow: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24},
+    scrollTight: {paddingTop: 4, paddingBottom: 12},
     header: {marginBottom: 12},
     titleRow: {flexDirection: 'row', alignItems: 'center'},
     title: {
@@ -195,7 +196,9 @@ export const createReceiveDetailsStyles = theme =>
     },
     receiveBody: {flexGrow: 1, justifyContent: 'center'},
     qrWrap: {alignItems: 'center', marginBottom: 24},
+    qrWrapTight: {marginBottom: 16},
     qrSurface: {backgroundColor: '#FFFFFF', padding: 16, borderRadius: 20},
+    qrSurfaceTight: {padding: 12, borderRadius: 18},
     label: {
       marginBottom: 8,
       color: theme.colors.textPrimary,

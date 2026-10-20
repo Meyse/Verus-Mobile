@@ -86,7 +86,10 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const {height, width} = useWindowDimensions();
   const styles = useMemo(() => createReceiveDetailsStyles(theme), [theme]);
   const isSmall = height <= 667 || width <= 375;
-  const qrSize = isSmall ? 184 : 216;
+  // 360x640 Android windows need a tighter page so the address field sits
+  // fully above the footer without scrolling.
+  const isTight = height <= 640;
+  const qrSize = isTight ? 160 : isSmall ? 184 : 216;
   const activeCoins = useObjectSelector(
     state => state.coins.activeCoinsForUser || [],
   );
@@ -354,7 +357,8 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safe}>
       <View style={styles.root}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, isTight && styles.scrollTight]}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <AssetCoinLogo coinId={coinObj.id} size={40} />
@@ -380,8 +384,8 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             )}
           </View>
           <View style={styles.receiveBody}>
-            <View style={styles.qrWrap}>
-              <View style={styles.qrSurface}>
+            <View style={[styles.qrWrap, isTight && styles.qrWrapTight]}>
+              <View style={[styles.qrSurface, isTight && styles.qrSurfaceTight]}>
                 {addressLoading ? (
                   <SkeletonLoader accessibilityLabel="Loading receive address">
                     <SkeletonBlock height={qrSize} radius={8} width={qrSize} />
