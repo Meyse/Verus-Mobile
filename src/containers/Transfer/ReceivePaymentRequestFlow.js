@@ -96,7 +96,7 @@ export const getRequestErrorMessage = error => {
     if (USER_FACING_MESSAGES.includes(message)) return message;
     if (message.startsWith('Unable to convert ')) return message;
   }
-  return 'We could not create this payment request. Try again.';
+  return 'The payment request could not be created. Try again.';
 };
 
 const ReceivePaymentRequestFlow = ({
@@ -307,7 +307,7 @@ const ReceivePaymentRequestFlow = ({
       if (isActiveRun(runId) && mountedRef.current) setError(null);
     } catch (e) {
       if (isActiveRun(runId) && mountedRef.current) {
-        setError('We could not open the share sheet. Try again.');
+        setError('The share sheet could not be opened. Try again.');
       }
     }
   }, [isActiveRun, snapshot]);
@@ -337,7 +337,7 @@ const ReceivePaymentRequestFlow = ({
         setError(null);
       } catch (e) {
         if (!isActiveRun(runId) || !mountedRef.current) return;
-        setError('We could not save the QR image. Try again.');
+        setError('The QR image could not be saved. Try again.');
       } finally {
         if (savingRef.current === saveToken) savingRef.current = false;
       }
