@@ -444,6 +444,29 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
   as a conversion; the owner removed those labels on 2026-10-19.
 - Keep the chevron, the amount, ticker and fiat value column, and the skeleton rows.
 
+## Transaction details
+
+A tap on a history row opens `TransactionDetailsSheet` in
+`src/containers/Coin/Overview/TransactionDetailsSheet.js`. It replaced the legacy
+`TxDetailsModal` on 2026-10-21 (gap 1 of the redesign gap audit) and follows the
+Sent step.
+
+- `InfoSheet` with the literal title "Transaction", the date and time as the
+  subtitle, and a `StatusBadge` on the title line (`headerAccessory`): success
+  "Confirmed" or warning "Pending".
+- Then the Sent step's `TransferNode`: the asset logo, a label ("You sent", "You
+  received", "Interest", or the history row's fee label), and the amount with the
+  fiat value when the ledger holds a price. The amount has no sign and no color,
+  because the label gives the direction.
+- Then `InfoSheetRow`s under a hairline, each only when its data exists: To (one
+  address per line; `CopyAction` only for a single address), Network fee,
+  Message, and Transaction ID (one line with a middle ellipsis). `copy` on the row
+  adds `CopyAction`. Identifiers use 12/17 monospace, the Sent step's ID size, so a
+  full R-address fits on one line on an iPhone SE.
+- "View in explorer" is a sheet action row. It shows only when the coin has an
+  explorer.
+- Done closes the sheet, as in every information sheet.
+
 ## Services home
 
 The user approved this pattern on 2026-10-15 (SV-1 in `UI_REDESIGN_PLAN.md`).

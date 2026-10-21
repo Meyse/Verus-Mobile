@@ -164,6 +164,15 @@ const createDeepLinkRequestReviewStyles = theme =>
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
+    requestInfoRowWithAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    requestInfoRowText: {
+      flex: 1,
+      minWidth: 0,
+      marginRight: 8,
+    },
     requestInfoLabel: {
       color: theme.colors.textSubtle,
       fontSize: 12,

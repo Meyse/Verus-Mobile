@@ -1,10 +1,22 @@
 import React, {useMemo} from 'react';
 import {View} from 'react-native';
 import {Text} from 'react-native-paper';
+import CopyAction from './CopyAction';
 import {deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 
-export const InfoSheetRow = ({label, selectable = true, value}) => {
+// `copy` adds the shared copy button beside the row. It copies `copyValue`
+// when the shown value differs from the text to copy.
+export const InfoSheetRow = ({
+  copy = false,
+  copyValue,
+  ellipsizeMode,
+  label,
+  numberOfLines,
+  selectable = true,
+  value,
+  valueStyle,
+}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(
     () => createDeepLinkRequestReviewStyles(theme),
@@ -13,12 +25,29 @@ export const InfoSheetRow = ({label, selectable = true, value}) => {
 
   if (value == null) return null;
 
-  return (
-    <View style={styles.requestInfoRow}>
+  const text = (
+    <>
       <Text style={styles.requestInfoLabel}>{label}</Text>
-      <Text selectable={selectable} style={styles.requestInfoValue}>
+      <Text
+        ellipsizeMode={ellipsizeMode}
+        numberOfLines={numberOfLines}
+        selectable={selectable}
+        style={[styles.requestInfoValue, valueStyle]}>
         {value}
       </Text>
+    </>
+  );
+
+  if (!copy) return <View style={styles.requestInfoRow}>{text}</View>;
+
+  return (
+    <View style={[styles.requestInfoRow, styles.requestInfoRowWithAction]}>
+      <View style={styles.requestInfoRowText}>{text}</View>
+      <CopyAction
+        accessibilityLabel={`Copy ${label.toLowerCase()}`}
+        copiedAccessibilityLabel={`${label} copied`}
+        value={copyValue ?? value}
+      />
     </View>
   );
 };
