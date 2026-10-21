@@ -47,6 +47,16 @@ export const uniqueAssets = coins => {
 export const isAssetShown = (coin, preferences) =>
   preferences?.[assetKey(coin)]?.hidden !== true;
 
+// The wallet's main coin carries the other Verus assets and VerusIDs, so it
+// always stays in the wallet.
+export const isMainAsset = (coin, account) =>
+  coin.id === (isTestnetAccount(account) ? account.testnetOverrides.VRSC : 'VRSC');
+
+// A removed Verus currency stays out on every system until the user adds it
+// again. Nothing adds the other asset types back automatically.
+export const removalKey = coin =>
+  coin?.proto === 'vrsc' && coin.currency_id ? coin.currency_id : null;
+
 export const matchesVrpcHolding = (coin, holding) =>
   coin.proto === 'vrsc' &&
   Boolean(coin.testnet) === Boolean(holding.testnet) &&

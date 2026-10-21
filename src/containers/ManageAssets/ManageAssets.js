@@ -2,19 +2,21 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Switch, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AppButton from '../../components/AppButton';
 import AppSearchField from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {
   assetKey, assetNetworkKey, getManagedAssetBalance,
-  isAssetShown, isTestnetAccount,
+  isAssetShown, isMainAsset, isTestnetAccount,
 } from '../../utils/assets/assetIdentity';
 import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
   addManagedAsset, assetContextIsCurrent, captureAssetContext,
-  getNewAssetHoldings, loadAssetManagement, setAssetHomeVisibility,
+  getNewAssetHoldings, loadAssetManagement, removeManagedAsset, setAssetHomeVisibility,
 } from '../../utils/assets/assetManagementService';
+import AssetDetailsSheet from './AssetDetailsSheet';
 import {buildAssetManagerData} from './assetManagerData';
 import {
   AssetFooter, AssetLoadingRows, AssetLogo, AssetScreen, AssetScrollView,
@@ -38,7 +40,7 @@ const useAssetData = () => {
   useEffect(() => {
     loadAssetManagement().catch(() => {});
   }, []);
-  return {...data, cards, balances, management, discoveries, showBalance};
+  return {...data, activeAccount, cards, balances, management, discoveries, showBalance};
 };
 
 const useAssetAction = () => {
@@ -47,25 +49,38 @@ const useAssetAction = () => {
   const pendingRef = useRef(false);
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
-  const perform = useCallback(async (coin, shown) => {
+  const run = useCallback(async (coin, action, task, failure) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     const context = captureAssetContext();
-    setPending(assetKey(coin));
+    setPending({key: assetKey(coin), action});
     setError(null);
     try {
-      if (shown == null) await addManagedAsset({coin, context});
-      else await setAssetHomeVisibility(coin, shown, context);
+      await task(context);
     } catch (_) {
-      if (mounted.current && assetContextIsCurrent(context)) {
-        setError(shown == null ? 'Couldn’t add this asset. Try again.' : 'Couldn’t save the Home setting. Try again.');
-      }
+      if (mounted.current && assetContextIsCurrent(context)) setError(failure);
     } finally {
       pendingRef.current = false;
       if (mounted.current && assetContextIsCurrent(context)) setPending(null);
     }
   }, []);
-  return {pending, error, perform};
+  const perform = useCallback((coin, shown) => shown == null
+    ? run(coin, 'add', context => addManagedAsset({coin, context}), 'Couldn’t add this asset. Try again.')
+    : run(coin, 'home', context => setAssetHomeVisibility(coin, shown, context), 'Couldn’t save the Home setting. Try again.'), [run]);
+  const remove = useCallback(coin => run(coin, 'remove', context => removeManagedAsset({coin, context}),
+    'Couldn’t remove this asset. Try again.'), [run]);
+  return {pending, error, perform, remove};
+};
+
+const formatAmount = ({total, complete}, showBalance, ticker) => !showBalance ? 'Balance hidden'
+  : total == null ? 'Balance unavailable' : `${complete ? '' : '≥ '}${total.toFormat()} ${ticker}`;
+
+const removalMessage = ({total, complete}, showBalance, ticker) => {
+  if (showBalance && complete && total?.isGreaterThan(0)) {
+    return `Your balance of ${total.toFormat()} ${ticker} stays on the blockchain. The wallet stops showing it until you add this asset again.`;
+  }
+  if (showBalance && complete && total?.isZero()) return 'The wallet stops showing this asset until you add it again.';
+  return 'Any funds stay on the blockchain. The wallet stops showing this asset until you add it again.';
 };
 
 const SectionHeader = ({title, detail, styles}) => (
@@ -81,24 +96,55 @@ const ErrorMessage = ({error, styles}) => error ? (
   </View>
 ) : null;
 
-const AssetRow = ({coin, presentation, description, action, styles}) => (
-  <View style={styles.assetRow} testID={`manage-asset-row-${coin.id}`}>
+const AssetRow = ({coin, presentation, description, action, disabled, onPress, styles}) => {
+  const content = <>
     <AssetLogo presentation={presentation} styles={styles} />
     <View style={styles.rowCopy}>
       <Text numberOfLines={2} style={styles.rowName}>{presentation.name}</Text>
       <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text>
     </View>
-    {action}
-  </View>
-);
+  </>;
+  return (
+    <View style={styles.assetRow} testID={`manage-asset-row-${coin.id}`}>
+      {onPress ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${presentation.name}, ${description}`}
+        accessibilityHint="Shows details and Remove from wallet" accessibilityState={{disabled: Boolean(disabled)}}
+        activeOpacity={0.74} disabled={disabled} onPress={onPress} style={styles.rowPress} testID={`manage-asset-open-${coin.id}`}>
+        {content}
+      </TouchableOpacity> : content}
+      {action}
+    </View>
+  );
+};
 
 const Manager = ({navigation}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
   const data = useAssetData();
-  const {pending, error, perform} = useAssetAction();
+  const {pending, error, perform, remove} = useAssetAction();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  // The selected asset outlives both sheets, so their content stays in place
+  // while they animate closed.
+  const [selected, setSelected] = useState(null);
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const removeRequested = useRef(false);
+  const holdingOf = coin => getManagedAssetBalance(coin, data.cards[coin.id], data.balances, data.management.snapshots);
+  const selectedPresentation = selected && getAssetPresentation(selected, {cards: data.cards[selected.id]});
+  const selectedHolding = selected && holdingOf(selected);
+  const openDetails = coin => {
+    removeRequested.current = false;
+    setSelected(coin);
+    setDetailsVisible(true);
+  };
+  const requestRemove = () => {
+    removeRequested.current = true;
+    setDetailsVisible(false);
+  };
+  const detailsClosed = () => {
+    if (removeRequested.current) setConfirmVisible(true);
+    removeRequested.current = false;
+  };
   const assets = data.activeAssets.map(coin => ({coin,
     presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
   })).filter(({coin, presentation}) => {
@@ -129,13 +175,14 @@ const Manager = ({navigation}) => {
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
           <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
           {assets.map(({coin, presentation}) => {
-            const {total: balance, complete} = getManagedAssetBalance(coin, data.cards[coin.id], data.balances, data.management.snapshots);
-            const amount = !data.showBalance ? 'Balance hidden' : balance == null ? 'Balance unavailable' : `${complete ? '' : '≥ '}${balance.toFormat()} ${presentation.ticker}`;
+            const removing = pending?.key === assetKey(coin) && pending.action === 'remove';
+            const amount = removing ? 'Removing…' : formatAmount(holdingOf(coin), data.showBalance, presentation.ticker);
             return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} description={amount} styles={styles}
+              disabled={pending != null} onPress={isMainAsset(coin, data.activeAccount) ? null : () => openDetails(coin)}
               action={<TouchableOpacity style={styles.switchAction}
                 accessibilityRole="switch"
                 accessibilityLabel={`Show ${presentation.name} on Home (${presentation.ticker})`}
-                accessibilityState={{checked: isAssetShown(coin, data.management.preferences), busy: pending === assetKey(coin), disabled: pending != null}}
+                accessibilityState={{checked: isAssetShown(coin, data.management.preferences), busy: pending?.key === assetKey(coin), disabled: pending != null}}
                 disabled={pending != null}
                 onPress={() => perform(coin, !isAssetShown(coin, data.management.preferences))}
                 testID={`asset-home-switch-${coin.id}`}>
@@ -167,6 +214,23 @@ const Manager = ({navigation}) => {
           </> : null}
         </>}
       </AssetScrollView>
+      <AssetDetailsSheet
+        amount={selected ? formatAmount(selectedHolding, data.showBalance, selectedPresentation.ticker) : null}
+        coin={selected}
+        onClose={() => setDetailsVisible(false)}
+        onClosed={detailsClosed}
+        onRemove={requestRemove}
+        presentation={selectedPresentation}
+        visible={detailsVisible} />
+      <AcknowledgeSheet
+        confirmLabel="Remove"
+        dismissLabel="Not now"
+        message={selected ? removalMessage(selectedHolding, data.showBalance, selectedPresentation.ticker) : ''}
+        onAcknowledged={() => remove(selected)}
+        onClose={() => setConfirmVisible(false)}
+        testID="asset-remove-confirm"
+        title={selected ? `Remove ${selectedPresentation.name}?` : ''}
+        visible={confirmVisible} />
     </AssetScreen>
   );
 };
@@ -200,9 +264,9 @@ const Directory = ({navigation}) => {
           const added = active.has(assetKey(coin));
           return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} styles={styles} description={presentation.ticker}
             action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${presentation.name} (${presentation.ticker})`}
-              accessibilityState={{disabled: added || pending != null || !data.management.ready, busy: pending === assetKey(coin)}}
+              accessibilityState={{disabled: added || pending != null || !data.management.ready, busy: pending?.key === assetKey(coin)}}
               disabled={added || pending != null || !data.management.ready} onPress={() => perform(coin)} style={styles.rowAction}>
-              <Text style={added ? styles.addedLabel : styles.actionLabel}>{added ? 'Added' : pending === assetKey(coin) ? 'Adding…' : 'Add'}</Text>
+              <Text style={added ? styles.addedLabel : styles.actionLabel}>{added ? 'Added' : pending?.key === assetKey(coin) ? 'Adding…' : 'Add'}</Text>
             </TouchableOpacity>} />;
         })}
         {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>No matching assets</Text><Text style={styles.rowDescription}>Try another name or add a custom asset.</Text></View> : null}

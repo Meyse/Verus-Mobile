@@ -5,7 +5,10 @@ import {
   ASSET_RESOLVED,
   ASSET_PREFERENCES_SAVED,
   ASSET_DISCOVERY_SAVED,
+  ASSET_REMOVALS_SAVED,
 } from '../../reducers/assetManagement';
+import {removeExistingCoin, setUserCoins} from '../../actions/actionCreators';
+import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {
   captureSessionScope,
   scopeSessionAction,
@@ -21,8 +24,10 @@ import {
   assetKey,
   assetNetworkKey,
   getPositiveVrpcHoldings,
+  isMainAsset,
   isTestnetAccount,
   matchesVrpcHolding,
+  removalKey,
   sameAsset,
   ethereumNetwork,
 } from './assetIdentity';
@@ -138,6 +143,18 @@ export const setAssetHomeVisibility = async (
   });
 };
 
+const setAssetRemoved = async (key, removed, context) => {
+  const saved = await updateStoredAssets(context, current => {
+    const next = {...current.removed};
+    if (removed) next[key] = true;
+    else delete next[key];
+    return {...current, removed: next};
+  });
+  dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+    removed: saved.networks[context.networkKey].removed,
+  });
+};
+
 // Only consider channels still belonging to the current wallet's cards.
 export const currentAssetSnapshots = state => {
   const channels = new Set(Object.values(state.coinMenus.allSubWallets || {})
@@ -153,6 +170,7 @@ export const getNewAssetHoldings = state => {
   const active = state.coins.activeCoinsForUser || [];
   return getPositiveVrpcHoldings(currentAssetSnapshots(state))
     .filter(holding => !active.some(coin => matchesVrpcHolding(coin, holding)))
+    .filter(holding => !state.assetManagement.removed[holding.currencyId])
     .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}))
     .filter(holding => holding.result != null && !holding.result.catalogueMatch);
 };
@@ -166,6 +184,13 @@ export const addManagedAsset = ({
   const operation = additionQueue.catch(() => {}).then(async () => {
     await loadAssetManagement(context);
     assertCurrent(context);
+    const removedKey = coin ? removalKey(coin)
+      : result.kind === 'pbaas' ? result.currencyDefinition.currencyid : null;
+    if (store.getState().assetManagement.removed[removedKey]) {
+      // Only the user brings a removed asset back.
+      if (automatic) return null;
+      await setAssetRemoved(removedKey, false, context);
+    }
     let state = store.getState();
     const existing = (state.coins.activeCoinsForUser || []).find(item =>
       coin ? sameAsset(item, coin) : result.kind === 'pbaas'
@@ -204,6 +229,40 @@ export const addManagedAsset = ({
   return operation;
 };
 
+// Takes the asset out of this wallet. Its funds stay on the blockchain.
+export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
+  const operation = additionQueue.catch(() => {}).then(async () => {
+    await loadAssetManagement(context);
+    assertCurrent(context);
+    const {activeAccount} = store.getState().authentication;
+    if (isMainAsset(coin, activeAccount)) {
+      throw new Error('The main coin stays in the wallet.');
+    }
+    // Mark it first, so a balance update during teardown cannot add it back.
+    const key = removalKey(coin);
+    if (key) await setAssetRemoved(key, true, context);
+    const nextCoins = await removeExistingCoin(
+      coin.id,
+      activeAccount.id,
+      store.dispatch,
+      false,
+      {sessionScope: context.sessionScope, ownerAccountHash: activeAccount.accountHash},
+    );
+    assertCurrent(context);
+    const setUserCoinsAction = setUserCoins(nextCoins, activeAccount.id);
+    store.dispatch(scopeSessionAction(setUserCoinsAction, context.sessionScope));
+    refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser);
+  });
+  additionQueue = operation.catch(() => {});
+  return operation;
+};
+
+// Keeps a found currency out of "New assets found" without adding it.
+export const ignoreAssetHolding = async (holding, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  await setAssetRemoved(holding.currencyId, true, context);
+};
+
 const findCatalogueHolding = holding => {
   const entry = Object.values(coinsList).find(coin => matchesVrpcHolding(coin, holding));
   return entry ? CoinDirectory.findCoinObj(entry.id) : null;
@@ -226,6 +285,7 @@ const discoverAssets = async (context, job) => {
     assertCurrent(context);
     const active = store.getState().coins.activeCoinsForUser || [];
     if (active.some(coin => matchesVrpcHolding(coin, holding))) continue;
+    if (store.getState().assetManagement.removed[holding.currencyId]) continue;
     if ((job.retryAfter[holding.key] || 0) > Date.now()) continue;
     try {
       const catalogueCoin = findCatalogueHolding(holding);

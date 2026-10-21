@@ -6,6 +6,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import ServiceManagerHeader from '../../components/ServiceManagerHeader';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import AppButton from '../../components/AppButton';
+import CopyAction from '../../components/CopyAction';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import {SignedInEdgeFade} from '../../components/SignedInActionBar';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
@@ -37,7 +38,7 @@ export const AssetScreen = ({children, footer, header, onBack, testID, title}) =
 };
 
 export const AssetFooter = ({children, styles}) => (
-  <SafeBottomActionStack bottomSpacing={14} horizontalSpacing={20} safeAreaSpacing={12} style={styles.footer}>
+  <SafeBottomActionStack bottomSpacing={14} gap={10} horizontalSpacing={20} safeAreaSpacing={12} style={styles.footer}>
     {children}
   </SafeBottomActionStack>
 );
@@ -77,6 +78,16 @@ export const AssetScrollView = ({children, contentContainerStyle, styles, testID
     </View>
   );
 };
+
+export const ReviewRow = ({label, value, copy = false, styles, valueStyle}) => (
+  <View style={styles.reviewRow}>
+    <Text style={styles.rowDescription}>{label}</Text>
+    <View style={styles.reviewValueLine}>
+      <Text selectable style={[styles.reviewValue, copy && styles.identifier, valueStyle]}>{String(value)}</Text>
+      {copy ? <CopyAction accessibilityLabel={`Copy ${label.toLowerCase()}`} value={value} /> : null}
+    </View>
+  </View>
+);
 
 export const AssetLogo = ({coin, presentation = coin && getAssetPresentation(coin), styles}) => (
   <View style={styles.rowLogo}>

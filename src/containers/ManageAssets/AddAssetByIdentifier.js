@@ -4,7 +4,6 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../components/AppButton';
 import AppTextInput from '../../components/AppTextInput';
-import CopyAction from '../../components/CopyAction';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {ASSET_IDENTIFIER_ERROR, resolveAssetIdentifier} from '../../utils/CoinData/assetIdentifierService';
@@ -12,10 +11,10 @@ import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
 import {assetNetworkKey, getManagedAssetBalance} from '../../utils/assets/assetIdentity';
 import {getAssetLookupNetworks, getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
-  addManagedAsset, assetContextIsCurrent, captureAssetContext, getNewAssetHoldings,
+  addManagedAsset, assetContextIsCurrent, captureAssetContext, getNewAssetHoldings, ignoreAssetHolding,
 } from '../../utils/assets/assetManagementService';
 import {
-  AssetFooter, AssetLogo, AssetScreen, AssetScrollView, NetworkPicker, systemLabel,
+  AssetFooter, AssetLogo, AssetScreen, AssetScrollView, NetworkPicker, ReviewRow, systemLabel,
 } from './AssetManagementComponents';
 import {createManageAssetsStyles} from './manageAssets.styles';
 
@@ -29,16 +28,6 @@ const lookupErrorMessage = error => {
     default: return 'The network did not respond. Your entry is unchanged. Try again in a moment.';
   }
 };
-
-const ReviewRow = ({label, value, copy = false, styles}) => (
-  <View style={styles.reviewRow}>
-    <Text style={styles.rowDescription}>{label}</Text>
-    <View style={styles.reviewValueLine}>
-      <Text selectable style={[styles.reviewValue, copy && styles.identifier]}>{String(value)}</Text>
-      {copy ? <CopyAction accessibilityLabel={`Copy ${label.toLowerCase()}`} value={value} /> : null}
-    </View>
-  </View>
-);
 
 const CustomAsset = ({navigation, route}) => {
   const theme = useOnboardingTheme();
@@ -58,6 +47,7 @@ const CustomAsset = ({navigation, route}) => {
   const [review, setReview] = useState(Boolean(found));
   const [resolving, setResolving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [ignoring, setIgnoring] = useState(false);
   const [error, setError] = useState(null);
   const requestId = useRef(0);
   const mounted = useRef(true);
@@ -74,7 +64,7 @@ const CustomAsset = ({navigation, route}) => {
     if (addingRef.current) { event.preventDefault(); return; }
     if (review && !found) { event.preventDefault(); setReview(false); setError(null); }
   }), [found, navigation, review]);
-  useEffect(() => { navigation.setOptions({gestureEnabled: !adding}); }, [adding, navigation]);
+  useEffect(() => { navigation.setOptions({gestureEnabled: !adding && !ignoring}); }, [adding, ignoring, navigation]);
 
   const editInput = value => {
     requestId.current += 1;
@@ -138,6 +128,27 @@ const CustomAsset = ({navigation, route}) => {
       if (canUpdate()) setAdding(false);
     }
   };
+  // A found currency the user does not want, such as one sent as spam, stays
+  // out of "New assets found" until the user adds it.
+  const ignoreAsset = async () => {
+    if (!found || addingRef.current) return;
+    addingRef.current = true;
+    setIgnoring(true);
+    setError(null);
+    try {
+      await ignoreAssetHolding(found, context);
+      if (canUpdate()) {
+        allowLeave.current = true;
+        addingRef.current = false;
+        navigation.navigate('ManageAssets');
+      }
+    } catch (_) {
+      if (canUpdate()) setError({message: 'Couldn’t ignore this asset. Try again.'});
+    } finally {
+      addingRef.current = false;
+      if (canUpdate()) setIgnoring(false);
+    }
+  };
   const goBack = () => {
     if (addingRef.current) return;
     if (review && !found) { setReview(false); setError(null); }
@@ -163,12 +174,20 @@ const CustomAsset = ({navigation, route}) => {
       </View></View> : null}
       footer={<AssetFooter styles={styles}><AppButton
         accessibilityState={{busy: adding || resolving}}
-        disabled={review ? adding : (!input.trim() || !selectedNetwork || resolving)}
+        disabled={review ? adding || ignoring : (!input.trim() || !selectedNetwork || resolving)}
         loading={adding || resolving}
         onPress={duplicate ? () => navigation.navigate('ManageAssets') : review ? addAsset : lookUp}
         testID={review ? 'asset-identifier-add' : 'asset-identifier-lookup'}>
         {duplicate ? 'Manage assets' : review ? (adding ? 'Adding asset' : 'Add asset') : resolving ? 'Looking up asset' : error ? 'Try again' : 'Look up asset'}
-      </AppButton></AssetFooter>}>
+      </AppButton>{review && found ? <AppButton
+        accessibilityState={{busy: ignoring}}
+        disabled={adding || ignoring}
+        loading={ignoring}
+        onPress={ignoreAsset}
+        testID="asset-identifier-ignore"
+        variant="secondary">
+        Ignore
+      </AppButton> : null}</AssetFooter>}>
       <AssetScrollView styles={styles} contentContainerStyle={!review && styles.formContent} testID="asset-identifier-content">
         {!review ? <>
           <View style={styles.fieldGroup}>
