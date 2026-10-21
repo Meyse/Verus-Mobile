@@ -649,6 +649,7 @@ export const txPreflight = (
                 err: false,
                 result: {
                   fee: satsToCoins(calculatedFee).toString(),
+                  ...(btcFees ? {estimatedByteSize: estimatedTransactionSize} : {}),
                   value: satsToCoins(value).toString(),
                   toAddress: outputAddress,
                   fromAddress: changeAddress,

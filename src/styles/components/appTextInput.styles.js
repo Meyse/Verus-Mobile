@@ -90,6 +90,9 @@ export default StyleSheet.create({
     height: 44,
     paddingLeft: 0,
   },
+  rightAccessory: {
+    paddingRight: 16,
+  },
   rightAction: {
     width: 48,
     height: 54,

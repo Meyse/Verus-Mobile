@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
-import {Check} from 'lucide-react-native';
+import {Check, ChevronLeft} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from './BottomSheetModal';
 import SheetScrollView from './SheetScrollView';
@@ -19,10 +19,12 @@ export const SelectionRow = ({
   onPress,
   value,
   valueLabel,
+  valueContent,
   leading,
   badge,
   accessibilityLabel,
   compact = false,
+  preserveSubtitle = false,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
@@ -40,7 +42,7 @@ export const SelectionRow = ({
       onPress={onPress}
       style={[styles.row, compact && styles.compactRow, selected && styles.selectedRow]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
-      <View style={styles.copy}>
+      <View style={[styles.copy, preserveSubtitle && styles.preservedCopy]}>
         <Text
           numberOfLines={compact ? 1 : undefined}
           style={[styles.rowTitle, compact && styles.compactTitle, titleMonospace && styles.identifier]}>
@@ -59,12 +61,16 @@ export const SelectionRow = ({
         ) : null}
       </View>
       {badge ? <View style={styles.badge}>{badge}</View> : null}
-      {value != null ? (
-        <View style={styles.value}>
-          <Text style={styles.valueText}>{value}</Text>
-          {valueLabel ? (
-            <Text style={styles.valueLabel}>{valueLabel}</Text>
-          ) : null}
+      {value != null || valueContent ? (
+        <View style={[styles.value, preserveSubtitle && styles.wrappingValue]}>
+          {valueContent || (
+            <>
+              <Text style={[styles.valueText, preserveSubtitle && styles.wrappingValueText]}>{value}</Text>
+              {valueLabel ? (
+                <Text style={styles.valueLabel}>{valueLabel}</Text>
+              ) : null}
+            </>
+          )}
         </View>
       ) : null}
       <View
@@ -125,10 +131,14 @@ const SelectionSheet = ({
   visible,
   onClose,
   onClosed,
+  onBack,
+  backAccessibilityLabel = 'Back',
+  contentContainerStyle,
   avoidKeyboard = false,
   fillHeight = false,
   maxHeight = '76%',
   listProps,
+  scrollViewProps,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
@@ -140,7 +150,7 @@ const SelectionSheet = ({
       onClosed={onClosed}
       avoidKeyboard={avoidKeyboard}
       maxHeight={maxHeight}
-      contentContainerStyle={fillHeight ? {height: maxHeight} : undefined}>
+      contentContainerStyle={[fillHeight ? {height: maxHeight} : null, contentContainerStyle]}>
       <View
         style={[
           bodyStyles.body,
@@ -149,7 +159,16 @@ const SelectionSheet = ({
           fillHeight && styles.fill,
         ]}
         onAccessibilityEscape={onClose}>
-        <View style={styles.header}>
+        <View style={[styles.header, onBack && styles.nestedHeader]}>
+          {onBack ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={backAccessibilityLabel}
+              onPress={onBack}
+              style={styles.backButton}>
+              <ChevronLeft size={22} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+          ) : null}
           <Text accessibilityRole="header" style={styles.title}>
             {title}
           </Text>
@@ -159,6 +178,7 @@ const SelectionSheet = ({
         <SheetScrollView
           fill={fillHeight}
           listProps={listProps}
+          scrollViewProps={scrollViewProps}
           contentContainerStyle={bodyStyles.listContent}>
           {children}
         </SheetScrollView>
