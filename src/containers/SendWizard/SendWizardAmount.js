@@ -44,6 +44,7 @@ import {
   buildSendTarget,
   ADDRESS_TYPE,
   getCurrencyDisplay,
+  getRecipientAddressType,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
@@ -422,10 +423,23 @@ const SendWizardAmount = () => {
       input,
       fiatMode,
     );
-    navigation.navigate('SendWizardRecipient');
+    // A scanned recipient is fixed, so Confirm comes next.
+    navigation.navigate(
+      state.scanRequest?.address || (state.invoice && !state.invoice.anyDestination)
+        ? 'SendWizardConfirm'
+        : 'SendWizardRecipient',
+    );
   };
 
-  const sendNetworkOptions = sendTarget?.networkOptions || [];
+  // A scanned address can only be reached on networks of its own kind.
+  const scanAddressType = state.scanRequest?.address
+    ? getRecipientAddressType(state.scanRequest.address)
+    : null;
+  const sendNetworkOptions = (sendTarget?.networkOptions || []).filter(
+    option =>
+      !scanAddressType ||
+      option.routes.some(candidate => candidate.addressType === scanAddressType),
+  );
   const selectedNetwork =
     sendNetworkOptions.find(option =>
       option.routes.some(candidate => candidate.key === route?.key),

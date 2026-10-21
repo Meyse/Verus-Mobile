@@ -11,6 +11,7 @@ import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDevi
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
+import {useInvoiceFlow} from './invoiceFlow';
 import {
   TransferConnector,
   TransferNode,
@@ -21,6 +22,7 @@ import {useWizardFiat} from './useWizardFiat';
 import {
   getDestinationNetwork,
   getTransactionId,
+  shortAddress,
 } from './wizardUtils';
 
 const SendWizardSuccess = () => {
@@ -29,6 +31,7 @@ const SendWizardSuccess = () => {
   const insets = useSafeAreaInsets();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const {state} = useSendWizard();
+  const invoiceFlow = useInvoiceFlow();
   const {
     amount,
     estimate,
@@ -52,7 +55,9 @@ const SendWizardSuccess = () => {
       : preflightResult?.submittedsats && preflightResult?.output?.satoshis
       ? satsToCoins(BigNumber(preflightResult.output.satoshis))
       : BigNumber(amount || 0);
-  const title = isConversion
+  const title = invoiceFlow
+    ? 'Payment sent'
+    : isConversion
     ? 'Conversion sent'
     : isBridge
     ? 'Bridge transaction sent'
@@ -60,6 +65,11 @@ const SendWizardSuccess = () => {
   const showReceive = Boolean(isConversion && estimatedReceive != null);
 
   const finish = useCallback(() => {
+    // An invoice hands back to its request, or closes the invoice.
+    if (invoiceFlow) {
+      invoiceFlow.onPaid();
+      return;
+    }
     const parent = navigation.getParent?.();
     if (parent && typeof parent.reset === 'function') {
       parent.reset({
@@ -69,7 +79,7 @@ const SendWizardSuccess = () => {
       return;
     }
     navigation.navigate('Home', {screen: 'WalletHome'});
-  }, [navigation]);
+  }, [invoiceFlow, navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -106,7 +116,7 @@ const SendWizardSuccess = () => {
             amount={truncateDecimal(displayAmount, 8)}
             coinId={sourceCoin?.id}
             fiat={formatFiat(displayAmount, sourceCoin?.id)}
-            label={showReceive ? 'You paid' : 'You sent'}
+            label={showReceive || invoiceFlow ? 'You paid' : 'You sent'}
             ticker={sourceCoin?.display_ticker || ''}
           />
           {showReceive ? (
@@ -118,7 +128,11 @@ const SendWizardSuccess = () => {
                 amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
                 coinId={target.coinId || target.id}
                 fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-                label="You receive"
+                label={
+                  invoiceFlow
+                    ? `${shortAddress(state.recipientAddress, 4)} receives`
+                    : 'You receive'
+                }
                 ticker={target.ticker}
               />
             </>

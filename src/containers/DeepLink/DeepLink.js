@@ -2,6 +2,7 @@ import { CommonActions } from '@react-navigation/native';
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AnimatedActivityIndicatorBox from '../../components/AnimatedActivityIndicatorBox';
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
@@ -59,6 +60,7 @@ import {
   VERUSPAY_BURN_OWN_ADDRESS_DISPLAY,
 } from '../../utils/deeplink/verusPayBurnChangePrice';
 import {assertRequestNetworkMatchesAccount} from '../../utils/deeplink/requestAccounts';
+import {isTestnetAccount} from '../../utils/assets/assetIdentity';
 import {
   createGenericRequestRejectionError,
   GENERIC_REQUEST_REJECTION_CODES,
@@ -84,6 +86,8 @@ const DeepLink = (props) => {
     GENERIC_REQUEST_LOADING_STEPS.READ
   )
   const [genericRequestError, setGenericRequestError] = useState(null)
+  // An invoice the wallet cannot pay, such as an expired one, ends on a sheet.
+  const [invoiceProblem, setInvoiceProblem] = useState(null)
   const dispatch = useDispatch()
   const processGenerationRef = useRef(0)
 
@@ -192,11 +196,16 @@ const DeepLink = (props) => {
   const processVerusPayInvoice = async () => {
     const invoice = primitives.VerusPayInvoice.fromJson(deeplinkData)
 
-    if (signedIn) {
-      assertRequestNetworkMatchesAccount(
-        activeAccount,
-        invoice.details.isTestnet(),
-      );
+    // A testnet invoice in a mainnet wallet, or the other way round.
+    if (signedIn && isTestnetAccount(activeAccount) !== invoice.details.isTestnet()) {
+      const invoiceNetwork = invoice.details.isTestnet() ? 'testnet' : 'mainnet'
+      setInvoiceProblem({
+        title: invoice.details.isTestnet() ? 'Testnet invoice' : 'Mainnet invoice',
+        message: `This invoice is for ${invoiceNetwork}. Your open wallet is on ${
+          invoiceNetwork === 'testnet' ? 'mainnet' : 'testnet'
+        }. Open a ${invoiceNetwork} wallet and scan it again.`,
+      })
+      return
     }
 
     if (!invoice.details.acceptsNonVerusSystems() && invoice.details.excludesVerusBlockchain()) {
@@ -273,15 +282,15 @@ const DeepLink = (props) => {
       return acceptedSystems;
     }
 
-    const validateExpiry = async () => {
+    const validateExpiry = async requester => {
       if (invoice.details.expires() && invoice.details.expiryheight.toNumber() - chainInfo.result.longestchain < 0) {
-        const age = (invoice.details.expiryheight.toNumber() - chainInfo.result.longestchain) * -1
-        createAlert(
-          'Expired invoice',
-          `This invoice is expired (expired for approx. ${blocksToTime(age)}).`,
-        );
-        cancel();
+        setInvoiceProblem({
+          title: 'Invoice expired',
+          message: `This invoice has expired. Ask ${requester || 'the requester'} for a new one.`,
+        })
+        return false
       }
+      return true
     }
 
     if (invoice.isSigned()) {
@@ -297,7 +306,7 @@ const DeepLink = (props) => {
         const signedBy = await getIdentity(coinObj.system_id, invoice.signing_id)
         if (signedBy.error) throw new Error(signedBy.error.message)
 
-        await validateExpiry()
+        if (!(await validateExpiry(convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname)))) return
         setDisplayProps({
           detailsBufferString: invoice.details.toBuffer().toString('hex'),
           invoiceVersion: invoice.version.toString(),
@@ -321,7 +330,7 @@ const DeepLink = (props) => {
         cancel();
       }
     } else {
-      await validateExpiry()
+      if (!(await validateExpiry())) return
       setDisplayProps({
         detailsBufferString: invoice.details.toBuffer().toString('hex'),
         invoiceVersion: invoice.version.toString(),
@@ -618,6 +627,15 @@ const DeepLink = (props) => {
 
       console.error(e)
 
+      // An invoice that cannot be read ends on a sheet; the raw error stays in the log.
+      if (deeplinkId === primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid) {
+        setInvoiceProblem({
+          title: 'Can’t open this invoice',
+          message: 'The wallet couldn’t read it. Try again, or ask for a new invoice.',
+        })
+        return
+      }
+
       createAlert('Error', e.message);
       cancel();
     }
@@ -694,6 +712,13 @@ const DeepLink = (props) => {
       ) : (
         screens[displayKey]()
       )}
+      <AcknowledgeSheet
+        confirmLabel="Close"
+        message={invoiceProblem?.message}
+        onClose={cancel}
+        title={invoiceProblem?.title}
+        visible={invoiceProblem != null}
+      />
     </View>
   );
 };

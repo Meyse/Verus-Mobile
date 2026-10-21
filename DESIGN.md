@@ -156,6 +156,10 @@ the canonical component may change the rule for later sheets.
 Do not use `src/styles/deeplink/identityPickerSheet.styles.js` as visual
 precedent. It is a stale, unused style file rather than the running selector.
 
+Every "Choose a card" names a card as Receive does: its type ("Transparent",
+"Private") with a transparent card's short address as a monospace subtitle, or
+its VerusID name. Group titles name the network.
+
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
 56-point minimum row height, 18-point radius, 16-point horizontal inset, and
@@ -449,7 +453,7 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
 A tap on a history row opens `TransactionDetailsSheet` in
 `src/containers/Coin/Overview/TransactionDetailsSheet.js`. It replaced the legacy
 `TxDetailsModal` on 2026-10-21 (gap 1 of the redesign gap audit) and follows the
-Sent step.
+Sent step. The owner approved it on 2026-10-21.
 
 - `InfoSheet` with the literal title "Transaction", the date and time as the
   subtitle, and a `StatusBadge` on the title line (`headerAccessory`): success
@@ -578,6 +582,50 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   for other cards, then secondary Done. Back returns to the input with values
   kept. The result scrolls. Generation, share, save, and interruption behavior
   retain the existing operation guards and invoice contracts.
+
+## Scanned payments and VerusPay invoices
+
+The owner approved this on 2026-10-21 (mockup rounds on the Scan tab and
+invoices). Every payment ends on the same Send Confirm, with Hold to confirm,
+and the same Sent screen. Each path skips the steps that the QR code already
+answers. The Scan tab (`src/containers/VerusPay/VerusPay.js`) opens Send with a
+`scan` request; the recipient is fixed, so Recipient is skipped.
+
+- A request with an amount opens Confirm when one card can pay. Back opens
+  Amount with the amount filled in. A request note shows as a Note row.
+- A request without an amount opens Amount. An address alone opens Select asset
+  with only the assets whose network takes that kind of address. An R-address
+  or i-address fits Verus assets only.
+- The context band shows "to <short address>" on Amount and "To <address>" on
+  Select asset, because Recipient is skipped.
+- A request that names another network warns above Hold to confirm. An asset
+  that is not in the wallet opens `AcknowledgeSheet` ("Add <name>?", "Not now");
+  the payment then continues. A request for the other network type (mainnet or
+  testnet) is never added. Codes the wallet cannot pay show "Can’t use this QR
+  code" with "Scan again". There are no system alerts on this path.
+
+A VerusPay invoice opens `InvoicePayFlow`
+(`src/containers/DeepLink/InvoiceInfo/`): Pay with, Confirm and Sent, inside the
+invoice screen so a generic request continues after the payment.
+
+- Pay with shows the payer's side of the payment slip (`InvoiceSlip`): the
+  VerusPay mark, a paper Signed or Unsigned badge, the amount, and a stub with
+  "Requested by <VerusID>" or "To <address>". The owner chose the slip (option 2
+  of the Von Restorff variations) so that the request is the one thing that
+  stands out. This extends the slip's material exception to the payer's side.
+- Under the slip, every way to pay with its cost: "Pay directly", then "Pay with
+  conversion", one row per currency and basket. A currency on several cards
+  shows "<n> cards" and opens "Choose a card". The step is skipped when the
+  invoice allows no conversion and one card can pay.
+- Confirm adds "Requested by" (signed invoices only), "From" (only after a card
+  choice), "Expires" and "Invoice details". It always pays through the
+  currency-transfer path, so the invoice tag goes into the transaction, and it
+  refuses a payment that the fee would shrink.
+- Sent reads "Payment sent". Done closes the invoice or continues its request.
+- Errors: "No way to pay this invoice" on Pay with; conversion options that do
+  not load show an error with "Try again" while direct payment still works; the
+  shortfall shows above a disabled Hold; expired, unreadable and wrong-network
+  invoices end on a sheet with "Close". Burn invoices keep their old screens.
 
 ## Scroll affordances
 

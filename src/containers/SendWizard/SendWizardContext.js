@@ -1,6 +1,8 @@
 import React, {createContext, useCallback, useContext, useMemo, useState} from 'react';
 import {useSelector} from 'react-redux';
+import BigNumber from 'bignumber.js';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
+import {coinsToSats} from '../../utils/math';
 
 const initialWizardState = {
   sourceCoin: null,
@@ -18,9 +20,35 @@ const initialWizardState = {
   // reference that price impact is measured against.
   marketPrice: null,
   recipientAddress: '',
+  // A scanned payment request: {address, amount, note, notice, coinId}. Its
+  // recipient is fixed, so the Recipient step is skipped.
+  scanRequest: null,
+  // A VerusPay invoice paid through these screens: its facts for Confirm and
+  // Sent (InvoicePayFlow). The flow's options live in InvoiceFlowContext.
+  invoice: null,
+  // The card a payment comes from, when the asset is on more than one.
+  payFromLabel: null,
   preflightResult: null,
   txResult: null,
   broadcastError: null,
+};
+
+// The wizard fields a scanned request fills in. They survive a change of
+// source, so choosing a card does not lose the recipient or the amount.
+export const getScanRequestFields = scanRequest => {
+  if (!scanRequest) return {};
+  const amount = scanRequest.amount ? BigNumber(scanRequest.amount) : null;
+  return {
+    scanRequest,
+    recipientAddress: scanRequest.address || '',
+    ...(amount?.isGreaterThan(0)
+      ? {
+          amount: amount.toFixed(),
+          amountInput: amount.toFixed(),
+          amountSats: coinsToSats(amount).toString(),
+        }
+      : {}),
+  };
 };
 
 const SendWizardContext = createContext(null);
@@ -38,6 +66,8 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
   const setSource = useCallback((source, target = null, route = null) => {
     setState(current => ({
       ...initialWizardState,
+      ...getScanRequestFields(current.scanRequest),
+      invoice: current.invoice,
       ...source,
       target,
       route,

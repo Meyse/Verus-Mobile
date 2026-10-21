@@ -49,15 +49,20 @@ const FLOW_STEPS = {
   },
 };
 
+// A scanned recipient skips the Recipient step, so it does not count.
 export const getSendWizardProgress = (
   routeName,
   mode = SEND_WIZARD_MODE.SEND,
   hasInitialSource = false,
+  recipientFixed = false,
 ) => {
   if (routeName === 'SendWizardSuccess') return 1;
 
   const modeSteps = FLOW_STEPS[mode] || FLOW_STEPS[SEND_WIZARD_MODE.SEND];
-  const steps = hasInitialSource ? modeSteps.selected : modeSteps.manual;
+  const flowSteps = hasInitialSource ? modeSteps.selected : modeSteps.manual;
+  const steps = recipientFixed
+    ? flowSteps.filter(step => step !== 'SendWizardRecipient')
+    : flowSteps;
   const stepIndex = steps.indexOf(routeName);
 
   return (Math.max(stepIndex, 0) + 1) / steps.length;

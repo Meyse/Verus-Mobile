@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -28,6 +28,8 @@ import {
 import {SourceCardSheet} from './components/SelectionSheets';
 import {
   buildSendTarget,
+  getRecipientAddressType,
+  getSourceAddressType,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
@@ -39,6 +41,13 @@ const SendWizardSelectSource = () => {
   const [query, setQuery] = useState('');
   const [pendingAsset, setPendingAsset] = useState(null);
   const [cardSheetVisible, setCardSheetVisible] = useState(false);
+  // A scanned request names its asset, or only an address. Then only the
+  // asset, or the assets that can go to that address, show.
+  const scanRequest = state.scanRequest;
+  const scanAddressType = scanRequest?.address && !scanRequest.coinId
+    ? getRecipientAddressType(scanRequest.address)
+    : null;
+  const autoOpenedCards = useRef(false);
 
   const coins = useObjectSelector(stateValue => stateValue.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(stateValue => extractDisplaySubWallets(stateValue));
@@ -103,8 +112,24 @@ const SendWizardSelectSource = () => {
         };
       })
       .filter(Boolean)
+      .filter(asset =>
+        scanRequest?.coinId
+          ? asset.coin.id === scanRequest.coinId
+          : scanRequest?.address
+          ? getSourceAddressType(asset.coin) === scanAddressType
+          : true,
+      )
       .sort((first, second) => second.total.comparedTo(first.total));
-  }, [balances, cardsByCoin, coins, displayCurrency, mode, rates]);
+  }, [
+    balances,
+    cardsByCoin,
+    coins,
+    displayCurrency,
+    mode,
+    rates,
+    scanAddressType,
+    scanRequest,
+  ]);
 
   const filteredAssets = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -138,6 +163,8 @@ const SendWizardSelectSource = () => {
 
       setSource(sourceState, target, route);
       navigation.navigate('SendWizardAmount');
+      // A request with an amount opens Confirm; Back still reaches Amount.
+      if (scanRequest?.amount) navigation.navigate('SendWizardConfirm');
       return;
     }
 
@@ -152,6 +179,17 @@ const SendWizardSelectSource = () => {
       setCardSheetVisible(true);
     }
   };
+
+  // The scanned asset is on several cards: ask for the card at once.
+  const requestedAsset =
+    scanRequest?.coinId && filteredAssets.length === 1 ? filteredAssets[0] : null;
+  useEffect(() => {
+    if (!requestedAsset || autoOpenedCards.current) return;
+    if (requestedAsset.cards.length < 2) return;
+    autoOpenedCards.current = true;
+    setPendingAsset(requestedAsset);
+    setCardSheetVisible(true);
+  }, [requestedAsset]);
 
   return (
     <WizardScreen scroll={false}>
@@ -168,9 +206,16 @@ const SendWizardSelectSource = () => {
         keyExtractor={item => item.coin.id}
         ListEmptyComponent={
           <View style={styles.empty}>
+            {scanAddressType && !query.trim() ? (
+              <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>
+                No asset for this address
+              </Text>
+            ) : null}
             <Text style={[styles.emptyBody, {color: theme.colors.textSecondary}]}>
               {query.trim()
                 ? 'No assets match your search.'
+                : scanAddressType
+                ? 'This address is for assets you don’t hold.'
                 : `No assets with balance available to ${
                     mode === SEND_WIZARD_MODE.CONVERT ? 'convert' : 'send'
                   }.`}
@@ -249,6 +294,7 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     alignItems: 'center',
   },
+  emptyTitle: {fontSize: 17, lineHeight: 22, textAlign: 'center', ...fontStyle('semiBold')},
   emptyBody: {fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8, ...fontStyle('regular')},
 });
 
