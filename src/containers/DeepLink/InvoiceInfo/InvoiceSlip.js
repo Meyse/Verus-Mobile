@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import Svg, {Line, Path} from 'react-native-svg';
 import StatusBadge from '../../../components/StatusBadge';
 import {fontStyle} from '../../../globals/fonts';
@@ -14,6 +14,8 @@ const STUB_HEIGHT = 50;
 // The badge says whether a VerusID signed it; the stub names the requester,
 // or the destination when nobody signed.
 const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
+  // Small windows use the slip's compact face, as on Request ready.
+  const compact = useWindowDimensions().height <= 667;
   const [size, setSize] = useState({width: 0, height: 0});
   const [perforation, setPerforation] = useState(0);
   const {width: w, height: h} = size;
@@ -55,7 +57,7 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
       ) : null}
       <View
         onLayout={event => setPerforation(event.nativeEvent.layout.height)}
-        style={styles.face}>
+        style={[styles.face, compact && styles.faceCompact]}>
         <View style={styles.top}>
           <VerusPayTextLogo
             accessibilityLabel="VerusPay"
@@ -73,7 +75,7 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
             adjustsFontSizeToFit
             minimumFontScale={0.4}
             numberOfLines={1}
-            style={styles.amount}>
+            style={[styles.amount, compact && styles.amountCompact]}>
             {amount}
           </Text>
           <Text numberOfLines={1} style={styles.unit}>
