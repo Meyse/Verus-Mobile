@@ -12,12 +12,14 @@ export const ASSETS_HYDRATION_FAILED = 'ASSETS_HYDRATION_FAILED';
 export const ASSET_RESOLVED = 'ASSET_RESOLVED';
 export const ASSET_PREFERENCES_SAVED = 'ASSET_PREFERENCES_SAVED';
 export const ASSET_DISCOVERY_SAVED = 'ASSET_DISCOVERY_SAVED';
+export const ASSET_REMOVALS_SAVED = 'ASSET_REMOVALS_SAVED';
 
 const initialState = () => ({
   ready: false,
   loadError: false,
   networkKey: null,
   preferences: {},
+  removed: {},
   snapshots: {},
   resolved: {},
   revision: 0,
@@ -50,6 +52,7 @@ export const assetManagement = (state = initialState(), action) => {
         loadError: false,
         networkKey: action.payload.networkKey,
         preferences: action.payload.preferences || {},
+        removed: action.payload.removed || {},
         resolved: {...(action.payload.resolved || {}), ...state.resolved},
         snapshots: {...(action.payload.snapshots || {}), ...state.snapshots},
       };
@@ -63,6 +66,8 @@ export const assetManagement = (state = initialState(), action) => {
       };
     case ASSET_PREFERENCES_SAVED:
       return {...state, preferences: action.payload.preferences};
+    case ASSET_REMOVALS_SAVED:
+      return {...state, removed: action.payload.removed};
     case ASSET_DISCOVERY_SAVED:
       return {...state, persistedRevision: action.payload.revision};
     default:

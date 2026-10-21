@@ -17,12 +17,14 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   sectionLabel: {...theme.typography.labelMd, color: theme.colors.textSecondary},
   sectionDetail: {...theme.typography.caption, color: theme.colors.textSecondary},
   assetRow: {minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border},
+  rowPress: {flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12},
   rowLogo: {width: 40, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center'},
   rowCopy: {flex: 1, minWidth: 0, gap: 2},
   rowName: {...theme.typography.titleRow, color: theme.colors.textPrimary},
   rowDescription: {...theme.typography.bodySm, color: theme.colors.textSecondary},
   rowAction: {width: 66, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'flex-end'},
-  // The slot grows with the native switch: 51 points before iOS 26, 63 from it.
+  // The slot grows with the native switch: 51 points wide on every iOS version
+  // (src/utils/applyNativeSwitchSize.js).
   switchAction: {minWidth: 52, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'center'},
   actionLabel: {...theme.typography.labelMd, color: theme.colors.primary},
   addedLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary},
@@ -51,6 +53,7 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   input: {...theme.typography.bodyMd},
   formHelper: {...theme.typography.bodySm, color: theme.colors.textSecondary},
   lookupError: {padding: 16, gap: 8, borderRadius: theme.rounded.md, backgroundColor: theme.colors.surfaceMuted, marginTop: 20},
+  sheetHeader: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 8},
   reviewHeader: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 24},
   reviewName: {...theme.typography.titleSheet, color: theme.colors.textPrimary},
   reviewBalance: {backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.rounded.md, padding: 16, gap: 6},
@@ -59,6 +62,9 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   reviewValueLine: {flexDirection: 'row', alignItems: 'center', gap: 8},
   reviewValue: {...theme.typography.bodyMd, color: theme.colors.textPrimary, flex: 1},
   identifier: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 14},
+  // The sheet is 24 points narrower than the page; 13 points keeps a Verus
+  // i-address on one line beside the copy action.
+  sheetIdentifier: {fontSize: 13, lineHeight: 18},
   reviewCopy: {...theme.typography.bodySm, color: theme.colors.textSecondary, marginTop: 24},
   reviewHomeCopy: {...theme.typography.bodySm, color: theme.colors.textSecondary, marginTop: 16},
   sheetTitle: {...theme.typography.titleSheet, color: theme.colors.textPrimary, marginBottom: 20},

@@ -71,8 +71,10 @@ methods, never Verus Mobile's visual direction.
   so the actions stay above the keyboard on both platforms. Android pans the
   window (`adjustPan`), so a plain `KeyboardAvoidingView` there does nothing.
   While the keyboard shows, drop the bottom inset as the onboarding steps do.
-- iOS 26 switches are 63 x 28 points; `src/utils/applyNativeSwitchSize.js`
-  sizes them. Give a switch slot a minimum width, not a fixed 51 or 52 points.
+- On iOS 26 `src/utils/applyNativeSwitchSize.js` draws every switch at 51 x
+  22.7 points, scaled from the native 63 x 28, so it keeps its earlier width.
+  The owner found the native size too large (2026-10-21). Give a switch slot a
+  minimum width, not a fixed 51 or 52 points.
 - Use monospace only for raw technical identifiers such as addresses, hashes,
   transaction IDs, and public keys.
 - Show a status as the tinted status badge: a pill with a semantic background
@@ -400,6 +402,24 @@ whole list or sections in generic page cards.
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
 `SafeBottomActionStack` arrangement.
+
+Manage assets removes an asset through the asset itself (owner chose option A
+of the mockup on 2026-10-21):
+
+- A tap on an asset row, outside its switch, opens `AssetDetailsSheet`: the
+  Review asset header, then Balance, Network and Currency ID (or Contract
+  address) as `ReviewRow`s, then one sheet action row, "Remove from wallet",
+  drawn like "Remove from this device" in the gift card options sheet. The
+  wallet's main coin (VRSC, or the Testnet override) has no sheet and is never
+  removed.
+- "Remove from wallet" opens `AcknowledgeSheet` ("Remove <name>?", "Remove",
+  "Not now"). The message says that the balance stays on the blockchain; it
+  hides the amount while balances are hidden. While the asset is removed, its
+  row reads "Removing…".
+- Removal works at any balance, because spam currencies can have one. A
+  removed or ignored Verus currency stays out of automatic adding and "New
+  assets found" until the user adds it again. Review asset for a found
+  currency offers "Ignore" as the secondary action.
 
 Settings work must compose `SettingsScaffold` rather than recreate its page,
 section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
