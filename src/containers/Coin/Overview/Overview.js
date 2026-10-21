@@ -19,7 +19,7 @@ import { expireCoinData, expireServiceData, setActiveOverviewFilter } from '../.
 import Styles from '../../../styles/index'
 import { conditionallyUpdateService, conditionallyUpdateWallet } from "../../../actions/actionDispatchers";
 import store from "../../../store";
-import TxDetailsModal from '../../../components/TxDetailsModal/TxDetailsModal'
+import TransactionDetailsSheet, {decodeTxid} from './TransactionDetailsSheet';
 import SkeletonLoader, {
   SkeletonBlock,
   SkeletonText,
@@ -43,9 +43,8 @@ import {
   VRPC
 } from "../../../utils/constants/intervalConstants";
 import { selectTransactions } from '../../../selectors/transactions';
-import { DEFAULT_DECIMALS, ETHERS, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
+import { VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
 import { getTestnetBridgeDelegator } from "../../../utils/testnetEnvironment";
-import { Portal } from "react-native-paper";
 import BigNumber from "bignumber.js";
 import { formatCurrency } from "react-native-format-currency";
 import {
@@ -54,22 +53,13 @@ import {
   ChevronRight,
   History,
 } from "lucide-react-native";
-import { TransactionLogos } from '../../../images/customIcons/index'
 import { fontStyle } from "../../../globals/fonts";
 import { useOnboardingTheme } from "../../../theme/onboarding";
 import { OnboardingThemeContext } from "../../../theme/onboarding/OnboardingThemeProvider";
 import { CoinDirectory } from "../../../utils/CoinData/CoinDirectory";
+import { explorers } from "../../../utils/CoinData/CoinData";
 import { USD } from "../../../utils/constants/currencies";
 import { scientificToDecimal } from "../../../utils/math";
-
-const TX_LOGOS = {
-  self: TransactionLogos.SelfArrow,
-  out: TransactionLogos.OutArrow,
-  in: TransactionLogos.InArrow,
-  pending: TransactionLogos.PendingClock,
-  unknown: TransactionLogos.Unknown,
-  interest: TransactionLogos.InterestPlus,
-}
 
 const CONNECTION_ERROR = "Connection Error"
 const TRANSACTION_LIST_BOTTOM_PADDING = 40;
@@ -401,15 +391,9 @@ class Overview extends Component {
       refreshing: false,
       showTransactionSkeleton: false,
       transactionLoadBlocked: false,
-      txDetailsModalOpen: false,
-      txDetailProps: {
-        parsedAmount: "0",
-        txData: {},
-        activeCoinID: null,
-        activeCoinExplorerId: null,
-        activeCoinDisplayTicker: null,
-        TxLogo: TX_LOGOS.unknown
-      }
+      // The sheet's content stays until it has closed.
+      txDetails: null,
+      txDetailsVisible: false,
     };
     this.transactionScrollMetrics = {
       contentHeight: 0,
@@ -726,12 +710,8 @@ class Overview extends Component {
   };
 
   renderTransactionItem = ({ item, index }) => {
-    const decimals =
-      this.props.activeCoin.decimals != null
-        ? this.props.activeCoin.decimals
-        : DEFAULT_DECIMALS;
     let amount = BigNumber(0)
-    let AvatarImg;
+    let detailLabel = "Amount";
     let subtitle = "";
     let counterpartyIsAddress = false;
     let counterpartySuffix = "";
@@ -765,7 +745,7 @@ class Overview extends Component {
       }
       counterpartyIsAddress = subtitle != null;
 
-      AvatarImg = !confirmed || txArray[0].status === "pending" ? TX_LOGOS.pending : TX_LOGOS.out;
+      detailLabel = "You sent";
 
       item = {
         address: toAddresses.join(' & '),
@@ -783,11 +763,11 @@ class Overview extends Component {
       amount = item.amount != null ? BigNumber(item.amount) : BigNumber(0);
 
       if (item.type === "received") {
-        AvatarImg = TX_LOGOS.in;
+        detailLabel = "You received";
         subtitle = "My transparent address";
         incoming = true;
       } else if (item.type === "sent") {
-        AvatarImg = TX_LOGOS.out;
+        detailLabel = "You sent";
         subtitle = item.address == null ? "??" : item.address;
         counterpartyIsAddress = item.address != null;
 
@@ -809,21 +789,17 @@ class Overview extends Component {
       } else if (item.type === "self") {
         if (item.amount !== "??" && amount.isLessThan(0)) {
           subtitle = "Interest";
-          AvatarImg = TX_LOGOS.interest;
+          detailLabel = "Interest";
           amount = amount.multipliedBy(-1);
           incoming = true;
         } else {
-          AvatarImg = TX_LOGOS.self;
           subtitle = gasFees ? "Network gas fee" : "Network fee";
+          detailLabel = subtitle;
         }
       } else {
-        AvatarImg = TX_LOGOS.unknown;
         subtitle = "Unknown transaction";
       }
     }
-
-    if (!item.confirmed || item.status === "pending")
-      AvatarImg = TX_LOGOS.pending;
 
     let displayAmount = null
 
@@ -872,20 +848,33 @@ class Overview extends Component {
         pending={pending}
         ticker={ticker}
         timestamp={formatTransactionTimestamp(item.timestamp)}
-        onPress={() =>
+        onPress={() => {
+          const txid = decodeTxid(item.txid);
           this.setState({
-            txDetailProps: {
-              displayAmount: displayAmount,
-              txData: item,
-              activeCoinID: this.props.activeCoin.id,
-              activeCoinDisplayTicker: this.props.activeCoin.display_ticker,
-              activeCoinExplorerId: explorerId,
-              TxLogo: AvatarImg,
-              decimals: decimals,
+            txDetails: {
+              address: item.address,
+              amount: formattedAmount,
+              coinId: ticker === this.props.activeCoin.display_ticker
+                ? this.props.activeCoin.id
+                : item.feeCurr,
+              confirmed: item.confirmed === true,
+              fee: item.fee != null && item.type !== "self"
+                ? `${scientificToDecimal(String(item.fee))} ${item.feeCurr || this.props.activeCoin.display_ticker}`
+                : null,
+              fiat: fiatValue,
+              label: detailLabel,
+              memo: item.memo,
+              pending,
+              ticker,
+              timestamp: item.timestamp,
+              txid,
+              explorerUrl: txid && explorers[explorerId]
+                ? `${explorers[explorerId]}/tx/${txid}`
+                : null,
             },
-            txDetailsModalOpen: true,
-          })
-        }
+            txDetailsVisible: true,
+          });
+        }}
       />
     );
   };
@@ -992,33 +981,12 @@ class Overview extends Component {
           Styles.defaultRoot,
           {backgroundColor: this.context.colors.background},
         ]}>
-        {this.state.txDetailsModalOpen && (
-          <Portal>
-            <TxDetailsModal
-              {...this.state.txDetailProps}
-              cancel={() =>
-                this.setState({
-                  txDetailsModalOpen: false,
-                  txDetailProps: {
-                    parsedAmount: "0",
-                    txData: {},
-                    activeCoinID: null,
-                    activeCoinDisplayTicker: null,
-                    activeCoinExplorerId: null,
-                    TxLogo: TX_LOGOS.unknown,
-                    decimals:
-                      this.props.activeCoin.decimals != null
-                        ? this.props.activeCoin.decimals
-                        : ETHERS,
-                  },
-                })
-              }
-              jumpTo={this.props.jumpTo}
-              visible={this.state.txDetailsModalOpen}
-              animationType="slide"
-            />
-          </Portal>
-        )}
+        <TransactionDetailsSheet
+          details={this.state.txDetails}
+          onClose={() => this.setState({txDetailsVisible: false})}
+          onClosed={() => this.setState({txDetails: null})}
+          visible={this.state.txDetailsVisible}
+        />
         {this.renderTransactionList()}
       </View>
     );
