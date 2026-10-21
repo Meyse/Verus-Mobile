@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {Platform, StyleSheet, Text, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {fontStyle} from '../../../globals/fonts';
@@ -10,6 +10,7 @@ import {getWizardContextSummary} from '../wizardUtils';
 import {WIZARD_CONTENT_INSET} from './WizardUI';
 
 const LOGO_SIZE = 16;
+const MONOSPACE_FONT = Platform.select({ios: 'Menlo', default: 'monospace'});
 
 const Entity = ({coinId, iconId, label, showBadge = true, tone}) => {
   const theme = useOnboardingTheme();
@@ -55,11 +56,20 @@ const WizardContextBand = ({step}) => {
     target: state.target,
     route: state.route,
     channel: state.channel,
+    recipient: state.scanRequest?.address,
   });
 
   if (!summary) return null;
 
-  const {source, destination, chain} = summary;
+  const {source, destination, chain, recipient, recipientOnly} = summary;
+  const recipientText = (
+    <Text
+      ellipsizeMode="middle"
+      numberOfLines={1}
+      style={[styles.address, {color: theme.colors.textPrimary}]}>
+      {recipient}
+    </Text>
+  );
 
   return (
     <View
@@ -74,24 +84,51 @@ const WizardContextBand = ({step}) => {
           paddingRight: insets.right + WIZARD_CONTENT_INSET,
         },
       ]}>
-      <View style={styles.route}>
-        <Entity {...source} />
-        {destination ? (
-          <>
-            <MaterialCommunityIcons
-              color={theme.colors.textSubtle}
-              name="arrow-right"
-              size={14}
-              style={styles.arrow}
-            />
-            <Entity
-              {...destination}
-              coinId={destination.kind === 'coin' ? destination.coinId : null}
-              iconId={destination.kind === 'chain' ? destination.iconId : null}
-            />
-          </>
-        ) : null}
-      </View>
+      {recipientOnly ? (
+        <View style={styles.route}>
+          <Text
+            style={[
+              theme.typography.caption,
+              styles.on,
+              {color: theme.colors.textSecondary},
+            ]}>
+            To
+          </Text>
+          {recipientText}
+        </View>
+      ) : (
+        <View style={styles.route}>
+          <Entity {...source} />
+          {destination ? (
+            <>
+              <MaterialCommunityIcons
+                color={theme.colors.textSubtle}
+                name="arrow-right"
+                size={14}
+                style={styles.arrow}
+              />
+              <Entity
+                {...destination}
+                coinId={destination.kind === 'coin' ? destination.coinId : null}
+                iconId={destination.kind === 'chain' ? destination.iconId : null}
+              />
+            </>
+          ) : null}
+        </View>
+      )}
+      {recipient && !recipientOnly ? (
+        <View style={styles.chain}>
+          <Text
+            style={[
+              theme.typography.caption,
+              styles.on,
+              {color: theme.colors.textSecondary},
+            ]}>
+            to
+          </Text>
+          {recipientText}
+        </View>
+      ) : null}
       {chain ? (
         <View style={styles.chain}>
           <Text
@@ -146,6 +183,12 @@ const styles = StyleSheet.create({
   },
   on: {
     marginRight: 6,
+  },
+  address: {
+    flexShrink: 1,
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 12,
+    lineHeight: 17,
   },
 });
 

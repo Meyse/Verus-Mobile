@@ -1,5 +1,10 @@
+import {ethers} from 'ethers';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {DEST_ETH} from 'verus-typescript-primitives';
+import {
+  I_ADDRESS_VERSION,
+  R_ADDRESS_VERSION,
+} from '../../utils/constants/constants';
+import {DEST_ETH, fromBase58Check} from 'verus-typescript-primitives';
 
 export const SEND_WIZARD_MODE = {
   CONVERT: 'convert',
@@ -19,6 +24,15 @@ export const isConversionChannel = channel =>
 export const WIZARD_CONTEXT_STEP = {
   AMOUNT: 'amount',
   RECIPIENT: 'recipient',
+  SOURCE: 'source',
+};
+
+// A scanned address in the band: the start and the end, as on a history row.
+export const shortAddress = address => {
+  const value = String(address || '');
+  return value.endsWith('@') || value.length <= 15
+    ? value
+    : `${value.slice(0, 6)}…${value.slice(-6)}`;
 };
 
 // "VRSC [ERC20]" is the Ethereum token. Its logo badge already says so, and
@@ -30,6 +44,8 @@ const getShortTicker = ticker =>
 // where it goes, and the chain only when it is not the asset's own chain.
 // Amount already has a Network row for Send from a conversion channel, so
 // the band does not repeat the chain there.
+// A scanned recipient shows as "to <address>" on Amount and as "To <address>"
+// on Select asset, because the Recipient step is skipped.
 export const getWizardContextSummary = ({
   mode,
   step,
@@ -37,7 +53,14 @@ export const getWizardContextSummary = ({
   target,
   route,
   channel,
+  recipient,
 }) => {
+  const recipientLabel = recipient ? shortAddress(recipient) : null;
+  if (step === WIZARD_CONTEXT_STEP.SOURCE) {
+    return recipientLabel
+      ? {recipient: recipientLabel, recipientOnly: true, description: `Send to ${recipient}`}
+      : null;
+  }
   if (!sourceCoin || !target || !route) return null;
 
   const sourceLabel = getShortTicker(sourceCoin.display_ticker);
@@ -75,8 +98,11 @@ export const getWizardContextSummary = ({
     source,
     destination: showChain ? {kind: 'chain', ...chain} : null,
     chain: null,
+    recipient: step === WIZARD_CONTEXT_STEP.AMOUNT ? recipientLabel : null,
     description: showChain
       ? `Send ${sourceLabel} to ${chain.label}`
+      : recipientLabel && step === WIZARD_CONTEXT_STEP.AMOUNT
+      ? `Send ${sourceLabel} to ${recipient}`
       : `Send ${sourceLabel}`,
   };
 };
@@ -103,6 +129,32 @@ export const ADDRESS_TYPE = {
   ETHEREUM: 'ethereum',
   GENERIC: 'generic',
   VERUS: 'verus',
+};
+
+// The kind of address an asset sends to on its own network.
+export const getSourceAddressType = coin =>
+  ['eth', 'erc20'].includes(coin?.proto)
+    ? ADDRESS_TYPE.ETHEREUM
+    : coin?.proto === 'vrsc'
+    ? ADDRESS_TYPE.VERUS
+    : ADDRESS_TYPE.GENERIC;
+
+// The kind of a scanned address. An R-address or i-address goes to Verus
+// assets only, although some other chains share the R prefix.
+export const getRecipientAddressType = address => {
+  const value = String(address || '').trim();
+  if (!value) return null;
+  if (ethers.isAddress(value)) return ADDRESS_TYPE.ETHEREUM;
+  if (value.endsWith('@')) return ADDRESS_TYPE.VERUS;
+  try {
+    const {version} = fromBase58Check(value);
+    if (version === R_ADDRESS_VERSION || version === I_ADDRESS_VERSION) {
+      return ADDRESS_TYPE.VERUS;
+    }
+  } catch (error) {}
+  return value.length >= 20 && value.length <= 256 && !/\s/.test(value)
+    ? ADDRESS_TYPE.GENERIC
+    : null;
 };
 
 const getDefinitionId = definition => {
@@ -464,11 +516,7 @@ export const buildSendTarget = (
     preconvert: false,
     bridgePrelaunch: false,
     isCrossChain: false,
-    addressType: ['eth', 'erc20'].includes(sourceCoin.proto)
-      ? ADDRESS_TYPE.ETHEREUM
-      : sourceCoin.proto === 'vrsc'
-      ? ADDRESS_TYPE.VERUS
-      : ADDRESS_TYPE.GENERIC,
+    addressType: getSourceAddressType(sourceCoin),
   };
   const sourceOption = {
     id: sourceCurrencyId,

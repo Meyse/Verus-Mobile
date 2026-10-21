@@ -610,6 +610,8 @@ const SendWizardConfirm = () => {
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
   const pinnedMessage = state.broadcastError || error;
+  // A scanned request that names another network warns here, above the hold.
+  const notices = [state.scanRequest?.notice, ...warnings].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
     !state.broadcastError && !state.txResult);
 
@@ -653,14 +655,15 @@ const SendWizardConfirm = () => {
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={impact ? {impact, level, lossText} : null}
           onOpenFees={feeKind && (sending || state.broadcastError || state.txResult || !networkFee.canChoose) ? undefined : () => setFeeSheetOpen(true)}
+          note={state.scanRequest?.note}
           recipient={recipientAddress}
         />
       </FadedScrollView>
       <WizardFooter
         above={
-          pinnedMessage || warnings.length ? (
+          pinnedMessage || notices.length ? (
             <View style={styles.pinnedNotices}>
-              {warnings.map(message => (
+              {notices.map(message => (
                 <ConfirmNotice key={message}>{message}</ConfirmNotice>
               ))}
               <ErrorMessage style={styles.pinnedError}>

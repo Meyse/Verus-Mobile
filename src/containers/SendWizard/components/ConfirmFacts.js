@@ -19,6 +19,7 @@ const ConfirmFacts = ({
   onOpenFees,
   networkFee,
   feeLoading,
+  note,
   recipient,
 }) => {
   const theme = useOnboardingTheme();
@@ -31,6 +32,7 @@ const ConfirmFacts = ({
         value={recipient}
         valueStyle={recipient.endsWith('@') ? null : styles.address}
       />
+      {note ? <FlatRow label="Note" numberOfLines={0} value={note} /> : null}
       {destinationNetwork ? (
         <FlatRow label="Destination network" value={destinationNetwork} />
       ) : null}

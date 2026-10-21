@@ -15,7 +15,7 @@ import {
   API_GET_BALANCES,
   API_SEND,
 } from '../../utils/constants/intervalConstants';
-import {SendWizardProvider} from './SendWizardContext';
+import {getScanRequestFields, SendWizardProvider} from './SendWizardContext';
 import SendWizardSelectSource from './SendWizardSelectSource';
 import SendWizardSelectTarget from './SendWizardSelectTarget';
 import SendWizardAmount from './SendWizardAmount';
@@ -38,6 +38,7 @@ const Stack = createStackNavigator();
 // The band under the header reminds the user what is moving and where. Confirm
 // and Success already show all of it.
 const CONTEXT_STEPS = {
+  SendWizardSelectSource: WIZARD_CONTEXT_STEP.SOURCE,
   SendWizardAmount: WIZARD_CONTEXT_STEP.AMOUNT,
   SendWizardRecipient: WIZARD_CONTEXT_STEP.RECIPIENT,
 };
@@ -58,6 +59,10 @@ const SendWizardNavigator = () => {
       : SEND_WIZARD_MODE.SEND;
   const initialCoinId = route.params?.initialCoinId;
   const initialSubWalletId = route.params?.initialSubWalletId;
+  // A payment request from the Scan tab (see VerusPay): its recipient, and an
+  // amount and note when the QR code has them.
+  const scan = route.params?.scan || null;
+  const recipientFixed = Boolean(scan?.address);
   const coins = useObjectSelector(state => state.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
@@ -81,6 +86,19 @@ const SendWizardNavigator = () => {
         );
       },
     );
+    // A scanned request for an asset on several funded cards opens
+    // "Choose a card" on Select asset first.
+    if (
+      scan &&
+      !initialSubWalletId &&
+      eligibleCards.filter(card =>
+        BigNumber(
+          balances?.[sourceCoin.id]?.[card.id]?.total || 0,
+        ).isGreaterThan(0),
+      ).length > 1
+    ) {
+      return {chooseCard: true};
+    }
     let sourceSubWallet;
     if (initialSubWalletId) {
       sourceSubWallet = eligibleCards.find(
@@ -118,21 +136,28 @@ const SendWizardNavigator = () => {
     initialCoinId,
     initialSubWalletId,
     mode,
+    scan,
   ]);
+  const scanChooseCard = Boolean(candidateInitialSource?.chooseCard);
   const sourceAtEntry = useRef(null);
   const entryKey = `${mode}:${initialCoinId || ''}:${initialSubWalletId || ''}`;
   if (sourceAtEntry.current?.key !== entryKey) {
     sourceAtEntry.current = {key: entryKey, source: null};
   }
-  if (!sourceAtEntry.current.source && candidateInitialSource) {
+  if (
+    !sourceAtEntry.current.source &&
+    candidateInitialSource &&
+    !scanChooseCard
+  ) {
     sourceAtEntry.current.source = candidateInitialSource;
   }
   // Keep the entry route/source stable when a send empties its Card. The
   // provider reads the live balance; a refresh must not unmount Success.
   const initialSource = sourceAtEntry.current.source;
   const initialState = useMemo(() => {
+    const scanFields = getScanRequestFields(scan);
     if (!initialSource || mode !== SEND_WIZARD_MODE.SEND) {
-      return initialSource;
+      return initialSource ? {...initialSource, ...scanFields} : scan ? scanFields : null;
     }
 
     const sourceNetworkId =
@@ -148,8 +173,8 @@ const SendWizardNavigator = () => {
       target.routes.find(candidate => !candidate.isCrossChain && !candidate.via) ||
       target.routes[0];
 
-    return {...initialSource, target, route: directRoute};
-  }, [initialSource, mode]);
+    return {...initialSource, target, route: directRoute, ...scanFields};
+  }, [initialSource, mode, scan]);
   const hasInitialSource = Boolean(initialSource);
   let initialRouteName = 'SendWizardSelectSource';
   if (hasInitialSource) {
@@ -159,12 +184,17 @@ const SendWizardNavigator = () => {
         : 'SendWizardSelectTarget';
   }
   const invalidInitialSource = Boolean(
-    initialCoinId && coins.length > 0 && !initialSource,
+    initialCoinId && coins.length > 0 && !initialSource && !scanChooseCard,
   );
   const progressAnimation = useRef({
     generation: 0,
     value: new Animated.Value(
-      getSendWizardProgress(initialRouteName, mode, hasInitialSource),
+      getSendWizardProgress(
+        initialRouteName,
+        mode,
+        hasInitialSource,
+        recipientFixed,
+      ),
     ),
   }).current;
 
@@ -190,7 +220,7 @@ const SendWizardNavigator = () => {
   return (
     <SendWizardProvider
       key={
-        initialState
+        initialState?.sourceCoin
           ? `${mode}:${initialState.sourceCoin.id}:${initialState.sourceSubWallet.id}`
           : `${mode}:manual`
       }
@@ -212,6 +242,7 @@ const SendWizardNavigator = () => {
                 headerRoute.name,
                 mode,
                 hasInitialSource,
+                recipientFixed,
               )}
               progressAnimation={progressAnimation}
             />
