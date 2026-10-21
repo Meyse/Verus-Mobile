@@ -5,6 +5,10 @@ import SelectionSheet, {
 } from '../../../components/SelectionSheet';
 import useSheetDismissal from '../../../components/useSheetDismissal';
 import {RenderPlainCoinLogo} from '../../../utils/CoinData/Graphics';
+import {
+  getSubWalletCardType,
+  getSubWalletNetworkLabel,
+} from '../../../utils/subwallet/cardPresentation';
 import {truncateDecimal} from '../../../utils/math';
 
 export const SourceCardSheet = ({
@@ -35,17 +39,26 @@ export const SourceCardSheet = ({
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
       {groups.map(([network, sources]) => (
-        <SelectionGroup key={network} title={network}>
-          {sources.map(source => (
-            <SelectionRow
-              key={source.card.id}
-              title={source.card.name}
-              selected={source.card.id === selectedId}
-              value={truncateDecimal(source.balance, 4)}
-              valueLabel={source.coin.display_ticker}
-              onPress={() => dismissal.dismiss(() => onSelect(source))}
-            />
-          ))}
+        <SelectionGroup
+          key={network}
+          title={getSubWalletNetworkLabel(sources[0].card, sources[0].coin)}>
+          {sources.map(source => {
+            // Name cards as Receive's "Choose a card" does: the type, with a
+            // transparent card's short address below, or the VerusID name.
+            const cardType = getSubWalletCardType(source.card);
+            return (
+              <SelectionRow
+                key={source.card.id}
+                title={cardType === 'VerusID' ? source.card.name : cardType}
+                subtitle={cardType === 'Transparent' ? source.card.name : undefined}
+                subtitleMonospace
+                selected={source.card.id === selectedId}
+                value={truncateDecimal(source.balance, 4)}
+                valueLabel={source.coin.display_ticker}
+                onPress={() => dismissal.dismiss(() => onSelect(source))}
+              />
+            );
+          })}
         </SelectionGroup>
       ))}
     </SelectionSheet>

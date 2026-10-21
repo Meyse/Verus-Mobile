@@ -23,6 +23,11 @@ const initialWizardState = {
   // A scanned payment request: {address, amount, note, notice, coinId}. Its
   // recipient is fixed, so the Recipient step is skipped.
   scanRequest: null,
+  // A VerusPay invoice paid through these screens: its facts for Confirm and
+  // Sent (InvoicePayFlow). The flow's options live in InvoiceFlowContext.
+  invoice: null,
+  // The card a payment comes from, when the asset is on more than one.
+  payFromLabel: null,
   preflightResult: null,
   txResult: null,
   broadcastError: null,
@@ -62,6 +67,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     setState(current => ({
       ...initialWizardState,
       ...getScanRequestFields(current.scanRequest),
+      invoice: current.invoice,
       ...source,
       target,
       route,

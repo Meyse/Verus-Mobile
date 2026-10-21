@@ -19,13 +19,18 @@ const ConfirmFacts = ({
   onOpenFees,
   networkFee,
   feeLoading,
+  leadingRows = [],
   note,
   recipient,
+  trailingRows = [],
 }) => {
   const theme = useOnboardingTheme();
 
   return (
     <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
+      {leadingRows.map(row => (
+        <FlatRow key={row.label} label={row.label} onPress={row.onPress} value={row.value} />
+      ))}
       <FlatRow
         label="To"
         numberOfLines={0}
@@ -51,6 +56,9 @@ const ConfirmFacts = ({
       <FlatRow label="Arrives" value={arrives}>
         {feeLoading ? <FeeSkeleton /> : null}
       </FlatRow>
+      {trailingRows.map(row => (
+        <FlatRow key={row.label} label={row.label} onPress={row.onPress} value={row.value} />
+      ))}
     </View>
   );
 };

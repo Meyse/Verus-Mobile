@@ -50,12 +50,15 @@ const InvoicePaymentConfiguration = props => {
     response,
     detailIndex,
     renderInvoice,
+    // The new invoice flow (InvoicePayFlow) renders the payment options itself.
+    renderFlow,
     signerFqn,
     amountDisplay,
     destinationDisplay,
   } = props;
 
   const [conversionOptions, setConversionOptions] = useState({});
+  const [conversionError, setConversionError] = useState(false);
 
   const details = new primitives.VerusPayInvoiceDetails();
   details.fromBuffer(
@@ -82,6 +85,7 @@ const InvoicePaymentConfiguration = props => {
   const dispatch = useDispatch();
 
   const updateConversionOptions = async () => {
+    setConversionError(false);
     try {
       const {definitions, remainingSystems} = acceptedSystemsDefinitions;
       const supportedSystemIds = [
@@ -110,7 +114,8 @@ const InvoicePaymentConfiguration = props => {
 
       setConversionOptions(Object.fromEntries(sourceOptionsMap.entries()));
     } catch (e) {
-      Alert.alert('Error fetching conversion options', e.message);
+      if (renderFlow) setConversionError(true);
+      else Alert.alert('Error fetching conversion options', e.message);
     }
   };
 
@@ -220,13 +225,21 @@ const InvoicePaymentConfiguration = props => {
 
   const sourceList = (
     <FundSourceSelectList
-      renderContent={sourceState => (
-        <InvoicePaymentOptions
-          {...sourceState}
-          renderInvoice={renderInvoice}
-          onSelect={onSelectFundSource}
-        />
-      )}
+      renderContent={sourceState =>
+        renderFlow ? (
+          renderFlow({
+            ...sourceState,
+            conversionError,
+            retryConversions: updateConversionOptions,
+          })
+        ) : (
+          <InvoicePaymentOptions
+            {...sourceState}
+            renderInvoice={renderInvoice}
+            onSelect={onSelectFundSource}
+          />
+        )
+      }
       animationType="slide"
       onSelect={onSelectFundSource}
       sourceOptions={conversionOptions}

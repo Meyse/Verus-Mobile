@@ -67,6 +67,7 @@ import {
   R_ADDRESS_VERSION,
 } from '../../utils/constants/constants';
 import {useSendWizard} from './SendWizardContext';
+import {useInvoiceFlow} from './invoiceFlow';
 import {refreshSourceBalance} from './refreshSourceBalance';
 import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
@@ -81,6 +82,7 @@ import {
   getDestinationNetwork,
   getRouteName,
   isOwnChannelAddress,
+  shortAddress,
 } from './wizardUtils';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
@@ -94,6 +96,11 @@ const SendWizardConfirm = () => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const {state, setPreflight, setTxResult, setBroadcastError} = useSendWizard();
+  // A VerusPay invoice (InvoicePayFlow) pays through the currency-transfer
+  // path, so the invoice tag goes into the transaction, and must pay in full.
+  const invoiceFlow = useInvoiceFlow();
+  const invoice = state.invoice;
+  const [invoiceShortfall, setInvoiceShortfall] = useState(null);
   const {
     amount,
     amountSats,
@@ -137,7 +144,7 @@ const SendWizardConfirm = () => {
   }, [navigation, sending]);
 
   const simpleSend = Boolean(
-    target && !target.isConversion && !route?.isCrossChain,
+    target && !target.isConversion && !route?.isCrossChain && !invoice,
   );
   const feeKind = networkFeeKind(simpleSend, channel, sourceCoin);
   const networkFee = useNetworkFee({
@@ -220,8 +227,9 @@ const SendWizardConfirm = () => {
         ? {mapto: route.mapTo} : {}),
       ...(route?.preconvert ? {preconvert: true} : {}),
       ...(route?.bridgePrelaunch ? {bridgeprelaunch: true} : {}),
+      ...(invoice?.tag ? {vdxftag: invoice.tag} : {}),
     }),
-    [amountSats, route, sourceCoin, target],
+    [amountSats, invoice, route, sourceCoin, target],
   );
 
   useEffect(() => {
@@ -247,6 +255,7 @@ const SendWizardConfirm = () => {
     setPreflighting(true);
     setError(null);
     setWarnings([]);
+    setInvoiceShortfall(null);
     setPreflight(null);
     if (feeKind && (networkFee.loading || !networkFee.fee)) {
       setPreflighting(networkFee.loading);
@@ -308,6 +317,18 @@ const SendWizardConfirm = () => {
           }
         }
 
+        // The old invoice screen refused a payment that the fee would shrink.
+        setInvoiceShortfall(
+          invoice &&
+            !invoice.anyAmount &&
+            preflight?.submittedsats != null &&
+            preflight?.output?.satoshis != null &&
+            String(preflight.submittedsats) !== String(preflight.output.satoshis)
+            ? `Not enough ${sourceCoin.display_ticker} on this card for this invoice and the network fee.${
+                navigation.canGoBack() ? ' Go back and choose another way to pay.' : ''
+              }`
+            : null,
+        );
         setWarnings(nextWarnings);
         preparedParams.current = simpleSendParams;
         lastReview.current = {key: reviewKey, result: preflight};
@@ -416,7 +437,7 @@ const SendWizardConfirm = () => {
         index: 0,
         routes: [{name: 'SendWizardSuccess'}],
       });
-      void autoAddConversionAsset({
+      if (!invoice) void autoAddConversionAsset({
         activeAccount,
         channel,
         context: assetContext,
@@ -450,8 +471,10 @@ const SendWizardConfirm = () => {
   const reviewResult = preflightResult || (feeKind && lastReview.current?.key === reviewKey ? lastReview.current.result : null);
   const displayEstimate = reviewResult?.estimate || estimate;
   const estimatedReceive = displayEstimate?.estimatedcurrencyout;
-  const displayAmount =
-    simpleSend && reviewResult?.value != null
+  // An invoice is paid in full or not at all, so its amount never shrinks.
+  const displayAmount = invoiceShortfall
+    ? BigNumber(amount || 0)
+    : simpleSend && reviewResult?.value != null
       ? BigNumber(reviewResult.value)
       : reviewResult?.submittedsats && reviewResult?.output?.satoshis
       ? satsToCoins(BigNumber(reviewResult.output.satoshis))
@@ -544,7 +567,7 @@ const SendWizardConfirm = () => {
   const submittedAmount = reviewResult?.submittedsats != null
     ? satsToCoins(BigNumber(reviewResult.submittedsats))
     : BigNumber(reviewResult?.amountSubmitted ?? amount ?? 0);
-  const amountAdjustment = submittedAmount.isGreaterThan(displayAmount)
+  const amountAdjustment = !invoice && submittedAmount.isGreaterThan(displayAmount)
     ? `Reduced from ${truncateDecimal(submittedAmount, 8)} ${sourceCoin?.display_ticker || ''} to cover transaction fees.`
     : null;
 
@@ -585,7 +608,14 @@ const SendWizardConfirm = () => {
           <Text style={[styles.stateTitle, {color: theme.colors.textPrimary}]}>Couldn’t prepare transaction</Text>
           <Text style={[styles.stateBody, {color: theme.colors.textSecondary}]}>{error}</Text>
         </View>
-        <WizardFooter onPress={() => navigation.goBack()}>Go Back</WizardFooter>
+        <WizardFooter
+          onPress={() =>
+            !navigation.canGoBack() && invoiceFlow
+              ? invoiceFlow.onExit()
+              : navigation.goBack()
+          }>
+          Go Back
+        </WizardFooter>
       </WizardScreen>
     );
   }
@@ -609,7 +639,7 @@ const SendWizardConfirm = () => {
   ].filter(Boolean);
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
-  const pinnedMessage = state.broadcastError || error;
+  const pinnedMessage = state.broadcastError || error || invoiceShortfall;
   // A scanned request that names another network warns here, above the hold.
   const notices = [state.scanRequest?.notice, ...warnings].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
@@ -637,7 +667,9 @@ const SendWizardConfirm = () => {
               amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
               coinId={target.coinId || target.id}
               fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
-              label="You receive"
+              label={
+                invoice ? `${shortAddress(recipientAddress, 4)} receives` : 'You receive'
+              }
               ticker={target.ticker}
             />
           </>
@@ -657,6 +689,28 @@ const SendWizardConfirm = () => {
           onOpenFees={feeKind && (sending || state.broadcastError || state.txResult || !networkFee.canChoose) ? undefined : () => setFeeSheetOpen(true)}
           note={state.scanRequest?.note}
           recipient={recipientAddress}
+          leadingRows={
+            invoice
+              ? [
+                  invoice.signer
+                    ? {
+                        label: 'Requested by',
+                        value: invoice.signer,
+                        onPress: invoiceFlow?.onOpenRequester,
+                      }
+                    : null,
+                  state.payFromLabel ? {label: 'From', value: state.payFromLabel} : null,
+                ].filter(Boolean)
+              : []
+          }
+          trailingRows={
+            invoice
+              ? [
+                  invoice.expiry ? {label: 'Expires', value: `In about ${invoice.expiry}`} : null,
+                  {label: 'Invoice details', onPress: invoiceFlow?.onOpenDetails},
+                ].filter(Boolean)
+              : []
+          }
         />
       </FadedScrollView>
       <WizardFooter
@@ -678,7 +732,8 @@ const SendWizardConfirm = () => {
           networkFee.loading ||
           submitted.current ||
           Boolean(state.txResult) ||
-          Boolean(state.broadcastError)
+          Boolean(state.broadcastError) ||
+          Boolean(invoiceShortfall)
         }
         holdToConfirm={!needsFeeRetry}
         loading={sending || preflighting || networkFee.loading}

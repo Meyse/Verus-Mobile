@@ -425,7 +425,9 @@ const SendWizardAmount = () => {
     );
     // A scanned recipient is fixed, so Confirm comes next.
     navigation.navigate(
-      state.scanRequest?.address ? 'SendWizardConfirm' : 'SendWizardRecipient',
+      state.scanRequest?.address || (state.invoice && !state.invoice.anyDestination)
+        ? 'SendWizardConfirm'
+        : 'SendWizardRecipient',
     );
   };
 

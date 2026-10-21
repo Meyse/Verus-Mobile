@@ -19,11 +19,14 @@ import {
   requestWalletUnlock,
   WALLET_UNLOCK_CANCELLED,
 } from '../../../actions/actionDispatchers';
-import {
-  createAlert,
-  resolveAlert,
-} from '../../../actions/actions/alert/dispatchers/alert';
+import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
+import {formatCurrency} from 'react-native-format-currency';
+import AcknowledgeSheet from '../../../components/AcknowledgeSheet';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
+import {API_GET_FIATPRICE} from '../../../utils/constants/intervalConstants';
+import {USD} from '../../../utils/constants/currencies';
+import {getCurrencyDisplay} from '../../SendWizard/wizardUtils';
+import InvoicePayFlow from './InvoicePayFlow';
 import DeepLinkRequestSourceCard from '../components/RequestReview/DeepLinkRequestSourceCard';
 import DeepLinkRequestSheetScaffold from '../components/RequestReview/DeepLinkRequestSheetScaffold';
 import DeepLinkVerusIdDetailsSheet from '../components/RequestReview/DeepLinkVerusIdDetailsSheet';
@@ -51,6 +54,9 @@ const InvoiceInfo = props => {
     coinObj,
     chainInfo,
     acceptedSystemsDefinitions,
+    next,
+    response,
+    detailIndex,
   } = props;
   const details = useMemo(() => {
     const invoice = new primitives.VerusPayInvoiceDetails();
@@ -71,6 +77,13 @@ const InvoiceInfo = props => {
   );
   const [sheet, setSheet] = useState(null);
   const [identitySheet, setIdentitySheet] = useState(null);
+  const [wrongNetworkVisible, setWrongNetworkVisible] = useState(false);
+  const activeCoins = useObjectSelector(state => state.coins.activeCoinsForUser);
+  const allSubWallets = useObjectSelector(state => state.coinMenus.allSubWallets);
+  const rates = useObjectSelector(state => state.ledger.rates);
+  const displayCurrency = useObjectSelector(
+    state => state.settings.generalWalletSettings.displayCurrency || USD,
+  );
   const isBurn = details.isBurnChangePrice();
   const wrongNetwork =
     signedIn && Boolean(isTestAccount) !== details.isTestnet();
@@ -89,29 +102,11 @@ const InvoiceInfo = props => {
   const networks = Object.values(acceptedSystemsDefinitions?.definitions || {});
   const otherNetworks = acceptedSystemsDefinitions?.remainingSystems || [];
 
+  // A testnet invoice in a mainnet wallet, or the other way round.
   useEffect(() => {
-    if (!wrongNetwork) return;
-    createAlert(
-      details.isTestnet() ? 'Testnet invoice' : 'Mainnet invoice',
-      `This invoice was created for ${
-        details.isTestnet() ? 'testnet' : 'mainnet'
-      }, but you are using a ${
-        isTestAccount ? 'testnet' : 'mainnet'
-      } wallet. Please sign out, select a ${
-        details.isTestnet() ? 'testnet' : 'mainnet'
-      } wallet, and retry this invoice to continue.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            cancel();
-            resolveAlert(true);
-          },
-        },
-      ],
-      {cancelable: false},
-    );
-  }, [wrongNetwork, details]);
+    if (wrongNetwork) setWrongNetworkVisible(true);
+  }, [wrongNetwork]);
+  const invoiceNetwork = details.isTestnet() ? 'testnet' : 'mainnet';
 
   const unlockWallet = async () => {
     const allowList = details.isTestnet()
@@ -158,6 +153,124 @@ const InvoiceInfo = props => {
       loadFriendlyNames: identity => getFriendlyNameMap(systemId, identity),
     });
   };
+
+  // The facts the payer's slip, Confirm and Sent show (InvoicePayFlow).
+  const requestedCoin = activeCoins.find(
+    coin => coin.currency_id === details.requestedcurrencyid,
+  );
+  const ticker =
+    requestedCoin?.display_ticker ||
+    getCurrencyDisplay(details.requestedcurrencyid, currency).ticker;
+  const rate = requestedCoin
+    ? (allSubWallets?.[requestedCoin.id] || [])
+        .map(wallet => wallet.api_channels?.[API_GET_FIATPRICE])
+        .map(channel => rates?.[channel]?.[requestedCoin.id]?.[displayCurrency])
+        .find(value => value != null)
+    : null;
+  const invoiceFacts = {
+    details,
+    amountDisplay: anyAmount ? null : amountDisplay,
+    ticker,
+    currencyId: details.requestedcurrencyid,
+    currencyFqn: currency,
+    currencyName: currency,
+    coinId: requestedCoin?.id || details.requestedcurrencyid,
+    signer: isSigned ? requesterLabel : null,
+    destinationDisplay: details.acceptsAnyDestination() ? null : destinationDisplay,
+    acceptsConversion: details.acceptsConversion(),
+    anyAmount,
+    anyDestination: details.acceptsAnyDestination(),
+    expiry,
+    tag: details.isTagged() ? details.tag.toXAddress() : null,
+    fiat:
+      rate != null && !anyAmount
+        ? formatCurrency({
+            amount: BigNumber(amountDisplay).multipliedBy(rate).toFixed(2),
+            code: displayCurrency,
+          })[0]
+        : null,
+  };
+
+  const renderSheets = () => (
+    <>
+      <DeepLinkRequestSheetScaffold
+        title={sheet === 'networks' ? 'Supported networks' : 'Invoice details'}
+        visible={sheet != null}
+        onClose={() => setSheet(null)}>
+        {sheet === 'networks' ? (
+          <>
+            {networks.map(network => (
+              <InvoiceRow
+                key={network.currencyid}
+                label={network.fullyqualifiedname}
+              />
+            ))}
+            {otherNetworks.map(network => (
+              <InvoiceCopyRow
+                key={network}
+                label="Network ID"
+                value={network}
+              />
+            ))}
+          </>
+        ) : (
+          <>
+            <InvoiceRow label="Currency" value={currency} />
+            <InvoiceRow
+              label="Supported networks"
+              onPress={() => setSheet('networks')}
+            />
+            <InvoiceCopyRow
+              label={isBurn ? 'Burn output address' : 'Destination'}
+              value={
+                !details.acceptsAnyDestination()
+                  ? details.destination.getAddressString()
+                  : null
+              }
+            />
+            {isSigned && (
+              <InvoiceRow label="Signed" value={unixToDate(sigtime)} />
+            )}
+            {!!expiry && (
+              <InvoiceRow label="Approximate expiry" value={expiry} />
+            )}
+            {details.acceptsConversion() && !isBurn && (
+              <>
+                <InvoiceRow label="Conversion" value="Supported" />
+                <InvoiceRow
+                  label="Maximum estimated slippage"
+                  value={`${satsToCoins(BigNumber(details.maxestimatedslippage))
+                    .times(100)
+                    .toString()}%`}
+                />
+              </>
+            )}
+            <InvoiceRow
+              label="Amount"
+              value={anyAmount ? 'You choose' : `${amountDisplay} ${currency}`}
+            />
+          </>
+        )}
+      </DeepLinkRequestSheetScaffold>
+      {identitySheet && (
+        <DeepLinkVerusIdDetailsSheet
+          {...identitySheet}
+          visible
+          onClose={() => setIdentitySheet(null)}
+        />
+      )}
+      <AcknowledgeSheet
+        confirmLabel="Close"
+        message={`This invoice is for ${invoiceNetwork}. Your open wallet is on ${
+          isTestAccount ? 'testnet' : 'mainnet'
+        }. Open a ${invoiceNetwork} wallet and scan it again.`}
+        onAcknowledged={cancel}
+        onClose={() => setWrongNetworkVisible(false)}
+        title={details.isTestnet() ? 'Testnet invoice' : 'Mainnet invoice'}
+        visible={wrongNetworkVisible}
+      />
+    </>
+  );
 
   const renderInvoice = ({
     selectedSource,
@@ -262,79 +375,40 @@ const InvoiceInfo = props => {
           Cancel
         </AppButton>
       </SafeBottomActionStack>
-      <DeepLinkRequestSheetScaffold
-        title={sheet === 'networks' ? 'Supported networks' : 'Invoice details'}
-        visible={sheet != null}
-        onClose={() => setSheet(null)}>
-        {sheet === 'networks' ? (
-          <>
-            {networks.map(network => (
-              <InvoiceRow
-                key={network.currencyid}
-                label={network.fullyqualifiedname}
-              />
-            ))}
-            {otherNetworks.map(network => (
-              <InvoiceCopyRow
-                key={network}
-                label="Network ID"
-                value={network}
-              />
-            ))}
-          </>
-        ) : (
-          <>
-            <InvoiceRow label="Currency" value={currency} />
-            <InvoiceRow
-              label="Supported networks"
-              onPress={() => setSheet('networks')}
-            />
-            <InvoiceCopyRow
-              label={isBurn ? 'Burn output address' : 'Destination'}
-              value={
-                !details.acceptsAnyDestination()
-                  ? details.destination.getAddressString()
-                  : null
-              }
-            />
-            {isSigned && (
-              <InvoiceRow label="Signed" value={unixToDate(sigtime)} />
-            )}
-            {!!expiry && (
-              <InvoiceRow label="Approximate expiry" value={expiry} />
-            )}
-            {details.acceptsConversion() && !isBurn && (
-              <>
-                <InvoiceRow label="Conversion" value="Supported" />
-                <InvoiceRow
-                  label="Maximum estimated slippage"
-                  value={`${satsToCoins(BigNumber(details.maxestimatedslippage))
-                    .times(100)
-                    .toString()}%`}
-                />
-              </>
-            )}
-            <InvoiceRow
-              label="Amount"
-              value={anyAmount ? 'You choose' : `${amountDisplay} ${currency}`}
-            />
-          </>
-        )}
-      </DeepLinkRequestSheetScaffold>
-      {identitySheet && (
-        <DeepLinkVerusIdDetailsSheet
-          {...identitySheet}
-          visible
-          onClose={() => setIdentitySheet(null)}
-        />
-      )}
+      {renderSheets()}
     </SafeAreaView>
   );
 
-  return signedIn && !wrongNetwork ? (
-    <InvoicePaymentConfiguration {...props} renderInvoice={renderInvoice} />
-  ) : (
-    renderInvoice()
+  if (!signedIn || wrongNetwork) return renderInvoice();
+  // Burn invoices keep their own review in the old send window.
+  if (isBurn) {
+    return <InvoicePaymentConfiguration {...props} renderInvoice={renderInvoice} />;
+  }
+
+  const onPaid = next != null ? () => next(response, [detailIndex]) : cancel;
+  return (
+    <>
+      <InvoicePaymentConfiguration
+        {...props}
+        renderFlow={({cards, loading, conversionError, retryConversions}) => (
+          <InvoicePayFlow
+            flow={{
+              invoice: invoiceFacts,
+              cards,
+              loading,
+              conversionError,
+              onRetryConversions: retryConversions,
+              onExit: cancel,
+              onPaid,
+              onOpenDetails: () => setSheet('details'),
+              onOpenRequester:
+                signerChain && signerIdentityID ? openRequester : undefined,
+            }}
+          />
+        )}
+      />
+      {renderSheets()}
+    </>
   );
 };
 

@@ -28,11 +28,11 @@ export const WIZARD_CONTEXT_STEP = {
 };
 
 // A scanned address in the band: the start and the end, as on a history row.
-export const shortAddress = address => {
+export const shortAddress = (address, keep = 6) => {
   const value = String(address || '');
-  return value.endsWith('@') || value.length <= 15
+  return value.endsWith('@') || value.length <= keep * 2 + 3
     ? value
-    : `${value.slice(0, 6)}…${value.slice(-6)}`;
+    : `${value.slice(0, keep)}…${value.slice(-keep)}`;
 };
 
 // "VRSC [ERC20]" is the Ethereum token. Its logo badge already says so, and
