@@ -317,7 +317,16 @@ const VerusPay = (props) => {
         scanBusy.current = true;
         setLoading(true);
         try {
-          await addManagedAsset({coin});
+          const added = await addManagedAsset({coin});
+          // Load the new asset's balance first, so Send can find a card to pay from.
+          if (added?.id) {
+            await conditionallyUpdateWallet(
+              store.getState(),
+              dispatch,
+              added.id,
+              API_GET_BALANCES,
+            );
+          }
           await scanToSend(raw);
         } catch (e) {
           showSheet({...UNUSABLE_QR, message: `Couldn’t add ${name}. Try again.`});
