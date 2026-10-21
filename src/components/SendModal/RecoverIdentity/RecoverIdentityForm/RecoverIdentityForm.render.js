@@ -2,14 +2,13 @@ import React, {useState} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {ChevronDown, ChevronUp} from 'lucide-react-native';
 import AppButton from '../../../AppButton';
-import BarcodeReader from '../../../BarcodeReader/BarcodeReader';
+import ScannerScreen from '../../../BarcodeReader/ScannerScreen';
 import RevokeRecoverFlowScaffold from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
 import RevokeRecoverIdentityPickerSheet, {
   RevokeRecoverIdentityField,
 } from '../../../../containers/RevokeRecover/RevokeRecoverIdentityPickerSheet';
 import {RevokeRecoverLoadingState} from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
 import RecoveryChangeSheet from '../../../../containers/RevokeRecover/RecoveryChangeSheet';
-import {revokeRecoverFlowStyles as styles} from '../../../../styles';
 import {useAppTheme} from '../../../../theme/app';
 import {
   SEND_MODAL_IDENTITY_TO_RECOVER_FIELD,
@@ -85,20 +84,15 @@ export const RecoverIdentityFormRender = ({
 
   if (scannerOpen)
     return (
-      <View style={styles.scannerRoot}>
-        <BarcodeReader
-          button={() => (
-            <AppButton
-              onPress={toggleScanner}
-              style={styles.scannerAction}
-              variant="secondary">
-              Cancel scan
-            </AppButton>
-          )}
-          onScan={handleScan}
-          prompt="Scan a Verus address"
-        />
-      </View>
+      <ScannerScreen
+        borderless
+        noCameraAction={{label: 'Enter address', onPress: toggleScanner}}
+        noCameraHint="Paste or type the address instead."
+        onBack={toggleScanner}
+        onScan={handleScan}
+        progress={0.68}
+        title="Scan address"
+      />
     );
 
   if (loading)

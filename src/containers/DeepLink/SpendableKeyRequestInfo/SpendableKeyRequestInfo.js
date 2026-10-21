@@ -14,7 +14,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
-import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
+import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
 import CopyAction from '../../../components/CopyAction';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -958,6 +958,8 @@ const SpendableKeyRequestInfoContent = props => {
     setStatus('passwordScanner');
   }, []);
 
+  const closePasswordScanner = useCallback(() => setStatus('password'), []);
+
   const handlePasswordQrScan = useCallback(async codes => {
     const scannedValue = codes && codes[0] ? codes[0].value : null;
 
@@ -1452,23 +1454,13 @@ const SpendableKeyRequestInfoContent = props => {
 
   if (status === 'passwordScanner') {
     return (
-      <SafeAreaView
-        edges={['top', 'bottom', 'left', 'right']}
-        style={styles.scannerContainer}>
-        <BarcodeReader
-          prompt="Scan the claim password QR"
-          onScan={handlePasswordQrScan}
-          safeBottomButton
-          button={() => (
-            <AppButton
-              height={52}
-              onPress={() => setStatus('password')}
-              variant="secondary">
-              Cancel
-            </AppButton>
-          )}
-        />
-      </SafeAreaView>
+      <ScannerScreen
+        noCameraAction={{label: 'Enter password', onPress: closePasswordScanner}}
+        noCameraHint="Type the claim password instead."
+        onBack={closePasswordScanner}
+        onScan={handlePasswordQrScan}
+        title="Scan password"
+      />
     );
   }
 

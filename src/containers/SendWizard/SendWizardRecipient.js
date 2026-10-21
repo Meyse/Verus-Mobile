@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  BackHandler,
   Clipboard,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -13,7 +15,6 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {ethers} from 'ethers';
 import {fromBase58Check} from 'verus-typescript-primitives';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
-import AppButton from '../../components/AppButton';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -170,6 +171,34 @@ const SendWizardRecipient = () => {
     }
   };
 
+  const openScanner = () => {
+    Keyboard.dismiss();
+    setScannerOpen(true);
+  };
+
+  const closeScanner = useCallback(() => setScannerOpen(false), []);
+
+  // While the camera is open the header names it, and Back returns to the
+  // address field instead of the previous step.
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: !scannerOpen,
+      wizardOnBack: scannerOpen ? closeScanner : undefined,
+      wizardTitle: scannerOpen ? 'Scan address' : undefined,
+    });
+  }, [closeScanner, navigation, scannerOpen]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!scannerOpen) return undefined;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        closeScanner();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [closeScanner, scannerOpen]),
+  );
+
   const handleScan = codes => {
     const raw = codes?.[0]?.value;
     setScannerOpen(false);
@@ -286,20 +315,13 @@ const SendWizardRecipient = () => {
 
   if (scannerOpen) {
     return (
-      <View style={styles.scanner}>
+      <View style={[styles.scanner, {backgroundColor: theme.colors.background}]}>
         <BarcodeReader
-          prompt={`Scan ${route?.addressType === ADDRESS_TYPE.ETHEREUM ? 'Ethereum' : 'Verus'} address`}
+          horizontalInset={16}
+          noCameraAction={{label: 'Enter address', onPress: closeScanner}}
+          noCameraHint="Paste or type the address instead."
           onScan={handleScan}
-          safeBottomButton
-          button={() => (
-            <AppButton
-              buttonColor={theme.colors.danger}
-              onPress={() => setScannerOpen(false)}
-              style={styles.cancelScan}
-              textColor={theme.colors.onPrimary}>
-              Cancel
-            </AppButton>
-          )}
+          style={styles.scannerContent}
         />
       </View>
     );
@@ -356,7 +378,7 @@ const SendWizardRecipient = () => {
               <Pressable accessibilityLabel="Paste address" accessibilityRole="button" onPress={paste} style={styles.inputAction}>
                 <MaterialCommunityIcons name="content-paste" size={20} color={theme.colors.textSubtle} />
               </Pressable>
-              <Pressable accessibilityLabel="Scan address QR" accessibilityRole="button" onPress={() => setScannerOpen(true)} style={styles.inputAction}>
+              <Pressable accessibilityLabel="Scan address QR" accessibilityRole="button" onPress={openScanner} style={styles.inputAction}>
                 <MaterialCommunityIcons name="qrcode-scan" size={20} color={theme.colors.textSubtle} />
               </Pressable>
             </View>
@@ -453,8 +475,8 @@ const styles = StyleSheet.create({
   actionRow: {minHeight: 62, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center'},
   actionLabel: {flex: 1, fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
   actionCount: {fontSize: 14, lineHeight: 20, marginRight: 6, ...fontStyle('regular')},
-  scanner: {flex: 1, backgroundColor: 'black'},
-  cancelScan: {minWidth: 180},
+  scanner: {flex: 1},
+  scannerContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
 });
 
 export default SendWizardRecipient;

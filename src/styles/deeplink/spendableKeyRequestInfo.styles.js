@@ -88,10 +88,6 @@ const createSpendableKeyRequestInfoStyles = theme =>
     passwordHeroIcon: {
       marginBottom: theme.spacing.lg,
     },
-    scannerContainer: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
     amountHero: {
       alignItems: 'center',
       justifyContent: 'center',
