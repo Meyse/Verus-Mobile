@@ -8,6 +8,7 @@ import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
 import {
   getPrivateSyncPercent,
+  getSpendableBalance,
   isPrivateChannel,
   selectPrivateWalletInfo,
 } from '../../utils/subwallet/privateWallet';
@@ -30,7 +31,7 @@ export const countFundedSendCards = (state, coinId, address) => {
       Boolean(channel) &&
       cardCanPay(channel, address) &&
       !(isPrivateChannel(channel) && privateSyncing) &&
-      BigNumber(balances?.[coinId]?.[card.id]?.total || 0).isGreaterThan(0)
+      BigNumber(getSpendableBalance(balances?.[coinId]?.[card.id], card)).isGreaterThan(0)
     );
   }).length;
 };

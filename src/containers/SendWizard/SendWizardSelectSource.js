@@ -21,6 +21,7 @@ import {USD} from '../../utils/constants/currencies';
 import {truncateDecimal} from '../../utils/math';
 import {
   getPrivateSyncPercent,
+  getSpendableBalance,
   isPrivateChannel,
   selectPrivateWalletInfo,
 } from '../../utils/subwallet/privateWallet';
@@ -96,7 +97,9 @@ const SendWizardSelectSource = () => {
             },
           )
           .map(card => {
-            const balance = BigNumber(balances?.[coin.id]?.[card.id]?.total || 0);
+            const balance = BigNumber(
+              getSpendableBalance(balances?.[coin.id]?.[card.id], card),
+            );
             const channel = card.api_channels[API_SEND];
             return {
               coin,

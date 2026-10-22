@@ -33,6 +33,7 @@ import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {subWalletActivity} from '../../utils/subwallet/subWalletStatus';
 import {
   getPrivateSyncPercent,
+  getSpendableBalance,
   isPrivateCard,
   selectPrivateWalletInfo,
 } from '../../utils/subwallet/privateWallet';
@@ -57,9 +58,14 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const selectedBalance = useObjectSelector(state =>
     selectedSubWallet == null
       ? '0'
-      : extractLedgerData(state, 'balances', API_GET_BALANCES)?.[
-          activeCoin.id
-        ]?.[selectedSubWallet.id]?.total || '0',
+      : String(
+          getSpendableBalance(
+            extractLedgerData(state, 'balances', API_GET_BALANCES)?.[
+              activeCoin.id
+            ]?.[selectedSubWallet.id],
+            selectedSubWallet,
+          ),
+        ),
   );
   const services = useSelector(state => state.services);
   // The private card cannot send until its sync finishes; the card shows it.

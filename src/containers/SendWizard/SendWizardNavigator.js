@@ -12,6 +12,7 @@ import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
 import {
   getPrivateSyncPercent,
+  getSpendableBalance,
   isPrivateChannel,
   selectPrivateWalletInfo,
 } from '../../utils/subwallet/privateWallet';
@@ -120,7 +121,7 @@ const SendWizardNavigator = () => {
       !initialSubWalletId &&
       eligibleCards.filter(card =>
         BigNumber(
-          balances?.[sourceCoin.id]?.[card.id]?.total || 0,
+          getSpendableBalance(balances?.[sourceCoin.id]?.[card.id], card),
         ).isGreaterThan(0),
       ).length > 1
     ) {
@@ -134,7 +135,10 @@ const SendWizardNavigator = () => {
       if (
         !sourceSubWallet ||
         !BigNumber(
-          balances?.[sourceCoin.id]?.[sourceSubWallet.id]?.total || 0,
+          getSpendableBalance(
+            balances?.[sourceCoin.id]?.[sourceSubWallet.id],
+            sourceSubWallet,
+          ),
         ).isGreaterThan(0)
       ) {
         return null;
@@ -142,7 +146,7 @@ const SendWizardNavigator = () => {
     } else {
       sourceSubWallet = eligibleCards.find(card =>
         BigNumber(
-          balances?.[sourceCoin.id]?.[card.id]?.total || 0,
+          getSpendableBalance(balances?.[sourceCoin.id]?.[card.id], card),
         ).isGreaterThan(0),
       );
     }
@@ -152,7 +156,10 @@ const SendWizardNavigator = () => {
       sourceCoin,
       sourceSubWallet,
       sourceBalance: String(
-        balances?.[sourceCoin.id]?.[sourceSubWallet.id]?.total || 0,
+        getSpendableBalance(
+          balances?.[sourceCoin.id]?.[sourceSubWallet.id],
+          sourceSubWallet,
+        ),
       ),
       channel: sourceSubWallet.api_channels[API_SEND],
     };
