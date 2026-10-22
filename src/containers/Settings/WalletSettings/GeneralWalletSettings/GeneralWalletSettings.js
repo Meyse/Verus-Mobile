@@ -5,69 +5,67 @@
 */
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Alert} from 'react-native';
+import {ActivityIndicator} from 'react-native';
 import AlertAsync from 'react-native-alert-async';
-import {Portal} from 'react-native-paper';
 import {useDispatch} from 'react-redux';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
 import {switchTestnetEnvironment} from '../../../../actions/actions/testnetEnvironment';
-import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
-import ListSelectionModal from '../../../../components/ListSelectionModal/ListSelectionModal';
-import NumberPadModal from '../../../../components/NumberPadModal/NumberPadModal';
+import {
+  createAlert,
+  resolveAlert,
+} from '../../../../actions/actions/alert/dispatchers/alert';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
-import {
-  CURRENCY_NAMES,
-  SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
-} from '../../../../utils/constants/currencies';
 import {MINIMUM_GAS_PRICE_GWEI} from '../../../../utils/constants/web3Constants';
 import {
   TESTNET_ENVIRONMENT_PRIVATE,
   TESTNET_ENVIRONMENT_PUBLIC,
 } from '../../../../utils/testnetEnvironment';
 import {ENABLE_SIGNED_IN_REDESIGN} from '../../../../../env/index';
+import {DisplayCurrencySheet} from '../../../Home/components/SignedInWalletSheets';
 import {
   SettingsRow,
   SettingsScreen,
   SettingsSection,
   SettingsSwitchRow,
 } from '../../components/SettingsScaffold';
+import SettingsFieldSheet from './SettingsFieldSheet';
 
-const SETTING_LABELS = {
-  allowSettingVerusPaySlippage: 'VerusPay slippage preference',
-  displayCurrency: 'display currency',
-  enableExperimentalGenericRequests: 'experimental deeplinks preference',
-  enableSendCoinCameraToggle: 'QR scanner preference',
-  homeCardDragDetection: 'automatic drag detection',
-  maxTxCount: 'maximum displayed transactions',
-  minGasPriceGwei: 'minimum ETH gas price',
-  testnetEnvironment: 'testnet environment',
+const NOT_SAVED = 'Not saved. Try again.';
+
+// Both values are whole numbers: the ETH fee code reads the gas price
+// with BigInt().
+const NUMBER_SETTINGS = {
+  maxTxCount: {
+    title: 'Max. display TXs',
+    label: 'Transactions',
+    helper: 'From 10 to 100.',
+    error: 'Enter a whole number from 10 to 100.',
+    min: 10,
+    max: 100,
+  },
+  minGasPriceGwei: {
+    title: 'Min. ETH gas price',
+    label: 'Gwei',
+    helper: 'A whole number, 0 or higher.',
+    error: 'Enter a whole number, 0 or higher.',
+    min: 0,
+    max: Number.MAX_SAFE_INTEGER,
+  },
 };
 
 const hasSetting = (settings, key) =>
   Object.prototype.hasOwnProperty.call(settings, key);
 
 const validateNumberSetting = (key, value) => {
-  const stringValue = value == null ? '' : value.toString();
+  const config = NUMBER_SETTINGS[key];
+  const text = value == null ? '' : value.toString().trim();
 
-  if (
-    key === 'maxTxCount' &&
-    (!value ||
-      stringValue.length === 0 ||
-      isNaN(value) ||
-      Number(value) < 10 ||
-      Number(value) > 100)
-  ) {
-    return 'Please enter a valid number from 10 to 100';
-  }
+  if (!/^\d+$/.test(text)) return config.error;
 
-  if (
-    key === 'minGasPriceGwei' &&
-    value != null &&
-    (stringValue.length === 0 || isNaN(value))
-  ) {
-    return 'Please enter a valid minimum gas price in Gwei';
-  }
+  const number = Number(text);
+
+  if (number < config.min || number > config.max) return config.error;
 
   return null;
 };
@@ -82,8 +80,10 @@ const GeneralWalletSettings = () => {
   const pendingSettingsRef = useRef({});
 
   const [pendingSettings, setPendingSettings] = useState({});
-  const [currentNumberInputModal, setCurrentNumberInputModal] = useState(null);
-  const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] =
+  const [rowErrors, setRowErrors] = useState({});
+  const [numberSheet, setNumberSheet] = useState(null);
+  const [numberSheetVisible, setNumberSheetVisible] = useState(false);
+  const [displayCurrencySheetVisible, setDisplayCurrencySheetVisible] =
     useState(false);
 
   useEffect(
@@ -98,6 +98,22 @@ const GeneralWalletSettings = () => {
       ? pendingSettings[key]
       : generalWalletSettings[key];
   const isSaving = key => hasSetting(pendingSettings, key);
+
+  const setRowError = (key, error) => {
+    if (!isMounted.current) return;
+
+    setRowErrors(current => {
+      if (!error && !current[key]) return current;
+
+      const next = {...current};
+      if (error) {
+        next[key] = error;
+      } else {
+        delete next[key];
+      }
+      return next;
+    });
+  };
 
   const setPendingSetting = (key, value) => {
     const nextPendingSettings = {
@@ -122,25 +138,20 @@ const GeneralWalletSettings = () => {
   };
 
   const persistSetting = async (key, value) => {
-    if (
-      hasSetting(pendingSettingsRef.current, key) ||
-      Object.is(generalWalletSettings[key], value)
-    ) {
-      return;
-    }
+    if (hasSetting(pendingSettingsRef.current, key)) return;
+
+    setRowError(key, null);
+
+    if (Object.is(generalWalletSettings[key], value)) return;
 
     setPendingSetting(key, value);
 
     try {
       dispatch(await saveGeneralSettings({[key]: value}));
     } catch (err) {
-      const errorMessage =
-        err && err.message ? err.message : 'The settings store was unavailable.';
-      createAlert(
-        `Unable to save ${SETTING_LABELS[key]}`,
-        `${errorMessage}\n\nYour previous value is still active. Please try again.`,
-      );
-      console.warn(`Failed to save ${key}: ${errorMessage}`);
+      // The row reverts to the stored value and shows a short error.
+      setRowError(key, NOT_SAVED);
+      console.warn(`Failed to save ${key}: ${err?.message || err}`);
     } finally {
       clearPendingSetting(key);
     }
@@ -165,36 +176,36 @@ const GeneralWalletSettings = () => {
 
     if (!confirmed || !isMounted.current) return;
 
+    setRowError('testnetEnvironment', null);
     setPendingSetting('testnetEnvironment', environment);
 
     try {
       await switchTestnetEnvironment(environment, dispatch);
     } catch (err) {
-      const errorMessage =
-        err && err.message ? err.message : 'The settings store was unavailable.';
-      createAlert(
-        `Unable to save ${SETTING_LABELS.testnetEnvironment}`,
-        `${errorMessage}\n\nPlease try again.`,
+      setRowError('testnetEnvironment', NOT_SAVED);
+      console.warn(
+        `Failed to switch testnet environment: ${err?.message || err}`,
       );
-      console.warn(`Failed to switch testnet environment: ${errorMessage}`);
       clearPendingSetting('testnetEnvironment');
     }
   };
 
-  const describeSlippage = () =>
+  const confirmSlippage = () =>
     createAlert(
-      'Slippage',
-      'Before editing maximum slippage on your VerusPay invoices, ensure you are aware of the risks. ' +
-        'The maximum slippage value is used to limit which currencies others will be allowed to pay your invoice with.' +
-        " The percentage value you set is the maximum allowed difference between the estimated conversion outcome of the payee's chosen " +
-        'conversion path, and the real outcome. This value is calculated for each currency using factors that determine their' +
-        ' respective volatilites, like the amount of currency in their respective reserves. Setting a high slippage value introduces ' +
-        ' the risk of receiving an amount of currency unexpectedly lower than what you set as the invoice amount.',
+      'Turn on invoice slippage?',
+      "Maximum slippage is how far a payer's conversion may fall below its estimate. " +
+        'It limits which currencies can pay, and a high value can leave you with less than the invoice amount.',
+      [
+        {text: 'Turn on', onPress: () => resolveAlert(true)},
+        {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
+      ],
     );
 
   const toggleAllowSettingVerusPaySlippage = async value => {
     if (value) {
-      await describeSlippage();
+      const confirmed = await confirmSlippage();
+
+      if (!confirmed) return;
     }
 
     if (isMounted.current) {
@@ -202,32 +213,38 @@ const GeneralWalletSettings = () => {
     }
   };
 
-  const openNumberInputModal = key => {
+  const openNumberSheet = key => {
     const currentValue =
       key === 'minGasPriceGwei' && displayedSetting(key) == null
         ? Number(MINIMUM_GAS_PRICE_GWEI)
         : Number(displayedSetting(key));
 
-    setCurrentNumberInputModal({
+    setNumberSheet({
       key,
-      value: isNaN(currentValue) ? 0 : currentValue,
+      value: isNaN(currentValue) ? '' : String(currentValue),
     });
+    setNumberSheetVisible(true);
   };
 
-  const closeNumberInputModal = () => setCurrentNumberInputModal(null);
+  const closeNumberSheet = () => setNumberSheetVisible(false);
 
-  const commitNumberInput = (key, value) => {
+  const saveNumberSetting = value => {
+    const key = numberSheet?.key;
+
+    if (!key) return null;
+
     const error = validateNumberSetting(key, value);
 
-    if (error) {
-      Alert.alert(error);
-      return false;
-    }
+    if (error) return error;
 
-    closeNumberInputModal();
+    closeNumberSheet();
     persistSetting(key, Number(value));
     return true;
   };
+
+  const numberSheetConfig = numberSheet
+    ? NUMBER_SETTINGS[numberSheet.key]
+    : null;
 
   const savingIndicator = key =>
     isSaving(key) ? (
@@ -236,33 +253,6 @@ const GeneralWalletSettings = () => {
 
   return (
     <>
-      <Portal>
-        {currentNumberInputModal != null && (
-          <NumberPadModal
-            cancel={closeNumberInputModal}
-            decimals={0}
-            submit={value =>
-              commitNumberInput(currentNumberInputModal.key, value)
-            }
-            value={currentNumberInputModal.value}
-            visible
-          />
-        )}
-        {displayCurrencyModalOpen && (
-          <ListSelectionModal
-            cancel={() => setDisplayCurrencyModalOpen(false)}
-            data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map(key => ({
-              key,
-              title: key,
-              description: CURRENCY_NAMES[key],
-            }))}
-            onSelect={item => persistSetting('displayCurrency', item.key)}
-            selectedKey={displayedSetting('displayCurrency')}
-            title="Currencies"
-            visible
-          />
-        )}
-      </Portal>
       <SettingsScreen
         safeAreaEdges={['left', 'right', 'bottom']}
         testID="settings.general">
@@ -272,7 +262,8 @@ const GeneralWalletSettings = () => {
             description="Maximum displayed Electrum transactions"
             disabled={isSaving('maxTxCount')}
             icon="format-list-numbered"
-            onPress={() => openNumberInputModal('maxTxCount')}
+            onPress={() => openNumberSheet('maxTxCount')}
+            error={rowErrors.maxTxCount}
             testID="settings.general.maxTxCount"
             title="Max. display TXs"
             trailing={savingIndicator('maxTxCount')}
@@ -283,7 +274,8 @@ const GeneralWalletSettings = () => {
             description="Currency used to display wallet value"
             disabled={isSaving('displayCurrency')}
             icon="currency-usd"
-            onPress={() => setDisplayCurrencyModalOpen(true)}
+            onPress={() => setDisplayCurrencySheetVisible(true)}
+            error={rowErrors.displayCurrency}
             testID="settings.general.displayCurrency"
             title="Universal display currency"
             trailing={savingIndicator('displayCurrency')}
@@ -297,6 +289,7 @@ const GeneralWalletSettings = () => {
               onValueChange={value =>
                 persistSetting('homeCardDragDetection', value)
               }
+              error={rowErrors.homeCardDragDetection}
               testID="settings.general.homeCardDragDetection"
               title="Automatic drag detection"
               value={displayedSetting('homeCardDragDetection')}
@@ -307,6 +300,7 @@ const GeneralWalletSettings = () => {
             description="Show maximum slippage when creating a converted VerusPay invoice"
             icon="chart-bell-curve"
             onValueChange={toggleAllowSettingVerusPaySlippage}
+            error={rowErrors.allowSettingVerusPaySlippage}
             testID="settings.general.allowSettingVerusPaySlippage"
             title="Edit max VerusPay invoice slippage"
             value={displayedSetting('allowSettingVerusPaySlippage')}
@@ -318,6 +312,7 @@ const GeneralWalletSettings = () => {
             onValueChange={value =>
               persistSetting('enableSendCoinCameraToggle', value)
             }
+            error={rowErrors.enableSendCoinCameraToggle}
             testID="settings.general.enableSendCoinCameraToggle"
             title="Add toggle button for QR scanner"
             value={displayedSetting('enableSendCoinCameraToggle')}
@@ -331,6 +326,7 @@ const GeneralWalletSettings = () => {
             onValueChange={value =>
               persistSetting('enableExperimentalGenericRequests', value)
             }
+            error={rowErrors.enableExperimentalGenericRequests}
             testID="settings.general.enableExperimentalGenericRequests"
             title="Enable experimental deeplinks"
             value={displayedSetting('enableExperimentalGenericRequests')}
@@ -345,7 +341,8 @@ const GeneralWalletSettings = () => {
             disabled={isSaving('minGasPriceGwei')}
             icon="gas-station-outline"
             last
-            onPress={() => openNumberInputModal('minGasPriceGwei')}
+            onPress={() => openNumberSheet('minGasPriceGwei')}
+            error={rowErrors.minGasPriceGwei}
             testID="settings.general.minGasPriceGwei"
             title="Min. ETH gas price"
             trailing={savingIndicator('minGasPriceGwei')}
@@ -365,6 +362,7 @@ const GeneralWalletSettings = () => {
               icon="flask-outline"
               last
               onValueChange={toggleTestnetEnvironment}
+              error={rowErrors.testnetEnvironment}
               testID="settings.general.testnetEnvironment"
               title="Private testnet"
               value={
@@ -375,6 +373,26 @@ const GeneralWalletSettings = () => {
           </SettingsSection>
         )}
       </SettingsScreen>
+      {numberSheetConfig ? (
+        <SettingsFieldSheet
+          helperText={numberSheetConfig.helper}
+          initialValue={numberSheet.value}
+          keyboardType="number-pad"
+          label={numberSheetConfig.label}
+          onClose={closeNumberSheet}
+          onClosed={() => setNumberSheet(null)}
+          onSave={saveNumberSetting}
+          saveAccessibilityLabel={`Save ${numberSheetConfig.title}`}
+          title={numberSheetConfig.title}
+          visible={numberSheetVisible}
+        />
+      ) : null}
+      <DisplayCurrencySheet
+        displayCurrency={displayedSetting('displayCurrency')}
+        onClose={() => setDisplayCurrencySheetVisible(false)}
+        onSelect={currency => persistSetting('displayCurrency', currency)}
+        visible={displayCurrencySheetVisible}
+      />
     </>
   );
 };

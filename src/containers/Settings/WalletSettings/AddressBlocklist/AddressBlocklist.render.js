@@ -1,7 +1,5 @@
 import React from "react";
-import {Portal} from "react-native-paper";
-import ListSelectionModal from "../../../../components/ListSelectionModal/ListSelectionModal";
-import TextInputModal from "../../../../components/TextInputModal/TextInputModal";
+import {Clipboard} from "react-native";
 import { unixToDate } from "../../../../utils/math";
 import { ADDRESS_BLOCKLIST_MANUAL, DEFAULT_ADDRESS_BLOCKLIST_WEBSERVER } from "../../../../utils/constants/constants";
 import {
@@ -10,73 +8,49 @@ import {
   SettingsScreen,
   SettingsSection,
 } from '../../components/SettingsScaffold';
+import SettingsFieldSheet from "../GeneralWalletSettings/SettingsFieldSheet";
+import BlockedAddressActionsSheet from "./BlockedAddressActionsSheet";
+import BlocklistSourceSheet from "./BlocklistSourceSheet";
+
+const PASTE_CHIP = {
+  key: "paste",
+  icon: "content-paste",
+  label: "Paste",
+  accessibilityLabel: "Paste address",
+  onPress: async ({setValue}) => {
+    const value = await Clipboard.getString();
+    if (value) setValue(value.trim());
+  },
+};
+
+const DEFAULT_SERVER_CHIP = {
+  key: "default",
+  icon: "restore",
+  label: "Use default",
+  accessibilityLabel: "Use the default server",
+  onPress: ({setValue}) => setValue(DEFAULT_ADDRESS_BLOCKLIST_WEBSERVER),
+};
 
 export const AddressBlocklistRender = function () {
   const blocklistType = this.state.addressBlocklistSettings.addressBlocklistDefinition.type;
   const { title: blocklistTypeTitle, description: blocklistTypeDescription } = this.ADDRESS_BLOCKLIST_TYPE_DESCRIPTORS[blocklistType];
-  
+  const blocklist = this.state.addressBlocklistSettings.addressBlocklist;
+  const addressSheet = this.state.addressSheet;
+  const actionsIndex = this.state.addressActionsIndex;
+  const actionsAddress =
+    actionsIndex == null || blocklist[actionsIndex] == null
+      ? ""
+      : blocklist[actionsIndex].address;
+
   return (
     <>
-        <Portal>
-          {this.state.addBlockedAddressModal.open && (
-            <TextInputModal
-              visible={
-                this.state.addBlockedAddressModal.open
-              }
-              onChange={() => {}}
-              cancel={(text) =>
-                this.finishEditBlockedAddress(
-                  text,
-                  this.state.addBlockedAddressModal.index
-                )
-              }
-            />
-          )}
-          {this.state.editBlockDefinitionDataModal.open && (
-            <TextInputModal
-              visible={
-                this.state.editBlockDefinitionDataModal.open
-              }
-              onChange={() => {}}
-              cancel={(text) =>
-                this.finishEditBlockDefinitionData(
-                  text
-                )
-              }
-            />
-          )}
-          {this.state.editPropertyModal.open && (
-            <ListSelectionModal
-              title={this.state.editPropertyModal.label}
-              flexHeight={0.5}
-              visible={this.state.editPropertyModal.open}
-              onSelect={(item) => this.selectEditPropertyButton(item.key)}
-              data={this.EDIT_PROPERTY_BUTTONS}
-              cancel={() => this.closeEditPropertyModal()}
-            />
-          )}
-          {this.state.selectBlockTypeModal.open && (
-            <ListSelectionModal
-              title={this.state.selectBlockTypeModal.label}
-              flexHeight={0.5}
-              visible={this.state.selectBlockTypeModal.open}
-              onSelect={(item) => this.selectBlockTypeButton(item.key)}
-              data={this.BLOCKLIST_TYPE_BUTTONS}
-              cancel={() => this.closeSelectBlockTypeModal()}
-            />
-          )}
-        </Portal>
       <SettingsScreen testID="settings.addressBlocklist">
         <SettingsSection title="Blocklist source">
           <SettingsRow
           description={blocklistTypeDescription}
           icon="format-list-bulleted-type"
           last={blocklistType === ADDRESS_BLOCKLIST_MANUAL}
-          onPress={() =>
-            this.openSelectBlockTypeModal(
-              `Blocklist Type`
-            )
-          }
+          onPress={() => this.openSourceSheet()}
           title={blocklistTypeTitle}
           value="Type"
           />
@@ -87,13 +61,8 @@ export const AddressBlocklistRender = function () {
                 descriptionNumberOfLines={3}
                 icon="server-network"
                 last
-                onPress={() => this.openEditBlockDefinitionDataModal()}
-                title={
-                  this.state.addressBlocklistSettings.addressBlocklistDefinition.data
-                    ? this.state.addressBlocklistSettings.addressBlocklistDefinition
-                        .data
-                    : DEFAULT_ADDRESS_BLOCKLIST_WEBSERVER
-                }
+                onPress={() => this.openServerSheet()}
+                title={this.getBlocklistServer()}
               />
           )
         }
@@ -101,27 +70,22 @@ export const AddressBlocklistRender = function () {
         <SettingsSection title="Blocked addresses">
           <SettingsRow
             icon="plus-circle-outline"
-            last={this.state.addressBlocklistSettings.addressBlocklist.length === 0}
-            onPress={() => this.openAddBlockedAddressModal()}
+            last={blocklist.length === 0}
+            onPress={() => this.openAddressSheet()}
             title="Add blocked address"
           />
-        {this.state.addressBlocklistSettings.addressBlocklist.map((blockedAddress, index) => {
+        {blocklist.map((blockedAddress, index) => {
             return (
               <SettingsRow
                 description={`Last modified ${unixToDate(blockedAddress.lastModified)}`}
                 icon="shield-remove-outline"
                 key={`${blockedAddress.address}-${index}`}
-                last={index === this.state.addressBlocklistSettings.addressBlocklist.length - 1}
-                onPress={() =>
-                  this.openEditPropertyModal(
-                    `Address ${index + 1}`,
-                    index
-                  )
-                }
+                last={index === blocklist.length - 1}
+                onPress={() => this.openAddressActions(index)}
                 title={blockedAddress.address}
               />
             );
-          }) 
+          })
         }
         </SettingsSection>
         <SettingsNotice
@@ -129,6 +93,55 @@ export const AddressBlocklistRender = function () {
           title="Send protection"
         />
       </SettingsScreen>
+      <BlocklistSourceSheet
+        onClose={() => this.closeSourceSheet()}
+        onSelect={type => this.selectBlockType(type)}
+        options={this.BLOCKLIST_TYPE_OPTIONS.map(type => ({
+          type,
+          ...this.ADDRESS_BLOCKLIST_TYPE_DESCRIPTORS[type],
+        }))}
+        selectedType={blocklistType}
+        visible={this.state.sourceSheetVisible}
+      />
+      <BlockedAddressActionsSheet
+        address={actionsAddress}
+        onClose={() => this.closeAddressActions()}
+        onClosed={() => this.clearAddressActions()}
+        onEdit={() => this.openAddressSheet(actionsIndex)}
+        onRemove={() => this.confirmRemoveBlockedAddress(actionsIndex)}
+        visible={this.state.addressActionsVisible}
+      />
+      {addressSheet ? (
+        <SettingsFieldSheet
+          chips={[PASTE_CHIP]}
+          initialValue={addressSheet.initialValue}
+          label="Address"
+          monospace
+          onClose={() => this.closeAddressSheet()}
+          onClosed={() => this.clearAddressSheet()}
+          onSave={value => this.saveBlockedAddress(value)}
+          placeholder="Enter an address"
+          saveAccessibilityLabel="Save blocked address"
+          title={addressSheet.title}
+          visible={this.state.addressSheetVisible}
+        />
+      ) : null}
+      {this.state.serverSheet ? (
+        <SettingsFieldSheet
+          chips={[DEFAULT_SERVER_CHIP]}
+          initialValue={this.state.serverSheet.initialValue}
+          keyboardType="url"
+          label="Server URL"
+          monospace
+          onClose={() => this.closeServerSheet()}
+          onClosed={() => this.clearServerSheet()}
+          onSave={value => this.saveBlocklistServer(value)}
+          placeholder="https://"
+          saveAccessibilityLabel="Save blocklist server"
+          title="Blocklist server"
+          visible={this.state.serverSheetVisible}
+        />
+      ) : null}
     </>
   );
 };
