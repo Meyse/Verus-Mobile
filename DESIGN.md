@@ -257,8 +257,9 @@ It reminds the user what moves and where, in one line, without a second title.
   `AssetCoinLogo` at 16 points.
 - Left: the source asset and, for a conversion, an arrow and the target asset.
   Right: "on" and the chain, only for a conversion to another chain.
-- A Send from the VerusID page starts on Select asset with only that VerusID's
-  assets. There the band reads "From <VerusID name>", with the name in normal type.
+- A Send or Convert from the VerusID page starts on Select asset with only that
+  VerusID's assets. There the band reads "From <VerusID name>", with the name in
+  normal type.
 - Send shows the source asset alone. On Recipient, a Send to another chain adds an
   arrow and the chain. Amount does not, because its Network row is right below.
 - Drop `[ERC20]` from asset names. The logo badge says it. Hide the target's badge
@@ -565,15 +566,18 @@ page itself shows no mark.
   "Unlink VerusID" (danger), which opens the existing unlink confirmation.
 - Card (`VerusIdCard.js`), at the content width: `surfaceMuted`, 24-point
   radius, no border, no shadow, no mark. The name in `headlineMd`
-  (`headlineCompact` on windows of 667 points or less), in the two list colors.
-  Under it the network, with the status badge on the same line. Then a hairline
-  and the i-address in 12/17 monospace with `CopyAction`. This filled card is an
-  approved exception to flat pages, for this page only.
-- Under the card: Receive and Send, two equal `AppButton variant="secondary"`
-  10 points apart, with no primary. Receive opens Receive on the VerusID's own
-  network with its card. Send opens Amount when the VerusID holds one asset, and
-  Select asset with only its assets when it holds several. Send is off when the
-  VerusID is locked, revoked or empty. Receive is off when it is revoked.
+  (`headlineCompact` on windows of 667 points or less), in the two list colors,
+  with `CopyAction` at the right of its first line; it copies the name. Under it
+  the network, with the status badge on the same line. The card shows no
+  i-address; Details has it (owner, 2026-10-22). This filled card is an approved
+  exception to flat pages, for this page only.
+- Under the card: Receive, Send and Convert as the asset screen's small icon
+  buttons (`SignedInActionButtons` in `SignedInActionBar.js`), 12 points below
+  the card, with no primary. Receive opens Receive on the VerusID's own network
+  with its card. Send and Convert open the wizard on the asset when the VerusID
+  holds one asset, and Select asset with only its assets when it holds several.
+  Send and Convert are off when the VerusID is locked, revoked or empty; Convert
+  is also off when conversions are disabled. Receive is off when it is revoked.
 - Control: a `titleRow` section title, then the gift card fact rows. "Spend and
   sign" reads "Only you", "You and others", "Other addresses", "Locked" or
   "Revoked", with "N of M signatures" or the unlock time below. "Revoke and
@@ -585,8 +589,8 @@ page itself shows no mark.
   text, a link, an image size, a field count or a byte count. All encrypted
   values of one key form one row, "N values", with a neutral "Encrypted" badge.
   The wallet never decrypts them.
-- Details is an information sheet: Parent, Primary address(es), Private address
-  and Last change (block). "View in explorer" shows only where the network has
+- Details is an information sheet: i-address (with `CopyAction`), Parent,
+  Primary address(es), Private address and Last change (block). "View in explorer" shows only where the network has
   a VerusID explorer, so never on testnet.
 - Funds come last: a `titleRow` title, then one Manage assets row per asset
   whose VerusID card holds a balance (40-point logo, `titleRow` name, `bodySm`
