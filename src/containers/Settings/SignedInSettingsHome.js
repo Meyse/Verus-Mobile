@@ -86,7 +86,7 @@ const SignedInSettingsHome = ({navigation}) => {
                     resolve();
                   }, 1000);
                 }),
-              message: 'Signing out...',
+              message: 'Signing out',
               route: 'Home',
               successMsg: 'Signed out',
               errorMsg: 'Failed to sign out',

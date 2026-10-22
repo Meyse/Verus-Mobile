@@ -336,9 +336,8 @@ const MainStackScreens = props => {
         name="SecureLoading"
         component={SecureLoading}
         options={{
-          title: "Loading",
-          headerRight: () => null,
-          headerLeft: () => null,
+          headerShown: false,
+          gestureEnabled: false,
         }}
       />
     </MainStack.Navigator>

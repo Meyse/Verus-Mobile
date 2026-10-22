@@ -84,9 +84,8 @@ const SignedOutStackScreens = props => {
         name="SecureLoading"
         component={SecureLoading}
         options={{
-          title: 'Loading',
-          headerRight: () => null,
-          headerLeft: () => null,
+          headerShown: false,
+          gestureEnabled: false,
           drawerLockMode: 'locked-closed',
         }}
       />

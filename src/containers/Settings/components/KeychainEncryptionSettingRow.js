@@ -68,8 +68,8 @@ const KeychainEncryptionSettingRow = ({last = false, navigation}) => {
               showFailure();
             }
           },
-          message: `${
-            usingKeychainEncryption ? 'Disabling' : 'Enabling'
+          message: `Turning ${
+            usingKeychainEncryption ? 'off' : 'on'
           } keychain encryption`,
           route: 'Home',
           successMsg: `Keychain encryption ${

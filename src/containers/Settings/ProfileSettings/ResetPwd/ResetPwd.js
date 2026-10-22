@@ -150,7 +150,7 @@ export class ResetPwd extends Component {
           }, 1000)
         })
       },
-      message: "Signing out...",
+      message: "Signing out",
       route: "Home",
       successMsg: "Reset password",
       errorMsg: "Failed to sign out"
