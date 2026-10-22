@@ -249,7 +249,7 @@ const VerusPay = (props) => {
     const toConfirm =
       scan.amount &&
       scan.coinId &&
-      countFundedSendCards(store.getState(), scan.coinId) === 1;
+      countFundedSendCards(store.getState(), scan.coinId, scan.address) === 1;
 
     navigation.navigate(
       'SendWizard',

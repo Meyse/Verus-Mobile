@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {ethers} from 'ethers';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {
@@ -128,8 +129,27 @@ export const isOwnChannelAddress = ({
 export const ADDRESS_TYPE = {
   ETHEREUM: 'ethereum',
   GENERIC: 'generic',
+  // A private (Sapling) address. Only a private card can send to it.
+  PRIVATE: 'private',
   VERUS: 'verus',
 };
+
+// The same rule as the light wallet preflight, so both accept one set.
+export const isPrivateAddress = address =>
+  /^zs[a-zA-Z0-9]{65,85}$/.test(String(address || '').trim());
+
+// "alice@:private" sends to the private address of the VerusID alice@.
+export const PRIVATE_IDENTITY_SUFFIX = ':private';
+export const isPrivateIdentity = address =>
+  /^[^@\s]+@:private$/.test(String(address || '').trim());
+
+export const isPrivateRecipient = address =>
+  isPrivateAddress(address) || isPrivateIdentity(address);
+
+// A memo travels only inside a private output: a private card that sends to a
+// private address. The light wallet takes up to 512 bytes.
+export const MEMO_MAX_BYTES = 512;
+export const getMemoBytes = memo => Buffer.byteLength(String(memo || ''), 'utf8');
 
 // The kind of address an asset sends to on its own network.
 export const getSourceAddressType = coin =>
@@ -145,6 +165,7 @@ export const getRecipientAddressType = address => {
   const value = String(address || '').trim();
   if (!value) return null;
   if (ethers.isAddress(value)) return ADDRESS_TYPE.ETHEREUM;
+  if (isPrivateRecipient(value)) return ADDRESS_TYPE.PRIVATE;
   if (value.endsWith('@')) return ADDRESS_TYPE.VERUS;
   try {
     const {version} = fromBase58Check(value);

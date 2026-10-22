@@ -966,6 +966,12 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   and "Price and route"; Send and invoice Confirm drop "via" from the price line
   and open "Price and route" from Price impact (owner approved 2026-10-22).
   Warning and danger levels with real data, two cards and Android stay open.
+- [ ] **TX-1.PRIVATE-SEND** Private (z) card sends in SendWizard (gap 7 of the
+  2026-10-20 audit): private recipients and "name@:private", the Memo row and
+  sheet, the sync block, the confirmed balance and the transparent-address
+  notice (owner approved memo option A, sync option 1 and the notice on
+  2026-10-22). Contract: `DESIGN.md`, Private card sends. QA on the public
+  testnet; the private testnet turns the private card off.
 - [x] **SV-1.TICKET-SHAPE** The gift card and the payment slips share one
   outline (20-point corners, round notches), the amount size (38 points on
   narrow or short windows) and a 20-point unit (owner, 2026-10-22).

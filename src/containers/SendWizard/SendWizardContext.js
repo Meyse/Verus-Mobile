@@ -3,6 +3,7 @@ import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
 import {coinsToSats} from '../../utils/math';
+import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
 
 const initialWizardState = {
   sourceCoin: null,
@@ -20,6 +21,8 @@ const initialWizardState = {
   // reference that price impact is measured against.
   marketPrice: null,
   recipientAddress: '',
+  // Sent inside a private output: from the private card to a private address.
+  memo: '',
   // A scanned payment request: {address, amount, note, notice, coinId}. Its
   // recipient is fixed, so the Recipient step is skipped.
   scanRequest: null,
@@ -58,10 +61,19 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     ...initialWizardState,
     ...(initialState || {}),
   }));
+  // The private card spends only confirmed funds, as its preflight does.
+  // Funds that still confirm show apart on Amount.
+  const balanceChannel = state.sourceSubWallet?.api_channels?.[API_GET_BALANCES];
+  const privateSource = isPrivateChannel(balanceChannel);
   const sourceBalance = useSelector(ledgerState => {
-    const balanceChannel = state.sourceSubWallet?.api_channels?.[API_GET_BALANCES];
-    return ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]?.total ?? '0';
+    const entry = ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id];
+    return (privateSource ? entry?.confirmed : entry?.total) ?? '0';
   });
+  const sourcePending = useSelector(ledgerState =>
+    privateSource
+      ? ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]?.pending ?? null
+      : null,
+  );
 
   const setSource = useCallback((source, target = null, route = null) => {
     setState(current => ({
@@ -88,6 +100,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       estimate: null,
       marketPrice: null,
       recipientAddress: '',
+      memo: '',
       preflightResult: null,
     }));
   }, []);
@@ -136,6 +149,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     setState(current => ({...current, recipientAddress, preflightResult: null}));
   }, []);
 
+  const setMemo = useCallback(memo => {
+    setState(current => ({...current, memo, preflightResult: null}));
+  }, []);
+
   const setPreflight = useCallback(preflightResult => {
     setState(current => ({...current, preflightResult}));
   }, []);
@@ -153,13 +170,18 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
   const value = useMemo(
     () => ({
       mode,
-      state: {...state, sourceBalance: String(sourceBalance)},
+      state: {
+        ...state,
+        sourceBalance: String(sourceBalance),
+        sourcePending: sourcePending == null ? null : String(sourcePending),
+      },
       setSource,
       setTarget,
       setAmount,
       setEstimate,
       setMarketPrice,
       setRecipient,
+      setMemo,
       setRoute,
       setPreflight,
       setTxResult,
@@ -173,6 +195,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setEstimate,
       setMarketPrice,
       setPreflight,
+      setMemo,
       setRecipient,
       setRoute,
       setSource,
@@ -181,6 +204,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setBroadcastError,
       state,
       sourceBalance,
+      sourcePending,
     ],
   );
 

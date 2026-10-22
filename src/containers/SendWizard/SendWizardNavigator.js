@@ -10,6 +10,12 @@ import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
+import {
+  getPrivateSyncPercent,
+  isPrivateChannel,
+  selectPrivateWalletInfo,
+} from '../../utils/subwallet/privateWallet';
+import {cardCanPay} from './privateSend';
 import {WALLET_APP_SEND} from '../../utils/constants/apps';
 import {
   API_GET_BALANCES,
@@ -68,6 +74,7 @@ const SendWizardNavigator = () => {
   const balances = useObjectSelector(state =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
+  const privateInfo = useObjectSelector(selectPrivateWalletInfo);
   const candidateInitialSource = useMemo(() => {
     if (!initialCoinId) return null;
     const sourceCoin = coins.find(coin => coin.id === initialCoinId);
@@ -82,7 +89,14 @@ const SendWizardNavigator = () => {
         return (
           canSend &&
           (mode !== SEND_WIZARD_MODE.CONVERT ||
-            (!CONVERSION_DISABLED && isConversionChannel(channel)))
+            (!CONVERSION_DISABLED && isConversionChannel(channel))) &&
+          // Only the private card pays a private address, and not while it
+          // still syncs.
+          (!scan?.address || cardCanPay(channel, scan.address)) &&
+          !(
+            isPrivateChannel(channel) &&
+            getPrivateSyncPercent(privateInfo?.[sourceCoin.id]) != null
+          )
         );
       },
     );
@@ -136,6 +150,7 @@ const SendWizardNavigator = () => {
     initialCoinId,
     initialSubWalletId,
     mode,
+    privateInfo,
     scan,
   ]);
   const scanChooseCard = Boolean(candidateInitialSource?.chooseCard);

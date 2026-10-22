@@ -83,8 +83,11 @@ import {
   getDestinationNetwork,
   getRouteName,
   isOwnChannelAddress,
+  isPrivateRecipient,
   shortAddress,
 } from './wizardUtils';
+import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
+import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
@@ -148,6 +151,11 @@ const SendWizardConfirm = () => {
   const simpleSend = Boolean(
     target && !target.isConversion && !route?.isCrossChain && !invoice,
   );
+  const privateSource = isPrivateChannel(channel);
+  // A memo travels inside a private output only. A scanned request's note
+  // becomes the memo when it can travel there.
+  const sendsMemo = simpleSend && memoApplies(channel, recipientAddress);
+  const memo = sendsMemo ? state.memo || state.scanRequest?.note || '' : '';
   const feeKind = networkFeeKind(simpleSend, channel, sourceCoin);
   const networkFee = useNetworkFee({
     kind: feeKind, coin: sourceCoin, channel,
@@ -171,8 +179,10 @@ const SendWizardConfirm = () => {
         verificationLevel == null
           ? true
           : verificationLevel > NO_VERIFICATION,
+      // The light wallet's native send needs a string, also when empty.
+      ...(privateSource ? {memo} : {}),
     };
-  }, [coinSettings, sourceCoin, feeKind, networkFee.fee]);
+  }, [coinSettings, sourceCoin, feeKind, networkFee.fee, privateSource, memo]);
 
   const buildDestination = useCallback(async () => {
     let destination = recipientAddress;
@@ -271,7 +281,9 @@ const SendWizardConfirm = () => {
           ? await preflightSend(
               sourceCoin,
               activeAccount,
-              recipientAddress,
+              privateSource
+                ? await resolvePrivateCardDestination(sourceCoin, recipientAddress)
+                : recipientAddress,
               BigNumber(amount),
               channel,
               simpleSendParams,
@@ -411,7 +423,10 @@ const SendWizardConfirm = () => {
         ? await send(
             sourceCoin,
             activeAccount,
-            recipientAddress,
+            // The private preflight returns the address it resolved.
+            privateSource
+              ? preflightResult.toAddress || recipientAddress
+              : recipientAddress,
             validatedSendAmount,
             channel,
             {...simpleSendParams, ...preflightResult},
@@ -648,7 +663,12 @@ const SendWizardConfirm = () => {
   // otherwise sit below the fold, out of sight when the user holds.
   const pinnedMessage = state.broadcastError || error || invoiceShortfall;
   // A scanned request that names another network warns here, above the hold.
-  const notices = [state.scanRequest?.notice, ...warnings].filter(Boolean);
+  // From the private card, a transparent address makes the amount public.
+  const publicNotice =
+    simpleSend && privateSource && recipientAddress && !isPrivateRecipient(recipientAddress)
+      ? 'This address is transparent. The amount and the recipient will be public on the blockchain.'
+      : null;
+  const notices = [state.scanRequest?.notice, publicNotice, ...warnings].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
     !state.broadcastError && !state.txResult);
 
@@ -704,7 +724,8 @@ const SendWizardConfirm = () => {
               : null
           }
           onOpenFees={feeKind && (sending || state.broadcastError || state.txResult || !networkFee.canChoose) ? undefined : () => setFeeSheetOpen(true)}
-          note={state.scanRequest?.note}
+          memo={memo || null}
+          note={sendsMemo ? null : state.scanRequest?.note}
           recipient={recipientAddress}
           leadingRows={
             invoice

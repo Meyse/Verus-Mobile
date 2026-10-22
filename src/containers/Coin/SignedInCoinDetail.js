@@ -32,6 +32,11 @@ import {
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {subWalletActivity} from '../../utils/subwallet/subWalletStatus';
 import {
+  getPrivateSyncPercent,
+  isPrivateCard,
+  selectPrivateWalletInfo,
+} from '../../utils/subwallet/privateWallet';
+import {
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from '../SendWizard/wizardUtils';
@@ -57,6 +62,12 @@ const SignedInCoinDetail = ({navigation, route}) => {
         ]?.[selectedSubWallet.id]?.total || '0',
   );
   const services = useSelector(state => state.services);
+  // The private card cannot send until its sync finishes; the card shows it.
+  const privateSyncing = useSelector(
+    state =>
+      isPrivateCard(selectedSubWallet) &&
+      getPrivateSyncPercent(selectPrivateWalletInfo(state)[activeCoin.id]) != null,
+  );
   const cardPickerTriggerRef = useRef(null);
   const restorePickerFocusRef = useRef(false);
   const [cardPickerVisible, setCardPickerVisible] = useState(false);
@@ -72,6 +83,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const canSend =
     compatibleApps.includes(WALLET_APP_SEND) &&
     Boolean(sendChannel) &&
+    !privateSyncing &&
     BigNumber(selectedBalance).isGreaterThan(0);
   const canConvert =
     canSend &&

@@ -34,6 +34,7 @@ import {formatCurrency} from 'react-native-format-currency';
 import {setCoinSubWallet} from '../../actions/actionCreators';
 import CopyAction from '../../components/CopyAction';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
+import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -43,6 +44,7 @@ import {USD} from '../../utils/constants/currencies';
 import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
+  DLIGHT_PRIVATE,
   VRPC,
 } from '../../utils/constants/intervalConstants';
 import {
@@ -58,6 +60,11 @@ import {
   sortSubWalletsByBalance,
   truncateMiddle,
 } from '../../utils/subwallet/cardPresentation';
+import {
+  formatSyncStatus,
+  getPrivateSyncPercent,
+  isPrivateCard,
+} from '../../utils/subwallet/privateWallet';
 
 const CONTAINER_PADDING = 20;
 // VRPC total includes pending spends/change, as Wallet and the send source do.
@@ -653,6 +660,13 @@ const SignedInAssetHeader = () => {
     chainTicker ? extractErrorData(state, API_GET_BALANCES, chainTicker) : {},
   );
   const rates = useObjectSelector(state => state.ledger.rates);
+  // While the private card syncs, its balance is not complete and it cannot
+  // send. The card says so in place of the fiat line.
+  const privateSyncPercent = useSelector(state =>
+    chainTicker
+      ? getPrivateSyncPercent(state.ledger.info?.[DLIGHT_PRIVATE]?.[chainTicker])
+      : null,
+  );
   const activeAccount = useSelector(
     state => state.authentication.activeAccount,
   );
@@ -1024,6 +1038,11 @@ const SignedInAssetHeader = () => {
         amountText = truncateDecimal(walletBalance, 8);
       }
       const hasBalanceValue = !walletHasError && walletBalance != null;
+      const syncStatus =
+        isPrivateCard(item) && privateSyncPercent != null
+          ? formatSyncStatus(privateSyncPercent)
+          : null;
+      if (syncStatus) fiatText = null;
       let balanceAccessibilityLabel;
       if (walletHasError) {
         balanceAccessibilityLabel = 'Connection error';
@@ -1128,6 +1147,13 @@ const SignedInAssetHeader = () => {
                 {fiatText}
               </PrivacyBlurredText>
             ) : null}
+            {syncStatus ? (
+              <StatusBadge
+                label={syncStatus}
+                style={styles.syncBadge}
+                variant="card"
+              />
+            ) : null}
           </View>
 
           <View style={styles.cardAddressRow}>
@@ -1177,6 +1203,7 @@ const SignedInAssetHeader = () => {
       getDisplayIdentifier,
       getWalletFiatDisplay,
       itemCount,
+      privateSyncPercent,
       railPosition,
       reduceMotionEnabled,
       showBalance,
@@ -1435,6 +1462,10 @@ const styles = StyleSheet.create({
   },
   fiatTextFrame: {
     marginTop: 1,
+  },
+  syncBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
   },
   fiatText: {
     fontSize: 12,
