@@ -24,7 +24,7 @@ const AcknowledgeSheet = ({
 }) => {
   const theme = useOnboardingTheme();
   const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  const styles = useMemo(() => createAcknowledgeSheetStyles(theme), [theme]);
   const confirmedRef = useRef(false);
 
   const handleConfirm = () => {
@@ -75,7 +75,9 @@ const AcknowledgeSheet = ({
   );
 };
 
-const createStyles = theme =>
+// Shared with the app alert (src/components/Alert.js), so both sheets keep
+// one set of measurements.
+export const createAcknowledgeSheetStyles = theme =>
   StyleSheet.create({
     sheet: {
       paddingHorizontal: 20,
