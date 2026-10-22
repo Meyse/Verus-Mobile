@@ -120,6 +120,7 @@ buttons keep their size.
 | Service list or manager | `src/components/ServiceManagerHeader.js`, `src/containers/Services/AddressBook/AddressBook.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the shared header and established list rhythm. |
 | Gift card detail | [Gift card detail](#gift-card-detail) below, with `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFixedCard.js` | Use the fixed card. Say each fact once. |
 | VerusID list and page | [VerusID page](#verusid-page) below, with `src/containers/Services/ServiceComponents/VerusIdService/VerusIdCard.js` | Use the light card. Funds come last; a fund opens its asset screen. |
+| App alert | `src/components/Alert.js` through `createAlert`, with the `AcknowledgeSheet` measurements, and [App alerts](#app-alerts) below | Prefer the screen itself. Never use a Paper `Dialog` or a native `Alert.alert` in redesigned UI. |
 | Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
@@ -207,6 +208,37 @@ with `variant="secondary"` 10 points under the primary action. Do not rely on
 an outside tap as the only visible way out: users do not reliably know they can
 tap outside a sheet. A warning that the user must accept, such as the seed warning, keeps the
 single button.
+
+### App alerts
+
+The owner chose the sheet look on 2026-10-22 (gap 4, option A).
+`createAlert` keeps its API and opens `src/components/Alert.js`: the
+acknowledgement sheet, embedded in the root portal. Open native sheets step
+aside while it shows, and a sheet that was closing stays closed.
+
+Use an alert only when the screen cannot show the outcome: a failure after the
+user left the context, or a confirmation before an action that cannot be undone.
+Otherwise show it where it happens:
+
+- A field error uses `AppTextInput` `errorText`. A wrong password uses
+  `PasswordCheck` `errorMessage`; the sheet stays open.
+- A setting that does not save uses the `SettingsRow` `error` line ("Not saved.
+  Try again."), and the control keeps its old value.
+- A request that cannot continue disables its action and says why.
+- Success needs nothing when the screen already shows it: a row value, a closed
+  screen, the `CopyAction` check.
+
+Buttons: the action is the primary button and names the action ("Delete wallet",
+"Change and sign out", "Turn on"). The way out is "Not now" with
+`style: 'cancel'`. A one-button alert uses "Close". Outside tap and Android back
+run the way out unless the alert sets `cancelable: false`.
+
+Copy: a specific title, never "Error". At most two short sentences. No raw
+error, RPC or library text; log it instead.
+
+Settings pickers: a list choice uses `SelectionSheet`. A one-value edit uses
+`src/containers/Settings/components/SettingsFieldSheet.js`, the
+`AddressBookEditSheet` layout with its error under the field.
 
 ### Shared behavior
 

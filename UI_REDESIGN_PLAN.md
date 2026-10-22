@@ -133,6 +133,7 @@ without repeating the entire investigation.
 | RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Done | SH-1 where a shared sheet is needed |
 | ID-2 | The VerusID list and page use the approved light card, content v1, and funds | Built and iOS-tested; Android open | DESIGN.md "VerusID page"; owner chose "D revised" on 2026-10-22 |
+| AL-1 | App alerts use the acknowledgement sheet; most old alerts move onto their screens; old Settings pickers become sheets | Built and iOS-tested; Android open | DESIGN.md "App alerts"; owner chose the sheet (option A) on 2026-10-22 |
 | SV-1 | The Services root uses tiles; the gift card screen uses the fixed card | Done on iOS; Android tested, SV-1.15–1.17 closed; NFC write open | DESIGN.md "Services home" and "Gift card detail"; `AcknowledgeSheet` `dismissLabel` |
 | QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
@@ -1446,6 +1447,45 @@ understandable and remains distinct from changes to the identity on-chain.
 **Acceptance:** The page says each fact once. Funds are a list of assets, not one
 coin. A fund opens its asset. Encrypted content is marked and never decrypted.
 
+## AL-1 — App alerts and old Settings pickers (gap 4)
+
+**Sources:**
+[Alert](src/components/Alert.js),
+[AcknowledgeSheet](src/components/AcknowledgeSheet.js),
+[BottomSheetModal](src/components/BottomSheetModal.js),
+[SettingsScaffold](src/containers/Settings/components/SettingsScaffold.js),
+[SettingsFieldSheet](src/containers/Settings/components/SettingsFieldSheet.js).
+The call-site audit is a local note (`alert-audit.local.md`, not in the repo):
+303 calls; 140 cannot run, 26 repeat the screen, 75 belong on the screen, 18 are
+confirmations, 39 errors stay.
+
+- [x] **AL-1.1** Mockups (sheet, dialog, without an alert, pickers) in
+  `/tmp/vm-mock-alert`. The owner chose the sheet, kept the Wyre row, chose a
+  confirmation for slippage ("Turn on" / "Not now") and dropped the old
+  conversion disclaimer (it was only in the unreachable `SendCoin`).
+- [x] **AL-1.2** `createAlert` renders the acknowledgement sheet; the alert
+  options (`cancelable`, `disabled`) work again; a button runs after the sheet
+  closes; Android back runs the way out.
+- [x] **AL-1.3** Settings, sign-in and onboarding: inline password and save
+  errors, no success alerts the screen already shows, specific confirmations.
+- [x] **AL-1.4** Settings pickers: key derivation and blocklist source use
+  `SelectionSheet`; number, RPC server and blocklist fields use
+  `SettingsFieldSheet`; display currency reuses the Home currency sheet.
+  Fixed: a blocklist source pick no longer clears the list, and the RPC check no
+  longer spins forever.
+- [x] **AL-1.5** GenericRequest screens, invoice payment, VerusID provisioning,
+  gift cards and Address Book move their checks onto the screen.
+- [x] **AL-1.6** A closing native sheet no longer comes back after an alert.
+- [x] **AL-1.7** iOS QA on iPhone 17 Pro (light and dark) and iPhone SE.
+- [ ] **AL-1.8** Android QA, including the back button on an alert.
+- [ ] **AL-1.9** Device checks that need a staged failure or a request: the
+  request wallet gates, invoice inline errors offline, gift card removal reasons.
+- [ ] **AL-1.10** Remove the unreachable legacy code and its 140 alerts (separate
+  task, after the upstream sync).
+
+**Acceptance:** A user meets an alert only when the screen cannot show the
+answer. Every alert looks like the acknowledgement sheet and names its action.
+
 ## SV-1 — Services tiles and the fixed gift card screen
 
 **Authority:** [DESIGN.md](DESIGN.md) sections "Services home", "Gift card
@@ -1620,6 +1660,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-22 | AL-1: app alerts as the acknowledgement sheet; old alerts onto their screens; Settings pickers | `claude/old-alerts` from `6452c1d8` | iOS 26.5 "Verus Alerts QA" (new disposable testnet wallet `alertsqa`, no funds): key derivation `SelectionSheet` and its confirmation, outside tap = Not now, NFC backup and keychain confirmations, recovery secrets warning, wrong password inline in the password sheet, slippage confirmation (Not now keeps it off), number sheet range error, display currency sheet, RPC server sheet with an unreachable URL (inline error, no spinner), clear cache confirmation, blocklist source (current pick keeps the list), address actions and Remove confirmation, one-button error sheet through a temporary, reverted QA-only failure in the currency save (it also found and verified the closing-sheet fix), light and dark. iPhone SE "Verus Alerts Compact": the slippage sheet with 44-point buttons, light and dark, through a temporary, reverted QA-only trigger. Wallet creation showed no "Wallet created!" alert. Babel parse, `check:design`, `check:safe-areas` (60 files), iOS bundle build pass. Related Jest suites: the same 28 fail as on `redesign` (existing failures); `profileDeletion`, `passwordMigration`, `authDataStorage`, `fundRawTransactionError`, `convertOrCrossChainSendConfirm` pass after their copy and mock updates. | Android QA; request, invoice and gift card states that need staged failures; legacy-code removal. |
 | 2026-10-22 | ID-2.10: VerusID card and actions follow-up | `claude/verusid-actions` from `6de4dff6`; `SignedInActionBar.js` (button row extracted as `SignedInActionButtons`, the bar reuses it), `VerusIdCard.js` (no i-address, name `CopyAction`), `SignedInVerusIdDetails.js` (Receive/Send/Convert), `VerusIdDetailsSheet.js` (i-address row), SendWizard `sourceIdentity` in Convert mode too | iOS 26.5 "Verus GR3 QA" (`GR3 Test 2`, public testnet): page, name copy feedback, Convert (Select asset with only the VerusID's two assets and "From" band), Details with i-address, light and dark. iPhone SE with the same temporary, reverted QA-only list entry: list and page, three buttons fit at 44 points, light and dark. The VerusID was funded again (1.5 VRSCTEST, txid `4580fa69…`) after a daemon send by another thread spent the first 1.5. `git diff --check`, Babel parse, `check:design`, `check:safe-areas --changed`, `SignedInVerusIdLifecycle` 4/4 pass. | Android QA; a conversion from a VerusID card not run (public-testnet DeFi is down). |
 | 2026-10-22 | ID-2: VerusID list and page ("D revised") | `claude/verusid-page` from `63a8c0b2`; `SignedInVerusIdService.js`, `SignedInVerusIdDetails.js`, new `VerusIdCard.js`, `VerusIdContentSheet.js`, `VerusIdDetailsSheet.js`, `VerusIdOptionsSheet.js`, `describeIdentityContent.js`, `describeVerusIdState.js`, `getVerusIdFunds.js`; SendWizard `sourceIdentity`; `InfoSheetRow` `accessory`; DESIGN.md "VerusID page" | Design contract: Gift card detail exemplar (fixed object, fact rows, ⋯ sheet), Recipient flat rows, Manage assets rows, InfoSheet; owner-approved deviation: the filled light card and filled list rows. iOS 26.5 "Verus GR3 QA" with the disposable `GR3 Test 2` profile (Face ID) on the public testnet: list, page, funds, both fund taps (Verus Testnet and USD open their asset screen on the VerusID card; Back returns), Send (Select asset with only the two VerusID assets and "From" band), Receive (VerusID card), Content (real text entry), Details, ⋯ and Unlink confirmation (cancelled), light and dark. iPhone SE "Verus GR3 Compact" (`PTest SE`) with a temporary, reverted QA-only list entry: list and page in light and dark. Test funds: 1.5 VRSCTEST + 3 USD from the local testnet daemon to `liveqa09482856.antafri.VRSCTEST@` (txid `fe2b2219…`), USD added in `GR3 Test 2`. `git diff --check`, Babel parse, `check:design` (30 sources), `check:safe-areas --changed` pass; `SignedInVerusIdLifecycle` 4/4 pass after its Unlink entry moved to ⋯ (the test found rows by text; it now uses the accessibility label). | Android QA; Locked and Revoked states not seen on a device (no locked test VerusID); request screens still open the old modal (ID-2.9). |
 | 2026-10-22 | CAM-1: camera scanner as a camera window (owner chose variation B, with the torch button) | `claude/camera-scanner` from `77ad814c`; `BarcodeReader.js` (rewritten), new `ScannerScreen.js` and `barcodeReader.styles.js`; `VerusPay.js`, `SendWizardRecipient.js`, `SendWizardNavigator.js` (`wizardTitle`, `wizardOnBack`), `ScanSeed.js`, `RecoverIdentityForm.render.js`, `SpendableKeyRequestInfo.js`; DESIGN.md "Camera scanner" | iOS 17 Pro simulator (no camera): Scan tab "No camera found" light and dark; key import scanner and Back. Android 360x640 (virtual camera, PTest A360 on Testnet): Scan tab live window, blocked state, Open Settings round trip back to live; Send Recipient scanner ("Scan address" header, band, header Back and Android back return to the field, keyboard closed), dark mode; import scanner permission sequence: the system prompt over the dark window, "Allow camera" asks again, a second refusal shows "Open Settings" (fixed during QA: a foreground re-check reset blocked to denied); the camera is released on other tabs. Synthetic, reverted stubs: "Reading code…" state, NFC button, no-camera hint and "Enter address". Checks: Babel parse (12 files), `check:design`, `check:safe-areas --changed`, `git diff --check`. Evidence (ignored): `docs/qa/camera-scanner/`. | Not seen on a device: a real QR read, the torch (no flash on the emulators), iPhone SE, VerusID recovery and claim-password scanners, the iOS swipe-back block on Recipient. A new disposable "Camera QA iOS" Testnet wallet is on the 17 Pro simulator. |
