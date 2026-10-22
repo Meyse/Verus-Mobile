@@ -33,6 +33,7 @@ import DeepLinkVerusIdDetailsSheet from '../components/RequestReview/DeepLinkVer
 import InvoicePaymentConfiguration from '../InvoicePaymentConfiguration/InvoicePaymentConfiguration';
 import {
   InvoiceCopyRow,
+  InvoiceErrorLine,
   InvoiceRow,
   InvoiceSourceRow,
   useInvoiceStyles,
@@ -271,6 +272,7 @@ const InvoiceInfo = props => {
     selectedSource,
     onChooseSource,
     onReviewPayment,
+    reviewError,
   } = {}) => (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <DeepLinkReviewScrollView
@@ -354,6 +356,7 @@ const InvoiceInfo = props => {
             {`This invoice needs a ${invoiceNetwork} wallet. Add one, then open the invoice again.`}
           </Text>
         )}
+        <InvoiceErrorLine>{reviewError}</InvoiceErrorLine>
         <AppButton
           disabled={wrongNetwork || noInvoiceNetworkWallet}
           onPress={

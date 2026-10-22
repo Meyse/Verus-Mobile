@@ -13,6 +13,7 @@ import {ERC20, ETH} from '../../../utils/constants/intervalConstants';
 import DeepLinkRequestSheetScaffold from '../components/RequestReview/DeepLinkRequestSheetScaffold';
 import {
   InvoiceCopyRow,
+  InvoiceErrorLine,
   InvoiceRow,
   useInvoiceStyles,
 } from './InvoicePaymentParts';
@@ -25,6 +26,8 @@ const InvoicePaymentReview = ({
   onSend,
   submitting = false,
   broadcastStatusUnknown = false,
+  // A failed send. It shows above the Send action until the next attempt.
+  sendError = null,
   onBack,
 }) => {
   const {styles} = useInvoiceStyles();
@@ -163,6 +166,7 @@ const InvoicePaymentReview = ({
         <Text style={styles.footnote}>{broadcastStatusUnknown
           ? 'The payment may have been sent. Check your transaction history before starting another payment.'
           : 'Payments cannot be reversed.'}</Text>
+        <InvoiceErrorLine>{sendError}</InvoiceErrorLine>
         <AppButton onPress={onSend} loading={submitting} disabled={submitting || broadcastStatusUnknown}>{broadcastStatusUnknown ? 'Status unknown' : `${burn ? 'Burn' : 'Send'} ${amount(
           output.satoshis,
           output.currency,

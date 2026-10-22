@@ -69,6 +69,8 @@ function ConvertOrCrossChainSendConfirm({
   const [confirmationFields, setConfirmationFields] = useState([]);
   const [closedAccordions, setClosedAccordions] = useState({});
   const [broadcastStatusUnknown, setBroadcastStatusUnknown] = useState(false);
+  // Invoice mode shows a failed send above the Send action.
+  const [sendError, setSendError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const submissionInFlight = useRef(false);
   const dispatch = useDispatch();
@@ -110,6 +112,7 @@ function ConvertOrCrossChainSendConfirm({
 
   useEffect(() => {
     setLoading(true);
+    setSendError(null);
 
     // Destructuring params
     const {
@@ -417,6 +420,7 @@ function ConvertOrCrossChainSendConfirm({
     if (submissionInFlight.current || broadcastStatusUnknown) return;
     submissionInFlight.current = true;
 
+    setSendError(null);
     setSubmitting(true);
     await setPreventExit(true);
 
@@ -449,10 +453,18 @@ function ConvertOrCrossChainSendConfirm({
       if (e.ambiguousBroadcast === true) {
         setBroadcastStatusUnknown(true);
       } else {
-        createAlert(
-          output.burn === true ? 'Burn not sent' : 'Payment not sent',
-          'The transaction was not sent. Check your connection and try again.',
-        );
+        const message = `The ${
+          output.burn === true ? 'burn' : 'payment'
+        } was not sent. Check your connection and try again.`;
+
+        if (sendModal.data[SEND_MODAL_INVOICE_CONTEXT]) setSendError(message);
+        // The old non-invoice confirm has no inline error state.
+        else {
+          createAlert(
+            output.burn === true ? 'Burn not sent' : 'Payment not sent',
+            message,
+          );
+        }
       }
     } finally {
       dispatch(expireCoinData(sendModal.coinObj.id, API_GET_FIATPRICE));
@@ -515,6 +527,7 @@ function ConvertOrCrossChainSendConfirm({
         onSend={submitData}
         submitting={submitting}
         broadcastStatusUnknown={broadcastStatusUnknown}
+        sendError={sendError}
         onBack={
           locked[SEND_MODAL_AMOUNT_FIELD] && locked[SEND_MODAL_TO_ADDRESS_FIELD]
             ? cancel

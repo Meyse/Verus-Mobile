@@ -1107,9 +1107,12 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
         );
       } else if (!showFundRawTransactionErrorAlert(e)) {
         console.warn(e);
-        createAlert(
+        showFormError(
+          "form",
           `Can’t prepare this ${isBurnChangePrice ? "burn" : "payment"}`,
-          "The wallet could not prepare the transaction. Check your connection and try again.",
+          `The ${
+            isBurnChangePrice ? "burn" : "payment"
+          } could not be prepared. Check your connection and try again.`,
         );
       }
     }
