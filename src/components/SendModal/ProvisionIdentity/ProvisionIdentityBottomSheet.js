@@ -2,7 +2,6 @@ import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
 import axios from 'axios';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
-  Alert,
   Keyboard,
   ScrollView,
   StyleSheet,
@@ -202,6 +201,8 @@ const getPreviewAvailabilityState = ({availabilityStatus, previewName}) => {
     case AVAILABILITY_STATUS.TAKEN:
     case AVAILABILITY_STATUS.INVALID:
       return 'unavailable';
+    case AVAILABILITY_STATUS.ERROR:
+      return 'error';
     default:
       return 'neutral';
   }
@@ -215,6 +216,8 @@ const getPreviewAvailabilityLabel = availabilityStatus => {
       return 'Already taken';
     case AVAILABILITY_STATUS.INVALID:
       return 'Not available';
+    case AVAILABILITY_STATUS.ERROR:
+      return 'Couldn’t check this name';
     default:
       return ' ';
   }
@@ -244,6 +247,9 @@ const ProvisionIdentityBottomSheet = ({
   );
   const [availabilityCheckValue, setAvailabilityCheckValue] = useState('');
   const [reviewData, setReviewData] = useState(null);
+  const [identityError, setIdentityError] = useState(null);
+  // Set when this request already asked for a VerusID. Request stays disabled.
+  const [requestBlocked, setRequestBlocked] = useState(false);
   const chainTicker = sendModal.coinObj ? sendModal.coinObj.id : null;
   const addresses = useObjectSelector(state =>
     chainTicker &&
@@ -485,27 +491,25 @@ const ProvisionIdentityBottomSheet = ({
 
   const formHasError = identity => {
     if (!identity) {
-      createAlert('Required Field', 'Identity is a required field.');
+      setIdentityError('Enter a name.');
       return true;
     }
 
     try {
       fromBase58Check(identity);
       if (parentName) {
-        createAlert('Invalid Identity', 'i-Address cannot have a parent name.');
+        setIdentityError('Enter a name, not an i-address.');
         return true;
       }
     } catch (e) {
       const formattedId = parentName ? `${identity}${parentName}` : `${identity}@`;
       if (!formattedId.endsWith('@')) {
-        createAlert(
-          'Invalid Identity',
-          'Identity not a valid identity handle or iAddress.',
-        );
+        setIdentityError('Enter a valid name or i-address.');
         return true;
       }
     }
 
+    setIdentityError(null);
     return false;
   };
 
@@ -549,7 +553,10 @@ const ProvisionIdentityBottomSheet = ({
       });
       setStep(SHEET_STEPS.REVIEW);
     } catch (e) {
-      Alert.alert('Error', e.message);
+      // The availability label shows the failed check.
+      console.warn('Unable to check VerusID availability', e);
+      setAvailabilityStatus(AVAILABILITY_STATUS.ERROR);
+      setAvailabilityCheckValue(formattedId);
     }
 
     await setLoading(false);
@@ -792,12 +799,13 @@ const ProvisionIdentityBottomSheet = ({
           shouldBlockProvisioningRequest(existingProvisioningRequestState) &&
           isProvisioningResponseMismatchError(e))
       ) {
-        Alert.alert(
-          PROVISIONING_REQUEST_ALREADY_USED_TITLE,
-          PROVISIONING_REQUEST_ALREADY_USED_MESSAGE,
-        );
+        setRequestBlocked(true);
       } else {
-        Alert.alert('Error', e.message);
+        console.warn('VerusID request failed', e);
+        createAlert(
+          'VerusID not requested',
+          'The wallet could not complete the request. Check your connection and try again.',
+        );
       }
     }
   };
@@ -828,8 +836,10 @@ const ProvisionIdentityBottomSheet = ({
                 disableBack={disableActions}
                 loading={loading}
                 onBack={onBack}
+                identityError={identityError}
                 onChangeIdentity={text => {
                   if (assignedIdentity == null && !text.endsWith('@')) {
+                    setIdentityError(null);
                     updateSendFormData(
                       SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
                       text,
@@ -850,6 +860,7 @@ const ProvisionIdentityBottomSheet = ({
                 disableActions={disableActions}
                 onBack={() => setStep(SHEET_STEPS.NAME)}
                 onRequest={handleSubmitRequest}
+                requestBlocked={requestBlocked}
                 reviewData={reviewData}
                 styles={styles}
                 theme={theme}
@@ -872,6 +883,7 @@ const NameStep = ({
   disableBack,
   displayedIdentity,
   editable,
+  identityError,
   loading,
   onBack,
   onChangeIdentity,
@@ -906,6 +918,7 @@ const NameStep = ({
         autoCapitalize="none"
         autoCorrect={false}
         editable={editable}
+        errorText={identityError}
         label="Choose your VerusID name"
         onBlur={onTrim}
         onChangeText={onChangeIdentity}
@@ -945,7 +958,8 @@ const NameStep = ({
           styles.previewAvailabilityText,
           availabilityState === 'available' &&
             styles.previewAvailabilityTextAvailable,
-          availabilityState === 'unavailable' &&
+          (availabilityState === 'unavailable' ||
+            availabilityState === 'error') &&
             styles.previewAvailabilityTextUnavailable,
         ]}>
         {availabilityLabel}
@@ -967,6 +981,7 @@ const ReviewStep = ({
   disableActions,
   onBack,
   onRequest,
+  requestBlocked,
   reviewData,
   styles,
   theme,
@@ -994,13 +1009,19 @@ const ReviewStep = ({
           <ReviewRow key={row.key} row={row} styles={styles} />
         ))}
       </View>
-      <View style={styles.handoffCard}>
-        <Text style={styles.handoffTitle}>Notification when ready</Text>
-        <Text style={styles.handoffText}>{PROVISIONING_HANDOFF_COPY}</Text>
-      </View>
+      {requestBlocked ? (
+        <Text accessibilityLiveRegion="polite" style={styles.requestNote}>
+          {PROVISIONING_REQUEST_ALREADY_USED_MESSAGE}
+        </Text>
+      ) : (
+        <View style={styles.handoffCard}>
+          <Text style={styles.handoffTitle}>Notification when ready</Text>
+          <Text style={styles.handoffText}>{PROVISIONING_HANDOFF_COPY}</Text>
+        </View>
+      )}
       <View style={styles.actionStack}>
         <AppButton
-          disabled={disableActions}
+          disabled={disableActions || requestBlocked}
           height={56}
           onPress={onRequest}
           themeMode={theme.mode}
@@ -1223,6 +1244,15 @@ const createStyles = theme =>
       color: theme.colors.textSecondary,
       fontSize: 12,
       lineHeight: 17,
+      letterSpacing: 0,
+      ...fontStyle('regular'),
+    },
+    requestNote: {
+      marginTop: 12,
+      marginBottom: 18,
+      color: theme.colors.danger,
+      fontSize: 13,
+      lineHeight: 18,
       letterSpacing: 0,
       ...fontStyle('regular'),
     },

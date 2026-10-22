@@ -59,6 +59,8 @@ const InvoicePaymentConfiguration = props => {
 
   const [conversionOptions, setConversionOptions] = useState({});
   const [conversionError, setConversionError] = useState(false);
+  // Shown above "Review burn" when the payment cannot be prepared.
+  const [reviewError, setReviewError] = useState(null);
 
   const details = new primitives.VerusPayInvoiceDetails();
   details.fromBuffer(
@@ -159,6 +161,7 @@ const InvoicePaymentConfiguration = props => {
   }, [sendModal]);
 
   const onSelectFundSource = source => {
+    setReviewError(null);
     try {
       const {amount, conversion, wallet, coinObj, exportTo, via} =
         source.option;
@@ -214,11 +217,11 @@ const InvoicePaymentConfiguration = props => {
           : '',
       });
     } catch (e) {
-      Alert.alert(
-        isBurnChangePrice
-          ? 'Unable to prepare burn'
-          : 'Unable to prepare invoice payment',
-        e.message,
+      console.warn(e);
+      setReviewError(
+        `This ${
+          isBurnChangePrice ? 'burn' : 'payment'
+        } can’t be prepared from this card. Choose another card or try again.`,
       );
     }
   };
@@ -236,6 +239,7 @@ const InvoicePaymentConfiguration = props => {
           <InvoicePaymentOptions
             {...sourceState}
             renderInvoice={renderInvoice}
+            reviewError={reviewError}
             onSelect={onSelectFundSource}
           />
         )

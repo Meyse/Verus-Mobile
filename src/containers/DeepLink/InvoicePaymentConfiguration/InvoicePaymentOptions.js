@@ -12,7 +12,13 @@ import {
   useInvoiceStyles,
 } from '../InvoiceInfo/InvoicePaymentParts';
 
-const InvoicePaymentOptions = ({cards, loading, renderInvoice, onSelect}) => {
+const InvoicePaymentOptions = ({
+  cards,
+  loading,
+  renderInvoice,
+  reviewError,
+  onSelect,
+}) => {
   const {styles} = useInvoiceStyles();
   const {height} = useWindowDimensions();
   const [selectedId, setSelectedId] = useState(null);
@@ -50,6 +56,7 @@ const InvoicePaymentOptions = ({cards, loading, renderInvoice, onSelect}) => {
         onChooseSource: open,
         loadingSources: loading,
         onReviewPayment: () => selectedSource && onSelect(selectedSource),
+        reviewError,
       })}
       <BottomSheetModal
         visible={visible}

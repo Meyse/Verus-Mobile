@@ -33,6 +33,7 @@ import {
   SecureStorage,
 } from '../keychain/secureStore';
 import { Alert } from 'react-native';
+import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { SUSPICIOUS_UNICODE_CHARACTER_TEST } from '../constants/regex';
 import { INCORRECT_PASSWORD_DELAY_ERROR_MS } from '../constants/errors';
 import { normalizeWalletAvatar } from '../walletAvatar';
@@ -305,8 +306,8 @@ export const deleteUser = accountHash =>
       : [];
     const userIndex = users.findIndex(user => user.accountHash === accountHash);
 
+    // The caller reports the failure.
     if (accountHash == null || userIndex === -1) {
-      Alert.alert("Error", `User with hash ${accountHash} not found`);
       throw new Error(`User with hash ${accountHash} not found`);
     }
 
@@ -430,8 +431,9 @@ const resetUserPwdTransaction = async (
     : [];
   const userIndex = users.findIndex(user => user.accountHash === accountHash);
 
+  // A false result means "not changed"; ResetPwd reports it.
   if (accountHash == null || userIndex === -1) {
-    Alert.alert("Error", `User with ID ${accountHash} not found`);
+    console.warn(`User with ID ${accountHash} not found`);
     return false;
   }
 
@@ -458,7 +460,7 @@ const resetUserPwdTransaction = async (
   if (oldSessionKey != null && typeof oldSessionCredential === "string") {
     const sessionPassword = decryptkey(oldSessionKey, oldSessionCredential);
     if (sessionPassword === false || sessionPassword !== oldPwd) {
-      Alert.alert("Authentication Error", "Incorrect password");
+      console.warn("Password reset: incorrect password");
       return false;
     }
   }
@@ -490,7 +492,7 @@ const resetUserPwdTransaction = async (
     }
   } catch (encryptionError) {
     if (encryptionError.code === "INCORRECT_PASSWORD") {
-      Alert.alert("Authentication Error", "Incorrect password");
+      console.warn("Password reset: incorrect password");
       return false;
     }
 
@@ -804,9 +806,9 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
 
               if (seedPotentiallyCorrupted) {
                 if (!user.hideSeedWarnings) {
-                  Alert.alert(
-                    "Possible Recovery Data Issue",
-                    `Non-standard characters were detected in your stored wallet recovery data.\n\nIf it is a Secret Recovery Phrase or WIF key, this could indicate that the data is corrupted and may not match your offline backup.\n\nCheck it by going to Settings > ${PROFILE_SECURITY_SETTINGS_LABEL} > View recovery secrets. If it does not match your backup, create a new wallet from your backup and transfer any funds from this wallet to the new wallet.\n\nYou can disable this warning in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}.`
+                  createAlert(
+                    "Recovery data may be damaged",
+                    `The stored recovery data has unusual characters and may not match your backup. Compare it under Settings > ${PROFILE_SECURITY_SETTINGS_LABEL} > View recovery secrets. If it does not match, restore a new wallet from your backup and move the funds to it. This warning can be turned off on the same screen.`
                   );
                 }
 
@@ -816,7 +818,9 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
               resolve(_decryptedSeeds);
             } else {
               setTimeout(() => {
-                if (alertOnFail) Alert.alert("Authentication Error", "Incorrect password");
+                if (alertOnFail) {
+                  createAlert("Incorrect password", "Check the password and try again.");
+                }
 
                 reject(new Error("Incorrect password"));
               }, INCORRECT_PASSWORD_DELAY_ERROR_MS);

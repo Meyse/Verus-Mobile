@@ -1,9 +1,8 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch, useSelector} from 'react-redux';
 import {saveGeneralSettings} from '../../../actions/actionCreators';
-import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import signedInCopy from '../../../copy/signedIn';
 import {ONBOARDING_THEME_MODE, useOnboardingTheme} from '../../../theme/onboarding';
 import {
@@ -51,11 +50,17 @@ const Appearance = () => {
       ONBOARDING_THEME_MODE.SYSTEM,
   );
 
+  // A failed save keeps the old theme selected and shows on the chosen row.
+  const [failedValue, setFailedValue] = useState(null);
+
   const selectAppearance = async value => {
+    setFailedValue(null);
+
     try {
       dispatch(await saveGeneralSettings({appearance: value}));
     } catch (e) {
-      createAlert('Unable to change appearance', e.message);
+      console.warn(e);
+      setFailedValue(value);
     }
   };
 
@@ -76,6 +81,9 @@ const Appearance = () => {
               accessibilityState={{selected}}
               choice
               description={option.description}
+              error={
+                failedValue === option.value ? 'Not saved. Try again.' : null
+              }
               icon={option.icon}
               key={option.value}
               last={index === OPTIONS.length - 1}

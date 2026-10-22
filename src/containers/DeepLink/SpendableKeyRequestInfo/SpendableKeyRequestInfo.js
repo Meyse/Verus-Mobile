@@ -523,13 +523,27 @@ const getTransactionLabel = transaction => {
   return `${ticker} funds claim`;
 };
 
-const alertSubmittedIdentityClaim = results => {
-  if (!(results || []).some(result => result.type === 'identity')) return;
+const CLAIM_SUBMIT_ERROR = 'The claim was not submitted. Try again.';
+const IDENTITY_CLAIM_CONFIRMATION_NOTE =
+  'A claimed VerusID is yours only after its claim transaction confirms. Wait for the confirmation before you send funds to it.';
 
-  createAlert(
-    'Wait for blockchain confirmation',
-    'The claimed VerusID may now appear linked to your wallet, but the claim transaction still requires blockchain confirmation before the VerusID is considered yours. Wait for the claim transaction with the shown txID to be confirmed before sending funds to the VerusID.',
-  );
+const resultsIncludeIdentityClaim = results =>
+  (results || []).some(result => result.type === 'identity');
+
+// The claim itself succeeded. Only the wallet's own follow-up (linking a
+// claimed VerusID or adding a redeemed currency) failed.
+const getClaimMetadataNote = ({identityLinkFailed, currencyAddFailed}) => {
+  if (identityLinkFailed && currencyAddFailed) {
+    return 'The wallet could not link the claimed VerusIDs or add the claimed currencies. Add them manually.';
+  }
+  if (identityLinkFailed) {
+    return 'The wallet could not link the claimed VerusIDs. Link them manually.';
+  }
+  if (currencyAddFailed) {
+    return 'The wallet could not add the claimed currencies. Add them manually.';
+  }
+
+  return null;
 };
 
 const SpendableKeyRequestInfoContent = props => {
@@ -635,6 +649,7 @@ const SpendableKeyRequestInfoContent = props => {
   const [claimPlan, setClaimPlan] = useState(null);
   const [claimPlanScanKey, setClaimPlanScanKey] = useState(null);
   const [claimResult, setClaimResult] = useState(null);
+  const [claimError, setClaimError] = useState(null);
   const [requestError, setRequestError] = useState(null);
   const [finishing, setFinishing] = useState(false);
   const [claimLoadingText, setClaimLoadingText] = useState(null);
@@ -854,6 +869,7 @@ const SpendableKeyRequestInfoContent = props => {
     const needsDecryption = requiresPassword && scanCache.mnemonic == null;
 
     setClaimResult(null);
+    setClaimError(null);
     setRequestError(null);
     setClaimPlan(null);
     setClaimPlanScanKey(null);
@@ -892,10 +908,7 @@ const SpendableKeyRequestInfoContent = props => {
         if (requiresPassword && e?.code === SPENDABLE_KEY_DECRYPTION_FAILED) {
           await showPasswordError(CLAIM_PASSWORD_ERROR);
         } else if (!requiresPassword) {
-          createAlert(
-            'Error',
-            getErrorMessage(e, 'Unable to scan spendable key.'),
-          );
+          console.warn(e);
           setRequestError({
             title: 'Invalid spendable key',
             message: 'This spendable key could not be read.',
@@ -981,38 +994,39 @@ const SpendableKeyRequestInfoContent = props => {
     activeAccountMatchesRequest &&
     claimPlanScanKey !== activeScanKey;
 
-  const openLogin = useCallback(async () => {
+  // A saved claim that no wallet on this device may retry. The screen shows
+  // the reason beside the disabled action instead of an alert.
+  const pendingClaimRetryBlock = useMemo(() => {
+    if (pendingClaimBroadcast == null) return null;
+
     if (
-      pendingClaimBroadcast != null &&
       pendingClaimHasBoundOwner &&
       signedIn &&
       activeAccount?.accountHash === pendingClaimOwnerAccountHash &&
       !activeAccountMatchesPendingClaimWallet
     ) {
-      createAlert(
-        'Originating wallet not found',
-        'This saved claim was created by a different wallet. It will not be submitted from this wallet.',
-      );
-      return;
+      return 'This saved claim was created by a different wallet. It will not be submitted from this wallet.';
     }
 
     if (matchingAccounts.length === 0) {
-      if (pendingClaimBroadcast != null && !pendingClaimHasBoundOwner) {
-        createAlert(
-          'Claim cannot be retried safely',
-          'This saved claim is missing its originating wallet. It will not be submitted from another wallet.',
-        );
-        return;
-      }
-
-      if (pendingClaimBroadcast != null) {
-        createAlert(
-          'Originating wallet not found',
-          'This saved claim can only be retried from the wallet that created it.',
-        );
-        return;
-      }
+      return pendingClaimHasBoundOwner
+        ? 'This saved claim can only be retried from the wallet that created it.'
+        : 'This saved claim is missing its originating wallet. It will not be submitted from another wallet.';
     }
+
+    return null;
+  }, [
+    activeAccount,
+    activeAccountMatchesPendingClaimWallet,
+    matchingAccounts.length,
+    pendingClaimBroadcast,
+    pendingClaimHasBoundOwner,
+    pendingClaimOwnerAccountHash,
+    signedIn,
+  ]);
+
+  const openLogin = useCallback(async () => {
+    if (pendingClaimRetryBlock != null) return;
 
     try {
       await requestWalletUnlock({
@@ -1033,12 +1047,8 @@ const SpendableKeyRequestInfoContent = props => {
       }
     }
   }, [
-    activeAccount,
-    activeAccountMatchesPendingClaimWallet,
     matchingAccounts,
-    pendingClaimBroadcast,
-    pendingClaimHasBoundOwner,
-    pendingClaimOwnerAccountHash,
+    pendingClaimRetryBlock,
     requestIsTestnet,
     signedIn,
   ]);
@@ -1080,9 +1090,10 @@ const SpendableKeyRequestInfoContent = props => {
         },
       );
     } catch (e) {
+      console.warn(e);
       createAlert(
-        'Cannot continue',
-        e?.message || 'Unable to save this claim before wallet setup.',
+        'Cannot open wallet setup',
+        'The wallet could not save this claim before setup. Try again.',
       );
     }
   }, [accounts, navigation, pendingDeeplinkId, request, requestIsTestnet]);
@@ -1218,6 +1229,7 @@ const SpendableKeyRequestInfoContent = props => {
     setStatus('claiming');
     setClaimLoadingText('Submitting signed spendable-key transactions...');
     setClaimResult(null);
+    setClaimError(null);
     setRequestError(null);
 
     const claimRequestContext = {
@@ -1264,26 +1276,18 @@ const SpendableKeyRequestInfoContent = props => {
       if (identityLinkError) console.warn(identityLinkError);
       if (currencyAddError) console.warn(currencyAddError);
 
-      if (identityLinkError || currencyAddError) {
-        createAlert(
-          'Wallet update incomplete',
-          `The claim transactions succeeded, but some wallet metadata could not be updated automatically.${
-            identityLinkError
-              ? ` One or more claimed VerusIDs could not be linked: ${identityLinkError.message}`
-              : ''
-          }${
-            currencyAddError
-              ? ` One or more redeemed currencies could not be added: ${currencyAddError.message}`
-              : ''
-          }`,
-        );
-      }
       scanCacheRef.current = null;
       setPendingClaimBroadcast(broadcastResult.pendingBroadcast);
-      setClaimResult(broadcastResult);
+      // The "Claim submitted" screen notes an incomplete wallet update.
+      setClaimResult({
+        ...broadcastResult,
+        metadataNote: getClaimMetadataNote({
+          identityLinkFailed: !!identityLinkError,
+          currencyAddFailed: !!currencyAddError,
+        }),
+      });
       setRequestError(null);
       setStatus('complete');
-      alertSubmittedIdentityClaim(broadcastResult.results);
     } catch (e) {
       if (e?.code === 'SESSION_CHANGED') return;
 
@@ -1312,10 +1316,16 @@ const SpendableKeyRequestInfoContent = props => {
         if (identityLinkError) console.warn(identityLinkError);
         if (currencyAddError) console.warn(currencyAddError);
 
+        // The error state and the submitted transactions already show the
+        // partial claim. The incomplete wallet update shows as a note there.
         setClaimResult({
           preflightPlan: e.preflightPlan,
           results: e.results,
           partialError: e.message || 'Unable to complete every claim transaction.',
+          metadataNote: getClaimMetadataNote({
+            identityLinkFailed: !!identityLinkError,
+            currencyAddFailed: !!currencyAddError,
+          }),
         });
         scanCacheRef.current = null;
         setRequestError({
@@ -1326,19 +1336,6 @@ const SpendableKeyRequestInfoContent = props => {
           retry: 'claim',
         });
         setStatus('error');
-        createAlert(
-          'Claim partially completed',
-          `${e.results.length} transaction${e.results.length === 1 ? '' : 's'} were submitted before an error occurred. Review the transaction IDs shown on this screen, then retry the saved remainder.${
-            currencyAddError
-              ? ` One or more redeemed currencies could not be added to your wallet automatically. ${currencyAddError.message}`
-              : ''
-          }${
-            identityLinkError
-              ? ` One or more claimed VerusIDs could not be linked automatically. ${identityLinkError.message}`
-              : ''
-          }`,
-        );
-        alertSubmittedIdentityClaim(e.results);
       } else {
         console.warn(e);
         if (e.pendingBroadcast) {
@@ -1356,7 +1353,7 @@ const SpendableKeyRequestInfoContent = props => {
           setRequestError(getClaimNetworkError(e));
           setStatus('error');
         } else {
-          createAlert('Error', getErrorMessage(e, 'Unable to claim spendable key.'));
+          setClaimError(CLAIM_SUBMIT_ERROR);
           setStatus('review');
         }
       }
@@ -1643,28 +1640,48 @@ const SpendableKeyRequestInfoContent = props => {
     status !== 'error' || requestError?.retry != null;
   const showCancelAction =
     status !== 'complete' && canOfferSecondaryActions;
+  // The primary action would switch or unlock a wallet for a saved claim that
+  // no wallet here may retry. Disable it and say why.
+  const primaryActionOpensLogin =
+    status === 'error'
+      ? requestError?.retry === 'claim' && !activeAccountMatchesRequest
+      : walletGate != null && walletGate.type !== 'setup';
+  const retryBlockedReason = primaryActionOpensLogin
+    ? pendingClaimRetryBlock
+    : null;
+  const footerHelper =
+    status !== 'complete' && canOfferSecondaryActions
+      ? retryBlockedReason || walletGate?.helper
+      : null;
 
   const footer = (
     <SafeBottomActionStack
       gap={10}
       horizontalSpacing={24}
       style={styles.footer}>
-      {walletGate?.helper &&
-        status !== 'complete' &&
-        canOfferSecondaryActions && (
-          <View style={styles.footerInfoRow}>
-            <MaterialCommunityIcons
-              name="information-outline"
-              size={16}
-              color={theme.colors.textSubtle}
-              style={styles.footerInfoIcon}
-            />
-            <Text style={styles.footerInfoText}>{walletGate.helper}</Text>
-          </View>
-        )}
+      {footerHelper && (
+        <View style={styles.footerInfoRow}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={16}
+            color={theme.colors.textSubtle}
+            style={styles.footerInfoIcon}
+          />
+          <Text style={styles.footerInfoText}>{footerHelper}</Text>
+        </View>
+      )}
+      {status === 'review' && claimError && (
+        <Text
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={[styles.footerInfoText, {color: theme.colors.danger}]}>
+          {claimError}
+        </Text>
+      )}
       <AppButton
         disabled={
           finishing ||
+          retryBlockedReason != null ||
           (status === 'review' &&
             activeAccountMatchesRequest &&
             (!claimPlan ||
@@ -1723,6 +1740,16 @@ const SpendableKeyRequestInfoContent = props => {
             {claimResult.partialError && (
               <Text style={styles.partialErrorText}>
                 {`An error occurred after the transaction${claimResult.results.length === 1 ? '' : 's'} below: ${claimResult.partialError}`}
+              </Text>
+            )}
+            {claimResult.metadataNote && (
+              <Text style={styles.partialErrorText}>
+                {claimResult.metadataNote}
+              </Text>
+            )}
+            {resultsIncludeIdentityClaim(claimResult.results) && (
+              <Text style={styles.partialErrorText}>
+                {IDENTITY_CLAIM_CONFIRMATION_NOTE}
               </Text>
             )}
             {claimResult.results.map((transaction, index) => {

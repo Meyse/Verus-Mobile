@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,10 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
+import {
+  createAlert,
+  resolveAlert,
+} from '../../../actions/actions/alert/dispatchers/alert';
 import CopyAction from '../../../components/CopyAction';
 import AppButton from '../../../components/AppButton';
 import AppSearchField from '../../../components/AppSearchField';
@@ -183,30 +186,33 @@ const AddressBook = ({navigation}) => {
     try {
       await persist(nextRecords);
     } catch (saveError) {
-      Alert.alert('Error', saveError.message || 'Failed to save address');
+      // The edit sheet stays open and shows the error.
+      console.warn(saveError);
       throw saveError;
     }
   };
 
-  const removeRecord = record => {
-    Alert.alert(
-      'Delete Address',
-      `Are you sure you want to delete "${record.label}"?`,
+  const removeRecord = async record => {
+    const confirmed = await createAlert(
+      'Delete this address?',
+      `This removes "${record.label}" from the address book.`,
       [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await persist(records.filter(item => item.id !== record.id));
-            } catch (deleteError) {
-              Alert.alert('Error', 'Failed to delete address');
-            }
-          },
-        },
+        {text: 'Delete', onPress: () => resolveAlert(true)},
+        {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
       ],
     );
+
+    if (confirmed !== true) return;
+
+    try {
+      await persist(records.filter(item => item.id !== record.id));
+    } catch (deleteError) {
+      console.warn(deleteError);
+      createAlert(
+        'Address not deleted',
+        'The wallet could not save the address book. Try again.',
+      );
+    }
   };
 
   const showSearchAndFilters = records.length >= 6;

@@ -323,11 +323,11 @@ const DeepLink = (props) => {
         })
         setDisplayKey(VERUSPAY_INVOICE_INFO)
       } else {
-        createAlert(
-          'Failed to verify',
-          'Failed to verify invoice signature',
-        );
-        cancel();
+        // The sheet's Close cancels the request, as for the expired invoice.
+        setInvoiceProblem({
+          title: 'Invoice not verified',
+          message: 'The wallet could not verify who signed this invoice. Ask for a new invoice.',
+        })
       }
     } else {
       if (!(await validateExpiry())) return

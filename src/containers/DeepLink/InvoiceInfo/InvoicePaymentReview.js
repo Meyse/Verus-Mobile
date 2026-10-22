@@ -13,6 +13,7 @@ import {ERC20, ETH} from '../../../utils/constants/intervalConstants';
 import DeepLinkRequestSheetScaffold from '../components/RequestReview/DeepLinkRequestSheetScaffold';
 import {
   InvoiceCopyRow,
+  InvoiceErrorLine,
   InvoiceRow,
   useInvoiceStyles,
 } from './InvoicePaymentParts';
@@ -25,11 +26,14 @@ const InvoicePaymentReview = ({
   onSend,
   submitting = false,
   broadcastStatusUnknown = false,
+  // A failed send. It shows above the Send action until the next attempt.
+  sendError = null,
   onBack,
 }) => {
   const {styles} = useInvoiceStyles();
   const [showDetails, setShowDetails] = useState(false);
-  const {output, names, validation, deltas, estimate} = params;
+  const {output, names, validation, deltas, estimate, converterdef, submittedsats} =
+    params;
   const context = sendModal.data[SEND_MODAL_INVOICE_CONTEXT];
   const currencyName = id => (names.has(id) ? names.get(id) : id);
   const amount = (value, currency) =>
@@ -43,6 +47,10 @@ const InvoicePaymentReview = ({
   const debits = [...deltas.entries()].filter(([, value]) =>
     BigNumber(value).isNegative(),
   );
+  // The preflight lowers a flexible amount when the fee does not fit.
+  const amountLowered =
+    submittedsats != null && submittedsats !== output.satoshis;
+  const centralized = converterdef != null && converterdef.proofprotocol === 2;
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.screen}>
@@ -121,11 +129,31 @@ const InvoicePaymentReview = ({
             </Text>
           </View>
         )}
+        {amountLowered && (
+          <View style={styles.notice}>
+            <Text style={styles.text}>
+              The amount is lowered from {amount(submittedsats, output.currency)}{' '}
+              to {amount(output.satoshis, output.currency)} to cover the network
+              fee.
+            </Text>
+          </View>
+        )}
+        {centralized && (
+          <View style={styles.notice}>
+            <Text style={styles.text}>
+              {converterdef.fullyqualifiedname} is a centralized currency. Its
+              controller, {converterdef.fullyqualifiedname}@, can mint new
+              supply.
+            </Text>
+          </View>
+        )}
         {output.convertto && (
           <View style={styles.notice}>
             <Text style={styles.text}>
-              The conversion result is an estimate. The final amount can change
-              before the transaction is processed.
+              {estimate == null
+                ? 'The wallet could not estimate the conversion result.'
+                : 'The conversion result is an estimate.'}{' '}
+              The final amount can change before the transaction is processed.
             </Text>
           </View>
         )}
@@ -138,6 +166,7 @@ const InvoicePaymentReview = ({
         <Text style={styles.footnote}>{broadcastStatusUnknown
           ? 'The payment may have been sent. Check your transaction history before starting another payment.'
           : 'Payments cannot be reversed.'}</Text>
+        <InvoiceErrorLine>{sendError}</InvoiceErrorLine>
         <AppButton onPress={onSend} loading={submitting} disabled={submitting || broadcastStatusUnknown}>{broadcastStatusUnknown ? 'Status unknown' : `${burn ? 'Burn' : 'Send'} ${amount(
           output.satoshis,
           output.currency,

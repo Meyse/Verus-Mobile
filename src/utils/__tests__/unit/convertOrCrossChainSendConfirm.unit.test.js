@@ -1,4 +1,5 @@
 const mockSendConvertOrCrossChain = jest.fn();
+const mockCreateAlert = jest.fn();
 const mockDispatch = jest.fn();
 let mockState;
 
@@ -19,6 +20,9 @@ jest.mock('../../../hooks/useObjectSelector', () => ({
 }));
 jest.mock('../../../actions/actionCreators', () => ({
   expireCoinData: (coin, call) => ({type: 'expire', coin, call}),
+}));
+jest.mock('../../../actions/actions/alert/dispatchers/alert', () => ({
+  createAlert: mockCreateAlert,
 }));
 jest.mock('../../api/routers/sendConvertOrCrossChain', () => ({
   sendConvertOrCrossChain: mockSendConvertOrCrossChain,
@@ -47,6 +51,18 @@ const {SEND_MODAL_FORM_STEP_RESULT} = require('../../constants/sendModal');
 const sendButton = renderer => renderer.root.findAllByType('Button')
   .find(button => button.props.mode === 'contained');
 
+const makePreflight = channel => ({
+  source: 'sender',
+  output: {
+    currency: 'coin', satoshis: '10000000',
+    address: {getAddressString: () => 'destination'},
+    burn: channel === 'vrpc',
+  },
+  validation: {valid: true, sent: {coin: '10000000'}, fees: {coin: '10000'}, change: {}},
+  names: new Map([['coin', 'COIN']]),
+  deltas: new Map([['coin', new BigNumber(-10010000)]]),
+});
+
 describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protection', channel => {
   let renderer;
   let navigation;
@@ -54,6 +70,10 @@ describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protec
   let setPreventExit;
   let preflight;
   const buttonLabel = channel === 'vrpc' ? 'Burn' : 'Send';
+  const notSentTitle = channel === 'vrpc' ? 'Burn not sent' : 'Payment not sent';
+  const notSentMessage = `The ${
+    channel === 'vrpc' ? 'burn' : 'payment'
+  } was not sent. Check your connection and try again.`;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -66,17 +86,7 @@ describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protec
         data: {},
       },
     };
-    preflight = {
-      source: 'sender',
-      output: {
-        currency: 'coin', satoshis: '10000000',
-        address: {getAddressString: () => 'destination'},
-        burn: channel === 'vrpc',
-      },
-      validation: {valid: true, sent: {coin: '10000000'}, fees: {coin: '10000'}, change: {}},
-      names: new Map([['coin', 'COIN']]),
-      deltas: new Map([['coin', new BigNumber(-10010000)]]),
-    };
+    preflight = makePreflight(channel);
     navigation = {navigate: jest.fn()};
     setLoading = jest.fn();
     setPreventExit = jest.fn();
@@ -108,7 +118,9 @@ describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protec
 
     await act(async () => sendButton(renderer).props.onPress());
 
-    expect(Alert.alert).toHaveBeenCalledWith('Broadcast status unknown', error.message);
+    // The disabled "Status unknown" action is the message; no sheet opens.
+    expect(mockCreateAlert).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(sendButton(renderer).props.disabled).toBe(true);
     expect(sendButton(renderer).children).toEqual(['Status unknown']);
     expect(navigation.navigate).not.toHaveBeenCalled();
@@ -124,7 +136,10 @@ describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protec
 
     await act(async () => sendButton(renderer).props.onPress());
 
-    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Could not read the balance before sending.');
+    // The old non-invoice confirm has no inline error, so it keeps a sheet.
+    expect(mockCreateAlert).toHaveBeenCalledTimes(1);
+    expect(mockCreateAlert).toHaveBeenCalledWith(notSentTitle, notSentMessage);
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(sendButton(renderer).props.disabled).toBe(false);
     expect(sendButton(renderer).children).toEqual([buttonLabel]);
     expect(setLoading).not.toHaveBeenCalled();
@@ -139,7 +154,9 @@ describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protec
 
     await act(async () => sendButton(renderer).props.onPress());
 
-    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Insufficient funds');
+    expect(mockCreateAlert).toHaveBeenCalledTimes(1);
+    expect(mockCreateAlert).toHaveBeenCalledWith(notSentTitle, notSentMessage);
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(sendButton(renderer).props.disabled).toBe(false);
     expect(navigation.navigate).not.toHaveBeenCalled();
     await act(async () => sendButton(renderer).props.onPress());
@@ -176,6 +193,7 @@ describe.each(['eth', 'erc20', 'vrpc'])('%s conversion confirmation retry protec
       txid: 'accepted-transaction', output: preflight.output, destination: 'destination',
     });
     expect(Alert.alert).not.toHaveBeenCalled();
+    expect(mockCreateAlert).not.toHaveBeenCalled();
     expect(setLoading).not.toHaveBeenCalled();
     expect(setPreventExit).toHaveBeenLastCalledWith(false);
   });

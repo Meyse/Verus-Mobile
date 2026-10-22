@@ -138,11 +138,12 @@ const passwordStrengthDetails = (password, theme) => {
   }
 };
 
+// Returns the field that shows the problem and its message.
 const validatePasswordPair = (password, confirmPassword) => {
   if (!password) {
-    return 'Please enter a password.';
+    return {field: 'password', message: 'Enter a password.'};
   } else if (password !== confirmPassword) {
-    return 'Password and confirm password do not match.';
+    return {field: 'confirm', message: 'The passwords do not match.'};
   }
 
   return null;
@@ -227,6 +228,9 @@ const WalletBackupRequestInfo = props => {
   );
   const [backupKdfSheetVisible, setBackupKdfSheetVisible] = useState(false);
   const [creatingProfile, setCreatingProfile] = useState(false);
+  // Inline field errors: {field, message}. A change to the field clears it.
+  const [profileFormError, setProfileFormError] = useState(null);
+  const [backupPasswordError, setBackupPasswordError] = useState(null);
   // The NFC tap step while the backup is written, or the failed write.
   const [nfcTap, setNfcTap] = useState(null);
   const [backupResult, setBackupResult] = useState(null);
@@ -246,6 +250,17 @@ const WalletBackupRequestInfo = props => {
 
   const profilePasswordDetails = passwordStrengthDetails(profilePassword, theme);
   const backupPasswordDetails = passwordStrengthDetails(backupPassword, theme);
+  const profileFieldError = field =>
+    profileFormError?.field === field ? profileFormError.message : undefined;
+  const clearProfileFieldError = fields => {
+    if (profileFormError != null && fields.includes(profileFormError.field)) {
+      setProfileFormError(null);
+    }
+  };
+  const backupFieldError = field =>
+    backupPasswordError?.field === field
+      ? backupPasswordError.message
+      : undefined;
   const selectedBackupKdfOption =
     WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS.find(
       option => option.iterations === backupKdfIters,
@@ -343,11 +358,11 @@ const WalletBackupRequestInfo = props => {
 
   const validateProfileForm = () => {
     if (creatingProfile || !profileName || profileName.length < 1) {
-      return 'Please enter a wallet name.';
+      return {field: 'name', message: 'Enter a wallet name.'};
     } else if (profileName.length > 50) {
-      return 'Please enter a wallet name shorter than 50 characters.';
+      return {field: 'name', message: 'Use 50 characters or fewer.'};
     } else if (accounts.find(account => account.id === profileName)) {
-      return 'A wallet with this name already exists.';
+      return {field: 'name', message: 'A wallet with this name already exists.'};
     }
 
     return validatePasswordPair(profilePassword, profilePasswordConfirm);
@@ -357,10 +372,8 @@ const WalletBackupRequestInfo = props => {
     if (creatingProfileRef.current) return;
     const error = validateProfileForm();
 
-    if (error) {
-      createAlert('Error', error);
-      return;
-    }
+    setProfileFormError(error);
+    if (error) return;
 
     creatingProfileRef.current = true;
     setCreatingProfile(true);
@@ -387,7 +400,10 @@ const WalletBackupRequestInfo = props => {
       profileCreated = true;
     } catch (e) {
       console.error(e);
-      createAlert('Error', e.message);
+      createAlert(
+        'Wallet not created',
+        'The wallet could not be created. Try again.',
+      );
     } finally {
       // Keep successful submission latched while the account UI catches up.
       if (!profileCreated) {
@@ -403,19 +419,18 @@ const WalletBackupRequestInfo = props => {
 
     return createAlert(
       'Back up without a password?',
-      'Anyone who has the NFC card can restore this wallet.',
+      'Anyone who has the card can open this wallet.',
       [
         {
-          text: 'Cancel',
+          text: 'Back up without password',
+          onPress: () => resolveAlert(true),
+        },
+        {
+          text: 'Not now',
           style: 'cancel',
           onPress: () => resolveAlert(false),
         },
-        {
-          text: 'Continue',
-          onPress: () => resolveAlert(true),
-        },
       ],
-      {cancelable: false},
     );
   };
 
@@ -495,8 +510,10 @@ const WalletBackupRequestInfo = props => {
     const retry = options?.retry === true;
     Keyboard.dismiss();
 
+    // Only a retry from the card screen gets here after a wallet switch.
+    // Leaving the card screen shows the unlock state.
     if (!activeAccountMatchesRequest) {
-      createAlert('Error', 'Please sign in to a matching wallet before continuing.');
+      setNfcTap(null);
       return;
     }
 
@@ -506,8 +523,10 @@ const WalletBackupRequestInfo = props => {
         backupPasswordConfirm,
       );
 
+      setBackupPasswordError(passwordError);
       if (passwordError) {
-        createAlert('Error', passwordError);
+        // A retry from the card screen returns to the fields.
+        setNfcTap(null);
         return;
       }
     }
@@ -761,24 +780,32 @@ const WalletBackupRequestInfo = props => {
           <>
             <View style={styles.inputStack}>
               <AppTextInput
+                errorText={profileFieldError('name')}
                 label="Wallet name"
-                onChangeText={setProfileName}
+                onChangeText={value => {
+                  clearProfileFieldError(['name']);
+                  setProfileName(value);
+                }}
                 returnKeyType="done"
                 value={profileName}
               />
               <AppTextInput
                 {...passwordAutofillProps}
+                errorText={profileFieldError('password')}
                 helperText={
                   profilePasswordDetails
                     ? `Password strength: ${profilePasswordDetails.text}`
                     : undefined
                 }
                 label="Wallet password"
-                onChangeText={setProfilePassword}
+                onChangeText={value => {
+                  clearProfileFieldError(['password', 'confirm']);
+                  setProfilePassword(value);
+                }}
                 returnKeyType="done"
                 secureTextEntry
                 supportingTextStyle={
-                  profilePasswordDetails
+                  profilePasswordDetails && !profileFieldError('password')
                     ? {color: profilePasswordDetails.color}
                     : undefined
                 }
@@ -786,8 +813,12 @@ const WalletBackupRequestInfo = props => {
               />
               <AppTextInput
                 {...passwordAutofillProps}
+                errorText={profileFieldError('confirm')}
                 label="Confirm wallet password"
-                onChangeText={setProfilePasswordConfirm}
+                onChangeText={value => {
+                  clearProfileFieldError(['confirm']);
+                  setProfilePasswordConfirm(value);
+                }}
                 returnKeyType="done"
                 secureTextEntry
                 value={profilePasswordConfirm}
@@ -902,17 +933,21 @@ const WalletBackupRequestInfo = props => {
                 <View style={styles.passwordStack}>
                   <AppTextInput
                     {...passwordAutofillProps}
+                    errorText={backupFieldError('password')}
                     helperText={
                       backupPasswordDetails
                         ? `Password strength: ${backupPasswordDetails.text}`
                         : undefined
                     }
                     label="Backup password"
-                    onChangeText={setBackupPassword}
+                    onChangeText={value => {
+                      setBackupPasswordError(null);
+                      setBackupPassword(value);
+                    }}
                     returnKeyType="done"
                     secureTextEntry
                     supportingTextStyle={
-                      backupPasswordDetails
+                      backupPasswordDetails && !backupFieldError('password')
                         ? {color: backupPasswordDetails.color}
                         : undefined
                     }
@@ -920,8 +955,12 @@ const WalletBackupRequestInfo = props => {
                   />
                   <AppTextInput
                     {...passwordAutofillProps}
+                    errorText={backupFieldError('confirm')}
                     label="Confirm backup password"
-                    onChangeText={setBackupPasswordConfirm}
+                    onChangeText={value => {
+                      setBackupPasswordError(null);
+                      setBackupPasswordConfirm(value);
+                    }}
                     returnKeyType="done"
                     secureTextEntry
                     value={backupPasswordConfirm}

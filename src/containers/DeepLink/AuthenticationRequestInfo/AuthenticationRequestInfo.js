@@ -121,6 +121,56 @@ import {
   getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {assertAuthenticationRequestNotExpired} from '../../../utils/deeplink/validator/authenticationRequestValidator';
+import {
+  GENERIC_REQUEST_REJECTION_CODES,
+  getGenericRequestRejection,
+  isNetworkFailureError,
+} from '../../../utils/deeplink/genericRequestRejection';
+
+// Request errors with their own copy. assertAuthenticationRequestNotExpired
+// throws AUTHENTICATION_REQUEST_EXPIRED.
+const MAPPED_REQUEST_ERROR_CODES = new Set([
+  ...Object.values(GENERIC_REQUEST_REJECTION_CODES),
+  'AUTHENTICATION_REQUEST_EXPIRED',
+]);
+
+// The response could not be built or handed on. Mapped request errors (such
+// as an expired request) keep their copy; the raw error stays in the log.
+const getContinueErrorCopy = (error, requestIsTestnet) => {
+  if (
+    MAPPED_REQUEST_ERROR_CODES.has(error?.code) ||
+    isNetworkFailureError(error)
+  ) {
+    return getGenericRequestRejection(error, {requestIsTestnet});
+  }
+
+  return {
+    title: 'Cannot sign in',
+    message:
+      'Open the request again. If it still fails, ask the requester for a new request.',
+  };
+};
+
+// Link errors come from wallet checks and the Verus network. Show the
+// wallet-check reasons in plain words and keep network text out of view.
+const getLinkFailureMessage = error => {
+  const message = typeof error?.message === 'string' ? error.message : '';
+
+  if (/primary address/i.test(message)) {
+    return 'This wallet does not hold a primary address of this VerusID.';
+  }
+  if (/only active verusids/i.test(message)) {
+    return 'Only active VerusIDs can be linked.';
+  }
+  if (/request requirements/i.test(message)) {
+    return 'This VerusID does not meet the request requirements.';
+  }
+  if (isNetworkFailureError(error)) {
+    return 'Verus Mobile could not reach the Verus network.';
+  }
+
+  return 'The wallet could not link this VerusID.';
+};
 
 const truncateAddress = addr => {
   if (!addr || addr.length <= 14) return addr;
@@ -798,22 +848,30 @@ const AuthenticationRequestInfoContent = props => {
 
   const getAllowList = () => {
     if (requestIsTestnet) {
-      return accounts.filter(
+      return (accounts || []).filter(
         x => x.testnetOverrides && Object.keys(x.testnetOverrides).length > 0,
       );
     }
-    return accounts.filter(
+    return (accounts || []).filter(
       x => !x.testnetOverrides || Object.keys(x.testnetOverrides).length === 0,
     );
   };
+  // No wallet on this device can answer the request. The screen disables the
+  // wallet action and says why.
+  const noRequestNetworkWallet =
+    !activeAccountMatchesRequest && getAllowList().length === 0;
+  const requestNetworkName = requestIsTestnet ? 'testnet' : 'mainnet';
 
   const showContinueError = error => {
+    console.warn(error);
+    const {title, message} = getContinueErrorCopy(error, requestIsTestnet);
+
     createAlert(
-      'Error',
-      error?.message || 'Failed to continue authentication request.',
+      title,
+      message,
       [
         {
-          text: 'Ok',
+          text: 'Close',
           onPress: () => {
             cancel();
             resolveAlert(true);
@@ -896,15 +954,8 @@ const AuthenticationRequestInfoContent = props => {
 
     const allowList = getAllowList();
 
-    if (allowList.length === 0) {
-      createAlert(
-        'Cannot continue',
-        `No ${
-          requestIsTestnet ? 'testnet' : 'mainnet'
-        } wallets found, cannot respond to authentication request.`,
-      );
-      return;
-    }
+    // The action is disabled with its reason on screen.
+    if (allowList.length === 0) return;
 
     try {
       setOpenIdentityAfterUnlock(false);
@@ -1583,9 +1634,7 @@ const AuthenticationRequestInfoContent = props => {
           setAutoLinkingVisible(false);
           await createAlert(
             'Automatic link failed',
-            `${
-              e?.message || 'Unable to link this VerusID automatically.'
-            } Please review and link it manually.`,
+            `${getLinkFailureMessage(e)} Check the VerusID, then link it manually.`,
           );
 
           if (authRequestMountedRef.current) {
@@ -1665,7 +1714,11 @@ const AuthenticationRequestInfoContent = props => {
         fromService,
       );
     } catch (e) {
-      createAlert('Error', e.message);
+      console.warn(e);
+      createAlert(
+        'Cannot request VerusID',
+        'The wallet could not read the VerusID details in this request. Ask the requester for a new request.',
+      );
     }
   };
 
@@ -1778,9 +1831,11 @@ const AuthenticationRequestInfoContent = props => {
       }
 
       if (authRequestMountedRef.current) {
+        console.warn(e);
+        // The chooser has no error slot, so the reason stays in an alert.
         await createAlert(
-          'Unable to use VerusID',
-          e?.message || 'Unable to link this VerusID.',
+          'Cannot use this VerusID',
+          `${getLinkFailureMessage(e)} Choose another VerusID, or try again.`,
         );
         setIdentitySheetInitialMode(VERUSID_SHEET_MODES.CHOOSE);
         setIdentitySheetVisible(true);
@@ -1895,7 +1950,9 @@ const AuthenticationRequestInfoContent = props => {
   const linkExistingCoinObj = CoinDirectory.findCoinObj(linkChainId);
   const mainTitle = 'Sign in with VerusID';
   const activeAccountInstruction = !activeAccountMatchesRequest
-    ? signedIn
+    ? noRequestNetworkWallet
+      ? `This request needs a ${requestNetworkName} wallet. Add one, then open the request again.`
+      : signedIn
       ? 'Switch wallet first, then select identity.'
       : 'Unlock wallet first, then select identity.'
     : null;
@@ -1931,6 +1988,8 @@ const AuthenticationRequestInfoContent = props => {
         label: 'Wallet state',
         value: activeAccountMatchesRequest
           ? 'Ready for this request'
+          : noRequestNetworkWallet
+          ? `No ${requestNetworkName} wallet`
           : signedIn
           ? 'Switch wallet required'
           : 'Unlock wallet required',
@@ -1952,7 +2011,9 @@ const AuthenticationRequestInfoContent = props => {
     activeAccountMatchesRequest,
     constraintRows,
     expiryLabel,
+    noRequestNetworkWallet,
     requestIdLabel,
+    requestNetworkName,
     responseUris,
     selectedIdentity,
     signedIn,
@@ -2095,6 +2156,7 @@ const AuthenticationRequestInfoContent = props => {
           </View>
         )}
         <AppButton
+          disabled={noRequestNetworkWallet}
           height={56}
           onPress={primaryActionHandler}
           themeMode={theme.mode}

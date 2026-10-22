@@ -153,7 +153,10 @@ export default function CreateProfileStackScreens(props) {
       setNewSeed(seed);
       return seed;
     } catch (e) {
-      createAlert('Error', 'Error generating Secret Recovery Phrase.');
+      createAlert(
+        'Secret Recovery Phrase not created',
+        'The wallet could not generate a new Secret Recovery Phrase. Try again.',
+      );
       console.warn(e);
       return null;
     }
@@ -188,21 +191,33 @@ export default function CreateProfileStackScreens(props) {
         );
 
         if (!replay) {
-          throw new Error(
-            'Your wallet is ready, but the saved claim could not be reopened. Open it from Pending Requests.',
-          );
+          throw new Error('The saved request could not be reopened.');
         }
 
         dispatch(setDeeplinkUrl(replay.url, replay.passthrough));
-      } else {
-        createAlert(
-          'Wallet created!',
-          `Your '${profileName}' wallet has been created and is ready to use.`,
-        );
       }
     } catch (e) {
       console.error(e);
-      createAlert(profileCreated ? 'Wallet ready' : 'Error', e.message);
+
+      if (profileCreated) {
+        createAlert(
+          'Wallet ready',
+          'The saved request could not be reopened. Find it under Saved requests on the sign-in screen.',
+        );
+      } else if (
+        e?.code === 'DUPLICATE_ACCOUNT' ||
+        e?.message === 'Cannot create duplicate account.'
+      ) {
+        createAlert(
+          'Wallet not created',
+          'A wallet with this name already exists. Choose another name.',
+        );
+      } else {
+        createAlert(
+          'Wallet not created',
+          'The wallet could not be set up. Try again.',
+        );
+      }
     } finally {
       if (!profileCreated) creationStarted.current = false;
       closeLoadingModal();

@@ -1,7 +1,7 @@
 import {CameraRoll} from '@react-native-camera-roll/camera-roll';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-  Alert,
+  AccessibilityInfo,
   Image,
   ScrollView,
   StyleSheet,
@@ -35,6 +35,9 @@ const VERUS_LOGO = require('../../../../images/customIcons/Verus.png');
 const SHARE_RECORD_RETRY_MS = 250;
 const SHARE_RECORD_MAX_RETRIES = 20;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+// The save button reads "Saved" for this long after a save.
+const SAVED_LABEL_MS = 2000;
+const SAVE_FAILED_TEXT = 'Not saved. Check photo access and try again.';
 
 const GiftCardQrScreen = ({navigation, route}) => {
   const theme = useAppTheme();
@@ -46,6 +49,9 @@ const GiftCardQrScreen = ({navigation, route}) => {
   const [loading, setLoading] = useState(true);
   const [logoReady, setLogoReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const savedTimeoutRef = useRef(null);
   const cardId = route?.params?.cardId;
   const contentReady =
     !loading && !loadError && logoReady && card?.requestUri != null;
@@ -110,6 +116,7 @@ const GiftCardQrScreen = ({navigation, route}) => {
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      clearTimeout(savedTimeoutRef.current);
     };
   }, []);
 
@@ -117,6 +124,9 @@ const GiftCardQrScreen = ({navigation, route}) => {
     if (!contentReady || !qrCodeRef.current || saving) return;
 
     let filePath = null;
+    clearTimeout(savedTimeoutRef.current);
+    setSaved(false);
+    setSaveFailed(false);
     setSaving(true);
 
     try {
@@ -137,12 +147,18 @@ const GiftCardQrScreen = ({navigation, route}) => {
       filePath = `${RNFS.CachesDirectoryPath}/GiftCard-QR-${Date.now()}.png`;
       await RNFS.writeFile(filePath, data, 'base64');
       await CameraRoll.save(filePath, {type: 'photo'});
-      Alert.alert('Saved', 'Gift card QR code saved to your photos.');
-    } catch (_) {
-      Alert.alert(
-        'Unable to Save QR Code',
-        'The gift card QR code could not be saved.',
-      );
+
+      if (mountedRef.current) {
+        setSaved(true);
+        savedTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) setSaved(false);
+        }, SAVED_LABEL_MS);
+      }
+      AccessibilityInfo.announceForAccessibility('QR code saved to Photos');
+    } catch (e) {
+      console.warn(e);
+      if (mountedRef.current) setSaveFailed(true);
+      AccessibilityInfo.announceForAccessibility(SAVE_FAILED_TEXT);
     } finally {
       if (filePath) {
         try {
@@ -307,11 +323,21 @@ const GiftCardQrScreen = ({navigation, route}) => {
           gap={8}
           horizontalSpacing={20}
           safeAreaSpacing={0}>
+          {saveFailed ? (
+            <Text
+              style={[
+                theme.typography.caption,
+                styles.saveError,
+                {color: theme.colors.danger},
+              ]}>
+              {SAVE_FAILED_TEXT}
+            </Text>
+          ) : null}
           <AppButton
             disabled={!contentReady || saving}
             onPress={saveQrCode}
             variant="primary">
-            {saving ? 'Saving…' : 'Save to photos'}
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save to photos'}
           </AppButton>
         </SafeBottomActionStack>
       ) : null}
@@ -430,6 +456,9 @@ const styles = StyleSheet.create({
   retryButton: {
     minWidth: 160,
     marginTop: 20,
+  },
+  saveError: {
+    textAlign: 'center',
   },
 });
 

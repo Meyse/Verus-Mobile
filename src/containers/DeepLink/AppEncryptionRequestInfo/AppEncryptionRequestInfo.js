@@ -473,15 +473,8 @@ const AppEncryptionRequestInfoContent = props => {
       account => accountIsTestnet(account) === requestIsTestnet,
     );
 
-    if (allowList.length === 0) {
-      createAlert(
-        'Cannot continue',
-        `No ${
-          requestIsTestnet ? 'testnet' : 'mainnet'
-        } wallets found, cannot respond to this encryption request.`,
-      );
-      return;
-    }
+    // The action is disabled with its reason on screen.
+    if (allowList.length === 0) return;
 
     try {
       await requestWalletUnlock({
@@ -709,12 +702,19 @@ const AppEncryptionRequestInfoContent = props => {
         autoDeliverOnComplete: true,
       });
     } catch (e) {
+      console.warn(e);
+      // The screen gate checks the loaded key of the root chain. The key read
+      // here can still fail, so this case keeps its own message.
       const isZSeedMissing =
-        e.message && e.message.includes('No Z recovery secret');
+        e?.message && e.message.includes('No Z recovery secret');
 
       createAlert(
-        isZSeedMissing ? 'Z recovery secret required' : 'Error',
-        e.message || 'Failed to process encryption request.',
+        isZSeedMissing
+          ? 'Z recovery secret required'
+          : 'Cannot share encryption address',
+        isZSeedMissing
+          ? `Set up the Z recovery secret in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}, then open the request again.`
+          : 'The wallet could not create the encryption address. Try again.',
       );
 
       if (isZSeedMissing) {
@@ -758,6 +758,14 @@ const AppEncryptionRequestInfoContent = props => {
     );
   }, [dispatch, navigation]);
 
+  // No wallet on this device can answer the request. The wallet action is
+  // disabled and the footer says why.
+  const noRequestNetworkWallet =
+    !activeAccountMatchesRequest &&
+    !(accounts || []).some(
+      account => accountIsTestnet(account) === requestIsTestnet,
+    );
+  const requestNetworkName = requestIsTestnet ? 'testnet' : 'mainnet';
   const primaryActionLabel = processing
     ? 'Preparing response'
     : !activeAccountMatchesRequest
@@ -777,10 +785,13 @@ const AppEncryptionRequestInfoContent = props => {
     : 'Choose VerusID';
   const primaryActionDisabled =
     processing ||
+    noRequestNetworkWallet ||
     waitingForLinkedIds ||
     shieldedSetupNeedsRestart;
   const activeAccountInstruction = !activeAccountMatchesRequest
-    ? signedIn
+    ? noRequestNetworkWallet
+      ? `This request needs a ${requestNetworkName} wallet. Add one, then open the request again.`
+      : signedIn
       ? 'Switch wallet first, then select identity.'
       : 'Unlock wallet first, then select identity.'
     : null;
@@ -833,6 +844,8 @@ const AppEncryptionRequestInfoContent = props => {
             : shieldedSetupNeedsRestart
             ? 'Restart required'
             : 'Ready for this request'
+          : noRequestNetworkWallet
+          ? `No ${requestNetworkName} wallet`
           : signedIn
           ? 'Switch wallet required'
           : 'Unlock wallet required',
@@ -855,7 +868,9 @@ const AppEncryptionRequestInfoContent = props => {
     hasDerivationID,
     hasEncryptResponseToAddress,
     hasRequestID,
+    noRequestNetworkWallet,
     requestIdFqn,
+    requestNetworkName,
     responseUris,
     returnESK,
     selectedIdentity,

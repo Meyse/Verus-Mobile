@@ -2,7 +2,6 @@ import React, {useEffect, useState} from 'react';
 import {useDispatch} from 'react-redux';
 import {setWalletAvatar} from '../../../actions/actionCreators';
 import WalletAvatarPickerSheet from '../../Onboard/CreateProfile/Forms/WalletAvatarPickerSheet';
-import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {
   DEFAULT_WALLET_AVATAR,
   normalizeWalletAvatar,
@@ -12,28 +11,35 @@ const WalletAppearanceSheet = ({account, onClose, visible}) => {
   const dispatch = useDispatch();
   const [draftAvatar, setDraftAvatar] = useState(DEFAULT_WALLET_AVATAR);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
     if (visible) {
       setDraftAvatar(
         normalizeWalletAvatar(account?.walletAvatar, DEFAULT_WALLET_AVATAR),
       );
+      setSaveError(null);
     }
   }, [account?.walletAvatar, visible]);
+
+  // A failed save keeps the sheet open with the error; the next pick clears it.
+  const changeAvatar = avatar => {
+    setSaveError(null);
+    setDraftAvatar(avatar);
+  };
 
   const saveAppearance = async () => {
     if (!account?.accountHash || saving) return;
 
     setSaving(true);
+    setSaveError(null);
 
     try {
       dispatch(await setWalletAvatar(account.accountHash, draftAvatar));
       onClose();
     } catch (error) {
-      createAlert(
-        'Unable to change wallet appearance',
-        error.message || 'Please try again.',
-      );
+      console.warn(error);
+      setSaveError('Not saved. Try again.');
     } finally {
       setSaving(false);
     }
@@ -41,7 +47,8 @@ const WalletAppearanceSheet = ({account, onClose, visible}) => {
 
   return (
     <WalletAvatarPickerSheet
-      onChange={setDraftAvatar}
+      errorText={saveError}
+      onChange={changeAvatar}
       onClose={onClose}
       onSubmit={saveAppearance}
       submitLabel="Save"

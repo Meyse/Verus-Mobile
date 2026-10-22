@@ -3,6 +3,7 @@ import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
+import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
@@ -21,6 +22,8 @@ const WalletAvatarPickerSheet = ({
   submitting = false,
   submitLabel = 'Done',
   submitVariant = 'secondary',
+  // One short failure line above the action, such as "Not saved. Try again."
+  errorText = null,
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -106,6 +109,12 @@ const WalletAvatarPickerSheet = ({
           </View>
         </View>
 
+        {errorText ? (
+          <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+            {errorText}
+          </Text>
+        ) : null}
+
         <AppButton
           accessibilityLabel={submitLabel}
           disabled={submitting}
@@ -132,6 +141,13 @@ const createStyles = theme =>
   },
   doneButton: {
     marginTop: 22,
+  },
+  errorText: {
+    marginTop: 9,
+    color: theme.colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
+    ...fontStyle('regular'),
   },
   section: {
     marginTop: 12,

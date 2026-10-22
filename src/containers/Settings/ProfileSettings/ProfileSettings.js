@@ -38,7 +38,8 @@ import {
 import { dlightEnabled } from "../../../utils/enabledChannels";
 import SetupSeedModal from "../../../components/SetupSeedModal/SetupSeedModal";
 import { DLIGHT_PRIVATE, ELECTRUM } from "../../../utils/constants/intervalConstants";
-import ListSelectionModal from "../../../components/ListSelectionModal/ListSelectionModal";
+import SelectionSheet, { SelectionRow } from "../../../components/SelectionSheet";
+import useSheetDismissal from "../../../components/useSheetDismissal";
 import { WYRE_SERVICE_ID } from "../../../utils/constants/services";
 import { removeBiometricPassword, storeBiometricPassword } from "../../../utils/keychain/biometrics";
 import { requestSeeds } from "../../../utils/auth/authBox";
@@ -56,6 +57,42 @@ import KeychainEncryptionSettingRow from '../components/KeychainEncryptionSettin
 const RESET_PWD = "ResetPwd"
 const REMOVE_PROFILE = "DeleteProfile"
 
+const KEY_DERIVATION_VERSION_OPTIONS = [
+  { value: 1, title: "Latest" },
+  { value: 0, title: "Legacy" },
+];
+
+const SETTING_NOT_SAVED = "Not saved. Try again.";
+
+// The same inline copy as the View recovery secrets password sheet.
+const getPasswordCheckError = (error) =>
+  error?.message === "Incorrect password"
+    ? "Password not recognized. Try again."
+    : "Unable to access this wallet. Try again.";
+
+// The choice applies after the sheet has closed, so the confirmation that
+// follows presents cleanly.
+const KeyDerivationVersionSheet = ({ visible, selectedVersion, onClose, onSelect }) => {
+  const dismissal = useSheetDismissal({ visible, onClose });
+
+  return (
+    <SelectionSheet
+      title="Key derivation version"
+      visible={visible}
+      onClose={dismissal.close}
+      onClosed={dismissal.onClosed}>
+      {KEY_DERIVATION_VERSION_OPTIONS.map((option) => (
+        <SelectionRow
+          key={option.value}
+          title={option.title}
+          selected={option.value === selectedVersion}
+          onPress={() => dismissal.dismiss(() => onSelect(option.value))}
+        />
+      ))}
+    </SelectionSheet>
+  );
+};
+
 class ProfileSettings extends Component {
   constructor(props) {
     super(props);
@@ -65,6 +102,8 @@ class ProfileSettings extends Component {
       loading: false,
       passwordDialogOpen: false,
       passwordDialogTitle: "",
+      passwordError: null,
+      seedWarningError: null,
       supportedBiometryType: null,
       biometryCheckComplete: false,
       privateSeedModalOpen: false,
@@ -142,10 +181,20 @@ class ProfileSettings extends Component {
     this.setState(
       {
         passwordDialogOpen: false,
+        passwordError: null,
         onPasswordCorrect: () => {},
       },
       cb
     );
+  };
+
+  // A wrong password keeps the sheet open and shows the error in it.
+  showPasswordError = (passwordCheck) => {
+    this.setState({ passwordError: getPasswordCheckError(passwordCheck.error) });
+  };
+
+  clearPasswordError = () => {
+    if (this.state.passwordError != null) this.setState({ passwordError: null });
   };
 
   resetToScreen = (route, title, data, fullReset) => {
@@ -188,36 +237,28 @@ class ProfileSettings extends Component {
           if (biometry) {
             await removeBiometricPassword(accountHash);
             this.props.dispatch(await setBiometry(accountHash, false));
-            createAlert(
-              "Success",
-              `${biometryTitle} disabled for wallet "${id}".`
-            );
           } else {
             await storeBiometricPassword(accountHash, passwordCheck.password);
             this.props.dispatch(await setBiometry(accountHash, true));
-            createAlert(
-              "Success",
-              `${biometryTitle} enabled for wallet "${id}".`
-            );
           }
         } catch (e) {
           console.warn(e);
           createAlert(
-            "Error",
-            `Failed to ${
-              biometry ? "disable" : "enable"
-            } ${biometryTitle}.`
+            `${biometryTitle} not turned ${biometry ? "off" : "on"}`,
+            `The wallet could not save ${biometryTitle}. Try again.`
           );
         }
       });
     } else {
-      createAlert("Authentication Error", "Incorrect password.");
+      this.showPasswordError(passwordCheck);
     }
   };
 
   toggleSeedCorruptionWarning = async () => {
     const { activeAccount } = this.props;
     const { hideSeedWarnings, accountHash, id } = activeAccount;
+
+    this.setState({ seedWarningError: null });
 
     try {
       if (accountHash == null)
@@ -230,31 +271,23 @@ class ProfileSettings extends Component {
       }
     } catch (e) {
       console.warn(e);
-      createAlert(
-        "Error",
-        `Failed to ${hideSeedWarnings ? "enable" : "disable"
-        } recovery data integrity warning.`
-      );
+      if (this._isMounted) this.setState({ seedWarningError: SETTING_NOT_SAVED });
     }
   };
 
   canSetUserKeyDerivationVersion = () => {
     return createAlert(
-      'Change key derivation version?',
-      "Changing the key derivation version will change how your addresses are derived from your " + 
-      "stored recovery secret for this wallet. This will log you out.",
+      "Change key derivation version?",
+      "This changes how the wallet derives addresses from its recovery secret. The wallet then signs out.",
       [
         {
-          text: 'No',
+          text: "Not now",
           onPress: () => resolveAlert(false),
-          style: 'cancel',
+          style: "cancel",
         },
-        {text: 'Yes', onPress: () => resolveAlert(true)},
-      ],
-      {
-        cancelable: true,
-      },
-    )
+        { text: "Change and sign out", onPress: () => resolveAlert(true) },
+      ]
+    );
   }
 
   setUserKeyDerivationVersion = async (keyDerivationVersion) => {
@@ -299,38 +332,32 @@ class ProfileSettings extends Component {
 
   canEnableWyre = () => {
     return createAlert(
-      'Enable deprecated Wyre features?',
-      "Wyre wallet features are no longer supported. Only enable them if you already have a Wyre account you would like to access.",
+      "Turn on Wyre features?",
+      "Wyre is no longer supported, so use this only to reach an existing Wyre account.",
       [
         {
-          text: 'Cancel',
+          text: "Not now",
           onPress: () => resolveAlert(false),
-          style: 'cancel',
+          style: "cancel",
         },
-        {text: 'Continue', onPress: () => resolveAlert(true)},
-      ],
-      {
-        cancelable: true,
-      },
-    )
+        { text: "Turn on", onPress: () => resolveAlert(true) },
+      ]
+    );
   }
 
   canDisableWyre = () => {
     return createAlert(
-      'Disable deprecated Wyre features?',
-      "Wyre wallet features are no longer supported. Disabling them will hide Wyre features from your wallet.",
+      "Turn off Wyre features?",
+      "This hides the unsupported Wyre features from the wallet.",
       [
         {
-          text: 'Cancel',
+          text: "Not now",
           onPress: () => resolveAlert(false),
-          style: 'cancel',
+          style: "cancel",
         },
-        {text: 'Continue', onPress: () => resolveAlert(true)},
-      ],
-      {
-        cancelable: true,
-      },
-    )
+        { text: "Turn off", onPress: () => resolveAlert(true) },
+      ]
+    );
   }
 
   toggleWyreEnabled = async () => {
@@ -368,7 +395,7 @@ class ProfileSettings extends Component {
           });
       });
     } else {
-      createAlert("Authentication Error", "Incorrect password");
+      this.showPasswordError(passwordCheck);
     }
   };
 
@@ -397,56 +424,55 @@ class ProfileSettings extends Component {
             );
   
             createAlert(
-              "Success",
-              `Z recovery secret saved for ${
-                this.props.activeAccount.id
-              }. Restart Verus Mobile and sign in to start using Z cards.`
+              "Z recovery secret saved",
+              "Restart the app and sign in to use private (Z) cards."
             );
           } catch(e) {
-            createAlert("Error", e.message);
+            console.warn(e);
+            createAlert(
+              "Z recovery secret not saved",
+              "The wallet could not save the secret. Try again."
+            );
           }
         })
       } else {
-        createAlert("Authentication Error", "Incorrect password");
+        this.showPasswordError(result);
       }
     })
   }
 
+  // The way out of this question opens the setup for another secret, so an
+  // outside tap does not answer it.
   canUseCurrentSeedForZ = () => {
     return createAlert(
-      "Use existing Secret Recovery Phrase for Z?",
-      "Your current Secret Recovery Phrase is a valid 24-word BIP39 phrase. Would you like to use it as your Z recovery secret?",
+      "Use your Secret Recovery Phrase for Z?",
+      "It is a valid 24-word BIP39 phrase, so it can also be the Z recovery secret.",
       [
         {
-          text: "No",
+          text: "Use another secret",
           onPress: () => resolveAlert(false),
           style: "cancel",
         },
-        { text: "Yes", onPress: () => resolveAlert(true) },
+        { text: "Use this phrase", onPress: () => resolveAlert(true) },
       ],
       {
-        cancelable: true,
+        cancelable: false,
       }
     );
   }
 
   canBackupCurrentProfileToNfc = () => {
     return createAlert(
-      "Back up wallet to NFC?",
-      "This will write an NFC wallet backup containing this wallet's Secret Recovery Phrase. If you set up a different Z recovery secret, it will not be included.\n\n" +
-        "If you choose an unencrypted backup on the next screen, anyone with the NFC card can access this wallet. Keep the card secure.\n\n" +
-        "Would you like to proceed?",
+      "Back up to an NFC card?",
+      "The card holds this wallet’s Secret Recovery Phrase. A separate Z recovery secret is not included. Without a password on the next step, anyone with the card can open this wallet.",
       [
         {
-          text: "No",
+          text: "Not now",
           onPress: () => resolveAlert(false),
           style: "cancel",
         },
-        { text: "Yes", onPress: () => resolveAlert(true) },
-      ],
-      {
-        cancelable: false,
-      }
+        { text: "Continue", onPress: () => resolveAlert(true) },
+      ]
     );
   }
 
@@ -477,7 +503,7 @@ class ProfileSettings extends Component {
 
   startNfcBackup = async (passwordCheck) => {
     if (!passwordCheck.valid) {
-      createAlert("Authentication Error", "Incorrect password");
+      this.showPasswordError(passwordCheck);
       return;
     }
 
@@ -491,21 +517,19 @@ class ProfileSettings extends Component {
         const seeds = await checkPinForUser(passwordCheck.password, id);
         const primarySeed = seeds[ELECTRUM];
 
+        // The row then shows as disabled with its reason.
         if (!this.is24WordMnemonic(primarySeed)) {
           this.setState({nfcBackupEligible: false});
-          createAlert(
-            "NFC Backup Unavailable",
-            "The current wallet does not contain a valid 24-word BIP39 Secret Recovery Phrase and cannot be written as an NFC wallet backup.",
-          );
           return;
         }
 
         this.setState({nfcBackupEligible: true});
         this.props.navigation.navigate("NfcBackup");
       } catch (e) {
+        console.warn(e);
         createAlert(
-          "Error",
-          e.message || "Unable to check whether this wallet can be backed up.",
+          "NFC backup not started",
+          "The wallet could not read its Secret Recovery Phrase. Try again.",
         );
       } finally {
         this.setState({ checkingNfcBackupSeed: false });
@@ -525,14 +549,9 @@ class ProfileSettings extends Component {
       passwordDialogTitle: `Enter password for "${
         this.props.activeAccount.id
       }"`,
+      passwordError: null,
       onPasswordCorrect,
     });
-
-  showBiometryDeviceSetupAlert = () =>
-    createAlert(
-      'Set up biometrics on this device',
-      'Set up biometric authentication in your device settings, then return to Verus Mobile to use biometric unlock again.',
-    );
 
   renderSettingsList = () => {
     const zSetupComplete = dlightEnabled();
@@ -549,10 +568,12 @@ class ProfileSettings extends Component {
     );
     let biometryTitle = biometryPresentation.settingsSetupTitle;
     let biometryValue = 'Off';
+    let biometryDescription;
 
     if (biometryNeedsDeviceSetup) {
       biometryTitle = 'Biometric unlock';
       biometryValue = 'Needs device setup';
+      biometryDescription = 'Set up biometrics in device settings to use it again';
     } else if (biometryEnabled) {
       biometryTitle = biometryPresentation.settingsTitle;
       biometryValue = 'On';
@@ -578,24 +599,6 @@ class ProfileSettings extends Component {
               visible
             />
           ) : null}
-          {this.state.keyDerivationVersionModalOpen && (
-            <ListSelectionModal
-              flexHeight={1}
-              title="Key derivation versions"
-              selectedKey={this.props.activeAccount.keyDerivationVersion}
-              visible={this.state.keyDerivationVersionModalOpen}
-              onSelect={(item) => this.setUserKeyDerivationVersion(item.key)}
-              data={Object.keys(this.KEY_DERIVATION_VERSION_LABELS).map(
-                (key) => {
-                  return {
-                    key: Number(key),
-                    title: this.KEY_DERIVATION_VERSION_LABELS[key]
-                  };
-                }
-              )}
-              cancel={() => this.closeKeyDerivationVersionModal()}
-            />
-          )}
         </Portal>
         <SettingsProfileSummary
           name={this.props.activeAccount.id}
@@ -631,6 +634,7 @@ class ProfileSettings extends Component {
           {showBiometry ? (
             <SettingsRow
               accessibilityLabel={`${biometryTitle}, ${biometryValue}`}
+              description={biometryDescription}
               last={!showKeychainEncryption && !showSeedWarning}
               leading={
                 <BiometricAffordanceIcon
@@ -639,13 +643,11 @@ class ProfileSettings extends Component {
                   supportedBiometryType={this.state.supportedBiometryType}
                 />
               }
-              onPress={() => {
-                if (biometryNeedsDeviceSetup) {
-                  this.showBiometryDeviceSetupAlert();
-                } else {
-                  this.openPasswordCheck(this.toggleBiometry);
-                }
-              }}
+              onPress={
+                biometryNeedsDeviceSetup
+                  ? undefined
+                  : () => this.openPasswordCheck(this.toggleBiometry)
+              }
               title={biometryTitle}
               value={biometryValue}
             />
@@ -659,6 +661,7 @@ class ProfileSettings extends Component {
           {showSeedWarning ? (
             <SettingsSwitchRow
               description="Alert on sign-in when non-standard characters may indicate damaged recovery data"
+              error={this.state.seedWarningError}
               icon="alert-circle-outline"
               last
               onValueChange={() => this.toggleSeedCorruptionWarning()}
@@ -720,8 +723,16 @@ class ProfileSettings extends Component {
             />
           ) : null}
         </SettingsSection>
+        <KeyDerivationVersionSheet
+          onClose={this.closeKeyDerivationVersionModal}
+          onSelect={this.setUserKeyDerivationVersion}
+          selectedVersion={this.props.activeAccount.keyDerivationVersion}
+          visible={this.state.keyDerivationVersionModalOpen}
+        />
         <PasswordCheck
           cancel={() => this.closePasswordDialog()}
+          errorMessage={this.state.passwordError}
+          onInputChange={this.clearPasswordError}
           redesigned
           submit={(result) => this.state.onPasswordCorrect(result)}
           visible={this.state.passwordDialogOpen}

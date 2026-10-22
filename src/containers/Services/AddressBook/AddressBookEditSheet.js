@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  AccessibilityInfo,
   Clipboard,
   Keyboard,
   Platform,
@@ -25,6 +26,7 @@ const DEFAULT_SHEET_MAX_HEIGHT = '80%';
 const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
 const KEYBOARD_SHEET_TOP_SPACING = 12;
 const EMPTY_KEYBOARD_METRICS = {height: 0, visible: false};
+const SAVE_FAILED_TEXT = 'Not saved. Try again.';
 
 const detectAddressType = address => {
   const value = address.trim();
@@ -86,6 +88,7 @@ const AddressBookEditSheet = ({
   );
   const [label, setLabel] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const editMode = Boolean(editing?.id);
 
   useEffect(() => {
@@ -96,6 +99,7 @@ const AddressBookEditSheet = ({
     setLabel(editing?.label || initialLabel);
     setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
     setSaving(false);
+    setSaveFailed(false);
   }, [editing, initialAddress, initialLabel, visible]);
 
   useEffect(() => {
@@ -151,13 +155,27 @@ const AddressBookEditSheet = ({
 
   const paste = useCallback(async () => {
     const value = await Clipboard.getString();
-    if (value) setAddress(value.trim());
+    if (value) {
+      setAddress(value.trim());
+      setSaveFailed(false);
+    }
+  }, []);
+
+  const changeLabel = useCallback(value => {
+    setLabel(value);
+    setSaveFailed(false);
+  }, []);
+
+  const changeAddress = useCallback(value => {
+    setAddress(value);
+    setSaveFailed(false);
   }, []);
 
   const save = useCallback(async () => {
     if (!valid || saving) return;
     preserveKeyboardLayout.current = true;
     Keyboard.dismiss();
+    setSaveFailed(false);
     setSaving(true);
     try {
       await onSave({
@@ -169,6 +187,8 @@ const AddressBookEditSheet = ({
       preserveKeyboardLayout.current = false;
       setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
       setSaving(false);
+      setSaveFailed(true);
+      AccessibilityInfo.announceForAccessibility(SAVE_FAILED_TEXT);
     }
   }, [address, editing, label, onSave, saving, valid]);
 
@@ -219,7 +239,7 @@ const AddressBookEditSheet = ({
               autoCapitalize="words"
               editable={!saving}
               label="Label"
-              onChangeText={setLabel}
+              onChangeText={changeLabel}
               onSubmitEditing={() => {
                 if (editMode) {
                   Keyboard.dismiss();
@@ -242,7 +262,7 @@ const AddressBookEditSheet = ({
                 inputStyle={technicalAddress && styles.addressInput}
                 label="Address"
                 onBlur={() => setAddressFocused(false)}
-                onChangeText={setAddress}
+                onChangeText={changeAddress}
                 onFocus={() => setAddressFocused(true)}
                 onSubmitEditing={Keyboard.dismiss}
                 placeholder="Enter an address or VerusID"
@@ -285,6 +305,10 @@ const AddressBookEditSheet = ({
             </View>
           </ScrollView>
         </View>
+
+        {saveFailed ? (
+          <Text style={styles.saveError}>{SAVE_FAILED_TEXT}</Text>
+        ) : null}
 
         <SafeBottomActionStack
           bottomSpacing={
@@ -376,6 +400,11 @@ const createStyles = theme =>
     },
     buttonStack: {
       paddingTop: 12,
+    },
+    saveError: {
+      ...theme.typography.caption,
+      marginHorizontal: 20,
+      color: theme.colors.danger,
     },
   });
 

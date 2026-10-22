@@ -55,19 +55,16 @@ class DeleteProfile extends Component {
 
   canDelete = () => {
     return createAlert(
-      'Confirm Deletion',
-      "Are you sure you want to delete this wallet from this device?",
+      'Delete this wallet?',
+      "The wallet is removed from this device. Only its recovery secrets can restore it.",
       [
         {
-          text: 'No, take me back',
+          text: 'Not now',
           onPress: () => resolveAlert(false),
           style: 'cancel',
         },
-        {text: 'Yes', onPress: () => resolveAlert(true)},
+        {text: 'Delete wallet', onPress: () => resolveAlert(true)},
       ],
-      {
-        cancelable: false,
-      },
     )
   }
 
@@ -88,18 +85,26 @@ class DeleteProfile extends Component {
           _errors = true
         } 
   
-        if (!this.state.confirmSwitch && !_errors) {
-          createAlert(
-            "Please confirm",
-            "Please confirm that you have backed up the recovery secrets needed to restore this wallet.",
-          )
+        // Delete stays disabled until the backup box is checked.
+        if (!_confirmSwitch) {
           _errors = true
         }
   
         if (!_errors) {
-          checkPinForUser(_pwd, userID)
+          this.setState({loading: true})
+          checkPinForUser(_pwd, userID, false)
           .then(() => {
+            this.setState({loading: false})
             return this.canDelete()
+          }, (error) => {
+            this.setState({loading: false})
+            this.handleError(
+              error?.message === "Incorrect password"
+                ? "Password not recognized. Try again."
+                : "Unable to access this wallet. Try again.",
+              "pwd"
+            )
+            throw error
           })
           .then((res) => {
             if (res) {
@@ -143,10 +148,12 @@ class DeleteProfile extends Component {
       }
 
       await deleteProfile(account, this.props.dispatch)
-      createAlert("Wallet deleted", `"${account.id}" was deleted from this device.`)
     } catch (error) {
       console.warn(error)
-      createAlert("Error", `Failed to delete wallet "${account.id}".`)
+      createAlert(
+        "Wallet not deleted",
+        `The wallet could not delete "${account.id}" from this device. Sign in and try again.`
+      )
       throw error
     }
   }
@@ -158,7 +165,9 @@ class DeleteProfile extends Component {
         errorText={this.state.errors.pwd}
         importantForAutofill="no"
         label="Wallet password"
-        onChangeText={pwd => this.setState({pwd})}
+        onChangeText={pwd =>
+          this.setState(({errors}) => ({pwd, errors: {...errors, pwd: null}}))
+        }
         returnKeyType="done"
         secureTextEntry
         textContentType="none"
@@ -187,6 +196,7 @@ class DeleteProfile extends Component {
           <SettingsActionFooter
             busy={this.state.loading}
             busyLabel="Preparing wallet deletion…"
+            primaryDisabled={!this.state.confirmSwitch}
             primaryLabel="Delete wallet"
             primaryOnPress={this._handleSubmit}
             primaryTestID="settings.deleteProfile.submit"

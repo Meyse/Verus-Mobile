@@ -350,6 +350,7 @@ const GiftCardOptionsSheet = ({actions, cancelStep, onClose, visible}) => {
               <GiftCardOptionRow
                 key={action.key}
                 danger={action.danger}
+                detail={action.detail}
                 disabled={action.disabled || isTransitioning}
                 IconComponent={action.IconComponent}
                 label={action.label}
@@ -422,8 +423,11 @@ const GiftCardOptionsSheet = ({actions, cancelStep, onClose, visible}) => {
   );
 };
 
+// `detail` is a short reason under the label, such as why a disabled action
+// is unavailable. It does not dim with the row, so it stays readable.
 const GiftCardOptionRow = ({
   danger,
+  detail,
   disabled,
   IconComponent,
   label,
@@ -431,34 +435,60 @@ const GiftCardOptionRow = ({
   styles,
   theme,
   visuallyDisabled,
-}) => (
-  <TouchableOpacity
-    accessibilityRole="button"
-    accessibilityState={{disabled: Boolean(disabled)}}
-    activeOpacity={disabled ? 1 : 0.74}
-    disabled={disabled}
-    onPress={onPress}
-    style={[styles.actionRow, visuallyDisabled && localStyles.disabled]}>
-    <View style={[styles.actionIconContainer, styles.actionIcon]}>
-      <IconComponent
-        color={danger ? theme.colors.danger : theme.colors.textPrimary}
-        size={24}
-      />
-    </View>
+}) => {
+  const dimmed = visuallyDisabled ? localStyles.disabled : null;
+  const labelText = (
     <Text
       style={[
         styles.actionLabel,
         danger && {color: theme.colors.danger},
+        detail ? localStyles.detailLabel : null,
       ]}>
       {label}
     </Text>
-    <MaterialCommunityIcons
-      color={theme.colors.textSubtle}
-      name="chevron-right"
-      size={22}
-    />
-  </TouchableOpacity>
-);
+  );
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={{disabled: Boolean(disabled)}}
+      activeOpacity={disabled ? 1 : 0.74}
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.actionRow, !detail && dimmed]}>
+      <View style={detail ? dimmed : null}>
+        <View style={[styles.actionIconContainer, styles.actionIcon]}>
+          <IconComponent
+            color={danger ? theme.colors.danger : theme.colors.textPrimary}
+            size={24}
+          />
+        </View>
+      </View>
+      {detail ? (
+        <View style={localStyles.detailColumn}>
+          <View style={dimmed}>{labelText}</View>
+          <Text
+            style={[
+              theme.typography.caption,
+              localStyles.detailText,
+              {color: theme.colors.textSecondary},
+            ]}>
+            {detail}
+          </Text>
+        </View>
+      ) : (
+        labelText
+      )}
+      <View style={detail ? dimmed : null}>
+        <MaterialCommunityIcons
+          color={theme.colors.textSubtle}
+          name="chevron-right"
+          size={22}
+        />
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const localStyles = StyleSheet.create({
   headerRow: {
@@ -494,6 +524,19 @@ const localStyles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.45,
+  },
+  detailColumn: {
+    minWidth: 0,
+    flex: 1,
+    paddingVertical: 10,
+    paddingRight: 12,
+  },
+  detailLabel: {
+    flex: 0,
+    paddingRight: 0,
+  },
+  detailText: {
+    marginTop: 2,
   },
 });
 

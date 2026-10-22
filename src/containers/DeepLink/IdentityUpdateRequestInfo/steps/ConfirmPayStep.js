@@ -8,7 +8,7 @@
   - 2026-03-11: Tightened fee validation and post-broadcast error handling .
 */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import {RequestTitle} from '../../components/RequestReview';
 import { useSelector } from 'react-redux';
@@ -39,6 +39,8 @@ import { processEncryptedKeys } from '../../../../utils/crypto/encryptCredential
 import { confirmPayStepStyles as createConfirmPayStepStyles } from '../../../../styles';
 import {ensureGenericResponseSigner} from '../../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
+import {isNetworkFailureError} from '../../../../utils/deeplink/genericRequestRejection';
+import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../../utils/settings/settingsLabels';
 import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
 import {buildIdentityStateChange} from '../utils/buildIdentityStateChange';
 
@@ -106,6 +108,42 @@ const getDeliveryTitle = deliveryInfo => {
   return 'Completing request';
 };
 
+const NETWORK_UNAVAILABLE_MESSAGE =
+  'Verus Mobile could not reach the Verus network. Check your connection';
+
+// The fee calculation failed. The raw error stays in the log.
+const getFeeErrorMessage = error => {
+  const message = typeof error?.message === 'string' ? error.message : '';
+
+  if (message.includes('No Z recovery secret')) {
+    return `Set up the Z recovery secret in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}, then select a payment source again.`;
+  }
+  if (isNetworkFailureError(error)) {
+    return `${NETWORK_UNAVAILABLE_MESSAGE}, then select a payment source again.`;
+  }
+
+  return 'The fee could not be calculated. Select a payment source again.';
+};
+
+// The update was not broadcast, or a step after the broadcast failed. A
+// broadcast update keeps its txid on the sheet.
+const getBroadcastError = (error, txid) => {
+  if (txid) {
+    return {
+      title: 'Response not prepared',
+      message:
+        'The identity update was broadcast, but the wallet could not prepare the response. Do not send the update again.',
+    };
+  }
+
+  return {
+    title: 'Update not broadcast',
+    message: isNetworkFailureError(error)
+      ? `${NETWORK_UNAVAILABLE_MESSAGE}, then try again.`
+      : 'The identity update was not broadcast. Try again.',
+  };
+};
+
 const getDeliveryErrorMessage = (error, deliveryInfo) => {
   if (error?.isResponsePostError) {
     return `The response could not be sent to ${
@@ -156,6 +194,9 @@ const ConfirmPayStep = ({
   const [broadcastTxid, setBroadcastTxid] = useState(null);
   const [pendingResponse, setPendingResponse] = useState(null);
   const [completionError, setCompletionError] = useState(null);
+  // Set when the ERROR stage reports a failed broadcast, not a failed delivery.
+  const [broadcastError, setBroadcastError] = useState(null);
+  const [feeError, setFeeError] = useState(null);
   const [completionDeliveryInfo, setCompletionDeliveryInfo] = useState(null);
   const [sourceSheetVisible, setSourceSheetVisible] = useState(false);
   const feeCalculationIdRef = useRef(0);
@@ -288,6 +329,7 @@ const ConfirmPayStep = ({
     setSourceSheetVisible(false);
     setSelectedSource(source);
     setCalculating(true);
+    setFeeError(null);
     setFee(null);
     setFeeCurrency(null);
     setTxHex(null);
@@ -359,8 +401,10 @@ const ConfirmPayStep = ({
       setSelectedSource(null);
       setTxHex(null);
       setUtxos(null);
+      // The fee row shows the reason; "Select payment source" picks again.
       if (!showFundRawTransactionErrorAlert(e)) {
-        Alert.alert('Error', e.message || 'Failed to calculate fee');
+        console.warn(e);
+        setFeeError(getFeeErrorMessage(e));
       }
     } finally {
       if (
@@ -388,6 +432,7 @@ const ConfirmPayStep = ({
     setBroadcastTxid(null);
     setPendingResponse(null);
     setCompletionError(null);
+    setBroadcastError(null);
     setCompletionDeliveryInfo(null);
     setCompletionSheetStage(COMPLETION_SHEET_STAGE.BROADCASTING);
     let resultTxid = null;
@@ -443,22 +488,28 @@ const ConfirmPayStep = ({
         cancel();
       }
     } catch (e) {
-      const errorMessage = resultTxid
-        ? `Your identity update transaction was already broadcast (${resultTxid}). ${e.message || 'A later step failed after the broadcast completed.'}`
-        : e.message || 'Failed to broadcast transaction';
-      // once a txid exists, surface that funds were spent instead of implying a failed broadcast.
-      Alert.alert('Error', errorMessage);
-      if (typeof onBroadcastingChange === 'function') {
-        onBroadcastingChange(false);
-      }
-      setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
+      console.warn(e);
+      // Once a txid exists, the sheet keeps it and says the update was
+      // broadcast instead of implying a failed broadcast.
+      setBroadcastTxid(resultTxid);
+      setBroadcastError(getBroadcastError(e, resultTxid));
+      setCompletionSheetStage(COMPLETION_SHEET_STAGE.ERROR);
     }
   }, [selectedSource, txHex, utxos, details, responseBufferString, coinObj, signerIdentityAddress, next, detailIndex, cancel, onBroadcastingChange]);
+
+  // Back to the confirm step, as after the earlier error alert.
+  const closeBroadcastError = useCallback(() => {
+    if (typeof onBroadcastingChange === 'function') {
+      onBroadcastingChange(false);
+    }
+    setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
+  }, [onBroadcastingChange]);
 
   const deliverPendingResponse = useCallback(async () => {
     if (!pendingResponse || !next) return;
 
     setCompletionError(null);
+    setBroadcastError(null);
     setCompletionDeliveryInfo(identityUpdateDeliveryInfo || null);
     setCompletionSheetStage(COMPLETION_SHEET_STAGE.DELIVERING);
 
@@ -559,6 +610,7 @@ const ConfirmPayStep = ({
     completionSheetStage === COMPLETION_SHEET_STAGE.SUCCESS;
   const completionIsError =
     completionSheetStage === COMPLETION_SHEET_STAGE.ERROR;
+  const completionIsBroadcastError = completionIsError && broadcastError != null;
   const completionTitle = completionIsBroadcasting
     ? 'Broadcasting update'
     : completionIsReady
@@ -567,12 +619,16 @@ const ConfirmPayStep = ({
         ? getDeliveryTitle(effectiveDeliveryInfo)
         : completionIsSuccess
           ? 'Response sent'
-          : 'Response not sent';
+          : completionIsBroadcastError
+            ? broadcastError.title
+            : 'Response not sent';
   const completionMessage = completionIsBroadcasting
     ? 'This may take a moment.'
-    : completionIsError
-      ? getDeliveryErrorMessage(completionError, effectiveDeliveryInfo)
-      : null;
+    : completionIsBroadcastError
+      ? broadcastError.message
+      : completionIsError
+        ? getDeliveryErrorMessage(completionError, effectiveDeliveryInfo)
+        : null;
   const showLoadingAnimation = completionIsBroadcasting || completionIsDelivering;
   const showSuccessAnimation = completionIsReady || completionIsSuccess;
   const showTxidCard =
@@ -602,7 +658,15 @@ const ConfirmPayStep = ({
         {/* Fee */}
         <View style={localStyles.feeCard}>
           <Text style={localStyles.feeLabel}>Transaction fee</Text>
-          <View style={localStyles.feeContent}>
+          <View
+            style={[
+              localStyles.feeContent,
+              // A fee error can run to several lines.
+              feeError && !calculating && !hasFee && {
+                height: 'auto',
+                minHeight: 38,
+              },
+            ]}>
             {calculating ? (
               <View
                 accessibilityLabel="Calculating transaction fee"
@@ -623,6 +687,16 @@ const ConfirmPayStep = ({
                   <Text style={localStyles.feeFiat}>{feeFiatDisplay}</Text>
                 )}
               </View>
+            ) : feeError ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                accessibilityRole="alert"
+                style={[
+                  theme.typography.bodySm,
+                  {color: theme.colors.danger},
+                ]}>
+                {feeError}
+              </Text>
             ) : (
               <Text style={localStyles.feePlaceholder}>
                 Select a payment source to see fee
@@ -841,7 +915,29 @@ const ConfirmPayStep = ({
               </AppButton>
             </>
           )}
-          {completionIsError && (
+          {completionIsBroadcastError && (
+            <View style={localStyles.deliveryActions}>
+              {!broadcastTxid && (
+                <AppButton
+                  height={52}
+                  onPress={handleUpdate}
+                  style={localStyles.deliveryActionButton}
+                  themeMode={theme.mode}
+                  variant="primary">
+                  Try again
+                </AppButton>
+              )}
+              <AppButton
+                height={52}
+                onPress={closeBroadcastError}
+                style={localStyles.deliveryActionButton}
+                themeMode={theme.mode}
+                variant={broadcastTxid ? 'primary' : 'secondary'}>
+                Close
+              </AppButton>
+            </View>
+          )}
+          {completionIsError && !completionIsBroadcastError && (
             <View style={localStyles.deliveryActions}>
               <AppButton
                 height={52}

@@ -224,7 +224,11 @@ const Home = () => {
     try {
       dispatch(await saveGeneralSettings({ displayCurrency: currency }));
     } catch (e) {
-      createAlert('Error setting display currency', e.message);
+      console.warn(e);
+      createAlert(
+        'Display currency not changed',
+        'The wallet could not save the new currency. Try again.',
+      );
     }
   };
 

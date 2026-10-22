@@ -20,10 +20,11 @@
     bottom sheet, with row-level detail sheets for primary/recovery/revocation.
 */
 import React, {useMemo, useState, useEffect, useCallback} from 'react';
-import {ScrollView, TouchableOpacity, View} from 'react-native';
+import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {primitives} from 'verusid-ts-client';
 import {Portal, Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {Info} from 'lucide-react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import CopyAction from '../../../components/CopyAction';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
@@ -43,7 +44,6 @@ import {
 } from '../../../actions/actions/alert/dispatchers/alert';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
-import {copyToClipboard} from '../../../utils/clipboard/clipboard';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {
   VERUSID_AUTH_INFO,
@@ -95,6 +95,25 @@ const STEP_CONTENT = 1;
 const STEP_HIGH_RISK = 2;
 const STEP_CONFIRM_PAY = 3;
 const CMM_CLEAR_MAP_SENTINEL = '__CMM_CLEAR__';
+
+// The footer reason row of the authentication and app-encryption reviews.
+const walletGateStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  icon: {
+    width: 16,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    flex: 1,
+    letterSpacing: 0,
+  },
+});
 
 const formatRawData = value => {
   if (value == null) return '';
@@ -446,10 +465,8 @@ const IdentityUpdateRequestInfoContent = props => {
             ? {
                 data: displayIdentityAddress(identityUpdates.privateaddress),
                 rawData: identityUpdates.privateaddress,
-                onPress: () =>
-                  copyToClipboard(identityUpdates.privateaddress, {
-                    message: `${identityUpdates.privateaddress} copied to clipboard.`,
-                  }),
+                // The content step row copies it with CopyAction.
+                copyValue: identityUpdates.privateaddress,
               }
             : null,
       },
@@ -483,10 +500,6 @@ const IdentityUpdateRequestInfoContent = props => {
         ] = {
           data: displayIdentityAddress(identityUpdates.primaryaddresses[i]),
           rawData: identityUpdates.primaryaddresses[i],
-          onPress: () =>
-            copyToClipboard(identityUpdates.primaryaddresses[i], {
-              message: `${identityUpdates.primaryaddresses[i]} copied to clipboard.`,
-            }),
         };
       }
     }
@@ -684,6 +697,13 @@ const IdentityUpdateRequestInfoContent = props => {
     signedIn &&
     activeAccount != null &&
     accountIsTestnet(activeAccount) === requestIsTestnet;
+  // No wallet on this device can answer the request. The review step disables
+  // the wallet action and says why.
+  const noRequestNetworkWallet =
+    !activeAccountMatchesRequest &&
+    !(accounts || []).some(
+      account => accountIsTestnet(account) === requestIsTestnet,
+    );
 
   const walletAddresses = useMemo(() => {
     const normalize = addresses => {
@@ -895,15 +915,8 @@ const IdentityUpdateRequestInfoContent = props => {
       account => accountIsTestnet(account) === requestIsTestnet,
     );
 
-    if (allowList.length === 0) {
-      createAlert(
-        'Cannot continue',
-        `No ${
-          requestIsTestnet ? 'testnet' : 'mainnet'
-        } wallets found, cannot respond to this VerusID update request.`,
-      );
-      return;
-    }
+    // The action is disabled with its reason on screen.
+    if (allowList.length === 0) return;
 
     try {
       await requestWalletUnlock({
@@ -1146,7 +1159,29 @@ const IdentityUpdateRequestInfoContent = props => {
               </View>
             </View>
           )}
+          {currentStepId === STEP_REVIEW && noRequestNetworkWallet && (
+            <View style={walletGateStyles.row}>
+              <View style={walletGateStyles.icon}>
+                <Info
+                  size={16}
+                  strokeWidth={2.1}
+                  color={theme.colors.textSubtle}
+                />
+              </View>
+              <Text
+                style={[
+                  theme.typography.bodySm,
+                  walletGateStyles.text,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                {`This request needs a ${
+                  requestIsTestnet ? 'testnet' : 'mainnet'
+                } wallet. Add one, then open the request again.`}
+              </Text>
+            </View>
+          )}
           <AppButton
+            disabled={currentStepId === STEP_REVIEW && noRequestNetworkWallet}
             height={56}
             onPress={handleFooterRight}
             themeMode={theme.mode}

@@ -1,7 +1,6 @@
 import React from "react";
 import {
   LogBox,
-  Alert,
   AppState,
   Platform,
   View,
@@ -169,11 +168,11 @@ export class VerusMobile extends React.Component {
     } catch (err) {
       console.error(err)
 
+      // StartupCover shows the error.
       this.setState({
         startupError: err.message || 'Startup failed'
       })
 
-      Alert.alert("Error", err.message)
       this.setLoading(false)
     }
   }

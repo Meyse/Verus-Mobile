@@ -511,6 +511,9 @@ export const SettingsRow = ({
   description,
   descriptionNumberOfLines = 2,
   disabled = false,
+  // A short failure for this row, such as "Not saved. Try again.". It takes
+  // the place of the description, in the danger color, and replaces an alert.
+  error,
   external = false,
   hideDivider = false,
   icon,
@@ -565,7 +568,13 @@ export const SettingsRow = ({
         <Text style={[styles.rowTitle, danger && styles.dangerText]}>
           {title}
         </Text>
-        {description ? (
+        {error ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[styles.rowDescription, styles.dangerText]}>
+            {error}
+          </Text>
+        ) : description ? (
           <Text
             numberOfLines={descriptionNumberOfLines}
             style={styles.rowDescription}>

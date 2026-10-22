@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
-  Alert,
   Animated,
   Easing,
   Keyboard,
@@ -18,6 +17,7 @@ import {ActivityIndicator, Switch} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch} from 'react-redux';
+import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import {modifyServiceStoredDataForUser} from '../../../../../actions/actions/services/dispatchers/services';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
@@ -155,6 +155,36 @@ const GiftCardPageContent = ({children}) => {
 };
 
 const GIFT_CARD_FUNDING_NOT_ALLOWED = 'GIFT_CARD_FUNDING_NOT_ALLOWED';
+// Matches the pending-funding error that the share checks below throw.
+const SHARE_PENDING_FUNDING_ERROR =
+  'Wait for funding transactions to confirm before sharing this gift card.';
+
+// A share failure shows fixed copy. The raw error goes to the log only.
+const showShareFailureAlert = (error, shareLeftWallet = false) => {
+  console.warn(error);
+
+  if (shareLeftWallet) {
+    createAlert(
+      'Share not recorded',
+      'The gift card was shared, but the wallet could not record it. Treat it as shared.',
+    );
+    return;
+  }
+
+  const messages = {
+    [GIFT_CARD_REDEEMED_SHARE_MESSAGE]: 'The gift card is already claimed.',
+    [GIFT_CARD_SHARE_IN_PROGRESS_MESSAGE]:
+      'A share of this gift card is in progress. Wait for it to finish.',
+    [SHARE_PENDING_FUNDING_ERROR]:
+      'Sharing unlocks after the funding transaction confirms.',
+  };
+
+  createAlert(
+    'Gift card not shared',
+    messages[error?.message] ||
+      'The wallet could not check the gift card. Check your connection and try again.',
+  );
+};
 
 const isPendingFunding = funding =>
   funding?.status === 'pending' || funding?.pending === true;
@@ -1148,10 +1178,7 @@ const GiftCardFund = props => {
         const preparedCard = await prepareShareCard(cardToShare);
         setShareCard(preparedCard);
       } catch (e) {
-        Alert.alert(
-          'Unable to share',
-          e.message || 'Unable to prepare gift card.',
-        );
+        showShareFailureAlert(e);
       } finally {
         setBusy(false);
         setOperationText('');
@@ -1252,10 +1279,7 @@ const GiftCardFund = props => {
       } catch (e) {
         if (!actionCompleted) await rollbackShareAttempt();
 
-        Alert.alert(
-          'Unable to share',
-          e.message || 'Unable to share gift card.',
-        );
+        showShareFailureAlert(e, actionCompleted);
         return null;
       } finally {
         setBusy(false);
