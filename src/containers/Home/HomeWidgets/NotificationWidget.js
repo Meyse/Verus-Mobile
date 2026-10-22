@@ -1,7 +1,7 @@
 import React, {useMemo} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useNavigation} from '@react-navigation/native';
+import {useIsFocused, useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import AppButton from '../../../components/AppButton';
 import {
@@ -9,12 +9,16 @@ import {
   NOTIFICATION_ICON_VERUSID,
   NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
 } from '../../../utils/constants/notifications';
-import {dispatchRemoveNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
+import {
+  dispatchAddNotification,
+  dispatchRemoveNotification,
+} from '../../../actions/actions/notifications/dispatchers/notifications';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {fontStyle} from '../../../globals/fonts';
 import {VerusIdProvisioningNotification} from '../../../utils/notification';
 import {processVerusId} from '../../Services/ServiceComponents/VerusIdService/VerusIdLogin';
+import VerusIdReadyCard from './VerusIdReadyCard';
 
 // A failed VerusID request reads "<name>@ could not be created" with "Try
 // again", also for notifications stored with the older wording.
@@ -45,6 +49,7 @@ const NotificationWidget = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
+  const isFocused = useIsFocused();
   const notifications = useObjectSelector(state => state.notifications);
   const activeAccount = useSelector(state => state.authentication.activeAccount);
   const accountHash = activeAccount?.accountHash ?? null;
@@ -64,6 +69,7 @@ const NotificationWidget = () => {
         );
         notification.uid = uid;
         notification.iconType = value.icon ?? NOTIFICATION_ICON_VERUSID;
+        notification.celebrated = value.celebrated === true;
         return notification;
       })
       .filter(notification =>
@@ -73,12 +79,44 @@ const NotificationWidget = () => {
       );
   }, [accountHash, notifications]);
 
+  // The celebration plays once: the stored notification remembers it.
+  const markCelebrated = uid => {
+    const entry = notifications?.directory?.[uid];
+
+    if (entry && entry.celebrated !== true) {
+      dispatchAddNotification({...entry, uid, celebrated: true});
+    }
+  };
+
   if (actionableNotifications.length === 0) return null;
 
   return (
     <View style={styles.container}>
       {actionableNotifications.map((notification, index) => {
         const {highlight, label, remainder} = getNotificationCopy(notification);
+
+        if (notification.iconType !== NOTIFICATION_ICON_ERROR) {
+          return (
+            <View
+              key={notification.uid}
+              style={
+                index < actionableNotifications.length - 1 && styles.cardSpacing
+              }>
+              <VerusIdReadyCard
+                active={isFocused}
+                celebrate={!notification.celebrated}
+                highlight={highlight}
+                label={label}
+                onAction={() => notification.onAction({navigation, dispatch})}
+                onCelebrated={() => markCelebrated(notification.uid)}
+                onDismiss={() => dispatchRemoveNotification(notification.uid)}
+                remainder={remainder}
+                theme={theme}
+              />
+            </View>
+          );
+        }
+
         return (
           <View
             key={notification.uid}
