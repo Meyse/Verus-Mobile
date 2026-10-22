@@ -17,6 +17,10 @@ import CopyAction from '../../components/CopyAction';
 import PasswordCheck from '../../components/PasswordCheck';
 import RecoverySecretsPrivacyGuard from '../../components/RecoverySecretsPrivacyGuard';
 import ServiceManagerHeader from '../../components/ServiceManagerHeader';
+import RecoverySecretQrSheet, {
+  canShowSecretQr,
+  SecretQrAction,
+} from './RecoverySecretQrSheet';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -120,6 +124,8 @@ const DisplaySeed = ({navigation, route}) => {
     requiresAuthentication && accountIsAllowed,
   );
   const [captureBlocked, setCaptureBlocked] = useState(false);
+  const [qrSecret, setQrSecret] = useState(null);
+  const [qrVisible, setQrVisible] = useState(false);
   const sensitiveDataLoadedRef = useRef(Object.keys(secrets).length > 0);
   const reauthenticateOnActiveRef = useRef(false);
   const captureBlockedRef = useRef(false);
@@ -144,6 +150,8 @@ const DisplaySeed = ({navigation, route}) => {
 
   const hideSensitiveValues = useCallback(() => {
     sensitiveSessionRef.current += 1;
+    setQrVisible(false);
+    setQrSecret(null);
     setRevealedSecrets({});
     setDerivedKeys({});
     setRevealedDerivedKeys({});
@@ -256,6 +264,11 @@ const DisplaySeed = ({navigation, route}) => {
 
     if (navigation.closeDrawer) navigation.closeDrawer();
     navigation.dispatch(resetAction);
+  };
+
+  const showSecretQr = secret => {
+    setQrSecret(secret);
+    setQrVisible(true);
   };
 
   const toggleSecret = key => {
@@ -452,6 +465,12 @@ const DisplaySeed = ({navigation, route}) => {
                     <SecretCard
                       key={key}
                       name={SECRET_NAMES[key]}
+                      onShowQr={() =>
+                        showSecretQr({
+                          title: `${SECRET_NAMES[key]} recovery secret`,
+                          value,
+                        })
+                      }
                       onToggle={() => toggleSecret(key)}
                       revealed={revealedSecrets[key] === true}
                       styles={styles}
@@ -491,6 +510,15 @@ const DisplaySeed = ({navigation, route}) => {
                     }
                     fetching={fetchingDerivedKey === option.id}
                     name={option.label}
+                    onShowQr={privateKey =>
+                      showSecretQr({
+                        title:
+                          option.id === 'z-address'
+                            ? option.label
+                            : `${option.label} private key`,
+                        value: privateKey,
+                      })
+                    }
                     onToggle={() => toggleDerivedKey(option)}
                     revealed={revealedDerivedKeys[option.id] === true}
                     styles={styles}
@@ -508,6 +536,12 @@ const DisplaySeed = ({navigation, route}) => {
           </>
         )}
       </SettingsScreen>
+      <RecoverySecretQrSheet
+        onClose={() => setQrVisible(false)}
+        onClosed={() => setQrSecret(null)}
+        secret={qrSecret}
+        visible={qrVisible && qrSecret != null}
+      />
       {requiresAuthentication && account ? (
         <PasswordCheck
           account={account}
@@ -535,7 +569,15 @@ const DisplaySeed = ({navigation, route}) => {
   );
 };
 
-const SecretCard = ({name, onToggle, revealed, styles, theme, value}) => {
+const SecretCard = ({
+  name,
+  onShowQr,
+  onToggle,
+  revealed,
+  styles,
+  theme,
+  value,
+}) => {
   const words = revealed && validateMnemonic(value) ? value.split(/\s+/) : null;
 
   return (
@@ -543,12 +585,20 @@ const SecretCard = ({name, onToggle, revealed, styles, theme, value}) => {
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{name}</Text>
         {revealed ? (
-          <CopyAction
-            accessibilityLabel={`Copy ${name} recovery secret`}
-            copiedAccessibilityLabel={`${name} recovery secret copied`}
-            iconSize={18}
-            value={value}
-          />
+          <View style={styles.cardActions}>
+            {canShowSecretQr(value) ? (
+              <SecretQrAction
+                accessibilityLabel={`Show ${name} recovery secret as a QR code`}
+                onPress={onShowQr}
+              />
+            ) : null}
+            <CopyAction
+              accessibilityLabel={`Copy ${name} recovery secret`}
+              copiedAccessibilityLabel={`${name} recovery secret copied`}
+              iconSize={18}
+              value={value}
+            />
+          </View>
         ) : null}
       </View>
       {revealed ? (
@@ -587,6 +637,7 @@ const DerivedKeyRow = ({
   error,
   fetching,
   name,
+  onShowQr,
   onToggle,
   revealed,
   styles,
@@ -636,6 +687,12 @@ const DerivedKeyRow = ({
             copyAccessibilityLabel={`Copy ${name}`}
             copiedAccessibilityLabel={`${name} copied`}
             label={valueLabel}
+            onShowQr={
+              canShowSecretQr(value.privateKey)
+                ? () => onShowQr(value.privateKey)
+                : undefined
+            }
+            qrAccessibilityLabel={`Show ${name} ${valueLabel.toLowerCase()} as a QR code`}
             styles={styles}
             value={value.privateKey}
           />
@@ -654,6 +711,8 @@ const TechnicalValueRow = ({
   copyAccessibilityLabel,
   copiedAccessibilityLabel,
   label,
+  onShowQr,
+  qrAccessibilityLabel,
   styles,
   value,
 }) => (
@@ -663,6 +722,14 @@ const TechnicalValueRow = ({
       <Text selectable style={styles.technicalValue}>
         {value}
       </Text>
+      {onShowQr ? (
+        <View style={styles.technicalValueCopy}>
+          <SecretQrAction
+            accessibilityLabel={qrAccessibilityLabel}
+            onPress={onShowQr}
+          />
+        </View>
+      ) : null}
       <CopyAction
         accessibilityLabel={copyAccessibilityLabel}
         copiedAccessibilityLabel={copiedAccessibilityLabel}
@@ -690,6 +757,10 @@ const createStyles = theme =>
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 14,
+    },
+    cardActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     cardTitle: {
       color: theme.colors.textPrimary,

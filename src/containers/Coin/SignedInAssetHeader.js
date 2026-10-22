@@ -45,7 +45,6 @@ import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   DLIGHT_PRIVATE,
-  VRPC,
 } from '../../utils/constants/intervalConstants';
 import {
   extractErrorData,
@@ -53,7 +52,8 @@ import {
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
 import {
-  getLedgerConfirmed,
+  getLedgerPending,
+  getLedgerTotal,
   getNetworkTicker,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
@@ -67,11 +67,6 @@ import {
 } from '../../utils/subwallet/privateWallet';
 
 const CONTAINER_PADDING = 20;
-// VRPC total includes pending spends/change, as Wallet and the send source do.
-const getCardBalance = (entry, wallet) =>
-  wallet?.api_channels?.[API_GET_BALANCES]?.startsWith(`${VRPC}.`)
-    ? entry?.total
-    : getLedgerConfirmed(entry);
 const CARD_WIDTH_RATIO = 0.78;
 const MAX_CARD_WIDTH = 314;
 const CARD_HEIGHT = 206;
@@ -702,7 +697,7 @@ const SignedInAssetHeader = () => {
   const totalDisplayedBalance = useMemo(
     () =>
       allSubWallets.reduce((total, wallet) => {
-        const balance = getCardBalance(balances?.[wallet.id], wallet);
+        const balance = getLedgerTotal(balances?.[wallet.id]);
         return balance == null ? total : total.plus(BigNumber(balance));
       }, BigNumber(0)),
     [allSubWallets, balances],
@@ -1026,7 +1021,7 @@ const SignedInAssetHeader = () => {
       const networkTicker = getNetworkTicker(item.network);
       const systemLabel = networkTicker || displayTicker;
       const ledgerEntry = balances?.[item.id];
-      const walletBalance = getCardBalance(ledgerEntry, item);
+      const walletBalance = getLedgerTotal(ledgerEntry);
       const walletHasError = Boolean(balanceErrors?.[item.id]);
 
       let amountText = '—';
@@ -1043,6 +1038,17 @@ const SignedInAssetHeader = () => {
           ? formatSyncStatus(privateSyncPercent)
           : null;
       if (syncStatus) fiatText = null;
+      // Funds that still confirm are in the amount; one line says how much.
+      // "Syncing x%" replaces it, because the balance is not complete yet.
+      const pendingBalance =
+        walletHasError || syncStatus ? null : getLedgerPending(ledgerEntry);
+      const pendingText =
+        pendingBalance == null
+          ? null
+          : `${pendingBalance.isGreaterThan(0) ? '+' : '−'}${truncateDecimal(
+              pendingBalance.abs(),
+              8,
+            )} ${displayTicker} pending`;
       let balanceAccessibilityLabel;
       if (walletHasError) {
         balanceAccessibilityLabel = 'Connection error';
@@ -1054,6 +1060,7 @@ const SignedInAssetHeader = () => {
         balanceAccessibilityLabel = [
           `${amountText} ${displayTicker}`,
           fiatText,
+          pendingText,
         ]
           .filter(Boolean)
           .join(', ');
@@ -1145,6 +1152,17 @@ const SignedInAssetHeader = () => {
                 numberOfLines={1}
                 style={styles.fiatText}>
                 {fiatText}
+              </PrivacyBlurredText>
+            ) : null}
+            {pendingText != null ? (
+              <PrivacyBlurredText
+                blurRadius={5}
+                color={cardMaterial.mutedText}
+                containerStyle={styles.pendingTextFrame}
+                hidden={!showBalance}
+                numberOfLines={1}
+                style={styles.fiatText}>
+                {pendingText}
               </PrivacyBlurredText>
             ) : null}
             {syncStatus ? (
@@ -1462,6 +1480,9 @@ const styles = StyleSheet.create({
   },
   fiatTextFrame: {
     marginTop: 1,
+  },
+  pendingTextFrame: {
+    marginTop: 2,
   },
   syncBadge: {
     alignSelf: 'flex-start',
