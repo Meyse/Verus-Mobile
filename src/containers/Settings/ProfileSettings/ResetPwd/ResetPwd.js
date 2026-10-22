@@ -11,8 +11,8 @@ import {Keyboard} from "react-native";
 import { NavigationActions } from '@react-navigation/compat';
 import { resetPwd, signOut } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
-import AlertAsync from "react-native-alert-async";
-import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
+import { createAlert, resolveAlert } from "../../../../actions/actions/alert/dispatchers/alert";
+import { checkPinForUser } from "../../../../utils/asyncStore/asyncStore";
 import { CommonActions } from "@react-navigation/native";
 import { removeBiometricPassword } from "../../../../utils/keychain/biometrics";
 import AppTextInput from '../../../../components/AppTextInput';
@@ -58,26 +58,55 @@ export class ResetPwd extends Component {
   }
 
   onSuccess = () => {
-    createAlert("Success!", "Password for " + this.props.activeAccount.id + " reset successfully.");
+    createAlert("Password changed", "Sign in with the new password.");
     this.handleLogout();
   }
 
+  onFailure = () => {
+    createAlert(
+      "Password not changed",
+      "The wallet could not change the password. Try again.",
+    );
+  }
+
   canReset = () => {
-    return AlertAsync(
-      'Confirm Reset',
-      "Are you sure you would like to reset your password? This will log you out.",
+    return createAlert(
+      'Change password?',
+      "The wallet signs out.",
       [
         {
-          text: 'No, take me back',
-          onPress: () => Promise.resolve(false),
+          text: 'Not now',
+          onPress: () => resolveAlert(false),
           style: 'cancel',
         },
-        {text: 'Continue', onPress: () => Promise.resolve(true)},
+        {text: 'Change and sign out', onPress: () => resolveAlert(true)},
       ],
-      {
-        cancelable: false,
-      },
     )
+  }
+
+  // The password reset returns false for any failure, a wrong current
+  // password included. Check that password here so a wrong one shows on its
+  // field; anything else gets the failure sheet.
+  reportFailure = async (oldPwd) => {
+    try {
+      await checkPinForUser(oldPwd, this.props.activeAccount?.id, false)
+    } catch (error) {
+      if (error?.message === "Incorrect password") {
+        this.handleError("Password not recognized. Try again.", "oldPwd")
+        return
+      }
+
+      console.warn(error)
+    }
+
+    this.onFailure()
+  }
+
+  clearFieldError = (field) => (value) => {
+    this.setState(({errors}) => ({
+      [field]: value,
+      errors: {...errors, [field]: null},
+    }))
   }
 
   resetToScreen = (route, title, data, fullReset) => {
@@ -147,20 +176,24 @@ export class ResetPwd extends Component {
         _errors = true
       } else if (_newPwd === _oldPwd) {
         this.handleError("Current and new passwords must be different", "newPwd")
-        createAlert("Error", "Current and new passwords must be different")
         _errors = true
       }
 
       if (_newPwd !== _confirmNewPwd) {
         this.handleError("Passwords do not match", "confirmNewPwd")
-        createAlert("Error", "Passwords do not match")
         _errors = true
       }
 
       if (!_errors) {
+        let confirmed = false
+        let changed = false
+
         this.canReset()
         .then(async (res) => {
           if (res) {
+            confirmed = true
+            this.setState({ loading: true })
+
             if (this.props.activeAccount) {
               return (resetPwd(this.props.activeAccount.accountHash, this.state.newPwd, this.state.oldPwd))
             } else {
@@ -173,6 +206,7 @@ export class ResetPwd extends Component {
         })
         .then(async (action) => {
           if (action) {
+            changed = true
             const biometricAccountHash = this.props.activeAccount.biometry
               ? this.props.activeAccount.accountHash
               : null
@@ -192,12 +226,17 @@ export class ResetPwd extends Component {
 
             this.onSuccess()
           } else {
+            if (confirmed) {
+              console.warn("Error, password reset failed")
+              await this.reportFailure(_oldPwd)
+            }
+
             this.setState({ loading: false })
-            console.warn("Error, password reset failed")
           }
         })
-        .catch((error) => {
+        .catch(async (error) => {
           console.warn(error)
+          if (confirmed && !changed) await this.reportFailure(_oldPwd)
           this.setState({ loading: false })
         })
       } 
@@ -228,7 +267,7 @@ export class ResetPwd extends Component {
             {...passwordAutofillProps}
             errorText={this.state.errors.oldPwd}
             label="Current password"
-            onChangeText={oldPwd => this.setState({oldPwd})}
+            onChangeText={this.clearFieldError("oldPwd")}
             returnKeyType="next"
             secureTextEntry
             value={this.state.oldPwd || ''}
@@ -238,7 +277,7 @@ export class ResetPwd extends Component {
             containerStyle={{marginTop: 16}}
             errorText={this.state.errors.newPwd}
             label="New password"
-            onChangeText={newPwd => this.setState({newPwd})}
+            onChangeText={this.clearFieldError("newPwd")}
             returnKeyType="next"
             secureTextEntry
             value={this.state.newPwd || ''}
@@ -248,7 +287,7 @@ export class ResetPwd extends Component {
             containerStyle={{marginTop: 16}}
             errorText={this.state.errors.confirmNewPwd}
             label="Confirm new password"
-            onChangeText={confirmNewPwd => this.setState({confirmNewPwd})}
+            onChangeText={this.clearFieldError("confirmNewPwd")}
             returnKeyType="done"
             secureTextEntry
             value={this.state.confirmNewPwd || ''}

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import {Info} from 'lucide-react-native';
-import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import KeyboardAvoidingForm from '../../../../components/KeyboardAvoidingForm';
@@ -242,15 +241,12 @@ export default function CreatePassword({
     return res;
   };
 
+  // Continue and the keyboard submit wait for a valid form; this is a guard.
   const next = async () => {
-    const {valid, message} = validate();
+    if (!validate().valid) return;
 
-    if (!valid) {
-      createAlert('Error', message);
-    } else {
-      if (onNext) {
-        await onNext();
-      }
+    if (onNext) {
+      await onNext();
     }
   };
 

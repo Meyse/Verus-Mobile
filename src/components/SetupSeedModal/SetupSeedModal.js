@@ -53,7 +53,10 @@ class SetupSeedModal extends Component {
         }
       })
     } catch(e) {
-      createAlert("Error", "Error generating Secret Recovery Phrase.")
+      createAlert(
+        "Recovery secret not created",
+        "The wallet could not generate a new recovery secret. Try again."
+      )
       this.cancel()
       console.warn(e)
     }

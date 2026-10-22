@@ -1,7 +1,10 @@
 import React, {useCallback} from 'react';
-import AlertAsync from 'react-native-alert-async';
 import {useDispatch} from 'react-redux';
 import {clearCacheData} from '../../../actions/actionCreators';
+import {
+  createAlert,
+  resolveAlert,
+} from '../../../actions/actions/alert/dispatchers/alert';
 import {SettingsRow} from './SettingsScaffold';
 import {resetToSecureLoading} from './settingsTaskNavigation';
 
@@ -10,19 +13,17 @@ const ClearCacheSettingRow = ({last = false, navigation}) => {
 
   const canClearCache = useCallback(
     () =>
-      AlertAsync(
-        'Confirm',
-        'Are you sure you would like to clear the stored data cache? ' +
-          '(This could impact performance temporarily but will not delete any account information)',
+      createAlert(
+        'Clear the data cache?',
+        'The wallet resyncs and can be slow for a while. Wallets and recovery secrets are not deleted.',
         [
           {
-            text: 'No, take me back',
-            onPress: () => Promise.resolve(false),
+            text: 'Not now',
+            onPress: () => resolveAlert(false),
             style: 'cancel',
           },
-          {text: 'Yes', onPress: () => Promise.resolve(true)},
+          {text: 'Clear cache', onPress: () => resolveAlert(true)},
         ],
-        {cancelable: false},
       ),
     [],
   );

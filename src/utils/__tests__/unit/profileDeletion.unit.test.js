@@ -161,8 +161,8 @@ describe('profile deletion durability', () => {
       mockDeleteProfileAction.mock.invocationCallOrder[0],
     );
     expect(mockCreateAlert).toHaveBeenCalledWith(
-      'Error',
-      'Failed to delete wallet "alice".',
+      'Wallet not deleted',
+      'The wallet could not delete "alice" from this device. Sign in and try again.',
     );
   });
 

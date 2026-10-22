@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
-import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
@@ -81,15 +80,11 @@ export default function ImportText({
     };
   }, [contentProgress]);
 
+  // Import is disabled while the field is empty.
   const handleImport = () => {
-    if (!importedSeed || importedSeed.length < 1) {
-      createAlert(
-        'Error',
-        'Please enter a custom seed, WIF key, or spending key.',
-      );
-    } else {
-      onComplete();
-    }
+    if (!importedSeed || importedSeed.length < 1) return;
+
+    onComplete();
   };
 
   const contentAnimatedStyle = {

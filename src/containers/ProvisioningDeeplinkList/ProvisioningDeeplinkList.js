@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -12,6 +11,10 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {useDispatch} from 'react-redux';
 import {GENERIC_REQUEST_DEEPLINK_VDXF_KEY} from 'verus-typescript-primitives';
 import {setDeeplinkData} from '../../actions/actionCreators';
+import {
+  createAlert,
+  resolveAlert,
+} from '../../actions/actions/alert/dispatchers/alert';
 import AppButton from '../../components/AppButton';
 import ServiceManagerHeader from '../../components/ServiceManagerHeader';
 import SkeletonLoader, {
@@ -142,23 +145,24 @@ const ProvisioningDeeplinkList = props => {
     }
   };
 
-  const confirmRemoveRequest = request => {
-    Alert.alert(
+  const confirmRemoveRequest = async request => {
+    const confirmed = await createAlert(
       'Remove saved request?',
-      "You won't be able to return to this request after removing it.",
+      'It cannot be opened again after removal.',
       [
-        {text: 'Cancel', style: 'cancel'},
         {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            await removePendingDeeplinkRequest(request.id);
-            await loadRequests();
-          },
+          text: 'Not now',
+          style: 'cancel',
+          onPress: () => resolveAlert(false),
         },
+        {text: 'Remove', onPress: () => resolveAlert(true)},
       ],
-      {cancelable: true},
     );
+
+    if (!confirmed) return;
+
+    await removePendingDeeplinkRequest(request.id);
+    await loadRequests();
   };
 
   const renderRequest = request => {

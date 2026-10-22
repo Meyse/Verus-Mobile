@@ -30,9 +30,11 @@ const WalletAppearanceSheet = ({account, onClose, visible}) => {
       dispatch(await setWalletAvatar(account.accountHash, draftAvatar));
       onClose();
     } catch (error) {
+      // An inline error needs an error prop on WalletAvatarPickerSheet.
+      console.warn(error);
       createAlert(
-        'Unable to change wallet appearance',
-        error.message || 'Please try again.',
+        'Wallet icon not saved',
+        'The wallet could not save the new icon. Try again.',
       );
     } finally {
       setSaving(false);

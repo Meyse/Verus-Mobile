@@ -1,6 +1,8 @@
 import React, {useCallback, useState} from 'react';
-import AlertAsync from 'react-native-alert-async';
-import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
+import {
+  createAlert,
+  resolveAlert,
+} from '../../../actions/actions/alert/dispatchers/alert';
 import {SecureStorage} from '../../../utils/keychain/secureStore';
 import {SettingsRow} from './SettingsScaffold';
 import {resetToSecureLoading} from './settingsTaskNavigation';
@@ -10,49 +12,60 @@ const KeychainEncryptionSettingRow = ({last = false, navigation}) => {
 
   const canToggleKeychainEncryption = useCallback(
     () =>
-      AlertAsync(
-        'Confirm',
+      createAlert(
         usingKeychainEncryption
-          ? "Keychain encryption is an extra layer of security that uses your device's native keychain to encrypt your wallet data in addition to your password. Disabling it is not recommended, only do so if it significantly degrades wallet startup performance. Would you like to disable keychain encryption?"
-          : 'Are you sure you would like to enable keychain encryption?',
+          ? 'Turn off keychain encryption?'
+          : 'Turn on keychain encryption?',
+        usingKeychainEncryption
+          ? 'It adds device keychain encryption on top of the wallet password. Turn it off only if the wallet starts too slowly.'
+          : 'The wallet then also encrypts its stored data with the device keychain.',
         [
           {
-            text: 'No, take me back',
-            onPress: () => Promise.resolve(false),
+            text: 'Not now',
+            onPress: () => resolveAlert(false),
             style: 'cancel',
           },
-          {text: 'Yes', onPress: () => Promise.resolve(true)},
+          {
+            text: usingKeychainEncryption ? 'Turn off' : 'Turn on',
+            onPress: () => resolveAlert(true),
+          },
         ],
-        {cancelable: false},
       ),
     [usingKeychainEncryption],
   );
 
   const toggleKeychainEncryption = useCallback(() => {
+    const direction = usingKeychainEncryption ? 'off' : 'on';
+    const showFailure = () =>
+      createAlert(
+        `Keychain encryption not turned ${direction}`,
+        `The wallet could not turn it ${direction}. Try again.`,
+      );
+
     canToggleKeychainEncryption().then(confirmed => {
       if (confirmed) {
         resetToSecureLoading(navigation, {
           task: async () => {
             try {
+              let changed;
+
               if (usingKeychainEncryption) {
                 await SecureStorage.decryptAllStorage();
-
-                if (SecureStorage.isEncrypted()) {
-                  createAlert('Error', 'Failed to disable keychain encryption');
-                } else {
-                  createAlert('Success', 'Disabled keychain encryption');
-                }
+                changed = !SecureStorage.isEncrypted();
               } else {
                 await SecureStorage.encryptAllStorage();
+                changed = SecureStorage.isEncrypted();
+              }
 
-                if (!SecureStorage.isEncrypted()) {
-                  createAlert('Error', 'Failed to enable keychain encryption');
-                } else {
-                  createAlert('Success', 'Enabled keychain encryption');
-                }
+              // The flow returns to Home, so this sheet is the only feedback.
+              if (changed) {
+                createAlert(`Keychain encryption turned ${direction}`);
+              } else {
+                showFailure();
               }
             } catch (e) {
-              createAlert('Error', e.message);
+              console.warn(e);
+              showFailure();
             }
           },
           message: `${

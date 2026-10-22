@@ -4,10 +4,8 @@
 */
 
 import React, { Component } from "react";
-import { Alert } from "react-native";
+import { createAlert } from "../actions/actions/alert/dispatchers/alert";
 import ScannerScreen from "./BarcodeReader/ScannerScreen";
-
-const FORMAT_UNKNOWN = "QR Data format unrecognized."
 
 class ScanSeed extends Component {
   constructor(props) {
@@ -20,12 +18,13 @@ class ScanSeed extends Component {
     if (result != null && typeof result === "string" && result.length <= 5000 && this.props.onScan) {
       this.props.onScan(result)
     } else {
-      this.errorHandler(FORMAT_UNKNOWN)
+      this.errorHandler()
     }
   }
 
-  errorHandler = (error) => {
-    Alert.alert("Error", error);
+  // The same wording as the Scan tab.
+  errorHandler = () => {
+    createAlert("Can’t use this QR code", "It is not a recovery secret.");
     this.cancelHandler()
   }
 

@@ -19,7 +19,6 @@ import {
   MAX_VERIFICATION_DESC,
   VERIFICATION_LOCKED
 } from '../../../../utils/constants/constants'
-import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import {
   SettingsActionFooter,
   SettingsNotice,
@@ -38,13 +37,15 @@ class CoinSettings extends Component {
       this.state = {
         ...this.props.coinSettings[this.coinID],
         errors: { verificationLvl: false },
-        loading: false
+        loading: false,
+        saveError: null,
       }
     } else {
       this.state = {
         verificationLvl: MAX_VERIFICATION,
         errors: { verificationLvl: false },
-        loading: false
+        loading: false,
+        saveError: null,
       };
     }
     
@@ -65,11 +66,13 @@ class CoinSettings extends Component {
   };
 
   updateIndex(verificationLvl) {
-    this.setState({verificationLvl: verificationLvl})
+    this.setState({verificationLvl: verificationLvl, saveError: null})
   }
 
+  // A saved level returns to the previous screen. A failure shows on the
+  // chosen row.
   saveSettings = () => {
-    this.setState({ loading: true }, () => {
+    this.setState({ loading: true, saveError: null }, () => {
       const stateToSave = {
         verificationLvl: this.state.verificationLvl,
       }
@@ -77,12 +80,11 @@ class CoinSettings extends Component {
       .then(res => {
         this.props.dispatch(res)
         this.setState({ ...this.props.coinSettings[this.coinID], loading: false })
-        createAlert("Success", `${this.coinID} settings saved.`)
+        this.back()
       })
       .catch(err => {
-        createAlert("Error", err.message)
         console.warn(err.message)
-        this.setState({ loading: false })
+        this.setState({ loading: false, saveError: "Not saved. Try again." })
       })
     })
   }
@@ -149,6 +151,7 @@ class CoinSettings extends Component {
                 accessibilityState={{checked: selected}}
                 choice
                 disabled={this.verificationLock}
+                error={selected ? this.state.saveError : null}
                 hideDivider={
                   selected ||
                   this.state.verificationLvl === verificationOptions[index + 1]?.value
