@@ -27,19 +27,22 @@ const MemoSheet = ({memo, onApply, onClose, visible}) => {
       onClose={onClose}
       title="Memo"
       visible={visible}>
+      {/* The field keeps its own text. As a controlled multiline input on
+          iOS it echoed changes back and forth with JS and lost typed
+          characters. The sheet remounts on open, so it starts from memo. */}
       <AppTextInput
         accessibilityLabel="Memo"
         autoCapitalize="sentences"
         autoCorrect
         autoFocus
         blurOnSubmit
+        defaultValue={memo}
         errorText={tooLong ? 'This memo is too long. Shorten it.' : undefined}
         helperText={helperText}
         multiline
         onChangeText={setDraft}
         placeholder="Optional"
         returnKeyType="done"
-        value={draft}
       />
     </ReceiveRequestSheet>
   );
