@@ -6,6 +6,7 @@ import {fontStyle} from '../../../globals/fonts';
 import {VerusPayTextLogo} from '../../../images/customIcons';
 import {paymentRequestSlipStyles as styles} from '../../../styles';
 import {PAYMENT_REQUEST_PAPER as paper} from '../../../styles/components/paymentRequestSlip.styles';
+import {getTicketOutline} from '../../../utils/ticketOutline';
 
 const STUB_HEIGHT = 68;
 const STUB_HEIGHT_COMPACT = 62;
@@ -22,7 +23,7 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
   const [perforation, setPerforation] = useState(0);
   const {width: w, height: h} = size;
   const p = perforation;
-  const outline = `M22 0H${w - 22}Q${w} 0 ${w} 22V${p - 11}A11 11 0 0 0 ${w} ${p + 11}V${h - 22}Q${w} ${h} ${w - 22} ${h}H22Q0 ${h} 0 ${h - 22}V${p + 11}A11 11 0 0 0 0 ${p - 11}V22Q0 0 22 0Z`;
+  const outline = getTicketOutline(w, h, p);
 
   return (
     <View

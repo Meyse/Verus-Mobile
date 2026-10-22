@@ -58,7 +58,7 @@ export default StyleSheet.create({
     letterSpacing: -1.8,
     ...fontStyle('bold'),
   },
-  amountCompact: {fontSize: 36, lineHeight: 44},
+  amountCompact: {fontSize: 38, lineHeight: 44},
   unit: {
     maxWidth: '45%',
     color: PAYMENT_REQUEST_PAPER.secondary,
