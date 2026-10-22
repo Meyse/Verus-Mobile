@@ -7,6 +7,7 @@ import {VerusPayTextLogo} from '../../images/customIcons';
 import {paymentRequestSlipStyles as styles} from '../../styles';
 import {PAYMENT_REQUEST_PAPER as paper} from '../../styles/components/paymentRequestSlip.styles';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
+import {getTicketOutline} from '../../utils/ticketOutline';
 
 const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
   const {height: windowHeight} = useWindowDimensions();
@@ -22,7 +23,7 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
   // the semibold unit ~0.62 em per character, 8 pt gap, 22 pt side padding).
   const amountText = String(snapshot.displayAmount ?? snapshot.amountText ?? '');
   const unitText = String(snapshot.displayUnit ?? snapshot.currency ?? '');
-  const baseAmountSize = compact ? 36 : 44;
+  const baseAmountSize = compact ? 38 : 44;
   const amountRoom = Math.max(0, w - 44 - 8);
   const fitAmount = unitSize =>
     Math.floor(
@@ -41,7 +42,7 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
       : null;
   const unitSizeStyle =
     unitSize < 20 ? {fontSize: unitSize, lineHeight: unitSize + 6} : null;
-  const outline = `M22 0H${w - 22}Q${w} 0 ${w} 22V${p - 11}A11 11 0 0 0 ${w} ${p + 11}V${h - 22}Q${w} ${h} ${w - 22} ${h}H22Q0 ${h} 0 ${h - 22}V${p + 11}A11 11 0 0 0 0 ${p - 11}V22Q0 0 22 0Z`;
+  const outline = getTicketOutline(w, h, p);
 
   return (
     <View

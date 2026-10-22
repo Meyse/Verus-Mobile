@@ -1,9 +1,10 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import StatusBadge from '../../../../components/StatusBadge';
 import {fontStyle} from '../../../../globals/fonts';
 import {getGiftCardContentText} from '../../../../utils/giftCard/giftCardPresentation';
+import {getTicketOutline} from '../../../../utils/ticketOutline';
 
 const WALLET_CARD_WIDTH = 360;
 const WALLET_CARD_HEIGHT = 227;
@@ -13,15 +14,20 @@ const CARD_TEXT = '#F4F1E9';
 const CARD_TEXT_MUTED = 'rgba(244,241,233,0.72)';
 // The muted text at the 0.55 opacity of a pending amount.
 const CARD_TEXT_PENDING = 'rgba(244,241,233,0.4)';
-const CARD_SHAPE =
-  'M 20 0 H 340 Q 360 0 360 20 V 99 L 350 113.5 L 360 128 V 207 Q 360 227 340 227 H 20 Q 0 227 0 207 V 128 L 10 113.5 L 0 99 V 20 Q 0 0 20 0 Z';
 const COMPACT_CARD_WIDTH = 330;
 
 // The gift card as one fixed face: name and status on top, contents at the
-// bottom. It keeps the material and notched shape of the earlier flip card.
+// bottom. It keeps the earlier flip card's material; its outline, amount and
+// unit match the payment slip (owner, 2026-10-22).
 const GiftCardFixedCard = ({presentation, style}) => {
-  const {width: windowWidth} = useWindowDimensions();
-  const compact = windowWidth - 40 < COMPACT_CARD_WIDTH;
+  const {height: windowHeight, width: windowWidth} = useWindowDimensions();
+  // Drawn in points from the measured size, so the corners and notches are the
+  // payment slip's exact size; the notches sit at half height.
+  const [size, setSize] = useState({width: 0, height: 0});
+  // Narrow windows, and short ones like the payment slip's compact face, so
+  // both show the same amount size on an iPhone SE.
+  const compact =
+    windowWidth - 40 < COMPACT_CARD_WIDTH || windowHeight <= 667;
   const {
     contentsPending,
     label,
@@ -49,22 +55,23 @@ const GiftCardFixedCard = ({presentation, style}) => {
     <View
       accessible
       accessibilityLabel={`${label}. ${statusLabel}. ${contentsLabel}.`}
+      onLayout={event => setSize(event.nativeEvent.layout)}
       style={[styles.frame, style]}>
-      <Svg
-        accessible={false}
-        height="100%"
-        pointerEvents="none"
-        preserveAspectRatio="none"
-        style={StyleSheet.absoluteFill}
-        viewBox={`0 0 ${WALLET_CARD_WIDTH} ${WALLET_CARD_HEIGHT}`}
-        width="100%">
-        <Path
-          d={CARD_SHAPE}
-          fill={CARD_FRONT}
-          stroke="rgba(255,255,255,0.2)"
-          strokeWidth="1"
-        />
-      </Svg>
+      {size.width > 0 && size.height > 0 ? (
+        <Svg
+          accessible={false}
+          height={size.height}
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          width={size.width}>
+          <Path
+            d={getTicketOutline(size.width, size.height, size.height / 2)}
+            fill={CARD_FRONT}
+            stroke="rgba(255,255,255,0.2)"
+            strokeWidth="1"
+          />
+        </Svg>
+      ) : null}
       <View style={styles.content}>
         <View style={styles.topline}>
           <Text numberOfLines={1} style={styles.name}>
@@ -172,8 +179,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     maxWidth: '45%',
     color: CARD_TEXT_MUTED,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 20,
+    lineHeight: 26,
     ...fontStyle('semiBold'),
   },
   emptyText: {

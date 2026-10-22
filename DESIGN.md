@@ -508,8 +508,11 @@ The detail screen shows one fixed card and says each fact once.
 
 - Header: back on the left, then refresh and the ⋯ options button on the right.
   There is no screen title, because the card shows the name.
-- Card: `GiftCardFixedCard.js`, with the material and notched shape of the
-  earlier flip card, at the full content width. The card does not flip. It has
+- Card: `GiftCardFixedCard.js`, with the earlier flip card's material, at the
+  full content width. Its outline, amount and unit match the payment slip
+  (owner, 2026-10-22): `src/utils/ticketOutline.js` draws 20-point corners and
+  two round notches at half height, the amount is 44 points (38 on narrow or
+  short windows) and the unit 20 points. The card does not flip. It has
   no swipe hint, no "VERUS GIFT CARD" label, and no issued date.
 - On the card: the card name (17-point semibold) and the status badge on the
   top row. The first content item is large at the bottom ("25 VRSC"), and the
@@ -572,7 +575,8 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   The two compact form sheets follow `AddressBookEditSheet`; choices apply
   after dismissal. The note stays out of the modern invoice QR.
 - Request ready uses `PaymentRequestSlip` at the full content width. The fixed
-  `#F6F3EC` paper, light text colors, notched SVG outline, dotted perforation,
+  `#F6F3EC` paper, light text colors, notched SVG outline (`ticketOutline`,
+  shared with the gift card), dotted perforation,
   and `StatusBadge variant="paper"` are an approved material exception to flat
   pages. Use the VerusPay wordmark and conversion badge for modern invoices;
   other cards show the asset name and logo. The amount sizes itself to the slip
