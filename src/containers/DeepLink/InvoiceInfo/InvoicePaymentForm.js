@@ -12,11 +12,17 @@ import {
   SEND_MODAL_DISABLED_INPUTS,
   SEND_MODAL_TO_ADDRESS_FIELD,
 } from '../../../utils/constants/sendModal';
-import {InvoiceRow, useInvoiceStyles} from './InvoicePaymentParts';
+import {
+  InvoiceErrorLine,
+  InvoiceRow,
+  useInvoiceStyles,
+} from './InvoicePaymentParts';
 
 const InvoicePaymentForm = ({
   sendModal,
   updateSendFormData,
+  // Field problems: {amount, destination, form}. `form` shows above the action.
+  errors = {},
   onContinue,
   onBack,
 }) => {
@@ -66,6 +72,7 @@ const InvoicePaymentForm = ({
                 value={data[SEND_MODAL_AMOUNT_FIELD]}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
+                errorText={errors.amount}
                 onChangeText={value =>
                   updateSendFormData(SEND_MODAL_AMOUNT_FIELD, value)
                 }
@@ -82,6 +89,7 @@ const InvoicePaymentForm = ({
                 accessibilityLabel="Destination address or VerusID"
                 placeholder="Address or VerusID@"
                 value={data[SEND_MODAL_TO_ADDRESS_FIELD]}
+                errorText={errors.destination}
                 onChangeText={value =>
                   updateSendFormData(SEND_MODAL_TO_ADDRESS_FIELD, value)
                 }
@@ -93,6 +101,7 @@ const InvoicePaymentForm = ({
         <View
           onLayout={event => setFooterHeight(event.nativeEvent.layout.height)}>
           <SafeBottomActionStack horizontalSpacing={24} style={styles.footer}>
+            <InvoiceErrorLine>{errors.form}</InvoiceErrorLine>
             <AppButton
               onPress={() => {
                 Keyboard.dismiss();

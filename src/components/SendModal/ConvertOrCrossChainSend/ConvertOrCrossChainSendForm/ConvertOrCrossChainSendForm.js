@@ -59,13 +59,37 @@ import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 
 import InvoicePaymentForm from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentForm';
-import {InvoicePaymentLoading} from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
+import {
+  InvoicePaymentError,
+  InvoicePaymentLoading,
+} from '../../../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
+
+// A problem the user can fix on the form. Invoice mode shows it on the screen.
+const fieldError = (field, title, message) => {
+  const error = new Error(message);
+  error.formField = field;
+  error.formTitle = title;
+  return error;
+};
 
 const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation, cancel }) => {
   const { height } = Dimensions.get('window');
   const sendModal = useObjectSelector(state => state.sendModal);
   const isBurnChangePrice =
     sendModal.data[SEND_MODAL_IS_BURN_CHANGE_PRICE] === true;
+  const isInvoice = !!sendModal.data[SEND_MODAL_INVOICE_CONTEXT];
+  const lockedInputs = sendModal.data[SEND_MODAL_DISABLED_INPUTS] || {};
+  // A locked field shows as a row, so its error goes above the action.
+  const amountErrorField = lockedInputs[SEND_MODAL_AMOUNT_FIELD] ? 'form' : 'amount';
+  const destinationErrorField = lockedInputs[SEND_MODAL_TO_ADDRESS_FIELD] ? 'form' : 'destination';
+  const [balanceError, setBalanceError] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+
+  const showFormError = (field, title, message) => {
+    if (isInvoice) setFormErrors({[field]: message});
+    // The old non-invoice form has no inline error state.
+    else createAlert(title, message);
+  };
   const allSubWallets = useObjectSelector(state => state.coinMenus.allSubWallets);
   const activeUser = useObjectSelector(state => state.authentication.activeAccount);
   const addresses = useObjectSelector(state => selectAddresses(state));
@@ -743,11 +767,16 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
 
       address = channelAddress;
 
-      const response = await getCurrency(systemId, sendModal.coinObj.system_id);
+      // The network name only feeds the old form, so a failure is only logged.
+      try {
+        const response = await getCurrency(systemId, sendModal.coinObj.system_id);
 
-      if (response.error) Alert.alert("Error fetching current network", response.error.message);
-      else {
-        setLocalNetworkName(response.result.fullyqualifiedname);
+        if (response.error) console.warn("Error fetching current network", response.error.message);
+        else {
+          setLocalNetworkName(response.result.fullyqualifiedname);
+        }
+      } catch (e) {
+        console.warn("Error fetching current network", e);
       }
     }
 
@@ -760,10 +789,16 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
 
       setLocalBalances(balances);
     } catch(e) {
-      console.error(e)
-      Alert.alert("Error fetching balances", e.message);
+      console.warn("Error fetching balances", e);
+      if (isInvoice) setBalanceError(true);
+      else Alert.alert("Error fetching balances", e.message);
     }
   }
+
+  const retryBalances = () => {
+    setBalanceError(false);
+    fetchLocalNetworkInfo();
+  };
 
   useEffect(() => {
     setShowConversionField(sendModal.data[SEND_MODAL_SHOW_CONVERTTO_FIELD] || isConversion)
@@ -851,15 +886,8 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
     const { subWallet, coinObj, data } = sendModal;
     const channel = subWallet.api_channels[API_SEND];
 
-    if (!localBalances) {
-      createAlert(
-        "Balances Not Loaded",
-        `Have not loaded local balances yet, cannot ${
-          isBurnChangePrice ? "burn currency" : "send transaction"
-        }.`,
-      );
-      return true;
-    }
+    // The form only shows after the balances load.
+    if (!localBalances) return true;
 
     const spendableBalance = localBalances.hasOwnProperty(coinObj.currency_id) ? localBalances[coinObj.currency_id] : null;
 
@@ -869,33 +897,30 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
     const amount = getProcessedAmount()
 
     if (!toAddress || toAddress.length < 1) {
-      createAlert("Required Field", "Address is a required field.");
+      showFormError(destinationErrorField, "Required Field", "Enter an address or VerusID.");
       return true;
     } else if (addressIsBlocked(toAddress, addressBlocklist)) {
-      createAlert("Blocked Address", "The address you are trying to send to is included in your address blocklist.");
+      showFormError(destinationErrorField, "Blocked Address", "This address is on your address blocklist.");
       return true;
     }
 
     if (amount == null) {
-      createAlert("Invalid Amount", "Please enter a valid number amount.");
+      showFormError(amountErrorField, "Invalid Amount", "Enter a valid amount.");
       return true;
     } else {
       if (spendableBalance == null || Number(amount) > Number(spendableBalance)) {
+        const ticker = coinObj.display_ticker;
         const message =
-          'Insufficient funds, ' +
-          (spendableBalance == null
-            ? `no ${coinObj.display_ticker} in wallet.`
+          spendableBalance == null
+            ? `No ${ticker} on this card.`
             : spendableBalance < 0
-            ? 'available amount is less than fee'
-            : spendableBalance +
-              ' confirmed ' +
-              coinObj.display_ticker +
-              ' available.' +
+            ? 'The available amount is less than the network fee.'
+            : `Not enough ${ticker}. ${spendableBalance} ${ticker} available.` +
               (channel === DLIGHT_PRIVATE
-                ? '\n\nFunds from private transactions require 10 confirmations (~10 minutes) before they can be spent.'
-                : ''));
+                ? ' Private funds need 10 confirmations before they can be spent.'
+                : '');
 
-        createAlert("Insufficient Funds", message);
+        showFormError(amountErrorField, "Insufficient Funds", message);
         return true;
       }
     }
@@ -903,7 +928,13 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
     return false;
   };
 
+  const updateInvoiceFormData = (key, value) => {
+    setFormErrors({});
+    updateSendFormData(key, value);
+  };
+
   const submitData = async () => {
+    setFormErrors({});
     if (formHasError()) return;
 
     setLoading(true);
@@ -921,7 +952,13 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
         if (addr.endsWith("@")) {
           const identityRes = await getIdentity(coinObj, activeAccount, channel, addr);
 
-          if (identityRes.error) throw new Error(`Failed to get information about ${addr}. Try using the i-address of this VerusID.`);
+          if (identityRes.error) {
+            throw fieldError(
+              destinationErrorField,
+              "VerusID Not Found",
+              "This VerusID could not be looked up. Enter its i-address instead.",
+            );
+          }
 
           keyhash = identityRes.result.identity.identityaddress;
         } else keyhash = addr;
@@ -940,12 +977,21 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
             type: DEST_ETH
           })
         } else {
-          const { hash, version } = fromBase58Check(keyhash);
+          let decoded;
+
+          try {
+            decoded = fromBase58Check(keyhash);
+          } catch (e) {
+            console.warn(e);
+            throw fieldError(destinationErrorField, "Invalid Address", "Enter a valid address or VerusID.");
+          }
+
+          const { hash, version } = decoded;
           let type;
 
           if (version === R_ADDRESS_VERSION) type = DEST_PKH;
           else if (version === I_ADDRESS_VERSION) type = DEST_ID;
-          else throw new Error("Incompatible address type.");
+          else throw fieldError(destinationErrorField, "Invalid Address", "This address type is not supported.");
 
           return new TransferDestination({
             destinationBytes: hash,
@@ -1015,26 +1061,28 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
         output: resout
       } = res.result;
 
-      if (resout.convertto != null && estimate == null && sendModal.data[SEND_MODAL_PRICE_ESTIMATE] == null) {
+      // The invoice review (InvoicePaymentReview) shows these three warnings
+      // as notes. Only the old non-invoice form still alerts.
+      if (!isInvoice && resout.convertto != null && estimate == null && sendModal.data[SEND_MODAL_PRICE_ESTIMATE] == null) {
         Alert.alert("Could not estimate conversion result", 'Failed to calculate an estimated result for this conversion.')
       }
-  
-      if (converterdef != null && converterdef.proofprotocol === 2) {
+
+      if (!isInvoice && converterdef != null && converterdef.proofprotocol === 2) {
         Alert.alert("Centralized currency", `You are converting to ${
           converterdef.fullyqualifiedname
         }, a centralized currency. The controller, ${converterdef.fullyqualifiedname}@, has the ability to mint new supply.`)
       }
-  
+
       if (submittedsats !== resout.satoshis) {
         if (sendModal.data[SEND_MODAL_STRICT_AMOUNT]) {
-          throw new Error(
-            `You have insufficient funds to ${
-              isBurnChangePrice ? "burn" : "send"
-            } your submitted amount of ${satsToCoins(
+          throw fieldError(
+            amountErrorField,
+            "Insufficient Funds",
+            `Not enough ${coinObj.display_ticker} for ${satsToCoins(
               BigNumber(submittedsats),
-            ).toString()} ${coinObj.display_ticker} plus the transaction fee.`,
+            ).toString()} ${coinObj.display_ticker} plus the network fee.`,
           );
-        } else {
+        } else if (!isInvoice) {
           Alert.alert(
             'Amount changed',
             `You have insufficient funds to send your submitted amount of ${satsToCoins(
@@ -1048,8 +1096,21 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
 
       navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, { preflight: res.result, balances: localBalances });
     } catch (e) {
-      if (!showFundRawTransactionErrorAlert(e)) {
-        Alert.alert("Error", e.message);
+      if (e?.formField) {
+        showFormError(e.formField, e.formTitle, e.message);
+      } else if (/insufficient funds/i.test(e?.message || '')) {
+        console.warn(e);
+        showFormError(
+          amountErrorField,
+          "Insufficient Funds",
+          `Not enough ${coinObj.display_ticker} for this amount plus the network fee.`,
+        );
+      } else if (!showFundRawTransactionErrorAlert(e)) {
+        console.warn(e);
+        createAlert(
+          `Can’t prepare this ${isBurnChangePrice ? "burn" : "payment"}`,
+          "The wallet could not prepare the transaction. Check your connection and try again.",
+        );
       }
     }
 
@@ -1077,13 +1138,25 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
     }
   };
 
-  if (sendModal.data[SEND_MODAL_INVOICE_CONTEXT]) {
-    return localBalances == null ? (
-      <InvoicePaymentLoading onClose={cancel} />
-    ) : (
+  if (isInvoice) {
+    if (localBalances == null) {
+      return balanceError ? (
+        <InvoicePaymentError
+          title="Balance didn’t load"
+          message="Check your connection and try again."
+          onRetry={retryBalances}
+          onClose={cancel}
+        />
+      ) : (
+        <InvoicePaymentLoading onClose={cancel} />
+      );
+    }
+
+    return (
       <InvoicePaymentForm
         sendModal={sendModal}
-        updateSendFormData={updateSendFormData}
+        updateSendFormData={updateInvoiceFormData}
+        errors={formErrors}
         onContinue={submitData}
         onBack={cancel}
       />

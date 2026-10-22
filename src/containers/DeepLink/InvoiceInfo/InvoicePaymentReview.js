@@ -29,7 +29,8 @@ const InvoicePaymentReview = ({
 }) => {
   const {styles} = useInvoiceStyles();
   const [showDetails, setShowDetails] = useState(false);
-  const {output, names, validation, deltas, estimate} = params;
+  const {output, names, validation, deltas, estimate, converterdef, submittedsats} =
+    params;
   const context = sendModal.data[SEND_MODAL_INVOICE_CONTEXT];
   const currencyName = id => (names.has(id) ? names.get(id) : id);
   const amount = (value, currency) =>
@@ -43,6 +44,10 @@ const InvoicePaymentReview = ({
   const debits = [...deltas.entries()].filter(([, value]) =>
     BigNumber(value).isNegative(),
   );
+  // The preflight lowers a flexible amount when the fee does not fit.
+  const amountLowered =
+    submittedsats != null && submittedsats !== output.satoshis;
+  const centralized = converterdef != null && converterdef.proofprotocol === 2;
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.screen}>
@@ -121,11 +126,31 @@ const InvoicePaymentReview = ({
             </Text>
           </View>
         )}
+        {amountLowered && (
+          <View style={styles.notice}>
+            <Text style={styles.text}>
+              The amount is lowered from {amount(submittedsats, output.currency)}{' '}
+              to {amount(output.satoshis, output.currency)} to cover the network
+              fee.
+            </Text>
+          </View>
+        )}
+        {centralized && (
+          <View style={styles.notice}>
+            <Text style={styles.text}>
+              {converterdef.fullyqualifiedname} is a centralized currency. Its
+              controller, {converterdef.fullyqualifiedname}@, can mint new
+              supply.
+            </Text>
+          </View>
+        )}
         {output.convertto && (
           <View style={styles.notice}>
             <Text style={styles.text}>
-              The conversion result is an estimate. The final amount can change
-              before the transaction is processed.
+              {estimate == null
+                ? 'The wallet could not estimate the conversion result.'
+                : 'The conversion result is an estimate.'}{' '}
+              The final amount can change before the transaction is processed.
             </Text>
           </View>
         )}

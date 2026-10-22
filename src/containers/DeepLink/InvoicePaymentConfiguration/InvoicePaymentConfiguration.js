@@ -3,6 +3,7 @@ import {Alert} from 'react-native';
 import {primitives} from 'verusid-ts-client';
 import {useDispatch} from 'react-redux';
 import {openConvertOrCrossChainSendModal} from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import BigNumber from 'bignumber.js';
 import {
   SEND_MODAL_ADVANCED_FORM,
@@ -214,11 +215,11 @@ const InvoicePaymentConfiguration = props => {
           : '',
       });
     } catch (e) {
-      Alert.alert(
-        isBurnChangePrice
-          ? 'Unable to prepare burn'
-          : 'Unable to prepare invoice payment',
-        e.message,
+      console.warn(e);
+      // An inline line above "Review burn" needs renderInvoice in InvoiceInfo.js.
+      createAlert(
+        `Can’t prepare this ${isBurnChangePrice ? 'burn' : 'payment'}`,
+        'The wallet could not prepare it from this card. Choose another card or try again.',
       );
     }
   };

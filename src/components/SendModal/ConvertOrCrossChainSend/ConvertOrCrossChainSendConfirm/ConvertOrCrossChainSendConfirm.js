@@ -3,6 +3,7 @@ import {ScrollView, View, TouchableOpacity, Alert} from 'react-native';
 import {Button, List, Divider, Text} from 'react-native-paper';
 import {useDispatch} from 'react-redux';
 import {expireCoinData} from '../../../../actions/actionCreators';
+import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import {copyToClipboard} from '../../../../utils/clipboard/clipboard';
 import {
   API_GET_BALANCES,
@@ -442,11 +443,16 @@ function ConvertOrCrossChainSendConfirm({
           destination: toAddress,
         });
     } catch (e) {
+      console.warn(e);
+      // An unknown broadcast shows on the screen: the footnote and a
+      // disabled "Status unknown" action.
       if (e.ambiguousBroadcast === true) {
         setBroadcastStatusUnknown(true);
-        Alert.alert('Broadcast status unknown', e.message);
       } else {
-        Alert.alert('Error', e.message);
+        createAlert(
+          output.burn === true ? 'Burn not sent' : 'Payment not sent',
+          'The transaction was not sent. Check your connection and try again.',
+        );
       }
     } finally {
       dispatch(expireCoinData(sendModal.coinObj.id, API_GET_FIATPRICE));

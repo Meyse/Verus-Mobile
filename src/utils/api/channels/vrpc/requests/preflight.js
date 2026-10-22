@@ -19,7 +19,7 @@ import { coinsList } from "../../../../CoinData/CoinsList";
 import { getSendCurrencyTransaction, SEND_CURRENCY_PARENT_FEE } from "./getSendCurrencyTransaction";
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
-import { Alert } from "react-native";
+import { createAlert } from "../../../../../actions/actions/alert/dispatchers/alert";
 import { getCurrencyTransferIntentContext } from "./currencyTransferIntent";
 import {
   BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE,
@@ -429,9 +429,10 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
 
           if (destIdRes.error) throw new Error("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.");
         } else {
-          Alert.alert(
-            'Warning',
-            `Cannot verify that destination VerusID exists on destination network. If you would like to continue, be aware that funds sent to ${addrName}@ on ${exportDefinition.fullyqualifiedname} may not be spendable if the VerusID is not yet exported. Adding ${exportDefinition.fullyqualifiedname} as a currency card to your wallet may allow Verus Mobile to automatically verify this and avoid this warning.`
+          // A Confirm row would be better; that needs SendWizard changes.
+          createAlert(
+            'Destination VerusID not verified',
+            `The wallet cannot check that ${addrName}@ exists on ${exportDefinition.fullyqualifiedname}. If it does not, the funds may not be spendable. Add ${exportDefinition.fullyqualifiedname} to your assets so the wallet can check.`
           )
         }
       }
