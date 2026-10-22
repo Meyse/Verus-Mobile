@@ -36,9 +36,17 @@ const STEPS = [
   },
 ];
 
-const getStepState = (activeStep, index) => {
+// Other requests reuse the screen with their own title and steps, such as a
+// VerusPay invoice ("Opening invoice", no "Verify signer" when unsigned).
+export const createRequestLoadingSteps = (labels = {}, skip = []) =>
+  STEPS.filter(step => !skip.includes(step.key)).map(step => ({
+    ...step,
+    label: labels[step.key] || step.label,
+  }));
+
+const getStepState = (steps, activeStep, index) => {
   const activeIndex = Math.max(
-    STEPS.findIndex(step => step.key === activeStep),
+    steps.findIndex(step => step.key === activeStep),
     0,
   );
 
@@ -83,7 +91,14 @@ const StepSpinner = ({styles}) => {
   );
 };
 
-const GenericRequestLoadingContent = ({activeStep, error, onCancel, onRetry}) => {
+const GenericRequestLoadingContent = ({
+  activeStep,
+  error,
+  onCancel,
+  onRetry,
+  steps = STEPS,
+  title = 'Opening request',
+}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -138,14 +153,14 @@ const GenericRequestLoadingContent = ({activeStep, error, onCancel, onRetry}) =>
           loop
           style={styles.animation}
         />
-        <Text style={styles.title}>{'Opening request'}</Text>
+        <Text style={styles.title}>{title}</Text>
         <Text style={styles.status}>{'Verifying'}</Text>
         <View
           accessibilityRole="progressbar"
           accessibilityLabel="Verifying request"
           style={styles.steps}>
-          {STEPS.map((step, index) => {
-            const stepState = getStepState(activeStep, index);
+          {steps.map((step, index) => {
+            const stepState = getStepState(steps, activeStep, index);
 
             return (
               <View key={step.key} style={styles.step}>

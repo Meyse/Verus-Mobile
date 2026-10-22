@@ -13,7 +13,6 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
-import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
@@ -965,7 +964,7 @@ const GenericRequestHome = props => {
   };
 
   return (
-    <View style={Styles.flexBackground}>
+    <View style={{flex: 1, backgroundColor: theme.colors.background}}>
       {displayKey == null ? (
         <GenericRequestLoading
           activeStep={GENERIC_REQUEST_LOADING_STEPS.REVIEW}

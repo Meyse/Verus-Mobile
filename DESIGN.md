@@ -773,6 +773,13 @@ A VerusPay invoice opens `InvoicePayFlow`
 (`src/containers/DeepLink/InvoiceInfo/`): Pay with, Confirm and Sent, inside the
 invoice screen so a generic request continues after the payment.
 
+Every request link opens on the request loading screen
+(`GenericRequestLoading.js`), with Cancel. An invoice link reads "Opening
+invoice" with the steps Read invoice, Select network, Verify signer (signed
+invoices only) and Prepare payment. Identity update links read "Opening
+request" with the GenericRequest steps. v1 login links show the screen without
+steps and keep their own screens and alerts (owner decision, 2026-10-21).
+
 - Pay with shows the payer's side of the payment slip (`InvoiceSlip`): the
   VerusPay mark, the amount, and a stub. The owner chose the slip (option 2 of
   the Von Restorff variations) so that the request is the one thing that stands
