@@ -44,7 +44,6 @@ import {
 } from '../../../actions/actions/alert/dispatchers/alert';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
-import {copyToClipboard} from '../../../utils/clipboard/clipboard';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {
   VERUSID_AUTH_INFO,
@@ -466,7 +465,8 @@ const IdentityUpdateRequestInfoContent = props => {
             ? {
                 data: displayIdentityAddress(identityUpdates.privateaddress),
                 rawData: identityUpdates.privateaddress,
-                onPress: () => copyToClipboard(identityUpdates.privateaddress),
+                // The content step row copies it with CopyAction.
+                copyValue: identityUpdates.privateaddress,
               }
             : null,
       },
@@ -500,7 +500,6 @@ const IdentityUpdateRequestInfoContent = props => {
         ] = {
           data: displayIdentityAddress(identityUpdates.primaryaddresses[i]),
           rawData: identityUpdates.primaryaddresses[i],
-          onPress: () => copyToClipboard(identityUpdates.primaryaddresses[i]),
         };
       }
     }

@@ -9,8 +9,9 @@
     card/filter review layout for identity content changes.
 */
 import React, {useEffect, useMemo, useState} from 'react';
-import {ScrollView, TouchableOpacity, View} from 'react-native';
+import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import CopyAction from '../../../../components/CopyAction';
 import {RequestTitle} from '../../components/RequestReview';
 import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
@@ -123,15 +124,42 @@ const getPrivateInfoFallbackTitle = items => {
   return VERUSID_PRIVATE_INFO.label;
 };
 
+// A copyable value takes the shared CopyAction at the end of its line. The
+// negative margins keep the 44-point target inside the row padding, so the
+// row height does not change.
+const privateInfoRowStyles = StyleSheet.create({
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  value: {
+    flex: 1,
+    minWidth: 0,
+  },
+  copyAction: {
+    marginVertical: -12,
+    marginRight: -12,
+  },
+});
+
 const PrivateInfoRow = ({darkMode, divider, item, showTitle}) => {
-  const Row = item.onPress ? TouchableOpacity : View;
+  const theme = useOnboardingTheme();
+  const valueText = item.description ? (
+    <Text
+      selectable
+      style={[
+        contentStyles.privateInfoFallbackItemDescription,
+        darkMode && contentStyles.privateInfoFallbackItemDescriptionDark,
+        item.key === VERUSID_PRIVATE_ADDRESS.key &&
+          contentStyles.privateInfoFallbackIdentifier,
+        !!item.copyValue && privateInfoRowStyles.value,
+      ]}>
+      {item.description}
+    </Text>
+  ) : null;
 
   return (
-    <Row
-      accessibilityHint={item.onPress ? 'Copies the value' : undefined}
-      accessibilityRole={item.onPress ? 'button' : undefined}
-      activeOpacity={0.72}
-      onPress={item.onPress}
+    <View
       style={[
         contentStyles.privateInfoFallbackItem,
         divider && contentStyles.privateInfoFallbackItemDivider,
@@ -147,19 +175,22 @@ const PrivateInfoRow = ({darkMode, divider, item, showTitle}) => {
           {item.title}
         </Text>
       )}
-      {item.description ? (
-        <Text
-          selectable
-          style={[
-            contentStyles.privateInfoFallbackItemDescription,
-            darkMode && contentStyles.privateInfoFallbackItemDescriptionDark,
-            item.key === VERUSID_PRIVATE_ADDRESS.key &&
-              contentStyles.privateInfoFallbackIdentifier,
-          ]}>
-          {item.description}
-        </Text>
-      ) : null}
-    </Row>
+      {valueText && item.copyValue ? (
+        <View style={privateInfoRowStyles.valueRow}>
+          {valueText}
+          <CopyAction
+            accessibilityLabel={`Copy ${String(item.title).toLowerCase()}`}
+            color={theme.colors.textSubtle}
+            copiedAccessibilityLabel={`${item.title} copied`}
+            copiedColor={theme.colors.success}
+            style={privateInfoRowStyles.copyAction}
+            value={item.copyValue}
+          />
+        </View>
+      ) : (
+        valueText
+      )}
+    </View>
   );
 };
 
@@ -358,7 +389,7 @@ const ContentStep = ({
         key,
         title: getPrivateInfoTitle(key),
         description: entry.data,
-        onPress: entry.onPress,
+        copyValue: entry.copyValue,
       }));
   }, [displayUpdates]);
   const totalContentCount = cmmItems.length + privateInfoItems.length;
