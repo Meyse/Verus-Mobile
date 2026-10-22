@@ -293,12 +293,4 @@ export default StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
-  scannerRoot: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  scannerAction: {
-    marginBottom: 30,
-    marginHorizontal: 20,
-  },
 });

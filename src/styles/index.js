@@ -21,6 +21,7 @@ export {default as appSearchStyles} from './components/appSearch.styles';
 export {default as appTextInputStyles} from './components/appTextInput.styles';
 export {default as authenticationRequestInfoStyles} from './deeplink/authenticationRequestInfo.styles';
 export {default as authorityInfoSheetStyles} from './deeplink/authorityInfoSheet.styles';
+export {default as barcodeReaderStyles} from './components/barcodeReader.styles';
 export {default as confirmPayStepStyles} from './deeplink/confirmPayStep.styles';
 export {default as copyActionStyles} from './components/copyAction.styles';
 export {default as dataRequestInfoStyles} from './deeplink/dataRequestInfo.styles';

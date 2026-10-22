@@ -125,6 +125,7 @@ buttons keep their size.
 | Settings | `src/containers/Settings/components/SettingsScaffold.js` | Compose with `SettingsScreen`, `SettingsTitle`, `SettingsSection`, and `SettingsRow`. |
 | Ambiguous vertical overflow | `SettingsScreen` in `src/containers/Settings/components/SettingsScaffold.js`; `DeepLinkRequestSheetScaffold` for request sheets | Show the existing bottom fade and centered chevron only while more content remains below. |
 | Search, copy, loading | `src/components/AppSearchField.js`, `src/components/AppSearchLauncher.js`, `src/components/CopyAction.js`, `src/components/SkeletonLoader.js` | Never hand-roll an equivalent local control. |
+| QR scanner | `src/components/BarcodeReader/BarcodeReader.js`, `src/components/BarcodeReader/ScannerScreen.js`, [Camera scanner](#camera-scanner) below | Reuse the camera window. Do not draw a full-screen camera or a local permission page. |
 
 ## BottomSheets
 
@@ -626,6 +627,35 @@ invoice screen so a generic request continues after the payment.
   not load show an error with "Try again" while direct payment still works; the
   shortfall shows above a disabled Hold; expired, unreadable and wrong-network
   invoices end on a sheet with "Close". Burn invoices keep their old screens.
+
+## Camera scanner
+
+The owner chose variation B ("Camera window") on 2026-10-22, with the torch
+button. Every QR scanner uses it: the Scan tab, Send's Recipient step, key and
+seed import, VerusID recovery, and the claim password.
+
+- The page stays. The camera is a rounded window (24-point radius, the sheet
+  radius) inside the page, with the page inset on both sides (16 points in
+  Send, 20 elsewhere). The window is a deliberate exception to flat pages.
+- A flow keeps its own header: Send shows "Scan address" in
+  `SendWizardHeader` with its progress and context band; other flows use
+  `ScannerScreen` (`ProgressHeader` with Back and a short title). Back, and
+  Android back, return to the step that opened the camera. There is no Cancel
+  button. The Scan tab shows the `headlineMd` "Scan" title with the Services
+  title spacing.
+- Inside the window: a dimmed camera around a rounded 232-point frame with four
+  corner marks. The torch button (44 points, bottom right) shows only on a
+  device with a flash. After a read, the corner marks turn green and "Reading
+  code…" shows at the bottom of the window. There is no spinner page.
+- Problem states show inside the same window in `surfaceMuted`, as the NFC tap
+  screen does: one symbol, a `titleSheet` title and one `bodySm` line. "Camera
+  access is off" offers "Allow camera" while the system can still ask, and
+  "Open Settings" after that. "No camera found" can add one hint and one
+  secondary action, such as "Enter address". The system prompt shows over the
+  dark window; no in-app permission page shows first.
+- Actions sit under the window in `SafeBottomActionStack`, for example "Claim
+  from NFC card" on the Scan tab.
+- The camera runs only while its screen is focused and the app is active.
 
 ## Scroll affordances
 

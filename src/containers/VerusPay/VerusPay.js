@@ -7,7 +7,8 @@
 */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, Alert, StyleSheet, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import base64url from 'base64url';
 import { URL } from 'react-native-url-polyfill';
@@ -36,11 +37,8 @@ import {
   resolveAlert,
 } from '../../actions/actions/alert/dispatchers/alert';
 import QrScanner from '../../utils/QrScanner/QrScanner';
-import styles from '../../styles';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
-import AppButton from '../../components/AppButton';
 import { useNfcSupported } from '../../hooks/useNfcSupported';
-import AnimatedActivityIndicator from '../../components/AnimatedActivityIndicator';
 import { openSubwalletSendModal } from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
   SEND_MODAL_AMOUNT_FIELD,
@@ -53,6 +51,8 @@ import { CommonActions } from '@react-navigation/routers';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { useAppTheme } from '../../theme/app';
+import signedInCopy from '../../copy/signedIn';
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import { ASSET_NOT_ACTIVE } from '../../utils/QrScanner/QrScanner';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
@@ -109,16 +109,12 @@ const VerusPay = (props) => {
   const activeAlert = useObjectSelector((state) => state.alert.active);
   const sendModal = useObjectSelector((state) => state.sendModal);
 
-  const { containerStyle, acceptAddressOnly, channel, coinObj: propCoinObj, button, maskProps, cameraDisabled } = props;
+  const { containerStyle, acceptAddressOnly, channel, coinObj: propCoinObj, button, cameraDisabled } = props;
+  const theme = useAppTheme();
   const nfcSupported = useNfcSupported();
   // The general Scan screen also reads Verus NFC cards. Address-only scanners
   // and callers with their own button keep their current controls.
   const showNfcClaim = nfcSupported && !acceptAddressOnly && button == null;
-  const renderNfcClaimButton = () => (
-    <AppButton onPress={() => readDeeplinkFromNfc()} variant="secondary">
-      Claim from NFC card
-    </AppButton>
-  );
 
   useEffect(() => {
     return () => {
@@ -546,11 +542,20 @@ const VerusPay = (props) => {
     }
   };
 
-  const loadingState =
-    loading || activeAlert != null || sendModal.visible || props.showSpinner;
+  const cameraActive =
+    !cameraDisabled &&
+    !sheetVisible &&
+    !subWalletSelectorOpen &&
+    activeAlert == null &&
+    !sendModal.visible;
+  const scanActions = showNfcClaim
+    ? [{label: 'Claim from NFC card', onPress: () => readDeeplinkFromNfc()}]
+    : [];
 
   return (
-    <View style={{ ...styles.blackRoot, ...containerStyle }}>
+    <SafeAreaView
+      edges={acceptAddressOnly ? [] : ['top', 'left', 'right']}
+      style={[scanStyles.screen, {backgroundColor: theme.colors.background}, containerStyle]}>
       <Portal>
         {subWalletSelectorOpen && (
           <SubWalletSelectorModal
@@ -571,32 +576,23 @@ const VerusPay = (props) => {
           />
         )}
       </Portal>
-      {loadingState ? (
-        <View style={styles.focalCenter}>
-          <AnimatedActivityIndicator
-            style={{
-              width: 128,
-            }}
-          />
+      {acceptAddressOnly ? null : (
+        <View style={scanStyles.header}>
+          <Text
+            accessibilityRole="header"
+            style={[theme.typography.headlineMd, {color: theme.colors.textPrimary}]}>
+            {signedInCopy.navigation.scan}
+          </Text>
         </View>
-      ) : (
-        <React.Fragment>
-          <BarcodeReader
-            prompt={
-              acceptAddressOnly
-                ? 'Scan an invoice or address'
-                : 'Scan a QR code'
-            }
-            onScan={(codes) => onSuccess(codes)}
-            cameraDisabled={cameraDisabled}
-            button={showNfcClaim ? renderNfcClaimButton : button}
-            buttonContainerStyle={
-              showNfcClaim ? nfcClaimStyles.buttonContainer : undefined
-            }
-            maskProps={maskProps}
-          />
-        </React.Fragment>
       )}
+      <BarcodeReader
+        actions={scanActions}
+        active={cameraActive}
+        busy={loading || Boolean(props.showSpinner)}
+        includeBottomInset={false}
+        onScan={(codes) => onSuccess(codes)}>
+        {button ? button() : null}
+      </BarcodeReader>
       <AcknowledgeSheet
         confirmLabel={sheet.confirmLabel}
         dismissLabel={sheet.dismissLabel}
@@ -610,15 +606,19 @@ const VerusPay = (props) => {
         title={sheet.title}
         visible={sheetVisible}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
-const nfcClaimStyles = StyleSheet.create({
-  buttonContainer: {
-    width: '100%',
-    paddingHorizontal: 32,
-    paddingBottom: 24,
+const scanStyles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  // The Services title spacing.
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
 });
 

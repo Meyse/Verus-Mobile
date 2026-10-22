@@ -234,9 +234,9 @@ const SendWizardNavigator = () => {
           header: ({navigation, options, route: headerRoute}) => (
             <SendWizardHeader
               contextStep={CONTEXT_STEPS[headerRoute.name]}
-              title={options.title}
+              title={options.wizardTitle || options.title}
               disabled={Boolean(options.wizardNavigationDisabled)}
-              onBack={() => goBackOrClose(navigation)}
+              onBack={options.wizardOnBack || (() => goBackOrClose(navigation))}
               onClose={() => closeWizard(navigation)}
               progress={getSendWizardProgress(
                 headerRoute.name,
