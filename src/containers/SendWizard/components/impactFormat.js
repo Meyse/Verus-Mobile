@@ -4,6 +4,7 @@ import {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
 import {truncateDecimal} from '../../../utils/math';
 import {
   formatImpact,
+  getExtraCost,
   getImpactLevel,
   getImpactLoss,
   getPriceImpact,
@@ -19,7 +20,10 @@ export const getImpactTone = level =>
     ? STATUS_BADGE_TONE.WARNING
     : STATUS_BADGE_TONE.NEUTRAL;
 
-export const getImpactBadgeLabel = impact => `${formatImpact(impact)}% less`;
+// "less" when the user receives less than the market price would give; "more"
+// when a fixed amount (an invoice) costs more than the market price.
+export const getImpactBadgeLabel = (impact, pay = false) =>
+  `${formatImpact(impact)}% ${pay ? 'more' : 'less'}`;
 
 // What the impact costs the user. The display currency comes first when the
 // ledger holds a price for the asset the user pays with. Otherwise the amount
@@ -55,30 +59,59 @@ export const getImpactLossText = ({
 
 // Output per input unit for display: four decimals once it reaches one, more
 // below that so a small price does not read as zero.
-export const formatUnitPrice = price =>
-  truncateDecimal(price, price.isGreaterThanOrEqualTo(1) ? 4 : 8);
+// The wizard keeps the market price as text, so accept either form.
+export const formatUnitPrice = price => {
+  const value = BigNumber(price);
+  return truncateDecimal(value, value.isGreaterThanOrEqualTo(1) ? 4 : 8);
+};
 
 // Everything the Confirm review shows about a conversion's price, derived from
-// the latest estimate and the market price the Amount step measured. All
-// fields are null when the market price is unknown.
+// the latest estimate and the market price the Amount (or Pay with) step
+// measured. All fields are null when the market price is unknown. With `pay`,
+// the amount received is fixed, so the impact is how much more the user pays,
+// counted in the money or the asset the user pays with.
 export const getConversionPriceSummary = ({
   amount,
   displayCurrency,
   marketPrice,
   output,
+  pay = false,
   rate,
+  sourceTicker,
   targetTicker,
 }) => {
   const unitPrice = getUnitPrice(amount, output);
+
+  if (pay) {
+    const cost = getExtraCost({amount, output, marketPrice});
+    return {
+      impact: cost ? cost.percent : null,
+      level: getImpactLevel(cost ? cost.percent : null),
+      loss: cost ? cost.extra : null,
+      lossText: cost
+        ? getImpactLossText({
+            displayCurrency,
+            loss: cost.extra,
+            rate,
+            targetLoss: cost.extra,
+            targetTicker: sourceTicker,
+          })
+        : null,
+      unitPrice,
+    };
+  }
+
   const impact = getPriceImpact({amount, output, marketPrice});
+  const loss = impact ? getImpactLoss(amount, impact) : null;
 
   return {
     impact,
     level: getImpactLevel(impact),
+    loss,
     lossText: impact
       ? getImpactLossText({
           displayCurrency,
-          loss: getImpactLoss(amount, impact),
+          loss,
           rate,
           targetLoss: getTargetShortfall({amount, output, marketPrice}),
           targetTicker,

@@ -7,15 +7,16 @@ import {getImpactBadgeLabel, getImpactTone} from './impactFormat';
 import {FlatRow} from './WizardUI';
 
 // The Confirm row for price impact: what it costs in money when it matters,
-// then the badge.
-const ImpactRow = ({impact, level, lossText}) => {
+// then the badge. "Details" stands in for an unknown impact, as on Amount.
+// `onPress` opens "Price and route", where the route shows.
+const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
   const theme = useOnboardingTheme();
   const showLoss =
     lossText != null &&
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
 
   return (
-    <FlatRow label="Price impact">
+    <FlatRow label="Price impact" onPress={onPress}>
       {showLoss ? (
         <Text
           style={[
@@ -31,7 +32,10 @@ const ImpactRow = ({impact, level, lossText}) => {
           {lossText}
         </Text>
       ) : null}
-      <StatusBadge label={getImpactBadgeLabel(impact)} tone={getImpactTone(level)} />
+      <StatusBadge
+        label={impact == null ? 'Details' : getImpactBadgeLabel(impact, pay)}
+        tone={getImpactTone(level)}
+      />
     </FlatRow>
   );
 };

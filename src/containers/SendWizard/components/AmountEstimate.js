@@ -1,16 +1,11 @@
 import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {StyleSheet, Text, View} from 'react-native';
 import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
-import StatusBadge from '../../../components/StatusBadge';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
-import {
-  formatEstimatedAmount,
-  getImpactBadgeLabel,
-  getImpactTone,
-} from './impactFormat';
+import ImpactChip from './ImpactChip';
+import {formatEstimatedAmount, getImpactBadgeLabel} from './impactFormat';
 
 // Only the receive amount and a doorway to its details stay above Continue.
 // The label group can wrap its chip while the amount stays on one line.
@@ -57,24 +52,14 @@ const AmountEstimate = ({
               You receive
             </Text>
             {showDetails ? (
-              <Pressable
+              <ImpactChip
                 accessibilityLabel={priceImpact.impact == null
                   ? 'Details. Opens price and route'
                   : `Price impact ${chipLabel}. Opens price and route`}
-                accessibilityRole="button"
-                hitSlop={4}
+                label={chipLabel}
+                level={priceImpact.level}
                 onPress={onOpenDetails}
-                style={({pressed}) => [styles.chip, pressed && styles.pressed]}>
-                <StatusBadge
-                  label={chipLabel}
-                  tone={getImpactTone(priceImpact.level)}
-                />
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={14}
-                  color={colors.textSubtle}
-                />
-              </Pressable>
+              />
             ) : null}
           </View>
           <View style={styles.amountRow}>
@@ -130,8 +115,6 @@ const styles = StyleSheet.create({
   },
   receiveLogo: {marginRight: 10},
   receiveText: {marginRight: 8, flexShrink: 0},
-  chip: {minHeight: 36, flexDirection: 'row', alignItems: 'center', flexShrink: 0},
-  pressed: {opacity: 0.7},
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',

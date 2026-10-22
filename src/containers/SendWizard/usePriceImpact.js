@@ -17,7 +17,7 @@ const SAMPLE_VALUE = 1;
 const MIN_SAMPLE = BigNumber('0.00000001');
 const SUGGESTION_DELAY_MS = 300;
 
-const getSampleAmount = rate => {
+export const getSampleAmount = rate => {
   const value = BigNumber(rate);
   if (!value.isFinite() || !value.isGreaterThan(0)) return BigNumber(1);
   return BigNumber.maximum(

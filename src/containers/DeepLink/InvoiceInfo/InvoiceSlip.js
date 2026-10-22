@@ -7,12 +7,14 @@ import {VerusPayTextLogo} from '../../../images/customIcons';
 import {paymentRequestSlipStyles as styles} from '../../../styles';
 import {PAYMENT_REQUEST_PAPER as paper} from '../../../styles/components/paymentRequestSlip.styles';
 
-const STUB_HEIGHT = 50;
+const STUB_HEIGHT = 68;
+const STUB_HEIGHT_COMPACT = 62;
 
 // The payer's side of a VerusPay invoice: the same paper slip that "Request
 // ready" shows to the requester (owner choice, 2026-10-21), without the QR.
-// The badge says whether a VerusID signed it; the stub names the requester,
-// or the destination when nobody signed.
+// The stub names the VerusID that signed it, larger than the rest, because a
+// name only shows for a signed invoice (owner, 2026-10-22). An unsigned
+// invoice has the "Unsigned" badge and shows its destination instead.
 const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
   // Small windows use the slip's compact face, as on Request ready.
   const compact = useWindowDimensions().height <= 667;
@@ -26,7 +28,7 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
     <View
       accessible
       accessibilityLabel={`Invoice for ${amount} ${unit}${
-        signer ? `, requested by ${signer}` : ', not signed'
+        signer ? `, request from ${signer}` : ', unsigned'
       }`}
       onLayout={event => setSize(event.nativeEvent.layout)}
       style={styles.frame}>
@@ -64,11 +66,9 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
             height={20}
             width={103}
           />
-          <StatusBadge
-            label={signer ? 'Signed' : 'Unsigned'}
-            tone={signer ? 'success' : 'neutral'}
-            variant="paper"
-          />
+          {signer ? null : (
+            <StatusBadge label="Unsigned" tone="neutral" variant="paper" />
+          )}
         </View>
         <View style={styles.amountRow}>
           <Text
@@ -84,8 +84,8 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
         </View>
         {fiat ? <Text style={styles.estimate}>≈ {fiat}</Text> : null}
       </View>
-      <View style={localStyles.stub}>
-        <Text style={localStyles.stubLabel}>{signer ? 'Requested by' : 'To'}</Text>
+      <View style={[localStyles.stub, compact && localStyles.stubCompact]}>
+        <Text style={localStyles.stubLabel}>{signer ? 'Request from' : 'To'}</Text>
         <Text
           ellipsizeMode="middle"
           numberOfLines={1}
@@ -105,25 +105,25 @@ const localStyles = StyleSheet.create({
   stub: {
     height: STUB_HEIGHT,
     paddingHorizontal: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
+  stubCompact: {height: STUB_HEIGHT_COMPACT},
   stubLabel: {
     color: paper.secondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginRight: 12,
+    fontSize: 13,
+    lineHeight: 18,
     ...fontStyle('regular'),
   },
+  // The gift card's name size (17-point semibold), so the requester reads as
+  // the slip's second fact after the amount.
   stubValue: {
-    flexShrink: 1,
     color: paper.primary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 24,
+    letterSpacing: -0.2,
     ...fontStyle('semiBold'),
   },
-  stubIdentifier: {fontSize: 13, ...fontStyle('regular')},
+  stubIdentifier: {fontSize: 14, lineHeight: 22, letterSpacing: 0, ...fontStyle('regular')},
 });
 
 export default InvoiceSlip;

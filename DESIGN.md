@@ -329,8 +329,12 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   (`ConfirmPreparing`). What the user chose is real. The receive amount, price, fees and
   timing are skeletons. The button reads "Preparing…" and stays disabled. There is no
   separate loading screen and no loading text.
-- The connector between the pay and receive nodes shows the unit price and the route on
-  separate lines, so a route name never breaks in the middle.
+- The connector between the pay and receive nodes shows the unit price only. The route
+  is behind the Price impact row, which opens "Price and route" with the price facts
+  and the route (owner, 2026-10-22, so that Send and invoice Confirm match). The row
+  shows "Details" when the impact is unknown and the route has a basket.
+- A long receive label ("RSRG…LLck receives") wraps to a second line; it never runs
+  into the amount.
 - A currency name keeps its full form where it names the currency. A Bridge is
   "Bridge.vETH", never "Bridge".
 - The unit chip under the amount shows only when the paid asset has a fiat price.
@@ -376,12 +380,12 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   addresses | N ›", "Send to self | N ›") with hairlines. No cards, no icons and
   no helper line under the field.
 - **Confirm.** A pay node ("You pay", or "You send" for a plain send), a vertical
-  connector with the price and route, and a receive node ("<recipient> receives")
+  connector with the price, and a receive node ("<recipient> receives")
   for conversions. Nodes use a 40-point logo, a 14-point label and a bold 20-point
   amount; fiat captions appear only when the ledger holds a price. Then a flat
   list: "To" (full address in monospace) unless a short name is already in the
-  receive node, "Destination network" for cross-chain, "Price impact" (the money
-  when 1% or more, then the "x.x% less" badge), "Fees ›", "Arrives", and "More
+  receive node, "Destination network" for cross-chain, "Price impact ›" (the money
+  when 1% or more, then the "x.x% less" badge; it opens "Price and route"), "Fees ›", "Arrives", and "More
   details ›", which opens the "Transaction details" `InfoSheet` (To, Destination
   network, Route when a basket is used, From, Balance after). Fees and addresses wrap and never truncate. The footer stays
   Hold to confirm.
@@ -610,16 +614,29 @@ A VerusPay invoice opens `InvoicePayFlow`
 invoice screen so a generic request continues after the payment.
 
 - Pay with shows the payer's side of the payment slip (`InvoiceSlip`): the
-  VerusPay mark, a paper Signed or Unsigned badge, the amount, and a stub with
-  "Requested by <VerusID>" or "To <address>". The owner chose the slip (option 2
-  of the Von Restorff variations) so that the request is the one thing that
-  stands out. This extends the slip's material exception to the payer's side.
+  VerusPay mark, the amount, and a stub. The owner chose the slip (option 2 of
+  the Von Restorff variations) so that the request is the one thing that stands
+  out. This extends the slip's material exception to the payer's side.
+- A signed invoice has no badge: the stub reads "Request from" (13 points) above
+  the VerusID name in 17-point semibold, the gift card's name size. A name shows
+  only for a signed invoice, so it needs no "signed" line (owner, 2026-10-22).
+  An unsigned invoice keeps the paper "Unsigned" badge, and its stub reads "To"
+  above the full address in monospace.
 - Under the slip, every way to pay with its cost: "Pay directly", then "Pay with
-  conversion", one row per currency and basket. A currency on several cards
-  shows "<n> cards" and opens "Choose a card". The step is skipped when the
-  invoice allows no conversion and one card can pay.
-- Confirm adds "Requested by" (signed invoices only), "From" (only after a card
-  choice), "Expires" and "Invoice details". It always pays through the
+  conversion", one row per currency (owner, 2026-10-22). The wallet picks the
+  cheapest basket; rows do not say "via". A conversion row shows Send's price
+  impact chip (`ImpactChip`) with the same rule and tones as on Amount, but it
+  reads "x.x% more", because the invoice fixes the amount and the user pays the
+  difference. The chip opens `PriceRouteSheet` in pay mode: every basket with
+  its cost, cheapest first ("Best price", "x% more"), then Market price, Your
+  price and Difference; a choice changes the row. A basket that is the requested
+  or the paying currency itself counts as "Direct". There is no "Use … instead"
+  suggestion. A currency on several cards shows "<n> cards" and opens "Choose a
+  card". The step is skipped when the invoice allows no conversion and one card
+  can pay.
+- Confirm adds "Request from" (signed invoices only), "From" (only after a card
+  choice), "Expires" and "Invoice details". Its Price impact reads "x.x% more", and
+  the money is what the user pays on top of the market price. It always pays through the
   currency-transfer path, so the invoice tag goes into the transaction, and it
   refuses a payment that the fee would shrink.
 - Sent reads "Payment sent". Done closes the invoice or continues its request.

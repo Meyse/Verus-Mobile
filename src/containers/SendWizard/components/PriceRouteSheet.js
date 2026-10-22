@@ -41,7 +41,12 @@ const SUGGESTION_ROW_HEIGHT = 52;
 const FACT_LIST_GAP = 8;
 const SHEET_HEIGHT_SHARE = 0.78;
 
+// Send's Amount step opens it with every basket and the estimate for each. Confirm
+// opens it with no baskets: then it shows the price facts and the route. With
+// `pay` (a VerusPay invoice), the amount received is fixed: `baskets` comes
+// prepared with what each basket costs, and the difference reads "more".
 const PriceRouteSheet = ({
+  baskets,
   cryptoAmount,
   displayCurrency,
   estimates = {},
@@ -54,6 +59,7 @@ const PriceRouteSheet = ({
   onClosed,
   onSelect,
   onUseSuggestion,
+  pay = false,
   priceImpact,
   rate,
   route,
@@ -73,24 +79,38 @@ const PriceRouteSheet = ({
     [theme],
   );
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
-  const entries = compareRoutes(target.routes || [], estimates);
-  const hasChoice = entries.length > 1;
+  const rows = baskets || compareRoutes(target.routes || [], estimates).map(
+    ({route: item, output, isBest, lessPercent}) => ({
+      route: item,
+      subtitle: output
+        ? `≈ ${formatEstimatedAmount(output)} ${target.ticker}`
+        : 'Estimate unavailable.',
+      badgeLabel: isBest
+        ? 'Best price'
+        : lessPercent != null
+        ? `${formatLessPercent(lessPercent)}% less`
+        : null,
+      isBest,
+    }),
+  );
+  const hasChoice = rows.length > 1;
   const {impact, level, loss, marketPrice, suggestion} = priceImpact;
   const unitPrice = target.isConversion
     ? getUnitPrice(cryptoAmount, estimatedOutput)
     : null;
+  const sourceTicker = sourceCoin.display_ticker;
   const lossText = impact == null ? null : getImpactLossText({
     displayCurrency,
     loss,
     rate,
-    targetLoss: getTargetShortfall({
+    targetLoss: pay ? loss : getTargetShortfall({
       amount: cryptoAmount,
       output: estimatedOutput,
       marketPrice,
     }),
-    targetTicker: target.ticker,
+    targetTicker: pay ? sourceTicker : target.ticker,
   });
-  const difference = impact == null ? null : getImpactBadgeLabel(impact);
+  const difference = impact == null ? null : getImpactBadgeLabel(impact, pay);
   const differenceColor = level === IMPACT_LEVEL.DANGER
     ? theme.colors.danger
     : level === IMPACT_LEVEL.WARNING
@@ -98,7 +118,6 @@ const PriceRouteSheet = ({
     : theme.colors.textSecondary;
   const showSuggestion = suggestion &&
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
-  const sourceTicker = sourceCoin.display_ticker;
   const facts = [
     {
       label: 'Market price',
@@ -172,16 +191,8 @@ const PriceRouteSheet = ({
           <SheetScrollView
             style={{maxHeight: listMaxHeight}}
             contentContainerStyle={styles.baskets}>
-            {entries.map(({route: item, output, isBest, lessPercent}) => {
+            {rows.map(({route: item, subtitle, badgeLabel, isBest}) => {
               const name = getRouteName(item);
-              const subtitle = output
-                ? `≈ ${formatEstimatedAmount(output)} ${target.ticker}`
-                : 'Estimate unavailable.';
-              const badgeLabel = isBest
-                ? 'Best price'
-                : lessPercent != null
-                ? `${formatLessPercent(lessPercent)}% less`
-                : null;
               return (
                 <SelectionRow
                   compact

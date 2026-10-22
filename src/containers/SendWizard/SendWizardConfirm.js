@@ -28,6 +28,7 @@ import {
 } from 'verus-typescript-primitives';
 import FeeBreakdownSheet from './components/FeeBreakdownSheet';
 import NetworkFeeSheet from './components/NetworkFeeSheet';
+import PriceRouteSheet from './components/PriceRouteSheet';
 import useNetworkFee from './useNetworkFee';
 import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind, previewNetworkFee} from './networkFeeUtils';
 import {
@@ -128,6 +129,7 @@ const SendWizardConfirm = () => {
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const preflightSequence = useRef(0);
   const preparedParams = useRef(null);
   const lastReview = useRef(null);
@@ -621,22 +623,27 @@ const SendWizardConfirm = () => {
   }
 
   const showReceive = Boolean(target?.isConversion && estimatedReceive != null);
-  const {impact, level, lossText, unitPrice} = showReceive
+  // An invoice fixes what the recipient gets, so its impact is what the user
+  // pays on top of the market price.
+  const payImpact = Boolean(invoice);
+  const {impact, level, loss, lossText, unitPrice} = showReceive
     ? getConversionPriceSummary({
         amount: displayAmount,
         displayCurrency,
         marketPrice: state.marketPrice,
         output: estimatedReceive,
+        pay: payImpact,
         rate: getRate(sourceCoin?.id),
+        sourceTicker: sourceCoin?.display_ticker || '',
         targetTicker: target?.ticker || '',
       })
     : {};
-  const connectorLines = [
-    unitPrice
-      ? `1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`
-      : null,
-    route?.via ? `via ${route.viaFqn || route.via}` : null,
-  ].filter(Boolean);
+  // The route is not on the connector (owner, 2026-10-22): the Price impact
+  // row opens "Price and route", which names it.
+  const connectorLines = unitPrice
+    ? [`1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
+    : [];
+  const showImpact = showReceive && (impact != null || Boolean(route?.via));
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
   const pinnedMessage = state.broadcastError || error || invoiceShortfall;
@@ -685,7 +692,17 @@ const SendWizardConfirm = () => {
           fees={feeSummary}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
-          impact={impact ? {impact, level, lossText} : null}
+          impact={
+            showImpact
+              ? {
+                  impact,
+                  level,
+                  lossText,
+                  onPress: () => setPriceSheetOpen(true),
+                  pay: payImpact,
+                }
+              : null
+          }
           onOpenFees={feeKind && (sending || state.broadcastError || state.txResult || !networkFee.canChoose) ? undefined : () => setFeeSheetOpen(true)}
           note={state.scanRequest?.note}
           recipient={recipientAddress}
@@ -694,7 +711,7 @@ const SendWizardConfirm = () => {
               ? [
                   invoice.signer
                     ? {
-                        label: 'Requested by',
+                        label: 'Request from',
                         value: invoice.signer,
                         onPress: invoiceFlow?.onOpenRequester,
                       }
@@ -757,6 +774,24 @@ const SendWizardConfirm = () => {
           formatFiat={fee => formatFiat(fee, feeCurrencyId)}
         />
       ) : <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />}
+      {showImpact ? (
+        <PriceRouteSheet
+          baskets={[]}
+          cryptoAmount={displayAmount}
+          displayCurrency={displayCurrency}
+          estimatedOutput={estimatedReceive}
+          onClose={() => setPriceSheetOpen(false)}
+          onSelect={() => {}}
+          onUseSuggestion={() => {}}
+          pay={payImpact}
+          priceImpact={{impact, level, loss, marketPrice: state.marketPrice}}
+          rate={getRate(sourceCoin?.id)}
+          route={route}
+          sourceCoin={sourceCoin}
+          target={target}
+          visible={priceSheetOpen}
+        />
+      ) : null}
     </WizardScreen>
   );
 };
