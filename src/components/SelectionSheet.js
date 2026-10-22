@@ -24,6 +24,9 @@ export const SelectionRow = ({
   badge,
   accessibilityLabel,
   compact = false,
+  // A choice that exists but cannot be picked now, such as a private card
+  // that still syncs. The subtitle says why.
+  disabled = false,
   preserveSubtitle = false,
 }) => {
   const theme = useOnboardingTheme();
@@ -37,12 +40,15 @@ export const SelectionRow = ({
           .filter(item => item != null && item !== '')
           .join(', ')
       }
-      accessibilityState={selected == null ? undefined : {selected}}
+      accessibilityState={
+        selected == null && !disabled ? undefined : {selected: Boolean(selected), disabled}
+      }
       activeOpacity={0.74}
+      disabled={disabled}
       onPress={onPress}
       style={[styles.row, compact && styles.compactRow, selected && styles.selectedRow]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
-      <View style={[styles.copy, preserveSubtitle && styles.preservedCopy]}>
+      <View style={[styles.copy, preserveSubtitle && styles.preservedCopy, disabled && styles.disabledContent]}>
         <Text
           numberOfLines={compact ? 1 : undefined}
           style={[styles.rowTitle, compact && styles.compactTitle, titleMonospace && styles.identifier]}>
@@ -62,7 +68,7 @@ export const SelectionRow = ({
       </View>
       {badge ? <View style={styles.badge}>{badge}</View> : null}
       {value != null || valueContent ? (
-        <View style={[styles.value, preserveSubtitle && styles.wrappingValue]}>
+        <View style={[styles.value, preserveSubtitle && styles.wrappingValue, disabled && styles.disabledContent]}>
           {valueContent || (
             <>
               <Text style={[styles.valueText, preserveSubtitle && styles.wrappingValueText]}>{value}</Text>
@@ -77,7 +83,7 @@ export const SelectionRow = ({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         style={[styles.indicator, compact && styles.compactIndicator]}>
-        {selected ? (
+        {disabled ? null : selected ? (
           <Check color={theme.colors.success} size={20} strokeWidth={2.4} />
         ) : (
           <MaterialCommunityIcons

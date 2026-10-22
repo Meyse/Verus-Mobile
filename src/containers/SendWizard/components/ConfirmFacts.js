@@ -20,6 +20,7 @@ const ConfirmFacts = ({
   networkFee,
   feeLoading,
   leadingRows = [],
+  memo,
   note,
   recipient,
   trailingRows = [],
@@ -35,8 +36,9 @@ const ConfirmFacts = ({
         label="To"
         numberOfLines={0}
         value={recipient}
-        valueStyle={recipient.endsWith('@') ? null : styles.address}
+        valueStyle={recipient.includes('@') ? null : styles.address}
       />
+      {memo ? <FlatRow label="Memo" numberOfLines={0} value={memo} /> : null}
       {note ? <FlatRow label="Note" numberOfLines={0} value={note} /> : null}
       {destinationNetwork ? (
         <FlatRow label="Destination network" value={destinationNetwork} />

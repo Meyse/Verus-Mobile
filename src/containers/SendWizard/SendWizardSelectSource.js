@@ -19,6 +19,12 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {USD} from '../../utils/constants/currencies';
 import {truncateDecimal} from '../../utils/math';
+import {
+  getPrivateSyncPercent,
+  getSpendableBalance,
+  isPrivateChannel,
+  selectPrivateWalletInfo,
+} from '../../utils/subwallet/privateWallet';
 import {useSendWizard} from './SendWizardContext';
 import {
   WIZARD_CONTENT_INSET,
@@ -26,7 +32,9 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import {SourceCardSheet} from './components/SelectionSheets';
+import {cardCanPay} from './privateSend';
 import {
+  ADDRESS_TYPE,
   buildSendTarget,
   getRecipientAddressType,
   getSourceAddressType,
@@ -60,6 +68,7 @@ const SendWizardSelectSource = () => {
     extractLedgerData(stateValue, 'balances', API_GET_BALANCES),
   );
   const rates = useObjectSelector(stateValue => stateValue.ledger.rates);
+  const privateInfo = useObjectSelector(selectPrivateWalletInfo);
   const showBalance = useObjectSelector(stateValue => stateValue.coins.showBalance);
   const displayCurrency = useObjectSelector(
     stateValue => stateValue.settings.generalWalletSettings.displayCurrency || USD,
@@ -81,17 +90,25 @@ const SendWizardSelectSource = () => {
                 (!identityChannelPrefix ||
                   String(card.channel || '').startsWith(identityChannelPrefix)) &&
                 (mode !== SEND_WIZARD_MODE.CONVERT ||
-                  (!CONVERSION_DISABLED && isConversionChannel(channel)))
+                  (!CONVERSION_DISABLED && isConversionChannel(channel))) &&
+                // A scanned private address: the private card only.
+                (!scanRequest?.address || cardCanPay(channel, scanRequest.address))
               );
             },
           )
           .map(card => {
-            const balance = BigNumber(balances?.[coin.id]?.[card.id]?.total || 0);
+            const balance = BigNumber(
+              getSpendableBalance(balances?.[coin.id]?.[card.id], card),
+            );
+            const channel = card.api_channels[API_SEND];
             return {
               coin,
               card,
               balance: balance.toString(),
-              channel: card.api_channels[API_SEND],
+              channel,
+              syncPercent: isPrivateChannel(channel)
+                ? getPrivateSyncPercent(privateInfo?.[coin.id])
+                : null,
             };
           })
           .filter(source => BigNumber(source.balance).isGreaterThan(0))
@@ -122,6 +139,8 @@ const SendWizardSelectSource = () => {
       .filter(asset =>
         scanRequest?.coinId
           ? asset.coin.id === scanRequest.coinId
+          : scanAddressType === ADDRESS_TYPE.PRIVATE
+          ? true
           : scanRequest?.address
           ? getSourceAddressType(asset.coin) === scanAddressType
           : true,
@@ -134,6 +153,7 @@ const SendWizardSelectSource = () => {
     displayCurrency,
     identityChannelPrefix,
     mode,
+    privateInfo,
     rates,
     scanAddressType,
     scanRequest,
@@ -180,9 +200,11 @@ const SendWizardSelectSource = () => {
     navigation.navigate('SendWizardSelectTarget');
   };
 
+  // A card that still syncs cannot send; "Choose a card" shows it and why.
   const chooseAsset = asset => {
-    if (asset.cards.length === 1) chooseSource(asset.cards[0]);
-    else {
+    if (asset.cards.length === 1 && asset.cards[0].syncPercent == null) {
+      chooseSource(asset.cards[0]);
+    } else {
       setPendingAsset(asset);
       setCardSheetVisible(true);
     }
