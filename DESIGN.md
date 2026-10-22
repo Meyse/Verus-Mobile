@@ -735,6 +735,32 @@ variation A on 2026-10-22.
 - After 15 seconds the line reads "This is taking longer than usual. Keep the
   app open." A failed task shows its error as the title without the loader.
 
+## Wallet setup screen
+
+Creating or importing a wallet shows `WalletSetupOverlay.js`
+(`src/components/WalletSetup/`). The owner chose variation E on 2026-10-22,
+after two mockup rounds; it combines the wallet icon in a progress ring with
+the coins that fly onto Home.
+
+- The wallet icon (96 points) sits in a 128-point ring, over "Setting up
+  <name>" ("Restoring <name>" for an import) in 24/31 semibold. Below are one
+  48-point slot per starting coin (VRSC, BTC and ETH; VRSCTEST and GETH on
+  testnet) and one 15/22 line that names the current step.
+- Only real steps move it: a coin shows when its key is made, and the ring
+  grows when a step ends (`createProfileFromSeed` reports them through
+  `onStep` and waits until the screen has shown each one). The gaps between
+  reveals (0.4 s before the first coin, 0.36 s between coins, 0.22 s between
+  steps) only make each step visible.
+- The end: a green check settles on the icon, the title reads "<name> is
+  ready", and after 1.1 s the coins fly onto their rows on Home
+  (`WalletSetupLogoSlot.js` lends the row logos as targets) while the rest of
+  the screen fades. The slots follow Home's row order, so the coins fly
+  straight down. No button and no pop-up.
+- A failure stays on the screen: "<name> was not created", one line, and
+  "Choose another name" or "Try again" with "Back".
+- With Reduce Motion the screen only fades. When a saved request opens next,
+  or Home has no rows to land on, the coins fade instead of flying.
+
 ## Receive and payment request
 
 The owner approved variation A ("Calm address") for Receive and variation C's

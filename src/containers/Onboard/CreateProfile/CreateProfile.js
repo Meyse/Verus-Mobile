@@ -5,13 +5,22 @@ import ChooseName from './Forms/ChooseName';
 import CreatePassword from './Forms/CreatePassword';
 import UseBiometrics from './Forms/UseBiometrics';
 import {useDispatch} from 'react-redux';
-import {
-  closeLoadingModal,
-  openLoadingModal,
-} from '../../../actions/actionDispatchers';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
-import {createProfileFromSeed} from '../../../utils/profile/createProfileFromSeed';
+import {
+  createProfileFromSeed,
+  getStartingCoinIds,
+} from '../../../utils/profile/createProfileFromSeed';
+import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
+import {getAssetPresentation} from '../../../utils/assets/assetPresentation';
+import {getBiometryPresentation} from '../../../components/BiometricAffordanceIcon';
+import {
+  closeWalletSetup,
+  failWalletSetup,
+  finishWalletSetup,
+  reportWalletSetupStep,
+  showWalletSetup,
+} from '../../../components/WalletSetup/walletSetupStore';
 import {getKey} from '../../../utils/keyGenerator/keyGenerator';
 import {getSupportedBiometryType} from '../../../utils/keychain/keychain';
 import ScanSeed from '../../../components/ScanSeed';
@@ -61,6 +70,30 @@ const getImportStepForImportMethod = importMethod => {
   }
 
   return SETUP_STEPS.IMPORT_TEXT;
+};
+
+// "Face ID" and "Touch ID" keep their capitals; other names read as a phrase.
+const getBiometrySetupName = supportedBiometryType => {
+  const name = getBiometryPresentation(supportedBiometryType).settingsTitle;
+
+  return /^(Face|Touch) ID$/.test(name)
+    ? name
+    : name.charAt(0).toLowerCase() + name.slice(1);
+};
+
+// The starting coins in key order. `slot` is their row order on Home: a new
+// wallet has no balances, so Home lists them by name.
+const getSetupCoins = testProfile => {
+  const coins = getStartingCoinIds(testProfile).map(({startId, coinId}) => ({
+    startId,
+    coinId,
+    presentation: getAssetPresentation(CoinDirectory.getBasicCoinObj(coinId)),
+  }));
+  const byName = [...coins].sort((a, b) =>
+    a.presentation.name.localeCompare(b.presentation.name),
+  );
+
+  return coins.map(coin => ({...coin, slot: byName.indexOf(coin)}));
 };
 
 const shouldCollectImportBeforeProfile = setupSelection =>
@@ -166,9 +199,21 @@ export default function CreateProfileStackScreens(props) {
     if (creationStarted.current) return;
     creationStarted.current = true;
     let profileCreated = false;
+    const retry = () => {
+      closeWalletSetup();
+      return createProfile(seed, createAsTestProfile, useSeedAsZ);
+    };
 
     try {
-      openLoadingModal('Setting up your new wallet...');
+      await showWalletSetup({
+        walletName: profileName,
+        walletAvatar,
+        restoring: isImportSetup,
+        biometryName: useBiometrics
+          ? getBiometrySetupName(supportedBiometryType)
+          : null,
+        coins: getSetupCoins(createAsTestProfile),
+      });
       await createProfileFromSeed({
         profileName,
         password,
@@ -180,6 +225,7 @@ export default function CreateProfileStackScreens(props) {
         includeDlightSeed: useSeedAsZ,
         useBiometrics,
         walletAvatar,
+        onStep: reportWalletSetupStep,
       });
       profileCreated = true;
       const resumePendingDeeplinkId =
@@ -196,10 +242,19 @@ export default function CreateProfileStackScreens(props) {
 
         dispatch(setDeeplinkUrl(replay.url, replay.passthrough));
       }
+
+      finishWalletSetup({landOnHome: !resumePendingDeeplinkId});
     } catch (e) {
       console.error(e);
+      // The setup screen shows the failure; an alert if it never opened.
+      const showFailure = failure => {
+        if (!failWalletSetup(failure)) {
+          createAlert(failure.title, failure.message);
+        }
+      };
 
       if (profileCreated) {
+        await finishWalletSetup({landOnHome: false});
         createAlert(
           'Wallet ready',
           'The saved request could not be reopened. Find it under Saved requests on the sign-in screen.',
@@ -208,19 +263,27 @@ export default function CreateProfileStackScreens(props) {
         e?.code === 'DUPLICATE_ACCOUNT' ||
         e?.message === 'Cannot create duplicate account.'
       ) {
-        createAlert(
-          'Wallet not created',
-          'A wallet with this name already exists. Choose another name.',
-        );
+        showFailure({
+          title: `${profileName} was not created`,
+          message: 'A wallet with this name already exists.',
+          primaryLabel: 'Choose another name',
+          onPrimary: () => {
+            closeWalletSetup();
+            setCurrentStep(SETUP_STEPS.NAME);
+          },
+        });
       } else {
-        createAlert(
-          'Wallet not created',
-          'The wallet could not be set up. Try again.',
-        );
+        showFailure({
+          title: `${profileName} was not created`,
+          message: 'The wallet could not be set up.',
+          primaryLabel: 'Try again',
+          onPrimary: retry,
+          secondaryLabel: 'Back',
+          onSecondary: () => closeWalletSetup(),
+        });
       }
     } finally {
       if (!profileCreated) creationStarted.current = false;
-      closeLoadingModal();
     }
   };
 
