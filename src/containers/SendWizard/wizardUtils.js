@@ -47,6 +47,8 @@ const getShortTicker = ticker =>
 // the band does not repeat the chain there.
 // A scanned recipient shows as "to <address>" on Amount and as "To <address>"
 // on Select asset, because the Recipient step is skipped.
+// A Send or Convert from the VerusID page shows "From <name>" on Select asset.
+// A scanned recipient wins.
 export const getWizardContextSummary = ({
   mode,
   step,
@@ -55,11 +57,23 @@ export const getWizardContextSummary = ({
   route,
   channel,
   recipient,
+  sourceIdentityName,
 }) => {
   const recipientLabel = recipient ? shortAddress(recipient) : null;
   if (step === WIZARD_CONTEXT_STEP.SOURCE) {
-    return recipientLabel
-      ? {recipient: recipientLabel, recipientOnly: true, description: `Send to ${recipient}`}
+    if (recipientLabel) {
+      return {recipient: recipientLabel, recipientOnly: true, description: `Send to ${recipient}`};
+    }
+    return sourceIdentityName
+      ? {
+          recipient: sourceIdentityName,
+          recipientOnly: true,
+          recipientPrefix: 'From',
+          recipientIsName: true,
+          description: `${
+            mode === SEND_WIZARD_MODE.CONVERT ? 'Convert' : 'Send'
+          } from ${sourceIdentityName}`,
+        }
       : null;
   }
   if (!sourceCoin || !target || !route) return null;

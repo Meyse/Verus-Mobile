@@ -55,6 +55,11 @@ const SendWizardSelectSource = () => {
     ? getRecipientAddressType(scanRequest.address)
     : null;
   const autoOpenedCards = useRef(false);
+  // A Send from the VerusID page: only that VerusID's cards are sources.
+  // Its card channel is "vrpc.<iAddress>.<systemId>".
+  const identityChannelPrefix = state.sourceIdentity?.iAddress
+    ? `vrpc.${state.sourceIdentity.iAddress}.`
+    : null;
 
   const coins = useObjectSelector(stateValue => stateValue.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(stateValue => extractDisplaySubWallets(stateValue));
@@ -81,6 +86,8 @@ const SendWizardSelectSource = () => {
 
               return (
                 canSend &&
+                (!identityChannelPrefix ||
+                  String(card.channel || '').startsWith(identityChannelPrefix)) &&
                 (mode !== SEND_WIZARD_MODE.CONVERT ||
                   (!CONVERSION_DISABLED && isConversionChannel(channel))) &&
                 // A scanned private address: the private card only.
@@ -141,6 +148,7 @@ const SendWizardSelectSource = () => {
     cardsByCoin,
     coins,
     displayCurrency,
+    identityChannelPrefix,
     mode,
     privateInfo,
     rates,
@@ -235,6 +243,8 @@ const SendWizardSelectSource = () => {
                 ? 'No assets match your search.'
                 : scanAddressType
                 ? 'This address is for assets you don’t hold.'
+                : identityChannelPrefix
+                ? 'This VerusID holds no assets to send.'
                 : `No assets with balance available to ${
                     mode === SEND_WIZARD_MODE.CONVERT ? 'convert' : 'send'
                   }.`}

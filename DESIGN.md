@@ -119,6 +119,7 @@ buttons keep their size.
 | Services home | `src/containers/Services/SignedInServicesHome.js` and [Services home](#services-home) below | Use the two-column tile grid. Do not add artwork or descriptions to used services. |
 | Service list or manager | `src/components/ServiceManagerHeader.js`, `src/containers/Services/AddressBook/AddressBook.js`, `src/containers/Services/ServiceComponents/GiftCardService/GiftCardServiceOverview/GiftCardServiceOverview.js` | Reuse the shared header and established list rhythm. |
 | Gift card detail | [Gift card detail](#gift-card-detail) below, with `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFixedCard.js` | Use the fixed card. Say each fact once. |
+| VerusID list and page | [VerusID page](#verusid-page) below, with `src/containers/Services/ServiceComponents/VerusIdService/VerusIdCard.js` | Use the light card. Funds come last; a fund opens its asset screen. |
 | Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
@@ -256,6 +257,9 @@ It reminds the user what moves and where, in one line, without a second title.
   `AssetCoinLogo` at 16 points.
 - Left: the source asset and, for a conversion, an arrow and the target asset.
   Right: "on" and the chain, only for a conversion to another chain.
+- A Send or Convert from the VerusID page starts on Select asset with only that
+  VerusID's assets. There the band reads "From <VerusID name>", with the name in
+  normal type.
 - Send shows the source asset alone. On Recipient, a Send to another chain adds an
   arrow and the chain. Amount does not, because its Network row is right below.
 - Drop `[ERC20]` from asset names. The logo badge says it. Hide the target's badge
@@ -571,6 +575,56 @@ The detail screen shows one fixed card and says each fact once.
 - Warnings appear in the share confirmation, not as permanent notice boxes.
 - Wording: use "Claimed", not "Redeemed" or "Claim completed". Use "Shared" as
   the status after the link leaves the wallet.
+
+## VerusID page
+
+The owner approved "D revised" on 2026-10-22 (round 3 of the VerusID mockups).
+It replaces the old fold-out details. The tab icon stays the VerusID @ mark; the
+page itself shows no mark.
+
+- List: one filled row per linked VerusID: `surfaceMuted`, 18-point radius,
+  76-point minimum height, no border, no shadow. The name uses `titleRow`, with
+  the first part in `textPrimary` and the parent and network in `textSecondary`.
+  Under it, the asset count in `caption` ("2 assets", "No assets"). A
+  `StatusBadge` shows only for Locked (warning) or Revoked (danger); Active is
+  silent. A chevron ends the row. The title has no count pill.
+- Header: native Back, and ⋯ on the right. After the card scrolls away, the
+  header shows the first part of the name. ⋯ opens a sheet with one action row,
+  "Unlink VerusID" (danger), which opens the existing unlink confirmation.
+- Card (`VerusIdCard.js`), at the content width: `surfaceMuted`, 24-point
+  radius, no border, no shadow, no mark. The name in `headlineMd`
+  (`headlineCompact` on windows of 667 points or less), in the two list colors,
+  with `CopyAction` at the right of its first line; it copies the name. Under it
+  the network, with the status badge on the same line. The card shows no
+  i-address; Details has it (owner, 2026-10-22). This filled card is an approved
+  exception to flat pages, for this page only.
+- Under the card: Receive, Send and Convert as the asset screen's small icon
+  buttons (`SignedInActionButtons` in `SignedInActionBar.js`), 12 points below
+  the card, with no primary. Receive opens Receive on the VerusID's own network
+  with its card. Send and Convert open the wizard on the asset when the VerusID
+  holds one asset, and Select asset with only its assets when it holds several.
+  Send and Convert are off when the VerusID is locked, revoked or empty; Convert
+  is also off when conversions are disabled. Receive is off when it is revoked.
+- Control: a `titleRow` section title, then the gift card fact rows. "Spend and
+  sign" reads "Only you", "You and others", "Other addresses", "Locked" or
+  "Revoked", with "N of M signatures" or the unlock time below. "Revoke and
+  recover" reads "This VerusID" or the authority's name; different authorities
+  get separate Revoke and Recover rows.
+- Then two flat 62-point rows, as on Recipient: "Content | N entries ›" and
+  "Details ›". Content without entries reads "None" and does not open.
+- Content is an information sheet with one `InfoSheetRow` per decoded value:
+  text, a link, an image size, a field count or a byte count. All encrypted
+  values of one key form one row, "N values", with a neutral "Encrypted" badge.
+  The wallet never decrypts them.
+- Details is an information sheet: i-address (with `CopyAction`), Parent,
+  Primary address(es), Private address and Last change (block). "View in explorer" shows only where the network has
+  a VerusID explorer, so never on testnet.
+- Funds come last: a `titleRow` title, then one Manage assets row per asset
+  whose VerusID card holds a balance (40-point logo, `titleRow` name, `bodySm`
+  amount, chevron). A tap opens that asset screen with the VerusID card
+  selected; Back returns to the VerusID page. Skeleton rows show while balances
+  load. "This VerusID holds no funds." shows when there are none. Hidden
+  balances read "Balance hidden".
 
 ## Receive and payment request
 

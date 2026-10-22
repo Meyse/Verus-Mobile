@@ -29,6 +29,9 @@ const initialWizardState = {
   // A VerusPay invoice paid through these screens: its facts for Confirm and
   // Sent (InvoicePayFlow). The flow's options live in InvoiceFlowContext.
   invoice: null,
+  // A Send from the VerusID page: {iAddress, name}. Select asset then shows
+  // only the assets on that VerusID's cards.
+  sourceIdentity: null,
   // The card a payment comes from, when the asset is on more than one.
   payFromLabel: null,
   preflightResult: null,
@@ -80,6 +83,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       ...initialWizardState,
       ...getScanRequestFields(current.scanRequest),
       invoice: current.invoice,
+      sourceIdentity: current.sourceIdentity,
       ...source,
       target,
       route,

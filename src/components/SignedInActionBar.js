@@ -33,24 +33,85 @@ const ACTION_ICONS = {
   ),
 };
 
-const SignedInActionBar = ({
+// Receive, Send and Convert as three equal secondary buttons with icons. The
+// asset screen shows them in its bottom bar; the VerusID page shows them in
+// the page under its card.
+export const SignedInActionButtons = ({
   convertDisabled = false,
   onReceive,
   onConvert,
   onSend,
   receiveDisabled = false,
   sendDisabled = false,
-  includeBottomInset = true,
-  showFade = false,
+  style,
 }) => {
-  const theme = useOnboardingTheme();
-  const insets = useSafeAreaInsets();
   const {fontScale} = useWindowDimensions();
   const stacked = fontScale >= 1.3;
-  const bottomPadding = includeBottomInset ? Math.max(insets.bottom, 20) : 20;
   const buttonStyle = [styles.button, stacked && styles.stackedButton];
   const disabledHint = action =>
     `${action} is unavailable because there is no compatible Asset and Card.`;
+
+  return (
+    <View style={[styles.buttons, stacked && styles.stackedRow, style]}>
+      <AppButton
+        accessibilityHint={
+          receiveDisabled ? disabledHint(signedInCopy.actions.receive) : undefined
+        }
+        accessibilityLabel={signedInCopy.actions.receive}
+        compact
+        height={ACTION_BUTTON_HEIGHT}
+        disabled={receiveDisabled}
+        icon={ACTION_ICONS.receive}
+        labelStyle={styles.label}
+        onPress={onReceive}
+        style={buttonStyle}
+        variant="secondary">
+        {signedInCopy.actions.receive}
+      </AppButton>
+      <AppButton
+        accessibilityHint={
+          sendDisabled ? disabledHint(signedInCopy.actions.send) : undefined
+        }
+        accessibilityLabel={signedInCopy.actions.send}
+        compact
+        height={ACTION_BUTTON_HEIGHT}
+        disabled={sendDisabled}
+        icon={ACTION_ICONS.send}
+        labelStyle={styles.label}
+        onPress={onSend}
+        style={buttonStyle}
+        variant="secondary">
+        {signedInCopy.actions.send}
+      </AppButton>
+      <AppButton
+        accessibilityHint={
+          convertDisabled
+            ? disabledHint(signedInCopy.actions.convert)
+            : undefined
+        }
+        accessibilityLabel={signedInCopy.actions.convert}
+        compact
+        height={ACTION_BUTTON_HEIGHT}
+        disabled={convertDisabled}
+        icon={ACTION_ICONS.convert}
+        labelStyle={styles.label}
+        onPress={onConvert}
+        style={buttonStyle}
+        variant="secondary">
+        {signedInCopy.actions.convert}
+      </AppButton>
+    </View>
+  );
+};
+
+const SignedInActionBar = ({
+  includeBottomInset = true,
+  showFade = false,
+  ...actions
+}) => {
+  const theme = useOnboardingTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = includeBottomInset ? Math.max(insets.bottom, 20) : 20;
 
   return (
     <View
@@ -61,60 +122,10 @@ const SignedInActionBar = ({
         style={styles.bottomFade}
         visible={showFade}
       />
-      <View
-        style={[
-          styles.row,
-          stacked && styles.stackedRow,
-          {paddingBottom: bottomPadding},
-        ]}>
-        <AppButton
-          accessibilityHint={
-            receiveDisabled ? disabledHint(signedInCopy.actions.receive) : undefined
-          }
-          accessibilityLabel={signedInCopy.actions.receive}
-          compact
-          height={ACTION_BUTTON_HEIGHT}
-          disabled={receiveDisabled}
-          icon={ACTION_ICONS.receive}
-          labelStyle={styles.label}
-          onPress={onReceive}
-          style={buttonStyle}
-          variant="secondary">
-          {signedInCopy.actions.receive}
-        </AppButton>
-        <AppButton
-          accessibilityHint={
-            sendDisabled ? disabledHint(signedInCopy.actions.send) : undefined
-          }
-          accessibilityLabel={signedInCopy.actions.send}
-          compact
-          height={ACTION_BUTTON_HEIGHT}
-          disabled={sendDisabled}
-          icon={ACTION_ICONS.send}
-          labelStyle={styles.label}
-          onPress={onSend}
-          style={buttonStyle}
-          variant="secondary">
-          {signedInCopy.actions.send}
-        </AppButton>
-        <AppButton
-          accessibilityHint={
-            convertDisabled
-              ? disabledHint(signedInCopy.actions.convert)
-              : undefined
-          }
-          accessibilityLabel={signedInCopy.actions.convert}
-          compact
-          height={ACTION_BUTTON_HEIGHT}
-          disabled={convertDisabled}
-          icon={ACTION_ICONS.convert}
-          labelStyle={styles.label}
-          onPress={onConvert}
-          style={buttonStyle}
-          variant="secondary">
-          {signedInCopy.actions.convert}
-        </AppButton>
-      </View>
+      <SignedInActionButtons
+        {...actions}
+        style={[styles.barPadding, {paddingBottom: bottomPadding}]}
+      />
     </View>
   );
 };
@@ -179,10 +190,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  row: {
+  buttons: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
+  },
+  barPadding: {
     paddingHorizontal: 16,
     paddingTop: 10,
   },

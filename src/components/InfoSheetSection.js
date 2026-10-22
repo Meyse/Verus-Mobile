@@ -6,8 +6,11 @@ import {deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '
 import {useOnboardingTheme} from '../theme/onboarding';
 
 // `copy` adds the shared copy button beside the row. It copies `copyValue`
-// when the shown value differs from the text to copy.
+// when the shown value differs from the text to copy. `accessory` is a node at
+// the right of the row, for example a status badge. It comes before the copy
+// button when the row has both.
 export const InfoSheetRow = ({
+  accessory,
   copy = false,
   copyValue,
   ellipsizeMode,
@@ -38,16 +41,21 @@ export const InfoSheetRow = ({
     </>
   );
 
-  if (!copy) return <View style={styles.requestInfoRow}>{text}</View>;
+  if (!copy && !accessory) {
+    return <View style={styles.requestInfoRow}>{text}</View>;
+  }
 
   return (
     <View style={[styles.requestInfoRow, styles.requestInfoRowWithAction]}>
       <View style={styles.requestInfoRowText}>{text}</View>
-      <CopyAction
-        accessibilityLabel={`Copy ${label.toLowerCase()}`}
-        copiedAccessibilityLabel={`${label} copied`}
-        value={copyValue ?? value}
-      />
+      {accessory}
+      {copy ? (
+        <CopyAction
+          accessibilityLabel={`Copy ${label.toLowerCase()}`}
+          copiedAccessibilityLabel={`${label} copied`}
+          value={copyValue ?? value}
+        />
+      ) : null}
     </View>
   );
 };

@@ -8,6 +8,11 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-10-22.
+- Scoped VerusID page: **ID-2** on `claude/verusid-page` from `63a8c0b2`. The
+  owner chose "D revised" on 2026-10-22: the light card without a mark,
+  Control, Content and Details above Funds, and a fund row that opens its
+  asset screen with the VerusID card. The tab icon stays the @ mark. iOS QA on
+  the normal and SE simulators passed in light and dark; Android is open.
 - Scoped Receive restyle: **RX-2** on `claude/receive-restyle` from `e8992c94`.
   Owner approved Calm address (A) and the payment-request paper slip (C) on
   2026-10-20. Round-2 Android corrections pass on `Pixel_8_API_35`: native
@@ -127,6 +132,7 @@ without repeating the entire investigation.
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
 | RX-1 | Receive choices are clear and payment requests have proper steps | Done | SH-1 for sheet migration |
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Done | SH-1 where a shared sheet is needed |
+| ID-2 | The VerusID list and page use the approved light card, content v1, and funds | Built and iOS-tested; Android open | DESIGN.md "VerusID page"; owner chose "D revised" on 2026-10-22 |
 | SV-1 | The Services root uses tiles; the gift card screen uses the fixed card | Done on iOS; Android tested, SV-1.15–1.17 closed; NFC write open | DESIGN.md "Services home" and "Gift card detail"; `AcknowledgeSheet` `dismissLabel` |
 | QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
@@ -1410,6 +1416,42 @@ used the canonical sibling `node_modules`, and no source depends on it.
 and status are concise and truthful. Copy feedback is unobtrusive. Unlinking is
 understandable and remains distinct from changes to the identity on-chain.
 
+## ID-2 — VerusID list and page (light card, content v1, funds)
+
+**Sources:**
+[SignedInVerusIdService](src/containers/Services/ServiceComponents/VerusIdService/SignedInVerusIdService.js),
+[SignedInVerusIdDetails](src/containers/Services/ServiceComponents/VerusIdService/SignedInVerusIdDetails.js),
+[VerusIdCard](src/containers/Services/ServiceComponents/VerusIdService/VerusIdCard.js),
+[describeIdentityContent](src/utils/verusid/describeIdentityContent.js),
+[describeVerusIdState](src/utils/verusid/describeVerusIdState.js),
+[getVerusIdFunds](src/utils/verusid/getVerusIdFunds.js),
+[SendWizardSelectSource](src/containers/SendWizard/SendWizardSelectSource.js).
+
+- [x] **ID-2.1** Mockup rounds 1–3 in `/tmp/vm-mock-vid` (not in the repo). The
+  owner chose "D revised" and kept the @ tab icon (2026-10-22).
+- [x] **ID-2.2** List: filled rows, two-color name, asset count, a status badge
+  only when not active. No network pill and no count pill.
+- [x] **ID-2.3** Page: light card, Receive and Send, Control, Content and Details
+  rows, then Funds. Status uses `getInfo` for the chain tip. Unlink moves to ⋯.
+- [x] **ID-2.4** Content v1 sheet: decoded values; encrypted values grouped under
+  one neutral "Encrypted" badge and never decrypted. Details sheet: parent,
+  addresses, last change; no explorer on testnet (fixes the old verus.io link).
+- [x] **ID-2.5** A fund row opens the asset screen (main-stack `CoinMenus`) with
+  the VerusID card selected; Back returns to the page.
+- [x] **ID-2.6** Send from a VerusID: one asset opens Amount; several open Select
+  asset with only that VerusID's cards and a "From <name>" band
+  (`sourceIdentity` route param).
+- [x] **ID-2.7** iOS QA, normal and SE, light and dark, with real testnet data.
+- [x] **ID-2.10** Owner follow-up (2026-10-22): no i-address on the card (it is
+  in Details), the name is copyable, and Receive, Send and Convert are the asset
+  screen's icon buttons (`SignedInActionButtons`).
+- [ ] **ID-2.8** Android QA (normal and 360x640).
+- [ ] **ID-2.9** Move the seven request screens that still open the old
+  `VerusIdDetailsModal` to the new view (separate task).
+
+**Acceptance:** The page says each fact once. Funds are a list of assets, not one
+coin. A fund opens its asset. Encrypted content is marked and never decrypted.
+
 ## SV-1 — Services tiles and the fixed gift card screen
 
 **Authority:** [DESIGN.md](DESIGN.md) sections "Services home", "Gift card
@@ -1584,6 +1626,8 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-22 | ID-2.10: VerusID card and actions follow-up | `claude/verusid-actions` from `6de4dff6`; `SignedInActionBar.js` (button row extracted as `SignedInActionButtons`, the bar reuses it), `VerusIdCard.js` (no i-address, name `CopyAction`), `SignedInVerusIdDetails.js` (Receive/Send/Convert), `VerusIdDetailsSheet.js` (i-address row), SendWizard `sourceIdentity` in Convert mode too | iOS 26.5 "Verus GR3 QA" (`GR3 Test 2`, public testnet): page, name copy feedback, Convert (Select asset with only the VerusID's two assets and "From" band), Details with i-address, light and dark. iPhone SE with the same temporary, reverted QA-only list entry: list and page, three buttons fit at 44 points, light and dark. The VerusID was funded again (1.5 VRSCTEST, txid `4580fa69…`) after a daemon send by another thread spent the first 1.5. `git diff --check`, Babel parse, `check:design`, `check:safe-areas --changed`, `SignedInVerusIdLifecycle` 4/4 pass. | Android QA; a conversion from a VerusID card not run (public-testnet DeFi is down). |
+| 2026-10-22 | ID-2: VerusID list and page ("D revised") | `claude/verusid-page` from `63a8c0b2`; `SignedInVerusIdService.js`, `SignedInVerusIdDetails.js`, new `VerusIdCard.js`, `VerusIdContentSheet.js`, `VerusIdDetailsSheet.js`, `VerusIdOptionsSheet.js`, `describeIdentityContent.js`, `describeVerusIdState.js`, `getVerusIdFunds.js`; SendWizard `sourceIdentity`; `InfoSheetRow` `accessory`; DESIGN.md "VerusID page" | Design contract: Gift card detail exemplar (fixed object, fact rows, ⋯ sheet), Recipient flat rows, Manage assets rows, InfoSheet; owner-approved deviation: the filled light card and filled list rows. iOS 26.5 "Verus GR3 QA" with the disposable `GR3 Test 2` profile (Face ID) on the public testnet: list, page, funds, both fund taps (Verus Testnet and USD open their asset screen on the VerusID card; Back returns), Send (Select asset with only the two VerusID assets and "From" band), Receive (VerusID card), Content (real text entry), Details, ⋯ and Unlink confirmation (cancelled), light and dark. iPhone SE "Verus GR3 Compact" (`PTest SE`) with a temporary, reverted QA-only list entry: list and page in light and dark. Test funds: 1.5 VRSCTEST + 3 USD from the local testnet daemon to `liveqa09482856.antafri.VRSCTEST@` (txid `fe2b2219…`), USD added in `GR3 Test 2`. `git diff --check`, Babel parse, `check:design` (30 sources), `check:safe-areas --changed` pass; `SignedInVerusIdLifecycle` 4/4 pass after its Unlink entry moved to ⋯ (the test found rows by text; it now uses the accessibility label). | Android QA; Locked and Revoked states not seen on a device (no locked test VerusID); request screens still open the old modal (ID-2.9). |
 | 2026-10-22 | CAM-1: camera scanner as a camera window (owner chose variation B, with the torch button) | `claude/camera-scanner` from `77ad814c`; `BarcodeReader.js` (rewritten), new `ScannerScreen.js` and `barcodeReader.styles.js`; `VerusPay.js`, `SendWizardRecipient.js`, `SendWizardNavigator.js` (`wizardTitle`, `wizardOnBack`), `ScanSeed.js`, `RecoverIdentityForm.render.js`, `SpendableKeyRequestInfo.js`; DESIGN.md "Camera scanner" | iOS 17 Pro simulator (no camera): Scan tab "No camera found" light and dark; key import scanner and Back. Android 360x640 (virtual camera, PTest A360 on Testnet): Scan tab live window, blocked state, Open Settings round trip back to live; Send Recipient scanner ("Scan address" header, band, header Back and Android back return to the field, keyboard closed), dark mode; import scanner permission sequence: the system prompt over the dark window, "Allow camera" asks again, a second refusal shows "Open Settings" (fixed during QA: a foreground re-check reset blocked to denied); the camera is released on other tabs. Synthetic, reverted stubs: "Reading code…" state, NFC button, no-camera hint and "Enter address". Checks: Babel parse (12 files), `check:design`, `check:safe-areas --changed`, `git diff --check`. Evidence (ignored): `docs/qa/camera-scanner/`. | Not seen on a device: a real QR read, the torch (no flash on the emulators), iPhone SE, VerusID recovery and claim-password scanners, the iOS swipe-back block on Recipient. A new disposable "Camera QA iOS" Testnet wallet is on the 17 Pro simulator. |
 | 2026-10-22 | TX-1.SCAN-SEND and TX-1.INVOICE-PAY: scanned payments and invoices in Send | `claude/scan-send` from `d6d29cba` (`bcf7509c`, `dbb3b031`, `210790dd`, `5f936a6d`); `VerusPay.js`, `QrScanner.js`, SendWizard navigator, context, Select asset, Amount, Confirm, Sent, band, card sheet; new `scanRequest.js`, `invoiceFlow.js`, `InvoicePayFlow.js`, `InvoicePayWith.js`, `InvoiceSlip.js`; `InvoiceInfo.js`, `InvoicePaymentConfiguration.js`, `DeepLink.js`, `DESIGN.md` | Closes gap 2. iOS 26.5 sims with a dev-only QA text field on the Scan tab (not committed; the simulator has no camera) and invoice links through `simctl openurl`, Testnet, Metro 8082. "Verus GR3 QA" (PTest iOS): address → Select asset (Verus assets only, band "To RSfKDp…") → Amount (band "to …") → Confirm without Recipient; Back to Amount; v0 request with amount and note → Confirm at once with the Note row, Back → Amount 0.02, sent (`c53b4296…f283`); request without amount → Amount; ETH address with no ETH balance → "No asset for this address"; mainnet Komodo request → "This request is for mainnet" sheet; Testnet Ethereum removed and re-added from the "Add Testnet Ethereum?" sheet; request naming another network → warning above Hold; unknown code → "Can’t use this QR code". Invoices: conversion invoice → Pay with (slip, Pay directly, four conversion rows) → USD → Confirm (conversion layout, Invoice details sheet) → paid (`926fc73a…b657`) → "Payment sent" → Done home; no-conversion invoice skips Pay with, Back leaves; expired and mainnet invoices → sheets; invoice larger than balance → "No way to pay this invoice"; amount plus fee above balance → shortfall error, Hold off. Dark mode Pay with; "Verus GR3 Compact" (PTest SE): Pay with, conversion Confirm, scan Select asset and Amount fit. Design and safe-area checks pass. Evidence (ignored): `docs/qa/scan-send/build/`. | Not run: Android; signed invoice (Requested by row and requester sheet); two funded cards (Choose a card); any-amount and any-destination invoices; conversion options failure and Try again; a generic request with a step after the invoice; locked-wallet invoice; ETH and BTC requests with balance; Add asset for a funded coin. The test wallets paid 0.02 VRSCTEST and about 0.01 USD to PTest SE. |
 | 2026-10-22 | TX-1.INVOICE-PRICE: signed slip, price impact on Pay with, Confirm without "via" | `claude/invoice-price-impact` from `0fd84737`; `InvoiceSlip.js`, `InvoicePayWith.js`, `SendWizardConfirm.js`, `PriceRouteSheet.js` (pay mode, prepared baskets), `ImpactRow.js`, `ConfirmFacts.js`, `AmountEstimate.js`, new `ImpactChip.js`, `impactFormat.js`, `priceImpact.js`, `usePriceImpact.js`, `TransferSummary.js`, `DESIGN.md` | iOS 26.5, public testnet (signatures need a chain where the test signer exists), Metro 8082. "Verus GR3 Compact" (PTest SE): signed Kaiju invoice from `TestBob.antafri@` → slip "Request from / TestBob.antafri.VRSCTEST@", no badge; one "Verus Testnet" row, cheapest basket, "<0.1% more" chip → "Price and route" with five baskets ("Best price", "x% more"), the former "via Kaiju" as "Direct"; choosing Token AMM1 changes the row; Confirm: price line without "via", "Request from", Price impact "<0.1% more ›" → sheet with Market price, Your price, Difference, Route; long receive label wraps. Unsigned invoice: "Unsigned" badge, "To" and the full address. Dark mode Pay with and sheet. Send Convert VRSCTEST → Kaiju: Amount chip and sheet unchanged, Confirm without "via", Price impact row opens the sheet with the route. "Verus GR3 QA" (disposable "PI QA iOS"): Pay with, sheet and Confirm at normal size. Design and safe-area checks pass. Evidence (ignored): `docs/qa/scan-send/build/price-impact/`. | Every conversion from the SE test wallet failed at broadcast with "16: bad-txns-failed-precheck" (Send via Token AMM1, Send Direct, invoice via Token AMM1); the same route from the test daemon succeeds. Cause open; not caused by this branch (it failed on `77ad814c` too). Not run: warning and danger chips with real data, two cards, Android. |

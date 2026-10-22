@@ -1,8 +1,10 @@
 /*
   SignedInVerusIdDetails
-  - Shows one linked VerusID. The name is the screen title; status, network,
-    and identifiers lead the data, control information follows, and technical
-    detail stays collapsed until asked for.
+  - Shows one linked VerusID (owner-approved "D revised", 2026-10-22): the
+    light VerusID card, Receive, Send and Convert, Control, Content and Details
+    rows, then the VerusID's funds. A fund row opens that asset's screen with the
+    VerusID card selected.
+  - Unlink sits behind ⋯. Content and Details open information sheets.
   - Loading, refresh failure, and unlink confirmation use the shared
     onboarding theme, skeletons, floating sheets, and dismissal lifecycle.
 */
@@ -15,6 +17,7 @@ import React, {
   useState,
 } from 'react';
 import {
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -29,28 +32,44 @@ import {useDispatch} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
+import {SignedInActionButtons} from '../../../../components/SignedInActionBar';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
-import SkeletonLoader, {
-  SkeletonBlock,
-  SkeletonSection,
-} from '../../../../components/SkeletonLoader';
+import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import useSheetDismissal from '../../../../components/useSheetDismissal';
-import VerusIdObjectData, {
-  VERUSID_OBJECT_DATA_PRESENTATIONS,
-} from '../../../../components/VerusIdObjectData';
+import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import Store from '../../../../store';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
+import {AssetCoinLogo} from '../../../../utils/CoinData/Graphics';
 import {
   getFriendlyNameMap,
   getIdentity,
 } from '../../../../utils/api/channels/verusid/callCreators';
-import {VRPC} from '../../../../utils/constants/intervalConstants';
+import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
+import {API_GET_BALANCES, VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
-import {openUrl} from '../../../../utils/linking';
-import {setServiceLoading, setUserCoins} from '../../../../actions/actionCreators';
+import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
+import {truncateDecimal} from '../../../../utils/math';
+import {extractDisplaySubWallets} from '../../../../utils/subwallet/extractSubWallets';
+import {
+  describeVerusIdState,
+  VERUSID_STATE,
+} from '../../../../utils/verusid/describeVerusIdState';
+import {countIdentityContentEntries} from '../../../../utils/verusid/describeIdentityContent';
+import {
+  findVerusIdCard,
+  getVerusIdFunds,
+} from '../../../../utils/verusid/getVerusIdFunds';
+import {
+  setActiveApp,
+  setActiveCoin,
+  setActiveSection,
+  setCoinSubWallet,
+  setServiceLoading,
+  setUserCoins,
+} from '../../../../actions/actionCreators';
 import {unlinkVerusId} from '../../../../actions/actions/services/dispatchers/verusid/verusid';
 import {updateVerusIdWallet} from '../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
 import {
@@ -63,6 +82,12 @@ import {
 } from '../../../../actions/actions/updates/sessionRequests';
 import {shouldNavigateAfterUnlinkDismissal} from '../../../../utils/verusid/verusIdFlowGuards';
 import {VERUSID_SERVICE_ID} from '../../../../utils/constants/services';
+import {SEND_WIZARD_MODE} from '../../../SendWizard/wizardUtils';
+import {CONVERSION_DISABLED} from '../../../../../env/index';
+import VerusIdCard, {splitVerusIdName} from './VerusIdCard';
+import VerusIdContentSheet from './VerusIdContentSheet';
+import VerusIdDetailsSheet from './VerusIdDetailsSheet';
+import VerusIdOptionsSheet from './VerusIdOptionsSheet';
 
 const BOTTOM_FADE_HEIGHT = 48;
 const LOAD_FAILED_MESSAGE =
@@ -95,23 +120,20 @@ const DetailsSkeleton = ({theme}) => (
   <SkeletonLoader
     accessibilityLabel="Loading VerusID details"
     style={styles.skeleton}>
-    <SkeletonBlock height={28} style={styles.skeletonTitle} width="52%" />
-    <SkeletonSection
-      rows={[
-        {labelWidth: '16%', valueWidth: '26%'},
-        {labelWidth: '22%', valueWidth: '38%'},
-        {labelWidth: '14%', valueWidth: '74%'},
-      ]}
-      titleWidth="28%"
-    />
-    <SkeletonSection
-      rows={[
-        {labelWidth: '36%', valueWidth: '48%'},
-        {labelWidth: '34%', valueWidth: '44%'},
-      ]}
-      titleWidth="24%"
-    />
-    <View style={{height: theme.spacing.sm}} />
+    <SkeletonBlock height={196} radius={theme.rounded.xl} width="100%" />
+    <View style={styles.skeletonActions}>
+      {[0, 1, 2].map(index => (
+        <SkeletonBlock
+          key={index}
+          height={48}
+          radius={16}
+          style={styles.skeletonAction}
+        />
+      ))}
+    </View>
+    <SkeletonBlock height={20} style={styles.skeletonTitle} width="28%" />
+    <SkeletonBlock height={16} style={styles.skeletonLine} width="82%" />
+    <SkeletonBlock height={16} style={styles.skeletonLine} width="64%" />
   </SkeletonLoader>
 );
 
@@ -129,6 +151,95 @@ const describeUnlinkFailure = error => {
 
   return message;
 };
+
+// Who can act on the VerusID, in plain words. Each fact shows once.
+const getControlFacts = ({friendlyNames, identity, ownedAddress, stateInfo}) => {
+  const details = identity?.identity || {};
+  const self = details.identityaddress;
+  const nameFor = address =>
+    address === self ? 'This VerusID' : friendlyNames?.[address] || address;
+  const primaryCount = Array.isArray(details.primaryaddresses)
+    ? details.primaryaddresses.length
+    : 0;
+  const minimumSignatures = Number(details.minimumsignatures) || 1;
+  const signatures = `${minimumSignatures} of ${primaryCount || 1} ${
+    primaryCount === 1 ? 'signature' : 'signatures'
+  }`;
+  const facts = [];
+
+  if (stateInfo.state === VERUSID_STATE.REVOKED) {
+    facts.push({key: 'spend', label: 'Spend and sign', value: 'Revoked'});
+  } else if (stateInfo.state === VERUSID_STATE.LOCKED) {
+    facts.push({
+      key: 'spend',
+      label: 'Spend and sign',
+      value: 'Locked',
+      detail: stateInfo.unlock,
+    });
+  } else {
+    let value = 'Other addresses';
+
+    if (ownedAddress) value = primaryCount > 1 ? 'You and others' : 'Only you';
+
+    facts.push({
+      key: 'spend',
+      label: 'Spend and sign',
+      value,
+      detail: signatures,
+    });
+  }
+
+  if (details.revocationauthority === details.recoveryauthority) {
+    facts.push({
+      key: 'authorities',
+      label: 'Revoke and recover',
+      value: nameFor(details.revocationauthority),
+    });
+  } else {
+    facts.push({
+      key: 'revoke',
+      label: 'Revoke',
+      value: nameFor(details.revocationauthority),
+    });
+    facts.push({
+      key: 'recover',
+      label: 'Recover',
+      value: nameFor(details.recoveryauthority),
+    });
+  }
+
+  return facts;
+};
+
+// Flat navigation row, as "Saved addresses | N ›" on Send's Recipient step.
+const NavigationRow = ({count, disabled, label, onPress, theme}) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityState={{disabled: Boolean(disabled)}}
+    disabled={disabled}
+    onPress={onPress}
+    style={({pressed}) => [
+      styles.navigationRow,
+      {borderBottomColor: theme.colors.border},
+      pressed && styles.pressed,
+    ]}>
+    <Text style={[styles.navigationLabel, {color: theme.colors.textPrimary}]}>
+      {label}
+    </Text>
+    {count ? (
+      <Text style={[styles.navigationCount, {color: theme.colors.textSecondary}]}>
+        {count}
+      </Text>
+    ) : null}
+    {disabled ? null : (
+      <MaterialCommunityIcons
+        color={theme.colors.textSubtle}
+        name="chevron-right"
+        size={20}
+      />
+    )}
+  </Pressable>
+);
 
 const SignedInVerusIdDetails = () => {
   const dispatch = useDispatch();
@@ -151,13 +262,26 @@ const SignedInVerusIdDetails = () => {
       state.authentication.activeAccount?.keys?.[chain]?.[VRPC]?.addresses ||
       null,
   );
+  const coins = useObjectSelector(state => state.coins.activeCoinsForUser);
+  const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
+  const balances = useObjectSelector(state =>
+    extractLedgerData(state, 'balances', API_GET_BALANCES),
+  );
+  const showBalance = useObjectSelector(state => state.coins.showBalance);
   const [identity, setIdentity] = useState(null);
   const [friendlyNames, setFriendlyNames] = useState(null);
+  const [chainInfo, setChainInfo] = useState(null);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const [contentVisible, setContentVisible] = useState(false);
+  const [detailsVisible, setDetailsVisible] = useState(false);
   const [unlinkVisible, setUnlinkVisible] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [unlinkError, setUnlinkError] = useState(null);
+  const [cardBottom, setCardBottom] = useState(null);
+  const [titleShown, setTitleShown] = useState(false);
+  const titleShownRef = useRef(false);
   const loadRequestIdRef = useRef(0);
   const unlinkingRef = useRef(false);
   const unlinkTokenRef = useRef(0);
@@ -177,6 +301,13 @@ const SignedInVerusIdDetails = () => {
     [],
   );
   const bottomPadding = Math.max(insets.bottom, 20);
+  const coinObj = useMemo(() => {
+    try {
+      return CoinDirectory.findCoinObj(chain);
+    } catch (e) {
+      return null;
+    }
+  }, [chain]);
 
   const load = useCallback(async () => {
     const requestId = loadRequestIdRef.current + 1;
@@ -189,7 +320,12 @@ const SignedInVerusIdDetails = () => {
 
     try {
       const systemId = CoinDirectory.getBasicCoinObj(chain).system_id;
-      const response = await getIdentity(systemId, iAddress);
+      // The chain tip decides whether an unlock height still locks the
+      // VerusID. Without it the page still loads; only that case is unknown.
+      const [response, infoResponse] = await Promise.all([
+        getIdentity(systemId, iAddress),
+        getInfo(systemId).catch(() => null),
+      ]);
 
       if (!isRequestCurrent()) return;
       if (response.error) throw new Error(response.error.message);
@@ -198,12 +334,14 @@ const SignedInVerusIdDetails = () => {
       const loadedFriendlyNames = await getFriendlyNameMap(
         systemId,
         loadedIdentity,
+        loadedIdentity?.identity?.parent ? [loadedIdentity.identity.parent] : [],
       );
 
       if (!isRequestCurrent()) return;
 
       setIdentity(loadedIdentity);
       setFriendlyNames(loadedFriendlyNames);
+      setChainInfo(infoResponse?.result || null);
     } catch (e) {
       if (!isRequestCurrent()) return;
 
@@ -243,6 +381,111 @@ const SignedInVerusIdDetails = () => {
       null
     );
   }, [identity, walletAddresses]);
+
+  const stateInfo = useMemo(
+    () =>
+      identity
+        ? describeVerusIdState(
+            identity.identity,
+            chainInfo,
+            coinObj?.seconds_per_block,
+            identity.status,
+          )
+        : {state: VERUSID_STATE.ACTIVE, unlock: null},
+    [chainInfo, coinObj?.seconds_per_block, identity],
+  );
+
+  const controlFacts = useMemo(
+    () =>
+      identity
+        ? getControlFacts({friendlyNames, identity, ownedAddress, stateInfo})
+        : [],
+    [friendlyNames, identity, ownedAddress, stateInfo],
+  );
+
+  const contentCount = useMemo(
+    () => (identity ? countIdentityContentEntries(identity.identity) : 0),
+    [identity],
+  );
+
+  const {funds, loaded: fundsLoaded} = useMemo(
+    () => getVerusIdFunds({balances, cardsByCoin, coins, iAddress}),
+    [balances, cardsByCoin, coins, iAddress],
+  );
+
+  // Receive needs no asset: any Verus currency can go to the VerusID, so it
+  // opens Receive on the VerusID's own network with its card selected.
+  const receiveCard = useMemo(
+    () => (coinObj ? findVerusIdCard(cardsByCoin?.[coinObj.id], iAddress) : null),
+    [cardsByCoin, coinObj, iAddress],
+  );
+  const canAct = stateInfo.state === VERUSID_STATE.ACTIVE;
+  const receiveDisabled =
+    !receiveCard || stateInfo.state === VERUSID_STATE.REVOKED;
+  const sendDisabled = !canAct || funds.length === 0;
+  const convertDisabled = sendDisabled || CONVERSION_DISABLED;
+  const explorerUrl =
+    identity?.fullyqualifiedname && coinObj && !coinObj.testnet
+      ? `https://verus.io/verusid-lookup/${identity.fullyqualifiedname}`
+      : null;
+  const shortName = splitVerusIdName(title).leaf;
+
+  const openReceive = useCallback(() => {
+    if (!coinObj || !receiveCard) return;
+
+    navigation.navigate('ReceiveAssetDetails', {
+      coinId: coinObj.id,
+      subWalletId: receiveCard.id,
+    });
+  }, [coinObj, navigation, receiveCard]);
+
+  // One asset starts the wizard on that asset; several open Select asset
+  // with only the assets on this VerusID's cards.
+  const openWizard = useCallback(
+    mode => {
+      if (funds.length === 1) {
+        navigation.navigate('SendWizard', {
+          mode,
+          initialCoinId: funds[0].coin.id,
+          initialSubWalletId: funds[0].card.id,
+        });
+        return;
+      }
+
+      navigation.navigate('SendWizard', {
+        mode,
+        sourceIdentity: {iAddress, name: title},
+      });
+    },
+    [funds, iAddress, navigation, title],
+  );
+
+  // The asset screen, opened as Home opens it, on this VerusID's card.
+  // CoinMenus is on the main stack, so Back returns here.
+  const openFund = useCallback(
+    ({coin, card}) => {
+      dispatch(setCoinSubWallet(coin.id, card));
+      dispatch(setActiveCoin(coin));
+      dispatch(setActiveApp(coin.default_app));
+      dispatch(setActiveSection(coin.apps[coin.default_app].data[0]));
+      navigation.navigate('CoinMenus', {title: 'Overview'});
+    },
+    [dispatch, navigation],
+  );
+
+  const handleScroll = useCallback(
+    event => {
+      if (cardBottom == null) return;
+
+      const next = event.nativeEvent.contentOffset.y > cardBottom;
+
+      if (titleShownRef.current !== next) {
+        titleShownRef.current = next;
+        setTitleShown(next);
+      }
+    },
+    [cardBottom],
+  );
 
   // The dismissal hook's onClose must hide unconditionally; the processing
   // guard is applied by the caller instead.
@@ -298,12 +541,12 @@ const SignedInVerusIdDetails = () => {
     dispatch(setServiceLoading(true, VERUSID_SERVICE_ID));
 
     try {
-      const coinObj = CoinDirectory.findCoinObj(chain);
-      await unlinkVerusId(iAddress, coinObj.id, requestContext);
+      const unlinkCoinObj = CoinDirectory.findCoinObj(chain);
+      await unlinkVerusId(iAddress, unlinkCoinObj.id, requestContext);
       assertSessionCurrent();
       await updateVerusIdWallet(requestContext);
       assertSessionCurrent();
-      clearChainLifecycle(coinObj.id);
+      clearChainLifecycle(unlinkCoinObj.id);
 
       if (activeAccount) {
         const action = setUserCoins(activeCoinList, activeAccount.id);
@@ -367,44 +610,38 @@ const SignedInVerusIdDetails = () => {
     unlinkDismissal,
   ]);
 
+  const optionActions = useMemo(
+    () => [
+      {
+        key: 'unlink',
+        label: 'Unlink VerusID',
+        icon: 'link-variant-off',
+        danger: true,
+        onPress: () => {
+          setUnlinkError(null);
+          setUnlinkVisible(true);
+        },
+      },
+    ],
+    [],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: '',
+      title: titleShown ? shortName : '',
       headerRight: () => (
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            accessibilityLabel="Open VerusID in browser"
-            accessibilityRole="button"
-            disabled={!identity}
-            hitSlop={8}
-            onPress={() =>
-              openUrl(
-                `https://verus.io/verusid-lookup/${identity.fullyqualifiedname}`,
-              )
-            }
-            style={styles.headerIcon}>
-            <MaterialCommunityIcons
-              name="open-in-new"
-              size={22}
-              color={theme.colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel="Unlink VerusID"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={() => {
-              setUnlinkError(null);
-              setUnlinkVisible(true);
-            }}
-            style={styles.headerIconLast}>
-            <MaterialCommunityIcons
-              name="link-variant-off"
-              size={22}
-              color={theme.colors.danger}
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          accessibilityLabel="VerusID options"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() => setOptionsVisible(true)}
+          style={styles.headerAction}>
+          <MaterialCommunityIcons
+            color={theme.colors.textPrimary}
+            name="dots-horizontal"
+            size={24}
+          />
+        </TouchableOpacity>
       ),
       headerBackTitle: 'Back',
       headerShadowVisible: false,
@@ -415,9 +652,81 @@ const SignedInVerusIdDetails = () => {
       },
       headerTintColor: theme.colors.textPrimary,
     });
-  }, [identity, navigation, theme]);
+  }, [navigation, shortName, theme, titleShown]);
 
   const hasIdentity = Boolean(identity && friendlyNames);
+
+  const renderFunds = () => {
+    if (!fundsLoaded) {
+      return (
+        <SkeletonLoader
+          accessibilityLabel="Loading funds"
+          style={styles.fundsSkeleton}>
+          {[0, 1].map(index => (
+            <View key={index} style={styles.fundSkeletonRow}>
+              <SkeletonBlock height={40} radius={20} width={40} />
+              <View style={styles.fundSkeletonText}>
+                <SkeletonBlock height={16} width="42%" />
+                <SkeletonBlock height={14} width="30%" />
+              </View>
+            </View>
+          ))}
+        </SkeletonLoader>
+      );
+    }
+
+    if (funds.length === 0) {
+      return (
+        <Text
+          style={[
+            theme.typography.bodySm,
+            styles.noFunds,
+            {color: theme.colors.textSecondary},
+          ]}>
+          This VerusID holds no funds.
+        </Text>
+      );
+    }
+
+    return funds.map(fund => {
+      const amount = showBalance
+        ? `${truncateDecimal(fund.balance, 8)} ${fund.coin.display_ticker}`
+        : 'Balance hidden';
+
+      return (
+        <Pressable
+          key={fund.coin.id}
+          accessibilityHint="Opens this asset with the VerusID card"
+          accessibilityLabel={`${fund.coin.display_name}, ${amount}`}
+          accessibilityRole="button"
+          onPress={() => openFund(fund)}
+          style={({pressed}) => [
+            styles.fundRow,
+            {borderBottomColor: theme.colors.border},
+            pressed && styles.pressed,
+          ]}>
+          <AssetCoinLogo coinId={fund.coin.id} size={40} />
+          <View style={styles.fundText}>
+            <Text
+              numberOfLines={2}
+              style={[theme.typography.titleRow, {color: theme.colors.textPrimary}]}>
+              {fund.coin.display_name}
+            </Text>
+            <Text
+              numberOfLines={2}
+              style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+              {amount}
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            color={theme.colors.textSubtle}
+            name="chevron-right"
+            size={22}
+          />
+        </Pressable>
+      );
+    });
+  };
 
   return (
     <View style={[styles.screen, {backgroundColor: theme.colors.background}]}>
@@ -426,8 +735,9 @@ const SignedInVerusIdDetails = () => {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.content,
-            {paddingBottom: 40 + BOTTOM_FADE_HEIGHT + bottomPadding},
+            {paddingBottom: 24 + BOTTOM_FADE_HEIGHT + bottomPadding},
           ]}
+          onScroll={handleScroll}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -439,17 +749,8 @@ const SignedInVerusIdDetails = () => {
               tintColor={theme.colors.primary}
             />
           }
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}>
-          <View style={styles.inlineTitleContainer}>
-            <Text
-              numberOfLines={2}
-              style={[
-                theme.typography.headlineMd,
-                {color: theme.colors.textPrimary},
-              ]}>
-              {title}
-            </Text>
-          </View>
           {error ? (
             <View
               style={[
@@ -487,16 +788,114 @@ const SignedInVerusIdDetails = () => {
               </AppButton>
             </View>
           ) : null}
-          <VerusIdObjectData
-            verusId={identity}
-            friendlyNames={friendlyNames}
-            presentation={VERUSID_OBJECT_DATA_PRESENTATIONS.SIGNED_IN_DETAILS}
-            ownedAddress={ownedAddress}
-            ownedByUser={Boolean(ownedAddress)}
-            scrollDisabled
-            containerStyle={styles.identityData}
-            semanticTheme={theme}
+
+          <View
+            onLayout={event =>
+              setCardBottom(
+                event.nativeEvent.layout.y + event.nativeEvent.layout.height,
+              )
+            }>
+            <VerusIdCard
+              name={title}
+              networkName={coinObj?.display_name || chain}
+              state={stateInfo.state}
+            />
+          </View>
+
+          <SignedInActionButtons
+            convertDisabled={convertDisabled}
+            onConvert={() => openWizard(SEND_WIZARD_MODE.CONVERT)}
+            onReceive={openReceive}
+            onSend={() => openWizard(SEND_WIZARD_MODE.SEND)}
+            receiveDisabled={receiveDisabled}
+            sendDisabled={sendDisabled}
+            style={styles.actions}
           />
+
+          <Text
+            accessibilityRole="header"
+            style={[
+              theme.typography.titleRow,
+              styles.sectionTitle,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Control
+          </Text>
+          <View>
+            {controlFacts.map((fact, index) => (
+              <View
+                key={fact.key}
+                style={[
+                  styles.factRow,
+                  index > 0 && {
+                    borderTopColor: theme.colors.border,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    theme.typography.bodySm,
+                    styles.factLabel,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {fact.label}
+                </Text>
+                <View style={styles.factValue}>
+                  <Text
+                    numberOfLines={2}
+                    style={[
+                      theme.typography.labelMd,
+                      styles.factValueText,
+                      {color: theme.colors.textPrimary},
+                    ]}>
+                    {fact.value}
+                  </Text>
+                  {fact.detail ? (
+                    <Text
+                      style={[
+                        theme.typography.caption,
+                        styles.factValueText,
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      {fact.detail}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View
+            style={[styles.navigationRows, {borderTopColor: theme.colors.border}]}>
+            <NavigationRow
+              count={
+                contentCount === 0
+                  ? 'None'
+                  : `${contentCount} ${contentCount === 1 ? 'entry' : 'entries'}`
+              }
+              disabled={contentCount === 0}
+              label="Content"
+              onPress={() => setContentVisible(true)}
+              theme={theme}
+            />
+            <NavigationRow
+              label="Details"
+              onPress={() => setDetailsVisible(true)}
+              theme={theme}
+            />
+          </View>
+
+          <Text
+            accessibilityRole="header"
+            style={[
+              theme.typography.titleRow,
+              styles.sectionTitle,
+              styles.fundsTitle,
+              {color: theme.colors.textPrimary},
+            ]}>
+            Funds
+          </Text>
+          {renderFunds()}
         </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -539,6 +938,26 @@ const SignedInVerusIdDetails = () => {
           solidHeight={bottomPadding}
         />
       ) : null}
+
+      <VerusIdOptionsSheet
+        actions={optionActions}
+        onClose={() => setOptionsVisible(false)}
+        visible={optionsVisible}
+      />
+
+      <VerusIdContentSheet
+        identity={identity?.identity || null}
+        onClose={() => setContentVisible(false)}
+        visible={contentVisible}
+      />
+
+      <VerusIdDetailsSheet
+        explorerUrl={explorerUrl}
+        friendlyNames={friendlyNames}
+        identity={identity}
+        onClose={() => setDetailsVisible(false)}
+        visible={detailsVisible}
+      />
 
       <BottomSheetModal
         closeDisabled={unlinking}
@@ -606,26 +1025,84 @@ const SignedInVerusIdDetails = () => {
 
 const styles = StyleSheet.create({
   screen: {flex: 1},
-  headerActions: {flexDirection: 'row', alignItems: 'center', paddingRight: 8},
-  headerIcon: {padding: 6, marginRight: 10},
-  headerIconLast: {padding: 6, marginRight: 6},
+  headerAction: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollView: {flex: 1},
-  content: {paddingBottom: 40},
-  inlineTitleContainer: {paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12},
-  identityData: {width: '100%'},
+  content: {paddingHorizontal: 20, paddingTop: 8},
+  actions: {marginTop: 12},
+  sectionTitle: {marginTop: 28, marginBottom: 2},
+  fundsTitle: {marginBottom: 4},
+  factRow: {
+    minHeight: 50,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  factLabel: {flexShrink: 0},
+  factValue: {minWidth: 0, flexShrink: 1, alignItems: 'flex-end'},
+  factValueText: {textAlign: 'right'},
+  navigationRows: {
+    marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  navigationRow: {
+    minHeight: 62,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  navigationLabel: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+    ...fontStyle('semiBold'),
+  },
+  navigationCount: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginRight: 6,
+    ...fontStyle('regular'),
+  },
+  fundRow: {
+    minHeight: 76,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fundText: {flex: 1, minWidth: 0, gap: 2},
+  noFunds: {marginTop: 6},
+  pressed: {opacity: 0.7},
+  fundsSkeleton: {paddingTop: 4},
+  fundSkeletonRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  fundSkeletonText: {flex: 1, gap: 8},
   refreshErrorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 14,
-    marginHorizontal: 16,
     marginBottom: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   refreshErrorText: {flex: 1, minWidth: 0, marginLeft: 10, marginRight: 4},
   refreshErrorAction: {alignSelf: 'center'},
-  skeleton: {paddingHorizontal: 16, paddingTop: 12},
-  skeletonTitle: {marginBottom: 24},
+  skeleton: {paddingHorizontal: 20, paddingTop: 8},
+  skeletonActions: {flexDirection: 'row', gap: 8, marginTop: 12},
+  skeletonAction: {flex: 1},
+  skeletonTitle: {marginTop: 32, marginBottom: 16},
+  skeletonLine: {marginBottom: 14},
   errorContainer: {
     flex: 1,
     alignItems: 'center',
