@@ -1,13 +1,14 @@
 import { CommonActions } from '@react-navigation/native';
-import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AnimatedActivityIndicatorBox from '../../components/AnimatedActivityIndicatorBox';
 import GenericRequestLoading, {
+  createRequestLoadingSteps,
   GENERIC_REQUEST_LOADING_STEPS,
 } from './GenericRequestLoading';
-import Styles from '../../styles/index';
+import { useOnboardingTheme } from '../../theme/onboarding';
 import { primitives } from "verusid-ts-client"
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import VrpcProvider from '../../utils/vrpc/vrpcInterface';
@@ -28,7 +29,7 @@ import { resetDeeplinkData } from '../../actions/actionCreators';
 const authorizedPermissions = [primitives.IDENTITY_VIEW.vdxfid,/*TODO: primitives.IDENTITY_AGREEMENT.vdxfid, primitives.ATTESTATION_READ_REQUEST.vdxfid */]
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import BigNumber from 'bignumber.js';
-import { blocksToTime, satsToCoins } from '../../utils/math';
+import { satsToCoins } from '../../utils/math';
 import InvoiceInfo from './InvoiceInfo/InvoiceInfo';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { verifyIdentityUpdateRequest } from '../../utils/api/channels/vrpc/requests/verifyIdentityUpdateRequest';
@@ -82,14 +83,44 @@ const DeepLink = (props) => {
   const [displayKey, setDisplayKey] = useState(null)
   const [loading, setLoading] = useState(false)
   const [displayProps, setDisplayProps] = useState({})
-  const [genericRequestLoadingStep, setGenericRequestLoadingStep] = useState(
+  // The opening screen's current step and its error, for every request type.
+  const [requestLoadingStep, setRequestLoadingStep] = useState(
     GENERIC_REQUEST_LOADING_STEPS.READ
   )
-  const [genericRequestError, setGenericRequestError] = useState(null)
+  const [requestError, setRequestError] = useState(null)
   // An invoice the wallet cannot pay, such as an expired one, ends on a sheet.
   const [invoiceProblem, setInvoiceProblem] = useState(null)
   const dispatch = useDispatch()
   const processGenerationRef = useRef(0)
+  const theme = useOnboardingTheme()
+
+  // Title and steps of the opening screen. v1 login requests show no steps.
+  const opening = useMemo(() => {
+    switch (deeplinkId) {
+      case primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid: {
+        let signed = true
+
+        try {
+          signed = primitives.VerusPayInvoice.fromJson(deeplinkData).isSigned()
+        } catch (e) {}
+
+        return {
+          title: 'Opening invoice',
+          steps: createRequestLoadingSteps(
+            {
+              [GENERIC_REQUEST_LOADING_STEPS.READ]: 'Read invoice',
+              [GENERIC_REQUEST_LOADING_STEPS.REVIEW]: 'Prepare payment',
+            },
+            signed ? [] : [GENERIC_REQUEST_LOADING_STEPS.SIGNER],
+          ),
+        }
+      }
+      case primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid:
+        return {title: 'Opening request', steps: []}
+      default:
+        return {title: 'Opening request', steps: undefined}
+    }
+  }, [deeplinkId, deeplinkData])
 
   const cancel = () => {
     processGenerationRef.current += 1
@@ -126,11 +157,11 @@ const DeepLink = (props) => {
   }
 
   const processGenericRequest = async processGeneration => {
-    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.READ);
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.READ);
 
     const request = new primitives.GenericRequest();
     request.fromBuffer(Buffer.from(deeplinkData, 'hex'));
-    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
 
     if (signedIn) {
       assertRequestNetworkMatchesAccount(activeAccount, request.isTestnet());
@@ -140,7 +171,7 @@ const DeepLink = (props) => {
     
     assertExperimentalGenericRequestAllowed(request, store.getState());
 
-    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
 
     const unlockForDelegatedSigner = () =>
       requestDelegatedSignerWallet({
@@ -185,7 +216,7 @@ const DeepLink = (props) => {
       return;
     }
 
-    setGenericRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW);
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW);
 
     setDisplayProps({
       deeplinkData
@@ -212,6 +243,7 @@ const DeepLink = (props) => {
       throw new Error("This invoice accepts no systems to pay on, and is therefore unpayable.")
     }
 
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK)
     const coinObj = CoinDirectory.getBasicCoinObj(invoice.details.isTestnet() ? 'VRSCTEST' : 'VRSC')
     VrpcProvider.initEndpoint(coinObj.system_id, coinObj.vrpc_endpoints[0])
 
@@ -294,6 +326,7 @@ const DeepLink = (props) => {
     }
 
     if (invoice.isSigned()) {
+      setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER)
       if (await verifyVerusPayInvoice(coinObj, invoice)) {
         const sig = await extractVerusPayInvoiceSig(coinObj, invoice)
 
@@ -306,6 +339,7 @@ const DeepLink = (props) => {
         const signedBy = await getIdentity(coinObj.system_id, invoice.signing_id)
         if (signedBy.error) throw new Error(signedBy.error.message)
 
+        setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW)
         if (!(await validateExpiry(convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname)))) return
         setDisplayProps({
           detailsBufferString: invoice.details.toBuffer().toString('hex'),
@@ -330,6 +364,7 @@ const DeepLink = (props) => {
         })
       }
     } else {
+      setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW)
       if (!(await validateExpiry())) return
       setDisplayProps({
         detailsBufferString: invoice.details.toBuffer().toString('hex'),
@@ -353,6 +388,7 @@ const DeepLink = (props) => {
       throw new Error("Invalid identity update request.");
     }
 
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
     const requestSystem = req.details.systemid ? req.details.systemid.toAddress() : (req.details.isTestnet() ? 'VRSCTEST' : 'VRSC');
 
     const coinObj = CoinDirectory.getBasicCoinObj(requestSystem);
@@ -407,14 +443,13 @@ const DeepLink = (props) => {
       };
     }
 
+    // An expired request ends on the opening screen as "Request expired".
     const validateExpiry = async () => {
       if (req.details.expires() && req.details.expiryheight.toNumber() - chainInfo.result.longestchain < 0) {
-        const age = (req.details.expiryheight.toNumber() - chainInfo.result.longestchain) * -1;
-        createAlert(
-          'Expired invoice',
-          `This invoice is expired (expired for approx. ${blocksToTime(age, coinObj.seconds_per_block)}).`,
+        throw createGenericRequestRejectionError(
+          GENERIC_REQUEST_REJECTION_CODES.EXPIRED,
+          'Identity update request expired.',
         );
-        cancel();
       }
     }
 
@@ -432,6 +467,7 @@ const DeepLink = (props) => {
     );
 
     if (req.isSigned()) {
+      setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
       if (await verifyIdentityUpdateRequest(coinObj, req)) {
         const sig = await extractIdentityUpdateRequestSig(coinObj, req);
         const sigblock = await getBlock(coinObj.system_id, sig.height);
@@ -493,6 +529,7 @@ const DeepLink = (props) => {
           console.warn(e);
         }
 
+        setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW);
         await validateExpiry();
         setDisplayProps({
           detailsBufferString: req.details.toBuffer().toString('hex'),
@@ -512,11 +549,10 @@ const DeepLink = (props) => {
         })
         setDisplayKey(IDENTITY_UPDATE_REQUEST_INFO);
       } else {
-        createAlert(
-          'Failed to verify',
+        throw createGenericRequestRejectionError(
+          GENERIC_REQUEST_REJECTION_CODES.SIGNATURE_INVALID,
           'Failed to verify identity update request signature',
         );
-        cancel();
       }
     } else {
       throw new Error("Unsigned identity update requests not currently supported.")
@@ -612,20 +648,15 @@ const DeepLink = (props) => {
           await processIdentityUpdateRequest();
           break;
         default:
-          createAlert('Unsupported', 'Unsupported request');
-          cancel();
-          break;
+          throw createGenericRequestRejectionError(
+            GENERIC_REQUEST_REJECTION_CODES.DETAIL_UNSUPPORTED,
+            'Unsupported request',
+          );
       }
     } catch (e) {
       if (processGenerationRef.current !== processGeneration) return;
 
-      if (deeplinkId === primitives.GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid) {
-        console.warn(e)
-        setGenericRequestError(getGenericRequestRejection(e));
-        return;
-      }
-
-      console.error(e)
+      console.warn(e)
 
       // An invoice that cannot be read ends on a sheet; the raw error stays in the log.
       if (deeplinkId === primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid) {
@@ -636,15 +667,23 @@ const DeepLink = (props) => {
         return
       }
 
-      createAlert('Error', e.message);
-      cancel();
+      // v1 login requests keep their old alert (owner decision, 2026-10-21).
+      if (deeplinkId === primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid) {
+        createAlert('Error', e.message);
+        cancel();
+        return
+      }
+
+      // Other requests end on the opening screen with a short reason.
+      setRequestError(getGenericRequestRejection(e));
     }
   };
 
-  const retryGenericRequest = () => {
+  const retryRequest = () => {
     const processGeneration = processGenerationRef.current + 1
     processGenerationRef.current = processGeneration
-    setGenericRequestError(null)
+    setRequestError(null)
+    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.READ)
     processDeeplink(processGeneration)
   }
 
@@ -693,19 +732,18 @@ const DeepLink = (props) => {
     )
   };
 
-  const showGenericRequestOpening =
-    deeplinkId === primitives.GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid &&
-    displayKey == null &&
-    !loading;
-  
+  const showRequestOpening = displayKey == null && !loading;
+
   return (
-    <View style={Styles.flexBackground}>
-      {showGenericRequestOpening ? (
+    <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
+      {showRequestOpening ? (
         <GenericRequestLoading
-          activeStep={genericRequestLoadingStep}
-          error={genericRequestError}
+          activeStep={requestLoadingStep}
+          error={requestError}
           onCancel={cancel}
-          onRetry={retryGenericRequest}
+          onRetry={retryRequest}
+          steps={opening.steps}
+          title={opening.title}
         />
       ) : displayKey == null || loading ? (
         <AnimatedActivityIndicatorBox />
@@ -722,5 +760,11 @@ const DeepLink = (props) => {
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 export default DeepLink;
