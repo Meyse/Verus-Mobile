@@ -671,6 +671,23 @@ The owner chose card A on 2026-10-22 (gap 5 mockups). A VerusID request
 - A close icon (20 points, `textSubtle`) in a 44-point target removes the card.
   No "×" letter and no filled circle.
 
+### Ready card celebration
+
+The owner chose celebration C on 2026-10-22 and removed its border after seeing
+it in the app ("looks very AI"). A ready VerusID uses `VerusIdReadyCard.js`; a
+failed request keeps the gray card.
+
+- The ready card keeps the card A layout on its own soft blue-to-green tint
+  (light `#DEE8FC` to `#E2F1E7`, dark `#21509A` to `#1C4E66`). It is card
+  material like the gift card, not a theme token. No border, no traced outline.
+  The close icon uses `textSecondary`, because `textSubtle` is too faint on the
+  tint.
+- The first time the card shows, it celebrates once (2.2 s): the tint blooms,
+  the name rises into place, "is ready" fades up, and 12 confetti pieces fall
+  behind the text. With Reduce Motion, the tint only fades in.
+- The stored notification keeps `celebrated: true`, so a relaunch, a tab switch,
+  or a later visit shows the still card.
+
 ## Secure task screen
 
 `SecureLoading.js` covers tasks that must not be interrupted: Lock wallet, Clear
