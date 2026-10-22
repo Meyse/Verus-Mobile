@@ -21,6 +21,7 @@ import SkeletonLoader, {
   SkeletonBlock,
 } from '../../../../components/SkeletonLoader';
 import useSheetDismissal from '../../../../components/useSheetDismissal';
+import StatusBadge from '../../../../components/StatusBadge';
 import {setUserCoins} from '../../../../actions/actionCreators';
 import {fontStyle} from '../../../../globals/fonts';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
@@ -29,6 +30,20 @@ import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
+import {getIdentity} from '../../../../utils/api/channels/verusid/callCreators';
+import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
+import {API_GET_BALANCES} from '../../../../utils/constants/intervalConstants';
+import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
+import {extractDisplaySubWallets} from '../../../../utils/subwallet/extractSubWallets';
+import {
+  describeVerusIdState,
+  getVerusIdStateBadge,
+} from '../../../../utils/verusid/describeVerusIdState';
+import {
+  formatAssetCount,
+  getVerusIdFunds,
+} from '../../../../utils/verusid/getVerusIdFunds';
+import {VerusIdName} from './VerusIdCard';
 import {
   NOTIFICATION_TYPE_VERUSID_ERROR,
   NOTIFICATION_TYPE_VERUSID_READY,
@@ -174,50 +189,50 @@ const BottomFade = ({backgroundColor, solidHeight}) => (
   </View>
 );
 
-const IdentityRow = ({actionLabel, isPreferred, name, network, onPress, subtitle, theme}) => (
+// A filled row per VerusID (owner-approved "D revised", 2026-10-22): the name
+// with its parent muted, one line under it, a status badge only when the
+// VerusID is not active, and a chevron. Pending requests keep their action.
+const IdentityRow = ({actionLabel, badge, name, onPress, subtitle, theme}) => (
   <View style={styles.rowWrap}>
     <TouchableOpacity
       accessibilityRole="button"
       activeOpacity={0.7}
       onPress={onPress}
-      style={[
-        styles.identityRow,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
-          shadowColor: theme.colors.shadow,
-        },
-      ]}>
+      style={[styles.identityRow, {backgroundColor: theme.colors.surfaceMuted}]}>
       <View
         style={[
           styles.rowText,
           actionLabel && styles.rowTextWithAction,
           actionLabel === 'Link and login' && styles.rowTextWithWideAction,
         ]}>
-        <Text numberOfLines={1} ellipsizeMode="middle" style={[styles.identityName, {color: theme.colors.textPrimary}]}>
-          {name}
-        </Text>
+        <VerusIdName
+          leafColor={theme.colors.textPrimary}
+          name={name}
+          restColor={theme.colors.textSecondary}
+          style={theme.typography.titleRow}
+        />
         {subtitle ? (
-          <Text numberOfLines={1} style={[styles.identitySubtitle, {color: theme.colors.textSecondary}]}>
+          <Text
+            numberOfLines={1}
+            style={[
+              theme.typography.caption,
+              styles.identitySubtitle,
+              {color: theme.colors.textSecondary},
+            ]}>
             {subtitle}
           </Text>
         ) : null}
       </View>
-      {network ? (
-        <View
-          style={[
-            styles.networkPill,
-            {backgroundColor: isPreferred ? theme.colors.surfaceMuted : theme.colors.surfaceRaised},
-          ]}>
-          <Text
-            style={[
-              styles.networkText,
-              {color: isPreferred ? theme.colors.primary : theme.colors.textSubtle},
-            ]}>
-            {network}
-          </Text>
-        </View>
+      {badge ? (
+        <StatusBadge label={badge.label} style={styles.rowBadge} tone={badge.tone} />
       ) : null}
+      {actionLabel ? null : (
+        <MaterialCommunityIcons
+          color={theme.colors.textSubtle}
+          name="chevron-right"
+          size={22}
+        />
+      )}
     </TouchableOpacity>
     {actionLabel ? (
       <TouchableOpacity
@@ -227,7 +242,7 @@ const IdentityRow = ({actionLabel, isPreferred, name, network, onPress, subtitle
         style={[
           styles.rowAction,
           actionLabel === 'Link and login' && styles.rowActionWide,
-          {backgroundColor: theme.colors.surfaceMuted},
+          {backgroundColor: theme.colors.surface},
         ]}>
         <Text style={[styles.rowActionText, {color: theme.colors.primary}]}>{actionLabel}</Text>
       </TouchableOpacity>
@@ -323,6 +338,14 @@ const SignedInVerusIdService = ({controller}) => {
     state => state.authentication.sessionEpoch || 0,
   );
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
+  const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
+  const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
+  const balances = useObjectSelector(state =>
+    extractLedgerData(state, 'balances', API_GET_BALANCES),
+  );
+  // The state of each linked VerusID ("chain:iAddress" -> active, locked or
+  // revoked). A failed lookup shows no badge.
+  const [identityStates, setIdentityStates] = useState({});
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [infoVisible, setInfoVisible] = useState(false);
   const [linkSheetContentActive, setLinkSheetContentActive] = useState(false);
@@ -367,6 +390,73 @@ const SignedInVerusIdService = ({controller}) => {
   const activePendingKey = selectedPending
     ? `${selectedPending.chain}:${selectedPending.iAddress}`
     : null;
+  const linkedKey = linked.map(item => `${item.chain}:${item.iAddress}`).join('|');
+  useEffect(() => {
+    if (!linkedKey) return undefined;
+
+    let cancelled = false;
+    const sessionScope = captureSessionScope(Store.getState(), renderedAccountHash);
+    const chainInfoBySystem = {};
+
+    const loadState = async item => {
+      try {
+        const coinObj = CoinDirectory.getBasicCoinObj(item.chain);
+        const systemId = coinObj.system_id;
+
+        if (!(systemId in chainInfoBySystem)) {
+          chainInfoBySystem[systemId] = getInfo(systemId).catch(() => null);
+        }
+
+        const [response, infoResponse] = await Promise.all([
+          getIdentity(systemId, item.iAddress),
+          chainInfoBySystem[systemId],
+        ]);
+
+        if (response?.error || !response?.result) return null;
+
+        return describeVerusIdState(
+          response.result.identity,
+          infoResponse?.result || null,
+          coinObj.seconds_per_block,
+          response.result.status,
+        ).state;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    Promise.all(linked.map(loadState)).then(states => {
+      if (cancelled || !sessionScopeIsCurrent(Store.getState(), sessionScope)) {
+        return;
+      }
+
+      const next = {};
+      linked.forEach((item, index) => {
+        if (states[index]) next[`${item.chain}:${item.iAddress}`] = states[index];
+      });
+      setIdentityStates(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // Pending-request updates rebuild `linked`; only a change in the linked
+    // VerusIDs themselves (linkedKey) reloads their states.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedKey, renderedAccountHash]);
+  const getAssetCountLabel = useCallback(
+    item => {
+      const {funds, loaded} = getVerusIdFunds({
+        balances,
+        cardsByCoin,
+        coins: activeCoinsForUser,
+        iAddress: item.iAddress,
+      });
+
+      return loaded ? formatAssetCount(funds.length) : null;
+    },
+    [activeCoinsForUser, balances, cardsByCoin],
+  );
   // Release any resume still bound to a previous account/session epoch; only
   // the current session's single-flight gate survives a scope change.
   useEffect(() => {
@@ -806,9 +896,7 @@ const handleReady = useCallback(
               <IdentityRow
                 key={`${item.chain}:${item.iAddress}`}
                 actionLabel={isReady ? item.readyAction.label : null}
-                isPreferred={item.chain === identityNetwork}
                 name={item.name}
-                network={isReady ? null : item.chain}
                 onPress={press}
                 subtitle={
                   isReady
@@ -844,15 +932,6 @@ const handleReady = useCallback(
             ]}>
             VerusID
           </Text>
-          {hasContent ? (
-            <Text
-              style={[
-                styles.countPill,
-                {backgroundColor: theme.colors.surfaceMuted, color: theme.colors.textSecondary},
-              ]}>
-              {linked.length}
-            </Text>
-          ) : null}
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -909,10 +988,12 @@ const handleReady = useCallback(
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
           renderItem={({item}) => (
             <IdentityRow
-              isPreferred={item.chain === identityNetwork}
+              badge={getVerusIdStateBadge(
+                identityStates[`${item.chain}:${item.iAddress}`],
+              )}
               name={item.name}
-              network={item.chain}
               onPress={() => openIdentity(item)}
+              subtitle={getAssetCountLabel(item)}
               theme={theme}
             />
           )}
@@ -1159,24 +1240,19 @@ const styles = StyleSheet.create({
   rowWrap: {width: '100%', justifyContent: 'center'},
   identityRow: {
     minHeight: 76,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 18,
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingLeft: 18,
+    paddingRight: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: {width: 0, height: 2},
-    elevation: 2,
+    gap: 10,
   },
+  rowBadge: {alignSelf: 'center'},
   rowText: {flex: 1, minWidth: 0},
   rowTextWithAction: {paddingRight: 90},
   rowTextWithWideAction: {paddingRight: 140},
-  identityName: {...fontStyle('semiBold'), fontSize: 18, lineHeight: 23, letterSpacing: -0.2},
-  identitySubtitle: {...fontStyle('regular'), fontSize: 13, lineHeight: 17, marginTop: 2, letterSpacing: -0.1},
-  networkPill: {paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8, alignSelf: 'flex-start'},
-  networkText: {...fontStyle('bold'), fontSize: 10, lineHeight: 12, textTransform: 'uppercase'},
+  identitySubtitle: {marginTop: 2},
   rowAction: {
     position: 'absolute',
     right: 12,
@@ -1193,7 +1269,7 @@ const styles = StyleSheet.create({
   loadingSkeleton: {paddingHorizontal: 20, paddingTop: 12, rowGap: 12},
   loadingRow: {
     height: 76,
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 14,
     justifyContent: 'center',
     rowGap: 8,

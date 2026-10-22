@@ -63,6 +63,22 @@ const SendWizardNavigator = () => {
   // amount and note when the QR code has them.
   const scan = route.params?.scan || null;
   const recipientFixed = Boolean(scan?.address);
+  // A Send from the VerusID page: {iAddress, name}. Select asset then shows
+  // only the assets on that VerusID's cards.
+  const sourceIdentityAddress =
+    mode === SEND_WIZARD_MODE.SEND
+      ? route.params?.sourceIdentity?.iAddress || null
+      : null;
+  const sourceIdentityName = sourceIdentityAddress
+    ? route.params?.sourceIdentity?.name || null
+    : null;
+  const sourceIdentity = useMemo(
+    () =>
+      sourceIdentityAddress
+        ? {iAddress: sourceIdentityAddress, name: sourceIdentityName}
+        : null,
+    [sourceIdentityAddress, sourceIdentityName],
+  );
   const coins = useObjectSelector(state => state.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
@@ -157,7 +173,9 @@ const SendWizardNavigator = () => {
   const initialState = useMemo(() => {
     const scanFields = getScanRequestFields(scan);
     if (!initialSource || mode !== SEND_WIZARD_MODE.SEND) {
-      return initialSource ? {...initialSource, ...scanFields} : scan ? scanFields : null;
+      return initialSource
+        ? {...initialSource, ...scanFields, sourceIdentity}
+        : {...scanFields, sourceIdentity};
     }
 
     const sourceNetworkId =
@@ -173,8 +191,14 @@ const SendWizardNavigator = () => {
       target.routes.find(candidate => !candidate.isCrossChain && !candidate.via) ||
       target.routes[0];
 
-    return {...initialSource, target, route: directRoute, ...scanFields};
-  }, [initialSource, mode, scan]);
+    return {
+      ...initialSource,
+      target,
+      route: directRoute,
+      ...scanFields,
+      sourceIdentity,
+    };
+  }, [initialSource, mode, scan, sourceIdentity]);
   const hasInitialSource = Boolean(initialSource);
   let initialRouteName = 'SendWizardSelectSource';
   if (hasInitialSource) {
@@ -222,7 +246,9 @@ const SendWizardNavigator = () => {
       key={
         initialState?.sourceCoin
           ? `${mode}:${initialState.sourceCoin.id}:${initialState.sourceSubWallet.id}`
-          : `${mode}:manual`
+          : `${mode}:manual${
+              sourceIdentity ? `:${sourceIdentity.iAddress}` : ''
+            }`
       }
       initialState={initialState}
       mode={mode}>

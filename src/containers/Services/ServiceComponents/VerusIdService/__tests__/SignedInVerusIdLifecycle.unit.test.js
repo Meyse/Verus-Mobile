@@ -101,6 +101,9 @@ jest.mock('../../../../../images/customIcons', () => ({
 }));
 jest.mock('lottie-react-native', () => 'LottieView');
 jest.mock('lucide-react-native', () => ({
+  Check: 'Check',
+  Copy: 'Copy',
+  ExternalLink: 'ExternalLink',
   Pencil: 'Pencil',
   Plus: 'Plus',
 }));
@@ -166,6 +169,10 @@ jest.mock('../../../../../utils/CoinData/CoinDirectory', () => ({
   },
 }));
 
+jest.mock('../../../../../utils/api/channels/vrpc/requests/getInfo', () => ({
+  getInfo: () => Promise.resolve({result: {longestchain: 100}}),
+}));
+
 jest.mock('../../../../../utils/api/channels/verusid/callCreators', () => ({
   getIdentity: (...args) => mockGetIdentity(...args),
   getFriendlyNameMap: (...args) => mockGetFriendlyNameMap(...args),
@@ -229,6 +236,7 @@ const mockTheme = {
   mode: 'light',
   isDark: false,
   spacing: {xs: 4, sm: 8, md: 16, lg: 24, xl: 32},
+  rounded: {sm: 8, md: 12, lg: 18, xl: 24, full: 9999},
   colors: {
     primary: '#3165D4',
     onPrimary: '#FFFFFF',
@@ -267,6 +275,9 @@ const setSession = ({accountHash = 'account-a', sessionEpoch = 1} = {}) => {
       sessionEpoch,
     },
     coins: {activeCoinList: ['VRSCTEST'], activeCoinsForUser: []},
+    coinMenus: {allSubWallets: {}},
+    errors: {},
+    ledger: {balances: {}},
     channelStore_verusid: {pendingIds: {}},
   };
 };
@@ -351,13 +362,21 @@ describe('SignedInVerusIdDetails unlink dismissal lifecycle', () => {
   };
 
   // Drives a real successful unlink up to the point where the navigation
-  // callback is queued behind the sheet's close animation.
+  // callback is queued behind the sheet's close animation. Unlink sits in the
+  // ⋯ options sheet, which runs the action after it has finished closing.
   const startUnlink = async (renderer, header) => {
     await act(async () => {
       // Pressing the header action updates the details renderer's state, so
       // flush both trees inside the same act boundary.
-      findByLabel(header, 'Unlink VerusID').props.onPress();
+      findByLabel(header, 'VerusID options').props.onPress();
       await Promise.resolve();
+    });
+    await flush();
+    await act(async () => {
+      findByLabel(renderer, 'Unlink VerusID').props.onPress();
+    });
+    await act(async () => {
+      sheetOnClosed();
     });
     await flush();
     expect(typeof sheetOnClosed).toBe('function');
@@ -429,9 +448,11 @@ describe('SignedInVerusIdService READY resume ownership', () => {
     return renderer;
   };
 
+  // The row name is split into styled parts; its accessibility label keeps
+  // the whole name.
   const findReadyRow = renderer =>
     renderer.root.findAll(
-      node => node.props?.children === 'ready.VRSCTEST@',
+      node => node.props?.accessibilityLabel === 'ready.VRSCTEST@',
     )[0];
 
   // Walks up from the row's name to the row's own press target, which is the

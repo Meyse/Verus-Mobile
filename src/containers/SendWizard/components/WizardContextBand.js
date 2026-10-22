@@ -57,16 +57,31 @@ const WizardContextBand = ({step}) => {
     route: state.route,
     channel: state.channel,
     recipient: state.scanRequest?.address,
+    sourceIdentityName: state.sourceIdentity?.name,
   });
 
   if (!summary) return null;
 
-  const {source, destination, chain, recipient, recipientOnly} = summary;
+  const {
+    source,
+    destination,
+    chain,
+    recipient,
+    recipientOnly,
+    recipientPrefix,
+    recipientIsName,
+  } = summary;
+  // A VerusID name is in normal type; an address is monospace.
   const recipientText = (
     <Text
       ellipsizeMode="middle"
       numberOfLines={1}
-      style={[styles.address, {color: theme.colors.textPrimary}]}>
+      style={[
+        recipientIsName
+          ? [theme.typography.labelSm, styles.label]
+          : styles.address,
+        {color: theme.colors.textPrimary},
+      ]}>
       {recipient}
     </Text>
   );
@@ -92,7 +107,7 @@ const WizardContextBand = ({step}) => {
               styles.on,
               {color: theme.colors.textSecondary},
             ]}>
-            To
+            {recipientPrefix || 'To'}
           </Text>
           {recipientText}
         </View>
