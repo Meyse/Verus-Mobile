@@ -63,12 +63,9 @@ const SendWizardNavigator = () => {
   // amount and note when the QR code has them.
   const scan = route.params?.scan || null;
   const recipientFixed = Boolean(scan?.address);
-  // A Send from the VerusID page: {iAddress, name}. Select asset then shows
-  // only the assets on that VerusID's cards.
-  const sourceIdentityAddress =
-    mode === SEND_WIZARD_MODE.SEND
-      ? route.params?.sourceIdentity?.iAddress || null
-      : null;
+  // A Send or Convert from the VerusID page: {iAddress, name}. Select asset
+  // then shows only the assets on that VerusID's cards.
+  const sourceIdentityAddress = route.params?.sourceIdentity?.iAddress || null;
   const sourceIdentityName = sourceIdentityAddress
     ? route.params?.sourceIdentity?.name || null
     : null;

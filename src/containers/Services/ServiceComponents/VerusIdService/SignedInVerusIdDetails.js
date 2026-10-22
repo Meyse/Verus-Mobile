@@ -1,8 +1,8 @@
 /*
   SignedInVerusIdDetails
   - Shows one linked VerusID (owner-approved "D revised", 2026-10-22): the
-    light VerusID card, Receive and Send, Control, Content and Details rows,
-    then the VerusID's funds. A fund row opens that asset's screen with the
+    light VerusID card, Receive, Send and Convert, Control, Content and Details
+    rows, then the VerusID's funds. A fund row opens that asset's screen with the
     VerusID card selected.
   - Unlink sits behind ⋯. Content and Details open information sheets.
   - Loading, refresh failure, and unlink confirmation use the shared
@@ -32,6 +32,7 @@ import {useDispatch} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
+import {SignedInActionButtons} from '../../../../components/SignedInActionBar';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import useSheetDismissal from '../../../../components/useSheetDismissal';
@@ -82,6 +83,7 @@ import {
 import {shouldNavigateAfterUnlinkDismissal} from '../../../../utils/verusid/verusIdFlowGuards';
 import {VERUSID_SERVICE_ID} from '../../../../utils/constants/services';
 import {SEND_WIZARD_MODE} from '../../../SendWizard/wizardUtils';
+import {CONVERSION_DISABLED} from '../../../../../env/index';
 import VerusIdCard, {splitVerusIdName} from './VerusIdCard';
 import VerusIdContentSheet from './VerusIdContentSheet';
 import VerusIdDetailsSheet from './VerusIdDetailsSheet';
@@ -120,8 +122,14 @@ const DetailsSkeleton = ({theme}) => (
     style={styles.skeleton}>
     <SkeletonBlock height={196} radius={theme.rounded.xl} width="100%" />
     <View style={styles.skeletonActions}>
-      <SkeletonBlock height={56} radius={18} style={styles.skeletonAction} />
-      <SkeletonBlock height={56} radius={18} style={styles.skeletonAction} />
+      {[0, 1, 2].map(index => (
+        <SkeletonBlock
+          key={index}
+          height={48}
+          radius={16}
+          style={styles.skeletonAction}
+        />
+      ))}
     </View>
     <SkeletonBlock height={20} style={styles.skeletonTitle} width="28%" />
     <SkeletonBlock height={16} style={styles.skeletonLine} width="82%" />
@@ -415,6 +423,7 @@ const SignedInVerusIdDetails = () => {
   const receiveDisabled =
     !receiveCard || stateInfo.state === VERUSID_STATE.REVOKED;
   const sendDisabled = !canAct || funds.length === 0;
+  const convertDisabled = sendDisabled || CONVERSION_DISABLED;
   const explorerUrl =
     identity?.fullyqualifiedname && coinObj && !coinObj.testnet
       ? `https://verus.io/verusid-lookup/${identity.fullyqualifiedname}`
@@ -430,23 +439,26 @@ const SignedInVerusIdDetails = () => {
     });
   }, [coinObj, navigation, receiveCard]);
 
-  // One asset opens Amount at once; several open Select asset with only the
-  // assets on this VerusID's cards.
-  const openSend = useCallback(() => {
-    if (funds.length === 1) {
-      navigation.navigate('SendWizard', {
-        mode: SEND_WIZARD_MODE.SEND,
-        initialCoinId: funds[0].coin.id,
-        initialSubWalletId: funds[0].card.id,
-      });
-      return;
-    }
+  // One asset starts the wizard on that asset; several open Select asset
+  // with only the assets on this VerusID's cards.
+  const openWizard = useCallback(
+    mode => {
+      if (funds.length === 1) {
+        navigation.navigate('SendWizard', {
+          mode,
+          initialCoinId: funds[0].coin.id,
+          initialSubWalletId: funds[0].card.id,
+        });
+        return;
+      }
 
-    navigation.navigate('SendWizard', {
-      mode: SEND_WIZARD_MODE.SEND,
-      sourceIdentity: {iAddress, name: title},
-    });
-  }, [funds, iAddress, navigation, title]);
+      navigation.navigate('SendWizard', {
+        mode,
+        sourceIdentity: {iAddress, name: title},
+      });
+    },
+    [funds, iAddress, navigation, title],
+  );
 
   // The asset screen, opened as Home opens it, on this VerusID's card.
   // CoinMenus is on the main stack, so Back returns here.
@@ -784,33 +796,21 @@ const SignedInVerusIdDetails = () => {
               )
             }>
             <VerusIdCard
-              iAddress={identity.identity.identityaddress || iAddress}
               name={title}
               networkName={coinObj?.display_name || chain}
               state={stateInfo.state}
             />
           </View>
 
-          <View style={styles.actions}>
-            <AppButton
-              accessibilityLabel={`Receive to ${title}`}
-              disabled={receiveDisabled}
-              onPress={openReceive}
-              style={styles.action}
-              themeMode={theme.mode}
-              variant="secondary">
-              Receive
-            </AppButton>
-            <AppButton
-              accessibilityLabel={`Send from ${title}`}
-              disabled={sendDisabled}
-              onPress={openSend}
-              style={styles.action}
-              themeMode={theme.mode}
-              variant="secondary">
-              Send
-            </AppButton>
-          </View>
+          <SignedInActionButtons
+            convertDisabled={convertDisabled}
+            onConvert={() => openWizard(SEND_WIZARD_MODE.CONVERT)}
+            onReceive={openReceive}
+            onSend={() => openWizard(SEND_WIZARD_MODE.SEND)}
+            receiveDisabled={receiveDisabled}
+            sendDisabled={sendDisabled}
+            style={styles.actions}
+          />
 
           <Text
             accessibilityRole="header"
@@ -1033,8 +1033,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {flex: 1},
   content: {paddingHorizontal: 20, paddingTop: 8},
-  actions: {flexDirection: 'row', gap: 10, marginTop: 12},
-  action: {flex: 1},
+  actions: {marginTop: 12},
   sectionTitle: {marginTop: 28, marginBottom: 2},
   fundsTitle: {marginBottom: 4},
   factRow: {
@@ -1100,7 +1099,7 @@ const styles = StyleSheet.create({
   refreshErrorText: {flex: 1, minWidth: 0, marginLeft: 10, marginRight: 4},
   refreshErrorAction: {alignSelf: 'center'},
   skeleton: {paddingHorizontal: 20, paddingTop: 8},
-  skeletonActions: {flexDirection: 'row', gap: 10, marginTop: 12},
+  skeletonActions: {flexDirection: 'row', gap: 8, marginTop: 12},
   skeletonAction: {flex: 1},
   skeletonTitle: {marginTop: 32, marginBottom: 16},
   skeletonLine: {marginBottom: 14},

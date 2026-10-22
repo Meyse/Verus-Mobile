@@ -1,7 +1,7 @@
 /*
   VerusIdDetailsSheet
-  - The technical facts of a VerusID that the page does not show: parent,
-    primary and private addresses, and the block of the last change.
+  - The technical facts of a VerusID that the page does not show: i-address,
+    parent, primary and private addresses, and the block of the last change.
   - Information sheet pattern (InfoSheet + InfoSheetRow), as Transaction
     details. "View in explorer" shows only where an explorer exists.
 */
@@ -40,6 +40,12 @@ const VerusIdDetailsSheet = ({
       title="Details"
       visible={visible}>
       <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
+        <InfoSheetRow
+          copy
+          label="i-address"
+          value={details.identityaddress || null}
+          valueStyle={styles.identifier}
+        />
         <InfoSheetRow label="Parent" value={parent} />
         {primaryAddresses.length ? (
           <InfoSheetRow
