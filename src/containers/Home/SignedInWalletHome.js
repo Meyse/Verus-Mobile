@@ -23,6 +23,7 @@ import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
+import WalletSetupLogoSlot from '../../components/WalletSetup/WalletSetupLogoSlot';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
@@ -203,9 +204,9 @@ const SignedInWalletHome = ({
         accessibilityLabel={`${presentation.name}, ${cryptoText}`}
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
-        <View style={styles.logoWrap}>
+        <WalletSetupLogoSlot coinId={item.coin.id} style={styles.logoWrap}>
           <AssetCoinLogo coinId={presentation.iconId} badgeTicker={presentation.badgeTicker} size={38} />
-        </View>
+        </WalletSetupLogoSlot>
         <View style={styles.assetCopy}>
           <View style={styles.assetLine}>
             <Text

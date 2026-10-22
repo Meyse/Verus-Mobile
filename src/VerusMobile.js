@@ -35,6 +35,7 @@ import { Portal } from 'react-native-paper';
 import SendModal from "./components/SendModal/SendModal";
 import { NavigationContainer } from "@react-navigation/native";
 import LoadingModal from "./components/LoadingModal/LoadingModal";
+import WalletSetupOverlay from "./components/WalletSetup/WalletSetupOverlay";
 import NfcTapHost from "./components/NfcTap/NfcTapHost";
 import { isNfcSessionActive } from "./utils/walletBackup/walletBackupNfc";
 import { CoinDirectory } from "./utils/CoinData/CoinDirectory";
@@ -233,6 +234,7 @@ export class VerusMobile extends React.Component {
               signedIn={this.props.signedIn}
             />
           </ThemedNavigationContainer>
+          <WalletSetupOverlay />
         </Portal.Host>
         <Modal
           animationType={this.state.loading ? "fade" : "none"}
