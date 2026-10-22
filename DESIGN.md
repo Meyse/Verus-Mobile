@@ -658,6 +658,32 @@ page itself shows no mark.
   load. "This VerusID holds no funds." shows when there are none. Hidden
   balances read "Balance hidden".
 
+## Home notification card
+
+The owner chose card A on 2026-10-22 (gap 5 mockups). A VerusID request
+(`NotificationWidget.js`) shows one card under the Home balance.
+
+- `surfaceMuted` fill, 18-point corners, no border. The name in semibold and the
+  rest in regular, 16/22: "<name>@ is ready" or "<name>@ could not be created".
+- One small `AppButton` (`compact`, 36 points, 12-point corners) on the page
+  color, because the secondary tint disappears on the gray card. The label is
+  the request's action ("Link VerusID", "Use") or "Try again".
+- A close icon (20 points, `textSubtle`) in a 44-point target removes the card.
+  No "×" letter and no filled circle.
+
+## Secure task screen
+
+`SecureLoading.js` covers tasks that must not be interrupted: Lock wallet, Clear
+cache, keychain encryption, Delete wallet, and Reset password. The owner chose
+variation A on 2026-10-22.
+
+- It follows the request loading screen (`GenericRequestLoading.js`): theme
+  background, the `loading_7bars` loader, the task as a short title (24/31
+  semibold, "Signing out", "Clearing cache", "Deleting wallet data"), and "Keep
+  the app open." in 15/22 `textSecondary`. No header and no swipe back.
+- After 15 seconds the line reads "This is taking longer than usual. Keep the
+  app open." A failed task shows its error as the title without the loader.
+
 ## Receive and payment request
 
 The owner approved variation A ("Calm address") for Receive and variation C's
