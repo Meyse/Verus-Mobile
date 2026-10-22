@@ -4,14 +4,12 @@ import {normalizeLastOpenedAccountTimestamps} from '../account/accountActivity';
 import {TESTNET_ENVIRONMENT_PUBLIC} from '../testnetEnvironment';
 
 export const DEFAULT_GENERAL_WALLET_SETTINGS = {
-  maxTxCount: 10,
   minGasPriceGwei: 1,
   displayCurrency: USD,
   appearance: 'system',
   lastOpenedAccountTimestamps: {},
   homeCardDragDetection: false,
   allowSettingVerusPaySlippage: false,
-  enableSendCoinCameraToggle: false,
   enableExperimentalGenericRequests: false,
   ackedCurrencyDisclaimer: false,
   addressBlocklistDefinition: {
