@@ -107,25 +107,20 @@ const InvoiceInfo = props => {
     if (wrongNetwork) setWrongNetworkVisible(true);
   }, [wrongNetwork]);
   const invoiceNetwork = details.isTestnet() ? 'testnet' : 'mainnet';
+  const allowList = details.isTestnet()
+    ? (accounts || []).filter(
+        account =>
+          account.testnetOverrides?.[coinObj.mainnet_id] === coinObj.id,
+      )
+    : (accounts || []).filter(
+        account => account.testnetOverrides?.[coinObj.id] == null,
+      );
+  // Signed out with no wallet for the invoice network: Unlock is disabled and
+  // the footer says why.
+  const noInvoiceNetworkWallet = !signedIn && allowList.length === 0;
 
   const unlockWallet = async () => {
-    const allowList = details.isTestnet()
-      ? accounts.filter(
-          account =>
-            account.testnetOverrides?.[coinObj.mainnet_id] === coinObj.id,
-        )
-      : accounts.filter(
-          account => account.testnetOverrides?.[coinObj.id] == null,
-        );
-    if (allowList.length === 0) {
-      createAlert(
-        'Cannot continue',
-        `No ${
-          details.isTestnet() ? 'testnet' : 'mainnet'
-        } wallets found for this invoice.`,
-      );
-      return;
-    }
+    if (allowList.length === 0) return;
 
     try {
       await requestWalletUnlock({
@@ -354,8 +349,13 @@ const InvoiceInfo = props => {
             />
           </>
         )}
+        {noInvoiceNetworkWallet && (
+          <Text style={styles.footnote}>
+            {`This invoice needs a ${invoiceNetwork} wallet. Add one, then open the invoice again.`}
+          </Text>
+        )}
         <AppButton
-          disabled={wrongNetwork}
+          disabled={wrongNetwork || noInvoiceNetworkWallet}
           onPress={
             signedIn
               ? selectedSource

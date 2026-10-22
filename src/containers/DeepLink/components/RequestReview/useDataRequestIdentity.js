@@ -122,21 +122,16 @@ export default function useDataRequestIdentity({
   };
   const requiredSignerUnavailable =
     lookupStatus === 'ready' && !!requiredIdentity && !selectedIdentity;
+  const matches = (accounts || []).filter(
+    item => accountIsTestnet(item) === requestIsTestnet,
+  );
+  // No wallet on this device can answer the request. The review disables the
+  // wallet action and says why.
+  const noRequestNetworkWallet = !walletReady && matches.length === 0;
 
   const unlock = async () => {
     if (unlockFlight.current) return;
-    const matches = (accounts || []).filter(
-      item => accountIsTestnet(item) === requestIsTestnet,
-    );
-    if (!matches.length) {
-      createAlert(
-        'Wallet required',
-        `Add a ${
-          requestIsTestnet ? 'Testnet' : 'Mainnet'
-        } wallet before responding to this request.`,
-      );
-      return;
-    }
+    if (!matches.length) return;
     unlockFlight.current = true;
     setUnlocking(true);
     try {
@@ -168,6 +163,7 @@ export default function useDataRequestIdentity({
     },
     context,
     signedIn,
+    noRequestNetworkWallet,
     lookupStatus,
     selectedIdentity,
     chainId,

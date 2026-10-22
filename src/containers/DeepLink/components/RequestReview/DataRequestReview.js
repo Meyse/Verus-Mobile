@@ -223,8 +223,10 @@ export default function DataRequestReview({
     if (!selected) return identity.setIdentitySheetVisible(true);
     return onContinue();
   };
+  const requestNetworkName = props.request?.isTestnet() ? 'Testnet' : 'Mainnet';
   const actionDisabled =
     processing ||
+    identity.noRequestNetworkWallet ||
     identity.unlocking ||
     identity.signerConflict ||
     (identity.walletReady && identity.lookupStatus === 'loading') ||
@@ -269,6 +271,10 @@ export default function DataRequestReview({
               An earlier step used a different VerusID. Cancel and restart this
               request with the required VerusID.
             </DataReviewNotice>
+          ) : identity.noRequestNetworkWallet ? (
+            <DataReviewNotice title={`No ${requestNetworkName} wallet`}>
+              {`This request needs a ${requestNetworkName} wallet. Add one, then open the request again.`}
+            </DataReviewNotice>
           ) : !identity.walletReady ? (
             <DataReviewNotice
               title={
@@ -276,9 +282,7 @@ export default function DataRequestReview({
                   ? 'Switch wallet to review'
                   : 'Unlock wallet to review'
               }>
-              {`Use a ${
-                props.request?.isTestnet() ? 'Testnet' : 'Mainnet'
-              } wallet to choose the responding VerusID.`}
+              {`Use a ${requestNetworkName} wallet to choose the responding VerusID.`}
             </DataReviewNotice>
           ) : identity.lookupStatus === 'loading' ? (
             <DataReviewLoading label="Loading VerusIDs" />
