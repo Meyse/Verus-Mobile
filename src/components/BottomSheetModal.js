@@ -151,6 +151,24 @@ const BottomSheetModal = ({
     };
   }, [animation, setInternalVisible, visible]);
 
+  // An alert hides a native sheet at once (see the render below). A sheet
+  // that was closing then never finishes its animation, and it would come
+  // back when the alert closes. Finish the close now instead. Embedded sheets,
+  // such as the app alert itself, do not step aside.
+  useEffect(() => {
+    if (embedded || !alertActive || visible || !renderVisibleRef.current) {
+      return;
+    }
+
+    animation.stopAnimation();
+    animation.setValue(0);
+    setInternalVisible(false);
+
+    if (typeof onClosedRef.current === 'function') {
+      onClosedRef.current();
+    }
+  }, [alertActive, animation, embedded, setInternalVisible, visible]);
+
   const sheetStyle = StyleSheet.flatten([
     styles.sheet,
     floating ? styles.floatingSheet : styles.attachedSheet,
