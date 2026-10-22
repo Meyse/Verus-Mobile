@@ -60,11 +60,19 @@ import { CoinDirectory } from "../../../utils/CoinData/CoinDirectory";
 import { explorers } from "../../../utils/CoinData/CoinData";
 import { USD } from "../../../utils/constants/currencies";
 import { scientificToDecimal } from "../../../utils/math";
+import { getSubWalletCardType } from "../../../utils/subwallet/cardPresentation";
 
 const CONNECTION_ERROR = "Connection Error"
 const TRANSACTION_LIST_BOTTOM_PADDING = 40;
 const TRANSACTION_SKELETON_DELAY = 250;
 const TRANSACTION_SKELETON_ROWS = 3;
+
+// A receipt names the address of the card it arrived on, in the card's own terms.
+const OWN_ADDRESS_LABELS = {
+  Private: "My private address",
+  Transparent: "My transparent address",
+  VerusID: "My VerusID",
+};
 
 const MONOSPACE_FONT = Platform.select({
   ios: "Menlo",
@@ -764,7 +772,9 @@ class Overview extends Component {
 
       if (item.type === "received") {
         detailLabel = "You received";
-        subtitle = "My transparent address";
+        subtitle =
+          OWN_ADDRESS_LABELS[getSubWalletCardType(this.props.activeSubWallet)] ||
+          "My address";
         incoming = true;
       } else if (item.type === "sent") {
         detailLabel = "You sent";
@@ -1002,6 +1012,7 @@ const mapStateToProps = (state) => {
 
   return {
     activeCoin,
+    activeSubWallet,
     transactions: selectTransactions(state),
     activeAccount: state.authentication.activeAccount,
     activeCoinsForUser: state.coins.activeCoinsForUser,

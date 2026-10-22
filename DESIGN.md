@@ -548,8 +548,10 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
   colored.
 - Pending: the `StatusBadge` with the warning tone and the label "Pending" takes
   the place of the date line.
-- Title: the counterparty address, or "My transparent address". Do not label a row
-  as a conversion; the owner removed those labels on 2026-10-19.
+- Title: the counterparty address. A receipt names the address of the card it
+  arrived on: "My transparent address", "My private address", "My VerusID", or
+  "My address" for other cards. Do not label a row as a conversion; the owner
+  removed those labels on 2026-10-19.
 - Keep the chevron, the amount, ticker and fiat value column, and the skeleton rows.
 
 ## Transaction details
