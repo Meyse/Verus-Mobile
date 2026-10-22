@@ -512,6 +512,8 @@ request, 2026-10-22):
   funds.", and Done.
 - The sheet closes, and its value clears, whenever the screen hides the
   secrets: background, losing focus, or screen capture.
+- The screen title shows once, in the navigation header (or the signed-out
+  header). The secret cards follow the warning notice without a section label.
 
 ## Asset screen balances
 

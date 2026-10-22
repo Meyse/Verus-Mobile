@@ -8,10 +8,26 @@ export const updateVrpcBalances = async (coinObj, channelId) => {
   const [channelName, iAddress, systemId] = channelId.split('.')
 
   const currencyId = coinObj.currency_id
-  
-  const res = await getAddressBalances(systemId, [iAddress])
 
-  if (res.error) throw new Error(res.error.message)
+  const readBalanceAndMempool = async fresh => {
+    const balanceRes = await getAddressBalances(systemId, [iAddress], undefined, fresh);
+    if (balanceRes.error) throw new Error(balanceRes.error.message);
+
+    const mempool = await getAddressMempool(systemId, [iAddress], false, 1, fresh);
+    if (mempool.error) throw new Error(mempool.error.message);
+    if (!Array.isArray(mempool.result)) throw new Error('Mempool response unavailable');
+
+    return [balanceRes, mempool];
+  };
+
+  let [res, mempoolRes] = await readBalanceAndMempool(false);
+
+  // The two answers are cached for different times. Right after a block, a new
+  // balance with an older mempool counts the same transaction twice. While the
+  // mempool lists anything, read both again, uncached and back to back.
+  if (mempoolRes.result.length > 0) {
+    [res, mempoolRes] = await readBalanceAndMempool(true);
+  }
 
   // A missing/malformed response is unavailable, not an empty wallet. Retain
   // the complete map for discovery on this exact address/system channel.
@@ -30,9 +46,6 @@ export const updateVrpcBalances = async (coinObj, channelId) => {
   currencies[systemId] = satsToCoins(nativeBalance).toString();
 
   const confirmedBalance = currencies[currencyId] || '0';
-  const mempoolRes = await getAddressMempool(systemId, [iAddress], false, 1);
-  if (mempoolRes.error) throw new Error(mempoolRes.error.message);
-  if (!Array.isArray(mempoolRes.result)) throw new Error('Mempool response unavailable');
 
   // Native deltas are signed satoshis. Reserve deltas are signed coin amounts.
   // Use satoshis for the system currency so currencyvalues cannot count it twice.

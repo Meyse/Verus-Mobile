@@ -51,7 +51,6 @@ import {
   SettingsProfileSummary,
   SettingsScreen,
   SettingsSection,
-  SettingsTitle,
 } from '../Settings/components/SettingsScaffold';
 
 const MONOSPACE_FONT = Platform.select({
@@ -409,9 +408,6 @@ const DisplaySeed = ({navigation, route}) => {
           footer={
             <SettingsActionFooter primaryLabel="Done" primaryOnPress={back} />
           }>
-          {!showSignedOutHeader ? (
-            <SettingsTitle>Recovery secrets</SettingsTitle>
-          ) : null}
           <SettingsNotice
             danger
             body="This wallet is not available on the selected network. Return and choose another wallet."
@@ -434,9 +430,6 @@ const DisplaySeed = ({navigation, route}) => {
         renderHeader={renderSignedOutHeader}
         safeAreaEdges={signedOutSafeAreaEdges}
         testID="settings.displaySeed">
-        {!showSignedOutHeader ? (
-          <SettingsTitle>Recovery secrets</SettingsTitle>
-        ) : null}
         {captureBlocked ? (
           <SettingsNotice
             danger
@@ -460,7 +453,7 @@ const DisplaySeed = ({navigation, route}) => {
             />
             {secretEntries.length > 0 ? (
               <View style={styles.recoverySecretsSection}>
-                <SettingsSection title="Recovery secrets">
+                <SettingsSection>
                   {secretEntries.map(([key, value]) => (
                     <SecretCard
                       key={key}
