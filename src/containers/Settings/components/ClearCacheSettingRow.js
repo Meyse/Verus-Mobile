@@ -33,7 +33,7 @@ const ClearCacheSettingRow = ({last = false, navigation}) => {
       if (confirmed) {
         resetToSecureLoading(navigation, {
           task: () => clearCacheData(dispatch),
-          message: 'Clearing cache, please do not close Verus Mobile',
+          message: 'Clearing cache',
           route: 'Home',
           successMsg: 'Cache cleared successfully',
           errorMsg: 'Cache failed to clear',

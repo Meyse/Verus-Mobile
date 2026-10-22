@@ -114,8 +114,7 @@ class DeleteProfile extends Component {
                     _account,
                     _biometry
                   ),
-                message:
-                  "Deleting wallet data, please do not close Verus Mobile",
+                message: "Deleting wallet data",
                 input: [this.props.activeAccount, biometry],
               };
               this.resetToScreen("SecureLoading", data)
