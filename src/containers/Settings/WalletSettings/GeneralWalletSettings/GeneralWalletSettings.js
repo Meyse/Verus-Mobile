@@ -33,17 +33,9 @@ import SettingsFieldSheet from '../../components/SettingsFieldSheet';
 
 const NOT_SAVED = 'Not saved. Try again.';
 
-// Both values are whole numbers: the ETH fee code reads the gas price
-// with BigInt().
+// The value is a whole number: the ETH fee code reads the gas price with
+// BigInt().
 const NUMBER_SETTINGS = {
-  maxTxCount: {
-    title: 'Max. display TXs',
-    label: 'Transactions',
-    helper: 'From 10 to 100.',
-    error: 'Enter a whole number from 10 to 100.',
-    min: 10,
-    max: 100,
-  },
   minGasPriceGwei: {
     title: 'Min. ETH gas price',
     label: 'Gwei',
@@ -258,18 +250,6 @@ const GeneralWalletSettings = () => {
         testID="settings.general">
         <SettingsSection title="Display">
           <SettingsRow
-            accessibilityState={{busy: isSaving('maxTxCount')}}
-            description="Maximum displayed Electrum transactions"
-            disabled={isSaving('maxTxCount')}
-            icon="format-list-numbered"
-            onPress={() => openNumberSheet('maxTxCount')}
-            error={rowErrors.maxTxCount}
-            testID="settings.general.maxTxCount"
-            title="Max. display TXs"
-            trailing={savingIndicator('maxTxCount')}
-            value={displayedSetting('maxTxCount')}
-          />
-          <SettingsRow
             accessibilityState={{busy: isSaving('displayCurrency')}}
             description="Currency used to display wallet value"
             disabled={isSaving('displayCurrency')}
@@ -304,18 +284,6 @@ const GeneralWalletSettings = () => {
             testID="settings.general.allowSettingVerusPaySlippage"
             title="Edit max VerusPay invoice slippage"
             value={displayedSetting('allowSettingVerusPaySlippage')}
-          />
-          <SettingsSwitchRow
-            busy={isSaving('enableSendCoinCameraToggle')}
-            description="Keep the send QR scanner off until its toggle is pressed"
-            icon="qrcode-scan"
-            onValueChange={value =>
-              persistSetting('enableSendCoinCameraToggle', value)
-            }
-            error={rowErrors.enableSendCoinCameraToggle}
-            testID="settings.general.enableSendCoinCameraToggle"
-            title="Add toggle button for QR scanner"
-            value={displayedSetting('enableSendCoinCameraToggle')}
           />
           <SettingsSwitchRow
             busy={isSaving('enableExperimentalGenericRequests')}

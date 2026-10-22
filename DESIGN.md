@@ -498,6 +498,40 @@ section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
 rows and dividers. Omit row icons unless they are necessary or already part of
 the selected canonical setting pattern.
 
+Recovery secrets (`src/containers/DisplaySeed`) show QR codes again (owner
+request, 2026-10-22):
+
+- A revealed recovery secret, and a revealed private or spending key under
+  Advanced private keys, has a QR action left of its `CopyAction`. It matches
+  CopyAction: a 44-point target with the Lucide `QrCode` icon at 18 points in
+  `textSubtle`. Values of 1,000 characters or more get no QR action.
+- The action opens `RecoverySecretQrSheet` on the acknowledgement sheet
+  measurements: the title ("Primary recovery secret", "VRSCTEST private key"),
+  the QR on Receive's white surface (216 points; 184 on windows of 667 points
+  or less), the line "Anyone who scans this code can control the associated
+  funds.", and Done.
+- The sheet closes, and its value clears, whenever the screen hides the
+  secrets: background, losing focus, or screen capture.
+
+## Asset screen balances
+
+The owner chose option A of the pending-balance mockup on 2026-10-22. It applies
+to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
+(`CoinCardPickerSheet`).
+
+- Every card and the asset total show the card's total, the number Home adds
+  up: confirmed funds plus funds that still confirm. Read it with
+  `getLedgerTotal`; do not show the confirmed balance on these screens.
+- A card with funds that still confirm adds one line under the amount and its
+  fiat value: "+0.05 VRSCTEST pending" for incoming funds, "−0.0042 BTC
+  pending" for a send that waits (the net of all unconfirmed transactions, so a
+  send includes its fee). The line uses the fiat line's style and blurs with
+  hidden balances. `getLedgerPending` returns null when there is nothing
+  pending; Ethereum and tokens never report pending funds.
+- While the private card syncs, "Syncing x%" replaces the line.
+- Send keeps its own rule: the private card sends only confirmed funds (see
+  Private card sends).
+
 ## Transaction history row
 
 The owner approved this row on 2026-10-19 (option A of the history mockup, task

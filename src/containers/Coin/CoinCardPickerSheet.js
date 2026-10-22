@@ -33,7 +33,7 @@ import {
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
 import {
-  getLedgerConfirmed,
+  getLedgerTotal,
   getNetworkTicker,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
@@ -128,15 +128,15 @@ const CoinCardPickerSheet = ({
         );
         const type = getSubWalletCardType(wallet);
         const networkLabel = getSubWalletNetworkLabel(wallet, coin);
-        const confirmed = getLedgerConfirmed(balances?.[wallet.id]);
+        const balance = getLedgerTotal(balances?.[wallet.id]);
         const hasBalanceError = Boolean(balanceErrors?.[wallet.id]);
         let amountText =
-          confirmed == null ? '—' : truncateDecimal(confirmed, 8);
+          balance == null ? '—' : truncateDecimal(balance, 8);
         let balanceAccessibilityLabel =
-          confirmed == null
+          balance == null
             ? 'Balance unavailable'
             : `${amountText} ${displayTicker}`.trim();
-        const hasBalanceValue = confirmed != null && !hasBalanceError;
+        const hasBalanceValue = balance != null && !hasBalanceError;
 
         if (hasBalanceError) {
           amountText = CONNECTION_ERROR;

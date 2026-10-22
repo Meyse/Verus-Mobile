@@ -11,6 +11,26 @@ export const getLedgerConfirmed = ledgerEntry => {
     : ledgerEntry.confirmed;
 };
 
+// A card shows its total, the same number Home adds up. Funds that still
+// confirm are part of it and get their own line on the asset screen card.
+export const getLedgerTotal = ledgerEntry => {
+  if (ledgerEntry == null) return null;
+  if (BigNumber.isBigNumber(ledgerEntry)) return ledgerEntry;
+
+  return ledgerEntry.total ?? ledgerEntry.confirmed;
+};
+
+// The unconfirmed part of a card's total, or null when there is none. It is
+// negative while a send waits to confirm, and includes that send's fee.
+export const getLedgerPending = ledgerEntry => {
+  if (ledgerEntry == null || BigNumber.isBigNumber(ledgerEntry)) return null;
+  if (ledgerEntry.pending == null) return null;
+
+  const pending = BigNumber(ledgerEntry.pending);
+
+  return pending.isFinite() && !pending.isZero() ? pending : null;
+};
+
 export const isVerusIdWallet = wallet =>
   Boolean(wallet?.name?.endsWith('@'));
 
