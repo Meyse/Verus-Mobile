@@ -382,7 +382,8 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   the loss in the asset the user pays when there is no price.
 - **Recipient.** The address field is followed by flat 62-point rows ("Saved
   addresses | N ›", "Send to self | N ›") with hairlines. No cards, no icons and
-  no helper line under the field.
+  no helper line under the field. A send from the private card to a private
+  address adds "Memo | Optional ›" as the first row (see Private card sends).
 - **Confirm.** A pay node ("You pay", or "You send" for a plain send), a vertical
   connector with the price, and a receive node ("<recipient> receives")
   for conversions. Nodes use a 40-point logo, a 14-point label and a bold 20-point
@@ -397,6 +398,32 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   beside the 28/36 title. Then the same nodes ("You paid", "<recipient>
   receives"), flat rows ("To" when needed, "Destination" for a bridge,
   "Arrives", "Transaction ID" with `CopyAction`), one caption, and Done.
+
+### Private card sends
+
+The owner approved this on 2026-10-22 (memo option A of the private-send
+mockup, sync option 1, and the Confirm notice). It restores what the old send
+screen did for the private (z) card.
+
+- Recipient accepts a private address (`zs…`) and "name@:private" only when
+  the private card sends; another card shows "Only the Private card can send to
+  a private address." A scanned private address offers only the private card.
+- The memo is a "Memo" row, first in the Recipient rows, shown only for a
+  private send to a private address. It opens the compact form sheet of Request
+  amount's Note (`MemoSheet` on `ReceiveRequestSheet`): one multiline
+  `AppTextInput`, the line "Only the recipient can read it.", and Done. Near the
+  512-byte limit the line counts what is left; over it, an error keeps the sheet
+  open. Confirm shows the memo once, as a "Memo" row under "To". A scanned
+  request's note becomes the memo when it can travel in one.
+- While the private card syncs, its coin card shows a `StatusBadge`
+  (`variant="card"`) "Syncing x%" in place of the fiat line, Send is off, and
+  "Choose a card" shows the card dimmed with "Syncing x%" and no chevron.
+- Amount uses the private card's confirmed balance, as its preflight does.
+  Funds that still confirm add one caption under Available: "<amount> <ticker>
+  can be sent in about 10 minutes."
+- From the private card to a transparent address, Confirm shows one notice
+  above Hold: "This address is transparent. The amount and the recipient will
+  be public on the blockchain."
 
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.

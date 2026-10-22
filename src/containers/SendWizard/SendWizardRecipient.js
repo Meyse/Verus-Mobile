@@ -36,19 +36,23 @@ import {timeout} from '../../utils/promises';
 import AddressBookEditSheet from '../Services/AddressBook/AddressBookEditSheet';
 import {useSendWizard} from './SendWizardContext';
 import AddressBookSheet from './components/AddressBookSheet';
+import MemoSheet from './components/MemoSheet';
 import SelfAddressSheet from './components/SelfAddressSheet';
 import {
   WizardFormLayout,
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
-import {ADDRESS_TYPE} from './wizardUtils';
+import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
+import {ADDRESS_TYPE, isPrivateRecipient} from './wizardUtils';
+import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 
 const SendWizardRecipient = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
-  const {state, setRecipient} = useSendWizard();
-  const {channel, sourceCoin, target, route} = state;
+  const {state, setMemo, setRecipient} = useSendWizard();
+  const {channel, memo, sourceCoin, target, route} = state;
+  const privateSource = isPrivateChannel(channel);
   const blocklist = useSelector(selectAddressBlocklist);
   const activeAccount = useObjectSelector(
     stateValue => stateValue.authentication.activeAccount,
@@ -62,6 +66,7 @@ const SendWizardRecipient = () => {
   const [addressBookOpen, setAddressBookOpen] = useState(false);
   const [saveAddressOpen, setSaveAddressOpen] = useState(false);
   const [selfAddressOpen, setSelfAddressOpen] = useState(false);
+  const [memoOpen, setMemoOpen] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [inputFocused, setInputFocused] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -133,6 +138,16 @@ const SendWizardRecipient = () => {
     if (addressIsBlocked(address, blocklist)) {
       return {valid: false, message: 'This destination is in your blocked-address list.'};
     }
+    // A private address, or "alice@:private", takes funds from the private
+    // card only.
+    if (isPrivateRecipient(address)) {
+      return privateSource
+        ? {valid: true, message: null}
+        : {
+            valid: false,
+            message: 'Only the Private card can send to a private address.',
+          };
+    }
     try {
       if (route?.addressType === ADDRESS_TYPE.ETHEREUM) {
         return ethers.isAddress(address)
@@ -157,7 +172,8 @@ const SendWizardRecipient = () => {
     } catch (validationError) {
       return {valid: false, message: 'Enter a valid Verus address or VerusID.'};
     }
-  }, [blocklist, input, route?.addressType]);
+  }, [blocklist, input, privateSource, route?.addressType]);
+  const showMemo = validation.valid && memoApplies(channel, input.trim());
 
   const paste = async () => {
     try {
@@ -230,7 +246,26 @@ const SendWizardRecipient = () => {
       return;
     }
     const address = input.trim();
-    if (route?.addressType === ADDRESS_TYPE.VERUS && address.endsWith('@')) {
+    // The private card resolves a VerusID itself, before the send; check here
+    // that it resolves, and that "alice@:private" has a private address.
+    if (privateSource && address.includes('@')) {
+      const generation = ++lookup.current.generation;
+      lookup.current.pending = true;
+      setResolving(true);
+      setError(null);
+      try {
+        await resolvePrivateCardDestination(sourceCoin, address);
+        if (generation !== lookup.current.generation) return;
+      } catch (lookupError) {
+        if (generation === lookup.current.generation) setError(lookupError.message);
+        return;
+      } finally {
+        if (generation === lookup.current.generation) {
+          lookup.current.pending = false;
+          setResolving(false);
+        }
+      }
+    } else if (route?.addressType === ADDRESS_TYPE.VERUS && address.endsWith('@')) {
       const generation = ++lookup.current.generation;
       lookup.current.pending = true;
       setResolving(true);
@@ -393,8 +428,18 @@ const SendWizardRecipient = () => {
               <Text style={[styles.saveAddressText, {color: theme.colors.primary}]}>Save to address book</Text>
             </Pressable>
           ) : null}
-          {matchingSavedAddresses.length > 0 || ownAddresses.length > 0 ? (
+          {showMemo || matchingSavedAddresses.length > 0 || ownAddresses.length > 0 ? (
             <View style={[styles.actionRows, {borderTopColor: theme.colors.border}]}>
+              {showMemo ? (
+                <RecipientActionRow
+                  count={memo || 'Optional'}
+                  label="Memo"
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setMemoOpen(true);
+                  }}
+                />
+              ) : null}
               {matchingSavedAddresses.length > 0 ? (
                 <RecipientActionRow
                   count={`${matchingSavedAddresses.length}`}
@@ -431,6 +476,12 @@ const SendWizardRecipient = () => {
         onSelect={selectOwnAddress}
         visible={selfAddressOpen}
       />
+      <MemoSheet
+        memo={memo}
+        onApply={setMemo}
+        onClose={() => setMemoOpen(false)}
+        visible={memoOpen}
+      />
       <AddressBookEditSheet
         initialAddress={input.trim()}
         onClose={() => setSaveAddressOpen(false)}
@@ -455,7 +506,7 @@ const RecipientActionRow = ({count, label, onPress}) => {
         pressed && styles.actionPressed,
       ]}>
       <Text style={[styles.actionLabel, {color: theme.colors.textPrimary}]}>{label}</Text>
-      <Text style={[styles.actionCount, {color: theme.colors.textSecondary}]}>{count}</Text>
+      <Text numberOfLines={1} style={[styles.actionCount, {color: theme.colors.textSecondary}]}>{count}</Text>
       <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.textSubtle} />
     </Pressable>
   );
@@ -473,8 +524,8 @@ const styles = StyleSheet.create({
   actionRows: {marginTop: 8, marginBottom: 24, borderTopWidth: StyleSheet.hairlineWidth},
   actionPressed: {opacity: 0.7},
   actionRow: {minHeight: 62, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center'},
-  actionLabel: {flex: 1, fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
-  actionCount: {fontSize: 14, lineHeight: 20, marginRight: 6, ...fontStyle('regular')},
+  actionLabel: {flex: 1, fontSize: 16, lineHeight: 22, marginRight: 12, ...fontStyle('semiBold')},
+  actionCount: {flexShrink: 1, maxWidth: '62%', fontSize: 14, lineHeight: 20, marginRight: 6, ...fontStyle('regular')},
   scanner: {flex: 1},
   scannerContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
 });

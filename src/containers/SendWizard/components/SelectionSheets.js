@@ -10,6 +10,7 @@ import {
   getSubWalletNetworkLabel,
 } from '../../../utils/subwallet/cardPresentation';
 import {truncateDecimal} from '../../../utils/math';
+import {formatSyncStatus} from '../../../utils/subwallet/privateWallet';
 
 export const SourceCardSheet = ({
   cards,
@@ -45,13 +46,22 @@ export const SourceCardSheet = ({
           {sources.map(source => {
             // Name cards as Receive's "Choose a card" does: the type, with a
             // transparent card's short address below, or the VerusID name.
+            // A private card that still syncs shows, but cannot be picked.
             const cardType = getSubWalletCardType(source.card);
+            const syncing = source.syncPercent != null;
             return (
               <SelectionRow
                 key={source.card.id}
+                disabled={syncing}
                 title={cardType === 'VerusID' ? source.card.name : cardType}
-                subtitle={cardType === 'Transparent' ? source.card.name : undefined}
-                subtitleMonospace
+                subtitle={
+                  syncing
+                    ? formatSyncStatus(source.syncPercent)
+                    : cardType === 'Transparent'
+                    ? source.card.name
+                    : undefined
+                }
+                subtitleMonospace={!syncing}
                 selected={source.card.id === selectedId}
                 value={truncateDecimal(source.balance, 4)}
                 valueLabel={source.coin.display_ticker}

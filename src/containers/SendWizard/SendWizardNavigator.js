@@ -10,6 +10,13 @@ import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
+import {
+  getPrivateSyncPercent,
+  getSpendableBalance,
+  isPrivateChannel,
+  selectPrivateWalletInfo,
+} from '../../utils/subwallet/privateWallet';
+import {cardCanPay} from './privateSend';
 import {WALLET_APP_SEND} from '../../utils/constants/apps';
 import {
   API_GET_BALANCES,
@@ -81,6 +88,7 @@ const SendWizardNavigator = () => {
   const balances = useObjectSelector(state =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
+  const privateInfo = useObjectSelector(selectPrivateWalletInfo);
   const candidateInitialSource = useMemo(() => {
     if (!initialCoinId) return null;
     const sourceCoin = coins.find(coin => coin.id === initialCoinId);
@@ -95,7 +103,14 @@ const SendWizardNavigator = () => {
         return (
           canSend &&
           (mode !== SEND_WIZARD_MODE.CONVERT ||
-            (!CONVERSION_DISABLED && isConversionChannel(channel)))
+            (!CONVERSION_DISABLED && isConversionChannel(channel))) &&
+          // Only the private card pays a private address, and not while it
+          // still syncs.
+          (!scan?.address || cardCanPay(channel, scan.address)) &&
+          !(
+            isPrivateChannel(channel) &&
+            getPrivateSyncPercent(privateInfo?.[sourceCoin.id]) != null
+          )
         );
       },
     );
@@ -106,7 +121,7 @@ const SendWizardNavigator = () => {
       !initialSubWalletId &&
       eligibleCards.filter(card =>
         BigNumber(
-          balances?.[sourceCoin.id]?.[card.id]?.total || 0,
+          getSpendableBalance(balances?.[sourceCoin.id]?.[card.id], card),
         ).isGreaterThan(0),
       ).length > 1
     ) {
@@ -120,7 +135,10 @@ const SendWizardNavigator = () => {
       if (
         !sourceSubWallet ||
         !BigNumber(
-          balances?.[sourceCoin.id]?.[sourceSubWallet.id]?.total || 0,
+          getSpendableBalance(
+            balances?.[sourceCoin.id]?.[sourceSubWallet.id],
+            sourceSubWallet,
+          ),
         ).isGreaterThan(0)
       ) {
         return null;
@@ -128,7 +146,7 @@ const SendWizardNavigator = () => {
     } else {
       sourceSubWallet = eligibleCards.find(card =>
         BigNumber(
-          balances?.[sourceCoin.id]?.[card.id]?.total || 0,
+          getSpendableBalance(balances?.[sourceCoin.id]?.[card.id], card),
         ).isGreaterThan(0),
       );
     }
@@ -138,7 +156,10 @@ const SendWizardNavigator = () => {
       sourceCoin,
       sourceSubWallet,
       sourceBalance: String(
-        balances?.[sourceCoin.id]?.[sourceSubWallet.id]?.total || 0,
+        getSpendableBalance(
+          balances?.[sourceCoin.id]?.[sourceSubWallet.id],
+          sourceSubWallet,
+        ),
       ),
       channel: sourceSubWallet.api_channels[API_SEND],
     };
@@ -149,6 +170,7 @@ const SendWizardNavigator = () => {
     initialCoinId,
     initialSubWalletId,
     mode,
+    privateInfo,
     scan,
   ]);
   const scanChooseCard = Boolean(candidateInitialSource?.chooseCard);

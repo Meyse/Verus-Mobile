@@ -60,6 +60,7 @@ const SendWizardAmount = () => {
     sourceCoin,
     sourceSubWallet,
     sourceBalance,
+    sourcePending,
     target,
     route,
   } = state;
@@ -431,10 +432,13 @@ const SendWizardAmount = () => {
     );
   };
 
-  // A scanned address can only be reached on networks of its own kind.
-  const scanAddressType = state.scanRequest?.address
+  // A scanned address can only be reached on networks of its own kind. A
+  // private address is on the Verus network itself.
+  const scannedType = state.scanRequest?.address
     ? getRecipientAddressType(state.scanRequest.address)
     : null;
+  const scanAddressType =
+    scannedType === ADDRESS_TYPE.PRIVATE ? ADDRESS_TYPE.VERUS : scannedType;
   const sendNetworkOptions = (sendTarget?.networkOptions || []).filter(
     option =>
       !scanAddressType ||
@@ -461,6 +465,10 @@ const SendWizardAmount = () => {
   }
 
   const available = `${truncateDecimal(BigNumber(sourceBalance || 0), 8)} ${sourceCoin.display_ticker}`;
+  // The private card spends confirmed funds only. Say when the rest is ready.
+  const confirming = BigNumber(sourcePending || 0).isGreaterThan(0)
+    ? `${truncateDecimal(BigNumber(sourcePending), 8)} ${sourceCoin.display_ticker} can be sent in about 10 minutes.`
+    : null;
   const convertedFiat =
     rate != null && cryptoAmount.isFinite()
       ? formatCurrency({
@@ -619,6 +627,11 @@ const SendWizardAmount = () => {
                 <Text style={[styles.maxText, {color: theme.colors.primary}]}>MAX</Text>
               </Pressable>
             </View>
+            {confirming ? (
+              <Text style={[styles.confirming, {color: theme.colors.textSecondary}]}>
+                {confirming}
+              </Text>
+            ) : null}
           </View>
         </>}
       </WizardFormLayout>
@@ -694,6 +707,7 @@ const styles = StyleSheet.create({
   balanceRowNoChipCompact: {marginTop: 6},
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
+  confirming: {width: '100%', paddingHorizontal: 4, marginTop: -2, marginBottom: 8, fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},
   maxDisabled: {opacity: 0.4},
   maxText: {fontSize: 11, lineHeight: 15, letterSpacing: 0.5, ...fontStyle('bold')},

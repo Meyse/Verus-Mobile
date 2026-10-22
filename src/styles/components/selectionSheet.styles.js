@@ -42,6 +42,7 @@ export const createSelectionSheetStyles = theme =>
     selectedRow: {backgroundColor: theme.colors.successBackground},
     leading: {marginRight: 12},
     copy: {flex: 1, minWidth: 0},
+    disabledContent: {opacity: 0.5},
     preservedCopy: {flex: 0, flexShrink: 0},
     rowTitle: {...theme.typography.titleRow, color: theme.colors.textPrimary},
     rowSubtitle: {
