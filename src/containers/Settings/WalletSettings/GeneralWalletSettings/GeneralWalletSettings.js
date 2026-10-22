@@ -29,7 +29,7 @@ import {
   SettingsSection,
   SettingsSwitchRow,
 } from '../../components/SettingsScaffold';
-import SettingsFieldSheet from './SettingsFieldSheet';
+import SettingsFieldSheet from '../../components/SettingsFieldSheet';
 
 const NOT_SAVED = 'Not saved. Try again.';
 

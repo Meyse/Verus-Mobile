@@ -8,7 +8,7 @@ import {
   SettingsScreen,
   SettingsSection,
 } from '../../components/SettingsScaffold';
-import SettingsFieldSheet from "../GeneralWalletSettings/SettingsFieldSheet";
+import SettingsFieldSheet from "../../components/SettingsFieldSheet";
 import BlockedAddressActionsSheet from "./BlockedAddressActionsSheet";
 import BlocklistSourceSheet from "./BlocklistSourceSheet";
 

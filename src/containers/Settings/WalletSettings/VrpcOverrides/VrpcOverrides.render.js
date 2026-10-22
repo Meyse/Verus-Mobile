@@ -5,7 +5,7 @@ import {
   SettingsScreen,
   SettingsSection,
 } from '../../components/SettingsScaffold';
-import SettingsFieldSheet from "../GeneralWalletSettings/SettingsFieldSheet";
+import SettingsFieldSheet from "../../components/SettingsFieldSheet";
 
 const getServerSheetChips = function (sheet) {
   if (sheet.defaultServer) {

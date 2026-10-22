@@ -22,13 +22,13 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ActivityIndicator, Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AppButton from '../../../../components/AppButton';
-import AppTextInput from '../../../../components/AppTextInput';
-import BottomSheetModal from '../../../../components/BottomSheetModal';
-import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
-import {fontStyle} from '../../../../globals/fonts';
-import {createSignedOutSheetStyles} from '../../../../styles';
-import {useOnboardingTheme} from '../../../../theme/onboarding';
+import AppButton from '../../../components/AppButton';
+import AppTextInput from '../../../components/AppTextInput';
+import BottomSheetModal from '../../../components/BottomSheetModal';
+import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import {fontStyle} from '../../../globals/fonts';
+import {createSignedOutSheetStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 
 const DEFAULT_SHEET_MAX_HEIGHT = '80%';
 const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
