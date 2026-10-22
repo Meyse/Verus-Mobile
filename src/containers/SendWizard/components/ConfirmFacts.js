@@ -46,6 +46,8 @@ const ConfirmFacts = ({
           impact={impact.impact}
           level={impact.level}
           lossText={impact.lossText}
+          onPress={impact.onPress}
+          pay={impact.pay}
         />
       ) : null}
       {networkFee ? (

@@ -9,7 +9,8 @@ const LOGO_SIZE = 40;
 
 // One end of a transfer: the asset logo, a short label ("You pay", "You
 // receive") and the amount. The recipient is not named here; Confirm lists it
-// once, in full. A long amount shrinks before the label does. `loading` holds
+// once, in full. A long amount shrinks; a long label ("RSRG…LLck receives")
+// wraps to a second line instead of running into the amount. `loading` holds
 // the amount's place with a skeleton while the wallet still works it out.
 export const TransferNode = ({
   amount,
@@ -27,7 +28,7 @@ export const TransferNode = ({
       <AssetCoinLogo coinId={coinId} size={LOGO_SIZE} />
       <View style={styles.labelWrap}>
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
           {label}
         </Text>
@@ -96,8 +97,8 @@ export const TransferConnector = ({children, loading = false}) => {
 
 const styles = StyleSheet.create({
   node: {minHeight: 56, flexDirection: 'row', alignItems: 'center'},
-  labelWrap: {flexGrow: 1, flexShrink: 0, marginLeft: 14, marginRight: 8, justifyContent: 'center'},
-  value: {alignItems: 'flex-end', flexShrink: 1, marginLeft: 8, maxWidth: '64%'},
+  labelWrap: {flexGrow: 1, flexShrink: 1, minWidth: 0, marginLeft: 14, marginRight: 8, justifyContent: 'center'},
+  value: {alignItems: 'flex-end', flexShrink: 0, marginLeft: 8, maxWidth: '64%'},
   valueSkeleton: {alignSelf: 'flex-end'},
   amountRow: {flexDirection: 'row', alignItems: 'baseline', flexShrink: 1},
   connectorSkeleton: {alignSelf: 'flex-start'},

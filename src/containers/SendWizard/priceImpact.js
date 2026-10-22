@@ -124,6 +124,29 @@ export const getTargetShortfall = ({amount, output, marketPrice}) => {
   return BigNumber.maximum(0, inputValue.multipliedBy(market).minus(outputValue));
 };
 
+// For a payment of a fixed amount (a VerusPay invoice), the price shows in what
+// the user pays: how much more `amount` is than the market price would need
+// for `output`. Returns null when it cannot be computed.
+export const getExtraCost = ({amount, output, marketPrice}) => {
+  const paid = toFinite(amount);
+  const received = toFinite(output);
+  const market = toFinite(marketPrice);
+
+  if (
+    !paid ||
+    !received ||
+    !market ||
+    !market.isGreaterThan(0) ||
+    !received.isGreaterThan(0)
+  ) {
+    return null;
+  }
+
+  const marketCost = received.dividedBy(market);
+  const extra = BigNumber.maximum(0, paid.minus(marketCost));
+  return {extra, percent: extra.dividedBy(marketCost).multipliedBy(100)};
+};
+
 // Routes (baskets) a conversion can take, best first. `estimates` maps a route
 // key to the daemon's estimate. Best is the most output. `lessPercent` is how
 // much less a route gives than the best one; null when it has no quote.
