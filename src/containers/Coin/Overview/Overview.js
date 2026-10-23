@@ -119,7 +119,9 @@ const formatTransactionTimestamp = (timestamp) => {
   return `${day}, ${time}`;
 };
 
-const FocusedTransactionRow = ({
+// `statusLabel` names a waiting state other than "Pending", such as a
+// pre-conversion that waits for its launch.
+export const FocusedTransactionRow = ({
   amount,
   amountSign,
   counterparty,
@@ -129,13 +131,14 @@ const FocusedTransactionRow = ({
   incoming,
   onPress,
   pending,
+  statusLabel = "Pending",
   ticker,
   timestamp,
 }) => {
   const theme = useOnboardingTheme();
   const DirectionIcon = incoming ? ArrowDown : ArrowUp;
   const accessibilityDirection = incoming ? "Received" : "Sent";
-  const accessibilityStatus = pending ? "Pending" : "Confirmed";
+  const accessibilityStatus = pending ? statusLabel : "Confirmed";
   const displayCounterparty = counterpartyIsAddress
     ? `${truncateAddress(counterparty)}${counterpartySuffix}`
     : counterparty;
@@ -171,7 +174,7 @@ const FocusedTransactionRow = ({
         </NativeText>
         {pending ? (
           <StatusBadge
-            label="Pending"
+            label={statusLabel}
             style={transactionStyles.pendingBadge}
             tone={STATUS_BADGE_TONE.WARNING}
           />

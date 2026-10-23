@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,6 +15,8 @@ import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
+import {getLaunchFacts} from '../../utils/preconversion/launchFacts';
+import {useChainHeight} from '../../utils/preconversion/usePrelaunch';
 import {useSendWizard} from './SendWizardContext';
 import {
   ErrorMessage,
@@ -25,6 +27,7 @@ import {
 import {TargetNetworkSheet} from './components/SelectionSheets';
 import {
   buildTargetOptions,
+  getTargetLaunchDefinition,
   isConversionChannel,
   isPopularTarget,
 } from './wizardUtils';
@@ -42,6 +45,8 @@ const SendWizardSelectTarget = () => {
   const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
   const sourceNetworkId =
     channel?.split('.')[2] || sourceCoin?.system_id || sourceCoin?.id;
+  // A launch counts its start block on the chain the pre-conversion is sent on.
+  const height = useChainHeight(sourceNetworkId);
 
   useEffect(() => {
     if (!sourceCoin || !channel) {
@@ -114,8 +119,22 @@ const SendWizardSelectTarget = () => {
         .some(value => String(value).toLowerCase().includes(normalized)),
     );
   }, [conversionOptions, query]);
-  const popular = filtered.filter(isPopularTarget);
-  const other = filtered.filter(option => !isPopularTarget(option));
+  // A currency before its launch has its own section: it has no price yet, and
+  // the funds wait until the launch.
+  const prelaunch = filtered.filter(option => option.isPrelaunch);
+  const popular = filtered.filter(
+    option => !option.isPrelaunch && isPopularTarget(option),
+  );
+  const other = filtered.filter(
+    option => !option.isPrelaunch && !isPopularTarget(option),
+  );
+  const launchLine = option => {
+    const facts = getLaunchFacts(getTargetLaunchDefinition(option), {
+      height,
+      secondsPerBlock: sourceCoin?.seconds_per_block,
+    });
+    return facts?.countdown ? `Launches ${facts.countdown}` : 'Pre-launch';
+  };
 
   // `afterSheet` tells Amount it opens right after a sheet closed. On Android
   // the keyboard needs a nudge in that case.
@@ -141,6 +160,20 @@ const SendWizardSelectTarget = () => {
     chooseNetwork(networkOptions[0]);
   };
 
+  // "Pre-convert" on a pre-launch asset names the target before the wizard
+  // opens. Select it once; Back from Amount then shows the whole list.
+  const presetApplied = useRef(false);
+  useEffect(() => {
+    if (presetApplied.current || loading || !state.presetTargetId) return;
+    presetApplied.current = true;
+    const preset = conversionOptions.find(option =>
+      [option.id, option.transactionCurrency].includes(state.presetTargetId),
+    );
+    if (preset) chooseTarget(preset);
+    // Runs once, when the routes have loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, conversionOptions, state.presetTargetId]);
+
   const renderOption = option => (
     <Pressable
       key={option.id}
@@ -153,11 +186,20 @@ const SendWizardSelectTarget = () => {
           size={40}
         />
       </View>
-      <Text
-        numberOfLines={1}
-        style={[styles.optionName, {color: theme.colors.textPrimary}]}>
-        {option.name}
-      </Text>
+      <View style={styles.optionCopy}>
+        <Text
+          numberOfLines={1}
+          style={[styles.optionName, {color: theme.colors.textPrimary}]}>
+          {option.name}
+        </Text>
+        {option.isPrelaunch ? (
+          <Text
+            numberOfLines={1}
+            style={[theme.typography.caption, {color: theme.colors.textSecondary}]}>
+            {launchLine(option)}
+          </Text>
+        ) : null}
+      </View>
       {(option.networkOptions || []).length > 1 ? (
         <MaterialCommunityIcons
           name="chevron-right"
@@ -201,13 +243,19 @@ const SendWizardSelectTarget = () => {
               {popular.map(renderOption)}
             </View>
           ) : null}
+          {prelaunch.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>Pre-launch</Text>
+              {prelaunch.map(renderOption)}
+            </View>
+          ) : null}
           {other.length > 0 ? (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>More conversions</Text>
               {other.map(renderOption)}
             </View>
           ) : null}
-          {popular.length === 0 && other.length === 0 ? (
+          {popular.length === 0 && other.length === 0 && prelaunch.length === 0 ? (
             <Text style={[styles.empty, {color: theme.colors.textSecondary}]}>
               {query.trim()
                 ? 'No matching conversion options.'
@@ -258,7 +306,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optionLogo: {width: 40, height: 40, marginRight: 28},
-  optionName: {flex: 1, fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
+  optionCopy: {flex: 1, minWidth: 0},
+  optionName: {fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
   pressed: {opacity: 0.7},
   empty: {
     paddingHorizontal: WIZARD_CONTENT_INSET,

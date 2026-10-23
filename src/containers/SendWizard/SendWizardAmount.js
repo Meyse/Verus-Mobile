@@ -54,7 +54,7 @@ const SendWizardAmount = () => {
   const {params} = useRoute();
   const theme = useOnboardingTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
-  const {mode, state, setAmount, setEstimate, setRoute} = useSendWizard();
+  const {mode, state, setAmount, setEstimate, setRecipient, setRoute} = useSendWizard();
   const {
     channel,
     sourceCoin,
@@ -271,8 +271,12 @@ const SendWizardAmount = () => {
     };
   }, [exportFeeRequest]);
 
+  // A pre-conversion gets the launch price, which nobody knows yet. An estimate
+  // would only guess (the daemon quotes as if the launch were now).
+  const preconvert = Boolean(route?.preconvert);
+
   useEffect(() => {
-    if (!target?.isConversion || !validAmount) {
+    if (!target?.isConversion || !validAmount || preconvert) {
       setEstimate(null);
       setEstimateError(null);
       setEstimateLoading(false);
@@ -364,6 +368,7 @@ const SendWizardAmount = () => {
   }, [
     channel,
     cryptoAmountValue,
+    preconvert,
     preferredRouteKey,
     setEstimate,
     setRoute,
@@ -424,6 +429,13 @@ const SendWizardAmount = () => {
       input,
       fiatMode,
     );
+    // A pre-conversion goes to the source card's own address, so a failed
+    // launch refunds the same address. Confirm comes next.
+    if (preconvert) {
+      setRecipient(channel.split('.')[1]);
+      navigation.navigate('SendWizardConfirm');
+      return;
+    }
     // A scanned recipient is fixed, so Confirm comes next.
     navigation.navigate(
       state.scanRequest?.address || (state.invoice && !state.invoice.anyDestination)
@@ -478,6 +490,7 @@ const SendWizardAmount = () => {
       : null;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
   const showPriceRouteChip =
+    !preconvert &&
     (target.isConversion || ethereumExport) &&
     (priceImpact.level !== IMPACT_LEVEL.NONE ||
       compareRoutes(target.routes || [], routeEstimates).length > 1 ||
@@ -498,8 +511,9 @@ const SendWizardAmount = () => {
         error={(exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError}
         pinned={
           validAmount && (target.isConversion || ethereumExport) &&
-          (estimateLoading || receiveAmount != null || showPriceRouteChip) ? (
+          (preconvert || estimateLoading || receiveAmount != null || showPriceRouteChip) ? (
             <AmountEstimate
+              atLaunch={preconvert}
               estimateLoading={estimateLoading}
               estimatedOutput={receiveAmount}
               onOpenDetails={() => setRouteSheetOpen(true)}

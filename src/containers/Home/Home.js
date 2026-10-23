@@ -55,6 +55,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import SignedInWalletHome from './SignedInWalletHome';
+import {usePrelaunchAssets} from '../../utils/preconversion/usePrelaunch';
+import {getCurrencyDisplay} from '../SendWizard/wizardUtils';
 import {
   getManagedAssetBalance,
   isAssetShown,
@@ -97,6 +99,9 @@ const Home = () => {
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
   const activeSubWallets = useObjectSelector((state) => state.coinMenus.activeSubWallets);
   const widgetOrder = useObjectSelector((state) => state.widgets.order);
+  // A currency before its launch shows when it launches and what this wallet
+  // pre-converted to it, instead of a price.
+  const {assets: prelaunchAssets} = usePrelaunchAssets(activeCoinsForUser, allSubWallets);
 
   const homeCardDragDetection = useSelector(
     (state) => state.settings.generalWalletSettings.homeCardDragDetection,
@@ -475,9 +480,28 @@ const Home = () => {
             return cardBalance != null && BigNumber(cardBalance).isGreaterThan(0);
           }) || cards[0];
         const statusDescription = getAssetStatusDescription(coin);
+        const prelaunchInfo = prelaunchAssets.get(coin.id);
+        const prelaunch = prelaunchInfo
+          ? {
+              badge: prelaunchInfo.facts?.countdown
+                ? `Launches ${prelaunchInfo.facts.countdown}`
+                : 'Pre-launch',
+              preconverted: prelaunchInfo.totals?.length
+                ? prelaunchInfo.totals
+                    .map(total => `${BigNumber(total.amount)
+                      .decimalPlaces(4, BigNumber.ROUND_DOWN)
+                      .toFormat()} ${getCurrencyDisplay(
+                        total.currencyId,
+                        prelaunchInfo.facts?.names?.[total.currencyId],
+                      ).ticker}`)
+                    .join(' + ')
+                : null,
+            }
+          : null;
 
         return {
           coin,
+          prelaunch,
           presentation,
           balance,
           balanceComplete: holding.complete,
@@ -509,6 +533,7 @@ const Home = () => {
     activeAccount,
     assetManagement,
     ledgerBalances,
+    prelaunchAssets,
   ]);
 
   const _addCoin = () => {
