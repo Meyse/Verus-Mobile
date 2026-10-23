@@ -15,6 +15,8 @@
   It looks like the request loading screen (GenericRequestLoading): the 7-bar
   loader, the task as a short title, and "Keep the app open." A slow task
   adds a longer line after 15 seconds (owner chose variation A, 2026-10-22).
+  The card claim passes its own illustration in place of the loader, with
+  animated styles for its hand-off (ClaimingFundsView).
 */
 
 import React, { Component, useMemo } from "react";
@@ -26,6 +28,7 @@ import {
   StyleSheet,
 } from "react-native";
 import LottieView from 'lottie-react-native';
+import Animated from 'react-native-reanimated';
 import { CommonActions } from '@react-navigation/native';
 import { connect } from 'react-redux';
 import { clearSecureLoadingData, setSecureLoadingData, signOut } from '../../actions/actionCreators';
@@ -38,8 +41,18 @@ const DEFAULT_MESSAGE = "Loading"
 const KEEP_OPEN_MESSAGE = "Keep the app open."
 const SLOW_MESSAGE = "This is taking longer than usual. Keep the app open."
 
-// Also used by the card claim while its transactions are broadcast.
-export const SecureLoadingView = ({ errorMsg, message, slow, status }) => {
+// Also used by the card claim while its transactions are broadcast. An
+// `illustration` replaces the loader; `contentStyle` and `statusStyle` let it
+// fade the screen and the line.
+export const SecureLoadingView = ({
+  contentStyle,
+  errorMsg,
+  illustration,
+  message,
+  slow,
+  status,
+  statusStyle,
+}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const failed = status === "error" && Boolean(errorMsg);
@@ -50,8 +63,17 @@ export const SecureLoadingView = ({ errorMsg, message, slow, status }) => {
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
-      <View accessibilityLiveRegion="polite" style={styles.content}>
-        {failed ? null : (
+      <Animated.View
+        accessibilityLiveRegion="polite"
+        style={[styles.content, contentStyle]}>
+        {failed ? null : illustration ? (
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.illustration}>
+            {illustration}
+          </View>
+        ) : (
           <LottieView
             source={require('../../animations/loading_7bars.json')}
             autoPlay
@@ -63,11 +85,16 @@ export const SecureLoadingView = ({ errorMsg, message, slow, status }) => {
           {failed ? errorMsg : message}
         </Text>
         {failed ? null : (
-          <Text style={styles.status}>
+          <Animated.Text
+            style={[
+              styles.status,
+              illustration && styles.statusReserved,
+              statusStyle,
+            ]}>
             {slow || status === "timeout" ? SLOW_MESSAGE : KEEP_OPEN_MESSAGE}
-          </Text>
+          </Animated.Text>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -243,6 +270,10 @@ const createStyles = theme =>
       height: 96,
       marginBottom: 26,
     },
+    // The same gap under an illustration, so the title stays in place.
+    illustration: {
+      marginBottom: 26,
+    },
     title: {
       color: theme.colors.textPrimary,
       fontSize: 24,
@@ -257,6 +288,11 @@ const createStyles = theme =>
       marginTop: 8,
       textAlign: 'center',
       ...fontStyle('regular'),
+    },
+    // Room for the two-line slow message, so a moving illustration does not
+    // jump when it appears.
+    statusReserved: {
+      minHeight: 44,
     },
   });
 

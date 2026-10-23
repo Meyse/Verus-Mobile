@@ -9,7 +9,10 @@ import {getTicketOutline} from '../../../../utils/ticketOutline';
 const WALLET_CARD_WIDTH = 360;
 const WALLET_CARD_HEIGHT = 227;
 const CARD_ASPECT_RATIO = WALLET_CARD_WIDTH / WALLET_CARD_HEIGHT;
-const CARD_FRONT = '#26313A';
+// The card material. The "Claiming funds" screen draws a small card with it.
+export const GIFT_CARD_FRONT = '#26313A';
+export const GIFT_CARD_STROKE = 'rgba(255,255,255,0.2)';
+const CARD_FRONT = GIFT_CARD_FRONT;
 const CARD_TEXT = '#F4F1E9';
 const CARD_TEXT_MUTED = 'rgba(244,241,233,0.72)';
 // The muted text at the 0.55 opacity of a pending amount.
@@ -67,7 +70,7 @@ const GiftCardFixedCard = ({presentation, style}) => {
           <Path
             d={getTicketOutline(size.width, size.height, size.height / 2)}
             fill={CARD_FRONT}
-            stroke="rgba(255,255,255,0.2)"
+            stroke={GIFT_CARD_STROKE}
             strokeWidth="1"
           />
         </Svg>
