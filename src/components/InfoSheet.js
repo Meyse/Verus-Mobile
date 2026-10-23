@@ -8,9 +8,12 @@ import {deepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 
 // `headerAccessory` sits at the right of the title line, for example a
-// status badge.
+// status badge. `header` replaces the whole title block for a sheet whose
+// title needs more than text, such as the asset logo in Manage assets; the
+// content still scrolls above the pinned Done.
 const InfoSheet = ({
   children,
+  header,
   headerAccessory,
   maxHeight = '78%',
   onClose,
@@ -28,7 +31,7 @@ const InfoSheet = ({
       onClosed={onClosed}
       maxHeight={maxHeight}>
       <View style={styles.requestSheetBody} onAccessibilityEscape={onClose}>
-        <View style={styles.requestSheetHeader}>
+        {header || <View style={styles.requestSheetHeader}>
           <View style={styles.requestSheetHeaderText}>
             <View style={localStyles.titleLine}>
               <Text
@@ -46,7 +49,7 @@ const InfoSheet = ({
               <Text style={styles.requestSheetSubtitle}>{subtitle}</Text>
             ) : null}
           </View>
-        </View>
+        </View>}
         <SheetScrollView>{children}</SheetScrollView>
         <AppButton
           accessibilityLabel="Done"
