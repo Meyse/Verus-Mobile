@@ -25,6 +25,7 @@ import CopyAction from '../../../../../components/CopyAction';
 import FadedScrollView from '../../../../../components/FadedScrollView';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
+import TransactionResult from '../../../../../components/TransactionResult';
 import {fontStyle} from '../../../../../globals/fonts';
 import {useAppTheme} from '../../../../../theme/app';
 import {requestServiceStoredData} from '../../../../../utils/auth/authBox';
@@ -370,36 +371,45 @@ const getPreflightOperationText = (phase, encrypted, current, total) => {
     : 'Checking gift card addresses...';
 };
 
-const getTxids = fundingResult =>
+// One row per transaction on the result screen. The label names the network
+// and what moved; it shows only when there are two or more rows.
+const getResultTransactions = fundingResult =>
   (fundingResult?.results || [])
-    .map(item => item.txid)
-    .filter(txid => typeof txid === 'string' && txid.length > 0);
+    .filter(item => typeof item?.txid === 'string' && item.txid.length > 0)
+    .map(item => {
+      const ticker = item.coinObj?.display_ticker || item.coinObj?.id;
+
+      return {
+        txid: item.txid,
+        label: ticker
+          ? `${ticker} ${item.type === 'identity' ? 'VerusID' : 'funds'}`
+          : null,
+      };
+    });
+
+const asSentence = text => {
+  const trimmed = typeof text === 'string' ? text.trim() : '';
+  if (!trimmed) return '';
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+};
+
+const getSharingCaption = count =>
+  count > 1
+    ? 'Sharing unlocks after they confirm.'
+    : 'Sharing unlocks after it confirms.';
+
+// The VerusIDs left the wallet, but the wallet still lists them. The raw
+// error goes to the log only.
+const getUnlinkNote = unlinkError => {
+  if (!unlinkError) return '';
+  console.warn('Unable to unlink gifted VerusIDs', unlinkError);
+  return ' The sent VerusIDs still show on the VerusID tab. Unlink them there.';
+};
 
 const getNoticeBackground = (isError, theme) => {
   if (!isError) return theme.colors.successBackground;
 
   return theme.colors.dangerBackground;
-};
-
-const getResultPresentation = (kind, theme) => {
-  if (kind === 'success') {
-    return {
-      accent: theme.colors.success,
-      icon: 'check-circle-outline',
-    };
-  }
-
-  if (kind === 'partial') {
-    return {
-      accent: theme.colors.warning,
-      icon: 'progress-alert',
-    };
-  }
-
-  return {
-    accent: theme.colors.danger,
-    icon: 'alert-circle-outline',
-  };
 };
 
 const GiftCardFund = props => {
@@ -557,9 +567,9 @@ const GiftCardFund = props => {
     if (step !== STEP_RESULT || !result?.title) return;
 
     AccessibilityInfo.announceForAccessibility(
-      `${result.title}. ${result.message || ''}`,
+      `${result.title}. ${result.caption || ''}`,
     );
-  }, [result?.message, result?.title, step]);
+  }, [result?.caption, result?.title, step]);
 
   const stepOperationText =
     step === STEP_PROCESSING ? operationText : null;
@@ -667,7 +677,7 @@ const GiftCardFund = props => {
       setResult({
         kind: 'error',
         title: 'Pending funding unavailable',
-        message:
+        caption:
           'This saved funding attempt no longer exists. Refresh the gift card before trying again.',
         pendingFundingId,
       });
@@ -675,12 +685,14 @@ const GiftCardFund = props => {
       setResult({
         kind: 'partial',
         title: 'Retry pending funding',
-        message:
-          'These exact signed transactions were saved before broadcast. Retrying rebroadcasts only transactions not already marked submitted.',
+        caption:
+          'These signed transactions were saved before broadcast. Only the ones not sent yet go out again.',
         card,
         pendingFundingId,
         pendingRetry: true,
-        txids: getTxids({results: savedPendingFunding.transactions}),
+        transactions: getResultTransactions({
+          results: savedPendingFunding.transactions,
+        }),
       });
     }
 
@@ -1517,17 +1529,16 @@ const GiftCardFund = props => {
         fundingCard,
         fundingResult,
       );
-      const unlinkMessage = persisted.unlinkError
-        ? ` Funding succeeded, but one or more transferred VerusIDs could not be unlinked locally: ${persisted.unlinkError.message}`
-        : '';
+      const transactions = getResultTransactions(fundingResult);
 
       setResult({
         kind: 'success',
-        title: 'Funding submitted',
-        message:
-          `Your gift card is saved. Submitted transactions will update automatically as they confirm.${unlinkMessage}`,
+        title: 'Funding sent',
+        caption: `${getSharingCaption(transactions.length)}${getUnlinkNote(
+          persisted.unlinkError,
+        )}`,
         card: persisted.card,
-        txids: getTxids(fundingResult),
+        transactions,
       });
       setStep(STEP_RESULT);
     } catch (e) {
@@ -1543,29 +1554,24 @@ const GiftCardFund = props => {
             fundingCard,
             partialResult,
           );
-          const count = e.results.length;
-          const unlinkMessage = persisted.unlinkError
-            ? ` One or more transferred VerusIDs could not be unlinked locally: ${persisted.unlinkError.message}`
-            : '';
-
           setResult({
             kind: 'partial',
             title: 'Partially funded',
-            message:
-              `${count} transaction${count === 1 ? '' : 's'} ${
-                count === 1 ? 'was' : 'were'
-              } submitted before an error occurred. Review the card to see what is pending. ${e.message}${unlinkMessage}`,
+            caption: `${asSentence(e.message)} The gift card shows what is pending.${getUnlinkNote(
+              persisted.unlinkError,
+            )}`.trim(),
             card: persisted.card,
-            txids: getTxids(partialResult),
+            transactions: getResultTransactions(partialResult),
           });
         } catch (saveError) {
+          console.warn('Unable to save gift card funding history', saveError);
           setResult({
             kind: 'error',
-            title: 'Submitted, but not saved',
-            message:
-              `Some transactions were submitted, but their pending history could not be saved locally: ${saveError.message}`,
+            title: 'Sent, but not saved',
+            caption:
+              'Keep these transaction IDs. The gift card does not list them.',
             card: fundingCard,
-            txids: getTxids(partialResult),
+            transactions: getResultTransactions(partialResult),
           });
         }
       } else {
@@ -1577,13 +1583,13 @@ const GiftCardFund = props => {
           title: hasSavedBroadcast
             ? 'Funding not confirmed'
             : 'Funding not completed',
-          message: hasSavedBroadcast && e.code !== GIFT_CARD_FUNDING_NOT_ALLOWED
-            ? `${e.message}\n\nThe exact signed transaction was saved and can be retried safely.`
+          caption: hasSavedBroadcast && e.code !== GIFT_CARD_FUNDING_NOT_ALLOWED
+            ? `${asSentence(e.message)} The exact signed transaction was saved and can be retried safely.`.trim()
             : e.message,
           card: cardSaved ? fundingCard : null,
           pendingRetry: hasSavedBroadcast && e.code !== GIFT_CARD_FUNDING_NOT_ALLOWED,
           retryable: !hasSavedBroadcast,
-          txids: getTxids({
+          transactions: getResultTransactions({
             results:
               e?.pendingBroadcast?.transactions ||
               pendingFunding?.transactions ||
@@ -2464,65 +2470,13 @@ const GiftCardFund = props => {
     </View>
   );
 
-  const renderResult = () => {
-    const kind = result?.kind || 'error';
-    const {accent, icon} = getResultPresentation(kind, theme);
-
-    return (
-      <View style={styles.result}>
-        <View
-          style={[
-            styles.resultIcon,
-            {backgroundColor: theme.colors.surfaceMuted},
-          ]}>
-          <MaterialCommunityIcons color={accent} name={icon} size={58} />
-        </View>
-        <Text style={[styles.resultTitle, {color: theme.colors.textPrimary}]}>
-          {result?.title || 'Funding not completed'}
-        </Text>
-        <Text style={[styles.resultCopy, {color: theme.colors.textSecondary}]}>
-          {result?.message}
-        </Text>
-
-        {(result?.txids || []).length > 0 ? (
-          <View
-            style={[
-              styles.txidGroup,
-              {
-                backgroundColor: theme.colors.surfaceMuted,
-                borderColor: theme.colors.border,
-              },
-            ]}>
-            <Text style={[styles.fieldLabel, {color: theme.colors.textSecondary}]}>
-              Submitted transactions
-            </Text>
-            {result.txids.map(txid => (
-              <View key={txid} style={styles.txidRow}>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.txid, {color: theme.colors.textPrimary}]}>
-                  {txid}
-                </Text>
-                <CopyAction
-                  accessibilityLabel="Copy transaction ID"
-                  color={theme.colors.primary}
-                  value={txid}
-                />
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-    );
-  };
-
   const renderStep = () => {
     if (step === STEP_DETAILS) return renderDetails();
     if (step === STEP_CONTENTS) return renderContents();
     if (step === STEP_REVIEW) return renderReview();
     if (step === STEP_EXTERNAL) return renderExternal();
     if (step === STEP_PROCESSING) return renderProcessing();
-    return renderResult();
+    return null;
   };
 
   const renderActions = () => {
@@ -2617,40 +2571,32 @@ const GiftCardFund = props => {
       );
     }
 
-    return (
-      <SafeBottomActionStack
-        gap={8}
-        horizontalSpacing={20}
-        safeAreaSpacing={0}>
-        {result?.pendingRetry ? (
-          <AppButton disabled={busy} onPress={broadcast}>
-            Retry exact transactions
-          </AppButton>
-        ) : null}
-        {result?.retryable ? (
-          <AppButton
-            onPress={() => {
-              setResult(null);
-              setStep(STEP_REVIEW);
-            }}>
-            Return to review
-          </AppButton>
-        ) : null}
-        {result?.card && !result?.pendingRetry ? (
-          <AppButton
-            disabled={busy}
-            onPress={() => openShareOptions(result.card)}>
-            Share gift card
-          </AppButton>
-        ) : null}
-        <AppButton
-          onPress={() => props.navigation.goBack()}
-          variant={result?.card || result?.retryable ? 'secondary' : 'primary'}>
-          View gift cards
-        </AppButton>
-      </SafeBottomActionStack>
-    );
+    return null;
   };
+
+  // The result keeps one primary action: the first one listed.
+  const resultActions = [
+    result?.pendingRetry
+      ? {label: 'Retry exact transactions', onPress: broadcast, disabled: busy}
+      : null,
+    result?.retryable
+      ? {
+          label: 'Return to review',
+          onPress: () => {
+            setResult(null);
+            setStep(STEP_REVIEW);
+          },
+        }
+      : null,
+    result?.card && !result?.pendingRetry
+      ? {
+          label: 'Share gift card',
+          onPress: () => openShareOptions(result.card),
+          disabled: busy,
+        }
+      : null,
+    {label: 'View gift cards', onPress: () => props.navigation.goBack()},
+  ].filter(Boolean);
 
   if (initialLoading) {
     return (
@@ -2699,6 +2645,26 @@ const GiftCardFund = props => {
           </AppButton>
         </View>
       </View>
+    );
+  }
+
+  if (step === STEP_RESULT) {
+    return (
+      <>
+        <TransactionResult
+          actions={resultActions}
+          caption={result?.caption}
+          success={result?.kind === 'success'}
+          title={result?.title || 'Funding not completed'}
+          transactions={result?.transactions}
+        />
+        <GiftCardShareSheet
+          card={shareCard}
+          onClose={() => setShareCard(null)}
+          onOpenQr={openShareQr}
+          onShareAction={runShareAction}
+        />
+      </>
     );
   }
 
@@ -3097,18 +3063,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     ...fontStyle('regular'),
   },
-  result: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  resultIcon: {
-    width: 112,
-    height: 112,
-    marginBottom: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 56,
-  },
   resultTitle: {
     marginTop: 18,
     textAlign: 'center',
@@ -3123,26 +3077,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     ...fontStyle('regular'),
-  },
-  txidGroup: {
-    width: '100%',
-    marginTop: 24,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
-  },
-  txidRow: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  txid: {
-    minWidth: 0,
-    flex: 1,
-    marginRight: 8,
-    fontSize: 12,
-    lineHeight: 18,
-    ...fontStyle('medium'),
   },
   loadingScreen: {
     flex: 1,
