@@ -235,79 +235,35 @@ const createSpendableKeyRequestInfoStyles = theme =>
       textAlign: 'right',
       ...fontStyle('semiBold'),
     },
-    // The claim result, after the Send flow's Sent step.
-    resultTitleRow: {
-      flexDirection: 'row',
+    // The one-transaction claim amount on TransactionResult. Its padding keeps
+    // the approved 40 points above the amount and 32 below it.
+    resultAmount: {
       alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
     },
-    resultCheck: {
-      width: 64,
-      height: 64,
-      marginLeft: -10,
+    resultAmountRow: {
+      alignItems: 'baseline',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 10,
+      maxWidth: '100%',
     },
-    resultCheckCompact: {
-      width: 48,
-      height: 48,
-      marginLeft: -6,
-    },
-    resultTitle: {
-      flex: 1,
-      marginLeft: 4,
+    resultIdentity: {
+      color: theme.colors.textPrimary,
+      fontSize: 26,
+      lineHeight: 33,
+      letterSpacing: -0.4,
+      marginTop: 8,
+      textAlign: 'center',
+      ...fontStyle('semiBold'),
     },
     resultMore: {
       ...theme.typography.bodySm,
       color: theme.colors.textSecondary,
       marginTop: 6,
       textAlign: 'center',
-    },
-    resultBlock: {
-      marginTop: theme.spacing.md,
-    },
-    resultBlockGap: {
-      marginTop: theme.spacing.lg,
-    },
-    resultClaims: {
-      ...theme.typography.titleRow,
-      color: theme.colors.textPrimary,
-      marginBottom: 4,
-    },
-    resultTxRow: {
-      minHeight: 58,
-      paddingVertical: 8,
-      borderTopColor: theme.colors.border,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    resultTxCopy: {
-      flex: 1,
-      minWidth: 0,
-      marginRight: 8,
-    },
-    resultTxLabel: {
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 19,
-      ...fontStyle('regular'),
-    },
-    resultTxid: {
-      color: theme.colors.textPrimary,
-      fontSize: 12,
-      lineHeight: 17,
-      marginTop: 4,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    },
-    resultCaption: {
-      ...theme.typography.caption,
-      color: theme.colors.textSubtle,
-      marginTop: 14,
-    },
-    resultNote: {
-      ...theme.typography.caption,
-      color: theme.isDark ? theme.colors.warning : '#9A3412',
-      marginTop: 8,
     },
     warningCard: {
       flexDirection: 'row',
