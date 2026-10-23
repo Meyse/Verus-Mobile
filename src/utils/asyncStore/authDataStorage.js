@@ -32,7 +32,6 @@ import {
   PASSWORD_MIGRATION_STORAGE_INTERNAL_KEY,
   SecureStorage,
 } from '../keychain/secureStore';
-import { Alert } from 'react-native';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { SUSPICIOUS_UNICODE_CHARACTER_TEST } from '../constants/regex';
 import { INCORRECT_PASSWORD_DELAY_ERROR_MS } from '../constants/errors';
@@ -796,7 +795,7 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
                     }
                   } catch (e) {
                     if (alertOnInternalError) {
-                      Alert.alert("Authentication Error", "Internal authentication error.");
+                      createAlert("Wallet not unlocked", "Try again.");
                     } else {
                       throw new Error("Internal authentication error.");
                     }
@@ -827,12 +826,12 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
             }
           }
           else {
-            if (alertOnFail) Alert.alert("Authentication Error", "Please select an existing user")
+            if (alertOnFail) createAlert("Wallet not found", "Choose a wallet and try again.")
             throw new Error("Please select an existing user");
           }
         }
         else {
-          if (alertOnFail) Alert.alert("Authentication Error", "Please enter a password")
+          if (alertOnFail) createAlert("Password needed", "Enter the wallet password.")
           throw new Error("Please enter a password");
         }
       })
