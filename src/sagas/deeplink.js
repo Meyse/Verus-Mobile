@@ -1,12 +1,12 @@
 import {all, takeEvery, call, put} from 'redux-saga/effects';
-import {createAlert} from '../actions/actions/alert/dispatchers/alert';
+import {createAlert, resolveAlert} from '../actions/actions/alert/dispatchers/alert';
 import {CALLBACK_HOST, SUPPORTED_DLS} from '../utils/constants/constants';
 import {
   SET_DEEPLINK_DATA,
   SET_DEEPLINK_URL,
 } from '../utils/constants/storeType';
 import base64url from 'base64url';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 import { URL } from 'react-native-url-polyfill';
 import { primitives } from 'verusid-ts-client'
 import { MAX_DEEPLINK_STRING_LENGTH } from '../utils/constants/deeplink';
@@ -65,16 +65,15 @@ function* handleDeeplinkUrl(action) {
           req.hasPreferredHandler() &&
           req.preferredHandler === VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID
         ) {
-          const shouldRedirect = yield call(() => new Promise(resolve => {
-            Alert.alert(
-              'Open in Valu Mobile?',
-              'This request prefers to be handled in the Valu Mobile app. Would you like to open it there instead?',
-              [
-                { text: 'No', onPress: () => resolve(false), style: 'cancel' },
-                { text: 'Yes', onPress: () => resolve(true) },
-              ]
-            );
-          }));
+          const shouldRedirect = yield call(
+            createAlert,
+            'Open in Valu Mobile?',
+            'The requester prefers that app. Verus Mobile can also open the request.',
+            [
+              {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
+              {text: 'Open Valu Mobile', onPress: () => resolveAlert(true)},
+            ],
+          );
 
           if (shouldRedirect) {
             const redirectUrl = urlstring.replace(

@@ -13,7 +13,6 @@ import {
   GetBlockHashRequest,
 } from 'verus-typescript-primitives';
 import { coinsList } from '../CoinData/CoinsList';
-import { Alert } from 'react-native';
 import { CoinDirectory } from '../CoinData/CoinDirectory';
 import { VRPC_API_KEYS, VRPC_API_APP_ID } from '../../../env/index';
 import { getUrlKey } from '../url';
@@ -26,6 +25,7 @@ import {
   shouldUseCachedVrpcResponse,
 } from './vrpcCachePolicy';
 import {getManyUtxoFundRawTransactionError} from './fundRawTransactionError';
+import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
 
 class CachedVerusdRpcInterface extends VerusdRpcInterface {
   static CACHED_REQUESTS = CACHED_VRPC_REQUESTS;
@@ -438,7 +438,8 @@ setImmediate(() => {
     // that make calls to vrpc even if VRSC/VRSCTEST isn't added as a coin
     VerusMobileVrpcInterface.addDefaultEndpoints() 
   } catch(e) {
-    Alert.alert("Error initializing Verus lite mode", e.message)
+    console.error(e);
+    createAlert("Verus servers not set up", "Close Verus Mobile and open it again.");
   }  
 })
 
