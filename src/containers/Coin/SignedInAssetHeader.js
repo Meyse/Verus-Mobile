@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -20,7 +21,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
-import {Network} from 'lucide-react-native';
+import {ChevronRight, Network} from 'lucide-react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -38,7 +39,10 @@ import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
+import {explorers} from '../../utils/CoinData/CoinData';
+import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
+import {getBridgedOrigin} from '../../utils/assets/bridgedOrigin';
 import {CONNECTION_ERROR} from '../../utils/api/errors/errorMessages';
 import {USD} from '../../utils/constants/currencies';
 import {
@@ -65,8 +69,13 @@ import {
   getPrivateSyncPercent,
   isPrivateCard,
 } from '../../utils/subwallet/privateWallet';
+import BridgedOriginSheet from './BridgedOriginSheet';
 
 const CONTAINER_PADDING = 20;
+// The bridged line is 18 points high and sits at the bottom of the 52-point
+// identity row. This slop makes its target 44 points and keeps the target
+// inside the row, so Android also routes the touch to it.
+const BRIDGED_LINE_HIT_SLOP = {top: 19, bottom: 7};
 const CARD_WIDTH_RATIO = 0.78;
 const MAX_CARD_WIDTH = 314;
 const CARD_HEIGHT = 206;
@@ -110,6 +119,14 @@ const MONOSPACE_FONT = Platform.select({
   android: 'monospace',
   default: 'monospace',
 });
+
+const lookupCoin = id => {
+  try {
+    return CoinDirectory.getBasicCoinObj(id);
+  } catch (e) {
+    return null;
+  }
+};
 
 const clamp = (number, minimum, maximum) =>
   Math.max(minimum, Math.min(maximum, number));
@@ -673,6 +690,23 @@ const SignedInAssetHeader = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [frozenWalletItems, setFrozenWalletItems] = useState(null);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const [bridgedSheetVisible, setBridgedSheetVisible] = useState(false);
+  // Read the directory's definition first: its mapping is the current one.
+  const bridgedOrigin = useMemo(
+    () =>
+      activeCoin
+        ? getBridgedOrigin(lookupCoin(activeCoin.id) || activeCoin, {
+            explorers,
+            lookupCoin,
+          })
+        : null,
+    [activeCoin],
+  );
+  const openBridgedSheet = useCallback(() => setBridgedSheetVisible(true), []);
+  const closeBridgedSheet = useCallback(
+    () => setBridgedSheetVisible(false),
+    [],
+  );
   const cardWidth = Math.min(screenWidth * CARD_WIDTH_RATIO, MAX_CARD_WIDTH);
   const carouselPadding = Math.max((screenWidth - cardWidth) / 2, 0);
 
@@ -1246,11 +1280,41 @@ const SignedInAssetHeader = () => {
       <View style={styles.assetIdentity}>
         <View style={styles.coinIdentity}>
           <AssetCoinLogo coinId={activeCoin.id} size={28} />
-          <Text
-            numberOfLines={1}
-            style={[styles.assetTicker, {color: theme.colors.textSecondary}]}>
-            {displayTicker}
-          </Text>
+          <View style={styles.assetText}>
+            <Text
+              numberOfLines={1}
+              style={[styles.assetTicker, {color: theme.colors.textSecondary}]}>
+              {displayTicker}
+            </Text>
+            {bridgedOrigin ? (
+              <Pressable
+                accessibilityLabel={bridgedOrigin.title}
+                accessibilityRole="button"
+                hitSlop={BRIDGED_LINE_HIT_SLOP}
+                onPress={openBridgedSheet}
+                style={({pressed}) => [
+                  styles.bridgedLine,
+                  pressed && styles.bridgedLinePressed,
+                ]}
+                testID="asset-bridged-line">
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    theme.typography.caption,
+                    styles.bridgedLineText,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {bridgedOrigin.title}
+                </Text>
+                <ChevronRight
+                  color={theme.colors.textSubtle}
+                  size={14}
+                  strokeWidth={2}
+                  style={styles.bridgedLineChevron}
+                />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         <View
           accessible
@@ -1320,6 +1384,13 @@ const SignedInAssetHeader = () => {
           ))}
         </View>
       ) : null}
+      {bridgedOrigin ? (
+        <BridgedOriginSheet
+          onClose={closeBridgedSheet}
+          origin={bridgedOrigin}
+          visible={bridgedSheetVisible}
+        />
+      ) : null}
     </View>
   );
 };
@@ -1342,15 +1413,39 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     marginRight: 16,
+    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
   },
-  assetTicker: {
+  // Full row height, so the bridged line's touch target stays inside it.
+  assetText: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  assetTicker: {
     fontSize: 14,
     lineHeight: 19,
     ...fontStyle('semiBold'),
+  },
+  bridgedLine: {
+    maxWidth: '100%',
+    marginTop: 1,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bridgedLinePressed: {
+    opacity: 0.6,
+  },
+  bridgedLineText: {
+    flexShrink: 1,
+  },
+  bridgedLineChevron: {
+    flexShrink: 0,
+    marginLeft: 2,
   },
   totalBalance: {
     flexShrink: 1,
