@@ -484,6 +484,9 @@ of the mockup on 2026-10-21):
   drawn like "Remove from this device" in the gift card options sheet. The
   wallet's main coin (VRSC, or the Testnet override) has no sheet and is never
   removed.
+- The sheet is an `InfoSheet` with the logo header in its `header` slot (owner,
+  2026-10-23): the header stays at the top, the rows and "Remove from wallet"
+  scroll, and Done stays fixed at the bottom on every window size.
 - "Remove from wallet" opens `AcknowledgeSheet` ("Remove <name>?", "Remove",
   "Not now"). The message says that the balance stays on the blockchain; it
   hides the amount while balances are hidden. While the asset is removed, its
