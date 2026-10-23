@@ -1,5 +1,6 @@
 import {showFundRawTransactionErrorAlert} from '../../../utils/vrpc/fundRawTransactionError';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import BigNumber from 'bignumber.js';
 import {
   AccessibilityInfo,
   Keyboard,
@@ -8,15 +9,19 @@ import {
   View,
 } from 'react-native';
 import {Checkbox, Text} from 'react-native-paper';
+import Animated, {FadeIn, ReduceMotion} from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {ExternalLink} from 'lucide-react-native';
+import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
 import CopyAction from '../../../components/CopyAction';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import SignedOutActionRow from '../../../components/SignedOutActionRow';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {
   requestWalletUnlock,
@@ -71,7 +76,7 @@ import {
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
-import {SecureLoadingView} from '../../SecureLoading/SecureLoading';
+import ClaimingFundsView, {getClaimAnimationCoin} from './ClaimingFundsView';
 import {
   DeepLinkReviewScrollView,
   RequestTitle,
@@ -85,6 +90,10 @@ import {
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
 } from '../../../utils/deeplink/genericRequestDelivery';
+
+// The result fades in after the claim hand-off, as the stage faded out.
+const RESULT_FADE_IN = FadeIn.duration(220).reduceMotion(ReduceMotion.Never);
+const RESULT_FADE_STYLE = {flex: 1};
 
 const CLAIM_PASSWORD_ERROR =
   'That password didn’t decrypt this key. Check it and try again.';
@@ -201,31 +210,45 @@ const pendingClaimWalletBindingMatches = (pendingBroadcast, currentBinding) => {
   });
 };
 
+// "1 of 2 transactions was submitted. The other is saved. Retry to submit it."
+const getPartialClaimSubtitle = claimResult => {
+  const submitted = claimResult?.results?.length || 0;
+  const total = claimResult?.transactionCount;
+
+  if (!Number.isFinite(total) || total <= submitted) {
+    return 'Some transactions were not submitted. They are saved. Retry to submit them.';
+  }
+
+  const remaining = total - submitted;
+  const submittedText = `${submitted} of ${total} transactions ${
+    submitted === 1 ? 'was' : 'were'
+  } submitted.`;
+
+  return remaining === 1
+    ? `${submittedText} The other is saved. Retry to submit it.`
+    : `${submittedText} The other ${remaining} are saved. Retry to submit them.`;
+};
+
 const getStatusSubtitle = ({claimResult, requestError, status}) => {
   if (status === 'error') {
-    return (
-      requestError?.subtitle || 'Retry when your connection is available.'
-    );
-  }
-  if (status === 'complete') {
-    if (claimResult?.partialError) {
-      return 'Some claim transactions were submitted before an error.';
-    }
+    if (requestError?.partial) return getPartialClaimSubtitle(claimResult);
+    if (requestError?.subtitle) return requestError.subtitle;
 
-    return claimResult?.results?.length === 1
-      ? 'The claim transaction was submitted.'
-      : 'The claim transactions were submitted.';
+    return requestError?.network
+      ? 'Retry when your connection is available.'
+      : null;
   }
+  // The result says it all: no subtitle.
+  if (status === 'complete') return null;
   if (status === 'empty') {
     return 'No transparent funds or VerusIDs were found.';
   }
   return 'Review the transparent funds and VerusIDs found on this key.';
 };
 
-const getScreenTitle = ({claimResult, requestError, status}) => {
+const getScreenTitle = ({requestError, status}) => {
   if (status === 'error') return requestError?.title || 'Network error';
   if (status !== 'complete') return 'Claim funds';
-  if (claimResult?.partialError) return 'Claim partially submitted';
   return 'Claim submitted';
 };
 
@@ -245,16 +268,16 @@ const waitForStatusPaint = () =>
 
 const getScanError = error => ({
   title: 'Network error',
-  message:
-    'Unable to scan this spendable key. Check your internet connection and try again.',
+  message: 'This key could not be scanned.',
+  network: true,
   detail: getErrorMessage(error, 'Unable to scan spendable key.'),
   retry: 'scan',
 });
 
 const getClaimNetworkError = error => ({
   title: 'Network error',
-  message:
-    'Unable to submit the claim transaction. Check your internet connection and try again.',
+  message: 'The claim was not submitted.',
+  network: true,
   detail: getErrorMessage(error, 'Unable to claim spendable key.'),
   retry: 'claim',
 });
@@ -509,20 +532,6 @@ const resolveRedeemedCurrencyCoinObj = async ({
   return coinObj;
 };
 
-const getTransactionLabel = transaction => {
-  const ticker = transaction.coinObj?.display_ticker || transaction.coinObj?.id;
-
-  if (transaction.type === 'identity' && transaction.includesSweep) {
-    return `${ticker} identity and funds claim`;
-  }
-
-  if (transaction.type === 'identity') {
-    return `${ticker} identity claim txID`;
-  }
-
-  return `${ticker} funds claim`;
-};
-
 const CLAIM_SUBMIT_ERROR = 'The claim was not submitted. Try again.';
 const IDENTITY_CLAIM_CONFIRMATION_NOTE =
   'A claimed VerusID is yours only after its claim transaction confirms. Wait for the confirmation before you send funds to it.';
@@ -544,6 +553,202 @@ const getClaimMetadataNote = ({identityLinkFailed, currencyAddFailed}) => {
   }
 
   return null;
+};
+
+const CLAIM_FUNDS_CAPTION =
+  'The funds show in your wallet after the transaction confirms.';
+const CLAIM_CHAINS_CAPTION =
+  'Each transaction confirms on its own chain. The funds show in your wallet after that.';
+const CLAIM_SAME_CHAIN_CAPTION =
+  'The funds show in your wallet after the transactions confirm.';
+
+const getClaimedCurrencyName = (claimPlan, transaction, currencyId) => {
+  const system = (claimPlan?.systems || []).find(
+    item => item.systemId === transaction.systemId,
+  );
+  const currency = (system?.currencies || []).find(
+    item => item.currencyId === currencyId,
+  );
+
+  if (currency?.display?.name) return currency.display.name;
+  if (
+    currencyId === transaction.systemId ||
+    currencyId === transaction.coinObj?.currency_id
+  ) {
+    return (
+      transaction.coinObj?.display_ticker || transaction.coinObj?.id || currencyId
+    );
+  }
+
+  return currencyId;
+};
+
+// The funds and the VerusID that one claim transaction moves to the wallet.
+// The chain's own coin comes first.
+const getClaimedItems = (claimPlan, transaction) => {
+  const totals = new Map();
+
+  for (const output of transaction.outputs || []) {
+    if (!output?.currencyId || output.amount == null) continue;
+
+    const current = totals.get(output.currencyId) || BigNumber(0);
+    totals.set(output.currencyId, current.plus(output.amount));
+  }
+
+  const amounts = Array.from(totals.entries())
+    .filter(([, amount]) => amount.isGreaterThan(0))
+    .sort(
+      ([first], [second]) =>
+        Number(second === transaction.systemId) -
+        Number(first === transaction.systemId),
+    )
+    .map(([currencyId, amount]) => ({
+      amount: amount.toString(),
+      unit: getClaimedCurrencyName(claimPlan, transaction, currencyId),
+    }));
+  const identityName =
+    transaction.type === 'identity' && transaction.identity != null
+      ? getIdentityDisplay(transaction.identity)
+      : null;
+
+  return {amounts, identityName};
+};
+
+const formatClaimedAmount = ({amount, unit}) => `${amount} ${unit}`;
+
+// What one transaction claims, in a few words: "alice@ and funds".
+const getClaimedText = (claimPlan, transaction) => {
+  const {amounts, identityName} = getClaimedItems(claimPlan, transaction);
+
+  if (identityName) {
+    return amounts.length > 0 || transaction.includesSweep
+      ? `${identityName} and funds`
+      : identityName;
+  }
+
+  return amounts.map(formatClaimedAmount).join(', ');
+};
+
+const getTransactionChainLabel = transaction =>
+  transaction.coinObj?.display_name ||
+  transaction.coinObj?.display_ticker ||
+  transaction.systemId;
+
+const ClaimTransactionRows = ({styles, transaction}) => {
+  const explorerUrl = getExplorerTxUrl(transaction);
+
+  return (
+    <>
+      <View style={styles.resultTxRow}>
+        <View style={styles.resultTxCopy}>
+          <Text style={styles.resultTxLabel}>Transaction ID</Text>
+          <Text
+            ellipsizeMode="middle"
+            numberOfLines={1}
+            style={styles.resultTxid}>
+            {transaction.txid}
+          </Text>
+        </View>
+        <CopyAction
+          accessibilityLabel="Copy transaction ID"
+          copiedAccessibilityLabel="Transaction ID copied"
+          value={transaction.txid}
+        />
+      </View>
+      {explorerUrl ? (
+        <SignedOutActionRow
+          IconComponent={ExternalLink}
+          label="View in explorer"
+          onPress={() => openUrl(explorerUrl)}
+        />
+      ) : null}
+    </>
+  );
+};
+
+// The submitted transactions of a claim, as the Send flow's Sent step shows
+// one: what moved, the transaction ID with Copy, and the explorer. One fact
+// at a time: no section label and no count line.
+const ClaimResultDetails = ({claimPlan, claimResult, partial, styles}) => {
+  const results = claimResult.results || [];
+  const chainCount = new Set(results.map(item => item.systemId)).size;
+  const includesIdentity = resultsIncludeIdentityClaim(results);
+  const metadataNote = claimResult.metadataNote ? (
+    <Text style={styles.resultNote}>{claimResult.metadataNote}</Text>
+  ) : null;
+
+  if (!partial && results.length === 1) {
+    const [transaction] = results;
+    const {amounts, identityName} = getClaimedItems(claimPlan, transaction);
+    const [main, ...otherAmounts] = amounts;
+    const others = otherAmounts.map(formatClaimedAmount);
+
+    if (main && identityName) others.push(identityName);
+
+    return (
+      <View>
+        <View style={styles.amountHero}>
+          {main ? (
+            <View style={styles.amountHeroRow}>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.62}
+                numberOfLines={1}
+                style={styles.amountHeroValue}>
+                {main.amount}
+              </Text>
+              <Text numberOfLines={2} style={styles.amountHeroCurrency}>
+                {main.unit}
+              </Text>
+            </View>
+          ) : identityName ? (
+            <Text style={styles.countHeroValue}>{identityName}</Text>
+          ) : null}
+          {others.length > 0 ? (
+            <Text style={styles.resultMore}>{`+ ${others.join(', ')}`}</Text>
+          ) : null}
+        </View>
+        <ClaimTransactionRows styles={styles} transaction={transaction} />
+        <Text style={styles.resultCaption}>
+          {includesIdentity
+            ? IDENTITY_CLAIM_CONFIRMATION_NOTE
+            : CLAIM_FUNDS_CAPTION}
+        </Text>
+        {metadataNote}
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      {results.map((transaction, index) => (
+        <View
+          key={`${transaction.systemId}:${transaction.txid}:${index}`}
+          style={index > 0 ? styles.resultBlockGap : styles.resultBlock}>
+          {chainCount > 1 ? (
+            <Text style={styles.systemGroupLabel}>
+              {getTransactionChainLabel(transaction)}
+            </Text>
+          ) : null}
+          <Text style={styles.resultClaims}>
+            {getClaimedText(claimPlan, transaction)}
+          </Text>
+          <ClaimTransactionRows styles={styles} transaction={transaction} />
+        </View>
+      ))}
+      {partial ? null : (
+        <Text style={styles.resultCaption}>
+          {chainCount > 1 ? CLAIM_CHAINS_CAPTION : CLAIM_SAME_CHAIN_CAPTION}
+        </Text>
+      )}
+      {!partial && includesIdentity ? (
+        <Text style={styles.resultCaption}>
+          {IDENTITY_CLAIM_CONFIRMATION_NOTE}
+        </Text>
+      ) : null}
+      {metadataNote}
+    </View>
+  );
 };
 
 const SpendableKeyRequestInfoContent = props => {
@@ -653,6 +858,10 @@ const SpendableKeyRequestInfoContent = props => {
   const [requestError, setRequestError] = useState(null);
   const [finishing, setFinishing] = useState(false);
   const [claimSlow, setClaimSlow] = useState(false);
+  // The broadcast returned: the claim screen plays its hand-off, then the
+  // result fades in.
+  const [claimHandoff, setClaimHandoff] = useState(false);
+  const [resultFadeIn, setResultFadeIn] = useState(false);
   const [pendingRequestId, setPendingRequestId] = useState(
     pendingDeeplinkId ||
       deeplinkPassthrough?.pendingDeeplinkId ||
@@ -1227,6 +1436,8 @@ const SpendableKeyRequestInfoContent = props => {
     }
 
     setStatus('claiming');
+    setClaimHandoff(false);
+    setResultFadeIn(false);
     setClaimResult(null);
     setClaimError(null);
     setRequestError(null);
@@ -1286,7 +1497,8 @@ const SpendableKeyRequestInfoContent = props => {
         }),
       });
       setRequestError(null);
-      setStatus('complete');
+      // The screen shows the result after its hand-off (finishClaimHandoff).
+      setClaimHandoff(true);
     } catch (e) {
       if (e?.code === 'SESSION_CHANGED') return;
 
@@ -1317,10 +1529,13 @@ const SpendableKeyRequestInfoContent = props => {
 
         // The error state and the submitted transactions already show the
         // partial claim. The incomplete wallet update shows as a note there.
+        // The screen counts what was submitted; the raw error only goes to
+        // the log.
+        console.warn(e);
         setClaimResult({
           preflightPlan: e.preflightPlan,
           results: e.results,
-          partialError: e.message || 'Unable to complete every claim transaction.',
+          transactionCount: e.pendingBroadcast?.transactions?.length ?? null,
           metadataNote: getClaimMetadataNote({
             identityLinkFailed: !!identityLinkError,
             currencyAddFailed: !!currencyAddError,
@@ -1328,9 +1543,8 @@ const SpendableKeyRequestInfoContent = props => {
         });
         scanCacheRef.current = null;
         setRequestError({
-          title: 'Claim partially submitted',
-          message:
-            'Some claim transactions succeeded. The remaining signed transaction is saved and can be retried safely.',
+          title: 'Claim not finished',
+          partial: true,
           detail: e.message || 'Unable to complete every claim transaction.',
           retry: 'claim',
         });
@@ -1343,6 +1557,7 @@ const SpendableKeyRequestInfoContent = props => {
             message:
               'The signed claim transaction is saved and can be retried safely.',
             detail: getErrorMessage(e, 'Unable to claim spendable key.'),
+            network: isNetworkError(e),
             retry: 'claim',
           });
           setStatus('error');
@@ -1403,6 +1618,17 @@ const SpendableKeyRequestInfoContent = props => {
     }
   }, [claimPlanNeedsAccountRefresh, scanClaims, status]);
 
+  const finishClaimHandoff = useCallback(() => {
+    setClaimHandoff(false);
+    setResultFadeIn(true);
+    setStatus('complete');
+  }, []);
+
+  const claimAnimationCoin = useMemo(
+    () => getClaimAnimationCoin(claimPlan, requestIsTestnet),
+    [claimPlan, requestIsTestnet],
+  );
+
   // A long broadcast says so after 15 seconds, as the secure task screen does.
   useEffect(() => {
     if (status !== 'claiming') {
@@ -1425,10 +1651,12 @@ const SpendableKeyRequestInfoContent = props => {
 
   if (status === 'claiming') {
     return (
-      <SecureLoadingView
-        message="Claiming funds"
+      <ClaimingFundsView
+        coin={claimAnimationCoin}
+        done={claimHandoff}
+        onDone={finishClaimHandoff}
         slow={claimSlow}
-        status="loading"
+        walletAvatar={activeAccount?.walletAvatar}
       />
     );
   }
@@ -1574,7 +1802,7 @@ const SpendableKeyRequestInfoContent = props => {
     status === 'review'
       ? getSpendableKeyReviewSubtitle(reviewModel)
       : getStatusSubtitle({claimResult, requestError, status});
-  const mainTitle = getScreenTitle({claimResult, requestError, status});
+  const mainTitle = getScreenTitle({requestError, status});
   const hasResponseDestination =
     getGenericRequestDeliveryInfo(request).type !==
     GENERIC_REQUEST_DELIVERY_TYPES.NONE;
@@ -1680,99 +1908,60 @@ const SpendableKeyRequestInfoContent = props => {
       </AppButton>
       {showCancelAction && (
         <AppButton height={56} onPress={cancel} variant="secondary">
-          Cancel
+          {requestError?.partial ? 'Close' : 'Cancel'}
         </AppButton>
       )}
     </SafeBottomActionStack>
   );
 
-  return (
+  const screen = (
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={styles.container}>
       <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <RequestTitle>{mainTitle}</RequestTitle>
-          <Text style={styles.subtitle}>{statusSubtitle}</Text>
+          {status === 'complete' && claimResult != null ? (
+            <View style={styles.resultTitleRow}>
+              <AnimatedSuccessCheckmark
+                style={
+                  smallDevice ? styles.resultCheckCompact : styles.resultCheck
+                }
+              />
+              <RequestTitle style={styles.resultTitle}>{mainTitle}</RequestTitle>
+            </View>
+          ) : (
+            <RequestTitle>{mainTitle}</RequestTitle>
+          )}
+          {statusSubtitle ? (
+            <Text style={styles.subtitle}>{statusSubtitle}</Text>
+          ) : null}
         </View>
 
-        {status === 'error' && requestError != null && (
-          <View style={styles.criticalWarningCard}>
-            <MaterialCommunityIcons
-              name={requestError.icon || 'wifi-alert'}
-              size={22}
-              color={theme.colors.danger}
-              style={{marginTop: 1}}
-            />
-            <View style={styles.criticalWarningContent}>
-              <Text style={styles.criticalWarningTitle}>
-                {requestError.title}
-              </Text>
-              <Text style={styles.criticalWarningText}>
-                {requestError.message}
-              </Text>
+        {status === 'error' &&
+          requestError?.message != null &&
+          !requestError.partial && (
+            <View style={styles.criticalWarningCard}>
+              <MaterialCommunityIcons
+                name={requestError.icon || 'wifi-alert'}
+                size={22}
+                color={theme.colors.danger}
+                style={{marginTop: 1}}
+              />
+              <View style={styles.criticalWarningContent}>
+                <Text style={styles.criticalWarningText}>
+                  {requestError.message}
+                </Text>
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
         {claimResult != null && (
-          <View style={styles.transactionSection}>
-            <Text style={styles.sectionTitle}>Submitted transactions</Text>
-            <Text style={styles.transactionSummary}>
-              {`${claimResult.results.length} transaction${claimResult.results.length === 1 ? '' : 's'} submitted.`}
-            </Text>
-            {claimResult.partialError && (
-              <Text style={styles.partialErrorText}>
-                {`An error occurred after the transaction${claimResult.results.length === 1 ? '' : 's'} below: ${claimResult.partialError}`}
-              </Text>
-            )}
-            {claimResult.metadataNote && (
-              <Text style={styles.partialErrorText}>
-                {claimResult.metadataNote}
-              </Text>
-            )}
-            {resultsIncludeIdentityClaim(claimResult.results) && (
-              <Text style={styles.partialErrorText}>
-                {IDENTITY_CLAIM_CONFIRMATION_NOTE}
-              </Text>
-            )}
-            {claimResult.results.map((transaction, index) => {
-              const explorerUrl = getExplorerTxUrl(transaction);
-
-              return (
-                <View
-                  style={styles.txidCard}
-                  key={`${transaction.systemId}:${transaction.txid}:${index}`}
-                >
-                  <View style={styles.txidHeader}>
-                    <Text style={styles.txidLabel}>
-                      {getTransactionLabel(transaction)}
-                    </Text>
-                    <View style={styles.txidActions}>
-                      <CopyAction
-                        accessibilityLabel="Copy transaction ID"
-                        copiedAccessibilityLabel="Transaction ID copied"
-                        value={transaction.txid}
-                      />
-                      {explorerUrl && (
-                        <AppButton
-                          icon="open-in-new"
-                          height={44}
-                          onPress={() => openUrl(explorerUrl)}
-                          style={styles.explorerButton}
-                          variant="text">
-                          Explorer
-                        </AppButton>
-                      )}
-                    </View>
-                  </View>
-                  <Text style={styles.txidValue} selectable>
-                    {transaction.txid}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+          <ClaimResultDetails
+            claimPlan={claimPlan}
+            claimResult={claimResult}
+            partial={status === 'error' && requestError?.partial === true}
+            styles={styles}
+          />
         )}
 
         {claimResult == null && unsupportedIdentityCount > 0 && (
@@ -2078,6 +2267,17 @@ const SpendableKeyRequestInfoContent = props => {
       </DeepLinkReviewScrollView>
       {footer}
     </SafeAreaView>
+  );
+
+  if (!resultFadeIn || status !== 'complete') return screen;
+
+  // The page color stays while the result fades in over it.
+  return (
+    <View style={styles.container}>
+      <Animated.View entering={RESULT_FADE_IN} style={RESULT_FADE_STYLE}>
+        {screen}
+      </Animated.View>
+    </View>
   );
 };
 

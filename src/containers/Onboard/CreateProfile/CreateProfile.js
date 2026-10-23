@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {StatusBar, View} from 'react-native';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import ChooseName from './Forms/ChooseName';
-import CreatePassword from './Forms/CreatePassword';
+import CreatePassword, {PasswordInfoButton} from './Forms/CreatePassword';
 import UseBiometrics from './Forms/UseBiometrics';
 import {useDispatch} from 'react-redux';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
@@ -33,6 +33,11 @@ import ImportNfc from '../../CreateWallet/Forms/ImportWallet/Forms/ImportNfc';
 import ImportSeed from '../../CreateWallet/Forms/ImportWallet/Forms/ImportSeed';
 import ImportText from '../../CreateWallet/Forms/ImportWallet/Forms/ImportText';
 import CompactSetupHeader from '../components/CompactSetupHeader';
+import {
+  SETUP_STEP_TITLES,
+  getImportSeedTitle,
+  getSeedWordsTitle,
+} from '../setupStepTitles';
 import {DEFAULT_WALLET_AVATAR} from '../../../utils/walletAvatar';
 import {createSignedOutFlowStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -125,6 +130,8 @@ export default function CreateProfileStackScreens(props) {
   const [importedSeed, setImportedSeed] = useState('');
   const [importedSeedReady, setImportedSeedReady] = useState(false);
   const [importSeedEntryProgress, setImportSeedEntryProgress] = useState(0);
+  const [importSeedReviewing, setImportSeedReviewing] = useState(false);
+  const [passwordInfoVisible, setPasswordInfoVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(
     collectImportBeforeProfile &&
       setupSelection.importMethod === IMPORT_METHODS.QR,
@@ -502,6 +509,8 @@ export default function CreateProfileStackScreens(props) {
           confirmPassword={confirmPassword}
           setConfirmPassword={setConfirmPassword}
           onNext={continueFromPassword}
+          infoVisible={passwordInfoVisible}
+          onCloseInfo={() => setPasswordInfoVisible(false)}
         />
       );
     }
@@ -535,7 +544,6 @@ export default function CreateProfileStackScreens(props) {
           onComplete={completeImportShieldedSetup}
           optionLabel="Restore shielded address"
           showHeader={false}
-          title="Restore shielded address"
         />
       );
     }
@@ -546,6 +554,7 @@ export default function CreateProfileStackScreens(props) {
           importedSeed={importedSeed}
           onComplete={() => completeImportedSeed()}
           onImportProgressChange={setImportSeedEntryProgress}
+          onReviewModeChange={setImportSeedReviewing}
           setImportedSeed={setImportedSeed}
         />
       );
@@ -593,6 +602,33 @@ export default function CreateProfileStackScreens(props) {
     );
   };
 
+  // Form steps name themselves in the header. The biometrics, shielded
+  // address and NFC screens keep their large title instead.
+  const getHeaderTitle = () => {
+    switch (currentStep) {
+      case SETUP_STEPS.NAME:
+        return SETUP_STEP_TITLES.NAME;
+      case SETUP_STEPS.PASSWORD:
+        return SETUP_STEP_TITLES.PASSWORD;
+      case SETUP_STEPS.BIOMETRICS:
+      case SETUP_STEPS.SHIELDED_ADDRESS:
+      case SETUP_STEPS.IMPORT_SHIELDED_ADDRESS:
+      case SETUP_STEPS.IMPORT_NFC:
+        return null;
+      case SETUP_STEPS.IMPORT_SEED:
+        return getImportSeedTitle(importSeedReviewing);
+      case SETUP_STEPS.IMPORT_TEXT:
+        return SETUP_STEP_TITLES.IMPORT_TEXT;
+      default:
+        // renderStep shows the intro until a phrase exists.
+        if (currentStep === SETUP_STEPS.SEED_INTRO || !newSeed) {
+          return SETUP_STEP_TITLES.SEED_INTRO;
+        }
+
+        return getSeedWordsTitle(seedWordStep >= seedWordPageCount);
+    }
+  };
+
   if (scannerVisible) {
     return <ScanSeed cancel={closeScanner} onScan={handleScan} />;
   }
@@ -603,7 +639,16 @@ export default function CreateProfileStackScreens(props) {
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
-      <CompactSetupHeader onBack={goBack} progress={progress} />
+      <CompactSetupHeader
+        onBack={goBack}
+        progress={progress}
+        rightAction={
+          currentStep === SETUP_STEPS.PASSWORD ? (
+            <PasswordInfoButton onPress={() => setPasswordInfoVisible(true)} />
+          ) : null
+        }
+        title={getHeaderTitle()}
+      />
       {renderStep()}
     </View>
   );

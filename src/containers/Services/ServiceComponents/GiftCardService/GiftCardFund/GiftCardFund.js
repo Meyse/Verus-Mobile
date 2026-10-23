@@ -23,6 +23,7 @@ import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import CopyAction from '../../../../../components/CopyAction';
 import FadedScrollView from '../../../../../components/FadedScrollView';
+import HeaderContextBand from '../../../../../components/HeaderContextBand';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import TransactionResult from '../../../../../components/TransactionResult';
@@ -333,6 +334,17 @@ const getProgress = (step, createMode) => {
   }
 
   return 1;
+};
+
+// The header names the step. Processing and the result keep their own
+// centered title.
+const getStepTitle = step => {
+  if (step === STEP_DETAILS) return 'Create gift card';
+  if (step === STEP_CONTENTS) return 'Build the gift';
+  if (step === STEP_REVIEW) return 'Review';
+  if (step === STEP_EXTERNAL) return 'Another wallet';
+
+  return null;
 };
 
 const getStepAnnouncement = (step, createMode, operationText) => {
@@ -2052,12 +2064,6 @@ const GiftCardFund = props => {
 
   const renderContents = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
-          Build the gift
-        </Text>
-      </View>
-
       {renderFunds()}
       {linkedIdentityOptions.length > 0 ? renderIdentities() : null}
 
@@ -2092,12 +2098,6 @@ const GiftCardFund = props => {
 
   const renderReview = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
-          Review before funding
-        </Text>
-      </View>
-
       <View style={[styles.reviewGroup, {borderColor: theme.colors.border}]}>
         <Text style={[styles.reviewHeading, {color: theme.colors.textPrimary}]}>
           Contents
@@ -2317,12 +2317,6 @@ const GiftCardFund = props => {
 
   const renderExternal = () => (
     <>
-      <View style={styles.stepCopy}>
-        <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
-          Fund from another wallet
-        </Text>
-      </View>
-
       <Text style={[styles.fieldLabel, {color: theme.colors.textSecondary}]}>
         Funding system
       </Text>
@@ -2674,8 +2668,32 @@ const GiftCardFund = props => {
         backDisabled={busy || step === STEP_PROCESSING}
         onBack={handleBack}
         progress={getProgress(step, createMode)}
-        title={card?.label || (createMode ? 'Create gift card' : 'Fund gift card')}
+        title={getStepTitle(step)}
       />
+      {card?.label && step !== STEP_DETAILS ? (
+        <HeaderContextBand
+          accessibilityLabel={`Gift card ${card.label}`}
+          inset={20}>
+          <View style={styles.bandContent}>
+            <MaterialCommunityIcons
+              color={theme.colors.textSecondary}
+              name="gift-outline"
+              size={16}
+              style={styles.bandIcon}
+            />
+            <Text
+              ellipsizeMode="tail"
+              numberOfLines={1}
+              style={[
+                theme.typography.labelSm,
+                styles.bandLabel,
+                {color: theme.colors.textPrimary},
+              ]}>
+              {card.label}
+            </Text>
+          </View>
+        </HeaderContextBand>
+      ) : null}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
@@ -2742,14 +2760,17 @@ const styles = StyleSheet.create({
   processingScrollContent: {
     justifyContent: 'center',
   },
-  stepCopy: {
-    marginBottom: 22,
+  bandContent: {
+    minWidth: 0,
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 28,
-    lineHeight: 35,
-    letterSpacing: -0.65,
-    ...fontStyle('semiBold'),
+  bandIcon: {
+    marginRight: 6,
+  },
+  bandLabel: {
+    flexShrink: 1,
   },
   switchRow: {
     minHeight: 76,

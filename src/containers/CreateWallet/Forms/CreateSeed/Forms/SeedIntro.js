@@ -17,8 +17,8 @@ import {
   createSignedOutSheetStyles,
 } from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
-import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
+import {SETUP_STEP_TITLES} from '../../../../Onboard/setupStepTitles';
 
 const GUIDANCE = [
   {
@@ -56,7 +56,6 @@ export default function SeedIntro({
   const contentProgress = useRef(new Animated.Value(0)).current;
   const pendingSeedRef = useRef(null);
   const warningConfirmedRef = useRef(false);
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     let active = true;
@@ -175,23 +174,16 @@ export default function SeedIntro({
         <CompactSetupHeader
           onBack={onBack || (() => navigation.goBack())}
           progress={0.75}
+          title={SETUP_STEP_TITLES.SEED_INTRO}
         />
       ) : null}
       <Animated.View
         style={[
           signedOutFlowStyles.content,
-          smallDevice && signedOutFlowStyles.contentSmallDevice,
+          signedOutFlowStyles.afterHeaderTitle,
           contentAnimatedStyle,
         ]}>
         <View style={signedOutFlowStyles.form}>
-          <Text
-            style={[
-              signedOutFlowStyles.title,
-              smallDevice && signedOutFlowStyles.titleSmallDevice,
-              styles.title,
-            ]}>
-            {'Back up your Secret Recovery Phrase'}
-          </Text>
           <View style={styles.guidanceList}>
             {GUIDANCE.map(item => (
               <View key={item.key} style={styles.guidanceRow}>
@@ -250,9 +242,6 @@ export default function SeedIntro({
 
 const createStyles = theme =>
   StyleSheet.create({
-  title: {
-    marginBottom: 24,
-  },
   guidanceList: {
     gap: 28,
   },

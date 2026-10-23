@@ -127,11 +127,12 @@ export default function UseBiometrics({
       </View>
       <SafeBottomActionStack gap={10}>
         <AppButton
+          accessibilityLabel={`Turn on ${presentation.settingsTitle}`}
           height={56}
           onPress={() => continueToWalletSetup(true)}
           testID="onboarding.biometrics.enable"
           variant="primary">
-          {presentation.onboardingAction}
+          {'Turn on'}
         </AppButton>
         <AppButton
           height={56}

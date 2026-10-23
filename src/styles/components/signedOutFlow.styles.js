@@ -27,6 +27,10 @@ export const createSignedOutFlowStyles = theme =>
     scrollContentKeyboardFooterClearance: {
       paddingBottom: theme.spacing.keyboardFooterClearance,
     },
+    // Applies to `content` and `scrollContent` on every window size.
+    afterHeaderTitle: {
+      paddingTop: theme.spacing.stepTopWithHeaderTitle,
+    },
     form: {
       width: '100%',
       maxWidth: 360,
