@@ -439,7 +439,7 @@ setImmediate(() => {
     VerusMobileVrpcInterface.addDefaultEndpoints() 
   } catch(e) {
     console.error(e);
-    createAlert("Verus servers not set up", "Close Verus Mobile and open it again.");
+    createAlert("Verus servers not set up", "Quit Verus Mobile and open it again.");
   }  
 })
 
