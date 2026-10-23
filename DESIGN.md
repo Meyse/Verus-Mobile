@@ -281,6 +281,21 @@ on 2026-10-23.
 - Say each thing once. A context line keeps only what the title does not say
   ("Write down words 1–8 of 24"). A field placeholder does not repeat its label.
 
+The recovery phrase check ("Verify phrase", `SeedWords`) uses word chips. The
+owner approved it on 2026-10-23 (option A of the mockup).
+
+- Ask 3 words, one from each third of the phrase. Each word shows 4 chips in a
+  2 x 2 grid: the right word and 3 other words from the same third, in random
+  places. A blind guess passes 1 time in 64.
+- Do not show right or wrong for one tap. The check judges after the user picks
+  all 3 words and taps the button. A result per tap lets anyone pass without a
+  written phrase.
+- A wrong answer shows "Does not match." under each wrong word and locks the
+  chips. "Show words again" returns to words 1–8. Each visit to the check asks
+  new words with new chips.
+- A picked chip has a blue border, not the green selection with a check mark:
+  green reads as a correct answer before the check runs.
+
 For a signed-in task wizard:
 
 - Match the `ProgressHeader` title treatment. Send/Convert uses
