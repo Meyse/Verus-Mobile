@@ -52,6 +52,9 @@ methods, never Verus Mobile's visual direction.
   above the real title.
 - Use as few words as the task safely permits. Prefer a direct title, concise
   labels, and one short explanation only when it prevents ambiguity.
+- Say each fact once. A result, error, or status screen states its outcome in
+  the title only. Do not repeat it in a description, section label, count
+  line, or notice title.
 - Do not add decorative icons. Icons are allowed only when the canonical
   component already uses them or when they perform a necessary navigation,
   status, copy, or domain-recognition job.
@@ -122,6 +125,7 @@ buttons keep their size.
 | VerusID list and page | [VerusID page](#verusid-page) below, with `src/containers/Services/ServiceComponents/VerusIdService/VerusIdCard.js` | Use the light card. Funds come last; a fund opens its asset screen. |
 | App alert | `src/components/Alert.js` through `createAlert`, with the `AcknowledgeSheet` measurements, and [App alerts](#app-alerts) below | Prefer the screen itself. Never use a Paper `Dialog` or a native `Alert.alert` in redesigned UI. |
 | Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
+| Transaction result | `src/components/TransactionResult.js`, as `src/containers/SendWizard/SendWizardSuccess.js` uses it, and [Transaction result](#transaction-result) below | Use it for every screen after the wallet sends transactions. It has no section label and no count line. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
 | Settings | `src/containers/Settings/components/SettingsScaffold.js` | Compose with `SettingsScreen`, `SettingsTitle`, `SettingsSection`, and `SettingsRow`. |
@@ -577,6 +581,29 @@ Sent step. The owner approved it on 2026-10-21.
   explorer.
 - Done closes the sheet, as in every information sheet.
 
+## Transaction result
+
+`src/components/TransactionResult.js` draws every screen after the wallet
+sends one or more transactions. It is the Send flow's Sent step, extracted on
+2026-10-23 after the claim result said "submitted" four times ("Claim
+submitted", "The claim transaction was submitted.", "SUBMITTED TRANSACTIONS",
+"1 transaction submitted.").
+
+- No header. The animated check sits beside the 28/36 title only when the
+  transactions were sent (`success`). A failure shows the title alone.
+- Then the optional amount (`TransferNode` rows), the optional fact rows
+  (`FlatRow`, such as Destination), and one row per transaction with
+  `CopyAction`. One transaction reads "Transaction ID". With two or more, each
+  row shows its own label, such as "VRSCTEST funds". An explorer link adds an
+  `ExternalLink` action that matches `CopyAction`.
+- One caption says what happens next ("Sharing unlocks after it confirms.").
+  The actions sit in the safe footer; the first is primary.
+- The component has no prop for a section label or a count line, because the
+  title and the rows already say both.
+
+Users: Send, Convert and invoice payments (`SendWizardSuccess`) and gift card
+funding (`GiftCardFund`). The card claim moves onto it next.
+
 ## Services home
 
 The user approved this pattern on 2026-10-15 (SV-1 in `UI_REDESIGN_PLAN.md`).
@@ -952,6 +979,8 @@ source inspection:
 - Check normal and compact/small-device layouts when the flow can reach both.
 - Check relevant default, selected, loading, empty, error, keyboard, processing,
   and result states.
+- Read every visible string in each state. Name the fact each one states.
+  Remove repeats.
 - Run `corepack pnpm check:design` and any targeted safe-area or parser checks.
 
 When the same correction repeats in design review, encode the accepted fix in
@@ -961,6 +990,12 @@ the narrowest durable layer:
 - Repeated spacing, typography, state, or interaction mechanics belong in a
   shared component, style module, or semantic token.
 - A mechanical failure that can be detected reliably belongs in a check.
+
+The repeated "submitted" on the claim result (2026-10-23) shows both layers. The
+shared layer is `TransactionResult`, which offers no section label or count
+line. The check is in `corepack pnpm check:design`: it fails when a section
+label ("Submitted transactions") or a count line ("1 transaction submitted.")
+repeats a status word of a title in the same source file.
 
 Do not add a rule from one accidental output. Keep the correction only after it
 is approved as reusable, then compare the next first attempt against the same

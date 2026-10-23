@@ -134,6 +134,7 @@ without repeating the entire investigation.
 | ID-1 | VerusID linking, details, and status surfaces are consistent | Done | SH-1 where a shared sheet is needed |
 | ID-2 | The VerusID list and page use the approved light card, content v1, and funds | Built and iOS-tested; Android open | DESIGN.md "VerusID page"; owner chose "D revised" on 2026-10-22 |
 | AL-1 | App alerts use the acknowledgement sheet; most old alerts move onto their screens; old Settings pickers become sheets | Built and iOS-tested; Android open | DESIGN.md "App alerts"; owner chose the sheet (option A) on 2026-10-22 |
+| RG-1 | Result screens say each fact once: a shared result component, two `check:design` rules, a copy review step | In progress; claim result move waits for the claim branch | DESIGN.md "Transaction result"; owner approved all three parts on 2026-10-23 |
 | SV-1 | The Services root uses tiles; the gift card screen uses the fixed card | Done on iOS; Android tested, SV-1.15–1.17 closed; NFC write open | DESIGN.md "Services home" and "Gift card detail"; `AcknowledgeSheet` `dismissLabel` |
 | QA-1 | Completed scope has recorded visual, behavioral, and review evidence | Relevant SH-1 checks complete; GR-1/GR-2 runtime evidence remains open | Applies to each delivered workstream |
 
@@ -1648,6 +1649,31 @@ visible without a gesture and asks once before the key leaves the wallet. The
 Services root grows by one tile per service with no new artwork. Status uses
 the badge without dots everywhere SV-1 touches. Preserved behavior still works.
 
+## RG-1 — Say each fact once (result guard)
+
+**Authority:** [DESIGN.md](DESIGN.md) core rule "Say each fact once", the
+"Transaction result" section, and the verification checklist. The owner saw
+"Claim submitted" state one fact four times and approved the three-part guard on
+2026-10-23.
+
+- [x] **RG-1.1** Extract `TransactionResult` from the Sent step. Send, Convert
+  and invoice payments use it without a visible change.
+- [x] **RG-1.2** Gift card funding uses `TransactionResult`: "Funding sent",
+  one row per transaction, "Sharing unlocks after it confirms."
+- [x] **RG-1.3** `check:design` fails on a section label or a count line that
+  repeats a status word of a title in the same file.
+- [x] **RG-1.4** DESIGN.md: core rule, verification step, and the encoded
+  fixes.
+- [x] **RG-1.5** Copy: the signature-threshold high-risk step, the identity
+  update broadcast and delivery errors, the expired invoice, and the response
+  delivery error say each fact once.
+- [ ] **RG-1.6** Move the card claim result onto `TransactionResult` after the
+  claim branch merges; `check:design` then passes with no hits.
+- [ ] **RG-1.7** Android QA of the Send and gift card results.
+
+**Acceptance:** Every result screen states its outcome once, in the title.
+`check:design` passes with no repeated-fact hits.
+
 ## QA-1 — Completion criteria for each workstream
 
 These criteria apply to each delivered scope. The overview’s QA-1 row becomes
@@ -1685,7 +1711,9 @@ git diff --check
 ```
 
 The baseline design check protects 27 canonical sources. It does not scan every
-screen for adoption and does not replace rendered QA. Add narrow mechanical
+screen for adoption and does not replace rendered QA. Since RG-1 it also scans
+`src` for two repeated-fact patterns: a section label or a count line that
+repeats a status word of a title in the same file. Add narrow mechanical
 coverage only when a concrete recurring failure warrants it; do not turn this
 plan into a repository-wide migration test project.
 
