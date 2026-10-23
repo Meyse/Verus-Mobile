@@ -1,4 +1,10 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -13,7 +19,6 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import AppButton from '../../../../../components/AppButton';
-import AppTextInput from '../../../../../components/AppTextInput';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../../../globals/fonts';
@@ -28,22 +33,61 @@ import {getSeedWordsTitle} from '../../../../Onboard/setupStepTitles';
 
 export const WORDS_PER_STEP = 8;
 const VERIFY_WORD_COUNT = 3;
+const VERIFY_OPTION_COUNT = 4;
 const PAGE_ANIMATION_DURATION = 320;
-const VERIFY_INPUT_FOCUS_DELAY = 80;
 
-const getRandomIndices = length => {
-  const indices = [];
+const getRandomInt = max => Math.floor(Math.random() * max);
 
-  while (indices.length < Math.min(VERIFY_WORD_COUNT, length)) {
-    const index = Math.floor(Math.random() * length);
+const shuffle = items => {
+  const shuffled = [...items];
 
-    if (!indices.includes(index)) {
-      indices.push(index);
-    }
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = getRandomInt(i + 1);
+
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  return indices;
+  return shuffled;
 };
+
+// Ask one word from each part of the phrase. The other choices are words from
+// the same part, so only the written phrase tells them apart. A blind guess
+// passes 1 time in 64. The check gives no result until every word is picked:
+// a result per tap lets anyone pass without a written phrase.
+const createVerifyQuestions = words => {
+  const count = Math.min(VERIFY_WORD_COUNT, words.length);
+
+  return Array.from({length: count}, (_, part) => {
+    const start = Math.floor((part * words.length) / count);
+    const end = Math.floor(((part + 1) * words.length) / count);
+    const index = start + getRandomInt(end - start);
+    const answer = words[index];
+    const otherWords = list =>
+      shuffle([...new Set(list)].filter(word => word !== answer));
+    const partWords = otherWords(words.slice(start, end));
+    // A phrase with repeated words can run short of choices in one part.
+    const phraseWords = otherWords(words).filter(
+      word => !partWords.includes(word),
+    );
+    const decoys = [...partWords, ...phraseWords].slice(
+      0,
+      VERIFY_OPTION_COUNT - 1,
+    );
+
+    return {index, options: shuffle([answer, ...decoys])};
+  });
+};
+
+const toOptionRows = options =>
+  options.reduce((rows, option, index) => {
+    if (index % 2 === 0) {
+      rows.push([option]);
+    } else {
+      rows[rows.length - 1].push(option);
+    }
+
+    return rows;
+  }, []);
 
 export default function SeedWords({
   navigation,
@@ -67,16 +111,12 @@ export default function SeedWords({
   );
   const totalWordSteps = Math.ceil(seedWords.length / WORDS_PER_STEP);
   const [internalFormStep, setInternalFormStep] = useState(0);
-  const [randomIndices, setRandomIndices] = useState([]);
-  const [activeVerifyIndex, setActiveVerifyIndex] = useState(0);
-  const [wordGuesses, setWordGuesses] = useState(['', '', '']);
-  const [wordErrors, setWordErrors] = useState([false, false, false]);
+  const [verifyQuestions, setVerifyQuestions] = useState([]);
+  const [verifyPicks, setVerifyPicks] = useState([]);
+  // Null until a wrong answer. Then one flag per word, and the picks lock.
+  const [verifyMismatches, setVerifyMismatches] = useState(null);
   const pageProgress = useRef(new Animated.Value(0)).current;
-  const verifyInputRef = useRef(null);
-  const scrollRef = useRef(null);
-  const scrollMetricsRef = useRef({content: 0, viewport: 0});
-  const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
-    useOnboardingSmallDeviceLayout();
+  const {keyboardVisible, smallDevice} = useOnboardingSmallDeviceLayout();
   const formStep =
     controlledFormStep == null ? internalFormStep : controlledFormStep;
   const setActiveFormStep = controlledSetFormStep || setInternalFormStep;
@@ -86,22 +126,11 @@ export default function SeedWords({
   const displayWords = isAtEnd
     ? []
     : seedWords.slice(firstIndex, firstIndex + WORDS_PER_STEP);
-  const activeRandomIndex = randomIndices[activeVerifyIndex];
-  const activeVerifyWordNumber =
-    activeRandomIndex == null ? null : activeRandomIndex + 1;
-  const activeWordGuess = wordGuesses[activeVerifyIndex] || '';
-  const activeVerifyInputError = wordErrors[activeVerifyIndex];
-  const activeVerifyWordHasValue = activeWordGuess.trim().length > 0;
-  const isLastVerifyWord = activeVerifyIndex === randomIndices.length - 1;
-  const hasOtherIncompleteVerifyWords =
-    isAtEnd &&
-    randomIndices.some((_, index) => {
-      return index !== activeVerifyIndex && !wordGuesses[index]?.trim();
-    });
-  const verifyActionCompletes =
-    isLastVerifyWord && !hasOtherIncompleteVerifyWords;
-  const canContinue =
-    !isAtEnd || (randomIndices.length > 0 && activeVerifyWordHasValue);
+  const verifyFailed = verifyMismatches != null;
+  const allVerifyWordsPicked =
+    verifyQuestions.length > 0 &&
+    verifyQuestions.every((_, index) => verifyPicks[index] != null);
+  const canContinue = !isAtEnd || verifyFailed || allVerifyWordsPicked;
   const progress = isAtEnd ? 0.95 : Math.min(0.9, 0.78 + formStep * 0.07);
   const pageAnimatedStyle = {
     opacity: pageProgress,
@@ -123,9 +152,6 @@ export default function SeedWords({
 
   useEffect(() => {
     setActiveFormStep(0);
-    setActiveVerifyIndex(0);
-    setWordGuesses(['', '', '']);
-    setWordErrors([false, false, false]);
   }, [newSeed, setActiveFormStep]);
 
   useEffect(() => {
@@ -169,84 +195,49 @@ export default function SeedWords({
     };
   }, [formStep, isAtEnd, pageProgress]);
 
-  useEffect(() => {
+  // Each visit to the check gets new words and new choices. A layout effect
+  // keeps the last check from showing for a frame.
+  useLayoutEffect(() => {
     if (isAtEnd && seedWords.length > 0) {
-      const indices = getRandomIndices(seedWords.length);
+      const questions = createVerifyQuestions(seedWords);
 
-      setRandomIndices(indices);
-      setActiveVerifyIndex(0);
-      setWordGuesses(new Array(indices.length).fill(''));
-      setWordErrors(new Array(indices.length).fill(false));
+      setVerifyQuestions(questions);
+      setVerifyPicks(new Array(questions.length).fill(null));
+      setVerifyMismatches(null);
     }
-  }, [isAtEnd, seedWords.length]);
+  }, [isAtEnd, seedWords]);
 
-  useEffect(() => {
-    setWordErrors(new Array(randomIndices.length).fill(false));
-  }, [wordGuesses, randomIndices.length]);
+  const pickVerifyWord = (questionIndex, word) => {
+    if (verifyFailed) return;
 
-  const updateGuess = (index, text) => {
-    const nextGuesses = [...wordGuesses];
-
-    nextGuesses[index] = text;
-    setWordGuesses(nextGuesses);
-  };
-
-  const focusVerifyInput = () => {
-    setTimeout(() => {
-      verifyInputRef.current?.focus?.();
-    }, VERIFY_INPUT_FOCUS_DELAY);
-  };
-
-  const goToVerifyIndex = index => {
-    const nextIndex = Math.max(0, Math.min(index, randomIndices.length - 1));
-
-    setActiveVerifyIndex(nextIndex);
-    focusVerifyInput();
+    setVerifyPicks(picks =>
+      picks.map((pick, index) => (index === questionIndex ? word : pick)),
+    );
   };
 
   const verifySeed = () => {
-    const errors = randomIndices.map((randomIndex, index) => {
-      const expected = seedWords[randomIndex].trim().toLowerCase();
-      const guess = wordGuesses[index].trim().toLowerCase();
+    const mismatches = verifyQuestions.map(
+      (question, index) => verifyPicks[index] !== seedWords[question.index],
+    );
 
-      return guess !== expected;
-    });
-
-    setWordErrors(errors);
-
-    if (errors.some(Boolean)) {
-      goToVerifyIndex(errors.findIndex(Boolean));
+    if (mismatches.some(Boolean)) {
+      setVerifyMismatches(mismatches);
       return;
     }
 
     onComplete();
   };
 
-  const verifyNext = () => {
-    if (!activeVerifyWordHasValue) return;
-
-    if (!isLastVerifyWord) {
-      goToVerifyIndex(activeVerifyIndex + 1);
-      return;
-    }
-
-    const firstIncompleteIndex = wordGuesses.findIndex(guess => !guess?.trim());
-
-    if (firstIncompleteIndex >= 0) {
-      goToVerifyIndex(firstIncompleteIndex);
-      return;
-    }
-
-    verifySeed();
-  };
-
   const next = () => {
     if (!canContinue) return;
 
-    if (isAtEnd) {
-      verifyNext();
-    } else {
+    if (!isAtEnd) {
       setActiveFormStep(step => step + 1);
+    } else if (verifyFailed) {
+      // Show the words again from the start. The next check is new.
+      setActiveFormStep(0);
+    } else {
+      verifySeed();
     }
   };
 
@@ -264,7 +255,7 @@ export default function SeedWords({
 
   const getPrimaryLabel = () => {
     if (isAtEnd) {
-      return verifyActionCompletes ? completionLabel : 'Next word';
+      return verifyFailed ? 'Show words again' : completionLabel;
     }
 
     if (formStep === totalWordSteps - 1) return 'Verify phrase';
@@ -297,26 +288,6 @@ export default function SeedWords({
     };
   };
 
-  const scrollToEndWithKeyboard = () => {
-    if (!keyboardVisible) {
-      return;
-    }
-
-    // Small screens pad the end with an empty keyboard clearance. Stop at the
-    // word field and its normal bottom padding instead.
-    const {content, viewport} = scrollMetricsRef.current;
-    const emptyClearance =
-      smallDeviceKeyboardVisible && isAtEnd
-        ? theme.spacing.keyboardFooterClearance -
-          signedOutFlowStyles.scrollContent.paddingBottom
-        : 0;
-
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, content - emptyClearance - viewport),
-      animated: true,
-    });
-  };
-
   return (
     <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       {showHeader ? (
@@ -331,37 +302,22 @@ export default function SeedWords({
         onPress={() => Keyboard.dismiss()}>
         <View style={styles.content}>
           <ScrollView
-            ref={scrollRef}
             bounces={false}
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
               signedOutFlowStyles.afterHeaderTitle,
-              smallDeviceKeyboardVisible &&
-                isAtEnd &&
-                signedOutFlowStyles.scrollContentKeyboardFooterClearance,
             ]}
             keyboardDismissMode={
               Platform.OS === 'ios' ? 'interactive' : 'on-drag'
             }
             keyboardShouldPersistTaps="handled"
-            // The word field is last. Keep it and its error above Next when
-            // the keyboard shortens the view.
-            onContentSizeChange={(width, height) => {
-              scrollMetricsRef.current.content = height;
-              scrollToEndWithKeyboard();
-            }}
-            onLayout={event => {
-              scrollMetricsRef.current.viewport =
-                event.nativeEvent.layout.height;
-              scrollToEndWithKeyboard();
-            }}
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, pageAnimatedStyle]}>
               {isAtEnd && smallDevice ? null : (
                 <Text style={styles.contextText}>
                   {isAtEnd
-                    ? 'Enter the requested words to confirm your backup.'
+                    ? 'Choose each word from your written phrase.'
                     : `Write down words ${firstIndex + 1}–${
                         firstIndex + displayWords.length
                       } of ${seedWords.length}`}
@@ -373,91 +329,94 @@ export default function SeedWords({
                     styles.verifyForm,
                     smallDevice && styles.verifyFormSmallDevice,
                   ]}>
-                  <View
-                    style={[
-                      styles.verifyStepper,
-                      smallDevice && styles.verifyStepperSmallDevice,
-                    ]}>
-                    {randomIndices.map((randomIndex, index) => {
-                      const isActive = index === activeVerifyIndex;
-                      const hasValue = wordGuesses[index]?.trim().length > 0;
-                      const hasError = wordErrors[index];
-                      const guessedWord = wordGuesses[index]?.trim();
+                  {verifyQuestions.map((question, questionIndex) => {
+                    const pick = verifyPicks[questionIndex];
+                    const mismatch = verifyMismatches?.[questionIndex];
 
-                      return (
-                        <TouchableOpacity
-                          accessibilityLabel={`Word ${randomIndex + 1}`}
-                          accessibilityRole="button"
-                          activeOpacity={0.78}
-                          key={randomIndex}
-                          onPress={() => goToVerifyIndex(index)}
-                          testID={`onboarding.seedWords.verifyChip.${index + 1}`}
+                    return (
+                      <View
+                        key={question.index}
+                        style={
+                          questionIndex > 0 && [
+                            styles.verifyGroupSpaced,
+                            smallDevice && styles.verifyGroupSpacedSmallDevice,
+                          ]
+                        }>
+                        <Text style={styles.verifyLabel}>
+                          {`Word ${question.index + 1}`}
+                        </Text>
+                        <View
                           style={[
-                            styles.verifyStepChip,
-                            hasValue && styles.verifyStepChipComplete,
-                            isActive && styles.verifyStepChipActive,
-                            hasError && styles.verifyStepChipError,
+                            styles.verifyOptions,
+                            smallDevice && styles.verifyOptionsSmallDevice,
                           ]}>
-                          <Text
-                            style={[
-                              styles.verifyStepChipText,
-                              hasValue && styles.verifyStepChipTextComplete,
-                              isActive && styles.verifyStepChipTextActive,
-                              hasError && styles.verifyStepChipTextError,
-                            ]}>
-                            {randomIndex + 1}
+                          {toOptionRows(question.options).map(
+                            (row, rowIndex) => (
+                              <View
+                                key={rowIndex}
+                                style={[
+                                  styles.verifyOptionRow,
+                                  smallDevice &&
+                                    styles.verifyOptionsSmallDevice,
+                                ]}>
+                                {row.map((option, columnIndex) => {
+                                  const selected = option === pick;
+                                  const error = selected && mismatch;
+
+                                  return (
+                                    <TouchableOpacity
+                                      accessibilityRole="button"
+                                      accessibilityState={{
+                                        disabled: verifyFailed,
+                                        selected,
+                                      }}
+                                      activeOpacity={0.78}
+                                      disabled={verifyFailed}
+                                      key={option}
+                                      onPress={() =>
+                                        pickVerifyWord(questionIndex, option)
+                                      }
+                                      testID={`onboarding.seedWords.verify.${
+                                        questionIndex + 1
+                                      }.option.${rowIndex * 2 + columnIndex + 1}`}
+                                      style={[
+                                        styles.verifyOption,
+                                        smallDevice &&
+                                          styles.verifyOptionSmallDevice,
+                                        selected && styles.verifyOptionSelected,
+                                        error && styles.verifyOptionError,
+                                        verifyFailed &&
+                                          !selected &&
+                                          styles.verifyOptionLocked,
+                                      ]}>
+                                      <Text
+                                        numberOfLines={1}
+                                        style={[
+                                          styles.verifyOptionText,
+                                          selected &&
+                                            styles.verifyOptionTextSelected,
+                                          error && styles.verifyOptionTextError,
+                                        ]}>
+                                        {option}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                                {row.length === 1 ? (
+                                  <View style={styles.verifyOptionSpacer} />
+                                ) : null}
+                              </View>
+                            ),
+                          )}
+                        </View>
+                        {mismatch ? (
+                          <Text style={styles.verifyError}>
+                            Does not match.
                           </Text>
-                          {hasValue ? (
-                            <Text
-                              ellipsizeMode="tail"
-                              numberOfLines={1}
-                              style={[
-                                styles.verifyStepChipWord,
-                                isActive && styles.verifyStepChipWordActive,
-                                hasError && styles.verifyStepChipTextError,
-                              ]}>
-                              {guessedWord}
-                            </Text>
-                          ) : null}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  <Text
-                    style={[
-                      styles.verifyProgressText,
-                      smallDevice && styles.verifyProgressTextSmallDevice,
-                    ]}>
-                    {`${activeVerifyIndex + 1} of ${randomIndices.length}`}
-                  </Text>
-                  <AppTextInput
-                    autoCapitalize="none"
-                    autoComplete="off"
-                    autoCorrect={false}
-                    blurOnSubmit={false}
-                    containerStyle={[
-                      styles.verifyInput,
-                      smallDevice && styles.verifyInputSmallDevice,
-                    ]}
-                    enablesReturnKeyAutomatically
-                    errorText={
-                      activeVerifyInputError ? 'Does not match.' : null
-                    }
-                    importantForAutofill="no"
-                    label={
-                      activeVerifyWordNumber == null
-                        ? 'Word'
-                        : `Word ${activeVerifyWordNumber}`
-                    }
-                    onChangeText={text => updateGuess(activeVerifyIndex, text)}
-                    onSubmitEditing={next}
-                    ref={verifyInputRef}
-                    returnKeyType={verifyActionCompletes ? 'done' : 'next'}
-                    spellCheck={false}
-                    testID="onboarding.seedWords.verifyInput"
-                    textContentType="none"
-                    value={activeWordGuess}
-                  />
+                        ) : null}
+                      </View>
+                    );
+                  })}
                 </View>
               ) : (
                 <View style={styles.wordsGrid}>
@@ -555,26 +514,49 @@ const createStyles = theme =>
   verifyFormSmallDevice: {
     marginTop: 0,
   },
-  verifyStepper: {
+  verifyGroupSpaced: {
+    marginTop: 24,
+  },
+  verifyGroupSpacedSmallDevice: {
+    marginTop: 16,
+  },
+  // Matches the AppTextInput label.
+  verifyLabel: {
+    marginBottom: 8,
+    color: theme.colors.textSecondary,
+    ...theme.typography.labelMd,
+  },
+  verifyOptions: {
+    gap: 8,
+  },
+  verifyOptionsSmallDevice: {
+    gap: 6,
+  },
+  verifyOptionRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  verifyStepperSmallDevice: {
-    gap: 6,
-  },
-  verifyStepChip: {
+  verifyOption: {
     flex: 1,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 8,
     backgroundColor: theme.colors.surfaceMuted,
   },
-  verifyStepChipActive: {
+  verifyOptionSmallDevice: {
+    height: 44,
+  },
+  // Blue, not the green selection: green would read as a correct answer
+  // before the check runs. Dark mode uses the secondary button colours.
+  verifyOptionSelected: {
     borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.isDark
+      ? theme.colors.primaryBackground
+      : theme.colors.surface,
     shadowColor: theme.colors.primary,
     shadowOffset: {
       width: 0,
@@ -582,57 +564,33 @@ const createStyles = theme =>
     },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 2,
+    // Android draws elevation through a see-through fill.
+    elevation: theme.isDark ? 0 : 2,
   },
-  verifyStepChipComplete: {
-    borderColor: theme.colors.borderStrong,
-    backgroundColor: theme.colors.surfaceRaised,
-  },
-  verifyStepChipError: {
+  verifyOptionError: {
     borderColor: theme.colors.danger,
     backgroundColor: theme.colors.surfaceRaised,
   },
-  verifyStepChipText: {
-    color: theme.colors.textSubtle,
-    fontSize: 15,
-    lineHeight: 20,
-    ...fontStyle('semiBold'),
+  verifyOptionLocked: {
+    opacity: 0.45,
   },
-  verifyStepChipTextActive: {
-    color: theme.colors.primary,
+  verifyOptionSpacer: {
+    flex: 1,
   },
-  verifyStepChipTextComplete: {
+  verifyOptionText: {
     color: theme.colors.textPrimary,
+    ...theme.typography.titleRow,
   },
-  verifyStepChipTextError: {
+  verifyOptionTextSelected: {
+    color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
+  },
+  verifyOptionTextError: {
     color: theme.colors.danger,
   },
-  verifyStepChipWord: {
-    maxWidth: '100%',
-    marginTop: 1,
-    paddingHorizontal: 6,
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    lineHeight: 16,
-    ...fontStyle('semiBold'),
-  },
-  verifyStepChipWordActive: {
-    color: theme.colors.primary,
-  },
-  verifyProgressText: {
-    marginTop: 14,
-    color: theme.colors.textSubtle,
-    fontSize: 13,
-    lineHeight: 18,
-    ...fontStyle('semiBold'),
-  },
-  verifyProgressTextSmallDevice: {
-    marginTop: 8,
-  },
-  verifyInput: {
-    marginTop: 12,
-  },
-  verifyInputSmallDevice: {
-    marginTop: 8,
+  // Matches the AppTextInput error text.
+  verifyError: {
+    marginTop: 7,
+    color: theme.colors.danger,
+    ...theme.typography.caption,
   },
 });
