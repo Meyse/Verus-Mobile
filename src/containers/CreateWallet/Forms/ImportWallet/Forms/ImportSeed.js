@@ -144,6 +144,7 @@ export default function ImportSeed({
   importedSeed,
   onComplete,
   onImportProgressChange,
+  onReviewModeChange,
 }) {
   const theme = useOnboardingTheme();
   const signedOutFlowStyles = useMemo(
@@ -272,6 +273,13 @@ export default function ImportSeed({
       onImportProgressChange(completedWordCount / SEED_WORD_COUNT);
     }
   }, [completedWordCount, onImportProgressChange]);
+
+  // The header title says whether the user enters or reviews the phrase.
+  useEffect(() => {
+    if (onReviewModeChange) {
+      onReviewModeChange(reviewMode);
+    }
+  }, [onReviewModeChange, reviewMode]);
 
   useEffect(() => {
     if (reviewMode) {
@@ -557,12 +565,9 @@ export default function ImportSeed({
 
     return 'onboarding.importSeed.paste';
   };
-  const getTitle = () => {
-    if (reviewMode) return 'Review Secret Recovery Phrase';
-    if (wordEntryActive) return `Word ${currentWordIndex + 1} of ${SEED_WORD_COUNT}`;
-
-    return 'Import Secret Recovery Phrase';
-  };
+  // The progress line shows while the user is not typing a word, on
+  // windows taller than 667 points.
+  const showEntryContext = !smallDevice && !wordEntryActive;
 
   const renderWordGrid = () => (
     <View
@@ -570,6 +575,7 @@ export default function ImportSeed({
         styles.wordGrid,
         compactEntryLayout && styles.wordGridCompact,
         reviewMode && styles.wordGridReview,
+        !reviewMode && !showEntryContext && styles.wordGridFirst,
       ]}>
       {words.map(renderWordSlot)}
     </View>
@@ -584,14 +590,6 @@ export default function ImportSeed({
           {reviewMode ? (
             <Animated.View style={[styles.reviewContent, pageAnimatedStyle]}>
               <View style={styles.reviewHeader}>
-                <Text
-                  style={[
-                    signedOutFlowStyles.title,
-                    smallDevice && signedOutFlowStyles.titleSmallDevice,
-                    styles.reviewTitle,
-                  ]}>
-                  {getTitle()}
-                </Text>
                 {reviewMessage ? (
                   <Text
                     style={[
@@ -604,7 +602,11 @@ export default function ImportSeed({
                   </Text>
                 ) : null}
               </View>
-              <View style={styles.reviewListContainer}>
+              <View
+                style={[
+                  styles.reviewListContainer,
+                  !reviewMessage && styles.reviewListContainerFirst,
+                ]}>
                 <ScrollView
                   bounces={false}
                   contentContainerStyle={styles.reviewListContent}
@@ -639,13 +641,7 @@ export default function ImportSeed({
               bounces={false}
               contentContainerStyle={[
                 signedOutFlowStyles.scrollContent,
-                smallDevice &&
-                  !reviewMode &&
-                  signedOutFlowStyles.scrollContentSmallDevice,
-                !smallDevice &&
-                  keyboardVisible &&
-                  !reviewMode &&
-                  styles.scrollContentKeyboardOpen,
+                signedOutFlowStyles.afterHeaderTitle,
               ]}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'on-drag'
@@ -654,20 +650,7 @@ export default function ImportSeed({
               showsVerticalScrollIndicator={false}>
               <Animated.View
                 style={[signedOutFlowStyles.form, pageAnimatedStyle]}>
-                <Text
-                  style={[
-                    signedOutFlowStyles.title,
-                    smallDevice &&
-                      !reviewMode &&
-                      signedOutFlowStyles.titleSmallDevice,
-                    !smallDevice &&
-                      keyboardVisible &&
-                      !reviewMode &&
-                      styles.titleCompact,
-                  ]}>
-                  {getTitle()}
-                </Text>
-                {(!smallDevice && !wordEntryActive) || reviewMode ? (
+                {showEntryContext ? (
                   <Text
                     style={[
                       styles.contextText,
@@ -703,7 +686,6 @@ export default function ImportSeed({
                         inputStyle={styles.wordInputText}
                         onChangeText={handleCurrentWordChange}
                         onSubmitEditing={() => commitWord(currentWord)}
-                        placeholder="Enter word"
                         ref={inputRef}
                         returnKeyType="next"
                         spellCheck={false}
@@ -778,18 +760,15 @@ const createStyles = theme =>
   },
   reviewContent: {
     flex: 1,
-    paddingTop: 54,
+    paddingTop: theme.spacing.stepTopWithHeaderTitle,
   },
   reviewHeader: {
     width: '100%',
     maxWidth: 360,
     alignSelf: 'center',
   },
-  reviewTitle: {
-    marginBottom: 0,
-  },
   reviewContextText: {
-    marginTop: 18,
+    marginTop: 0,
   },
   reviewListContainer: {
     flex: 1,
@@ -798,6 +777,9 @@ const createStyles = theme =>
     alignSelf: 'center',
     marginTop: 22,
     overflow: 'hidden',
+  },
+  reviewListContainerFirst: {
+    marginTop: 0,
   },
   reviewListContent: {
     paddingBottom: SCROLL_FADE_HEIGHT + 6,
@@ -814,16 +796,7 @@ const createStyles = theme =>
   scrollFadeBottom: {
     bottom: 0,
   },
-  scrollContentKeyboardOpen: {
-    paddingTop: 20,
-  },
-  titleCompact: {
-    marginBottom: 12,
-    fontSize: 23,
-    lineHeight: 29,
-  },
   contextText: {
-    marginTop: 2,
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 21,
@@ -846,6 +819,9 @@ const createStyles = theme =>
     marginTop: 10,
   },
   wordGridReview: {
+    marginTop: 0,
+  },
+  wordGridFirst: {
     marginTop: 0,
   },
   wordSlot: {

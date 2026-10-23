@@ -111,13 +111,18 @@ const ZSeedSetupFlow = ({cancel, seed, beginSeedSubmission, seedSubmissionIsCurr
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.screen}>
-      <CompactSetupHeader onBack={goBack} progress={progress} />
+      <CompactSetupHeader
+        onBack={goBack}
+        progress={progress}
+        title={stage === 'import' ? 'Import Z secret' : null}
+      />
       <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
         <ScrollView
           bounces={false}
           contentContainerStyle={[
             styles.scrollContent,
             smallDevice && styles.scrollContentSmall,
+            stage === 'import' && styles.scrollContentAfterHeaderTitle,
           ]}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled"
@@ -156,10 +161,6 @@ const ZSeedSetupFlow = ({cancel, seed, beginSeedSubmission, seedSubmissionIsCurr
 
             {stage === 'import' ? (
               <>
-                <Text
-                  style={[styles.title, smallDevice && styles.titleSmall]}>
-                  Import a Z recovery secret
-                </Text>
                 <Text style={styles.body}>
                   Import a valid BIP39 Secret Recovery Phrase (12, 15, 18, 21, or
                   24 words) or an extended Z spending key. New Secret Recovery
@@ -259,6 +260,9 @@ const createStyles = theme =>
     },
     scrollContentSmall: {
       paddingTop: theme.spacing.stepTopSmallDevice,
+    },
+    scrollContentAfterHeaderTitle: {
+      paddingTop: theme.spacing.stepTopWithHeaderTitle,
     },
     form: {
       width: '100%',

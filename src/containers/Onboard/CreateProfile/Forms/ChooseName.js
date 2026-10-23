@@ -11,7 +11,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {Text} from 'react-native-paper';
 import AppButton from '../../../../components/AppButton';
 import KeyboardAvoidingForm from '../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
@@ -190,12 +189,13 @@ export default function ChooseName({
         <TouchableWithoutFeedback
           onPress={() => Keyboard.dismiss()}
           accessible={false}>
-          <View style={signedOutFlowStyles.content}>
+          <View
+            style={[
+              signedOutFlowStyles.content,
+              signedOutFlowStyles.afterHeaderTitle,
+            ]}>
             <Animated.View
               style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-              <Text style={signedOutFlowStyles.title}>
-                {'Personalize your wallet'}
-              </Text>
               <View style={styles.walletNameRow}>
                 <TouchableOpacity
                   accessibilityLabel="Choose wallet icon and color"
@@ -215,7 +215,6 @@ export default function ChooseName({
                   errorText={nameError}
                   label="Wallet name"
                   value={profileName}
-                  placeholder="Enter wallet name"
                   onSubmitEditing={next}
                   onChangeText={updateProfileName}
                   testID="onboarding.name.input"
@@ -261,7 +260,7 @@ export default function ChooseName({
             bounces={false}
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
-              signedOutFlowStyles.scrollContentSmallDevice,
+              signedOutFlowStyles.afterHeaderTitle,
             ]}
             keyboardDismissMode={
               Platform.OS === 'ios' ? 'interactive' : 'on-drag'
@@ -270,13 +269,6 @@ export default function ChooseName({
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-              <Text
-                style={[
-                  signedOutFlowStyles.title,
-                  signedOutFlowStyles.titleSmallDevice,
-                ]}>
-                {'Personalize your wallet'}
-              </Text>
               <View style={styles.walletNameRow}>
                 <TouchableOpacity
                   accessibilityLabel="Choose wallet icon and color"
@@ -296,7 +288,6 @@ export default function ChooseName({
                   errorText={nameError}
                   label="Wallet name"
                   value={profileName}
-                  placeholder="Enter wallet name"
                   onSubmitEditing={next}
                   onChangeText={updateProfileName}
                   testID="onboarding.name.input"

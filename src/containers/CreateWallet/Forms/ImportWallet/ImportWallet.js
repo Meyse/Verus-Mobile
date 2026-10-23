@@ -7,6 +7,10 @@ import ImportText from './Forms/ImportText';
 import ShieldedAddressSetup from '../CreateSeed/Forms/ShieldedAddressSetup';
 import ScanSeed from '../../../../components/ScanSeed';
 import CompactSetupHeader from '../../../Onboard/components/CompactSetupHeader';
+import {
+  SETUP_STEP_TITLES,
+  getImportSeedTitle,
+} from '../../../Onboard/setupStepTitles';
 import {signedOutFlowStyles as styles} from '../../../../styles';
 import {
   IMPORT_METHODS,
@@ -51,6 +55,7 @@ export default function ImportWalletStackScreens({
   const hasInitialMethod = initialStep !== IMPORT_STEPS.INTRO;
   const [step, setStep] = useState(initialStep);
   const [seedEntryProgress, setSeedEntryProgress] = useState(0);
+  const [seedReviewing, setSeedReviewing] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(
     initialMethod === IMPORT_METHODS.QR,
   );
@@ -137,6 +142,7 @@ export default function ImportWalletStackScreens({
           setImportedSeed={setImportedSeed}
           onComplete={completeImportedSeed}
           onImportProgressChange={setSeedEntryProgress}
+          onReviewModeChange={setSeedReviewing}
         />
       );
     }
@@ -151,7 +157,6 @@ export default function ImportWalletStackScreens({
           optionLabel="Restore shielded address"
           progress={getProgress()}
           showHeader={false}
-          title="Restore shielded address"
         />
       );
     }
@@ -175,13 +180,26 @@ export default function ImportWalletStackScreens({
     return <ImportIntro label={label} onSelectMethod={selectMethod} />;
   })();
 
+  // Form steps name themselves in the header; the method list, NFC and the
+  // shielded address keep their own large title.
+  const headerTitle = (() => {
+    if (step === IMPORT_STEPS.SEED) return getImportSeedTitle(seedReviewing);
+    if (step === IMPORT_STEPS.TEXT) return SETUP_STEP_TITLES.IMPORT_TEXT;
+
+    return null;
+  })();
+
   if (scannerVisible) {
     return <ScanSeed cancel={closeScanner} onScan={handleScan} />;
   }
 
   return (
     <View style={styles.container}>
-      <CompactSetupHeader onBack={goBack} progress={getProgress()} />
+      <CompactSetupHeader
+        onBack={goBack}
+        progress={getProgress()}
+        title={headerTitle}
+      />
       {content}
     </View>
   );

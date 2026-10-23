@@ -77,12 +77,35 @@ const PasswordStrengthMeter = ({color, label, level, styles}) => (
   </View>
 );
 
+// The step's info button sits in the progress header, right of the title.
+export function PasswordInfoButton({onPress}) {
+  const theme = useOnboardingTheme();
+
+  return (
+    <TouchableOpacity
+      accessibilityLabel="About this password"
+      accessibilityRole="button"
+      accessibilityHint="Opens information about wallet password recovery"
+      activeOpacity={0.72}
+      hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
+      onPress={() => {
+        Keyboard.dismiss();
+        onPress();
+      }}
+      style={infoButtonStyles.button}>
+      <Info color={theme.colors.textSubtle} size={23} strokeWidth={2.2} />
+    </TouchableOpacity>
+  );
+}
+
 export default function CreatePassword({
   password,
   setPassword,
   confirmPassword,
   setConfirmPassword,
   onNext,
+  infoVisible = false,
+  onCloseInfo,
 }) {
   const theme = useOnboardingTheme();
   const signedOutFlowStyles = useMemo(
@@ -97,7 +120,6 @@ export default function CreatePassword({
   const [passwordScore, setPasswordScore] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordInfoVisible, setPasswordInfoVisible] = useState(false);
   const confirmPasswordRef = useRef(null);
   const formScrollRef = useRef(null);
   const contentProgress = useRef(new Animated.Value(0)).current;
@@ -198,10 +220,6 @@ export default function CreatePassword({
       confirmPasswordRef.current?.focus();
     }
   };
-  const openPasswordInfo = () => {
-    Keyboard.dismiss();
-    setPasswordInfoVisible(true);
-  };
   const contentAnimatedStyle = {
     opacity: contentProgress,
     transform: [
@@ -266,7 +284,10 @@ export default function CreatePassword({
             <ScrollView
               ref={formScrollRef}
               bounces={false}
-              contentContainerStyle={signedOutFlowStyles.scrollContent}
+              contentContainerStyle={[
+                signedOutFlowStyles.scrollContent,
+                signedOutFlowStyles.afterHeaderTitle,
+              ]}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'on-drag'
               }
@@ -278,25 +299,6 @@ export default function CreatePassword({
               showsVerticalScrollIndicator={false}>
               <Animated.View
                 style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-                <View style={styles.titleRow}>
-                  <Text style={[signedOutFlowStyles.title, styles.title]}>
-                    {'Create password'}
-                  </Text>
-                  <TouchableOpacity
-                    accessibilityLabel="About this password"
-                    accessibilityRole="button"
-                    accessibilityHint="Opens information about wallet password recovery"
-                    activeOpacity={0.72}
-                    hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
-                    onPress={openPasswordInfo}
-                    style={styles.helpButton}>
-                    <Info
-                      color={theme.colors.textSubtle}
-                      size={23}
-                      strokeWidth={2.2}
-                    />
-                  </TouchableOpacity>
-                </View>
                 <AppTextInput
                   {...passwordAutofillProps}
                   label="Password"
@@ -304,7 +306,6 @@ export default function CreatePassword({
                   enablesReturnKeyAutomatically
                   onChangeText={setPassword}
                   onSubmitEditing={focusConfirmPassword}
-                  placeholder="Enter password"
                   returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
                   rightAccessibilityLabel={
                     showPassword ? 'Hide password' : 'Show password'
@@ -331,7 +332,6 @@ export default function CreatePassword({
                       enablesReturnKeyAutomatically
                       onChangeText={setConfirmPassword}
                       onSubmitEditing={canContinue ? next : undefined}
-                      placeholder="Re-enter password"
                       returnKeyType="done"
                       rightAccessibilityLabel={
                         showConfirmPassword
@@ -368,8 +368,8 @@ export default function CreatePassword({
           </AppButton>
         </SafeBottomActionStack>
         <BottomSheetModal
-          visible={passwordInfoVisible}
-          onClose={() => setPasswordInfoVisible(false)}
+          visible={infoVisible}
+          onClose={onCloseInfo}
           maxHeight="58%">
           <View style={styles.infoSheetBody}>
             <Text
@@ -389,7 +389,7 @@ export default function CreatePassword({
             </Text>
             <AppButton
               height={52}
-              onPress={() => setPasswordInfoVisible(false)}
+              onPress={onCloseInfo}
               style={styles.infoSheetButton}
               variant="primary">
               {'I understand'}
@@ -410,7 +410,7 @@ export default function CreatePassword({
             bounces={false}
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
-              signedOutFlowStyles.scrollContentSmallDevice,
+              signedOutFlowStyles.afterHeaderTitle,
               smallDeviceKeyboardVisible &&
                 signedOutFlowStyles.scrollContentKeyboardFooterClearance,
             ]}
@@ -421,34 +421,6 @@ export default function CreatePassword({
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-              <View
-                style={[
-                  styles.titleRow,
-                  styles.titleRowSmallDevice,
-                ]}>
-                <Text
-                  style={[
-                    signedOutFlowStyles.title,
-                    signedOutFlowStyles.titleSmallDevice,
-                    styles.title,
-                  ]}>
-                  {'Create password'}
-                </Text>
-                <TouchableOpacity
-                  accessibilityLabel="About this password"
-                  accessibilityRole="button"
-                  accessibilityHint="Opens information about wallet password recovery"
-                  activeOpacity={0.72}
-                  hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
-                  onPress={openPasswordInfo}
-                  style={styles.helpButton}>
-                  <Info
-                    color={theme.colors.textSubtle}
-                    size={23}
-                    strokeWidth={2.2}
-                  />
-                </TouchableOpacity>
-              </View>
               <AppTextInput
                 {...passwordAutofillProps}
                 label="Password"
@@ -456,7 +428,6 @@ export default function CreatePassword({
                 enablesReturnKeyAutomatically
                 onChangeText={setPassword}
                 onSubmitEditing={focusConfirmPassword}
-                placeholder="Enter password"
                 returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
                 rightAccessibilityLabel={
                   showPassword ? 'Hide password' : 'Show password'
@@ -486,7 +457,6 @@ export default function CreatePassword({
                     enablesReturnKeyAutomatically
                     onChangeText={setConfirmPassword}
                     onSubmitEditing={canContinue ? next : undefined}
-                    placeholder="Re-enter password"
                     returnKeyType="done"
                     rightAccessibilityLabel={
                       showConfirmPassword
@@ -518,8 +488,8 @@ export default function CreatePassword({
         </SafeBottomActionStack>
       )}
       <BottomSheetModal
-        visible={passwordInfoVisible}
-        onClose={() => setPasswordInfoVisible(false)}
+        visible={infoVisible}
+        onClose={onCloseInfo}
         maxHeight="58%">
         <View style={styles.infoSheetBody}>
           <Text
@@ -536,7 +506,7 @@ export default function CreatePassword({
           </Text>
           <AppButton
             height={52}
-            onPress={() => setPasswordInfoVisible(false)}
+            onPress={onCloseInfo}
             style={styles.infoSheetButton}
             variant="primary">
             {'I understand'}
@@ -552,25 +522,6 @@ const createStyles = theme =>
     content: {
       flex: 1,
       paddingHorizontal: 32,
-    },
-    titleRow: {
-      marginBottom: 28,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    titleRowSmallDevice: {
-      marginBottom: 18,
-    },
-    title: {
-      flexShrink: 1,
-      marginBottom: 0,
-    },
-    helpButton: {
-      width: 40,
-      height: 40,
-      marginLeft: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     strengthContainer: {
       marginTop: 12,
@@ -609,3 +560,12 @@ const createStyles = theme =>
       marginTop: 22,
     },
   });
+
+const infoButtonStyles = StyleSheet.create({
+  button: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

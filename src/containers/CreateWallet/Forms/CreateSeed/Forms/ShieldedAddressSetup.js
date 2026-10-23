@@ -20,15 +20,14 @@ const CONTENT_ANIMATION_DURATION = 240;
 
 export default function ShieldedAddressSetup({
   actionLabel = 'Create wallet',
-  body =
-    'Create an address for private transactions and encryption capabilities. Recommended.',
+  body = 'Use it for private transactions and encryption capabilities. Recommended.',
   navigation,
   onBack,
   onComplete,
   optionLabel = 'Create shielded address',
   progress = 1,
   showHeader = true,
-  title = 'Create shielded address',
+  title = 'Shielded address',
 }) {
   const theme = useOnboardingTheme();
   const signedOutFlowStyles = useMemo(

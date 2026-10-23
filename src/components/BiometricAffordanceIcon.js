@@ -9,7 +9,6 @@ const BIOMETRY_PRESENTATIONS = {
     onboardingTitle: 'Use Touch ID',
     onboardingBody:
       'Unlock this wallet with Touch ID. You can change this later in settings.',
-    onboardingAction: 'Enable Touch ID',
     icon: FingerprintPattern,
   },
   FaceID: {
@@ -18,7 +17,6 @@ const BIOMETRY_PRESENTATIONS = {
     onboardingTitle: 'Use Face ID',
     onboardingBody:
       'Unlock this wallet with Face ID. You can change this later in settings.',
-    onboardingAction: 'Enable Face ID',
     icon: ScanFace,
   },
   Fingerprint: {
@@ -27,7 +25,6 @@ const BIOMETRY_PRESENTATIONS = {
     onboardingTitle: 'Use fingerprint unlock',
     onboardingBody:
       'Unlock this wallet with your fingerprint. You can change this later in settings.',
-    onboardingAction: 'Enable fingerprint unlock',
     icon: FingerprintPattern,
   },
   Face: {
@@ -36,7 +33,6 @@ const BIOMETRY_PRESENTATIONS = {
     onboardingTitle: 'Use face unlock',
     onboardingBody:
       'Unlock this wallet with facial recognition. You can change this later in settings.',
-    onboardingAction: 'Enable face unlock',
     icon: ScanFace,
   },
   Iris: {
@@ -45,7 +41,6 @@ const BIOMETRY_PRESENTATIONS = {
     onboardingTitle: 'Use biometrics',
     onboardingBody:
       'Unlock this wallet with iris recognition. You can change this later in settings.',
-    onboardingAction: 'Enable biometrics',
     icon: ScanFace,
   },
 };
@@ -56,7 +51,6 @@ const DEFAULT_PRESENTATION = {
   onboardingTitle: 'Use biometrics',
   onboardingBody:
     'Unlock this wallet with your device biometrics. You can change this later in settings.',
-  onboardingAction: 'Enable biometrics',
   icon: FingerprintPattern,
 };
 
