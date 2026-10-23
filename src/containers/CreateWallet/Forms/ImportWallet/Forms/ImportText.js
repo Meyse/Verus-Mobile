@@ -10,7 +10,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {Text} from 'react-native-paper';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
@@ -36,7 +35,7 @@ export default function ImportText({
   );
   const [showSeed, setShowSeed] = useState(false);
   const contentProgress = useRef(new Animated.Value(0)).current;
-  const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
+  const {keyboardVisible, smallDeviceKeyboardVisible} =
     useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
@@ -114,7 +113,7 @@ export default function ImportText({
           <ScrollView
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
-              smallDevice && signedOutFlowStyles.scrollContentSmallDevice,
+              signedOutFlowStyles.afterHeaderTitle,
               smallDeviceKeyboardVisible &&
                 signedOutFlowStyles.scrollContentKeyboardFooterClearance,
             ]}
@@ -125,13 +124,6 @@ export default function ImportText({
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-              <Text
-                style={[
-                  signedOutFlowStyles.title,
-                  smallDevice && signedOutFlowStyles.titleSmallDevice,
-                ]}>
-                {'Enter custom seed or private key'}
-              </Text>
               <AppTextInput
                 autoComplete="off"
                 importantForAutofill="no"

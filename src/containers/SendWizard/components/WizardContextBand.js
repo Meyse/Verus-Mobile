@@ -1,7 +1,7 @@
 import React from 'react';
 import {Platform, StyleSheet, Text, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import HeaderContextBand from '../../../components/HeaderContextBand';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
@@ -47,7 +47,6 @@ const Entity = ({coinId, iconId, label, showBadge = true, tone}) => {
 // first, then the chain name, then the asset names.
 const WizardContextBand = ({step}) => {
   const theme = useOnboardingTheme();
-  const insets = useSafeAreaInsets();
   const {mode, state} = useSendWizard();
   const summary = getWizardContextSummary({
     mode,
@@ -87,18 +86,9 @@ const WizardContextBand = ({step}) => {
   );
 
   return (
-    <View
-      accessible
+    <HeaderContextBand
       accessibilityLabel={summary.description}
-      accessibilityRole="text"
-      style={[
-        styles.band,
-        {
-          backgroundColor: theme.colors.surfaceMuted,
-          paddingLeft: insets.left + WIZARD_CONTENT_INSET,
-          paddingRight: insets.right + WIZARD_CONTENT_INSET,
-        },
-      ]}>
+      inset={WIZARD_CONTENT_INSET}>
       {recipientOnly ? (
         <View style={styles.route}>
           <Text
@@ -157,17 +147,11 @@ const WizardContextBand = ({step}) => {
           <Entity {...chain} showBadge={false} tone="quiet" />
         </View>
       ) : null}
-    </View>
+    </HeaderContextBand>
   );
 };
 
 const styles = StyleSheet.create({
-  band: {
-    minHeight: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   route: {
     flexDirection: 'row',
     alignItems: 'center',

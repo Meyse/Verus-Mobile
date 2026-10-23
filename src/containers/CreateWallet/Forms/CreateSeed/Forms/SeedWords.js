@@ -24,6 +24,7 @@ import {
   useOnboardingSmallDeviceLayout,
 } from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeader';
+import {getSeedWordsTitle} from '../../../../Onboard/setupStepTitles';
 
 export const WORDS_PER_STEP = 8;
 const VERIFY_WORD_COUNT = 3;
@@ -319,7 +320,11 @@ export default function SeedWords({
   return (
     <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       {showHeader ? (
-        <CompactSetupHeader onBack={back} progress={progress} />
+        <CompactSetupHeader
+          onBack={back}
+          progress={progress}
+          title={getSeedWordsTitle(isAtEnd)}
+        />
       ) : null}
       <TouchableWithoutFeedback
         accessible={false}
@@ -330,7 +335,7 @@ export default function SeedWords({
             bounces={false}
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
-              smallDevice && signedOutFlowStyles.scrollContentSmallDevice,
+              signedOutFlowStyles.afterHeaderTitle,
               smallDeviceKeyboardVisible &&
                 isAtEnd &&
                 signedOutFlowStyles.scrollContentKeyboardFooterClearance,
@@ -353,18 +358,11 @@ export default function SeedWords({
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, pageAnimatedStyle]}>
-              <Text
-                style={[
-                  signedOutFlowStyles.title,
-                  smallDevice && signedOutFlowStyles.titleSmallDevice,
-                ]}>
-                {isAtEnd ? 'Verify Secret Recovery Phrase' : 'Write down these words'}
-              </Text>
               {isAtEnd && smallDevice ? null : (
                 <Text style={styles.contextText}>
                   {isAtEnd
                     ? 'Enter the requested words to confirm your backup.'
-                    : `Words ${firstIndex + 1}-${
+                    : `Write down words ${firstIndex + 1}–${
                         firstIndex + displayWords.length
                       } of ${seedWords.length}`}
                 </Text>
@@ -453,11 +451,6 @@ export default function SeedWords({
                     }
                     onChangeText={text => updateGuess(activeVerifyIndex, text)}
                     onSubmitEditing={next}
-                    placeholder={
-                      activeVerifyWordNumber == null
-                        ? 'Enter word'
-                        : `Enter word ${activeVerifyWordNumber}`
-                    }
                     ref={verifyInputRef}
                     returnKeyType={verifyActionCompletes ? 'done' : 'next'}
                     spellCheck={false}
@@ -520,7 +513,6 @@ const createStyles = theme =>
     paddingHorizontal: 32,
   },
   contextText: {
-    marginTop: 10,
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 21,
@@ -559,8 +551,9 @@ const createStyles = theme =>
   verifyForm: {
     marginTop: 26,
   },
+  // Small windows hide the context line, so the chips come first.
   verifyFormSmallDevice: {
-    marginTop: 12,
+    marginTop: 0,
   },
   verifyStepper: {
     flexDirection: 'row',

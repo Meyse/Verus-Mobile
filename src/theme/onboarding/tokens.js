@@ -19,6 +19,8 @@ const shared = {
     bottomActionMin: 30,
     stepTop: 54,
     stepTopSmallDevice: 20,
+    // Steps whose title sits in the header start 24 points below it.
+    stepTopWithHeaderTitle: 24,
     stepTitleMargin: 28,
     stepTitleMarginSmallDevice: 12,
     keyboardFooterClearance: 96,

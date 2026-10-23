@@ -18,6 +18,7 @@ const ProgressHeader = ({
   showProgress = true,
   onBack,
   progress = 0.25,
+  rightAction,
   title,
 }) => {
   const insets = useSafeAreaInsets();
@@ -106,7 +107,7 @@ const ProgressHeader = ({
               ]}>
               {title}
             </Text>
-            <View style={styles.actionPlaceholder} />
+            <View style={styles.actionSlot}>{rightAction}</View>
           </>
         ) : null}
       </View>
@@ -150,6 +151,12 @@ const styles = StyleSheet.create({
   actionPlaceholder: {
     width: 40,
     height: 40,
+  },
+  actionSlot: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButtonOffset: {
     marginLeft: -8,

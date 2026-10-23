@@ -16,6 +16,7 @@ const requiredFiles = [
   'src/components/AppSearchLauncher.js',
   'src/components/CopyAction.js',
   'src/components/ProgressHeader.js',
+  'src/components/HeaderContextBand.js',
   'src/components/SafeBottomActionStack.js',
   'src/components/ServiceManagerHeader.js',
   'src/components/SkeletonLoader.js',
@@ -112,7 +113,11 @@ const requiredSourceFragments = [
   },
   {
     path: 'src/components/ProgressHeader.js',
-    fragments: ['paddingLeft: insets.left + 24', 'height: 5'],
+    fragments: ['paddingLeft: insets.left + 24', 'height: 5', 'rightAction'],
+  },
+  {
+    path: 'src/styles/components/signedOutFlow.styles.js',
+    fragments: ['afterHeaderTitle', 'stepTopWithHeaderTitle'],
   },
   {
     path: 'src/containers/Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund.js',
@@ -120,8 +125,8 @@ const requiredSourceFragments = [
       'paddingHorizontal: 20',
       'paddingTop: 24',
       'paddingBottom: 28',
-      'marginBottom: 22',
-      'fontSize: 28',
+      'title={getStepTitle(step)}',
+      '<HeaderContextBand',
     ],
   },
   {
