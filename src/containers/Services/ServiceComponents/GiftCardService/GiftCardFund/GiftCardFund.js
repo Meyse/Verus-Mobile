@@ -336,8 +336,8 @@ const getProgress = (step, createMode) => {
   return 1;
 };
 
-// The header names the step. Processing and the result keep their own
-// centered title.
+// The header names the step. Processing keeps its own centered title; the
+// result is TransactionResult.
 const getStepTitle = step => {
   if (step === STEP_DETAILS) return 'Create gift card';
   if (step === STEP_CONTENTS) return 'Build the gift';
