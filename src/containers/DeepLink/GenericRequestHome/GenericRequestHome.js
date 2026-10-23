@@ -5,7 +5,7 @@
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
-import { Portal, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import {CommonActions} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {
@@ -56,7 +56,7 @@ import UserDataRequestInfo from '../UserDataRequestInfo/UserDataRequestInfo';
 import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
 import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
 import useSheetDismissal from '../../../components/useSheetDismissal';
-import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
+import DeepLinkVerusIdDetailsSheet from '../components/RequestReview/DeepLinkVerusIdDetailsSheet';
 import { isDeeplinkHandlerInstalled } from '../../../utils/deeplink/isDeeplinkHandlerInstalled';
 import {
   getFriendlyNameMap,
@@ -371,8 +371,7 @@ const GenericRequestHome = props => {
 
   const [valuInstalled, setValuInstalled] = useState(false);
   const [openInAnotherAppVisible, setOpenInAnotherAppVisible] = useState(false);
-  const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] =
-    useState(null);
+  const [verusIdSheet, setVerusIdSheet] = useState(null);
   const [autoDeliveryRequested, setAutoDeliveryRequested] = useState(false);
   const [autoDeliveryState, setAutoDeliveryState] = useState({
     status: AUTO_DELIVERY_STATUS.IDLE,
@@ -727,17 +726,14 @@ const GenericRequestHome = props => {
     return identity.result;
   }, []);
 
+  // Opens the redesigned VerusID details sheet, as invoice and sign-in
+  // reviews do (a claim's outside revocation or recovery authority).
   const openVerusIdDetailsModal = useCallback((systemId, iAddress) => {
-    setVerusIdDetailsModalProps({
+    setVerusIdSheet({
       loadVerusId: () => getVerusId(systemId, iAddress),
-      visible: true,
-      animationType: 'slide',
-      cancel: () => setVerusIdDetailsModalProps(null),
-      loadFriendlyNames: async () => {
+      loadFriendlyNames: async identityObj => {
         try {
-          const identityObj = await getVerusId(systemId, iAddress);
-
-          return getFriendlyNameMap(systemId, identityObj);
+          return await getFriendlyNameMap(systemId, identityObj);
         } catch (e) {
           return {
             ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
@@ -745,8 +741,6 @@ const GenericRequestHome = props => {
           };
         }
       },
-      iAddress,
-      chain: systemId,
     });
   }, [getVerusId]);
 
@@ -1023,11 +1017,13 @@ const GenericRequestHome = props => {
         onRetry={runAutoDelivery}
         status={autoDeliveryState.status}
       />
-      <Portal>
-        {verusIdDetailsModalProps != null && (
-          <VerusIdDetailsModal {...verusIdDetailsModalProps} />
-        )}
-      </Portal>
+      {verusIdSheet != null && (
+        <DeepLinkVerusIdDetailsSheet
+          {...verusIdSheet}
+          visible
+          onClose={() => setVerusIdSheet(null)}
+        />
+      )}
       <OpenInAnotherAppSheet
         onClose={() => setOpenInAnotherAppVisible(false)}
         onOpenInValu={openInValu}

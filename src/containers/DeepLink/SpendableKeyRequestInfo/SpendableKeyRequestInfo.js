@@ -11,7 +11,6 @@ import {Checkbox, Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
@@ -72,6 +71,7 @@ import {
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
+import {SecureLoadingView} from '../../SecureLoading/SecureLoading';
 import {
   DeepLinkReviewScrollView,
   RequestTitle,
@@ -652,7 +652,7 @@ const SpendableKeyRequestInfoContent = props => {
   const [claimError, setClaimError] = useState(null);
   const [requestError, setRequestError] = useState(null);
   const [finishing, setFinishing] = useState(false);
-  const [claimLoadingText, setClaimLoadingText] = useState(null);
+  const [claimSlow, setClaimSlow] = useState(false);
   const [pendingRequestId, setPendingRequestId] = useState(
     pendingDeeplinkId ||
       deeplinkPassthrough?.pendingDeeplinkId ||
@@ -1227,7 +1227,6 @@ const SpendableKeyRequestInfoContent = props => {
     }
 
     setStatus('claiming');
-    setClaimLoadingText('Submitting signed spendable-key transactions...');
     setClaimResult(null);
     setClaimError(null);
     setRequestError(null);
@@ -1404,34 +1403,16 @@ const SpendableKeyRequestInfoContent = props => {
     }
   }, [claimPlanNeedsAccountRefresh, scanClaims, status]);
 
-  const renderLoading = (label, description, onCancel) => (
-    <SafeAreaView
-      edges={['top', 'left', 'right']}
-      style={styles.container}>
-      <View style={styles.centerContent}>
-        <AnimatedActivityIndicator />
-        <Text style={styles.loadingText}>{label}</Text>
-        <Text style={styles.loadingDescription}>{description}</Text>
-      </View>
-      {onCancel && (
-        <SafeBottomActionStack
-          horizontalSpacing={24}
-          style={styles.footer}>
-          <AppButton height={56} onPress={onCancel} variant="secondary">
-            Cancel
-          </AppButton>
-        </SafeBottomActionStack>
-      )}
-    </SafeAreaView>
-  );
+  // A long broadcast says so after 15 seconds, as the secure task screen does.
+  useEffect(() => {
+    if (status !== 'claiming') {
+      setClaimSlow(false);
+      return undefined;
+    }
 
-  if (status === 'scanning' && requiresPassword) {
-    return renderLoading(
-      'Checking claim contents',
-      'Finding funds and VerusIDs linked to this key.',
-      cancel,
-    );
-  }
+    const timer = setTimeout(() => setClaimSlow(true), 15000);
+    return () => clearTimeout(timer);
+  }, [status]);
 
   if (status === 'scanning') {
     return (
@@ -1443,9 +1424,12 @@ const SpendableKeyRequestInfoContent = props => {
   }
 
   if (status === 'claiming') {
-    return renderLoading(
-      claimLoadingText || 'Submitting claim transactions',
-      'Keep Verus Mobile open while each transaction is prepared and broadcast.',
+    return (
+      <SecureLoadingView
+        message="Claiming funds"
+        slow={claimSlow}
+        status="loading"
+      />
     );
   }
 

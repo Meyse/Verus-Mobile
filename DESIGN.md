@@ -729,7 +729,8 @@ failed request keeps the gray card.
 ## Secure task screen
 
 `SecureLoading.js` covers tasks that must not be interrupted: Lock wallet, Clear
-cache, keychain encryption, Delete wallet, and Reset password. The owner chose
+cache, keychain encryption, Delete wallet, and Reset password. The card claim
+uses its `SecureLoadingView` while it broadcasts ("Claiming funds"). The owner chose
 variation A on 2026-10-22.
 
 - It follows the request loading screen (`GenericRequestLoading.js`): theme
