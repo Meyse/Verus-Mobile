@@ -62,6 +62,11 @@ import {
 import {captureAssetContext} from '../../utils/assets/assetManagementService';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {
+  formatArrivesAtLaunch,
+  getLaunchFacts,
+} from '../../utils/preconversion/launchFacts';
+import {useChainHeight} from '../../utils/preconversion/usePrelaunch';
+import {
   I_ADDRESS_VERSION,
   MID_VERIFICATION,
   NO_VERIFICATION,
@@ -151,6 +156,19 @@ const SendWizardConfirm = () => {
   const simpleSend = Boolean(
     target && !target.isConversion && !route?.isCrossChain && !invoice,
   );
+  // A pre-conversion has no price until the launch. Confirm shows the launch
+  // facts instead: when it arrives, the minimum, and that it cannot be undone.
+  const preconvert = Boolean(target?.isConversion && route?.preconvert);
+  const launchSystemId = preconvert
+    ? channel?.split('.')[2] || sourceCoin?.system_id
+    : null;
+  const launchHeight = useChainHeight(launchSystemId);
+  const launchFacts = preconvert
+    ? getLaunchFacts(route.launchDefinition, {
+        height: launchHeight,
+        secondsPerBlock: sourceCoin?.seconds_per_block,
+      })
+    : null;
   const privateSource = isPrivateChannel(channel);
   // A memo travels inside a private output only. A scanned request's note
   // becomes the memo when it can travel there.
@@ -308,6 +326,7 @@ const SendWizardConfirm = () => {
         const preflightEstimate = preflight?.estimate;
         if (
           target.isConversion &&
+          !route.preconvert &&
           preflightEstimate == null &&
           estimate?.estimatedcurrencyout == null
         ) {
@@ -316,6 +335,7 @@ const SendWizardConfirm = () => {
 
         if (
           target.isConversion &&
+          !route.preconvert &&
           estimate?.estimatedcurrencyout &&
           preflightEstimate?.estimatedcurrencyout
         ) {
@@ -559,7 +579,8 @@ const SendWizardConfirm = () => {
       : feeKind === 'btc' && !networkFee.fee ? 'Fee rates unavailable' : 'Fee unavailable',
     caption: hasNetworkFee ? [feeSpeed, feeMoney ? `≈ ${feeMoney}` : null].filter(Boolean).join(' · ') : null,
   } : null;
-  const estimatedTime = feeKind && hasNetworkFee ? arrivalForFee(feeKind, networkFee.choice, networkFee.quote)
+  const estimatedTime = preconvert ? formatArrivesAtLaunch(launchFacts)
+    : feeKind && hasNetworkFee ? arrivalForFee(feeKind, networkFee.choice, networkFee.quote)
     : feeKind ? '—' : route?.isCrossChain
     ? '1-3 hours'
     : target?.isConversion
@@ -587,6 +608,20 @@ const SendWizardConfirm = () => {
   const amountAdjustment = !invoice && submittedAmount.isGreaterThan(displayAmount)
     ? `Reduced from ${truncateDecimal(submittedAmount, 8)} ${sourceCoin?.display_ticker || ''} to cover transaction fees.`
     : null;
+  // The launch's minimum, in every currency that has one. Amounts above a
+  // maximum come back after the launch; the wallet does not know how much is
+  // pre-converted so far, so it does not warn about that.
+  const launchRows = preconvert && launchFacts?.minimums.length
+    ? [{
+        label: 'Needed to launch',
+        value: launchFacts.minimums
+          .map(item => `${BigNumber(item.amount).toFormat()} ${
+            getCurrencyDisplay(item.currencyId, launchFacts.names[item.currencyId]).ticker
+          }`)
+          .join('\n'),
+      }]
+    : [];
+  const refundCaption = preconvert ? 'Refunds also go here.' : null;
 
   if (preflighting && (!feeKind || !reviewResult)) {
     const preparingReceive = Boolean(
@@ -597,10 +632,14 @@ const SendWizardConfirm = () => {
       <WizardScreen scroll={false}>
         <ConfirmPreparing
           amount={displayAmount}
+          arrives={preconvert ? estimatedTime : null}
+          atLaunch={preconvert}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           isConversion={preparingReceive}
           networkFee={Boolean(feeKind)}
           recipient={recipientAddress}
+          recipientCaption={refundCaption}
+          routeRows={launchRows}
           showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
           sourceCoin={sourceCoin}
           target={target}
@@ -637,7 +676,9 @@ const SendWizardConfirm = () => {
     );
   }
 
-  const showReceive = Boolean(target?.isConversion && estimatedReceive != null);
+  const showReceive = Boolean(
+    target?.isConversion && !preconvert && estimatedReceive != null,
+  );
   // An invoice fixes what the recipient gets, so its impact is what the user
   // pays on top of the market price.
   const payImpact = Boolean(invoice);
@@ -668,7 +709,15 @@ const SendWizardConfirm = () => {
     simpleSend && privateSource && recipientAddress && !isPrivateRecipient(recipientAddress)
       ? 'This address is transparent. The amount and the recipient will be public on the blockchain.'
       : null;
-  const notices = [state.scanRequest?.notice, publicNotice, ...warnings].filter(Boolean);
+  const launchNotice = preconvert
+    ? `This can’t be cancelled. If ${target.ticker} does not launch, the ${sourceCoin?.display_ticker || ''} comes back minus fees.`
+    : null;
+  const notices = [
+    state.scanRequest?.notice,
+    publicNotice,
+    launchNotice,
+    ...warnings,
+  ].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
     !state.broadcastError && !state.txResult);
 
@@ -682,9 +731,20 @@ const SendWizardConfirm = () => {
           amount={truncateDecimal(displayAmount, 8)}
           coinId={sourceCoin?.id}
           fiat={formatFiat(displayAmount, sourceCoin?.id)}
-          label={showReceive ? 'You pay' : 'You send'}
+          label={showReceive || preconvert ? 'You pay' : 'You send'}
           ticker={sourceCoin?.display_ticker || ''}
         />
+        {preconvert ? (
+          <>
+            <TransferConnector>Price set at launch</TransferConnector>
+            <TransferNode
+              amount={null}
+              coinId={target.coinId || target.id}
+              label="You receive"
+              ticker={target.ticker}
+            />
+          </>
+        ) : null}
         {showReceive ? (
           <>
             {connectorLines.length ? (
@@ -727,6 +787,8 @@ const SendWizardConfirm = () => {
           memo={memo || null}
           note={sendsMemo ? null : state.scanRequest?.note}
           recipient={recipientAddress}
+          recipientCaption={refundCaption}
+          routeRows={launchRows}
           leadingRows={
             invoice
               ? [

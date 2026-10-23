@@ -10,6 +10,11 @@ import {fontStyle} from '../../globals/fonts';
 import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
+import {
+  formatArrivesAtLaunch,
+  getLaunchFacts,
+} from '../../utils/preconversion/launchFacts';
+import {useChainHeight} from '../../utils/preconversion/usePrelaunch';
 import {useSendWizard} from './SendWizardContext';
 import {useInvoiceFlow} from './invoiceFlow';
 import {
@@ -49,6 +54,19 @@ const SendWizardSuccess = () => {
     estimate?.estimatedcurrencyout;
   const isConversion = Boolean(target?.isConversion);
   const isBridge = Boolean(route?.isCrossChain);
+  // A pre-conversion arrives at the launch, at the launch price. Its arrival is
+  // the one fact that is new here, so Sent keeps it (owner, 2026-10-23).
+  const preconvert = Boolean(isConversion && route?.preconvert);
+  const launchSystemId = preconvert
+    ? state.channel?.split('.')[2] || sourceCoin?.system_id
+    : null;
+  const launchHeight = useChainHeight(launchSystemId);
+  const launchFacts = preconvert
+    ? getLaunchFacts(route.launchDefinition, {
+        height: launchHeight,
+        secondsPerBlock: sourceCoin?.seconds_per_block,
+      })
+    : null;
   const displayAmount =
     !isConversion && !isBridge && preflightResult?.value != null
       ? BigNumber(preflightResult.value)
@@ -57,12 +75,16 @@ const SendWizardSuccess = () => {
       : BigNumber(amount || 0);
   const title = invoiceFlow
     ? 'Payment sent'
+    : preconvert
+    ? 'Pre-conversion sent'
     : isConversion
     ? 'Conversion sent'
     : isBridge
     ? 'Bridge transaction sent'
     : 'Transaction sent';
-  const showReceive = Boolean(isConversion && estimatedReceive != null);
+  const showReceive = Boolean(
+    isConversion && !preconvert && estimatedReceive != null,
+  );
 
   const finish = useCallback(() => {
     // An invoice hands back to its request, or closes the invoice.
@@ -116,9 +138,20 @@ const SendWizardSuccess = () => {
             amount={truncateDecimal(displayAmount, 8)}
             coinId={sourceCoin?.id}
             fiat={formatFiat(displayAmount, sourceCoin?.id)}
-            label={showReceive || invoiceFlow ? 'You paid' : 'You sent'}
+            label={showReceive || invoiceFlow || preconvert ? 'You paid' : 'You sent'}
             ticker={sourceCoin?.display_ticker || ''}
           />
+          {preconvert ? (
+            <>
+              <TransferConnector>Price set at launch</TransferConnector>
+              <TransferNode
+                amount={null}
+                coinId={target.coinId || target.id}
+                label="You receive"
+                ticker={target.ticker}
+              />
+            </>
+          ) : null}
           {showReceive ? (
             <>
               {route?.via ? (
@@ -150,6 +183,9 @@ const SendWizardSuccess = () => {
               value={getDestinationNetwork(route)}
             />
           ) : null}
+          {preconvert ? (
+            <FlatRow label="Arrives" value={formatArrivesAtLaunch(launchFacts)} />
+          ) : null}
           {txid ? (
             <View style={[styles.txRow, {borderBottomColor: theme.colors.border}]}>
               <View style={styles.txCopy}>
@@ -169,13 +205,15 @@ const SendWizardSuccess = () => {
             </View>
           ) : null}
         </View>
-        <Text style={[theme.typography.caption, styles.infoNote, {color: theme.colors.textSubtle}]}>
-          {isConversion
-            ? 'The final amount can change slightly until it confirms.'
-            : isBridge
-            ? 'Cross-chain transfers need confirmations on both networks.'
-            : 'You can follow the transaction from this Asset’s activity.'}
-        </Text>
+        {preconvert ? null : (
+          <Text style={[theme.typography.caption, styles.infoNote, {color: theme.colors.textSubtle}]}>
+            {isConversion
+              ? 'The final amount can change slightly until it confirms.'
+              : isBridge
+              ? 'Cross-chain transfers need confirmations on both networks.'
+              : 'You can follow the transaction from this Asset’s activity.'}
+          </Text>
+        )}
       </FadedScrollView>
       <WizardFooter
         bottomSpacing={smallDevice ? 24 : 40}

@@ -628,7 +628,9 @@ const KineticRailCard = ({
   );
 };
 
-const SignedInAssetHeader = () => {
+// `showCards={false}` draws only the asset line, for a currency before its
+// launch: it has no balance on any card yet.
+const SignedInAssetHeader = ({showCards = true}) => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const {width: screenWidth} = useWindowDimensions();
@@ -1281,17 +1283,19 @@ const SignedInAssetHeader = () => {
         </View>
       </View>
 
-      <PanGestureHandler
-        activeOffsetX={[-8, 8]}
-        enabled={itemCount > 1}
-        failOffsetY={[-16, 16]}
-        onGestureEvent={gestureHandler}>
-        <Animated.View style={styles.carouselContent}>
-          {walletItems.map(renderWalletCard)}
-        </Animated.View>
-      </PanGestureHandler>
+      {showCards ? (
+        <PanGestureHandler
+          activeOffsetX={[-8, 8]}
+          enabled={itemCount > 1}
+          failOffsetY={[-16, 16]}
+          onGestureEvent={gestureHandler}>
+          <Animated.View style={styles.carouselContent}>
+            {walletItems.map(renderWalletCard)}
+          </Animated.View>
+        </PanGestureHandler>
+      ) : null}
 
-      {itemCount > 0 ? (
+      {showCards && itemCount > 0 ? (
         <View
           accessible
           accessibilityActions={[

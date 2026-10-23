@@ -9,7 +9,10 @@ import {formatEstimatedAmount, getImpactBadgeLabel} from './impactFormat';
 
 // Only the receive amount and a doorway to its details stay above Continue.
 // The label group can wrap its chip while the amount stays on one line.
+// A pre-conversion (`atLaunch`) has no amount yet: everyone gets the price
+// that the launch sets.
 const AmountEstimate = ({
+  atLaunch = false,
   estimateLoading,
   estimatedOutput,
   onOpenDetails,
@@ -25,7 +28,29 @@ const AmountEstimate = ({
 
   return (
     <View style={[styles.estimate, {borderTopColor: colors.border}]}>
-      {estimateLoading ? (
+      {atLaunch ? (
+        <View style={styles.receiveRow}>
+          <View style={styles.receiveLabel}>
+            <View style={styles.receiveLogo}>
+              <AssetCoinLogo coinId={target.coinId || target.id} size={24} />
+            </View>
+            <Text
+              numberOfLines={1}
+              style={[
+                theme.typography.bodySm,
+                styles.receiveText,
+                {color: colors.textSecondary},
+              ]}>
+              You receive
+            </Text>
+          </View>
+          <Text
+            numberOfLines={1}
+            style={[theme.typography.titleRow, {color: colors.textPrimary}]}>
+            Price set at launch
+          </Text>
+        </View>
+      ) : estimateLoading ? (
         <SkeletonLoader
           accessibilityLabel="Estimating conversion"
           style={styles.skeleton}>

@@ -65,8 +65,9 @@ export const usePriceImpact = ({
   const rateRef = useRef(rate);
   rateRef.current = rate;
 
+  // A pre-conversion has no market price: everyone gets the launch price.
   const routeKey =
-    target?.isConversion && route && sourceCoin
+    target?.isConversion && route && !route.preconvert && sourceCoin
       ? [channel, sourceCoin.id, target.transactionCurrency, route.key].join('|')
       : null;
 

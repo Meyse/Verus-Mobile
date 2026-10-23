@@ -12,6 +12,8 @@ const LOGO_SIZE = 40;
 // once, in full. A long amount shrinks; a long label ("RSRG…LLck receives")
 // wraps to a second line instead of running into the amount. `loading` holds
 // the amount's place with a skeleton while the wallet still works it out.
+// Without an amount (a pre-conversion before its launch), the ticker takes the
+// amount's place.
 export const TransferNode = ({
   amount,
   coinId,
@@ -38,6 +40,12 @@ export const TransferNode = ({
           <SkeletonLoader style={styles.valueSkeleton}>
             <SkeletonBlock height={22} radius={6} width={112} />
           </SkeletonLoader>
+        ) : amount == null ? (
+          <Text
+            numberOfLines={1}
+            style={[styles.amount, {color: colors.textPrimary}]}>
+            {ticker}
+          </Text>
         ) : (
           <>
             <View style={styles.amountRow}>

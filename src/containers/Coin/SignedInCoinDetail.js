@@ -8,11 +8,13 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch, useSelector} from 'react-redux';
 import {Layers} from 'lucide-react-native';
 import BigNumber from 'bignumber.js';
 import {CONVERSION_DISABLED} from '../../../env/index';
 import {setCoinSubWallet} from '../../actions/actionCreators';
+import AppButton from '../../components/AppButton';
 import MissingInfoRedirect from '../../components/MissingInfoRedirect/MissingInfoRedirect';
 import SignedInActionBar, {
   SignedInEdgeFade,
@@ -30,6 +32,7 @@ import {
   API_SEND,
 } from '../../utils/constants/intervalConstants';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
+import {usePrelaunchAsset} from '../../utils/preconversion/usePrelaunch';
 import {subWalletActivity} from '../../utils/subwallet/subWalletStatus';
 import {
   getPrivateSyncPercent,
@@ -43,6 +46,7 @@ import {
 } from '../SendWizard/wizardUtils';
 import CoinCardPickerSheet from './CoinCardPickerSheet';
 import Overview from './Overview/Overview';
+import PrelaunchAssetPanel from './PrelaunchAssetPanel';
 import SignedInAssetHeader from './SignedInAssetHeader';
 
 const SignedInCoinDetail = ({navigation, route}) => {
@@ -68,6 +72,16 @@ const SignedInCoinDetail = ({navigation, route}) => {
         ),
   );
   const services = useSelector(state => state.services);
+  const showBalance = useSelector(state => state.coins.showBalance);
+  const insets = useSafeAreaInsets();
+  // Before its launch a currency has no balance and no price. Its screen shows
+  // the launch and this wallet's pre-conversions instead of cards and history.
+  const {prelaunch} = usePrelaunchAsset(activeCoin, allSubWallets);
+  const activeCoins = useObjectSelector(state => state.coins.activeCoinsForUser);
+  const ledgerBalances = useObjectSelector(state =>
+    extractLedgerData(state, 'balances', API_GET_BALANCES),
+  );
+  const cardsByCoin = useObjectSelector(state => state.coinMenus.allSubWallets);
   // The private card cannot send until its sync finishes; the card shows it.
   const privateSyncing = useSelector(
     state =>
@@ -104,6 +118,34 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const receiveParams = {
     coinId: activeCoin.id,
     subWalletId: selectedSubWallet?.id,
+  };
+
+  // "Pre-convert" pays with a currency the launch accepts and this wallet
+  // holds: the chain's own coin first. Without one, Select asset opens.
+  const openPreconvert = () => {
+    const accepted = new Set(
+      (prelaunch?.facts?.reserves || []).map(reserve => reserve.currencyId),
+    );
+    const funded = coin =>
+      (cardsByCoin?.[coin.id] || []).some(card =>
+        BigNumber(
+          getSpendableBalance(ledgerBalances?.[coin.id]?.[card.id], card),
+        ).isGreaterThan(0),
+      );
+    const candidates = (activeCoins || []).filter(
+      coin =>
+        coin.system_id === activeCoin.system_id &&
+        accepted.has(coin.currency_id) &&
+        funded(coin),
+    );
+    const fundingCoin =
+      candidates.find(coin => coin.currency_id === coin.system_id) || candidates[0];
+
+    mainNavigation.navigate('SendWizard', {
+      mode: SEND_WIZARD_MODE.CONVERT,
+      presetTargetId: activeCoin.currency_id,
+      ...(fundingCoin ? {initialCoinId: fundingCoin.id} : {}),
+    });
   };
 
   const openCardPicker = useCallback(() => {
@@ -183,8 +225,9 @@ const SignedInCoinDetail = ({navigation, route}) => {
           </TouchableOpacity>
         </View>
       ),
+      // Before its launch an asset has no card to choose.
       headerRight:
-        allSubWallets.length > 1
+        allSubWallets.length > 1 && !prelaunch
           ? () => (
               <View style={styles.headerRight}>
                 <TouchableOpacity
@@ -225,6 +268,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
     allSubWallets.length,
     navigation,
     openCardPicker,
+    prelaunch,
     theme.colors,
   ]);
 
@@ -250,6 +294,38 @@ const SignedInCoinDetail = ({navigation, route}) => {
       />
     ) : (
       <MissingInfoRedirect icon={placeholder.icon} label={placeholder.label} />
+    );
+  }
+
+  if (prelaunch) {
+    const preconverted = (prelaunch.preconversions || []).length > 0;
+
+    return (
+      <View style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+        <SignedInAssetHeader showCards={false} />
+        <View style={styles.transactions}>
+          <PrelaunchAssetPanel
+            coin={activeCoin}
+            prelaunch={prelaunch}
+            showBalance={showBalance}
+          />
+        </View>
+        <View
+          style={[
+            styles.prelaunchBar,
+            {
+              backgroundColor: theme.colors.background,
+              paddingBottom: Math.max(insets.bottom, 20),
+            },
+          ]}>
+          <AppButton
+            disabled={CONVERSION_DISABLED}
+            onPress={openPreconvert}
+            variant={preconverted ? 'secondary' : 'primary'}>
+            {preconverted ? 'Pre-convert more' : 'Pre-convert'}
+          </AppButton>
+        </View>
+      </View>
     );
   }
 
@@ -314,6 +390,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
 const styles = StyleSheet.create({
   screen: {flex: 1},
   transactions: {flex: 1},
+  prelaunchBar: {paddingHorizontal: 16, paddingTop: 10},
   topFade: {
     position: 'absolute',
     top: 0,
