@@ -3,7 +3,6 @@ import {coinsList} from '../../utils/CoinData/CoinsList';
 import {uniqueAssets} from '../../utils/assets/assetIdentity';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {START_COINS} from '../../utils/constants/constants';
-import {WYRE_SERVICE} from '../../utils/constants/intervalConstants';
 
 const sortCoins = (coins, priorityIds = []) => {
   const priority = new Map(priorityIds.map((id, index) => [id, index]));
@@ -28,13 +27,9 @@ const getStarterIds = (testAccount, testnetOverrides) =>
     testAccount ? testnetOverrides?.[coinId] : coinId,
   ).filter(Boolean);
 
-const getCatalogueIds = ({activeAccount, testAccount}) => {
-  if (testAccount) return CoinDirectory.testCoinList;
-
-  return activeAccount?.disabledServices?.[WYRE_SERVICE]
-    ? CoinDirectory.enabledNameList
-    : CoinDirectory.supportedCoinList;
-};
+// Wyre stopped operating, so its fiat and stablecoin assets are never offered.
+const getCatalogueIds = ({testAccount}) =>
+  testAccount ? CoinDirectory.testCoinList : CoinDirectory.enabledNameList;
 
 const getCatalogueCoin = coinId => {
   try {
