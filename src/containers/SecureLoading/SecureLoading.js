@@ -38,7 +38,8 @@ const DEFAULT_MESSAGE = "Loading"
 const KEEP_OPEN_MESSAGE = "Keep the app open."
 const SLOW_MESSAGE = "This is taking longer than usual. Keep the app open."
 
-const SecureLoadingView = ({ errorMsg, message, slow, status }) => {
+// Also used by the card claim while its transactions are broadcast.
+export const SecureLoadingView = ({ errorMsg, message, slow, status }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const failed = status === "error" && Boolean(errorMsg);

@@ -25,7 +25,7 @@ jest.mock('../../../components/NeutralCheckMark', () => 'NeutralCheckMark');
 jest.mock('../../../theme/onboarding', () => ({useOnboardingTheme: () => ({typography: {}, colors: {}})}));
 jest.mock('../../../components/SelectionSheet', () => ({__esModule: true, default: 'SelectionSheet', SelectionRow: 'SelectionRow'}));
 jest.mock('../../../components/useSheetDismissal', () => () => ({close: jest.fn(), dismiss: jest.fn(), onClosed: jest.fn()}));
-jest.mock('../../../components/VerusIdDetailsModal/VerusIdDetailsModal', () => 'IdentityModal');
+jest.mock('../../../containers/DeepLink/components/RequestReview/DeepLinkVerusIdDetailsSheet', () => 'VerusIdDetailsSheet');
 jest.mock('../../../containers/DeepLink/GenericRequestLoading', () => ({
   __esModule: true,
   default: 'GenericRequestLoading',
