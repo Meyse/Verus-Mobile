@@ -34,6 +34,9 @@ const initialWizardState = {
   sourceIdentity: null,
   // The card a payment comes from, when the asset is on more than one.
   payFromLabel: null,
+  // A currency to convert to, chosen before the wizard opened ("Pre-convert"
+  // on a pre-launch asset). Convert to selects it once its routes load.
+  presetTargetId: null,
   preflightResult: null,
   txResult: null,
   broadcastError: null,
@@ -84,6 +87,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       ...getScanRequestFields(current.scanRequest),
       invoice: current.invoice,
       sourceIdentity: current.sourceIdentity,
+      presetTargetId: current.presetTargetId,
       ...source,
       target,
       route,

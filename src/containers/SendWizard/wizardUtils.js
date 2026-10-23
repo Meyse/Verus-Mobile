@@ -286,6 +286,31 @@ const getRouteNetwork = (sourceCoin, sourceNetworkId, route) => {
   };
 };
 
+// The parts of a pre-launch currency's definition that its launch facts need.
+const LAUNCH_DEFINITION_KEYS = [
+  'currencyid',
+  'fullyqualifiedname',
+  'name',
+  'startblock',
+  'currencies',
+  'currencynames',
+  'weights',
+  'minpreconversion',
+  'maxpreconversion',
+  'initialsupply',
+  'systemid',
+  'launchsystemid',
+];
+const getLaunchDefinition = definition =>
+  definition && typeof definition === 'object'
+    ? Object.fromEntries(
+        LAUNCH_DEFINITION_KEYS.filter(key => definition[key] != null).map(key => [
+          key,
+          definition[key],
+        ]),
+      )
+    : null;
+
 const buildRoute = (sourceCoin, sourceNetworkId, path) => {
   const exportTo = getDefinitionId(path?.exportto);
   const exportToFqn = getDefinitionName(path?.exportto);
@@ -319,6 +344,8 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
     mapTo,
     price: path?.price == null ? null : path.price,
     preconvert,
+    // A pre-conversion has no price yet. Its facts come from the definition.
+    launchDefinition: preconvert ? getLaunchDefinition(path.destination) : null,
     bridgePrelaunch: Boolean(path?.bridgeprelaunch),
     isCrossChain: Boolean(exportTo),
     addressType: getAddressType(sourceCoin, path),
@@ -526,9 +553,26 @@ export const buildTargetOptions = (
     [...optionMap.values()],
     sourceCoin,
     sourceNetworkId,
-  ).sort((first, second) => first.name.localeCompare(second.name));
+  )
+    .map(option => ({...option, isPrelaunch: isPrelaunchTarget(option)}))
+    .sort((first, second) => first.name.localeCompare(second.name));
   return [sourceOption, ...conversions];
 };
+
+const targetRoutes = target => [
+  ...(target?.routes || []),
+  ...(target?.networkOptions || []).flatMap(option => option.routes || []),
+];
+
+// A currency before its launch: every way to reach it is a pre-conversion.
+export const isPrelaunchTarget = target => {
+  const routes = targetRoutes(target);
+  return routes.length > 0 && routes.every(route => route.preconvert);
+};
+
+// The launch definition carried by a pre-launch target's routes.
+export const getTargetLaunchDefinition = target =>
+  targetRoutes(target).find(route => route.launchDefinition)?.launchDefinition || null;
 
 export const buildSendTarget = (
   conversionPaths,

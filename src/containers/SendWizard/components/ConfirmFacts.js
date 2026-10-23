@@ -23,6 +23,8 @@ const ConfirmFacts = ({
   memo,
   note,
   recipient,
+  recipientCaption,
+  routeRows = [],
   trailingRows = [],
 }) => {
   const theme = useOnboardingTheme();
@@ -32,17 +34,15 @@ const ConfirmFacts = ({
       {leadingRows.map(row => (
         <FlatRow key={row.label} label={row.label} onPress={row.onPress} value={row.value} />
       ))}
-      <FlatRow
-        label="To"
-        numberOfLines={0}
-        value={recipient}
-        valueStyle={recipient.includes('@') ? null : styles.address}
-      />
+      <RecipientRow caption={recipientCaption} recipient={recipient} />
       {memo ? <FlatRow label="Memo" numberOfLines={0} value={memo} /> : null}
       {note ? <FlatRow label="Note" numberOfLines={0} value={note} /> : null}
       {destinationNetwork ? (
         <FlatRow label="Destination network" value={destinationNetwork} />
       ) : null}
+      {routeRows.map(row => (
+        <FlatRow key={row.label} label={row.label} numberOfLines={0} value={row.value} />
+      ))}
       {impact ? (
         <ImpactRow
           impact={impact.impact}
@@ -64,6 +64,31 @@ const ConfirmFacts = ({
         <FlatRow key={row.label} label={row.label} onPress={row.onPress} value={row.value} />
       ))}
     </View>
+  );
+};
+
+// "To" with the full address. A pre-conversion adds one line under it: a
+// failed launch refunds the same address.
+export const RecipientRow = ({caption, recipient}) => {
+  const theme = useOnboardingTheme();
+  const addressStyle = recipient.includes('@') ? null : styles.address;
+
+  if (!caption) {
+    return (
+      <FlatRow label="To" numberOfLines={0} value={recipient} valueStyle={addressStyle} />
+    );
+  }
+  return (
+    <FlatRow label="To">
+      <View style={styles.recipientValue}>
+        <Text style={[styles.recipient, {color: theme.colors.textPrimary}, addressStyle]}>
+          {recipient}
+        </Text>
+        <Text style={[theme.typography.caption, styles.recipientCaption, {color: theme.colors.textSecondary}]}>
+          {caption}
+        </Text>
+      </View>
+    </FlatRow>
   );
 };
 
@@ -98,6 +123,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  recipientValue: {flex: 1, alignItems: 'flex-end'},
+  recipient: {textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
+  recipientCaption: {marginTop: 2, textAlign: 'right'},
   notice: {
     borderRadius: 12,
     padding: 12,

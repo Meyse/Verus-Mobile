@@ -16,6 +16,7 @@ import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
+import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
@@ -196,12 +197,26 @@ const SignedInWalletHome = ({
     }
 
     const fiatUnavailable = fiatText === 'N/A';
+    // Before its launch an asset has no price. The row says when it launches
+    // and what this wallet pre-converted to it.
+    const prelaunch = item.prelaunch;
+    const accessibilityLabel = prelaunch
+      ? [
+          presentation.name,
+          prelaunch.preconverted
+            ? showBalance
+              ? `${prelaunch.preconverted} pre-converted`
+              : 'balance hidden'
+            : cryptoText,
+          prelaunch.badge,
+        ].join(', ')
+      : `${presentation.name}, ${cryptoText}`;
 
     return (
       <TouchableOpacity
         activeOpacity={0.76}
         accessibilityRole="button"
-        accessibilityLabel={`${presentation.name}, ${cryptoText}`}
+        accessibilityLabel={accessibilityLabel}
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <WalletSetupLogoSlot coinId={item.coin.id} style={styles.logoWrap}>
@@ -218,7 +233,9 @@ const SignedInWalletHome = ({
               ]}>
               {presentation.name}
             </Text>
-            {fiatUnavailable ? (
+            {prelaunch ? (
+              <StatusBadge label={prelaunch.badge} style={styles.prelaunchBadge} />
+            ) : fiatUnavailable ? (
               <Text
                 numberOfLines={1}
                 style={[styles.fiatUnavailable, {color: theme.colors.textSubtle}]}>
@@ -236,38 +253,52 @@ const SignedInWalletHome = ({
               </PrivacyBlurredText>
             )}
           </View>
-          <View style={[styles.assetLine, styles.assetSecondaryLine]}>
-            <View style={styles.cryptoValue}>
+          {prelaunch?.preconverted ? (
+            <View style={[styles.assetLine, styles.assetSecondaryLine]}>
               <PrivacyBlurredText
                 blurRadius={5}
                 color={theme.colors.textSecondary}
                 hidden={!showBalance}
+                numberOfLines={1}
                 revealProgress={balanceRevealProgress}
                 style={theme.typography.bodySm}>
-                {cryptoAmountText}
+                {`${prelaunch.preconverted} pre-converted`}
               </PrivacyBlurredText>
-              <Text
-                numberOfLines={1}
-                style={[
-                  theme.typography.bodySm,
-                  styles.cryptoTicker,
-                  {color: theme.colors.textSecondary},
-                ]}>
-                {presentation.ticker}
-              </Text>
             </View>
-            {rateText ? (
-              <Text
-                numberOfLines={1}
-                style={[
-                  theme.typography.bodySm,
-                  styles.fiatRate,
-                  {color: theme.colors.textSubtle},
-                ]}>
-                {rateText}
-              </Text>
-            ) : null}
-          </View>
+          ) : (
+            <View style={[styles.assetLine, styles.assetSecondaryLine]}>
+              <View style={styles.cryptoValue}>
+                <PrivacyBlurredText
+                  blurRadius={5}
+                  color={theme.colors.textSecondary}
+                  hidden={!showBalance}
+                  revealProgress={balanceRevealProgress}
+                  style={theme.typography.bodySm}>
+                  {cryptoAmountText}
+                </PrivacyBlurredText>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    theme.typography.bodySm,
+                    styles.cryptoTicker,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  {presentation.ticker}
+                </Text>
+              </View>
+              {rateText ? (
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    theme.typography.bodySm,
+                    styles.fiatRate,
+                    {color: theme.colors.textSubtle},
+                  ]}>
+                  {rateText}
+                </Text>
+              ) : null}
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -390,6 +421,7 @@ const styles = StyleSheet.create({
   cryptoValue: {alignItems: 'center', flexDirection: 'row', flexShrink: 1, marginRight: 12},
   cryptoTicker: {marginLeft: 4, flexShrink: 1},
   fiatRate: {textAlign: 'right'},
+  prelaunchBadge: {flexShrink: 0},
 });
 
 export default SignedInWalletHome;

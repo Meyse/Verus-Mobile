@@ -1,8 +1,9 @@
 import React from 'react';
-import {Platform, ScrollView, StyleSheet, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
 import {truncateDecimal} from '../../../utils/math';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import {RecipientRow} from './ConfirmFacts';
 import {TransferConnector, TransferNode} from './TransferSummary';
 import {FlatRow, WIZARD_CONTENT_TOP_INSET} from './WizardUI';
 
@@ -16,12 +17,17 @@ const ValueSkeleton = ({width = 96}) => (
 // will look: what the user already chose is real, and only what the wallet is
 // still working out (the receive amount, the price, fees and timing) is a
 // skeleton. The review then fills in without the page changing shape.
+// A pre-conversion (`atLaunch`) already knows its price line and launch facts.
 const ConfirmPreparing = ({
   amount,
+  atLaunch = false,
+  arrives,
   destinationNetwork,
   isConversion,
   networkFee = false,
   recipient,
+  recipientCaption,
+  routeRows = [],
   showPriceImpact,
   sourceCoin,
   target,
@@ -39,7 +45,17 @@ const ConfirmPreparing = ({
         label={isConversion ? 'You pay' : 'You send'}
         ticker={sourceCoin?.display_ticker || ''}
       />
-      {isConversion ? (
+      {atLaunch ? (
+        <>
+          <TransferConnector>Price set at launch</TransferConnector>
+          <TransferNode
+            amount={null}
+            coinId={target.coinId || target.id}
+            label="You receive"
+            ticker={target.ticker}
+          />
+        </>
+      ) : isConversion ? (
         <>
           <TransferConnector loading />
           <TransferNode
@@ -51,15 +67,13 @@ const ConfirmPreparing = ({
         </>
       ) : null}
       <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-        <FlatRow
-          label="To"
-          numberOfLines={0}
-          value={recipient}
-          valueStyle={recipient.endsWith('@') ? null : styles.address}
-        />
+        <RecipientRow caption={recipientCaption} recipient={recipient} />
         {destinationNetwork ? (
           <FlatRow label="Destination network" value={destinationNetwork} />
         ) : null}
+        {routeRows.map(row => (
+          <FlatRow key={row.label} label={row.label} numberOfLines={0} value={row.value} />
+        ))}
         {showPriceImpact ? (
           <FlatRow label="Price impact">
             <ValueSkeleton width={120} />
@@ -68,9 +82,13 @@ const ConfirmPreparing = ({
         <FlatRow label={networkFee ? "Network fee" : "Fees"}>
           <ValueSkeleton />
         </FlatRow>
-        <FlatRow label="Arrives">
-          <ValueSkeleton width={72} />
-        </FlatRow>
+        {arrives ? (
+          <FlatRow label="Arrives" value={arrives} />
+        ) : (
+          <FlatRow label="Arrives">
+            <ValueSkeleton width={72} />
+          </FlatRow>
+        )}
       </View>
     </ScrollView>
   );
@@ -86,11 +104,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  address: {
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 13,
-    lineHeight: 18,
   },
   valueSkeleton: {alignSelf: 'flex-end'},
 });
