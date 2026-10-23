@@ -16,7 +16,6 @@ import {
 import {
   addEncryptedKey,
   setBiometry,
-  setDisabledServices,
   setHideSeedWarnings,
   setKeyDerivationVersion,
   signOut,
@@ -33,14 +32,12 @@ import { checkPinForUser } from "../../../utils/asyncStore/asyncStore";
 import {
   ENABLE_DLIGHT,
   ENABLE_SIGNED_IN_REDESIGN,
-  WYRE_ACCESSIBLE,
 } from '../../../../env/index';
 import { dlightEnabled } from "../../../utils/enabledChannels";
 import SetupSeedModal from "../../../components/SetupSeedModal/SetupSeedModal";
 import { DLIGHT_PRIVATE, ELECTRUM } from "../../../utils/constants/intervalConstants";
 import SelectionSheet, { SelectionRow } from "../../../components/SelectionSheet";
 import useSheetDismissal from "../../../components/useSheetDismissal";
-import { WYRE_SERVICE_ID } from "../../../utils/constants/services";
 import { removeBiometricPassword, storeBiometricPassword } from "../../../utils/keychain/biometrics";
 import { requestSeeds } from "../../../utils/auth/authBox";
 import { isSeedPhrase } from "../../../utils/keys";
@@ -326,52 +323,6 @@ class ProfileSettings extends Component {
           errorMsg: "Failed to sign out",
         },
         true
-      );
-    }
-  };
-
-  canEnableWyre = () => {
-    return createAlert(
-      "Turn on Wyre features?",
-      "Wyre is no longer supported, so use this only to reach an existing Wyre account.",
-      [
-        {
-          text: "Not now",
-          onPress: () => resolveAlert(false),
-          style: "cancel",
-        },
-        { text: "Turn on", onPress: () => resolveAlert(true) },
-      ]
-    );
-  }
-
-  canDisableWyre = () => {
-    return createAlert(
-      "Turn off Wyre features?",
-      "This hides the unsupported Wyre features from the wallet.",
-      [
-        {
-          text: "Not now",
-          onPress: () => resolveAlert(false),
-          style: "cancel",
-        },
-        { text: "Turn off", onPress: () => resolveAlert(true) },
-      ]
-    );
-  }
-
-  toggleWyreEnabled = async () => {
-    if ((this.props.wyreEnabled && await this.canDisableWyre()) || (!this.props.wyreEnabled && await this.canEnableWyre())) {
-      const { activeAccount } = this.props;
-      const { accountHash, disabledServices } = activeAccount;
-
-      this.props.dispatch(
-        await setDisabledServices(
-          accountHash, 
-          {...disabledServices, 
-            [WYRE_SERVICE_ID]: disabledServices[WYRE_SERVICE_ID] ? false : true
-          }
-        )
       );
     }
   };
@@ -741,26 +692,6 @@ class ProfileSettings extends Component {
           account={this.props.activeAccount}
           allowBiometry={true}
         />
-        {WYRE_ACCESSIBLE && !this.props.testAccount ? (
-          <SettingsSection title="Deprecated services">
-            <SettingsRow
-              description={
-                this.props.wyreEnabled
-                  ? 'Existing Wyre account access is visible in Services'
-                  : 'Enable access to an existing Wyre account in Services'
-              }
-              icon="account-cash-outline"
-              last
-              onPress={() => this.toggleWyreEnabled()}
-              title={
-                this.props.wyreEnabled
-                  ? 'Wyre enabled'
-                  : 'Enable deprecated Wyre features'
-              }
-              value={this.props.wyreEnabled ? 'On' : 'Off'}
-            />
-          </SettingsSection>
-        ) : null}
         <SettingsSection title="Wallet actions">
           <SettingsRow
             danger
@@ -786,9 +717,6 @@ const mapStateToProps = state => {
     activeAccount: state.authentication.activeAccount,
     sessionEpoch: state.authentication.sessionEpoch,
     showHideSeedCorruptionSetting: state.authentication.showHideSeedCorruptionSetting,
-    wyreEnabled:
-      state.authentication.activeAccount != null &&
-      state.authentication.activeAccount.disabledServices[WYRE_SERVICE_ID] != true,
   };
 };
 
