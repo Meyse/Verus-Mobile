@@ -534,6 +534,9 @@ of the mockup on 2026-10-21):
   drawn like "Remove from this device" in the gift card options sheet. The
   wallet's main coin (VRSC, or the Testnet override) has no sheet and is never
   removed.
+- The sheet is an `InfoSheet` with the logo header in its `header` slot (owner,
+  2026-10-23): the header stays at the top, the rows and "Remove from wallet"
+  scroll, and Done stays fixed at the bottom on every window size.
 - "Remove from wallet" opens `AcknowledgeSheet` ("Remove <name>?", "Remove",
   "Not now"). The message says that the balance stays on the blockchain; it
   hides the amount while balances are hidden. While the asset is removed, its
@@ -583,6 +586,29 @@ to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
 - While the private card syncs, "Syncing x%" replaces the line.
 - Send keeps its own rule: the private card sends only confirmed funds (see
   Private card sends).
+
+## Bridged asset line
+
+The owner chose variation C of the "mapped to" mockup on 2026-10-23. It
+applies to `SignedInAssetHeader` only.
+
+- A Verus currency whose original lives on Ethereum shows one line under the
+  ticker: "Bridged from Ethereum ›", or "Bridged from Sepolia ›" on testnet. It
+  uses `caption` in `textSecondary` with a 14-point `textSubtle` chevron. The
+  text truncates and the chevron stays; the target is 44 points high.
+- `getBridgedOrigin` in `src/utils/assets/bridgedOrigin.js` decides it from
+  data: the currency is the Ethereum gateway (vETH, mapped to ETH), or its
+  system is that gateway (DAI.vETH, vUSDC.vETH, tBTC.vETH and the other bridged
+  tokens). VRSC and Bridge.vETH also carry `mapped_to`, but their original
+  lives on Verus, so they show nothing. ETH, ERC-20 and other asset screens show
+  nothing; there is no "Also on Verus" line. The line hides until the mapping
+  resolves.
+- Home, its rows and the card picker do not change.
+- A tap opens `BridgedOriginSheet`, an `InfoSheet` titled as the line without
+  the chevron. Rows, each only when its data exists: Original (the token name),
+  Contract address with `CopyAction` for an ERC-20 original, and the "View in
+  explorer" action row to the token on Etherscan or Sepolia Etherscan. vETH
+  shows only Original. Rows do not repeat the network or the title.
 
 ## Transaction history row
 
