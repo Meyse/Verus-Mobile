@@ -235,13 +235,19 @@ const createSpendableKeyRequestInfoStyles = theme =>
       textAlign: 'right',
       ...fontStyle('semiBold'),
     },
-    // The one-transaction claim amount on TransactionResult. Its padding keeps
-    // the approved 40 points above the amount and 32 below it.
+    // The one-transaction claim amount on TransactionResult. With the
+    // component's section spacing, it keeps the approved 50 points from the
+    // title row to the amount line and 32 points below the amount. Small
+    // windows tighten the component's spacing, so the padding grows there.
     resultAmount: {
       alignItems: 'center',
       justifyContent: 'center',
       paddingTop: theme.spacing.md,
       paddingBottom: theme.spacing.sm,
+    },
+    resultAmountCompact: {
+      paddingTop: 28,
+      paddingBottom: 20,
     },
     resultAmountRow: {
       alignItems: 'baseline',

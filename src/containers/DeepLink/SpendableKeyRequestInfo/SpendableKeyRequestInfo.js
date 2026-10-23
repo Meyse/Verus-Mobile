@@ -637,7 +637,13 @@ const getTransactionChainLabel = transaction =>
 // One transaction: the amount, its Transaction ID and explorer, one caption.
 // Several, or a partial claim: what each transaction claims, with its chain
 // when the claim spans chains.
-const getClaimResultProps = ({claimPlan, claimResult, partial, styles}) => {
+const getClaimResultProps = ({
+  claimPlan,
+  claimResult,
+  partial,
+  smallDevice,
+  styles,
+}) => {
   const results = claimResult.results || [];
   const chainCount = new Set(results.map(item => item.systemId)).size;
   const includesIdentity = resultsIncludeIdentityClaim(results);
@@ -654,7 +660,11 @@ const getClaimResultProps = ({claimPlan, claimResult, partial, styles}) => {
     return {
       amount:
         main || identityName ? (
-          <View style={styles.resultAmount}>
+          <View
+            style={[
+              styles.resultAmount,
+              smallDevice && styles.resultAmountCompact,
+            ]}>
             {main ? (
               <View style={styles.resultAmountRow}>
                 <Text
@@ -1879,6 +1889,7 @@ const SpendableKeyRequestInfoContent = props => {
           claimPlan,
           claimResult,
           partial: partialClaim,
+          smallDevice,
           styles,
         })}
         above={footerHelperRow}

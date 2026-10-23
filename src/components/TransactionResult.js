@@ -155,10 +155,7 @@ const TransactionResult = ({
           ? rows.map((item, index) => (
               <View
                 key={item.txid}
-                style={[
-                  index > 0 ? styles.itemGap : styles.item,
-                  index === 0 && smallDevice && styles.sectionCompact,
-                ]}>
+                style={index > 0 ? styles.itemGap : styles.item}>
                 {item.group ? (
                   <Text style={[styles.itemGroup, {color: theme.colors.textSecondary}]}>
                     {item.group}
