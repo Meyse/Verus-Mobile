@@ -318,7 +318,7 @@ const DeepLink = (props) => {
       if (invoice.details.expires() && invoice.details.expiryheight.toNumber() - chainInfo.result.longestchain < 0) {
         setInvoiceProblem({
           title: 'Invoice expired',
-          message: `This invoice has expired. Ask ${requester || 'the requester'} for a new one.`,
+          message: `Ask ${requester || 'the requester'} for a new one.`,
         })
         return false
       }

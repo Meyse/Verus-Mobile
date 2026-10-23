@@ -374,16 +374,22 @@ const buildAuthorityReviewItem = (change, type, currentAuthorities) => {
 const buildFallbackReviewItem = (change, primaryInfo) => {
   const value = change.rawData || change.data;
   const isContentClear = change.highRiskType === 'content-clear';
+  // Say each fact once: the threshold is the row value, its use is the
+  // caption, and the effect on this wallet is the subtitle.
   if (change.highRiskType === 'signature-threshold' && primaryInfo) {
     const {walletCount, minimumSignatures, externalCount} = primaryInfo;
     const needsMore = walletCount < minimumSignatures;
+    const threshold =
+      change.data || `${minimumSignatures} of ${primaryInfo.addresses.length}`;
+    const use =
+      'Spending, signing, and ordinary identity updates need these signatures.';
     const outcome = needsMore
-      ? `After this update, your wallet will have ${walletCount} primary ${walletCount === 1 ? 'address' : 'addresses'}, but ${minimumSignatures} signatures will be required to authorize this ID.`
+      ? 'After this update, your wallet cannot authorize this ID alone.'
       : externalCount > 0
-      ? `After this update, your wallet will have enough primary addresses to meet the ${minimumSignatures}-signature requirement. External addresses can also participate in signing.`
-      : `After this update, all primary addresses will be in your wallet. ${minimumSignatures} ${minimumSignatures === 1 ? 'signature will' : 'signatures will'} be required.`;
+      ? 'Your wallet can still authorize this ID alone. External addresses can also sign.'
+      : 'After this update, all primary addresses are in your wallet.';
     const rows = [
-      ['Required signatures', minimumSignatures],
+      ['Required signatures', threshold],
       ['Primary addresses in this wallet', walletCount],
       ['Primary addresses after update', valuesList(primaryInfo.addresses.map(primaryInfoValue))],
     ];
@@ -391,16 +397,16 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
       key: change.key,
       kind: 'fallback',
       highRiskType: change.highRiskType,
-      kicker: change.title,
-      value: `${minimumSignatures} ${minimumSignatures === 1 ? 'signature' : 'signatures'} required`,
-      caption: change.warning,
-      detailTitle: change.title,
-      detailCopy: outcome,
-      ackTitle: change.title,
-      ackCopy: `${change.warning} ${outcome}`,
+      kicker: 'Required signatures',
+      value: threshold,
+      caption: use,
+      detailTitle: 'Change required signatures',
+      detailCopy: use,
+      ackTitle: `Required signatures: ${threshold}`,
+      ackCopy: `${use} ${outcome}`,
       rows,
-      ackRows: rows,
-      risk: needsMore ? `Your wallet will need additional signatures after this update. ${outcome}` : outcome,
+      ackRows: rows.slice(1),
+      risk: outcome,
     };
   }
   if (change.highRiskType === 'identity-state') {
@@ -699,6 +705,11 @@ const HighRiskStep = ({
     [reviewItems],
   );
   const activeDetailItem = reviewItems.find(item => item.key === activeDetailKey);
+  // A row label that the screen title already says is left out.
+  const titleSays = text =>
+    typeof text === 'string' &&
+    text.length > 0 &&
+    screenCopy.title.toLowerCase().includes(text.toLowerCase());
   const ackCopy =
     reviewItems.length === 1
       ? 'Before you continue, confirm you understand this high-risk change.'
@@ -719,7 +730,7 @@ const HighRiskStep = ({
           <Text style={localStyles.panelLabel}>What changes</Text>
           <View style={localStyles.changeList}>
             {reviewItems.map((item, index) => {
-              const kicker = (
+              const kicker = titleSays(item.kicker) ? null : (
                 <Text
                   style={[
                     localStyles.changeKicker,

@@ -131,8 +131,7 @@ const getBroadcastError = (error, txid) => {
   if (txid) {
     return {
       title: 'Response not prepared',
-      message:
-        'The identity update was broadcast, but the wallet could not prepare the response. Do not send the update again.',
+      message: 'The identity update was broadcast. Do not send it again.',
     };
   }
 
@@ -140,15 +139,16 @@ const getBroadcastError = (error, txid) => {
     title: 'Update not broadcast',
     message: isNetworkFailureError(error)
       ? `${NETWORK_UNAVAILABLE_MESSAGE}, then try again.`
-      : 'The identity update was not broadcast. Try again.',
+      : null,
   };
 };
 
 const getDeliveryErrorMessage = (error, deliveryInfo) => {
+  // The title says that the response was not sent. Say what to check.
   if (error?.isResponsePostError) {
-    return `The response could not be sent to ${
+    return `Check that ${
       deliveryInfo?.destinationHost || 'the requester'
-    }.`;
+    } is online.`;
   }
 
   return error?.message || 'Verus Mobile could not complete this request.';

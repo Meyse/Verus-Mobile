@@ -13,15 +13,12 @@ import Animated, {FadeIn, ReduceMotion} from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {ExternalLink} from 'lucide-react-native';
-import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
-import CopyAction from '../../../components/CopyAction';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
-import SignedOutActionRow from '../../../components/SignedOutActionRow';
+import TransactionResult from '../../../components/TransactionResult';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {
   requestWalletUnlock,
@@ -67,7 +64,6 @@ import {
 import {explorers} from '../../../utils/CoinData/CoinData';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import {getCurrency} from '../../../utils/api/channels/verusid/callCreators';
-import {openUrl} from '../../../utils/linking';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {
   OnboardingThemeProvider,
@@ -634,48 +630,24 @@ const getTransactionChainLabel = transaction =>
   transaction.coinObj?.display_ticker ||
   transaction.systemId;
 
-const ClaimTransactionRows = ({styles, transaction}) => {
-  const explorerUrl = getExplorerTxUrl(transaction);
-
-  return (
-    <>
-      <View style={styles.resultTxRow}>
-        <View style={styles.resultTxCopy}>
-          <Text style={styles.resultTxLabel}>Transaction ID</Text>
-          <Text
-            ellipsizeMode="middle"
-            numberOfLines={1}
-            style={styles.resultTxid}>
-            {transaction.txid}
-          </Text>
-        </View>
-        <CopyAction
-          accessibilityLabel="Copy transaction ID"
-          copiedAccessibilityLabel="Transaction ID copied"
-          value={transaction.txid}
-        />
-      </View>
-      {explorerUrl ? (
-        <SignedOutActionRow
-          IconComponent={ExternalLink}
-          label="View in explorer"
-          onPress={() => openUrl(explorerUrl)}
-        />
-      ) : null}
-    </>
-  );
-};
-
-// The submitted transactions of a claim, as the Send flow's Sent step shows
-// one: what moved, the transaction ID with Copy, and the explorer. One fact
-// at a time: no section label and no count line.
-const ClaimResultDetails = ({claimPlan, claimResult, partial, styles}) => {
+// The claim result on the shared transaction result (TransactionResult), as
+// the Send flow's Sent step shows one. One fact at a time: no section label
+// and no count line.
+//
+// One transaction: the amount, its Transaction ID and explorer, one caption.
+// Several, or a partial claim: what each transaction claims, with its chain
+// when the claim spans chains.
+const getClaimResultProps = ({
+  claimPlan,
+  claimResult,
+  partial,
+  smallDevice,
+  styles,
+}) => {
   const results = claimResult.results || [];
   const chainCount = new Set(results.map(item => item.systemId)).size;
   const includesIdentity = resultsIncludeIdentityClaim(results);
-  const metadataNote = claimResult.metadataNote ? (
-    <Text style={styles.resultNote}>{claimResult.metadataNote}</Text>
-  ) : null;
+  const warning = claimResult.metadataNote || null;
 
   if (!partial && results.length === 1) {
     const [transaction] = results;
@@ -685,70 +657,62 @@ const ClaimResultDetails = ({claimPlan, claimResult, partial, styles}) => {
 
     if (main && identityName) others.push(identityName);
 
-    return (
-      <View>
-        <View style={styles.amountHero}>
-          {main ? (
-            <View style={styles.amountHeroRow}>
-              <Text
-                adjustsFontSizeToFit
-                minimumFontScale={0.62}
-                numberOfLines={1}
-                style={styles.amountHeroValue}>
-                {main.amount}
-              </Text>
-              <Text numberOfLines={2} style={styles.amountHeroCurrency}>
-                {main.unit}
-              </Text>
-            </View>
-          ) : identityName ? (
-            <Text style={styles.countHeroValue}>{identityName}</Text>
-          ) : null}
-          {others.length > 0 ? (
-            <Text style={styles.resultMore}>{`+ ${others.join(', ')}`}</Text>
-          ) : null}
-        </View>
-        <ClaimTransactionRows styles={styles} transaction={transaction} />
-        <Text style={styles.resultCaption}>
-          {includesIdentity
-            ? IDENTITY_CLAIM_CONFIRMATION_NOTE
-            : CLAIM_FUNDS_CAPTION}
-        </Text>
-        {metadataNote}
-      </View>
-    );
+    return {
+      amount:
+        main || identityName ? (
+          <View
+            style={[
+              styles.resultAmount,
+              smallDevice && styles.resultAmountCompact,
+            ]}>
+            {main ? (
+              <View style={styles.resultAmountRow}>
+                <Text
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.62}
+                  numberOfLines={1}
+                  style={styles.amountHeroValue}>
+                  {main.amount}
+                </Text>
+                <Text numberOfLines={2} style={styles.amountHeroCurrency}>
+                  {main.unit}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.resultIdentity}>{identityName}</Text>
+            )}
+            {others.length > 0 ? (
+              <Text style={styles.resultMore}>{`+ ${others.join(', ')}`}</Text>
+            ) : null}
+          </View>
+        ) : null,
+      caption: includesIdentity
+        ? IDENTITY_CLAIM_CONFIRMATION_NOTE
+        : CLAIM_FUNDS_CAPTION,
+      itemized: false,
+      transactions: [
+        {txid: transaction.txid, explorerUrl: getExplorerTxUrl(transaction)},
+      ],
+      warning,
+    };
   }
 
-  return (
-    <View>
-      {results.map((transaction, index) => (
-        <View
-          key={`${transaction.systemId}:${transaction.txid}:${index}`}
-          style={index > 0 ? styles.resultBlockGap : styles.resultBlock}>
-          {chainCount > 1 ? (
-            <Text style={styles.systemGroupLabel}>
-              {getTransactionChainLabel(transaction)}
-            </Text>
-          ) : null}
-          <Text style={styles.resultClaims}>
-            {getClaimedText(claimPlan, transaction)}
-          </Text>
-          <ClaimTransactionRows styles={styles} transaction={transaction} />
-        </View>
-      ))}
-      {partial ? null : (
-        <Text style={styles.resultCaption}>
-          {chainCount > 1 ? CLAIM_CHAINS_CAPTION : CLAIM_SAME_CHAIN_CAPTION}
-        </Text>
-      )}
-      {!partial && includesIdentity ? (
-        <Text style={styles.resultCaption}>
-          {IDENTITY_CLAIM_CONFIRMATION_NOTE}
-        </Text>
-      ) : null}
-      {metadataNote}
-    </View>
-  );
+  return {
+    caption: partial
+      ? null
+      : [
+          chainCount > 1 ? CLAIM_CHAINS_CAPTION : CLAIM_SAME_CHAIN_CAPTION,
+          includesIdentity ? IDENTITY_CLAIM_CONFIRMATION_NOTE : null,
+        ],
+    itemized: true,
+    transactions: results.map(transaction => ({
+      explorerUrl: getExplorerTxUrl(transaction),
+      group: chainCount > 1 ? getTransactionChainLabel(transaction) : null,
+      label: getClaimedText(claimPlan, transaction),
+      txid: transaction.txid,
+    })),
+    warning,
+  };
 };
 
 const SpendableKeyRequestInfoContent = props => {
@@ -1866,22 +1830,34 @@ const SpendableKeyRequestInfoContent = props => {
       ? retryBlockedReason || walletGate?.helper
       : null;
 
+  const primaryActionDisabled =
+    finishing ||
+    retryBlockedReason != null ||
+    (status === 'review' &&
+      activeAccountMatchesRequest &&
+      (!claimPlan ||
+        unsupportedIdentityCount > 0 ||
+        !claimPlan.hasClaims ||
+        claimPlanNeedsAccountRefresh));
+  const cancelActionLabel = requestError?.partial ? 'Close' : 'Cancel';
+  const footerHelperRow = footerHelper ? (
+    <View style={styles.footerInfoRow}>
+      <MaterialCommunityIcons
+        name="information-outline"
+        size={16}
+        color={theme.colors.textSubtle}
+        style={styles.footerInfoIcon}
+      />
+      <Text style={styles.footerInfoText}>{footerHelper}</Text>
+    </View>
+  ) : null;
+
   const footer = (
     <SafeBottomActionStack
       gap={10}
       horizontalSpacing={24}
       style={styles.footer}>
-      {footerHelper && (
-        <View style={styles.footerInfoRow}>
-          <MaterialCommunityIcons
-            name="information-outline"
-            size={16}
-            color={theme.colors.textSubtle}
-            style={styles.footerInfoIcon}
-          />
-          <Text style={styles.footerInfoText}>{footerHelper}</Text>
-        </View>
-      )}
+      {footerHelperRow}
       {status === 'review' && claimError && (
         <Text
           accessibilityLiveRegion="polite"
@@ -1891,16 +1867,7 @@ const SpendableKeyRequestInfoContent = props => {
         </Text>
       )}
       <AppButton
-        disabled={
-          finishing ||
-          retryBlockedReason != null ||
-          (status === 'review' &&
-            activeAccountMatchesRequest &&
-            (!claimPlan ||
-              unsupportedIdentityCount > 0 ||
-              !claimPlan.hasClaims ||
-              claimPlanNeedsAccountRefresh))
-        }
+        disabled={primaryActionDisabled}
         height={56}
         onPress={primaryAction}
         variant="primary">
@@ -1908,30 +1875,45 @@ const SpendableKeyRequestInfoContent = props => {
       </AppButton>
       {showCancelAction && (
         <AppButton height={56} onPress={cancel} variant="secondary">
-          {requestError?.partial ? 'Close' : 'Cancel'}
+          {cancelActionLabel}
         </AppButton>
       )}
     </SafeBottomActionStack>
   );
 
-  const screen = (
+  const partialClaim = status === 'error' && requestError?.partial === true;
+  const claimResultView =
+    claimResult != null && (status === 'complete' || partialClaim) ? (
+      <TransactionResult
+        {...getClaimResultProps({
+          claimPlan,
+          claimResult,
+          partial: partialClaim,
+          smallDevice,
+          styles,
+        })}
+        above={footerHelperRow}
+        actions={[
+          {
+            label: primaryActionLabel,
+            onPress: primaryAction,
+            disabled: primaryActionDisabled,
+          },
+          showCancelAction ? {label: cancelActionLabel, onPress: cancel} : null,
+        ].filter(Boolean)}
+        description={statusSubtitle}
+        success={status === 'complete'}
+        title={mainTitle}
+      />
+    ) : null;
+
+  const screen = claimResultView || (
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={styles.container}>
       <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          {status === 'complete' && claimResult != null ? (
-            <View style={styles.resultTitleRow}>
-              <AnimatedSuccessCheckmark
-                style={
-                  smallDevice ? styles.resultCheckCompact : styles.resultCheck
-                }
-              />
-              <RequestTitle style={styles.resultTitle}>{mainTitle}</RequestTitle>
-            </View>
-          ) : (
-            <RequestTitle>{mainTitle}</RequestTitle>
-          )}
+          <RequestTitle>{mainTitle}</RequestTitle>
           {statusSubtitle ? (
             <Text style={styles.subtitle}>{statusSubtitle}</Text>
           ) : null}
@@ -1954,15 +1936,6 @@ const SpendableKeyRequestInfoContent = props => {
               </View>
             </View>
           )}
-
-        {claimResult != null && (
-          <ClaimResultDetails
-            claimPlan={claimPlan}
-            claimResult={claimResult}
-            partial={status === 'error' && requestError?.partial === true}
-            styles={styles}
-          />
-        )}
 
         {claimResult == null && unsupportedIdentityCount > 0 && (
           <View style={styles.warningCard}>
