@@ -235,58 +235,79 @@ const createSpendableKeyRequestInfoStyles = theme =>
       textAlign: 'right',
       ...fontStyle('semiBold'),
     },
-    transactionSection: {
+    // The claim result, after the Send flow's Sent step.
+    resultTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    resultCheck: {
+      width: 64,
+      height: 64,
+      marginLeft: -10,
+    },
+    resultCheckCompact: {
+      width: 48,
+      height: 48,
+      marginLeft: -6,
+    },
+    resultTitle: {
+      flex: 1,
+      marginLeft: 4,
+    },
+    resultMore: {
+      ...theme.typography.bodySm,
+      color: theme.colors.textSecondary,
+      marginTop: 6,
+      textAlign: 'center',
+    },
+    resultBlock: {
       marginTop: theme.spacing.md,
     },
-    transactionSummary: {
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 20,
-      ...fontStyle('regular'),
+    resultBlockGap: {
+      marginTop: theme.spacing.lg,
     },
-    txidCard: {
-      backgroundColor: theme.colors.surfaceMuted,
-      borderRadius: theme.rounded.md,
-      padding: 12,
-      marginTop: 12,
+    resultClaims: {
+      ...theme.typography.titleRow,
+      color: theme.colors.textPrimary,
+      marginBottom: 4,
     },
-    partialErrorText: {
-      color: theme.isDark ? theme.colors.warning : '#9A3412',
-      fontSize: 13,
-      lineHeight: 19,
-      marginTop: 8,
-      ...fontStyle('regular'),
-    },
-    txidHeader: {
+    resultTxRow: {
+      minHeight: 58,
+      paddingVertical: 8,
+      borderTopColor: theme.colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       flexDirection: 'row',
-      flexWrap: 'wrap',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 8,
-      gap: 8,
     },
-    txidLabel: {
+    resultTxCopy: {
       flex: 1,
       minWidth: 0,
-      color: theme.colors.textPrimary,
-      fontSize: 13,
-      lineHeight: 18,
-      ...fontStyle('semiBold'),
+      marginRight: 8,
     },
-    txidActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      marginLeft: 'auto',
-    },
-    txidValue: {
+    resultTxLabel: {
       color: theme.colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 18,
+      fontSize: 14,
+      lineHeight: 19,
       ...fontStyle('regular'),
     },
-    explorerButton: {
-      minWidth: 88,
+    resultTxid: {
+      color: theme.colors.textPrimary,
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 4,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    resultCaption: {
+      ...theme.typography.caption,
+      color: theme.colors.textSubtle,
+      marginTop: 14,
+    },
+    resultNote: {
+      ...theme.typography.caption,
+      color: theme.isDark ? theme.colors.warning : '#9A3412',
+      marginTop: 8,
     },
     warningCard: {
       flexDirection: 'row',
