@@ -807,7 +807,7 @@ failed request keeps the gray card.
 `SecureLoading.js` covers tasks that must not be interrupted: Lock wallet, Clear
 cache, keychain encryption, Delete wallet, and Reset password. The card claim
 uses its `SecureLoadingView` while it broadcasts ("Claiming funds"). The owner chose
-variation A on 2026-10-22.
+variation A on 2026-10-22; the claim's own picture is below.
 
 - It follows the request loading screen (`GenericRequestLoading.js`): theme
   background, the `loading_7bars` loader, the task as a short title (24/31
@@ -815,6 +815,38 @@ variation A on 2026-10-22.
   the app open." in 15/22 `textSecondary`. No header and no swipe back.
 - After 15 seconds the line reads "This is taking longer than usual. Keep the
   app open." A failed task shows its error as the title without the loader.
+
+### Claiming funds
+
+The card claim replaces the loader with its own picture
+(`ClaimingFundsView.js`, next to `SpendableKeyRequestInfo.js`). The owner chose
+animation A on 2026-10-23.
+
+- A 248 x 96 picture in the loader's place, with the same 26-point gap to the
+  title: a small gift card on the left (92 x 58, the gift card material,
+  `getTicketOutline` with 12-point corners and 6-point notches, an iOS shadow
+  only) and the active wallet's icon on the right (`WalletAvatar`, 56 points).
+  A wallet without an icon shows the `wallet-outline` glyph on a
+  `surfaceMuted` disc.
+- Every 1.8 s a coin slides out from under the card and arcs into the icon,
+  which lifts a little as it takes it. The coin is the claimed currency's
+  `AssetCoinLogo` at 28 points (the chain's own coin when the card holds
+  several; the chain's coin when the currency has no logo). The card never
+  empties, so nothing looks finished before the broadcast returns.
+- When the broadcast returns, the line fades, the card dims to half, and the
+  wallet setup check (24 points, a 3-point ring in the page color, a white
+  check in light and a page-color check in dark) springs onto the icon. A coin
+  in its last 0.5 s of flight lands first; an earlier one fades on its way.
+  After 1.1 s the screen fades out and the result fades in. A failure shows
+  its error at once, with no success motion.
+- Reduce Motion: no coin, no lift and no spring. Three 5-point `primary` dots
+  between the card and the icon fade in turn, and the check fades in.
+  Reanimated skips an animation when the system asks for less motion, so these
+  animations set `ReduceMotion.Never` and the screen decides what moves.
+- `SecureLoadingView` takes `illustration`, `contentStyle` and `statusStyle`.
+  With an illustration the line keeps room for two lines, so the slow message
+  does not move the picture. Other tasks keep the 7-bar loader. No gradient
+  borders, glow or traced outlines.
 
 ## Wallet setup screen
 
@@ -1014,6 +1046,24 @@ or app-encryption review hierarchy.
 A completion sheet shows the animated green check only when delivery or broadcast
 is confirmed. For "No response was sent" and "Browser opened", use
 `src/components/NeutralCheckMark.js`.
+
+The card claim result follows the Send flow's Sent step and says each fact once
+(owner approved the copy on 2026-10-23):
+
+- "Claim submitted" in `RequestTitle` with the Sent step's animated check, and
+  no subtitle, section label or count line.
+- One transaction: the claimed amount in the review's amount style, a
+  "Transaction ID" row with `CopyAction`, "View in explorer" as a sheet action
+  row, and one caption: "The funds show in your wallet after the transaction
+  confirms." A VerusID claim shows the VerusID note as the caption instead.
+- Several transactions: one block each, with the chain name only when there
+  are two or more chains, what it claims ("alice@ and funds"), the
+  Transaction ID and the explorer.
+- A partial failure reads "Claim not finished" with the real counts ("1 of 2
+  transactions was submitted. The other is saved. Retry to submit it."), the
+  submitted blocks, then Retry and Close. No red card; the raw error is logged.
+- An error screen shows its title once. "Retry when your connection is
+  available." shows only for a network error.
 
 Do not expose raw RPC, daemon, or indexer errors. Translate them into short
 recovery guidance and keep a safe fallback available.
