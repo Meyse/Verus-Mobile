@@ -201,10 +201,11 @@ const getAutoDeliverySheetMessage = ({
 }) => {
   if (isError) {
     if (error?.isResponsePostError) {
+      // The title says that the response was not sent. Say what to check.
       // A host goes on its own line. A URL otherwise breaks after the scheme
       // ("http://" / "127.0.0.1:8787").
       const separator = destination === 'the requester' ? ' ' : '\n';
-      return `The response could not be sent to${separator}${destination}.`;
+      return `Check that${separator}${destination} is online.`;
     }
 
     return getGenericResponseDeliveryFailure(error).message;

@@ -484,6 +484,7 @@ const IdentityUpdateRequestInfoContent = props => {
       displayUpdates[VERUSID_AUTH_INFO.key].minimumsignatures = {
         highRisk: true,
         highRiskType: 'signature-threshold',
+        data: `${before} of ${identity.primaryaddresses.length} → ${after} of ${primaryAddresses.length}`,
         highRiskTitle: `Required signatures: ${before} of ${identity.primaryaddresses.length} → ${after} of ${primaryAddresses.length}`,
         highRiskWarning: `Spending, signing, and ordinary identity updates will require signatures from ${after} of the ${primaryAddresses.length} primary addresses.${after < before ? ' Fewer signatures will be needed to authorize this identity.' : ' Additional signatures will be needed to authorize this identity.'}`,
       };
