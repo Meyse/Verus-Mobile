@@ -677,8 +677,9 @@ submitted", "The claim transaction was submitted.", "SUBMITTED TRANSACTIONS",
 - The component has no prop for a section label or a count line, because the
   title and the rows already say both.
 
-Users: Send, Convert and invoice payments (`SendWizardSuccess`) and gift card
-funding (`GiftCardFund`). The card claim moves onto it next.
+Users: Send, Convert, pre-conversions and invoice payments
+(`SendWizardSuccess`) and gift card funding (`GiftCardFund`). The card claim
+moves onto it next.
 
 ## Services home
 
