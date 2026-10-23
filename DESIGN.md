@@ -687,21 +687,26 @@ sends one or more transactions. It is the Send flow's Sent step, extracted on
 submitted", "The claim transaction was submitted.", "SUBMITTED TRANSACTIONS",
 "1 transaction submitted.").
 
-- No header. The animated check sits beside the 28/36 title only when the
-  transactions were sent (`success`). A failure shows the title alone.
-- Then the optional amount (`TransferNode` rows), the optional fact rows
-  (`FlatRow`, such as Destination), and one row per transaction with
-  `CopyAction`. One transaction reads "Transaction ID". With two or more, each
-  row shows its own label, such as "VRSCTEST funds". An explorer link adds an
-  `ExternalLink` action that matches `CopyAction`.
-- One caption says what happens next ("Sharing unlocks after it confirms.").
-  The actions sit in the safe footer; the first is primary.
+- No header. The animated check sits beside the 28/36 title only when every
+  transaction was sent (`success`). A failure or a partial result shows the
+  title alone. A `description` under the title is only for a fact the title
+  does not state ("1 of 2 transactions was submitted. ...").
+- Then the optional amount (`TransferNode` rows, or the claim's large amount),
+  the optional fact rows (`FlatRow`, such as Destination), and the
+  transactions. One transaction is a "Transaction ID" row with `CopyAction`.
+  With two or more (`itemized`), each transaction is a block: its group (the
+  chain, only when they differ), what it moved ("alice@ and funds"), then its
+  "Transaction ID" row. An explorer link adds "View in explorer" as a sheet
+  action row under the row.
+- The caption says what happens next ("Sharing unlocks after it confirms."). A
+  `warning` line asks the user to do something. The actions sit in the safe
+  footer; the first is primary.
 - The component has no prop for a section label or a count line, because the
   title and the rows already say both.
 
 Users: Send, Convert, pre-conversions and invoice payments
-(`SendWizardSuccess`) and gift card funding (`GiftCardFund`). The card claim
-moves onto it next.
+(`SendWizardSuccess`), gift card funding (`GiftCardFund`) and the card claim
+(`SpendableKeyRequestInfo`).
 
 ## Services home
 
@@ -1100,8 +1105,11 @@ is confirmed. For "No response was sent" and "Browser opened", use
 The card claim result follows the Send flow's Sent step and says each fact once
 (owner approved the copy on 2026-10-23):
 
-- "Claim submitted" in `RequestTitle` with the Sent step's animated check, and
-  no subtitle, section label or count line.
+- `TransactionResult` draws it (2026-10-23): "Claim submitted" with the Sent
+  step's animated check, and no subtitle, section label or count line. The
+  title and the footer take the Sent step's measures (28/36 title; footer 24
+  points from the bottom on small windows, 40 on normal ones), not the
+  request screen's `RequestTitle` and 30-point footer.
 - One transaction: the claimed amount in the review's amount style, a
   "Transaction ID" row with `CopyAction`, "View in explorer" as a sheet action
   row, and one caption: "The funds show in your wallet after the transaction
