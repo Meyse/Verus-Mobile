@@ -457,6 +457,56 @@ screen did for the private (z) card.
   above Hold: "This address is transparent. The amount and the recipient will
   be public on the blockchain."
 
+### Pre-conversions
+
+The owner chose variation A (inside Convert) with variation C's wallet screens
+on 2026-10-23 (pre-conversion mockups). A pre-conversion sends funds to a
+currency before its start block. Everyone gets the price that the launch sets.
+All launch types use these screens.
+
+- Convert to lists a pre-launch currency in its own "Pre-launch" section, after
+  Popular conversions. The row adds one caption: "Launches in 6 days". The
+  countdown is coarse (minutes, hours, days, "about N months", "about N
+  years"). It reads "Pre-launch" while the block height is unknown.
+- A pre-conversion goes to the source card's own address. Recipient is skipped,
+  and the progress bar counts one step less. A failed launch refunds the same
+  address: the daemon refunds a transfer to its destination.
+- Amount pins "You receive" with the target logo and "Price set at launch". It
+  shows no estimate, no chip and no "Price and route".
+- Confirm shows "You pay", the connector "Price set at launch", and "You
+  receive" with the ticker in the place of the amount. Rows: To (the address,
+  with "Refunds also go here." under it), Destination network for a PBaaS chain
+  launch, "Needed to launch" when the currency sets a minimum, Fees, and
+  "Arrives" ("At launch, 25 Oct 2028"). "Needed to launch" shows the minimum
+  only, because the wallet cannot read the total so far. There is no Price
+  impact row. One notice shows above Hold: "This can’t be cancelled. If
+  <currency> does not launch, the <paid asset> comes back minus fees."
+- Sent reads "Pre-conversion sent" with the same nodes, an "Arrives" row and the
+  Transaction ID, and no caption. The "Arrives" row is a deliberate exception
+  to the Sent rule: the arrival at launch is the new fact.
+- After a pre-conversion the wallet adds the currency, as after a conversion.
+  Its Home row shows "<amount> <ticker> pre-converted" and a neutral
+  `StatusBadge` "Launches in …" in the place of the fiat value. Hidden
+  balances blur the pre-converted line.
+- The asset screen of a pre-launch currency shows the asset line without cards
+  and without the card picker. Then a neutral "Pre-launch" badge and flat rows:
+  "You pre-converted" (only for two or more pre-conversions), "Launches" ("In
+  about 2 years, 25 Oct 2028"), "Needed to launch" and "Details ›". Then one
+  history row per pre-conversion: "Pre-conversion" with a warning badge,
+  "Pending" or "Waiting for launch". It opens the Transaction sheet ("You
+  pre-converted").
+- "Details" opens the "Launch details" `InfoSheet`: Currency ID (copy), Launch
+  block, Holds (each reserve with its weight), Supply at launch, and Maximum
+  when there is one. A reserve that is not a wallet asset takes the daemon's
+  name.
+- The bottom action is "Pre-convert" (primary), or "Pre-convert more"
+  (secondary) after a pre-conversion. It opens Convert at Amount with the
+  currency chosen and the chain's own coin as the source when it is funded.
+- The wallet reads pre-conversions from the blockchain
+  (`src/utils/preconversion/`): reserve transfers with `preconvert` from the
+  wallet's addresses to a pre-launch currency, with a wallet address as the
+  destination. They show on every device and after a restore.
+
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.
 
@@ -484,6 +534,9 @@ of the mockup on 2026-10-21):
   drawn like "Remove from this device" in the gift card options sheet. The
   wallet's main coin (VRSC, or the Testnet override) has no sheet and is never
   removed.
+- The sheet is an `InfoSheet` with the logo header in its `header` slot (owner,
+  2026-10-23): the header stays at the top, the rows and "Remove from wallet"
+  scroll, and Done stays fixed at the bottom on every window size.
 - "Remove from wallet" opens `AcknowledgeSheet` ("Remove <name>?", "Remove",
   "Not now"). The message says that the balance stays on the blockchain; it
   hides the amount while balances are hidden. While the asset is removed, its
@@ -533,6 +586,29 @@ to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
 - While the private card syncs, "Syncing x%" replaces the line.
 - Send keeps its own rule: the private card sends only confirmed funds (see
   Private card sends).
+
+## Bridged asset line
+
+The owner chose variation C of the "mapped to" mockup on 2026-10-23. It
+applies to `SignedInAssetHeader` only.
+
+- A Verus currency whose original lives on Ethereum shows one line under the
+  ticker: "Bridged from Ethereum ›", or "Bridged from Sepolia ›" on testnet. It
+  uses `caption` in `textSecondary` with a 14-point `textSubtle` chevron. The
+  text truncates and the chevron stays; the target is 44 points high.
+- `getBridgedOrigin` in `src/utils/assets/bridgedOrigin.js` decides it from
+  data: the currency is the Ethereum gateway (vETH, mapped to ETH), or its
+  system is that gateway (DAI.vETH, vUSDC.vETH, tBTC.vETH and the other bridged
+  tokens). VRSC and Bridge.vETH also carry `mapped_to`, but their original
+  lives on Verus, so they show nothing. ETH, ERC-20 and other asset screens show
+  nothing; there is no "Also on Verus" line. The line hides until the mapping
+  resolves.
+- Home, its rows and the card picker do not change.
+- A tap opens `BridgedOriginSheet`, an `InfoSheet` titled as the line without
+  the chevron. Rows, each only when its data exists: Original (the token name),
+  Contract address with `CopyAction` for an ERC-20 original, and the "View in
+  explorer" action row to the token on Etherscan or Sepolia Etherscan. vETH
+  shows only Original. Rows do not repeat the network or the title.
 
 ## Transaction history row
 

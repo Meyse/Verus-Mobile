@@ -22,7 +22,11 @@ import {
   API_GET_BALANCES,
   API_SEND,
 } from '../../utils/constants/intervalConstants';
-import {getScanRequestFields, SendWizardProvider} from './SendWizardContext';
+import {
+  getScanRequestFields,
+  SendWizardProvider,
+  useSendWizard,
+} from './SendWizardContext';
 import SendWizardSelectSource from './SendWizardSelectSource';
 import SendWizardSelectTarget from './SendWizardSelectTarget';
 import SendWizardAmount from './SendWizardAmount';
@@ -50,6 +54,29 @@ const CONTEXT_STEPS = {
   SendWizardRecipient: WIZARD_CONTEXT_STEP.RECIPIENT,
 };
 
+// A pre-conversion skips Recipient (it goes to the source card's own address),
+// so the progress bar counts one step less, as for a scanned recipient.
+const WizardProgressHeader = ({
+  hasInitialSource,
+  mode,
+  recipientFixed,
+  routeName,
+  ...props
+}) => {
+  const {state} = useSendWizard();
+  return (
+    <SendWizardHeader
+      {...props}
+      progress={getSendWizardProgress(
+        routeName,
+        mode,
+        hasInitialSource,
+        recipientFixed || Boolean(state.route?.preconvert),
+      )}
+    />
+  );
+};
+
 const goBackOrClose = navigation => {
   if (navigation.canGoBack?.()) navigation.goBack();
   else closeWizard(navigation);
@@ -66,6 +93,8 @@ const SendWizardNavigator = () => {
       : SEND_WIZARD_MODE.SEND;
   const initialCoinId = route.params?.initialCoinId;
   const initialSubWalletId = route.params?.initialSubWalletId;
+  const presetTargetId =
+    mode === SEND_WIZARD_MODE.CONVERT ? route.params?.presetTargetId || null : null;
   // A payment request from the Scan tab (see VerusPay): its recipient, and an
   // amount and note when the QR code has them.
   const scan = route.params?.scan || null;
@@ -193,8 +222,8 @@ const SendWizardNavigator = () => {
     const scanFields = getScanRequestFields(scan);
     if (!initialSource || mode !== SEND_WIZARD_MODE.SEND) {
       return initialSource
-        ? {...initialSource, ...scanFields, sourceIdentity}
-        : {...scanFields, sourceIdentity};
+        ? {...initialSource, ...scanFields, sourceIdentity, presetTargetId}
+        : {...scanFields, sourceIdentity, presetTargetId};
     }
 
     const sourceNetworkId =
@@ -217,7 +246,7 @@ const SendWizardNavigator = () => {
       ...scanFields,
       sourceIdentity,
     };
-  }, [initialSource, mode, scan, sourceIdentity]);
+  }, [initialSource, mode, presetTargetId, scan, sourceIdentity]);
   const hasInitialSource = Boolean(initialSource);
   let initialRouteName = 'SendWizardSelectSource';
   if (hasInitialSource) {
@@ -277,19 +306,17 @@ const SendWizardNavigator = () => {
           title: '',
           cardStyle: {backgroundColor: theme.colors.background},
           header: ({navigation, options, route: headerRoute}) => (
-            <SendWizardHeader
+            <WizardProgressHeader
               contextStep={CONTEXT_STEPS[headerRoute.name]}
               title={options.wizardTitle || options.title}
               disabled={Boolean(options.wizardNavigationDisabled)}
+              hasInitialSource={hasInitialSource}
+              mode={mode}
               onBack={options.wizardOnBack || (() => goBackOrClose(navigation))}
               onClose={() => closeWizard(navigation)}
-              progress={getSendWizardProgress(
-                headerRoute.name,
-                mode,
-                hasInitialSource,
-                recipientFixed,
-              )}
               progressAnimation={progressAnimation}
+              recipientFixed={recipientFixed}
+              routeName={headerRoute.name}
             />
           ),
         })}>
