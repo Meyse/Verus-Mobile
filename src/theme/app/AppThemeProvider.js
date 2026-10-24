@@ -1,5 +1,5 @@
-import React, {useMemo} from 'react';
-import {StatusBar, useColorScheme} from 'react-native';
+import React, {useEffect, useMemo} from 'react';
+import {Appearance, Platform, StatusBar, useColorScheme} from 'react-native';
 import {
   Provider as PaperProvider,
   configureFonts,
@@ -101,6 +101,18 @@ const AppThemeProvider = ({children}) => {
     () => createPaperTheme(semanticTheme),
     [semanticTheme],
   );
+
+  // iOS draws native controls such as switches from the phone's appearance,
+  // not the in-app theme. On the light theme with a dark phone, an off switch
+  // was almost invisible. The app windows follow the in-app choice instead.
+  // Android switches take their colours from the Paper theme.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    Appearance.setColorScheme(
+      preference === ONBOARDING_THEME_MODE.SYSTEM ? null : preference,
+    );
+  }, [preference]);
 
   return (
     <OnboardingThemeProvider modeOverride={resolvedMode}>
