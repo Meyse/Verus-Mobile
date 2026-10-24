@@ -578,6 +578,16 @@ card.") and "Create gift card". The first create, from that button or +, opens
 now". It shows once per wallet; the share confirmation repeats the warning when
 the risk starts.
 
+Asset list rows take the wallet (Home) row sizes: the "Receive assets" list,
+Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
+
+- A 38-point `AssetCoinLogo`, 16 points from the text, with 12 points of
+  vertical padding. A row with two lines is 68 points high.
+- The name in `titleRow`. On its right, the fiat value in 16/20 semibold, or
+  "N/A" in 13/18 `textSubtle`.
+- The second line 2 points under the name in `bodySm` and `textSecondary`: the
+  amount, or "Launches in …" in Convert to.
+
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
 `SafeBottomActionStack` arrangement.
