@@ -2,7 +2,9 @@ import React, {useEffect, useState} from 'react';
 import {ScrollView, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import AppButton from '../../../components/AppButton';
-import AppSearchField from '../../../components/AppSearchField';
+import AppSearchField, {
+  APP_SEARCH_MIN_ITEMS,
+} from '../../../components/AppSearchField';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SkeletonLoader, {
   SkeletonSection,
@@ -37,9 +39,19 @@ const InvoicePaymentOptions = ({
     }
   }, [cards, selectedId]);
 
+  // The search field shows only from 7 payment sources. `cards` is the whole
+  // list, so the count ignores the search text and the field does not
+  // disappear while the user types. When it hides, the search text resets.
+  const searchable = cards.length >= APP_SEARCH_MIN_ITEMS;
+  const activeSearch = searchable ? search.trim().toLowerCase() : '';
+
+  useEffect(() => {
+    if (!searchable) setSearch('');
+  }, [searchable]);
+
   const filteredCards = cards.filter(card =>
     card.searchTerms.some(term =>
-      String(term).toLowerCase().includes(search.trim().toLowerCase()),
+      String(term).toLowerCase().includes(activeSearch),
     ),
   );
   const draft = cards.find(card => card.id === draftId);
@@ -66,7 +78,7 @@ const InvoicePaymentOptions = ({
           <Text accessibilityRole="header" style={styles.stepTitle}>
             Pay with
           </Text>
-          {cards.length > 5 && (
+          {searchable && (
             <AppSearchField
               accessibilityLabel="Search payment sources"
               placeholder="Search currencies and cards"
