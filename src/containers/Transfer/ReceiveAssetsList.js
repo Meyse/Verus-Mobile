@@ -54,7 +54,6 @@ const ReceiveAssetsList = ({navigation}) => {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerBackTitle: 'Back',
       headerRight: () => null,
       headerShadowVisible: false,
       headerStyle: {

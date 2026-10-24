@@ -8,9 +8,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import {PanGestureHandler} from 'react-native-gesture-handler';
+import {PanGestureHandler, State} from 'react-native-gesture-handler';
 import Animated, {
-  Easing,
   Extrapolate,
   cancelAnimation,
   interpolate,
@@ -18,7 +17,7 @@ import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
 import {ChevronRight, Network} from 'lucide-react-native';
@@ -86,11 +85,23 @@ const NEIGHBOR_CENTER_OFFSET = 0.6;
 const NEIGHBOR_ROTATE_Y = 18;
 const NEIGHBOR_ROTATE_Z = 3.5;
 const SWIPE_DISTANCE_THRESHOLD = 39;
-const KINETIC_SNAP_DURATION = 480;
-const KINETIC_SNAP_CONFIG = {
-  duration: KINETIC_SNAP_DURATION,
-  easing: Easing.bezier(0.22, 0.8, 0.18, 1),
+// A quick flick changes the card even when it moves less than the distance
+// threshold. Its direction decides, so a flick back keeps the current card.
+const SWIPE_FLICK_VELOCITY = 500;
+const SWIPE_FLICK_MIN_DISTANCE = 12;
+// The snap starts at the finger's speed and settles in about 0.3 s. Rail
+// positions are in cards, so the rest thresholds are in cards too.
+const KINETIC_SNAP_SPRING = {
+  damping: 29,
+  mass: 1,
+  stiffness: 260,
+  restDisplacementThreshold: 0.002,
+  restSpeedThreshold: 0.02,
 };
+const KINETIC_SNAP_MAX_VELOCITY = 10;
+// Past the first or last card the rail follows the finger with resistance,
+// up to a quarter of a card.
+const RAIL_EDGE_LIMIT = 0.25;
 const CIRCULAR_RAIL_MIN_CARDS = 3;
 const RAIL_DOT_COLOR = '#CCD2DF';
 const RAIL_DOT_ACTIVE_COLOR = '#3165D4';
@@ -130,6 +141,19 @@ const lookupCoin = id => {
 
 const clamp = (number, minimum, maximum) =>
   Math.max(minimum, Math.min(maximum, number));
+
+// The iOS scroll-view rubber band, in cards.
+const resistEdges = (position, lastPosition) => {
+  'worklet';
+  const stretch = over =>
+    (1 - 1 / ((over * 0.55) / RAIL_EDGE_LIMIT + 1)) * RAIL_EDGE_LIMIT;
+
+  if (position < 0) return -stretch(-position);
+  if (position > lastPosition) {
+    return lastPosition + stretch(position - lastPosition);
+  }
+  return position;
+};
 
 const getLogicalCardIndex = (railPosition, itemCount) => {
   if (itemCount === 0) return 0;
@@ -800,10 +824,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
     ) {
       railPosition.value = targetRailPosition;
     } else {
-      railPosition.value = withTiming(
-        targetRailPosition,
-        KINETIC_SNAP_CONFIG,
-      );
+      railPosition.value = withSpring(targetRailPosition, KINETIC_SNAP_SPRING);
     }
   }, [
     circularRail,
@@ -897,9 +918,9 @@ const SignedInAssetHeader = ({showCards = true}) => {
         railPosition.value = targetRailPosition;
         finishRailInteraction();
       } else {
-        railPosition.value = withTiming(
+        railPosition.value = withSpring(
           targetRailPosition,
-          KINETIC_SNAP_CONFIG,
+          KINETIC_SNAP_SPRING,
           finished => {
             if (finished) runOnJS(finishRailInteraction)();
           },
@@ -956,7 +977,12 @@ const SignedInAssetHeader = ({showCards = true}) => {
 
   const gestureHandler = useAnimatedGestureHandler(
     {
-      onStart: (_, context) => {
+      onStart: (event, context) => {
+        // When a pan ends, the iOS handler resets and reports END -> BEGAN
+        // without a finger. Only a new touch starts a drag; that stray event
+        // would cancel the snap and leave the cards between two positions.
+        if (event.oldState !== State.UNDETERMINED) return;
+
         cancelAnimation(railPosition);
         context.startPosition = railPosition.value;
         context.selectedPosition = selectedRailPosition.value;
@@ -968,18 +994,23 @@ const SignedInAssetHeader = ({showCards = true}) => {
           context.startPosition - event.translationX / centerOffset;
 
         if (!circularRail) {
-          nextPosition = Math.max(
-            0,
-            Math.min(itemCount - 1, nextPosition),
-          );
+          nextPosition = resistEdges(nextPosition, itemCount - 1);
         }
 
         railPosition.value = nextPosition;
       },
       onEnd: (event, context) => {
         let direction = 0;
-        if (event.translationX <= -SWIPE_DISTANCE_THRESHOLD) direction = 1;
-        if (event.translationX >= SWIPE_DISTANCE_THRESHOLD) direction = -1;
+        if (
+          Math.abs(event.velocityX) >= SWIPE_FLICK_VELOCITY &&
+          Math.abs(event.translationX) >= SWIPE_FLICK_MIN_DISTANCE
+        ) {
+          direction = event.velocityX < 0 ? 1 : -1;
+        } else if (event.translationX <= -SWIPE_DISTANCE_THRESHOLD) {
+          direction = 1;
+        } else if (event.translationX >= SWIPE_DISTANCE_THRESHOLD) {
+          direction = -1;
+        }
 
         let targetPosition = context.selectedPosition + direction;
         if (!circularRail) {
@@ -1002,9 +1033,17 @@ const SignedInAssetHeader = ({showCards = true}) => {
           railPosition.value = targetPosition;
           runOnJS(finishRailInteraction)();
         } else {
-          railPosition.value = withTiming(
+          const railVelocity =
+            -event.velocityX / (cardWidth * NEIGHBOR_CENTER_OFFSET);
+          railPosition.value = withSpring(
             targetPosition,
-            KINETIC_SNAP_CONFIG,
+            {
+              ...KINETIC_SNAP_SPRING,
+              velocity: Math.max(
+                -KINETIC_SNAP_MAX_VELOCITY,
+                Math.min(KINETIC_SNAP_MAX_VELOCITY, railVelocity),
+              ),
+            },
             finished => {
               if (finished) runOnJS(finishRailInteraction)();
             },
@@ -1018,7 +1057,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
             : context.selectedPosition;
         railPosition.value = reduceMotionEnabled
           ? targetPosition
-          : withTiming(targetPosition, KINETIC_SNAP_CONFIG, finished => {
+          : withSpring(targetPosition, KINETIC_SNAP_SPRING, finished => {
               if (finished) runOnJS(finishRailInteraction)();
             });
         if (reduceMotionEnabled) runOnJS(finishRailInteraction)();
@@ -1030,7 +1069,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
             : context.selectedPosition;
         railPosition.value = reduceMotionEnabled
           ? targetPosition
-          : withTiming(targetPosition, KINETIC_SNAP_CONFIG, finished => {
+          : withSpring(targetPosition, KINETIC_SNAP_SPRING, finished => {
               if (finished) runOnJS(finishRailInteraction)();
             });
         if (reduceMotionEnabled) runOnJS(finishRailInteraction)();

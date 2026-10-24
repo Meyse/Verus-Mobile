@@ -245,6 +245,8 @@ const getRemoveBlockedReason = card => {
 
 const GiftCardServiceOverview = ({
   navigation,
+  onSecretWarningSeen,
+  secretWarningSeen,
   serviceData,
   saveServiceData,
 }) => {
@@ -265,6 +267,7 @@ const GiftCardServiceOverview = ({
     INITIAL_CANCEL_PREPARATION,
   );
   const [showListHeaderDivider, setShowListHeaderDivider] = useState(false);
+  const [secretWarningVisible, setSecretWarningVisible] = useState(false);
   // One short line under the card when a refresh or removal did not happen.
   const [detailNotice, setDetailNotice] = useState(null);
   const cancelRequestGenerationRef = useRef(0);
@@ -857,13 +860,29 @@ const GiftCardServiceOverview = ({
     if (confirmed === true) deleteCard(card);
   };
 
+  // The first create asks the user to acknowledge that a gift card is a
+  // spendable secret. Later creates open the form directly.
+  const openCreate = () => {
+    if (secretWarningSeen) navigation.navigate('GiftCardCreate');
+    else setSecretWarningVisible(true);
+  };
+
+  const acceptSecretWarning = async () => {
+    try {
+      await onSecretWarningSeen();
+    } catch (e) {
+      console.warn(e.message);
+    }
+    navigation.navigate('GiftCardCreate');
+  };
+
   const renderList = () => (
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={[styles.screen, {backgroundColor: theme.colors.background}]}>
       <ServiceManagerHeader
         addAccessibilityLabel="Create gift card"
-        onAdd={() => navigation.navigate('GiftCardCreate')}
+        onAdd={openCreate}
         onBack={() => navigation.goBack()}
         showDivider={showListHeaderDivider}
         title="Gift cards">
@@ -1012,18 +1031,37 @@ const GiftCardServiceOverview = ({
               source={emptyGiftCardImage}
               style={styles.emptyImage}
             />
-            <Text
-              style={[
-                styles.emptyTitle,
-                {color: theme.colors.textSecondary},
-              ]}>
-              {cards.length === 0 ? 'No gift cards yet' : 'No gift cards here'}
-            </Text>
+            {cards.length === 0 ? (
+              <>
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    theme.typography.titleSheet,
+                    styles.emptyHeading,
+                    {color: theme.colors.textPrimary},
+                  ]}>
+                  No gift cards yet
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyTitle,
+                    {color: theme.colors.textSecondary},
+                  ]}>
+                  Share funds or a VerusID as a link, QR code, or NFC card.
+                </Text>
+              </>
+            ) : (
+              <Text
+                style={[
+                  styles.emptyTitle,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                No gift cards here
+              </Text>
+            )}
             <AppButton
               onPress={() =>
-                cards.length === 0
-                  ? navigation.navigate('GiftCardCreate')
-                  : setFilter(STATUS_ALL)
+                cards.length === 0 ? openCreate() : setFilter(STATUS_ALL)
               }
               style={styles.emptyPrimaryButton}>
               {cards.length === 0
@@ -1033,6 +1071,16 @@ const GiftCardServiceOverview = ({
           </View>
         ) : null}
       </FadedScrollView>
+
+      <AcknowledgeSheet
+        dismissLabel="Not now"
+        message="Anyone with access to a gift card can claim its funds now, and any funds added later."
+        onAcknowledged={acceptSecretWarning}
+        onClose={() => setSecretWarningVisible(false)}
+        testID="giftCard.secretWarning"
+        title="Treat gift cards as secrets"
+        visible={secretWarningVisible}
+      />
     </SafeAreaView>
   );
 
@@ -1627,6 +1675,10 @@ const styles = StyleSheet.create({
     height: 140,
     marginBottom: 32,
     opacity: 0.35,
+  },
+  emptyHeading: {
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptyTitle: {
     ...fontStyle('regular'),

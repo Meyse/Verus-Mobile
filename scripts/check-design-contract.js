@@ -134,6 +134,13 @@ const requiredSourceFragments = [
     path: 'src/containers/Services/AddressBook/AddressBookEditSheet.js',
     fragments: ['paddingHorizontal: 20', 'height={56}'],
   },
+  {
+    path: 'src/utils/navigation/header.js',
+    fragments: [
+      'headerBackTitleVisible: false',
+      '<OnboardingBackButton onPress={onPress} />',
+    ],
+  },
 ];
 
 const failures = [];
@@ -467,6 +474,37 @@ const repeatedFactFailures = (() => {
 })();
 
 failures.push(...repeatedFactFailures);
+
+// Redesigned stack headers go back with the arrow button from
+// createRedesignedHeaderOptions. A back title brings back the iOS "‹ Back".
+const backTitleFailures = (() => {
+  const sourceRoot = path.join(root, 'src');
+  const hits = [];
+  const walk = directory => {
+    for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+      if (/^(__tests__|__mocks__|node_modules)$/.test(entry.name)) continue;
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+      } else if (/\.js$/.test(entry.name)) {
+        fs.readFileSync(entryPath, 'utf8')
+          .split('\n')
+          .forEach((line, index) => {
+            if (/\bheaderBackTitle\s*:/.test(line)) {
+              hits.push(`${path.relative(root, entryPath)}:${index + 1}`);
+            }
+          });
+      }
+    }
+  };
+  if (fs.existsSync(sourceRoot)) walk(sourceRoot);
+  return hits.map(
+    hit =>
+      `${hit} sets headerBackTitle. Redesigned headers use the arrow back button from createRedesignedHeaderOptions, not the iOS "‹ Back".`,
+  );
+})();
+
+failures.push(...backTitleFailures);
 
 if (failures.length > 0) {
   console.error('Design contract check failed:');

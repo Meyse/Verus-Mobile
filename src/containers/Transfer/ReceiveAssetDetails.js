@@ -168,7 +168,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerShown: !requestActive,
       headerTintColor: theme.colors.textPrimary,

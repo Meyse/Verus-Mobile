@@ -108,6 +108,8 @@ const RedesignedHeaderRight = ({color}) => {
   );
 };
 
+// Every redesigned stack header goes back with the arrow button, never the iOS
+// "‹ Back" chevron and title.
 export const createRedesignedHeaderOptions = theme => ({
   headerShown: true,
   headerMode: 'screen',
@@ -122,15 +124,16 @@ export const createRedesignedHeaderOptions = theme => ({
     color: theme.colors.textPrimary,
   },
   headerTintColor: theme.colors.textPrimary,
+  headerBackTitleVisible: false,
+  headerLeft: ({onPress}) =>
+    onPress ? <OnboardingBackButton onPress={onPress} /> : null,
+  headerLeftContainerStyle: {
+    paddingLeft: 16,
+  },
   headerRight: () => <RedesignedHeaderRight color={theme.colors.textPrimary} />,
 });
 
 export const createSettingsHeaderOptions = theme => ({
   ...createRedesignedHeaderOptions(theme),
-  headerBackTitleVisible: false,
-  headerLeft: ({onPress}) => <OnboardingBackButton onPress={onPress} />,
-  headerLeftContainerStyle: {
-    paddingLeft: 16,
-  },
   headerRight: () => null,
 });

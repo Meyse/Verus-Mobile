@@ -643,7 +643,6 @@ const SignedInVerusIdDetails = () => {
           />
         </TouchableOpacity>
       ),
-      headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
         backgroundColor: theme.colors.background,

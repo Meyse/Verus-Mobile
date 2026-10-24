@@ -5,7 +5,6 @@ import {modifyServiceStoredDataForUser} from '../../../../actions/actions/servic
 import {requestServiceStoredData} from '../../../../utils/auth/authBox';
 import {GIFT_CARD_SERVICE_ID} from '../../../../utils/constants/services';
 import {normalizeGiftCardServiceData} from '../../../../utils/giftCard/giftCard';
-import GiftCardServiceIntroSlider from './GiftCardServiceIntroSlider/GiftCardServiceIntroSlider';
 import GiftCardServiceOverview, {
   GiftCardServiceOverviewLoadError,
   GiftCardServiceOverviewSkeleton,
@@ -75,7 +74,9 @@ const GiftCardService = props => {
     [activeAccount],
   );
 
-  const markIntroSeen = useCallback(async () => {
+  // The stored flag keeps its old name: it was set by the intro screen that
+  // the first-create warning replaced.
+  const markSecretWarningSeen = useCallback(async () => {
     await saveServiceData(currentData => ({
       ...currentData,
       introSeen: true,
@@ -101,20 +102,11 @@ const GiftCardService = props => {
     return <GiftCardServiceOverviewSkeleton navigation={props.navigation} />;
   }
 
-  const cardCount = Object.keys(serviceData.cards || {}).length;
-
-  if (!serviceData.introSeen && cardCount === 0) {
-    return (
-      <GiftCardServiceIntroSlider
-        onBack={() => props.navigation.goBack()}
-        onDone={markIntroSeen}
-      />
-    );
-  }
-
   return (
     <GiftCardServiceOverview
       navigation={props.navigation}
+      onSecretWarningSeen={markSecretWarningSeen}
+      secretWarningSeen={Boolean(serviceData.introSeen)}
       serviceData={serviceData}
       saveServiceData={saveServiceData}
       reload={loadCards}
