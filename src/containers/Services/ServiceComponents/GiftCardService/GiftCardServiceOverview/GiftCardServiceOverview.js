@@ -2,7 +2,6 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   BackHandler,
-  Image,
   Platform,
   StyleSheet,
   Text,
@@ -16,7 +15,9 @@ import {useFocusEffect} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {
   ArrowDownToLine,
+  CircleAlert,
   CirclePlus,
+  Gift,
   Nfc,
   QrCode,
   RotateCcw,
@@ -31,6 +32,7 @@ import {
 import AcknowledgeSheet from '../../../../../components/AcknowledgeSheet';
 import AppButton from '../../../../../components/AppButton';
 import CopyAction from '../../../../../components/CopyAction';
+import EmptyState from '../../../../../components/EmptyState';
 import FadedScrollView from '../../../../../components/FadedScrollView';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import ServiceManagerHeader from '../../../../../components/ServiceManagerHeader';
@@ -100,7 +102,6 @@ const SHARE_METHOD = {
   NFC: 'nfc',
 };
 const MONOSPACE_FONT = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
-const emptyGiftCardImage = require('../../../../../images/customIcons/empty-gift-card.png');
 const INITIAL_CANCEL_PREPARATION = {
   status: GIFT_CARD_CANCEL_STATUS.IDLE,
   card: null,
@@ -1024,51 +1025,24 @@ const GiftCardServiceOverview = ({
         })}
 
         {visibleCards.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Image
-              accessible={false}
-              resizeMode="contain"
-              source={emptyGiftCardImage}
-              style={styles.emptyImage}
-            />
-            {cards.length === 0 ? (
-              <>
-                <Text
-                  accessibilityRole="header"
-                  style={[
-                    theme.typography.titleSheet,
-                    styles.emptyHeading,
-                    {color: theme.colors.textPrimary},
-                  ]}>
-                  No gift cards yet
-                </Text>
-                <Text
-                  style={[
-                    styles.emptyTitle,
-                    {color: theme.colors.textSecondary},
-                  ]}>
-                  Share funds or a VerusID as a link, QR code, or NFC card.
-                </Text>
-              </>
-            ) : (
-              <Text
-                style={[
-                  styles.emptyTitle,
-                  {color: theme.colors.textSecondary},
-                ]}>
-                No gift cards here
-              </Text>
-            )}
-            <AppButton
-              onPress={() =>
-                cards.length === 0 ? openCreate() : setFilter(STATUS_ALL)
-              }
-              style={styles.emptyPrimaryButton}>
-              {cards.length === 0
-                ? 'Create gift card'
-                : 'Show all gift cards'}
-            </AppButton>
-          </View>
+          <EmptyState
+            actionLabel={
+              cards.length === 0 ? 'Create gift card' : 'Show all gift cards'
+            }
+            icon={Gift}
+            message={
+              cards.length === 0
+                ? 'Share funds or a VerusID as a link, QR code, or NFC card.'
+                : null
+            }
+            onAction={() =>
+              cards.length === 0 ? openCreate() : setFilter(STATUS_ALL)
+            }
+            style={styles.emptyState}
+            title={
+              cards.length === 0 ? 'No gift cards yet' : 'No gift cards here'
+            }
+          />
         ) : null}
       </FadedScrollView>
 
@@ -1540,30 +1514,12 @@ export const GiftCardServiceOverviewLoadError = ({navigation, onRetry}) => {
         onBack={() => navigation.goBack()}
         title="Gift cards"
       />
-      <View style={styles.emptyState}>
-        <MaterialCommunityIcons
-          accessible={false}
-          color={theme.colors.textSubtle}
-          name="alert-circle-outline"
-          size={52}
-        />
-        <Text
-          accessibilityRole="header"
-          style={[
-            theme.typography.titleSheet,
-            styles.loadErrorTitle,
-            {color: theme.colors.textPrimary},
-          ]}>
-          Unable to load gift cards
-        </Text>
-        <Text
-          style={[styles.emptyTitle, {color: theme.colors.textSecondary}]}>
-          The wallet could not open the saved gift cards.
-        </Text>
-        <AppButton onPress={onRetry} style={styles.emptyPrimaryButton}>
-          Try again
-        </AppButton>
-      </View>
+      <EmptyState
+        actionLabel="Try again"
+        icon={CircleAlert}
+        onAction={onRetry}
+        title="Unable to load gift cards"
+      />
     </SafeAreaView>
   );
 };
@@ -1663,37 +1619,6 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     minHeight: 300,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 24,
-    paddingBottom: 60,
-    paddingHorizontal: 32,
-  },
-  emptyImage: {
-    width: 170,
-    height: 140,
-    marginBottom: 32,
-    opacity: 0.35,
-  },
-  emptyHeading: {
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyTitle: {
-    ...fontStyle('regular'),
-    marginBottom: 32,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  emptyPrimaryButton: {
-    width: 240,
-  },
-  loadErrorTitle: {
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
   },
   detailHeader: {
     minHeight: 58,

@@ -113,6 +113,30 @@ Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rul
 centrally through `useButtonHeight`, including explicit action heights. Text
 buttons keep their size.
 
+## Imagery
+
+The owner chose one picture system on 2026-10-24 (option A of the imagery
+review). Each kind of picture has one job:
+
+- **Line glyph.** Every still picture is a Lucide glyph with a 1.8 stroke in a
+  theme color. An icon-led step uses `src/components/StepGlyph.js`: 72 points
+  in `textPrimary`, 24 points above the large title. An empty or failed list
+  uses `src/components/EmptyState.js`: 64 points in `textSubtle`, then a
+  `titleSheet` title, an optional line and one action. The glyph names the
+  service with its Services tile icon (`Gift`, `BookUser`) or the VerusID `@`
+  (`AtSign`). A failed list shows `CircleAlert` and only says what failed.
+- **Live status symbol.** An operation that waits for the user or a device,
+  such as the NFC tap (`NfcTapSymbol`), shows a symbol on a disc. It moves only
+  when the real state changes.
+- **The app's own objects.** Progress or a celebration of a real event uses
+  real components: the wallet icon, coin logos and the gift card material
+  (wallet setup, claiming funds, the ready card).
+
+The blurred wave video stays on the landing and login screens as brand
+atmosphere. Do not add raster illustrations, 3D renders, stock animations or a
+`MaterialCommunityIcons` glyph at picture size. The grey 3D empty-state renders
+were removed for this rule, because a shaded raster cannot follow the theme.
+
 ## Canonical pattern map
 
 | Need | Source of truth | Required starting point |
@@ -132,6 +156,8 @@ buttons keep their size.
 | Gift card detail | [Gift card detail](#gift-card-detail) below, with `src/containers/Services/ServiceComponents/GiftCardService/GiftCardFixedCard.js` | Use the fixed card. Say each fact once. |
 | VerusID list and page | [VerusID page](#verusid-page) below, with `src/containers/Services/ServiceComponents/VerusIdService/VerusIdCard.js` | Use the light card. Funds come last; a fund opens its asset screen. |
 | App alert | `src/components/Alert.js` through `createAlert`, with the `AcknowledgeSheet` measurements, and [App alerts](#app-alerts) below | Prefer the screen itself. Never use a Paper `Dialog` or a native `Alert.alert` in redesigned UI. |
+| Empty or failed list | `src/components/EmptyState.js` and [Imagery](#imagery) | Use it for every list without items or with a load error. Do not draw a local picture, title and button. |
+| Icon-led step | `src/components/StepGlyph.js`, as `src/containers/Onboard/CreateProfile/Forms/UseBiometrics.js` uses it | Lead the step with `StepGlyph`. Do not size or color a step icon locally. |
 | Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
 | Transaction result | `src/components/TransactionResult.js`, as `src/containers/SendWizard/SendWizardSuccess.js` uses it, and [Transaction result](#transaction-result) below | Use it for every screen after the wallet sends transactions. It has no section label and no count line. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
@@ -284,7 +310,9 @@ on 2026-10-23.
   "Verify phrase", "Import phrase", "Review phrase", "Import wallet").
 - A screen led by an icon with one choice keeps its large title, and the header
   shows no title: biometrics ("Use Face ID"), the shielded address, NFC import
-  and the Z recovery secret intro (owner, 2026-10-23).
+  and the Z recovery secret intro (owner, 2026-10-23). Each one, and Decrypt
+  spendable key, leads with `StepGlyph` in the signed-out step layout
+  ([Imagery](#imagery)).
 - Form steps start 24 points under the header on every window: signed-out steps
   add `afterHeaderTitle` from `createSignedOutFlowStyles(theme)`. Icon-led
   screens keep the normal 54-point and compact 20-point step top.
@@ -571,7 +599,7 @@ filters only when they help, and a clear list or empty state. Do not wrap the
 whole list or sections in generic page cards.
 
 Gift Cards opens on its list; there is no intro screen (owner, 2026-10-24).
-Without cards, the empty state shows the illustration, "No gift cards yet" in
+Without cards, `EmptyState` shows the `Gift` glyph, "No gift cards yet" in
 `titleSheet`, one line ("Share funds or a VerusID as a link, QR code, or NFC
 card.") and "Create gift card". The first create, from that button or +, opens
 `AcknowledgeSheet` "Treat gift cards as secrets" with "I understand" and "Not
@@ -867,6 +895,9 @@ page itself shows no mark.
   Under it, the asset count in `caption` ("2 assets", "No assets"). A
   `StatusBadge` shows only for Locked (warning) or Revoked (danger); Active is
   silent. A chevron ends the row. The title has no count pill.
+- No linked VerusID: `EmptyState` with `AtSign`, "No VerusID linked", one line
+  and "Link VerusID". The list header's ⓘ ("About VerusID") opens the
+  explainer; the empty state has no second link to it.
 - Header: the arrow back button, and ⋯ on the right. After the card scrolls
   away, the header shows the first part of the name. ⋯ opens a sheet with one
   action row, "Unlink VerusID" (danger), which opens the existing unlink

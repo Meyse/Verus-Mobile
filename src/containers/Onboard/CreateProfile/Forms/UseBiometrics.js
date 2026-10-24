@@ -10,6 +10,7 @@ import {Text} from 'react-native-paper';
 import AppButton from '../../../../components/AppButton';
 import {getBiometryPresentation} from '../../../../components/BiometricAffordanceIcon';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
+import StepGlyph from '../../../../components/StepGlyph';
 import {createSignedOutFlowStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
@@ -106,12 +107,7 @@ export default function UseBiometrics({
         ]}>
         <Animated.View
           style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-          <BiometryIcon
-            color={theme.colors.textPrimary}
-            size={72}
-            strokeWidth={1.8}
-            style={styles.icon}
-          />
+          <StepGlyph icon={BiometryIcon} />
           <Text
             style={[
               signedOutFlowStyles.title,
@@ -147,9 +143,6 @@ export default function UseBiometrics({
 }
 
 const styles = StyleSheet.create({
-  icon: {
-    marginBottom: 24,
-  },
   title: {
     marginBottom: 14,
   },

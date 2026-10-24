@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {ShieldEllipsis} from 'lucide-react-native';
 import AppButton from '../AppButton';
 import AppTextInput from '../AppTextInput';
 import SafeBottomActionStack from '../SafeBottomActionStack';
 import ScanSeed from '../ScanSeed';
+import StepGlyph from '../StepGlyph';
 import SeedWords from '../../containers/CreateWallet/Forms/CreateSeed/Forms/SeedWords';
 import CompactSetupHeader from '../../containers/Onboard/components/CompactSetupHeader';
 import {fontStyle} from '../../globals/fonts';
@@ -130,12 +132,7 @@ const ZSeedSetupFlow = ({cancel, seed, beginSeedSubmission, seedSubmissionIsCurr
           <View style={styles.form}>
             {stage === 'intro' ? (
               <>
-                <MaterialCommunityIcons
-                  color={theme.colors.textPrimary}
-                  name="shield-key-outline"
-                  size={64}
-                  style={styles.heroIcon}
-                />
+                <StepGlyph icon={ShieldEllipsis} />
                 <Text
                   style={[styles.title, smallDevice && styles.titleSmall]}>
                   Set up your Z recovery secret
@@ -268,9 +265,6 @@ const createStyles = theme =>
       width: '100%',
       maxWidth: 360,
       alignSelf: 'center',
-    },
-    heroIcon: {
-      marginBottom: 24,
     },
     title: {
       marginBottom: 18,
