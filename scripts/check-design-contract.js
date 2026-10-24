@@ -15,6 +15,8 @@ const requiredFiles = [
   'src/components/AppSearchField.js',
   'src/components/AppSearchLauncher.js',
   'src/components/CopyAction.js',
+  'src/components/EmptyState.js',
+  'src/components/StepGlyph.js',
   'src/components/ProgressHeader.js',
   'src/components/HeaderContextBand.js',
   'src/components/SafeBottomActionStack.js',
@@ -41,6 +43,7 @@ const requiredFiles = [
 const requiredDesignSections = [
   '## Scope',
   '## Core rules',
+  '## Imagery',
   '## Canonical pattern map',
   '## BottomSheets',
   '## Stepped tasks',
@@ -70,6 +73,14 @@ const requiredSourceFragments = [
   {
     path: 'src/theme/onboarding/tokens.js',
     fragments: ['headlineMd:', 'fontSize: 28', 'lineHeight: 36'],
+  },
+  {
+    path: 'src/styles/components/glyph.styles.js',
+    fragments: [
+      'GLYPH_STROKE_WIDTH = 1.8',
+      'STEP_GLYPH_SIZE = 72',
+      'EMPTY_STATE_GLYPH_SIZE = 64',
+    ],
   },
   {
     path: 'src/components/BottomSheetModal.js',
