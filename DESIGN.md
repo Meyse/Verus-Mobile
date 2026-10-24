@@ -68,6 +68,10 @@ methods, never Verus Mobile's visual direction.
 - On iOS every text field takes its keyboard appearance from the in-app theme
   through `src/utils/applyThemedKeyboard.js`. Do not set `keyboardAppearance`
   per field. Android keyboards keep their own or the system setting.
+- On iOS the app windows take their appearance from the in-app theme
+  (`src/theme/app/AppThemeProvider.js`), so native controls such as switches
+  match it. Before this, an off switch on the light theme with a dark phone was
+  almost invisible. Do not give a native control colours only to fix contrast.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
   through `src/components/SafeBottomActionStack.js`.
 - Wrap a form with bottom actions in `src/components/KeyboardAvoidingForm.js`
