@@ -5,7 +5,7 @@ import {Text} from 'react-native-paper';
 import {formatCurrency} from 'react-native-format-currency';
 import BigNumber from 'bignumber.js';
 import {useDispatch, useSelector} from 'react-redux';
-import AppSearchField from '../../components/AppSearchField';
+import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import SkeletonLoader, {SkeletonBlock, SkeletonText} from '../../components/SkeletonLoader';
 import {setActiveApp, setActiveCoin, setActiveSection, setCoinSubWallet} from '../../actions/actionCreators';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
@@ -52,8 +52,14 @@ const ReceiveAssetsList = ({navigation}) => {
   const headerScrolledRef = useRef(false);
 
   useLayoutEffect(() => {
+    // The title sits in the header bar, as on Send's Select asset.
     navigation.setOptions({
-      title: '',
+      title: 'Receive assets',
+      headerTitleAlign: 'center',
+      headerTitleStyle: {
+        ...theme.typography.titleSheet,
+        color: theme.colors.textPrimary,
+      },
       headerRight: () => null,
       headerShadowVisible: false,
       headerStyle: {
@@ -102,15 +108,21 @@ const ReceiveAssetsList = ({navigation}) => {
     [activeCoins, allSubWallets, balances, displayCurrency, rates],
   );
 
+  const loading = activeCoins.length > 0 && Object.keys(allSubWallets).length === 0;
+  // While the cards load, the coin count decides, so the field does not
+  // appear late.
+  const searchable =
+    (loading ? activeCoins.length : assets.length) >= APP_SEARCH_MIN_ITEMS;
+
   const filteredAssets = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = searchable ? search.trim().toLowerCase() : '';
     if (!query) return assets;
     return assets.filter(({coinObj}) =>
       [coinObj.display_name, coinObj.display_ticker, coinObj.id]
         .filter(Boolean)
         .some(value => value.toLowerCase().includes(query)),
     );
-  }, [assets, search]);
+  }, [assets, search, searchable]);
 
   const openDetails = useCallback(
     (coinObj, card) => {
@@ -194,7 +206,9 @@ const ReceiveAssetsList = ({navigation}) => {
   };
 
   const renderSkeleton = () => (
-    <SkeletonLoader accessibilityLabel="Loading Assets">
+    <SkeletonLoader
+      accessibilityLabel="Loading Assets"
+      style={!searchable && styles.listWithoutSearch}>
       {[0, 1, 2].map(index => (
         <View key={index} style={styles.skeletonRow}>
           <SkeletonBlock height={38} radius={8} width={38} />
@@ -214,31 +228,35 @@ const ReceiveAssetsList = ({navigation}) => {
     setHeaderScrolled(next);
   };
 
-  const loading = activeCoins.length > 0 && Object.keys(allSubWallets).length === 0;
-
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <View style={[styles.header, headerScrolled && styles.headerScrolled]}>
-        <Text style={styles.title}>Receive assets</Text>
-        <AppSearchField
-          accessibilityLabel="Search assets"
-          onChangeText={setSearch}
-          placeholder="Search assets"
-          resultCount={filteredAssets.length}
-          value={search}
-        />
+      <View
+        style={[
+          styles.header,
+          searchable && styles.headerWithSearch,
+          headerScrolled && styles.headerScrolled,
+        ]}>
+        {searchable ? (
+          <AppSearchField
+            accessibilityLabel="Search assets"
+            onChangeText={setSearch}
+            placeholder="Search assets"
+            resultCount={filteredAssets.length}
+            value={search}
+          />
+        ) : null}
       </View>
       {loading ? (
         renderSkeleton()
       ) : (
         <FlatList
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, !searchable && styles.listWithoutSearch]}
           data={filteredAssets}
           keyExtractor={item => item.coinObj.id}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyText}>
-                {search.trim()
+                {searchable && search.trim()
                   ? 'No assets match your search.'
                   : 'No assets available yet.'}
               </Text>

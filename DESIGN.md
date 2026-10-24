@@ -591,6 +591,11 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   CONVERSIONS", "PRE-LAUNCH", "MORE CONVERSIONS"): `labelSm` in `textSecondary`
   with 0.5 tracking. The owner kept the capitals and asked for this smaller
   size on 2026-10-24.
+- These three lists show `AppSearchField` only when the whole list has 7 or
+  more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24). Up to 6 rows fit on
+  the smallest phones without scrolling. Count the list before the search, so
+  the field does not disappear while the user types. Without the field, the
+  first row or group title starts 24 points under the header.
 
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
@@ -987,6 +992,10 @@ the coins that fly onto Home.
 The owner approved variation A ("Calm address") for Receive and variation C's
 paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
 
+- The "Receive assets" list shows its title in the header bar, centered in
+  `titleSheet` between the arrow back button and an empty right side, as Send's
+  Select asset does (owner, 2026-10-24). There is no large title under the
+  header.
 - Receive has the arrow back button and no title or options icon. A
   40-point asset logo sits beside `headlineMd`. Under the name, show only the
   selected card type and its network. With several cards, that line opens

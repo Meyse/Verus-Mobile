@@ -4,7 +4,7 @@ import {useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {CONVERSION_DISABLED} from '../../../env/index';
-import AppSearchField from '../../components/AppSearchField';
+import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {fontStyle} from '../../globals/fonts';
@@ -159,15 +159,16 @@ const SendWizardSelectSource = () => {
     scanRequest,
   ]);
 
+  const searchable = sourcesByAsset.length >= APP_SEARCH_MIN_ITEMS;
   const filteredAssets = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = searchable ? query.trim().toLowerCase() : '';
     if (!normalized) return sourcesByAsset;
     return sourcesByAsset.filter(({coin}) =>
       [coin.display_name, coin.display_ticker, coin.id]
         .filter(Boolean)
         .some(value => value.toLowerCase().includes(normalized)),
     );
-  }, [query, sourcesByAsset]);
+  }, [query, searchable, sourcesByAsset]);
 
   const chooseSource = source => {
     setPendingAsset(null);
@@ -223,26 +224,28 @@ const SendWizardSelectSource = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <AppSearchField
-        accessibilityLabel="Search currencies"
-        onChangeText={setQuery}
-        placeholder="Search currencies"
-        resultCount={filteredAssets.length}
-        style={styles.searchSpacing}
-        value={query}
-      />
+      {searchable ? (
+        <AppSearchField
+          accessibilityLabel="Search currencies"
+          onChangeText={setQuery}
+          placeholder="Search currencies"
+          resultCount={filteredAssets.length}
+          style={styles.searchSpacing}
+          value={query}
+        />
+      ) : null}
       <FlatList
         data={filteredAssets}
         keyExtractor={item => item.coin.id}
         ListEmptyComponent={
           <View style={styles.empty}>
-            {scanAddressType && !query.trim() ? (
+            {scanAddressType && !(searchable && query.trim()) ? (
               <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>
                 No asset for this address
               </Text>
             ) : null}
             <Text style={[styles.emptyBody, {color: theme.colors.textSecondary}]}>
-              {query.trim()
+              {searchable && query.trim()
                 ? 'No assets match your search.'
                 : scanAddressType
                 ? 'This address is for assets you don’t hold.'
@@ -284,7 +287,7 @@ const SendWizardSelectSource = () => {
             </Pressable>
           );
         }}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, !searchable && styles.listWithoutSearch]}
       />
       <SourceCardSheet
         cards={pendingAsset?.cards || []}
@@ -303,6 +306,8 @@ const SendWizardSelectSource = () => {
 
 const styles = StyleSheet.create({
   list: {paddingBottom: 24},
+  // With the row's 12-point padding, the first row starts at the top inset.
+  listWithoutSearch: {paddingTop: WIZARD_CONTENT_TOP_INSET - 12},
   searchSpacing: {
     marginTop: WIZARD_CONTENT_TOP_INSET,
     marginHorizontal: WIZARD_CONTENT_INSET,

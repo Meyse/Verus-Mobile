@@ -14,6 +14,10 @@ import {
 } from '../theme/onboarding';
 import AppTextInput from './AppTextInput';
 
+// The asset and currency lists show a search field only from this many items.
+// Up to 6 rows fit on the smallest phones without scrolling.
+export const APP_SEARCH_MIN_ITEMS = 7;
+
 const AppSearchField = forwardRef(function AppSearchField(
   {
     accessibilityLabel,
