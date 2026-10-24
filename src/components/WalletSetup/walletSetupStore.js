@@ -13,6 +13,9 @@ const IDLE = {visible: false, phase: 'idle', hiddenLogoIds: []};
 // shown it. A step resolves anyway after this long if the screen is gone.
 const SHOWN_TIMEOUT = 2000;
 
+// A landing coin and its Home row logo cross-fade for this long.
+export const WALLET_SETUP_HANDOFF = 150;
+
 let state = IDLE;
 let runId = 0;
 let finishResolvers = [];
