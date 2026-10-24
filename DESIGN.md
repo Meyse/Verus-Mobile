@@ -591,11 +591,13 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   CONVERSIONS", "PRE-LAUNCH", "MORE CONVERSIONS"): `labelSm` in `textSecondary`
   with 0.5 tracking. The owner kept the capitals and asked for this smaller
   size on 2026-10-24.
-- These three lists show `AppSearchField` only when the whole list has 7 or
-  more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24). Up to 6 rows fit on
-  the smallest phones without scrolling. Count the list before the search, so
-  the field does not disappear while the user types. Without the field, the
-  first row or group title starts 24 points under the header.
+- These three lists, and Manage assets, show `AppSearchField` only when the
+  whole list has 7 or more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24).
+  Up to 6 rows fit on the smallest phones without scrolling. Count the list
+  before the search, so the field does not disappear while the user types.
+  Without the field, the first row or group title starts 24 points under the
+  header. The Add asset list keeps its field: it searches the whole catalogue
+  and takes a pasted identifier.
 
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
@@ -621,6 +623,12 @@ of the mockup on 2026-10-21):
   removed or ignored Verus currency stays out of automatic adding and "New
   assets found" until the user adds it again. Review asset for a found
   currency offers "Ignore" as the secondary action.
+- Below 7 assets, the search field and the All / On Home / Hidden tabs are
+  hidden, and "Your assets" starts 24 points under the header. The count
+  includes "New assets found" and ignores the selected tab and the search text
+  (owner, 2026-10-24). While the controls are hidden, the list shows every
+  asset and the empty text never says "No matching assets" or "No hidden
+  assets".
 
 Settings work must compose `SettingsScaffold` rather than recreate its page,
 section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
