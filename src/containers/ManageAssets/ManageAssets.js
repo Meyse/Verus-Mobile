@@ -4,7 +4,7 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AppButton from '../../components/AppButton';
-import AppSearchField from '../../components/AppSearchField';
+import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {
@@ -145,21 +145,27 @@ const Manager = ({navigation}) => {
     if (removeRequested.current) setConfirmVisible(true);
     removeRequested.current = false;
   };
+  // The search and the tabs show only from 7 assets. The count ignores the
+  // selected tab and the search text, so they do not disappear while the user
+  // uses them. Without them, the list shows every asset.
+  const searchable = data.activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
+  const activeQuery = searchable ? query : '';
+  const activeFilter = searchable ? filter : 'all';
   const assets = data.activeAssets.map(coin => ({coin,
     presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
   })).filter(({coin, presentation}) => {
     const shown = isAssetShown(coin, data.management.preferences);
-    return (filter === 'all' || (filter === 'home' ? shown : !shown)) &&
-      matchesQuery(query, presentation.searchTerms);
+    return (activeFilter === 'all' || (activeFilter === 'home' ? shown : !shown)) &&
+      matchesQuery(activeQuery, presentation.searchTerms);
   });
-  const discoveries = filter === 'all' ? data.discoveries.map(holding => ({...holding,
+  const discoveries = activeFilter === 'all' ? data.discoveries.map(holding => ({...holding,
     presentation: getAssetPresentation(resolvedAssetCoin(holding.result), {systemId: holding.systemId}),
-  })).filter(holding => matchesQuery(query, [...holding.presentation.searchTerms,
+  })).filter(holding => matchesQuery(activeQuery, [...holding.presentation.searchTerms,
     holding.result.currencyDefinition.fullyqualifiedname])) : [];
 
   return (
     <AssetScreen title="Manage assets" onBack={() => navigation.goBack()} testID="manage-assets-screen"
-      header={<View style={styles.headerContent}>
+      header={searchable ? <View style={styles.headerContent}>
         <AppSearchField accessibilityLabel="Search your assets" placeholder="Search your assets" value={query} onChangeText={setQuery} testID="manage-assets-search" />
         <View style={styles.filters}>
           <View style={styles.tabs}>{FILTERS.map(item => (
@@ -168,10 +174,10 @@ const Manager = ({navigation}) => {
             </TouchableOpacity>
           ))}</View>
         </View>
-      </View>}
+      </View> : null}
       footer={<AssetFooter styles={styles}><AppButton onPress={() => navigation.navigate('ManageAssetsDirectory')} testID="manage-assets-add-asset">Add asset</AppButton></AssetFooter>}>
       <ErrorMessage styles={styles} error={error || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
-      <AssetScrollView styles={styles} testID="manage-assets-list">
+      <AssetScrollView styles={styles} contentContainerStyle={!searchable && styles.listWithoutSearch} testID="manage-assets-list">
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
           <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
           {assets.map(({coin, presentation}) => {
@@ -194,7 +200,7 @@ const Manager = ({navigation}) => {
                 /></View>
               </TouchableOpacity>} />;
           })}
-          {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{query ? 'No matching assets' : filter === 'hidden' ? 'No hidden assets' : filter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
+          {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
           {discoveries.length > 0 ? <>
             <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
             {discoveries.map(holding => {

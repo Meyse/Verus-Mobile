@@ -6,20 +6,18 @@ export const createReceiveListStyles = theme =>
     screen: {flex: 1, backgroundColor: theme.colors.background},
     header: {
       paddingHorizontal: 16,
-      paddingBottom: 12,
       backgroundColor: theme.colors.background,
     },
+    // Match the search field spacing of Send's Select asset.
+    headerWithSearch: {paddingTop: 24, paddingBottom: 14},
     headerScrolled: {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    title: {
-      ...theme.typography.headlineMd,
-      marginTop: 8,
-      marginBottom: 16,
-      color: theme.colors.textPrimary,
-    },
     list: {paddingBottom: 20},
+    // With the row's 12-point padding, the first row starts 24 points under
+    // the header.
+    listWithoutSearch: {paddingTop: 12},
     // Asset rows match the wallet (Home) asset rows.
     row: {
       flexDirection: 'row',
