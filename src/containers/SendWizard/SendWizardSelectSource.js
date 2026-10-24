@@ -274,10 +274,10 @@ const SendWizardSelectSource = () => {
               </View>
               <View style={styles.assetCopy}>
                 <View style={styles.titleRow}>
-                  <Text numberOfLines={1} style={[styles.assetName, {color: theme.colors.textPrimary}]}>{item.coin.display_name}</Text>
+                  <Text numberOfLines={1} style={[theme.typography.titleRow, styles.assetName, {color: theme.colors.textPrimary}]}>{item.coin.display_name}</Text>
                   <Text style={[styles.fiatValue, {color: showBalance && !fiat ? theme.colors.textSubtle : theme.colors.textPrimary}]}>{fiatDisplay}</Text>
                 </View>
-                <Text style={[styles.cryptoValue, {color: theme.colors.textSecondary}]}>
+                <Text style={[theme.typography.bodySm, styles.cryptoValue, {color: theme.colors.textSecondary}]}>
                   {cryptoDisplay}{item.cards.length > 1 ? ` · ${item.cards.length} Cards` : ''}
                 </Text>
               </View>
@@ -308,18 +308,19 @@ const styles = StyleSheet.create({
     marginHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 14,
   },
+  // Asset rows match the wallet (Home) asset rows.
   assetRow: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
-    paddingVertical: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
   assetLogo: {width: 38, height: 38, marginRight: 16},
   assetCopy: {flex: 1, minWidth: 0},
   titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  assetName: {flexShrink: 1, fontSize: 17, lineHeight: 22, ...fontStyle('semiBold')},
-  fiatValue: {fontSize: 16, lineHeight: 22, marginLeft: 12, ...fontStyle('semiBold')},
-  cryptoValue: {fontSize: 16, lineHeight: 22, marginTop: 6, ...fontStyle('medium')},
+  assetName: {flexShrink: 1},
+  fiatValue: {fontSize: 16, lineHeight: 20, marginLeft: 12, ...fontStyle('semiBold')},
+  cryptoValue: {marginTop: 2},
   pressed: {opacity: 0.7},
   empty: {
     paddingHorizontal: WIZARD_CONTENT_INSET,

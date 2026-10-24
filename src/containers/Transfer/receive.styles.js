@@ -20,28 +20,26 @@ export const createReceiveListStyles = theme =>
       color: theme.colors.textPrimary,
     },
     list: {paddingBottom: 20},
+    // Asset rows match the wallet (Home) asset rows.
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      minHeight: 86,
       paddingHorizontal: 16,
-      paddingVertical: 16,
+      paddingVertical: 12,
     },
     logo: {marginRight: 16},
     rowBody: {flex: 1, minWidth: 0},
     rowTop: {flexDirection: 'row', alignItems: 'center'},
     assetName: {
+      ...theme.typography.titleRow,
       flex: 1,
       color: theme.colors.textPrimary,
-      fontSize: 17,
-      lineHeight: 22,
-      ...fontStyle('semiBold'),
     },
     fiat: {
       marginLeft: 12,
       color: theme.colors.textPrimary,
       fontSize: 16,
-      lineHeight: 22,
+      lineHeight: 20,
       ...fontStyle('semiBold'),
     },
     unavailable: {
@@ -52,11 +50,9 @@ export const createReceiveListStyles = theme =>
       ...fontStyle('regular'),
     },
     crypto: {
-      marginTop: 6,
+      ...theme.typography.bodySm,
+      marginTop: 2,
       color: theme.colors.textSecondary,
-      fontSize: 16,
-      lineHeight: 22,
-      ...fontStyle('medium'),
     },
     empty: {alignItems: 'center', paddingHorizontal: 32, paddingTop: 48},
     emptyText: {
@@ -69,9 +65,9 @@ export const createReceiveListStyles = theme =>
     skeletonRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      minHeight: 86,
+      minHeight: 68,
       paddingHorizontal: 16,
-      paddingVertical: 16,
+      paddingVertical: 12,
     },
   });
 

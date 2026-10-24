@@ -183,19 +183,23 @@ const SendWizardSelectTarget = () => {
         <AssetCoinLogo
           coinId={option.coinId || option.id}
           showBadge={!option.isGrouped}
-          size={40}
+          size={38}
         />
       </View>
       <View style={styles.optionCopy}>
         <Text
           numberOfLines={1}
-          style={[styles.optionName, {color: theme.colors.textPrimary}]}>
+          style={[theme.typography.titleRow, {color: theme.colors.textPrimary}]}>
           {option.name}
         </Text>
         {option.isPrelaunch ? (
           <Text
             numberOfLines={1}
-            style={[theme.typography.caption, {color: theme.colors.textSecondary}]}>
+            style={[
+              theme.typography.bodySm,
+              styles.optionSubtitle,
+              {color: theme.colors.textSecondary},
+            ]}>
             {launchLine(option)}
           </Text>
         ) : null}
@@ -299,15 +303,16 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     ...fontStyle('semiBold'),
   },
+  // Option rows match the wallet (Home) asset rows.
   optionRow: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  optionLogo: {width: 40, height: 40, marginRight: 28},
+  optionLogo: {width: 38, height: 38, marginRight: 16},
   optionCopy: {flex: 1, minWidth: 0},
-  optionName: {fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
+  optionSubtitle: {marginTop: 2},
   pressed: {opacity: 0.7},
   empty: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
