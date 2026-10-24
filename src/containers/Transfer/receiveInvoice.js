@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 import {primitives} from 'verusid-ts-client';
 import {fromBase58Check} from 'verus-typescript-primitives';
-import {createVerusPayInvoice} from '../../utils/api/channels/vrpc/callCreators';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {I_ADDRESS_VERSION, R_ADDRESS_VERSION} from '../../utils/constants/constants';
 import {coinsToSats, isNumber} from '../../utils/math';
@@ -97,34 +96,40 @@ export const generateReceiveInvoice = async ({
       : [];
   const slippage = maxSlippageValue || DEFAULT_SLIPPAGE_PERCENT;
 
-  const invoice = await createVerusPayInvoice(
-    coinObj,
-    new primitives.VerusPayInvoiceDetails({
-      amount: amountSats,
-      destination: new primitives.TransferDestination({
-        type: destinationType,
-        destinationBytes: hash,
-      }),
-      requestedcurrencyid: coinObj.currency_id,
-      acceptedsystems: acceptedSystems,
-      maxestimatedslippage: acceptsConversion
-        ? new primitives.BigNumber(
-            coinsToSats(BigNumber(slippage).dividedBy(100)).toString(),
-            10,
-          )
-        : undefined,
+  const details = new primitives.VerusPayInvoiceDetails({
+    amount: amountSats,
+    destination: new primitives.TransferDestination({
+      type: destinationType,
+      destinationBytes: hash,
     }),
-  );
+    requestedcurrencyid: coinObj.currency_id,
+    acceptedsystems: acceptedSystems,
+    maxestimatedslippage: acceptsConversion
+      ? new primitives.BigNumber(
+          coinsToSats(BigNumber(slippage).dividedBy(100)).toString(),
+          10,
+        )
+      : undefined,
+  });
 
-  invoice.details.setFlags({
+  details.setFlags({
     acceptsConversion,
     isTestnet: !!coinObj.testnet,
     acceptsNonVerusSystems: acceptedSystems.length > 0,
     acceptsAnyAmount: false,
   });
 
+  // An unsigned GenericRequest with one invoice detail, not the deprecated
+  // VerusPay v3 invoice link.
+  const request = new primitives.GenericRequest({
+    details: [new primitives.VerusPayInvoiceDetailsOrdinalVDXFObject({data: details})],
+    flags: coinObj.testnet
+      ? primitives.GenericRequest.FLAG_IS_TESTNET
+      : primitives.GenericRequest.BASE_FLAGS,
+  });
+
   return {
-    qrString: invoice.toWalletDeeplinkUri(),
+    qrString: request.toWalletDeeplinkUri(),
     showVerusIcon: true,
     cryptoAmount,
   };

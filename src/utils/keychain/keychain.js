@@ -5,6 +5,7 @@ import {
 } from '../../../env/index';
 import {NativeModules, Platform} from 'react-native';
 import {randomBytes} from '../crypto/randomBytes';
+import {withBiometricPrompt} from './biometricPrompt';
 
 const INCLUDE_SERVICE = Platform.OS === 'android';
 
@@ -53,6 +54,10 @@ export const isBiometricPasswordNotFoundError = error =>
   error?.code === BIOMETRIC_PASSWORD_NOT_FOUND_ERROR_CODE;
 
 const DEFAULT_GENERIC_PASSWORD_KEY = 'default';
+
+// An iOS read of a biometric item opens the Face ID or Touch ID sheet.
+const getBiometricGenericPassword = options =>
+  withBiometricPrompt(() => Keychain.getGenericPassword(options));
 
 const getInternetCredential = async (credentialKey, title) => {
   const credentials = await Keychain.getInternetCredentials(
@@ -277,7 +282,7 @@ export const getBiometricCredential = async (
     }
   }
 
-  const credentials = await Keychain.getGenericPassword({
+  const credentials = await getBiometricGenericPassword({
     service: BIOMETRIC_CREDENTIAL_KEY,
     authenticationPrompt: {title},
   });
@@ -428,7 +433,7 @@ const canonicalBiometricPasswordMap = value =>
   );
 
 const getIosCurrentBiometricData = async title => {
-  const credentials = await Keychain.getGenericPassword({
+  const credentials = await getBiometricGenericPassword({
     service: BIOMETRIC_CURRENT_SET_SERVICE,
     authenticationPrompt: {title},
   });
@@ -459,7 +464,7 @@ export const getLegacyBiometricData = async (
     // map already contains every entry from the old default service. Merge the
     // source first, let the newer current-set values win, verify any rewrite,
     // and only then remove BIOMETRY_ANY.
-    const oldCredentials = await Keychain.getGenericPassword({
+    const oldCredentials = await getBiometricGenericPassword({
       authenticationPrompt: {title},
     });
     if (oldCredentials === false || oldCredentials == null) return currentData;
@@ -487,7 +492,7 @@ export const getLegacyBiometricData = async (
     return mergedData;
   }
 
-  const oldCredentials = await Keychain.getGenericPassword({
+  const oldCredentials = await getBiometricGenericPassword({
     authenticationPrompt: {title},
   });
   if (oldCredentials === false || oldCredentials == null) {

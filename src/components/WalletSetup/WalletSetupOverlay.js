@@ -44,6 +44,7 @@ import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {
+  WALLET_SETUP_HANDOFF,
   closeWalletSetup,
   getWalletSetupUnits,
   markWalletSetupShown,
@@ -80,10 +81,30 @@ const TRAVEL = 650;
 const STAGGER = 70;
 const TARGET_WAIT = 3000;
 const TARGET_RETRY = 150;
+// Home has settled when two measurements in a row agree to this many points.
+const SETTLE_TOLERANCE = 0.5;
+// While the coins travel they follow their rows if Home still moves.
+const FOLLOW_INTERVAL = 100;
+const STEER = 160;
+// The row logo fades in under the landed coin first, then the coin fades,
+// so the hand-over never dims.
+const HANDOFF_DELAY = WALLET_SETUP_HANDOFF;
 
 const RING_EASING = Easing.bezier(0.22, 0.61, 0.36, 1);
 const TRAVEL_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 const COIN_IN_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
+
+const sameRects = (a, b) =>
+  a.length === b.length &&
+  a.every(
+    (rect, index) =>
+      Math.abs(rect.x - b[index].x) <= SETTLE_TOLERANCE &&
+      Math.abs(rect.y - b[index].y) <= SETTLE_TOLERANCE &&
+      Math.abs(rect.width - b[index].width) <= SETTLE_TOLERANCE &&
+      Math.abs(rect.height - b[index].height) <= SETTLE_TOLERANCE,
+  );
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const joinNames = names =>
   names.length <= 1
@@ -159,8 +180,17 @@ const SetupCoin = React.forwardRef(
     const opacity = useSharedValue(0);
     const lift = useSharedValue(reduceMotion ? 0 : 8);
     const scale = useSharedValue(reduceMotion ? 1 : 0.92);
-    const translateX = useSharedValue(0);
-    const translateY = useSharedValue(0);
+    // The flight runs once from 0 to 1; its end point moves with the row.
+    const progress = useSharedValue(0);
+    const endX = useSharedValue(0);
+    const endY = useSharedValue(0);
+    const endScale = useSharedValue(1);
+    const flying = useRef(false);
+    const inFlight = flight != null;
+    // The landing callback is a worklet: give it only the id. A worklet
+    // freezes what it captures (in development), and the coin's
+    // presentation holds the live CoinDirectory records.
+    const {coinId} = coin;
 
     useEffect(() => {
       if (!shown) return;
@@ -174,33 +204,51 @@ const SetupCoin = React.forwardRef(
     useEffect(() => {
       if (!faded) return;
 
-      opacity.value = withTiming(0, {duration: flight ? 120 : 280});
-    }, [faded, flight, opacity]);
+      opacity.value = inFlight
+        ? withDelay(
+            HANDOFF_DELAY,
+            withTiming(0, {duration: WALLET_SETUP_HANDOFF}),
+          )
+        : withTiming(0, {duration: 280});
+    }, [faded, inFlight, opacity]);
 
     useEffect(() => {
       if (flight == null) return;
 
-      const timing = {duration: TRAVEL, easing: TRAVEL_EASING};
-      const landed = finished => {
-        if (finished) runOnJS(onLanded)(coin.coinId);
-      };
+      if (!flying.current) {
+        flying.current = true;
+        endX.value = flight.dx;
+        endY.value = flight.dy;
+        endScale.value = flight.scale;
+        progress.value = withDelay(
+          flight.delay,
+          withTiming(
+            1,
+            {duration: TRAVEL, easing: TRAVEL_EASING},
+            finished => {
+              if (finished) runOnJS(onLanded)(coinId);
+            },
+          ),
+        );
+        return;
+      }
 
-      translateX.value = withDelay(flight.delay, withTiming(flight.dx, timing));
-      translateY.value = withDelay(
-        flight.delay,
-        withTiming(flight.dy, timing, landed),
-      );
-      scale.value = withDelay(flight.delay, withTiming(flight.scale, timing));
-      // flight is set once per run; the shared values are stable.
+      // The row moved during the flight: bend toward its new place.
+      const timing = {duration: STEER, easing: RING_EASING};
+      endX.value = withTiming(flight.dx, timing);
+      endY.value = withTiming(flight.dy, timing);
+      endScale.value = withTiming(flight.scale, timing);
+      // The flight starts once per run; later changes only move its end. The
+      // shared values are stable.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [flight]);
 
     const animatedStyle = useAnimatedStyle(() => ({
       opacity: opacity.value,
       transform: [
-        {translateX: translateX.value},
-        {translateY: translateY.value + lift.value},
-        {scale: scale.value},
+        {translateX: endX.value * progress.value},
+        {translateY: endY.value * progress.value + lift.value},
+        {scale: scale.value * (1 + (endScale.value - 1) * progress.value)},
       ],
     }));
 
@@ -377,7 +425,7 @@ const WalletSetupScreen = ({setup}) => {
 
     if (landedIds.length < setup.coins.length) return undefined;
 
-    const timer = setTimeout(close, 250);
+    const timer = setTimeout(close, HANDOFF_DELAY + WALLET_SETUP_HANDOFF + 50);
     return () => clearTimeout(timer);
     // setup.coins is fixed for one run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -402,19 +450,58 @@ const WalletSetupScreen = ({setup}) => {
       ),
     );
 
+  // Home's row logos once they exist and have stopped moving: two
+  // measurements in a row agree. Null if Home is not ready in time.
   const waitForHome = async () => {
     const coinIds = slotCoins.map(coin => coin.coinId);
     const deadline = Date.now() + TARGET_WAIT;
+    let previous = null;
 
     while (mounted.current && Date.now() < deadline) {
       const rects = await measureWalletSetupTargets(coinIds);
+      const found = rects.every(Boolean);
 
-      if (rects.every(Boolean)) return rects;
+      if (found && previous != null && sameRects(rects, previous)) {
+        return rects;
+      }
 
-      await new Promise(resolve => setTimeout(resolve, TARGET_RETRY));
+      previous = found ? rects : null;
+      await wait(TARGET_RETRY);
     }
 
     return null;
+  };
+
+  const getFlights = (origins, targets) =>
+    origins.map((origin, index) => {
+      const target = targets[index];
+
+      return {
+        delay: index * STAGGER,
+        dx: target.x + target.width / 2 - (origin.x + origin.width / 2),
+        dy: target.y + target.height / 2 - (origin.y + origin.height / 2),
+        scale: target.width / COIN,
+      };
+    });
+
+  // Home can still move while the coins travel. Measure the rows again until
+  // the last coin lands, and move a coin's end point when its row moved.
+  const followHome = async (origins, targets) => {
+    const coinIds = slotCoins.map(coin => coin.coinId);
+    const deadline = Date.now() + TRAVEL + STAGGER * slotCoins.length;
+    let current = targets;
+
+    while (mounted.current && Date.now() < deadline) {
+      await wait(FOLLOW_INTERVAL);
+
+      const rects = await measureWalletSetupTargets(coinIds);
+      const next = current.map((rect, index) => rects[index] || rect);
+
+      if (mounted.current && !sameRects(next, current)) {
+        current = next;
+        setFlights(getFlights(origins, next));
+      }
+    }
   };
 
   const flyToHome = async () => {
@@ -439,18 +526,8 @@ const WalletSetupScreen = ({setup}) => {
     setTimeout(close, TRAVEL + STAGGER * slotCoins.length + 1500);
     contentOpacity.value = withTiming(0, {duration: 350});
     backgroundOpacity.value = withTiming(0, {duration: 350});
-    setFlights(
-      origins.map((origin, index) => {
-        const target = targets[index];
-
-        return {
-          delay: index * STAGGER,
-          dx: target.x + target.width / 2 - (origin.x + origin.width / 2),
-          dy: target.y + target.height / 2 - (origin.y + origin.height / 2),
-          scale: target.width / COIN,
-        };
-      }),
-    );
+    setFlights(getFlights(origins, targets));
+    followHome(origins, targets);
   };
 
   // All steps are shown and setup has ended: the check, then the flight.
@@ -474,7 +551,12 @@ const WalletSetupScreen = ({setup}) => {
       `${setup.walletName} is ready`,
     );
 
-    const timer = setTimeout(flyToHome, READY_HOLD);
+    // The first of Home's two settle measurements runs before the hold ends,
+    // so the coins still leave after READY_HOLD when Home is settled.
+    const timer = setTimeout(
+      flyToHome,
+      setup.landOnHome ? READY_HOLD - TARGET_RETRY : READY_HOLD,
+    );
     return () => clearTimeout(timer);
     // flyToHome reads refs and the fixed run setup.
     // eslint-disable-next-line react-hooks/exhaustive-deps

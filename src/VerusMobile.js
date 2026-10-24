@@ -38,6 +38,7 @@ import LoadingModal from "./components/LoadingModal/LoadingModal";
 import WalletSetupOverlay from "./components/WalletSetup/WalletSetupOverlay";
 import NfcTapHost from "./components/NfcTap/NfcTapHost";
 import { isNfcSessionActive } from "./utils/walletBackup/walletBackupNfc";
+import { isBiometricPromptOpen } from "./utils/keychain/biometricPrompt";
 import { CoinDirectory } from "./utils/CoinData/CoinDirectory";
 import { removeInactiveCurrencyDefinitions } from "./utils/asyncStore/currencyDefinitionStorage";
 import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDefinitionStorage";
@@ -77,14 +78,26 @@ export class VerusMobile extends React.Component {
         this.setSecurityCover(false)
       } else if (nextAppState === "inactive" && this.state.securityCover == false) {
         this.handleInactivity()
+      } else if (
+        nextAppState === "background" &&
+        this.state.securityCover == false &&
+        this.props.sendModal.type == null
+      ) {
+        // Leaving the app while a sheet kept the screen uncovered.
+        this.setSecurityCover(true)
       }
     }
   };
 
   handleInactivity() {
-    // The iOS NFC scan sheet makes the app inactive. The NFC tap screen behind
-    // the sheet must stay visible, so it is not covered.
-    if (this.props.sendModal.type == null && !isNfcSessionActive()) {
+    // The iOS NFC scan sheet and the app's own Face ID or Touch ID sheet make
+    // the app inactive. The screen behind them must stay visible, so it is not
+    // covered.
+    if (
+      this.props.sendModal.type == null &&
+      !isNfcSessionActive() &&
+      !isBiometricPromptOpen()
+    ) {
       this.setSecurityCover(true)
     }
     
