@@ -9,7 +9,7 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {CONVERSION_DISABLED} from '../../../env/index';
-import AppSearchField from '../../components/AppSearchField';
+import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -98,8 +98,9 @@ const SendWizardSelectTarget = () => {
     () => options.filter(option => option.isConversion),
     [options],
   );
+  const searchable = conversionOptions.length >= APP_SEARCH_MIN_ITEMS;
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = searchable ? query.trim().toLowerCase() : '';
     if (!normalized) return conversionOptions;
     return conversionOptions.filter(option =>
       [
@@ -118,7 +119,7 @@ const SendWizardSelectTarget = () => {
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(normalized)),
     );
-  }, [conversionOptions, query]);
+  }, [conversionOptions, query, searchable]);
   // A currency before its launch has its own section: it has no price yet, and
   // the funds wait until the launch.
   const prelaunch = filtered.filter(option => option.isPrelaunch);
@@ -224,14 +225,16 @@ const SendWizardSelectTarget = () => {
 
   return (
     <WizardScreen scroll={false}>
-      <AppSearchField
-        accessibilityLabel="Search currencies"
-        onChangeText={setQuery}
-        placeholder="Search currencies"
-        resultCount={filtered.length}
-        style={styles.searchSpacing}
-        value={query}
-      />
+      {searchable ? (
+        <AppSearchField
+          accessibilityLabel="Search currencies"
+          onChangeText={setQuery}
+          placeholder="Search currencies"
+          resultCount={filtered.length}
+          style={styles.searchSpacing}
+          value={query}
+        />
+      ) : null}
       {loading ? (
         <SkeletonLoader accessibilityLabel="Loading transfer options" style={styles.skeleton}>
           <SkeletonRow labelWidth="18%" valueWidth="78%" />
@@ -239,7 +242,11 @@ const SendWizardSelectTarget = () => {
           <SkeletonRow labelWidth="18%" valueWidth="72%" />
         </SkeletonLoader>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            !searchable && styles.contentWithoutSearch,
+          ]}>
           <ErrorMessage>{error}</ErrorMessage>
           {popular.length > 0 ? (
             <View style={styles.section}>
@@ -261,7 +268,7 @@ const SendWizardSelectTarget = () => {
           ) : null}
           {popular.length === 0 && other.length === 0 && prelaunch.length === 0 ? (
             <Text style={[styles.empty, {color: theme.colors.textSecondary}]}>
-              {query.trim()
+              {searchable && query.trim()
                 ? 'No matching conversion options.'
                 : 'No conversion routes available.'}
             </Text>
@@ -284,6 +291,7 @@ const styles = StyleSheet.create({
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},
   content: {paddingBottom: 32},
+  contentWithoutSearch: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   skeleton: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     paddingTop: 20,
