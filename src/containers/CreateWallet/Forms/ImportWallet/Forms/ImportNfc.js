@@ -2,14 +2,25 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
   Platform,
+  ScrollView,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import {Button, Text, TextInput} from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {Text} from 'react-native-paper';
+import {Nfc} from 'lucide-react-native';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
+import AppButton from '../../../../../components/AppButton';
+import AppTextInput from '../../../../../components/AppTextInput';
+import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import NfcTapView from '../../../../../components/NfcTap/NfcTapView';
+import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
+import StepGlyph from '../../../../../components/StepGlyph';
+import {
+  ONBOARDING_KEYBOARD_FOOTER_SPACING,
+  useOnboardingSmallDeviceLayout,
+} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
+import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {
   isValid24WordBip39Mnemonic,
@@ -33,7 +44,6 @@ import {
   deactivateKeepAwake,
 } from '../../../../../utils/keepAwake/keepAwake';
 
-const fieldWidth = 300;
 // How long the check stays on screen before the next step.
 const DONE_HOLD_MS = 900;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -44,20 +54,12 @@ export default function ImportNfc({
   onComplete,
 }) {
   const theme = useOnboardingTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-  const paperInputTheme = useMemo(
-    () => ({
-      colors: {
-        primary: theme.colors.primary,
-        text: theme.colors.textPrimary,
-        placeholder: theme.colors.textSubtle,
-        background: theme.colors.input,
-        surface: theme.colors.input,
-        error: theme.colors.danger,
-      },
-    }),
+  const signedOutFlowStyles = useMemo(
+    () => createSignedOutFlowStyles(theme),
     [theme],
   );
+  const {keyboardVisible, smallDevice} = useOnboardingSmallDeviceLayout();
+  const scrollRef = useRef(null);
   // The NFC tap step while the card is read, or the failed read.
   const [nfcTap, setNfcTap] = useState(null);
   const [walletBackupOrdinal, setWalletBackupOrdinal] = useState(null);
@@ -216,149 +218,128 @@ export default function ImportNfc({
     );
   }
 
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.container}>
-        <View style={styles.centerContentCompact}>
-          <MaterialCommunityIcons
-            name="credit-card-wireless"
-            size={56}
-            color={theme.colors.primary}
-            style={{marginBottom: 16}}
-          />
-          <Text style={styles.title}>
-            {'Import using NFC'}
-          </Text>
+  const encrypted = walletBackupOrdinal != null;
+  // Above the keyboard the password field can reach the actions; keep it in
+  // view, as the password step does.
+  const scrollToEndWithKeyboard = () => {
+    if (keyboardVisible) scrollRef.current?.scrollToEnd({animated: true});
+  };
 
-          {walletBackupOrdinal != null ? (
-            <View style={styles.field}>
-              <Text style={styles.bodyText}>
-                {'This NFC wallet backup is encrypted.'}
+  // An icon-led step: the glyph, the large title and one line, then either the
+  // scan action or the password for an encrypted backup.
+  return (
+    <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
+      <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
+        <View style={styles.content}>
+          <ScrollView
+            ref={scrollRef}
+            bounces={false}
+            contentContainerStyle={[
+              signedOutFlowStyles.scrollContent,
+              smallDevice && signedOutFlowStyles.scrollContentSmallDevice,
+            ]}
+            keyboardDismissMode={
+              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            }
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={scrollToEndWithKeyboard}
+            onLayout={scrollToEndWithKeyboard}
+            showsVerticalScrollIndicator={false}>
+            <View style={signedOutFlowStyles.form}>
+              <StepGlyph icon={Nfc} />
+              <Text
+                style={[
+                  signedOutFlowStyles.title,
+                  smallDevice && signedOutFlowStyles.titleSmallDevice,
+                  styles.title,
+                ]}>
+                {'Import using NFC'}
               </Text>
-              <TextInput
-                returnKeyType="done"
-                label="Backup password"
-                value={backupPassword}
-                mode="outlined"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                disabled={decrypting}
-                onChangeText={setBackupPassword}
-                outlineColor={theme.colors.border}
-                activeOutlineColor={theme.colors.primary}
-                right={
-                  <TextInput.Icon
-                    color={theme.colors.textSubtle}
-                    icon={showPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowPassword(!showPassword)}
-                  />
-                }
-                selectionColor={theme.colors.primary}
-                style={styles.paperInput}
-                theme={paperInputTheme}
-              />
-              <Button
-                mode="contained"
-                color={theme.colors.primary}
-                onPress={importEncryptedBackup}
-                loading={decrypting}
-                disabled={decrypting || backupPassword.length === 0}
-                labelStyle={styles.containedButtonLabel}
-                style={styles.decryptButton}>
-                {'Decrypt and Import'}
-              </Button>
-              {decrypting && (
-                <Text style={styles.decryptingText}>
-                  {'Decrypting your wallet backup. This can take a few minutes.'}
-                </Text>
-              )}
-              <Button
-                mode="text"
-                color={theme.colors.primary}
-                disabled={decrypting}
-                onPress={() => {
-                  setWalletBackupOrdinal(null);
-                  setBackupPassword('');
-                }}>
-                {'Scan Different Card'}
-              </Button>
-            </View>
-          ) : (
-            <View style={styles.field}>
-              <Text style={styles.bodyTextWithSpacing}>
-                {
-                  'Scan a Verus NFC wallet backup card to import its Secret Recovery Phrase.'
-                }
+              <Text style={signedOutFlowStyles.body}>
+                {encrypted
+                  ? 'This NFC wallet backup is encrypted.'
+                  : 'Scan a Verus NFC wallet backup card to import its Secret Recovery Phrase.'}
               </Text>
-              <Button
-                mode="contained"
-                color={theme.colors.primary}
-                onPress={scanCard}
-                icon="credit-card-wireless"
-                labelStyle={styles.containedButtonLabel}
-                contentStyle={{height: 48}}>
-                {'Scan NFC Backup'}
-              </Button>
+              {encrypted ? (
+                <AppTextInput
+                  containerStyle={styles.passwordField}
+                  editable={!decrypting}
+                  helperText={
+                    decrypting
+                      ? 'Decrypting your wallet backup. This can take a few minutes.'
+                      : null
+                  }
+                  label="Backup password"
+                  onChangeText={setBackupPassword}
+                  onRightPress={() => setShowPassword(!showPassword)}
+                  onSubmitEditing={
+                    backupPassword.length > 0
+                      ? importEncryptedBackup
+                      : undefined
+                  }
+                  returnKeyType="done"
+                  rightAccessibilityLabel={
+                    showPassword
+                      ? 'Hide backup password'
+                      : 'Show backup password'
+                  }
+                  rightIcon={showPassword ? 'eye-off' : 'eye'}
+                  secureTextEntry={!showPassword}
+                  themeMode={theme.mode}
+                  value={backupPassword}
+                />
+              ) : null}
             </View>
-          )}
+          </ScrollView>
         </View>
-      </View>
-    </TouchableWithoutFeedback>
+      </TouchableWithoutFeedback>
+      <SafeBottomActionStack
+        bottomSpacing={
+          keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30
+        }
+        gap={10}
+        includeBottomInset={!keyboardVisible}
+        safeAreaSpacing={
+          keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
+        }>
+        {encrypted ? (
+          <>
+            <AppButton
+              disabled={decrypting || backupPassword.length === 0}
+              loading={decrypting}
+              onPress={importEncryptedBackup}
+              variant="primary">
+              {'Decrypt and import'}
+            </AppButton>
+            <AppButton
+              disabled={decrypting}
+              onPress={() => {
+                setWalletBackupOrdinal(null);
+                setBackupPassword('');
+              }}
+              variant="secondary">
+              {'Scan different card'}
+            </AppButton>
+          </>
+        ) : (
+          <AppButton onPress={scanCard} variant="primary">
+            {'Scan NFC backup'}
+          </AppButton>
+        )}
+      </SafeBottomActionStack>
+    </KeyboardAvoidingForm>
   );
 }
 
-const createStyles = theme =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    centerContentCompact: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
-    title: {
-      ...theme.typography.headlineMd,
-      color: theme.colors.primary,
-      marginBottom: 24,
-      textAlign: 'center',
-    },
-    field: {
-      width: fieldWidth,
-    },
-    bodyText: {
-      color: theme.colors.textSecondary,
-      fontSize: 15,
-      lineHeight: 22,
-      marginBottom: 16,
-      textAlign: 'center',
-    },
-    bodyTextWithSpacing: {
-      color: theme.colors.textSecondary,
-      fontSize: 15,
-      lineHeight: 22,
-      marginBottom: 24,
-      textAlign: 'center',
-    },
-    paperInput: {
-      marginBottom: 12,
-      backgroundColor: theme.colors.input,
-    },
-    decryptButton: {
-      marginBottom: 8,
-    },
-    containedButtonLabel: {
-      color: theme.colors.onPrimary,
-      fontWeight: 'bold',
-    },
-    decryptingText: {
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 20,
-      marginBottom: 8,
-      textAlign: 'center',
-    },
-  });
+const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+    paddingHorizontal: 32,
+  },
+  title: {
+    marginBottom: 14,
+  },
+  passwordField: {
+    marginTop: 24,
+  },
+});

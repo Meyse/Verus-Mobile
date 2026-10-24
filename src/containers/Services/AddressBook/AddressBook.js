@@ -1,12 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import {BookUser, CircleAlert} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
@@ -15,8 +10,8 @@ import {
   resolveAlert,
 } from '../../../actions/actions/alert/dispatchers/alert';
 import CopyAction from '../../../components/CopyAction';
-import AppButton from '../../../components/AppButton';
 import AppSearchField from '../../../components/AppSearchField';
+import EmptyState from '../../../components/EmptyState';
 import ServiceManagerHeader from '../../../components/ServiceManagerHeader';
 import SkeletonLoader, {
   SkeletonBlock,
@@ -49,7 +44,6 @@ const FILTERS = [
 ];
 
 const ICON_HIT_SLOP = {top: 10, right: 10, bottom: 10, left: 10};
-const emptyAddressBookImage = require('../../../images/customIcons/empty-address-book.png');
 
 const truncateAddress = address => {
   if (!address || address.length <= 19) return address;
@@ -119,7 +113,8 @@ const AddressBook = ({navigation}) => {
     try {
       setRecords(await loadAddressBook());
     } catch (e) {
-      setError(e.message);
+      console.warn(e);
+      setError(e.message || 'Address book unavailable');
     } finally {
       setLoading(false);
     }
@@ -282,35 +277,19 @@ const AddressBook = ({navigation}) => {
           ))}
         </SkeletonLoader>
       ) : error ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIllustration}>
-            <MaterialCommunityIcons
-              color={theme.colors.borderStrong}
-              name="book-alert-outline"
-              size={80}
-            />
-          </View>
-          <Text style={styles.emptyTitle}>Address Book unavailable</Text>
-          <Text style={styles.emptyDescription}>{error}</Text>
-          <AppButton onPress={refresh} style={styles.emptyPrimaryButton}>
-            {signedInCopy.actions.retry}
-          </AppButton>
-        </View>
+        <EmptyState
+          actionLabel={signedInCopy.actions.retry}
+          icon={CircleAlert}
+          onAction={refresh}
+          title="Unable to load addresses"
+        />
       ) : !hasRecords ? (
-        <View style={styles.emptyState}>
-          <Image
-            accessible={false}
-            resizeMode="contain"
-            source={emptyAddressBookImage}
-            style={styles.emptyImage}
-          />
-          <Text style={styles.emptySubtitle}>No saved addresses</Text>
-          <AppButton
-            onPress={() => openEditor(EMPTY_RECORD)}
-            style={styles.emptyPrimaryButton}>
-            Add your first address
-          </AppButton>
-        </View>
+        <EmptyState
+          actionLabel="Add your first address"
+          icon={BookUser}
+          onAction={() => openEditor(EMPTY_RECORD)}
+          title="No saved addresses"
+        />
       ) : (
         <ScrollView
           contentContainerStyle={[
@@ -469,54 +448,6 @@ const createStyles = theme =>
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 18,
-    },
-    emptyState: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 24,
-      paddingBottom: 60,
-      paddingHorizontal: 32,
-    },
-    emptyIllustration: {
-      width: 170,
-      height: 140,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 32,
-    },
-    emptyImage: {
-      width: 170,
-      height: 140,
-      marginBottom: 32,
-      opacity: 0.35,
-    },
-    emptyTitle: {
-      ...fontStyle('bold'),
-      marginBottom: 8,
-      color: theme.colors.textPrimary,
-      fontSize: 20,
-      lineHeight: 25,
-      textAlign: 'center',
-    },
-    emptySubtitle: {
-      ...fontStyle('regular'),
-      marginBottom: 32,
-      color: theme.colors.textSecondary,
-      fontSize: 15,
-      lineHeight: 22,
-      textAlign: 'center',
-    },
-    emptyDescription: {
-      ...fontStyle('regular'),
-      marginBottom: 32,
-      color: theme.colors.textSecondary,
-      fontSize: 15,
-      lineHeight: 22,
-      textAlign: 'center',
-    },
-    emptyPrimaryButton: {
-      width: 240,
     },
     noResults: {
       alignItems: 'center',

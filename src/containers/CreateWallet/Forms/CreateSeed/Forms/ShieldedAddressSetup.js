@@ -10,6 +10,7 @@ import {Switch, Text} from 'react-native-paper';
 import {ShieldCheck} from 'lucide-react-native';
 import AppButton from '../../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
+import StepGlyph from '../../../../../components/StepGlyph';
 import {fontStyle} from '../../../../../globals/fonts';
 import {createSignedOutFlowStyles} from '../../../../../styles';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
@@ -112,12 +113,7 @@ export default function ShieldedAddressSetup({
           animatedStyle,
         ]}>
         <View style={signedOutFlowStyles.form}>
-          <ShieldCheck
-            color={theme.colors.textPrimary}
-            size={72}
-            strokeWidth={1.8}
-            style={styles.icon}
-          />
+          <StepGlyph icon={ShieldCheck} />
           <Text
             style={[
               signedOutFlowStyles.title,
@@ -152,9 +148,6 @@ export default function ShieldedAddressSetup({
 
 const createStyles = theme =>
   StyleSheet.create({
-  icon: {
-    marginBottom: 24,
-  },
   title: {
     marginBottom: 14,
   },
