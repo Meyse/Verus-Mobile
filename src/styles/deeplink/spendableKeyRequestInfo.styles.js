@@ -85,9 +85,6 @@ const createSpendableKeyRequestInfoStyles = theme =>
       ...theme.typography.bodyMd,
       marginBottom: theme.spacing.lg,
     },
-    passwordHeroIcon: {
-      marginBottom: theme.spacing.lg,
-    },
     amountHero: {
       alignItems: 'center',
       justifyContent: 'center',

@@ -13,10 +13,12 @@ import Animated, {FadeIn, ReduceMotion} from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {KeyRound} from 'lucide-react-native';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
+import StepGlyph from '../../../components/StepGlyph';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import TransactionResult from '../../../components/TransactionResult';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
@@ -1664,12 +1666,7 @@ const SpendableKeyRequestInfoContent = props => {
                   styles.passwordScrollContentWithBack,
               ]}>
               <View style={styles.passwordContent}>
-                <MaterialCommunityIcons
-                  name="key-outline"
-                  size={64}
-                  color={theme.colors.textPrimary}
-                  style={styles.passwordHeroIcon}
-                />
+                <StepGlyph icon={KeyRound} />
                 <RequestTitle style={styles.passwordTitle}>
                   Decrypt spendable key
                 </RequestTitle>

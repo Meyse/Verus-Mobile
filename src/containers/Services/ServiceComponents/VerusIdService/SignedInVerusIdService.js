@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Buffer} from 'buffer';
 import {
-  Image,
   SectionList,
   StyleSheet,
   Text,
@@ -9,11 +8,13 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {AtSign, CircleAlert} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {primitives} from 'verusid-ts-client';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
+import EmptyState from '../../../../components/EmptyState';
 import AppButton from '../../../../components/AppButton';
 import InfoSheet from '../../../../components/InfoSheet';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
@@ -78,7 +79,6 @@ import LinkExistingVerusIdSheet, {
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import {processVerusId} from './VerusIdLogin';
 
-const emptyVerusIdImage = require('../../../../images/customIcons/empty-verusid.png');
 const BOTTOM_FADE_HEIGHT = 48;
 const IDENTITY_SKELETON_WIDTHS = ['46%', '64%', '52%', '72%'];
 
@@ -956,16 +956,12 @@ const handleReady = useCallback(
       {loading ? (
         <IdentityListSkeleton theme={theme} />
       ) : controller.state.loadError ? (
-        <View style={styles.errorState}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={52} color={theme.colors.textSubtle} />
-          <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>Unable to load VerusIDs</Text>
-          <Text style={[styles.emptyDescription, {color: theme.colors.textSecondary}]}>
-            Check your connection and try again.
-          </Text>
-          <AppButton onPress={() => controller.getLinkedIds()} style={styles.emptyPrimaryCta}>
-            Try again
-          </AppButton>
-        </View>
+        <EmptyState
+          actionLabel="Try again"
+          icon={CircleAlert}
+          onAction={() => controller.getLinkedIds()}
+          title="Unable to load VerusIDs"
+        />
       ) : hasContent ? (
         <SectionList
           sections={[{key: 'linked', data: linked}]}
@@ -999,35 +995,13 @@ const handleReady = useCallback(
           )}
         />
       ) : (
-        <View style={styles.emptyState}>
-          <Image
-            source={emptyVerusIdImage}
-            style={styles.emptyImage}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-          <Text style={[styles.emptyTitle, {color: theme.colors.textPrimary}]}>No VerusID linked</Text>
-          <Text style={[styles.emptyDescription, {color: theme.colors.textSecondary}]}>
-            Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands.
-          </Text>
-          <AppButton
-            onPress={() => openLinkSheet()}
-            style={styles.emptyPrimaryCta}>
-            Link VerusID
-          </AppButton>
-          <TouchableOpacity
-            onPress={() => setInfoVisible(true)}
-            activeOpacity={0.75}
-            style={styles.learnMoreRow}>
-            <MaterialCommunityIcons
-              name="information-variant"
-              size={16}
-              color={theme.colors.textSubtle}
-              style={styles.learnMoreIcon}
-            />
-            <Text style={[styles.learnMoreText, {color: theme.colors.textSubtle}]}>VerusID explained</Text>
-          </TouchableOpacity>
-        </View>
+        <EmptyState
+          actionLabel="Link VerusID"
+          icon={AtSign}
+          message="Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands."
+          onAction={() => openLinkSheet()}
+          title="No VerusID linked"
+        />
       )}
 
       {hasContent ? <BottomFade backgroundColor={theme.colors.background} solidHeight={bottomPadding} /> : null}
@@ -1274,27 +1248,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     rowGap: 8,
   },
-  errorState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 60,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 24,
-    paddingBottom: 60,
-    paddingHorizontal: 32,
-  },
-  emptyImage: {width: 170, height: 140, marginBottom: 32, opacity: 0.35},
-  emptyTitle: {...fontStyle('semiBold'), fontSize: 20, lineHeight: 25, textAlign: 'center', marginBottom: 8},
-  emptyDescription: {...fontStyle('regular'), fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 32},
-  emptyPrimaryCta: {width: 200, marginBottom: 16},
-  learnMoreRow: {flexDirection: 'row', alignItems: 'center'},
-  learnMoreIcon: {marginRight: 6},
-  learnMoreText: {...fontStyle('semiBold'), fontSize: 13, lineHeight: 17, letterSpacing: -0.1},
   bottomFade: {position: 'absolute', left: 0, right: 0, bottom: 0},
   bottomFadeSvg: {marginBottom: -1},
   faqList: {width: '100%', gap: 4},

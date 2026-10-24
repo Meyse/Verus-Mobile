@@ -27,6 +27,13 @@ export {default as copyActionStyles} from './components/copyAction.styles';
 export {default as dataRequestInfoStyles} from './deeplink/dataRequestInfo.styles';
 export {default as deepLinkRequestReviewStyles} from './components/deepLinkRequestReview.styles';
 export {default as gradientButtonStyles} from './components/gradientButton.styles';
+export {
+  default as emptyStateStyles,
+  EMPTY_STATE_GLYPH_SIZE,
+  GLYPH_STROKE_WIDTH,
+  STEP_GLYPH_SIZE,
+  stepGlyphStyles,
+} from './components/glyph.styles';
 export {default as highRiskStepStyles} from './deeplink/highRiskStep.styles';
 export {default as identityPickerSheetStyles} from './deeplink/identityPickerSheet.styles';
 export {default as identityUpdateRequestInfoStyles} from './deeplink/identityUpdateRequestInfo.styles';
