@@ -7,6 +7,9 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   scrollFrame: {flex: 1, minHeight: 0},
   scroll: {flex: 1},
   listContent: {paddingHorizontal: 20, paddingBottom: 24},
+  // With the section title's 18-point padding, the first title starts 24
+  // points under the header, as in the Send and Receive asset lists.
+  listWithoutSearch: {paddingTop: 6},
   filters: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 56, gap: 8},
   tabs: {flexDirection: 'row', alignItems: 'center', gap: 16},
   tab: {minHeight: 44, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent'},
