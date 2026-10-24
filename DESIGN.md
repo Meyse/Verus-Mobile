@@ -70,6 +70,10 @@ methods, never Verus Mobile's visual direction.
   per field. Android keyboards keep their own or the system setting.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
   through `src/components/SafeBottomActionStack.js`.
+- Go back with the arrow button: `OnboardingBackButton`, a 24-point
+  `arrow-left` in a 44-point target. `createRedesignedHeaderOptions` puts it in
+  every redesigned stack header. Never show the iOS "‹ Back" chevron and title
+  (owner, 2026-10-24); `corepack pnpm check:design` fails on `headerBackTitle`.
 - Wrap a form with bottom actions in `src/components/KeyboardAvoidingForm.js`
   so the actions stay above the keyboard on both platforms. Android pans the
   window (`adjustPan`), so a plain `KeyboardAvoidingView` there does nothing.
@@ -562,6 +566,14 @@ Address Book and Gift Cards establish the service-manager pattern:
 filters only when they help, and a clear list or empty state. Do not wrap the
 whole list or sections in generic page cards.
 
+Gift Cards opens on its list; there is no intro screen (owner, 2026-10-24).
+Without cards, the empty state shows the illustration, "No gift cards yet" in
+`titleSheet`, one line ("Share funds or a VerusID as a link, QR code, or NFC
+card.") and "Create gift card". The first create, from that button or +, opens
+`AcknowledgeSheet` "Treat gift cards as secrets" with "I understand" and "Not
+now". It shows once per wallet; the share confirmation repeats the warning when
+the risk starts.
+
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
 `SafeBottomActionStack` arrangement.
@@ -804,9 +816,10 @@ page itself shows no mark.
   Under it, the asset count in `caption` ("2 assets", "No assets"). A
   `StatusBadge` shows only for Locked (warning) or Revoked (danger); Active is
   silent. A chevron ends the row. The title has no count pill.
-- Header: native Back, and ⋯ on the right. After the card scrolls away, the
-  header shows the first part of the name. ⋯ opens a sheet with one action row,
-  "Unlink VerusID" (danger), which opens the existing unlink confirmation.
+- Header: the arrow back button, and ⋯ on the right. After the card scrolls
+  away, the header shows the first part of the name. ⋯ opens a sheet with one
+  action row, "Unlink VerusID" (danger), which opens the existing unlink
+  confirmation.
 - Card (`VerusIdCard.js`), at the content width: `surfaceMuted`, 24-point
   radius, no border, no shadow, no mark. The name in `headlineMd`
   (`headlineCompact` on windows of 667 points or less), in the two list colors,
@@ -949,7 +962,7 @@ the coins that fly onto Home.
 The owner approved variation A ("Calm address") for Receive and variation C's
 paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
 
-- Receive keeps the native Back header with no title or options icon. A
+- Receive has the arrow back button and no title or options icon. A
   40-point asset logo sits beside `headlineMd`. Under the name, show only the
   selected card type and its network. With several cards, that line opens
   "Choose a card" and has a 44-point touch target.
