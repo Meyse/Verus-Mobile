@@ -68,6 +68,10 @@ methods, never Verus Mobile's visual direction.
 - On iOS every text field takes its keyboard appearance from the in-app theme
   through `src/utils/applyThemedKeyboard.js`. Do not set `keyboardAppearance`
   per field. Android keyboards keep their own or the system setting.
+- On iOS the app windows take their appearance from the in-app theme
+  (`src/theme/app/AppThemeProvider.js`), so native controls such as switches
+  match it. Before this, an off switch on the light theme with a dark phone was
+  almost invisible. Do not give a native control colours only to fix contrast.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
   through `src/components/SafeBottomActionStack.js`.
 - Wrap a form with bottom actions in `src/components/KeyboardAvoidingForm.js`
@@ -939,6 +943,13 @@ the coins that fly onto Home.
   (`WalletSetupLogoSlot.js` lends the row logos as targets) while the rest of
   the screen fades. The slots follow Home's row order, so the coins fly
   straight down. No button and no pop-up.
+- The coins leave only when two measurements of Home's rows, 150 ms apart,
+  agree. During the flight the screen measures the rows again every 100 ms,
+  and a coin bends toward its row if the row moved. The row logo fades in
+  under the landed coin (150 ms), then the coin fades out.
+- A Face ID or Touch ID sheet during setup does not show the app's privacy
+  cover: the setup screen stays behind the sheet. The cover still shows when
+  the app goes to the background.
 - A failure stays on the screen: "<name> was not created", one line, and
   "Choose another name" or "Try again" with "Back".
 - With Reduce Motion the screen only fades. When a saved request opens next,
