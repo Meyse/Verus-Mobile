@@ -598,6 +598,25 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   Without the field, the first row or group title starts 24 points under the
   header. The Add asset list keeps its field: it searches the whole catalogue
   and takes a pasted identifier.
+- The same rule applies to these sheets and screens (owner, 2026-10-24):
+  "Choose a card" (its All / Addresses / VerusIDs chips and its chain chips
+  hide with the field), Link VerusID (the list of VerusIDs found for the wallet
+  address; the field stays hidden while the lookup runs, and "Enter VerusID
+  manually" stays), Saved addresses in Send (the recipient step passes in the
+  count of addresses that fit the send, so the field does not pop in when the
+  sheet finishes loading), Choose currencies for a gift card, the Address book
+  screen (its search and network filter) and Pay with for burn invoices. The
+  identity picker for revoke and recover already uses 7. The display currency
+  sheet always has 33 items and always shows its field.
+- When the controls hide, because the count drops below 7, the screen clears the
+  search text and sets each filter back to its default (All). The controls then
+  return in their default state. While they are hidden, the list uses an empty
+  query and the default filter.
+- Without the field, the content keeps no space for it: no fixed chrome height,
+  no reserved field height and no padding. A sheet sizes its list from the
+  chrome that shows. The list starts where the sheet's own title-to-list gap puts
+  it. A sheet that filled 76% of the screen for the field (Saved addresses)
+  fits its content instead.
 
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
@@ -628,7 +647,8 @@ of the mockup on 2026-10-21):
   includes "New assets found" and ignores the selected tab and the search text
   (owner, 2026-10-24). While the controls are hidden, the list shows every
   asset and the empty text never says "No matching assets" or "No hidden
-  assets".
+  assets". When the controls hide, the search text clears and the tab goes
+  back to All, so they return in their default state.
 
 Settings work must compose `SettingsScaffold` rather than recreate its page,
 section, row, divider, scrolling, safe-area, and footer behavior. Prefer plain
