@@ -461,6 +461,7 @@ const SendWizardRecipient = () => {
       <AddressBookSheet
         visible={addressBookOpen}
         context={context}
+        matchingCount={matchingSavedAddresses.length}
         onRecordsLoaded={setSavedAddresses}
         onClose={() => setAddressBookOpen(false)}
         onSelect={record => {
