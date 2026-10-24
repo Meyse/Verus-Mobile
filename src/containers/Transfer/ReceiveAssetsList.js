@@ -199,8 +199,8 @@ const ReceiveAssetsList = ({navigation}) => {
         <View key={index} style={styles.skeletonRow}>
           <SkeletonBlock height={38} radius={8} width={38} />
           <View style={{flex: 1, marginLeft: 16}}>
-            <SkeletonText height={17} width="58%" />
-            <SkeletonText height={16} style={{marginTop: 9}} width="42%" />
+            <SkeletonText height={16} width="58%" />
+            <SkeletonText height={14} style={{marginTop: 8}} width="42%" />
           </View>
         </View>
       ))}
