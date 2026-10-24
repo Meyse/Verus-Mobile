@@ -1829,7 +1829,7 @@ const GiftCardFund = props => {
         </Text>
       ) : selectedFundingCoins.length === 0 ? (
         <TouchableOpacity
-          accessibilityHint="Opens a searchable currency picker."
+          accessibilityHint="Opens the currency list."
           accessibilityRole="button"
           activeOpacity={0.74}
           disabled={busy}
