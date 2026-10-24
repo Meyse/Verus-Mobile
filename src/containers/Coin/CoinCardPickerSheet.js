@@ -19,7 +19,7 @@ import {
 import {useSelector} from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import AppSearchField from '../../components/AppSearchField';
+import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import {fontStyle} from '../../globals/fonts';
@@ -51,6 +51,12 @@ const TYPE_FILTERS = [
 const ALL_CHAINS = 'all';
 const ROW_HEIGHT = 72;
 const ROW_GAP = 8;
+// Height of the sheet without the list and without the controls: the title,
+// the subtitle, the list gap and the sheet padding (86 points) plus 28 points
+// of margin. The search field and the type chips add 112, a chain row 52.
+const SHEET_CHROME_BASE = 114;
+const SHEET_CHROME_CONTROLS = 112;
+const SHEET_CHROME_CHAIN_ROW = 52;
 const ITEM_STRIDE = ROW_HEIGHT + ROW_GAP;
 const SCROLL_CUE_HEIGHT = 42;
 const SCROLL_END_THRESHOLD = 8;
@@ -195,32 +201,42 @@ const CoinCardPickerSheet = ({
       }, []),
     [items],
   );
-  const showChainFilters = chainOptions.length > 1;
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  // The search and the filter chips show only from 7 cards. The count ignores
+  // the search text and the filters, so they do not disappear while the user
+  // uses them. Without them, the list shows every card.
+  const searchable = items.length >= APP_SEARCH_MIN_ITEMS;
+  const showChainFilters = searchable && chainOptions.length > 1;
+  const normalizedQuery = searchable ? query.trim().toLocaleLowerCase() : '';
+  const activeTypeFilter = searchable ? typeFilter : 'all';
+  const activeChainFilter = searchable ? chainFilter : ALL_CHAINS;
   const filteredItems = useMemo(
     () =>
       items.filter(item => {
         const matchesQuery =
           !normalizedQuery || item.searchText.includes(normalizedQuery);
         const matchesType =
-          typeFilter === 'all' ||
-          (typeFilter === 'verusids' && item.verusId) ||
-          (typeFilter === 'addresses' && !item.verusId);
+          activeTypeFilter === 'all' ||
+          (activeTypeFilter === 'verusids' && item.verusId) ||
+          (activeTypeFilter === 'addresses' && !item.verusId);
         const matchesChain =
-          chainFilter === ALL_CHAINS || item.networkLabel === chainFilter;
+          activeChainFilter === ALL_CHAINS ||
+          item.networkLabel === activeChainFilter;
 
         return matchesQuery && matchesType && matchesChain;
       }),
-    [chainFilter, items, normalizedQuery, typeFilter],
+    [activeChainFilter, activeTypeFilter, items, normalizedQuery],
   );
   const filtersActive =
     normalizedQuery.length > 0 ||
-    typeFilter !== 'all' ||
-    chainFilter !== ALL_CHAINS;
+    activeTypeFilter !== 'all' ||
+    activeChainFilter !== ALL_CHAINS;
   const subtitle = filtersActive
     ? `${filteredItems.length} of ${items.length} cards`
     : `${items.length} ${items.length === 1 ? 'card' : 'cards'} available`;
-  const sheetChromeHeight = showChainFilters ? 278 : 226;
+  const sheetChromeHeight =
+    SHEET_CHROME_BASE +
+    (searchable ? SHEET_CHROME_CONTROLS : 0) +
+    (showChainFilters ? SHEET_CHROME_CHAIN_ROW : 0);
   const maximumListHeight = Math.max(
     ITEM_STRIDE,
     screenHeight * 0.76 - sheetChromeHeight,
@@ -244,14 +260,24 @@ const CoinCardPickerSheet = ({
     setShowTopScrollCue(false);
     setShowBottomScrollCue(listScrollable);
   }, [
-    chainFilter,
+    activeChainFilter,
+    activeTypeFilter,
     filteredItems.length,
     listHeight,
     listScrollable,
     normalizedQuery,
-    typeFilter,
     visible,
   ]);
+
+  // When the controls hide, the search text and the filters go back to their
+  // defaults, so the controls return unchanged.
+  useEffect(() => {
+    if (!searchable) {
+      setQuery('');
+      setTypeFilter('all');
+      setChainFilter(ALL_CHAINS);
+    }
+  }, [searchable]);
 
   useEffect(() => {
     if (
@@ -478,31 +504,35 @@ const CoinCardPickerSheet = ({
         </Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
 
-        <AppSearchField
-          accessibilityLabel="Search cards"
-          onChangeText={handleQueryChange}
-          onClear={() => handleQueryChange('')}
-          placeholder="Search cards"
-          resultCount={filteredItems.length}
-          style={styles.searchFieldSpacing}
-          themeMode={theme.mode}
-          value={query}
-        />
+        {searchable ? (
+          <>
+            <AppSearchField
+              accessibilityLabel="Search cards"
+              onChangeText={handleQueryChange}
+              onClear={() => handleQueryChange('')}
+              placeholder="Search cards"
+              resultCount={filteredItems.length}
+              style={styles.searchFieldSpacing}
+              themeMode={theme.mode}
+              value={query}
+            />
 
-        <ScrollView
-          horizontal
-          bounces={false}
-          contentContainerStyle={styles.filterContent}
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}>
-          {TYPE_FILTERS.map(filter =>
-            renderFilter(
-              filter,
-              typeFilter === filter.id,
-              handleTypeFilter,
-            ),
-          )}
-        </ScrollView>
+            <ScrollView
+              horizontal
+              bounces={false}
+              contentContainerStyle={styles.filterContent}
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterRow}>
+              {TYPE_FILTERS.map(filter =>
+                renderFilter(
+                  filter,
+                  typeFilter === filter.id,
+                  handleTypeFilter,
+                ),
+              )}
+            </ScrollView>
+          </>
+        ) : null}
 
         {showChainFilters ? (
           <ScrollView

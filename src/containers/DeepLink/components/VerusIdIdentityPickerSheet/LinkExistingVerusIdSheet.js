@@ -15,7 +15,9 @@ import {Pencil, Plus} from 'lucide-react-native';
 import {fromBase58Check} from 'verus-typescript-primitives';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppButton from '../../../../components/AppButton';
-import AppSearchField from '../../../../components/AppSearchField';
+import AppSearchField, {
+  APP_SEARCH_MIN_ITEMS,
+} from '../../../../components/AppSearchField';
 import AppTextInput from '../../../../components/AppTextInput';
 import InfoSheetSection from '../../../../components/InfoSheetSection';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
@@ -216,6 +218,7 @@ const LinkExistingVerusIdSheet = ({
   onBusyChange,
   onLinkCandidate,
   onManualLink,
+  onSearchVisibleChange,
 }) => {
   const theme = useOnboardingTheme();
   const signedOutSheetStyles = useMemo(
@@ -233,6 +236,8 @@ const LinkExistingVerusIdSheet = ({
   const sheetSessionRef = useRef(0);
   // Keep the latest callback without forcing the session effects to re-run.
   onBusyChangeRef.current = onBusyChange;
+  const onSearchVisibleChangeRef = useRef(onSearchVisibleChange);
+  onSearchVisibleChangeRef.current = onSearchVisibleChange;
   const coinId = coinObj?.id;
   const systemId = coinObj?.system_id;
   const primaryAddress = useObjectSelector(state =>
@@ -526,15 +531,30 @@ const LinkExistingVerusIdSheet = ({
     setResolvedCandidate(null);
   }, [active, sessionScopeKey]);
 
+  // The search field shows only from 7 found VerusIDs, and only after the
+  // lookup ends. The count ignores the search text, so the field does not
+  // disappear while the user types. Without it, the list shows every VerusID.
+  const searchable = !loading && candidates.length >= APP_SEARCH_MIN_ITEMS;
+  const activeSearchQuery = searchable ? searchQuery : '';
+
+  // The parent sizes the sheet: it reserves room for the field only while the
+  // field shows. When the field hides, the search text goes back to empty.
+  useEffect(() => {
+    onSearchVisibleChangeRef.current?.(searchable);
+
+    if (!searchable) setSearchQuery('');
+  }, [searchable]);
+  useEffect(() => () => onSearchVisibleChangeRef.current?.(false), []);
+
   const filteredCandidates = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = activeSearchQuery.trim().toLowerCase();
 
     if (!query) return candidates;
 
     return candidates.filter(candidate =>
       toSearchValue(candidate).includes(query),
     );
-  }, [candidates, searchQuery]);
+  }, [activeSearchQuery, candidates]);
   const listViewportHeight = Math.max(
     CANDIDATE_ROW_TOTAL_HEIGHT + LIST_CONTENT_VERTICAL_PADDING,
     candidateListHeight,
@@ -553,7 +573,7 @@ const LinkExistingVerusIdSheet = ({
     candidateListScrollable,
     filteredCandidates.length,
     listViewportHeight,
-    searchQuery,
+    activeSearchQuery,
   ]);
 
   useEffect(() => {
@@ -566,7 +586,12 @@ const LinkExistingVerusIdSheet = ({
     }, 260);
 
     return () => clearTimeout(timeout);
-  }, [active, candidateListScrollable, filteredCandidates.length, searchQuery]);
+  }, [
+    active,
+    activeSearchQuery,
+    candidateListScrollable,
+    filteredCandidates.length,
+  ]);
 
   const handleLinkCandidate = async candidate => {
     // Same-frame double taps must only start one link. A ref guard is
@@ -863,7 +888,7 @@ const LinkExistingVerusIdSheet = ({
         />
       ) : (
         <>
-          {candidates.length > 0 && (
+          {searchable && (
             <AppSearchField
               accessibilityLabel="Search VerusID"
               onChangeText={setSearchQuery}

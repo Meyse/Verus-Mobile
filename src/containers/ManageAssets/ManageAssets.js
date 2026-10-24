@@ -147,10 +147,17 @@ const Manager = ({navigation}) => {
   };
   // The search and the tabs show only from 7 assets. The count ignores the
   // selected tab and the search text, so they do not disappear while the user
-  // uses them. Without them, the list shows every asset.
+  // uses them. Without them, the list shows every asset. When they hide, the
+  // query and the tab go back to their defaults, so they return unchanged.
   const searchable = data.activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
   const activeQuery = searchable ? query : '';
   const activeFilter = searchable ? filter : 'all';
+  useEffect(() => {
+    if (!searchable) {
+      setQuery('');
+      setFilter('all');
+    }
+  }, [searchable]);
   const assets = data.activeAssets.map(coin => ({coin,
     presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
   })).filter(({coin, presentation}) => {

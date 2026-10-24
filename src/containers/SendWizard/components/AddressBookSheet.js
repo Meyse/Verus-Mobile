@@ -1,7 +1,9 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Keyboard, Platform, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import AppSearchField from '../../../components/AppSearchField';
+import AppSearchField, {
+  APP_SEARCH_MIN_ITEMS,
+} from '../../../components/AppSearchField';
 import SelectionSheet, {
   SelectionAction,
   SelectionRow,
@@ -15,7 +17,17 @@ import {
   loadAddressBook,
 } from '../../../utils/addressBook/addressBook';
 
-const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}) => {
+// `matchingCount` is the number of saved addresses that fit the send. The
+// recipient step knows it before the sheet opens, so the search field does not
+// pop in when the sheet finishes loading.
+const AddressBookSheet = ({
+  context,
+  matchingCount,
+  onClose,
+  onRecordsLoaded,
+  onSelect,
+  visible,
+}) => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
@@ -39,6 +51,15 @@ const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}
       hide.remove();
     };
   }, []);
+
+  // The search field shows only from 7 saved addresses. The count ignores the
+  // search text, so the field does not disappear while the user types. Without
+  // the field, the list shows every address and the sheet fits its content.
+  const searchable = matchingCount >= APP_SEARCH_MIN_ITEMS;
+
+  useEffect(() => {
+    if (!searchable) setQuery('');
+  }, [searchable]);
 
   const dismissal = useSheetDismissal({
     visible,
@@ -70,8 +91,8 @@ const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}
     };
   }, [onRecordsLoaded, visible]);
 
+  const normalizedQuery = searchable ? query.trim().toLowerCase() : '';
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
     return records.filter(record => {
       if (!addressBookRecordMatchesContext(record, context)) return false;
       return (
@@ -81,7 +102,7 @@ const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}
           .some(value => value.toLowerCase().includes(normalizedQuery))
       );
     });
-  }, [context, query, records]);
+  }, [context, normalizedQuery, records]);
 
   const manageAddresses = () =>
     dismissal.dismiss(() => {
@@ -103,17 +124,19 @@ const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}
       onClosed={dismissal.onClosed}
       // Android native modals already resize for the software keyboard.
       avoidKeyboard={Platform.OS === 'ios'}
-      fillHeight
+      fillHeight={searchable}
       maxHeight={androidKeyboard ? '90%' : '76%'}
       header={
-        <AppSearchField
-          accessibilityLabel="Search saved addresses"
-          onChangeText={setQuery}
-          placeholder="Search saved addresses"
-          resultCount={filtered.length}
-          themeMode={theme.mode}
-          value={query}
-        />
+        searchable ? (
+          <AppSearchField
+            accessibilityLabel="Search saved addresses"
+            onChangeText={setQuery}
+            placeholder="Search saved addresses"
+            resultCount={filtered.length}
+            themeMode={theme.mode}
+            value={query}
+          />
+        ) : undefined
       }
       listProps={
         !loading && !error && filtered.length
@@ -148,7 +171,7 @@ const AddressBookSheet = ({context, onClose, onRecordsLoaded, onSelect, visible}
       ) : !filtered.length ? (
         <View>
           <Text style={styles.empty}>
-            {query.trim()
+            {normalizedQuery
               ? 'No matching addresses'
               : 'No saved addresses for this network'}
           </Text>

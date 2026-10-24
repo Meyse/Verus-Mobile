@@ -56,6 +56,7 @@ const getLinkSheetMetrics = ({
   insets,
   keyboardHeight,
   keyboardVisible,
+  searchVisible,
 }) => {
   const targetRows = keyboardVisible
     ? TARGET_VISIBLE_ROWS_WITH_KEYBOARD
@@ -66,8 +67,9 @@ const getLinkSheetMetrics = ({
     LINK_SHEET_INTERNAL_TOP_PADDING +
     LINK_SHEET_BODY_VERTICAL_PADDING +
     HEADER_ROW_HEIGHT +
-    LINK_SHEET_SEARCH_HEIGHT +
-    LINK_SHEET_SEARCH_MARGIN_BOTTOM +
+    (searchVisible
+      ? LINK_SHEET_SEARCH_HEIGHT + LINK_SHEET_SEARCH_MARGIN_BOTTOM
+      : 0) +
     MANUAL_LINK_ROW_HEIGHT;
   const defaultMaxSheetHeight = height * LINK_SHEET_MAX_HEIGHT_RATIO;
   const availableSheetHeight = keyboardVisible
@@ -148,6 +150,9 @@ const IdentityPickerSheet = ({
   const [sheetMode, setSheetMode] = useState(initialMode);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
+  // The link step shows its search field only from 7 found VerusIDs and tells
+  // the sheet, so the sheet reserves room for the field only when it shows.
+  const [linkSearchVisible, setLinkSearchVisible] = useState(false);
   // Mirrors `linkBusy` so same-frame guards (parent close, mode transitions)
   // read the in-flight child mutation synchronously instead of waiting for the
   // next render.
@@ -175,6 +180,7 @@ const IdentityPickerSheet = ({
     insets,
     keyboardHeight: keyboardMetrics.height,
     keyboardVisible: keyboardMetrics.visible,
+    searchVisible: linkSearchVisible,
   });
 
   useEffect(() => {
@@ -466,6 +472,7 @@ const IdentityPickerSheet = ({
               onBusyChange={handleLinkBusyChange}
               onLinkCandidate={onLinkCandidate}
               onManualLink={onManualLink}
+              onSearchVisibleChange={setLinkSearchVisible}
             />
           ) : (
             <ScrollView

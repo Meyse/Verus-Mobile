@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../../../components/AppButton';
-import AppSearchField from '../../../../components/AppSearchField';
+import AppSearchField, {
+  APP_SEARCH_MIN_ITEMS,
+} from '../../../../components/AppSearchField';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../../globals/fonts';
@@ -18,7 +20,12 @@ import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const ROW_HEIGHT = 68;
 const SHEET_MAX_HEIGHT_RATIO = 0.76;
+// The sheet without its list: title, subtitle, search field and the Add
+// button. Without the field, the list starts 14 points under the subtitle
+// instead of the field's 74 points of margin and height.
 const SHEET_CHROME_HEIGHT = 222;
+const SEARCH_BLOCK_HEIGHT = 74;
+const LIST_GAP_WITHOUT_SEARCH = 14;
 
 const GiftCardCurrencyPickerSheet = ({
   onApply,
@@ -48,7 +55,16 @@ const GiftCardCurrencyPickerSheet = ({
     () => new Set(draftSelectedKeys),
     [draftSelectedKeys],
   );
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  // The search field shows only from 7 currencies. The count ignores the
+  // search text, so the field does not disappear while the user types.
+  // Without it, the list shows every currency.
+  const searchable = options.length >= APP_SEARCH_MIN_ITEMS;
+  const normalizedQuery = searchable ? query.trim().toLocaleLowerCase() : '';
+
+  useEffect(() => {
+    if (!searchable) setQuery('');
+  }, [searchable]);
+
   const filteredOptions = useMemo(
     () =>
       options.filter(
@@ -57,9 +73,12 @@ const GiftCardCurrencyPickerSheet = ({
       ),
     [normalizedQuery, options],
   );
+  const sheetChromeHeight = searchable
+    ? SHEET_CHROME_HEIGHT
+    : SHEET_CHROME_HEIGHT - SEARCH_BLOCK_HEIGHT + LIST_GAP_WITHOUT_SEARCH;
   const maximumListHeight = Math.max(
     ROW_HEIGHT,
-    screenHeight * SHEET_MAX_HEIGHT_RATIO - SHEET_CHROME_HEIGHT,
+    screenHeight * SHEET_MAX_HEIGHT_RATIO - sheetChromeHeight,
   );
   const listHeight = Math.min(
     Math.max(filteredOptions.length, 1) * ROW_HEIGHT,
@@ -171,16 +190,18 @@ const GiftCardCurrencyPickerSheet = ({
         </Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
 
-        <AppSearchField
-          accessibilityLabel="Search currencies"
-          onChangeText={setQuery}
-          onClear={() => setQuery('')}
-          placeholder="Search currencies"
-          resultCount={filteredOptions.length}
-          style={styles.search}
-          themeMode={theme.mode}
-          value={query}
-        />
+        {searchable ? (
+          <AppSearchField
+            accessibilityLabel="Search currencies"
+            onChangeText={setQuery}
+            onClear={() => setQuery('')}
+            placeholder="Search currencies"
+            resultCount={filteredOptions.length}
+            style={styles.search}
+            themeMode={theme.mode}
+            value={query}
+          />
+        ) : null}
 
         {filteredOptions.length > 0 ? (
           <FlatList
@@ -198,10 +219,19 @@ const GiftCardCurrencyPickerSheet = ({
             keyExtractor={item => item.key}
             renderItem={renderOption}
             showsVerticalScrollIndicator={filteredOptions.length * ROW_HEIGHT > listHeight}
-            style={[styles.list, {height: listHeight}]}
+            style={[
+              styles.list,
+              !searchable && styles.listWithoutSearch,
+              {height: listHeight},
+            ]}
           />
         ) : (
-          <View style={[styles.emptyState, {height: listHeight}]}>
+          <View
+            style={[
+              styles.emptyState,
+              !searchable && styles.listWithoutSearch,
+              {height: listHeight},
+            ]}>
             <Text style={styles.emptyText}>
               No currencies match your search.
             </Text>
@@ -255,6 +285,9 @@ const createStyles = theme =>
     list: {
       flexGrow: 0,
       flexShrink: 1,
+    },
+    listWithoutSearch: {
+      marginTop: LIST_GAP_WITHOUT_SEARCH,
     },
     listContent: {
       paddingBottom: 2,
