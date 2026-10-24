@@ -16,7 +16,9 @@ import {
 } from '../../../actions/actions/alert/dispatchers/alert';
 import CopyAction from '../../../components/CopyAction';
 import AppButton from '../../../components/AppButton';
-import AppSearchField from '../../../components/AppSearchField';
+import AppSearchField, {
+  APP_SEARCH_MIN_ITEMS,
+} from '../../../components/AppSearchField';
 import ServiceManagerHeader from '../../../components/ServiceManagerHeader';
 import SkeletonLoader, {
   SkeletonBlock,
@@ -129,12 +131,27 @@ const AddressBook = ({navigation}) => {
     refresh();
   }, [refresh]);
 
+  // The search and the network filter show only from 7 saved addresses. The
+  // count ignores both, so they do not disappear while the user uses them.
+  // Without them, the list shows every address, and when they hide, the search
+  // text and the filter go back to their defaults.
+  const showSearchAndFilters = records.length >= APP_SEARCH_MIN_ITEMS;
+  const appliedSearch = showSearchAndFilters ? search : '';
+  const appliedFilter = showSearchAndFilters ? activeFilter : 'all';
+
+  useEffect(() => {
+    if (!showSearchAndFilters) {
+      setSearch('');
+      setActiveFilter('all');
+    }
+  }, [showSearchAndFilters]);
+
   const filteredRecords = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = appliedSearch.trim().toLowerCase();
     return [...records]
       .filter(
         record =>
-          activeFilter === 'all' || getRecordGroup(record) === activeFilter,
+          appliedFilter === 'all' || getRecordGroup(record) === appliedFilter,
       )
       .filter(record => {
         if (!query) return true;
@@ -151,7 +168,7 @@ const AddressBook = ({navigation}) => {
           .includes(query);
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [activeFilter, records, search]);
+  }, [appliedFilter, appliedSearch, records]);
 
   const openEditor = useCallback(record => {
     setEditing({...record});
@@ -215,7 +232,6 @@ const AddressBook = ({navigation}) => {
     }
   };
 
-  const showSearchAndFilters = records.length >= 6;
   const hasRecords = records.length > 0;
 
   return (
@@ -325,7 +341,7 @@ const AddressBook = ({navigation}) => {
           {filteredRecords.length === 0 ? (
             <View style={styles.noResults}>
               <Text style={styles.noResultsText}>
-                {search.trim()
+                {appliedSearch.trim()
                   ? 'No addresses match your search'
                   : 'No addresses in this category'}
               </Text>
