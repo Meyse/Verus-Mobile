@@ -939,6 +939,13 @@ the coins that fly onto Home.
   (`WalletSetupLogoSlot.js` lends the row logos as targets) while the rest of
   the screen fades. The slots follow Home's row order, so the coins fly
   straight down. No button and no pop-up.
+- The coins leave only when two measurements of Home's rows, 150 ms apart,
+  agree. During the flight the screen measures the rows again every 100 ms,
+  and a coin bends toward its row if the row moved. The row logo fades in
+  under the landed coin (150 ms), then the coin fades out.
+- A Face ID or Touch ID sheet during setup does not show the app's privacy
+  cover: the setup screen stays behind the sheet. The cover still shows when
+  the app goes to the background.
 - A failure stays on the screen: "<name> was not created", one line, and
   "Choose another name" or "Try again" with "Back".
 - With Reduce Motion the screen only fades. When a saved request opens next,
