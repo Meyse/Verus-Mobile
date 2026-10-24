@@ -587,6 +587,10 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   "N/A" in 13/18 `textSubtle`.
 - The second line 2 points under the name in `bodySm` and `textSecondary`: the
   amount, or "Launches in …" in Convert to.
+- Convert to groups its rows under titles in capital letters ("POPULAR
+  CONVERSIONS", "PRE-LAUNCH", "MORE CONVERSIONS"): `labelSm` in `textSecondary`
+  with 0.5 tracking. The owner kept the capitals and asked for this smaller
+  size on 2026-10-24.
 
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and

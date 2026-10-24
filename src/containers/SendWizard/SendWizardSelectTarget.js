@@ -243,19 +243,19 @@ const SendWizardSelectTarget = () => {
           <ErrorMessage>{error}</ErrorMessage>
           {popular.length > 0 ? (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>Popular conversions</Text>
+              <Text style={[theme.typography.labelSm, styles.sectionLabel, {color: theme.colors.textSecondary}]}>Popular conversions</Text>
               {popular.map(renderOption)}
             </View>
           ) : null}
           {prelaunch.length > 0 ? (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>Pre-launch</Text>
+              <Text style={[theme.typography.labelSm, styles.sectionLabel, {color: theme.colors.textSecondary}]}>Pre-launch</Text>
               {prelaunch.map(renderOption)}
             </View>
           ) : null}
           {other.length > 0 ? (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>More conversions</Text>
+              <Text style={[theme.typography.labelSm, styles.sectionLabel, {color: theme.colors.textSecondary}]}>More conversions</Text>
               {other.map(renderOption)}
             </View>
           ) : null}
@@ -297,11 +297,8 @@ const styles = StyleSheet.create({
   sectionLabel: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 12,
-    fontSize: 14,
-    lineHeight: 19,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    ...fontStyle('semiBold'),
   },
   // Option rows match the wallet (Home) asset rows.
   optionRow: {
