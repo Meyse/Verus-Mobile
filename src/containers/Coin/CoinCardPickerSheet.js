@@ -16,6 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
@@ -49,15 +50,21 @@ const TYPE_FILTERS = [
   {id: 'verusids', label: 'VerusIDs'},
 ];
 const ALL_CHAINS = 'all';
+// A row with its network line. When all cards share one network, rows drop
+// that line and use the shorter height.
 const ROW_HEIGHT = 72;
+const ROW_HEIGHT_ONE_NETWORK = 60;
 const ROW_GAP = 8;
-// Height of the sheet without the list and without the controls: the title,
-// the subtitle, the list gap and the sheet padding (86 points) plus 28 points
-// of margin. The search field and the type chips add 112, a chain row 52.
-const SHEET_CHROME_BASE = 114;
+// Height of the sheet without the list and without the controls: the modal's
+// 10-point top padding, the body padding (8 and 18), the title (26) and the
+// list gap (12), plus 8 points of margin. The search field and the type chips
+// add 112, a chain row 52.
+const SHEET_CHROME_BASE = 82;
 const SHEET_CHROME_CONTROLS = 112;
 const SHEET_CHROME_CHAIN_ROW = 52;
-const ITEM_STRIDE = ROW_HEIGHT + ROW_GAP;
+const SHEET_MAX_HEIGHT_RATIO = 0.76;
+// Space kept free above a sheet that grows past 76%.
+const SHEET_TOP_CLEARANCE = 16;
 const SCROLL_CUE_HEIGHT = 42;
 const SCROLL_END_THRESHOLD = 8;
 const MONOSPACE_FONT = Platform.select({
@@ -77,6 +84,7 @@ const CoinCardPickerSheet = ({
 }) => {
   const theme = useOnboardingTheme();
   const {height: screenHeight} = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const listRef = useRef(null);
   const didInitialScrollRef = useRef(false);
   const wasVisibleRef = useRef(false);
@@ -226,26 +234,38 @@ const CoinCardPickerSheet = ({
       }),
     [activeChainFilter, activeTypeFilter, items, normalizedQuery],
   );
-  const filtersActive =
-    normalizedQuery.length > 0 ||
-    activeTypeFilter !== 'all' ||
-    activeChainFilter !== ALL_CHAINS;
-  const subtitle = filtersActive
-    ? `${filteredItems.length} of ${items.length} cards`
-    : `${items.length} ${items.length === 1 ? 'card' : 'cards'} available`;
+  // Rows show their network only when the cards are on more than one
+  // network. Otherwise every row would repeat the same name.
+  const showNetwork = chainOptions.length > 1;
+  const rowHeight = showNetwork ? ROW_HEIGHT : ROW_HEIGHT_ONE_NETWORK;
+  const itemStride = rowHeight + ROW_GAP;
   const sheetChromeHeight =
     SHEET_CHROME_BASE +
     (searchable ? SHEET_CHROME_CONTROLS : 0) +
     (showChainFilters ? SHEET_CHROME_CHAIN_ROW : 0);
+  // Below 7 cards every card must show without scrolling, so on a short
+  // phone such as the iPhone SE the sheet grows past 76% when it has to.
+  const defaultSheetHeight = screenHeight * SHEET_MAX_HEIGHT_RATIO;
+  const fullCardListHeight = sheetChromeHeight + items.length * itemStride;
+  const sheetGrows = !searchable && fullCardListHeight > defaultSheetHeight;
+  const sheetMaxHeight = sheetGrows
+    ? Math.min(
+        fullCardListHeight,
+        screenHeight -
+          insets.top -
+          Math.max(insets.bottom, 12) -
+          SHEET_TOP_CLEARANCE,
+      )
+    : defaultSheetHeight;
   const maximumListHeight = Math.max(
-    ITEM_STRIDE,
-    screenHeight * 0.76 - sheetChromeHeight,
+    itemStride,
+    sheetMaxHeight - sheetChromeHeight,
   );
   const listHeight = Math.min(
-    Math.max(filteredItems.length, 1) * ITEM_STRIDE,
+    Math.max(filteredItems.length, 1) * itemStride,
     maximumListHeight,
   );
-  const listContentHeight = filteredItems.length * ITEM_STRIDE;
+  const listContentHeight = filteredItems.length * itemStride;
   const listScrollable =
     listContentHeight > listHeight + SCROLL_END_THRESHOLD;
 
@@ -296,7 +316,7 @@ const CoinCardPickerSheet = ({
     if (selectedIndex < 0) return undefined;
 
     const offset = Math.min(
-      selectedIndex * ITEM_STRIDE,
+      selectedIndex * itemStride,
       Math.max(listContentHeight - listHeight, 0),
     );
 
@@ -317,6 +337,7 @@ const CoinCardPickerSheet = ({
     return () => cancelAnimationFrame(frame);
   }, [
     frozenSubWallets,
+    itemStride,
     listContentHeight,
     listHeight,
     listScrollable,
@@ -426,7 +447,7 @@ const CoinCardPickerSheet = ({
       const accessibilityLabel = [
         fullIdentifier,
         item.type,
-        item.networkLabel,
+        showNetwork ? item.networkLabel : null,
         item.balanceAccessibilityLabel,
         current ? 'Current card' : null,
       ]
@@ -443,6 +464,7 @@ const CoinCardPickerSheet = ({
           onPress={() => handleSelect(item.wallet)}
           style={[
             styles.cardRow,
+            {height: rowHeight},
             current && styles.cardRowCurrent,
           ]}>
           <View style={styles.identifierColumn}>
@@ -455,9 +477,11 @@ const CoinCardPickerSheet = ({
               ]}>
               {item.displayIdentifier}
             </Text>
-            <Text numberOfLines={1} style={styles.metadata}>
-              {item.networkLabel || displayTicker}
-            </Text>
+            {showNetwork ? (
+              <Text numberOfLines={1} style={styles.metadata}>
+                {item.networkLabel || displayTicker}
+              </Text>
+            ) : null}
           </View>
           <View style={styles.balanceColumn}>
             <PrivacyBlurredText
@@ -481,8 +505,10 @@ const CoinCardPickerSheet = ({
     [
       displayTicker,
       handleSelect,
+      rowHeight,
       selectedSubWalletId,
       showBalance,
+      showNetwork,
       styles,
       theme.colors.textPrimary,
     ],
@@ -491,7 +517,7 @@ const CoinCardPickerSheet = ({
   return (
     <BottomSheetModal
       avoidKeyboard
-      maxHeight="76%"
+      maxHeight={sheetGrows ? sheetMaxHeight : '76%'}
       onClose={onClose}
       onClosed={handleClosed}
       visible={visible}>
@@ -502,7 +528,6 @@ const CoinCardPickerSheet = ({
         <Text accessibilityRole="header" style={styles.title}>
           Choose a card
         </Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
 
         {searchable ? (
           <>
@@ -564,8 +589,8 @@ const CoinCardPickerSheet = ({
               data={filteredItems}
               getItemLayout={(_, index) => ({
                 index,
-                length: ITEM_STRIDE,
-                offset: ITEM_STRIDE * index,
+                length: itemStride,
+                offset: itemStride * index,
               })}
               ItemSeparatorComponent={() => (
                 <View style={styles.rowSeparator} />
@@ -666,13 +691,6 @@ const createStyles = theme =>
       lineHeight: 26,
       ...fontStyle('semiBold'),
     },
-    subtitle: {
-      marginTop: 4,
-      color: theme.colors.textSubtle,
-      fontSize: 13,
-      lineHeight: 18,
-      ...fontStyle('regular'),
-    },
     searchFieldSpacing: {
       marginTop: 14,
     },
@@ -743,7 +761,6 @@ const createStyles = theme =>
       justifyContent: 'center',
     },
     cardRow: {
-      height: ROW_HEIGHT,
       paddingHorizontal: 14,
       flexDirection: 'row',
       alignItems: 'center',
