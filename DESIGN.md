@@ -645,6 +645,16 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   chrome that shows. The list starts where the sheet's own title-to-list gap puts
   it. A sheet that filled 76% of the screen for the field (Saved addresses)
   fits its content instead.
+- "Choose a card" and Choose currencies for a gift card show no count line
+  under the title, because the rows already show how many there are (owner,
+  2026-10-25). A row shows its network only when the list has more than one
+  network, and never when the network repeats the row's own name (a native
+  coin such as VRSCTEST, "Verus Testnet"). A gift currency row shows its amount
+  without the ticker, because the row title names it. A card row without the
+  network line has one line and is 60 points high (72 with it).
+- Below 7 items these two sheets grow past 76% when they must, up to 16 points
+  under the top safe area, so every row shows without scrolling on an iPhone
+  SE. With 7 or more items they keep 76% and the list scrolls.
 
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
