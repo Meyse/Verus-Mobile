@@ -214,14 +214,14 @@ const ZSeedSetupFlow = ({cancel, seed, beginSeedSubmission, seedSubmissionIsCurr
             onPress={() => setStage('create')}
             testID="settings.zSeed.create"
             variant="primary">
-            Create new Secret Recovery Phrase
+            Create new phrase
           </AppButton>
           <AppButton
             height={52}
             onPress={() => setStage('import')}
             testID="settings.zSeed.openImport"
             variant="secondary">
-            Import Secret Recovery Phrase or spending key
+            Import phrase or key
           </AppButton>
         </SafeBottomActionStack>
       ) : null}
