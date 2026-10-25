@@ -292,6 +292,11 @@ login screen and for requests (`WalletUnlockCoordinator`).
 - "Use Face ID" on the form switches the sheet back to the loader. When the
   phone has no biometrics, the form and keyboard stay and the error shows under
   the field.
+- When the user cancels the prompt after "Use Face ID", the line under the
+  field reads "Face ID was cancelled." (the phone's biometry name). Other
+  failures keep "Biometric unlock is unavailable. Enter your password to
+  continue." A cancel of the automatic prompt shows no line (owner,
+  2026-10-25).
 - The row shows the phone's own biometry icon and name through
   `BiometricAffordanceIcon`, the icon on the wallet card: `ScanFace` for Face
   ID, `FingerprintPattern` for Touch ID and fingerprint. Never a fixed

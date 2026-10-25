@@ -63,14 +63,33 @@ const formatErrorMessage = error => {
 const isIncorrectPasswordError = error =>
   error && error.message === 'Incorrect password';
 
-const getBiometryLabel = supportedBiometryType => {
+const getBiometryDisplayName = supportedBiometryType => {
   const displayName = supportedBiometryType
     ? supportedBiometryType.display_name
     : null;
 
-  return displayName && displayName !== 'None'
-    ? `Use ${displayName}`
-    : 'Use biometrics';
+  return displayName && displayName !== 'None' ? displayName : null;
+};
+
+const getBiometryLabel = supportedBiometryType => {
+  const displayName = getBiometryDisplayName(supportedBiometryType);
+
+  return displayName ? `Use ${displayName}` : 'Use biometrics';
+};
+
+// The iOS keychain reports a cancelled prompt as errSecUserCanceled (-128).
+// The Android biometric module reports its own code.
+const isBiometricCancelError = error =>
+  error != null &&
+  (String(error.code) === '-128' ||
+    error.code === 'E_BIOMETRIC_AUTH_CANCELLED');
+
+const getBiometryCancelledMessage = supportedBiometryType => {
+  const displayName = getBiometryDisplayName(supportedBiometryType);
+
+  return displayName
+    ? `${displayName} was cancelled.`
+    : 'Biometric unlock was cancelled.';
 };
 
 const UnlockWalletSheet = ({
@@ -215,9 +234,9 @@ const UnlockWalletSheet = ({
         return;
       }
 
-      const usePassword = () => {
+      const usePassword = (message = BIOMETRY_UNAVAILABLE_MESSAGE) => {
         if (fromButton) {
-          setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
+          setErrorMessage(message);
         }
 
         setBiometryStatus(BIOMETRY_DONE);
@@ -230,8 +249,10 @@ const UnlockWalletSheet = ({
         setBiometryStatus(BIOMETRY_RUNNING);
       }
 
+      let supported = null;
+
       try {
-        const supported = await getSupportedBiometryType();
+        supported = await getSupportedBiometryType();
 
         setSupportedBiometryType(supported);
 
@@ -260,6 +281,11 @@ const UnlockWalletSheet = ({
         await tryUnlockAccount(biometricPassword);
         setBiometryStatus(BIOMETRY_DONE);
       } catch (e) {
+        if (isBiometricCancelError(e)) {
+          usePassword(getBiometryCancelledMessage(supported));
+          return;
+        }
+
         console.warn(e);
         usePassword();
       }
