@@ -76,7 +76,9 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsc,
-    vrpc_endpoints: ['https://v2api.verus.services'],
+    // The v2api servers accept only requests signed with a Verus app key, which
+    // our builds do not have. Use the v1 servers until we get one.
+    vrpc_endpoints: ['https://api.verus.services'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',
@@ -102,7 +104,8 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsctest,
-    vrpc_endpoints: ['https://v2api.verustest.net'],
+    // v1 server: see the note on VRSC.
+    vrpc_endpoints: ['https://api.verustest.net'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',
