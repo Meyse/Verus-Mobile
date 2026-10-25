@@ -33,6 +33,7 @@ import {
 import {
   getAddresses as getDlightAddresses,
 } from '../../utils/api/channels/dlight/requests/getAddresses';
+import {isBiometricPromptOpen} from '../../utils/keychain/biometricPrompt';
 import {coinsList} from '../../utils/CoinData/CoinsList';
 import {
   DLIGHT_PRIVATE,
@@ -165,6 +166,10 @@ const DisplaySeed = ({navigation, route}) => {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
+      // iOS makes the app inactive while the unlock's own Face ID or Touch ID
+      // sheet is open. Locking then would drop that result and ask again.
+      if (nextState === 'inactive' && isBiometricPromptOpen()) return;
+
       if (nextState !== 'active') {
         if (requiresAuthentication) {
           reauthenticateOnActiveRef.current = true;
@@ -222,7 +227,8 @@ const DisplaySeed = ({navigation, route}) => {
       return;
     }
 
-    if (captureBlockedRef.current || AppState.currentState !== 'active') {
+    // The Face ID result can arrive before iOS reports "active" again.
+    if (captureBlockedRef.current || AppState.currentState === 'background') {
       setAuthenticationVisible(false);
       return;
     }

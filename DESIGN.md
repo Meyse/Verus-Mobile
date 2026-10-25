@@ -731,6 +731,9 @@ request, 2026-10-22):
   funds.", and Done.
 - The sheet closes, and its value clears, whenever the screen hides the
   secrets: background, losing focus, or screen capture.
+- The unlock's own Face ID or Touch ID sheet does not lock the screen, so
+  "View recovery secrets" asks once. Leaving the app, another system sheet
+  (such as Control Center) or screen capture still locks it.
 - The screen title shows once, in the navigation header (or the signed-out
   header). The secret cards follow the warning notice without a section label.
 
