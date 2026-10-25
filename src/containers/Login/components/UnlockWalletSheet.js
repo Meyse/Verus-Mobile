@@ -18,6 +18,7 @@ import {
 } from '../../../actions/actionDispatchers';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
+import BiometricAffordanceIcon from '../../../components/BiometricAffordanceIcon';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import WalletUnlockLoadingContent from '../../../components/WalletUnlockLoadingContent';
@@ -44,6 +45,13 @@ const KEYBOARD_SHEET_TOP_SPACING = 12;
 const PASSWORD_FIELD_HEIGHT = 83;
 const PASSWORD_BUTTON_TOP_MARGIN = 16;
 const BIOMETRY_ACTION_TOTAL_HEIGHT = 78;
+// A wallet with Face ID or Touch ID shows the unlocking state while the
+// biometric read runs. The password form shows only after the read fails, is
+// cancelled, or biometrics are unavailable. "Idle" is the state before the
+// automatic read on opening, so the first frame already shows the loader.
+const BIOMETRY_IDLE = 'idle';
+const BIOMETRY_RUNNING = 'running';
+const BIOMETRY_DONE = 'done';
 
 const formatErrorMessage = error => {
   const message =
@@ -89,13 +97,20 @@ const UnlockWalletSheet = ({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [biometryAttempted, setBiometryAttempted] = useState(false);
+  const [biometryStatus, setBiometryStatus] = useState(BIOMETRY_IDLE);
   const [supportedBiometryType, setSupportedBiometryType] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [displayAccount, setDisplayAccount] = useState(account);
   const [keyboardTop, setKeyboardTop] = useState(null);
   const passwordInputRef = useRef(null);
   const scrollRef = useRef(null);
+  // The closing sheet keeps showing the last account after the parent clears it.
+  const sheetAccount = account || displayAccount;
+  const biometryEnabled = !!(sheetAccount && sheetAccount.biometry);
+  const awaitingBiometry =
+    biometryStatus === BIOMETRY_RUNNING ||
+    (biometryEnabled && biometryStatus === BIOMETRY_IDLE);
+  const showLoading = loading || awaitingBiometry;
 
   const focusPasswordInput = useCallback(() => {
     if (passwordInputRef.current != null) {
@@ -116,7 +131,7 @@ const UnlockWalletSheet = ({
       setPassword('');
       setLoading(false);
       setErrorMessage(null);
-      setBiometryAttempted(false);
+      setBiometryStatus(BIOMETRY_IDLE);
       setSupportedBiometryType(null);
       setShowPassword(false);
     }
@@ -195,9 +210,24 @@ const UnlockWalletSheet = ({
   );
 
   const tryBiometricUnlock = useCallback(
-    async (showFailureMessage = false) => {
+    async (fromButton = false) => {
       if (!visible || !account || loading || !account.biometry) {
         return;
+      }
+
+      const usePassword = () => {
+        if (fromButton) {
+          setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
+        }
+
+        setBiometryStatus(BIOMETRY_DONE);
+      };
+
+      // The automatic read keeps the loader from the first frame. A tap on the
+      // button checks support first, so an unavailable sensor keeps the form
+      // and its keyboard in place.
+      if (!fromButton) {
+        setBiometryStatus(BIOMETRY_RUNNING);
       }
 
       try {
@@ -206,50 +236,39 @@ const UnlockWalletSheet = ({
         setSupportedBiometryType(supported);
 
         if (!supported.biometry) {
-          if (showFailureMessage) {
-            setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
-          }
-
-          focusPasswordInput();
+          usePassword();
           return;
         }
+
+        setBiometryStatus(BIOMETRY_RUNNING);
+        setErrorMessage(null);
+        Keyboard.dismiss();
 
         const biometricPassword = await getBiometricPassword(
           account.accountHash,
           'Authenticate to unlock wallet',
         );
 
-        if (biometricPassword != null) {
-          setPassword(biometricPassword);
-          await tryUnlockAccount(biometricPassword);
-        } else {
-          if (showFailureMessage) {
-            setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
-          }
-
-          focusPasswordInput();
+        if (biometricPassword == null) {
+          usePassword();
+          return;
         }
+
+        setPassword(biometricPassword);
+        // The unlock shows its own loading state and error. The biometric
+        // wait ends after it, so the form never shows between the two.
+        await tryUnlockAccount(biometricPassword);
+        setBiometryStatus(BIOMETRY_DONE);
       } catch (e) {
         console.warn(e);
-
-        if (showFailureMessage) {
-          setErrorMessage(BIOMETRY_UNAVAILABLE_MESSAGE);
-        }
-
-        focusPasswordInput();
+        usePassword();
       }
     },
-    [
-      account,
-      focusPasswordInput,
-      loading,
-      tryUnlockAccount,
-      visible,
-    ],
+    [account, loading, tryUnlockAccount, visible],
   );
 
   useEffect(() => {
-    if (!visible || !account || account.biometry || loading) {
+    if (!visible || !account || showLoading) {
       return undefined;
     }
 
@@ -261,30 +280,29 @@ const UnlockWalletSheet = ({
     return () => clearTimeout(focusTimeout);
   }, [
     account ? account.accountHash : null,
-    account ? account.biometry : null,
     focusPasswordInput,
-    loading,
+    showLoading,
     visible,
   ]);
 
   useEffect(() => {
-    if (!visible || !account || biometryAttempted || loading) {
-      return;
-    }
-
-    setBiometryAttempted(true);
-
-    if (!account.biometry) {
+    if (
+      !visible ||
+      !account ||
+      !account.biometry ||
+      loading ||
+      biometryStatus !== BIOMETRY_IDLE
+    ) {
       return;
     }
 
     tryBiometricUnlock(false);
-  }, [account, biometryAttempted, loading, tryBiometricUnlock, visible]);
+  }, [account, biometryStatus, loading, tryBiometricUnlock, visible]);
 
   // With the keyboard open the form can be taller than the sheet. Show the
   // field and its spacing above the Unlock button.
   useEffect(() => {
-    if (keyboardTop == null || loading) return undefined;
+    if (keyboardTop == null || showLoading) return undefined;
 
     const timer = setTimeout(() => {
       if (scrollRef.current != null) {
@@ -293,13 +311,26 @@ const UnlockWalletSheet = ({
     }, 80);
 
     return () => clearTimeout(timer);
-  }, [keyboardTop, loading]);
+  }, [keyboardTop, showLoading]);
+
+  // Reset once the sheet has closed, so its next opening shows the right state
+  // on the first frame.
+  const handleClosed = useCallback(() => {
+    setPassword('');
+    setLoading(false);
+    setErrorMessage(null);
+    setBiometryStatus(BIOMETRY_IDLE);
+
+    if (typeof onClosed === 'function') {
+      onClosed();
+    }
+  }, [onClosed]);
 
   const walletAvatar = normalizeWalletAvatar(
-    displayAccount ? displayAccount.walletAvatar : null,
+    sheetAccount ? sheetAccount.walletAvatar : null,
   );
   const disabled = password.length === 0 || loading || !account;
-  const showBiometryAction = !!(displayAccount && displayAccount.biometry);
+  const showBiometryAction = biometryEnabled;
   const loadingContentHeight = PASSWORD_FIELD_HEIGHT + buttonHeight +
     (showBiometryAction ? BIOMETRY_ACTION_TOTAL_HEIGHT : PASSWORD_BUTTON_TOP_MARGIN);
   const keyboardVisible = keyboardTop != null;
@@ -319,8 +350,8 @@ const UnlockWalletSheet = ({
   return (
     <BottomSheetModal
       visible={visible}
-      onClose={loading ? () => {} : onClose}
-      onClosed={onClosed}
+      onClose={showLoading ? () => {} : onClose}
+      onClosed={handleClosed}
       avoidKeyboard
       keyboardVerticalOffset={KEYBOARD_ROOT_OFFSET}
       maxHeight={keyboardVisible ? keyboardSheetHeight : '64%'}
@@ -334,8 +365,8 @@ const UnlockWalletSheet = ({
             bounces={false}
             contentContainerStyle={[
               signedOutSheetStyles.body,
-              !loading && styles.formContent,
-              !loading && !showBiometryAction && styles.passwordContent,
+              !showLoading && styles.formContent,
+              !showLoading && !showBiometryAction && styles.passwordContent,
             ]}
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled">
@@ -373,11 +404,11 @@ const UnlockWalletSheet = ({
                   )}
                 </View>
                 <Text numberOfLines={1} style={styles.walletName}>
-                  {displayAccount ? displayAccount.id : ''}
+                  {sheetAccount ? sheetAccount.id : ''}
                 </Text>
               </View>
             </View>
-            {loading ? (
+            {showLoading ? (
               <WalletUnlockLoadingContent height={loadingContentHeight} />
             ) : (
               <>
@@ -416,8 +447,9 @@ const UnlockWalletSheet = ({
                     activeOpacity={0.74}
                     onPress={() => tryBiometricUnlock(true)}
                     style={styles.biometryAction}>
-                    <MaterialCommunityIcons
-                      name="fingerprint"
+                    <BiometricAffordanceIcon
+                      supportedBiometryType={supportedBiometryType}
+                      showFallback
                       size={24}
                       color={theme.colors.primary}
                     />
@@ -430,7 +462,7 @@ const UnlockWalletSheet = ({
             )}
           </ScrollView>
         </View>
-        {!loading && (
+        {!showLoading && (
           <SafeBottomActionStack
             bottomSpacing={keyboardVisible ? KEYBOARD_SHEET_BOTTOM_SPACING : 22}
             gap={0}
