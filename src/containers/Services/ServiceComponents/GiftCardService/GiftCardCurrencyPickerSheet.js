@@ -70,6 +70,12 @@ const GiftCardCurrencyPickerSheet = ({
     if (!searchable) setQuery('');
   }, [searchable]);
 
+  // Rows show their network only when the currencies are on more than one
+  // network. Otherwise every row would repeat the same name.
+  const showSystems = useMemo(
+    () => new Set(options.map(option => option.systemName).filter(Boolean)).size > 1,
+    [options],
+  );
   const filteredOptions = useMemo(
     () =>
       options.filter(
@@ -134,9 +140,10 @@ const GiftCardCurrencyPickerSheet = ({
   const renderOption = useCallback(
     ({item}) => {
       const selected = selectedKeySet.has(item.key);
-      // The network line shows only when it differs from the currency name,
-      // as "Verus Testnet" would otherwise appear twice.
-      const showSystem = Boolean(item.systemName) && item.systemName !== item.name;
+      // A native coin is named after its network, so its row would say
+      // "Verus Testnet" twice.
+      const showSystem =
+        showSystems && Boolean(item.systemName) && item.systemName !== item.name;
       const accessibilityLabel = [
         item.ticker,
         item.name !== item.ticker ? item.name : null,
@@ -190,7 +197,7 @@ const GiftCardCurrencyPickerSheet = ({
         </TouchableOpacity>
       );
     },
-    [selectedKeySet, styles, theme.colors.primary, theme.colors.textSubtle, toggleCurrency],
+    [selectedKeySet, showSystems, styles, theme.colors.primary, theme.colors.textSubtle, toggleCurrency],
   );
 
   return (
