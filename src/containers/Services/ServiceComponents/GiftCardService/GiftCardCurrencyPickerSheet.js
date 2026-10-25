@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../components/AppButton';
 import AppSearchField, {
   APP_SEARCH_MIN_ITEMS,
@@ -20,12 +21,15 @@ import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const ROW_HEIGHT = 68;
 const SHEET_MAX_HEIGHT_RATIO = 0.76;
-// The sheet without its list: title, subtitle, search field and the Add
-// button. Without the field, the list starts 14 points under the subtitle
-// instead of the field's 74 points of margin and height.
-const SHEET_CHROME_HEIGHT = 222;
+// The sheet without its list: the modal's 10-point top padding, the body
+// padding, the title, the search field and the Done button, plus 10 points of
+// margin. Without the field, the list starts 14 points under the title instead
+// of the field's 74 points of margin and height.
+const SHEET_CHROME_HEIGHT = 200;
 const SEARCH_BLOCK_HEIGHT = 74;
 const LIST_GAP_WITHOUT_SEARCH = 14;
+// Space kept free above a sheet that grows past 76%.
+const SHEET_TOP_CLEARANCE = 16;
 
 const GiftCardCurrencyPickerSheet = ({
   onApply,
@@ -37,6 +41,7 @@ const GiftCardCurrencyPickerSheet = ({
 }) => {
   const theme = useOnboardingTheme();
   const {height: screenHeight} = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const wasVisibleRef = useRef(false);
   const [query, setQuery] = useState('');
@@ -65,6 +70,12 @@ const GiftCardCurrencyPickerSheet = ({
     if (!searchable) setQuery('');
   }, [searchable]);
 
+  // Rows show their network only when the currencies are on more than one
+  // network. Otherwise every row would repeat the same name.
+  const showSystems = useMemo(
+    () => new Set(options.map(option => option.systemName).filter(Boolean)).size > 1,
+    [options],
+  );
   const filteredOptions = useMemo(
     () =>
       options.filter(
@@ -76,19 +87,28 @@ const GiftCardCurrencyPickerSheet = ({
   const sheetChromeHeight = searchable
     ? SHEET_CHROME_HEIGHT
     : SHEET_CHROME_HEIGHT - SEARCH_BLOCK_HEIGHT + LIST_GAP_WITHOUT_SEARCH;
+  // Below 7 currencies every currency must show without scrolling, so on a
+  // short phone such as the iPhone SE the sheet grows past 76% when it has to.
+  const defaultSheetHeight = screenHeight * SHEET_MAX_HEIGHT_RATIO;
+  const fullListSheetHeight = sheetChromeHeight + options.length * ROW_HEIGHT;
+  const sheetGrows = !searchable && fullListSheetHeight > defaultSheetHeight;
+  const sheetMaxHeight = sheetGrows
+    ? Math.min(
+        fullListSheetHeight,
+        screenHeight -
+          insets.top -
+          Math.max(insets.bottom, 12) -
+          SHEET_TOP_CLEARANCE,
+      )
+    : defaultSheetHeight;
   const maximumListHeight = Math.max(
     ROW_HEIGHT,
-    screenHeight * SHEET_MAX_HEIGHT_RATIO - sheetChromeHeight,
+    sheetMaxHeight - sheetChromeHeight,
   );
   const listHeight = Math.min(
     Math.max(filteredOptions.length, 1) * ROW_HEIGHT,
     maximumListHeight,
   );
-  const subtitle = normalizedQuery
-    ? `${filteredOptions.length} of ${options.length} currencies`
-    : `${options.length} ${
-        options.length === 1 ? 'currency' : 'currencies'
-      } available`;
   const applyLabel =
     draftSelectedKeys.length === 0
       ? 'Done'
@@ -120,12 +140,18 @@ const GiftCardCurrencyPickerSheet = ({
   const renderOption = useCallback(
     ({item}) => {
       const selected = selectedKeySet.has(item.key);
+      // A native coin is named after its network, so its row would say
+      // "Verus Testnet" twice.
+      const showSystem =
+        showSystems && Boolean(item.systemName) && item.systemName !== item.name;
       const accessibilityLabel = [
         item.ticker,
-        item.name,
-        item.systemName,
+        item.name !== item.ticker ? item.name : null,
+        showSystem ? item.systemName : null,
         `Balance ${item.balanceText} ${item.ticker}`,
-      ].join('. ');
+      ]
+        .filter(Boolean)
+        .join('. ');
 
       return (
         <TouchableOpacity
@@ -147,16 +173,16 @@ const GiftCardCurrencyPickerSheet = ({
                 </Text>
               ) : null}
             </View>
-            <Text numberOfLines={1} style={styles.currencySystem}>
-              {item.systemName}
-            </Text>
+            {showSystem ? (
+              <Text numberOfLines={1} style={styles.currencySystem}>
+                {item.systemName}
+              </Text>
+            ) : null}
           </View>
+          {/* The row title already names the ticker, so the amount stands alone. */}
           <View style={styles.balanceCopy}>
             <Text numberOfLines={1} style={styles.balance}>
               {item.balanceText}
-            </Text>
-            <Text numberOfLines={1} style={styles.balanceTicker}>
-              {item.ticker}
             </Text>
           </View>
           <MaterialCommunityIcons
@@ -171,13 +197,13 @@ const GiftCardCurrencyPickerSheet = ({
         </TouchableOpacity>
       );
     },
-    [selectedKeySet, styles, theme.colors.primary, theme.colors.textSubtle, toggleCurrency],
+    [selectedKeySet, showSystems, styles, theme.colors.primary, theme.colors.textSubtle, toggleCurrency],
   );
 
   return (
     <BottomSheetModal
       avoidKeyboard
-      maxHeight="76%"
+      maxHeight={sheetGrows ? sheetMaxHeight : '76%'}
       onClose={onClose}
       onClosed={handleClosed}
       visible={visible}>
@@ -188,7 +214,6 @@ const GiftCardCurrencyPickerSheet = ({
         <Text accessibilityRole="header" style={styles.title}>
           Choose currencies
         </Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
 
         {searchable ? (
           <AppSearchField
@@ -271,13 +296,6 @@ const createStyles = theme =>
       lineHeight: 26,
       ...fontStyle('semiBold'),
     },
-    subtitle: {
-      marginTop: 4,
-      color: theme.colors.textSubtle,
-      fontSize: 13,
-      lineHeight: 18,
-      ...fontStyle('regular'),
-    },
     search: {
       marginTop: 14,
       marginBottom: 10,
@@ -342,13 +360,6 @@ const createStyles = theme =>
       fontSize: 13,
       lineHeight: 18,
       ...fontStyle('semiBold'),
-    },
-    balanceTicker: {
-      marginTop: 1,
-      color: theme.colors.textSubtle,
-      fontSize: 11,
-      lineHeight: 16,
-      ...fontStyle('regular'),
     },
     emptyState: {
       alignItems: 'center',
