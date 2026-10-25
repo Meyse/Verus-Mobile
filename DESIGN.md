@@ -278,6 +278,25 @@ Settings pickers: a list choice uses `SelectionSheet`. A one-value edit uses
 `src/containers/Settings/components/SettingsFieldSheet.js`, the
 `AddressBookEditSheet` layout with its error under the field.
 
+### Wallet unlock
+
+`src/containers/Login/components/UnlockWalletSheet.js` unlocks a wallet on the
+login screen and for requests (`WalletUnlockCoordinator`).
+
+- A wallet with Face ID or Touch ID opens on "Unlocking your wallet"
+  (`WalletUnlockLoadingContent`). The loader stays while the biometric prompt
+  runs and the wallet opens. The password form never shows behind the prompt
+  (owner, 2026-10-25).
+- The password form shows only when biometrics fail, are cancelled or are not
+  available. The field then takes focus.
+- "Use Face ID" on the form switches the sheet back to the loader. When the
+  phone has no biometrics, the form and keyboard stay and the error shows under
+  the field.
+- The row shows the phone's own biometry icon and name through
+  `BiometricAffordanceIcon`, the icon on the wallet card: `ScanFace` for Face
+  ID, `FingerprintPattern` for Touch ID and fingerprint. Never a fixed
+  fingerprint.
+
 ### Shared behavior
 
 - Do not wrap `BottomSheetModal` in another Paper `Portal`.
