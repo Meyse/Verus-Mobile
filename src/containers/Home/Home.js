@@ -167,7 +167,11 @@ const Home = () => {
     });
   }, [widgetOrder]);
 
+  // Locking the wallet clears the account while Home is still mounted.
+  const accountHash = activeAccount?.accountHash ?? null;
+
   const getWidgets = useCallback(async () => {
+    if (accountHash == null) return;
     setWidgets([]);
     let widgetsList = [...Object.keys(widgetOrder)].sort((a, b) => {
       return widgetOrder[a] <= widgetOrder[b] ? -1 : 1;
@@ -196,7 +200,7 @@ const Home = () => {
     // Add the balance widget if not present
     if (!widgetsList.includes(TOTAL_UNI_BALANCE_WIDGET_TYPE)) {
       widgetsList.push(TOTAL_UNI_BALANCE_WIDGET_TYPE);
-      dispatchAddWidget(TOTAL_UNI_BALANCE_WIDGET_TYPE, activeAccount.accountHash);
+      dispatchAddWidget(TOTAL_UNI_BALANCE_WIDGET_TYPE, accountHash);
     }
 
     // Add currency widgets for active coins
@@ -205,18 +209,18 @@ const Home = () => {
 
       if (!widgetsList.includes(currencyWidgetId)) {
         widgetsList.push(currencyWidgetId);
-        dispatchAddWidget(currencyWidgetId, activeAccount.accountHash);
+        dispatchAddWidget(currencyWidgetId, accountHash);
       }
     }
 
     // Add the VerusID widget if not present
     if (!widgetsList.includes(VERUSID_WIDGET_TYPE)) {
       widgetsList.push(VERUSID_WIDGET_TYPE);
-      dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
+      dispatchAddWidget(VERUSID_WIDGET_TYPE, accountHash);
     }
 
     setWidgets(widgetsList);
-  }, [activeAccount.accountHash, activeCoinsForUser, widgetOrder]);
+  }, [accountHash, activeCoinsForUser, widgetOrder]);
 
   const handleWidgetPress = (widgetId) => {
     const widgetSplit = widgetId.split(':');

@@ -1058,8 +1058,9 @@ welcome card the same day (option D of the empty-Home mockups).
      "Try again".
   3. The wallet found Verus currencies on its addresses that are not in the
      wallet ("New assets found" in Manage assets), with or without funds on
-     Home: "**2 assets found.** Add them to Home." ("1 asset found. Add it to
-     Home.") with "Review", which opens Manage assets. Review or the close
+     Home: "**2 assets found.** Add them to your wallet." ("1 asset found.
+     Add it to your wallet.", owner, 2026-10-26: the tab is "Wallet") with
+     "Review", which opens Manage assets. Review or the close
      icon marks these currencies as reviewed for this wallet, so the card does
      not come back for them, also when the user adds nothing (owner,
      2026-10-26). They stay under "New assets found". A currency found later
