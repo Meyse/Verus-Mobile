@@ -46,9 +46,10 @@ const LIST_CONTENT_VERTICAL_PADDING = 4;
 const TARGET_VISIBLE_ROWS = 6;
 const TARGET_VISIBLE_ROWS_WITH_KEYBOARD = 4;
 const MIN_VISIBLE_ROWS_WITH_KEYBOARD = 1;
-// `LinkExistingVerusIdSheet` always renders the manual entry row, whose shared
-// `actionRow` style is 62 points tall. That row is permanent sheet chrome and
-// must be reserved before the scrollable candidate viewport is sized.
+// `LinkExistingVerusIdSheet` renders the manual entry row only when the
+// automatic lookup fails. The row's shared `actionRow` style is 62 points tall.
+// While the row or the manual step shows, that room is sheet chrome and must be
+// reserved before the scrollable candidate viewport is sized.
 const MANUAL_LINK_ROW_HEIGHT = 62;
 
 const getLinkSheetMetrics = ({
@@ -56,6 +57,7 @@ const getLinkSheetMetrics = ({
   insets,
   keyboardHeight,
   keyboardVisible,
+  manualRoomVisible,
   searchVisible,
 }) => {
   const targetRows = keyboardVisible
@@ -70,7 +72,7 @@ const getLinkSheetMetrics = ({
     (searchVisible
       ? LINK_SHEET_SEARCH_HEIGHT + LINK_SHEET_SEARCH_MARGIN_BOTTOM
       : 0) +
-    MANUAL_LINK_ROW_HEIGHT;
+    (manualRoomVisible ? MANUAL_LINK_ROW_HEIGHT : 0);
   const defaultMaxSheetHeight = height * LINK_SHEET_MAX_HEIGHT_RATIO;
   const availableSheetHeight = keyboardVisible
     ? height -
@@ -79,7 +81,7 @@ const getLinkSheetMetrics = ({
       Math.max(insets.bottom, LINK_SHEET_SIDE_MARGIN) -
       LINK_SHEET_SIDE_MARGIN
     : defaultMaxSheetHeight;
-  // At minimum the sheet keeps one candidate row plus the permanent manual row
+  // At minimum the sheet keeps one candidate row plus any shown manual row
   // reachable, so a compact keyboard layout never hides the manual route.
   const minimumSheetHeight =
     sheetChromeHeight +
@@ -153,6 +155,9 @@ const IdentityPickerSheet = ({
   // The link step shows its search field only from 7 found VerusIDs and tells
   // the sheet, so the sheet reserves room for the field only when it shows.
   const [linkSearchVisible, setLinkSearchVisible] = useState(false);
+  // The link step also tells the sheet when it needs room for the manual row
+  // or the manual step.
+  const [linkManualRoomVisible, setLinkManualRoomVisible] = useState(false);
   // Mirrors `linkBusy` so same-frame guards (parent close, mode transitions)
   // read the in-flight child mutation synchronously instead of waiting for the
   // next render.
@@ -180,6 +185,7 @@ const IdentityPickerSheet = ({
     insets,
     keyboardHeight: keyboardMetrics.height,
     keyboardVisible: keyboardMetrics.visible,
+    manualRoomVisible: linkManualRoomVisible,
     searchVisible: linkSearchVisible,
   });
 
@@ -472,6 +478,7 @@ const IdentityPickerSheet = ({
               onBusyChange={handleLinkBusyChange}
               onLinkCandidate={onLinkCandidate}
               onManualLink={onManualLink}
+              onManualRoomChange={setLinkManualRoomVisible}
               onSearchVisibleChange={setLinkSearchVisible}
             />
           ) : (
