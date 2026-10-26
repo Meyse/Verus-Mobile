@@ -34,7 +34,7 @@ const getCopy = ({kind, count}, handlers) => {
     case HOME_NOTICE_FOUND:
       return {
         highlight: `${count} ${count === 1 ? 'asset' : 'assets'} found.`,
-        text: count === 1 ? 'Add it to Home.' : 'Add them to Home.',
+        text: count === 1 ? 'Add it to your wallet.' : 'Add them to your wallet.',
         action: 'Review',
         onAction: handlers.onReview,
         // Review or close: either one ends the card for these currencies.
