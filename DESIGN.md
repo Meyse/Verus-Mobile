@@ -1136,7 +1136,10 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   `titleSheet` between the arrow back button and an empty right side, as Send's
   Select asset does (owner, 2026-10-24). There is no large title under the
   header.
-- Receive has the arrow back button and no title or options icon. A
+- Receive has the arrow back button, a close button on the right, and no title
+  or options icon. Close (`HeaderCloseButton`: the Send wizard's 22-point
+  `close` icon in a 44-point target) leaves Receive in one tap: it also closes
+  the "Receive assets" list when Receive opened from it (owner, 2026-10-26). A
   40-point asset logo sits beside `headlineMd`. Under the name, show only the
   selected card type and its network. With several cards, that line opens
   "Choose a card" and has a 44-point touch target.
