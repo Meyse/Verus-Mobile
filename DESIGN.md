@@ -133,7 +133,8 @@ review). Each kind of picture has one job:
   real components: the wallet icon, coin logos and the gift card material
   (wallet setup, claiming funds, the ready card). Draw a wallet icon only with
   `WalletAvatar`, or with `WalletAvatarEmoji` when it has no circle. Both move
-  the emoji down on iOS, where a plain emoji text sits high in its circle.
+  the emoji down on iOS, where a plain emoji text sits high in its circle, and
+  give it an opaque color, because Android fades a plain emoji text.
 
 The blurred wave video stays on the landing and login screens as brand
 atmosphere. Do not add raster illustrations, 3D renders, stock animations or a
