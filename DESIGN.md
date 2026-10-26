@@ -1030,20 +1030,31 @@ failed request keeps the gray card.
 - The stored notification keeps `celebrated: true`, so a relaunch, a tab switch,
   or a later visit shows the still card.
 
-### Connection card
+### Home notice card
 
-The owner approved this card on 2026-10-26 (issue 4 of the first E2E night
-run). `src/containers/Home/HomeWidgets/ConnectionNotice.js` shows it under the
-Home balance, above the notification cards, while balances cannot update.
+`src/containers/Home/HomeWidgets/HomeNotice.js` shows at most one card under
+the Home balance, above the notification cards. The owner approved the
+connection card on 2026-10-26 (issue 4 of the first E2E night run) and the
+welcome card the same day (option D of the empty-Home mockups).
 
 - It uses the card A look and its styles: `surfaceMuted`, 18-point corners and
   16/22 text with the first sentence in semibold. It has no close icon,
-  because the card goes away by itself when balances update again.
-- Offline: "**No internet connection.** Balances may be out of date." It has
-  no button, because Home refreshes by itself when the connection returns.
-- A balance update failed for an asset on Home (not the private card, not a
-  service): "**Could not connect.** Balances may be out of date." with the
-  compact "Try again" button.
+  because each card goes away by itself when its state ends.
+- The first state that applies wins:
+  1. Offline: "**No internet connection.** Balances may be out of date." No
+     button; Home refreshes by itself when the connection returns.
+  2. A balance update failed for an asset on Home (not the private card, not a
+     service): "**Could not connect.** Balances may be out of date." with
+     "Try again".
+  3. Home shows no funds, but the wallet found Verus currencies on its
+     addresses that are not in the wallet ("New assets found" in Manage
+     assets): "**2 assets found.** Add them to Home." ("1 asset found. Add it
+     to Home.") with "Review", which opens Manage assets.
+  4. The wallet is empty: every transparent and VerusID card of every asset,
+     hidden ones too, is known to hold 0, pending funds included, and nothing
+     was found or pre-converted: "**Your wallet is empty.** Receive coins to
+     start." with "Receive", which opens the Receive list. A private card that
+     has not synced does not block it.
 - On the asset screen the total reads "—" while a transparent or VerusID card
   has no balance. A failed history with nothing saved uses `EmptyState`
   ("Unable to load transactions", "Try again").

@@ -46,9 +46,12 @@ import {
 import { runRefreshUpdates } from '../../utils/updates/runRefreshUpdates';
 import { useNetInfo } from '@react-native-community/netinfo';
 import {
-  CONNECTION_NOTICE_OFFLINE,
-  CONNECTION_NOTICE_UNREACHABLE,
-} from './HomeWidgets/ConnectionNotice';
+  HOME_NOTICE_EMPTY,
+  HOME_NOTICE_FOUND,
+  HOME_NOTICE_OFFLINE,
+  HOME_NOTICE_UNREACHABLE,
+} from './HomeWidgets/HomeNotice';
+import { getNewAssetHoldings } from '../../utils/assets/assetManagementService';
 import { HomeRender, HomeRenderCoinsList, HomeRenderWidget } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import {
@@ -127,6 +130,8 @@ const Home = () => {
     extractErrorData(state, API_GET_BALANCES),
   );
   const {isConnected} = useNetInfo();
+  // Verus currencies on the wallet's addresses that are not in the wallet yet.
+  const foundAssets = useObjectSelector(getNewAssetHoldings);
   const [listItemHeights, setListItemHeights] = useState({});
   const [widgets, setWidgets] = useState([]);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
@@ -539,9 +544,12 @@ const Home = () => {
     prelaunchAssets,
   ]);
 
-  // The private card shows its own sync state, and Wyre is a service.
-  const connectionNotice = useMemo(() => {
-    if (isConnected === false) return CONNECTION_NOTICE_OFFLINE;
+  // One card under the balance: the connection first, because balances are
+  // not known without it; then currencies found on the wallet's addresses;
+  // then an empty wallet. The private card shows its own sync state, and Wyre
+  // is a service, so neither counts for the connection.
+  const homeNotice = useMemo(() => {
+    if (isConnected === false) return {kind: HOME_NOTICE_OFFLINE};
 
     const balanceFailed = signedInAssets.some(({coin}) =>
       (allSubWallets[coin.id] || []).some((card) => {
@@ -556,9 +564,48 @@ const Home = () => {
         );
       }),
     );
+    if (balanceFailed) return {kind: HOME_NOTICE_UNREACHABLE};
+    if (!assetManagement.ready) return null;
 
-    return balanceFailed ? CONNECTION_NOTICE_UNREACHABLE : null;
-  }, [allSubWallets, balanceErrors, isConnected, signedInAssets]);
+    const homeHasFunds = signedInAssets.some(({balance}) =>
+      Boolean(balance?.isGreaterThan(0)),
+    );
+    if (foundAssets.length > 0 && !homeHasFunds) {
+      return {kind: HOME_NOTICE_FOUND, count: foundAssets.length};
+    }
+    if (foundAssets.length > 0 || prelaunchAssets.size > 0) return null;
+
+    // Empty only when every transparent and VerusID card is known to hold 0,
+    // pending funds included, and hidden assets too. A private card that has
+    // not synced yet does not block it.
+    const walletEmpty = uniqueAssets(activeCoinsForUser)
+      .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount))
+      .every(coin => {
+        const cards = allSubWallets[coin.id] || [];
+        const privateCards = cards.filter(card => card.id === 'PRIVATE_WALLET');
+        const otherCards = cards.filter(card => card.id !== 'PRIVATE_WALLET');
+        const others = getManagedAssetBalance(coin, otherCards, ledgerBalances, assetManagement.snapshots);
+        const privateBalance = getManagedAssetBalance(coin, privateCards, ledgerBalances, assetManagement.snapshots);
+
+        return (
+          (otherCards.length === 0 || (others.complete && others.total.isZero())) &&
+          (privateBalance.total == null || privateBalance.total.isZero())
+        );
+      });
+
+    return walletEmpty ? {kind: HOME_NOTICE_EMPTY} : null;
+  }, [
+    activeAccount,
+    activeCoinsForUser,
+    allSubWallets,
+    assetManagement,
+    balanceErrors,
+    foundAssets,
+    isConnected,
+    ledgerBalances,
+    prelaunchAssets,
+    signedInAssets,
+  ]);
 
   // Update as soon as the connection returns, without a pull.
   const wasOffline = useRef(false);
@@ -591,7 +638,7 @@ const Home = () => {
         assets={signedInAssets}
         assetsReady={assetManagement.ready}
         assetsLoadError={assetManagement.loadError}
-        connectionNotice={connectionNotice}
+        homeNotice={homeNotice}
         displayCurrency={displayCurrency}
         loading={loading}
         showBalance={showBalance}
