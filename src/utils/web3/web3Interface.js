@@ -15,11 +15,7 @@ class Web3Interface {
     this.web3Contracts = {}; // { [key: contractAddress]: Array[contractAddress, contractAbi]}
 
     /** @type {import('ethers').Provider} */
-    this.DefaultProvider = new ethers.getDefaultProvider(this.network, {
-      etherscan: apiKeys.etherscan,
-      infura: apiKeys.infura,
-      exclusive: [ "etherscan", "infura" ]
-    })
+    this.DefaultProvider = this.createDefaultProvider()
 
     /** @type {HistorySupportingEtherscanProvider} */
     this.EtherscanProvider = new HistorySupportingEtherscanProvider(
@@ -32,6 +28,21 @@ class Web3Interface {
       this.network,
       apiKeys.infura
     )
+  }
+
+  createDefaultProvider() {
+    return new ethers.getDefaultProvider(this.network, {
+      etherscan: this.keys.etherscan,
+      infura: this.keys.infura,
+      exclusive: [ "etherscan", "infura" ]
+    })
+  }
+
+  // The ethers 6 FallbackProvider keeps the result of its first network
+  // check. One made while offline fails every later call, so a failed call
+  // replaces it and the next call starts fresh.
+  renewDefaultProvider = () => {
+    this.DefaultProvider = this.createDefaultProvider()
   }
 
   initContract = async (contractAddress) => {

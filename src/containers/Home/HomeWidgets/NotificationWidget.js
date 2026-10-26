@@ -201,4 +201,7 @@ const styles = StyleSheet.create({
   },
 });
 
+// The connection notice on Home uses the same gray card.
+export {styles as noticeCardStyles};
+
 export default NotificationWidget;

@@ -133,7 +133,14 @@ export const standardizeWyreTxObj = (transaction, accountAddress, coinObj) => {
   };
 };
 
-export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
+const toAddressList = addresses =>
+  Array.isArray(addresses)
+    ? addresses.filter(x => typeof x === 'string')
+    : typeof addresses === 'string'
+      ? [addresses]
+      : [];
+
+export const standardizeVrpcTxObj = (transaction, coinObj, currHeight, systemId) => {
   const {amount, txid, height, address, blocktime, sent, mempool, timestamp} = transaction;
   const amountBn = BigNumber(amount)
   let timeEstimate;
@@ -147,30 +154,49 @@ export const standardizeVrpcTxObj = (transaction, coinObj, currHeight) => {
       .toNumber();
   }
 
-  let addresses = [];
+  let type = amountBn.isGreaterThan(0) ? 'received' : 'sent';
+  let fee = null;
+  let addresses = [address];
 
-  if (sent) {
-    for (const out of sent.outputs || []) {
-      if (Array.isArray(out.addresses))
-        addresses = [...new Set([...addresses, ...out.addresses])];
-      else if (!addresses.includes(out.addresses))
-        addresses.push(out.addresses);
+  // A spend lists every output of the transaction. Outputs back to this
+  // address are change, so the recipients are the other outputs, and the
+  // rest of what left this address is the network fee.
+  if (sent && type === 'sent') {
+    const outputs = (sent.outputs || []).filter(out => {
+      const outAddresses = toAddressList(out.addresses);
+      return outAddresses.length > 0 && !outAddresses.every(x => x === address);
+    });
+    const currencyId = coinObj.currency_id;
+    const recipientAmount = outputs.reduce(
+      (sum, out) => sum.plus(BigNumber(out.amounts?.[currencyId] || 0)),
+      BigNumber(0),
+    );
+
+    addresses = [...new Set(outputs.flatMap(out => toAddressList(out.addresses)))];
+
+    if (!recipientAmount.isGreaterThan(0)) {
+      // Only the fee left in this currency: the transaction moved another
+      // currency or an identity, or went back to this address.
+      type = 'self';
+    } else if (currencyId === systemId) {
+      const txFee = amountBn.abs().minus(recipientAmount);
+      if (txFee.isGreaterThan(0)) fee = txFee.toString();
     }
-  } else addresses = [address];
+  }
 
-  // Filter out the reserve transfer address
+  // Filter out the reserve transfer address. A conversion or a send to self
+  // then names this address, as before.
   const reserveTransferAddress = RESERVE_TRANSFER_DESTINATION.getAddressString()
   addresses = addresses.filter(x => {
     return typeof x === 'string' && x !== reserveTransferAddress
   })
+  if (addresses.length === 0 && typeof address === 'string') addresses = [address];
 
   return {
-    address: addresses.length === 0 ? null : addresses.sort((a, b) => {
-      if (b !== address) return 1;
-      else return -1;
-    }).join(' & '),
+    address: addresses.length === 0 ? null : addresses.join(' & '),
     amount: amountBn.abs().toString(),
-    type: amountBn.isGreaterThan(0) ? 'received' : 'sent',
+    fee,
+    type,
     confirmed: mempool ? false : true,
     height,
     timestamp: blocktime || timestamp || timeEstimate,

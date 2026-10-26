@@ -8,7 +8,7 @@
   if they are flagged to be updated in the redux store.
 */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   setActiveCoin,
   setActiveApp,
@@ -30,6 +30,7 @@ import {
   API_GET_SERVICE_RATES,
   API_GET_SERVICE_NOTIFICATIONS,
   API_SEND,
+  DLIGHT_PRIVATE,
 } from '../../utils/constants/intervalConstants';
 import { USD } from '../../utils/constants/currencies';
 import {
@@ -39,8 +40,15 @@ import {
 } from '../../actions/actionDispatchers';
 import BigNumber from 'bignumber.js';
 import {
+  extractErrorData,
   extractLedgerData,
 } from '../../utils/ledger/extractLedgerData';
+import { runRefreshUpdates } from '../../utils/updates/runRefreshUpdates';
+import { useNetInfo } from '@react-native-community/netinfo';
+import {
+  CONNECTION_NOTICE_OFFLINE,
+  CONNECTION_NOTICE_UNREACHABLE,
+} from './HomeWidgets/ConnectionNotice';
 import { HomeRender, HomeRenderCoinsList, HomeRenderWidget } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import {
@@ -114,6 +122,11 @@ const Home = () => {
   const [totalFiatBalance, setTotalFiatBalance] = useState(null);
   const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
   const [loading, setLoading] = useState(false);
+  const refreshRun = useRef(0);
+  const balanceErrors = useObjectSelector((state) =>
+    extractErrorData(state, API_GET_BALANCES),
+  );
+  const {isConnected} = useNetInfo();
   const [listItemHeights, setListItemHeights] = useState({});
   const [widgets, setWidgets] = useState([]);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
@@ -264,6 +277,7 @@ const Home = () => {
 
   const refresh = useCallback(
     async (showLoading = true) => {
+      const run = ++refreshRun.current;
       setLoading(showLoading);
 
       const serviceUpdates = [
@@ -275,35 +289,24 @@ const Home = () => {
 
       const coinUpdates = [API_GET_FIATPRICE, API_GET_BALANCES, API_GET_INFO];
 
-      const updates = [
-        {
-          keys: serviceUpdates,
-          update: conditionallyUpdateService,
-          params: [[dispatch]],
-        },
-        {
-          keys: coinUpdates,
-          update: conditionallyUpdateWallet,
-          params: activeCoinsForUser.map((coinObj) => {
-            return [dispatch, coinObj.id];
-          }),
-        },
-      ];
+      await runRefreshUpdates([
+        ...serviceUpdates.map((key) => [
+          {
+            label: key,
+            update: () => conditionallyUpdateService(store.getState(), dispatch, key),
+          },
+        ]),
+        ...coinUpdates.map((key) =>
+          activeCoinsForUser.map((coinObj) => ({
+            label: `${key} for ${coinObj.id}`,
+            update: () =>
+              conditionallyUpdateWallet(store.getState(), dispatch, coinObj.id, key),
+          })),
+        ),
+      ]);
 
-      for (const update of updates) {
-        for (const key of update.keys) {
-          try {
-            for (const paramList of update.params) {
-              await update.update(store.getState(), ...paramList, key);
-            }
-          } catch (e) {
-            console.warn('Error forcing update to ' + key);
-            console.warn(e);
-          }
-        }
-      }
-
-      setLoading(false);
+      // An older refresh that ends late must not stop a newer one's spinner.
+      if (run === refreshRun.current) setLoading(false);
     },
     [activeCoinsForUser, dispatch],
   );
@@ -536,6 +539,38 @@ const Home = () => {
     prelaunchAssets,
   ]);
 
+  // The private card shows its own sync state, and Wyre is a service.
+  const connectionNotice = useMemo(() => {
+    if (isConnected === false) return CONNECTION_NOTICE_OFFLINE;
+
+    const balanceFailed = signedInAssets.some(({coin}) =>
+      (allSubWallets[coin.id] || []).some((card) => {
+        const channel = card.api_channels?.[API_GET_BALANCES];
+        const parentChannel = channel?.split('.')[0];
+
+        return (
+          channel != null &&
+          parentChannel !== DLIGHT_PRIVATE &&
+          parentChannel !== WYRE_SERVICE &&
+          balanceErrors?.[coin.id]?.[card.id] != null
+        );
+      }),
+    );
+
+    return balanceFailed ? CONNECTION_NOTICE_UNREACHABLE : null;
+  }, [allSubWallets, balanceErrors, isConnected, signedInAssets]);
+
+  // Update as soon as the connection returns, without a pull.
+  const wasOffline = useRef(false);
+  useEffect(() => {
+    if (isConnected === false) {
+      wasOffline.current = true;
+    } else if (isConnected === true && wasOffline.current) {
+      wasOffline.current = false;
+      forceUpdate();
+    }
+  }, [isConnected]);
+
   const _addCoin = () => {
     navigation.navigate('AddCoin', { refresh: refresh });
   };
@@ -556,6 +591,7 @@ const Home = () => {
         assets={signedInAssets}
         assetsReady={assetManagement.ready}
         assetsLoadError={assetManagement.loadError}
+        connectionNotice={connectionNotice}
         displayCurrency={displayCurrency}
         loading={loading}
         showBalance={showBalance}
