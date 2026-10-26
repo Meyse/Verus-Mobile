@@ -466,9 +466,9 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   (owner, 2026-10-26).
 - A conversion or export whose fees in the paid currency reach the amount stays
   blocked with "This amount does not cover the fees. Enter a larger amount."
-- After "Status unknown", Confirm shows only Close: no back arrow and no swipe,
-  and Android Back closes the wizard (owner, 2026-10-26). A step back would lead
-  to a Confirm that stays locked.
+- After "Status unknown", Confirm shows only Close: the back arrow goes, and
+  Android Back and the iOS swipe close the whole wizard, as Close does (owner,
+  2026-10-26). A step back would lead to a Confirm that stays locked.
 - While the wallet prepares the transaction, Confirm draws the review as it will look
   (`ConfirmPreparing`). What the user chose is real. The receive amount, price, fees and
   timing are skeletons. The button reads "Preparing…" and stays disabled. There is no
