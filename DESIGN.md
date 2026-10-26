@@ -1021,6 +1021,24 @@ failed request keeps the gray card.
 - The stored notification keeps `celebrated: true`, so a relaunch, a tab switch,
   or a later visit shows the still card.
 
+### Connection card
+
+The owner approved this card on 2026-10-26 (issue 4 of the first E2E night
+run). `src/containers/Home/HomeWidgets/ConnectionNotice.js` shows it under the
+Home balance, above the notification cards, while balances cannot update.
+
+- It uses the card A look and its styles: `surfaceMuted`, 18-point corners and
+  16/22 text with the first sentence in semibold. It has no close icon,
+  because the card goes away by itself when balances update again.
+- Offline: "**No internet connection.** Balances may be out of date." It has
+  no button, because Home refreshes by itself when the connection returns.
+- A balance update failed for an asset on Home (not the private card, not a
+  service): "**Could not connect.** Balances may be out of date." with the
+  compact "Try again" button.
+- On the asset screen the total reads "—" while a transparent or VerusID card
+  has no balance. A failed history with nothing saved uses `EmptyState`
+  ("Unable to load transactions", "Try again").
+
 ## Secure task screen
 
 `SecureLoading.js` covers tasks that must not be interrupted: Lock wallet, Clear
