@@ -51,7 +51,10 @@ import {
   HOME_NOTICE_OFFLINE,
   HOME_NOTICE_UNREACHABLE,
 } from './HomeWidgets/HomeNotice';
-import { getNewAssetHoldings } from '../../utils/assets/assetManagementService';
+import {
+  getUnreviewedNewAssetHoldings,
+  markFoundAssetsReviewed,
+} from '../../utils/assets/assetManagementService';
 import { HomeRender, HomeRenderCoinsList, HomeRenderWidget } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import {
@@ -130,8 +133,13 @@ const Home = () => {
     extractErrorData(state, API_GET_BALANCES),
   );
   const {isConnected} = useNetInfo();
-  // Verus currencies on the wallet's addresses that are not in the wallet yet.
-  const foundAssets = useObjectSelector(getNewAssetHoldings);
+  // Verus currencies on the wallet's addresses that are not in the wallet yet
+  // and that the user has not reviewed or dismissed on Home.
+  const foundAssets = useObjectSelector(getUnreviewedNewAssetHoldings);
+  const reviewFoundAssets = useCallback(() => {
+    markFoundAssetsReviewed(foundAssets.map(holding => holding.currencyId))
+      .catch(error => console.warn(error));
+  }, [foundAssets]);
   const [listItemHeights, setListItemHeights] = useState({});
   const [widgets, setWidgets] = useState([]);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
@@ -662,6 +670,11 @@ const Home = () => {
         onManageAssets={() =>
           (mainNavigation || navigation).navigate('ManageAssets')
         }
+        onReviewFoundAssets={() => {
+          reviewFoundAssets();
+          (mainNavigation || navigation).navigate('ManageAssets');
+        }}
+        onDismissFoundAssets={reviewFoundAssets}
       />
     );
   }

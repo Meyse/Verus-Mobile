@@ -6,6 +6,7 @@ import {
   ASSET_PREFERENCES_SAVED,
   ASSET_DISCOVERY_SAVED,
   ASSET_REMOVALS_SAVED,
+  ASSET_REVIEWS_SAVED,
 } from '../../reducers/assetManagement';
 import {removeExistingCoin, setUserCoins} from '../../actions/actionCreators';
 import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
@@ -154,6 +155,26 @@ const setAssetRemoved = async (key, removed, context) => {
   });
 };
 
+// Home stops asking about these found currencies once the user reviews or
+// dismisses them; they stay under "New assets found" in Manage assets.
+export const markFoundAssetsReviewed = async (
+  currencyIds,
+  context = captureAssetContext(),
+) => {
+  if (!currencyIds?.length) return;
+  await loadAssetManagement(context);
+  const saved = await updateStoredAssets(context, current => ({
+    ...current,
+    reviewed: {
+      ...current.reviewed,
+      ...Object.fromEntries(currencyIds.map(id => [id, true])),
+    },
+  }));
+  dispatchForContext(context, ASSET_REVIEWS_SAVED, {
+    reviewed: saved.networks[context.networkKey].reviewed,
+  });
+};
+
 // Only consider channels still belonging to the current wallet's cards.
 export const currentAssetSnapshots = state => {
   const channels = new Set(Object.values(state.coinMenus.allSubWallets || {})
@@ -173,6 +194,12 @@ export const getNewAssetHoldings = state => {
     .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}))
     .filter(holding => holding.result != null);
 };
+
+// The found currencies Home still asks about.
+export const getUnreviewedNewAssetHoldings = state =>
+  getNewAssetHoldings(state).filter(
+    holding => !state.assetManagement.reviewed?.[holding.currencyId],
+  );
 
 export const addManagedAsset = ({
   coin,

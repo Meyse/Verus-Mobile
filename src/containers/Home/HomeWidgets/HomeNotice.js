@@ -1,5 +1,6 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../../components/AppButton';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {noticeCardStyles as styles} from './NotificationWidget';
@@ -36,17 +37,21 @@ const getCopy = ({kind, count}, handlers) => {
         text: count === 1 ? 'Add it to Home.' : 'Add them to Home.',
         action: 'Review',
         onAction: handlers.onReview,
+        // Review or close: either one ends the card for these currencies.
+        onDismiss: handlers.onDismiss,
       };
     default:
       return null;
   }
 };
 
-// Card A from the Home notifications, without the close icon: each card goes
-// away by itself when its state ends.
-const HomeNotice = ({notice, loading, onRetry, onReceive, onReview}) => {
+// Card A from the Home notifications. The found-assets card keeps card A's
+// close icon; the others go away by themselves when their state ends.
+const HomeNotice = ({notice, loading, onDismiss, onRetry, onReceive, onReview}) => {
   const theme = useOnboardingTheme();
-  const copy = notice ? getCopy(notice, {onRetry, onReceive, onReview}) : null;
+  const copy = notice
+    ? getCopy(notice, {onDismiss, onRetry, onReceive, onReview})
+    : null;
 
   if (!copy) return null;
 
@@ -56,7 +61,7 @@ const HomeNotice = ({notice, loading, onRetry, onReceive, onReview}) => {
         accessibilityLiveRegion="polite"
         style={[
           styles.card,
-          localStyles.card,
+          !copy.onDismiss && localStyles.card,
           {backgroundColor: theme.colors.surfaceMuted},
         ]}>
         {/* The title flexes in a row, as in card A; in the column it would
@@ -66,6 +71,19 @@ const HomeNotice = ({notice, loading, onRetry, onReceive, onReview}) => {
             <Text style={styles.highlight}>{copy.highlight}</Text>
             {` ${copy.text}`}
           </Text>
+          {copy.onDismiss ? (
+            <TouchableOpacity
+              accessibilityLabel="Dismiss"
+              accessibilityRole="button"
+              onPress={copy.onDismiss}
+              style={styles.dismissButton}>
+              <MaterialCommunityIcons
+                color={theme.colors.textSubtle}
+                name="close"
+                size={20}
+              />
+            </TouchableOpacity>
+          ) : null}
         </View>
         {copy.action ? (
           <AppButton

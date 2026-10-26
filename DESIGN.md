@@ -1044,8 +1044,9 @@ connection card on 2026-10-26 (issue 4 of the first E2E night run) and the
 welcome card the same day (option D of the empty-Home mockups).
 
 - It uses the card A look and its styles: `surfaceMuted`, 18-point corners and
-  16/22 text with the first sentence in semibold. It has no close icon,
-  because each card goes away by itself when its state ends.
+  16/22 text with the first sentence in semibold. Only the found-assets card
+  has card A's close icon; the others go away by themselves when their state
+  ends.
 - The first state that applies wins:
   1. Offline: "**No internet connection.** Balances may be out of date." No
      button; Home refreshes by itself when the connection returns.
@@ -1055,8 +1056,11 @@ welcome card the same day (option D of the empty-Home mockups).
   3. The wallet found Verus currencies on its addresses that are not in the
      wallet ("New assets found" in Manage assets), with or without funds on
      Home: "**2 assets found.** Add them to Home." ("1 asset found. Add it to
-     Home.") with "Review", which opens Manage assets. The card goes when the
-     user adds or ignores each one.
+     Home.") with "Review", which opens Manage assets. Review or the close
+     icon marks these currencies as reviewed for this wallet, so the card does
+     not come back for them, also when the user adds nothing (owner,
+     2026-10-26). They stay under "New assets found". A currency found later
+     shows the card again, counting only the new one.
   4. The wallet is empty: every transparent and VerusID card of every asset,
      hidden ones too, is known to hold 0, pending funds included, and nothing
      was found or pre-converted: "**Your wallet is empty.** Receive coins to

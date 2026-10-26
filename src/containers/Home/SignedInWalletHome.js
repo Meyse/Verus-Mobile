@@ -164,6 +164,8 @@ const SignedInWalletHome = ({
   onConvert,
   onSend,
   onManageAssets,
+  onReviewFoundAssets,
+  onDismissFoundAssets,
 }) => {
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -359,8 +361,9 @@ const SignedInWalletHome = ({
           loading={loading}
           notice={homeNotice}
           onReceive={onReceive}
+          onDismiss={onDismissFoundAssets}
           onRetry={onRefresh}
-          onReview={onManageAssets}
+          onReview={onReviewFoundAssets}
         />
         <NotificationWidget />
       </View>
