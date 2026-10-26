@@ -61,8 +61,11 @@ const InvoicePayFlow = ({flow}) => {
                 }
                 title={options.title}
                 disabled={Boolean(options.wizardNavigationDisabled)}
-                onBack={() =>
-                  navigation.canGoBack() ? navigation.goBack() : flow.onExit()
+                onBack={
+                  options.wizardBackHidden
+                    ? undefined
+                    : () =>
+                        navigation.canGoBack() ? navigation.goBack() : flow.onExit()
                 }
                 onClose={flow.onExit}
                 progress={progressFor(route.name)}
