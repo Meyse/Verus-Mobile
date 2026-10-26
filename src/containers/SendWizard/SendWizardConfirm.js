@@ -88,6 +88,7 @@ import {
   getCurrencyDisplay,
   getDestinationNetwork,
   getRouteName,
+  getTransactionId,
   isOwnChannelAddress,
   isPrivateRecipient,
   shortAddress,
@@ -95,6 +96,7 @@ import {
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 import {closeWizard} from './wizardNavigation';
+import {formatTransactionDate} from '../Coin/Overview/TransactionDetailsSheet';
 import {
   BROADCAST_STATUS_UNKNOWN_MESSAGE,
   CONNECTION_FAILED_MESSAGE,
@@ -554,6 +556,7 @@ const SendWizardConfirm = () => {
 
       // Block stale hold callbacks before context and navigation update.
       submitted.current = true;
+      invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
       void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
       navigation.reset({
@@ -572,6 +575,8 @@ const SendWizardConfirm = () => {
     } catch (sendError) {
       if (sendError.ambiguousBroadcast) {
         broadcastUnknown.current = true;
+        // The invoice may be paid; a second visit warns about it.
+        invoiceFlow?.onPaymentSent?.(null);
         setBroadcastError(sendError.message || BROADCAST_STATUS_UNKNOWN_MESSAGE);
       } else {
         // Electrum preserves an explicit rejection on the thrown error.
@@ -810,8 +815,16 @@ const SendWizardConfirm = () => {
   const selfNotice = isSelfSend
     ? 'This is your own address. Only the network fee leaves your wallet.'
     : null;
+  const paidBefore = invoiceFlow?.paidBefore;
+  const paidBeforeDate = paidBefore ? formatTransactionDate(paidBefore.paidAt) : null;
+  const paidBeforeNotice = paidBefore
+    ? paidBefore.txid
+      ? `You paid this invoice on ${paidBeforeDate}. Paying again sends a second payment.`
+      : `This invoice may have been paid on ${paidBeforeDate}. Check your transaction history before you pay again.`
+    : null;
   const notices = [
     state.scanRequest?.notice,
+    paidBeforeNotice,
     selfNotice,
     publicNotice,
     launchNotice,
@@ -899,6 +912,9 @@ const SendWizardConfirm = () => {
                       }
                     : null,
                   state.payFromLabel ? {label: 'From', value: state.payFromLabel} : null,
+                  paidBefore?.txid
+                    ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid)}
+                    : null,
                 ].filter(Boolean)
               : []
           }

@@ -1236,6 +1236,12 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   the money is what the user pays on top of the market price. It always pays through the
   currency-transfer path, so the invoice tag goes into the transaction, and it
   refuses a payment that the fee would shrink.
+- When this device already paid the invoice, Confirm shows one notice above
+  Hold ("You paid this invoice on <date>. Paying again sends a second
+  payment.") and an "Earlier payment" row with the short transaction ID. After a
+  "Status unknown" payment it reads "This invoice may have been paid on <date>.
+  Check your transaction history before you pay again." Paying again stays
+  possible (owner, 2026-10-26). The record lives on this device only.
 - Sent reads "Payment sent". Done closes the invoice or continues its request.
 - Errors: "No way to pay this invoice" on Pay with; conversion options that do
   not load show an error with "Try again" while direct payment still works; the
