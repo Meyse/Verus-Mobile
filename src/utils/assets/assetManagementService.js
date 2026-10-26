@@ -17,7 +17,6 @@ import {
 import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
 import {requestServiceStoredData} from '../auth/authBox';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
-import {coinsList} from '../CoinData/CoinsList';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../constants/intervalConstants';
 import {
@@ -172,7 +171,7 @@ export const getNewAssetHoldings = state => {
     .filter(holding => !active.some(coin => matchesVrpcHolding(coin, holding)))
     .filter(holding => !state.assetManagement.removed[holding.currencyId])
     .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}))
-    .filter(holding => holding.result != null && !holding.result.catalogueMatch);
+    .filter(holding => holding.result != null);
 };
 
 export const addManagedAsset = ({
@@ -263,11 +262,6 @@ export const ignoreAssetHolding = async (holding, context = captureAssetContext(
   await setAssetRemoved(holding.currencyId, true, context);
 };
 
-const findCatalogueHolding = holding => {
-  const entry = Object.values(coinsList).find(coin => matchesVrpcHolding(coin, holding));
-  return entry ? CoinDirectory.findCoinObj(entry.id) : null;
-};
-
 const persistDiscovery = async context => {
   assertCurrent(context);
   const {revision, persistedRevision, snapshots, resolved} = store.getState().assetManagement;
@@ -288,11 +282,9 @@ const discoverAssets = async (context, job) => {
     if (store.getState().assetManagement.removed[holding.currencyId]) continue;
     if ((job.retryAfter[holding.key] || 0) > Date.now()) continue;
     try {
-      const catalogueCoin = findCatalogueHolding(holding);
-      if (catalogueCoin) {
-        await addManagedAsset({coin: catalogueCoin, automatic: true, context});
-        continue;
-      }
+      // Found currencies are never added by themselves, built-in ones
+      // included: spam currencies can arrive too. They wait under "New assets
+      // found" for the user (owner, 2026-10-26).
       if (store.getState().assetManagement.resolved[holding.key]) continue;
       if (lookups++ >= MAX_LOOKUPS_PER_PASS) break;
       const result = await resolveAssetIdentifier({

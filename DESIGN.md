@@ -727,9 +727,15 @@ of the mockup on 2026-10-21):
   hides the amount while balances are hidden. While the asset is removed, its
   row reads "Removing…".
 - Removal works at any balance, because spam currencies can have one. A
-  removed or ignored Verus currency stays out of automatic adding and "New
-  assets found" until the user adds it again. Review asset for a found
-  currency offers "Ignore" as the secondary action.
+  removed or ignored Verus currency stays out of "New assets found" until the
+  user adds it again. Review asset for a found currency offers "Ignore" as the
+  secondary action.
+- The wallet never adds a found currency by itself, built-in ones included,
+  because spam currencies can arrive too. Only the starting coins are on by
+  default (VRSC, BTC and ETH; VRSCTEST and gETH on testnet). Every other Verus
+  currency on the wallet's addresses waits under "New assets found" (owner,
+  2026-10-26). A conversion or pre-conversion the user makes still adds its
+  target, and a scanned request still asks "Add <name>?".
 - Below 7 assets, the search field and the All / On Home / Hidden tabs are
   hidden, and "Your assets" starts 24 points under the header. The count
   includes "New assets found" and ignores the selected tab and the search text
@@ -1046,10 +1052,11 @@ welcome card the same day (option D of the empty-Home mockups).
   2. A balance update failed for an asset on Home (not the private card, not a
      service): "**Could not connect.** Balances may be out of date." with
      "Try again".
-  3. Home shows no funds, but the wallet found Verus currencies on its
-     addresses that are not in the wallet ("New assets found" in Manage
-     assets): "**2 assets found.** Add them to Home." ("1 asset found. Add it
-     to Home.") with "Review", which opens Manage assets.
+  3. The wallet found Verus currencies on its addresses that are not in the
+     wallet ("New assets found" in Manage assets), with or without funds on
+     Home: "**2 assets found.** Add them to Home." ("1 asset found. Add it to
+     Home.") with "Review", which opens Manage assets. The card goes when the
+     user adds or ignores each one.
   4. The wallet is empty: every transparent and VerusID card of every asset,
      hidden ones too, is known to hold 0, pending funds included, and nothing
      was found or pre-converted: "**Your wallet is empty.** Receive coins to

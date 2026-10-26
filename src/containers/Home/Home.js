@@ -545,8 +545,8 @@ const Home = () => {
   ]);
 
   // One card under the balance: the connection first, because balances are
-  // not known without it; then currencies found on the wallet's addresses;
-  // then an empty wallet. The private card shows its own sync state, and Wyre
+  // not known without it; then Verus currencies found on the wallet's
+  // addresses (never added by themselves); then an empty wallet. The private card shows its own sync state, and Wyre
   // is a service, so neither counts for the connection.
   const homeNotice = useMemo(() => {
     if (isConnected === false) return {kind: HOME_NOTICE_OFFLINE};
@@ -567,13 +567,11 @@ const Home = () => {
     if (balanceFailed) return {kind: HOME_NOTICE_UNREACHABLE};
     if (!assetManagement.ready) return null;
 
-    const homeHasFunds = signedInAssets.some(({balance}) =>
-      Boolean(balance?.isGreaterThan(0)),
-    );
-    if (foundAssets.length > 0 && !homeHasFunds) {
+    // Found currencies wait for the user's review, also when Home has funds.
+    if (foundAssets.length > 0) {
       return {kind: HOME_NOTICE_FOUND, count: foundAssets.length};
     }
-    if (foundAssets.length > 0 || prelaunchAssets.size > 0) return null;
+    if (prelaunchAssets.size > 0) return null;
 
     // Empty only when every transparent and VerusID card is known to hold 0,
     // pending funds included, and hidden assets too. A private card that has
