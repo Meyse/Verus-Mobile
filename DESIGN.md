@@ -776,20 +776,16 @@ request, 2026-10-22):
 
 ## Asset screen balances
 
-The owner chose option A of the pending-balance mockup on 2026-10-22. It applies
+The owner revised the pending-balance rule on 2026-10-26. It applies
 to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
 (`CoinCardPickerSheet`).
 
 - Every card and the asset total show the card's total, the number Home adds
   up: confirmed funds plus funds that still confirm. Read it with
   `getLedgerTotal`; do not show the confirmed balance on these screens.
-- A card with funds that still confirm adds one line under the amount and its
-  fiat value: "+0.05 VRSCTEST pending" for incoming funds, "−0.0042 BTC
-  pending" for a send that waits (the net of all unconfirmed transactions, so a
-  send includes its fee). The line uses the fiat line's style and blurs with
-  hidden balances. `getLedgerPending` returns null when there is nothing
-  pending; Ethereum and tokens never report pending funds.
-- While the private card syncs, "Syncing x%" replaces the line.
+- Do not show a separate pending amount under a card's amount or in "Choose a
+  card". The total already includes it; readers added the second amount again.
+- While the private card syncs, keep "Syncing x%" in place of its fiat line.
 - Send keeps its own rule: the private card sends only confirmed funds (see
   Private card sends).
 
@@ -1268,8 +1264,8 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
 - Confirm adds "Request from" (signed invoices only), "From" (only after a card
   choice), "Expires" and "Invoice details". Its Price impact reads "x.x% more", and
   the money is what the user pays on top of the market price. It always pays through the
-  currency-transfer path, so the invoice tag goes into the transaction, and it
-  refuses a payment that the fee would shrink.
+  currency-transfer path. Tagged invoices are not supported yet, so the payment
+  carries no invoice tag. It refuses a payment that the fee would shrink.
 - When this device already paid the invoice, Confirm shows one notice above
   Hold ("You paid this invoice on <date>. Paying again sends a second
   payment.") and an "Earlier payment" row with the short transaction ID. After a
