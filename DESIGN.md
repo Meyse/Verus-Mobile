@@ -73,7 +73,8 @@ methods, never Verus Mobile's visual direction.
   match it. Before this, an off switch on the light theme with a dark phone was
   almost invisible. Do not give a native control colours only to fix contrast.
 - Respect safe areas and keyboard changes. Bottom actions stay in normal flow
-  through `src/components/SafeBottomActionStack.js`.
+  through `src/components/SafeBottomActionStack.js`. The footer has no divider
+  line above its buttons (owner, 2026-10-26).
 - Go back with the arrow button: `OnboardingBackButton`, a 24-point
   `arrow-left` in a 44-point target. `createRedesignedHeaderOptions` puts it in
   every redesigned stack header. Never show the iOS "‹ Back" chevron and title
