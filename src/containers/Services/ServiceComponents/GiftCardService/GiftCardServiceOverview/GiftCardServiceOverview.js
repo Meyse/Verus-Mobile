@@ -320,6 +320,14 @@ const GiftCardServiceOverview = ({
         : cards.filter(card => getGiftCardDisplayStatus(card) === filter),
     [cards, filter],
   );
+  // Claimed cards follow the others under one "Claimed" title, as one quiet
+  // line without a badge (owner chose option C on 2026-10-26).
+  const openCards = visibleCards.filter(
+    card => getGiftCardDisplayStatus(card) !== STATUS_REDEEMED,
+  );
+  const claimedCards = visibleCards.filter(
+    card => getGiftCardDisplayStatus(card) === STATUS_REDEEMED,
+  );
 
   useEffect(() => {
     if (selectedCardId && !selectedCard) {
@@ -877,6 +885,96 @@ const GiftCardServiceOverview = ({
     navigation.navigate('GiftCardCreate');
   };
 
+  // The gift icon without a tile. A claimed row is one line with the open gift
+  // and no badge; a Not funded row shows only the name, because its badge
+  // already says that the card is empty.
+  const renderCardRow = (card, {claimed, last}) => {
+    const busy = busyCardId === card.id;
+    const presentation = getGiftCardPresentation(card, {
+      activeCoinsForUser,
+    });
+    const contentsSummary =
+      claimed || presentation.status === STATUS_NOT_FUNDED
+        ? null
+        : getContentsSummary(presentation);
+    const accessibilityLabel = contentsSummary
+      ? `${card.label}. ${contentsSummary}. ${presentation.statusLabel}.`
+      : `${card.label}. ${presentation.statusLabel}.`;
+
+    return (
+      <View key={card.id} style={styles.rowContainer}>
+        <TouchableOpacity
+          accessibilityLabel={accessibilityLabel}
+          accessibilityRole="button"
+          activeOpacity={0.78}
+          onPress={() => setSelectedCardId(card.id)}
+          style={[styles.cardRow, claimed && styles.claimedRow]}>
+          <View style={styles.iconLane}>
+            {busy ? (
+              <ActivityIndicator
+                animating
+                color={theme.colors.primary}
+                size="small"
+              />
+            ) : (
+              <MaterialCommunityIcons
+                accessible={false}
+                color={
+                  claimed ? theme.colors.textSubtle : theme.colors.textSecondary
+                }
+                name={claimed ? 'gift-open-outline' : 'gift-outline'}
+                size={24}
+              />
+            )}
+          </View>
+          <View style={styles.rowCopy}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.rowTitle,
+                {
+                  color: claimed
+                    ? theme.colors.textSecondary
+                    : theme.colors.textPrimary,
+                },
+              ]}>
+              {card.label}
+            </Text>
+            {contentsSummary ? (
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.rowDescription,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                {contentsSummary}
+              </Text>
+            ) : null}
+          </View>
+          {claimed ? null : (
+            <StatusBadge
+              label={presentation.statusLabel}
+              style={styles.statusBadge}
+              tone={presentation.statusTone}
+            />
+          )}
+          <MaterialCommunityIcons
+            accessible={false}
+            color={theme.colors.textSubtle}
+            name="chevron-right"
+            size={21}
+          />
+        </TouchableOpacity>
+        {last ? null : (
+          <View
+            pointerEvents="none"
+            style={[styles.divider, {backgroundColor: theme.colors.border}]}
+          />
+        )}
+      </View>
+    );
+  };
+
   const renderList = () => (
     <SafeAreaView
       edges={['top', 'left', 'right']}
@@ -945,84 +1043,30 @@ const GiftCardServiceOverview = ({
           setShowListHeaderDivider(event.nativeEvent.contentOffset.y > 1)
         }
         showsVerticalScrollIndicator={false}>
-        {visibleCards.map((card, index) => {
-          const busy = busyCardId === card.id;
-          const presentation = getGiftCardPresentation(card, {
-            activeCoinsForUser,
-          });
-          const contentsSummary = getContentsSummary(presentation);
-          const accessibilityLabel = `${card.label}. ${contentsSummary}. ${presentation.statusLabel}.`;
-
-          return (
-            <View key={card.id} style={styles.rowContainer}>
-              <TouchableOpacity
-                accessibilityLabel={accessibilityLabel}
-                accessibilityRole="button"
-                activeOpacity={0.78}
-                onPress={() => setSelectedCardId(card.id)}
-                style={styles.cardRow}>
-                <View
-                  style={[
-                    styles.iconLane,
-                    {backgroundColor: theme.colors.surfaceMuted},
-                  ]}>
-                  {busy ? (
-                    <ActivityIndicator
-                      animating
-                      color={theme.colors.primary}
-                      size="small"
-                    />
-                  ) : (
-                    <MaterialCommunityIcons
-                      accessible={false}
-                      color={theme.colors.primary}
-                      name="gift-outline"
-                      size={25}
-                    />
-                  )}
-                </View>
-                <View style={styles.rowCopy}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.rowTitle,
-                      {color: theme.colors.textPrimary},
-                    ]}>
-                    {card.label}
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.rowDescription,
-                      {color: theme.colors.textSecondary},
-                    ]}>
-                    {contentsSummary}
-                  </Text>
-                </View>
-                <StatusBadge
-                  label={presentation.statusLabel}
-                  style={styles.statusBadge}
-                  tone={presentation.statusTone}
-                />
-                <MaterialCommunityIcons
-                  accessible={false}
-                  color={theme.colors.textSubtle}
-                  name="chevron-right"
-                  size={21}
-                />
-              </TouchableOpacity>
-              {index < visibleCards.length - 1 ? (
-                <View
-                  pointerEvents="none"
-                  style={[
-                    styles.divider,
-                    {backgroundColor: theme.colors.border},
-                  ]}
-                />
-              ) : null}
-            </View>
-          );
-        })}
+        {openCards.map((card, index) =>
+          renderCardRow(card, {
+            claimed: false,
+            last: index === openCards.length - 1,
+          }),
+        )}
+        {claimedCards.length > 0 && filter !== STATUS_REDEEMED ? (
+          <Text
+            accessibilityRole="header"
+            style={[
+              theme.typography.labelSm,
+              styles.groupTitle,
+              openCards.length > 0 && styles.groupTitleAfterRows,
+              {color: theme.colors.textSecondary},
+            ]}>
+            Claimed
+          </Text>
+        ) : null}
+        {claimedCards.map((card, index) =>
+          renderCardRow(card, {
+            claimed: true,
+            last: index === claimedCards.length - 1,
+          }),
+        )}
 
         {visibleCards.length === 0 ? (
           <EmptyState
@@ -1485,7 +1529,7 @@ export const GiftCardServiceOverviewSkeleton = ({navigation}) => {
               styles.skeletonRow,
               {borderBottomColor: theme.colors.border},
             ]}>
-            <SkeletonBlock height={44} radius={14} width={44} />
+            <SkeletonBlock height={24} radius={6} width={24} />
             <View style={styles.skeletonText}>
               <SkeletonText height={16} width="42%" />
               <SkeletonText
@@ -1549,20 +1593,20 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   skeletonRow: {
-    minHeight: 104,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   skeletonText: {
     minWidth: 0,
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
     paddingRight: 12,
   },
   skeletonDescription: {
-    marginTop: 8,
+    marginTop: 6,
   },
   listViewport: {
     flex: 1,
@@ -1578,22 +1622,25 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   cardRow: {
-    minHeight: 104,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
+  },
+  claimedRow: {
+    minHeight: 52,
+    paddingVertical: 14,
   },
   iconLane: {
-    width: 44,
-    height: 44,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
   },
   rowCopy: {
     minWidth: 0,
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
     paddingRight: 8,
   },
   rowTitle: {
@@ -1611,8 +1658,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-    left: 60,
+    left: 38,
     height: StyleSheet.hairlineWidth,
+  },
+  groupTitle: {
+    marginTop: 4,
+    paddingBottom: 2,
+  },
+  groupTitleAfterRows: {
+    marginTop: 22,
   },
   statusBadge: {
     marginRight: 4,

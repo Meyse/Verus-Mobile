@@ -630,6 +630,20 @@ card.") and "Create gift card". The first create, from that button or +, opens
 now". It shows once per wallet; the share confirmation repeats the warning when
 the risk starts.
 
+The gift card list rows follow option C of the list mockup (owner,
+2026-10-26):
+
+- A card that is not claimed is a 68-point row: the 24-point `gift-outline`
+  icon in `textSecondary` with no tile, 14 points from the text, then the name,
+  the contents line in 13/18 `textSecondary`, the `StatusBadge` and the
+  chevron. A Not funded row shows only the name, because its badge already says
+  that the card is empty.
+- Claimed cards follow the other cards under one "Claimed" title in `labelSm`
+  and `textSecondary`. A claimed row is one 52-point line: `gift-open-outline`
+  in `textSubtle`, the name in `textSecondary`, the chevron, and no badge.
+- The Claimed filter shows the claimed rows without the title, because the
+  selected filter already says it. Dividers start at the text, 38 points in.
+
 Asset list rows take the wallet (Home) row sizes: the "Receive assets" list,
 Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
 
