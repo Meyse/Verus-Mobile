@@ -55,6 +55,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emoji: {
+    // Android draws color emoji with the alpha of the text color, and its
+    // default text color is partly transparent.
+    color: '#000000',
     textAlign: 'center',
   },
 });
