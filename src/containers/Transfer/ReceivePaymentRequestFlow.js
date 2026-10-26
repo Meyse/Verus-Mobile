@@ -100,6 +100,7 @@ const ReceivePaymentRequestFlow = ({
   displayCurrency,
   isSmall,
   navigation,
+  onClose,
   onExit,
   price,
   priceMap,
@@ -134,6 +135,7 @@ const ReceivePaymentRequestFlow = ({
   const saveSeqRef = useRef(0);
   const qrSavedRef = useRef(false);
   const handleBackRef = useRef(() => {});
+  const closingRef = useRef(false);
 
   const isActiveRun = useCallback(runId => activeRunRef.current === runId, []);
 
@@ -423,6 +425,8 @@ const ReceivePaymentRequestFlow = ({
       return undefined;
     }
     const unsubscribe = navigation.addListener('beforeRemove', event => {
+      // Close leaves Receive on purpose; let that removal through.
+      if (closingRef.current) return;
       // Route removal runs the exact handler the header control uses, once. The
       // handler itself detects a pending generation, invalidates it and only then
       // leaves, so this listener must not pre-cancel it (that would make the
@@ -445,6 +449,14 @@ const ReceivePaymentRequestFlow = ({
     const title = getStepTitle(step);
     AccessibilityInfo.announceForAccessibility(`${title}.`);
   }, [loading, step]);
+
+  // Close leaves Receive from any step in one tap. A pending request is
+  // cancelled first; creating it submits nothing, so nothing is lost.
+  const handleClose = useCallback(() => {
+    invalidateOperations();
+    closingRef.current = true;
+    onClose();
+  }, [invalidateOperations, onClose]);
 
   const cancelAndExit = useCallback(() => {
     cancelGeneration(false);
@@ -606,7 +618,9 @@ const ReceivePaymentRequestFlow = ({
   return (
     <View style={[styles.wizardRoot, {backgroundColor: theme.colors.background}]}>
       <ProgressHeader
+        closeLabel="Close Receive"
         onBack={handleBack}
+        onClose={handleClose}
         progress={step === STEP_RESULT ? 1 : 0.5}
         title={getStepTitle(step)}
       />

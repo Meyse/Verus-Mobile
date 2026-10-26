@@ -346,6 +346,9 @@ on 2026-10-23.
   screens keep the normal 54-point and compact 20-point step top.
 - One icon action that belongs to the step, such as the password info button,
   goes in the right slot of `ProgressHeader` (`rightAction`).
+- A task that the user can leave in one tap passes `onClose` to
+  `ProgressHeader`. The right slot then shows `HeaderCloseButton`, the mirror
+  of the back arrow.
 - Say each thing once. A context line keeps only what the title does not say
   ("Write down words 1–8 of 24"). A field placeholder does not repeat its label.
 
@@ -1184,7 +1187,10 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   amount and its unit on one line) and conversion chip, and `FlatRow` for
   Note and Conversions. These rows show only on conversion-eligible cards.
   The two compact form sheets follow `AddressBookEditSheet`; choices apply
-  after dismissal. The note stays out of the modern invoice QR.
+  after dismissal. The note stays out of the modern invoice QR. Both steps
+  have the Receive close button on the right of the header: Close leaves
+  Receive in one tap, and Done on Request ready still returns to the address
+  (owner, 2026-10-26).
 - Request ready uses `PaymentRequestSlip` at the full content width. The fixed
   `#F6F3EC` paper, light text colors, notched SVG outline (`ticketOutline`,
   shared with the gift card), dotted perforation,
