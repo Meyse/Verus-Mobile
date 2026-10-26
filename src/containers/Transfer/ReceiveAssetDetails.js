@@ -27,6 +27,7 @@ import {
 } from '../../actions/actionCreators';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
+import HeaderCloseButton from '../../components/HeaderCloseButton';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import SkeletonLoader, {
   SkeletonBlock,
@@ -79,6 +80,19 @@ const receiveCardsForCoin = (coinObj, allSubWallets) =>
       wallet.compatible_apps?.includes(WALLET_APP_RECEIVE) &&
       wallet.api_channels?.[API_GET_ADDRESSES] != null,
   );
+
+const RECEIVE_ROUTES = ['ReceiveAssetsList', 'ReceiveAssetDetails'];
+
+// Close leaves Receive in one tap: it also removes the "Receive assets" list
+// when Receive was opened from it, and returns to the screen that opened it.
+const closeReceive = navigation => {
+  const {index, routes} = navigation.getState();
+  let count = 0;
+  while (count < index && RECEIVE_ROUTES.includes(routes[index - count].name)) {
+    count += 1;
+  }
+  navigation.pop(Math.max(count, 1));
+};
 
 const ReceiveAssetDetails = ({navigation, route}) => {
   const dispatch = useDispatch();
@@ -176,7 +190,13 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         elevation: 0,
         shadowOpacity: 0,
       },
-      headerRight: undefined,
+      headerRight: () => (
+        <HeaderCloseButton
+          accessibilityLabel="Close Receive"
+          onPress={() => closeReceive(navigation)}
+        />
+      ),
+      headerRightContainerStyle: {paddingRight: 16},
     });
   }, [navigation, requestActive, theme]);
 
