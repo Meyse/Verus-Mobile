@@ -21,9 +21,12 @@ export const getImpactTone = level =>
     : STATUS_BADGE_TONE.NEUTRAL;
 
 // "less" when the user receives less than the market price would give; "more"
-// when a fixed amount (an invoice) costs more than the market price.
+// when a fixed amount (an invoice) costs more than the market price. At or
+// better than market has no price impact.
 export const getImpactBadgeLabel = (impact, pay = false) =>
-  `${formatImpact(impact)}% ${pay ? 'more' : 'less'}`;
+  impact.isLessThanOrEqualTo(0)
+    ? 'None'
+    : `${formatImpact(impact)}% ${pay ? 'more' : 'less'}`;
 
 // What the impact costs the user. The display currency comes first when the
 // ledger holds a price for the asset the user pays with. Otherwise the amount

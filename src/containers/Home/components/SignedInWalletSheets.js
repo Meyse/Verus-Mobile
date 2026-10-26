@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, Platform, Text} from 'react-native';
 import AppSearchField from '../../../components/AppSearchField';
 import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
@@ -20,6 +20,8 @@ export const DisplayCurrencySheet = ({
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const [query, setQuery] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const listRef = useRef(null);
+  const scrollFrame = useRef(null);
   const androidKeyboard = Platform.OS === 'android' && keyboardVisible;
   const dismissal = useSheetDismissal({
     visible,
@@ -40,6 +42,8 @@ export const DisplayCurrencySheet = ({
       hide.remove();
     };
   }, []);
+
+  useEffect(() => () => cancelAnimationFrame(scrollFrame.current), [query, visible]);
 
   const currencies = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -69,6 +73,18 @@ export const DisplayCurrencySheet = ({
       avoidKeyboard={Platform.OS === 'ios'}
       fillHeight
       maxHeight={androidKeyboard ? '90%' : '76%'}
+      scrollViewProps={{
+        ref: listRef,
+        onContentSizeChange: () => {
+          if (!visible || query.trim()) return;
+          const index = currencies.indexOf(displayCurrency);
+          if (index < 0) return;
+          cancelAnimationFrame(scrollFrame.current);
+          scrollFrame.current = requestAnimationFrame(() => {
+            listRef.current?.scrollToIndex({index, animated: false, viewPosition: 0.5});
+          });
+        },
+      }}
       header={
         <AppSearchField
           accessibilityLabel="Search currencies"
@@ -82,6 +98,8 @@ export const DisplayCurrencySheet = ({
       listProps={
         currencies.length ? {
           data: currencies,
+          // Measure all 33 rows before scrolling, including wrapped/scaled names.
+          initialNumToRender: currencies.length,
           keyExtractor: currency => currency,
           renderItem: ({item}) => (
             <SelectionRow
