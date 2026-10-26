@@ -140,6 +140,7 @@ export const updateVrpcTransactions = async (coinObj, channelId) => {
         tx,
         coinObj,
         infoRes.result ? infoRes.result.longestchain : null,
+        systemId,
       ),
     );
 

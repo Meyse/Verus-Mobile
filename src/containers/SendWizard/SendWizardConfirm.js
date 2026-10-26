@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import {useNavigation} from '@react-navigation/native';
 import {useDispatch} from 'react-redux';
 import {Buffer} from 'buffer';
@@ -93,12 +94,20 @@ import {
 } from './wizardUtils';
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
+import {
+  BROADCAST_STATUS_UNKNOWN_MESSAGE,
+  CONNECTION_FAILED_MESSAGE,
+  OFFLINE_NOTHING_SENT_MESSAGE,
+  isConnectionErrorMessage,
+} from '../../utils/network/connectionErrors';
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
   /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known|txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
     ? 'Your previous transaction is still being confirmed. Wait for the next block, then review this transaction again.'
-    : message;
+    : isConnectionErrorMessage(message)
+      ? CONNECTION_FAILED_MESSAGE
+      : message;
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -152,6 +161,24 @@ const SendWizardConfirm = () => {
       wizardNavigationDisabled: sending,
     });
   }, [navigation, sending]);
+
+  // Nothing may leave a broadcast that is still running: the user could start
+  // the same payment again before its result is known. This covers Android
+  // Back and the iOS swipe, which closes the whole wizard (the parent screen)
+  // because this step's own swipe is off. Sent replaces this step after
+  // `submitted` is set, so it still passes.
+  useEffect(() => {
+    const blockWhileSending = event => {
+      if (submissionInFlight.current && !submitted.current) {
+        event.preventDefault();
+      }
+    };
+    const unsubscribes = [navigation, navigation.getParent()]
+      .filter(Boolean)
+      .map(target => target.addListener('beforeRemove', blockWhileSending));
+
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [navigation]);
 
   const simpleSend = Boolean(
     target && !target.isConversion && !route?.isCrossChain && !invoice,
@@ -368,7 +395,13 @@ const SendWizardConfirm = () => {
         lastReview.current = {key: reviewKey, result: preflight};
         setPreflight(preflight);
       } catch (preflightError) {
-        if (active && request === preflightSequence.current) setError(preflightError.message || 'Preflight failed.');
+        if (active && request === preflightSequence.current) {
+          setError(
+            isConnectionErrorMessage(preflightError.message)
+              ? CONNECTION_FAILED_MESSAGE
+              : preflightError.message || 'Preflight failed.',
+          );
+        }
       } finally {
         if (active && request === preflightSequence.current) setPreflighting(false);
       }
@@ -434,6 +467,14 @@ const SendWizardConfirm = () => {
     setSending(true);
     setError(null);
     try {
+      // Offline, a broadcast can wait a long time and still fail. Nothing has
+      // left the wallet yet, so say so at once.
+      const connection = await NetInfo.fetch().catch(() => null);
+      if (connection?.isConnected === false) {
+        setError(OFFLINE_NOTHING_SENT_MESSAGE);
+        return;
+      }
+
       const assetContext = captureAssetContext();
       const validatedSendAmount =
         simpleSend && preflightResult.value != null
@@ -486,14 +527,16 @@ const SendWizardConfirm = () => {
     } catch (sendError) {
       if (sendError.ambiguousBroadcast) {
         broadcastUnknown.current = true;
-        setBroadcastError(sendError.message || 'The transaction may have been sent. Check your transaction history before starting another send.');
+        setBroadcastError(sendError.message || BROADCAST_STATUS_UNKNOWN_MESSAGE);
       } else {
         // Electrum preserves an explicit rejection on the thrown error.
         const message = sendError.message || 'Transaction failed.';
         setError(
           sendError.rejected || sendError.ambiguousBroadcast === false
             ? getRejectionMessage(message)
-            : message,
+            : isConnectionErrorMessage(message)
+              ? CONNECTION_FAILED_MESSAGE
+              : message,
         );
       }
     } finally {

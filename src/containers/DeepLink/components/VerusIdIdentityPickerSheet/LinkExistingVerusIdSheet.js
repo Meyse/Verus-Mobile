@@ -42,6 +42,10 @@ import {
   identityLinkOriginIsCurrent,
 } from '../../../../utils/verusid/verusIdFlowGuards';
 import {buildVerusIdSections} from '../RequestReview/DeepLinkVerusIdDetailsSheet';
+import {
+  CONNECTION_FAILED_MESSAGE,
+  isConnectionErrorMessage,
+} from '../../../../utils/network/connectionErrors';
 
 const CANDIDATE_ROW_TOTAL_HEIGHT = 64;
 const LIST_CONTENT_VERTICAL_PADDING = 4;
@@ -93,6 +97,8 @@ const describeLookupFailure = error => {
     return 'No VerusID found with that name or i-Address.';
   }
 
+  if (isConnectionErrorMessage(message)) return CONNECTION_FAILED_MESSAGE;
+
   if (
     !message ||
     message.length > MANUAL_MESSAGE_MAX_LENGTH ||
@@ -107,6 +113,8 @@ const describeLookupFailure = error => {
 const describeLinkFailure = error => {
   const message =
     typeof error?.message === 'string' ? error.message.trim() : '';
+
+  if (isConnectionErrorMessage(message)) return CONNECTION_FAILED_MESSAGE;
 
   if (
     !message ||

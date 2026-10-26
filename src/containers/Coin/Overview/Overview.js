@@ -51,8 +51,12 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronRight,
+  CircleAlert,
   History,
 } from "lucide-react-native";
+import EmptyState from "../../../components/EmptyState";
+import signedInCopy from "../../../copy/signedIn";
+import { runRefreshUpdates } from "../../../utils/updates/runRefreshUpdates";
 import { fontStyle } from "../../../globals/fonts";
 import { useOnboardingTheme } from "../../../theme/onboarding";
 import { OnboardingThemeContext } from "../../../theme/onboarding/OnboardingThemeProvider";
@@ -601,29 +605,26 @@ class Overview extends Component {
           API_GET_TRANSACTIONS,
         ];
 
-        const updates = [
-          {
-            keys: serviceUpdates,
-            update: conditionallyUpdateService,
-            params: [this.props.dispatch],
-          },
-          {
-            keys: coinUpdates,
-            update: conditionallyUpdateWallet,
-            params: [this.props.dispatch, this.props.activeCoin.id],
-          },
-        ];
+        const coinId = this.props.activeCoin.id;
 
-        for (const update of updates) {
-          for (const key of update.keys) {
-            try {
-              await update.update(store.getState(), ...update.params, key);
-            } catch (error) {
-              console.warn("Error forcing update to " + key);
-              console.warn(error);
-            }
-          }
-        }
+        await runRefreshUpdates(
+          [
+            ...serviceUpdates.map(key => [
+              {
+                label: key,
+                update: () =>
+                  conditionallyUpdateService(store.getState(), this.props.dispatch, key),
+              },
+            ]),
+            ...coinUpdates.map(key => [
+              {
+                label: key,
+                update: () =>
+                  conditionallyUpdateWallet(store.getState(), this.props.dispatch, coinId, key),
+              },
+            ]),
+          ],
+        );
 
         if (this._isMounted) {
           this.setState({loading: false, refreshing: false});
@@ -946,6 +947,15 @@ class Overview extends Component {
         data={this.parseTransactionLists()}
         scrollEnabled={true}
         ListEmptyComponent={
+          this.props.transactions?.errors != null ? (
+            <EmptyState
+              actionLabel={signedInCopy.actions.retry}
+              icon={CircleAlert}
+              onAction={this.forceUpdate}
+              style={{backgroundColor: this.context.colors.background}}
+              title="Unable to load transactions"
+            />
+          ) : (
           <View
             style={[
               transactionStyles.emptyState,
@@ -965,6 +975,7 @@ class Overview extends Component {
               No transactions yet
             </NativeText>
           </View>
+          )
         }
         keyExtractor={(item, index) =>
           this.props.transactions?.channel?.split('.')[0] === VRPC && item.txid

@@ -754,14 +754,21 @@ const SignedInAssetHeader = ({showCards = true}) => {
   const itemCount = walletItems.length;
   const circularRail = itemCount >= CIRCULAR_RAIL_MIN_CARDS;
 
-  const totalDisplayedBalance = useMemo(
-    () =>
-      allSubWallets.reduce((total, wallet) => {
-        const balance = getLedgerTotal(balances?.[wallet.id]);
-        return balance == null ? total : total.plus(BigNumber(balance));
-      }, BigNumber(0)),
-    [allSubWallets, balances],
-  );
+  // Unknown while a transparent or VerusID card has no balance: offline, a
+  // sum without it would read as the real total. The private card keeps its
+  // own sync state, so it does not hide the total.
+  const totalDisplayedBalance = useMemo(() => {
+    let total = BigNumber(0);
+
+    for (const wallet of allSubWallets) {
+      const balance = getLedgerTotal(balances?.[wallet.id]);
+
+      if (balance != null) total = total.plus(BigNumber(balance));
+      else if (getSubWalletCardType(wallet) !== 'Private') return null;
+    }
+
+    return total;
+  }, [allSubWallets, balances]);
 
   useEffect(() => {
     let active = true;
@@ -1306,7 +1313,8 @@ const SignedInAssetHeader = ({showCards = true}) => {
 
   if (!activeCoin) return null;
 
-  const totalAmountText = truncateDecimal(totalDisplayedBalance, 4);
+  const totalAmountText =
+    totalDisplayedBalance == null ? '—' : truncateDecimal(totalDisplayedBalance, 4);
   const shouldShowTotalFiat = totalFiatDisplay != null || activeCoin.testnet;
   const totalFiatText = shouldShowTotalFiat ? totalFiatDisplay ?? '—' : null;
   const totalBalanceAccessibilityLabel = showBalance

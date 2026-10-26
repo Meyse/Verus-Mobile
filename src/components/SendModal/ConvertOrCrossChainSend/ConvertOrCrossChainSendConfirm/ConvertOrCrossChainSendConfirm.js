@@ -439,8 +439,11 @@ function ConvertOrCrossChainSendConfirm({
         params
       );
 
-      if (res.err) throw new Error(res.result);
-      else
+      if (res.err) {
+        const sendError = new Error(res.result);
+        sendError.ambiguousBroadcast = res.ambiguousBroadcast === true;
+        throw sendError;
+      } else
         navigation.navigate(SEND_MODAL_FORM_STEP_RESULT, {
           ...res.result,
           output,

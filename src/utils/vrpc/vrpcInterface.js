@@ -27,6 +27,11 @@ import {
 import {getManyUtxoFundRawTransactionError} from './fundRawTransactionError';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
 
+// Without a limit, Android keeps a request open for good when the connection
+// drops after it starts, so a send or a refresh never ends.
+export const VRPC_REQUEST_TIMEOUT_MS = 30000;
+const VRPC_CLIENT_CONFIG = {timeout: VRPC_REQUEST_TIMEOUT_MS};
+
 class CachedVerusdRpcInterface extends VerusdRpcInterface {
   static CACHED_REQUESTS = CACHED_VRPC_REQUESTS;
 
@@ -63,9 +68,9 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     APIAuth,
   ) {
     if (APIAuth) {
-      super(systemId, endpoint, undefined, undefined, APIAuth)
+      super(systemId, endpoint, VRPC_CLIENT_CONFIG, undefined, APIAuth)
     } else {
-      super(systemId, endpoint)
+      super(systemId, endpoint, VRPC_CLIENT_CONFIG)
     }
     
     this.endpoint = endpoint;
@@ -400,12 +405,12 @@ class VrpcInterface {
     let verusIdInterface;
 
     if (VRPC_API_KEYS[urlKey]) {
-      verusIdInterface = new VerusIdInterface(systemId, endpoint, undefined, undefined, {
+      verusIdInterface = new VerusIdInterface(systemId, endpoint, VRPC_CLIENT_CONFIG, undefined, {
         id: VRPC_API_APP_ID,
         key: VRPC_API_KEYS[urlKey]
       });
     } else {
-      verusIdInterface = new VerusIdInterface(systemId, endpoint)
+      verusIdInterface = new VerusIdInterface(systemId, endpoint, VRPC_CLIENT_CONFIG)
     }
 
     // Preserve fundrawtransaction errors raised while the VerusID client builds
