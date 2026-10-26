@@ -682,11 +682,13 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
 - The same rule applies to these sheets and screens (owner, 2026-10-24):
   "Choose a card" (its All / Addresses / VerusIDs chips and its chain chips
   hide with the field), Link VerusID (the list of VerusIDs found for the wallet
-  address; the field stays hidden while the lookup runs, and "Enter VerusID
-  manually" stays), Saved addresses in Send (the recipient step passes in the
-  count of addresses that fit the send, so the field does not pop in when the
-  sheet finishes loading), Choose currencies for a gift card, the Address book
-  screen (its search and network filter) and Pay with for burn invoices. The
+  address; the field stays hidden while the lookup runs; "Enter VerusID
+  manually" shows only when the lookup fails or the network has no identity
+  index, as in the revoke and recover picker (owner, 2026-10-26)), Saved
+  addresses in Send (the recipient step passes in the count of addresses that
+  fit the send, so the field does not pop in when the sheet finishes loading),
+  Choose currencies for a gift card, the Address book screen (its search and
+  network filter) and Pay with for burn invoices. The
   identity picker for revoke and recover already uses 7. The display currency
   sheet always has 33 items and always shows its field.
 - When the controls hide, because the count drops below 7, the screen clears the

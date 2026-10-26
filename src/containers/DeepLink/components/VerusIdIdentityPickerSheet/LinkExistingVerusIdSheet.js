@@ -226,6 +226,7 @@ const LinkExistingVerusIdSheet = ({
   onBusyChange,
   onLinkCandidate,
   onManualLink,
+  onManualRoomChange,
   onSearchVisibleChange,
 }) => {
   const theme = useOnboardingTheme();
@@ -246,6 +247,8 @@ const LinkExistingVerusIdSheet = ({
   onBusyChangeRef.current = onBusyChange;
   const onSearchVisibleChangeRef = useRef(onSearchVisibleChange);
   onSearchVisibleChangeRef.current = onSearchVisibleChange;
+  const onManualRoomChangeRef = useRef(onManualRoomChange);
+  onManualRoomChangeRef.current = onManualRoomChange;
   const coinId = coinObj?.id;
   const systemId = coinObj?.system_id;
   const primaryAddress = useObjectSelector(state =>
@@ -419,9 +422,17 @@ const LinkExistingVerusIdSheet = ({
 
               candidate.displayName = getCandidateDisplayName(candidate);
 
+              // The index also returns VerusIDs that used this address in the
+              // past. Only a VerusID that uses it now can be linked.
+              const currentPrimaryAddresses =
+                enrichedIdentity.primaryaddresses ||
+                enrichedIdentity.primaryAddresses ||
+                [];
+
               if (
                 candidate.status !== 'active' ||
                 !candidate.displayName ||
+                !currentPrimaryAddresses.includes(primaryAddress) ||
                 linkedAddressSet.has(finalIdentityAddress.toLowerCase())
               ) {
                 return null;
@@ -553,6 +564,18 @@ const LinkExistingVerusIdSheet = ({
     if (!searchable) setSearchQuery('');
   }, [searchable]);
   useEffect(() => () => onSearchVisibleChangeRef.current?.(false), []);
+
+  // The automatic lookup finds every VerusID that can be linked, so the manual
+  // row shows only when the lookup failed or the chain has no identity index.
+  // The parent keeps the row's room while the row or the manual step shows.
+  const showManualRow = !loading && Boolean(errorMessage);
+  const needsManualRoom =
+    showManualRow || mode === LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL;
+
+  useEffect(() => {
+    onManualRoomChangeRef.current?.(needsManualRoom);
+  }, [needsManualRoom]);
+  useEffect(() => () => onManualRoomChangeRef.current?.(false), []);
 
   const filteredCandidates = useMemo(() => {
     const query = activeSearchQuery.trim().toLowerCase();
@@ -887,8 +910,6 @@ const LinkExistingVerusIdSheet = ({
   return (
     <>
       {loading ? (
-        // Discovery keeps running in the background while the manual entry
-        // row below stays reachable.
         <DiscoverySkeleton
           minHeight={listViewportHeight}
           styles={styles}
@@ -966,12 +987,13 @@ const LinkExistingVerusIdSheet = ({
           )}
         </>
       )}
-      {/* The manual entry row stays reachable in every list-mode state. */}
-      <ManualLinkRow
-        onPress={openManualMode}
-        signedOutSheetStyles={signedOutSheetStyles}
-        theme={theme}
-      />
+      {showManualRow && (
+        <ManualLinkRow
+          onPress={openManualMode}
+          signedOutSheetStyles={signedOutSheetStyles}
+          theme={theme}
+        />
+      )}
     </>
   );
 };
