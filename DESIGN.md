@@ -727,9 +727,15 @@ of the mockup on 2026-10-21):
   hides the amount while balances are hidden. While the asset is removed, its
   row reads "Removing…".
 - Removal works at any balance, because spam currencies can have one. A
-  removed or ignored Verus currency stays out of automatic adding and "New
-  assets found" until the user adds it again. Review asset for a found
-  currency offers "Ignore" as the secondary action.
+  removed or ignored Verus currency stays out of "New assets found" until the
+  user adds it again. Review asset for a found currency offers "Ignore" as the
+  secondary action.
+- The wallet never adds a found currency by itself, built-in ones included,
+  because spam currencies can arrive too. Only the starting coins are on by
+  default (VRSC, BTC and ETH; VRSCTEST and gETH on testnet). Every other Verus
+  currency on the wallet's addresses waits under "New assets found" (owner,
+  2026-10-26). A conversion or pre-conversion the user makes still adds its
+  target, and a scanned request still asks "Add <name>?".
 - Below 7 assets, the search field and the All / On Home / Hidden tabs are
   hidden, and "Your assets" starts 24 points under the header. The count
   includes "New assets found" and ignores the selected tab and the search text
@@ -1030,20 +1036,36 @@ failed request keeps the gray card.
 - The stored notification keeps `celebrated: true`, so a relaunch, a tab switch,
   or a later visit shows the still card.
 
-### Connection card
+### Home notice card
 
-The owner approved this card on 2026-10-26 (issue 4 of the first E2E night
-run). `src/containers/Home/HomeWidgets/ConnectionNotice.js` shows it under the
-Home balance, above the notification cards, while balances cannot update.
+`src/containers/Home/HomeWidgets/HomeNotice.js` shows at most one card under
+the Home balance, above the notification cards. The owner approved the
+connection card on 2026-10-26 (issue 4 of the first E2E night run) and the
+welcome card the same day (option D of the empty-Home mockups).
 
 - It uses the card A look and its styles: `surfaceMuted`, 18-point corners and
-  16/22 text with the first sentence in semibold. It has no close icon,
-  because the card goes away by itself when balances update again.
-- Offline: "**No internet connection.** Balances may be out of date." It has
-  no button, because Home refreshes by itself when the connection returns.
-- A balance update failed for an asset on Home (not the private card, not a
-  service): "**Could not connect.** Balances may be out of date." with the
-  compact "Try again" button.
+  16/22 text with the first sentence in semibold. Only the found-assets card
+  has card A's close icon; the others go away by themselves when their state
+  ends.
+- The first state that applies wins:
+  1. Offline: "**No internet connection.** Balances may be out of date." No
+     button; Home refreshes by itself when the connection returns.
+  2. A balance update failed for an asset on Home (not the private card, not a
+     service): "**Could not connect.** Balances may be out of date." with
+     "Try again".
+  3. The wallet found Verus currencies on its addresses that are not in the
+     wallet ("New assets found" in Manage assets), with or without funds on
+     Home: "**2 assets found.** Add them to Home." ("1 asset found. Add it to
+     Home.") with "Review", which opens Manage assets. Review or the close
+     icon marks these currencies as reviewed for this wallet, so the card does
+     not come back for them, also when the user adds nothing (owner,
+     2026-10-26). They stay under "New assets found". A currency found later
+     shows the card again, counting only the new one.
+  4. The wallet is empty: every transparent and VerusID card of every asset,
+     hidden ones too, is known to hold 0, pending funds included, and nothing
+     was found or pre-converted: "**Your wallet is empty.** Receive coins to
+     start." with "Receive", which opens the Receive list. A private card that
+     has not synced does not block it.
 - On the asset screen the total reads "—" while a transparent or VerusID card
   has no balance. A failed history with nothing saved uses `EmptyState`
   ("Unable to load transactions", "Try again").

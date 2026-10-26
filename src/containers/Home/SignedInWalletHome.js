@@ -23,7 +23,7 @@ import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
-import ConnectionNotice from './HomeWidgets/ConnectionNotice';
+import HomeNotice from './HomeWidgets/HomeNotice';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import WalletSetupLogoSlot from '../../components/WalletSetup/WalletSetupLogoSlot';
 
@@ -148,7 +148,7 @@ const SignedInWalletHome = ({
   assets,
   assetsReady = true,
   assetsLoadError = false,
-  connectionNotice = null,
+  homeNotice = null,
   displayCurrency,
   loading,
   showBalance,
@@ -164,6 +164,8 @@ const SignedInWalletHome = ({
   onConvert,
   onSend,
   onManageAssets,
+  onReviewFoundAssets,
+  onDismissFoundAssets,
 }) => {
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -355,10 +357,13 @@ const SignedInWalletHome = ({
             </TouchableOpacity>
           </View>
         </View>
-        <ConnectionNotice
-          kind={connectionNotice}
+        <HomeNotice
           loading={loading}
+          notice={homeNotice}
+          onReceive={onReceive}
+          onDismiss={onDismissFoundAssets}
           onRetry={onRefresh}
+          onReview={onReviewFoundAssets}
         />
         <NotificationWidget />
       </View>
