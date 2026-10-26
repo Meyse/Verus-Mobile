@@ -44,14 +44,12 @@ export const getImpactLossText = ({
   }
 
   if (targetLoss && targetLoss.isGreaterThan(0)) {
-    return `${truncateDecimal(
-      targetLoss,
-      targetLoss.isGreaterThanOrEqualTo(100)
-        ? 2
-        : targetLoss.isGreaterThanOrEqualTo(1)
-        ? 4
-        : 8,
-    )} ${targetTicker}`;
+    // A small loss can be below one received-asset unit's precision. Keep
+    // three significant digits and use fixed notation so it never reads zero.
+    const amount = targetLoss.isLessThan(1)
+      ? targetLoss.precision(3, BigNumber.ROUND_DOWN).toFixed()
+      : truncateDecimal(targetLoss, targetLoss.isGreaterThanOrEqualTo(100) ? 2 : 4);
+    return `${amount} ${targetTicker}`;
   }
 
   return null;
