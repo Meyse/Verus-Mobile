@@ -515,7 +515,7 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   warning, and 5% and up danger. For zero or negative impact (the user's price
   is equal to or better than market), Difference reads "None", with no percent
   or money. The same rule applies to invoice pay mode (owner, 2026-10-27).
-  This case adds no chip. A chip shown for another reason reads "None".
+  This case adds no chip. A chip shown for another reason reads "Details".
   For positive impact, the chip says the percent. The sheet shows the money
   and percent in Difference, with danger text from 5%, primary text from 1%,
   and secondary text below 1%. For 0 < impact < 0.1%, Difference shows
