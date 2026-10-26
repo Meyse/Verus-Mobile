@@ -3,6 +3,7 @@ import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
+import {WalletAvatarEmoji} from '../../../../components/WalletAvatar';
 import {fontStyle} from '../../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
@@ -71,9 +72,7 @@ const WalletAvatarPickerSheet = ({
                   activeOpacity={0.74}
                   onPress={() => selectEmoji(emoji)}
                   style={[styles.iconChoice, selected && styles.choiceActive]}>
-                  <Text allowFontScaling={false} style={styles.iconEmoji}>
-                    {emoji}
-                  </Text>
+                  <WalletAvatarEmoji emoji={emoji} emojiSize={28} />
                 </TouchableOpacity>
               );
             })}
@@ -170,11 +169,6 @@ const createStyles = theme =>
   choiceActive: {
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.surfaceMuted,
-  },
-  iconEmoji: {
-    fontSize: 28,
-    lineHeight: 34,
-    textAlign: 'center',
   },
   colorGrid: {
     flexDirection: 'row',
