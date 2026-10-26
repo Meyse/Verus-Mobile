@@ -366,6 +366,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         displayCurrency={displayCurrency}
         isSmall={isSmall}
         navigation={navigation}
+        onClose={() => closeReceive(navigation)}
         onExit={exitRequest}
         price={price}
         priceMap={priceMap}

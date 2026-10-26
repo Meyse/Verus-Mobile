@@ -9,14 +9,17 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAppTheme} from '../theme/app';
+import HeaderCloseButton from './HeaderCloseButton';
 import OnboardingBackButton from './OnboardingBackButton';
 
 const ProgressHeader = ({
   backDisabled = false,
   borderless = false,
+  closeLabel,
   showBack = true,
   showProgress = true,
   onBack,
+  onClose,
   progress = 0.25,
   rightAction,
   title,
@@ -107,7 +110,15 @@ const ProgressHeader = ({
               ]}>
               {title}
             </Text>
-            <View style={styles.actionSlot}>{rightAction}</View>
+            {onClose ? (
+              <HeaderCloseButton
+                accessibilityLabel={closeLabel}
+                onPress={onClose}
+                style={styles.closeButtonOffset}
+              />
+            ) : (
+              <View style={styles.actionSlot}>{rightAction}</View>
+            )}
           </>
         ) : null}
       </View>
@@ -160,6 +171,9 @@ const styles = StyleSheet.create({
   },
   backButtonOffset: {
     marginLeft: -8,
+  },
+  closeButtonOffset: {
+    marginRight: -8,
   },
   title: {
     flex: 1,
