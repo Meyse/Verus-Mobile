@@ -164,7 +164,11 @@ describe('IdentityPickerSheet link step', () => {
       error: null,
       result: {
         fullyqualifiedname: 'alice.VRSCTEST@',
-        identity: {identityaddress: 'iAlice', name: 'alice', primaryaddresses: []},
+        identity: {
+          identityaddress: 'iAlice',
+          name: 'alice',
+          primaryaddresses: ['RWalletAddress000000000000000000000000'],
+        },
         status: 'active',
       },
     });
@@ -212,7 +216,11 @@ describe('IdentityPickerSheet link step', () => {
       error: null,
       result: {
         fullyqualifiedname: 'alice.VRSCTEST@',
-        identity: {identityaddress: 'iAlice', name: 'alice', primaryaddresses: []},
+        identity: {
+          identityaddress: 'iAlice',
+          name: 'alice',
+          primaryaddresses: ['RWalletAddress000000000000000000000000'],
+        },
         status: 'active',
       },
     });

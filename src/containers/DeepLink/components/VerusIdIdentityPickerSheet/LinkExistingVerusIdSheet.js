@@ -422,9 +422,17 @@ const LinkExistingVerusIdSheet = ({
 
               candidate.displayName = getCandidateDisplayName(candidate);
 
+              // The index also returns VerusIDs that used this address in the
+              // past. Only a VerusID that uses it now can be linked.
+              const currentPrimaryAddresses =
+                enrichedIdentity.primaryaddresses ||
+                enrichedIdentity.primaryAddresses ||
+                [];
+
               if (
                 candidate.status !== 'active' ||
                 !candidate.displayName ||
+                !currentPrimaryAddresses.includes(primaryAddress) ||
                 linkedAddressSet.has(finalIdentityAddress.toLowerCase())
               ) {
                 return null;
