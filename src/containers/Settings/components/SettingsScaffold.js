@@ -298,8 +298,6 @@ const createStyles = theme =>
     footer: {
       paddingTop: 10,
       backgroundColor: theme.colors.background,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.border,
     },
     footerRow: {
       flexDirection: 'row',
