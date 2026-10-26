@@ -3,6 +3,7 @@ import {BackHandler} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import TransactionResult from '../../components/TransactionResult';
+import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {
   formatArrivesAtLaunch,
@@ -21,17 +22,23 @@ import {useWizardFiat} from './useWizardFiat';
 import {
   getDestinationNetwork,
   getTransactionId,
+  isOwnChannelAddress,
   shortAddress,
 } from './wizardUtils';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
   const {state} = useSendWizard();
+  const activeAccount = useObjectSelector(
+    stateValue => stateValue.authentication.activeAccount,
+  );
   const invoiceFlow = useInvoiceFlow();
   const {
     amount,
+    channel,
     estimate,
     preflightResult,
+    recipientAddress,
     route,
     sourceCoin,
     sourceSubWallet,
@@ -45,6 +52,10 @@ const SendWizardSuccess = () => {
     estimate?.estimatedcurrencyout;
   const isConversion = Boolean(target?.isConversion);
   const isBridge = Boolean(route?.isCrossChain);
+  const selfSend = Boolean(
+    target && !isConversion && !isBridge && !state.invoice &&
+      isOwnChannelAddress({activeAccount, channel, recipientAddress, sourceCoin}),
+  );
   // A pre-conversion arrives at the launch, at the launch price. Its arrival is
   // the one fact that is new here, so Sent keeps it (owner, 2026-10-23).
   const preconvert = Boolean(isConversion && route?.preconvert);
@@ -154,6 +165,8 @@ const SendWizardSuccess = () => {
           ? 'The final amount can change slightly until it confirms.'
           : isBridge
           ? 'Cross-chain transfers need confirmations on both networks.'
+          : selfSend
+          ? 'It stayed in your wallet. Only the network fee left it.'
           : 'You can follow the transaction from this Asset’s activity.'
       }
       details={

@@ -648,7 +648,9 @@ const ConfirmPayStep = ({
       >
         <View style={parentStyles.header}>
           <RequestTitle>Confirm update</RequestTitle>
-          <Text style={parentStyles.subtitle}>Select a payment source and confirm the identity update</Text>
+          {!selectedSource && (
+            <Text style={parentStyles.subtitle}>Select a payment source and confirm the identity update</Text>
+          )}
         </View>
 
         <IdentityStateChangeCard change={preparedStateChange || identityStateChange} detailed />

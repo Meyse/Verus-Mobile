@@ -1,84 +1,14 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {Keyboard, Platform, Text} from 'react-native';
 import AppSearchField from '../../../components/AppSearchField';
-import BottomSheetModal from '../../../components/BottomSheetModal';
-import {fontStyle} from '../../../globals/fonts';
+import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
+import useSheetDismissal from '../../../components/useSheetDismissal';
+import {createSelectionSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
   CURRENCY_NAMES,
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../../utils/constants/currencies';
-
-const SheetHeader = ({onClose, title}) => {
-  const theme = useOnboardingTheme();
-
-  return (
-    <View style={styles.sheetHeader}>
-      <View style={styles.headerSide} />
-      <Text
-        numberOfLines={1}
-        style={[styles.sheetTitle, {color: theme.colors.textPrimary}]}>
-        {title}
-      </Text>
-      <TouchableOpacity
-        accessibilityLabel={`Close ${title}`}
-        accessibilityRole="button"
-        activeOpacity={0.7}
-        onPress={onClose}
-        style={styles.closeButton}>
-        <MaterialCommunityIcons
-          name="close"
-          size={20}
-          color={theme.colors.textPrimary}
-        />
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-const CurrencyRow = ({currency, onPress, selected}) => {
-  const theme = useOnboardingTheme();
-
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityState={{selected}}
-      activeOpacity={0.72}
-      onPress={onPress}
-      style={styles.currencyRow}>
-      <View style={styles.currencyCopy}>
-        <Text
-          numberOfLines={1}
-          style={[styles.currencyCode, {color: theme.colors.textPrimary}]}>
-          {currency}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={[styles.currencyName, {color: theme.colors.textSecondary}]}>
-          {CURRENCY_NAMES[currency]}
-        </Text>
-      </View>
-      <View style={styles.currencyCheckLane}>
-        {selected ? (
-          <MaterialCommunityIcons
-            name="check"
-            size={22}
-            color={theme.colors.primary}
-          />
-        ) : null}
-      </View>
-    </TouchableOpacity>
-  );
-};
 
 export const DisplayCurrencySheet = ({
   displayCurrency,
@@ -87,13 +17,29 @@ export const DisplayCurrencySheet = ({
   visible,
 }) => {
   const theme = useOnboardingTheme();
+  const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const [query, setQuery] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const androidKeyboard = Platform.OS === 'android' && keyboardVisible;
+  const dismissal = useSheetDismissal({
+    visible,
+    onClose,
+    onClosed: () => setQuery(''),
+  });
 
   useEffect(() => {
-    if (!visible) {
-      setQuery('');
-    }
-  }, [visible]);
+    if (Platform.OS !== 'android') return undefined;
+    const show = Keyboard.addListener('keyboardDidShow', () =>
+      setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const currencies = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -109,120 +55,47 @@ export const DisplayCurrencySheet = ({
   }, [query]);
 
   const selectCurrency = useCallback(
-    currency => {
-      onSelect(currency);
-      onClose();
-    },
-    [onClose, onSelect],
+    currency => dismissal.dismiss(() => onSelect(currency)),
+    [dismissal.dismiss, onSelect],
   );
 
   return (
-    <BottomSheetModal
-      floating={false}
-      maxHeight="80%"
-      onClose={onClose}
+    <SelectionSheet
+      title="Currencies"
       visible={visible}
-      contentContainerStyle={styles.attachedSheet}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}>
-        <SheetHeader title="Currencies" onClose={onClose} />
-        <View style={styles.searchOuter}>
-          <AppSearchField
-            accessibilityLabel="Search currencies"
-            onChangeText={setQuery}
-            placeholder="Search currencies"
-            resultCount={currencies.length}
-            themeMode={theme.mode}
-            value={query}
-          />
-        </View>
-        <FlatList
-          data={currencies}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          keyExtractor={currency => currency}
-          renderItem={({item}) => (
-            <CurrencyRow
-              currency={item}
+      onClose={dismissal.close}
+      onClosed={dismissal.onClosed}
+      // Android native modals resize; iOS needs avoidance around the sheet.
+      avoidKeyboard={Platform.OS === 'ios'}
+      fillHeight
+      maxHeight={androidKeyboard ? '90%' : '76%'}
+      header={
+        <AppSearchField
+          accessibilityLabel="Search currencies"
+          onChangeText={setQuery}
+          placeholder="Search currencies"
+          resultCount={currencies.length}
+          themeMode={theme.mode}
+          value={query}
+        />
+      }
+      listProps={
+        currencies.length ? {
+          data: currencies,
+          keyExtractor: currency => currency,
+          renderItem: ({item}) => (
+            <SelectionRow
+              title={item}
+              subtitle={CURRENCY_NAMES[item]}
               selected={item === displayCurrency}
               onPress={() => selectCurrency(item)}
             />
-          )}
-          contentContainerStyle={styles.currencyList}
-          style={styles.currencyListViewport}
-        />
-      </KeyboardAvoidingView>
-    </BottomSheetModal>
+          ),
+        } : undefined
+      }>
+      {!currencies.length ? (
+        <Text style={styles.empty}>No matching currencies</Text>
+      ) : null}
+    </SelectionSheet>
   );
 };
-
-const styles = StyleSheet.create({
-  attachedSheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  sheetHeader: {
-    minHeight: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  headerSide: {
-    width: 34,
-    height: 34,
-  },
-  sheetTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 22,
-    ...fontStyle('semiBold'),
-  },
-  closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchOuter: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  currencyListViewport: {
-    maxHeight: 500,
-  },
-  currencyList: {
-    paddingBottom: 8,
-  },
-  currencyRow: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  currencyCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  currencyCode: {
-    fontSize: 16,
-    lineHeight: 22,
-    ...fontStyle('semiBold'),
-  },
-  currencyName: {
-    marginTop: 2,
-    fontSize: 14,
-    lineHeight: 20,
-    ...fontStyle('regular'),
-  },
-  currencyCheckLane: {
-    width: 34,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-});

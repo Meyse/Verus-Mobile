@@ -77,16 +77,13 @@ const RevokeRecoverIdentityForm = ({
   const [prepareError, setPrepareError] = useState(null);
   const openedModal = useRef(false);
 
-  const systems = useMemo(() => {
-    if (resolvedInitialNetworkKey !== WALLET_NETWORKS.TESTNET) {
-      return DEFAULT_SYSTEMS;
-    }
-
-    return [
-      coinsList.VRSCTEST,
-      ...DEFAULT_SYSTEMS.filter(system => system.id !== coinsList.VRSCTEST.id),
-    ];
-  }, [resolvedInitialNetworkKey]);
+  const systems = useMemo(
+    () => DEFAULT_SYSTEMS.filter(system =>
+      Boolean(system.testnet) ===
+        (resolvedInitialNetworkKey === WALLET_NETWORKS.TESTNET),
+    ),
+    [resolvedInitialNetworkKey],
+  );
 
   useEffect(() => {
     if (sendModalVisible) {
