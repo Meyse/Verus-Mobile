@@ -88,12 +88,15 @@ import {
   getCurrencyDisplay,
   getDestinationNetwork,
   getRouteName,
+  getTransactionId,
   isOwnChannelAddress,
   isPrivateRecipient,
   shortAddress,
 } from './wizardUtils';
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
+import {closeWizard} from './wizardNavigation';
+import {formatTransactionDate} from '../Coin/Overview/TransactionDetailsSheet';
 import {
   BROADCAST_STATUS_UNKNOWN_MESSAGE,
   CONNECTION_FAILED_MESSAGE,
@@ -101,13 +104,19 @@ import {
   isConnectionErrorMessage,
 } from '../../utils/network/connectionErrors';
 
+// A node rejection reads "<code>: <reason>" (for example
+// "16: bad-txns-failed-precheck") or names a bad-* rule.
+const NODE_REJECTION_PATTERN = /^-?\d+:\s|\bbad-[a-z-]+\b/i;
+
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
   /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known|txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
     ? 'Your previous transaction is still being confirmed. Wait for the next block, then review this transaction again.'
     : isConnectionErrorMessage(message)
       ? CONNECTION_FAILED_MESSAGE
-      : message;
+      : NODE_REJECTION_PATTERN.test(message)
+        ? 'The network rejected this transaction. Nothing was sent.'
+        : message;
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -155,12 +164,44 @@ const SendWizardConfirm = () => {
     sourceSubWallet,
   );
 
+  // After "Status unknown" only Close leaves (owner, 2026-10-26): a step back
+  // would lead to a Confirm that stays locked.
+  const broadcastStatusUnknown = Boolean(state.broadcastError);
   useLayoutEffect(() => {
     navigation.setOptions({
-      gestureEnabled: !sending,
+      gestureEnabled: !sending && !broadcastStatusUnknown,
+      wizardBackHidden: broadcastStatusUnknown,
       wizardNavigationDisabled: sending,
     });
-  }, [navigation, sending]);
+  }, [broadcastStatusUnknown, navigation, sending]);
+
+  // Android Back then closes the wizard, as Close does.
+  useEffect(() => {
+    if (!broadcastStatusUnknown) return undefined;
+    let leaving = false;
+
+    return navigation.addListener('beforeRemove', event => {
+      if (leaving) return;
+      leaving = true;
+      event.preventDefault();
+      if (invoiceFlow) invoiceFlow.onExit();
+      else closeWizard(navigation);
+    });
+  }, [broadcastStatusUnknown, invoiceFlow, navigation]);
+
+  // The offline message is about this moment only; clear it once the phone
+  // is connected again.
+  useEffect(
+    () =>
+      NetInfo.addEventListener(connection => {
+        if (connection.isConnected) {
+          setError(current =>
+            current === OFFLINE_NOTHING_SENT_MESSAGE ? null : current,
+          );
+        }
+      }),
+    [],
+  );
 
   // Nothing may leave a broadcast that is still running: the user could start
   // the same payment again before its result is known. This covers Android
@@ -290,6 +331,12 @@ const SendWizardConfirm = () => {
   );
 
   useEffect(() => {
+    // Amount stays mounted under this step and can update the estimate while
+    // the transaction broadcasts. A new preflight then would fund again from
+    // inputs that are already spent.
+    if (submissionInFlight.current || submitted.current || broadcastUnknown.current) {
+      return undefined;
+    }
     const request = ++preflightSequence.current;
     preparedParams.current = null;
     if (
@@ -509,6 +556,7 @@ const SendWizardConfirm = () => {
 
       // Block stale hold callbacks before context and navigation update.
       submitted.current = true;
+      invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
       void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
       navigation.reset({
@@ -527,6 +575,8 @@ const SendWizardConfirm = () => {
     } catch (sendError) {
       if (sendError.ambiguousBroadcast) {
         broadcastUnknown.current = true;
+        // The invoice may be paid; a second visit warns about it.
+        invoiceFlow?.onPaymentSent?.(null);
         setBroadcastError(sendError.message || BROADCAST_STATUS_UNKNOWN_MESSAGE);
       } else {
         // Electrum preserves an explicit rejection on the thrown error.
@@ -745,7 +795,13 @@ const SendWizardConfirm = () => {
   const showImpact = showReceive && (impact != null || Boolean(route?.via));
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
-  const pinnedMessage = state.broadcastError || error || invoiceShortfall;
+  // A conversion or export whose fees in the paid currency reach the amount
+  // would cost more than it moves.
+  const feeShortfall =
+    !simpleSend && !invoice && reviewResult && sourceFees.isGreaterThanOrEqualTo(BigNumber(amount || 0))
+      ? 'This amount does not cover the fees. Enter a larger amount.'
+      : null;
+  const pinnedMessage = state.broadcastError || error || invoiceShortfall || feeShortfall;
   // A scanned request that names another network warns here, above the hold.
   // From the private card, a transparent address makes the amount public.
   const publicNotice =
@@ -755,8 +811,21 @@ const SendWizardConfirm = () => {
   const launchNotice = preconvert
     ? `This can’t be cancelled. If ${target.ticker} does not launch, the ${sourceCoin?.display_ticker || ''} comes back minus fees.`
     : null;
+  // A light notice, not a block: sending to the own address is allowed.
+  const selfNotice = isSelfSend
+    ? 'This is your own address. Only the network fee leaves your wallet.'
+    : null;
+  const paidBefore = invoiceFlow?.paidBefore;
+  const paidBeforeDate = paidBefore ? formatTransactionDate(paidBefore.paidAt) : null;
+  const paidBeforeNotice = paidBefore
+    ? paidBefore.txid
+      ? `You paid this invoice on ${paidBeforeDate}. Paying again sends a second payment.`
+      : `This invoice may have been paid on ${paidBeforeDate}. Check your transaction history before you pay again.`
+    : null;
   const notices = [
     state.scanRequest?.notice,
+    paidBeforeNotice,
+    selfNotice,
     publicNotice,
     launchNotice,
     ...warnings,
@@ -843,6 +912,9 @@ const SendWizardConfirm = () => {
                       }
                     : null,
                   state.payFromLabel ? {label: 'From', value: state.payFromLabel} : null,
+                  paidBefore?.txid
+                    ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid)}
+                    : null,
                 ].filter(Boolean)
               : []
           }
@@ -876,7 +948,8 @@ const SendWizardConfirm = () => {
           submitted.current ||
           Boolean(state.txResult) ||
           Boolean(state.broadcastError) ||
-          Boolean(invoiceShortfall)
+          Boolean(invoiceShortfall) ||
+          Boolean(feeShortfall)
         }
         holdToConfirm={!needsFeeRetry}
         loading={sending || preflighting || networkFee.loading}

@@ -9,7 +9,7 @@ import {
   SEND_MODAL_IDENTITY_UPDATE_TX_HEX
 } from '../../../../utils/constants/sendModal';
 import {UpdateIdentityFormRender} from './UpdateIdentityForm.render';
-import { createUpdateIdentityTx } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
+import { createUpdateIdentityTx, getUpdateIdentityFeeSats } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
 import { IdentityUpdateRequestDetails } from 'verus-typescript-primitives';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import { satsToCoins } from '../../../../utils/math';
@@ -49,14 +49,12 @@ const UpdateIdentityForm = (props) => {
         isTestnet
       );
 
-      if (updateIdentityTx.deltas.size !== 1) throw new Error("Unknown fees");
-
-      const feeObj = Object.fromEntries(updateIdentityTx.deltas.entries());
-      const feeCurrency = Object.keys(feeObj)[0];
+      // Tokens at the funding address can appear in deltas with a delta of 0.
+      const feeSats = getUpdateIdentityFeeSats(updateIdentityTx.deltas, systemId);
 
       props.navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, {
-        fee: satsToCoins(BigNumber(updateIdentityTx.deltas.get(feeCurrency).abs().toString())).toString(),
-        feeCurrency,
+        fee: satsToCoins(BigNumber(feeSats)).toString(),
+        feeCurrency: systemId,
         txHex: updateIdentityTx.hex,
         utxos: updateIdentityTx.utxos,
         identity: details.identity.toJson()

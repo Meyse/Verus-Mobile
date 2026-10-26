@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -27,6 +27,11 @@ import {API_GET_FIATPRICE} from '../../../utils/constants/intervalConstants';
 import {USD} from '../../../utils/constants/currencies';
 import {getCurrencyDisplay} from '../../SendWizard/wizardUtils';
 import InvoicePayFlow from './InvoicePayFlow';
+import {
+  getPaidInvoiceKey,
+  loadPaidInvoice,
+  savePaidInvoice,
+} from '../../../utils/deeplink/paidInvoiceStorage';
 import DeepLinkRequestSourceCard from '../components/RequestReview/DeepLinkRequestSourceCard';
 import DeepLinkRequestSheetScaffold from '../components/RequestReview/DeepLinkRequestSheetScaffold';
 import DeepLinkVerusIdDetailsSheet from '../components/RequestReview/DeepLinkVerusIdDetailsSheet';
@@ -58,6 +63,7 @@ const InvoiceInfo = props => {
     next,
     response,
     detailIndex,
+    request,
   } = props;
   const details = useMemo(() => {
     const invoice = new primitives.VerusPayInvoiceDetails();
@@ -69,6 +75,43 @@ const InvoiceInfo = props => {
     return invoice;
   }, [detailsBufferString, invoiceVersion]);
   const signedIn = useSelector(state => state.authentication.signedIn);
+  const accountHash = useSelector(
+    state => state.authentication.activeAccount?.accountHash ?? null,
+  );
+  // An earlier payment of this invoice from this device, for a light warning
+  // on Confirm. Paying again stays possible (owner, 2026-10-26).
+  const paidInvoiceKey = useMemo(
+    () =>
+      signedIn
+        ? getPaidInvoiceKey({
+            request,
+            detailIndex,
+            detailsBufferString,
+            sigtime,
+            accountHash,
+          })
+        : null,
+    [accountHash, detailIndex, detailsBufferString, request, sigtime, signedIn],
+  );
+  const [paidBefore, setPaidBefore] = useState(null);
+  useEffect(() => {
+    let active = true;
+    setPaidBefore(null);
+    loadPaidInvoice(paidInvoiceKey)
+      .then(record => {
+        if (active) setPaidBefore(record);
+      })
+      .catch(error => console.warn(error));
+    return () => {
+      active = false;
+    };
+  }, [paidInvoiceKey]);
+  const onPaymentSent = useCallback(
+    txid => {
+      savePaidInvoice(paidInvoiceKey, txid).catch(error => console.warn(error));
+    },
+    [paidInvoiceKey],
+  );
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const isTestAccount = useSelector(
     state =>
@@ -403,6 +446,8 @@ const InvoiceInfo = props => {
               onRetryConversions: retryConversions,
               onExit: cancel,
               onPaid,
+              onPaymentSent,
+              paidBefore,
               onOpenDetails: () => setSheet('details'),
               onOpenRequester:
                 signerChain && signerIdentityID ? openRequester : undefined,

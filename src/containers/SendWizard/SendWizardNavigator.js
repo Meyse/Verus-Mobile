@@ -312,7 +312,11 @@ const SendWizardNavigator = () => {
               disabled={Boolean(options.wizardNavigationDisabled)}
               hasInitialSource={hasInitialSource}
               mode={mode}
-              onBack={options.wizardOnBack || (() => goBackOrClose(navigation))}
+              onBack={
+                options.wizardBackHidden
+                  ? undefined
+                  : options.wizardOnBack || (() => goBackOrClose(navigation))
+              }
               onClose={() => closeWizard(navigation)}
               progressAnimation={progressAnimation}
               recipientFixed={recipientFixed}

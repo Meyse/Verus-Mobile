@@ -461,6 +461,14 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - Confirm shows its warnings and errors above "Hold to confirm & send", outside the
   scroll area (`above` slot of `WizardFooter`). The fact list scrolls and shows the
   bottom fade (`FadedScrollView`) while rows remain below.
+- A send to the card's own address shows one light notice above Hold: "This is
+  your own address. Only the network fee leaves your wallet." It does not block
+  (owner, 2026-10-26).
+- A conversion or export whose fees in the paid currency reach the amount stays
+  blocked with "This amount does not cover the fees. Enter a larger amount."
+- After "Status unknown", Confirm shows only Close: the back arrow goes, and
+  Android Back and the iOS swipe close the whole wizard, as Close does (owner,
+  2026-10-26). A step back would lead to a Confirm that stays locked.
 - While the wallet prepares the transaction, Confirm draws the review as it will look
   (`ConfirmPreparing`). What the user chose is real. The receive amount, price, fees and
   timing are skeletons. The button reads "Preparing…" and stays disabled. There is no
@@ -1228,6 +1236,12 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   the money is what the user pays on top of the market price. It always pays through the
   currency-transfer path, so the invoice tag goes into the transaction, and it
   refuses a payment that the fee would shrink.
+- When this device already paid the invoice, Confirm shows one notice above
+  Hold ("You paid this invoice on <date>. Paying again sends a second
+  payment.") and an "Earlier payment" row with the short transaction ID. After a
+  "Status unknown" payment it reads "This invoice may have been paid on <date>.
+  Check your transaction history before you pay again." Paying again stays
+  possible (owner, 2026-10-26). The record lives on this device only.
 - Sent reads "Payment sent". Done closes the invoice or continues its request.
 - Errors: "No way to pay this invoice" on Pay with; conversion options that do
   not load show an error with "Try again" while direct payment still works; the

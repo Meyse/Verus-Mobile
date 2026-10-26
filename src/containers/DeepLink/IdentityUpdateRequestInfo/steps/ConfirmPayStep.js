@@ -24,7 +24,7 @@ import { useOnboardingTheme } from '../../../../theme/onboarding';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import { coinsList } from '../../../../utils/CoinData/CoinsList';
 import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
-import { createUpdateIdentityTx, pushUpdateIdentityTx } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
+import { createUpdateIdentityTx, getUpdateIdentityFeeSats, pushUpdateIdentityTx } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { satsToCoins, truncateDecimal } from '../../../../utils/math';
 import { API_GET_BALANCES, API_SEND, GENERAL, WYRE_SERVICE, USD } from '../../../../utils/constants/intervalConstants';
@@ -362,13 +362,11 @@ const ConfirmPayStep = ({
         requestIsTestnet,
       );
 
-      if (updateIdentityTx.deltas.size !== 1) throw new Error('Unknown fees');
-
-      const feeObj = Object.fromEntries(updateIdentityTx.deltas.entries());
-      const currency = Object.keys(feeObj)[0];
-      if (currency !== requestedCurrency) {
-        throw new Error('Unexpected fee currency');
-      }
+      // Tokens at the funding address can appear in deltas with a delta of 0.
+      const feeSats = getUpdateIdentityFeeSats(
+        updateIdentityTx.deltas,
+        requestedCurrency,
+      );
 
       if (
         !mountedRef.current ||
@@ -386,8 +384,8 @@ const ConfirmPayStep = ({
         chainHeight,
         secondsPerBlock: coinObj.seconds_per_block,
       }));
-      setFee(satsToCoins(BigNumber(updateIdentityTx.deltas.get(currency).abs().toString())).toString());
-      setFeeCurrency(currency);
+      setFee(satsToCoins(BigNumber(feeSats)).toString());
+      setFeeCurrency(requestedCurrency);
       setTxHex(updateIdentityTx.hex);
       setUtxos(updateIdentityTx.utxos);
     } catch (e) {
