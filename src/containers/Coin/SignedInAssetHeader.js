@@ -55,7 +55,6 @@ import {
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
 import {
-  getLedgerPending,
   getLedgerTotal,
   getNetworkTicker,
   getSubWalletCardType,
@@ -1120,17 +1119,6 @@ const SignedInAssetHeader = ({showCards = true}) => {
           ? formatSyncStatus(privateSyncPercent)
           : null;
       if (syncStatus) fiatText = null;
-      // Funds that still confirm are in the amount; one line says how much.
-      // "Syncing x%" replaces it, because the balance is not complete yet.
-      const pendingBalance =
-        walletHasError || syncStatus ? null : getLedgerPending(ledgerEntry);
-      const pendingText =
-        pendingBalance == null
-          ? null
-          : `${pendingBalance.isGreaterThan(0) ? '+' : '−'}${truncateDecimal(
-              pendingBalance.abs(),
-              8,
-            )} ${displayTicker} pending`;
       let balanceAccessibilityLabel;
       if (walletHasError) {
         balanceAccessibilityLabel = 'Connection error';
@@ -1142,7 +1130,6 @@ const SignedInAssetHeader = ({showCards = true}) => {
         balanceAccessibilityLabel = [
           `${amountText} ${displayTicker}`,
           fiatText,
-          pendingText,
         ]
           .filter(Boolean)
           .join(', ');
@@ -1234,17 +1221,6 @@ const SignedInAssetHeader = ({showCards = true}) => {
                 numberOfLines={1}
                 style={styles.fiatText}>
                 {fiatText}
-              </PrivacyBlurredText>
-            ) : null}
-            {pendingText != null ? (
-              <PrivacyBlurredText
-                blurRadius={5}
-                color={cardMaterial.mutedText}
-                containerStyle={styles.pendingTextFrame}
-                hidden={!showBalance}
-                numberOfLines={1}
-                style={styles.fiatText}>
-                {pendingText}
               </PrivacyBlurredText>
             ) : null}
             {syncStatus ? (
@@ -1626,9 +1602,6 @@ const styles = StyleSheet.create({
   },
   fiatTextFrame: {
     marginTop: 1,
-  },
-  pendingTextFrame: {
-    marginTop: 2,
   },
   syncBadge: {
     alignSelf: 'flex-start',
