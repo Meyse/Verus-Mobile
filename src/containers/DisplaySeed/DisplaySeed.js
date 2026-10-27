@@ -1,3 +1,4 @@
+import {INCORRECT_PASSWORD_MESSAGE} from '../../utils/constants/errors';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
@@ -78,7 +79,7 @@ const normalizeSecrets = secrets =>
 
 const getAuthenticationError = error =>
   error?.message === 'Incorrect password'
-    ? 'Password not recognized. Try again.'
+    ? INCORRECT_PASSWORD_MESSAGE
     : 'Unable to access this wallet. Try again.';
 
 const DisplaySeed = ({navigation, route}) => {

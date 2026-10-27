@@ -1,5 +1,6 @@
+import AppSwitch from '../../components/AppSwitch';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Switch, TouchableOpacity, View} from 'react-native';
+import {TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
@@ -199,7 +200,7 @@ const Manager = ({navigation}) => {
                 disabled={pending != null}
                 onPress={() => perform(coin, !isAssetShown(coin, data.management.preferences))}
                 testID={`asset-home-switch-${coin.id}`}>
-                <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Switch
+                <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><AppSwitch
                 accessible={false}
                 trackColor={{false: theme.colors.borderStrong, true: theme.colors.primary}}
                 ios_backgroundColor={theme.colors.borderStrong}

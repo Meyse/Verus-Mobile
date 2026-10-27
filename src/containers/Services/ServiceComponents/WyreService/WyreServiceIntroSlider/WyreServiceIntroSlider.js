@@ -1,3 +1,4 @@
+import {INCORRECT_PASSWORD_MESSAGE} from '../../../../../utils/constants/errors';
 import React from "react";
 import { Component } from "react"
 import { connect } from 'react-redux'
@@ -134,7 +135,7 @@ class WyreServiceIntroSlider extends Component {
           }
         })
       } else {
-        createAlert("Authentication Error", "Incorrect password");
+        createAlert(INCORRECT_PASSWORD_MESSAGE);
       }
     })
   }

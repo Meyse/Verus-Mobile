@@ -2032,7 +2032,7 @@ const SpendableKeyRequestInfoContent = props => {
                     minimumFontScale={0.62}
                     numberOfLines={1}
                     style={styles.amountHeroValue}>
-                    {reviewModel.singleBalance.currency.amount}
+                    {reviewModel.singleBalance.currency.balanceAmount}
                   </Text>
                   <Text
                     numberOfLines={2}
@@ -2080,7 +2080,7 @@ const SpendableKeyRequestInfoContent = props => {
                               {currency.display?.name || currency.currencyId}
                             </Text>
                             <Text numberOfLines={2} style={styles.rowAmount}>
-                              {currency.amount}
+                              {currency.balanceAmount}
                             </Text>
                           </View>
                         ))}

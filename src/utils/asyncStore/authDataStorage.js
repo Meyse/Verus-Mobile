@@ -34,7 +34,7 @@ import {
 } from '../keychain/secureStore';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { SUSPICIOUS_UNICODE_CHARACTER_TEST } from '../constants/regex';
-import { INCORRECT_PASSWORD_DELAY_ERROR_MS } from '../constants/errors';
+import { INCORRECT_PASSWORD_DELAY_ERROR_MS, INCORRECT_PASSWORD_MESSAGE } from '../constants/errors';
 import { normalizeWalletAvatar } from '../walletAvatar';
 import { PROFILE_SECURITY_SETTINGS_LABEL } from '../settings/settingsLabels';
 import { setPersonalData } from '../../actions/actions/personal/creators/personal';
@@ -818,7 +818,7 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
             } else {
               setTimeout(() => {
                 if (alertOnFail) {
-                  createAlert("Incorrect password", "Check the password and try again.");
+                  createAlert(INCORRECT_PASSWORD_MESSAGE);
                 }
 
                 reject(new Error("Incorrect password"));

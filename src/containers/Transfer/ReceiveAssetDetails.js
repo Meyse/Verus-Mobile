@@ -246,8 +246,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const goHome = useCallback(() => navigation.navigate('Home'), [navigation]);
   const selectCard = useCallback(card => {
     setSelectedCardId(card.id);
+    dispatch(setCoinSubWallet(coinObj.id, card, true));
     setCardSheetVisible(false);
-  }, []);
+  }, [coinObj?.id, dispatch]);
 
   const renderCardSheet = () => (
     <ReceiveSubwalletSheet

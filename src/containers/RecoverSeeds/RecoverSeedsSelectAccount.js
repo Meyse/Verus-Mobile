@@ -1,3 +1,4 @@
+import {INCORRECT_PASSWORD_MESSAGE} from '../../utils/constants/errors';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
 import { Card, Button, List, IconButton } from 'react-native-paper';
@@ -50,7 +51,7 @@ const RecoverSeedsSelectAccount = ({ navigation }) => {
         createAlert("Error", "Failed to retrieve recovery secrets");
       }
     } else {
-      createAlert("Authentication Error", "Incorrect password");
+      createAlert(INCORRECT_PASSWORD_MESSAGE);
     }
   }
 

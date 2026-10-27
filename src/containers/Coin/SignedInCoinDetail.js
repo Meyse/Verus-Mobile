@@ -164,13 +164,11 @@ const SignedInCoinDetail = ({navigation, route}) => {
 
   const selectCard = useCallback(
     subWallet => {
-      if (subWallet.id !== selectedSubWallet?.id) {
-        dispatch(setCoinSubWallet(activeCoin.id, subWallet));
-      }
+      dispatch(setCoinSubWallet(activeCoin.id, subWallet, true));
 
       setCardPickerVisible(false);
     },
-    [activeCoin.id, dispatch, selectedSubWallet?.id],
+    [activeCoin.id, dispatch],
   );
 
   const handleCardPickerClosed = useCallback(() => {
