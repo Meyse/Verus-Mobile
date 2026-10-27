@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import DisplaySeed from '../../DisplaySeed/DisplaySeed';
 import RecoverSeed from '../../Settings/ProfileSettings/RecoverSeed/RecoverSeed';
@@ -11,18 +11,15 @@ import {setDeeplinkUrl} from '../../../actions/actionCreators';
 import CreateProfile from '../../Onboard/CreateProfile/CreateProfile';
 import RevokeRecoverStackScreens from '../RevokeRecoverStackScreens/RevokeRecoverStackScreens';
 import ProvisioningDeeplinkList from '../../ProvisioningDeeplinkList/ProvisioningDeeplinkList';
-import {accountIsTestnet} from '../../../utils/account/accountNetwork';
+import useSignedOutNetwork from '../../../hooks/useSignedOutNetwork';
 
 const SignedOutStack = createStackNavigator();
 
 const SignedOutStackScreens = props => {
   const deeplinkId = useSelector(state => state.deeplink.id);
   const deeplinkUrl = useSelector(state => state.deeplink.url);
-  const activeAccount = useSelector(state => state.authentication.activeAccount);
   const dispatch = useDispatch();
-  const [testProfile, setTestProfile] = useState(() =>
-    accountIsTestnet(activeAccount),
-  );
+  const [testProfile, setTestProfile] = useSignedOutNetwork();
 
   useEffect(() => {
     if (deeplinkId != null && deeplinkUrl != null) {

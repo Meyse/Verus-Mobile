@@ -563,9 +563,13 @@ export const SettingsRow = ({
         </View>
       ) : null}
       <View style={styles.rowCopy}>
-        <Text style={[styles.rowTitle, danger && styles.dangerText]}>
-          {title}
-        </Text>
+        {React.isValidElement(title) ? (
+          title
+        ) : (
+          <Text style={[styles.rowTitle, danger && styles.dangerText]}>
+            {title}
+          </Text>
+        )}
         {error ? (
           <Text
             accessibilityLiveRegion="polite"

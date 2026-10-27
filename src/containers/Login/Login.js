@@ -51,6 +51,10 @@ import {
 import {readDeeplinkFromNfc} from '../../actions/actionDispatchers';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {getSupportedBiometryType} from '../../utils/keychain/keychain';
+import {
+  getTestnetEnvironment,
+  TESTNET_ENVIRONMENT_PRIVATE,
+} from '../../utils/testnetEnvironment';
 
 const LOGO_ASPECT_RATIO = 2084 / 7305;
 const LOGO_TOP_MARGIN = 22;
@@ -304,10 +308,6 @@ const Login = props => {
         translucent
       />
       <WelcomeBackgroundVideo />
-      <SignedOutNetworkSelector
-        testProfile={props.testProfile}
-        setTestProfile={props.setTestProfile}
-      />
       <View
         style={[
           styles.logoContainer,
@@ -319,6 +319,14 @@ const Login = props => {
           width={logoWidth}
           height={logoWidth * LOGO_ASPECT_RATIO}
           variant={logoVariant}
+        />
+        <SignedOutNetworkSelector
+          testProfile={props.testProfile}
+          setTestProfile={props.setTestProfile}
+          showLabel
+          privateTestnet={
+            __DEV__ && getTestnetEnvironment() === TESTNET_ENVIRONMENT_PRIVATE
+          }
         />
       </View>
       <View style={styles.content}>{renderWalletContent()}</View>
@@ -502,7 +510,10 @@ const createStyles = theme => StyleSheet.create({
   },
   logoContainer: {
     paddingHorizontal: 32,
+    flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
   },
   content: {
     flex: 1,
