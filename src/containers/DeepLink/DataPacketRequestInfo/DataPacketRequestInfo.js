@@ -132,6 +132,7 @@ const DataPacketRequestInfoContent = props => {
       updatedResponse.setFlags();
       await next(updatedResponse, [detailIndex], {
         autoDeliverOnComplete: true,
+        dataPacketSigned: true,
         responseIdentityName: identity.selectedIdentity.friendlyName,
       });
     } catch (_) {
