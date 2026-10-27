@@ -26,6 +26,7 @@ const UserDataRequestInfoContent = props => {
     request,
     detailIndex,
     next,
+    hasFollowingDetails = false,
   } = props;
   const identity = useDataRequestIdentity(props);
   const [retry, setRetry] = useState(0);
@@ -105,6 +106,7 @@ const UserDataRequestInfoContent = props => {
   const reviewed =
     status === 'ready' &&
     credentials.every((_, index) => consent.checked[index]);
+  const hasOtherResponseContent = !!response?.details?.length;
 
   const handleContinue = async () => {
     if (
@@ -160,7 +162,9 @@ const UserDataRequestInfoContent = props => {
   return (
     <DataRequestReview
       title="Share credentials"
-      description="Review the data to share. Credentials are encrypted for the requester."
+      description={status === 'ready' && credentials.length === 0
+        ? null
+        : 'Review the data to share. Credentials are encrypted for the requester.'}
       props={props}
       identity={identity}
       onContinue={handleContinue}
@@ -203,8 +207,11 @@ const UserDataRequestInfoContent = props => {
         </DataReviewNotice>
       ) : credentials.length === 0 ? (
         <DataReviewNotice title="No matching credentials">
-          None of the requested credentials are available for this requester.
-          Continuing adds no credentials to the response.
+          {hasOtherResponseContent
+            ? 'No credentials will be shared. The response contains only the other approved items.'
+            : hasFollowingDetails
+            ? 'No credentials will be shared. Continue to review the rest of the request.'
+            : 'No response will be sent to the requester.'}
         </DataReviewNotice>
       ) : (
         <>

@@ -11,6 +11,7 @@
   - 2026-03-11: Fixed auth constraint system resolution and offline parent derivation .
 */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import BigNumber from 'bignumber.js';
 import {
   DeviceEventEmitter,
   TouchableOpacity,
@@ -54,7 +55,7 @@ import {
   linkVerusId,
 } from '../../../actions/actions/services/dispatchers/verusid/verusid';
 import {dispatchRemoveNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
-import {unixToDate} from '../../../utils/math';
+import {satsToCoins, unixToDate} from '../../../utils/math';
 import {
   AuthenticationRequestDetails,
   RecipientConstraint,
@@ -117,6 +118,7 @@ import {
 } from '../../../theme/onboarding';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
   getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
@@ -248,6 +250,7 @@ const AuthenticationRequestInfoContent = props => {
     cancel,
     next,
     nextStepActionLabel,
+    followingInvoice,
     request,
     response,
     detailIndex,
@@ -361,6 +364,27 @@ const AuthenticationRequestInfoContent = props => {
   const defaultRootSystemId =
     CoinDirectory.getBasicCoinObj(defaultRootChainId).system_id;
   const requesterLabel = signerFqn || 'An app';
+  const invoiceNotice = useMemo(() => {
+    if (!followingInvoice) return null;
+    try {
+      if (!followingInvoice.acceptsAnyAmount()) {
+        const currency = CoinDirectory.getBasicCoinObj(
+          followingInvoice.requestedcurrencyid,
+        );
+        const amount = satsToCoins(BigNumber(followingInvoice.amount.toString()));
+        if (
+          currency.display_ticker &&
+          amount.isFinite() &&
+          !amount.isNegative()
+        ) {
+          return `A payment of ${amount.toFixed()} ${currency.display_ticker} follows.`;
+        }
+      }
+    } catch (_) {
+      // The invoice review resolves currencies not yet in the local directory.
+    }
+    return 'A payment follows.';
+  }, [followingInvoice]);
 
   // Identity constraint filtering (mirrored from AuthenticationRequestIdentity)
   const recipientConstraints =
@@ -933,6 +957,7 @@ const AuthenticationRequestInfoContent = props => {
 
     await next(baseResponse, handledIndices, {
       autoDeliverOnComplete: true,
+      responseIdentityName: selectedIdentity.friendlyName,
     });
   };
 
@@ -2059,6 +2084,12 @@ const AuthenticationRequestInfoContent = props => {
       <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
           <RequestTitle>{mainTitle}</RequestTitle>
+          <Text style={[theme.typography.bodySm, styles.mainSubtitle]}>
+            {deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.NONE
+              ? 'No response will be sent to the requester.'
+              : `${requesterLabel} receives your VerusID and a signature.`}
+            {invoiceNotice ? ` ${invoiceNotice}` : ''}
+          </Text>
         </View>
 
         {(signerFqn || sigDateString || systemLabel) && (
