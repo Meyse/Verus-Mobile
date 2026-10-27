@@ -1381,6 +1381,12 @@ GenericRequest. Preserve its separate review, content-change, high-risk, and
 confirm/pay stages. Do not collapse that flow into the simpler authentication
 or app-encryption review hierarchy.
 
+Selected identity rows in request-review footers follow `DataRequestReview`.
+On windows of 667 points or less, use `useButtonHeight` for a 44-point row,
+`getButtonHitSlop` for the 48-point touch target, and put "Sign with" or
+"Respond as" inside the row above the name in `captionCompact`. Larger
+windows keep the 56-point row and the label above it.
+
 A completion sheet shows the animated green check only when delivery or broadcast
 is confirmed. For "No response was sent" and "Browser opened", use
 `src/components/NeutralCheckMark.js`.

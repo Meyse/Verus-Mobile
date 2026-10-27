@@ -67,6 +67,8 @@ import {
   ProvisionIdentityDetails,
 } from 'verus-typescript-primitives';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
+import {getButtonHitSlop, useButtonHeight} from '../../../hooks/useButtonHeight';
+import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {
   getFriendlyNameMap,
   getCurrency,
@@ -234,6 +236,8 @@ const getRequestIdDisplay = details => {
 const AuthenticationRequestInfoContent = props => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
+  const responderHeight = useButtonHeight();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const styles = useMemo(
     () => createAuthenticationRequestInfoStyles(theme),
     [theme],
@@ -2167,15 +2171,17 @@ const AuthenticationRequestInfoContent = props => {
         )}
         {selectedIdentity && activeAccountMatchesRequest && (
           <View>
-            <Text style={styles.selectedIdentityLabel}>Sign with</Text>
+            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Sign with</Text>}
             <TouchableOpacity
               accessibilityHint="Open VerusID options"
               accessibilityLabel={`Selected identity ${selectedIdentity.friendlyName}`}
               accessibilityRole="button"
               activeOpacity={0.78}
+              hitSlop={getButtonHitSlop(responderHeight)}
               onPress={handleOpenIdentitySheet}
-              style={styles.selectedIdentityCard}>
+              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
               <View style={styles.selectedIdentityText}>
+                {smallDevice && <Text style={styles.compactResponderLabel}>Sign with</Text>}
                 <Text numberOfLines={1} style={styles.selectedIdentityName}>
                   {selectedIdentity.friendlyName}
                 </Text>

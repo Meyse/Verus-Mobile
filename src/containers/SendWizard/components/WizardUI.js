@@ -49,6 +49,7 @@ export const WizardFormLayout = ({
   const scrollRef = useRef(null);
   const fieldLayoutRef = useRef(null);
   const errorLayoutRef = useRef(null);
+  const recoveryLayoutRef = useRef(null);
   const viewportHeightRef = useRef(0);
   const revealFrameRef = useRef(null);
   // A fade over a short form can hide the error it just scrolled into view.
@@ -60,25 +61,30 @@ export const WizardFormLayout = ({
     }
     if (!error) return;
 
-    // Wait for content and keyboard/footer layout to settle. Scroll only far
-    // enough to reveal the error, leaving the related field above it in view.
+    // Wait for content and keyboard/footer layout to settle. Compact Amount
+    // includes Available/MAX so the user can correct the error without a swipe.
     revealFrameRef.current = requestAnimationFrame(() => {
       revealFrameRef.current = null;
       const layout = errorLayoutRef.current;
+      const recovery = smallDeviceKeyboardVisible && recoveryLayoutRef.current;
       const viewportHeight = viewportHeightRef.current;
       if (!layout || viewportHeight <= 0) return;
+      const bottom = Math.max(
+        layout.y + layout.height,
+        recovery ? recovery.y + recovery.height : 0,
+      );
 
       // Never auto-scroll the field under the context band to reveal a
       // message. Longer content remains reachable by scrolling.
       scrollRef.current?.scrollTo({
         y: Math.min(
           Math.max(0, fieldLayoutRef.current?.y || 0),
-          Math.max(0, layout.y + layout.height - viewportHeight),
+          Math.max(0, bottom - viewportHeight),
         ),
         animated: false,
       });
     });
-  }, [error]);
+  }, [error, smallDeviceKeyboardVisible]);
 
   useEffect(() => {
     revealError();
@@ -138,10 +144,17 @@ export const WizardFormLayout = ({
             // Continue even on compact Android screens.
             keyboardVisible && {paddingBottom: footerHeight + 24},
           ]}>
-          {children(errorMessage, event => {
-            fieldLayoutRef.current = event.nativeEvent.layout;
-            revealError();
-          })}
+          {children(
+            errorMessage,
+            event => {
+              fieldLayoutRef.current = event.nativeEvent.layout;
+              revealError();
+            },
+            event => {
+              recoveryLayoutRef.current = event.nativeEvent.layout;
+              revealError();
+            },
+          )}
         </ScrollView>
         {!showNativeIndicator &&
         scrollMetrics.content > scrollMetrics.viewport + 8 &&

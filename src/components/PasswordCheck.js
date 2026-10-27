@@ -285,6 +285,7 @@ const PasswordCheck = props => {
           <Text accessibilityRole="header" style={styles.title}>
             {title}
           </Text>
+          <Text style={styles.body}>{body}</Text>
           <View style={styles.scrollFrame}>
             <ScrollView
               ref={scrollRef}
@@ -297,7 +298,6 @@ const PasswordCheck = props => {
               onContentSizeChange={revealPassword}
               onLayout={revealPassword}
               showsVerticalScrollIndicator={Boolean(keyboardFrame)}>
-              <Text style={styles.body}>{body}</Text>
               {account ? (
                 <View style={styles.walletSummary}>
                   <View style={styles.walletIcon}>
@@ -479,6 +479,7 @@ const createStyles = theme =>
       marginHorizontal: 20,
     },
     body: {
+      marginHorizontal: 20,
       marginTop: 6,
       marginBottom: 18,
       color: theme.colors.textSecondary,

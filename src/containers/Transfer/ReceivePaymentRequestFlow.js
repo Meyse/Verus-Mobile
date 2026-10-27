@@ -554,11 +554,11 @@ const ReceivePaymentRequestFlow = ({
     const actions = {
       bottomSpacing: formKeyboardVisible
         ? KEYBOARD_FOOTER_SPACING
-        : step === STEP_RESULT && compact ? 24 : 30,
+        : step === STEP_RESULT ? (compact ? 24 : 40) : 30,
       gap: 10,
       horizontalSpacing: 20,
       includeBottomInset: !formKeyboardVisible,
-      safeAreaSpacing: 0,
+      safeAreaSpacing: step === STEP_RESULT ? 12 : 0,
       style: [styles.footer, isSmall && styles.footerCompact],
     };
 

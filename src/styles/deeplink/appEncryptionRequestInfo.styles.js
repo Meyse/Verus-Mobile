@@ -115,6 +115,10 @@ const createAppEncryptionRequestInfoStyles = theme =>
       marginBottom: 8,
       ...fontStyle('semiBold'),
     },
+    compactResponderLabel: {
+      ...theme.typography.captionCompact,
+      color: theme.colors.textSecondary,
+    },
     selectedIdentityCard: {
       height: 56,
       borderRadius: 18,

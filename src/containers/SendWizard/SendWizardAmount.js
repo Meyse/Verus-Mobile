@@ -53,7 +53,7 @@ const SendWizardAmount = () => {
   const navigation = useNavigation();
   const {params} = useRoute();
   const theme = useOnboardingTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
+  const {smallDevice, smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
   const {mode, state, setAmount, setEstimate, setRecipient, setRoute} = useSendWizard();
   const {
     channel,
@@ -539,7 +539,7 @@ const SendWizardAmount = () => {
         }
         disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
         onPress={continueToRecipient}>
-        {(errorMessage, onFieldLayout) => <>
+        {(errorMessage, onFieldLayout, onRecoveryLayout) => <>
           {mode === SEND_WIZARD_MODE.SEND &&
           isConversionChannel(channel) ? (
             <>
@@ -631,7 +631,12 @@ const SendWizardAmount = () => {
             />
           </View>
           {errorMessage}
-          <View style={styles.amountControls}>
+          <View
+            onLayout={onRecoveryLayout}
+            style={[
+              styles.amountControls,
+              errorMessage && smallDeviceKeyboardVisible && styles.amountControlsWithError,
+            ]}>
             {rate != null ? (
               <Pressable
                 accessibilityRole="button"
@@ -639,6 +644,7 @@ const SendWizardAmount = () => {
                 style={[
                   styles.modeChip,
                   smallDevice && styles.modeChipCompact,
+                  errorMessage && smallDeviceKeyboardVisible && styles.modeChipWithError,
                   {backgroundColor: theme.colors.surfaceMuted},
                 ]}>
                 <Text style={[styles.modeText, {color: theme.colors.textPrimary}]}>
@@ -657,6 +663,7 @@ const SendWizardAmount = () => {
                 styles.balanceRow,
                 rate == null && styles.balanceRowNoChip,
                 rate == null && smallDevice && styles.balanceRowNoChipCompact,
+                errorMessage && smallDeviceKeyboardVisible && styles.balanceRowWithError,
               ]}>
               <Text style={[styles.balance, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
               <Pressable
@@ -739,14 +746,17 @@ const styles = StyleSheet.create({
   amountBlock: {alignItems: 'center', marginTop: 8},
   amountBlockCompact: {marginTop: 4},
   amountControls: {alignItems: 'center', marginBottom: 8},
+  amountControlsWithError: {marginBottom: 0},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
   modeChipCompact: {marginBottom: 6},
+  modeChipWithError: {marginTop: 0, marginBottom: 2},
   modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
   modeIcon: {marginLeft: 6},
   balanceRowNoChip: {marginTop: 12},
   balanceRowNoChipCompact: {marginTop: 6},
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  balanceRowWithError: {marginBottom: 4},
   balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   confirming: {width: '100%', paddingHorizontal: 4, marginTop: -2, marginBottom: 8, fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},
