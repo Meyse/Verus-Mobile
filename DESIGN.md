@@ -209,7 +209,8 @@ precedent. It is a stale, unused style file rather than the running selector.
 
 Every "Choose a card" names a card as Receive does: its type ("Transparent",
 "Private") with a transparent card's short address as a monospace subtitle, or
-its VerusID name. Group titles name the network.
+its VerusID name. A VerusID row title keeps one line with a tail ellipsis; its
+accessibility label keeps the full name. Group titles name the network.
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
@@ -801,6 +802,12 @@ The owner revised the pending-balance rule on 2026-10-26. It applies
 to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
 (`CoinCardPickerSheet`).
 
+On windows of 667 points or less, the carousel card is 144 points high instead
+of 206. Keep its address copy target at 44 points and its sync badge readable.
+Use tighter header spacing and 6-point top / 8-point bottom action-bar padding;
+the tab bar owns the bottom safe area. The header stays fixed above history.
+Normal windows keep their existing card and action-bar sizes.
+
 - Every card and the asset total show the card's total, the number Home adds
   up: confirmed funds plus funds that still confirm. Read it with
   `getLedgerTotal`; do not show the confirmed balance on these screens.
@@ -960,6 +967,11 @@ The detail screen shows one fixed card and says each fact once.
   opens the confirmation sheet with "Not now". A shared card shares again
   without the sheet. A card that is not funded shows no tiles; "Share before
   funding" in ⋯ opens the same sheet.
+- Gift card QR keeps the full spendable-secret warning above Save to photos on
+  compact windows, in the fixed action stack even after a save error. As on
+  Receive, its QR is 184 points on windows up to 667
+  points, or 160 up to 640, with tighter vertical spacing. Normal windows keep
+  the 232-point QR.
 - Shared on Android: Android does not report when the system share sheet is
   closed without a send. Opening the sheet therefore marks the card Shared,
   because the link may have left through Copy. Keep this (user decision,
@@ -1220,7 +1232,9 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   pages. Use the VerusPay wordmark and conversion badge for modern invoices;
   other cards show the asset name and logo. The amount sizes itself to the slip
   width and the unit shrinks with it, so the number is never smaller than its
-  ticker. The result step shows no bottom scroll fade: the cut card edge
+  ticker. On compact windows the note shows up to two lines with a tail
+  ellipsis; the shared message keeps the full note. The result step shows no
+  bottom scroll fade: the cut card edge
   already shows that more is below, and a page-colored fade smears the paper
   in dark mode. The QR
   is 200 points (160 on compact windows), with a 14-point quiet zone. Under it,

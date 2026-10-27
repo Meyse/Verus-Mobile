@@ -27,6 +27,7 @@ export default StyleSheet.create({
   outline: {...StyleSheet.absoluteFillObject},
   face: {paddingTop: 18, paddingHorizontal: 22, paddingBottom: 24},
   faceCompact: {paddingTop: 14, paddingBottom: 18},
+  faceTight: {paddingTop: 10, paddingBottom: 10},
   top: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -49,6 +50,7 @@ export default StyleSheet.create({
     gap: 8,
     marginTop: 12,
   },
+  amountRowCompact: {marginTop: 6},
   amount: {
     minWidth: 0,
     flexShrink: 1,
@@ -86,6 +88,7 @@ export default StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 24,
   },
+  stubCompact: {paddingTop: 8, paddingBottom: 10},
   qrTile: {
     padding: 14,
     borderRadius: 16,
@@ -102,5 +105,6 @@ export default StyleSheet.create({
     lineHeight: 18,
     ...fontStyle('regular'),
   },
+  addressCompact: {marginTop: 6},
   identifier: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'},
 });

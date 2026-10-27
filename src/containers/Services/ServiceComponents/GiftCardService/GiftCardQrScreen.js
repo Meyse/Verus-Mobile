@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import RNFS from 'react-native-fs';
@@ -20,6 +21,7 @@ import SkeletonLoader, {
   SkeletonText,
 } from '../../../../components/SkeletonLoader';
 import {fontStyle} from '../../../../globals/fonts';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 import {useAppTheme} from '../../../../theme/app';
 import {requestServiceStoredData} from '../../../../utils/auth/authBox';
 import {GIFT_CARD_SERVICE_ID} from '../../../../utils/constants/services';
@@ -41,6 +43,12 @@ const SAVE_FAILED_TEXT = 'Not saved. Check photo access and try again.';
 
 const GiftCardQrScreen = ({navigation, route}) => {
   const theme = useAppTheme();
+  const {height} = useWindowDimensions();
+  const compact = height <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  // Match Receive's QR sizes on short windows. Keep the safety warning in
+  // view above Save, including when the service tab bar takes bottom space.
+  const qrSize = height <= 640 ? 160 : compact ? 184 : 232;
+  const qrFrameSize = qrSize + (compact ? 32 : 36);
   const qrCodeRef = useRef(null);
   const loadGenerationRef = useRef(0);
   const mountedRef = useRef(true);
@@ -204,7 +212,7 @@ const GiftCardQrScreen = ({navigation, route}) => {
   const renderLoading = () => (
     <SkeletonLoader
       accessibilityLabel="Loading gift card QR code"
-      style={styles.skeleton}>
+      style={[styles.skeleton, compact && styles.contentCompact]}>
       <SkeletonText height={32} width="62%" />
       <SkeletonText
         height={18}
@@ -212,10 +220,10 @@ const GiftCardQrScreen = ({navigation, route}) => {
         width="82%"
       />
       <SkeletonBlock
-        height={268}
+        height={qrFrameSize}
         radius={22}
-        style={styles.skeletonQr}
-        width={268}
+        style={[styles.skeletonQr, compact && styles.qrFrameCompact]}
+        width={qrFrameSize}
       />
       <SkeletonBlock height={86} radius={14} style={styles.skeletonWarning} />
     </SkeletonLoader>
@@ -245,10 +253,33 @@ const GiftCardQrScreen = ({navigation, route}) => {
     </View>
   );
 
+  const renderWarning = () => (
+    <View
+      accessibilityLabel="Security warning. This QR code is a spendable secret. Anyone who scans or saves it can claim current and future contents."
+      accessibilityRole="text"
+      accessible
+      style={[
+        styles.warning,
+        compact && styles.warningCompact,
+        {backgroundColor: theme.colors.warningBackground},
+      ]}>
+      <MaterialCommunityIcons
+        accessible={false}
+        color={theme.colors.warning}
+        name="shield-alert-outline"
+        size={21}
+      />
+      <Text style={[styles.warningText, {color: theme.colors.textSecondary}]}>
+        This QR code is a spendable secret. Anyone who scans or saves it can
+        claim current and future contents.
+      </Text>
+    </View>
+  );
+
   const renderContent = () => (
     <ScrollView
       bounces={false}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, compact && styles.contentCompact]}
       showsVerticalScrollIndicator={false}>
       <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
         {card.label || 'Gift card'}
@@ -260,7 +291,7 @@ const GiftCardQrScreen = ({navigation, route}) => {
       <View
         accessibilityLabel="Redeemable gift card QR code"
         accessibilityRole="image"
-        style={[styles.qrFrame, {borderColor: theme.colors.border}]}>
+        style={[styles.qrFrame, compact && styles.qrFrameCompact, {borderColor: theme.colors.border}]}>
         <QRCode
           backgroundColor="#FFFFFF"
           color="#000000"
@@ -270,31 +301,13 @@ const GiftCardQrScreen = ({navigation, route}) => {
           logo={VERUS_LOGO}
           logoBackgroundColor="#FFFFFF"
           logoBorderRadius={100}
-          logoSize={46}
-          size={232}
+          logoSize={compact ? 36 : 46}
+          size={qrSize}
           value={card.requestUri}
         />
       </View>
 
-      <View
-        accessibilityLabel="Security warning. This QR code is a spendable secret. Anyone who scans or saves it can claim current and future contents."
-        accessibilityRole="text"
-        accessible
-        style={[
-          styles.warning,
-          {backgroundColor: theme.colors.warningBackground},
-        ]}>
-        <MaterialCommunityIcons
-          accessible={false}
-          color={theme.colors.warning}
-          name="shield-alert-outline"
-          size={21}
-        />
-        <Text style={[styles.warningText, {color: theme.colors.textSecondary}]}>
-          This QR code is a spendable secret. Anyone who scans or saves it can
-          claim current and future contents.
-        </Text>
-      </View>
+      {!compact ? renderWarning() : null}
     </ScrollView>
   );
 
@@ -323,6 +336,7 @@ const GiftCardQrScreen = ({navigation, route}) => {
           gap={8}
           horizontalSpacing={20}
           safeAreaSpacing={0}>
+          {compact && contentReady ? renderWarning() : null}
           {saveFailed ? (
             <Text
               style={[
@@ -377,6 +391,7 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 24,
   },
+  contentCompact: {paddingTop: 8, paddingBottom: 8},
   title: {
     textAlign: 'center',
     fontSize: 25,
@@ -398,6 +413,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 22,
   },
+  qrFrameCompact: {marginTop: 12, padding: 16},
   warning: {
     maxWidth: 360,
     marginTop: 24,
@@ -406,6 +422,9 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 14,
   },
+  // The warning stays with Save on compact screens, even after a save error
+  // grows the footer. Only the QR content may scroll.
+  warningCompact: {maxWidth: '100%', marginTop: 0},
   warningText: {
     minWidth: 0,
     flex: 1,

@@ -12,6 +12,7 @@ import {useOnboardingTheme} from '../theme/onboarding';
 
 export const SelectionRow = ({
   title,
+  titleNumberOfLines,
   subtitle,
   titleMonospace,
   subtitleMonospace,
@@ -50,7 +51,8 @@ export const SelectionRow = ({
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={[styles.copy, preserveSubtitle && styles.preservedCopy, disabled && styles.disabledContent]}>
         <Text
-          numberOfLines={compact ? 1 : undefined}
+          ellipsizeMode="tail"
+          numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
           style={[styles.rowTitle, compact && styles.compactTitle, titleMonospace && styles.identifier]}>
           {title}
         </Text>

@@ -262,6 +262,7 @@ export const createReceiveDetailsStyles = theme =>
     wizardRoot: {flex: 1, backgroundColor: theme.colors.background},
     wizardViewport: {flex: 1},
     wizardContent: {flexGrow: 1, paddingTop: 24, paddingBottom: 28},
+    wizardResultCompact: {paddingTop: 8, paddingBottom: 8},
     amountRow: {flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center'},
     // Match SendWizardAmount's editable 40/48 amount and 16-radius mode chip.
     amountInput: {

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,6 +22,7 @@ import SignedInActionBar, {
 } from '../../components/SignedInActionBar';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {
   WALLET_APP_OVERVIEW,
@@ -74,6 +76,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const services = useSelector(state => state.services);
   const showBalance = useSelector(state => state.coins.showBalance);
   const insets = useSafeAreaInsets();
+  const compact = useWindowDimensions().height <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
   // Before its launch a currency has no balance and no price. Its screen shows
   // the launch and this wallet's pre-conversions instead of cards and history.
   const {prelaunch} = usePrelaunchAsset(activeCoin, allSubWallets);
@@ -346,6 +349,8 @@ const SignedInCoinDetail = ({navigation, route}) => {
             />
           </View>
           <SignedInActionBar
+            // The tab bar below already owns the bottom safe area.
+            includeBottomInset={!compact}
             convertDisabled={!canConvert}
             receiveDisabled={!canReceive}
             sendDisabled={!canSend}

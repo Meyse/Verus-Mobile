@@ -37,6 +37,7 @@ import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {explorers} from '../../utils/CoinData/CoinData';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
@@ -77,6 +78,7 @@ const BRIDGED_LINE_HIT_SLOP = {top: 19, bottom: 7};
 const CARD_WIDTH_RATIO = 0.78;
 const MAX_CARD_WIDTH = 314;
 const CARD_HEIGHT = 206;
+const COMPACT_CARD_HEIGHT = 144;
 const CARD_PERSPECTIVE = 1100;
 const NEIGHBOR_SCALE = 0.88;
 const NEIGHBOR_OPACITY = 0.82;
@@ -364,6 +366,7 @@ const getSeededFraction = (seed, offset) => {
 };
 
 const CardMaterial = ({
+  cardHeight,
   cardWidth,
   circular,
   index,
@@ -389,13 +392,13 @@ const CardMaterial = ({
       const y = getSeededFraction(material.seed, pointIndex * 2 + 102);
       const length = 0.4 + getSeededFraction(material.seed, pointIndex + 151);
 
-      return `M ${(x * cardWidth).toFixed(2)} ${(y * CARD_HEIGHT).toFixed(
+      return `M ${(x * cardWidth).toFixed(2)} ${(y * cardHeight).toFixed(
         2,
       )} h ${length.toFixed(2)}`;
     }).join(' ');
 
     return {brush, grain};
-  }, [cardWidth, material.seed]);
+  }, [cardHeight, cardWidth, material.seed]);
   const shineStyle = useAnimatedStyle(() => {
     let itemPosition = index;
 
@@ -437,8 +440,8 @@ const CardMaterial = ({
     <>
       <Svg
         width={cardWidth}
-        height={CARD_HEIGHT}
-        viewBox={`0 0 ${cardWidth} ${CARD_HEIGHT}`}
+        height={cardHeight}
+        viewBox={`0 0 ${cardWidth} ${cardHeight}`}
         pointerEvents="none"
         style={styles.cardBackground}>
         <Defs>
@@ -488,7 +491,7 @@ const CardMaterial = ({
           x="0"
           y="0"
           width={cardWidth}
-          height={CARD_HEIGHT}
+          height={cardHeight}
           fill={`url(#${baseGradientId})`}
         />
         {material.kind === 'holographic' ? (
@@ -496,7 +499,7 @@ const CardMaterial = ({
             x="-18"
             y="-18"
             width={cardWidth + 36}
-            height={CARD_HEIGHT + 36}
+            height={cardHeight + 36}
             fill={`url(#${holographicGradientId})`}
             opacity="0.42"
           />
@@ -523,7 +526,7 @@ const CardMaterial = ({
           x="0"
           y="0"
           width={cardWidth}
-          height={CARD_HEIGHT}
+          height={cardHeight}
           fill={`url(#${highlightGradientId})`}
           opacity={material.kind === 'glass' ? '0.72' : '0.54'}
         />
@@ -537,14 +540,14 @@ const CardMaterial = ({
           x="0"
           y="0"
           width={cardWidth}
-          height={CARD_HEIGHT}
+          height={cardHeight}
           fill={`url(#${legibilityGradientId})`}
         />
         <Rect
           x="1.5"
           y="1.5"
           width={cardWidth - 3}
-          height={CARD_HEIGHT - 3}
+          height={cardHeight - 3}
           rx={material.radius - 1.5}
           fill="none"
           stroke={material.innerBorder}
@@ -557,9 +560,9 @@ const CardMaterial = ({
         style={[
           styles.cardShine,
           {
-            height: CARD_HEIGHT * 1.46,
+            height: cardHeight * 1.46,
             left: cardWidth * 0.2,
-            top: -CARD_HEIGHT * 0.24,
+            top: -cardHeight * 0.24,
             width: cardWidth * 0.46,
           },
           shineStyle,
@@ -673,7 +676,9 @@ const KineticRailCard = ({
 const SignedInAssetHeader = ({showCards = true}) => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
-  const {width: screenWidth} = useWindowDimensions();
+  const {height: windowHeight, width: screenWidth} = useWindowDimensions();
+  const compact = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const cardHeight = compact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
   const activeWalletIdRef = useRef(null);
   const internalSelectionIdRef = useRef(null);
   const railPosition = useSharedValue(0);
@@ -1148,6 +1153,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
           selected={index === activeIndex}
           style={[
             styles.walletCard,
+            compact && styles.walletCardCompact,
             {
               borderColor: cardMaterial.border,
               borderRadius: cardMaterial.radius,
@@ -1158,6 +1164,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
             },
           ]}>
           <CardMaterial
+            cardHeight={cardHeight}
             cardWidth={cardWidth}
             circular={circularRail}
             index={index}
@@ -1193,7 +1200,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
           <View
             accessible
             accessibilityLabel={balanceAccessibilityLabel}
-            style={styles.amountSection}>
+            style={[styles.amountSection, compact && styles.amountSectionCompact]}>
             <View style={styles.amountRow}>
               <PrivacyBlurredText
                 blurRadius={11}
@@ -1201,13 +1208,13 @@ const SignedInAssetHeader = ({showCards = true}) => {
                 containerStyle={styles.amountTextFrame}
                 hidden={!showBalance && hasBalanceValue}
                 numberOfLines={1}
-                style={styles.amountText}>
+                style={[styles.amountText, compact && styles.amountTextCompact]}>
                 {amountText}
               </PrivacyBlurredText>
               {!walletHasError ? (
                 <Text
                   numberOfLines={1}
-                  style={[styles.tickerText, {color: cardMaterial.mutedText}]}>
+                  style={[styles.tickerText, compact && styles.tickerTextCompact, {color: cardMaterial.mutedText}]}>
                   {` ${displayTicker}`}
                 </Text>
               ) : null}
@@ -1232,7 +1239,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
             ) : null}
           </View>
 
-          <View style={styles.cardAddressRow}>
+          <View style={[styles.cardAddressRow, compact && styles.cardAddressRowCompact]}>
             <Text
               selectable
               ellipsizeMode={isVerusIdCard ? 'tail' : 'middle'}
@@ -1272,9 +1279,11 @@ const SignedInAssetHeader = ({showCards = true}) => {
       balanceErrors,
       balances,
       cardMaterials,
+      cardHeight,
       cardWidth,
       carouselPadding,
       circularRail,
+      compact,
       displayTicker,
       getDisplayIdentifier,
       getWalletFiatDisplay,
@@ -1301,8 +1310,8 @@ const SignedInAssetHeader = ({showCards = true}) => {
 
   return (
     <View
-      style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <View style={styles.assetIdentity}>
+      style={[styles.container, compact && styles.containerCompact, {backgroundColor: theme.colors.background}]}>
+      <View style={[styles.assetIdentity, compact && styles.assetIdentityCompact]}>
         <View style={styles.coinIdentity}>
           <AssetCoinLogo coinId={activeCoin.id} size={28} />
           <View style={styles.assetText}>
@@ -1376,7 +1385,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
           enabled={itemCount > 1}
           failOffsetY={[-16, 16]}
           onGestureEvent={gestureHandler}>
-          <Animated.View style={styles.carouselContent}>
+          <Animated.View style={[styles.carouselContent, compact && styles.carouselContentCompact]}>
             {walletItems.map(renderWalletCard)}
           </Animated.View>
         </PanGestureHandler>
@@ -1398,7 +1407,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
             now: activeIndex + 1,
           }}
           onAccessibilityAction={handleAccessibilityAction}
-          style={styles.railDots}>
+          style={[styles.railDots, compact && styles.railDotsCompact]}>
           {walletItems.map((wallet, index) => (
             <View
               accessible={false}
@@ -1427,6 +1436,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6,
   },
+  containerCompact: {paddingTop: 4, paddingBottom: 2},
   assetIdentity: {
     minHeight: 52,
     marginTop: 8,
@@ -1436,6 +1446,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  assetIdentityCompact: {marginTop: 4, marginBottom: 4},
   coinIdentity: {
     flex: 1,
     minWidth: 0,
@@ -1503,6 +1514,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     overflow: 'visible',
   },
+  carouselContentCompact: {height: COMPACT_CARD_HEIGHT + 4, paddingBottom: 4},
   railDots: {
     height: 15,
     flexDirection: 'row',
@@ -1510,6 +1522,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
   },
+  railDotsCompact: {height: 12},
   railDot: {
     width: 5,
     height: 5,
@@ -1533,6 +1546,7 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 8},
     elevation: 4,
   },
+  walletCardCompact: {height: COMPACT_CARD_HEIGHT, padding: 12},
   cardBackground: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -1578,6 +1592,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingBottom: 24,
   },
+  amountSectionCompact: {paddingBottom: 28},
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -1594,12 +1609,14 @@ const styles = StyleSheet.create({
     ...CARD_LABEL_SHADOW,
     ...fontStyle('bold'),
   },
+  amountTextCompact: {fontSize: 26, lineHeight: 32},
   tickerText: {
     fontSize: 16,
     lineHeight: 22,
     ...CARD_LABEL_SHADOW,
     ...fontStyle('semiBold'),
   },
+  tickerTextCompact: {fontSize: 14, lineHeight: 19},
   fiatTextFrame: {
     marginTop: 1,
   },
@@ -1623,6 +1640,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  cardAddressRowCompact: {left: 12, bottom: 0},
   addressText: {
     flex: 1,
     minWidth: 0,

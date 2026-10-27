@@ -41,11 +41,6 @@ const RevokeRecoverSubmittedResult = ({
           : 'Your VerusID becomes revoked after one network confirmation.'}
       </Text>
       <IdentityContext name={identityName} networkName={networkName} />
-      {recovery ? (
-        <RecoveryValues values={values} title="Submitted values" />
-      ) : (
-        <RecoveryValue label="Requested status" value="Active → Revoked" />
-      )}
       <View style={localStyles.transaction}>
         <Text
           style={[
@@ -83,12 +78,17 @@ const RevokeRecoverSubmittedResult = ({
           </TouchableOpacity>
         ) : null}
       </View>
+      {recovery ? (
+        <RecoveryValues values={values} title="Submitted values" />
+      ) : (
+        <RecoveryValue label="Requested status" value="Active → Revoked" />
+      )}
     </RevokeRecoverFlowScaffold>
   );
 };
 const localStyles = StyleSheet.create({
   body: {marginTop: 8, marginBottom: 18},
-  transaction: {marginTop: 18},
+  transaction: {marginBottom: 18},
   link: {minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start'},
 });
 export default RevokeRecoverSubmittedResult;
