@@ -8,6 +8,20 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-10-27.
+- Scoped batch 5: **TX-1.BATCH5** on `claude/batch5-int` (L1, L2, R1, F1, F2,
+  S7, S8 by GPT-6.1 Sol, merged by the orchestrator). Compact-screen layout:
+  Create/import password, Enter password sheet, Add custom asset, Send
+  recipient and amount keep the focused field and primary action above the
+  keyboard; gift QR warning, Request ready ticket, submitted-result
+  transaction ID, coin-page cards (144 pt compact), one-line card names and
+  the Confirm failure notice fit on 360x640 and the iPhone SE. Requests:
+  44-point identity rows on compact screens, "<n> of <m> checked" on Sign
+  data, no identity-update gap, shared scroll cue never over text, paid
+  sign-in response sent at broadcast with one "Payment sent" result, "Request
+  not valid" for malformed requests. Funds: a send can spend the wallet's own
+  unconfirmed change (never others' unconfirmed payments). Unlock: bounded
+  private-card start and blocklist fetch. Device QA passed on iPhone SE and
+  Android 360x640 (run 2026-10-27-batch5).
 - Scoped batch 4: **TX-1.BATCH4** on `claude/batch4-int` (S1–S6 by GPT-6.1
   Sol, merged by the orchestrator). Small fixes (gift keyboard, one-line
   result txid, Android switch colours, one wrong-password text, backup warning
@@ -929,6 +943,15 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 [SendWizardConfirm](src/containers/SendWizard/SendWizardConfirm.js),
 [SendWizardContext](src/containers/SendWizard/SendWizardContext.js).
 
+- [x] **TX-1.BATCH5** Night-run 2 small-screen fixes, second send from own
+  unconfirmed change, unlock time limits, paid sign-in response at broadcast
+  with one result, "Request not valid", plus QA follow-ups S7/S8 (2026-10-27).
+- [x] **TX-1.BATCH5-QA** iPhone SE and Android 360x640 (one device at a time):
+  layout, request and unlock checks pass; second sends verified on chain
+  (three chained unconfirmed sends in one mempool; token change spent while
+  unconfirmed; unconfirmed incoming funds not spent). Not checked: Android
+  app-encryption identity row (wallet has no Z secret), revoke/recover result
+  on device, Face ID unlock.
 - [x] **TX-1.BATCH4** Night-run batch 4 and owner items A (Confirm From row,
   resolved VerusID recipient, hold hint), B (sign-in result sheet, review says
   what the requester receives) and C (login remembers the network, private
@@ -1903,6 +1926,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-27 | TX-1.BATCH5 + QA | `claude/batch5-int` `8c2afaa2` (L1 `d6a8d033`, L2 `d11ae1b2`, R1 `55460313`, F1 `213008a4`, F2 `2a144900`, S7 `ba6e6f11`, S8 `a9b0fd36`) | Orchestrator review of every diff; Babel parse, design and safe-area checks pass. F1 data shapes and server funding from an unconfirmed output proven on the local VRSCTEST daemon. Device QA (Sonnet testers, `docs/qa/matrix/runs/2026-10-27-batch5/logs/`): iPhone SE all checks pass, incl. 15/3/1 and burst sends chained on unconfirmed change; Android 360x640 passes after S7/S8, incl. chained token sends and response-delivery failure. | Open: unlock took 12–140 s on the starved Android emulator (wallet without private card; SE 3–5 s) — check on a real Android phone. P3s: one bad-signature request showed "Request not valid" once (unconfirmed), Add custom asset tabs share typed text (pre-existing), pending rows refresh after about 40 s. |
 | 2026-10-27 | TX-1.BATCH4 + QA | `claude/batch4-int` `06be164c` (S1 `d30ee935`, S2 `636782a3`, S3 `51e19445`, S4 `2d34b55c`, S5 `644bdd0b`, S6 `c58bcea5`) | Orchestrator review of every diff; Babel parse of 59 changed files and design check pass. Device QA (Sonnet testers): batch 4 checks on iPhone 17 Pro (`docs/qa/matrix/runs/2026-10-27-night2/logs/ios-b4/QA.md`), small-device night run on iPhone SE and Android 360x640 (same run folder). QA found the Convert hint, app-encryption result title and doubled fee-loading text; S5/S6 fixed them and the SE follow-up check passed. Every send, claim, revoke and recover matched the chain. | Small-screen layout findings and the investigations (slow unlock, second send, response timing) are in the run's MORNING_REPORT.html for the owner. |
 | 2026-10-27 | TX-1.BATCH3 follow-up: stand-alone impact chips | `claude/batch3-fixes` from `f83b9047`; `AmountEstimate.js`, `InvoicePayWith.js`, `DESIGN.md` | Amount and Pay with use neutral "Details" for unknown, zero or negative impact. Difference and Price impact keep "None". PriceRouteSheet's suggestion remains unchanged and is gated by the current warning/danger level. Temporary source-expression checks reproduce both zero/negative defects before the change and now pass null, negative, zero, small positive and 0.1/1/5% cases, plus neutral tone and the unchanged "None" formatter. Babel parse (2 files), design check (34 canonical sources) and `git diff --check` pass. | No new rendered or native evidence. Orchestrator owns the open TX-1.BATCH3-QA. |
 | 2026-10-27 | TX-1.BATCH3: four batch-2 follow-ups | `claude/batch3-fixes` from `389618d6`; `ConfirmPayStep.js`, `SignedInWalletSheets.js`, `RevokeRecoverStackScreens.js`, `impactFormat.js`, `PriceRouteSheet.js`, `DESIGN.md` | Read the batch-2 iOS/Android QA logs and affected screenshots. Contracts: existing `RequestTitle` and confirm/pay layout; `SelectionSheet`/`SelectionRow` with the unchanged 56-point minimum; existing authority import with focus/removal cleanup; existing Price and route fact rows with the owner-approved "None" rule. No geometry or chip-visibility deviation. Temporary Node fixtures fail on the original code for all four reports and pass after the fixes. They cover selected-row scroll scheduling, search/no results/reopen/deferred selection, authority handoff and cleanup, and Send/invoice zero, negative and positive impact labels. Babel transforms (5 files), design check (34 canonical sources), safe-area check (4 UI files) and diff whitespace pass. Worktree has a real node_modules clone and local iOS/Android API config with skip-worktree set. No simulators or Jest tests run. | Orchestrator owns independent review and TX-1.BATCH3-QA. New rendered and native evidence remains open; batch-2 screenshots establish the original defects only. |
