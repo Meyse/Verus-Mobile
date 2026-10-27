@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import SignUp from '../../SignUp/SignUp';
 import LandingScreen from '../../Onboard/Welcome/LandingScreen';
@@ -6,6 +6,7 @@ import WelcomeSlider from '../../Onboard/Welcome/WelcomeSlider';
 import CreateProfile from '../../Onboard/CreateProfile/CreateProfile';
 import {useDispatch, useSelector} from 'react-redux';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
+import useSignedOutNetwork from '../../../hooks/useSignedOutNetwork';
 
 const SignedOutNoKeyStack = createStackNavigator();
 
@@ -13,7 +14,7 @@ const SignedOutNoKeyStackScreens = props => {
   const deeplinkId = useSelector(state => state.deeplink.id);
   const deeplinkUrl = useSelector(state => state.deeplink.url);
   const dispatch = useDispatch();
-  const [testProfile, setTestProfile] = useState(false);
+  const [testProfile, setTestProfile] = useSignedOutNetwork();
 
   useEffect(() => {
     if (deeplinkId != null && deeplinkUrl != null) {

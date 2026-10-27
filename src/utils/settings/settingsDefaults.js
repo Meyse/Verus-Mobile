@@ -2,12 +2,14 @@ import {ADDRESS_BLOCKLIST_FROM_WEBSERVER} from '../constants/constants';
 import {USD} from '../constants/currencies';
 import {normalizeLastOpenedAccountTimestamps} from '../account/accountActivity';
 import {TESTNET_ENVIRONMENT_PUBLIC} from '../testnetEnvironment';
+import {WALLET_NETWORKS} from '../account/accountNetwork';
 
 export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   minGasPriceGwei: 1,
   displayCurrency: USD,
   appearance: 'system',
   lastOpenedAccountTimestamps: {},
+  lastWalletNetwork: WALLET_NETWORKS.MAINNET,
   homeCardDragDetection: false,
   allowSettingVerusPaySlippage: false,
   enableExperimentalGenericRequests: false,
@@ -35,6 +37,10 @@ export const DEFAULT_SETTINGS = {
 export const normalizeGeneralWalletSettings = generalWalletSettings => ({
   ...DEFAULT_GENERAL_WALLET_SETTINGS,
   ...(generalWalletSettings || {}),
+  lastWalletNetwork:
+    generalWalletSettings?.lastWalletNetwork === WALLET_NETWORKS.TESTNET
+      ? WALLET_NETWORKS.TESTNET
+      : WALLET_NETWORKS.MAINNET,
   lastOpenedAccountTimestamps: normalizeLastOpenedAccountTimestamps(
     generalWalletSettings
       ? generalWalletSettings.lastOpenedAccountTimestamps
