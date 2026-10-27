@@ -111,13 +111,15 @@ const NODE_REJECTION_PATTERN = /^-?\d+:\s|\bbad-[a-z-]+\b/i;
 
 // Apply only to explicit rejection responses, never transport/unknown outcomes.
 const getRejectionMessage = message =>
-  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known|txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
-    ? 'Your previous transaction is still being confirmed. Wait for the next block, then review this transaction again.'
-    : isConnectionErrorMessage(message)
-      ? CONNECTION_FAILED_MESSAGE
-      : NODE_REJECTION_PATTERN.test(message)
-        ? 'The network rejected this transaction. Nothing was sent.'
-        : message;
+  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known)\b/i.test(message)
+    ? 'The network already has this transaction. Check your transaction history before sending again.'
+    : /\b(txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
+      ? 'The available funds changed. Go back and review this transaction again.'
+      : isConnectionErrorMessage(message)
+        ? CONNECTION_FAILED_MESSAGE
+        : NODE_REJECTION_PATTERN.test(message)
+          ? 'The network rejected this transaction. Nothing was sent.'
+          : message;
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
