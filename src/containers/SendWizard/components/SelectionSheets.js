@@ -54,6 +54,7 @@ export const SourceCardSheet = ({
                 key={source.card.id}
                 disabled={syncing}
                 title={cardType === 'VerusID' ? source.card.name : cardType}
+                titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
                 subtitle={
                   syncing
                     ? formatSyncStatus(source.syncPercent)

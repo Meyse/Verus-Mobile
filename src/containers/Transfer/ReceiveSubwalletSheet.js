@@ -73,6 +73,7 @@ const ReceiveSubwalletSheet = ({
                 <SelectionRow
                   key={wallet.id}
                   title={title}
+                  titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
                   subtitle={subtitle}
                   subtitleMonospace
                   accessibilityLabel={`Receive with ${title}${subtitle ? `, ${subtitle}` : ''}, ${balance} ${coinObj.display_ticker}`}

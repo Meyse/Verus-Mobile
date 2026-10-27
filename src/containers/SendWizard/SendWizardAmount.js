@@ -53,7 +53,7 @@ const SendWizardAmount = () => {
   const navigation = useNavigation();
   const {params} = useRoute();
   const theme = useOnboardingTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
+  const {smallDevice, smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
   const {mode, state, setAmount, setEstimate, setRecipient, setRoute} = useSendWizard();
   const {
     channel,
@@ -76,7 +76,21 @@ const SendWizardAmount = () => {
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
+  const [amountWidth, setAmountWidth] = useState(0);
   const amountInputRef = useRef(null);
+
+  // Match Request amount's 40-to-20 point sizing. Limit typing to what fits
+  // at 20 points, including Ethereum's 18-decimal amounts.
+  const amountRoom = amountWidth * 0.9;
+  const amountFontSize =
+    amountWidth > 0
+      ? Math.max(
+          20,
+          Math.min(40, Math.floor(amountRoom / (Math.max(input.length, 1) * 0.64))),
+        )
+      : 40;
+  const maxAmountLength =
+    amountWidth > 0 ? Math.floor(amountRoom / (20 * 0.64)) : 23;
 
   // Android does not show the keyboard for a field that is focused while a
   // sheet is still closing. Toggling focus once the sheet is gone asks the
@@ -525,7 +539,7 @@ const SendWizardAmount = () => {
         }
         disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
         onPress={continueToRecipient}>
-        {errorMessage => <>
+        {(errorMessage, onFieldLayout, onRecoveryLayout) => <>
           {mode === SEND_WIZARD_MODE.SEND &&
           isConversionChannel(channel) ? (
             <>
@@ -590,21 +604,43 @@ const SendWizardAmount = () => {
               ) : null}
             </>
           ) : null}
-          <View style={[styles.amountBlock, smallDevice && styles.amountBlockCompact]}>
+          <View
+            onLayout={event => {
+              setAmountWidth(event.nativeEvent.layout.width);
+              onFieldLayout(event);
+            }}
+            style={[styles.amountBlock, smallDevice && styles.amountBlockCompact]}>
             <TextInput
               ref={amountInputRef}
               autoFocus
               keyboardType="decimal-pad"
+              maxLength={maxAmountLength}
               onChangeText={setInput}
               placeholder="0"
               placeholderTextColor={theme.colors.textSubtle}
               selectionColor={theme.colors.primary}
-              style={[styles.amountInput, {color: theme.colors.textPrimary}]}
+              style={[
+                styles.amountInput,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: amountFontSize,
+                  lineHeight: amountFontSize + 8,
+                },
+                // Leave room for a wrapped error and Available/MAX above the
+                // compact Android keypad. Use the existing 20-point floor.
+                Platform.OS === 'android' && smallDeviceKeyboardVisible &&
+                  errorMessage && styles.amountInputWithError,
+              ]}
               value={input}
             />
           </View>
           {errorMessage}
-          <View style={styles.amountControls}>
+          <View
+            onLayout={onRecoveryLayout}
+            style={[
+              styles.amountControls,
+              errorMessage && smallDeviceKeyboardVisible && styles.amountControlsWithError,
+            ]}>
             {rate != null ? (
               <Pressable
                 accessibilityRole="button"
@@ -612,6 +648,7 @@ const SendWizardAmount = () => {
                 style={[
                   styles.modeChip,
                   smallDevice && styles.modeChipCompact,
+                  errorMessage && smallDeviceKeyboardVisible && styles.modeChipWithError,
                   {backgroundColor: theme.colors.surfaceMuted},
                 ]}>
                 <Text style={[styles.modeText, {color: theme.colors.textPrimary}]}>
@@ -630,6 +667,7 @@ const SendWizardAmount = () => {
                 styles.balanceRow,
                 rate == null && styles.balanceRowNoChip,
                 rate == null && smallDevice && styles.balanceRowNoChipCompact,
+                errorMessage && smallDeviceKeyboardVisible && styles.balanceRowWithError,
               ]}>
               <Text style={[styles.balance, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
               <Pressable
@@ -712,14 +750,18 @@ const styles = StyleSheet.create({
   amountBlock: {alignItems: 'center', marginTop: 8},
   amountBlockCompact: {marginTop: 4},
   amountControls: {alignItems: 'center', marginBottom: 8},
+  amountControlsWithError: {marginBottom: 0},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
+  amountInputWithError: {fontSize: 20, lineHeight: 28},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
   modeChipCompact: {marginBottom: 6},
+  modeChipWithError: {marginTop: 0, marginBottom: 2},
   modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
   modeIcon: {marginLeft: 6},
   balanceRowNoChip: {marginTop: 12},
   balanceRowNoChipCompact: {marginTop: 6},
   balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  balanceRowWithError: {marginBottom: 4},
   balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   confirming: {width: '100%', paddingHorizontal: 4, marginTop: -2, marginBottom: 8, fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
   maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},

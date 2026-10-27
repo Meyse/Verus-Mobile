@@ -1,10 +1,11 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../components/AppButton';
 import AppTextInput from '../../components/AppTextInput';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {ASSET_IDENTIFIER_ERROR, resolveAssetIdentifier} from '../../utils/CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
@@ -45,6 +46,15 @@ const CustomAsset = ({navigation, route}) => {
   const [networkOpen, setNetworkOpen] = useState(false);
   const [result, setResult] = useState(found?.result || null);
   const [review, setReview] = useState(Boolean(found));
+  const formScrollRef = useRef(null);
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  const revealInput = useCallback(() => {
+    // Both tabs have one input, last in the form. Keep it above the footer.
+    if (keyboardVisible && !review) {
+      formScrollRef.current?.scrollToEnd({animated: false});
+    }
+  }, [keyboardVisible, review]);
+  useEffect(revealInput, [revealInput]);
   const [resolving, setResolving] = useState(false);
   const [adding, setAdding] = useState(false);
   const [ignoring, setIgnoring] = useState(false);
@@ -188,7 +198,9 @@ const CustomAsset = ({navigation, route}) => {
         variant="secondary">
         Ignore
       </AppButton> : null}</AssetFooter>}>
-      <AssetScrollView styles={styles} contentContainerStyle={!review && styles.formContent} testID="asset-identifier-content">
+      <AssetScrollView styles={styles} contentContainerStyle={!review && styles.formContent}
+        scrollRef={formScrollRef} onContentSizeChange={revealInput} onLayout={revealInput}
+        testID="asset-identifier-content">
         {!review ? <>
           <View style={styles.fieldGroup}>
             {networks.length > 1 ? <>
@@ -207,6 +219,7 @@ const CustomAsset = ({navigation, route}) => {
             inputShellStyle={styles.inputShell}
             inputStyle={styles.input}
             onChangeText={editInput}
+            onFocus={revealInput}
             onSubmitEditing={lookUp}
             placeholder={kind === 'pbaas' ? 'Currency name or i-address' : '0x…'}
             returnKeyType="search"

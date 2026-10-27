@@ -1,21 +1,24 @@
 import React, {useMemo, useState} from 'react';
-import {KeyboardAvoidingView, Platform, ScrollView, View, TouchableOpacity} from 'react-native';
+import {ScrollView, View, TouchableOpacity} from 'react-native';
 import {Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import ServiceManagerHeader from '../../components/ServiceManagerHeader';
+import KeyboardAvoidingForm from '../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
 import BottomSheetModal from '../../components/BottomSheetModal';
-import {SignedInEdgeFade} from '../../components/SignedInActionBar';
+import {SheetScrollCue} from '../../components/SheetScrollView';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {useOnboardingTheme} from '../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {createSignedOutSheetStyles} from '../../styles/components/signedOutSheet.styles';
 import {createManageAssetsStyles} from './manageAssets.styles';
+import {deepLinkRequestReviewStyles} from '../../styles';
 
 export const systemLabel = systemId => {
   try { return CoinDirectory.findCoinObj(systemId).display_name; }
@@ -27,39 +30,57 @@ export const AssetScreen = ({children, footer, header, onBack, testID, title}) =
   const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen} testID={testID}>
-      <ServiceManagerHeader onBack={onBack} title={title} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardAvoider}>
+      <KeyboardAvoidingForm style={styles.keyboardAvoider}>
+        <ServiceManagerHeader onBack={onBack} title={title} />
         {header}
         {children}
         {footer}
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingForm>
     </SafeAreaView>
   );
 };
 
-export const AssetFooter = ({children, styles}) => (
-  <SafeBottomActionStack bottomSpacing={14} gap={10} horizontalSpacing={20} safeAreaSpacing={12} style={styles.footer}>
-    {children}
-  </SafeBottomActionStack>
-);
+export const AssetFooter = ({children, styles}) => {
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  return (
+    <SafeBottomActionStack
+      bottomSpacing={keyboardVisible ? 8 : 14}
+      gap={10}
+      horizontalSpacing={20}
+      includeBottomInset={!keyboardVisible}
+      safeAreaSpacing={keyboardVisible ? 0 : 12}
+      style={styles.footer}>
+      {children}
+    </SafeBottomActionStack>
+  );
+};
 
-export const AssetScrollView = ({children, contentContainerStyle, styles, testID}) => {
+export const AssetScrollView = ({children, contentContainerStyle, onContentSizeChange, onLayout, scrollRef, styles, testID}) => {
   const theme = useOnboardingTheme();
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  const cueStyles = useMemo(() => deepLinkRequestReviewStyles(theme), [theme]);
   const [metrics, setMetrics] = useState({content: 0, viewport: 0, offset: 0});
   const update = next => setMetrics(current => {
     const merged = {...current, ...next};
     return Object.keys(merged).every(key => merged[key] === current[key]) ? current : merged;
   });
   const overflow = metrics.viewport > 0 && metrics.content > metrics.viewport + 8;
-  const showCue = overflow && metrics.offset + metrics.viewport < metrics.content - 8;
+  const showCue = !keyboardVisible && overflow && metrics.offset + metrics.viewport < metrics.content - 8;
   return (
     <View style={styles.scrollFrame}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={(_, content) => update({content})}
-        onLayout={event => update({viewport: event.nativeEvent.layout.height})}
+        onContentSizeChange={(width, content) => {
+          update({content});
+          onContentSizeChange?.(width, content);
+        }}
+        onLayout={event => {
+          update({viewport: event.nativeEvent.layout.height});
+          onLayout?.(event);
+        }}
         onScroll={event => update({offset: event.nativeEvent.contentOffset.y})}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={overflow}
@@ -68,12 +89,7 @@ export const AssetScrollView = ({children, contentContainerStyle, styles, testID
         {children}
       </ScrollView>
       {showCue ? (
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={styles.scrollCue}>
-          <SignedInEdgeFade height={46} style={styles.scrollCueFade} visible />
-          <View style={styles.scrollCueChevron}>
-            <MaterialCommunityIcons name="chevron-down" size={15} color={theme.colors.textSecondary} />
-          </View>
-        </View>
+        <SheetScrollCue styles={cueStyles} theme={theme} backgroundColor={theme.colors.background} />
       ) : null}
     </View>
   );

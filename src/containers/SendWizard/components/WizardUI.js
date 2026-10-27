@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Pressable,
   ScrollView,
@@ -14,6 +14,8 @@ import GradientButton from '../../../components/GradientButton';
 import KeyboardAvoidingForm from '../../../components/KeyboardAvoidingForm';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import {SheetScrollCue} from '../../../components/SheetScrollView';
+import {deepLinkRequestReviewStyles} from '../../../styles';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -34,12 +36,24 @@ export const WizardFormLayout = ({
   ...footerProps
 }) => {
   const headerHeight = useHeaderHeight();
-  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  const theme = useOnboardingTheme();
+  const cueStyles = useMemo(() => deepLinkRequestReviewStyles(theme), [theme]);
+  const {keyboardVisible, smallDeviceKeyboardVisible} =
+    useOnboardingSmallDeviceLayout();
   const [footerHeight, setFooterHeight] = useState(0);
+  const [scrollMetrics, setScrollMetrics] = useState({
+    content: 0,
+    viewport: 0,
+    offset: 0,
+  });
   const scrollRef = useRef(null);
+  const fieldLayoutRef = useRef(null);
   const errorLayoutRef = useRef(null);
+  const recoveryLayoutRef = useRef(null);
   const viewportHeightRef = useRef(0);
   const revealFrameRef = useRef(null);
+  // A fade over a short form can hide the error it just scrolled into view.
+  const showNativeIndicator = Boolean(error) || scrollMetrics.viewport < 128;
 
   const revealError = useCallback(() => {
     if (revealFrameRef.current != null) {
@@ -47,20 +61,30 @@ export const WizardFormLayout = ({
     }
     if (!error) return;
 
-    // Wait for content and keyboard/footer layout to settle. Scroll only far
-    // enough to reveal the error, leaving the related field above it in view.
+    // Wait for content and keyboard/footer layout to settle. Compact Amount
+    // includes Available/MAX so the user can correct the error without a swipe.
     revealFrameRef.current = requestAnimationFrame(() => {
       revealFrameRef.current = null;
       const layout = errorLayoutRef.current;
+      const recovery = smallDeviceKeyboardVisible && recoveryLayoutRef.current;
       const viewportHeight = viewportHeightRef.current;
       if (!layout || viewportHeight <= 0) return;
+      const bottom = Math.max(
+        layout.y + layout.height,
+        recovery ? recovery.y + recovery.height : 0,
+      );
 
+      // Never auto-scroll the field under the context band to reveal a
+      // message. Longer content remains reachable by scrolling.
       scrollRef.current?.scrollTo({
-        y: Math.max(0, layout.y + layout.height - viewportHeight),
+        y: Math.min(
+          Math.max(0, fieldLayoutRef.current?.y || 0),
+          Math.max(0, bottom - viewportHeight),
+        ),
         animated: false,
       });
     });
-  }, [error]);
+  }, [error, smallDeviceKeyboardVisible]);
 
   useEffect(() => {
     revealError();
@@ -79,31 +103,69 @@ export const WizardFormLayout = ({
         errorLayoutRef.current = event.nativeEvent.layout;
         revealError();
       }}>
-      <ErrorMessage style={styles.formError}>{error}</ErrorMessage>
+      <ErrorMessage
+        style={[
+          styles.formError,
+          smallDeviceKeyboardVisible && styles.formErrorCompact,
+        ]}>
+        {error}
+      </ErrorMessage>
     </View>
   ) : null;
 
   const content = (
     <>
-      <ScrollView
-        ref={scrollRef}
-        keyboardShouldPersistTaps="handled"
-        onContentSizeChange={revealError}
-        onLayout={event => {
-          viewportHeightRef.current = event.nativeEvent.layout.height;
-          revealError();
-        }}
-        style={styles.screen}
-        contentContainerStyle={[
-          styles.scrollContent,
-          contentContainerStyle,
-          // Keep a footer-sized scroll reserve when the keyboard contracts
-          // the form. Apply it after caller padding so tail controls can clear
-          // Continue even on compact Android screens.
-          keyboardVisible && {paddingBottom: footerHeight + 24},
-        ]}>
-        {children(errorMessage)}
-      </ScrollView>
+      <View style={styles.formScrollFrame}>
+        <ScrollView
+          ref={scrollRef}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={(_, height) => {
+            setScrollMetrics(current => ({...current, content: height}));
+            revealError();
+          }}
+          onLayout={event => {
+            const height = event.nativeEvent.layout.height;
+            viewportHeightRef.current = height;
+            setScrollMetrics(current => ({...current, viewport: height}));
+            revealError();
+          }}
+          onScroll={event => {
+            const offset = event.nativeEvent.contentOffset.y;
+            setScrollMetrics(current => ({...current, offset}));
+          }}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={showNativeIndicator}
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.scrollContent,
+            contentContainerStyle,
+            // Keep a footer-sized scroll reserve when the keyboard contracts
+            // the form. Apply it after caller padding so tail controls can clear
+            // Continue even on compact Android screens.
+            keyboardVisible && {paddingBottom: footerHeight + 24},
+          ]}>
+          {children(
+            errorMessage,
+            event => {
+              fieldLayoutRef.current = event.nativeEvent.layout;
+              revealError();
+            },
+            event => {
+              recoveryLayoutRef.current = event.nativeEvent.layout;
+              revealError();
+            },
+          )}
+        </ScrollView>
+        {!showNativeIndicator &&
+        scrollMetrics.content > scrollMetrics.viewport + 8 &&
+        scrollMetrics.offset + scrollMetrics.viewport < scrollMetrics.content - 8 ? (
+          <SheetScrollCue
+            backgroundColor={theme.colors.background}
+            styles={cueStyles}
+            theme={theme}
+          />
+        ) : null}
+      </View>
       <View style={styles.formFooter}>
         {pinned ? <View style={styles.formPinned}>{pinned}</View> : null}
         <View
@@ -401,10 +463,12 @@ const styles = StyleSheet.create({
   footer: {paddingTop: 16},
   footerCompact: {paddingTop: 8},
   formFooter: {flexShrink: 0},
+  formScrollFrame: {flex: 1, minHeight: 0, overflow: 'hidden'},
   formPinned: {paddingHorizontal: WIZARD_CONTENT_INSET},
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
   formError: {marginHorizontal: 0, marginVertical: 8},
+  formErrorCompact: {padding: 8},
   search: {
     height: 52,
     marginHorizontal: WIZARD_CONTENT_INSET,

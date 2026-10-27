@@ -5,6 +5,7 @@ import { updateFiatPrices } from './UpdateFiatPrices'
 import {
   API_GET_BALANCES,
   API_GET_INFO,
+  DLIGHT_PRIVATE,
   API_GET_TRANSACTIONS,
   API_GET_FIATPRICE,
   API_ABORTED,
@@ -29,6 +30,7 @@ import { updateDepositSources } from './UpdateDepositSources'
 import { updatePendingDeposits } from './UpdatePendingDeposits'
 import { updateLinkedIdentities } from './UpdateLinkedIdentities'
 import Store from '../../../../store'
+import {retryDlightWalletInitialization} from '../../channels/dlight/dispatchers/LightWalletReduxManager';
 import {
   captureSessionScope,
   scopeSessionAction,
@@ -125,6 +127,18 @@ export const updateWalletData = async (state, dispatch, channels, chainTicker, u
  * @param {String} updateId Name of API call to update
  */
 export const conditionallyUpdateWallet = async (state, dispatch, chainTicker, updateId) => {
+  // A failed private start has no open channel to update. Let its normal info
+  // refresh retry initialization, then use the current channel state below.
+  if (updateId === API_GET_INFO) {
+    const sessionScope = captureSessionScope(state);
+    const infoChannels = state.updates.coinUpdateTracker[chainTicker][updateId]?.channels;
+    const coinObj = state.coins.activeCoinsForUser.find(coin => coin.id === chainTicker);
+    if (coinObj != null && infoChannels?.includes(DLIGHT_PRIVATE)) {
+      await retryDlightWalletInitialization(coinObj, sessionScope);
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return API_ABORTED;
+      state = Store.getState();
+    }
+  }
   const updateInfo = state.updates.coinUpdateTracker[chainTicker][updateId]
 
   if (updateInfo != null && updateInfo.channels.length > 0) {

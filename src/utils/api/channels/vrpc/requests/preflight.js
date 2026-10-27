@@ -234,7 +234,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
   const currencyDefs = new Map();
   let nativeFeesPaid = BigNumber(0);
   let _feeamount;
-  let mempoolSpentUtxoCount = 0;
+  let hasUnconfirmedIncoming = false;
   delete output.bridgeprelaunch
 
   try {
@@ -393,6 +393,12 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       nativeFeesPaid = nativeFeesPaid.plus(BigNumber(_feeamount));
     }
 
+    // Also identify incoming funds before the balance check can report a
+    // shortfall. Own pending change is already included in the funding list.
+    const fundingUtxos = await getSpendableUtxosWithMempoolInfo(systemId, currency, [source]);
+    const utxoList = fundingUtxos.utxos;
+    hasUnconfirmedIncoming = fundingUtxos.hasUnconfirmedIncoming;
+
     const balanceRes = await getAddressBalances(systemId, [source]);
     if (balanceRes.error) throw new Error(balanceRes.error.message);
 
@@ -519,10 +525,6 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       }
     }
 
-    const fundingUtxos = await getSpendableUtxosWithMempoolInfo(systemId, currency, [source]);
-    const utxoList = fundingUtxos.utxos;
-    mempoolSpentUtxoCount = fundingUtxos.mempoolSpentUtxoCount;
-
     const fundRes = await fundRawTransaction(
       systemId,
       unfundedTxHex,
@@ -636,7 +638,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     let message = e.message;
 
     if (message != null && typeof message === 'string' && message.includes('Insufficient funds')) {
-      if (mempoolSpentUtxoCount > 0) {
+      if (hasUnconfirmedIncoming) {
         message = 'Part of your balance is still being confirmed. Wait for the next block, then try again.';
       } else {
         const systemName = friendlyNames.has(systemId)

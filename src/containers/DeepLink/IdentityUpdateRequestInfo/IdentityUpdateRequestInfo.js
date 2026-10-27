@@ -71,6 +71,7 @@ import {
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 
 import ReviewStep from './steps/ReviewStep';
 import ContentStep from './steps/ContentStep';
@@ -236,6 +237,7 @@ const IdentityUpdateRequestInfoContent = props => {
     hasEncryptedKeys,
   } = props;
   const theme = useOnboardingTheme();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const styles = useMemo(
     () => createIdentityUpdateRequestInfoStyles(theme),
     [theme],
@@ -989,6 +991,40 @@ const IdentityUpdateRequestInfoContent = props => {
     // For STEP_CONFIRM_PAY, the ConfirmPayStep handles its own buttons
   };
 
+  const reviewDetails = (
+    <View style={styles.footerDetailsList}>
+      <View style={styles.footerDetailRow}>
+        <Text style={styles.footerDetailLabel}>Updating identity</Text>
+        <Text
+          numberOfLines={2}
+          style={styles.footerDetailValue}>
+          {withNameBreaks(fullyqualifiedname)}
+        </Text>
+      </View>
+      <View
+        style={[
+          styles.footerDetailRow,
+          styles.footerDetailRowDivider,
+        ]}>
+        <Text style={styles.footerDetailLabel}>Changes</Text>
+        <View style={styles.footerChangeValueStack}>
+          {reviewChangeItems.map(item => (
+            <Text
+              key={item.key}
+              numberOfLines={1}
+              style={[
+                styles.footerStackedDetailValue,
+                item.tone === 'danger' &&
+                  styles.footerDetailValueDanger,
+              ]}>
+              {item.label}
+            </Text>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
   // --- Render ---
   const showFooter = currentStepId !== STEP_CONFIRM_PAY;
   const showTopBackButton =
@@ -1048,6 +1084,7 @@ const IdentityUpdateRequestInfoContent = props => {
           loadSignerVerusId={loadSignerVerusId}
           requesterLabel={requesterLabel}
           requesterMetadataRows={requesterMetadataRows}
+          reviewDetails={smallDevice ? reviewDetails : null}
           styles={styles}
         />
       )}
@@ -1127,39 +1164,7 @@ const IdentityUpdateRequestInfoContent = props => {
           gap={10}
           horizontalSpacing={24}
           style={styles.footer}>
-          {currentStepId === STEP_REVIEW && (
-            <View style={styles.footerDetailsList}>
-              <View style={styles.footerDetailRow}>
-                <Text style={styles.footerDetailLabel}>Updating identity</Text>
-                <Text
-                  numberOfLines={2}
-                  style={styles.footerDetailValue}>
-                  {withNameBreaks(fullyqualifiedname)}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.footerDetailRow,
-                  styles.footerDetailRowDivider,
-                ]}>
-                <Text style={styles.footerDetailLabel}>Changes</Text>
-                <View style={styles.footerChangeValueStack}>
-                  {reviewChangeItems.map(item => (
-                    <Text
-                      key={item.key}
-                      numberOfLines={1}
-                      style={[
-                        styles.footerStackedDetailValue,
-                        item.tone === 'danger' &&
-                          styles.footerDetailValueDanger,
-                      ]}>
-                      {item.label}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
+          {currentStepId === STEP_REVIEW && !smallDevice && reviewDetails}
           {currentStepId === STEP_REVIEW && noRequestNetworkWallet && (
             <View style={walletGateStyles.row}>
               <View style={walletGateStyles.icon}>

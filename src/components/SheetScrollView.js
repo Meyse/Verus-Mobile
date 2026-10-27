@@ -27,7 +27,7 @@ export const SheetScrollCue = ({
           y1="0"
           y2="1">
           <Stop offset="0" stopColor={backgroundColor} stopOpacity="0" />
-          <Stop offset="0.72" stopColor={backgroundColor} stopOpacity="0.92" />
+          <Stop offset="0.5" stopColor={backgroundColor} stopOpacity="1" />
           <Stop offset="1" stopColor={backgroundColor} stopOpacity="1" />
         </LinearGradient>
       </Defs>
@@ -37,7 +37,8 @@ export const SheetScrollCue = ({
         fill="url(#requestSheetBottomScrollCue)"
       />
     </Svg>
-    <View style={styles.requestSheetScrollCueChevron}>
+    {/* The opaque strip keeps scrolling text out of the chevron's line. */}
+    <View style={[styles.requestSheetScrollCueChevron, {backgroundColor}]}>
       <MaterialCommunityIcons
         name="chevron-down"
         size={15}

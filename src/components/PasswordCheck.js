@@ -8,10 +8,13 @@ import React, {
 import {
   ActivityIndicator,
   Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {checkPinForUser} from '../utils/asyncStore/asyncStore';
@@ -22,6 +25,7 @@ import AppButton from './AppButton';
 import AppTextInput from './AppTextInput';
 import BottomSheetModal from './BottomSheetModal';
 import PasswordInput from './PasswordInput';
+import SafeBottomActionStack from './SafeBottomActionStack';
 import WalletUnlockLoadingContent from './WalletUnlockLoadingContent';
 import WalletAvatar from './WalletAvatar';
 import {fontStyle} from '../globals/fonts';
@@ -54,6 +58,9 @@ const PasswordCheck = props => {
   } = props;
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const {height: windowHeight} = useWindowDimensions();
+  const [keyboardFrame, setKeyboardFrame] = useState(null);
   const [password, setPassword] = useState('');
   const [freeze, setFreeze] = useState(false);
   const [biometryType, setBiometryType] = useState(null);
@@ -65,23 +72,29 @@ const PasswordCheck = props => {
   const walletAvatar = normalizeWalletAvatar(account?.walletAvatar);
   const scrollRef = useRef(null);
 
-  // On compact screens the open keyboard leaves no room for the whole sheet.
-  // Bring the field and the actions into view so Continue stays reachable.
+  // Use the Address Book sheet's available-height rule. Android supplies the
+  // frame in show events; Keyboard.metrics() is unavailable in this app.
   useEffect(() => {
     if (!redesigned || !visible) return undefined;
-    let timer;
-    const subscription = Keyboard.addListener('keyboardDidShow', () => {
-      clearTimeout(timer);
-      timer = setTimeout(
-        () => scrollRef.current?.scrollToEnd({animated: true}),
-        80,
-      );
-    });
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, event =>
+      setKeyboardFrame(event.endCoordinates),
+    );
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardFrame(null));
     return () => {
-      clearTimeout(timer);
-      subscription.remove();
+      show.remove();
+      hide.remove();
     };
   }, [redesigned, visible]);
+
+  const revealPassword = useCallback(() => {
+    if (keyboardFrame) scrollRef.current?.scrollToEnd({animated: false});
+  }, [keyboardFrame]);
+
+  useEffect(revealPassword, [errorMessage, revealPassword]);
 
   useEffect(() => {
     let active = true;
@@ -256,96 +269,124 @@ const PasswordCheck = props => {
       <BottomSheetModal
         avoidKeyboard
         closeDisabled={freeze}
-        contentContainerStyle={styles.sheet}
-        maxHeight="86%"
+        contentContainerStyle={[
+          styles.sheet,
+          keyboardFrame && styles.sheetWithKeyboard,
+        ]}
+        maxHeight={
+          keyboardFrame
+            ? Math.max(1, windowHeight - keyboardFrame.height - insets.top - 12 - 8)
+            : '86%'
+        }
         onClose={cancel}
+        onClosed={() => setKeyboardFrame(null)}
         visible={visible}>
-        <ScrollView
-          ref={scrollRef}
-          bounces={false}
-          contentContainerStyle={styles.content}
-          keyboardDismissMode="interactive"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+        <View style={styles.sheetLayout}>
           <Text accessibilityRole="header" style={styles.title}>
             {title}
           </Text>
           <Text style={styles.body}>{body}</Text>
-          {account ? (
-            <View style={styles.walletSummary}>
-              <View style={styles.walletIcon}>
-                {walletAvatar ? (
-                  <WalletAvatar
-                    emojiSize={19}
-                    size={36}
-                    walletAvatar={walletAvatar}
-                  />
-                ) : (
-                  <MaterialCommunityIcons
-                    color={theme.colors.textSubtle}
-                    name="wallet-outline"
-                    size={24}
-                  />
-                )}
-              </View>
-              <View style={styles.walletCopy}>
-                <Text numberOfLines={1} style={styles.walletName}>
-                  {account.id}
-                </Text>
-                {networkLabel ? (
-                  <Text style={styles.walletNetwork}>{networkLabel}</Text>
-                ) : null}
-              </View>
-            </View>
-          ) : null}
-          {showCenteredLoading ? (
-            <WalletUnlockLoadingContent
-              message={centeredLoadingMessage}
-              showMessage={showCenteredLoadingMessage}
-            />
-          ) : (
-            <>
-              {passwordFallbackVisible ? (
-                <AppTextInput
-                  autoComplete="off"
-                  autoCorrect={false}
-                  importantForAutofill="no"
-                  label="Wallet password"
-                  onChangeText={updatePassword}
-                  onSubmitEditing={() => {
-                    if (!freeze && password.length > 0) {
-                      submitPassword(password);
-                    }
-                  }}
-                  placeholder="Enter password"
-                  returnKeyType="go"
-                  secureTextEntry
-                  testID="settings.passwordCheck.password"
-                  textContentType="none"
-                  value={password}
-                />
-              ) : null}
-              {errorMessage ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={styles.error}
-                  testID="settings.passwordCheck.error">
-                  {errorMessage}
-                </Text>
-              ) : null}
-              {freeze || waitingForPreferredBiometry ? (
-                <View style={styles.loadingRow}>
-                  <ActivityIndicator
-                    color={theme.colors.primary}
-                    size="small"
-                  />
-                  <Text style={styles.loadingText}>
-                    {freeze
-                      ? 'Authenticating…'
-                      : 'Preparing biometric unlock…'}
-                  </Text>
+          <View style={styles.scrollFrame}>
+            <ScrollView
+              ref={scrollRef}
+              bounces={false}
+              contentContainerStyle={styles.content}
+              keyboardDismissMode={
+                Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+              }
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={revealPassword}
+              onLayout={revealPassword}
+              showsVerticalScrollIndicator={Boolean(keyboardFrame)}>
+              {account ? (
+                <View style={styles.walletSummary}>
+                  <View style={styles.walletIcon}>
+                    {walletAvatar ? (
+                      <WalletAvatar
+                        emojiSize={19}
+                        size={36}
+                        walletAvatar={walletAvatar}
+                      />
+                    ) : (
+                      <MaterialCommunityIcons
+                        color={theme.colors.textSubtle}
+                        name="wallet-outline"
+                        size={24}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.walletCopy}>
+                    <Text numberOfLines={1} style={styles.walletName}>
+                      {account.id}
+                    </Text>
+                    {networkLabel ? (
+                      <Text style={styles.walletNetwork}>{networkLabel}</Text>
+                    ) : null}
+                  </View>
                 </View>
               ) : null}
+              {showCenteredLoading ? (
+                <WalletUnlockLoadingContent
+                  message={centeredLoadingMessage}
+                  showMessage={showCenteredLoadingMessage}
+                />
+              ) : (
+                <>
+                  {passwordFallbackVisible ? (
+                    <AppTextInput
+                      autoComplete="off"
+                      autoCorrect={false}
+                      importantForAutofill="no"
+                      label="Wallet password"
+                      onChangeText={updatePassword}
+                      onSubmitEditing={() => {
+                        if (!freeze && password.length > 0) {
+                          submitPassword(password);
+                        }
+                      }}
+                      placeholder="Enter password"
+                      returnKeyType="go"
+                      secureTextEntry
+                      testID="settings.passwordCheck.password"
+                      textContentType="none"
+                      value={password}
+                    />
+                  ) : null}
+                  {errorMessage ? (
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={styles.error}
+                      testID="settings.passwordCheck.error">
+                      {errorMessage}
+                    </Text>
+                  ) : null}
+                  {freeze || waitingForPreferredBiometry ? (
+                    <View style={styles.loadingRow}>
+                      <ActivityIndicator
+                        color={theme.colors.primary}
+                        size="small"
+                      />
+                      <Text style={styles.loadingText}>
+                        {freeze
+                          ? 'Authenticating…'
+                          : 'Preparing biometric unlock…'}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
+            </ScrollView>
+          </View>
+          {!showCenteredLoading ? (
+            <SafeBottomActionStack
+              bottomSpacing={keyboardFrame ? 8 : 20}
+              horizontalSpacing={20}
+              includeBottomInset={false}
+              safeAreaSpacing={0}
+              style={[
+                styles.buttonStack,
+                keyboardFrame && styles.buttonStackWithKeyboard,
+              ]}>
               <View style={styles.actions}>
                 <AppButton
                   disabled={freeze}
@@ -379,9 +420,9 @@ const PasswordCheck = props => {
                   </AppButton>
                 ) : null}
               </View>
-            </>
-          )}
-        </ScrollView>
+            </SafeBottomActionStack>
+          ) : null}
+        </View>
       </BottomSheetModal>
     );
   }
@@ -414,18 +455,31 @@ const PasswordCheck = props => {
 const createStyles = theme =>
   StyleSheet.create({
     sheet: {
-      paddingHorizontal: 20,
       paddingTop: 22,
-      paddingBottom: 20,
+    },
+    sheetWithKeyboard: {
+      paddingTop: 12,
+      marginBottom: 8,
+    },
+    sheetLayout: {
+      flexShrink: 1,
+    },
+    scrollFrame: {
+      flexShrink: 1,
+      minHeight: 0,
+      overflow: 'hidden',
     },
     content: {
       width: '100%',
+      paddingHorizontal: 20,
     },
     title: {
       ...theme.typography.titleSheet,
       color: theme.colors.textPrimary,
+      marginHorizontal: 20,
     },
     body: {
+      marginHorizontal: 20,
       marginTop: 6,
       marginBottom: 18,
       color: theme.colors.textSecondary,
@@ -489,7 +543,13 @@ const createStyles = theme =>
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 8,
-      marginTop: 22,
+    },
+    buttonStack: {
+      flexShrink: 0,
+      paddingTop: 22,
+    },
+    buttonStackWithKeyboard: {
+      paddingTop: 12,
     },
     action: {
       minWidth: 96,

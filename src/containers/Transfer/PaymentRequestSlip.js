@@ -3,6 +3,7 @@ import {Text, useWindowDimensions, View} from 'react-native';
 import Svg, {Line, Path} from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import StatusBadge from '../../components/StatusBadge';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {VerusPayTextLogo} from '../../images/customIcons';
 import {paymentRequestSlipStyles as styles} from '../../styles';
 import {PAYMENT_REQUEST_PAPER as paper} from '../../styles/components/paymentRequestSlip.styles';
@@ -11,7 +12,8 @@ import {getTicketOutline} from '../../utils/ticketOutline';
 
 const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
   const {height: windowHeight} = useWindowDimensions();
-  const compact = isSmall || windowHeight <= 667;
+  const compactWindow = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const compact = isSmall || compactWindow;
   const showVerusIcon = snapshot.conversion && snapshot.showVerusIcon;
   const [size, setSize] = useState({width: 0, height: 0});
   const [perforation, setPerforation] = useState(0);
@@ -75,7 +77,7 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
       ) : null}
       <View
         onLayout={event => setPerforation(event.nativeEvent.layout.height)}
-        style={[styles.face, compact && styles.faceCompact]}>
+        style={[styles.face, compact && styles.faceCompact, compactWindow && styles.faceTight]}>
         <View style={styles.top}>
           {snapshot.conversion ? (
             <>
@@ -97,7 +99,7 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
             </View>
           )}
         </View>
-        <View style={styles.amountRow}>
+        <View style={[styles.amountRow, compactWindow && styles.amountRowCompact]}>
           <Text
             adjustsFontSizeToFit
             minimumFontScale={0.25}
@@ -112,9 +114,16 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
         {snapshot.fiatEstimate ? (
           <Text style={styles.estimate}>{snapshot.fiatEstimate}</Text>
         ) : null}
-        {snapshot.subject ? <Text style={styles.note}>{snapshot.subject}</Text> : null}
+        {snapshot.subject ? (
+          <Text
+            ellipsizeMode="tail"
+            numberOfLines={compactWindow ? 2 : undefined}
+            style={styles.note}>
+            {snapshot.subject}
+          </Text>
+        ) : null}
       </View>
-      <View style={styles.stub}>
+      <View style={[styles.stub, compactWindow && styles.stubCompact]}>
         <View style={styles.qrTile}>
           <QRCode
             getRef={ref => { qrRef.current = ref; }}
@@ -129,7 +138,7 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
         <Text
           ellipsizeMode="middle"
           numberOfLines={1}
-          style={[styles.address, !snapshot.identityName && styles.identifier]}>
+          style={[styles.address, compactWindow && styles.addressCompact, !snapshot.identityName && styles.identifier]}>
           {snapshot.identityName || snapshot.address}
         </Text>
       </View>
