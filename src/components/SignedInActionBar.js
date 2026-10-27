@@ -6,6 +6,7 @@ import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useOnboardingTheme} from '../theme/onboarding';
 import signedInCopy from '../copy/signedIn';
 import AppButton from './AppButton';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../hooks/useOnboardingSmallDeviceLayout';
 
 const ACTION_ICON_SIZE = 20;
 const ACTION_BUTTON_HEIGHT = 48;
@@ -111,7 +112,11 @@ const SignedInActionBar = ({
 }) => {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
-  const bottomPadding = includeBottomInset ? Math.max(insets.bottom, 20) : 20;
+  const compact = useWindowDimensions().height <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const minimumBottomPadding = compact ? 8 : 20;
+  const bottomPadding = includeBottomInset
+    ? Math.max(insets.bottom, minimumBottomPadding)
+    : minimumBottomPadding;
 
   return (
     <View
@@ -124,7 +129,7 @@ const SignedInActionBar = ({
       />
       <SignedInActionButtons
         {...actions}
-        style={[styles.barPadding, {paddingBottom: bottomPadding}]}
+        style={[styles.barPadding, compact && styles.barPaddingCompact, {paddingBottom: bottomPadding}]}
       />
     </View>
   );
@@ -199,6 +204,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
   },
+  barPaddingCompact: {paddingTop: 6},
   stackedRow: {
     flexDirection: 'column',
   },

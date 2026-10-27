@@ -8,7 +8,6 @@ import React, {
 import {
   AccessibilityInfo,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Share,
   TextInput,
@@ -25,8 +24,10 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Text} from 'react-native-paper';
 import AppButton from '../../components/AppButton';
 import FadedScrollView from '../../components/FadedScrollView';
+import KeyboardAvoidingForm from '../../components/KeyboardAvoidingForm';
 import ProgressHeader from '../../components/ProgressHeader';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {truncateDecimal} from '../../utils/math';
 import {
@@ -107,7 +108,8 @@ const ReceivePaymentRequestFlow = ({
 }) => {
   const theme = useOnboardingTheme();
   const insets = useSafeAreaInsets();
-  const {width: windowWidth} = useWindowDimensions();
+  const {height: windowHeight, width: windowWidth} = useWindowDimensions();
+  const compact = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
   const styles = useMemo(() => createReceiveDetailsStyles(theme), [theme]);
 
   const [step, setStep] = useState(STEP_AMOUNT);
@@ -548,11 +550,14 @@ const ReceivePaymentRequestFlow = ({
   };
 
   const renderActions = () => {
+    const formKeyboardVisible = step === STEP_AMOUNT && keyboardVisible;
     const actions = {
-      bottomSpacing: keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30,
+      bottomSpacing: formKeyboardVisible
+        ? KEYBOARD_FOOTER_SPACING
+        : step === STEP_RESULT && compact ? 24 : 30,
       gap: 10,
       horizontalSpacing: 20,
-      includeBottomInset: !keyboardVisible,
+      includeBottomInset: !formKeyboardVisible,
       safeAreaSpacing: 0,
       style: [styles.footer, isSmall && styles.footerCompact],
     };
@@ -615,6 +620,10 @@ const ReceivePaymentRequestFlow = ({
     );
   };
 
+  // A result has no fields. Unmount keyboard avoidance at the step boundary
+  // so the amount step's contracted Android frame cannot lift Share and Done.
+  const Viewport = step === STEP_AMOUNT ? KeyboardAvoidingForm : View;
+
   return (
     <View style={[styles.wizardRoot, {backgroundColor: theme.colors.background}]}>
       <ProgressHeader
@@ -624,20 +633,13 @@ const ReceivePaymentRequestFlow = ({
         progress={step === STEP_RESULT ? 1 : 0.5}
         title={getStepTitle(step)}
       />
-      <KeyboardAvoidingView
-        // iOS already insets the window for the keyboard, so padding is the
-        // right reaction. Android runs with adjustPan in the production
-        // manifest: the window keeps its size, so nothing lifts the footer and
-        // the keyboard covers it. Shrinking the viewport reserves the keyboard
-        // height instead, keeping the action row reachable on the input step.
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-        style={styles.wizardViewport}>
+      <Viewport style={styles.wizardViewport}>
         <FadedScrollView
           bounces={false}
           containerStyle={styles.wizardViewport}
           contentContainerStyle={[
             styles.wizardContent,
+            step === STEP_RESULT && compact && styles.wizardResultCompact,
             {
               paddingLeft: 20 + insets.left,
               paddingRight: 20 + insets.right,
@@ -653,7 +655,7 @@ const ReceivePaymentRequestFlow = ({
           {getStepContent()}
         </FadedScrollView>
         {renderActions()}
-      </KeyboardAvoidingView>
+      </Viewport>
       {conversionEligible ? (
         <>
           <ReceiveNoteSheet
