@@ -159,7 +159,6 @@ const SendWizardConfirm = () => {
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
-  const reviewScrollRef = useRef(null);
   const preflightSequence = useRef(0);
   const preparedParams = useRef(null);
   const lastReview = useRef(null);
@@ -848,22 +847,12 @@ const SendWizardConfirm = () => {
   ].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
     !state.broadcastError && !state.txResult);
-  // A failure adds a pinned notice and shortens the review viewport. Reveal
-  // its last facts in the new viewport instead of leaving Arrives half cut
-  // by the bottom fade. The notice and Hold remain in their fixed safe stack.
-  const revealReviewEnd = () => {
-    if (pinnedMessage) reviewScrollRef.current?.scrollToEnd({animated: false});
-  };
-
   return (
     <WizardScreen scroll={false}>
       <FadedScrollView
-        ref={reviewScrollRef}
         containerStyle={styles.scrollViewport}
         contentContainerStyle={styles.content}
-        fadeBackgroundColor={theme.colors.background}
-        onContentSizeChange={revealReviewEnd}
-        onLayout={revealReviewEnd}>
+        fadeBackgroundColor={theme.colors.background}>
         <TransferNode
           amount={truncateDecimal(displayAmount, 8)}
           coinId={sourceCoin?.id}

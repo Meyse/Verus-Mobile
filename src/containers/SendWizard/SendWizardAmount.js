@@ -626,6 +626,10 @@ const SendWizardAmount = () => {
                   fontSize: amountFontSize,
                   lineHeight: amountFontSize + 8,
                 },
+                // Leave room for a wrapped error and Available/MAX above the
+                // compact Android keypad. Use the existing 20-point floor.
+                Platform.OS === 'android' && smallDeviceKeyboardVisible &&
+                  errorMessage && styles.amountInputWithError,
               ]}
               value={input}
             />
@@ -748,6 +752,7 @@ const styles = StyleSheet.create({
   amountControls: {alignItems: 'center', marginBottom: 8},
   amountControlsWithError: {marginBottom: 0},
   amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
+  amountInputWithError: {fontSize: 20, lineHeight: 28},
   modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
   modeChipCompact: {marginBottom: 6},
   modeChipWithError: {marginTop: 0, marginBottom: 2},
