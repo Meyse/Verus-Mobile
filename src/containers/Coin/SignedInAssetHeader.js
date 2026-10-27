@@ -895,7 +895,7 @@ const SignedInAssetHeader = ({showCards = true}) => {
       if (sourceWallet && sourceWallet.id !== activeWalletIdRef.current) {
         activeWalletIdRef.current = sourceWallet.id;
         internalSelectionIdRef.current = sourceWallet.id;
-        dispatch(setCoinSubWallet(chainTicker, sourceWallet));
+        dispatch(setCoinSubWallet(chainTicker, sourceWallet, true));
       }
     },
     [allSubWallets, chainTicker, dispatch, itemCount, walletItems],

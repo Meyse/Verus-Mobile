@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {Switch, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
+import AppSwitch from '../../../components/AppSwitch';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
@@ -621,7 +622,7 @@ export const SettingsSwitchRow = ({
           <ActivityIndicator color={theme.colors.primary} size="small" />
         ) : (
           <View pointerEvents="none">
-            <Switch
+            <AppSwitch
               disabled={disabled}
               onValueChange={onValueChange}
               value={value}

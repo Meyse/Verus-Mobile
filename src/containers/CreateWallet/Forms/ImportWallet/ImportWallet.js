@@ -48,6 +48,7 @@ export default function ImportWalletStackScreens({
   onComplete,
   label,
   initialMethod,
+  offerShieldedRestore = true,
   progressStart = 0,
   progressEnd = 1,
 }) {
@@ -74,7 +75,7 @@ export default function ImportWalletStackScreens({
 
     setImportedSeed(seed);
 
-    if (shouldOfferImportShieldedRestore(seed)) {
+    if (offerShieldedRestore && shouldOfferImportShieldedRestore(seed)) {
       setStep(IMPORT_STEPS.SHIELDED_ADDRESS);
       return;
     }

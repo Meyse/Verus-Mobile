@@ -184,7 +184,6 @@ const SignedInWalletHome = ({
   const renderAsset = ({item}) => {
     const presentation = item.presentation || getAssetPresentation(item.coin);
     const crypto = BigNumber(item.balance || 0);
-    const hasBalance = crypto.isGreaterThan(0);
     const cryptoAmountText = item.balance == null ? '—' : `${item.balanceComplete ? '' : '≥ '}${crypto
       .decimalPlaces(4, BigNumber.ROUND_DOWN)
       .toFixed(4)}`;
@@ -197,7 +196,7 @@ const SignedInWalletHome = ({
     if (item.fiatValue != null) {
       fiatText = formatFiat(item.fiatValue, displayCurrency);
     } else {
-      fiatText = hasBalance || !item.balanceComplete ? 'N/A' : formatFiat(0, displayCurrency);
+      fiatText = 'N/A';
     }
 
     const fiatUnavailable = fiatText === 'N/A';

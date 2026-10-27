@@ -464,7 +464,7 @@ const SignedInVerusIdDetails = () => {
   // CoinMenus is on the main stack, so Back returns here.
   const openFund = useCallback(
     ({coin, card}) => {
-      dispatch(setCoinSubWallet(coin.id, card));
+      dispatch(setCoinSubWallet(coin.id, card, true));
       dispatch(setActiveCoin(coin));
       dispatch(setActiveApp(coin.default_app));
       dispatch(setActiveSection(coin.apps[coin.default_app].data[0]));

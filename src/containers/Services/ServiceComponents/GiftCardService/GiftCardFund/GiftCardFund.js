@@ -5,7 +5,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
@@ -13,7 +12,8 @@ import {
   View,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import {ActivityIndicator, Switch} from 'react-native-paper';
+import {ActivityIndicator} from 'react-native-paper';
+import AppSwitch from '../../../../../components/AppSwitch';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useDispatch} from 'react-redux';
@@ -24,6 +24,7 @@ import AppTextInput from '../../../../../components/AppTextInput';
 import CopyAction from '../../../../../components/CopyAction';
 import FadedScrollView from '../../../../../components/FadedScrollView';
 import HeaderContextBand from '../../../../../components/HeaderContextBand';
+import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import TransactionResult from '../../../../../components/TransactionResult';
@@ -1739,7 +1740,7 @@ const GiftCardFund = props => {
             Adds a separate secret the recipient must enter.
           </Text>
         </View>
-        <Switch
+        <AppSwitch
           accessibilityLabel="Require claim password"
           color={theme.colors.primary}
           onValueChange={handleEncryptedChange}
@@ -2694,8 +2695,7 @@ const GiftCardFund = props => {
           </View>
         </HeaderContextBand>
       ) : null}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAvoidingForm
         keyboardVerticalOffset={0}
         style={styles.content}>
         <FadedScrollView
@@ -2723,7 +2723,7 @@ const GiftCardFund = props => {
           <GiftCardPageContent key={step}>{renderStep()}</GiftCardPageContent>
         </FadedScrollView>
         {renderActions()}
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingForm>
       <GiftCardCurrencyPickerSheet
         onApply={applyFundingCurrencies}
         onClose={() => setCurrencyPickerVisible(false)}

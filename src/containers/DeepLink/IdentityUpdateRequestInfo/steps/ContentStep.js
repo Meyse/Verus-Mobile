@@ -72,28 +72,6 @@ const SummaryTile = ({darkMode, label, tone, value}) => (
   </View>
 );
 
-const SummaryChip = ({darkMode, label, tone}) => (
-  <View
-    style={[
-      contentStyles.contentSummaryChip,
-      darkMode && contentStyles.contentSummaryChipDark,
-      tone === 'remove' && contentStyles.contentSummaryChipRemove,
-      darkMode && tone === 'remove' && contentStyles.contentSummaryChipRemoveDark,
-    ]}>
-    <Text
-      style={[
-        contentStyles.contentSummaryChipText,
-        darkMode && contentStyles.contentSummaryChipTextDark,
-        tone === 'remove' && contentStyles.contentSummaryChipRemoveText,
-        darkMode &&
-          tone === 'remove' &&
-          contentStyles.contentSummaryChipRemoveTextDark,
-      ]}>
-      {label}
-    </Text>
-  </View>
-);
-
 const FilterButton = ({active, darkMode, label, onPress}) => (
   <TouchableOpacity
     accessibilityRole="button"
@@ -222,24 +200,6 @@ const PrivateInfoFallback = ({darkMode, items}) => {
       ))}
     </View>
   );
-};
-
-const getSingleChangeSummaryLabel = (cmmItems, privateInfoItems) => {
-  if (privateInfoItems.length === 1 && cmmItems.length === 0) {
-    return '1 private content change';
-  }
-
-  const item = cmmItems[0];
-  if (!item) return '1 content change';
-  if (item.changeType === 'added') return '1 new content key';
-  if (item.changeType === 'appended') return '1 added content value';
-  if (item.changeType === 'removed') {
-    return item.removeMeta?.action === 4
-      ? '1 content clear'
-      : '1 content removal';
-  }
-
-  return '1 content change';
 };
 
 const getAvailableFilterOptions = ({
@@ -415,14 +375,6 @@ const ContentStep = ({
       }),
     [addCount, privateCount, removeCount, totalContentCount],
   );
-  const singleChangeSummaryLabel =
-    totalContentCount === 1
-      ? getSingleChangeSummaryLabel(cmmItems, privateInfoItems)
-      : null;
-  const singleChangeSummaryTone =
-    totalContentCount === 1 && cmmItems[0]?.changeType === 'removed'
-      ? 'remove'
-      : null;
 
   return (
     <View style={contentStyles.contentReviewRoot}>
@@ -432,13 +384,7 @@ const ContentStep = ({
             ? 'Review content change'
             : 'Review content changes'}
         </RequestTitle>
-        {singleChangeSummaryLabel ? (
-          <SummaryChip
-            darkMode={darkMode}
-            label={singleChangeSummaryLabel}
-            tone={singleChangeSummaryTone}
-          />
-        ) : (
+        {totalContentCount > 1 && (
           <View style={contentStyles.contentSummaryRow}>
             <SummaryTile
               darkMode={darkMode}

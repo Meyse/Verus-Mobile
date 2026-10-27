@@ -6,7 +6,8 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import {Switch, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
+import AppSwitch from '../../../../../components/AppSwitch';
 import {ShieldCheck} from 'lucide-react-native';
 import AppButton from '../../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
@@ -125,7 +126,7 @@ export default function ShieldedAddressSetup({
           <Text style={signedOutFlowStyles.body}>{body}</Text>
           <View style={styles.enabledRow}>
             <Text style={styles.enabledText}>{optionLabel}</Text>
-            <Switch
+            <AppSwitch
               color={theme.colors.success}
               onValueChange={setCreateShieldedAddress}
               value={createShieldedAddress}

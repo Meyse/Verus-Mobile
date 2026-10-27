@@ -83,6 +83,8 @@ methods, never Verus Mobile's visual direction.
   so the actions stay above the keyboard on both platforms. Android pans the
   window (`adjustPan`), so a plain `KeyboardAvoidingView` there does nothing.
   While the keyboard shows, drop the bottom inset as the onboarding steps do.
+- Use `src/components/AppSwitch.js` for switches. Its Android thumb and track
+  use the app theme; iOS keeps its native appearance.
 - On iOS 26 `src/utils/applyNativeSwitchSize.js` draws every switch at 51 x
   22.7 points, scaled from the native 63 x 28, so it keeps its earlier width.
   The owner found the native size too large (2026-10-21). Give a switch slot a
@@ -262,8 +264,9 @@ Use an alert only when the screen cannot show the outcome: a failure after the
 user left the context, or a confirmation before an action that cannot be undone.
 Otherwise show it where it happens:
 
-- A field error uses `AppTextInput` `errorText`. A wrong password uses
-  `PasswordCheck` `errorMessage`; the sheet stays open.
+- A field error uses `AppTextInput` `errorText`. A wrong wallet password reads
+  "Incorrect password." everywhere. It uses `PasswordCheck` `errorMessage`;
+  the sheet stays open.
 - A setting that does not save uses the `SettingsRow` `error` line ("Not saved.
   Try again."), and the control keeps its old value.
 - A request that cannot continue disables its action and says why.
@@ -669,7 +672,9 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
 - A 38-point `AssetCoinLogo`, 16 points from the text, with 12 points of
   vertical padding. A row with two lines is 68 points high.
 - The name in `titleRow`. On its right, the fiat value in 16/20 semibold, or
-  "N/A" in 13/18 `textSubtle`.
+  "N/A" in 13/18 `textSubtle`. Home shows "N/A" whenever the price is
+  unknown, including a zero balance. A known price with a known zero balance
+  shows the zero fiat value.
 - The second line 2 points under the name in `bodySm` and `textSecondary`: the
   amount, or "Launches in …" in Convert to.
 - Convert to groups its rows under titles in capital letters ("POPULAR
@@ -792,6 +797,8 @@ to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
 - While the private card syncs, keep "Syncing x%" in place of its fiat line.
 - Send keeps its own rule: the private card sends only confirmed funds (see
   Private card sends).
+- Home opens the card the user chose. Without an explicit choice, it opens a
+  funded card. If no card holds funds, it keeps the existing default.
 
 ## Bridged asset line
 
