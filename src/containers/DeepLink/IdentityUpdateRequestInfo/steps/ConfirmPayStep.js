@@ -580,9 +580,7 @@ const ConfirmPayStep = ({
   }, [calculating, handleUpdate, hasFee, selectedSource]);
 
   const primaryActionLabel = selectedSource
-    ? calculating
-      ? 'Calculating fee'
-      : 'Update'
+    ? 'Update'
     : 'Select payment source';
   const primaryActionDisabled = !!selectedSource && !hasFee;
   const recapRows = [

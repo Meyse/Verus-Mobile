@@ -751,6 +751,7 @@ const SendWizardConfirm = () => {
         <WizardFooter
           disabled
           holdToConfirm
+          holdHint={target?.isConversion ? 'Hold the button to convert.' : 'Hold the button to send.'}
           loading
           loadingText="Preparing…"
           onPress={() => {}}>
@@ -964,6 +965,7 @@ const SendWizardConfirm = () => {
           Boolean(feeShortfall)
         }
         holdToConfirm={!needsFeeRetry}
+        holdHint={target?.isConversion ? 'Hold the button to convert.' : 'Hold the button to send.'}
         loading={sending || preflighting || networkFee.loading}
         holdingText="Hold to confirm..."
         loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending..."}

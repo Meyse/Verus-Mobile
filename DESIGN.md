@@ -684,7 +684,7 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
 - A 38-point `AssetCoinLogo`, 16 points from the text, with 12 points of
   vertical padding. A row with two lines is 68 points high.
 - The name in `titleRow`. On its right, the fiat value in 16/20 semibold, or
-  "N/A" in 13/18 `textSubtle`. Home shows "N/A" whenever the price is
+  "N/A" in 13/18 `textSubtle`. Asset lists show "N/A" whenever the price is
   unknown, including a zero balance. A known price with a known zero balance
   shows the zero fiat value.
 - The second line 2 points under the name in `bodySm` and `textSecondary`: the
