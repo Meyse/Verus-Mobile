@@ -365,9 +365,11 @@ const renderCmmDescBlock = (
   darkMode = false,
 ) => (
   <View style={[LocalStyles.cmmCardDescBlock, {borderLeftColor: borderColor}]}>
-    <Text style={[LocalStyles.cmmCardDescLabel, {color: borderColor}]}>
-      {label}
-    </Text>
+    {label ? (
+      <Text style={[LocalStyles.cmmCardDescLabel, {color: borderColor}]}>
+        {label}
+      </Text>
+    ) : null}
     <Text
       style={[
         LocalStyles.cmmCardDescValue,
@@ -418,7 +420,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
 
   if (item.changeType === 'added') {
     return renderCmmDescBlock(
-      'New key',
+      null,
       updatedPreview || 'New value',
       Colors.verusGreenColor,
       false,

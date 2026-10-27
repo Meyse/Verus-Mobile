@@ -167,11 +167,8 @@ const ReceiveAssetsList = ({navigation}) => {
   }, [balances, pendingCards, pendingCoin]);
 
   const renderItem = ({item}) => {
-    const hasBalance = item.crypto.isGreaterThan(0);
     const fiat = item.fiat == null
-      ? hasBalance
-        ? null
-        : formatCurrency({amount: '0.00', code: displayCurrency})[0]
+      ? null
       : formatCurrency({
           amount: item.fiat.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toFixed(2),
           code: displayCurrency,

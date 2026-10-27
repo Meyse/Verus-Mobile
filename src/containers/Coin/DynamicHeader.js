@@ -165,7 +165,7 @@ const DynamicHeader = ({ switchTab }) => {
   }, [allSubWallets, selectedSubWallet, prepareCarouselItems]);
 
   const setSubWallet = (wallet) => {
-    dispatch(setCoinSubWallet(chainTicker, wallet));
+    dispatch(setCoinSubWallet(chainTicker, wallet, true));
 
     const items = prepareCarouselItems(allSubWallets, wallet);
     setCarouselItems(items);

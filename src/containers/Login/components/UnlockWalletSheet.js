@@ -1,3 +1,4 @@
+import {INCORRECT_PASSWORD_MESSAGE} from '../../../utils/constants/errors';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
@@ -54,6 +55,8 @@ const BIOMETRY_RUNNING = 'running';
 const BIOMETRY_DONE = 'done';
 
 const formatErrorMessage = error => {
+  if (isIncorrectPasswordError(error)) return INCORRECT_PASSWORD_MESSAGE;
+
   const message =
     error && error.message ? error.message : 'Unable to unlock wallet';
 

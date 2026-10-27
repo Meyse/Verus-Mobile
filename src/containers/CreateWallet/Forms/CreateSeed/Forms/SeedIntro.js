@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
-import {ClipboardCheck, ShieldCheck} from 'lucide-react-native';
+import {ClipboardCheck} from 'lucide-react-native';
 import AppButton from '../../../../../components/AppButton';
 import BottomSheetModal from '../../../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
@@ -21,12 +21,6 @@ import CompactSetupHeader from '../../../../Onboard/components/CompactSetupHeade
 import {SETUP_STEP_TITLES} from '../../../../Onboard/setupStepTitles';
 
 const GUIDANCE = [
-  {
-    key: 'privacy',
-    IconComponent: ShieldCheck,
-    emphasis: 'Keep the words private.',
-    text: 'Anyone with these words can control the wallet.',
-  },
   {
     key: 'verify',
     IconComponent: ClipboardCheck,

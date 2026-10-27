@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {Platform, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
 import {revokeRecoverFlowStyles as styles} from '../../styles';
@@ -56,8 +56,9 @@ const RevokeRecoverSubmittedResult = ({
         </Text>
         <View style={styles.txidRow}>
           <Text
+            ellipsizeMode="middle"
             numberOfLines={1}
-            selectable
+            selectable={Platform.OS === 'ios'}
             style={[styles.txid, {color: theme.colors.textPrimary}]}>
             {txid}
           </Text>

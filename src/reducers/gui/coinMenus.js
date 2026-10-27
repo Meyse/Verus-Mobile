@@ -39,6 +39,7 @@ const reconcileActiveSubWallets = (activeSubWallets, allSubWallets) => {
 
 export const coinMenus = (state = {
   activeSubWallets: {},
+  userSelectedSubWallets: {},
   allSubWallets: {},
   claimDisabled: false
 }, action) => {
@@ -47,11 +48,19 @@ export const coinMenus = (state = {
       return {
         ...state,
         activeSubWallets: {...state.activeSubWallets, [action.payload.chainTicker]: action.payload.subWallet},
+        // Automatic opening/default choices must not become user preferences.
+        userSelectedSubWallets: action.payload.userSelected
+          ? {...state.userSelectedSubWallets, [action.payload.chainTicker]: action.payload.subWallet}
+          : state.userSelectedSubWallets,
       };
     case SET_USER_COINS_COMPLETE:
       return {
         ...state,
         allSubWallets: action.payload.allSubWallets || {},
+        userSelectedSubWallets: reconcileActiveSubWallets(
+          state.userSelectedSubWallets || {},
+          action.payload.allSubWallets,
+        ),
         activeSubWallets: reconcileActiveSubWallets(
           state.activeSubWallets,
           action.payload.allSubWallets,
@@ -65,6 +74,7 @@ export const coinMenus = (state = {
     case SIGN_OUT_COMPLETE:
       return {
         ...state,
+        userSelectedSubWallets: {},
         claimDisabled: false
       };
     default:

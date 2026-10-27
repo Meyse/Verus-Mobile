@@ -5,7 +5,7 @@
 */
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator} from 'react-native';
+import {ActivityIndicator, StyleSheet} from 'react-native';
 import AlertAsync from 'react-native-alert-async';
 import {useDispatch} from 'react-redux';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
@@ -18,6 +18,7 @@ import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {MINIMUM_GAS_PRICE_GWEI} from '../../../../utils/constants/web3Constants';
 import {
+  getTestnetEnvironment,
   TESTNET_ENVIRONMENT_PRIVATE,
   TESTNET_ENVIRONMENT_PUBLIC,
 } from '../../../../utils/testnetEnvironment';
@@ -30,6 +31,7 @@ import {
   SettingsSwitchRow,
 } from '../../components/SettingsScaffold';
 import SettingsFieldSheet from '../../components/SettingsFieldSheet';
+import StatusBadge from '../../../../components/StatusBadge';
 
 const NOT_SAVED = 'Not saved. Try again.';
 
@@ -325,6 +327,7 @@ const GeneralWalletSettings = () => {
         {__DEV__ && (
           <SettingsSection title="Developer">
             <SettingsSwitchRow
+              accessibilityLabel="Private testnet"
               busy={isSaving('testnetEnvironment')}
               description="Use the private Verus API and bridge contract"
               icon="flask-outline"
@@ -332,7 +335,17 @@ const GeneralWalletSettings = () => {
               onValueChange={toggleTestnetEnvironment}
               error={rowErrors.testnetEnvironment}
               testID="settings.general.testnetEnvironment"
-              title="Private testnet"
+              title={
+                getTestnetEnvironment() === TESTNET_ENVIRONMENT_PRIVATE ? (
+                  <StatusBadge
+                    label="Private testnet"
+                    tone="warning"
+                    style={styles.privateBadge}
+                  />
+                ) : (
+                  'Private testnet'
+                )
+              }
               value={
                 displayedSetting('testnetEnvironment') ===
                 TESTNET_ENVIRONMENT_PRIVATE
@@ -366,3 +379,9 @@ const GeneralWalletSettings = () => {
 };
 
 export default GeneralWalletSettings;
+
+const styles = StyleSheet.create({
+  privateBadge: {
+    alignSelf: 'flex-start',
+  },
+});

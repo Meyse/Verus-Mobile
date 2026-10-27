@@ -580,9 +580,7 @@ const ConfirmPayStep = ({
   }, [calculating, handleUpdate, hasFee, selectedSource]);
 
   const primaryActionLabel = selectedSource
-    ? calculating
-      ? 'Calculating fee'
-      : 'Update'
+    ? 'Update'
     : 'Select payment source';
   const primaryActionDisabled = !!selectedSource && !hasFee;
   const recapRows = [
@@ -666,6 +664,8 @@ const ConfirmPayStep = ({
             ]}>
             {calculating ? (
               <View
+                key="fee-loading"
+                collapsable={false}
                 accessibilityLabel="Calculating transaction fee"
                 accessibilityRole="progressbar"
                 style={localStyles.feeCalculatingRow}>
@@ -678,7 +678,7 @@ const ConfirmPayStep = ({
                 <Text style={localStyles.feeCalculating}>Calculating fee</Text>
               </View>
             ) : hasFee ? (
-              <View>
+              <View key="fee-value">
                 <Text style={localStyles.feeValue}>{fee} {feeCurrencyDisplay}</Text>
                 {feeFiatDisplay && (
                   <Text style={localStyles.feeFiat}>{feeFiatDisplay}</Text>
@@ -696,7 +696,7 @@ const ConfirmPayStep = ({
               </Text>
             ) : (
               <Text style={localStyles.feePlaceholder}>
-                Select a payment source to see fee
+                —
               </Text>
             )}
           </View>

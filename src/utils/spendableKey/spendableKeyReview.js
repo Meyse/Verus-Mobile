@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 const pluralize = (count, singular, plural = `${singular}s`) =>
   `${count} ${count === 1 ? singular : plural}`;
 
@@ -5,7 +7,14 @@ export const getSpendableKeyReviewModel = claimPlan => {
   const systems = (claimPlan?.systems || [])
     .map(system => ({
       ...system,
-      currencies: system.currencies || [],
+      // The plan's amount is net and remains the claim/button amount.
+      // Only its native currency pays the fee shown for this system.
+      currencies: (system.currencies || []).map(currency => ({
+        ...currency,
+        balanceAmount: currency.currencyId === system.systemId
+          ? BigNumber(currency.amount).plus(system.feeAmount || 0).toFixed()
+          : currency.amount,
+      })),
       identities: system.identities || [],
     }))
     .filter(

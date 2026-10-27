@@ -130,7 +130,11 @@ const DataPacketRequestInfoContent = props => {
         responseDetail,
       ];
       updatedResponse.setFlags();
-      await next(updatedResponse, [detailIndex], {autoDeliverOnComplete: true});
+      await next(updatedResponse, [detailIndex], {
+        autoDeliverOnComplete: true,
+        dataPacketSigned: true,
+        responseIdentityName: identity.selectedIdentity.friendlyName,
+      });
     } catch (_) {
       inFlight.current = false;
       setProcessing(false);

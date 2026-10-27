@@ -57,6 +57,7 @@ import {
 } from '../../utils/assets/assetManagementService';
 import { HomeRender, HomeRenderCoinsList, HomeRenderWidget } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
+import {getOpeningSubWallet} from '../../utils/subwallet/getOpeningSubWallet';
 import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
@@ -112,6 +113,7 @@ const Home = () => {
   const rates = useObjectSelector((state) => state.ledger.rates);
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
   const activeSubWallets = useObjectSelector((state) => state.coinMenus.activeSubWallets);
+  const userSelectedSubWallets = useObjectSelector(state => state.coinMenus.userSelectedSubWallets || {});
   const widgetOrder = useObjectSelector((state) => state.widgets.order);
   // A currency before its launch shows when it launches and what this wallet
   // pre-converted to it, instead of a price.
@@ -232,12 +234,7 @@ const Home = () => {
         const coinObj = activeCoinsForUser.find((x) => x.id === coinId);
 
         if (coinObj) {
-          const subWallets = allSubWallets[coinId];
-
-          openCoin(
-            coinObj,
-            activeSubWallets[coinId] ? activeSubWallets[coinId] : subWallets[0],
-          );
+          openCoin(coinObj);
         }
       },
       [TOTAL_UNI_BALANCE_WIDGET_TYPE]: () => {
@@ -410,8 +407,14 @@ const Home = () => {
   };
 
   const openCoin = (coinObj, subWallet) => {
-    if (subWallet != null) {
-      dispatch(setCoinSubWallet(coinObj.id, subWallet));
+    const openingCard = subWallet || getOpeningSubWallet({
+      cards: allSubWallets[coinObj.id],
+      balances: balances[coinObj.id],
+      activeSubWallet: activeSubWallets[coinObj.id],
+      userSelectedSubWallet: userSelectedSubWallets[coinObj.id],
+    });
+    if (openingCard != null) {
+      dispatch(setCoinSubWallet(coinObj.id, openingCard));
     }
     dispatch(setActiveCoin(coinObj));
     dispatch(setActiveApp(coinObj.default_app));
@@ -475,7 +478,7 @@ const Home = () => {
   );
 
   const openActionSource = (source) => {
-    dispatch(setCoinSubWallet(source.coinObj.id, source.card));
+    dispatch(setCoinSubWallet(source.coinObj.id, source.card, true));
     dispatch(setActiveCoin(source.coinObj));
     dispatch(setActiveApp(source.appKey));
     dispatch(setActiveSection(source.section));
@@ -494,11 +497,12 @@ const Home = () => {
         const balance = holding.total;
         const rate = getRate(coin.id, displayCurrency);
         const fiatValue = rate == null || balance == null || !holding.complete ? null : balance.multipliedBy(rate).toNumber();
-        const preferredCard =
-          activeSubWallets[coin.id] || cards.find(card => {
-            const cardBalance = balances[coin.id]?.[card.id]?.total;
-            return cardBalance != null && BigNumber(cardBalance).isGreaterThan(0);
-          }) || cards[0];
+        const preferredCard = getOpeningSubWallet({
+          cards,
+          balances: balances[coin.id],
+          activeSubWallet: activeSubWallets[coin.id],
+          userSelectedSubWallet: userSelectedSubWallets[coin.id],
+        });
         const statusDescription = getAssetStatusDescription(coin);
         const prelaunchInfo = prelaunchAssets.get(coin.id);
         const prelaunch = prelaunchInfo
@@ -545,6 +549,7 @@ const Home = () => {
   }, [
     activeCoinsForUser,
     activeSubWallets,
+    userSelectedSubWallets,
     allSubWallets,
     balances,
     displayCurrency,

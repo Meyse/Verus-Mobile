@@ -7,6 +7,7 @@
   any way.
 */
 
+import {INCORRECT_PASSWORD_MESSAGE} from '../../../../utils/constants/errors';
 import React, { Component } from "react";
 import {Keyboard, View} from "react-native";
 import {Checkbox} from 'react-native-paper'
@@ -100,7 +101,7 @@ class DeleteProfile extends Component {
             this.setState({loading: false})
             this.handleError(
               error?.message === "Incorrect password"
-                ? "Password not recognized. Try again."
+                ? INCORRECT_PASSWORD_MESSAGE
                 : "Unable to access this wallet. Try again.",
               "pwd"
             )

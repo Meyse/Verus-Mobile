@@ -6,6 +6,7 @@
   their wallet seed and re-encrypting it with their new password.
 */
 
+import {INCORRECT_PASSWORD_MESSAGE} from '../../../../utils/constants/errors';
 import React, { Component } from "react";
 import {Keyboard} from "react-native";
 import { NavigationActions } from '@react-navigation/compat';
@@ -92,7 +93,7 @@ export class ResetPwd extends Component {
       await checkPinForUser(oldPwd, this.props.activeAccount?.id, false)
     } catch (error) {
       if (error?.message === "Incorrect password") {
-        this.handleError("Password not recognized. Try again.", "oldPwd")
+        this.handleError(INCORRECT_PASSWORD_MESSAGE, "oldPwd")
         return
       }
 

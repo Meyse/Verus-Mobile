@@ -19,11 +19,13 @@ import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckma
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import NeutralCheckMark from '../../../components/NeutralCheckMark';
+import SheetScrollView from '../../../components/SheetScrollView';
 import GenericRequestLoading, {
   GENERIC_REQUEST_LOADING_STEPS,
 } from '../GenericRequestLoading';
 import {
   AUTHENTICATION_REQUEST_VDXF_KEY,
+  AUTHENTICATION_RESPONSE_VDXF_KEY,
   APP_ENCRYPTION_REQUEST_VDXF_KEY,
   DEEPLINK_PROTOCOL_URL_STRING,
   IDENTITY_UPDATE_REQUEST_VDXF_KEY,
@@ -94,10 +96,15 @@ const AUTO_DELIVERY_STATUS = {
 
 const POST_SUCCESS_DELAY_MS = 900;
 const AUTO_DELIVERY_SHEET_HEIGHT = 280;
+const APPROVAL_RESULT_SHEET_HEIGHT = 400;
 
 const autoDeliverySheetStyles = StyleSheet.create({
   sheet: {
     height: AUTO_DELIVERY_SHEET_HEIGHT,
+    paddingTop: 0,
+  },
+  approvalResultSheet: {
+    height: APPROVAL_RESULT_SHEET_HEIGHT,
     paddingTop: 0,
   },
   body: {
@@ -121,11 +128,17 @@ const autoDeliverySheetStyles = StyleSheet.create({
     width: 84,
     height: 84,
   },
+  summaryScroll: {
+    alignSelf: 'stretch',
+    flexShrink: 1,
+  },
+  summaryContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0,
-    lineHeight: 22,
     textAlign: 'center',
   },
   message: {
@@ -181,9 +194,13 @@ const getAutoDeliverySheetTitle = ({
   isRedirect,
   isSuccess,
   isPreparing,
+  successTitle,
 }) => {
   if (isError) return 'Response not sent';
-  if (isSuccess) return isPost ? 'Response sent' : isRedirect ? 'Browser opened' : 'Request complete';
+  if (isSuccess) {
+    if (isPost) return successTitle || 'Response sent';
+    return isRedirect ? 'Browser opened' : 'Request complete';
+  }
   if (isPreparing) return 'Preparing response';
   if (isRedirect) return `Returning to ${destination}`;
   if (isPost) return 'Sending response';
@@ -198,6 +215,7 @@ const getAutoDeliverySheetMessage = ({
   isPost,
   isRedirect,
   isSuccess,
+  responseIdentityName,
 }) => {
   if (isError) {
     if (error?.isResponsePostError) {
@@ -211,9 +229,14 @@ const getAutoDeliverySheetMessage = ({
     return getGenericResponseDeliveryFailure(error).message;
   }
 
-  if (isSuccess) return isPost ? null : isRedirect
-    ? 'The response was handed to your browser. Delivery is not confirmed here.'
-    : 'No response was sent to the requester.';
+  if (isSuccess) {
+    if (isPost) {
+      return responseIdentityName ? `Responded as ${responseIdentityName}.` : null;
+    }
+    return isRedirect
+      ? 'The response was handed to your browser. Delivery is not confirmed here.'
+      : 'No response was sent to the requester.';
+  }
 
   if (isPost) {
     return null;
@@ -234,6 +257,8 @@ const AutoDeliverySheetContent = ({
   status,
   phase,
   onDone,
+  approvalResultTitle,
+  responseIdentityName,
 }) => {
   const theme = useOnboardingTheme();
   const destination = deliveryInfo?.destinationHost || 'the requester';
@@ -243,6 +268,7 @@ const AutoDeliverySheetContent = ({
   const isLoading = status === AUTO_DELIVERY_STATUS.LOADING;
   const isSuccess = status === AUTO_DELIVERY_STATUS.SUCCESS;
   const isError = status === AUTO_DELIVERY_STATUS.ERROR;
+  const isApprovalResult = isSuccess && isPost && !!approvalResultTitle;
 
   const title = getAutoDeliverySheetTitle({
     destination,
@@ -251,6 +277,7 @@ const AutoDeliverySheetContent = ({
     isRedirect,
     isSuccess,
     isPreparing: isLoading && phase === 'preparing',
+    successTitle: approvalResultTitle,
   });
   const message = getAutoDeliverySheetMessage({
     destination,
@@ -259,9 +286,10 @@ const AutoDeliverySheetContent = ({
     isPost,
     isRedirect,
     isSuccess,
+    responseIdentityName: isApprovalResult ? responseIdentityName : null,
   });
-  return (
-    <View style={autoDeliverySheetStyles.body}>
+  const summary = (
+    <>
       {(isSuccess || isLoading) && (
         <View style={autoDeliverySheetStyles.visualSlot}>
           {isSuccess && isPost ? (
@@ -285,6 +313,7 @@ const AutoDeliverySheetContent = ({
         accessibilityRole={isLoading ? 'progressbar' : undefined}
         style={[
           theme.typography.titleSheet,
+          autoDeliverySheetStyles.title,
           {color: theme.colors.textPrimary},
         ]}>
         {title}
@@ -297,6 +326,19 @@ const AutoDeliverySheetContent = ({
           ]}>
           {message}
         </Text>
+      )}
+    </>
+  );
+  return (
+    <View style={autoDeliverySheetStyles.body}>
+      {isApprovalResult ? (
+        <SheetScrollView
+          style={autoDeliverySheetStyles.summaryScroll}
+          contentContainerStyle={autoDeliverySheetStyles.summaryContent}>
+          {summary}
+        </SheetScrollView>
+      ) : (
+        summary
       )}
       {isError && (
         <View style={autoDeliverySheetStyles.actions}>
@@ -311,7 +353,7 @@ const AutoDeliverySheetContent = ({
           </AppButton>
         </View>
       )}
-      {isSuccess && !isPost && (
+      {isSuccess && (!isPost || isApprovalResult) && (
         <View style={autoDeliverySheetStyles.actions}>
           <AppButton height={52} onPress={onDone} variant="primary">Done</AppButton>
         </View>
@@ -328,14 +370,24 @@ const AutoDeliverySheet = ({
   status,
   phase,
   onDone,
+  approvalResultTitle,
+  responseIdentityName,
 }) => {
   const visible = status !== AUTO_DELIVERY_STATUS.IDLE;
+  const isApprovalResult =
+    status === AUTO_DELIVERY_STATUS.SUCCESS &&
+    deliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST &&
+    !!approvalResultTitle;
 
   return (
     <BottomSheetModal
       closeDisabled
-      contentContainerStyle={autoDeliverySheetStyles.sheet}
-      maxHeight={AUTO_DELIVERY_SHEET_HEIGHT}
+      contentContainerStyle={
+        isApprovalResult
+          ? autoDeliverySheetStyles.approvalResultSheet
+          : autoDeliverySheetStyles.sheet
+      }
+      maxHeight={isApprovalResult ? '78%' : AUTO_DELIVERY_SHEET_HEIGHT}
       onClose={() => {}}
       visible={visible}>
       <AutoDeliverySheetContent
@@ -346,6 +398,8 @@ const AutoDeliverySheet = ({
         onLeaveWithoutSending={onLeaveWithoutSending}
         onRetry={onRetry}
         status={status}
+        approvalResultTitle={approvalResultTitle}
+        responseIdentityName={responseIdentityName}
       />
     </BottomSheetModal>
   );
@@ -364,6 +418,7 @@ const GenericRequestHome = props => {
   const responseRef = useRef(response);
 
   const [displayProps, setDisplayProps] = useState({});
+  const [approvalResult, setApprovalResult] = useState(null);
 
   const [displayKey, setDisplayKey] = useState(null);
   const [requestError, setRequestError] = useState(null);
@@ -410,6 +465,18 @@ const GenericRequestHome = props => {
     processGenerationRef.current += 1;
     props.cancel();
   }, [props.cancel]);
+
+  const hasAuthenticationResponse = response.details?.some(
+    detail =>
+      detail.getIAddressKey() === AUTHENTICATION_RESPONSE_VDXF_KEY.vdxfid,
+  );
+  const approvalResultTitle = hasAuthenticationResponse
+    ? `Signed in to ${approvalResult?.requesterLabel || 'the requester'}`
+    : !approvalResult || !response.details?.length
+    ? null
+    : approvalResult.dataPacketSigned
+    ? 'Data signed'
+    : 'Response sent';
 
   /**
    * @type {Map<string, (GenericRequest, GenericResponse, number) => Promise<{
@@ -589,7 +656,10 @@ const GenericRequestHome = props => {
         error: null,
       });
 
-      if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+      if (
+        result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST &&
+        !approvalResultTitle
+      ) {
         autoDeliverySuccessTimeoutRef.current = setTimeout(() => {
           autoDeliverySuccessTimeoutRef.current = null;
           completeRequest();
@@ -608,6 +678,7 @@ const GenericRequestHome = props => {
     }
   }, [
     autoDeliveryState.status,
+    approvalResultTitle,
     completeRequest,
     markSavedPendingRequestComplete,
     request,
@@ -662,9 +733,20 @@ const GenericRequestHome = props => {
    * indices and response when done
    * @param {GenericResponse} updatedResponse
    * @param {Array<number>} handledIndices
-   * @param {{autoDeliverOnComplete?: boolean}} options
+   * @param {{autoDeliverOnComplete?: boolean, responseIdentityName?: string,
+   *  dataPacketSigned?: boolean}} options
    */
   const next = async (updatedResponse, handledIndices, options = {}) => {
+    if (options.responseIdentityName) {
+      setApprovalResult(previous => ({
+        identityName: options.responseIdentityName,
+        requesterLabel: displayProps.signerFqn || 'the requester',
+        // Encrypted app-encryption replies also use DataResponse, so retain
+        // the completed data-signing screen's result across later details.
+        dataPacketSigned:
+          previous?.dataPacketSigned || !!options.dataPacketSigned,
+      }));
+    }
     if (options.autoDeliverOnComplete) {
       setAutoDeliveryRequested(true);
     }
@@ -842,6 +924,13 @@ const GenericRequestHome = props => {
           processedDetailIndices,
           skipWalletBackup: !!passthrough?.skipWalletBackupRequests,
         })}
+        followingInvoice={
+          request.details.find(
+            (detail, index) =>
+              !processedDetailIndices.includes(index) &&
+              detail.getIAddressKey() === VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid,
+          )?.data
+        }
         response={response}
         request={request}
         detailIndex={detailIndex}
@@ -900,6 +989,15 @@ const GenericRequestHome = props => {
         response={response}
         request={request}
         detailIndex={detailIndex}
+        hasFollowingDetails={request.details.some(
+          (detail, index) =>
+            index !== detailIndex &&
+            !processedDetailIndices.includes(index) &&
+            !(
+              passthrough?.skipWalletBackupRequests &&
+              detail.getIAddressKey() === CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid
+            ),
+        )}
       />
     ),
     [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: () => (
@@ -1017,6 +1115,8 @@ const GenericRequestHome = props => {
         onLeaveWithoutSending={completeRequest}
         onRetry={runAutoDelivery}
         status={autoDeliveryState.status}
+        approvalResultTitle={approvalResultTitle}
+        responseIdentityName={approvalResult?.identityName}
       />
       {verusIdSheet != null && (
         <DeepLinkVerusIdDetailsSheet

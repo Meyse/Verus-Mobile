@@ -2,8 +2,9 @@ import React, {useState} from 'react';
 import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Check, Network} from 'lucide-react-native';
+import {Check, ChevronDown, Network} from 'lucide-react-native';
 import BottomSheetModal from './BottomSheetModal';
+import StatusBadge from './StatusBadge';
 import {fontStyle} from '../globals/fonts';
 import {useOnboardingTheme} from '../theme/onboarding';
 
@@ -22,7 +23,12 @@ const TESTNET_WARNING =
   'Testnet assets have no value and may disappear when networks reset.';
 const MAINNET_ICON_COLOR = '#C6CBD3';
 
-const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
+const SignedOutNetworkSelector = ({
+  testProfile = false,
+  setTestProfile,
+  showLabel = false,
+  privateTestnet = false,
+}) => {
   const insets = useSafeAreaInsets();
   const theme = useOnboardingTheme();
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -37,22 +43,34 @@ const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
     setSheetVisible(false);
   };
 
-  return (
-    <>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel={`Wallet network: ${selectedNetwork}`}
-        accessibilityHint="Open wallet network selector"
-        activeOpacity={0.72}
-        hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-        onPress={() => setSheetVisible(true)}
-        style={[
-          styles.trigger,
-          {
-            top: insets.top + 16,
-            right: insets.right + 22,
-          },
-        ]}>
+  const trigger = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`Wallet network: ${selectedNetwork}`}
+      accessibilityHint="Open wallet network selector"
+      activeOpacity={0.72}
+      hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+      onPress={() => setSheetVisible(true)}
+      style={[
+        showLabel ? styles.labeledTrigger : styles.trigger,
+        !showLabel && {
+          top: insets.top + 16,
+          right: insets.right + 22,
+        },
+      ]}>
+      {showLabel ? (
+        <>
+          <Text
+            style={[
+              theme.typography.labelMd,
+              styles.networkLabel,
+              {color: theme.colors.textPrimary},
+            ]}>
+            {`Wallet network: ${selectedNetwork}`}
+          </Text>
+          <ChevronDown color={theme.colors.textSecondary} size={16} />
+        </>
+      ) : (
         <View style={styles.triggerContent}>
           <Network color={iconColor} size={24} strokeWidth={2.2} />
           {testProfile && (
@@ -61,7 +79,26 @@ const SignedOutNetworkSelector = ({testProfile = false, setTestProfile}) => {
             </Text>
           )}
         </View>
-      </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+
+  return (
+    <>
+      {showLabel ? (
+        <View style={styles.labeledSelector}>
+          {trigger}
+          {__DEV__ && testProfile && privateTestnet && (
+            <StatusBadge
+              label="Private testnet"
+              tone="warning"
+              style={styles.privateBadge}
+            />
+          )}
+        </View>
+      ) : (
+        trigger
+      )}
 
       <BottomSheetModal
         visible={sheetVisible}
@@ -117,6 +154,24 @@ const NetworkOption = ({label, selected, theme, onPress}) => (
 );
 
 const styles = StyleSheet.create({
+  labeledSelector: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+  },
+  labeledTrigger: {
+    minHeight: 44,
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  networkLabel: {
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  privateBadge: {
+    marginBottom: 8,
+  },
   trigger: {
     position: 'absolute',
     zIndex: 10,

@@ -406,12 +406,13 @@ export const setActiveOverviewFilter = (chainTicker, filterType) => {
   }
 }
 
-export const setCoinSubWallet = (chainTicker, subWallet) => {
+export const setCoinSubWallet = (chainTicker, subWallet, userSelected = false) => {
   return {
     type: SET_COIN_SUB_WALLET,
     payload: {
       chainTicker,
-      subWallet
+      subWallet,
+      userSelected,
     }
   }
 }

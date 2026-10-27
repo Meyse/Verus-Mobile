@@ -17,6 +17,7 @@ import { DISABLED_CHANNELS } from '../../../../../env/index'
 import store from "../../../../store";
 import { getAddressBlocklistFromServer } from "../../../../utils/api/channels/general/addressBlocklist/getAddressBlocklist";
 import { normalizeLastOpenedAccountTimestamps } from "../../../../utils/account/accountActivity";
+import {getAccountNetworkKey} from '../../../../utils/account/accountNetwork';
 import {loadServiceStoredDataForUser} from '../../../../utils/asyncStore/serviceStoredDataStorage';
 import {initSession} from '../../../../utils/auth/authBox';
 import {removeSessionCredential} from '../../../../utils/keychain/keychain';
@@ -340,6 +341,7 @@ export const initializeAccountData = async (
 
     await saveGeneralSettings({
       lastOpenedAccountTimestamps,
+      lastWalletNetwork: getAccountNetworkKey(account),
     });
     assertInitializationActive();
 

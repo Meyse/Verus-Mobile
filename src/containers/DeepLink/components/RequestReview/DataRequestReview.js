@@ -255,7 +255,7 @@ export default function DataRequestReview({
       <DeepLinkReviewScrollView showScrollCue>
         <View style={styles.header}>
           <RequestTitle>{title}</RequestTitle>
-          <Text style={styles.mainSubtitle}>{description}</Text>
+          {description ? <Text style={styles.mainSubtitle}>{description}</Text> : null}
         </View>
         <DeepLinkRequestSourceCard
           requesterLabel={

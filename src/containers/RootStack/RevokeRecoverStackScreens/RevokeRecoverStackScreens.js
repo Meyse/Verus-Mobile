@@ -61,6 +61,7 @@ const RevokeRecoverStackScreens = props => {
             key={`authority-import-${importSession.id}`}
             navigation={screenProps.navigation}
             initialMethod={importSession.method}
+            offerShieldedRestore={false}
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
             onComplete={seed => completeImport(seed, screenProps.navigation)}

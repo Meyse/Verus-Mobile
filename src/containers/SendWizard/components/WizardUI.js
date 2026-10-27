@@ -338,6 +338,7 @@ export const WizardFooter = ({
   disabled,
   bottomSpacing = 24,
   holdToConfirm = false,
+  holdHint,
   holdingText = 'Hold to confirm...',
   horizontalSpacing = 16,
   includeBottomInset = true,
@@ -362,6 +363,7 @@ export const WizardFooter = ({
           disabled={disabled || loading}
           holdDuration={2500}
           holdToConfirm
+          holdHint={holdHint}
           holdingText={holdingText}
           onPress={onPress}
           topColor={theme.colors.primary}

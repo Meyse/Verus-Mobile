@@ -8,6 +8,16 @@ without repeating the entire investigation.
 
 - Created: 2026-09-10.
 - Last updated: 2026-10-27.
+- Scoped batch 4: **TX-1.BATCH4** on `claude/batch4-int` (S1–S6 by GPT-6.1
+  Sol, merged by the orchestrator). Small fixes (gift keyboard, one-line
+  result txid, Android switch colours, one wrong-password text, backup warning
+  once, one "New key", claim headline includes the fee, no shielded step in
+  authority import, coin page opens the funded card, "N/A" for unknown prices
+  in every asset list, identity-update fee placeholder and stale a11y label);
+  recipient check while typing, Confirm "From" row and resolved i-address,
+  hold hint; sign-in result sheet and "receives" review lines; login remembers
+  the last network and shows a "Private testnet" pill. Device QA passed on
+  iPhone 17 Pro, iPhone SE and Android 360x640 (night run 2026-10-27-night2).
 - Scoped batch 3: **TX-1.BATCH3** on `claude/batch3-fixes` from `389618d6`.
   Identity update removes its payment-source subtitle in both states. Display
   currency scrolls to the selected row without focusing search. Revoke/recover
@@ -919,13 +929,21 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 [SendWizardConfirm](src/containers/SendWizard/SendWizardConfirm.js),
 [SendWizardContext](src/containers/SendWizard/SendWizardContext.js).
 
+- [x] **TX-1.BATCH4** Night-run batch 4 and owner items A (Confirm From row,
+  resolved VerusID recipient, hold hint), B (sign-in result sheet, review says
+  what the requester receives) and C (login remembers the network, private
+  testnet pill), plus QA follow-ups S5/S6 (Convert hint, "N/A" in asset lists,
+  fee loading said once, app-encryption result title) (2026-10-27).
+- [x] **TX-1.BATCH4-QA** iPhone 17 Pro, iPhone SE and Android 360x640, light
+  and dark: 21 checks plus 4 follow-up checks pass. Not reachable: Private card
+  From row, address skeleton, priced zero balance.
 - [x] **TX-1.BATCH3** Remove the identity-update subtitle, reveal the selected
   display currency on opening, clear revoke/recover import secrets on return
   or route removal, and show "None" for zero or negative price impact in Send
   and invoice mode. Stand-alone Amount and Pay with chips use "Details" for
   unknown or non-positive impact. Record the owner-approved rule in DESIGN.md
   (2026-10-27).
-- [ ] **TX-1.BATCH3-QA** Orchestrator: review the candidate and check iOS/Android,
+- [x] **TX-1.BATCH3-QA** Orchestrator: review the candidate and check iOS/Android,
   light/dark, normal and compact sizes. Check identity-update source selection,
   fee loading/error and Back without the subtitle shift; currency selection at
   the start, middle and end, search/no results/clear/reopen without autofocus;
@@ -1885,6 +1903,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-27 | TX-1.BATCH4 + QA | `claude/batch4-int` `06be164c` (S1 `d30ee935`, S2 `636782a3`, S3 `51e19445`, S4 `2d34b55c`, S5 `644bdd0b`, S6 `c58bcea5`) | Orchestrator review of every diff; Babel parse of 59 changed files and design check pass. Device QA (Sonnet testers): batch 4 checks on iPhone 17 Pro (`docs/qa/matrix/runs/2026-10-27-night2/logs/ios-b4/QA.md`), small-device night run on iPhone SE and Android 360x640 (same run folder). QA found the Convert hint, app-encryption result title and doubled fee-loading text; S5/S6 fixed them and the SE follow-up check passed. Every send, claim, revoke and recover matched the chain. | Small-screen layout findings and the investigations (slow unlock, second send, response timing) are in the run's MORNING_REPORT.html for the owner. |
 | 2026-10-27 | TX-1.BATCH3 follow-up: stand-alone impact chips | `claude/batch3-fixes` from `f83b9047`; `AmountEstimate.js`, `InvoicePayWith.js`, `DESIGN.md` | Amount and Pay with use neutral "Details" for unknown, zero or negative impact. Difference and Price impact keep "None". PriceRouteSheet's suggestion remains unchanged and is gated by the current warning/danger level. Temporary source-expression checks reproduce both zero/negative defects before the change and now pass null, negative, zero, small positive and 0.1/1/5% cases, plus neutral tone and the unchanged "None" formatter. Babel parse (2 files), design check (34 canonical sources) and `git diff --check` pass. | No new rendered or native evidence. Orchestrator owns the open TX-1.BATCH3-QA. |
 | 2026-10-27 | TX-1.BATCH3: four batch-2 follow-ups | `claude/batch3-fixes` from `389618d6`; `ConfirmPayStep.js`, `SignedInWalletSheets.js`, `RevokeRecoverStackScreens.js`, `impactFormat.js`, `PriceRouteSheet.js`, `DESIGN.md` | Read the batch-2 iOS/Android QA logs and affected screenshots. Contracts: existing `RequestTitle` and confirm/pay layout; `SelectionSheet`/`SelectionRow` with the unchanged 56-point minimum; existing authority import with focus/removal cleanup; existing Price and route fact rows with the owner-approved "None" rule. No geometry or chip-visibility deviation. Temporary Node fixtures fail on the original code for all four reports and pass after the fixes. They cover selected-row scroll scheduling, search/no results/reopen/deferred selection, authority handoff and cleanup, and Send/invoice zero, negative and positive impact labels. Babel transforms (5 files), design check (34 canonical sources), safe-area check (4 UI files) and diff whitespace pass. Worktree has a real node_modules clone and local iOS/Android API config with skip-worktree set. No simulators or Jest tests run. | Orchestrator owns independent review and TX-1.BATCH3-QA. New rendered and native evidence remains open; batch-2 screenshots establish the original defects only. |
 | 2026-10-26 | TX-1.BATCH2: scoped night-run UI fixes and idle discovery diagnosis | `claude/batch2-fixes` from `839e94c8`; `SignedInAssetHeader.js`, `cardPresentation.js`, `SignedInWalletSheets.js`, `impactFormat.js`, `RevokeRecoverIdentityForm.js`, `SendWizardSuccess.js`, `ConfirmPayStep.js`, `DESIGN.md` | Read F-and-04, F-ios-22, F-ios-23, F-and-42 and F-and-25 and their screenshots. `CoinCardPickerSheet` already has no pending line. Babel parse, design check, safe-area check and temporary Node component/logic fixtures pass. The fixtures fail on the original revision for small differences, mixed network lists, the currency sheet shell and the self-send caption. The fixtures do not prove native layout. Discovery runs on every accepted `SET_BALANCES`; Home focus and pull can refresh expired balances, while idle polling runs every 300 s with about 45 s jitter. Address-balance cache age is 5 s. No polling change. | Orchestrator owns the open TX-1.BATCH2-QA matrix. If discovery must be faster, choose an arrival signal or a targeted visible-Home refresh policy with a network-load budget. |

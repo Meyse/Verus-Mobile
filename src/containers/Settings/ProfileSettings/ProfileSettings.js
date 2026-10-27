@@ -6,6 +6,7 @@
   deleting accounts etc.
 */
 
+import {INCORRECT_PASSWORD_MESSAGE} from '../../../utils/constants/errors';
 import React, { Component } from "react";
 import { CommonActions } from '@react-navigation/native';
 import {ActivityIndicator, Portal} from 'react-native-paper';
@@ -64,7 +65,7 @@ const SETTING_NOT_SAVED = "Not saved. Try again.";
 // The same inline copy as the View recovery secrets password sheet.
 const getPasswordCheckError = (error) =>
   error?.message === "Incorrect password"
-    ? "Password not recognized. Try again."
+    ? INCORRECT_PASSWORD_MESSAGE
     : "Unable to access this wallet. Try again.";
 
 // The choice applies after the sheet has closed, so the confirmation that
