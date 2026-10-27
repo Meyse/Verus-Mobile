@@ -25,6 +25,7 @@ import GenericRequestLoading, {
 } from '../GenericRequestLoading';
 import {
   AUTHENTICATION_REQUEST_VDXF_KEY,
+  AUTHENTICATION_RESPONSE_VDXF_KEY,
   APP_ENCRYPTION_REQUEST_VDXF_KEY,
   DEEPLINK_PROTOCOL_URL_STRING,
   IDENTITY_UPDATE_REQUEST_VDXF_KEY,
@@ -465,17 +466,17 @@ const GenericRequestHome = props => {
     props.cancel();
   }, [props.cancel]);
 
-  const requestDetailKeys =
-    request?.details.map(detail => detail.getIAddressKey()) || [];
-  const approvalResultTitle = requestDetailKeys.includes(
-    AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid,
-  )
+  const hasAuthenticationResponse = response.details?.some(
+    detail =>
+      detail.getIAddressKey() === AUTHENTICATION_RESPONSE_VDXF_KEY.vdxfid,
+  );
+  const approvalResultTitle = hasAuthenticationResponse
     ? `Signed in to ${approvalResult?.requesterLabel || 'the requester'}`
-    : requestDetailKeys.includes(DATA_PACKET_REQUEST_VDXF_KEY.vdxfid)
+    : !approvalResult || !response.details?.length
+    ? null
+    : approvalResult.dataPacketSigned
     ? 'Data signed'
-    : requestDetailKeys.includes(APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid)
-    ? 'Response sent'
-    : null;
+    : 'Response sent';
 
   /**
    * @type {Map<string, (GenericRequest, GenericResponse, number) => Promise<{
@@ -732,14 +733,19 @@ const GenericRequestHome = props => {
    * indices and response when done
    * @param {GenericResponse} updatedResponse
    * @param {Array<number>} handledIndices
-   * @param {{autoDeliverOnComplete?: boolean, responseIdentityName?: string}} options
+   * @param {{autoDeliverOnComplete?: boolean, responseIdentityName?: string,
+   *  dataPacketSigned?: boolean}} options
    */
   const next = async (updatedResponse, handledIndices, options = {}) => {
     if (options.responseIdentityName) {
-      setApprovalResult({
+      setApprovalResult(previous => ({
         identityName: options.responseIdentityName,
         requesterLabel: displayProps.signerFqn || 'the requester',
-      });
+        // Encrypted app-encryption replies also use DataResponse, so retain
+        // the completed data-signing screen's result across later details.
+        dataPacketSigned:
+          previous?.dataPacketSigned || !!options.dataPacketSigned,
+      }));
     }
     if (options.autoDeliverOnComplete) {
       setAutoDeliveryRequested(true);
