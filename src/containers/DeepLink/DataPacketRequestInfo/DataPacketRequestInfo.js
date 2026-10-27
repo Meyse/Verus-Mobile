@@ -153,6 +153,15 @@ const DataPacketRequestInfoContent = props => {
       onContinue={handleContinue}
       primaryLabel="Sign data"
       disabled={!reviewComplete}
+      consentProgress={{
+        total: statements.length + signableObjectSummaries.length,
+        checked:
+          statements.filter((_, index) => consent.checked[`statement-${index}`])
+            .length +
+          signableObjectSummaries.filter(
+            (_, index) => consent.checked[`data-${index}`],
+          ).length,
+      }}
       processing={processing}
       error={error}>
       {statements.map((statement, index) => (

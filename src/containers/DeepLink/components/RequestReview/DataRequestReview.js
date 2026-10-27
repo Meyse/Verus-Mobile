@@ -22,6 +22,8 @@ import DeepLinkRequestDetailsSheet from './DeepLinkRequestDetailsSheet';
 import DeepLinkRequestSheetScaffold from './DeepLinkRequestSheetScaffold';
 import DeepLinkReviewScrollView from './DeepLinkReviewScrollView';
 import RequestTitle from './RequestTitle';
+import {getButtonHitSlop, useButtonHeight} from '../../../../hooks/useButtonHeight';
+import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 export const formatReviewValue = value => {
   if (typeof value === 'string') return value;
@@ -162,11 +164,14 @@ export default function DataRequestReview({
   disabled,
   processing,
   error,
+  consentProgress,
   detailsSections = [],
 }) {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [detailsVisible, setDetailsVisible] = useState(false);
+  const responderHeight = useButtonHeight();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const delivery = getGenericRequestDeliveryInfo(props.request);
   const selected = identity.selectedIdentity;
   const metadataRows = [
@@ -311,15 +316,17 @@ export default function DataRequestReview({
         style={styles.footer}>
         {selected && (
           <View>
-            <Text style={styles.selectedIdentityLabel}>Respond as</Text>
+            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Respond as</Text>}
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={`Respond as ${selected.friendlyName}`}
               accessibilityHint="Choose a different VerusID"
               disabled={processing}
               onPress={() => identity.setIdentitySheetVisible(true)}
-              style={styles.selectedIdentityCard}>
+              hitSlop={getButtonHitSlop(responderHeight)}
+              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
               <View style={styles.selectedIdentityText}>
+                {smallDevice && <Text style={styles.compactResponderLabel}>Respond as</Text>}
                 <Text numberOfLines={1} style={styles.selectedIdentityName}>
                   {selected.friendlyName}
                 </Text>
@@ -336,6 +343,11 @@ export default function DataRequestReview({
             {error}
           </Text>
         ) : null}
+        {selected && identity.walletReady && consentProgress?.total > 0 && (
+          <Text accessibilityLiveRegion="polite" style={styles.consentProgress}>
+            {`${consentProgress.checked} of ${consentProgress.total} checked`}
+          </Text>
+        )}
         <AppButton
           height={56}
           variant="primary"

@@ -8,7 +8,7 @@ import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
 import BottomSheetModal from '../../components/BottomSheetModal';
-import {SignedInEdgeFade} from '../../components/SignedInActionBar';
+import {SheetScrollCue} from '../../components/SheetScrollView';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
@@ -16,6 +16,7 @@ import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {createSignedOutSheetStyles} from '../../styles/components/signedOutSheet.styles';
 import {createManageAssetsStyles} from './manageAssets.styles';
+import {deepLinkRequestReviewStyles} from '../../styles';
 
 export const systemLabel = systemId => {
   try { return CoinDirectory.findCoinObj(systemId).display_name; }
@@ -45,6 +46,7 @@ export const AssetFooter = ({children, styles}) => (
 
 export const AssetScrollView = ({children, contentContainerStyle, styles, testID}) => {
   const theme = useOnboardingTheme();
+  const cueStyles = useMemo(() => deepLinkRequestReviewStyles(theme), [theme]);
   const [metrics, setMetrics] = useState({content: 0, viewport: 0, offset: 0});
   const update = next => setMetrics(current => {
     const merged = {...current, ...next};
@@ -68,12 +70,7 @@ export const AssetScrollView = ({children, contentContainerStyle, styles, testID
         {children}
       </ScrollView>
       {showCue ? (
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={styles.scrollCue}>
-          <SignedInEdgeFade height={46} style={styles.scrollCueFade} visible />
-          <View style={styles.scrollCueChevron}>
-            <MaterialCommunityIcons name="chevron-down" size={15} color={theme.colors.textSecondary} />
-          </View>
-        </View>
+        <SheetScrollCue styles={cueStyles} theme={theme} backgroundColor={theme.colors.background} />
       ) : null}
     </View>
   );

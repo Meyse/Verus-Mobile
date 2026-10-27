@@ -91,6 +91,7 @@ const SendWizardSuccess = () => {
   const finish = useCallback(() => {
     // An invoice hands back to its request, or closes the invoice.
     if (invoiceFlow) {
+      if (invoiceFlow.responsePending) return;
       invoiceFlow.onPaid();
       return;
     }
@@ -117,7 +118,13 @@ const SendWizardSuccess = () => {
 
   return (
     <TransactionResult
-      actions={[{label: 'Done', onPress: finish}]}
+      actions={[{
+        label: 'Done',
+        onPress: finish,
+        disabled: invoiceFlow?.responsePending,
+      }]}
+      description={invoiceFlow?.responseMessage}
+      warning={invoiceFlow?.responseWarning}
       amount={
         <>
           <TransferNode

@@ -54,6 +54,14 @@ const createDataRequestInfoStyles = theme => ({
       ...theme.typography.bodySm,
       color: theme.colors.danger,
     },
+    consentProgress: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+    },
+    compactResponderLabel: {
+      ...theme.typography.captionCompact,
+      color: theme.colors.textSecondary,
+    },
     loading: {paddingBottom: 24, gap: 16},
     detailField: {
       paddingVertical: 12,

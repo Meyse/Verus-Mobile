@@ -19,6 +19,7 @@ const ReviewStep = ({
   loadSignerVerusId,
   requesterLabel,
   requesterMetadataRows,
+  reviewDetails,
   styles,
 }) => {
   const [verusIdDetailsSheetVisible, setVerusIdDetailsSheetVisible] =
@@ -38,6 +39,7 @@ const ReviewStep = ({
         </View>
 
         <DeepLinkRequestSourceCard
+          style={reviewDetails ? {marginBottom: 0} : undefined}
           metadataRows={requesterMetadataRows}
           onPressRequester={
             canOpenSignerDetails
@@ -48,8 +50,9 @@ const ReviewStep = ({
           requesterLabel={requesterLabel}
           showRequestDetailsLink={false}
         />
+        {reviewDetails}
         <IdentityStateChangeCard change={identityStateChange} />
-        <View style={{height: 24}} />
+        {!reviewDetails && <View style={{height: 24}} />}
       </DeepLinkReviewScrollView>
     </>
   );

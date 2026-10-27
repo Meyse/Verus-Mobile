@@ -1295,7 +1295,11 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   "Status unknown" payment it reads "This invoice may have been paid on <date>.
   Check your transaction history before you pay again." Paying again stays
   possible (owner, 2026-10-26). The record lives on this device only.
-- Sent reads "Payment sent". Done closes the invoice or continues its request.
+- Sent reads "Payment sent". A request's POST response starts when broadcast
+  succeeds; a redirect waits for Done. A paid sign-in shows its delivered
+  sign-in fact once on Sent, with no second result sheet. A response failure
+  shows one warning on Sent and does not repeat the payment or offer a retry.
+  Done closes the invoice or continues its request.
 - Errors: "No way to pay this invoice" on Pay with; conversion options that do
   not load show an error with "Try again" while direct payment still works; the
   shortfall shows above a disabled Hold; expired, unreadable and wrong-network
@@ -1337,6 +1341,10 @@ partially visible content, show the established non-interactive bottom fade with
 a centered downward chevron. Derive its visibility from measured content and
 viewport size: show it only while more content remains below, and hide it when
 the surface is not scrollable or reaches the end.
+
+The shared `SheetScrollCue` puts its chevron on an opaque, full-width bottom
+strip, below the fade, so readable text cannot show behind the chevron. Asset
+review pages use the same cue as information sheets.
 
 Use the scroll cue already provided by `SettingsScreen` for settings-style
 pages and `DeepLinkRequestSheetScaffold` for informational request sheets. Keep

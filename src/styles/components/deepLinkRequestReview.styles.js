@@ -114,9 +114,10 @@ const createDeepLinkRequestReviewStyles = theme =>
     },
     requestSheetScrollCueChevron: {
       position: 'absolute',
-      bottom: 2,
-      width: 20,
-      height: 18,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 22,
       alignItems: 'center',
       justifyContent: 'center',
     },

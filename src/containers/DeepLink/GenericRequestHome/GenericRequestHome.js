@@ -438,6 +438,7 @@ const GenericRequestHome = props => {
     useState(false);
   const autoDeliverySingleFlightRef = useRef(null);
   const preparedAutoDeliveryRef = useRef(null);
+  const paidInvoiceDeliveryRef = useRef(null);
 
   if (autoDeliverySingleFlightRef.current == null) {
     autoDeliverySingleFlightRef.current =
@@ -764,6 +765,41 @@ const GenericRequestHome = props => {
     });
   };
 
+  // An invoice contributes no response detail. Send the same accumulated
+  // response at broadcast, while leaving its Payment sent screen in place.
+  // InvoiceInfo defers a redirect until Done. Keep the promise after a failure
+  // too: this path makes one attempt and never repeats the payment or delivery.
+  const deliverPaidInvoiceResponse = () => {
+    if (detailsProcessed + 1 < request.details.length) {
+      return Promise.resolve({skippedInlineDelivery: true});
+    }
+    if (paidInvoiceDeliveryRef.current) return paidInvoiceDeliveryRef.current;
+    const generation = processGenerationRef.current;
+    const currentResponse = responseRef.current;
+    paidInvoiceDeliveryRef.current = (async () => {
+      const result = await preparedAutoDeliveryRef.current({
+        requestBufferString: request.toBuffer().toString('hex'),
+        responseBufferString: currentResponse.details?.length
+          ? currentResponse.toBuffer().toString('hex')
+          : '',
+        assertCurrent: () => {
+          if (generation !== processGenerationRef.current) throw new Error('Request closed');
+        },
+      });
+      if (generation !== processGenerationRef.current) throw new Error('Request closed');
+      await markSavedPendingRequestComplete();
+      return result;
+    })();
+    return paidInvoiceDeliveryRef.current;
+  };
+
+  const completePaidInvoice = () => {
+    if (detailsProcessed + 1 < request.details.length) {
+      return next(responseRef.current, [detailIndex]);
+    }
+    completeRequest();
+  };
+
   const deliverIdentityUpdateResponse = async (updatedResponse, handledIndices) => {
     setInlineDeliveryInProgress(true);
 
@@ -965,6 +1001,13 @@ const GenericRequestHome = props => {
         response={response}
         request={request}
         detailIndex={detailIndex}
+        deliverPaidInvoiceResponse={deliverPaidInvoiceResponse}
+        completePaidInvoice={completePaidInvoice}
+        paidSignInMessage={
+          hasAuthenticationResponse && approvalResult?.identityName
+            ? `Signed in to ${approvalResult.requesterLabel} as ${approvalResult.identityName}.`
+            : null
+        }
       />
     ),
     [APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid]: () => (
