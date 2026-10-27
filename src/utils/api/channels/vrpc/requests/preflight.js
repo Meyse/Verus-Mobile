@@ -110,6 +110,9 @@ export const preflight = async (coinObj, activeUser, address, amount, params, ch
               : systemId,
         value: satsToCoins(valueBn).toString(),
         toAddress: address,
+        // Keep the typed name, and expose the exact destination encoded in
+        // this prepared transaction for review without another name lookup.
+        resolvedToAddress: preflightRes.result.output.address.getAddressString(),
         fromAddress: source,
         amountSubmitted: amount.toString(),
         names: preflightRes.result.names,

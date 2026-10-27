@@ -47,6 +47,9 @@ import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
 import {ADDRESS_TYPE, isPrivateRecipient} from './wizardUtils';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 
+const IDENTITY_NOT_FOUND = 'VerusID not found. Check the name and try again.';
+const IDENTITY_UNAVAILABLE = 'Could not verify this VerusID. Try again.';
+
 const SendWizardRecipient = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
@@ -70,6 +73,7 @@ const SendWizardRecipient = () => {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [inputFocused, setInputFocused] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [identityCheck, setIdentityCheck] = useState(null);
   const lookup = useRef({generation: 0, pending: false});
 
   const cancelLookup = useCallback(() => {
@@ -77,9 +81,6 @@ const SendWizardRecipient = () => {
     lookup.current.pending = false;
     setResolving(false);
   }, []);
-
-  useEffect(cancelLookup, [cancelLookup, channel, input, route]);
-  useFocusEffect(useCallback(() => cancelLookup, [cancelLookup]));
 
   useEffect(() => {
     let active = true;
@@ -165,6 +166,12 @@ const SendWizardRecipient = () => {
             };
       }
       if (address.endsWith('@')) return {valid: true, message: null};
+      if (ethers.isAddress(address)) {
+        return {
+          valid: false,
+          message: 'This is an Ethereum address. Enter a Verus address or VerusID.',
+        };
+      }
       const {version} = fromBase58Check(address);
       return version === R_ADDRESS_VERSION || version === I_ADDRESS_VERSION
         ? {valid: true, message: null}
@@ -173,6 +180,70 @@ const SendWizardRecipient = () => {
       return {valid: false, message: 'Enter a valid Verus address or VerusID.'};
     }
   }, [blocklist, input, privateSource, route?.addressType]);
+  const address = input.trim();
+  const needsIdentityCheck = validation.valid && (
+    privateSource ? address.includes('@')
+      : route?.addressType === ADDRESS_TYPE.VERUS && address.endsWith('@')
+  );
+  const identityKey = `${sourceCoin?.id}:${channel}:${route?.key}:${address}`;
+  const currentIdentityCheck = identityCheck?.key === identityKey ? identityCheck : null;
+  const checkingIdentity = needsIdentityCheck && (
+    !currentIdentityCheck || currentIdentityCheck.status === 'checking'
+  );
+  const identityError = needsIdentityCheck && currentIdentityCheck?.status === 'invalid'
+    ? currentIdentityCheck.message : null;
+  const visibleError = error || validation.message || identityError;
+
+  const checkIdentity = useCallback(async value => {
+    if (privateSource) return resolvePrivateCardDestination(sourceCoin, value);
+
+    // Match preflight: use the source system's existing endpoint.
+    const systemId = channel?.split('.')[2] || sourceCoin?.system_id;
+    let result;
+    try {
+      result = await timeout(15000, getIdentity(systemId, value));
+    } catch (_) {
+      throw new Error(IDENTITY_UNAVAILABLE);
+    }
+    if (result?.error || !result?.result?.identity?.identityaddress) {
+      throw new Error(result?.error?.code === -5 ? IDENTITY_NOT_FOUND : IDENTITY_UNAVAILABLE);
+    }
+    return result.result.identity.identityaddress;
+  }, [channel, privateSource, sourceCoin]);
+
+  useFocusEffect(useCallback(() => {
+    cancelLookup();
+    setError(null);
+    if (!needsIdentityCheck) {
+      setIdentityCheck(null);
+      return cancelLookup;
+    }
+
+    const generation = lookup.current.generation;
+    setIdentityCheck({key: identityKey, status: 'checking'});
+    const timer = setTimeout(async () => {
+      try {
+        await checkIdentity(address);
+        if (generation !== lookup.current.generation) return;
+        setIdentityCheck({key: identityKey, status: 'valid'});
+      } catch (lookupError) {
+        if (generation !== lookup.current.generation) return;
+        // A transport failure is inconclusive. Leave Continue available so
+        // it can perform the existing explicit check again.
+        const message = lookupError.message || IDENTITY_UNAVAILABLE;
+        setIdentityCheck({
+          key: identityKey,
+          status: message === IDENTITY_UNAVAILABLE ? 'unavailable' : 'invalid',
+          message,
+        });
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      cancelLookup();
+    };
+  }, [address, cancelLookup, checkIdentity, identityKey, needsIdentityCheck, route]));
   const showMemo = validation.valid && memoApplies(channel, input.trim());
 
   const paste = async () => {
@@ -240,52 +311,26 @@ const SendWizardRecipient = () => {
   };
 
   const continueToReview = async () => {
-    if (lookup.current.pending) return;
+    if (lookup.current.pending || checkingIdentity || identityError) return;
     if (!validation.valid) {
       setError(validation.message || 'Enter a recipient.');
       return;
     }
-    const address = input.trim();
-    // The private card resolves a VerusID itself, before the send; check here
-    // that it resolves, and that "alice@:private" has a private address.
-    if (privateSource && address.includes('@')) {
+    if (needsIdentityCheck) {
       const generation = ++lookup.current.generation;
       lookup.current.pending = true;
       setResolving(true);
       setError(null);
       try {
-        await resolvePrivateCardDestination(sourceCoin, address);
+        await checkIdentity(address);
         if (generation !== lookup.current.generation) return;
       } catch (lookupError) {
-        if (generation === lookup.current.generation) setError(lookupError.message);
-        return;
-      } finally {
-        if (generation === lookup.current.generation) {
-          lookup.current.pending = false;
-          setResolving(false);
-        }
-      }
-    } else if (route?.addressType === ADDRESS_TYPE.VERUS && address.endsWith('@')) {
-      const generation = ++lookup.current.generation;
-      lookup.current.pending = true;
-      setResolving(true);
-      setError(null);
-      try {
-        // Match preflight: resolve on the source system's existing endpoint.
-        const systemId = channel?.split('.')[2] || sourceCoin?.system_id;
-        const result = await timeout(15000, getIdentity(systemId, address));
         if (generation !== lookup.current.generation) return;
-        if (result?.error || !result?.result?.identity?.identityaddress) {
-          setError(
-            result?.error?.code === -5
-              ? 'VerusID not found. Check the name and try again.'
-              : 'Could not verify this VerusID. Try again.',
-          );
-          return;
+        const message = lookupError.message || IDENTITY_UNAVAILABLE;
+        setError(message);
+        if (message !== IDENTITY_UNAVAILABLE) {
+          setIdentityCheck({key: identityKey, status: 'invalid', message});
         }
-      } catch (lookupError) {
-        if (generation !== lookup.current.generation) return;
-        setError('Could not verify this VerusID. Try again.');
         return;
       } finally {
         if (generation === lookup.current.generation) {
@@ -324,7 +369,7 @@ const SendWizardRecipient = () => {
   const inputAlreadySaved = savedAddresses.some(
     record => record.address.toLowerCase() === input.trim().toLowerCase(),
   );
-  const showSaveOption = validation.valid && !error && !inputAlreadySaved;
+  const showSaveOption = validation.valid && !visibleError && !checkingIdentity && !inputAlreadySaved;
 
   const saveNewAddress = async record => {
     try {
@@ -366,22 +411,22 @@ const SendWizardRecipient = () => {
     <WizardScreen scroll={false}>
       <WizardFormLayout
         contentContainerStyle={styles.content}
-        error={error || validation.message}
-        disabled={!validation.valid}
-        loading={resolving}
+        error={visibleError}
+        disabled={!validation.valid || checkingIdentity || Boolean(identityError)}
+        loading={resolving || checkingIdentity}
         loadingText="Checking VerusID…"
         onPress={continueToReview}>
         {errorMessage => <>
           <View
             style={[
               styles.inputShell,
-              (error || validation.message) && styles.inputWithError,
+              visibleError && styles.inputWithError,
               {
                 backgroundColor: inputFocused
                   ? theme.colors.inputFocused
                   : theme.colors.input,
                 borderColor:
-                  error || validation.message
+                  visibleError
                     ? theme.colors.danger
                     : inputFocused
                     ? theme.colors.primary

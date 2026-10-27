@@ -94,6 +94,7 @@ import {
   shortAddress,
 } from './wizardUtils';
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
+import {isVerusIdWallet} from '../../utils/subwallet/cardPresentation';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 import {closeWizard} from './wizardNavigation';
 import {formatTransactionDate} from '../Coin/Overview/TransactionDetailsSheet';
@@ -238,6 +239,8 @@ const SendWizardConfirm = () => {
       })
     : null;
   const privateSource = isPrivateChannel(channel);
+  const fromLabel = !invoice && (privateSource || isVerusIdWallet(sourceSubWallet))
+    ? sourceSubWallet?.name : null;
   // A memo travels inside a private output only. A scanned request's note
   // becomes the memo when it can travel there.
   const sendsMemo = simpleSend && memoApplies(channel, recipientAddress);
@@ -599,6 +602,13 @@ const SendWizardConfirm = () => {
   };
 
   const reviewResult = preflightResult || (feeKind && lastReview.current?.key === reviewKey ? lastReview.current.result : null);
+  // These addresses belong to the prepared transaction: the VRPC simple-send
+  // result, a conversion's output, or the private card's resolved destination.
+  const resolvedRecipient = recipientAddress.includes('@') && reviewResult
+    ? reviewResult.resolvedToAddress ||
+      reviewResult.output?.address?.getAddressString?.() ||
+      (privateSource ? reviewResult.toAddress : null)
+    : null;
   const displayEstimate = reviewResult?.estimate || estimate;
   const estimatedReceive = displayEstimate?.estimatedcurrencyout;
   // An invoice is paid in full or not at all, so its amount never shrinks.
@@ -729,6 +739,7 @@ const SendWizardConfirm = () => {
           atLaunch={preconvert}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           isConversion={preparingReceive}
+          fromLabel={fromLabel}
           networkFee={Boolean(feeKind)}
           recipient={recipientAddress}
           recipientCaption={refundCaption}
@@ -900,6 +911,7 @@ const SendWizardConfirm = () => {
           note={sendsMemo ? null : state.scanRequest?.note}
           recipient={recipientAddress}
           recipientCaption={refundCaption}
+          resolvedRecipient={resolvedRecipient}
           routeRows={launchRows}
           leadingRows={
             invoice
@@ -916,7 +928,7 @@ const SendWizardConfirm = () => {
                     ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid)}
                     : null,
                 ].filter(Boolean)
-              : []
+              : fromLabel ? [{label: 'From', value: fromLabel, numberOfLines: 0}] : []
           }
           trailingRows={
             invoice
