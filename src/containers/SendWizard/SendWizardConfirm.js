@@ -560,6 +560,7 @@ const SendWizardConfirm = () => {
       // Block stale hold callbacks before context and navigation update.
       submitted.current = true;
       invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
+      invoiceFlow?.onPaymentBroadcast?.();
       void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
       navigation.reset({

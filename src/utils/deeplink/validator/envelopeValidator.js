@@ -71,6 +71,16 @@ export const getValidatorForDetail = (detailKey) => {
  * @param {GenericRequest} request 
  */
 export const validateGenericRequest = async (request) => {
+  // The SDK's signature verifier also checks structure and returns false for
+  // either failure. Check structure first so only real signature failures get
+  // the signer error (app encryption, for example, requires authentication).
+  if (!VerusIdInterface.validateUnsignedGenericRequest(request)) {
+    throw createGenericRequestRejectionError(
+      GENERIC_REQUEST_REJECTION_CODES.INVALID,
+      "Invalid request structure",
+    )
+  }
+
   if (request.isSigned()) {
     const coinObj = CoinDirectory.getBasicCoinObj(request.signature.systemID.toIAddress())
     VrpcProvider.initEndpoint(coinObj.system_id, coinObj.vrpc_endpoints[0])
@@ -125,13 +135,6 @@ export const validateGenericRequest = async (request) => {
       GENERIC_REQUEST_REJECTION_CODES.INVALID,
       "This type of request requires a signature",
     )
-  } else {
-    if (!VerusIdInterface.validateUnsignedGenericRequest(request)) {
-      throw createGenericRequestRejectionError(
-        GENERIC_REQUEST_REJECTION_CODES.INVALID,
-        "Failed to verify request",
-      )
-    }
   }
 
   for (let i = 0; i < request.details.length; i++) {

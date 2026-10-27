@@ -28,6 +28,10 @@ import {USD} from '../../../utils/constants/currencies';
 import {getCurrencyDisplay} from '../../SendWizard/wizardUtils';
 import InvoicePayFlow from './InvoicePayFlow';
 import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericRequestDeliveryInfo,
+} from '../../../utils/deeplink/genericRequestDelivery';
+import {
   getPaidInvoiceKey,
   loadPaidInvoice,
   savePaidInvoice,
@@ -64,6 +68,9 @@ const InvoiceInfo = props => {
     response,
     detailIndex,
     request,
+    deliverPaidInvoiceResponse,
+    completePaidInvoice,
+    paidSignInMessage,
   } = props;
   const details = useMemo(() => {
     const invoice = new primitives.VerusPayInvoiceDetails();
@@ -94,6 +101,25 @@ const InvoiceInfo = props => {
     [accountHash, detailIndex, detailsBufferString, request, sigtime, signedIn],
   );
   const [paidBefore, setPaidBefore] = useState(null);
+  const [responseDelivery, setResponseDelivery] = useState({status: 'idle'});
+  const redirectResponse =
+    getGenericRequestDeliveryInfo(request).type ===
+    GENERIC_REQUEST_DELIVERY_TYPES.REDIRECT;
+  const deliverResponse = async () => {
+    if (!deliverPaidInvoiceResponse) return true;
+    setResponseDelivery({status: 'sending'});
+    try {
+      const result = await deliverPaidInvoiceResponse();
+      setResponseDelivery({status: 'success', type: result.type});
+      return true;
+    } catch (_) {
+      setResponseDelivery({status: 'error'});
+      return false;
+    }
+  };
+  const onPaymentBroadcast = () => {
+    if (!redirectResponse) void deliverResponse();
+  };
   useEffect(() => {
     let active = true;
     setPaidBefore(null);
@@ -431,7 +457,21 @@ const InvoiceInfo = props => {
     return <InvoicePaymentConfiguration {...props} renderInvoice={renderInvoice} />;
   }
 
-  const onPaid = next != null ? () => next(response, [detailIndex]) : cancel;
+  const onPaid = async () => {
+    if (responseDelivery.status === 'sending') return;
+    if (responseDelivery.status === 'idle' && !(await deliverResponse())) return;
+    if (completePaidInvoice) return completePaidInvoice();
+    return next != null ? next(response, [detailIndex]) : cancel();
+  };
+  const responseMessage =
+    responseDelivery.status === 'sending'
+    ? 'Sending response…'
+    : responseDelivery.status === 'success' &&
+      responseDelivery.type === GENERIC_REQUEST_DELIVERY_TYPES.POST
+    ? paidSignInMessage
+    : redirectResponse && responseDelivery.status === 'idle' && response?.details?.length
+    ? 'Tap Done to return to the requester.'
+    : null;
   return (
     <>
       <InvoicePaymentConfiguration
@@ -447,6 +487,15 @@ const InvoiceInfo = props => {
               onExit: cancel,
               onPaid,
               onPaymentSent,
+              onPaymentBroadcast,
+              responseMessage,
+              responsePending: responseDelivery.status === 'sending',
+              responseWarning:
+                responseDelivery.status === 'error'
+                  ? redirectResponse
+                    ? 'The response could not be opened.'
+                    : 'The response could not be sent to the requester.'
+                  : null,
               paidBefore,
               onOpenDetails: () => setSheet('details'),
               onOpenRequester:

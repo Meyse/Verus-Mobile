@@ -171,6 +171,10 @@ const UserDataRequestInfoContent = props => {
       processing={processing}
       error={error}
       disabled={status === 'loading' || (status === 'ready' && !reviewed)}
+      consentProgress={{
+        total: credentials.length,
+        checked: credentials.filter((_, index) => consent.checked[index]).length,
+      }}
       primaryLabel={
         status === 'error'
           ? 'Retry credential lookup'
