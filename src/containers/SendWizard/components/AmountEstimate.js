@@ -22,9 +22,10 @@ const AmountEstimate = ({
 }) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
-  const chipLabel = priceImpact.impact == null
-    ? 'Details'
-    : getImpactBadgeLabel(priceImpact.impact);
+  const chipLabel =
+    priceImpact.impact == null || priceImpact.impact.isLessThanOrEqualTo(0)
+      ? 'Details'
+      : getImpactBadgeLabel(priceImpact.impact);
 
   return (
     <View style={[styles.estimate, {borderTopColor: colors.border}]}>

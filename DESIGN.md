@@ -512,10 +512,14 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   The market price is the output per unit of a small sample trade (worth about
   one display-currency unit) on the same route, fetched once per route. Levels:
   under 0.1% adds no chip by itself; 0.1% to 1% uses neutral, 1% to 5%
-  warning, and 5% and up danger. The chip always says the percent. The sheet
-  shows the money and percent in Difference, with danger text from 5%, primary
-  text from 1%, and secondary text below 1%. Under 0.1%, Difference shows
-  "<0.1% less". From 1% impact, a verified
+  warning, and 5% and up danger. For zero or negative impact (the user's price
+  is equal to or better than market), Difference reads "None", with no percent
+  or money. The same rule applies to invoice pay mode (owner, 2026-10-27).
+  This case adds no chip. A chip shown for another reason reads "Details".
+  For positive impact, the chip says the percent. The sheet shows the money
+  and percent in Difference, with danger text from 5%, primary text from 1%,
+  and secondary text below 1%. For 0 < impact < 0.1%, Difference shows
+  "<0.1% less" ("<0.1% more" for an invoice). From 1% impact, a verified
   "Use <N> <SRC> instead | x.x% less" action appears in the sheet while a warning
   or danger suggestion exists. Show the measured impact, never the one the
   suggestion formula aimed for. Say the money in what

@@ -335,14 +335,16 @@ const InvoicePayWith = () => {
       ' · ',
     );
     // As on Send's Amount step: a chip when the impact is at least 0.1% or
-    // there is more than one basket; "Details" while the impact is unknown.
+    // there is more than one basket; "Details" for unknown or non-positive impact.
     const showChip =
       group.conversion &&
       !invoice.anyAmount &&
       (group.routes.length > 1 ||
         (impact != null && level !== IMPACT_LEVEL.NONE));
     const chipLabel =
-      impact == null ? 'Details' : getImpactBadgeLabel(impact, true);
+      impact == null || impact.isLessThanOrEqualTo(0)
+        ? 'Details'
+        : getImpactBadgeLabel(impact, true);
     const cost = invoice.anyAmount
       ? ''
       : formatCost(route.amount, ticker, group.conversion);

@@ -48,6 +48,11 @@ const RevokeRecoverStackScreens = props => {
 
       <RevokeRecoverStack.Screen
         name="ImportWallet"
+        listeners={{
+          // Back from Choose blockchain must not restore the authority secret.
+          focus: () => setImportedSeed(''),
+          beforeRemove: () => setImportedSeed(null),
+        }}
         options={{
           headerShown: false,
         }}>

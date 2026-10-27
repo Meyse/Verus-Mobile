@@ -99,7 +99,7 @@ const PriceRouteSheet = ({
     ? getUnitPrice(cryptoAmount, estimatedOutput)
     : null;
   const sourceTicker = sourceCoin.display_ticker;
-  const lossText = impact == null ? null : getImpactLossText({
+  const lossText = impact == null || impact.isLessThanOrEqualTo(0) ? null : getImpactLossText({
     displayCurrency,
     loss,
     rate,
