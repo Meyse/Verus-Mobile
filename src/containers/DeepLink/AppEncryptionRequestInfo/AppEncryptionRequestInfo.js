@@ -61,6 +61,7 @@ import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../utils/settings/settingsL
 import {processAppEncryptionRequest} from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
   getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
@@ -700,6 +701,7 @@ const AppEncryptionRequestInfoContent = props => {
 
       await next(updatedResponse, [detailIndex], {
         autoDeliverOnComplete: true,
+        responseIdentityName: selectedIdentity.friendlyName,
       });
     } catch (e) {
       console.warn(e);
@@ -933,7 +935,9 @@ const AppEncryptionRequestInfoContent = props => {
         <View style={styles.header}>
           <RequestTitle>Share encryption address</RequestTitle>
           <Text style={styles.mainSubtitle}>
-            This creates an app-specific encryption address from the selected VerusID.
+            {deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.NONE
+              ? 'No response will be sent to the requester.'
+              : `${requesterLabel} receives an app-specific encryption address and its viewing keys.`}
           </Text>
         </View>
 

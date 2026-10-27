@@ -14,6 +14,10 @@ const createAuthenticationRequestInfoStyles = theme =>
     header: {
       marginBottom: 28,
     },
+    mainSubtitle: {
+      marginTop: 12,
+      color: theme.colors.textSecondary,
+    },
     sectionCard: {
       marginBottom: theme.spacing.lg,
     },
