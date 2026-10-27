@@ -264,7 +264,7 @@ const SendWizardSelectSource = () => {
                 amount: item.total.multipliedBy(item.rate).decimalPlaces(2).toFixed(2),
                 code: displayCurrency,
               })[0];
-          const fiatDisplay = showBalance ? fiat || '—' : '*****';
+          const fiatDisplay = showBalance ? fiat || 'N/A' : '*****';
           const cryptoDisplay = showBalance
             ? `${truncateDecimal(item.total, 8)} ${item.coin.display_ticker}`
             : `*** ${item.coin.display_ticker}`;
@@ -278,7 +278,14 @@ const SendWizardSelectSource = () => {
               <View style={styles.assetCopy}>
                 <View style={styles.titleRow}>
                   <Text numberOfLines={1} style={[theme.typography.titleRow, styles.assetName, {color: theme.colors.textPrimary}]}>{item.coin.display_name}</Text>
-                  <Text style={[styles.fiatValue, {color: showBalance && !fiat ? theme.colors.textSubtle : theme.colors.textPrimary}]}>{fiatDisplay}</Text>
+                  <Text
+                    style={[
+                      styles.fiatValue,
+                      showBalance && fiat == null && theme.typography.caption,
+                      {color: showBalance && fiat == null ? theme.colors.textSubtle : theme.colors.textPrimary},
+                    ]}>
+                    {fiatDisplay}
+                  </Text>
                 </View>
                 <Text style={[theme.typography.bodySm, styles.cryptoValue, {color: theme.colors.textSecondary}]}>
                   {cryptoDisplay}{item.cards.length > 1 ? ` · ${item.cards.length} Cards` : ''}
