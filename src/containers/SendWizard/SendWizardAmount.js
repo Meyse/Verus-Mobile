@@ -76,7 +76,21 @@ const SendWizardAmount = () => {
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
+  const [amountWidth, setAmountWidth] = useState(0);
   const amountInputRef = useRef(null);
+
+  // Match Request amount's 40-to-20 point sizing. Limit typing to what fits
+  // at 20 points, including Ethereum's 18-decimal amounts.
+  const amountRoom = amountWidth * 0.9;
+  const amountFontSize =
+    amountWidth > 0
+      ? Math.max(
+          20,
+          Math.min(40, Math.floor(amountRoom / (Math.max(input.length, 1) * 0.64))),
+        )
+      : 40;
+  const maxAmountLength =
+    amountWidth > 0 ? Math.floor(amountRoom / (20 * 0.64)) : 23;
 
   // Android does not show the keyboard for a field that is focused while a
   // sheet is still closing. Toggling focus once the sheet is gone asks the
@@ -525,7 +539,7 @@ const SendWizardAmount = () => {
         }
         disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
         onPress={continueToRecipient}>
-        {errorMessage => <>
+        {(errorMessage, onFieldLayout) => <>
           {mode === SEND_WIZARD_MODE.SEND &&
           isConversionChannel(channel) ? (
             <>
@@ -590,16 +604,29 @@ const SendWizardAmount = () => {
               ) : null}
             </>
           ) : null}
-          <View style={[styles.amountBlock, smallDevice && styles.amountBlockCompact]}>
+          <View
+            onLayout={event => {
+              setAmountWidth(event.nativeEvent.layout.width);
+              onFieldLayout(event);
+            }}
+            style={[styles.amountBlock, smallDevice && styles.amountBlockCompact]}>
             <TextInput
               ref={amountInputRef}
               autoFocus
               keyboardType="decimal-pad"
+              maxLength={maxAmountLength}
               onChangeText={setInput}
               placeholder="0"
               placeholderTextColor={theme.colors.textSubtle}
               selectionColor={theme.colors.primary}
-              style={[styles.amountInput, {color: theme.colors.textPrimary}]}
+              style={[
+                styles.amountInput,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: amountFontSize,
+                  lineHeight: amountFontSize + 8,
+                },
+              ]}
               value={input}
             />
           </View>

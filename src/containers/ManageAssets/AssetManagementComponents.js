@@ -1,9 +1,10 @@
 import React, {useMemo, useState} from 'react';
-import {KeyboardAvoidingView, Platform, ScrollView, View, TouchableOpacity} from 'react-native';
+import {ScrollView, View, TouchableOpacity} from 'react-native';
 import {Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import ServiceManagerHeader from '../../components/ServiceManagerHeader';
+import KeyboardAvoidingForm from '../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
@@ -14,6 +15,7 @@ import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {useOnboardingTheme} from '../../theme/onboarding';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {createSignedOutSheetStyles} from '../../styles/components/signedOutSheet.styles';
 import {createManageAssetsStyles} from './manageAssets.styles';
 import {deepLinkRequestReviewStyles} from '../../styles';
@@ -28,21 +30,30 @@ export const AssetScreen = ({children, footer, header, onBack, testID, title}) =
   const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen} testID={testID}>
-      <ServiceManagerHeader onBack={onBack} title={title} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardAvoider}>
+      <KeyboardAvoidingForm style={styles.keyboardAvoider}>
+        <ServiceManagerHeader onBack={onBack} title={title} />
         {header}
         {children}
         {footer}
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingForm>
     </SafeAreaView>
   );
 };
 
-export const AssetFooter = ({children, styles}) => (
-  <SafeBottomActionStack bottomSpacing={14} gap={10} horizontalSpacing={20} safeAreaSpacing={12} style={styles.footer}>
-    {children}
-  </SafeBottomActionStack>
-);
+export const AssetFooter = ({children, styles}) => {
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
+  return (
+    <SafeBottomActionStack
+      bottomSpacing={keyboardVisible ? 8 : 14}
+      gap={10}
+      horizontalSpacing={20}
+      includeBottomInset={!keyboardVisible}
+      safeAreaSpacing={keyboardVisible ? 0 : 12}
+      style={styles.footer}>
+      {children}
+    </SafeBottomActionStack>
+  );
+};
 
 export const AssetScrollView = ({children, contentContainerStyle, styles, testID}) => {
   const theme = useOnboardingTheme();
