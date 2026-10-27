@@ -55,8 +55,9 @@ export const AssetFooter = ({children, styles}) => {
   );
 };
 
-export const AssetScrollView = ({children, contentContainerStyle, styles, testID}) => {
+export const AssetScrollView = ({children, contentContainerStyle, onContentSizeChange, onLayout, scrollRef, styles, testID}) => {
   const theme = useOnboardingTheme();
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
   const cueStyles = useMemo(() => deepLinkRequestReviewStyles(theme), [theme]);
   const [metrics, setMetrics] = useState({content: 0, viewport: 0, offset: 0});
   const update = next => setMetrics(current => {
@@ -64,15 +65,22 @@ export const AssetScrollView = ({children, contentContainerStyle, styles, testID
     return Object.keys(merged).every(key => merged[key] === current[key]) ? current : merged;
   });
   const overflow = metrics.viewport > 0 && metrics.content > metrics.viewport + 8;
-  const showCue = overflow && metrics.offset + metrics.viewport < metrics.content - 8;
+  const showCue = !keyboardVisible && overflow && metrics.offset + metrics.viewport < metrics.content - 8;
   return (
     <View style={styles.scrollFrame}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={(_, content) => update({content})}
-        onLayout={event => update({viewport: event.nativeEvent.layout.height})}
+        onContentSizeChange={(width, content) => {
+          update({content});
+          onContentSizeChange?.(width, content);
+        }}
+        onLayout={event => {
+          update({viewport: event.nativeEvent.layout.height});
+          onLayout?.(event);
+        }}
         onScroll={event => update({offset: event.nativeEvent.contentOffset.y})}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={overflow}

@@ -6,6 +6,8 @@ import React, {
   useState,
 } from 'react';
 import {TouchableOpacity, View} from 'react-native';
+import {getButtonHitSlop, useButtonHeight} from '../../../hooks/useButtonHeight';
+import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {CommonActions} from '@react-navigation/native';
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
@@ -229,6 +231,8 @@ const AppEncryptionRequestInfoContent = props => {
   } = props;
 
   const theme = useOnboardingTheme();
+  const responderHeight = useButtonHeight();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const styles = useMemo(
     () => createAppEncryptionRequestInfoStyles(theme),
     [theme],
@@ -998,15 +1002,17 @@ const AppEncryptionRequestInfoContent = props => {
         )}
         {showSelectedIdentityCard && (
           <View>
-            <Text style={styles.selectedIdentityLabel}>Respond as</Text>
+            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Respond as</Text>}
             <TouchableOpacity
               accessibilityHint="Open VerusID options"
               accessibilityLabel={`Selected identity ${selectedIdentity.friendlyName}`}
               accessibilityRole="button"
               activeOpacity={0.78}
+              hitSlop={getButtonHitSlop(responderHeight)}
               onPress={() => setIdentitySheetVisible(true)}
-              style={styles.selectedIdentityCard}>
+              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
               <View style={styles.selectedIdentityText}>
+                {smallDevice && <Text style={styles.compactResponderLabel}>Respond as</Text>}
                 <Text numberOfLines={1} style={styles.selectedIdentityName}>
                   {selectedIdentity.friendlyName}
                 </Text>
