@@ -17,6 +17,7 @@ import {fromBase58Check} from 'verus-typescript-primitives';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import QrScanner from '../../utils/QrScanner/QrScanner';
 import {addressIsBlocked} from '../../utils/addressBlocklist';
@@ -53,6 +54,7 @@ const IDENTITY_UNAVAILABLE = 'Could not verify this VerusID. Try again.';
 const SendWizardRecipient = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
+  const {smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
   const {state, setMemo, setRecipient} = useSendWizard();
   const {channel, memo, sourceCoin, target, route} = state;
   const privateSource = isPrivateChannel(channel);
@@ -416,8 +418,9 @@ const SendWizardRecipient = () => {
         loading={resolving || checkingIdentity}
         loadingText="Checking VerusID…"
         onPress={continueToReview}>
-        {errorMessage => <>
+        {(errorMessage, onFieldLayout) => <>
           <View
+            onLayout={onFieldLayout}
             style={[
               styles.inputShell,
               visibleError && styles.inputWithError,
@@ -451,7 +454,11 @@ const SendWizardRecipient = () => {
                   : 'Recipient address'
               }
               placeholderTextColor={theme.colors.textSubtle}
-              style={[styles.input, {color: theme.colors.textPrimary}]}
+              style={[
+                styles.input,
+                smallDeviceKeyboardVisible && styles.inputCompact,
+                {color: theme.colors.textPrimary},
+              ]}
               value={input}
             />
             <View style={styles.inputActions}>
@@ -563,6 +570,7 @@ const styles = StyleSheet.create({
   inputShell: {minHeight: 56, marginBottom: 12, borderRadius: 12, borderWidth: 1, position: 'relative', flexDirection: 'row', alignItems: 'center'},
   inputWithError: {marginBottom: 0},
   input: {flex: 1, minHeight: 56, maxHeight: 96, paddingLeft: 16, paddingRight: 90, paddingTop: 19, paddingBottom: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
+  inputCompact: {paddingTop: 8, paddingBottom: 8},
   inputActions: {position: 'absolute', right: 8, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center'},
   inputAction: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
   saveAddress: {alignSelf: 'flex-start', borderRadius: 20, marginTop: 8, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center'},

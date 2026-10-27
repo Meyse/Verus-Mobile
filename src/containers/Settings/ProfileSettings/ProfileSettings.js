@@ -498,9 +498,7 @@ class ProfileSettings extends Component {
   openPasswordCheck = (onPasswordCorrect) =>
     this.setState({
       passwordDialogOpen: true,
-      passwordDialogTitle: `Enter password for "${
-        this.props.activeAccount.id
-      }"`,
+      passwordDialogTitle: 'Enter password',
       passwordError: null,
       onPasswordCorrect,
     });

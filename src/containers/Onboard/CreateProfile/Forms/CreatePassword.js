@@ -123,8 +123,7 @@ export default function CreatePassword({
   const confirmPasswordRef = useRef(null);
   const formScrollRef = useRef(null);
   const contentProgress = useRef(new Animated.Value(0)).current;
-  const {keyboardVisible, smallDevice, smallDeviceKeyboardVisible} =
-    useOnboardingSmallDeviceLayout();
+  const {keyboardVisible} = useOnboardingSmallDeviceLayout();
 
   useEffect(() => {
     if (!password) {
@@ -274,132 +273,6 @@ export default function CreatePassword({
     }
   };
 
-  if (!smallDevice) {
-    return (
-      <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
-        <TouchableWithoutFeedback
-          accessible={false}
-          onPress={() => Keyboard.dismiss()}>
-          <View style={styles.content}>
-            <ScrollView
-              ref={formScrollRef}
-              bounces={false}
-              contentContainerStyle={[
-                signedOutFlowStyles.scrollContent,
-                signedOutFlowStyles.afterHeaderTitle,
-              ]}
-              keyboardDismissMode={
-                Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-              }
-              keyboardShouldPersistTaps="handled"
-              // Above the keyboard the confirm field can reach Next; keep a
-              // new field or the mismatch error in view.
-              onContentSizeChange={scrollToEndWithKeyboard}
-              onLayout={scrollToEndWithKeyboard}
-              showsVerticalScrollIndicator={false}>
-              <Animated.View
-                style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
-                <AppTextInput
-                  {...passwordAutofillProps}
-                  label="Password"
-                  blurOnSubmit={false}
-                  enablesReturnKeyAutomatically
-                  onChangeText={setPassword}
-                  onSubmitEditing={focusConfirmPassword}
-                  returnKeyType={confirmPasswordVisible ? 'next' : 'default'}
-                  rightAccessibilityLabel={
-                    showPassword ? 'Hide password' : 'Show password'
-                  }
-                  rightIcon={showPassword ? 'eye-off' : 'eye'}
-                  secureTextEntry={!showPassword}
-                  testID="onboarding.password.input"
-                  value={password}
-                  onRightPress={() => setShowPassword(value => !value)}
-                />
-                <PasswordStrengthMeter
-                  color={strengthColor}
-                  label={strengthLabel}
-                  level={strengthLevel}
-                  styles={styles}
-                />
-                {confirmPasswordVisible ? (
-                  <View style={styles.confirmInput}>
-                    <AppTextInput
-                      {...passwordAutofillProps}
-                      ref={confirmPasswordRef}
-                      errorText={confirmError}
-                      label="Confirm password"
-                      enablesReturnKeyAutomatically
-                      onChangeText={setConfirmPassword}
-                      onSubmitEditing={canContinue ? next : undefined}
-                      returnKeyType="done"
-                      rightAccessibilityLabel={
-                        showConfirmPassword
-                          ? 'Hide confirm password'
-                          : 'Show confirm password'
-                      }
-                      rightIcon={showConfirmPassword ? 'eye-off' : 'eye'}
-                      secureTextEntry={!showConfirmPassword}
-                      testID="onboarding.password.confirmInput"
-                      value={confirmPassword}
-                      onRightPress={() => setShowConfirmPassword(value => !value)}
-                    />
-                  </View>
-                ) : null}
-              </Animated.View>
-            </ScrollView>
-          </View>
-        </TouchableWithoutFeedback>
-        <SafeBottomActionStack
-          bottomSpacing={
-            keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30
-          }
-          includeBottomInset={!keyboardVisible}
-          safeAreaSpacing={
-            keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
-          }>
-          <AppButton
-            disabled={!canContinue}
-            height={56}
-            onPress={next}
-            testID="onboarding.password.next"
-            variant="primary">
-            {'Next'}
-          </AppButton>
-        </SafeBottomActionStack>
-        <BottomSheetModal
-          visible={infoVisible}
-          onClose={onCloseInfo}
-          maxHeight="58%">
-          <View style={styles.infoSheetBody}>
-            <Text
-              style={[
-                signedOutSheetStyles.bodyText,
-                styles.infoSheetTextFirst,
-              ]}>
-              {'This password encrypts your wallet locally on this device.'}
-            </Text>
-            <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
-              {
-                'If you forget it, Verus cannot recover it for you. You can restore access to your wallet with your Secret Recovery Phrase, which you will see in the next steps.'
-              }
-            </Text>
-            <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
-              {'Keep your Secret Recovery Phrase private and stored somewhere safe.'}
-            </Text>
-            <AppButton
-              height={52}
-              onPress={onCloseInfo}
-              style={styles.infoSheetButton}
-              variant="primary">
-              {'I understand'}
-            </AppButton>
-          </View>
-        </BottomSheetModal>
-      </KeyboardAvoidingForm>
-    );
-  }
-
   return (
     <KeyboardAvoidingForm style={signedOutFlowStyles.container}>
       <TouchableWithoutFeedback
@@ -407,17 +280,20 @@ export default function CreatePassword({
         onPress={() => Keyboard.dismiss()}>
         <View style={styles.content}>
           <ScrollView
+            ref={formScrollRef}
             bounces={false}
             contentContainerStyle={[
               signedOutFlowStyles.scrollContent,
               signedOutFlowStyles.afterHeaderTitle,
-              smallDeviceKeyboardVisible &&
-                signedOutFlowStyles.scrollContentKeyboardFooterClearance,
             ]}
             keyboardDismissMode={
               Platform.OS === 'ios' ? 'interactive' : 'on-drag'
             }
             keyboardShouldPersistTaps="handled"
+            // Above the keyboard the confirm field can reach Next; keep a
+            // new field or the mismatch error in view.
+            onContentSizeChange={scrollToEndWithKeyboard}
+            onLayout={scrollToEndWithKeyboard}
             showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[signedOutFlowStyles.form, contentAnimatedStyle]}>
@@ -432,12 +308,12 @@ export default function CreatePassword({
                 rightAccessibilityLabel={
                   showPassword ? 'Hide password' : 'Show password'
                 }
-              rightIcon={showPassword ? 'eye-off' : 'eye'}
-              secureTextEntry={!showPassword}
-              testID="onboarding.password.input"
-              value={password}
-              onRightPress={() => setShowPassword(value => !value)}
-            />
+                rightIcon={showPassword ? 'eye-off' : 'eye'}
+                secureTextEntry={!showPassword}
+                testID="onboarding.password.input"
+                value={password}
+                onRightPress={() => setShowPassword(value => !value)}
+              />
               <PasswordStrengthMeter
                 color={strengthColor}
                 label={strengthLabel}
@@ -445,10 +321,7 @@ export default function CreatePassword({
                 styles={styles}
               />
               {confirmPasswordVisible ? (
-                <View
-                  style={[
-                    styles.confirmInput,
-                  ]}>
+                <View style={styles.confirmInput}>
                   <AppTextInput
                     {...passwordAutofillProps}
                     ref={confirmPasswordRef}
@@ -475,25 +348,33 @@ export default function CreatePassword({
           </ScrollView>
         </View>
       </TouchableWithoutFeedback>
-      {smallDeviceKeyboardVisible ? null : (
-        <SafeBottomActionStack>
-          <AppButton
-            disabled={!canContinue}
-            height={56}
-            onPress={next}
-            testID="onboarding.password.next"
-            variant="primary">
-            {'Next'}
-          </AppButton>
-        </SafeBottomActionStack>
-      )}
+      <SafeBottomActionStack
+        bottomSpacing={
+          keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 30
+        }
+        includeBottomInset={!keyboardVisible}
+        safeAreaSpacing={
+          keyboardVisible ? ONBOARDING_KEYBOARD_FOOTER_SPACING : 12
+        }>
+        <AppButton
+          disabled={!canContinue}
+          height={56}
+          onPress={next}
+          testID="onboarding.password.next"
+          variant="primary">
+          {'Next'}
+        </AppButton>
+      </SafeBottomActionStack>
       <BottomSheetModal
         visible={infoVisible}
         onClose={onCloseInfo}
         maxHeight="58%">
         <View style={styles.infoSheetBody}>
           <Text
-            style={[signedOutSheetStyles.bodyText, styles.infoSheetTextFirst]}>
+            style={[
+              signedOutSheetStyles.bodyText,
+              styles.infoSheetTextFirst,
+            ]}>
             {'This password encrypts your wallet locally on this device.'}
           </Text>
           <Text style={[signedOutSheetStyles.bodyText, styles.infoSheetText]}>
