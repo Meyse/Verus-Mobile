@@ -24,6 +24,7 @@ const ConfirmPreparing = ({
   arrives,
   destinationNetwork,
   isConversion,
+  fromLabel,
   networkFee = false,
   recipient,
   recipientCaption,
@@ -67,7 +68,8 @@ const ConfirmPreparing = ({
         </>
       ) : null}
       <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-        <RecipientRow caption={recipientCaption} recipient={recipient} />
+        {fromLabel ? <FlatRow label="From" numberOfLines={0} value={fromLabel} /> : null}
+        <RecipientRow caption={recipientCaption} recipient={recipient} resolvingAddress={recipient.includes('@')} />
         {destinationNetwork ? (
           <FlatRow label="Destination network" value={destinationNetwork} />
         ) : null}

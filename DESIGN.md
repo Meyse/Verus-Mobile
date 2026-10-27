@@ -116,6 +116,10 @@ Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rul
 centrally through `useButtonHeight`, including explicit action heights. Text
 buttons keep their size.
 
+A short release on a hold button shows its action-specific hint in the same
+label slot for three seconds, and announces it for screen readers. A new hold
+clears the hint. A completed hold shows no hint. The footer does not move.
+
 ## Imagery
 
 The owner chose one picture system on 2026-10-24 (option A of the imagery
@@ -463,6 +467,10 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   "To" row and no "Arrives" row; the user saw both on Confirm.
 - Confirm shows the recipient once, in full, in the "To" row. The pay and receive nodes
   carry only the amounts ("You pay", "You receive"). Confirm has no "More details" row.
+- Send/Convert Confirm adds "From" only for a VerusID or Private source card. Under a
+  recipient's VerusID name, show the prepared transaction's resolved address
+  in the existing small monospace address style, in full. Never resolve a name
+  again for display.
 - Confirm does not show the "centrally controlled currency" notice (owner decision).
 - Confirm shows its warnings and errors above "Hold to confirm & send", outside the
   scroll area (`above` slot of `WizardFooter`). The fact list scrolls and shows the
@@ -534,6 +542,10 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   addresses | N ›", "Send to self | N ›") with hairlines. No cards, no icons and
   no helper line under the field. A send from the private card to a private
   address adds "Memo | Optional ›" as the first row (see Private card sends).
+  Check typed VerusIDs after a short debounce. Continue stays off while checking
+  and when not found. A network failure shows no typing error and leaves the
+  explicit check on Continue available. An unsupported Ethereum address gets
+  a specific inline error; Ethereum routes keep accepting it.
 - **Confirm.** A pay node ("You pay", or "You send" for a plain send), a vertical
   connector with the price, and a receive node ("<recipient> receives")
   for conversions. Nodes use a 40-point logo, a 14-point label and a bold 20-point
