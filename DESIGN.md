@@ -1411,7 +1411,9 @@ selected identity row in the footer. This is a limited exception to flat pages.
 - `GenericRequestHome` shows "Open in another app" as a top-right 44-point
   icon target: Lucide `SquareArrowOutUpRight`, 21 points, `textSecondary`.
   It adds no layout row. Keep the existing handoff flow and accessible label.
-  Invoice payment keeps its Close action in that slot and shows no other-app icon.
+  Invoice steps with a Back/Close header put the same icon directly left of
+  Close. Invoice steps without that header keep its top-right position. Show
+  the icon only when the other app is installed.
 
 Identity Update remains the canonical exception for a risky, multi-stage
 GenericRequest. Preserve review, content, high-risk and confirm/pay stages.

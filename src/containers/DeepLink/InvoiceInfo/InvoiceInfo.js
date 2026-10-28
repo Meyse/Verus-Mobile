@@ -468,6 +468,8 @@ const InvoiceInfo = props => {
         {...props}
         renderFlow={({cards, loading, conversionError, retryConversions}) => (
           <InvoicePayFlow
+            onHeaderVisibilityChange={props.onHeaderVisibilityChange}
+            onOpenInAnotherApp={props.onOpenInAnotherApp}
             flow={{
               invoice: invoiceFacts,
               requester,

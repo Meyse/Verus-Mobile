@@ -419,6 +419,7 @@ const GenericRequestHome = props => {
 
   const [detailIndex, setDetailIndex] = useState(0);
 
+  const [invoiceHeaderVisible, setInvoiceHeaderVisible] = useState(false);
   const [valuInstalled, setValuInstalled] = useState(false);
   const [openInAnotherAppVisible, setOpenInAnotherAppVisible] = useState(false);
   const [verusIdSheet, setVerusIdSheet] = useState(null);
@@ -998,6 +999,8 @@ const GenericRequestHome = props => {
         detailIndex={detailIndex}
         deliverPaidInvoiceResponse={deliverPaidInvoiceResponse}
         completePaidInvoice={completePaidInvoice}
+        onHeaderVisibilityChange={setInvoiceHeaderVisible}
+        onOpenInAnotherApp={valuInstalled ? () => setOpenInAnotherAppVisible(true) : undefined}
         paidSignInMessage={
           hasAuthenticationResponse && approvalResult?.identityName
             ? `Signed in to ${approvalResult.requesterLabel} as ${approvalResult.identityName}.`
@@ -1111,7 +1114,7 @@ const GenericRequestHome = props => {
       ) : (
         <View style={{flex: 1, backgroundColor: theme.colors.background}}>
           <View style={{flex: 1}}>{screens[displayKey]()}</View>
-          {valuInstalled && displayKey !== VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid && (
+          {valuInstalled && (displayKey !== VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid || !invoiceHeaderVisible) && (
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel="Open in another app"
