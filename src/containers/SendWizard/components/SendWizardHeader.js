@@ -174,6 +174,8 @@ const SendWizardHeader = ({
         ) : (
           <View style={styles.headerSpacer} />
         )}
+        {/* Balances the right accessory, so the title stays centered. */}
+        {rightAccessory ? <View style={styles.accessorySpacer} /> : null}
         {title ? (
           <Text
             accessibilityRole="header"
@@ -268,6 +270,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginLeft: -8,
+  },
+  accessorySpacer: {
+    width: 44,
   },
   title: {
     flex: 1,

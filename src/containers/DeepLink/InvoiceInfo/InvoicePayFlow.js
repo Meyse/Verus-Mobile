@@ -83,7 +83,10 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
                     activeOpacity={0.72}
                     disabled={Boolean(options.wizardNavigationDisabled)}
                     onPress={onOpenInAnotherApp}
-                    style={styles.otherAppAction}>
+                    style={[
+                      styles.otherAppAction,
+                      options.wizardNavigationDisabled && styles.disabled,
+                    ]}>
                     <SquareArrowOutUpRight size={21} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
                 ) : null}
@@ -130,6 +133,9 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabled: {
+    opacity: 0.4,
   },
 });
 

@@ -86,7 +86,7 @@ describe('identity signature-threshold review', () => {
     expect(renderedText(renderer)).toContain('Required signatures: 1 of 2 → 2 of 2');
     expect(renderedText(renderer)).toContain('Spending, signing, and ordinary identity updates will require signatures from 2 of the 2 primary addresses.');
     expect(renderedText(renderer)).toContain('Your wallet will need additional signatures after this update');
-    expect(renderedText(renderer)).toContain('After this update, your wallet will have 1 primary address, but 2 signatures will be required to authorize this ID.');
+    expect(renderedText(renderer)).toContain('After this update, your wallet will have 1 primary address, but 2 signatures will be required to authorize this VerusID.');
     expect(nextButton(renderer).props.disabled).toBe(true);
     expect(renderer.root.findAllByType('ConfirmPayStep')).toHaveLength(0);
 
