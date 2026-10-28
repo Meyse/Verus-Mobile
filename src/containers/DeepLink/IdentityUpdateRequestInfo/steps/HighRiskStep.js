@@ -475,6 +475,179 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
   };
 };
 
+const CONTENT_CLEAR_SUBTITLE =
+  "After you confirm, apps that read this VerusID's active content stop receiving these keys and values. " +
+  'Earlier on-chain versions may still be publicly retrievable.';
+
+export const buildScreenCopy = reviewItems => {
+  const primary = reviewItems.find(item => item.kind === 'primary');
+  const fallbackItems = reviewItems.filter(item => item.kind === 'fallback');
+  const hasRecovery = reviewItems.some(item => item.key === 'recovery');
+  const hasRevocation = reviewItems.some(item => item.key === 'revocation');
+  const primaryLosesControl = Boolean(primary?.losesWalletControl);
+  const primaryAddsExternal = Boolean(primary?.addsExternalPrimary);
+  const contentClearItem = fallbackItems.find(
+    item => item.highRiskType === 'content-clear',
+  );
+  const otherFallbackItem = fallbackItems.find(
+    item => item.highRiskType !== 'content-clear',
+  );
+
+  if (reviewItems.length === 1) {
+    if (contentClearItem) {
+      return {
+        title: 'Clear active VerusID content',
+        subtitle: CONTENT_CLEAR_SUBTITLE,
+        note: null,
+      };
+    }
+
+    if (otherFallbackItem) {
+      return {
+        title: otherFallbackItem.detailTitle || 'Confirm high-risk change',
+        subtitle:
+          otherFallbackItem.risk ||
+          otherFallbackItem.caption ||
+          'Review this high-risk change before you continue.',
+        note: 'Review the exact change before continuing.',
+      };
+    }
+
+    if (primaryLosesControl) {
+      return {
+        title: 'Confirm loss of control',
+        subtitle: 'This update removes wallet primary-address control.',
+        note:
+          'Only continue if this wallet should lose primary control of this VerusID.',
+      };
+    }
+
+    if (primaryAddsExternal) {
+      return {
+        title: 'Confirm shared control',
+        subtitle:
+          'An external address is being added as a primary controller.',
+        note:
+          'Only continue if this address should be able to control this VerusID.',
+      };
+    }
+
+    if (hasRecovery) {
+      return {
+        title: 'Confirm recovery change',
+        subtitle: 'The recovery VerusID for this VerusID is being changed.',
+        note:
+          'Only continue if the new recovery ID should be able to recover this VerusID.',
+      };
+    }
+
+    if (hasRevocation) {
+      return {
+        title: 'Confirm revocation change',
+        subtitle: 'The revocation VerusID for this VerusID is being changed.',
+        note:
+          'Only continue if the new revocation ID should be able to revoke this VerusID.',
+      };
+    }
+  }
+
+  if (contentClearItem) {
+    const alsoAffectsControlOrAuthority =
+      Boolean(primary) || hasRecovery || hasRevocation;
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle: alsoAffectsControlOrAuthority
+        ? 'These updates affect active VerusID content and VerusID control or authority.'
+        : 'These updates affect active VerusID content and other high-risk VerusID settings.',
+      note:
+        'Review the content clear and every other high-risk change before continuing.',
+    };
+  }
+
+  if (!primary && hasRecovery && hasRevocation) {
+    return {
+      title: 'Confirm authority changes',
+      subtitle:
+        'The recovery and revocation VerusIDs for this VerusID are changing.',
+      note: 'Review both authority changes before continuing.',
+    };
+  }
+
+  if (primaryLosesControl && hasRecovery && hasRevocation) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        'These updates remove wallet control and change recovery and revocation authority.',
+      note: 'Review every authority change before continuing.',
+    };
+  }
+
+  if (primaryLosesControl && hasRecovery) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        'These updates remove wallet control and change recovery authority.',
+      note:
+        'Review both the primary control change and recovery authority before continuing.',
+    };
+  }
+
+  if (primaryLosesControl && hasRevocation) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        'These updates remove wallet control and change revocation authority.',
+      note:
+        'Review both the primary control change and revocation authority before continuing.',
+    };
+  }
+
+  if (primaryAddsExternal && hasRecovery && hasRevocation) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        'These updates affect who controls, recovers, and can revoke this VerusID.',
+      note: 'Review control, recovery, and revocation changes before continuing.',
+    };
+  }
+
+  if (primaryAddsExternal && hasRecovery) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        'These changes affect who controls and recovers this VerusID.',
+      note: 'Review both control and recovery authority before continuing.',
+    };
+  }
+
+  if (primaryAddsExternal && hasRevocation) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        'These updates affect who controls and can revoke this VerusID.',
+      note: 'Review both control and revocation authority before continuing.',
+    };
+  }
+
+  if (!primary && otherFallbackItem) {
+    return {
+      title: 'Confirm high-risk changes',
+      subtitle:
+        otherFallbackItem.risk ||
+        otherFallbackItem.caption ||
+        'Review every high-risk change before continuing.',
+      note: 'Review every high-risk change before continuing.',
+    };
+  }
+
+  return {
+    title: 'Confirm high-risk changes',
+    subtitle:
+      'These updates can affect who controls, recovers, or revokes this VerusID.',
+    note: 'Review every high-risk change before continuing.',
+  };
+};
+
 const HighRiskStep = ({
   requestCard,
   highRiskChanges,
@@ -528,6 +701,7 @@ const HighRiskStep = ({
     ].filter(Boolean);
   }, [currentAuthorities, highRiskChanges, primaryAddressAfterUpdateInfo]);
 
+  const screenCopy = buildScreenCopy(reviewItems);
   const activeDetailItem = reviewItems.find(item => item.key === activeDetailKey);
   const ackCopy =
     reviewItems.length === 1
@@ -540,7 +714,7 @@ const HighRiskStep = ({
         style={parentStyles.scrollView}
         contentContainerStyle={[parentStyles.scrollContent, {paddingTop: 4}]}
         showsVerticalScrollIndicator={false}>
-        {requestCard}
+        {requestCard && React.cloneElement(requestCard, {caption: screenCopy.subtitle})}
 
         <View style={localStyles.summaryPanel}>
           <View style={localStyles.changeList}>
@@ -632,6 +806,9 @@ const HighRiskStep = ({
           </View>
         </View>
 
+        {screenCopy.note ? (
+          <Text style={localStyles.quietNote}>{screenCopy.note}</Text>
+        ) : null}
       </ScrollView>
 
       <BottomSheetModal

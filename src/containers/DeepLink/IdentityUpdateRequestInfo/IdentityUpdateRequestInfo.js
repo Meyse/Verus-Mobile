@@ -1023,12 +1023,7 @@ const IdentityUpdateRequestInfoContent = props => {
     showResponder: true,
   };
   const compactRequestCard = (
-    <RequestCardCompact
-      {...requestCardProps}
-      caption={currentStepId === STEP_HIGH_RISK
-        ? 'These changes affect who controls and recovers this VerusID.'
-        : undefined}
-    />
+    <RequestCardCompact {...requestCardProps} />
   );
 
   // --- Render ---
