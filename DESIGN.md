@@ -93,7 +93,8 @@ methods, never Verus Mobile's visual direction.
   transaction IDs, and public keys.
 - Show a status as the tinted status badge: a pill with a semantic background
   and colored text, as `src/components/StatusBadge.js` draws it. Do not put a
-  colored dot beside status text.
+  colored dot beside status text. Badge text uses the tone's badge text token
+  at 4.5:1 contrast or more.
 - A second button under a primary action uses `AppButton` with
   `variant="secondary"` (the filled tint), 10 points below the primary, as in
   `src/containers/Services/AddressBook/AddressBookEditSheet.js`. This includes
@@ -168,7 +169,7 @@ were removed for this rule, because a shaded raster cannot follow the theme.
 | App alert | `src/components/Alert.js` through `createAlert`, with the `AcknowledgeSheet` measurements, and [App alerts](#app-alerts) below | Prefer the screen itself. Never use a Paper `Dialog` or a native `Alert.alert` in redesigned UI. |
 | Empty or failed list | `src/components/EmptyState.js` and [Imagery](#imagery) | Use it for every list without items or with a load error. Do not draw a local picture, title and button. |
 | Icon-led step | `src/components/StepGlyph.js`, as `src/containers/Onboard/CreateProfile/Forms/UseBiometrics.js` uses it | Lead the step with `StepGlyph`. Do not size or color a step icon locally. |
-| Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. |
+| Status label | `src/components/StatusBadge.js` | Reuse the tinted badge with a `success`, `warning`, `danger`, or `neutral` tone. On the gift card material, pass `variant="card"`. Badge text uses the tone's badge text token at 4.5:1 contrast or more. |
 | Transaction result | `src/components/TransactionResult.js`, as `src/containers/SendWizard/SendWizardSuccess.js` uses it, and [Transaction result](#transaction-result) below | Use it for every screen after the wallet sends transactions. It has no section label and no count line. |
 | Sheet action rows | `src/components/SignedOutActionRow.js`, `GiftCardOptionRow` in `src/containers/Services/ServiceComponents/GiftCardService/GiftCardOptionsSheet.js`, `src/styles/components/signedOutSheet.styles.js` | Use the unfilled 62-point rows with the dimmed icon, semibold label, and chevron. Do not draw filled option rows. |
 | Compact form BottomSheet | `src/containers/Services/AddressBook/AddressBookEditSheet.js` | Reuse its title, input, keyboard, and bottom-action layout. |
