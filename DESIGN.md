@@ -1373,6 +1373,14 @@ visible or use it as a button.
 
 ## Request-review hierarchy
 
+1. Who is requesting or signing.
+2. What the request asks the wallet to do.
+3. Which wallet or VerusID will respond.
+4. Technical details behind a clear details affordance.
+5. One primary action for the next required step.
+
+The request card carries points 1 to 3. The requester sheet carries point 4.
+
 Owner approval, 2026-10-28: every GenericRequest review uses the bordered
 request card (Z3). The approved references are the round-5 request mockups.
 It replaces the screen title, source card, "View request details" link, and
