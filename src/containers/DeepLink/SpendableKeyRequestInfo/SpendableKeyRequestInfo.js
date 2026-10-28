@@ -13,12 +13,10 @@ import Animated, {FadeIn, ReduceMotion} from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {KeyRound} from 'lucide-react-native';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
-import StepGlyph from '../../../components/StepGlyph';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import TransactionResult from '../../../components/TransactionResult';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
@@ -78,6 +76,7 @@ import ClaimingFundsView, {getClaimAnimationCoin} from './ClaimingFundsView';
 import {
   DeepLinkReviewScrollView,
   RequestTitle,
+  RequestCard,
 } from '../components/RequestReview';
 import {
   getPendingDeeplinkRequest,
@@ -1666,14 +1665,11 @@ const SpendableKeyRequestInfoContent = props => {
                   styles.passwordScrollContentWithBack,
               ]}>
               <View style={styles.passwordContent}>
-                <StepGlyph icon={KeyRound} />
-                <RequestTitle style={styles.passwordTitle}>
-                  Decrypt spendable key
-                </RequestTitle>
-                <Text style={styles.passwordDescription}>
-                  This key is encrypted. Enter or scan its claim password to
-                  review the funds and VerusIDs it can claim.
-                </Text>
+                <RequestCard
+                  action="wants you to claim funds"
+                  requester={props}
+                  caption="This key is encrypted. Enter the claim password to see what it holds."
+                />
                 <View pointerEvents={isDecrypting ? 'none' : 'auto'}>
                   <AppTextInput
                     ref={passwordInputRef}
@@ -1695,13 +1691,13 @@ const SpendableKeyRequestInfoContent = props => {
                     onSubmitEditing={
                       decryptDisabled ? undefined : scanClaims
                     }
-                    placeholder="Enter claim password"
                     returnKeyType="done"
                     rightAccessibilityLabel={
                       showPassword
                         ? 'Hide claim password'
                         : 'Show claim password'
                     }
+                    rightIconColor={theme.colors.textSecondary}
                     rightIcon={showPassword ? 'eye-off' : 'eye'}
                     secureTextEntry={!showPassword}
                     themeMode={theme.mode}
@@ -1908,13 +1904,21 @@ const SpendableKeyRequestInfoContent = props => {
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={styles.container}>
-      <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <RequestTitle>{mainTitle}</RequestTitle>
-          {statusSubtitle ? (
-            <Text style={styles.subtitle}>{statusSubtitle}</Text>
-          ) : null}
-        </View>
+      <DeepLinkReviewScrollView requestCard={status === 'review'} contentContainerStyle={status === 'review' ? styles.reviewScrollContent : styles.scrollContent}>
+        {status === 'review' ? (
+          <RequestCard
+            action="wants you to claim funds"
+            requester={props}
+            showResponder={!!activeAccountMatchesRequest}
+            responderWord="to"
+            responderName={activeAccount?.id}
+          />
+        ) : (
+          <View style={styles.header}>
+            <RequestTitle>{mainTitle}</RequestTitle>
+            {statusSubtitle ? <Text style={styles.subtitle}>{statusSubtitle}</Text> : null}
+          </View>
+        )}
 
         {status === 'error' &&
           requestError?.message != null &&
@@ -2023,15 +2027,12 @@ const SpendableKeyRequestInfoContent = props => {
           <>
             {reviewModel.singleBalance ? (
               <View style={styles.amountHero}>
-                <Text style={styles.chainLabel}>
-                  {getSystemLabel(reviewModel.singleBalance.system)}
-                </Text>
                 <View style={styles.amountHeroRow}>
                   <Text
                     adjustsFontSizeToFit
                     minimumFontScale={0.62}
                     numberOfLines={1}
-                    style={styles.amountHeroValue}>
+                    style={[styles.amountHeroValue, styles.reviewAmountValue]}>
                     {reviewModel.singleBalance.currency.balanceAmount}
                   </Text>
                   <Text
@@ -2201,10 +2202,7 @@ const SpendableKeyRequestInfoContent = props => {
                     {destination && (
                       <View style={styles.claimDetailRow}>
                         <View style={styles.claimDetailHeader}>
-                          <Text style={styles.claimDetailLabel}>To</Text>
-                          <Text numberOfLines={2} style={styles.rowAmount}>
-                            {activeAccount?.id}
-                          </Text>
+                          <Text style={styles.claimDetailLabel}>Receiving address</Text>
                         </View>
                         <Text selectable style={styles.claimDetailAddress}>
                           {destination}
@@ -2215,6 +2213,7 @@ const SpendableKeyRequestInfoContent = props => {
                       <View
                         style={[
                           styles.flatRow,
+                          styles.claimFeeRow,
                           destination && styles.flatRowBorder,
                         ]}>
                         <Text style={styles.claimDetailLabel}>

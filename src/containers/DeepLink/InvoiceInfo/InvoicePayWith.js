@@ -36,6 +36,7 @@ import {formatLessPercent, IMPACT_LEVEL} from '../../SendWizard/priceImpact';
 import {getSampleAmount} from '../../SendWizard/usePriceImpact';
 import {ADDRESS_TYPE, buildSendTarget} from '../../SendWizard/wizardUtils';
 import InvoiceSlip from './InvoiceSlip';
+import RequestCard from '../components/RequestReview/RequestCard';
 
 // A card as Receive's "Choose a card" names it.
 export const getPayFromLabel = wallet => {
@@ -331,7 +332,7 @@ const InvoicePayWith = () => {
       route.cards.length > 1
         ? `${route.cards.length} cards`
         : getPayFromLabel(route.cards[0].option.wallet);
-    const detail = [from, `Balance ${truncateDecimal(balance, 4)} ${ticker}`].join(
+    const detail = [from, `Balance\u00a0${truncateDecimal(balance, 4)}\u00a0${ticker}`].join(
       ' · ',
     );
     // As on Send's Amount step: a chip when the impact is at least 0.1% or
@@ -369,7 +370,7 @@ const InvoicePayWith = () => {
         </View>
         <View style={styles.copy}>
           <View style={styles.titleRow}>
-            <Text numberOfLines={1} style={[styles.name, {color: theme.colors.textPrimary}]}>
+            <Text numberOfLines={1} style={[theme.typography.titleRow, styles.name, {color: theme.colors.textPrimary}]}>
               {group.coin.display_name}
             </Text>
             {cost ? (
@@ -458,6 +459,12 @@ const InvoicePayWith = () => {
         containerStyle={styles.viewport}
         contentContainerStyle={styles.content}
         fadeBackgroundColor={theme.colors.background}>
+        <RequestCard
+          action="wants you to pay"
+          requester={flow.requester}
+          sections={flow.requesterSections}
+          style={styles.requestCard}
+        />
         <View style={styles.slip}>
           <InvoiceSlip
             amount={invoice.amountDisplay ?? 'Any amount'}
@@ -543,18 +550,19 @@ const InvoicePayWith = () => {
 const styles = StyleSheet.create({
   viewport: {flex: 1},
   content: {paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 24},
+  requestCard: {marginHorizontal: WIZARD_CONTENT_INSET},
   slip: {marginHorizontal: WIZARD_CONTENT_INSET, marginBottom: 8},
   groupTitle: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
-    paddingTop: 18,
-    paddingBottom: 2,
+    paddingTop: 16,
+    paddingBottom: 4,
     fontSize: 14,
     lineHeight: 20,
     ...fontStyle('semiBold'),
   },
   row: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
-    paddingVertical: 14,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -564,12 +572,12 @@ const styles = StyleSheet.create({
   skeletonCopy: {gap: 8},
   titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   // The name keeps its width (up to half the row); the cost shrinks first.
-  name: {flexShrink: 0, maxWidth: '50%', fontSize: 17, lineHeight: 22, ...fontStyle('semiBold')},
+  name: {flexShrink: 0, maxWidth: '50%'},
   cost: {flexShrink: 1, minWidth: 0, marginLeft: 12, textAlign: 'right', fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
   detailRow: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4},
   detail: {flex: 1, fontSize: 14, lineHeight: 20, ...fontStyle('regular')},
   // The chip keeps the row's rhythm; its hit slop keeps a 44-point target.
-  chip: {minHeight: 20, marginLeft: 10},
+  chip: {minHeight: 20, marginLeft: 8},
   empty: {paddingHorizontal: 24, paddingTop: 32, alignItems: 'center'},
   emptyTitle: {fontSize: 17, lineHeight: 22, textAlign: 'center', ...fontStyle('semiBold')},
   emptyBody: {fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8, ...fontStyle('regular')},

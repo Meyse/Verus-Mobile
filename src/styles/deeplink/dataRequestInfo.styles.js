@@ -4,8 +4,8 @@ import createAppEncryptionRequestInfoStyles from './appEncryptionRequestInfo.sty
 const createDataRequestInfoStyles = theme => ({
   ...createAppEncryptionRequestInfoStyles(theme),
   ...StyleSheet.create({
-    // The source card above already ends with its own bottom margin, so the
-    // first item starts flush. Items keep 20 points on each side of a divider.
+    // RequestCard owns the gap before the first item. Items keep their
+    // existing consent layout and spacing in phase 1.
     section: {},
     item: {
       paddingBottom: 20,
@@ -56,10 +56,6 @@ const createDataRequestInfoStyles = theme => ({
     },
     consentProgress: {
       ...theme.typography.caption,
-      color: theme.colors.textSecondary,
-    },
-    compactResponderLabel: {
-      ...theme.typography.captionCompact,
       color: theme.colors.textSecondary,
     },
     loading: {paddingBottom: 24, gap: 16},

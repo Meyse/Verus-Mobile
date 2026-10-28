@@ -36,7 +36,7 @@ import {
   loadPaidInvoice,
   savePaidInvoice,
 } from '../../../utils/deeplink/paidInvoiceStorage';
-import DeepLinkRequestSourceCard from '../components/RequestReview/DeepLinkRequestSourceCard';
+import RequestCard from '../components/RequestReview/RequestCard';
 import DeepLinkRequestSheetScaffold from '../components/RequestReview/DeepLinkRequestSheetScaffold';
 import DeepLinkVerusIdDetailsSheet from '../components/RequestReview/DeepLinkVerusIdDetailsSheet';
 import InvoicePaymentConfiguration from '../InvoicePaymentConfiguration/InvoicePaymentConfiguration';
@@ -256,6 +256,17 @@ const InvoiceInfo = props => {
         : null,
   };
 
+  const requester = {request, signerFqn, signerIdentityID, signerSystemID, signerSystemName: signerChain, sigtime};
+  const requesterSections = [{title: 'Invoice', rows: [
+    {label: 'Currency', value: currency},
+    {label: 'Supported networks', value: [...networks.map(network => network.fullyqualifiedname), ...otherNetworks].join('\n') || null},
+    {label: 'Conversion', value: details.acceptsConversion() && !isBurn ? 'Supported' : null},
+    {label: isBurn ? 'Burn output address' : 'Destination', value: details.acceptsAnyDestination() ? null : details.destination.getAddressString(), copy: true},
+    {label: 'Expires', value: expiry},
+    {label: 'Amount', value: anyAmount ? 'You choose' : `${amountDisplay} ${currency}`},
+    {label: 'Maximum estimated slippage', value: details.acceptsConversion() && !isBurn ? `${satsToCoins(BigNumber(details.maxestimatedslippage)).times(100).toString()}%` : null},
+  ]}];
+
   const renderSheets = () => (
     <>
       <DeepLinkRequestSheetScaffold
@@ -346,31 +357,10 @@ const InvoiceInfo = props => {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <DeepLinkReviewScrollView
         showScrollCue
+        requestCard
         style={styles.scroll}
         contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
-          {isBurn ? 'Review burn request' : 'Pay invoice'}
-        </Text>
-        {isSigned ? (
-          <DeepLinkRequestSourceCard
-            style={compact ? styles.compactRequester : undefined}
-            requesterLabel={requesterLabel}
-            onPressRequester={
-              signerChain && signerIdentityID ? openRequester : undefined
-            }
-            metadataRows={[
-              {label: 'Signed', value: unixToDate(sigtime)},
-              {label: 'Network', value: signerChain || coinObj.display_ticker},
-            ]}
-          />
-        ) : (
-          <View style={styles.notice}>
-            <Text style={styles.selectionTitle}>Unsigned invoice</Text>
-            <Text style={styles.subtitle}>
-              This invoice does not include a signer identity.
-            </Text>
-          </View>
-        )}
+        <RequestCard action="wants you to pay" requester={requester} sections={requesterSections} />
         <Text selectable style={styles.amount}>
           {anyAmount ? `Amount in ${currency}` : `${amountDisplay} ${currency}`}
         </Text>
@@ -480,6 +470,8 @@ const InvoiceInfo = props => {
           <InvoicePayFlow
             flow={{
               invoice: invoiceFacts,
+              requester,
+              requesterSections,
               cards,
               loading,
               conversionError,

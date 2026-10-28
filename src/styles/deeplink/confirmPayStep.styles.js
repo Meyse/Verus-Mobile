@@ -15,36 +15,24 @@ const IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT = 360;
 // extracted payment-step styling to keep fee and signing logic focused.
 const createConfirmPayStepStyles = theme => StyleSheet.create({
   feeCard: {
-    backgroundColor: theme.colors.surfaceMuted,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 28,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    paddingVertical: 16, borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border,
   },
-  feeLabel: {
-    fontSize: 11,
-    color: theme.colors.textSubtle,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0,
-    marginBottom: 4,
-  },
-  feeContent: {
-    height: 38,
-    justifyContent: 'center',
-  },
+  feeLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary, flex: 1},
+  feeContent: {minHeight: 24, flexShrink: 1, alignItems: 'flex-end', justifyContent: 'center'},
   feeValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...theme.typography.labelMd,
     color: theme.colors.textPrimary,
   },
   feeFiat: {
     fontSize: 13,
-    color: theme.colors.textSubtle,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   feePlaceholder: {
     fontSize: 14,
-    color: theme.colors.textSubtle,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
   feeCalculatingRow: {
@@ -76,7 +64,8 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
   },
   recapRow: {
     minWidth: 0,
-    minHeight: 45,
+    minHeight: 48,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -86,10 +75,8 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
     borderTopColor: theme.colors.border,
   },
   recapLabel: {
-    color: theme.colors.textSubtle,
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: 0,
+    ...theme.typography.bodySm,
+    color: theme.colors.textSecondary,
     marginRight: 12,
     minWidth: 118,
   },
@@ -104,7 +91,7 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
     textAlign: 'right',
   },
   selectedSourceLabel: {
-    color: theme.colors.textSubtle,
+    color: theme.colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -112,7 +99,7 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
     marginBottom: 8,
   },
   selectedSourceCard: {
-    height: 56,
+    minHeight: 56,
     borderRadius: 18,
     paddingHorizontal: 16,
     backgroundColor: theme.colors.successBackground,
@@ -202,7 +189,7 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
   },
   walletBalanceTicker: {
     fontSize: 11,
-    color: theme.colors.textSubtle,
+    color: theme.colors.textSecondary,
     marginTop: 1,
   },
   encryptedKeyRecapRow: {
@@ -274,7 +261,7 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
     justifyContent: 'space-between',
   },
   txidLabel: {
-    color: theme.colors.textSubtle,
+    color: theme.colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0,
@@ -302,7 +289,7 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
   },
   redirectCompleteHint: {
     alignSelf: 'stretch',
-    color: theme.colors.textSubtle,
+    color: theme.colors.textSecondary,
     fontSize: 12,
     letterSpacing: 0,
     lineHeight: 16,

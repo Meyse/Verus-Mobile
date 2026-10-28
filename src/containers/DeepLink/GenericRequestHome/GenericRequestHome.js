@@ -6,10 +6,10 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
 import { Text } from 'react-native-paper';
+import {SquareArrowOutUpRight} from 'lucide-react-native';
 import {CommonActions} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {
-  SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
@@ -155,15 +155,9 @@ const autoDeliverySheetStyles = StyleSheet.create({
 });
 
 const otherAppStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-  },
   action: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+    position: 'absolute', right: 12, zIndex: 1,
+    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
   },
 });
 
@@ -975,6 +969,7 @@ const GenericRequestHome = props => {
     [IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid]: () => (
       <IdentityUpdateRequestInfo
         {...displayProps}
+        request={request}
         cancel={cancelRequest}
         setLoading={props.setLoading}
         navigation={props.navigation}
@@ -1115,38 +1110,16 @@ const GenericRequestHome = props => {
         <AnimatedActivityIndicatorBox />
       ) : (
         <View style={{flex: 1, backgroundColor: theme.colors.background}}>
-          {valuInstalled && (
-            // In normal flow above the review, so it never covers the
-            // screen's own title or controls.
-            <View style={[otherAppStyles.row, {paddingTop: insets.top}]}>
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.72}
-                onPress={() => setOpenInAnotherAppVisible(true)}
-                style={otherAppStyles.action}>
-                <Text
-                  style={[
-                    theme.typography.labelMd,
-                    {
-                      color: theme.isDark
-                        ? theme.colors.textPrimary
-                        : theme.colors.primary,
-                    },
-                  ]}>
-                  Open in another app
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          {valuInstalled ? (
-            // Safe-area views measure insets from the nearest provider. This
-            // provider starts below the row, so the review does not add the
-            // status-bar inset a second time.
-            <SafeAreaProvider style={{flex: 1}}>
-              {screens[displayKey]()}
-            </SafeAreaProvider>
-          ) : (
-            <View style={{flex: 1}}>{screens[displayKey]()}</View>
+          <View style={{flex: 1}}>{screens[displayKey]()}</View>
+          {valuInstalled && displayKey !== VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Open in another app"
+              activeOpacity={0.72}
+              onPress={() => setOpenInAnotherAppVisible(true)}
+              style={[otherAppStyles.action, {top: insets.top}]}>
+              <SquareArrowOutUpRight size={21} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
           )}
         </View>
       )}

@@ -19,47 +19,16 @@ const createAppEncryptionRequestInfoStyles = theme =>
       ...fontStyle('regular'),
     },
     warningCard: {
-      marginBottom: theme.spacing.lg,
-      padding: theme.spacing.md,
-      borderRadius: 16,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.isDark
-        ? 'rgba(255, 178, 92, 0.38)'
-        : 'rgba(248, 147, 54, 0.38)',
-      backgroundColor: theme.isDark
-        ? 'rgba(255, 178, 92, 0.11)'
-        : '#FFF5E8',
+      paddingVertical: 16,
+      marginBottom: 24,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.border,
     },
-    warningHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 7,
-    },
-    warningTitle: {
-      flex: 1,
-      minWidth: 0,
-      color: theme.colors.textPrimary,
-      fontSize: 15,
-      lineHeight: 20,
-      letterSpacing: 0,
-      ...fontStyle('semiBold'),
-    },
-    warningText: {
-      color: theme.colors.textSecondary,
-      fontSize: 13,
-      lineHeight: 19,
-      letterSpacing: 0,
-      ...fontStyle('regular'),
-    },
-    warningEmphasis: {
-      color: theme.colors.textPrimary,
-      fontSize: 13,
-      lineHeight: 19,
-      letterSpacing: 0,
-      marginTop: 8,
-      ...fontStyle('semiBold'),
-    },
+    warningHeader: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8},
+    warningTitle: {...theme.typography.labelMd, color: theme.colors.textSecondary},
+    warningText: {...theme.typography.bodyMd, color: theme.colors.textPrimary},
+    warningEmphasis: {...theme.typography.bodyMd, ...fontStyle('semiBold'), color: theme.colors.textPrimary, marginTop: 8},
     footer: {
       backgroundColor: theme.colors.background,
       paddingTop: theme.spacing.sm,
@@ -106,46 +75,6 @@ const createAppEncryptionRequestInfoStyles = theme =>
       lineHeight: 17,
       letterSpacing: 0,
       ...fontStyle('regular'),
-    },
-    selectedIdentityLabel: {
-      color: theme.colors.textSubtle,
-      fontSize: 13,
-      lineHeight: 18,
-      letterSpacing: 0,
-      marginBottom: 8,
-      ...fontStyle('semiBold'),
-    },
-    compactResponderLabel: {
-      ...theme.typography.captionCompact,
-      color: theme.colors.textSecondary,
-    },
-    selectedIdentityCard: {
-      height: 56,
-      borderRadius: 18,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: 0,
-      backgroundColor: theme.colors.successBackground,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    selectedIdentityText: {
-      flex: 1,
-      minWidth: 0,
-      paddingRight: 10,
-    },
-    selectedIdentityName: {
-      color: theme.colors.textPrimary,
-      fontSize: 17,
-      lineHeight: 22,
-      letterSpacing: 0,
-      ...fontStyle('semiBold'),
-    },
-    selectedIdentityCheck: {
-      width: 24,
-      height: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginLeft: 2,
     },
   });
 

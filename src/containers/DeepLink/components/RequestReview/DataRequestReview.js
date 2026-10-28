@@ -2,7 +2,6 @@ import React, {useMemo, useState} from 'react';
 import {TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Checkbox, Text} from 'react-native-paper';
-import {Check} from 'lucide-react-native';
 import AppButton from '../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import SkeletonLoader, {
@@ -17,13 +16,10 @@ import {
 } from '../../../../utils/deeplink/genericRequestDelivery';
 import {unixToDate} from '../../../../utils/math';
 import IdentityPickerSheet from '../VerusIdIdentityPickerSheet/IdentityPickerSheet';
-import DeepLinkRequestSourceCard from './DeepLinkRequestSourceCard';
-import DeepLinkRequestDetailsSheet from './DeepLinkRequestDetailsSheet';
+import RequestCard from './RequestCard';
+import {getResponseHostLabel} from './requestReviewCopy';
 import DeepLinkRequestSheetScaffold from './DeepLinkRequestSheetScaffold';
 import DeepLinkReviewScrollView from './DeepLinkReviewScrollView';
-import RequestTitle from './RequestTitle';
-import {getButtonHitSlop, useButtonHeight} from '../../../../hooks/useButtonHeight';
-import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 export const formatReviewValue = value => {
   if (typeof value === 'string') return value;
@@ -154,8 +150,9 @@ export const DataReviewItem = ({
 };
 
 export default function DataRequestReview({
-  title,
-  description,
+  requestAction,
+  responderWord = 'as',
+  responseCaption,
   props,
   identity,
   children,
@@ -169,23 +166,12 @@ export default function DataRequestReview({
 }) {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  const responderHeight = useButtonHeight();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const delivery = getGenericRequestDeliveryInfo(props.request);
   const selected = identity.selectedIdentity;
-  const metadataRows = [
-    {label: 'Network', value: props.signerSystemName || props.signerSystemID},
-    delivery.destinationHost
-      ? {label: 'Response destination', value: delivery.destinationHost}
-      : null,
-  ].filter(Boolean);
   const sections = [
     {
       title: 'Request',
       rows: [
-        {label: 'Requester', value: props.signerFqn || props.signerIdentityID},
-        {label: 'Requester address', value: props.signerIdentityID},
         {
           label: 'Network',
           value: props.signerSystemName || props.signerSystemID,
@@ -199,7 +185,7 @@ export default function DataRequestReview({
           value:
             getGenericRequestDeliveryLabel(delivery) || 'No callback requested',
         },
-        {label: 'Response URI', value: delivery.uriString},
+        {label: 'Response URI', value: delivery.uriString, copy: true},
         {label: 'Responding VerusID', value: selected?.iAddress},
         {label: 'Required VerusID', value: identity.requiredIdentity},
       ],
@@ -252,23 +238,18 @@ export default function DataRequestReview({
         onClose={() => identity.setIdentitySheetVisible(false)}
         onSelect={identity.selectIdentity}
       />
-      <DeepLinkRequestDetailsSheet
-        visible={detailsVisible}
-        onClose={() => setDetailsVisible(false)}
-        sections={sections}
-      />
-      <DeepLinkReviewScrollView showScrollCue>
-        <View style={styles.header}>
-          <RequestTitle>{title}</RequestTitle>
-          {description ? <Text style={styles.mainSubtitle}>{description}</Text> : null}
-        </View>
-        <DeepLinkRequestSourceCard
-          requesterLabel={
-            props.signerFqn || props.signerIdentityID || 'Requester'
-          }
-          metadataRows={metadataRows}
-          showRequestDetailsLink
-          onPressRequestDetails={() => setDetailsVisible(true)}
+      <DeepLinkReviewScrollView showScrollCue requestCard>
+        <RequestCard
+          action={requestAction}
+          requester={props}
+          sections={sections}
+          showResponder={!!selected}
+          responderName={selected?.friendlyName}
+          responderWord={responderWord}
+          onPressResponder={selected && !processing ? () => identity.setIdentitySheetVisible(true) : undefined}
+          caption={delivery.destinationHost
+            ? responseCaption(getResponseHostLabel(delivery.destinationHost))
+            : 'No response will be sent to the requester.'}
         />
         <View style={styles.section}>
           {identity.signerConflict ? (
@@ -314,27 +295,6 @@ export default function DataRequestReview({
         gap={10}
         horizontalSpacing={24}
         style={styles.footer}>
-        {selected && (
-          <View>
-            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Respond as</Text>}
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={`Respond as ${selected.friendlyName}`}
-              accessibilityHint="Choose a different VerusID"
-              disabled={processing}
-              onPress={() => identity.setIdentitySheetVisible(true)}
-              hitSlop={getButtonHitSlop(responderHeight)}
-              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
-              <View style={styles.selectedIdentityText}>
-                {smallDevice && <Text style={styles.compactResponderLabel}>Respond as</Text>}
-                <Text numberOfLines={1} style={styles.selectedIdentityName}>
-                  {selected.friendlyName}
-                </Text>
-              </View>
-              <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
-        )}
         {error ? (
           <Text
             accessibilityRole="alert"

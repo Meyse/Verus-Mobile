@@ -10,7 +10,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import {RequestTitle} from '../../components/RequestReview';
 import { useSelector } from 'react-redux';
 import { formatCurrency } from 'react-native-format-currency';
 import { Check } from 'lucide-react-native';
@@ -155,6 +154,7 @@ const getDeliveryErrorMessage = (error, deliveryInfo) => {
 };
 
 const ConfirmPayStep = ({
+  requestCard,
   details,
   requestIsTestnet,
   subjectIdentity,
@@ -585,7 +585,7 @@ const ConfirmPayStep = ({
   const primaryActionDisabled = !!selectedSource && !hasFee;
   const recapRows = [
     highRiskCount > 0
-      ? {label: 'High-risk acknowledgements', value: highRiskCount}
+      ? {label: 'High-risk changes', value: highRiskCount}
       : null,
     contentCount > 0 ? {label: 'Content changes', value: contentCount} : null,
   ].filter(Boolean);
@@ -641,12 +641,10 @@ const ConfirmPayStep = ({
     <View style={{ flex: 1 }}>
       <ScrollView
         style={parentStyles.scrollView}
-        contentContainerStyle={parentStyles.scrollContent}
+        contentContainerStyle={[parentStyles.scrollContent, {paddingTop: 4}]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={parentStyles.header}>
-          <RequestTitle>Confirm update</RequestTitle>
-        </View>
+        {requestCard}
 
         <IdentityStateChangeCard change={preparedStateChange || identityStateChange} detailed />
 
@@ -704,7 +702,6 @@ const ConfirmPayStep = ({
 
         {/* Recap */}
         <View style={localStyles.recapCard}>
-          <Text style={localStyles.recapTitle}>Changes recap</Text>
           {recapRows.map((row, index) => (
             <View
               key={row.label}
@@ -756,7 +753,7 @@ const ConfirmPayStep = ({
                 </Text>
               </View>
               <View style={localStyles.selectedSourceCheck}>
-                <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
+                <Check color={theme.colors.successText} size={22} strokeWidth={2.5} />
               </View>
             </TouchableOpacity>
           </View>

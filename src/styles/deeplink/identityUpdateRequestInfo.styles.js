@@ -18,15 +18,15 @@ const createIdentityUpdateRequestInfoStyles = theme =>
       backgroundColor: theme.colors.background,
     },
     stepHeader: {
-      minHeight: 54,
+      height: 44,
       paddingHorizontal: theme.spacing.lg,
-      paddingTop: theme.spacing.sm,
-      paddingBottom: 6,
+      paddingTop: 0,
+      paddingBottom: 0,
       backgroundColor: theme.colors.background,
     },
     backButton: {
-      width: 40,
-      height: 40,
+      width: 44,
+      height: 44,
       marginLeft: -8,
       alignItems: 'center',
       justifyContent: 'center',
@@ -55,7 +55,9 @@ const createIdentityUpdateRequestInfoStyles = theme =>
       paddingTop: theme.spacing.sm,
     },
     footerDetailsList: {
-      marginBottom: theme.spacing.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.colors.border,
+      marginBottom: 24,
     },
     footerDetailRow: {
       minWidth: 0,
@@ -69,10 +71,8 @@ const createIdentityUpdateRequestInfoStyles = theme =>
       borderTopColor: theme.colors.border,
     },
     footerDetailLabel: {
-      color: theme.colors.textSubtle,
-      fontSize: 13,
-      lineHeight: 18,
-      letterSpacing: 0,
+      ...theme.typography.bodySm,
+      color: theme.colors.textSecondary,
       marginRight: 12,
       minWidth: 112,
       ...fontStyle('regular'),
@@ -102,7 +102,7 @@ const createIdentityUpdateRequestInfoStyles = theme =>
       ...fontStyle('semiBold'),
     },
     footerDetailValueDanger: {
-      color: theme.colors.danger,
+      color: theme.colors.dangerText,
     },
     rawDataSheetContent: {
       flexShrink: 1,

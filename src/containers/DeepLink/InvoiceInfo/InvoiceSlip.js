@@ -23,13 +23,13 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
   const [perforation, setPerforation] = useState(0);
   const {width: w, height: h} = size;
   const p = perforation;
-  const outline = getTicketOutline(w, h, p);
+  const outline = getTicketOutline(w, h, p, undefined, signer ? 0 : undefined);
 
   return (
     <View
       accessible
       accessibilityLabel={`Invoice for ${amount} ${unit}${
-        signer ? `, request from ${signer}` : ', unsigned'
+        signer ? '' : ', unsigned'
       }`}
       onLayout={event => setSize(event.nativeEvent.layout)}
       style={styles.frame}>
@@ -46,7 +46,7 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
             stroke={paper.outline}
             strokeWidth={1}
           />
-          <Line
+          {!signer && <Line
             x1={25}
             x2={w - 25}
             y1={p}
@@ -55,7 +55,7 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
             strokeWidth={1.6}
             strokeLinecap="round"
             strokeDasharray="1 6"
-          />
+          />}
         </Svg>
       ) : null}
       <View
@@ -85,8 +85,8 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
         </View>
         {fiat ? <Text style={styles.estimate}>≈ {fiat}</Text> : null}
       </View>
-      <View style={[localStyles.stub, compact && localStyles.stubCompact]}>
-        <Text style={localStyles.stubLabel}>{signer ? 'Request from' : 'To'}</Text>
+      {!signer && <View style={[localStyles.stub, compact && localStyles.stubCompact]}>
+        <Text style={localStyles.stubLabel}>To</Text>
         <Text
           ellipsizeMode="middle"
           numberOfLines={1}
@@ -95,9 +95,9 @@ const InvoiceSlip = ({amount, unit, fiat, signer, destination}) => {
             !signer && localStyles.stubIdentifier,
             !signer && styles.identifier,
           ]}>
-          {signer || destination}
+          {destination}
         </Text>
-      </View>
+      </View>}
     </View>
   );
 };

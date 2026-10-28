@@ -24,7 +24,7 @@ const createHighRiskStepStyles = theme =>
       padding: theme.spacing.md,
     },
     panelLabel: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 13,
       lineHeight: 18,
       letterSpacing: 0,
@@ -54,17 +54,17 @@ const createHighRiskStepStyles = theme =>
       minWidth: 0,
     },
     changeKicker: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 13,
       lineHeight: 18,
       letterSpacing: 0,
       ...fontStyle('semiBold'),
     },
     changeKickerWarning: {
-      color: theme.colors.warning,
+      color: theme.colors.warningText,
     },
     changeKickerDanger: {
-      color: theme.colors.danger,
+      color: theme.colors.dangerText,
     },
     changeValue: {
       marginTop: 6,
@@ -96,21 +96,8 @@ const createHighRiskStepStyles = theme =>
     changeLine: {
       marginTop: 8,
     },
-    changeLineLabel: {
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      lineHeight: 17,
-      letterSpacing: 0,
-      ...fontStyle('semiBold'),
-    },
-    changeLineValue: {
-      marginTop: 2,
-      color: theme.colors.textSecondary,
-      fontSize: 15,
-      lineHeight: 21,
-      letterSpacing: 0,
-      ...fontStyle('regular'),
-    },
+    changeLineLabel: {...theme.typography.labelSm, color: theme.colors.textSecondary},
+    changeLineValue: {marginTop: 2, ...theme.typography.bodyMd, color: theme.colors.textSecondary},
     changeLineValueEmphasis: {
       color: theme.colors.textPrimary,
       ...fontStyle('semiBold'),
@@ -122,7 +109,7 @@ const createHighRiskStepStyles = theme =>
       fontWeight: Platform.OS === 'ios' ? '500' : 'normal',
     },
     changeView: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 14,
       lineHeight: 20,
       letterSpacing: 0,
@@ -130,7 +117,7 @@ const createHighRiskStepStyles = theme =>
     },
     quietNote: {
       marginTop: 18,
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 13,
       lineHeight: 18,
       letterSpacing: 0,
@@ -201,7 +188,7 @@ const createHighRiskStepStyles = theme =>
       paddingVertical: 8,
     },
     sheetAckLabel: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 11,
       lineHeight: 15,
       letterSpacing: 0,
@@ -227,7 +214,7 @@ const createHighRiskStepStyles = theme =>
       borderBottomColor: theme.colors.border,
     },
     detailLabel: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 12,
       lineHeight: 17,
       letterSpacing: 0,

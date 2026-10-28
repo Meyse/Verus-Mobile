@@ -161,10 +161,9 @@ const UserDataRequestInfoContent = props => {
 
   return (
     <DataRequestReview
-      title="Share credentials"
-      description={status === 'ready' && credentials.length === 0
-        ? null
-        : 'Review the data to share. Credentials are encrypted for the requester.'}
+      requestAction="wants credentials"
+      responderWord="from"
+      responseCaption={host => `The wallet encrypts your credentials for the requester and sends them to ${host}.`}
       props={props}
       identity={identity}
       onContinue={handleContinue}

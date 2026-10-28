@@ -146,8 +146,8 @@ const DataPacketRequestInfoContent = props => {
 
   return (
     <DataRequestReview
-      title="Sign data"
-      description="Review each item before signing it with your VerusID."
+      requestAction={`wants you to sign ${statements.length + signableObjectSummaries.length} ${statements.length + signableObjectSummaries.length === 1 ? 'item' : 'items'}`}
+      responseCaption={host => `The wallet sends the signatures to ${host}.`}
       props={props}
       identity={identity}
       onContinue={handleContinue}

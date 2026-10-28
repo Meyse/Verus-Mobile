@@ -4,9 +4,8 @@
 */
 import React, {useMemo, useState} from 'react';
 import {ScrollView, TouchableOpacity, View} from 'react-native';
-import {Eye} from 'lucide-react-native';
+import {ChevronRight} from 'lucide-react-native';
 import {Text} from 'react-native-paper';
-import {RequestTitle} from '../../components/RequestReview';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {
@@ -24,7 +23,7 @@ const PRIMARY_REVIEW_KEY = 'primary-control';
 const AUTHORITY_COPY = {
   recovery: {
     kicker: 'Recovery ID',
-    caption: 'Can recover identity',
+    caption: 'Can recover this VerusID',
     detailTitle: 'Recovery ID change',
     detailCopy:
       'Review the current and new recovery identity before you continue.',
@@ -34,7 +33,7 @@ const AUTHORITY_COPY = {
   },
   revocation: {
     kicker: 'Revocation ID',
-    caption: 'Can revoke identity',
+    caption: 'Can revoke this VerusID',
     detailTitle: 'Revocation ID change',
     detailCopy:
       'Review the current and new revocation identity before you continue.',
@@ -67,9 +66,6 @@ const valuesList = values => {
   const filtered = values.filter(Boolean).map(displayValue);
   return filtered.length > 0 ? filtered.join('\n') : 'Not available';
 };
-
-const CONTENT_CLEAR_SUBTITLE =
-  "After you confirm, apps that read this identity's active content will stop receiving these keys and values. Earlier on-chain versions may still be publicly retrievable.";
 
 const pluralizeCount = (count, singular, plural) =>
   `${count} ${count === 1 ? singular : plural}`;
@@ -302,7 +298,7 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     caption: needsAdditionalSignatures
       ? 'Your wallet will need additional signatures after this update'
       : addsExternalPrimary
-      ? 'External address gains control'
+      ? 'Gives an external address control'
       : hasExternalPrimaryAfterUpdate
       ? 'External address remains a controller'
       : 'Wallet remains in control',
@@ -446,7 +442,7 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
       highRiskType: change.highRiskType,
       kicker: 'Will clear',
       value: 'All active content',
-      caption: contentClearCaption(ackRows),
+      caption: `${contentClearCaption(ackRows)}. Apps stop receiving these keys and values. Earlier on-chain versions can still be public.`,
       tone: 'warning',
       detailTitle: 'Technical details',
       detailCopy: 'Request data for the content-clear action.',
@@ -479,176 +475,8 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
   };
 };
 
-const buildScreenCopy = reviewItems => {
-  const primary = reviewItems.find(item => item.kind === 'primary');
-  const fallbackItems = reviewItems.filter(item => item.kind === 'fallback');
-  const hasRecovery = reviewItems.some(item => item.key === 'recovery');
-  const hasRevocation = reviewItems.some(item => item.key === 'revocation');
-  const primaryLosesControl = Boolean(primary?.losesWalletControl);
-  const primaryAddsExternal = Boolean(primary?.addsExternalPrimary);
-  const contentClearItem = fallbackItems.find(
-    item => item.highRiskType === 'content-clear',
-  );
-  const otherFallbackItem = fallbackItems.find(
-    item => item.highRiskType !== 'content-clear',
-  );
-
-  if (reviewItems.length === 1) {
-    if (contentClearItem) {
-      return {
-        title: 'Clear active identity content',
-        subtitle: CONTENT_CLEAR_SUBTITLE,
-        note: null,
-      };
-    }
-
-    if (otherFallbackItem) {
-      return {
-        title: otherFallbackItem.detailTitle || 'Confirm high-risk change',
-        subtitle:
-          otherFallbackItem.risk ||
-          otherFallbackItem.caption ||
-          'Review this high-risk change before you continue.',
-        note: 'Review the exact change before continuing.',
-      };
-    }
-
-    if (primaryLosesControl) {
-      return {
-        title: 'Confirm loss of control',
-        subtitle: 'This update removes wallet primary-address control.',
-        note:
-          'Only continue if this wallet should lose primary control of this VerusID.',
-      };
-    }
-
-    if (primaryAddsExternal) {
-      return {
-        title: 'Confirm shared control',
-        subtitle:
-          'An external address is being added as a primary controller.',
-        note:
-          'Only continue if this address should be able to control this VerusID.',
-      };
-    }
-
-    if (hasRecovery) {
-      return {
-        title: 'Confirm recovery change',
-        subtitle: 'The recovery identity for this VerusID is being changed.',
-        note:
-          'Only continue if the new recovery ID should be able to recover this identity.',
-      };
-    }
-
-    if (hasRevocation) {
-      return {
-        title: 'Confirm revocation change',
-        subtitle: 'The revocation identity for this VerusID is being changed.',
-        note:
-          'Only continue if the new revocation ID should be able to revoke this identity.',
-      };
-    }
-  }
-
-  if (contentClearItem) {
-    const alsoAffectsControlOrAuthority =
-      Boolean(primary) || hasRecovery || hasRevocation;
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle: alsoAffectsControlOrAuthority
-        ? 'These updates affect active identity content and identity control or authority.'
-        : 'These updates affect active identity content and other high-risk identity settings.',
-      note:
-        'Review the content clear and every other high-risk change before continuing.',
-    };
-  }
-
-  if (!primary && hasRecovery && hasRevocation) {
-    return {
-      title: 'Confirm authority changes',
-      subtitle:
-        'The recovery and revocation identities for this VerusID are changing.',
-      note: 'Review both authority changes before continuing.',
-    };
-  }
-
-  if (primaryLosesControl && hasRecovery && hasRevocation) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        'These updates remove wallet control and change recovery and revocation authority.',
-      note: 'Review every authority change before continuing.',
-    };
-  }
-
-  if (primaryLosesControl && hasRecovery) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        'These updates remove wallet control and change recovery authority.',
-      note:
-        'Review both the primary control change and recovery authority before continuing.',
-    };
-  }
-
-  if (primaryLosesControl && hasRevocation) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        'These updates remove wallet control and change revocation authority.',
-      note:
-        'Review both the primary control change and revocation authority before continuing.',
-    };
-  }
-
-  if (primaryAddsExternal && hasRecovery && hasRevocation) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        'These updates affect who controls, recovers, and can revoke this identity.',
-      note: 'Review control, recovery, and revocation changes before continuing.',
-    };
-  }
-
-  if (primaryAddsExternal && hasRecovery) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        'These updates affect who controls and recovers this identity.',
-      note: 'Review both control and recovery authority before continuing.',
-    };
-  }
-
-  if (primaryAddsExternal && hasRevocation) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        'These updates affect who controls and can revoke this identity.',
-      note: 'Review both control and revocation authority before continuing.',
-    };
-  }
-
-  if (!primary && otherFallbackItem) {
-    return {
-      title: 'Confirm high-risk changes',
-      subtitle:
-        otherFallbackItem.risk ||
-        otherFallbackItem.caption ||
-        'Review every high-risk change before continuing.',
-      note: 'Review every high-risk change before continuing.',
-    };
-  }
-
-  return {
-    title: 'Confirm high-risk changes',
-    subtitle:
-      'These updates can affect who controls, recovers, or revokes this identity.',
-    note: 'Review every high-risk change before continuing.',
-  };
-};
-
 const HighRiskStep = ({
+  requestCard,
   highRiskChanges,
   identityStateChange,
   primaryAddressAfterUpdateInfo,
@@ -700,16 +528,7 @@ const HighRiskStep = ({
     ].filter(Boolean);
   }, [currentAuthorities, highRiskChanges, primaryAddressAfterUpdateInfo]);
 
-  const screenCopy = useMemo(
-    () => buildScreenCopy(reviewItems),
-    [reviewItems],
-  );
   const activeDetailItem = reviewItems.find(item => item.key === activeDetailKey);
-  // A row label that the screen title already says is left out.
-  const titleSays = text =>
-    typeof text === 'string' &&
-    text.length > 0 &&
-    screenCopy.title.toLowerCase().includes(text.toLowerCase());
   const ackCopy =
     reviewItems.length === 1
       ? 'Before you continue, confirm you understand this high-risk change.'
@@ -719,18 +538,14 @@ const HighRiskStep = ({
     <View style={localStyles.root}>
       <ScrollView
         style={parentStyles.scrollView}
-        contentContainerStyle={parentStyles.scrollContent}
+        contentContainerStyle={[parentStyles.scrollContent, {paddingTop: 4}]}
         showsVerticalScrollIndicator={false}>
-        <View style={parentStyles.header}>
-          <RequestTitle>{screenCopy.title}</RequestTitle>
-          <Text style={parentStyles.subtitle}>{screenCopy.subtitle}</Text>
-        </View>
+        {requestCard}
 
         <View style={localStyles.summaryPanel}>
-          <Text style={localStyles.panelLabel}>What changes</Text>
           <View style={localStyles.changeList}>
             {reviewItems.map((item, index) => {
-              const kicker = titleSays(item.kicker) ? null : (
+              const kicker = (
                 <Text
                   style={[
                     localStyles.changeKicker,
@@ -742,12 +557,7 @@ const HighRiskStep = ({
               );
               const viewAffordance = (
                 <View style={localStyles.changeViewGroup}>
-                  <Eye
-                    color={theme.colors.textSubtle}
-                    size={14}
-                    strokeWidth={2.2}
-                  />
-                  <Text style={localStyles.changeView}>View</Text>
+                  <ChevronRight color={theme.colors.textSecondary} size={22} />
                 </View>
               );
               const caption = (
@@ -822,9 +632,6 @@ const HighRiskStep = ({
           </View>
         </View>
 
-        {screenCopy.note ? (
-          <Text style={localStyles.quietNote}>{screenCopy.note}</Text>
-        ) : null}
       </ScrollView>
 
       <BottomSheetModal

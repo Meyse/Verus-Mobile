@@ -13,6 +13,7 @@ const DeepLinkReviewScrollView = ({
   keyboardShouldPersistTaps,
   style,
   showScrollCue = false,
+  requestCard = false,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(
@@ -34,7 +35,7 @@ const DeepLinkReviewScrollView = ({
     <ScrollView
       alwaysBounceVertical={false}
       bounces={false}
-      contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+      contentContainerStyle={[styles.scrollContent, requestCard && {paddingTop: 48}, contentContainerStyle]}
       keyboardDismissMode={keyboardDismissMode}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       onContentSizeChange={(_, height) => setContentHeight(height)}
