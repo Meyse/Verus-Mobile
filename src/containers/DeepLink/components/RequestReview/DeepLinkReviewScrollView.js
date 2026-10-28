@@ -1,5 +1,5 @@
 import React, {forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
-import {ScrollView, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import useReduceMotion from '../../../../hooks/useReduceMotion';
 import useBottomSheetActivity, {isBottomSheetActive} from '../../../../hooks/useBottomSheetActivity';
 import {RequestSheetScrollCue} from './DeepLinkRequestSheetScaffold';
@@ -73,10 +73,14 @@ const DeepLinkReviewScrollView = forwardRef(({
   const scrollEnabled =
     viewportHeight > 0 &&
     contentHeight > viewportHeight + (showScrollCue ? 8 : SCROLL_THRESHOLD);
+  const contentStyle = StyleSheet.flatten([styles.scrollContent, contentContainerStyle]);
+  const bottomPadding = contentStyle?.paddingBottom ?? contentStyle?.paddingVertical ?? contentStyle?.padding ?? 0;
+  // Footer clearance and the approval alignment spacer are not unseen content.
+  const contentEnd = contentHeight - tailSpace - bottomPadding;
   const showBottomCue =
     showScrollCue &&
     scrollEnabled &&
-    offsetY + viewportHeight < contentHeight - 8;
+    offsetY + viewportHeight < contentEnd - 8;
 
   const content = (
     <ScrollView

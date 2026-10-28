@@ -632,6 +632,7 @@ const WalletBackupRequestInfo = props => {
     const content = (
       <SafeAreaView edges={safeAreaEdges} style={styles.container}>
         <DeepLinkReviewScrollView
+          showScrollCue={requestReview && !profileBackup}
           requestCard={requestReview && !profileBackup}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled">
