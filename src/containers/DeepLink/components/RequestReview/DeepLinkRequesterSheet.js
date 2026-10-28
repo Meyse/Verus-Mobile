@@ -58,8 +58,12 @@ const DeepLinkRequesterSheet = ({
       copy: true,
       valueStyle: styles.identifier,
     };
+    // One VerusID section: the private address row would repeat its own section title.
     const identitySections = buildVerusIdSections(identity, names).map(section => ({
       ...section,
+      title: ['Identity', 'Private address'].includes(section.title)
+        ? 'VerusID'
+        : section.title,
       rows: section.rows
         .filter(row => section.title !== 'Identity' ||
           !['Name', 'Fully qualified name'].includes(row.label))

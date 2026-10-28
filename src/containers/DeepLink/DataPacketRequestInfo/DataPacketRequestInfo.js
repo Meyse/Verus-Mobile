@@ -125,10 +125,12 @@ const DataPacketRequestInfoContent = props => {
           <>
             <DataReviewValue value={value} />
             {item.descriptorVersion != null ? (
-              <DataReviewNotice title="Includes descriptor metadata">
-                Your signature covers this content and its descriptor. Both are
-                available in details.
-              </DataReviewNotice>
+              <View style={approvalStyles.itemNotice}>
+                <DataReviewNotice title="Includes descriptor metadata">
+                  Your signature covers this content and its descriptor. Both
+                  are available in details.
+                </DataReviewNotice>
+              </View>
             ) : null}
           </>
         ),

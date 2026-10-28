@@ -94,6 +94,17 @@ const createDataApprovalListStyles = theme =>
       color: theme.colors.textSecondary,
       marginTop: theme.spacing.sm,
     },
+    resetNotice: {
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      borderRadius: theme.rounded.md,
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    resetNoticeText: {
+      ...theme.typography.bodySm,
+      color: theme.colors.textPrimary,
+    },
+    itemNotice: {marginTop: theme.spacing.md},
     sheetBytes: {
       padding: theme.spacing.md,
       marginTop: theme.spacing.md,

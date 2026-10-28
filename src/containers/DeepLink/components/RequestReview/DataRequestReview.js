@@ -273,7 +273,13 @@ export default function DataRequestReview({
             <>
               {children}
               {consent.cleared ? (
-                <DataReviewNotice title="Approvals cleared. You chose another VerusID." />
+                <View
+                  accessibilityLiveRegion="polite"
+                  style={approvalStyles.resetNotice}>
+                  <Text style={approvalStyles.resetNoticeText}>
+                    Approvals cleared. You chose another VerusID.
+                  </Text>
+                </View>
               ) : null}
               {approvalItems.length > 0 ? (
                 <DataApprovalList

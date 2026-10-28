@@ -367,7 +367,7 @@ const buildAuthorityReviewItem = (change, type, currentAuthorities) => {
   };
 };
 
-const buildFallbackReviewItem = (change, primaryInfo, alone) => {
+const buildFallbackReviewItem = (change, primaryInfo) => {
   const value = change.rawData || change.data;
   const isContentClear = change.highRiskType === 'content-clear';
   // Say each fact once: the threshold is the row value, its use is the
@@ -442,10 +442,7 @@ const buildFallbackReviewItem = (change, primaryInfo, alone) => {
       highRiskType: change.highRiskType,
       kicker: 'Will clear',
       value: 'All active content',
-      // A lone content clear states these facts in the card caption.
-      caption: alone
-        ? contentClearCaption(ackRows)
-        : `${contentClearCaption(ackRows)}. Apps stop receiving these keys and values. Earlier on-chain versions can still be public.`,
+      caption: `${contentClearCaption(ackRows)}. Apps stop receiving these keys and values. Earlier on-chain versions can still be public.`,
       tone: 'warning',
       detailTitle: 'Technical details',
       detailCopy: 'Request data for the content-clear action.',
@@ -700,13 +697,7 @@ const HighRiskStep = ({
       ),
       ...changes
         .filter(change => !usedKeys.has(change.key))
-        .map(change =>
-          buildFallbackReviewItem(
-            change,
-            primaryAddressAfterUpdateInfo,
-            changes.length === 1,
-          ),
-        ),
+        .map(change => buildFallbackReviewItem(change, primaryAddressAfterUpdateInfo)),
     ].filter(Boolean);
   }, [currentAuthorities, highRiskChanges, primaryAddressAfterUpdateInfo]);
 
@@ -723,7 +714,11 @@ const HighRiskStep = ({
         style={parentStyles.scrollView}
         contentContainerStyle={[parentStyles.scrollContent, {paddingTop: 4}]}
         showsVerticalScrollIndicator={false}>
-        {requestCard && React.cloneElement(requestCard, {caption: screenCopy.subtitle})}
+        {/* A lone change states its case in its own row; the caption sums up several. */}
+        {requestCard &&
+          React.cloneElement(requestCard, {
+            caption: reviewItems.length > 1 ? screenCopy.subtitle : undefined,
+          })}
 
         <View style={localStyles.summaryPanel}>
           <View style={localStyles.changeList}>
