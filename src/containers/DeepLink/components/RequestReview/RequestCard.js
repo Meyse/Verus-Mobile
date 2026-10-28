@@ -33,6 +33,7 @@ const RequestCard = ({
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const rowHeight = useButtonHeight('primary', compact ? 48 : 56);
   const [detailsVisible, setDetailsVisible] = useState(false);
+  const [responderWraps, setResponderWraps] = useState(false);
   const source = useRequestRequester(requester);
   const request = requester.request;
   const delivery = getGenericRequestDeliveryInfo(request);
@@ -134,9 +135,18 @@ const RequestCard = ({
                   {responderName ? (
                     <>
                       {!!responderWord && (
-                        <Text style={styles.joiningWord}>{responderWord}</Text>
+                        <Text style={[
+                          styles.joiningWord,
+                          responderWraps && styles.joiningWordWrapped,
+                        ]}>{responderWord}</Text>
                       )}
-                      <RequestName name={responderName} style={styles.name} />
+                      <RequestName
+                        name={responderName}
+                        style={styles.name}
+                        onTextLayout={event =>
+                          setResponderWraps(event.nativeEvent.lines.length > 1)
+                        }
+                      />
                     </>
                   ) : <Text style={styles.placeholder}>No VerusID chosen</Text>}
                 </View>

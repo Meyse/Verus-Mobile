@@ -64,6 +64,10 @@ const createRequestCardStyles = theme => StyleSheet.create({
     gap: 8,
   },
   joiningWord: {...theme.typography.bodyMd, color: theme.colors.textSecondary},
+  joiningWordWrapped: {
+    alignSelf: 'flex-start',
+    marginTop: (theme.typography.titleSheet.lineHeight - theme.typography.bodyMd.lineHeight) / 2,
+  },
   placeholder: {
     ...theme.typography.titleSheet,
     ...fontStyle('regular'),

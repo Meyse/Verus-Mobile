@@ -4,13 +4,13 @@ import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {withNameBreaks} from '../../../../utils/fullyqualifiedname';
 
 // Keep the complete name visible. A lookalike may differ only at its end.
-const RequestName = ({name, compact = false, style}) => {
+const RequestName = ({name, compact = false, style, onTextLayout}) => {
   const theme = useOnboardingTheme();
   const value = String(name || '');
   const dot = value.indexOf('.');
 
   return (
-    <Text style={[
+    <Text onTextLayout={onTextLayout} style={[
       compact ? theme.typography.titleRow : theme.typography.titleSheet,
       style,
     ]}>
