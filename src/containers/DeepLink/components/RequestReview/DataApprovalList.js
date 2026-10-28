@@ -101,7 +101,7 @@ const DataApprovalItem = ({
         maxHeight="78%"
         title={item.title}>
         {(item.details || [])
-          .filter(row => row.value != null)
+          .filter(row => row.value != null && formatValue(row.value).trim() !== item.title.trim())
           .map((row, rowIndex) => (
             <View key={rowIndex} style={styles.detailField}>
               <View style={styles.detailLabelRow}>
