@@ -13,9 +13,11 @@ current source of truth for touched signed-in flows.
 - `titleRowCompact` and `captionCompact`: the two lines in compact selection rows.
 - `AppButton`: shared action-label weight and tracking.
 
-GenericRequest screen titles use `RequestTitle`. It applies `headlineLg` and switches to
-`headlineCompact` on small devices (window height 667 or less). Do not set a local
-title size on those screens.
+GenericRequest reviews use `RequestCard`: `headlineCompact` for the action and
+`titleSheet` for names. `RequestCardCompact` uses `titleRow` names on later
+identity-update steps. Result and other form titles retain `RequestTitle`,
+which applies `headlineLg` and switches to `headlineCompact` on small devices
+(window height 667 or less). Do not set a local title size on those screens.
 
 Apply the typography token before local layout and semantic-color overrides:
 

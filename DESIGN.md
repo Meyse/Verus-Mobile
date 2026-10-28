@@ -47,7 +47,9 @@ methods, never Verus Mobile's visual direction.
 - Keep pages flat. Do not introduce generic cards to group ordinary content.
   Prefer whitespace, alignment, and hairline dividers. Filled rows are allowed
   only when the canonical selection or state pattern uses them; they are not a
-  license for card-based page composition.
+  license for card-based page composition. The bordered GenericRequest card
+  and compact card are an owner-approved exception (2026-10-28), limited to
+  request reviews as specified in [Request-review hierarchy](#request-review-hierarchy).
 - Do not use eyebrow headings, small uppercase pre-titles, or redundant labels
   above the real title.
 - Use as few words as the task safely permits. Prefer a direct title, concise
@@ -156,10 +158,11 @@ were removed for this rule, because a shaded raster cannot follow the theme.
 | Signed-out onboarding step | `src/styles/components/signedOutFlow.styles.js`, `src/containers/Onboard/CreateProfile/CreateProfile.js` | Reuse the signed-out flow styles and compact-device rules. |
 | Full-screen stepped task | `src/components/ProgressHeader.js`, `src/containers/SendWizard/components/SendWizardHeader.js`, [Stepped tasks](#stepped-tasks) below | Reuse the shared header title treatment and safe-action composition. |
 | Selection BottomSheet | `src/containers/DeepLink/components/VerusIdIdentityPickerSheet/IdentityPickerSheet.js` as opened by `src/containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo.js` | Reuse the component or match its choose, selected, provisioning, and link modes exactly. |
-| Informational BottomSheet | `src/containers/DeepLink/components/RequestReview/DeepLinkRequestDetailsSheet.js` and `src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js` | Reuse the scaffold, section rows, scroll cue, and Done action. |
+| Informational BottomSheet | `src/containers/DeepLink/components/RequestReview/DeepLinkRequesterSheet.js` and `src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js` | Reuse the scaffold, section rows, scroll cue, and Done action. |
 | BottomSheet shell | `src/components/BottomSheetModal.js`, `src/styles/components/signedOutSheet.styles.js` | Do not construct a new modal shell. |
 | Acknowledgement BottomSheet | `src/components/AcknowledgeSheet.js`, matching the seed warning sheet in `src/containers/CreateWallet/Forms/CreateSeed/Forms/SeedIntro.js` | Use it for a warning that the user must confirm. Pass `dismissLabel` when the user may back out. Do not use a native `Alert` for it. |
-| GenericRequest screen title | `src/containers/DeepLink/components/RequestReview/RequestTitle.js` | Use it for review, result, and password titles. It applies `headlineLg`, and `headlineCompact` on small devices (window height 667 or less). |
+| GenericRequest request card | `src/containers/DeepLink/components/RequestReview/RequestCard.js`, `src/containers/DeepLink/components/RequestReview/RequestCardCompact.js`, `src/styles/components/requestCard.styles.js` | Use the full card on reviews and claim-password entry. Use the compact card on later identity-update steps. Keep `RequestTitle` for other result and form titles. |
+| GenericRequest requester sheet | `src/containers/DeepLink/components/RequestReview/DeepLinkRequesterSheet.js`, `src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js` | One requester tap opens the merged VerusID and request information, with Verified and copy actions. |
 | GenericRequest review | `src/containers/DeepLink/components/RequestReview`, `src/containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo.js`, `src/containers/DeepLink/AppEncryptionRequestInfo/AppEncryptionRequestInfo.js` | Reuse the request-review primitives and hierarchy. |
 | Multi-step identity update | `src/containers/DeepLink/IdentityUpdateRequestInfo/IdentityUpdateRequestInfo.js`, `src/styles/deeplink/identityUpdateRequestInfo.styles.js` | Preserve the dedicated review, content, high-risk, and confirm/pay sequence. |
 | Services home | `src/containers/Services/SignedInServicesHome.js` and [Services home](#services-home) below | Use the two-column tile grid. Do not add artwork or descriptions to used services. |
@@ -235,7 +238,7 @@ badge or repeat "network" in a row. The owner approved this on 2026-10-18.
 
 ### Information
 
-Use `DeepLinkRequestDetailsSheet` for read-only request information. Its
+Use `DeepLinkRequesterSheet` for read-only request information. Its
 `DeepLinkRequestSheetScaffold` wrapper reuses `src/components/InfoSheet.js`; use
 `InfoSheet` and `InfoSheetSection` directly for other informational sheets.
 The information scaffold provides the 78% maximum height, 20-point sheet title,
@@ -347,8 +350,8 @@ on 2026-10-23.
   "Verify phrase", "Import phrase", "Review phrase", "Import wallet").
 - A screen led by an icon with one choice keeps its large title, and the header
   shows no title: biometrics ("Use Face ID"), the shielded address, NFC import
-  and the Z recovery secret intro (owner, 2026-10-23). Each one, and Decrypt
-  spendable key, leads with `StepGlyph` in the signed-out step layout
+  and the Z recovery secret intro (owner, 2026-10-23). Each one leads with
+  `StepGlyph` in the signed-out step layout
   ([Imagery](#imagery)).
 - Form steps start 24 points under the header on every window: signed-out steps
   add `afterHeaderTitle` from `createSignedOutFlowStyles(theme)`. Icon-led
@@ -1282,11 +1285,12 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   VerusPay mark, the amount, and a stub. The owner chose the slip (option 2 of
   the Von Restorff variations) so that the request is the one thing that stands
   out. This extends the slip's material exception to the payer's side.
-- A signed invoice has no badge: the stub reads "Request from" (13 points) above
-  the VerusID name in 17-point semibold, the gift card's name size. A name shows
-  only for a signed invoice, so it needs no "signed" line (owner, 2026-10-22).
-  An unsigned invoice keeps the paper "Unsigned" badge, and its stub reads "To"
-  above the full address in monospace.
+- Pay with starts with `RequestCard`: requester, then "wants you to pay",
+  with no responder row. A signed invoice's slip has no requester stub or
+  perforation: the card names the requester once (owner, 2026-10-28).
+  An unsigned invoice keeps the paper "Unsigned" badge and its "To" stub
+  with the full address in monospace. Keep the Send wizard's 16-point grid
+  and 44-point Back and Close targets.
 - Under the slip, every way to pay with its cost: "Pay directly", then "Pay with
   conversion", one row per currency (owner, 2026-10-22). The wallet picks the
   cheapest basket; rows do not say "via". A conversion row shows Send's price
@@ -1369,24 +1373,60 @@ visible or use it as a button.
 
 ## Request-review hierarchy
 
-GenericRequest surfaces should present:
+Owner approval, 2026-10-28: every GenericRequest review uses the bordered
+request card (Z3). The approved references are the round-5 request mockups.
+It replaces the screen title, source card, "View request details" link, and
+selected identity row in the footer. This is a limited exception to flat pages.
 
-1. Who is requesting or signing.
-2. What the request asks the wallet to do.
-3. Which wallet or VerusID will respond.
-4. Technical details behind a clear details affordance.
-5. One primary action for the next required step.
+- `src/containers/DeepLink/components/RequestReview/RequestCard.js` and
+  `src/styles/components/requestCard.styles.js` draw one 18-point-radius card
+  with a 1-point `borderStrong` border and clipped row edges. The content inset
+  is 24 points. The card starts 48 points below the top safe inset.
+- Requester: `surfaceMuted`, 56-point minimum, 16/12/16/16 padding, 8-point
+  gap. The name uses `titleSheet` (20/26 semibold), two tones split at the
+  first dot. Names wrap after dots and never truncate. Only a request signature
+  verified by the wallet gets the 18-point primary disc and white check.
+  The 22-point chevron uses `textSecondary`. One tap opens the requester sheet.
+  An unsigned request reads "Unsigned request", with no check, chevron or tap.
+- Action: `surface`, 16-point padding, top border, `headlineCompact` (26/32).
+- Your row: `successBackground`, top border, 56-point minimum, 12/12/12/16
+  padding. Its joining word uses `bodyMd` and `textSecondary`. Its full name
+  uses `titleSheet` in two tones. Only a selectable identity gets a 22-point
+  chevron-down (`successText`) and opens the existing `IdentityPickerSheet`.
+  An empty choice reads "No VerusID chosen" in regular `textSecondary`.
+  Omit the row when nothing of yours answers. Do not put it in the footer.
+- On windows of 667 points or less, `useOnboardingSmallDeviceLayout`,
+  `useButtonHeight` and `getButtonHitSlop` keep rows at 44 points minimum and
+  touch targets at 48 points. Keep `headlineCompact` for the action.
+- One caption, when relevant, sits 12 points below the card in `bodySm` and
+  `textSecondary`. It names what is sent and the actual response host. Content
+  starts 24 points below the header group. Consent controls remain unchanged.
+- `src/containers/DeepLink/components/RequestReview/DeepLinkRequesterSheet.js`
+  merges VerusID details and request details. Reuse
+  `DeepLinkRequestSheetScaffold`, section rows, `CopyAction`, the scroll cue,
+  and Done. Its title is the complete two-tone requester name, with a success
+  `StatusBadge` "Verified" only for a verified request. Include each fact once:
+  VerusID address, authorities/content, network, signature time, response URIs,
+  delivery, expiry, request ID, and screen-specific information when present.
+- `GenericRequestHome` shows "Open in another app" as a top-right 44-point
+  icon target: Lucide `SquareArrowOutUpRight`, 21 points, `textSecondary`.
+  It adds no layout row. Keep the existing handoff flow and accessible label.
+  Invoice payment keeps its Close action in that slot and shows no other-app icon.
 
-Identity Update is the canonical exception for a risky, multi-stage
-GenericRequest. Preserve its separate review, content-change, high-risk, and
-confirm/pay stages. Do not collapse that flow into the simpler authentication
-or app-encryption review hierarchy.
+Identity Update remains the canonical exception for a risky, multi-stage
+GenericRequest. Preserve review, content, high-risk and confirm/pay stages.
+The first step uses the full card with the fixed target VerusID. Later steps
+use `src/containers/DeepLink/components/RequestReview/RequestCardCompact.js`
+(Z3c): a 48-point requester row with `titleRow` (16/22), then "wants to update"
+in 14/20 semibold and the fixed VerusID in a `successBackground` chip with an
+8-point radius, 1-point border and 16/22 name. The second row wraps. It has no
+picker chevron. The payment source stays in the confirm footer.
 
-Selected identity rows in request-review footers follow `DataRequestReview`.
-On windows of 667 points or less, use `useButtonHeight` for a 44-point row,
-`getButtonHitSlop` for the 48-point touch target, and put "Sign with" or
-"Respond as" inside the row above the name in `captionCompact`. Larger
-windows keep the 56-point row and the label above it.
+`RequestTitle` remains for results and other forms that still need a title.
+Claim-password entry uses the full request card without a responder row.
+Saved requests, legacy LoginRequest screens and completion sheets keep their
+own patterns. GR-4 phase 1 keeps per-item checkboxes, `useDataReviewConsent`,
+and the "<n> of <m> checked" line. Phase 2 changes the consent form separately.
 
 A completion sheet shows the animated green check only when delivery or broadcast
 is confirmed. For "No response was sent" and "Browser opened", use

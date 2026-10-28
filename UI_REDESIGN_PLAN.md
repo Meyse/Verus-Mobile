@@ -7,7 +7,13 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-27.
+- Last updated: 2026-10-28.
+- Scoped request-card implementation: **GR-4 phase 1** on
+  `claude/gr-request-card` from `0aaf9468`. Owner approved Z3, Z3c, one requester
+  sheet and the top-right other-app icon on 2026-10-28. Request reviews now use
+  those shared components. Consent checkboxes and all request logic stay in
+  place. Static/component checks are recorded below. Phase 2 and orchestrator
+  device QA remain open. No simulator or emulator ran in this task.
 - Scoped batch 5: **TX-1.BATCH5** on `claude/batch5-int` (L1, L2, R1, F1, F2,
   S7, S8 by GPT-6.1 Sol, merged by the orchestrator). Compact-screen layout:
   Create/import password, Enter password sheet, Add custom asset, Send
@@ -208,6 +214,7 @@ without repeating the entire investigation.
 | GR-1 | Credential and data-signing reviews use current request patterns | Ready for verification | Existing request-review primitives |
 | GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
 | GR-3 | Every GenericRequest type has runtime evidence; remaining request surfaces use the current design | In progress | GR-1, GR-2; deeplink-sim and provisioning webhook |
+| GR-4 | Request card and item approval | Phase 1 built; phase 2 and device QA open | Owner-approved round-5 mockups; GR-1 consent contract |
 | NFC-1 | A gift card on an NFC card can be claimed signed in and signed out | In progress | GR-3.13 claim flow; physical iPhone (with GR-3.9) |
 | SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
@@ -331,7 +338,8 @@ uses the canonical sheet. Both request types are experimentally gated.
   honestly; never summarize arbitrary signatures as harmless authentication.
 - [x] **GR-1.6** Preserve per-credential and per-statement/data-item consent. Reset
   consent when the reviewed payload or responding identity changes. Do not
-  remove required acknowledgements merely to reduce copy.
+  remove required acknowledgements merely to reduce copy. GR-4.5 changes the
+  form of per-item approval in phase 2; GR-4 phase 1 preserves this contract.
 - [x] **GR-1.7** Distinguish locked, loading, no matching credentials, partially
   available credentials, lookup failure, and required-signer-unavailable states.
   Do not report “no credentials” before a lookup has completed successfully.
@@ -703,6 +711,33 @@ result with its proof level. No in-scope flow ends on the legacy completion
 screen. All in-scope request surfaces belong to the current review family in
 light and dark mode. Shared changes leave the excluded and deprecated flow
 code untouched.
+
+## GR-4 — Request card and item approval
+
+Owner approval, 2026-10-28: Z3 replaces review titles, requester cards, details
+links and footer identity rows. Z3c is used after the first identity-update
+step. The round-5 mockups are the design authority; the build brief selects
+phase 1 only. Saved requests, legacy LoginRequest, results and request logic
+remain outside this phase.
+
+- [x] **GR-4.1** Build shared `RequestCard` and `RequestCardCompact`, with
+  two-tone complete names, verified marks, semantic colors, responsive rows
+  and the existing picker action. Export the shared style module.
+- [x] **GR-4.2** Build one requester sheet. Merge VerusID and request details
+  through the current information scaffold, copy actions, scroll cue and Done.
+- [x] **GR-4.3** Replace the other-app text row with a 44-point top-right icon.
+  Preserve the existing handoff flow.
+- [x] **GR-4.4** Apply the shared card and approved copy to authentication,
+  encryption, data signing, credentials, backup, claim/password, invoice Pay
+  with and all identity-update stages. Preserve all request behavior. Update
+  the canonical design contract and check.
+- [ ] **GR-4.5** Per-item approval one at a time (phase 2). Keep consent resets,
+  signing and delivery gates. Phase 1 retains checkboxes, `useDataReviewConsent`
+  and the "<n> of <m> checked" line from GR-1.6.
+- [ ] **GR-4.6** Orchestrator device QA: iOS and Android, normal/compact,
+  light/dark, all request states and merged sheets, long names, picker/reset,
+  Back, retry, reload and interrupted operations. Check consent and request
+  behavior. The implementation agent must not start devices.
 
 ## NFC-1 — Claim from an NFC card
 
@@ -1926,6 +1961,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-28 | GR-4 phase 1: request card on every review | `claude/gr-request-card` from `0aaf9468`, implementation `0ed71e76`; shared RequestCard, RequestCardCompact, RequestName, DeepLinkRequesterSheet and useRequestRequester | Read the approved round-5 light/dark PNGs and source values. Built card, merged sheet, icon and screen copy. Existing component Jest before/after: 2 suites, 4 tests pass; no tests added or changed. `corepack pnpm --config.verifyDepsBeforeRun=false check:design` (37 sources) and `check:safe-areas --changed` (35 files) pass. Babel transform passes for all 36 touched JS files. Completion check: 11 cases pass. Delegated signer: 7 cases pass with the temporary recursive Babel loader; its direct Node command fails on an extensionless import. Exact commands and logs: `/tmp/gr4-validate.cjs`, `/tmp/gr4-validation-summary.log`. Consent, signing, selection, delivery and payment logic are unchanged. | GR-4.5 phase 2 open. GR-4.6 device QA is owned by the orchestrator. No native rendering or device operation ran. Normal ESLint fails on the existing import-plugin package export error. Focused lint has no new errors: its 5 unused helpers also occur at the base. Direct delivery/delegated checks fail on extensionless imports; recursive loading lets delegated pass, while delivery then reaches a pre-existing native TypeScript loading error. The claim check expects `claimResult.partialError`, absent at the base and candidate. No test assertions were weakened. |
 | 2026-10-27 | TX-1.BATCH5 + QA | `claude/batch5-int` `8c2afaa2` (L1 `d6a8d033`, L2 `d11ae1b2`, R1 `55460313`, F1 `213008a4`, F2 `2a144900`, S7 `ba6e6f11`, S8 `a9b0fd36`) | Orchestrator review of every diff; Babel parse, design and safe-area checks pass. F1 data shapes and server funding from an unconfirmed output proven on the local VRSCTEST daemon. Device QA (Sonnet testers, `docs/qa/matrix/runs/2026-10-27-batch5/logs/`): iPhone SE all checks pass, incl. 15/3/1 and burst sends chained on unconfirmed change; Android 360x640 passes after S7/S8, incl. chained token sends and response-delivery failure. | Open: unlock took 12–140 s on the starved Android emulator (wallet without private card; SE 3–5 s) — check on a real Android phone. P3s: one bad-signature request showed "Request not valid" once (unconfirmed), Add custom asset tabs share typed text (pre-existing), pending rows refresh after about 40 s. |
 | 2026-10-27 | TX-1.BATCH4 + QA | `claude/batch4-int` `06be164c` (S1 `d30ee935`, S2 `636782a3`, S3 `51e19445`, S4 `2d34b55c`, S5 `644bdd0b`, S6 `c58bcea5`) | Orchestrator review of every diff; Babel parse of 59 changed files and design check pass. Device QA (Sonnet testers): batch 4 checks on iPhone 17 Pro (`docs/qa/matrix/runs/2026-10-27-night2/logs/ios-b4/QA.md`), small-device night run on iPhone SE and Android 360x640 (same run folder). QA found the Convert hint, app-encryption result title and doubled fee-loading text; S5/S6 fixed them and the SE follow-up check passed. Every send, claim, revoke and recover matched the chain. | Small-screen layout findings and the investigations (slow unlock, second send, response timing) are in the run's MORNING_REPORT.html for the owner. |
 | 2026-10-27 | TX-1.BATCH3 follow-up: stand-alone impact chips | `claude/batch3-fixes` from `f83b9047`; `AmountEstimate.js`, `InvoicePayWith.js`, `DESIGN.md` | Amount and Pay with use neutral "Details" for unknown, zero or negative impact. Difference and Price impact keep "None". PriceRouteSheet's suggestion remains unchanged and is gated by the current warning/danger level. Temporary source-expression checks reproduce both zero/negative defects before the change and now pass null, negative, zero, small positive and 0.1/1/5% cases, plus neutral tone and the unchanged "None" formatter. Babel parse (2 files), design check (34 canonical sources) and `git diff --check` pass. | No new rendered or native evidence. Orchestrator owns the open TX-1.BATCH3-QA. |
