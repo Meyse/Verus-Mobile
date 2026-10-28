@@ -80,7 +80,11 @@ const DeepLinkReviewScrollView = forwardRef(({
       ref={scrollRef}
       alwaysBounceVertical={false}
       bounces={false}
-      contentContainerStyle={[styles.scrollContent, requestCard && {paddingTop: 48}, contentContainerStyle]}
+      contentContainerStyle={[
+        styles.scrollContent,
+        contentContainerStyle,
+        requestCard && {paddingTop: 0},
+      ]}
       keyboardDismissMode={keyboardDismissMode}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       onContentSizeChange={(_, height) => {
@@ -100,9 +104,9 @@ const DeepLinkReviewScrollView = forwardRef(({
       {tailSpace > 0 && <View style={{height: tailSpace}} />}
     </ScrollView>
   );
-  if (!showScrollCue) return content;
+  if (!showScrollCue && !requestCard) return content;
   return (
-    <View style={styles.scrollView}>
+    <View style={[styles.scrollView, requestCard && {paddingTop: 48}]}>
       {content}
       {showBottomCue && (
         <RequestSheetScrollCue
