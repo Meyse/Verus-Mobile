@@ -13,6 +13,8 @@ const DeepLinkReviewScrollView = forwardRef(({
   contentContainerStyle,
   keyboardDismissMode,
   keyboardShouldPersistTaps,
+  onLayout,
+  onContentSizeChange,
   style,
   showScrollCue = false,
   requestCard = false,
@@ -57,6 +59,7 @@ const DeepLinkReviewScrollView = forwardRef(({
     });
   }, [contentHeight, reduceMotion, showScrollCue, tailSpace]);
   useImperativeHandle(ref, () => ({
+    scrollToEnd: options => scrollRef.current?.scrollToEnd(options),
     scrollIntoView: itemRef => {
       targetRef.current = itemRef;
       if (!itemRef?.current) setTailSpace(0);
@@ -87,11 +90,15 @@ const DeepLinkReviewScrollView = forwardRef(({
       ]}
       keyboardDismissMode={keyboardDismissMode}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-      onContentSizeChange={(_, height) => {
+      onContentSizeChange={(width, height) => {
         tailLayoutPending.current = false;
         setContentHeight(height);
+        onContentSizeChange?.(width, height);
       }}
-      onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
+      onLayout={event => {
+        setViewportHeight(event.nativeEvent.layout.height);
+        onLayout?.(event);
+      }}
       onScroll={event => {
         offsetRef.current = event.nativeEvent.contentOffset.y;
         setOffsetY(offsetRef.current);
