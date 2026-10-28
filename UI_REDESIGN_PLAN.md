@@ -7,13 +7,16 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-28.
-- Scoped request-card implementation: **GR-4 phase 1** on
-  `claude/gr-request-card` from `0aaf9468`. Owner approved Z3, Z3c, one requester
-  sheet and the top-right other-app icon on 2026-10-28. Request reviews now use
-  those shared components. Consent checkboxes and all request logic stay in
-  place. Static/component checks are recorded below. Phase 2 and orchestrator
-  device QA remain open. No simulator or emulator ran in this task.
+- Last updated: 2026-10-28 (GR-4 phase 2).
+- Scoped request review implementation: **GR-4 phases 1 and 2** on
+  `claude/gr-item-approval` from phase 1 (`e11d4882`). A1 restores case-specific
+  high-risk captions and notes. A2 restores the invoice other-app action.
+  A3 restores the five-point review order. Sign data and Share credentials
+  now use option B: one open item, a named approval button, approved rows
+  with Undo, and unreadable-data confirmation. Consent keys, resets and
+  handler gates remain. Static/component evidence is recorded below.
+  GR-4.5 is built; GR-4.6 orchestrator device QA remains open. No simulator
+  or emulator ran in this task.
 - Scoped batch 5: **TX-1.BATCH5** on `claude/batch5-int` (L1, L2, R1, F1, F2,
   S7, S8 by GPT-6.1 Sol, merged by the orchestrator). Compact-screen layout:
   Create/import password, Enter password sheet, Add custom asset, Send
@@ -214,7 +217,7 @@ without repeating the entire investigation.
 | GR-1 | Credential and data-signing reviews use current request patterns | Ready for verification | Existing request-review primitives |
 | GR-2 | Remaining request flows report delivery status accurately | Ready for verification | Coordinate with GR-1; can be implemented separately |
 | GR-3 | Every GenericRequest type has runtime evidence; remaining request surfaces use the current design | In progress | GR-1, GR-2; deeplink-sim and provisioning webhook |
-| GR-4 | Request card and item approval | Phase 1 built; phase 2 and device QA open | Owner-approved round-5 mockups; GR-1 consent contract |
+| GR-4 | Request card and item approval | Phases 1 and 2 built; device QA open | Owner-approved round-5 mockups; GR-1 consent contract |
 | NFC-1 | A gift card on an NFC card can be claimed signed in and signed out | In progress | GR-3.13 claim flow; physical iPhone (with GR-3.9) |
 | SH-1 | Selection and information sheets share the approved presentation | Done | Existing canonical sheets; supports TX-1, RX-1, ID-1 |
 | TX-1 | Current Send/Convert wizard uses shared layout and sheets | Sheet tasks delivered through SH-1; remaining work not started | SH-1 for sheet migration |
@@ -339,7 +342,7 @@ uses the canonical sheet. Both request types are experimentally gated.
 - [x] **GR-1.6** Preserve per-credential and per-statement/data-item consent. Reset
   consent when the reviewed payload or responding identity changes. Do not
   remove required acknowledgements merely to reduce copy. GR-4.5 changes the
-  form of per-item approval in phase 2; GR-4 phase 1 preserves this contract.
+  form to one open item and a named approval button. Per-item consent remains.
 - [x] **GR-1.7** Distinguish locked, loading, no matching credentials, partially
   available credentials, lookup failure, and required-signer-unavailable states.
   Do not report “no credentials” before a lookup has completed successfully.
@@ -716,9 +719,10 @@ code untouched.
 
 Owner approval, 2026-10-28: Z3 replaces review titles, requester cards, details
 links and footer identity rows. Z3c is used after the first identity-update
-step. The round-5 mockups are the design authority; the build brief selects
-phase 1 only. Saved requests, legacy LoginRequest, results and request logic
-remain outside this phase.
+step. The round-5 mockups are the design authority. Phase 2 builds the approved
+option B for Sign data and Share credentials, after the A1-A3 review fixes.
+Saved requests, legacy LoginRequest, results and request logic remain outside
+this scope.
 
 - [x] **GR-4.1** Build shared `RequestCard` and `RequestCardCompact`, with
   two-tone complete names, verified marks, semantic colors, responsive rows
@@ -731,9 +735,11 @@ remain outside this phase.
   encryption, data signing, credentials, backup, claim/password, invoice Pay
   with and all identity-update stages. Preserve all request behavior. Update
   the canonical design contract and check.
-- [ ] **GR-4.5** Per-item approval one at a time (phase 2). Keep consent resets,
-  signing and delivery gates. Phase 1 retains checkboxes, `useDataReviewConsent`
-  and the "<n> of <m> checked" line from GR-1.6.
+- [x] **GR-4.5** Per-item approval one at a time (phase 2). Shared
+  `DataApprovalList` opens the first unapproved item. The footer names it;
+  approved rows have Undo. Unreadable data requires the confirmation sheet.
+  `useDataReviewConsent` keeps its keys and resets, with the reset notice.
+  Handler gates remain; checkboxes and the counter line are removed.
 - [ ] **GR-4.6** Orchestrator device QA: iOS and Android, normal/compact,
   light/dark, all request states and merged sheets, long names, picker/reset,
   Back, retry, reload and interrupted operations. Check consent and request
@@ -1961,6 +1967,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-28 | GR-4 phase 2: item approval one at a time | `claude/gr-item-approval` from `e11d4882`; shared DataApprovalList and styles, DataRequestReview, both data containers, useDataReviewConsent and optional scrollable AcknowledgeSheet content | Built option B from the read-only light/dark references. Footer approves the first unapproved item; Undo, unreadable-data confirmation, reset notice, processing locks and accessible labels are wired. Existing consent keys, payload/session resets and handler gates remain. Temporary component checks cover both real containers, zero/partial approval rejection, Undo, identity reset, unreadable cancel/confirm and stale confirmation, processing, credential loading/error/retry/empty/partial, and invoice header handoff. Removing either handler gate makes its consent assertion fail. Approved-marker contrast is 5.29:1 light and 9.29:1 dark. `node /tmp/gr42-validate.cjs` records exact commands: design (37 sources), safe-area, completion (11 cases), Babel (16 JS files), component checks and focused lint comparison. Existing Jest: 4 suites / 33 tests pass; 2 suites cannot load because their native SVG mock lacks Touchable.Mixin, also seen before part B. No Jest tests were added or changed. The design check replaces its stale checkbox/counter requirement with approval controls and both handler gates. | GR-4.5 built. GR-4.6 remains open for orchestrator device QA; no implementation render, simulator or emulator ran. Normal ESLint has the existing import-plugin export error. Focused lint retains four unchanged unused declarations in IdentityUpdateRequestInfo, confirmed at `e11d4882`; all other touched files pass. No verification, signing, delivery or payment utility changed. Logs: `/tmp/gr42-validation-summary.log`, `/tmp/gr42-consent-final.log`, `/tmp/gr42-jest-final.log`, `/tmp/gr42-eslint-final.log`. |
 | 2026-10-28 | GR-4 A3: restore review hierarchy | `claude/gr-item-approval`; DESIGN.md | Restored the five-point request-review order before the owner-approval paragraph. The card carries points 1 to 3; the requester sheet carries point 4. Documentation diff check passes. | No runtime change. |
 | 2026-10-28 | GR-4 A2: restore invoice app handoff | `claude/gr-item-approval`; GenericRequestHome, InvoiceInfo, InvoicePayFlow and SendWizardHeader | The installed-app callback reaches the invoice header through an optional accessory. Its 44-point target sits directly left of Close. Headerless invoice states retain the top-right icon. DESIGN.md records both positions. Babel parse and diff checks pass. | Device QA remains open; payment and handoff logic are unchanged. |
 | 2026-10-28 | GR-4 A1: restore high-risk case copy | `claude/gr-item-approval` from `e11d4882`; HighRiskStep and IdentityUpdateRequestInfo | Restored the case-specific compact-card caption and quiet note from `buildScreenCopy`. Copy says VerusID. Focused loss-of-control, revocation, content-clear and external-primary/recovery checks pass; Babel parse passes. Risk classification, acknowledgement sheet and step order are unchanged. | Orchestrator device QA remains open (GR-4.6). |

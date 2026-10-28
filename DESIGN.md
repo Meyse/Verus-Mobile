@@ -1408,7 +1408,7 @@ selected identity row in the footer. This is a limited exception to flat pages.
   touch targets at 48 points. Keep `headlineCompact` for the action.
 - One caption, when relevant, sits 12 points below the card in `bodySm` and
   `textSecondary`. It names what is sent and the actual response host. Content
-  starts 24 points below the header group. Consent controls remain unchanged.
+  starts 24 points below the header group. Per-item consent follows the rule below.
 - `src/containers/DeepLink/components/RequestReview/DeepLinkRequesterSheet.js`
   merges VerusID details and request details. Reuse
   `DeepLinkRequestSheetScaffold`, section rows, `CopyAction`, the scroll cue,
@@ -1435,8 +1435,31 @@ picker chevron. The payment source stays in the confirm footer.
 `RequestTitle` remains for results and other forms that still need a title.
 Claim-password entry uses the full request card without a responder row.
 Saved requests, legacy LoginRequest screens and completion sheets keep their
-own patterns. GR-4 phase 1 keeps per-item checkboxes, `useDataReviewConsent`,
-and the "<n> of <m> checked" line. Phase 2 changes the consent form separately.
+own patterns.
+
+Sign data and Share credentials use `DataApprovalList` through
+`DataRequestReview` (owner chose option B, 2026-10-28). Preserve source order.
+Only the first unapproved item is open, with its full content under its title.
+The footer names that item with "Approve <title>". Approved items fold to one
+row with a `successText` check and a 44-point Undo action. Undo reopens the
+first unapproved item. Waiting items show their number and title. The markers
+show progress once; there are no checkboxes or counter line.
+
+Unreadable items are titled "Unreadable data" and show the warning `StatusBadge`
+"Check first" while waiting or open. Their footer says "Check unreadable data".
+It opens `AcknowledgeSheet` with the exact bytes first in monospace, the
+requester's descriptor label only when both names are known, and "Approve only
+if you know what they are for." Only "Approve unreadable data" in that sheet
+approves the item; "Not now" keeps it unapproved. Long bytes use
+`SheetScrollView`; the sheet actions stay visible.
+
+Keep `useDataReviewConsent` keys and context resets. After a context change
+clears approvals, show "Approvals cleared. You chose another VerusID." above
+the list until the next approval. Show no reset notice when nothing was
+approved. Only after every item is approved does the footer show the final
+Sign data or Share action. Keep the handler's `reviewComplete` gate as well.
+While processing, block Undo, item details, and approval actions. The list
+scrolls in `DeepLinkReviewScrollView` above the normal-flow safe footer.
 
 A completion sheet shows the animated green check only when delivery or broadcast
 is confirmed. For "No response was sent" and "Browser opened", use

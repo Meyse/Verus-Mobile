@@ -134,7 +134,19 @@ const requiredSourceFragments = [
   },
   {
     path: 'src/containers/DeepLink/components/RequestReview/DataRequestReview.js',
-    fragments: ['<RequestCard', 'accessibilityRole="checkbox"', 'consentProgress.checked', 'consentProgress.total'],
+    fragments: ['<RequestCard', '<DataApprovalList', '<AcknowledgeSheet', 'getItemApprovalLabel(openItem.title)', 'consent.context', 'Approve unreadable data', 'Approvals cleared. You chose another VerusID.'],
+  },
+  {
+    path: 'src/containers/DeepLink/components/RequestReview/DataApprovalList.js',
+    fragments: ['getItemApprovalLabel', 'Item ${index + 1} of ${total}', 'theme.colors.successText', 'Check first', 'Undo approval of ${item.title}', 'consent.checked[item.key]'],
+  },
+  {
+    path: 'src/containers/DeepLink/DataPacketRequestInfo/DataPacketRequestInfo.js',
+    fragments: ['!reviewComplete', 'consent.checked[`data-${index}`]', 'consent.checked[`statement-${index}`]'],
+  },
+  {
+    path: 'src/containers/DeepLink/UserDataRequestInfo/UserDataRequestInfo.js',
+    fragments: ['!reviewComplete', 'consent.checked[index]'],
   },
   {
     path: 'src/containers/DeepLink/GenericRequestHome/GenericRequestHome.js',

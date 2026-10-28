@@ -11,7 +11,6 @@ import {createRequestSessionGuard} from '../../../utils/deeplink/requestSessionG
 import useDataRequestIdentity from '../components/RequestReview/useDataRequestIdentity';
 import useDataReviewConsent from '../components/RequestReview/useDataReviewConsent';
 import DataRequestReview, {
-  DataReviewItem,
   DataReviewLoading,
   DataReviewNotice,
   DataReviewValue,
@@ -103,10 +102,26 @@ const UserDataRequestInfoContent = props => {
       : [];
   const consentContext = useMemo(() => ({}), [context, lookup]);
   const consent = useDataReviewConsent(consentContext);
-  const reviewed =
+  const reviewComplete =
     status === 'ready' &&
     credentials.every((_, index) => consent.checked[index]);
   const hasOtherResponseContent = !!response?.details?.length;
+
+  const approvalItems = credentials.map((credential, index) => ({
+    key: index,
+    title: credential.label || `Credential ${index + 1}`,
+    content: <DataReviewValue value={credential.credential} />,
+    details: [
+      {
+        label: 'Credential key',
+        value: credential.credentialKey,
+        technical: true,
+        copy: true,
+      },
+      {label: 'Full credential value', value: credential.credential},
+      {label: 'Scopes', value: credential.scopes},
+    ],
+  }));
 
   const handleContinue = async () => {
     if (
@@ -120,7 +135,7 @@ const UserDataRequestInfoContent = props => {
       setRetry(value => value + 1);
       return;
     }
-    if (!reviewed || status !== 'ready') return;
+    if (!reviewComplete || status !== 'ready') return;
     inFlight.current = true;
     setProcessing(true);
     setError(null);
@@ -169,11 +184,9 @@ const UserDataRequestInfoContent = props => {
       onContinue={handleContinue}
       processing={processing}
       error={error}
-      disabled={status === 'loading' || (status === 'ready' && !reviewed)}
-      consentProgress={{
-        total: credentials.length,
-        checked: credentials.filter((_, index) => consent.checked[index]).length,
-      }}
+      disabled={status === 'loading'}
+      approvalItems={approvalItems}
+      consent={consent}
       primaryLabel={
         status === 'error'
           ? 'Retry credential lookup'
@@ -216,42 +229,11 @@ const UserDataRequestInfoContent = props => {
             ? 'No credentials will be shared. Continue to review the rest of the request.'
             : 'No response will be sent to the requester.'}
         </DataReviewNotice>
-      ) : (
-        <>
-          {missing.length > 0 && (
-            <DataReviewNotice title="Some credentials are unavailable">
-              {`${missing.length} of ${credentialKeys.length} requested credential types are missing. Only the credentials below will be shared.`}
-            </DataReviewNotice>
-          )}
-          {credentials.map((credential, index) => {
-            const title = credential.label || `Credential ${index + 1}`;
-            return (
-              <DataReviewItem
-                key={`${credential.credentialKey}-${index}`}
-                title={title}
-                consentLabel={`Share ${title}`}
-                checked={!!consent.checked[index]}
-                onToggle={() => consent.toggle(index)}
-                disabled={processing}
-                details={[
-                  {
-                    label: 'Credential key',
-                    value: credential.credentialKey,
-                    technical: true,
-                    copy: true,
-                  },
-                  {
-                    label: 'Full credential value',
-                    value: credential.credential,
-                  },
-                  {label: 'Scopes', value: credential.scopes},
-                ]}>
-                <DataReviewValue value={credential.credential} />
-              </DataReviewItem>
-            );
-          })}
-        </>
-      )}
+      ) : missing.length > 0 ? (
+        <DataReviewNotice title="Some credentials are unavailable">
+          {`${missing.length} of ${credentialKeys.length} requested credential types are missing. Only the credentials below will be shared.`}
+        </DataReviewNotice>
+      ) : null}
     </DataRequestReview>
   );
 };

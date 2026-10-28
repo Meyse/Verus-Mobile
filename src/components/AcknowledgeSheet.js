@@ -5,6 +5,7 @@ import {createSignedOutSheetStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 import AppButton from './AppButton';
 import BottomSheetModal from './BottomSheetModal';
+import SheetScrollView from './SheetScrollView';
 
 // Warning sheet. It matches the "Protect your Secret Recovery Phrase" sheet in
 // CreateSeed/SeedIntro. `onClose` runs on outside tap, system back, the
@@ -16,6 +17,7 @@ const AcknowledgeSheet = ({
   visible,
   title,
   message,
+  children,
   confirmLabel = 'I understand',
   dismissLabel,
   onClose,
@@ -47,11 +49,18 @@ const AcknowledgeSheet = ({
       onClose={onClose}
       onClosed={handleClosed}
       maxHeight="64%">
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, children && styles.scrollableSheet]}>
         <Text accessibilityRole="header" style={styles.title}>
           {title}
         </Text>
-        <Text style={[sheetStyles.bodyText, styles.message]}>{message}</Text>
+        {children ? (
+          <SheetScrollView>
+            {children}
+            <Text style={[sheetStyles.bodyText, styles.message]}>{message}</Text>
+          </SheetScrollView>
+        ) : (
+          <Text style={[sheetStyles.bodyText, styles.message]}>{message}</Text>
+        )}
         <AppButton
           height={56}
           onPress={handleConfirm}
@@ -84,6 +93,7 @@ export const createAcknowledgeSheetStyles = theme =>
       paddingTop: 22,
       paddingBottom: 20,
     },
+    scrollableSheet: {flexShrink: 1},
     title: {
       color: theme.colors.textPrimary,
       fontSize: 21,

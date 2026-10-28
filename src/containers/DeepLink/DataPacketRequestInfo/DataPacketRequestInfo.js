@@ -1,6 +1,12 @@
 import React, {useMemo, useRef, useState, useEffect} from 'react';
+import {Text} from 'react-native-paper';
+import {View} from 'react-native';
+import {dataApprovalListStyles} from '../../../styles';
 import {GenericResponse} from 'verus-typescript-primitives';
-import {OnboardingThemeProvider} from '../../../theme/onboarding';
+import {
+  OnboardingThemeProvider,
+  useOnboardingTheme,
+} from '../../../theme/onboarding';
 import {buildDataPacketResponse} from '../../../utils/deeplink/dataPacket/signDataPacket';
 import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
 import {createRequestSessionGuard} from '../../../utils/deeplink/requestSessionGuard';
@@ -8,7 +14,6 @@ import {assertAuthenticationRequestsNotExpired} from '../../../utils/deeplink/va
 import useDataRequestIdentity from '../components/RequestReview/useDataRequestIdentity';
 import useDataReviewConsent from '../components/RequestReview/useDataReviewConsent';
 import DataRequestReview, {
-  DataReviewItem,
   DataReviewNotice,
   DataReviewValue,
 } from '../components/RequestReview/DataRequestReview';
@@ -63,6 +68,8 @@ const DataPacketRequestInfoContent = props => {
     detailIndex,
     next,
   } = props;
+  const theme = useOnboardingTheme();
+  const approvalStyles = useMemo(() => dataApprovalListStyles(theme), [theme]);
   const identity = useDataRequestIdentity(props);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
@@ -87,6 +94,47 @@ const DataPacketRequestInfoContent = props => {
       (_, index) => consent.checked[`data-${index}`],
     ) &&
     statements.every((_, index) => consent.checked[`statement-${index}`]);
+
+  const approvalItems = [
+    ...statements.map((statement, index) => ({
+      key: `statement-${index}`,
+      title: statements.length === 1 ? 'Statement' : `Statement ${index + 1}`,
+      content: <DataReviewValue value={statement} />,
+    })),
+    ...signableObjectSummaries.map((item, index) => {
+      const value = readableValue(item);
+      const unreadable = value == null || value === '';
+      const bytes = item.objectDataBytesHex ?? item.signedBytesHex ?? '';
+      return {
+        key: `data-${index}`,
+        title: unreadable
+          ? 'Unreadable data'
+          : item.descriptorLabel || (item.type === 'Message' ? 'Message' : 'Data item'),
+        details: packetDetails(item),
+        unreadable,
+        bytes,
+        descriptorLabel: item.descriptorLabel,
+        content: unreadable ? (
+          <View>
+            <Text selectable style={approvalStyles.bytes}>
+              {bytes}
+            </Text>
+            <Text style={approvalStyles.size}>{`${item.size || 0} bytes`}</Text>
+          </View>
+        ) : (
+          <>
+            <DataReviewValue value={value} />
+            {item.descriptorVersion != null ? (
+              <DataReviewNotice title="Includes descriptor metadata">
+                Your signature covers this content and its descriptor. Both are
+                available in details.
+              </DataReviewNotice>
+            ) : null}
+          </>
+        ),
+      };
+    }),
+  ];
 
   const handleContinue = async () => {
     if (
@@ -152,64 +200,15 @@ const DataPacketRequestInfoContent = props => {
       identity={identity}
       onContinue={handleContinue}
       primaryLabel="Sign data"
-      disabled={!reviewComplete}
-      consentProgress={{
-        total: statements.length + signableObjectSummaries.length,
-        checked:
-          statements.filter((_, index) => consent.checked[`statement-${index}`])
-            .length +
-          signableObjectSummaries.filter(
-            (_, index) => consent.checked[`data-${index}`],
-          ).length,
-      }}
+      disabled={
+        signableObjectSummaries.length === 0 &&
+        !approvalItems.some(item => !consent.checked[item.key])
+      }
+      approvalItems={approvalItems}
+      consent={consent}
       processing={processing}
-      error={error}>
-      {statements.map((statement, index) => (
-        <DataReviewItem
-          key={`statement-${index}`}
-          title={`Statement ${index + 1}`}
-          consentLabel={`Sign statement ${index + 1}`}
-          checked={!!consent.checked[`statement-${index}`]}
-          onToggle={() => consent.toggle(`statement-${index}`)}
-          disabled={processing}>
-          <DataReviewValue value={statement} />
-        </DataReviewItem>
-      ))}
-      {signableObjectSummaries.map((item, index) => {
-        const value = readableValue(item);
-        const title =
-          item.descriptorLabel ||
-          (item.type === 'Message'
-            ? `Message ${index + 1}`
-            : `Data item ${index + 1}`);
-        return (
-          <DataReviewItem
-            key={`data-${index}`}
-            title={title}
-            details={packetDetails(item)}
-            consentLabel={`Sign data item ${index + 1}`}
-            checked={!!consent.checked[`data-${index}`]}
-            onToggle={() => consent.toggle(`data-${index}`)}
-            disabled={processing}>
-            {value != null && value !== '' ? (
-              <DataReviewValue value={value} />
-            ) : (
-              <DataReviewNotice title="Unreadable data">
-                {`${
-                  item.size || 0
-                } bytes. Inspect the exact bytes in details. Only sign if you understand their purpose.`}
-              </DataReviewNotice>
-            )}
-            {item.descriptorVersion != null && value != null && (
-              <DataReviewNotice title="Includes descriptor metadata">
-                Your signature covers this content and its descriptor. Both are
-                available in details.
-              </DataReviewNotice>
-            )}
-          </DataReviewItem>
-        );
-      })}
-    </DataRequestReview>
+      error={error}
+    />
   );
 };
 
