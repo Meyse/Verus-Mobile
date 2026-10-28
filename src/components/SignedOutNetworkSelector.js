@@ -61,14 +61,19 @@ const SignedOutNetworkSelector = ({
       {showLabel ? (
         <>
           <Text
+            numberOfLines={1}
             style={[
-              theme.typography.labelMd,
+              theme.typography.caption,
               styles.networkLabel,
-              {color: theme.colors.textPrimary},
+              {color: theme.colors.textSecondary},
             ]}>
-            {`Wallet network: ${selectedNetwork}`}
+            {selectedNetwork}
           </Text>
-          <ChevronDown color={theme.colors.textSecondary} size={16} />
+          <ChevronDown
+            color={theme.colors.textSubtle}
+            size={14}
+            strokeWidth={2}
+          />
         </>
       ) : (
         <View style={styles.triggerContent}>
@@ -163,7 +168,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 2,
   },
   networkLabel: {
     flexShrink: 1,
