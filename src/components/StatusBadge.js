@@ -22,13 +22,13 @@ const CARD_NEUTRAL = {
 
 const getToneColors = (tone, colors) => {
   if (tone === STATUS_BADGE_TONE.SUCCESS) {
-    return {backgroundColor: colors.successBackground, color: colors.success};
+    return {backgroundColor: colors.successBackground, color: colors.successText};
   }
   if (tone === STATUS_BADGE_TONE.WARNING) {
-    return {backgroundColor: colors.warningBackground, color: colors.warning};
+    return {backgroundColor: colors.warningBackground, color: colors.warningText};
   }
   if (tone === STATUS_BADGE_TONE.DANGER) {
-    return {backgroundColor: colors.dangerBackground, color: colors.danger};
+    return {backgroundColor: colors.dangerBackground, color: colors.dangerText};
   }
   return {backgroundColor: colors.surfaceMuted, color: colors.textSecondary};
 };
