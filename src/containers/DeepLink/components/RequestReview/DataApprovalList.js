@@ -30,12 +30,18 @@ const DataApprovalItem = ({
   open,
   disabled,
   onUndo,
+  openItemRef,
+  onOpenItemLayout,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [detailsVisible, setDetailsVisible] = useState(false);
   return (
-    <View style={[styles.row, open && styles.openRow]}>
+    <View
+      collapsable={false}
+      ref={open ? openItemRef : undefined}
+      onLayout={open ? onOpenItemLayout : undefined}
+      style={[styles.row, open && styles.openRow]}>
       <View
         accessible={open}
         accessibilityLabel={open ? `Item ${index + 1} of ${total}` : undefined}
@@ -120,7 +126,7 @@ const DataApprovalItem = ({
   );
 };
 
-export default function DataApprovalList({items, consent, processing}) {
+export default function DataApprovalList({items, consent, processing, openItemRef, onOpenItemLayout}) {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const openIndex = items.findIndex(item => !consent.checked[item.key]);
@@ -135,6 +141,8 @@ export default function DataApprovalList({items, consent, processing}) {
           approved={!!consent.checked[item.key]}
           open={index === openIndex}
           disabled={processing}
+          openItemRef={openItemRef}
+          onOpenItemLayout={onOpenItemLayout}
           onUndo={() => {
             if (!processing && consent.checked[item.key]) {
               consent.toggle(item.key);

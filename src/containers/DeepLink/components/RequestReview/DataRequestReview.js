@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AccessibilityInfo, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Text} from 'react-native-paper';
@@ -95,6 +95,26 @@ export default function DataRequestReview({
   const approvalStyles = useMemo(() => dataApprovalListStyles(theme), [theme]);
   const [unreadableReview, setUnreadableReview] = useState(null);
   const [ackVisible, setAckVisible] = useState(false);
+  const scrollRef = useRef(null);
+  const openItemRef = useRef(null);
+  const previousChecked = useRef(consent.checked);
+  const reviewChanged = useRef(false);
+  const revealOpenItem = useCallback(() => {
+    if (reviewChanged.current) {
+      scrollRef.current?.scrollIntoView(openItemRef);
+    }
+  }, []);
+  useEffect(() => {
+    // Initial loading/identity selection keeps the request card first. Only
+    // an approval, Undo, or a reset of existing approvals enables scrolling.
+    if (previousChecked.current !== consent.checked &&
+      [...Object.values(previousChecked.current), ...Object.values(consent.checked)]
+        .some(Boolean)) {
+      reviewChanged.current = true;
+    }
+    previousChecked.current = consent.checked;
+    revealOpenItem();
+  }, [consent.checked, consent.context, revealOpenItem]);
   const openItem = approvalItems.find(item => !consent.checked[item.key]);
   const approve = item => {
     if (processing || !item || item.key !== openItem?.key) return;
@@ -221,7 +241,7 @@ export default function DataRequestReview({
           </Text>
         </View>
       </AcknowledgeSheet>
-      <DeepLinkReviewScrollView showScrollCue requestCard>
+      <DeepLinkReviewScrollView ref={scrollRef} showScrollCue requestCard>
         <RequestCard
           action={requestAction}
           requester={props}
@@ -286,6 +306,8 @@ export default function DataRequestReview({
                   items={approvalItems}
                   consent={consent}
                   processing={processing}
+                  openItemRef={openItemRef}
+                  onOpenItemLayout={revealOpenItem}
                 />
               ) : null}
             </>

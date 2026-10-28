@@ -15,6 +15,7 @@ import {Portal} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Colors from '../globals/colors';
+import {useTrackBottomSheetActivity} from '../hooks/useBottomSheetActivity';
 import SemiModal from './SemiModal';
 import {
   OnboardingThemeProvider,
@@ -48,6 +49,7 @@ const BottomSheetModal = ({
   const onClosedRef = useRef(onClosed);
   const reduceMotionRef = useRef(false);
   const [renderVisible, setRenderVisible] = useState(visible);
+  useTrackBottomSheetActivity(renderVisible);
   const bottomSpacing = floating ? Math.max(insets.bottom, 12) : 0;
   // A percentage max height resolves against the modal root. On a short
   // Android window the root grows with a tall sheet, so the sheet's bottom,

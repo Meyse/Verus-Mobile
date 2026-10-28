@@ -1,12 +1,14 @@
-import React, {useMemo, useState} from 'react';
+import React, {forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
 import {ScrollView, View} from 'react-native';
+import useReduceMotion from '../../../../hooks/useReduceMotion';
+import useBottomSheetActivity, {isBottomSheetActive} from '../../../../hooks/useBottomSheetActivity';
 import {RequestSheetScrollCue} from './DeepLinkRequestSheetScaffold';
 import {deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 
 const SCROLL_THRESHOLD = 48;
 
-const DeepLinkReviewScrollView = ({
+const DeepLinkReviewScrollView = forwardRef(({
   children,
   contentContainerStyle,
   keyboardDismissMode,
@@ -14,7 +16,7 @@ const DeepLinkReviewScrollView = ({
   style,
   showScrollCue = false,
   requestCard = false,
-}) => {
+}, ref) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(
     () => createDeepLinkRequestReviewStyles(theme),
@@ -23,6 +25,48 @@ const DeepLinkReviewScrollView = ({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
+  const [tailSpace, setTailSpace] = useState(0);
+  const scrollRef = useRef(null);
+  const targetRef = useRef(null);
+  const frameRef = useRef(null);
+  const offsetRef = useRef(0);
+  const tailLayoutPending = useRef(false);
+  const reduceMotion = useReduceMotion();
+  const sheetActive = useBottomSheetActivity();
+  const revealTarget = useCallback(() => {
+    cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      const target = targetRef.current?.current;
+      if (isBottomSheetActive() || tailLayoutPending.current || !contentHeight || !target || !scrollRef.current) return;
+      scrollRef.current.measureInWindow((_x, viewportY, _width, height) => {
+        target.measureInWindow((_left, top, _targetWidth, targetHeight) => {
+          if (isBottomSheetActive() || target !== targetRef.current?.current || !height) return;
+          const visibleBottom = viewportY + height - (showScrollCue ? 46 : 0);
+          if (top >= viewportY && top + targetHeight <= visibleBottom) return;
+          const y = Math.max(0, offsetRef.current + top - viewportY - 16);
+          // The last open item must also be able to reach the top inset.
+          const neededSpace = Math.max(0, y + height - (contentHeight - tailSpace));
+          if (Math.abs(neededSpace - tailSpace) > 1) {
+            tailLayoutPending.current = true;
+            setTailSpace(neededSpace);
+            return; // Measure again after the extra space has laid out.
+          }
+          scrollRef.current?.scrollTo({y, animated: !reduceMotion});
+        });
+      });
+    });
+  }, [contentHeight, reduceMotion, showScrollCue, tailSpace]);
+  useImperativeHandle(ref, () => ({
+    scrollIntoView: itemRef => {
+      targetRef.current = itemRef;
+      if (!itemRef?.current) setTailSpace(0);
+      revealTarget();
+    },
+  }), [revealTarget]);
+  useEffect(() => {
+    revealTarget();
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [revealTarget, sheetActive, viewportHeight]);
   const scrollEnabled =
     viewportHeight > 0 &&
     contentHeight > viewportHeight + (showScrollCue ? 8 : SCROLL_THRESHOLD);
@@ -33,23 +77,27 @@ const DeepLinkReviewScrollView = ({
 
   const content = (
     <ScrollView
+      ref={scrollRef}
       alwaysBounceVertical={false}
       bounces={false}
       contentContainerStyle={[styles.scrollContent, requestCard && {paddingTop: 48}, contentContainerStyle]}
       keyboardDismissMode={keyboardDismissMode}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-      onContentSizeChange={(_, height) => setContentHeight(height)}
+      onContentSizeChange={(_, height) => {
+        tailLayoutPending.current = false;
+        setContentHeight(height);
+      }}
       onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
-      onScroll={
-        showScrollCue
-          ? event => setOffsetY(event.nativeEvent.contentOffset.y)
-          : undefined
-      }
+      onScroll={event => {
+        offsetRef.current = event.nativeEvent.contentOffset.y;
+        setOffsetY(offsetRef.current);
+      }}
       scrollEventThrottle={16}
       scrollEnabled={scrollEnabled}
       showsVerticalScrollIndicator={false}
       style={[styles.scrollView, style]}>
       {children}
+      {tailSpace > 0 && <View style={{height: tailSpace}} />}
     </ScrollView>
   );
   if (!showScrollCue) return content;
@@ -65,6 +113,6 @@ const DeepLinkReviewScrollView = ({
       )}
     </View>
   );
-};
+});
 
 export default DeepLinkReviewScrollView;
