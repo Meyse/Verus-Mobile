@@ -44,7 +44,11 @@ const DeepLinkReviewScrollView = forwardRef(({
         target.measureInWindow((_left, top, _targetWidth, targetHeight) => {
           if (isBottomSheetActive() || target !== targetRef.current?.current || !height) return;
           const visibleBottom = viewportY + height - (showScrollCue ? 46 : 0);
-          if (top >= viewportY && top + targetHeight <= visibleBottom) return;
+          // A target is revealed once; a later sheet close or resize must not jump the page.
+          if (top >= viewportY && top + targetHeight <= visibleBottom) {
+            targetRef.current = null;
+            return;
+          }
           const y = Math.max(0, offsetRef.current + top - viewportY - 16);
           // The last open item must also be able to reach the top inset.
           const neededSpace = Math.max(0, y + height - (contentHeight - tailSpace));
@@ -53,6 +57,7 @@ const DeepLinkReviewScrollView = forwardRef(({
             setTailSpace(neededSpace);
             return; // Measure again after the extra space has laid out.
           }
+          targetRef.current = null;
           scrollRef.current?.scrollTo({y, animated: !reduceMotion});
         });
       });

@@ -97,11 +97,17 @@ export default function DataRequestReview({
   const [ackVisible, setAckVisible] = useState(false);
   const scrollRef = useRef(null);
   const openItemRef = useRef(null);
+  const resetNoticeRef = useRef(null);
+  const clearedRef = useRef(consent.cleared);
+  clearedRef.current = consent.cleared;
   const previousChecked = useRef(consent.checked);
   const reviewChanged = useRef(false);
   const revealOpenItem = useCallback(() => {
     if (reviewChanged.current) {
-      scrollRef.current?.scrollIntoView(openItemRef);
+      // After a reset, show the notice that explains it, with item 1 below.
+      scrollRef.current?.scrollIntoView(
+        clearedRef.current ? resetNoticeRef : openItemRef,
+      );
     }
   }, []);
   useEffect(() => {
@@ -294,6 +300,8 @@ export default function DataRequestReview({
               {children}
               {consent.cleared ? (
                 <View
+                  ref={resetNoticeRef}
+                  collapsable={false}
                   accessibilityLiveRegion="polite"
                   style={approvalStyles.resetNotice}>
                   <Text style={approvalStyles.resetNoticeText}>
