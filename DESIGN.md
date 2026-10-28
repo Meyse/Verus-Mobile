@@ -1390,6 +1390,8 @@ selected identity row in the footer. This is a limited exception to flat pages.
   `src/styles/components/requestCard.styles.js` draw one 18-point-radius card
   with a 1-point `borderStrong` border and clipped row edges. The content inset
   is 24 points. The card starts 48 points below the top safe inset.
+  On headerless reviews, this 48-point band stays outside the scroll viewport
+  so content cannot scroll under the other-app icon.
 - Requester: `surfaceMuted`, 56-point minimum, 16/12/16/16 padding, 8-point
   gap. The name uses `titleSheet` (20/26 semibold), two tones split at the
   first dot. Names wrap after dots and never truncate. Only a request signature
@@ -1444,6 +1446,7 @@ The footer names that item with "Approve <title>". Approved items fold to one
 row with a `successText` check and a 44-point Undo action. Undo reopens the
 first unapproved item. Waiting items show their number and title. The markers
 show progress once; there are no checkboxes or counter line.
+When the open item changes, the list scrolls it into view.
 
 Unreadable items are titled "Unreadable data" and show the warning `StatusBadge`
 "Check first" while waiting or open. Their footer says "Check unreadable data".
