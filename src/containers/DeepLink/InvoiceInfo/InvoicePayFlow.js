@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useEffect, useMemo, useRef} from 'react';
 import {Animated, StyleSheet, TouchableOpacity} from 'react-native';
 import {SquareArrowOutUpRight} from 'lucide-react-native';
@@ -27,6 +28,15 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
     onHeaderVisibilityChange?.(true);
     return () => onHeaderVisibilityChange?.(false);
   }, [onHeaderVisibilityChange]);
+  const invoiceNavigation = useRef(null);
+  useRequestBackHandler(() => {
+    const navigation = invoiceNavigation.current;
+    const state = navigation?.getState();
+    const route = state?.routes[state.index];
+    if (route?.name === 'SendWizardSuccess') flow.onPaid();
+    else if (state?.index > 0) navigation.goBack();
+    else flow.onExit();
+  }, flow.responsePending);
   const theme = useOnboardingTheme();
   const {anyAmount, anyDestination} = flow.invoice;
   const steps = useMemo(
@@ -54,8 +64,11 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
       <SendWizardProvider initialState={initialState} mode={SEND_WIZARD_MODE.SEND}>
         <Stack.Navigator
           initialRouteName="InvoicePayWith"
-          screenListeners={({route}) => ({
-            focus: () => onHeaderVisibilityChange?.(route.name !== 'SendWizardSuccess'),
+          screenListeners={({route, navigation}) => ({
+            focus: () => {
+              invoiceNavigation.current = navigation;
+              onHeaderVisibilityChange?.(route.name !== 'SendWizardSuccess');
+            },
           })}
           screenOptions={() => ({
             title: '',
@@ -72,8 +85,8 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
                 onBack={
                   options.wizardBackHidden
                     ? undefined
-                    : () =>
-                        navigation.canGoBack() ? navigation.goBack() : flow.onExit()
+                    : options.wizardOnBack || (() =>
+                        navigation.canGoBack() ? navigation.goBack() : flow.onExit())
                 }
                 rightAccessory={onOpenInAnotherApp ? (
                   <TouchableOpacity

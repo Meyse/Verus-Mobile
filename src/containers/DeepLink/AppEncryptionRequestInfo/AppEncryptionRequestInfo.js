@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {
   useCallback,
   useEffect,
@@ -273,6 +274,7 @@ const AppEncryptionRequestInfoContent = props => {
   const [selectedIdentity, setSelectedIdentity] = useState(null);
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
+  useRequestBackHandler(cancel, processing);
   const [openIdentityAfterUnlock, setOpenIdentityAfterUnlock] =
     useState(false);
   const linkOperationRef = useRef(0);

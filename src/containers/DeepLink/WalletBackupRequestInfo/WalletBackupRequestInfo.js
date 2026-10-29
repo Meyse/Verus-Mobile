@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
@@ -623,6 +624,13 @@ const WalletBackupRequestInfo = props => {
       );
     }
   };
+
+  useRequestBackHandler(() => {
+    if (backupResult) finishBackup();
+    else if (nfcTap?.phase === NFC_TAP_PHASE.WAITING) cancelWalletBackupNfcRequest();
+    else if (nfcTap) setNfcTap(null);
+    else cancel();
+  }, creatingProfile || finishing || [NFC_TAP_PHASE.PREPARING, NFC_TAP_PHASE.ACTIVE, NFC_TAP_PHASE.RELEASE].includes(nfcTap?.phase));
 
   const skipBackupAndClaimSpendableKey = async () => {
     await next(response, [detailIndex]);

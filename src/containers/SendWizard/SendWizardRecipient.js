@@ -1,3 +1,5 @@
+import {useInvoiceFlow} from './invoiceFlow';
+import {useRequestBackHandler} from '../DeepLink/useRequestNavigation';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   BackHandler,
@@ -53,6 +55,7 @@ const IDENTITY_UNAVAILABLE = 'Could not verify this VerusID. Try again.';
 
 const SendWizardRecipient = () => {
   const navigation = useNavigation();
+  const invoiceFlow = useInvoiceFlow();
   const theme = useOnboardingTheme();
   const {smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
   const {state, setMemo, setRecipient} = useSendWizard();
@@ -266,6 +269,7 @@ const SendWizardRecipient = () => {
   };
 
   const closeScanner = useCallback(() => setScannerOpen(false), []);
+  useRequestBackHandler(closeScanner, false, 2, Boolean(invoiceFlow) && scannerOpen);
 
   // While the camera is open the header names it, and Back returns to the
   // address field instead of the previous step.

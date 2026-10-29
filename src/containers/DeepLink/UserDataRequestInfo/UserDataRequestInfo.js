@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {GenericResponse} from 'verus-typescript-primitives';
 import {OnboardingThemeProvider} from '../../../theme/onboarding';
@@ -35,6 +36,7 @@ const UserDataRequestInfoContent = props => {
     credentials: [],
   });
   const [processing, setProcessing] = useState(false);
+  useRequestBackHandler(props.cancel, processing);
   const [error, setError] = useState(null);
   const inFlight = useRef(false);
   const keysString = JSON.stringify(credentialRequests.map(item => item.key));

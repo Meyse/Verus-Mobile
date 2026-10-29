@@ -8,7 +8,7 @@ import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
 import { Text } from 'react-native-paper';
 import {SquareArrowOutUpRight} from 'lucide-react-native';
 import {CommonActions} from '@react-navigation/native';
-import {useDispatch, useSelector} from 'react-redux';
+import {useSelector} from 'react-redux';
 import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
@@ -48,7 +48,6 @@ import { handleSpendableKeyDetailsVDXFObject } from '../../../utils/deeplink/han
 import { handleUserDataRequestVDXFObject } from '../../../utils/deeplink/handlers/userDataRequestHandler';
 import { handleDataPacketRequestVDXFObject } from '../../../utils/deeplink/handlers/dataPacketRequestHandler';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
-import {resetDeeplinkData} from '../../../actions/actionCreators';
 import AuthenticationRequestInfo from '../AuthenticationRequestInfo/AuthenticationRequestInfo';
 import IdentityUpdateRequestInfo from '../IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
 import AppEncryptionRequestInfo from '../AppEncryptionRequestInfo/AppEncryptionRequestInfo';
@@ -86,6 +85,8 @@ import {
   isExperimentalGenericRequestsEnabled,
 } from '../../../utils/deeplink/experimentalDeeplinks';
 import {getGenericRequestRejection} from '../../../utils/deeplink/genericRequestRejection';
+
+import {useRequestBackHandler} from '../useRequestNavigation';
 
 const AUTO_DELIVERY_STATUS = {
   IDLE: 'idle',
@@ -375,14 +376,16 @@ const AutoDeliverySheet = ({
 
   return (
     <BottomSheetModal
-      closeDisabled
+      closeDisabled={status === AUTO_DELIVERY_STATUS.LOADING}
       contentContainerStyle={
         isApprovalResult
           ? autoDeliverySheetStyles.approvalResultSheet
           : autoDeliverySheetStyles.sheet
       }
       maxHeight={isApprovalResult ? '78%' : AUTO_DELIVERY_SHEET_HEIGHT}
-      onClose={() => {}}
+      onClose={() => {
+        if (status !== AUTO_DELIVERY_STATUS.LOADING) onDone();
+      }}
       visible={visible}>
       <AutoDeliverySheetContent
         deliveryInfo={deliveryInfo}
@@ -445,7 +448,6 @@ const GenericRequestHome = props => {
   const processGenerationRef = useRef(0);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const signedIn = useSelector(state => state.authentication.signedIn);
-  const dispatch = useDispatch();
   const experimentalRequestsAllowed = useSelector(isExperimentalGenericRequestsEnabled);
 
   /**
@@ -593,9 +595,17 @@ const GenericRequestHome = props => {
       routes: [{name: signedIn ? 'SignedInStack' : 'SignedOutStack'}],
     });
 
-    dispatch(resetDeeplinkData());
-    props.navigation.dispatch(resetAction);
-  }, [dispatch, props.navigation, signedIn]);
+    props.finishRequest(() => props.navigation.dispatch(resetAction));
+  }, [props.finishRequest, props.navigation, signedIn]);
+
+  useRequestBackHandler(
+    autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE
+      ? cancelRequest
+      : completeRequest,
+    props.loading ||
+      autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING,
+    autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE ? 0 : 3,
+  );
 
   const markSavedPendingRequestComplete = useCallback(async () => {
     const pendingRequestId =

@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../../useRequestNavigation';
 /*
   ConfirmPayStep (Step 4 / final step)
   - 2026-02-05: Created. Replaces IdentityUpdatePaymentConfiguration and the
@@ -606,6 +607,14 @@ const ConfirmPayStep = ({
     completionSheetStage === COMPLETION_SHEET_STAGE.SUCCESS;
   const completionIsError =
     completionSheetStage === COMPLETION_SHEET_STAGE.ERROR;
+  const closeCompletion = () => {
+    if (completionIsBroadcasting || completionIsDelivering) return;
+    if (completionIsReady) handleCompleteUpdate();
+    else if (completionIsBroadcastError) closeBroadcastError();
+    else handleLeaveWithoutSending();
+  };
+  useRequestBackHandler(closeCompletion,
+    completionIsBroadcasting || completionIsDelivering, 2, completionSheetVisible);
   const completionIsBroadcastError = completionIsError && broadcastError != null;
   const completionTitle = completionIsBroadcasting
     ? 'Broadcasting update'
@@ -832,10 +841,10 @@ const ConfirmPayStep = ({
       </BottomSheetModal>
 
       <BottomSheetModal
-        closeDisabled
+        closeDisabled={completionIsBroadcasting || completionIsDelivering}
         contentContainerStyle={localStyles.broadcastSheet}
         maxHeight={IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT}
-        onClose={() => {}}
+        onClose={closeCompletion}
         visible={completionSheetVisible}>
         <View style={localStyles.broadcastSheetBody}>
           {(showLoadingAnimation || showSuccessAnimation) && (

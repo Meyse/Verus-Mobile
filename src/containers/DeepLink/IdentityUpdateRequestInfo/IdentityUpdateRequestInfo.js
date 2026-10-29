@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 /*
   IdentityUpdateRequestInfo
   - 2026-02-02: Complete UI overhaul to match Wallet/Identity/SendWizard patterns.
@@ -889,6 +890,8 @@ const IdentityUpdateRequestInfoContent = props => {
   const goBack = useCallback(() => {
     if (stepIndex > 0) setStepIndex(stepIndex - 1);
   }, [stepIndex]);
+
+  useRequestBackHandler(stepIndex > 0 ? goBack : cancel);
 
   const closeHighRiskAckSheet = useCallback(() => {
     setHighRiskAckSheetVisible(false);
