@@ -124,7 +124,7 @@ export default function CreateProfileStackScreens(props) {
   const [walletAvatar, setWalletAvatar] = useState(DEFAULT_WALLET_AVATAR);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [useBiometrics, setUseBiometrics] = useState(false);
+  const useBiometricsRef = useRef(false);
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [newSeed, setNewSeed] = useState(null);
   const [importedSeed, setImportedSeed] = useState('');
@@ -205,7 +205,19 @@ export default function CreateProfileStackScreens(props) {
   const createProfile = async (seed, createAsTestProfile, useSeedAsZ) => {
     if (creationStarted.current) return;
     creationStarted.current = true;
+    // Read the latest choice even when this callback came from an earlier render.
+    const useBiometrics = useBiometricsRef.current;
     let profileCreated = false;
+    let biometrySetupFailed = false;
+    const showBiometrySetupFailure = () => {
+      if (!biometrySetupFailed) return;
+      const biometryName =
+        getBiometryPresentation(supportedBiometryType).settingsTitle;
+      createAlert(
+        `${biometryName} not turned on`,
+        `The wallet could not save ${biometryName}. Turn it on in Settings.`,
+      );
+    };
     const retry = () => {
       closeWalletSetup();
       return createProfile(seed, createAsTestProfile, useSeedAsZ);
@@ -233,6 +245,9 @@ export default function CreateProfileStackScreens(props) {
         useBiometrics,
         walletAvatar,
         onStep: reportWalletSetupStep,
+        onBiometrySetupFailed: () => {
+          biometrySetupFailed = true;
+        },
       });
       profileCreated = true;
       const resumePendingDeeplinkId =
@@ -250,7 +265,8 @@ export default function CreateProfileStackScreens(props) {
         dispatch(setDeeplinkUrl(replay.url, replay.passthrough));
       }
 
-      finishWalletSetup({landOnHome: !resumePendingDeeplinkId});
+      await finishWalletSetup({landOnHome: !resumePendingDeeplinkId});
+      showBiometrySetupFailure();
     } catch (e) {
       console.error(e);
       // The setup screen shows the failure; an alert if it never opened.
@@ -262,6 +278,7 @@ export default function CreateProfileStackScreens(props) {
 
       if (profileCreated) {
         await finishWalletSetup({landOnHome: false});
+        showBiometrySetupFailure();
         createAlert(
           'Wallet ready',
           'The saved request could not be reopened. Find it under Saved requests on the sign-in screen.',
@@ -519,7 +536,9 @@ export default function CreateProfileStackScreens(props) {
       return (
         <UseBiometrics
           supportedBiometryType={supportedBiometryType}
-          setUseBiometrics={setUseBiometrics}
+          setUseBiometrics={choice => {
+            useBiometricsRef.current = choice;
+          }}
           onNext={startWalletSetup}
         />
       );

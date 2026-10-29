@@ -51,6 +51,7 @@ const PasswordCheck = props => {
     submit,
     submitLabel = 'Continue',
     showCenteredLoadingMessage = true,
+    showWalletSummary = true,
     suppressSystemAlerts = false,
     title,
     userName,
@@ -285,8 +286,8 @@ const PasswordCheck = props => {
           <Text accessibilityRole="header" style={styles.title}>
             {title}
           </Text>
-          <Text style={styles.body}>{body}</Text>
-          <View style={styles.scrollFrame}>
+          {body ? <Text style={styles.body}>{body}</Text> : null}
+          <View style={[styles.scrollFrame, !body && styles.contentWithoutBody]}>
             <ScrollView
               ref={scrollRef}
               bounces={false}
@@ -298,7 +299,7 @@ const PasswordCheck = props => {
               onContentSizeChange={revealPassword}
               onLayout={revealPassword}
               showsVerticalScrollIndicator={Boolean(keyboardFrame)}>
-              {account ? (
+              {showWalletSummary && account ? (
                 <View style={styles.walletSummary}>
                   <View style={styles.walletIcon}>
                     {walletAvatar ? (
@@ -472,6 +473,9 @@ const createStyles = theme =>
     content: {
       width: '100%',
       paddingHorizontal: 20,
+    },
+    contentWithoutBody: {
+      marginTop: 18,
     },
     title: {
       ...theme.typography.titleSheet,

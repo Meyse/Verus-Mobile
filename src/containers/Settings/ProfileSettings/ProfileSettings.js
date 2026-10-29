@@ -100,6 +100,8 @@ class ProfileSettings extends Component {
       loading: false,
       passwordDialogOpen: false,
       passwordDialogTitle: "",
+      passwordDialogBody: null,
+      passwordDialogSubmitLabel: 'Continue',
       passwordError: null,
       seedWarningError: null,
       supportedBiometryType: null,
@@ -390,6 +392,10 @@ class ProfileSettings extends Component {
       } else {
         this.showPasswordError(result);
       }
+    }, {
+      title: 'Save Z recovery secret',
+      body: 'Your password encrypts it on this phone.',
+      submitLabel: 'Save',
     })
   }
 
@@ -491,14 +497,16 @@ class ProfileSettings extends Component {
 
   openNfcBackup = async () => {
     if (await this.canBackupCurrentProfileToNfc()) {
-      this.openPasswordCheck(this.startNfcBackup);
+      this.openPasswordCheck(this.startNfcBackup, {title: 'Back up to NFC'});
     }
   }
 
-  openPasswordCheck = (onPasswordCorrect) =>
+  openPasswordCheck = (onPasswordCorrect, {title, body = null, submitLabel = 'Continue'}) =>
     this.setState({
       passwordDialogOpen: true,
-      passwordDialogTitle: 'Enter password',
+      passwordDialogTitle: title,
+      passwordDialogBody: body,
+      passwordDialogSubmitLabel: submitLabel,
       passwordError: null,
       onPasswordCorrect,
     });
@@ -569,7 +577,9 @@ class ProfileSettings extends Component {
             description="View your Secret Recovery Phrase and derived keys"
             icon="key-outline"
             onPress={async () => {
-              if (await canShowSeed()) this.openPasswordCheck(this.showSeed);
+              if (await canShowSeed()) {
+                this.openPasswordCheck(this.showSeed, {title: 'View recovery secrets'});
+              }
             }}
             testID="settings.profile.recoverSeed"
             title="View recovery secrets"
@@ -596,7 +606,15 @@ class ProfileSettings extends Component {
               onPress={
                 biometryNeedsDeviceSetup
                   ? undefined
-                  : () => this.openPasswordCheck(this.toggleBiometry)
+                  : () => this.openPasswordCheck(this.toggleBiometry, {
+                      title: biometryEnabled
+                        ? biometryPresentation.turnOffTitle
+                        : biometryPresentation.turnOnTitle,
+                      body: biometryEnabled
+                        ? null
+                        : biometryPresentation.passwordSetupBody,
+                      submitLabel: biometryEnabled ? 'Turn off' : 'Turn on',
+                    })
               }
               title={biometryTitle}
               value={biometryValue}
@@ -680,11 +698,14 @@ class ProfileSettings extends Component {
           visible={this.state.keyDerivationVersionModalOpen}
         />
         <PasswordCheck
+          body={this.state.passwordDialogBody}
           cancel={() => this.closePasswordDialog()}
           errorMessage={this.state.passwordError}
           onInputChange={this.clearPasswordError}
           redesigned
+          showWalletSummary={false}
           submit={(result) => this.state.onPasswordCorrect(result)}
+          submitLabel={this.state.passwordDialogSubmitLabel}
           visible={this.state.passwordDialogOpen}
           title={this.state.passwordDialogTitle}
           userName={this.props.activeAccount.id}
