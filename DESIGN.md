@@ -296,6 +296,10 @@ Settings pickers: a list choice uses `SelectionSheet`. A one-value edit uses
 
 ### Wallet unlock
 
+For a signed-in password sheet, the title names the action. The body says only
+why the password is needed, or is left out. The primary button names the action.
+Show no wallet row when the user is already inside that wallet.
+
 `src/containers/Login/components/UnlockWalletSheet.js` unlocks a wallet on the
 login screen and for requests (`WalletUnlockCoordinator`).
 

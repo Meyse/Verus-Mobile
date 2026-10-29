@@ -60,6 +60,8 @@ export const createProfileFromSeed = async ({
   includeDlightSeed = false,
   useBiometrics = false,
   walletAvatar = null,
+  // The caller can report this after its setup screen has closed.
+  onBiometrySetupFailed = () => {},
   // Called after each finished step: {type: 'key', coinId} per start coin,
   // then 'encrypted', 'assets', 'biometrics' (only with biometrics) and
   // 'opened'. It may return a promise; setup waits for it, so the wallet
@@ -133,9 +135,10 @@ export const createProfileFromSeed = async ({
       newAccount = biometricAction.payload.accounts.find(
         account => account.accountHash === accountHash,
       );
-    } catch (e) {
+    } catch {
       // Password login remains available when biometric setup cannot finish.
-      console.warn(e);
+      console.warn('Biometric setup did not finish.');
+      onBiometrySetupFailed();
     }
     await onStep({type: 'biometrics'});
   }
