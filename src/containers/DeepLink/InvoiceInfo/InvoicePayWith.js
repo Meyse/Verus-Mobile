@@ -37,6 +37,7 @@ import {getSampleAmount} from '../../SendWizard/usePriceImpact';
 import {ADDRESS_TYPE, buildSendTarget} from '../../SendWizard/wizardUtils';
 import InvoiceSlip from './InvoiceSlip';
 import RequestCard from '../components/RequestReview/RequestCard';
+import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 
 // A card as Receive's "Choose a card" names it.
 export const getPayFromLabel = wallet => {
@@ -459,6 +460,13 @@ const InvoicePayWith = () => {
         containerStyle={styles.viewport}
         contentContainerStyle={styles.content}
         fadeBackgroundColor={theme.colors.background}>
+        {flow.onOpenInAnotherApp ? (
+          <OpenInAnotherWalletAction
+            compact
+            onPress={flow.onOpenInAnotherApp}
+            style={styles.otherAppAction}
+          />
+        ) : null}
         <RequestCard
           action="wants you to pay"
           requester={flow.requester}
@@ -550,6 +558,7 @@ const InvoicePayWith = () => {
 const styles = StyleSheet.create({
   viewport: {flex: 1},
   content: {paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 24},
+  otherAppAction: {marginRight: WIZARD_CONTENT_INSET},
   requestCard: {marginHorizontal: WIZARD_CONTENT_INSET},
   slip: {marginHorizontal: WIZARD_CONTENT_INSET, marginBottom: 8},
   groupTitle: {

@@ -150,7 +150,11 @@ const requiredSourceFragments = [
   },
   {
     path: 'src/containers/DeepLink/GenericRequestHome/GenericRequestHome.js',
-    fragments: ['accessibilityLabel="Open in another app"', '<SquareArrowOutUpRight size={21}', "position: 'absolute'"],
+    fragments: ['<OpenInAnotherWalletAction', 'title="Open in another wallet"', "position: 'absolute'"],
+  },
+  {
+    path: 'src/containers/DeepLink/components/RequestReview/OpenInAnotherWalletAction.js',
+    fragments: ['accessibilityLabel="Open in another wallet"', 'theme.typography.caption', 'minHeight: 44', 'minHeight: 32', 'opacity: 0.4'],
   },
   {
     path: 'src/components/InfoSheet.js',

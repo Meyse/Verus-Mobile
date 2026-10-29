@@ -4,9 +4,9 @@
     screen, and forwards completed responses through the request flow.
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {Linking, StyleSheet, View} from 'react-native';
 import { Text } from 'react-native-paper';
-import {SquareArrowOutUpRight} from 'lucide-react-native';
+import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 import {CommonActions} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import {
@@ -157,8 +157,8 @@ const autoDeliverySheetStyles = StyleSheet.create({
 
 const otherAppStyles = StyleSheet.create({
   action: {
-    position: 'absolute', right: 12, zIndex: 1,
-    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', zIndex: 1,
+    height: 48, justifyContent: 'center',
   },
 });
 
@@ -172,7 +172,7 @@ const OpenInAnotherAppSheet = ({onClose, onOpenInValu, visible}) => {
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}
       subtitle="Continue this request in another wallet app."
-      title="Open in another app"
+      title="Open in another wallet"
       visible={visible}>
       <SelectionRow
         onPress={() => dismissal.dismiss(onOpenInValu)}
@@ -1125,14 +1125,17 @@ const GenericRequestHome = props => {
         <View style={{flex: 1, backgroundColor: theme.colors.background}}>
           <View style={{flex: 1}}>{screens[displayKey]()}</View>
           {valuInstalled && (displayKey !== VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid || !invoiceHeaderVisible) && (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Open in another app"
-              activeOpacity={0.72}
-              onPress={() => setOpenInAnotherAppVisible(true)}
-              style={[otherAppStyles.action, {top: insets.top}]}>
-              <SquareArrowOutUpRight size={21} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
+            <View
+              pointerEvents="box-none"
+              style={[otherAppStyles.action, {
+                top: insets.top,
+                right: insets.right + theme.spacing.lg,
+              }]}>
+              <OpenInAnotherWalletAction
+                disabled={autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING}
+                onPress={() => setOpenInAnotherAppVisible(true)}
+              />
+            </View>
           )}
         </View>
       )}

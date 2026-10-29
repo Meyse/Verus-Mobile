@@ -1,7 +1,6 @@
 import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useEffect, useMemo, useRef} from 'react';
-import {Animated, StyleSheet, TouchableOpacity} from 'react-native';
-import {SquareArrowOutUpRight} from 'lucide-react-native';
+import {Animated} from 'react-native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {SendWizardProvider} from '../../SendWizard/SendWizardContext';
@@ -60,7 +59,7 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
   const initialState = useRef({invoice: flow.invoice}).current;
 
   return (
-    <InvoiceFlowContext.Provider value={flow}>
+    <InvoiceFlowContext.Provider value={{...flow, onOpenInAnotherApp}}>
       <SendWizardProvider initialState={initialState} mode={SEND_WIZARD_MODE.SEND}>
         <Stack.Navigator
           initialRouteName="InvoicePayWith"
@@ -88,21 +87,6 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
                     : options.wizardOnBack || (() =>
                         navigation.canGoBack() ? navigation.goBack() : flow.onExit())
                 }
-                rightAccessory={onOpenInAnotherApp ? (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Open in another app"
-                    accessibilityState={{disabled: Boolean(options.wizardNavigationDisabled)}}
-                    activeOpacity={0.72}
-                    disabled={Boolean(options.wizardNavigationDisabled)}
-                    onPress={onOpenInAnotherApp}
-                    style={[
-                      styles.otherAppAction,
-                      options.wizardNavigationDisabled && styles.disabled,
-                    ]}>
-                    <SquareArrowOutUpRight size={21} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                ) : null}
                 onClose={flow.onExit}
                 progress={progressFor(route.name)}
                 progressAnimation={progressAnimation}
@@ -140,16 +124,5 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
   );
 };
 
-const styles = StyleSheet.create({
-  otherAppAction: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-});
 
 export default InvoicePayFlow;
