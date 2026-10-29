@@ -104,9 +104,11 @@ export default function DataRequestReview({
   const reviewChanged = useRef(false);
   const revealOpenItem = useCallback(() => {
     if (reviewChanged.current) {
-      // After a reset, show the notice that explains it, with item 1 below.
+      // Reveal the open item. After a reset, keep the notice that explains it
+      // above item 1.
       scrollRef.current?.scrollIntoView(
-        clearedRef.current ? resetNoticeRef : openItemRef,
+        openItemRef,
+        clearedRef.current ? resetNoticeRef : undefined,
       );
     }
   }, []);

@@ -38,35 +38,41 @@ const DeepLinkReviewScrollView = forwardRef(({
   const revealTarget = useCallback(() => {
     cancelAnimationFrame(frameRef.current);
     frameRef.current = requestAnimationFrame(() => {
-      const target = targetRef.current?.current;
+      const request = targetRef.current;
+      const target = request?.itemRef.current;
+      // The anchor (for example a notice above the item) goes to the top inset.
+      const anchor = request?.anchorRef?.current || target;
       if (isBottomSheetActive() || tailLayoutPending.current || !contentHeight || !target || !scrollRef.current) return;
       scrollRef.current.measureInWindow((_x, viewportY, _width, height) => {
         target.measureInWindow((_left, top, _targetWidth, targetHeight) => {
-          if (isBottomSheetActive() || target !== targetRef.current?.current || !height) return;
+          if (isBottomSheetActive() || request !== targetRef.current || !height) return;
           const visibleBottom = viewportY + height - (showScrollCue ? 46 : 0);
           // A target is revealed once; a later sheet close or resize must not jump the page.
           if (top >= viewportY && top + targetHeight <= visibleBottom) {
             targetRef.current = null;
             return;
           }
-          const y = Math.max(0, offsetRef.current + top - viewportY - 16);
-          // The last open item must also be able to reach the top inset.
-          const neededSpace = Math.max(0, y + height - (contentHeight - tailSpace));
-          if (Math.abs(neededSpace - tailSpace) > 1) {
-            tailLayoutPending.current = true;
-            setTailSpace(neededSpace);
-            return; // Measure again after the extra space has laid out.
-          }
-          targetRef.current = null;
-          scrollRef.current?.scrollTo({y, animated: !reduceMotion});
+          anchor.measureInWindow((_anchorLeft, anchorTop) => {
+            if (request !== targetRef.current) return;
+            const y = Math.max(0, offsetRef.current + anchorTop - viewportY - 16);
+            // The last open item must also be able to reach the top inset.
+            const neededSpace = Math.max(0, y + height - (contentHeight - tailSpace));
+            if (Math.abs(neededSpace - tailSpace) > 1) {
+              tailLayoutPending.current = true;
+              setTailSpace(neededSpace);
+              return; // Measure again after the extra space has laid out.
+            }
+            targetRef.current = null;
+            scrollRef.current?.scrollTo({y, animated: !reduceMotion});
+          });
         });
       });
     });
   }, [contentHeight, reduceMotion, showScrollCue, tailSpace]);
   useImperativeHandle(ref, () => ({
     scrollToEnd: options => scrollRef.current?.scrollToEnd(options),
-    scrollIntoView: itemRef => {
-      targetRef.current = itemRef;
+    scrollIntoView: (itemRef, anchorRef) => {
+      targetRef.current = itemRef ? {itemRef, anchorRef} : null;
       if (!itemRef?.current) setTailSpace(0);
       revealTarget();
     },
