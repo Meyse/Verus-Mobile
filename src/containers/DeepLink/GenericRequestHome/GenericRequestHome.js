@@ -4,11 +4,11 @@
     screen, and forwards completed responses through the request flow.
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {Linking, StyleSheet, View} from 'react-native';
 import { Text } from 'react-native-paper';
-import {SquareArrowOutUpRight} from 'lucide-react-native';
+import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 import {CommonActions} from '@react-navigation/native';
-import {useDispatch, useSelector} from 'react-redux';
+import {useSelector} from 'react-redux';
 import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
@@ -48,7 +48,6 @@ import { handleSpendableKeyDetailsVDXFObject } from '../../../utils/deeplink/han
 import { handleUserDataRequestVDXFObject } from '../../../utils/deeplink/handlers/userDataRequestHandler';
 import { handleDataPacketRequestVDXFObject } from '../../../utils/deeplink/handlers/dataPacketRequestHandler';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
-import {resetDeeplinkData} from '../../../actions/actionCreators';
 import AuthenticationRequestInfo from '../AuthenticationRequestInfo/AuthenticationRequestInfo';
 import IdentityUpdateRequestInfo from '../IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
 import AppEncryptionRequestInfo from '../AppEncryptionRequestInfo/AppEncryptionRequestInfo';
@@ -86,6 +85,8 @@ import {
   isExperimentalGenericRequestsEnabled,
 } from '../../../utils/deeplink/experimentalDeeplinks';
 import {getGenericRequestRejection} from '../../../utils/deeplink/genericRequestRejection';
+
+import {useRequestBackHandler} from '../useRequestNavigation';
 
 const AUTO_DELIVERY_STATUS = {
   IDLE: 'idle',
@@ -156,8 +157,8 @@ const autoDeliverySheetStyles = StyleSheet.create({
 
 const otherAppStyles = StyleSheet.create({
   action: {
-    position: 'absolute', right: 12, zIndex: 1,
-    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', zIndex: 1,
+    height: 48, justifyContent: 'center',
   },
 });
 
@@ -171,7 +172,7 @@ const OpenInAnotherAppSheet = ({onClose, onOpenInValu, visible}) => {
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}
       subtitle="Continue this request in another wallet app."
-      title="Open in another app"
+      title="Open in another wallet"
       visible={visible}>
       <SelectionRow
         onPress={() => dismissal.dismiss(onOpenInValu)}
@@ -383,6 +384,9 @@ const AutoDeliverySheet = ({
       }
       maxHeight={isApprovalResult ? '78%' : AUTO_DELIVERY_SHEET_HEIGHT}
       onClose={() => {}}
+      onRequestBack={() => {
+        if (status !== AUTO_DELIVERY_STATUS.LOADING) onDone();
+      }}
       visible={visible}>
       <AutoDeliverySheetContent
         deliveryInfo={deliveryInfo}
@@ -445,7 +449,6 @@ const GenericRequestHome = props => {
   const processGenerationRef = useRef(0);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const signedIn = useSelector(state => state.authentication.signedIn);
-  const dispatch = useDispatch();
   const experimentalRequestsAllowed = useSelector(isExperimentalGenericRequestsEnabled);
 
   /**
@@ -593,9 +596,17 @@ const GenericRequestHome = props => {
       routes: [{name: signedIn ? 'SignedInStack' : 'SignedOutStack'}],
     });
 
-    dispatch(resetDeeplinkData());
-    props.navigation.dispatch(resetAction);
-  }, [dispatch, props.navigation, signedIn]);
+    props.finishRequest(() => props.navigation.dispatch(resetAction));
+  }, [props.finishRequest, props.navigation, signedIn]);
+
+  useRequestBackHandler(
+    autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE
+      ? cancelRequest
+      : completeRequest,
+    props.loading ||
+      autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING,
+    autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE ? 0 : 3,
+  );
 
   const markSavedPendingRequestComplete = useCallback(async () => {
     const pendingRequestId =
@@ -1115,14 +1126,17 @@ const GenericRequestHome = props => {
         <View style={{flex: 1, backgroundColor: theme.colors.background}}>
           <View style={{flex: 1}}>{screens[displayKey]()}</View>
           {valuInstalled && (displayKey !== VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid || !invoiceHeaderVisible) && (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Open in another app"
-              activeOpacity={0.72}
-              onPress={() => setOpenInAnotherAppVisible(true)}
-              style={[otherAppStyles.action, {top: insets.top}]}>
-              <SquareArrowOutUpRight size={21} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
+            <View
+              pointerEvents="box-none"
+              style={[otherAppStyles.action, {
+                top: insets.top,
+                right: insets.right + theme.spacing.lg,
+              }]}>
+              <OpenInAnotherWalletAction
+                disabled={autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING}
+                onPress={() => setOpenInAnotherAppVisible(true)}
+              />
+            </View>
           )}
         </View>
       )}

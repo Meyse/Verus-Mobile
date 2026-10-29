@@ -1,3 +1,5 @@
+import {useIsFocused} from '@react-navigation/native';
+import {useRequestBackHandler} from '../DeepLink/useRequestNavigation';
 import React, {
   useCallback,
   useEffect,
@@ -170,6 +172,12 @@ const SendWizardConfirm = () => {
   // After "Status unknown" only Close leaves (owner, 2026-10-26): a step back
   // would lead to a Confirm that stays locked.
   const broadcastStatusUnknown = Boolean(state.broadcastError);
+  const requestStepFocused = useIsFocused();
+  useRequestBackHandler(
+    () => invoiceFlow.onExit(),
+    sending, 2,
+    Boolean(invoiceFlow) && requestStepFocused && (sending || broadcastStatusUnknown),
+  );
   useLayoutEffect(() => {
     navigation.setOptions({
       gestureEnabled: !sending && !broadcastStatusUnknown,

@@ -165,7 +165,7 @@ const AppTextInput = forwardRef(function AppTextInput(
             {color: theme.colors.textSubtle},
             errorText && styles.errorText,
             errorText && {
-              color: theme.colors.danger,
+              color: theme.colors.dangerText,
             },
             supportingTextStyle,
           ]}>

@@ -394,7 +394,7 @@ const createStyles = theme =>
     validationRow: {marginTop: 10},
     typeIndicator: {flexDirection: 'row', alignItems: 'center', gap: 6},
     typeIndicatorText: {
-      color: theme.colors.success,
+      color: theme.colors.successText,
       fontSize: 13,
       ...fontStyle('medium'),
     },

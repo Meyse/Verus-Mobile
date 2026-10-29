@@ -86,7 +86,7 @@ export const SelectionRow = ({
         importantForAccessibility="no-hide-descendants"
         style={[styles.indicator, compact && styles.compactIndicator]}>
         {disabled ? null : selected ? (
-          <Check color={theme.colors.success} size={20} strokeWidth={2.4} />
+          <Check color={theme.colors.successText} size={20} strokeWidth={2.4} />
         ) : (
           <MaterialCommunityIcons
             name="chevron-right"

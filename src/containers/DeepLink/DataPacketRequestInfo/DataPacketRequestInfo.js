@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useMemo, useRef, useState, useEffect} from 'react';
 import {Text} from 'react-native-paper';
 import {View} from 'react-native';
@@ -72,6 +73,7 @@ const DataPacketRequestInfoContent = props => {
   const approvalStyles = useMemo(() => dataApprovalListStyles(theme), [theme]);
   const identity = useDataRequestIdentity(props);
   const [processing, setProcessing] = useState(false);
+  useRequestBackHandler(props.cancel, processing);
   const [error, setError] = useState(null);
   const inFlight = useRef(false);
   const payloadKey = JSON.stringify([statements, signableObjectSummaries]);

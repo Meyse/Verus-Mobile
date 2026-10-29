@@ -93,7 +93,8 @@ class SemiModal extends Component {
           animationType={this.props.animationType}
           transparent={true}
           visible={this.props.visible}
-          onRequestClose={effectiveOnRequestClose}
+          // A result may map native Back to Done while keeping outside taps locked.
+          onRequestClose={this.props.onRequestBack || effectiveOnRequestClose}
           onDismiss={this.props.onDismiss}
           avoidKeyboard={this.props.avoidKeyboard}
           keyboardVerticalOffset={this.props.keyboardVerticalOffset}

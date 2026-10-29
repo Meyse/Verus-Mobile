@@ -1,6 +1,6 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useEffect, useMemo, useRef} from 'react';
-import {Animated, StyleSheet, TouchableOpacity} from 'react-native';
-import {SquareArrowOutUpRight} from 'lucide-react-native';
+import {Animated} from 'react-native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {SendWizardProvider} from '../../SendWizard/SendWizardContext';
@@ -27,6 +27,15 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
     onHeaderVisibilityChange?.(true);
     return () => onHeaderVisibilityChange?.(false);
   }, [onHeaderVisibilityChange]);
+  const invoiceNavigation = useRef(null);
+  useRequestBackHandler(() => {
+    const navigation = invoiceNavigation.current;
+    const state = navigation?.getState();
+    const route = state?.routes[state.index];
+    if (route?.name === 'SendWizardSuccess') flow.onPaid();
+    else if (state?.index > 0) navigation.goBack();
+    else flow.onExit();
+  }, flow.responsePending);
   const theme = useOnboardingTheme();
   const {anyAmount, anyDestination} = flow.invoice;
   const steps = useMemo(
@@ -50,12 +59,15 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
   const initialState = useRef({invoice: flow.invoice}).current;
 
   return (
-    <InvoiceFlowContext.Provider value={flow}>
+    <InvoiceFlowContext.Provider value={{...flow, onOpenInAnotherApp}}>
       <SendWizardProvider initialState={initialState} mode={SEND_WIZARD_MODE.SEND}>
         <Stack.Navigator
           initialRouteName="InvoicePayWith"
-          screenListeners={({route}) => ({
-            focus: () => onHeaderVisibilityChange?.(route.name !== 'SendWizardSuccess'),
+          screenListeners={({route, navigation}) => ({
+            focus: () => {
+              invoiceNavigation.current = navigation;
+              onHeaderVisibilityChange?.(route.name !== 'SendWizardSuccess');
+            },
           })}
           screenOptions={() => ({
             title: '',
@@ -72,24 +84,9 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
                 onBack={
                   options.wizardBackHidden
                     ? undefined
-                    : () =>
-                        navigation.canGoBack() ? navigation.goBack() : flow.onExit()
+                    : options.wizardOnBack || (() =>
+                        navigation.canGoBack() ? navigation.goBack() : flow.onExit())
                 }
-                rightAccessory={onOpenInAnotherApp ? (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Open in another app"
-                    accessibilityState={{disabled: Boolean(options.wizardNavigationDisabled)}}
-                    activeOpacity={0.72}
-                    disabled={Boolean(options.wizardNavigationDisabled)}
-                    onPress={onOpenInAnotherApp}
-                    style={[
-                      styles.otherAppAction,
-                      options.wizardNavigationDisabled && styles.disabled,
-                    ]}>
-                    <SquareArrowOutUpRight size={21} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                ) : null}
                 onClose={flow.onExit}
                 progress={progressFor(route.name)}
                 progressAnimation={progressAnimation}
@@ -127,16 +124,5 @@ const InvoicePayFlow = ({flow, onOpenInAnotherApp, onHeaderVisibilityChange}) =>
   );
 };
 
-const styles = StyleSheet.create({
-  otherAppAction: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-});
 
 export default InvoicePayFlow;

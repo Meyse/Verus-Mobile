@@ -1395,7 +1395,7 @@ selected identity row in the footer. This is a limited exception to flat pages.
   with a 1-point `borderStrong` border and clipped row edges. The content inset
   is 24 points. The card starts 48 points below the top safe inset.
   On headerless reviews, this 48-point band stays outside the scroll viewport
-  so content cannot scroll under the other-app icon.
+  so content cannot scroll under the other-wallet text action.
 - Requester: `surfaceMuted`, 56-point minimum, 16/12/16/16 padding, 8-point
   gap. The name uses `titleSheet` (20/26 semibold), two tones split at the
   first dot. Names wrap after dots and never truncate. Only a request signature
@@ -1422,12 +1422,19 @@ selected identity row in the footer. This is a limited exception to flat pages.
   `StatusBadge` "Verified" only for a verified request. Include each fact once:
   VerusID address, authorities/content, network, signature time, response URIs,
   delivery, expiry, request ID, and screen-specific information when present.
-- `GenericRequestHome` shows "Open in another app" as a top-right 44-point
-  icon target: Lucide `SquareArrowOutUpRight`, 21 points, `textSecondary`.
-  It adds no layout row. Keep the existing handoff flow and accessible label.
-  Invoice steps with a Back/Close header put the same icon directly left of
-  Close. Invoice steps without that header keep its top-right position. Show
-  the icon only when the other app is installed.
+- `GenericRequestHome` shows "Open in another wallet" only when the other app
+  is installed. Use `caption` and the quiet details-action color, with no icon,
+  underline or background and a 44-point touch target. On headerless reviews,
+  align it to the card's right edge, centered in the fixed 48-point band.
+  Invoice headers keep Back, centered title and Close, without an accessory or
+  spacer. Only Pay with adds the text above the card in a conditional row of
+  at most 32 points; its target extends into the top padding. Later wizard
+  steps show no action. Keep the existing handoff flow.
+
+Request Back closes an open sheet, returns a later step to its previous step,
+and uses Cancel on the first step. Preparing or sending a response blocks
+Back. Results use their Done or Close action. `DeepLink` owns one idempotent
+exit guard, so dismissal or reset cannot leave a stale request.
 
 Identity Update remains the canonical exception for a risky, multi-stage
 GenericRequest. Preserve review, content, high-risk and confirm/pay stages.

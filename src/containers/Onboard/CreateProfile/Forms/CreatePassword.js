@@ -56,7 +56,7 @@ const strengthLabels = {
 };
 const CONTENT_ANIMATION_DURATION = 320;
 
-const PasswordStrengthMeter = ({color, label, level, styles}) => (
+const PasswordStrengthMeter = ({color, label, level, styles, textColor}) => (
   <View style={styles.strengthContainer}>
     <View style={styles.strengthBars}>
       {[0, 1, 2, 3, 4].map(index => (
@@ -72,7 +72,7 @@ const PasswordStrengthMeter = ({color, label, level, styles}) => (
       ))}
     </View>
     {label ? (
-      <Text style={[styles.strengthLabel, {color}]}>{label}</Text>
+      <Text style={[styles.strengthLabel, {color: textColor}]}>{label}</Text>
     ) : null}
   </View>
 );
@@ -246,6 +246,11 @@ export default function CreatePassword({
     return theme.colors.success;
   }, [strengthLevel, theme]);
 
+  const strengthTextColor = strengthLevel <= 2
+    ? theme.colors.warningText
+    : strengthLevel >= 5
+    ? theme.colors.successText
+    : strengthColor;
   const strengthLabel = password ? strengthLabels[strengthLevel] : null;
   const passwordsMatch = password === confirmPassword;
   const passwordStrongEnough =
@@ -371,6 +376,7 @@ export default function CreatePassword({
                 />
                 <PasswordStrengthMeter
                   color={strengthColor}
+                  textColor={strengthTextColor}
                   label={strengthLabel}
                   level={strengthLevel}
                   styles={styles}

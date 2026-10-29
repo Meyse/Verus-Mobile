@@ -1,3 +1,4 @@
+import {useRequestBackHandler} from '../useRequestNavigation';
 import {showFundRawTransactionErrorAlert} from '../../../utils/vrpc/fundRawTransactionError';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import BigNumber from 'bignumber.js';
@@ -1635,6 +1636,13 @@ const SpendableKeyRequestInfoContent = props => {
     return () => clearTimeout(timer);
   }, [status]);
 
+  const resultDoneRef = useRef(null);
+  useRequestBackHandler(() => {
+    if (status === 'passwordScanner') setStatus('password');
+    else if (status === 'empty' || status === 'complete') resultDoneRef.current?.();
+    else cancel();
+  }, status === 'claiming' || status === 'decrypting' || finishing);
+
   if (status === 'scanning') {
     return (
       <GenericRequestLoading
@@ -1851,6 +1859,7 @@ const SpendableKeyRequestInfoContent = props => {
       await claim();
     }
   };
+  resultDoneRef.current = primaryAction;
   const canOfferSecondaryActions =
     status !== 'error' || requestError?.retry != null;
   const showCancelAction =

@@ -1,6 +1,6 @@
-import { CommonActions } from '@react-navigation/native';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { CommonActions, useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AnimatedActivityIndicatorBox from '../../components/AnimatedActivityIndicatorBox';
@@ -68,6 +68,11 @@ import {
   getGenericRequestRejection,
 } from '../../utils/deeplink/genericRequestRejection';
 
+import {isBottomSheetActive} from '../../hooks/useBottomSheetActivity';
+import {getRequestBackState, RequestNavigationContext} from './useRequestNavigation';
+
+const USER_BACK_ACTIONS = ['GO_BACK', 'POP', 'POP_TO_TOP'];
+
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkData = useObjectSelector((state) => state.deeplink.data)
@@ -122,9 +127,18 @@ const DeepLink = (props) => {
     }
   }, [deeplinkId, deeplinkData])
 
-  const cancel = () => {
+  const exitedRef = useRef(false)
+  const backHandlers = useRef(new Map()).current
+  // All exits, including completion and forced unmount, pass through this guard.
+  const finishRequest = useCallback(action => {
+    if (exitedRef.current) return
+    exitedRef.current = true
     processGenerationRef.current += 1
     dispatch(resetDeeplinkData())
+    action?.()
+  }, [dispatch])
+
+  const cancel = () => finishRequest(() => {
 
     if (deeplinkPassthrough?.replayedPendingDeeplink === true) {
       const parentNavigation = props.navigation.getParent?.()
@@ -154,7 +168,36 @@ const DeepLink = (props) => {
       });
     }
     props.navigation.dispatch(resetAction);
+  })
+
+  const backRef = useRef(null)
+  backRef.current = () => {
+    const {onBack, blocked} = getRequestBackState(backHandlers)
+    if (!blocked && !loading) (onBack || cancel)()
   }
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Native sheets own Back, including their closing animation.
+      if (!isBottomSheetActive()) backRef.current()
+      return true
+    })
+    return () => subscription.remove()
+  }, []))
+
+  useEffect(() => props.navigation.addListener('beforeRemove', event => {
+    if (exitedRef.current) return
+    // Navigation the app starts (a reset, wallet setup from a claim, a return
+    // to a service) ends the request. Only a user Back runs the request's Back.
+    if (!USER_BACK_ACTIONS.includes(event.data.action.type)) {
+      finishRequest()
+      return
+    }
+    event.preventDefault()
+    backRef.current()
+  }), [finishRequest, props.navigation])
+
+  useEffect(() => () => finishRequest(), [finishRequest])
 
   const processGenericRequest = async processGeneration => {
     setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.READ);
@@ -726,6 +769,7 @@ const DeepLink = (props) => {
       <GenericRequestHome
         {...displayProps}
         cancel={cancel}
+        finishRequest={finishRequest}
         setLoading={setLoading}
         navigation={props.navigation}
       />
@@ -735,29 +779,31 @@ const DeepLink = (props) => {
   const showRequestOpening = displayKey == null && !loading;
 
   return (
-    <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
-      {showRequestOpening ? (
-        <GenericRequestLoading
-          activeStep={requestLoadingStep}
-          error={requestError}
-          onCancel={cancel}
-          onRetry={retryRequest}
-          steps={opening.steps}
-          title={opening.title}
+    <RequestNavigationContext.Provider value={backHandlers}>
+      <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
+        {showRequestOpening ? (
+          <GenericRequestLoading
+            activeStep={requestLoadingStep}
+            error={requestError}
+            onCancel={cancel}
+            onRetry={retryRequest}
+            steps={opening.steps}
+            title={opening.title}
+          />
+        ) : displayKey == null || loading ? (
+          <AnimatedActivityIndicatorBox />
+        ) : (
+          screens[displayKey]()
+        )}
+        <AcknowledgeSheet
+          confirmLabel="Close"
+          message={invoiceProblem?.message}
+          onClose={cancel}
+          title={invoiceProblem?.title}
+          visible={invoiceProblem != null}
         />
-      ) : displayKey == null || loading ? (
-        <AnimatedActivityIndicatorBox />
-      ) : (
-        screens[displayKey]()
-      )}
-      <AcknowledgeSheet
-        confirmLabel="Close"
-        message={invoiceProblem?.message}
-        onClose={cancel}
-        title={invoiceProblem?.title}
-        visible={invoiceProblem != null}
-      />
-    </View>
+      </View>
+    </RequestNavigationContext.Provider>
   );
 };
 
