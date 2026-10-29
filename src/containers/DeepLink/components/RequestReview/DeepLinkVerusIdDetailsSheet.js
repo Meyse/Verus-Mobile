@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {View} from 'react-native';
 import {Text} from 'react-native-paper';
+import StatusBadge from '../../../../components/StatusBadge';
 import SkeletonLoader, {
   SkeletonSection,
 } from '../../../../components/SkeletonLoader';
@@ -9,18 +10,14 @@ import {
 } from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
-import {getCmmDataLabel} from '../../../../utils/vdxf/cmmDataLabel';
+import {
+  describeIdentityContent,
+  IDENTITY_CONTENT_KIND,
+  IDENTITY_CONTENT_SOURCE,
+} from '../../../../utils/verusid/describeIdentityContent';
 import {getVDXFKeyLabel} from '../../../../utils/vdxf/vdxfTypeLabels';
-import {capitalizeString} from '../../../../utils/stringUtils';
 import DeepLinkRequestInfoSection from './DeepLinkRequestInfoSection';
 import DeepLinkRequestSheetScaffold from './DeepLinkRequestSheetScaffold';
-
-const abbreviateKey = value => {
-  const text = String(value || '');
-  if (text.length <= 12) return text;
-
-  return `${text.substring(0, 4)}...${text.substring(text.length - 4)}`;
-};
 
 const formatValue = value => {
   if (value == null) return null;
@@ -48,13 +45,6 @@ const getFriendlyValue = (friendlyNames, value, options = {}) => {
   return String(friendlyValue);
 };
 
-const getContentLabel = key => {
-  const vdxfLabel = getVDXFKeyLabel(key, true);
-  if (vdxfLabel) return capitalizeString(vdxfLabel);
-
-  return abbreviateKey(key);
-};
-
 // Shared with the identity picker's manual link review so a resolved VerusID
 // reads the same before and after it is linked.
 export const buildVerusIdSections = (verusId, friendlyNames) => {
@@ -64,11 +54,17 @@ export const buildVerusIdSections = (verusId, friendlyNames) => {
   const primaryAddresses = Array.isArray(identity.primaryaddresses)
     ? identity.primaryaddresses
     : [];
-  const contentMultiMap = identity.contentmultimap || {};
-  const contentRows = Object.keys(contentMultiMap).map(key => ({
-    label: getContentLabel(key),
-    value: formatValue(getCmmDataLabel(contentMultiMap[key])),
-  }));
+  const contentRows = describeIdentityContent(identity)
+    .filter(entry => entry.source === IDENTITY_CONTENT_SOURCE.CONTENT_MULTIMAP)
+    .flatMap(entry => entry.rows.map(row => ({
+      label: row.label || (getVDXFKeyLabel(entry.key, true)
+        ? entry.label
+        : `Unnamed key (${entry.label})`),
+      value: row.value,
+      accessory: row.kind === IDENTITY_CONTENT_KIND.ENCRYPTED
+        ? <StatusBadge label="Encrypted" tone="neutral" />
+        : undefined,
+    })));
 
   return [
     {

@@ -862,7 +862,8 @@ const IdentityUpdateRequestInfoContent = props => {
   ].filter(Boolean);
   const reviewChangeItems = buildChangeSummaryItems(
     highRiskChanges.length,
-    contentReviewCount,
+    // High-risk content is already counted above. It still has a content review.
+    contentChanges.length,
   );
 
   // --- Stepper navigation ---
@@ -1154,7 +1155,7 @@ const IdentityUpdateRequestInfoContent = props => {
           next={next}
           cancel={cancel}
           highRiskCount={highRiskChanges.length}
-          contentCount={contentReviewCount}
+          contentCount={contentChanges.length}
           hasEncryptedKeys={hasEncryptedKeys}
           onBroadcastingChange={setConfirmBroadcasting}
           styles={styles}

@@ -5,10 +5,10 @@ import {
   Easing,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import HeaderCloseButton from '../../../components/HeaderCloseButton';
+import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -157,20 +157,11 @@ const SendWizardHeader = ({
       ]}>
       <View style={styles.actionRow}>
         {onBack ? (
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            accessibilityState={{disabled}}
-            activeOpacity={0.74}
+          <OnboardingBackButton
             disabled={disabled}
             onPress={onBack}
-            style={[styles.backButton, disabled && styles.disabled]}>
-            <MaterialCommunityIcons
-              color={theme.colors.textPrimary}
-              name="arrow-left"
-              size={24}
-            />
-          </TouchableOpacity>
+            style={[styles.backButton, disabled && styles.disabled]}
+          />
         ) : (
           <View style={styles.headerSpacer} />
         )}
@@ -191,20 +182,12 @@ const SendWizardHeader = ({
         ) : null}
         <View style={styles.rightActions}>
           {rightAccessory}
-          <TouchableOpacity
+          <HeaderCloseButton
             accessibilityLabel="Close transfer"
-            accessibilityRole="button"
-            accessibilityState={{disabled}}
-            activeOpacity={0.74}
             disabled={disabled}
             onPress={onClose}
-            style={[styles.closeButton, disabled && styles.disabled]}>
-            <MaterialCommunityIcons
-              color={theme.colors.textPrimary}
-              name="close"
-              size={22}
-            />
-          </TouchableOpacity>
+            style={[styles.closeButton, disabled && styles.disabled]}
+          />
         </View>
       </View>
       <View
@@ -249,26 +232,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backButton: {
-    width: 40,
-    height: 40,
     marginLeft: -8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   closeButton: {
-    width: 40,
-    height: 40,
     marginRight: -8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerSpacer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     marginLeft: -8,
   },
   accessorySpacer: {

@@ -429,9 +429,6 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
   }
 
   if (item.changeType === 'removed') {
-    const actionLabel =
-      item.removeMeta?.action === 4 ? 'Will clear' : 'Will remove';
-
     if (item.removeMeta) {
       const removeActionDescription = getRemoveActionDescription(item.removeMeta);
       const removesDisplayedActive =
@@ -449,7 +446,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
               darkMode,
             )}
           {renderCmmDescBlock(
-            actionLabel,
+            null,
             removeActionDescription || 'Selected content',
             Colors.warningButtonColor,
             false,
@@ -460,7 +457,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
     }
 
     return renderCmmDescBlock(
-      actionLabel,
+      null,
       item.data || 'Unknown value',
       Colors.warningButtonColor,
       true,

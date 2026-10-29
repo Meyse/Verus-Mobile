@@ -5,16 +5,23 @@ import {useAppTheme} from '../theme/app';
 
 // The stack header's close control: the Send wizard's close icon in the
 // 44-point target of OnboardingBackButton, so it mirrors the back arrow.
-const HeaderCloseButton = ({accessibilityLabel = 'Close', onPress, style}) => {
+const HeaderCloseButton = ({
+  accessibilityLabel = 'Close',
+  disabled = false,
+  onPress,
+  style,
+}) => {
   const theme = useAppTheme();
 
   return (
     <TouchableOpacity
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
+      accessibilityState={{disabled}}
       activeOpacity={0.74}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.button, style]}>
+      style={[styles.button, disabled && styles.disabled, style]}>
       <MaterialCommunityIcons
         color={theme.colors.textPrimary}
         name="close"
@@ -30,6 +37,9 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabled: {
+    opacity: 0.36,
   },
 });
 

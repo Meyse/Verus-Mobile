@@ -5,7 +5,9 @@ const createRequestCardStyles = theme => StyleSheet.create({
   group: {marginBottom: 24},
   detailLabel: {color: theme.colors.textSecondary},
   identifier: {
-    ...theme.typography.bodySm,
+    // Match transaction details so a complete VerusID address fits beside Copy.
+    fontSize: 12,
+    lineHeight: 17,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   card: {
