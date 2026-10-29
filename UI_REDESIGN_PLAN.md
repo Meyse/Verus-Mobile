@@ -7,7 +7,7 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-29 (GR-4 device QA and merge).
+- Last updated: 2026-10-29 (GR-4 approved follow-ups built; device recheck open).
 - Scoped request review implementation: **GR-4 phases 1 and 2** on
   `claude/gr-item-approval` from phase 1 (`e11d4882`). A1 restores case-specific
   high-risk captions and notes. A2 restores the invoice other-app action.
@@ -18,8 +18,9 @@ without repeating the entire investigation.
   Phase 3 fixes F1–F6 on `claude/gr4-qa-fixes` from `5bbdb4fb`.
   GR-4.5 is built. GR-4.6 device QA ran on iPhone 17 Pro, iPhone SE and
   Android 360x640 (2026-10-28/29); the reset reveal fix is `3e737b01`.
-  Android normal size, app-setting Dark and Android Back remain open (see
-  the evidence log).
+  Approved follow-ups on `claude/gr4-followups` fix request Back/exit cleanup,
+  inherited app appearance, the other-wallet text action and four contrast
+  places. Android normal size and native rechecks remain open (see the log).
 - Scoped batch 5: **TX-1.BATCH5** on `claude/batch5-int` (L1, L2, R1, F1, F2,
   S7, S8 by GPT-6.1 Sol, merged by the orchestrator). Compact-screen layout:
   Create/import password, Enter password sheet, Add custom asset, Send
@@ -732,7 +733,9 @@ this scope.
   and the existing picker action. Export the shared style module.
 - [x] **GR-4.2** Build one requester sheet. Merge VerusID and request details
   through the current information scaffold, copy actions, scroll cue and Done.
-- [x] **GR-4.3** Replace the other-app text row with a 44-point top-right icon.
+- [x] **GR-4.3** Show the conditional "Open in another wallet" caption action.
+  Owner-approved follow-up (2026-10-29): replace the icon, keep the fixed
+  48-point headerless band, and use a small row on invoice Pay with only.
   Preserve the existing handoff flow.
 - [x] **GR-4.4** Apply the shared card and approved copy to authentication,
   encryption, data signing, credentials, backup, claim/password, invoice Pay
@@ -748,9 +751,9 @@ this scope.
   Back, retry, reload and interrupted operations. Check consent and request
   behavior. The implementation agent must not start devices.
   Done on iPhone 17 Pro, iPhone SE and Android 360x640. Open: Android normal
-  size (Pixel 8), and two pre-existing issues found on Android: Back leaves
-  the old request active (G4-and-01) and request screens ignore the app Dark
-  setting (G4-and-03).
+  size (Pixel 8). G4-and-01 (stale request after Back) and G4-and-03 (request
+  screens ignore app Dark) are now fixed in source. Native rechecks remain
+  open, including the related iOS invoice stale-request finding G4-ios-01.
 
 ## NFC-1 — Claim from an NFC card
 
@@ -1974,6 +1977,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-29 | GR-4 owner-approved follow-ups 1–4 | `claude/gr4-followups` from `1259721b`; items `92febe76`, `97e88739`, `fad9eb85`, `8916567a`; final Back correction `5444d1eb` | `DeepLink.finishRequest` guards Cancel, completion, navigation removal and unmount once. Detail handlers retain sheet/step Back, processing locks and result actions; skipped Pay with exits through Cancel. Native result Back uses Done while outside taps stay locked. The iOS invoice report has the same missing-removal-cleanup path; native reproduction remains unverified. Nested providers inherit the nearest real parent mode; standalone fallback, explicit sheet overrides and native appearance controls remain. The other-wallet caption uses the quiet details color, fixed 48-point band and optional 32-point Pay with row; no invoice header accessory/spacer. Four contrast fixes use existing text tokens; password bars stay unchanged. Ratios before → after, light/dark: selected check 2.7877 → 4.8333 / 5.8371 → 5.9808; password warning 2.2781 → 5.4584 / 10.6174 → 10.6174; password success 3.0494 → 5.2869 / 9.0716 → 9.2949; input error on page 4.0338 → 5.0216 / 6.8638 → 7.8406 (sheet dark 6.2730 → 7.1656); address type 3.0494 → 5.2869 / 8.2907 → 8.4948. Ratios use source colors and the real background roles, including the composited dark selection fill. Babel and undefined-identifier check (22 JS files), design (38 sources), safe-area checks, completion (11 cases), QA harness, copied consent harness, Back/theme/sheet fixtures and four existing Jest suites (33 tests) pass. Exact commands and output: `/tmp/gr5-validate.cjs`, `/tmp/gr5-validation.log`; contrast: `/tmp/gr5-contrast-check.cjs`. Plain pnpm commands stop at the dependency verifier's no-TTY purge check; matching existing dependencies pass with `--config.verifyDepsBeforeRun=false`. Original consent harness fails only on its removed header icon assertion; `/tmp/gr5-consent-check.cjs` replaces that block with text/target/color/row/header/Back assertions and retains all consent checks. Both original and copied sign/share mutations fail on "handler must reject unapproved items". | GR-4.6 stays open. On iOS/Android normal and compact, check sheets, all Back steps, single-card invoice skip, preparing/sending locks, success/error Done/Close, dismissal/reset followed by a different link, and a new link while review is open. Check System/Light/Dark against the opposite phone setting, native controls/send modal, installed-app visibility, text alignment/clipping and contrast states. One extra Back correction commit follows the four ordered item commits; no rebase. No device, emulator, Metro, real signing/delivery/payment, merge or push action ran. No rendered candidate or native accessibility evidence is claimed. |
 | 2026-10-29 | GR-4.6 device QA and reset reveal fix | `claude/gr4-qa-fixes` `3e737b01` (Opus) on `937cefdb` | iPhone 17 Pro C1–C11 and SE N1–N6, R1–R7 passed (2026-10-28). Android 360x640 (AVD Small_360x640, Terra 6.1 via Maestro, run folder `docs/qa/matrix/runs/2026-10-28-gr4`): C1, C3, C4, C7–C10 passed with one signed sign-in and one signed data callback; C2 and C6 blocked by wallet state. G4-and-02 (after a reset the notice was in view but item 1 sat under the footer) fixed: `scrollIntoView(item, anchor)` checks the open item and aligns the notice; run 7 rechecked reset, next approval and first render. Design, safe-area and completion-flow checks and the QA and consent harnesses pass. | Pre-existing on `redesign`, not changed: G4-and-01 Android Back pops the request without clearing it, so the next link reopens it; G4-and-03 seven request containers nest `OnboardingThemeProvider` without `modeOverride` and follow the system scheme, not the app setting. Android normal size not run. Owner decides the follow-ups. |
 | 2026-10-28 | GR-4 phase 3: device-QA fixes F1–F6 | `claude/gr4-qa-fixes` from `5bbdb4fb`; six item commits | Open approval items are measured after layout and revealed at a 16-point top inset after approval, Undo or reset; initial review stays still, sheets defer scrolling, and Reduce Motion disables animation. The 48-point icon band stays outside the scroll viewport. Owner-approved exception: headerless invoice fallback increases its rest gap from 16 to 48 points. Claim password reuses `KeyboardAvoidingForm`, keeps Decrypt above the keyboard and scrolls to the field. Wrapped responder labels align with the first line. Backup review uses the shared cue; bottom padding and the alignment spacer do not cause a false cue. Item details omit values that repeat the title. Babel parse (10 JS files), design (37 sources), explicit safe-area check (10 files), completion (11 cases), four existing Jest suites (33 tests), and temporary scroll/keyboard/details fixtures pass. `check:safe-areas --changed` also passes (0 files after commits). `/tmp/gr4-consent-check-qa.cjs` copies the orchestrator harness with native accessibility and animation-frame stubs only; all assertions remain, all PASS lines print, and both gate mutations fail on "handler must reject unapproved items". | GR-4.6 stays open. Device tester must check normal/compact iOS and Android, light/dark, approval/Undo/reset/growth, Reduce Motion, sheet close, icon clipping with and without the installed app, headers, claim keyboard/focus/error/QR return, cue end and item details. No device, Metro, signing, delivery, payment, merge or push action ran. The extra legacy claim checker still expects `claimResult.partialError`, absent at both base and candidate. |
 | 2026-10-28 | GR-4 phase 2: item approval one at a time | `claude/gr-item-approval` from `e11d4882`; shared DataApprovalList and styles, DataRequestReview, both data containers, useDataReviewConsent and optional scrollable AcknowledgeSheet content | Built option B from the read-only light/dark references. Footer approves the first unapproved item; Undo, unreadable-data confirmation, reset notice, processing locks and accessible labels are wired. Existing consent keys, payload/session resets and handler gates remain. Temporary component checks cover both real containers, zero/partial approval rejection, Undo, identity reset, unreadable cancel/confirm and stale confirmation, processing, credential loading/error/retry/empty/partial, and invoice header handoff. Removing either handler gate makes its consent assertion fail. Approved-marker contrast is 5.29:1 light and 9.29:1 dark. `node /tmp/gr42-validate.cjs` records exact commands: design (37 sources), safe-area, completion (11 cases), Babel (16 JS files), component checks and focused lint comparison. Existing Jest: 4 suites / 33 tests pass; 2 suites cannot load because their native SVG mock lacks Touchable.Mixin, also seen before part B. No Jest tests were added or changed. The design check replaces its stale checkbox/counter requirement with approval controls and both handler gates. | GR-4.5 built. GR-4.6 remains open for orchestrator device QA; no implementation render, simulator or emulator ran. Normal ESLint has the existing import-plugin export error. Focused lint retains four unchanged unused declarations in IdentityUpdateRequestInfo, confirmed at `e11d4882`; all other touched files pass. No verification, signing, delivery or payment utility changed. Logs: `/tmp/gr42-validation-summary.log`, `/tmp/gr42-consent-final.log`, `/tmp/gr42-jest-final.log`, `/tmp/gr42-eslint-final.log`. |
