@@ -80,6 +80,7 @@ import {
 import {
   DeepLinkReviewScrollView,
   RequestTitle,
+  RequestCard,
 } from '../components/RequestReview';
 
 // Same settings as onboarding: on iOS, 'oneTimeCode' stops the strong-password
@@ -627,18 +628,26 @@ const WalletBackupRequestInfo = props => {
     await next(response, [detailIndex]);
   };
 
-  const renderScreen = ({title, subtitle, body, footer, keyboard = false}) => {
+  const renderScreen = ({title, subtitle, body, footer, keyboard = false, requestReview = false}) => {
     const content = (
       <SafeAreaView edges={safeAreaEdges} style={styles.container}>
         <DeepLinkReviewScrollView
+          showScrollCue={requestReview && !profileBackup}
+          requestCard={requestReview && !profileBackup}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <RequestTitle>{title}</RequestTitle>
-            {subtitle ? (
-              <Text style={styles.mainSubtitle}>{subtitle}</Text>
-            ) : null}
-          </View>
+          {requestReview && !profileBackup ? (
+            <RequestCard
+              action="wants you to back up this wallet"
+              requester={props}
+              caption="The wallet writes the Secret Recovery Phrase to an NFC card."
+            />
+          ) : (
+            <View style={styles.header}>
+              <RequestTitle>{title}</RequestTitle>
+              {subtitle ? <Text style={styles.mainSubtitle}>{subtitle}</Text> : null}
+            </View>
+          )}
           {body}
         </DeepLinkReviewScrollView>
         <SafeBottomActionStack
@@ -863,6 +872,7 @@ const WalletBackupRequestInfo = props => {
     }
 
     return renderScreen({
+      requestReview: true,
       title: 'Back up wallet',
       subtitle: "Write a wallet's Secret Recovery Phrase to an NFC card.",
       body: switchAccountChoice,
@@ -898,6 +908,7 @@ const WalletBackupRequestInfo = props => {
 
   return renderScreen({
     keyboard: true,
+    requestReview: true,
     title: 'Back up wallet',
     subtitle: "Write this wallet's Secret Recovery Phrase to an NFC card.",
     body: (
@@ -913,7 +924,7 @@ const WalletBackupRequestInfo = props => {
           subtitle={requestIsTestnet ? 'Testnet wallet' : null}
           walletAvatar={activeAccount.walletAvatar}
         />
-        <SettingsSection title="Encryption">
+        <SettingsSection title={profileBackup ? "Encryption" : undefined}>
           <SettingsSwitchRow
             icon="lock-outline"
             last={!encryptBackup}

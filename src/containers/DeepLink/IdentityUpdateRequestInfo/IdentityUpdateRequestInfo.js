@@ -59,7 +59,6 @@ import {
 import {getCmmDataLabel} from '../../../utils/vdxf/cmmDataLabel';
 import {getVDXFKeyLabel} from '../../../utils/vdxf/vdxfTypeLabels';
 import {capitalizeString} from '../../../utils/stringUtils';
-import {withNameBreaks} from '../../../utils/fullyqualifiedname';
 import {
   ContentMultiMapRemoveKey,
   DATA_TYPE_DEFINEDKEY,
@@ -71,9 +70,9 @@ import {
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
-import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 
 import ReviewStep from './steps/ReviewStep';
+import {RequestCard, RequestCardCompact} from '../components/RequestReview';
 import ContentStep from './steps/ContentStep';
 import HighRiskStep from './steps/HighRiskStep';
 import ConfirmPayStep from './steps/ConfirmPayStep';
@@ -190,9 +189,7 @@ const buildChangeSummaryItems = (highRiskCount, contentCount) => {
     items.push({
       key: 'high-risk',
       tone: 'danger',
-      label: `${highRiskCount} high-risk ${
-        highRiskCount === 1 ? 'change' : 'changes'
-      }`,
+      label: `${highRiskCount} high-risk`,
     });
   }
 
@@ -200,9 +197,7 @@ const buildChangeSummaryItems = (highRiskCount, contentCount) => {
     items.push({
       key: 'content',
       tone: 'normal',
-      label: `${contentCount} content ${
-        contentCount === 1 ? 'change' : 'changes'
-      }`,
+      label: `${contentCount} content`,
     });
   }
 
@@ -237,7 +232,6 @@ const IdentityUpdateRequestInfoContent = props => {
     hasEncryptedKeys,
   } = props;
   const theme = useOnboardingTheme();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const styles = useMemo(
     () => createIdentityUpdateRequestInfoStyles(theme),
     [theme],
@@ -858,7 +852,6 @@ const IdentityUpdateRequestInfoContent = props => {
   }, [activeContentMultiMap, contentChanges, highRiskChanges]);
 
   const hasContent = contentReviewCount > 0;
-  const requesterLabel = signerFqn || signerIdentityID || 'Unknown signer';
   const requesterMetadataRows = [
     chainId ? {label: 'Network', value: chainId} : null,
     sigDateString ? {label: 'Signed', value: sigDateString} : null,
@@ -973,7 +966,7 @@ const IdentityUpdateRequestInfoContent = props => {
         : 'Unlock wallet';
     }
 
-    return 'Next';
+    return currentStepId === STEP_HIGH_RISK ? 'Continue' : 'Next';
   };
 
   const handleFooterRight = () => {
@@ -994,18 +987,6 @@ const IdentityUpdateRequestInfoContent = props => {
   const reviewDetails = (
     <View style={styles.footerDetailsList}>
       <View style={styles.footerDetailRow}>
-        <Text style={styles.footerDetailLabel}>Updating identity</Text>
-        <Text
-          numberOfLines={2}
-          style={styles.footerDetailValue}>
-          {withNameBreaks(fullyqualifiedname)}
-        </Text>
-      </View>
-      <View
-        style={[
-          styles.footerDetailRow,
-          styles.footerDetailRowDivider,
-        ]}>
         <Text style={styles.footerDetailLabel}>Changes</Text>
         <View style={styles.footerChangeValueStack}>
           {reviewChangeItems.map(item => (
@@ -1022,7 +1003,27 @@ const IdentityUpdateRequestInfoContent = props => {
           ))}
         </View>
       </View>
+      {details.expires() && expiryLabel ? (
+        <View style={[styles.footerDetailRow, styles.footerDetailRowDivider]}>
+          <Text style={styles.footerDetailLabel}>Expires in</Text>
+          <Text style={styles.footerDetailValue}>{expiryLabel}</Text>
+        </View>
+      ) : null}
     </View>
+  );
+
+  const requestCardProps = {
+    action: 'wants to update',
+    requester: {request: props.request, signerFqn, signerIdentityID,
+      signerSystemID: coinObj.system_id, signerSystemName: chainId, sigtime,
+      loadVerusId: loadSignerVerusId, loadFriendlyNames: loadSignerFriendlyNames},
+    sections: [{title: 'Request', rows: requesterMetadataRows}],
+    responderName: fullyqualifiedname,
+    responderWord: '',
+    showResponder: true,
+  };
+  const compactRequestCard = (
+    <RequestCardCompact {...requestCardProps} />
   );
 
   // --- Render ---
@@ -1079,18 +1080,15 @@ const IdentityUpdateRequestInfoContent = props => {
       {currentStepId === STEP_REVIEW && (
         <ReviewStep
           identityStateChange={identityStateChange}
-          canOpenSignerDetails={canOpenSignerModal}
-          loadSignerFriendlyNames={loadSignerFriendlyNames}
-          loadSignerVerusId={loadSignerVerusId}
-          requesterLabel={requesterLabel}
-          requesterMetadataRows={requesterMetadataRows}
-          reviewDetails={smallDevice ? reviewDetails : null}
+          requestCard={<RequestCard {...requestCardProps} />}
+          reviewDetails={reviewDetails}
           styles={styles}
         />
       )}
 
       {currentStepId === STEP_CONTENT && (
         <ContentStep
+          requestCard={compactRequestCard}
           subjectIdentity={activeContentSubjectIdentity}
           friendlyNames={friendlyNames}
           displayUpdates={displayUpdates}
@@ -1103,6 +1101,7 @@ const IdentityUpdateRequestInfoContent = props => {
 
       {currentStepId === STEP_HIGH_RISK && (
         <HighRiskStep
+          requestCard={compactRequestCard}
           identityStateChange={identityStateChange}
           highRiskChanges={highRiskChanges}
           primaryAddressAfterUpdateInfo={
@@ -1134,6 +1133,7 @@ const IdentityUpdateRequestInfoContent = props => {
 
       {currentStepId === STEP_CONFIRM_PAY && (
         <ConfirmPayStep
+          requestCard={compactRequestCard}
           identityStateChange={identityStateChange}
           chainHeight={chainInfo?.longestchain}
           details={details}
@@ -1164,7 +1164,6 @@ const IdentityUpdateRequestInfoContent = props => {
           gap={10}
           horizontalSpacing={24}
           style={styles.footer}>
-          {currentStepId === STEP_REVIEW && !smallDevice && reviewDetails}
           {currentStepId === STEP_REVIEW && noRequestNetworkWallet && (
             <View style={walletGateStyles.row}>
               <View style={walletGateStyles.icon}>

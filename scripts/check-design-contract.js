@@ -30,7 +30,10 @@ const requiredFiles = [
   'src/containers/DeepLink/AppEncryptionRequestInfo/AppEncryptionRequestInfo.js',
   'src/containers/DeepLink/IdentityUpdateRequestInfo/IdentityUpdateRequestInfo.js',
   'src/containers/DeepLink/components/VerusIdIdentityPickerSheet/IdentityPickerSheet.js',
-  'src/containers/DeepLink/components/RequestReview/DeepLinkRequestDetailsSheet.js',
+  'src/containers/DeepLink/components/RequestReview/DeepLinkRequesterSheet.js',
+  'src/containers/DeepLink/components/RequestReview/RequestCard.js',
+  'src/containers/DeepLink/components/RequestReview/RequestCardCompact.js',
+  'src/styles/components/requestCard.styles.js',
   'src/containers/DeepLink/components/RequestReview/DeepLinkRequestSheetScaffold.js',
   'src/containers/Services/AddressBook/AddressBook.js',
   'src/containers/Services/AddressBook/AddressBookEditSheet.js',
@@ -66,6 +69,8 @@ const requiredDesignFragments = [
   '20-point horizontal content inset',
   '24-point top inset',
   '28-point bottom',
+  'request card (Z3)',
+  'RequestCardCompact.js',
   '20-point form inset',
 ];
 
@@ -116,8 +121,36 @@ const requiredSourceFragments = [
     ],
   },
   {
-    path: 'src/containers/DeepLink/components/RequestReview/DeepLinkRequestDetailsSheet.js',
-    fragments: ['maxHeight="78%"', 'title="Request details"'],
+    path: 'src/containers/DeepLink/components/RequestReview/DeepLinkRequesterSheet.js',
+    fragments: ['maxHeight="78%"', 'StatusBadge label="Verified"', 'buildVerusIdSections', 'copy: true'],
+  },
+  {
+    path: 'src/containers/DeepLink/components/RequestReview/RequestCard.js',
+    fragments: ['useButtonHeight', 'getButtonHitSlop', 'Unsigned request', '<DeepLinkRequesterSheet', 'theme.colors.successText'],
+  },
+  {
+    path: 'src/styles/components/requestCard.styles.js',
+    fragments: ['borderRadius: 18', 'borderColor: theme.colors.borderStrong', 'theme.typography.headlineCompact', 'theme.colors.successBackground'],
+  },
+  {
+    path: 'src/containers/DeepLink/components/RequestReview/DataRequestReview.js',
+    fragments: ['<RequestCard', '<DataApprovalList', '<AcknowledgeSheet', 'getItemApprovalLabel(openItem.title)', 'consent.context', 'Approve unreadable data', 'Approvals cleared. You chose another VerusID.'],
+  },
+  {
+    path: 'src/containers/DeepLink/components/RequestReview/DataApprovalList.js',
+    fragments: ['getItemApprovalLabel', 'Item ${index + 1} of ${total}', 'theme.colors.successText', 'Check first', 'Undo approval of ${item.title}', 'consent.checked[item.key]'],
+  },
+  {
+    path: 'src/containers/DeepLink/DataPacketRequestInfo/DataPacketRequestInfo.js',
+    fragments: ['!reviewComplete', 'consent.checked[`data-${index}`]', 'consent.checked[`statement-${index}`]'],
+  },
+  {
+    path: 'src/containers/DeepLink/UserDataRequestInfo/UserDataRequestInfo.js',
+    fragments: ['!reviewComplete', 'consent.checked[index]'],
+  },
+  {
+    path: 'src/containers/DeepLink/GenericRequestHome/GenericRequestHome.js',
+    fragments: ['accessibilityLabel="Open in another app"', '<SquareArrowOutUpRight size={21}', "position: 'absolute'"],
   },
   {
     path: 'src/components/InfoSheet.js',

@@ -4,9 +4,8 @@
 */
 import React, {useMemo, useState} from 'react';
 import {ScrollView, TouchableOpacity, View} from 'react-native';
-import {Eye} from 'lucide-react-native';
+import {ChevronRight} from 'lucide-react-native';
 import {Text} from 'react-native-paper';
-import {RequestTitle} from '../../components/RequestReview';
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {
@@ -24,23 +23,23 @@ const PRIMARY_REVIEW_KEY = 'primary-control';
 const AUTHORITY_COPY = {
   recovery: {
     kicker: 'Recovery ID',
-    caption: 'Can recover identity',
-    detailTitle: 'Recovery ID change',
+    caption: 'Can recover this VerusID',
+    detailTitle: 'Recovery VerusID change',
     detailCopy:
-      'Review the current and new recovery identity before you continue.',
+      'Review the current and new recovery VerusID before you continue.',
     ackTitle: 'Recovery ID',
-    ackCopy: 'The recovery ID can change ownership if recovery is used.',
-    risk: 'The new recovery ID can recover this VerusID if recovery is used.',
+    ackCopy: 'The recovery VerusID can change ownership if recovery is used.',
+    risk: 'The new recovery VerusID can recover this VerusID if recovery is used.',
   },
   revocation: {
     kicker: 'Revocation ID',
-    caption: 'Can revoke identity',
-    detailTitle: 'Revocation ID change',
+    caption: 'Can revoke this VerusID',
+    detailTitle: 'Revocation VerusID change',
     detailCopy:
-      'Review the current and new revocation identity before you continue.',
+      'Review the current and new revocation VerusID before you continue.',
     ackTitle: 'Revocation ID',
-    ackCopy: 'The revocation ID can revoke access to this VerusID.',
-    risk: 'The new revocation ID can revoke access to this VerusID.',
+    ackCopy: 'The revocation VerusID can revoke access to this VerusID.',
+    risk: 'The new revocation VerusID can revoke access to this VerusID.',
   },
 };
 
@@ -67,9 +66,6 @@ const valuesList = values => {
   const filtered = values.filter(Boolean).map(displayValue);
   return filtered.length > 0 ? filtered.join('\n') : 'Not available';
 };
-
-const CONTENT_CLEAR_SUBTITLE =
-  "After you confirm, apps that read this identity's active content will stop receiving these keys and values. Earlier on-chain versions may still be publicly retrievable.";
 
 const pluralizeCount = (count, singular, plural) =>
   `${count} ${count === 1 ? singular : plural}`;
@@ -103,7 +99,7 @@ const contentClearCaption = ackRows => {
 const contentClearRows = (ackRows, rawValue) => [
   ...(ackRows.length > 0
     ? ackRows
-    : [['Action', 'Clear active identity content']]),
+    : [['Action', 'Clear active VerusID content']]),
   ['Raw request value', rawValue],
 ];
 
@@ -302,7 +298,7 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     caption: needsAdditionalSignatures
       ? 'Your wallet will need additional signatures after this update'
       : addsExternalPrimary
-      ? 'External address gains control'
+      ? 'Gives an external address control'
       : hasExternalPrimaryAfterUpdate
       ? 'External address remains a controller'
       : 'Wallet remains in control',
@@ -319,7 +315,7 @@ const buildPrimaryReviewItem = (primaryChanges, primaryInfo) => {
     rows,
     ackRows,
     risk: needsAdditionalSignatures
-      ? `After this update, your wallet will have ${primaryInfo.walletCount} primary addresses, but ${primaryInfo.minimumSignatures} signatures will be required to authorize this ID.`
+      ? `After this update, your wallet will have ${primaryInfo.walletCount} primary addresses, but ${primaryInfo.minimumSignatures} signatures will be required to authorize this VerusID.`
       : addsExternalPrimary
       ? 'This address can participate in future control decisions for this VerusID.'
       : 'Primary addresses control who can spend and sign for this VerusID.',
@@ -382,11 +378,11 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
     const threshold =
       change.data || `${minimumSignatures} of ${primaryInfo.addresses.length}`;
     const use =
-      'Spending, signing, and ordinary identity updates need these signatures.';
+      'Spending, signing, and ordinary VerusID updates need these signatures.';
     const outcome = needsMore
-      ? 'After this update, your wallet cannot authorize this ID alone.'
+      ? 'After this update, your wallet cannot authorize this VerusID alone.'
       : externalCount > 0
-      ? 'Your wallet can still authorize this ID alone. External addresses can also sign.'
+      ? 'Your wallet can still authorize this VerusID alone. External addresses can also sign.'
       : 'After this update, all primary addresses are in your wallet.';
     const rows = [
       ['Required signatures', threshold],
@@ -446,13 +442,13 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
       highRiskType: change.highRiskType,
       kicker: 'Will clear',
       value: 'All active content',
-      caption: contentClearCaption(ackRows),
+      caption: `${contentClearCaption(ackRows)}. Apps stop receiving these keys and values. Earlier on-chain versions can still be public.`,
       tone: 'warning',
       detailTitle: 'Technical details',
       detailCopy: 'Request data for the content-clear action.',
       ackTitle: 'Clear active content',
       ackCopy:
-        "Confirm that this identity's active content should be cleared.",
+        "Confirm that this VerusID's active content should be cleared.",
       rows: contentClearRows(ackRows, value),
       ackRows,
       risk: null,
@@ -479,7 +475,11 @@ const buildFallbackReviewItem = (change, primaryInfo) => {
   };
 };
 
-const buildScreenCopy = reviewItems => {
+const CONTENT_CLEAR_SUBTITLE =
+  "After you confirm, apps that read this VerusID's active content stop receiving these keys and values. " +
+  'Earlier on-chain versions may still be publicly retrievable.';
+
+export const buildScreenCopy = reviewItems => {
   const primary = reviewItems.find(item => item.kind === 'primary');
   const fallbackItems = reviewItems.filter(item => item.kind === 'fallback');
   const hasRecovery = reviewItems.some(item => item.key === 'recovery');
@@ -496,7 +496,7 @@ const buildScreenCopy = reviewItems => {
   if (reviewItems.length === 1) {
     if (contentClearItem) {
       return {
-        title: 'Clear active identity content',
+        title: 'Clear active VerusID content',
         subtitle: CONTENT_CLEAR_SUBTITLE,
         note: null,
       };
@@ -526,7 +526,7 @@ const buildScreenCopy = reviewItems => {
       return {
         title: 'Confirm shared control',
         subtitle:
-          'An external address is being added as a primary controller.',
+          'This update adds an external address as a primary controller.',
         note:
           'Only continue if this address should be able to control this VerusID.',
       };
@@ -535,18 +535,18 @@ const buildScreenCopy = reviewItems => {
     if (hasRecovery) {
       return {
         title: 'Confirm recovery change',
-        subtitle: 'The recovery identity for this VerusID is being changed.',
+        subtitle: 'This update changes the recovery VerusID.',
         note:
-          'Only continue if the new recovery ID should be able to recover this identity.',
+          'Only continue if the new recovery VerusID should be able to recover this VerusID.',
       };
     }
 
     if (hasRevocation) {
       return {
         title: 'Confirm revocation change',
-        subtitle: 'The revocation identity for this VerusID is being changed.',
+        subtitle: 'This update changes the revocation VerusID.',
         note:
-          'Only continue if the new revocation ID should be able to revoke this identity.',
+          'Only continue if the new revocation VerusID should be able to revoke this VerusID.',
       };
     }
   }
@@ -557,8 +557,8 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle: alsoAffectsControlOrAuthority
-        ? 'These updates affect active identity content and identity control or authority.'
-        : 'These updates affect active identity content and other high-risk identity settings.',
+        ? 'These changes affect active VerusID content and VerusID control or authority.'
+        : 'These changes affect active VerusID content and other high-risk VerusID settings.',
       note:
         'Review the content clear and every other high-risk change before continuing.',
     };
@@ -568,7 +568,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm authority changes',
       subtitle:
-        'The recovery and revocation identities for this VerusID are changing.',
+        'This update changes the recovery and revocation VerusIDs.',
       note: 'Review both authority changes before continuing.',
     };
   }
@@ -577,7 +577,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle:
-        'These updates remove wallet control and change recovery and revocation authority.',
+        'These changes remove wallet control and change recovery and revocation authority.',
       note: 'Review every authority change before continuing.',
     };
   }
@@ -586,7 +586,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle:
-        'These updates remove wallet control and change recovery authority.',
+        'These changes remove wallet control and change recovery authority.',
       note:
         'Review both the primary control change and recovery authority before continuing.',
     };
@@ -596,7 +596,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle:
-        'These updates remove wallet control and change revocation authority.',
+        'These changes remove wallet control and change revocation authority.',
       note:
         'Review both the primary control change and revocation authority before continuing.',
     };
@@ -606,7 +606,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle:
-        'These updates affect who controls, recovers, and can revoke this identity.',
+        'These changes affect who controls, recovers, and can revoke this VerusID.',
       note: 'Review control, recovery, and revocation changes before continuing.',
     };
   }
@@ -615,7 +615,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle:
-        'These updates affect who controls and recovers this identity.',
+        'These changes affect who controls and recovers this VerusID.',
       note: 'Review both control and recovery authority before continuing.',
     };
   }
@@ -624,7 +624,7 @@ const buildScreenCopy = reviewItems => {
     return {
       title: 'Confirm high-risk changes',
       subtitle:
-        'These updates affect who controls and can revoke this identity.',
+        'These changes affect who controls and can revoke this VerusID.',
       note: 'Review both control and revocation authority before continuing.',
     };
   }
@@ -643,12 +643,13 @@ const buildScreenCopy = reviewItems => {
   return {
     title: 'Confirm high-risk changes',
     subtitle:
-      'These updates can affect who controls, recovers, or revokes this identity.',
+      'These changes can affect who controls, recovers, or revokes this VerusID.',
     note: 'Review every high-risk change before continuing.',
   };
 };
 
 const HighRiskStep = ({
+  requestCard,
   highRiskChanges,
   identityStateChange,
   primaryAddressAfterUpdateInfo,
@@ -700,16 +701,8 @@ const HighRiskStep = ({
     ].filter(Boolean);
   }, [currentAuthorities, highRiskChanges, primaryAddressAfterUpdateInfo]);
 
-  const screenCopy = useMemo(
-    () => buildScreenCopy(reviewItems),
-    [reviewItems],
-  );
+  const screenCopy = buildScreenCopy(reviewItems);
   const activeDetailItem = reviewItems.find(item => item.key === activeDetailKey);
-  // A row label that the screen title already says is left out.
-  const titleSays = text =>
-    typeof text === 'string' &&
-    text.length > 0 &&
-    screenCopy.title.toLowerCase().includes(text.toLowerCase());
   const ackCopy =
     reviewItems.length === 1
       ? 'Before you continue, confirm you understand this high-risk change.'
@@ -719,18 +712,18 @@ const HighRiskStep = ({
     <View style={localStyles.root}>
       <ScrollView
         style={parentStyles.scrollView}
-        contentContainerStyle={parentStyles.scrollContent}
+        contentContainerStyle={[parentStyles.scrollContent, {paddingTop: 4}]}
         showsVerticalScrollIndicator={false}>
-        <View style={parentStyles.header}>
-          <RequestTitle>{screenCopy.title}</RequestTitle>
-          <Text style={parentStyles.subtitle}>{screenCopy.subtitle}</Text>
-        </View>
+        {/* A lone change states its case in its own row; the caption sums up several. */}
+        {requestCard &&
+          React.cloneElement(requestCard, {
+            caption: reviewItems.length > 1 ? screenCopy.subtitle : undefined,
+          })}
 
         <View style={localStyles.summaryPanel}>
-          <Text style={localStyles.panelLabel}>What changes</Text>
           <View style={localStyles.changeList}>
             {reviewItems.map((item, index) => {
-              const kicker = titleSays(item.kicker) ? null : (
+              const kicker = (
                 <Text
                   style={[
                     localStyles.changeKicker,
@@ -742,12 +735,7 @@ const HighRiskStep = ({
               );
               const viewAffordance = (
                 <View style={localStyles.changeViewGroup}>
-                  <Eye
-                    color={theme.colors.textSubtle}
-                    size={14}
-                    strokeWidth={2.2}
-                  />
-                  <Text style={localStyles.changeView}>View</Text>
+                  <ChevronRight color={theme.colors.textSecondary} size={22} />
                 </View>
               );
               const caption = (

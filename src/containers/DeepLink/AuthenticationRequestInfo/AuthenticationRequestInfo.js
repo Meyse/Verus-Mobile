@@ -67,8 +67,6 @@ import {
   ProvisionIdentityDetails,
 } from 'verus-typescript-primitives';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
-import {getButtonHitSlop, useButtonHeight} from '../../../hooks/useButtonHeight';
-import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {
   getFriendlyNameMap,
   getCurrency,
@@ -98,7 +96,7 @@ import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Check, Info} from 'lucide-react-native';
+import {Info} from 'lucide-react-native';
 import {
   authenticationRequestInfoStyles as createAuthenticationRequestInfoStyles,
 } from '../../../styles';
@@ -106,11 +104,9 @@ import IdentityPickerSheet, {
   VERUSID_SHEET_MODES,
 } from '../components/VerusIdIdentityPickerSheet/IdentityPickerSheet';
 import {
-  DeepLinkRequestDetailsSheet,
-  DeepLinkRequestSourceCard,
   DeepLinkReviewScrollView,
-  DeepLinkVerusIdDetailsSheet,
-  RequestTitle,
+  RequestCard,
+  getResponseHostLabel,
 } from '../components/RequestReview';
 import {markPendingDeeplinkComplete} from '../../../utils/deeplink/pendingDeeplinkStorage';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
@@ -122,7 +118,6 @@ import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericRespon
 import {
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
-  getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {assertAuthenticationRequestNotExpired} from '../../../utils/deeplink/validator/authenticationRequestValidator';
 import {
@@ -236,8 +231,6 @@ const getRequestIdDisplay = details => {
 const AuthenticationRequestInfoContent = props => {
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
-  const responderHeight = useButtonHeight();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const styles = useMemo(
     () => createAuthenticationRequestInfoStyles(theme),
     [theme],
@@ -261,12 +254,7 @@ const AuthenticationRequestInfoContent = props => {
   } = props;
 
   const [details, setDetails] = useState(new AuthenticationRequestDetails());
-  const [sigDateString, setSigDateString] = useState(null);
   const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({});
-  const [requestDetailsSheetVisible, setRequestDetailsSheetVisible] =
-    useState(false);
-  const [verusIdDetailsSheetVisible, setVerusIdDetailsSheetVisible] =
-    useState(false);
   const [resolvedSystemNames, setResolvedSystemNames] = useState({});
   const attemptedSystemNameLookupsRef = useRef(new Set());
   const authRequestMountedRef = useRef(true);
@@ -367,7 +355,6 @@ const AuthenticationRequestInfoContent = props => {
     : ROOT_CHAIN_BY_NETWORK.mainnet;
   const defaultRootSystemId =
     CoinDirectory.getBasicCoinObj(defaultRootChainId).system_id;
-  const requesterLabel = signerFqn || 'An app';
   const invoiceNotice = useMemo(() => {
     if (!followingInvoice) return null;
     try {
@@ -438,7 +425,6 @@ const AuthenticationRequestInfoContent = props => {
     () => getGenericRequestDeliveryInfo(request),
     [request],
   );
-  const deliveryMethod = getGenericRequestDeliveryLabel(deliveryInfo);
 
   useEffect(() => {
     let cancelled = false;
@@ -868,11 +854,6 @@ const AuthenticationRequestInfoContent = props => {
     },
     [signerChainId],
   );
-  const openSignerDetailsSheet = useCallback(() => {
-    if (!canOpenSignerDetails) return;
-
-    setVerusIdDetailsSheetVisible(true);
-  }, [canOpenSignerDetails]);
 
   const getAllowList = () => {
     if (requestIsTestnet) {
@@ -1113,13 +1094,6 @@ const AuthenticationRequestInfoContent = props => {
     }
   }, [detailsBufferString]);
 
-  useEffect(() => {
-    if (sigtime != null) {
-      setSigDateString(unixToDate(sigtime));
-    } else {
-      setSigDateString(null);
-    }
-  }, [sigtime]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1962,7 +1936,7 @@ const AuthenticationRequestInfoContent = props => {
   // finishes, so the action names that review instead of signing in.
   const primaryActionLabel = activeAccountMatchesRequest
     ? selectedIdentity
-      ? nextStepActionLabel || 'Sign in with VerusID'
+      ? nextStepActionLabel || 'Sign in'
       : shouldShowLinkAsPrimary
       ? 'Link VerusID'
       : 'Choose VerusID'
@@ -1977,7 +1951,6 @@ const AuthenticationRequestInfoContent = props => {
       : handleOpenIdentitySheet
     : handleContinue;
   const linkExistingCoinObj = CoinDirectory.findCoinObj(linkChainId);
-  const mainTitle = 'Sign in with VerusID';
   const activeAccountInstruction = !activeAccountMatchesRequest
     ? noRequestNetworkWallet
       ? `This request needs a ${requestNetworkName} wallet. Add one, then open the request again.`
@@ -1985,17 +1958,6 @@ const AuthenticationRequestInfoContent = props => {
       ? 'Switch wallet first, then select identity.'
       : 'Unlock wallet first, then select identity.'
     : null;
-  const requesterMetadataRows = [
-    systemLabel ? {label: 'Network', value: systemLabel} : null,
-    sigDateString ? {label: 'Signed', value: sigDateString} : null,
-    deliveryInfo.destinationHost
-      ? {
-          label: 'Response destination',
-          value: deliveryInfo.destinationHost,
-        }
-      : null,
-    deliveryMethod ? {label: 'Delivery', value: deliveryMethod} : null,
-  ].filter(Boolean);
   const requestDetailsSections = useMemo(() => {
     const responseRows = [
       ...responseUris.map((uri, index) => ({
@@ -2004,6 +1966,7 @@ const AuthenticationRequestInfoContent = props => {
             ? `Response URI ${index + 1}`
             : 'Response URI',
         value: uri.getUriString(),
+        copy: true,
       })),
       expiryLabel ? {label: 'Expires', value: expiryLabel} : null,
       requestIdLabel ? {label: 'Request ID', value: requestIdLabel} : null,
@@ -2047,7 +2010,6 @@ const AuthenticationRequestInfoContent = props => {
     selectedIdentity,
     signedIn,
   ]);
-  const showRequestDetailsLink = requestDetailsSections.length > 0;
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -2073,61 +2035,32 @@ const AuthenticationRequestInfoContent = props => {
         onSelect={handleSelectIdentity}
         onUseProvisionedIdentity={handleUseProvisionedIdentity}
       />
-      <DeepLinkRequestDetailsSheet
-        visible={requestDetailsSheetVisible}
-        onClose={() => setRequestDetailsSheetVisible(false)}
-        sections={requestDetailsSections}
-      />
-      <DeepLinkVerusIdDetailsSheet
-        visible={verusIdDetailsSheetVisible}
-        onClose={() => setVerusIdDetailsSheetVisible(false)}
-        loadVerusId={loadSignerVerusId}
-        loadFriendlyNames={loadSignerFriendlyNames}
-      />
       <AutoLinkingSheet visible={autoLinkingVisible} styles={styles} />
-      <DeepLinkReviewScrollView showScrollCue>
-        <View style={styles.header}>
-          <RequestTitle>{mainTitle}</RequestTitle>
-          <Text style={[theme.typography.bodySm, styles.mainSubtitle]}>
-            {deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.NONE
+      <DeepLinkReviewScrollView showScrollCue requestCard>
+        <RequestCard
+          action="wants you to sign in"
+          requester={{request, signerFqn, signerIdentityID, signerSystemID, signerSystemName: systemLabel, sigtime,
+            loadVerusId: loadSignerVerusId, loadFriendlyNames: loadSignerFriendlyNames}}
+          sections={requestDetailsSections}
+          showResponder={!shouldShowLinkAsPrimary}
+          responderName={activeAccountMatchesRequest ? selectedIdentity?.friendlyName : null}
+          onPressResponder={activeAccountMatchesRequest && eligibilityReady && !shouldShowLinkAsPrimary ? handleOpenIdentitySheet : undefined}
+          caption={shouldShowLinkAsPrimary
+            ? 'No linked VerusID can sign this request.'
+            : `${deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.NONE
               ? 'No response will be sent to the requester.'
-              : `${requesterLabel} receives your VerusID and a signature.`}
-            {invoiceNotice ? ` ${invoiceNotice}` : ''}
-          </Text>
-        </View>
-
-        {(signerFqn || sigDateString || systemLabel) && (
-          <DeepLinkRequestSourceCard
-            metadataRows={requesterMetadataRows}
-            onPressRequestDetails={() => setRequestDetailsSheetVisible(true)}
-            onPressRequester={
-              canOpenSignerDetails ? openSignerDetailsSheet : undefined
-            }
-            requesterAccessibilityHint="View VerusID details"
-            requesterLabel={requesterLabel}
-            showRequestDetailsLink={showRequestDetailsLink}
-          />
-        )}
+              : `The wallet sends your VerusID and a signature to ${getResponseHostLabel(deliveryInfo.destinationHost)}.`}${invoiceNotice ? ` ${invoiceNotice}` : ''}`}
+        />
 
         {hasRequirements && (
           <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons
-                  name="shield-account-outline"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
-                <Text style={styles.sectionTitle}>Request requirements</Text>
-              </View>
-            </View>
             <View style={styles.sectionContent}>
               {constraintRows.map((row, index) => (
                 <View
                   key={row.key}
                   style={[styles.detailRow, index > 0 && styles.detailRowBorder]}>
                   <Text style={styles.requirementLabel}>{row.label}</Text>
-                  <Text style={styles.requirementValue} numberOfLines={1}>
+                  <Text style={styles.requirementValue}>
                     {row.value}
                   </Text>
                 </View>
@@ -2136,18 +2069,6 @@ const AuthenticationRequestInfoContent = props => {
           </View>
         )}
 
-        {!hasRequirements && !showRequestDetailsLink && (
-          <View style={styles.simpleInfoRow}>
-            <MaterialCommunityIcons
-              name="information-outline"
-              size={16}
-              color={theme.colors.textSubtle}
-            />
-            <Text style={styles.simpleInfoText}>
-              No additional data will be shared.
-            </Text>
-          </View>
-        )}
         <View style={{height: 24}} />
       </DeepLinkReviewScrollView>
 
@@ -2167,29 +2088,6 @@ const AuthenticationRequestInfoContent = props => {
             <Text style={styles.footerInfoText}>
               {activeAccountInstruction}
             </Text>
-          </View>
-        )}
-        {selectedIdentity && activeAccountMatchesRequest && (
-          <View>
-            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Sign with</Text>}
-            <TouchableOpacity
-              accessibilityHint="Open VerusID options"
-              accessibilityLabel={`Selected identity ${selectedIdentity.friendlyName}`}
-              accessibilityRole="button"
-              activeOpacity={0.78}
-              hitSlop={getButtonHitSlop(responderHeight)}
-              onPress={handleOpenIdentitySheet}
-              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
-              <View style={styles.selectedIdentityText}>
-                {smallDevice && <Text style={styles.compactResponderLabel}>Sign with</Text>}
-                <Text numberOfLines={1} style={styles.selectedIdentityName}>
-                  {selectedIdentity.friendlyName}
-                </Text>
-              </View>
-              <View style={styles.selectedIdentityCheck}>
-                <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
-              </View>
-            </TouchableOpacity>
           </View>
         )}
         <AppButton

@@ -61,3 +61,6 @@ export default Styles;
 export {createInfoSheetStyles} from './components/infoSheet.styles';
 
 export {default as paymentRequestSlipStyles} from './components/paymentRequestSlip.styles';
+export {default as requestCardStyles} from './components/requestCard.styles';
+
+export {default as dataApprovalListStyles} from './components/dataApprovalList.styles';

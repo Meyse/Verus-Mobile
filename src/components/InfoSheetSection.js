@@ -15,6 +15,7 @@ export const InfoSheetRow = ({
   copyValue,
   ellipsizeMode,
   label,
+  labelStyle,
   numberOfLines,
   selectable = true,
   value,
@@ -30,7 +31,7 @@ export const InfoSheetRow = ({
 
   const text = (
     <>
-      <Text style={styles.requestInfoLabel}>{label}</Text>
+      <Text style={[styles.requestInfoLabel, labelStyle]}>{label}</Text>
       <Text
         ellipsizeMode={ellipsizeMode}
         numberOfLines={numberOfLines}
@@ -77,9 +78,7 @@ const InfoSheetSection = ({rows = [], title}) => {
         {visibleRows.map((row, index) => (
           <InfoSheetRow
             key={`${title}-${row.label}-${index}`}
-            label={row.label}
-            selectable={row.selectable}
-            value={row.value}
+            {...row}
           />
         ))}
       </View>

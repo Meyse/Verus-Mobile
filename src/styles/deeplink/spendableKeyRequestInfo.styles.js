@@ -15,6 +15,7 @@ const createSpendableKeyRequestInfoStyles = theme =>
     scrollEndSpacer: {
       height: theme.spacing.sm,
     },
+    reviewScrollContent: {paddingTop: 48, paddingBottom: 24},
     header: {
       marginBottom: theme.spacing.sm,
     },
@@ -62,39 +63,33 @@ const createSpendableKeyRequestInfoStyles = theme =>
     passwordScrollContent: {
       flexGrow: 1,
       justifyContent: 'flex-start',
-      paddingHorizontal: theme.spacing.screenPadding,
-      paddingTop: theme.spacing.stepTop,
+      paddingHorizontal: 24,
+      paddingTop: 48,
       paddingBottom: theme.spacing.lg,
     },
     passwordScrollContentSmallDevice: {
-      paddingTop: theme.spacing.stepTopSmallDevice,
+      paddingTop: 48,
     },
     passwordScrollContentWithBack: {
-      paddingTop: 10,
+      paddingTop: 4,
     },
     passwordContent: {
       width: '100%',
-      maxWidth: 360,
       alignSelf: 'center',
     },
-    passwordTitle: {
-      marginBottom: 18,
-    },
-    passwordDescription: {
-      color: theme.colors.textSecondary,
-      ...theme.typography.bodyMd,
-      marginBottom: theme.spacing.lg,
-    },
     amountHero: {
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
-      paddingVertical: theme.spacing.xl,
+      paddingVertical: 16,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.border,
     },
     amountHeroRow: {
       alignItems: 'baseline',
       flexDirection: 'row',
       justifyContent: 'center',
-      marginTop: 10,
+      marginTop: 0,
       maxWidth: '100%',
     },
     amountHeroValue: {
@@ -107,6 +102,13 @@ const createSpendableKeyRequestInfoStyles = theme =>
       textAlign: 'right',
       ...fontStyle('semiBold'),
     },
+    reviewAmountValue: {
+      fontSize: 34,
+      lineHeight: 40,
+      letterSpacing: -0.9,
+      textAlign: 'left',
+    },
+    claimFeeRow: {paddingVertical: 16},
     amountHeroCurrency: {
       color: theme.colors.textSecondary,
       flexShrink: 1,

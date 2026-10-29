@@ -6,14 +6,12 @@ import React, {
   useState,
 } from 'react';
 import {TouchableOpacity, View} from 'react-native';
-import {getButtonHitSlop, useButtonHeight} from '../../../hooks/useButtonHeight';
-import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {CommonActions} from '@react-navigation/native';
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Check, Info} from 'lucide-react-native';
+import StatusBadge from '../../../components/StatusBadge';
+import {Info} from 'lucide-react-native';
 import {GenericResponse} from 'verus-typescript-primitives';
 import AppButton from '../../../components/AppButton';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -39,7 +37,6 @@ import {
 import {
   linkVerusId,
 } from '../../../actions/actions/services/dispatchers/verusid/verusid';
-import {unixToDate} from '../../../utils/math';
 import {getSystemNameFromSystemId} from '../../../utils/CoinData/CoinData';
 import {CoinDirectory} from '../../../utils/CoinData/CoinDirectory';
 import {
@@ -65,7 +62,6 @@ import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericRespon
 import {
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
-  getGenericRequestDeliveryLabel,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {accountIsTestnet} from '../../../utils/account/accountNetwork';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
@@ -84,11 +80,9 @@ import IdentityPickerSheet, {
   VERUSID_SHEET_MODES,
 } from '../components/VerusIdIdentityPickerSheet/IdentityPickerSheet';
 import {
-  DeepLinkRequestDetailsSheet,
-  DeepLinkRequestSourceCard,
   DeepLinkReviewScrollView,
-  DeepLinkVerusIdDetailsSheet,
-  RequestTitle,
+  RequestCard,
+  getResponseHostLabel,
 } from '../components/RequestReview';
 
 const ROOT_CHAIN_BY_NETWORK = {
@@ -231,8 +225,6 @@ const AppEncryptionRequestInfoContent = props => {
   } = props;
 
   const theme = useOnboardingTheme();
-  const responderHeight = useButtonHeight();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const styles = useMemo(
     () => createAppEncryptionRequestInfoStyles(theme),
     [theme],
@@ -264,8 +256,6 @@ const AppEncryptionRequestInfoContent = props => {
     () => CoinDirectory.findCoinObj(requestIdentityChainId),
     [requestIdentityChainId],
   );
-  const requesterLabel = signerFqn || 'An application';
-  const sigDateString = sigtime ? unixToDate(sigtime) : null;
   const systemLabel =
     signerSystemName || getOfflineSystemName(signerSystemID) || signerSystemID;
   const responseUris = useMemo(
@@ -278,15 +268,10 @@ const AppEncryptionRequestInfoContent = props => {
     () => getGenericRequestDeliveryInfo(request),
     [request],
   );
-  const deliveryMethod = getGenericRequestDeliveryLabel(deliveryInfo);
   const [linkedIds, setLinkedIds] = useState({});
   const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
   const [selectedIdentity, setSelectedIdentity] = useState(null);
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
-  const [requestDetailsSheetVisible, setRequestDetailsSheetVisible] =
-    useState(false);
-  const [verusIdDetailsSheetVisible, setVerusIdDetailsSheetVisible] =
-    useState(false);
   const [processing, setProcessing] = useState(false);
   const [openIdentityAfterUnlock, setOpenIdentityAfterUnlock] =
     useState(false);
@@ -467,11 +452,6 @@ const AppEncryptionRequestInfoContent = props => {
     },
     [signerSystemName],
   );
-  const openSignerDetailsSheet = useCallback(() => {
-    if (!canOpenSignerDetails) return;
-
-    setVerusIdDetailsSheetVisible(true);
-  }, [canOpenSignerDetails]);
 
   const handleWalletUnlock = async () => {
     const allowList = (accounts || []).filter(
@@ -801,17 +781,6 @@ const AppEncryptionRequestInfoContent = props => {
       ? 'Switch wallet first, then select identity.'
       : 'Unlock wallet first, then select identity.'
     : null;
-  const requesterMetadataRows = [
-    systemLabel ? {label: 'Network', value: systemLabel} : null,
-    sigDateString ? {label: 'Signed', value: sigDateString} : null,
-    deliveryInfo.destinationHost
-      ? {
-          label: 'Response destination',
-          value: deliveryInfo.destinationHost,
-        }
-      : null,
-    deliveryMethod ? {label: 'Delivery', value: deliveryMethod} : null,
-  ].filter(Boolean);
   const requestDetailsSections = useMemo(() => {
     const responseRows = responseUris
       .map((uri, index) => {
@@ -924,57 +893,36 @@ const AppEncryptionRequestInfoContent = props => {
         onLinkCandidate={linkAutoFoundIdentity}
         onSelect={handleSelectIdentity}
       />
-      <DeepLinkRequestDetailsSheet
-        onClose={() => setRequestDetailsSheetVisible(false)}
-        sections={requestDetailsSections}
-        visible={requestDetailsSheetVisible}
-      />
-      <DeepLinkVerusIdDetailsSheet
-        visible={verusIdDetailsSheetVisible}
-        onClose={() => setVerusIdDetailsSheetVisible(false)}
-        loadVerusId={loadSignerVerusId}
-        loadFriendlyNames={loadSignerFriendlyNames}
-      />
-      <DeepLinkReviewScrollView showScrollCue>
-        <View style={styles.header}>
-          <RequestTitle>Share encryption address</RequestTitle>
-          <Text style={styles.mainSubtitle}>
-            {deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.NONE
-              ? 'No response will be sent to the requester.'
-              : `${requesterLabel} receives an app-specific encryption address and its viewing keys.`}
-          </Text>
-        </View>
-
-        <DeepLinkRequestSourceCard
-          metadataRows={requesterMetadataRows}
-          onPressRequestDetails={() => setRequestDetailsSheetVisible(true)}
-          onPressRequester={
-            canOpenSignerDetails ? openSignerDetailsSheet : undefined
-          }
-          requesterAccessibilityHint="View VerusID details"
-          requesterLabel={requesterLabel}
-          showRequestDetailsLink
+      <DeepLinkReviewScrollView showScrollCue requestCard>
+        <RequestCard
+          action="wants you to share an encryption address"
+          requester={{request, signerFqn, signerIdentityID, signerSystemID, signerSystemName: systemLabel, sigtime,
+            loadVerusId: loadSignerVerusId, loadFriendlyNames: loadSignerFriendlyNames}}
+          sections={requestDetailsSections}
+          showResponder={showSelectedIdentityCard || (activeAccountMatchesRequest && !selectedIdentity)}
+          responderName={showSelectedIdentityCard ? selectedIdentity?.friendlyName : null}
+          onPressResponder={activeAccountMatchesRequest && linkedIdsLoaded &&
+            !shieldedSetupBlocksResponse && !processing
+            ? () => setIdentitySheetVisible(true)
+            : undefined}
+          caption={deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.NONE
+            ? 'No response will be sent to the requester.'
+            : `The wallet sends this app-specific address and its viewing keys to ${getResponseHostLabel(deliveryInfo.destinationHost)}.`}
         />
 
         {returnESK && (
           <View style={styles.warningCard}>
             <View style={styles.warningHeader}>
-              <MaterialCommunityIcons
-                name="alert"
-                size={21}
-                color={theme.colors.warning}
-              />
               <Text style={styles.warningTitle}>
-                Extended spending key requested
+                Extended spending key
               </Text>
+              <StatusBadge label="High risk" tone="warning" />
             </View>
             <Text style={styles.warningText}>
-              This app is also requesting the extended spending key for this
-              derived address. That grants spending capability for this
-              specific derived address.
+              With this key, the app can spend from this address.
             </Text>
             <Text style={styles.warningEmphasis}>
-              Only approve if you fully trust this application.
+              Approve only if you fully trust this app.
             </Text>
           </View>
         )}
@@ -998,29 +946,6 @@ const AppEncryptionRequestInfoContent = props => {
             <Text style={styles.footerInfoText}>
               {activeAccountInstruction}
             </Text>
-          </View>
-        )}
-        {showSelectedIdentityCard && (
-          <View>
-            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Respond as</Text>}
-            <TouchableOpacity
-              accessibilityHint="Open VerusID options"
-              accessibilityLabel={`Selected identity ${selectedIdentity.friendlyName}`}
-              accessibilityRole="button"
-              activeOpacity={0.78}
-              hitSlop={getButtonHitSlop(responderHeight)}
-              onPress={() => setIdentitySheetVisible(true)}
-              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
-              <View style={styles.selectedIdentityText}>
-                {smallDevice && <Text style={styles.compactResponderLabel}>Respond as</Text>}
-                <Text numberOfLines={1} style={styles.selectedIdentityName}>
-                  {selectedIdentity.friendlyName}
-                </Text>
-              </View>
-              <View style={styles.selectedIdentityCheck}>
-                <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
-              </View>
-            </TouchableOpacity>
           </View>
         )}
         {shieldedSetupBlocksResponse && (

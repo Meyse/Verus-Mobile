@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import {
   AccessibilityInfo,
   Keyboard,
+  Platform,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
@@ -11,14 +12,13 @@ import {
 import {Checkbox, Text} from 'react-native-paper';
 import Animated, {FadeIn, ReduceMotion} from 'react-native-reanimated';
 import {useDispatch, useSelector} from 'react-redux';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {KeyRound} from 'lucide-react-native';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
+import KeyboardAvoidingForm from '../../../components/KeyboardAvoidingForm';
 import ScannerScreen from '../../../components/BarcodeReader/ScannerScreen';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
-import StepGlyph from '../../../components/StepGlyph';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import TransactionResult from '../../../components/TransactionResult';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
@@ -35,6 +35,7 @@ import {
 import {linkVerusId} from '../../../actions/actions/services/dispatchers/verusid/verusid';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
+import useReduceMotion from '../../../hooks/useReduceMotion';
 import {
   SPENDABLE_KEY_DECRYPTION_FAILED,
   broadcastSpendableKeyClaim,
@@ -78,6 +79,7 @@ import ClaimingFundsView, {getClaimAnimationCoin} from './ClaimingFundsView';
 import {
   DeepLinkReviewScrollView,
   RequestTitle,
+  RequestCard,
 } from '../components/RequestReview';
 import {
   getPendingDeeplinkRequest,
@@ -842,6 +844,33 @@ const SpendableKeyRequestInfoContent = props => {
   const scanCacheRef = useRef(null);
   const scanInFlightRef = useRef(false);
   const passwordInputRef = useRef(null);
+  const passwordScrollRef = useRef(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
+  const revealPassword = useCallback(() => {
+    if (keyboardVisible) {
+      passwordScrollRef.current?.scrollToEnd({animated: !reduceMotion});
+    }
+  }, [keyboardVisible, reduceMotion]);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(revealPassword);
+    return () => cancelAnimationFrame(frame);
+  }, [revealPassword]);
 
   const showPasswordError = useCallback(async message => {
     setPasswordError(message);
@@ -1650,100 +1679,113 @@ const SpendableKeyRequestInfoContent = props => {
         style={styles.container}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.passwordScreen}>
-            {isReplayedPendingDeeplink && (
-              <View style={styles.passwordNavigation}>
-                <OnboardingBackButton
-                  disabled={isDecrypting}
-                  onPress={cancel}
-                />
-              </View>
-            )}
-            <DeepLinkReviewScrollView
-              contentContainerStyle={[
-                styles.passwordScrollContent,
-                smallDevice && styles.passwordScrollContentSmallDevice,
-                isReplayedPendingDeeplink &&
-                  styles.passwordScrollContentWithBack,
-              ]}>
-              <View style={styles.passwordContent}>
-                <StepGlyph icon={KeyRound} />
-                <RequestTitle style={styles.passwordTitle}>
-                  Decrypt spendable key
-                </RequestTitle>
-                <Text style={styles.passwordDescription}>
-                  This key is encrypted. Enter or scan its claim password to
-                  review the funds and VerusIDs it can claim.
-                </Text>
-                <View pointerEvents={isDecrypting ? 'none' : 'auto'}>
-                  <AppTextInput
-                    ref={passwordInputRef}
-                    accessibilityLabel="Claim password"
-                    accessibilityState={{disabled: isDecrypting}}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isDecrypting}
-                    errorText={passwordError}
-                    label="Claim password"
-                    onChangeText={value => {
-                      if (value !== password) {
-                        setPasswordError(null);
-                      }
-
-                      setPassword(value);
-                    }}
-                    onRightPress={() => setShowPassword(!showPassword)}
-                    onSubmitEditing={
-                      decryptDisabled ? undefined : scanClaims
-                    }
-                    placeholder="Enter claim password"
-                    returnKeyType="done"
-                    rightAccessibilityLabel={
-                      showPassword
-                        ? 'Hide claim password'
-                        : 'Show claim password'
-                    }
-                    rightIcon={showPassword ? 'eye-off' : 'eye'}
-                    secureTextEntry={!showPassword}
-                    themeMode={theme.mode}
-                    value={password}
+            <KeyboardAvoidingForm
+              keyboardVerticalOffset={insets.top}
+              style={styles.passwordScreen}>
+              {isReplayedPendingDeeplink && (
+                <View style={styles.passwordNavigation}>
+                  <OnboardingBackButton
+                    disabled={isDecrypting}
+                    onPress={cancel}
                   />
                 </View>
-              </View>
-            </DeepLinkReviewScrollView>
-            <SafeBottomActionStack
-              gap={10}
-              horizontalSpacing={24}
-              style={styles.footer}>
-              <AppButton
-                accessibilityState={{
-                  busy: isDecrypting,
-                  disabled: decryptDisabled,
-                }}
-                disabled={decryptDisabled}
-                height={56}
-                loading={isDecrypting}
-                onPress={scanClaims}
-                variant="primary">
-                {isDecrypting ? 'Decrypting…' : 'Decrypt'}
-              </AppButton>
-              <AppButton
-                disabled={isDecrypting}
-                icon="qrcode-scan"
-                height={56}
-                onPress={scanPasswordQr}
-                variant="secondary">
-                Scan password QR
-              </AppButton>
-              {!isReplayedPendingDeeplink && (
-                <AppButton
-                  disabled={isDecrypting}
-                  height={48}
-                  onPress={cancel}
-                  variant="text">
-                  Cancel
-                </AppButton>
               )}
-            </SafeBottomActionStack>
+              <DeepLinkReviewScrollView
+                ref={passwordScrollRef}
+                requestCard={!isReplayedPendingDeeplink}
+                onLayout={revealPassword}
+                onContentSizeChange={revealPassword}
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={[
+                  styles.passwordScrollContent,
+                  smallDevice && styles.passwordScrollContentSmallDevice,
+                  isReplayedPendingDeeplink &&
+                    styles.passwordScrollContentWithBack,
+                ]}>
+                <View style={styles.passwordContent}>
+                  <RequestCard
+                    action="wants you to claim funds"
+                    requester={props}
+                    caption="This key is encrypted. Enter the claim password to see what it holds."
+                  />
+                  <View pointerEvents={isDecrypting ? 'none' : 'auto'}>
+                    <AppTextInput
+                      ref={passwordInputRef}
+                      accessibilityLabel="Claim password"
+                      accessibilityState={{disabled: isDecrypting}}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isDecrypting}
+                      errorText={passwordError}
+                      label="Claim password"
+                      onFocus={revealPassword}
+                      onChangeText={value => {
+                        if (value !== password) {
+                          setPasswordError(null);
+                        }
+
+                        setPassword(value);
+                      }}
+                      onRightPress={() => setShowPassword(!showPassword)}
+                      onSubmitEditing={
+                        decryptDisabled ? undefined : scanClaims
+                      }
+                      returnKeyType="done"
+                      rightAccessibilityLabel={
+                        showPassword
+                          ? 'Hide claim password'
+                          : 'Show claim password'
+                      }
+                      rightIconColor={theme.colors.textSecondary}
+                      rightIcon={showPassword ? 'eye-off' : 'eye'}
+                      secureTextEntry={!showPassword}
+                      themeMode={theme.mode}
+                      value={password}
+                    />
+                  </View>
+                </View>
+              </DeepLinkReviewScrollView>
+              <SafeBottomActionStack
+                bottomSpacing={keyboardVisible ? 8 : 30}
+                includeBottomInset={!keyboardVisible}
+                safeAreaSpacing={keyboardVisible ? 0 : 12}
+                gap={10}
+                horizontalSpacing={24}
+                style={styles.footer}>
+                <AppButton
+                  accessibilityState={{
+                    busy: isDecrypting,
+                    disabled: decryptDisabled,
+                  }}
+                  disabled={decryptDisabled}
+                  height={56}
+                  loading={isDecrypting}
+                  onPress={scanClaims}
+                  variant="primary">
+                  {isDecrypting ? 'Decrypting…' : 'Decrypt'}
+                </AppButton>
+                {!keyboardVisible && (
+                  <AppButton
+                    disabled={isDecrypting}
+                    icon="qrcode-scan"
+                    height={56}
+                    onPress={scanPasswordQr}
+                    variant="secondary">
+                    Scan password QR
+                  </AppButton>
+                )}
+                {!keyboardVisible && !isReplayedPendingDeeplink && (
+                  <AppButton
+                    disabled={isDecrypting}
+                    height={48}
+                    onPress={cancel}
+                    variant="text">
+                    Cancel
+                  </AppButton>
+                )}
+              </SafeBottomActionStack>
+            </KeyboardAvoidingForm>
           </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>
@@ -1908,13 +1950,21 @@ const SpendableKeyRequestInfoContent = props => {
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={styles.container}>
-      <DeepLinkReviewScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <RequestTitle>{mainTitle}</RequestTitle>
-          {statusSubtitle ? (
-            <Text style={styles.subtitle}>{statusSubtitle}</Text>
-          ) : null}
-        </View>
+      <DeepLinkReviewScrollView requestCard={status === 'review'} contentContainerStyle={status === 'review' ? styles.reviewScrollContent : styles.scrollContent}>
+        {status === 'review' ? (
+          <RequestCard
+            action="wants you to claim funds"
+            requester={props}
+            showResponder={!!activeAccountMatchesRequest}
+            responderWord="to"
+            responderName={activeAccount?.id}
+          />
+        ) : (
+          <View style={styles.header}>
+            <RequestTitle>{mainTitle}</RequestTitle>
+            {statusSubtitle ? <Text style={styles.subtitle}>{statusSubtitle}</Text> : null}
+          </View>
+        )}
 
         {status === 'error' &&
           requestError?.message != null &&
@@ -2023,15 +2073,12 @@ const SpendableKeyRequestInfoContent = props => {
           <>
             {reviewModel.singleBalance ? (
               <View style={styles.amountHero}>
-                <Text style={styles.chainLabel}>
-                  {getSystemLabel(reviewModel.singleBalance.system)}
-                </Text>
                 <View style={styles.amountHeroRow}>
                   <Text
                     adjustsFontSizeToFit
                     minimumFontScale={0.62}
                     numberOfLines={1}
-                    style={styles.amountHeroValue}>
+                    style={[styles.amountHeroValue, styles.reviewAmountValue]}>
                     {reviewModel.singleBalance.currency.balanceAmount}
                   </Text>
                   <Text
@@ -2201,10 +2248,7 @@ const SpendableKeyRequestInfoContent = props => {
                     {destination && (
                       <View style={styles.claimDetailRow}>
                         <View style={styles.claimDetailHeader}>
-                          <Text style={styles.claimDetailLabel}>To</Text>
-                          <Text numberOfLines={2} style={styles.rowAmount}>
-                            {activeAccount?.id}
-                          </Text>
+                          <Text style={styles.claimDetailLabel}>Receiving address</Text>
                         </View>
                         <Text selectable style={styles.claimDetailAddress}>
                           {destination}
@@ -2215,6 +2259,7 @@ const SpendableKeyRequestInfoContent = props => {
                       <View
                         style={[
                           styles.flatRow,
+                          styles.claimFeeRow,
                           destination && styles.flatRowBorder,
                         ]}>
                         <Text style={styles.claimDetailLabel}>

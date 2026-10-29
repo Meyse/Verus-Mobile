@@ -73,6 +73,7 @@ const SendWizardHeader = ({
   disabled = false,
   onBack,
   onClose,
+  rightAccessory,
   progress,
   progressAnimation: sharedProgressAnimation,
   title,
@@ -173,6 +174,8 @@ const SendWizardHeader = ({
         ) : (
           <View style={styles.headerSpacer} />
         )}
+        {/* Balances the right accessory, so the title stays centered. */}
+        {rightAccessory ? <View style={styles.accessorySpacer} /> : null}
         {title ? (
           <Text
             accessibilityRole="header"
@@ -186,20 +189,23 @@ const SendWizardHeader = ({
             {title}
           </Text>
         ) : null}
-        <TouchableOpacity
-          accessibilityLabel="Close transfer"
-          accessibilityRole="button"
-          accessibilityState={{disabled}}
-          activeOpacity={0.74}
-          disabled={disabled}
-          onPress={onClose}
-          style={[styles.closeButton, disabled && styles.disabled]}>
-          <MaterialCommunityIcons
-            color={theme.colors.textPrimary}
-            name="close"
-            size={22}
-          />
-        </TouchableOpacity>
+        <View style={styles.rightActions}>
+          {rightAccessory}
+          <TouchableOpacity
+            accessibilityLabel="Close transfer"
+            accessibilityRole="button"
+            accessibilityState={{disabled}}
+            activeOpacity={0.74}
+            disabled={disabled}
+            onPress={onClose}
+            style={[styles.closeButton, disabled && styles.disabled]}>
+            <MaterialCommunityIcons
+              color={theme.colors.textPrimary}
+              name="close"
+              size={22}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
       <View
         accessibilityLabel={`Transfer ${progressPercent}% complete`}
@@ -249,6 +255,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   closeButton: {
     width: 40,
     height: 40,
@@ -260,6 +270,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginLeft: -8,
+  },
+  accessorySpacer: {
+    width: 44,
   },
   title: {
     flex: 1,

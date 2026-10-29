@@ -1,15 +1,17 @@
-import React, {useMemo, useState} from 'react';
-import {TouchableOpacity, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {AccessibilityInfo, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {Checkbox, Text} from 'react-native-paper';
-import {Check} from 'lucide-react-native';
+import {Text} from 'react-native-paper';
 import AppButton from '../../../../components/AppButton';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import SkeletonLoader, {
   SkeletonBlock,
 } from '../../../../components/SkeletonLoader';
-import CopyAction from '../../../../components/CopyAction';
-import {dataRequestInfoStyles as createStyles} from '../../../../styles';
+import AcknowledgeSheet from '../../../../components/AcknowledgeSheet';
+import {
+  dataRequestInfoStyles as createStyles,
+  dataApprovalListStyles,
+} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {
   getGenericRequestDeliveryInfo,
@@ -17,13 +19,10 @@ import {
 } from '../../../../utils/deeplink/genericRequestDelivery';
 import {unixToDate} from '../../../../utils/math';
 import IdentityPickerSheet from '../VerusIdIdentityPickerSheet/IdentityPickerSheet';
-import DeepLinkRequestSourceCard from './DeepLinkRequestSourceCard';
-import DeepLinkRequestDetailsSheet from './DeepLinkRequestDetailsSheet';
-import DeepLinkRequestSheetScaffold from './DeepLinkRequestSheetScaffold';
+import RequestCard from './RequestCard';
+import {getResponseHostLabel} from './requestReviewCopy';
+import DataApprovalList, {getItemApprovalLabel} from './DataApprovalList';
 import DeepLinkReviewScrollView from './DeepLinkReviewScrollView';
-import RequestTitle from './RequestTitle';
-import {getButtonHitSlop, useButtonHeight} from '../../../../hooks/useButtonHeight';
-import {useOnboardingSmallDeviceLayout} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 
 export const formatReviewValue = value => {
   if (typeof value === 'string') return value;
@@ -75,87 +74,10 @@ export const DataReviewValue = ({value}) => {
   );
 };
 
-export const DataReviewItem = ({
-  title,
-  children,
-  details,
-  consentLabel,
-  checked,
-  onToggle,
-  disabled,
-}) => {
-  const theme = useOnboardingTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  return (
-    <View style={styles.item}>
-      <Text style={styles.itemTitle}>{title}</Text>
-      {children}
-      {details?.length > 0 && (
-        <>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={`View details for ${title}`}
-            onPress={() => setDetailsVisible(true)}
-            style={styles.detailsLink}>
-            <Text style={styles.detailsLinkText}>View details</Text>
-          </TouchableOpacity>
-          <DeepLinkRequestSheetScaffold
-            visible={detailsVisible}
-            onClose={() => setDetailsVisible(false)}
-            maxHeight="78%"
-            title={title}>
-            {details
-              .filter(row => row.value != null)
-              .map((row, index) => (
-                <View key={index} style={styles.detailField}>
-                  <View style={styles.detailLabelRow}>
-                    <Text style={styles.detailLabel}>{row.label}</Text>
-                    {row.copy && (
-                      <CopyAction
-                        accessibilityLabel={`Copy ${row.label}`}
-                        value={formatReviewValue(row.value)}
-                      />
-                    )}
-                  </View>
-                  <Text
-                    selectable
-                    style={
-                      row.technical ? styles.technicalValue : styles.value
-                    }>
-                    {formatReviewValue(row.value)}
-                  </Text>
-                </View>
-              ))}
-          </DeepLinkRequestSheetScaffold>
-        </>
-      )}
-      <TouchableOpacity
-        accessibilityRole="checkbox"
-        accessibilityLabel={consentLabel}
-        accessibilityState={{checked, disabled}}
-        disabled={disabled}
-        onPress={onToggle}
-        style={styles.consentRow}>
-        <View
-          pointerEvents="none"
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants">
-          <Checkbox.Android
-            status={checked ? 'checked' : 'unchecked'}
-            color={theme.colors.success}
-            uncheckedColor={theme.colors.textSecondary}
-          />
-        </View>
-        <Text style={styles.consentText}>{consentLabel}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 export default function DataRequestReview({
-  title,
-  description,
+  requestAction,
+  responderWord = 'as',
+  responseCaption,
   props,
   identity,
   children,
@@ -164,28 +86,62 @@ export default function DataRequestReview({
   disabled,
   processing,
   error,
-  consentProgress,
+  approvalItems = [],
+  consent,
   detailsSections = [],
 }) {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  const responderHeight = useButtonHeight();
-  const {smallDevice} = useOnboardingSmallDeviceLayout();
+  const approvalStyles = useMemo(() => dataApprovalListStyles(theme), [theme]);
+  const [unreadableReview, setUnreadableReview] = useState(null);
+  const [ackVisible, setAckVisible] = useState(false);
+  const scrollRef = useRef(null);
+  const openItemRef = useRef(null);
+  const resetNoticeRef = useRef(null);
+  const clearedRef = useRef(consent.cleared);
+  clearedRef.current = consent.cleared;
+  const previousChecked = useRef(consent.checked);
+  const reviewChanged = useRef(false);
+  const revealOpenItem = useCallback(() => {
+    if (reviewChanged.current) {
+      // Reveal the open item. After a reset, keep the notice that explains it
+      // above item 1.
+      scrollRef.current?.scrollIntoView(
+        openItemRef,
+        clearedRef.current ? resetNoticeRef : undefined,
+      );
+    }
+  }, []);
+  useEffect(() => {
+    // Initial loading/identity selection keeps the request card first. Only
+    // an approval, Undo, or a reset of existing approvals enables scrolling.
+    if (previousChecked.current !== consent.checked &&
+      [...Object.values(previousChecked.current), ...Object.values(consent.checked)]
+        .some(Boolean)) {
+      reviewChanged.current = true;
+    }
+    previousChecked.current = consent.checked;
+    revealOpenItem();
+  }, [consent.checked, consent.context, revealOpenItem]);
+  const openItem = approvalItems.find(item => !consent.checked[item.key]);
+  const approve = item => {
+    if (processing || !item || item.key !== openItem?.key) return;
+    consent.toggle(item.key);
+    const announcement = `${item.title} approved`;
+    if (AccessibilityInfo.announceForAccessibilityWithOptions) {
+      AccessibilityInfo.announceForAccessibilityWithOptions(announcement, {
+        queue: true,
+      });
+    } else {
+      AccessibilityInfo.announceForAccessibility(announcement);
+    }
+  };
   const delivery = getGenericRequestDeliveryInfo(props.request);
   const selected = identity.selectedIdentity;
-  const metadataRows = [
-    {label: 'Network', value: props.signerSystemName || props.signerSystemID},
-    delivery.destinationHost
-      ? {label: 'Response destination', value: delivery.destinationHost}
-      : null,
-  ].filter(Boolean);
   const sections = [
     {
       title: 'Request',
       rows: [
-        {label: 'Requester', value: props.signerFqn || props.signerIdentityID},
-        {label: 'Requester address', value: props.signerIdentityID},
         {
           label: 'Network',
           value: props.signerSystemName || props.signerSystemID,
@@ -199,7 +155,7 @@ export default function DataRequestReview({
           value:
             getGenericRequestDeliveryLabel(delivery) || 'No callback requested',
         },
-        {label: 'Response URI', value: delivery.uriString},
+        {label: 'Response URI', value: delivery.uriString, copy: true},
         {label: 'Responding VerusID', value: selected?.iAddress},
         {label: 'Required VerusID', value: identity.requiredIdentity},
       ],
@@ -220,12 +176,26 @@ export default function DataRequestReview({
     ? 'Switch wallet'
     : !selected
     ? 'Choose VerusID'
+    : openItem
+    ? openItem.unreadable
+      ? 'Check unreadable data'
+      : getItemApprovalLabel(openItem.title)
     : primaryLabel;
   const action = () => {
+    if (actionDisabled) return;
     if (!identity.walletReady || identity.requiredSignerUnavailable)
       return identity.unlock();
     if (identity.lookupStatus === 'error') return identity.retry();
     if (!selected) return identity.setIdentitySheetVisible(true);
+    if (openItem) {
+      if (openItem.unreadable) {
+        setUnreadableReview({context: consent.context, item: openItem});
+        setAckVisible(true);
+      } else {
+        approve(openItem);
+      }
+      return;
+    }
     return onContinue();
   };
   const requestNetworkName = props.request?.isTestnet() ? 'Testnet' : 'Mainnet';
@@ -252,23 +222,45 @@ export default function DataRequestReview({
         onClose={() => identity.setIdentitySheetVisible(false)}
         onSelect={identity.selectIdentity}
       />
-      <DeepLinkRequestDetailsSheet
-        visible={detailsVisible}
-        onClose={() => setDetailsVisible(false)}
-        sections={sections}
-      />
-      <DeepLinkReviewScrollView showScrollCue>
-        <View style={styles.header}>
-          <RequestTitle>{title}</RequestTitle>
-          {description ? <Text style={styles.mainSubtitle}>{description}</Text> : null}
-        </View>
-        <DeepLinkRequestSourceCard
-          requesterLabel={
-            props.signerFqn || props.signerIdentityID || 'Requester'
+      <AcknowledgeSheet
+        visible={
+          ackVisible && unreadableReview?.context === consent.context && !processing
+        }
+        title="Approve unreadable data?"
+        message={[
+          props.signerFqn && unreadableReview?.item.descriptorLabel
+            ? `${props.signerFqn} calls them “${unreadableReview.item.descriptorLabel}”.`
+            : null,
+          'Approve only if you know what they are for.',
+        ].filter(Boolean).join(' ')}
+        confirmLabel="Approve unreadable data"
+        dismissLabel="Not now"
+        onClose={() => setAckVisible(false)}
+        onAcknowledged={() => {
+          if (
+            unreadableReview?.context === consent.context && openItem?.unreadable
+          ) {
+            approve(unreadableReview.item);
           }
-          metadataRows={metadataRows}
-          showRequestDetailsLink
-          onPressRequestDetails={() => setDetailsVisible(true)}
+        }}>
+        <View style={approvalStyles.sheetBytes}>
+          <Text selectable style={approvalStyles.bytes}>
+            {unreadableReview?.item.bytes}
+          </Text>
+        </View>
+      </AcknowledgeSheet>
+      <DeepLinkReviewScrollView ref={scrollRef} showScrollCue requestCard>
+        <RequestCard
+          action={requestAction}
+          requester={props}
+          sections={sections}
+          showResponder={!!selected}
+          responderName={selected?.friendlyName}
+          responderWord={responderWord}
+          onPressResponder={selected && !processing ? () => identity.setIdentitySheetVisible(true) : undefined}
+          caption={delivery.destinationHost
+            ? responseCaption(getResponseHostLabel(delivery.destinationHost))
+            : 'No response will be sent to the requester.'}
         />
         <View style={styles.section}>
           {identity.signerConflict ? (
@@ -306,7 +298,29 @@ export default function DataRequestReview({
               request.
             </DataReviewNotice>
           ) : (
-            children
+            <>
+              {children}
+              {consent.cleared ? (
+                <View
+                  ref={resetNoticeRef}
+                  collapsable={false}
+                  accessibilityLiveRegion="polite"
+                  style={approvalStyles.resetNotice}>
+                  <Text style={approvalStyles.resetNoticeText}>
+                    Approvals cleared. You chose another VerusID.
+                  </Text>
+                </View>
+              ) : null}
+              {approvalItems.length > 0 ? (
+                <DataApprovalList
+                  items={approvalItems}
+                  consent={consent}
+                  processing={processing}
+                  openItemRef={openItemRef}
+                  onOpenItemLayout={revealOpenItem}
+                />
+              ) : null}
+            </>
           )}
         </View>
       </DeepLinkReviewScrollView>
@@ -314,27 +328,6 @@ export default function DataRequestReview({
         gap={10}
         horizontalSpacing={24}
         style={styles.footer}>
-        {selected && (
-          <View>
-            {!smallDevice && <Text style={styles.selectedIdentityLabel}>Respond as</Text>}
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={`Respond as ${selected.friendlyName}`}
-              accessibilityHint="Choose a different VerusID"
-              disabled={processing}
-              onPress={() => identity.setIdentitySheetVisible(true)}
-              hitSlop={getButtonHitSlop(responderHeight)}
-              style={[styles.selectedIdentityCard, {height: responderHeight}]}>
-              <View style={styles.selectedIdentityText}>
-                {smallDevice && <Text style={styles.compactResponderLabel}>Respond as</Text>}
-                <Text numberOfLines={1} style={styles.selectedIdentityName}>
-                  {selected.friendlyName}
-                </Text>
-              </View>
-              <Check color={theme.colors.success} size={22} strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
-        )}
         {error ? (
           <Text
             accessibilityRole="alert"
@@ -343,11 +336,6 @@ export default function DataRequestReview({
             {error}
           </Text>
         ) : null}
-        {selected && identity.walletReady && consentProgress?.total > 0 && (
-          <Text accessibilityLiveRegion="polite" style={styles.consentProgress}>
-            {`${consentProgress.checked} of ${consentProgress.total} checked`}
-          </Text>
-        )}
         <AppButton
           height={56}
           variant="primary"

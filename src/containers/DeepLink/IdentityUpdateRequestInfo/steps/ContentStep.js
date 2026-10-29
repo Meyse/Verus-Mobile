@@ -12,7 +12,6 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CopyAction from '../../../../components/CopyAction';
-import {RequestTitle} from '../../components/RequestReview';
 import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
@@ -314,6 +313,7 @@ const VerusIdContentChanges = ({
 };
 
 const ContentStep = ({
+  requestCard,
   subjectIdentity,
   displayUpdates,
   cmmDataKeys,
@@ -378,12 +378,8 @@ const ContentStep = ({
 
   return (
     <View style={contentStyles.contentReviewRoot}>
-      <View style={[styles.header, contentStyles.contentReviewHeader]}>
-        <RequestTitle>
-          {totalContentCount === 1
-            ? 'Review content change'
-            : 'Review content changes'}
-        </RequestTitle>
+      <View style={[styles.header, contentStyles.contentReviewHeader, {paddingTop: 4, paddingHorizontal: 24, paddingBottom: 0}]}>
+        {requestCard}
         {totalContentCount > 1 && (
           <View style={contentStyles.contentSummaryRow}>
             <SummaryTile
