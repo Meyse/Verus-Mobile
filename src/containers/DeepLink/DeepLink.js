@@ -71,6 +71,8 @@ import {
 import {isBottomSheetActive} from '../../hooks/useBottomSheetActivity';
 import {getRequestBackState, RequestNavigationContext} from './useRequestNavigation';
 
+const USER_BACK_ACTIONS = ['GO_BACK', 'POP', 'POP_TO_TOP'];
+
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkData = useObjectSelector((state) => state.deeplink.data)
@@ -185,16 +187,15 @@ const DeepLink = (props) => {
 
   useEffect(() => props.navigation.addListener('beforeRemove', event => {
     if (exitedRef.current) return
-    const {blocked} = getRequestBackState(backHandlers)
-    if (blocked || loading) {
-      event.preventDefault()
-    } else if (event.data.action.type === 'RESET') {
+    // Navigation the app starts (a reset, wallet setup from a claim, a return
+    // to a service) ends the request. Only a user Back runs the request's Back.
+    if (!USER_BACK_ACTIONS.includes(event.data.action.type)) {
       finishRequest()
-    } else {
-      event.preventDefault()
-      backRef.current()
+      return
     }
-  }), [backHandlers, finishRequest, loading, props.navigation])
+    event.preventDefault()
+    backRef.current()
+  }), [finishRequest, props.navigation])
 
   useEffect(() => () => finishRequest(), [finishRequest])
 
