@@ -376,14 +376,15 @@ const AutoDeliverySheet = ({
 
   return (
     <BottomSheetModal
-      closeDisabled={status === AUTO_DELIVERY_STATUS.LOADING}
+      closeDisabled
       contentContainerStyle={
         isApprovalResult
           ? autoDeliverySheetStyles.approvalResultSheet
           : autoDeliverySheetStyles.sheet
       }
       maxHeight={isApprovalResult ? '78%' : AUTO_DELIVERY_SHEET_HEIGHT}
-      onClose={() => {
+      onClose={() => {}}
+      onRequestBack={() => {
         if (status !== AUTO_DELIVERY_STATUS.LOADING) onDone();
       }}
       visible={visible}>

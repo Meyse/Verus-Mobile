@@ -174,8 +174,9 @@ const SendWizardConfirm = () => {
   const broadcastStatusUnknown = Boolean(state.broadcastError);
   const requestStepFocused = useIsFocused();
   useRequestBackHandler(
-    () => broadcastStatusUnknown ? invoiceFlow.onExit() : navigation.goBack(),
-    sending, 2, Boolean(invoiceFlow) && requestStepFocused,
+    () => invoiceFlow.onExit(),
+    sending, 2,
+    Boolean(invoiceFlow) && requestStepFocused && (sending || broadcastStatusUnknown),
   );
   useLayoutEffect(() => {
     navigation.setOptions({

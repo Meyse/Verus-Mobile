@@ -841,10 +841,11 @@ const ConfirmPayStep = ({
       </BottomSheetModal>
 
       <BottomSheetModal
-        closeDisabled={completionIsBroadcasting || completionIsDelivering}
+        closeDisabled
         contentContainerStyle={localStyles.broadcastSheet}
         maxHeight={IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT}
-        onClose={closeCompletion}
+        onClose={() => {}}
+        onRequestBack={closeCompletion}
         visible={completionSheetVisible}>
         <View style={localStyles.broadcastSheetBody}>
           {(showLoadingAnimation || showSuccessAnimation) && (
