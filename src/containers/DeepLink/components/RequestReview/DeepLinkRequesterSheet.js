@@ -67,9 +67,15 @@ const DeepLinkRequesterSheet = ({
       rows: section.rows
         .filter(row => section.title !== 'Identity' ||
           !['Name', 'Fully qualified name'].includes(row.label))
-        .map(row => row.label === 'i-Address'
-          ? {...addressRow, value: row.value}
-          : row),
+        .map(row => {
+          if (row.label === 'i-Address') {
+            return {...addressRow, value: row.value};
+          }
+          if (row.label === 'Private address' || row.label.startsWith('Primary address')) {
+            return {...row, valueStyle: styles.identifier};
+          }
+          return row;
+        }),
     }));
     const network = sections
       .flatMap(section => section.rows)

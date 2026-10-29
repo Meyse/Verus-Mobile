@@ -756,6 +756,43 @@ this scope.
   screens ignore app Dark) are fixed (`claude/gr4-followups`) and passed on
   Android 360x640 and iPhone SE; the iOS invoice stale-request case
   G4-ios-01 passed on SE (Back, then a different invoice opens).
+- [x] **GR-4.HEADER-TARGETS** Owner requested the invoice Back and Close
+  target fix (G4-ios-03, 2026-10-29). `SendWizardHeader` now reuses
+  `OnboardingBackButton` and `HeaderCloseButton` at 44 x 44 points, with
+  equal space when Back is hidden. Preserve navigation callbacks, disabled
+  controls, icon sizes, title centering and progress. The shared header also
+  serves Send/Convert. The focused component check failed at 40 x 40 before
+  the fix, then passed target sizes, callbacks, disabled controls and the
+  hidden-Back slot. Design, two-file safe-area, Babel and completion checks
+  pass. After an initial selector-blocked run, Terra 6.1 Extra High measured
+  44 x 44 targets on iPhone SE, iPhone 17 Pro and Android 360x640. iOS
+  titles are centered; SE and Android Confirm Back return to Pay with.
+  SE Close followed by a new invoice shows the new amount. Send and Convert
+  entry headers also pass at 44 x 44 on SE. No transaction was submitted.
+  Evidence: `docs/qa/matrix/runs/2026-10-29-gr4-presentation/QA.local.md`;
+  focused component check: `/tmp/invoice-header-targets-check.cjs`.
+  No commit, merge or push.
+- [x] **GR-4.PRESENTATION** Owner requested all four remaining presentation
+  fixes and in-app screenshots (2026-10-29). Content-change cards state the
+  removal action once. Review and Confirm count high-risk changes separately
+  from ordinary content changes; content review steps and risk gates stay.
+  Requester content reuses `describeIdentityContent`, including readable
+  values, descriptor labels, unnamed-key labels and encrypted-value badges.
+  Requester identifiers match transaction details at 12/17 monospace.
+  All four focused regressions failed before the fix, then passed. The
+  encrypted/empty-content checks, existing consent fixture, header fixture,
+  design, seven-file safe-area, Babel and completion checks pass. Terra
+  captured actual app screenshots on compact/normal iOS and small Android.
+  Native cases pass for an empty-content clear and encrypted requester data.
+  Plaintext, known-label and old-content native cases remain unverified.
+  Root review found an orphan primary R-address character on Android, then
+  applied the same identifier style to primary and private addresses.
+  That regression fails at the base and passes in the component fixture;
+  Android recheck passes at font scale 1.0: primary and i-address fit on one
+  line, private address wraps on two lines, and encrypted rows remain legible
+  in light and dark. Evidence is in the same QA folder, with `-fixed-`
+  screenshots kept beside the initial captures. All task-owned runtimes are
+  stopped. No commit, merge or push.
 
 ## NFC-1 — Claim from an NFC card
 
@@ -1979,6 +2016,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-29 | GR-4 header targets and four presentation fixes | `codex/invoice-header-targets`, uncommitted from `e37b9495` | Focused pre-fix regressions reproduced repeated removal text, overlapping counts, nested requester counts and 14-point identifiers; the corrected fixtures pass. Content review stays required, and existing Sign/Share consent gates pass. Design (37 canonical sources), safe-area (7 JS files), Babel and completion checks (11 cases) pass. Terra 6.1 Extra High native QA on iPhone SE, iPhone 17 Pro and Android 360x640 measured 44 x 44 header targets; SE/Android Confirm Back and SE replacement-invoice cases passed. The clear flow retains acknowledgment and one count/badge; requester i-address fits and encrypted data shows one value count. Root then applied compact monospace to primary/private addresses after Android's primary address left one character on a new line; its base/current fixture fails/passes. Focused Android recheck at font scale 1.0 passes: primary and i-address fit on one line, full private address wraps on two, and encrypted content rows remain legible in light/dark. Screenshots and limits: `docs/qa/matrix/runs/2026-10-29-gr4-presentation/QA.local.md`. The existing `identityContentDisplay.unit.test.js` stops before running tests in the unchanged native SVG mock path: `Touchable.Mixin` is undefined. No Jest assertions or infrastructure changed. | Native plaintext/known labels and preservation of old content were not exercised by the available fixtures. Task-owned servers stopped; refreshed devices show unbooted/no open session after an Android shutdown support error. No commit, merge or push. |
 | 2026-10-29 | SH-1 device QA: biometric setup and Settings password sheets | `claude/faceid-import-password-titles` `657f1415` (Opus review, Terra 6.1 simulator run, report `/tmp/faceid-qa/report.md`) | iPhone 17 Pro sim, Testnet, disposable wallets, QR scans fed through the Metro debugger: 12-word QR import with Turn on saves Face ID (was Off at base); Skip stays Off; 24-word Back then Skip stays Off; Try again after a forced setup failure keeps Face ID; a forced save failure opens the wallet, then shows "Face ID not turned on" over Home, and password sign-in works. Settings sheets B1-B5 show the approved titles, bodies and buttons, no wallet row, and "Incorrect password." on a wrong password; Face ID turns on and off. Dark B1/B3 readable. iPhone SE (Touch ID) sheet fits with the keyboard up. Signed-out recovery sheet keeps the wallet row. 11 pass, 0 fail. | The 1-second screenshot bursts did not catch the "Setting up Face ID" ring step (A1, A4); the saved flag passed and the ring reads the same value. Real Face ID prompt, Android, and NFC write not tested; owner checks Face ID on the phone. |
 | 2026-10-29 | SH-1: Settings password sheets and biometric setup | `claude/faceid-import-password-titles` from `1259721b` | Password titles and primary labels name the action; optional bodies explain the password, and Settings omits the wallet row. DisplaySeed retains it. Setup snapshots the latest biometric choice from a ref, including Retry and Back. A biometric-save failure keeps password sign-in and alerts once after the setup overlay closes. Temporary non-Jest fixtures: 38 pass; both original regressions fail at the base. Design (37 sources), safe-area (5 changed JS files), Babel (5 files), and diff checks pass. ESLint cannot load the existing `import` plugin (`ERR_PACKAGE_PATH_NOT_EXPORTED`, `./lib/util/glob-util`). | Owner runs device QA: QR/NFC imports, Retry, Back with a changed choice, biometric-save failures, and Settings sheets in light/dark at normal/compact sizes. No native render or device run in this task. |
 | 2026-10-29 | GR-4 follow-ups device QA and Back guard fix | `claude/gr4-followups` `f49eefc2` (Opus) on `3e4470d1` | Opus review: the removal guard blocked app navigation (claim wallet setup, v1 login return to a service); now only GO_BACK, POP and POP_TO_TOP run the request Back and other removals end the request. 16 static/harness checks pass. Android 360x640 (Terra 6.1, Maestro, run folder `docs/qa/matrix/runs/2026-10-29-gr4-followups`): first-step Back closes the request and the next link opens its own; later-step, sheet and result Back; app Light/Dark/System; other-wallet text and invoice header; signed-out claim reaches unlock. iPhone SE: other-wallet text light/dark, app appearance, invoice Back then a different invoice, contrast spots, one signed data callback. | Not caught: Back during "Preparing response"; invoice Amount step (fixed-amount invoice); iOS swipe-down (the full-screen review has no dismiss gesture). Pre-existing: invoice header Back/Close 40 points (G4-ios-03). |
