@@ -103,6 +103,33 @@ methods, never Verus Mobile's visual direction.
   back-out actions such as "Cancel" and "Not now". Use `variant="text"` only
   for a third, low-emphasis link, such as "Other options" on the login screen.
 
+## Input fields
+
+Owner approval, 2026-10-30: the compact neutral input study, revision 2.
+
+- `AppTextInput` is the shared text-field shell: 48-point single-line height,
+  12-point corners, and the semantic `input*` colors. Focus changes the color
+  of one 1-point border. It adds no glow, shadow, second ring, or fill change.
+- Values use `inputValue` (16/22). Keep labels, errors, password eyes, search
+  controls, units, and existing keyboard and validation behavior.
+- A multiline field starts at 48 points. Center its first line through the
+  shared padding. Grow it with its native content height. Keep uncontrolled
+  memo entry uncontrolled; a height update must not replace its text.
+- Use `AppAddressInput` for destination and identifier entry. Its empty action
+  is Paste; a value changes it to Clear. Keep a QR action where scanning is
+  supported. Actions have 44-point slots and 48-point hit areas.
+- The full value always remains in the native input and caller state. While
+  idle, technical identifiers keep their last six characters and as much of
+  the start as fits, with a middle ellipsis only when needed. Names use normal
+  type. Focus restores the full editable value in one horizontal line.
+  Confirm keeps the full recipient, without an ellipsis.
+- Send and Address Book are the canonical consumers. Address Book's scanner
+  uses `BarcodeReader` inside its existing editor sheet, with Back returning
+  to the unchanged draft. This is the deliberate compact scanner composition
+  for that nested editor; other scanners keep their existing headers.
+- Legacy Paper fields and large, unboxed amount entry keep their separate
+  patterns until a task explicitly migrates them.
+
 ## Voice
 
 Copy never says "we", "our", or "us". The wallet is software; no company stands

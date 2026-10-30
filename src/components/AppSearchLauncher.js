@@ -23,7 +23,7 @@ const AppSearchLauncher = ({
     : onboardingTheme;
   const iconColor = disabled
     ? theme.colors.disabledText
-    : theme.colors.textSubtle;
+    : theme.colors.inputPlaceholder;
 
   return (
     <View style={[styles.launcherContainer, style]}>
@@ -40,7 +40,7 @@ const AppSearchLauncher = ({
             backgroundColor: disabled
               ? theme.colors.disabledButton
               : theme.colors.input,
-            borderColor: theme.colors.borderStrong,
+            borderColor: theme.colors.inputBorder,
           },
         ]}
         testID={testID}>
@@ -57,7 +57,7 @@ const AppSearchLauncher = ({
             {
               color: disabled
                 ? theme.colors.disabledText
-                : theme.colors.textSubtle,
+                : theme.colors.inputPlaceholder,
             },
           ]}>
           {label}

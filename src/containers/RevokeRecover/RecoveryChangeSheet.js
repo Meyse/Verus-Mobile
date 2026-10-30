@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../components/AppButton';
-import AppTextInput from '../../components/AppTextInput';
+import AppAddressInput from '../../components/AppAddressInput';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import {useAppTheme} from '../../theme/app';
@@ -120,14 +120,16 @@ const RecoveryChangeSheet = ({
           ) : null}
           {authorities ? (
             <>
-              <AppTextInput
+              <AppAddressInput
+                technical={!draft.recovery?.includes('@')}
                 label="Recovery authority"
                 placeholder="name@ or i..."
                 value={draft.recovery || ''}
                 onChangeText={text => onChange('recovery', text)}
                 onFocus={() => { focusAtEndRef.current = false; }}
               />
-              <AppTextInput
+              <AppAddressInput
+                technical={!draft.revocation?.includes('@')}
                 label="Revocation authority"
                 placeholder="name@ or i..."
                 value={draft.revocation || ''}
@@ -146,7 +148,8 @@ const RecoveryChangeSheet = ({
               </Text>
             </>
           ) : (
-            <AppTextInput
+            <AppAddressInput
+              technical
               label={primary ? 'New primary R-address' : 'Z-address'}
               placeholder={primary ? 'R...' : 'zs...'}
               value={draft.address || ''}
@@ -155,9 +158,8 @@ const RecoveryChangeSheet = ({
                 focusAtEndRef.current = true;
                 scrollRef.current?.scrollToEnd({animated: true});
               }}
-              onRightPress={onScan}
-              rightIcon="qrcode-scan"
-              rightAccessibilityLabel={
+              onScan={onScan}
+              scanAccessibilityLabel={
                 primary ? 'Scan new primary address' : 'Scan Z-address'
               }
               testID={`revokeRecover.edit.${type}.input`}

@@ -7,7 +7,17 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-29 (GR-4 follow-ups device-checked and merged).
+- Last updated: 2026-10-30 (compact neutral inputs implementation and QA).
+- Input integration, 2026-10-30: the owner requested a local commit and
+  `--no-ff` merge of `codex/compact-neutral-inputs` into `redesign`. The
+  commit scope includes the source and maintained design docs. Native QA
+  fixtures, screenshots and local notes stay local. No push was requested.
+- Scoped input work: **TX-1.INPUTS** on `codex/compact-neutral-inputs` from
+  `redesign` `5fe184a7`. Owner approved revision 2 of the input study on
+  2026-10-30. Shared 48-point neutral fields, one focus border, growing memo,
+  Paste/Clear and existing QR routes, idle start/last-six presentation,
+  complete editable values and full recipients on Confirm. Native QA below
+  records the actual evidence; the design study does not close runtime checks.
 - Scoped request review implementation: **GR-4 phases 1 and 2** on
   `claude/gr-item-approval` from phase 1 (`e11d4882`). A1 restores case-specific
   high-risk captions and notes. A2 restores the invoice other-app action.
@@ -1023,6 +1033,17 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 ## TX-1 — Current Send and Convert wizard
 
+- [x] **TX-1.INPUTS** Implement the owner-approved compact neutral field
+  treatment in `AppTextInput` and shared address entry, with Send, Address
+  Book, manual VerusID, recovery and asset-identifier consumers.
+- [x] **TX-1.INPUTS-QA** Check light/dark normal and compact native states:
+  empty, focus, Paste/Clear, raw-address idle/edit/Back, names, errors,
+  password eye, search Clear, memo growth, scanner Back, and saved full value.
+  Native component fixtures pass on iPhone 17 Pro, iPhone SE and Android
+  360x640. Production signed-out name/password controls also pass on iOS.
+  Keep live camera decoding and authenticated behavior separate from fixtures.
+  Evidence: `docs/qa/compact-inputs/QA.local.md` and `gallery.local.html`.
+
 **Sources:**
 [SendWizardNavigator](src/containers/SendWizard/SendWizardNavigator.js),
 [SendWizardHeader](src/containers/SendWizard/components/SendWizardHeader.js),
@@ -2016,6 +2037,8 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-10-30 | TX-1.INPUTS follow-up: Save to address book secondary colors | `codex/compact-neutral-inputs`, uncommitted | The compact recipient chip now matches AppButton secondary colors. Dark text/icon use textPrimary on surfaceMuted; light uses primary on primaryBackground. Existing geometry and handler remain. Native iPhone 17 Pro/SE fixture captures checked in both themes. Contrast 12.22:1 dark, 4.74:1 light. Design, targeted safe-area, Babel and diff checks pass. Evidence: `docs/qa/compact-inputs/QA.local.md`. | Styling-only follow-up. No authenticated storage check, commit, merge or push. |
+| 2026-10-30 | TX-1.INPUTS: compact neutral fields | `codex/compact-neutral-inputs`, uncommitted from `5fe184a7` | Shared 48-point fields use one neutral focus border, 16/22 values and no glow. Shared address entry supplies Paste/Clear, optional QR, idle prefix/last-six display and complete editable values. Send, Address Book, manual VerusID, recovery and asset identifier consumers use it. Native component fixtures pass on iPhone 17 Pro (402x874), iPhone SE (375x667) and Android 360x640, with light/dark and keyboard states. Paste/Clear, full-value handoff and Back, wrong-network error, scanner fallback/Back, names, long identifiers, password eye, search Clear, memo grow/shrink/reopen, save failure/retry and clipboard failure/late edit passed in the recorded lanes. Fixed iOS two-line clipping and Android one-line native minimum height during QA. Production iOS signed-out name/password controls also pass. Both production JS bundles, design (37 sources), explicit safe-area (10 consumers), search-field (1257 sources), Babel (15 JS files) and diff checks pass. Screenshots and exact boundaries: `docs/qa/compact-inputs/QA.local.md`; no new Jest tests. | QR hardware decoding, live identity lookup, authenticated saves/signing/broadcast and every consumer journey remain outside fixture proof. Existing Send-options checker stops on unchanged `wizardUtils.js` ESM Buffer import. Task-owned QA server stopped; refreshed devices are unbooted with no open sessions. Existing Metro 8081 remains. No commit, merge or push. |
 | 2026-10-29 | GR-4 header targets and four presentation fixes | `codex/invoice-header-targets`, uncommitted from `e37b9495` | Focused pre-fix regressions reproduced repeated removal text, overlapping counts, nested requester counts and 14-point identifiers; the corrected fixtures pass. Content review stays required, and existing Sign/Share consent gates pass. Design (37 canonical sources), safe-area (7 JS files), Babel and completion checks (11 cases) pass. Terra 6.1 Extra High native QA on iPhone SE, iPhone 17 Pro and Android 360x640 measured 44 x 44 header targets; SE/Android Confirm Back and SE replacement-invoice cases passed. The clear flow retains acknowledgment and one count/badge; requester i-address fits and encrypted data shows one value count. Root then applied compact monospace to primary/private addresses after Android's primary address left one character on a new line; its base/current fixture fails/passes. Focused Android recheck at font scale 1.0 passes: primary and i-address fit on one line, full private address wraps on two, and encrypted content rows remain legible in light/dark. Screenshots and limits: `docs/qa/matrix/runs/2026-10-29-gr4-presentation/QA.local.md`. The existing `identityContentDisplay.unit.test.js` stops before running tests in the unchanged native SVG mock path: `Touchable.Mixin` is undefined. No Jest assertions or infrastructure changed. | Native plaintext/known labels and preservation of old content were not exercised by the available fixtures. Task-owned servers stopped; refreshed devices show unbooted/no open session after an Android shutdown support error. No commit, merge or push. |
 | 2026-10-29 | SH-1 device QA: biometric setup and Settings password sheets | `claude/faceid-import-password-titles` `657f1415` (Opus review, Terra 6.1 simulator run, report `/tmp/faceid-qa/report.md`) | iPhone 17 Pro sim, Testnet, disposable wallets, QR scans fed through the Metro debugger: 12-word QR import with Turn on saves Face ID (was Off at base); Skip stays Off; 24-word Back then Skip stays Off; Try again after a forced setup failure keeps Face ID; a forced save failure opens the wallet, then shows "Face ID not turned on" over Home, and password sign-in works. Settings sheets B1-B5 show the approved titles, bodies and buttons, no wallet row, and "Incorrect password." on a wrong password; Face ID turns on and off. Dark B1/B3 readable. iPhone SE (Touch ID) sheet fits with the keyboard up. Signed-out recovery sheet keeps the wallet row. 11 pass, 0 fail. | The 1-second screenshot bursts did not catch the "Setting up Face ID" ring step (A1, A4); the saved flag passed and the ring reads the same value. Real Face ID prompt, Android, and NFC write not tested; owner checks Face ID on the phone. |
 | 2026-10-29 | SH-1: Settings password sheets and biometric setup | `claude/faceid-import-password-titles` from `1259721b` | Password titles and primary labels name the action; optional bodies explain the password, and Settings omits the wallet row. DisplaySeed retains it. Setup snapshots the latest biometric choice from a ref, including Retry and Back. A biometric-save failure keeps password sign-in and alerts once after the setup overlay closes. Temporary non-Jest fixtures: 38 pass; both original regressions fail at the base. Design (37 sources), safe-area (5 changed JS files), Babel (5 files), and diff checks pass. ESLint cannot load the existing `import` plugin (`ERR_PACKAGE_PATH_NOT_EXPORTED`, `./lib/util/glob-util`). | Owner runs device QA: QR/NFC imports, Retry, Back with a changed choice, biometric-save failures, and Settings sheets in light/dark at normal/compact sizes. No native render or device run in this task. |

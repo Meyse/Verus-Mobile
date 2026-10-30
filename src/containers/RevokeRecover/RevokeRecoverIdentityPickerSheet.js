@@ -10,7 +10,7 @@ import {Text} from 'react-native-paper';
 import {Check, Pencil, RotateCw} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppSearchField from '../../components/AppSearchField';
-import AppTextInput from '../../components/AppTextInput';
+import AppAddressInput from '../../components/AppAddressInput';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import SignedOutActionRow from '../../components/SignedOutActionRow';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
@@ -291,10 +291,11 @@ export const RevokeRecoverIdentityField = ({
   if (manualEntry) {
     return (
       <View>
-        <AppTextInput
+        <AppAddressInput
           autoCapitalize="none"
           autoCorrect={false}
           errorText={errorText}
+          technical={value?.startsWith('i') && !value.includes('@')}
           label="VerusID name or i-address"
           onChangeText={onChangeText}
           onSubmitEditing={onSubmitEditing}

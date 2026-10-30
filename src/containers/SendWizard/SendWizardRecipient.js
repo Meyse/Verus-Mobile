@@ -3,12 +3,10 @@ import {useRequestBackHandler} from '../DeepLink/useRequestNavigation';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   BackHandler,
-  Clipboard,
   Keyboard,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
@@ -17,9 +15,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {ethers} from 'ethers';
 import {fromBase58Check} from 'verus-typescript-primitives';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
+import AppAddressInput from '../../components/AppAddressInput';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
-import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import QrScanner from '../../utils/QrScanner/QrScanner';
 import {addressIsBlocked} from '../../utils/addressBlocklist';
@@ -57,7 +55,9 @@ const SendWizardRecipient = () => {
   const navigation = useNavigation();
   const invoiceFlow = useInvoiceFlow();
   const theme = useOnboardingTheme();
-  const {smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
+  const saveAddressTextColor = theme.isDark
+    ? theme.colors.textPrimary
+    : theme.colors.primary;
   const {state, setMemo, setRecipient} = useSendWizard();
   const {channel, memo, sourceCoin, target, route} = state;
   const privateSource = isPrivateChannel(channel);
@@ -76,7 +76,6 @@ const SendWizardRecipient = () => {
   const [selfAddressOpen, setSelfAddressOpen] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
-  const [inputFocused, setInputFocused] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [identityCheck, setIdentityCheck] = useState(null);
   const lookup = useRef({generation: 0, pending: false});
@@ -251,18 +250,6 @@ const SendWizardRecipient = () => {
   }, [address, cancelLookup, checkIdentity, identityKey, needsIdentityCheck, route]));
   const showMemo = validation.valid && memoApplies(channel, input.trim());
 
-  const paste = async () => {
-    try {
-      const value = await Clipboard.getString();
-      if (value) {
-        setInput(value.trim());
-        setError(null);
-      }
-    } catch (pasteError) {
-      setError('Clipboard content could not be read.');
-    }
-  };
-
   const openScanner = () => {
     Keyboard.dismiss();
     setScannerOpen(true);
@@ -423,65 +410,41 @@ const SendWizardRecipient = () => {
         loadingText="Checking VerusID…"
         onPress={continueToReview}>
         {(errorMessage, onFieldLayout) => <>
-          <View
-            onLayout={onFieldLayout}
-            style={[
-              styles.inputShell,
-              visibleError && styles.inputWithError,
-              {
-                backgroundColor: inputFocused
-                  ? theme.colors.inputFocused
-                  : theme.colors.input,
-                borderColor:
-                  visibleError
-                    ? theme.colors.danger
-                    : inputFocused
-                    ? theme.colors.primary
-                    : 'transparent',
-              },
-            ]}>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-              onBlur={() => setInputFocused(false)}
+          <View onLayout={onFieldLayout} style={!visibleError && styles.inputSpacing}>
+            <AppAddressInput
+              abbreviate={validation.valid}
+              accessibilityLabel="Recipient address"
+              inlineLabel="To"
               onChangeText={value => {
                 setInput(value);
                 setError(null);
               }}
-              onFocus={() => setInputFocused(true)}
+              onScan={openScanner}
               placeholder={
                 route?.addressType === ADDRESS_TYPE.ETHEREUM
                   ? 'Ethereum address'
                   : route?.addressType === ADDRESS_TYPE.VERUS
-                  ? 'Verus address or VerusID'
+                  ? 'Address or VerusID'
                   : 'Recipient address'
               }
-              placeholderTextColor={theme.colors.textSubtle}
-              style={[
-                styles.input,
-                smallDeviceKeyboardVisible && styles.inputCompact,
-                {color: theme.colors.textPrimary},
-              ]}
+              invalid={Boolean(visibleError)}
+              technical={!input.includes('@')}
+              testID="send.recipient.input"
               value={input}
             />
-            <View style={styles.inputActions}>
-              <Pressable accessibilityLabel="Paste address" accessibilityRole="button" onPress={paste} style={styles.inputAction}>
-                <MaterialCommunityIcons name="content-paste" size={20} color={theme.colors.textSubtle} />
-              </Pressable>
-              <Pressable accessibilityLabel="Scan address QR" accessibilityRole="button" onPress={openScanner} style={styles.inputAction}>
-                <MaterialCommunityIcons name="qrcode-scan" size={20} color={theme.colors.textSubtle} />
-              </Pressable>
-            </View>
           </View>
           {errorMessage}
           {showSaveOption ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => setSaveAddressOpen(true)}
-              style={[styles.saveAddress, {backgroundColor: theme.colors.surfaceMuted}]}>
-              <MaterialCommunityIcons name="account-plus" size={18} color={theme.colors.primary} />
-              <Text style={[styles.saveAddressText, {color: theme.colors.primary}]}>Save to address book</Text>
+              style={[styles.saveAddress, {
+                backgroundColor: theme.isDark
+                  ? theme.colors.surfaceMuted
+                  : theme.colors.primaryBackground,
+              }]}>
+              <MaterialCommunityIcons name="account-plus" size={18} color={saveAddressTextColor} />
+              <Text style={[styles.saveAddressText, {color: saveAddressTextColor}]}>Save to address book</Text>
             </Pressable>
           ) : null}
           {showMemo || matchingSavedAddresses.length > 0 || ownAddresses.length > 0 ? (
@@ -571,12 +534,7 @@ const RecipientActionRow = ({count, label, onPress}) => {
 
 const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
-  inputShell: {minHeight: 56, marginBottom: 12, borderRadius: 12, borderWidth: 1, position: 'relative', flexDirection: 'row', alignItems: 'center'},
-  inputWithError: {marginBottom: 0},
-  input: {flex: 1, minHeight: 56, maxHeight: 96, paddingLeft: 16, paddingRight: 90, paddingTop: 19, paddingBottom: 16, fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
-  inputCompact: {paddingTop: 8, paddingBottom: 8},
-  inputActions: {position: 'absolute', right: 8, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center'},
-  inputAction: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
+  inputSpacing: {marginBottom: 12},
   saveAddress: {alignSelf: 'flex-start', borderRadius: 20, marginTop: 8, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center'},
   saveAddressText: {fontSize: 13, lineHeight: 18, marginLeft: 6, ...fontStyle('semiBold')},
   actionRows: {marginTop: 8, marginBottom: 24, borderTopWidth: StyleSheet.hairlineWidth},
