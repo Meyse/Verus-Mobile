@@ -17,7 +17,7 @@ export default StyleSheet.create({
     ...fontStyle('semiBold'),
   },
   inputShell: {
-    minHeight: 56,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -26,39 +26,29 @@ export default StyleSheet.create({
     backgroundColor: '#F3F5F8',
   },
   singleLineInputShell: {
-    height: 56,
+    height: 48,
   },
   compactInputShell: {
     minHeight: 48,
     height: 48,
   },
   multilineInputShell: {
-    alignItems: 'flex-start',
-  },
-  inputShellFocused: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: Colors.secondaryColor,
-    shadowColor: Colors.primaryColor,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
+    alignItems: 'center',
   },
   inputShellError: {
     borderColor: Colors.warningButtonColor,
   },
   input: {
     flex: 1,
+    minWidth: 0,
     paddingHorizontal: 16,
     color: Colors.quinaryColor,
-    fontSize: 17,
+    fontSize: 16,
+    lineHeight: 22,
     ...fontStyle('regular'),
   },
   singleLineInput: {
-    height: 30,
+    height: 44,
     paddingVertical: 0,
     textAlignVertical: 'center',
     ...androidFontPaddingFix,
@@ -73,14 +63,14 @@ export default StyleSheet.create({
     ...androidFontPaddingFix,
   },
   multilineInput: {
-    minHeight: 54,
-    paddingVertical: 13,
-    lineHeight: 24,
+    minHeight: 46,
+    paddingVertical: 12,
+    lineHeight: 22,
     textAlignVertical: 'top',
     ...androidFontPaddingFix,
   },
   leftAccessory: {
-    height: 54,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 10,
@@ -94,14 +84,26 @@ export default StyleSheet.create({
     paddingRight: 16,
   },
   rightAction: {
-    width: 48,
-    height: 54,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   compactRightAction: {
     width: 44,
     height: 44,
+  },
+  inputSlot: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hiddenInput: {opacity: 0},
+  idleContent: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
   },
   supportingText: {
     marginTop: 7,

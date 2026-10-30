@@ -1,12 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
-  Clipboard,
   Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -16,11 +14,15 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {ethers} from 'ethers';
 import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
+import AppAddressInput from '../../../components/AppAddressInput';
+import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
+import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {fontStyle} from '../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
+import QrScanner from '../../../utils/QrScanner/QrScanner';
 
 const DEFAULT_SHEET_MAX_HEIGHT = '80%';
 const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
@@ -60,11 +62,6 @@ const validateAddress = address => {
     : {valid: false, error: 'Address format not recognized'};
 };
 
-const truncateAddress = address =>
-  address.length > 20
-    ? `${address.slice(0, 8)}...${address.slice(-8)}`
-    : address;
-
 const AddressBookEditSheet = ({
   editing,
   initialAddress = '',
@@ -82,7 +79,8 @@ const AddressBookEditSheet = ({
   const addressInput = useRef(null);
   const preserveKeyboardLayout = useRef(false);
   const [address, setAddress] = useState('');
-  const [addressFocused, setAddressFocused] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanError, setScanError] = useState(null);
   const [keyboardMetrics, setKeyboardMetrics] = useState(
     EMPTY_KEYBOARD_METRICS,
   );
@@ -95,7 +93,8 @@ const AddressBookEditSheet = ({
     if (!visible) return;
     preserveKeyboardLayout.current = false;
     setAddress(editing?.address || initialAddress);
-    setAddressFocused(false);
+    setScannerOpen(false);
+    setScanError(null);
     setLabel(editing?.label || initialLabel);
     setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
     setSaving(false);
@@ -132,11 +131,6 @@ const AddressBookEditSheet = ({
   const valid = validation.valid && label.trim().length > 0;
   const actionLabel = editMode ? 'Update' : 'Save';
   const sheetTitle = editMode ? 'Edit address' : 'Add address';
-  const trimmedAddress = address.trim();
-  const compactAddress =
-    validation.valid && !addressFocused
-      ? truncateAddress(trimmedAddress)
-      : address;
   const technicalAddress = detectedType && detectedType !== 'VerusID';
   const keyboardSheetHeight = Math.max(
     1,
@@ -148,18 +142,14 @@ const AddressBookEditSheet = ({
   );
 
   const close = useCallback(() => {
+    if (scannerOpen) {
+      setScannerOpen(false);
+      return;
+    }
     preserveKeyboardLayout.current = true;
     Keyboard.dismiss();
     onClose();
-  }, [onClose]);
-
-  const paste = useCallback(async () => {
-    const value = await Clipboard.getString();
-    if (value) {
-      setAddress(value.trim());
-      setSaveFailed(false);
-    }
-  }, []);
+  }, [onClose, scannerOpen]);
 
   const changeLabel = useCallback(value => {
     setLabel(value);
@@ -169,7 +159,21 @@ const AddressBookEditSheet = ({
   const changeAddress = useCallback(value => {
     setAddress(value);
     setSaveFailed(false);
+    setScanError(null);
   }, []);
+
+  const scanAddress = codes => {
+    setScannerOpen(false);
+    const raw = codes?.[0]?.value;
+    try {
+      if (typeof raw !== 'string' || raw.length > 5000) throw new Error();
+      const request = QrScanner.processGenericPaymentRequest(raw);
+      if (!request.address) throw new Error();
+      changeAddress(String(request.address).trim());
+    } catch {
+      setScanError('This QR code does not contain a supported address.');
+    }
+  };
 
   const save = useCallback(async () => {
     if (!valid || saving) return;
@@ -194,7 +198,7 @@ const AddressBookEditSheet = ({
 
   const handleClosed = useCallback(() => {
     preserveKeyboardLayout.current = false;
-    setAddressFocused(false);
+    setScannerOpen(false);
     setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
     setSaving(false);
     if (typeof onClosed === 'function') {
@@ -220,127 +224,129 @@ const AddressBookEditSheet = ({
       onClosed={handleClosed}
       visible={visible}>
       <View style={styles.sheetLayout}>
-        <Text
-          accessibilityRole="header"
-          style={[sheetStyles.title, styles.title]}>
-          {sheetTitle}
-        </Text>
-
-        <View style={styles.scrollFrame}>
-          <ScrollView
-            bounces={false}
-            contentContainerStyle={styles.formContent}
-            keyboardDismissMode={
-              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-            }
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={keyboardMetrics.visible}>
-            <AppTextInput
-              autoCapitalize="words"
-              editable={!saving}
-              label="Label"
-              onChangeText={changeLabel}
-              onSubmitEditing={() => {
-                if (editMode) {
-                  Keyboard.dismiss();
-                } else {
-                  addressInput.current?.focus();
-                }
-              }}
-              placeholder="Wallet or contact name"
-              returnKeyType={editMode ? 'done' : 'next'}
-              themeMode={theme.mode}
-              value={label}
-            />
-
-            <View style={styles.addressSection}>
-              <AppTextInput
-                ref={addressInput}
-                accessibilityValue={{text: address}}
-                editable={!saving && !editMode}
-                errorText={validation.error}
-                inputStyle={technicalAddress && styles.addressInput}
-                label="Address"
-                onBlur={() => setAddressFocused(false)}
-                onChangeText={changeAddress}
-                onFocus={() => setAddressFocused(true)}
-                onSubmitEditing={Keyboard.dismiss}
-                placeholder="Enter an address or VerusID"
-                returnKeyType="done"
-                themeMode={theme.mode}
-                value={compactAddress}
-              />
-
-              {!editMode ? (
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity
-                    accessibilityLabel="Paste address"
-                    accessibilityRole="button"
-                    activeOpacity={0.7}
-                    disabled={saving}
-                    onPress={paste}
-                    style={styles.actionChip}>
-                    <MaterialCommunityIcons
-                      color={theme.colors.textSecondary}
-                      name="content-paste"
-                      size={16}
-                    />
-                    <Text style={styles.actionChipText}>Paste</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-
-              {detectedType && !validation.error ? (
-                <View style={styles.validationRow}>
-                  <View style={styles.typeIndicator}>
-                    <MaterialCommunityIcons
-                      color={theme.colors.success}
-                      name="check-circle"
-                      size={14}
-                    />
-                    <Text style={styles.typeIndicatorText}>{detectedType}</Text>
-                  </View>
-                </View>
-              ) : null}
+        {scannerOpen ? (
+          <>
+            <View style={styles.scannerHeader}>
+              <OnboardingBackButton onPress={() => setScannerOpen(false)} />
+              <Text style={[theme.typography.titleSheet, {color: theme.colors.textPrimary}]}>Scan address</Text>
             </View>
-          </ScrollView>
-        </View>
+            <BarcodeReader
+              includeBottomInset={false}
+              noCameraAction={{label: 'Enter address', onPress: () => setScannerOpen(false)}}
+              noCameraHint="Paste or type the address instead."
+              onScan={scanAddress}
+              style={{height: Math.min(430, windowHeight * 0.6), flex: 0}}
+            />
+          </>
+        ) : (
+          <>
+            <Text
+              accessibilityRole="header"
+              style={[sheetStyles.title, styles.title]}>
+              {sheetTitle}
+            </Text>
 
-        {saveFailed ? (
-          <Text style={styles.saveError}>{SAVE_FAILED_TEXT}</Text>
-        ) : null}
+            <View style={styles.scrollFrame}>
+              <ScrollView
+                bounces={false}
+                contentContainerStyle={styles.formContent}
+                keyboardDismissMode={
+                  Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+                }
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={keyboardMetrics.visible}>
+                <AppTextInput
+                  autoCapitalize="words"
+                  editable={!saving}
+                  label="Label"
+                  onChangeText={changeLabel}
+                  onSubmitEditing={() => {
+                    if (editMode) {
+                      Keyboard.dismiss();
+                    } else {
+                      addressInput.current?.focus();
+                    }
+                  }}
+                  placeholder="Wallet or contact name"
+                  returnKeyType={editMode ? 'done' : 'next'}
+                  themeMode={theme.mode}
+                  value={label}
+                />
 
-        <SafeBottomActionStack
-          bottomSpacing={
-            keyboardMetrics.visible ? KEYBOARD_SHEET_BOTTOM_SPACING : 12
-          }
-          gap={10}
-          horizontalSpacing={20}
-          includeBottomInset={false}
-          safeAreaSpacing={0}
-          style={styles.buttonStack}>
-          <AppButton
-            accessibilityLabel={`${actionLabel} address`}
-            disabled={!valid || saving}
-            height={56}
-            onPress={save}
-            themeMode={theme.mode}>
-            {saving ? (
-              <ActivityIndicator color={theme.colors.onPrimary} size={18} />
-            ) : (
-              actionLabel
-            )}
-          </AppButton>
-          <AppButton
-            accessibilityLabel="Cancel"
-            disabled={saving}
-            height={56}
-            onPress={close}
-            themeMode={theme.mode}
-            variant="secondary">
-            Cancel
-          </AppButton>
-        </SafeBottomActionStack>
+                <View style={styles.addressSection}>
+                  <AppAddressInput
+                    ref={addressInput}
+                    abbreviate={validation.valid}
+                    editable={!saving && !editMode}
+                    errorText={validation.error || scanError}
+                    label="Address"
+                    onChangeText={changeAddress}
+                    onScan={() => {
+                      Keyboard.dismiss();
+                      setScannerOpen(true);
+                    }}
+                    onSubmitEditing={Keyboard.dismiss}
+                    placeholder="Address or VerusID"
+                    returnKeyType="done"
+                    technical={technicalAddress}
+                    testID="addressBook.address.input"
+                    themeMode={theme.mode}
+                    value={address}
+                  />
+
+                  {detectedType && !validation.error ? (
+                    <View style={styles.validationRow}>
+                      <View style={styles.typeIndicator}>
+                        <MaterialCommunityIcons
+                          color={theme.colors.success}
+                          name="check-circle"
+                          size={14}
+                        />
+                        <Text style={styles.typeIndicatorText}>{detectedType}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </ScrollView>
+            </View>
+
+            {saveFailed ? (
+              <Text style={styles.saveError}>{SAVE_FAILED_TEXT}</Text>
+            ) : null}
+
+            <SafeBottomActionStack
+              bottomSpacing={
+                keyboardMetrics.visible ? KEYBOARD_SHEET_BOTTOM_SPACING : 12
+              }
+              gap={10}
+              horizontalSpacing={20}
+              includeBottomInset={false}
+              safeAreaSpacing={0}
+              style={styles.buttonStack}>
+              <AppButton
+                accessibilityLabel={`${actionLabel} address`}
+                disabled={!valid || saving}
+                height={56}
+                onPress={save}
+                themeMode={theme.mode}>
+                {saving ? (
+                  <ActivityIndicator color={theme.colors.onPrimary} size={18} />
+                ) : (
+                  actionLabel
+                )}
+              </AppButton>
+              <AppButton
+                accessibilityLabel="Cancel"
+                disabled={saving}
+                height={56}
+                onPress={close}
+                themeMode={theme.mode}
+                variant="secondary">
+                Cancel
+              </AppButton>
+            </SafeBottomActionStack>
+          </>
+        )}
       </View>
     </BottomSheetModal>
   );
@@ -370,27 +376,7 @@ const createStyles = theme =>
     addressSection: {
       marginTop: 20,
     },
-    addressInput: {
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      letterSpacing: 0.2,
-    },
-    actionsRow: {flexDirection: 'row', marginTop: 10},
-    actionChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      borderRadius: 20,
-      backgroundColor: theme.colors.surface,
-    },
-    actionChipText: {
-      color: theme.colors.textSecondary,
-      fontSize: 13,
-      ...fontStyle('medium'),
-    },
+    scannerHeader: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, marginBottom: 12},
     validationRow: {marginTop: 10},
     typeIndicator: {flexDirection: 'row', alignItems: 'center', gap: 6},
     typeIndicatorText: {

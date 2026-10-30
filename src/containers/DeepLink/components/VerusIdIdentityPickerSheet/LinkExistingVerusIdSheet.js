@@ -18,7 +18,7 @@ import AppButton from '../../../../components/AppButton';
 import AppSearchField, {
   APP_SEARCH_MIN_ITEMS,
 } from '../../../../components/AppSearchField';
-import AppTextInput from '../../../../components/AppTextInput';
+import AppAddressInput from '../../../../components/AppAddressInput';
 import InfoSheetSection from '../../../../components/InfoSheetSection';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import SheetScrollView from '../../../../components/SheetScrollView';
@@ -1018,12 +1018,13 @@ const ManualEntryStep = ({
         contentContainerStyle={styles.manualStepScrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <AppTextInput
+        <AppAddressInput
           accessibilityLabel="VerusID name or i-Address"
           autoCapitalize="none"
           autoCorrect={false}
           editable={!resolving}
           errorText={errorMessage}
+          technical={value?.startsWith('i') && !value.includes('@')}
           label="VerusID name or i-Address"
           onChangeText={onChangeValue}
           onSubmitEditing={onLookup}

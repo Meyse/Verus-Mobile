@@ -119,7 +119,7 @@ const AppSearchField = forwardRef(function AppSearchField(
           <MaterialCommunityIcons
             accessible={false}
             color={
-              disabled ? theme.colors.disabledText : theme.colors.textSubtle
+              disabled ? theme.colors.disabledText : theme.colors.inputPlaceholder
             }
             importantForAccessibility="no"
             name="magnify"
@@ -132,14 +132,14 @@ const AppSearchField = forwardRef(function AppSearchField(
         onRightPress={hasValue && !disabled ? handleClear : undefined}
         placeholder={placeholder}
         placeholderTextColor={
-          disabled ? theme.colors.disabledText : theme.colors.textSubtle
+          disabled ? theme.colors.disabledText : theme.colors.inputPlaceholder
         }
         returnKeyType="search"
         rightAccessibilityLabel={
           hasValue && !disabled ? 'Clear search' : undefined
         }
         rightIcon={hasValue && !disabled ? 'close' : undefined}
-        rightIconColor={theme.colors.primary}
+        rightIconColor={theme.colors.inputPlaceholder}
         size="compact"
         testID={testID}
         themeMode={themeMode}

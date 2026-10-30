@@ -3,7 +3,7 @@ import {Keyboard, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../components/AppButton';
-import AppTextInput from '../../components/AppTextInput';
+import AppAddressInput from '../../components/AppAddressInput';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -214,14 +214,15 @@ const CustomAsset = ({navigation, route}) => {
               <Text style={styles.networkSummaryValue}>{selectedNetwork?.label || 'Network unavailable'}</Text>
             </View>}
           </View>
-          <AppTextInput
+          <AppAddressInput
+            technical={kind !== 'pbaas' || (input.startsWith('i') && !input.includes('.'))}
             label={kind === 'pbaas' ? 'Currency name or i-address' : 'Contract address'}
             inputShellStyle={styles.inputShell}
             inputStyle={styles.input}
             onChangeText={editInput}
             onFocus={revealInput}
             onSubmitEditing={lookUp}
-            placeholder={kind === 'pbaas' ? 'Currency name or i-address' : '0x…'}
+            placeholder={kind === 'pbaas' ? 'e.g. Example.currency' : '0x…'}
             returnKeyType="search"
             spellCheck={false}
             maxLength={256}
