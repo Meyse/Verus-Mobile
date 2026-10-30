@@ -2301,3 +2301,38 @@ headers were checked at 402x874 and 375x667; Send Amount was checked at
 matrix was not rerun. Design, scoped safe-area, parser and whitespace checks
 pass. The later development reload hit an iOS runner watchdog, so further
 runtime verification stopped. Existing local work remains separate.
+
+### Shared input alignment and focus follow-up (2026-10-30)
+
+Branch: `codex/input-baseline-and-wallet-icon`, from `redesign` at `f154138b7`.
+Owner correction: keep the wallet avatar's size; change its alignment only.
+
+- [x] Reproduce the iOS editing baseline shift before changing the shared input.
+- [x] Remove forced paragraph height from iOS single-line editable inputs only.
+- [x] Lighten idle input borders and strengthen the single focus border in both themes.
+- [x] Center the 56-point avatar beside the 48-point Personalize wallet input.
+- [x] Check representative native light/dark, normal/compact and keyboard states.
+
+Evidence: `docs/qa/compact-inputs/input-baseline-20261030/QA.local.md` and
+its native captures. The native fixture renders production controls with
+synthetic VRSCTEST state. Before the fix, editing moved the Inter name down
+1 point and the Menlo address suffix down about 1.67 points. After the fix,
+both sampled normal-size dark comparisons have no vertical shift. The SE
+light address sample has a 0.5-point upward raster difference. It no longer
+has the downward editing shift. The avatar moved up 4 points. Its diameter
+stayed 56 points, and its icon stayed 28 points.
+
+Native checks cover 402x874 and 375x667 iOS plus 360x640 Android. They include
+idle/editing addresses, Personalize alignment, iOS duplicate-name validation,
+avatar picker return, the valid name callback and Back, a two-line memo with
+Done/reopen, password visibility, and search clearing. Both theme border
+states were inspected. Token contrast against the input fill is at least
+3.04:1 idle and 9.30:1 focused. Design (37 canonical sources), scoped safe-area,
+four-file parser, whitespace, and both production JS bundle checks pass.
+
+These are native component-fixture checks. They do not prove real wallet
+creation, signing, QR camera scanning, physical iPhone rendering, or a full
+accessibility/text-scaling pass. No personal wallet was opened. No commit,
+merge, or push was performed during implementation. The owner then authorized
+the scoped commit, merge into `redesign`, and push. Physical-device installation
+is outside this integration.

@@ -145,6 +145,7 @@ const AppTextInput = forwardRef(function AppTextInput(
               {color: theme.colors.textPrimary},
               isMultiline && Platform.OS === 'android' && {height: contentHeight},
               inputStyle,
+              !isMultiline && Platform.OS === 'ios' && styles.iosSingleLineInput,
               showIdleContent && styles.hiddenInput,
             ]}
             value={value}

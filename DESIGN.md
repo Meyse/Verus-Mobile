@@ -110,8 +110,16 @@ Owner approval, 2026-10-30: the compact neutral input study, revision 2.
 - `AppTextInput` is the shared text-field shell: 48-point single-line height,
   12-point corners, and the semantic `input*` colors. Focus changes the color
   of one 1-point border. It adds no glow, shadow, second ring, or fill change.
-- Values use `inputValue` (16/22). Keep labels, errors, password eyes, search
-  controls, units, and existing keyboard and validation behavior.
+- Values use `inputValue` (16/22). iOS single-line editable fields deliberately
+  omit `lineHeight` so `UITextField` uses the font's native vertical metrics;
+  the forced paragraph height shifted editing text down. Keep 16-point type,
+  labels, errors, password eyes, search controls, units, and existing keyboard
+  and validation behavior. Multiline fields retain 22-point line spacing.
+- The idle border stays quiet and focus has a stronger neutral shade: darker
+  in light mode, brighter in dark mode. Keep the one-border treatment.
+- Personalize wallet keeps its 56-point avatar and 28-point icon. Center the
+  circle beside the 48-point input; the field label and errors do not set the
+  circle's center.
 - A multiline field starts at 48 points. Center its first line through the
   shared padding. Grow it with its native content height. Keep uncontrolled
   memo entry uncontrolled; a height update must not replace its text.
