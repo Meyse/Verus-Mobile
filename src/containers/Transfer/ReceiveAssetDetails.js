@@ -290,7 +290,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         // wraps fully and offers no copy affordance. Only a real address gets
         // the identifier treatment and the copy control.
         <Text style={styles.addressMissing}>
-          No address is available for this Card.
+          No address is available.
         </Text>
       )}
       {addressRecords.length > 1 ? (
@@ -323,12 +323,8 @@ const ReceiveAssetDetails = ({navigation, route}) => {
     return (
       <SafeAreaView edges={['left', 'right']} style={styles.safe}>
         <View style={styles.stateScreen}>
-          <Text style={styles.stateTitle}>No Card available</Text>
-          <Text style={styles.stateBody}>
-            {coinObj.display_name} has no receive-compatible Card in this
-            wallet.
-          </Text>
-          <View style={styles.stateAction}>
+          <Text style={styles.stateTitle}>No address available</Text>
+          <View style={[styles.stateAction, styles.stateActionAfterTitle]}>
             <AppButton onPress={goHome}>Done</AppButton>
           </View>
         </View>
@@ -340,12 +336,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
     return (
       <SafeAreaView edges={['left', 'right']} style={styles.safe}>
         <View style={styles.stateScreen}>
-          <Text style={styles.stateTitle}>Choose a Card</Text>
-          <Text style={styles.stateBody}>
-            {coinObj.display_name} is available through more than one Card.
-          </Text>
-          <View style={styles.stateAction}>
-            <AppButton onPress={openCardSheet}>Choose Card</AppButton>
+          <Text style={styles.stateTitle}>Choose an address</Text>
+          <View style={[styles.stateAction, styles.stateActionAfterTitle]}>
+            <AppButton onPress={openCardSheet}>Choose address</AppButton>
           </View>
         </View>
         {renderCardSheet()}
@@ -387,7 +380,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             </View>
             {cards.length > 1 ? (
               <TouchableOpacity
-                accessibilityLabel={`Choose a card. Current: ${getSubWalletCardType(selectedCard)} on ${getSubWalletNetworkLabel(selectedCard, coinObj)}`}
+                accessibilityLabel={`Choose an address. Current: ${getSubWalletCardType(selectedCard)} on ${getSubWalletNetworkLabel(selectedCard, coinObj)}`}
                 accessibilityRole="button"
                 onPress={openCardSheet}
                 style={styles.cardContext}>

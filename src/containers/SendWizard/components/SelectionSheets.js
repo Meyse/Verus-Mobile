@@ -14,7 +14,6 @@ import {formatSyncStatus} from '../../../utils/subwallet/privateWallet';
 
 export const SourceCardSheet = ({
   cards,
-  description,
   onClose,
   onClosed,
   onSelect,
@@ -34,8 +33,7 @@ export const SourceCardSheet = ({
 
   return (
     <SelectionSheet
-      title="Choose a card"
-      subtitle={description}
+      title="Choose an address"
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
@@ -44,7 +42,7 @@ export const SourceCardSheet = ({
           key={network}
           title={getSubWalletNetworkLabel(sources[0].card, sources[0].coin)}>
           {sources.map(source => {
-            // Name cards as Receive's "Choose a card" does: the type, with a
+            // Name sources as Receive's address chooser does: the type, with a
             // transparent card's short address below, or the VerusID name.
             // A private card that still syncs shows, but cannot be picked.
             const cardType = getSubWalletCardType(source.card);

@@ -221,7 +221,7 @@ const InvoicePaymentConfiguration = props => {
       setReviewError(
         `This ${
           isBurnChangePrice ? 'burn' : 'payment'
-        } can’t be prepared from this card. Choose another card or try again.`,
+        } cannot be prepared from this address. Choose another address or try again.`,
       );
     }
   };

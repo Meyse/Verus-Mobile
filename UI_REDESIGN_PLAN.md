@@ -1033,6 +1033,16 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 ## TX-1 — Current Send and Convert wizard
 
+- [x] **TX-1.ADDRESS-CHOOSER** Use "Choose an address" with no instructional
+  subtitle in Send, Convert, Receive, invoice payment, and the asset-screen
+  selector. Align related search, empty-state and accessibility copy. Label
+  subwallet counts as sources; retain gift-card and NFC-card terminology.
+- [x] **TX-1.ADDRESS-CHOOSER-QA** Check the production chooser components in
+  light/dark, normal/compact iOS component fixtures, including selection,
+  dismissal/reopen, unavailable private sources, search and empty states.
+  Evidence: `docs/qa/address-chooser-20261030/QA.local.md`. Android, real-wallet
+  journeys, and full assistive-technology checks remain unverified.
+
 - [x] **TX-1.INPUTS** Implement the owner-approved compact neutral field
   treatment in `AppTextInput` and shared address entry, with Send, Address
   Book, manual VerusID, recovery and asset-identifier consumers.
@@ -2336,3 +2346,32 @@ accessibility/text-scaling pass. No personal wallet was opened. No commit,
 merge, or push was performed during implementation. The owner then authorized
 the scoped commit, merge into `redesign`, and push. Physical-device installation
 is outside this integration.
+
+
+### Address chooser wording (2026-10-30)
+
+Owner requested the changes directly on `redesign`. The existing source,
+Receive, invoice-payment, and asset selectors now use "Choose an address"
+without an instructional subtitle. Related search, fallback, error, and
+accessibility copy uses address. Source counts stay accurate as "sources".
+Gift cards and NFC cards retain their names. The source data, balances,
+selection callbacks and dismissal behavior stay unchanged. Receive fallback
+actions keep a 24-point gap after removing their repeated descriptions.
+
+Native component fixtures from this checkout passed on iOS 18.6 at 402x874
+and 375x667. Source, Receive, and asset-search choosers were inspected in both
+themes. The title stays on one line. Selection applies after dismissal; reopen
+retains the selected VerusID. A syncing private source stays disabled. Search
+shows the new empty message. Receive's chooser fallback and no-address state
+were also inspected. Evidence: `docs/qa/address-chooser-20261030/QA.local.md`
+and the PNG captures in that ignored directory.
+
+Design (37 sources), scoped safe-area (13 JS files), Babel parse (13 JS files),
+search-field (1262 files), and whitespace checks pass. These are native
+component fixtures with synthetic VRSCTEST data. They do not prove an
+authenticated wallet or invoice-payment journey. Android, physical devices,
+full screen-reader use and text scaling remain unverified. The complete
+production iOS bundle request timed out on the existing Metro after 60 seconds;
+the separate fixture bundle built successfully. No new Jest tests or
+dependencies were added. Implementation ended uncommitted; the owner later
+authorized commit, push, and installation on the development iPhone.

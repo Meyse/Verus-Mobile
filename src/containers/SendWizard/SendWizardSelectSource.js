@@ -201,7 +201,7 @@ const SendWizardSelectSource = () => {
     navigation.navigate('SendWizardSelectTarget');
   };
 
-  // A card that still syncs cannot send; "Choose a card" shows it and why.
+  // A card that still syncs cannot send; the address chooser shows it and why.
   const chooseAsset = asset => {
     if (asset.cards.length === 1 && asset.cards[0].syncPercent == null) {
       chooseSource(asset.cards[0]);
@@ -288,7 +288,7 @@ const SendWizardSelectSource = () => {
                   </Text>
                 </View>
                 <Text style={[theme.typography.bodySm, styles.cryptoValue, {color: theme.colors.textSecondary}]}>
-                  {cryptoDisplay}{item.cards.length > 1 ? ` · ${item.cards.length} Cards` : ''}
+                  {cryptoDisplay}{item.cards.length > 1 ? ` · ${item.cards.length} sources` : ''}
                 </Text>
               </View>
             </Pressable>
@@ -298,9 +298,6 @@ const SendWizardSelectSource = () => {
       />
       <SourceCardSheet
         cards={pendingAsset?.cards || []}
-        description={`Choose the card to ${
-          mode === SEND_WIZARD_MODE.CONVERT ? 'convert' : 'send'
-        } from.`}
         selectedId={state.sourceSubWallet?.id}
         visible={cardSheetVisible}
         onClose={() => setCardSheetVisible(false)}

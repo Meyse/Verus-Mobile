@@ -218,7 +218,7 @@ const SendWizardSelectTarget = () => {
   if (!sourceCoin) {
     return (
       <WizardScreen contentContainerStyle={styles.fallbackContent}>
-        <ErrorMessage style={styles.fallbackError}>Select a source first. Go back and choose an Asset and Card.</ErrorMessage>
+        <ErrorMessage style={styles.fallbackError}>Go back and choose an asset and address.</ErrorMessage>
       </WizardScreen>
     );
   }

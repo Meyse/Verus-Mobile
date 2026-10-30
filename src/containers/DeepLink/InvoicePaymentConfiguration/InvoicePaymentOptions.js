@@ -81,7 +81,7 @@ const InvoicePaymentOptions = ({
           {searchable && (
             <AppSearchField
               accessibilityLabel="Search payment sources"
-              placeholder="Search currencies and cards"
+              placeholder="Search currencies and addresses"
               value={search}
               onChangeText={setSearch}
               resultCount={filteredCards.length}
@@ -101,11 +101,11 @@ const InvoicePaymentOptions = ({
                   No available payment source
                 </Text>
                 <Text style={styles.text}>
-                  No supported card has enough balance for this invoice.
+                  No supported address has enough balance for this invoice.
                 </Text>
               </View>
             ) : filteredCards.length === 0 ? (
-              <Text style={styles.text}>No matching currencies or cards.</Text>
+              <Text style={styles.text}>No matching currencies or addresses.</Text>
             ) : (
               [false, true].map(conversion => {
                 const group = filteredCards.filter(
@@ -161,7 +161,7 @@ const InvoicePaymentOptions = ({
                 }`
               : cards.length === 0
               ? 'Back to invoice'
-              : 'Use this card'}
+              : 'Use this address'}
           </AppButton>
         </View>
       </BottomSheetModal>

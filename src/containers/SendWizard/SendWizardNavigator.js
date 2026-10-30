@@ -143,7 +143,7 @@ const SendWizardNavigator = () => {
       },
     );
     // A scanned request for an asset on several funded cards opens
-    // "Choose a card" on Select asset first.
+    // The address chooser on Select asset first.
     if (
       scan &&
       !initialSubWalletId &&

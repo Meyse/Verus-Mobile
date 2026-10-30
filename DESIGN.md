@@ -246,7 +246,14 @@ the canonical component may change the rule for later sheets.
 Do not use `src/styles/deeplink/identityPickerSheet.styles.js` as visual
 precedent. It is a stale, unused style file rather than the running selector.
 
-Every "Choose a card" names a card as Receive does: its type ("Transparent",
+Owner wording, 2026-10-30: address selectors use "Choose an address" with no
+instructional subtitle. This includes Send, Convert, Receive, invoice payment,
+and the asset-screen selector. Related search, empty-state, and accessibility
+copy uses "address". Counts of subwallet choices use "sources", because a
+subwallet can expose more than one address. Gift cards and NFC cards keep their
+names. The internal Card/subwallet model and all selection behavior stay the same.
+
+Every address chooser names a source as Receive does: its type ("Transparent",
 "Private") with a transparent card's short address as a monospace subtitle, or
 its VerusID name. A VerusID row title keeps one line with a tail ellipsis; its
 accessibility label keeps the full name. Group titles name the network.
@@ -668,7 +675,7 @@ screen did for the private (z) card.
   request's note becomes the memo when it can travel in one.
 - While the private card syncs, its coin card shows a `StatusBadge`
   (`variant="card"`) "Syncing x%" in place of the fiat line, Send is off, and
-  "Choose a card" shows the card dimmed with "Syncing x%" and no chevron.
+  "Choose an address" shows the card dimmed with "Syncing x%" and no chevron.
 - Amount uses the private card's confirmed balance, as its preflight does.
   Funds that still confirm add one caption under Available: "<amount> <ticker>
   can be sent in about 10 minutes."
@@ -790,7 +797,7 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   header. The Add asset list keeps its field: it searches the whole catalogue
   and takes a pasted identifier.
 - The same rule applies to these sheets and screens (owner, 2026-10-24):
-  "Choose a card" (its All / Addresses / VerusIDs chips and its chain chips
+  "Choose an address" (its All / Addresses / VerusIDs chips and its chain chips
   hide with the field), Link VerusID (the list of VerusIDs found for the wallet
   address; the field stays hidden while the lookup runs; "Enter VerusID
   manually" shows only when the lookup fails or the network has no identity
@@ -810,7 +817,7 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   chrome that shows. The list starts where the sheet's own title-to-list gap puts
   it. A sheet that filled 76% of the screen for the field (Saved addresses)
   fits its content instead.
-- "Choose a card" and Choose currencies for a gift card show no count line
+- "Choose an address" and Choose currencies for a gift card show no count line
   under the title, because the rows already show how many there are (owner,
   2026-10-25). A row shows its network only when the list has more than one
   network, and never when the network repeats the row's own name (a native
@@ -887,7 +894,7 @@ request, 2026-10-22):
 ## Asset screen balances
 
 The owner revised the pending-balance rule on 2026-10-26. It applies
-to `SignedInAssetHeader` and the asset screen's "Choose a card" sheet
+to `SignedInAssetHeader` and the asset screen's "Choose an address" sheet
 (`CoinCardPickerSheet`).
 
 On windows of 667 points or less, the carousel card is 144 points high instead
@@ -1289,7 +1296,7 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   the "Receive assets" list when Receive opened from it (owner, 2026-10-26). A
   40-point asset logo sits beside `headlineMd`. Under the name, show only the
   selected card type and its network. With several cards, that line opens
-  "Choose a card" and has a 44-point touch target.
+  "Choose an address" and has a 44-point touch target.
 - Center the QR and address group in the remaining space; scroll when needed.
   The QR tile stays white in both themes, with 16-point padding, a 20-point
   radius, and a 216-point QR (184 on small screens; on windows of 640 points
@@ -1301,7 +1308,7 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   middle ellipsis; `CopyAction` is the copy path.
 - Show no supported-chain claim or repeated card/address metadata. The safe
   footer has Share address, then Request amount as a secondary action.
-- "Choose a card" titles each card by type ("Transparent", "Private") or by
+- "Choose an address" titles each card by type ("Transparent", "Private") or by
   its VerusID name, with a transparent card's short address as a monospace
   subtitle, so the chooser matches the context line.
 - Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
@@ -1384,9 +1391,9 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   its cost, cheapest first ("Best price", "x% more"), then Market price, Your
   price and Difference; a choice changes the row. A basket that is the requested
   or the paying currency itself counts as "Direct". There is no "Use … instead"
-  suggestion. A currency on several cards shows "<n> cards" and opens "Choose a
-  card". The step is skipped when the invoice allows no conversion and one card
-  can pay.
+  suggestion. A currency on several cards shows "<n> sources" and opens
+  "Choose an address". The step is skipped when the invoice allows no conversion
+  and one card can pay.
 - Confirm adds "Request from" (signed invoices only), "From" (only after a card
   choice), "Expires" and "Invoice details". Its Price impact reads "x.x% more", and
   the money is what the user pays on top of the market price. It always pays through the

@@ -95,7 +95,7 @@ const InvoicePaymentForm = ({
                 }
               />
             )}
-            <InvoiceRow label="From card" value={subWallet.name} />
+            <InvoiceRow label="From" value={subWallet.name} />
           </View>
         </KeyboardAwareScrollView>
         <View

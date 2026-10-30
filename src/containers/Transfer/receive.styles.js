@@ -255,6 +255,7 @@ export const createReceiveDetailsStyles = theme =>
       ...fontStyle('regular'),
     },
     stateAction: {width: '100%', maxWidth: 360},
+    stateActionAfterTitle: {marginTop: 24},
 
     // Payment-request task. Full-screen stepped composition that mirrors the
     // canonical Gift Card flow: 20-point side inset, 24-point top inset and a

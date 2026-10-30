@@ -449,14 +449,14 @@ const CoinCardPickerSheet = ({
         item.type,
         showNetwork ? item.networkLabel : null,
         item.balanceAccessibilityLabel,
-        current ? 'Current card' : null,
+        current ? 'Current address' : null,
       ]
         .filter(Boolean)
         .join('. ');
 
       return (
         <TouchableOpacity
-          accessibilityHint="Selects this card and closes the sheet."
+          accessibilityHint="Selects this address and closes the sheet."
           accessibilityLabel={`${accessibilityLabel}.`}
           accessibilityRole="button"
           accessibilityState={{selected: current}}
@@ -526,16 +526,16 @@ const CoinCardPickerSheet = ({
         onAccessibilityEscape={onClose}
         style={styles.body}>
         <Text accessibilityRole="header" style={styles.title}>
-          Choose a card
+          Choose an address
         </Text>
 
         {searchable ? (
           <>
             <AppSearchField
-              accessibilityLabel="Search cards"
+              accessibilityLabel="Search addresses"
               onChangeText={handleQueryChange}
               onClear={() => handleQueryChange('')}
-              placeholder="Search cards"
+              placeholder="Search addresses"
               resultCount={filteredItems.length}
               style={styles.searchFieldSpacing}
               themeMode={theme.mode}
@@ -623,7 +623,7 @@ const CoinCardPickerSheet = ({
         ) : (
           <View style={[styles.emptyState, {height: listHeight}]}>
             <Text style={styles.emptyText}>
-              No cards match your search and filters.
+              No addresses match your search and filters.
             </Text>
           </View>
         )}

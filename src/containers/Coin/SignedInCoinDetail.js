@@ -233,7 +233,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
               <View style={styles.headerRight}>
                 <TouchableOpacity
                   ref={cardPickerTriggerRef}
-                  accessibilityLabel={`Select card. ${allSubWallets.length} cards.`}
+                  accessibilityLabel={`Choose an address. ${allSubWallets.length} sources.`}
                   accessibilityRole="button"
                   activeOpacity={0.7}
                   onPress={openCardPicker}

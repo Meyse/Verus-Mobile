@@ -39,7 +39,7 @@ import InvoiceSlip from './InvoiceSlip';
 import RequestCard from '../components/RequestReview/RequestCard';
 import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 
-// A card as Receive's "Choose a card" names it.
+// A source as Receive's address chooser names it.
 export const getPayFromLabel = wallet => {
   const cardType = getSubWalletCardType(wallet);
   return cardType === 'VerusID' || cardType === 'Address' ? wallet.name : cardType;
@@ -66,7 +66,7 @@ const getVia = (option, invoice) =>
 // way to pay it with what it costs. Owner-approved option A (2026-10-21).
 // One row per currency (owner, 2026-10-22): the cheapest basket is chosen,
 // and the row shows Send's price impact chip, which opens "Price and route"
-// with every basket. A currency on several cards opens "Choose a card". With
+// with every basket. A currency on several cards opens the address chooser. With
 // only one way to pay, the step is skipped.
 const InvoicePayWith = () => {
   const navigation = useNavigation();
@@ -331,7 +331,7 @@ const InvoicePayWith = () => {
     );
     const from =
       route.cards.length > 1
-        ? `${route.cards.length} cards`
+        ? `${route.cards.length} sources`
         : getPayFromLabel(route.cards[0].option.wallet);
     const detail = [from, `Balance\u00a0${truncateDecimal(balance, 4)}\u00a0${ticker}`].join(
       ' · ',
@@ -501,7 +501,7 @@ const InvoicePayWith = () => {
               No way to pay this invoice
             </Text>
             <Text style={[styles.emptyBody, {color: theme.colors.textSecondary}]}>
-              None of your cards has enough of a currency this invoice accepts.
+              No address has enough of a currency this invoice accepts.
             </Text>
           </View>
         ) : (
@@ -544,7 +544,6 @@ const InvoicePayWith = () => {
           balance: card.balanceDisplay === '-' ? '0' : card.balanceDisplay,
           invoiceCard: card,
         }))}
-        description="Choose the card to pay from."
         selectedId={state.sourceSubWallet?.id}
         visible={cardSheetVisible}
         onClose={() => setCardSheetVisible(false)}

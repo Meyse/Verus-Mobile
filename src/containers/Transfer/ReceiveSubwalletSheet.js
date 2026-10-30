@@ -51,7 +51,7 @@ const ReceiveSubwalletSheet = ({
   if (!coinObj) return null;
   return (
     <SelectionSheet
-      title="Choose a card"
+      title="Choose an address"
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
@@ -59,7 +59,7 @@ const ReceiveSubwalletSheet = ({
         // Never present an empty chooser: the invoking screen keeps the user
         // on an accurate empty state instead of opening this sheet.
         <Text style={styles.empty}>
-          No receive-compatible Card is available for this Asset.
+          No receiving address is available for this asset.
         </Text>
       ) : (
         groups.map(group => (
