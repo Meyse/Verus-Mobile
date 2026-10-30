@@ -11,7 +11,7 @@ export const PROGRESS_HEADER_METRICS = {
 };
 
 export default StyleSheet.create({
-  container: {paddingBottom: PROGRESS_HEADER_METRICS.bottom, borderBottomWidth: 1},
+  container: {paddingBottom: PROGRESS_HEADER_METRICS.bottom},
   actionRow: {height: PROGRESS_HEADER_METRICS.action, flexDirection: 'row', alignItems: 'center'},
   progressTrack: {
     height: PROGRESS_HEADER_METRICS.trackHeight,

@@ -366,9 +366,10 @@ Gift Card already share it; new flows must not invent dots, numbered circles,
 an eyebrow such as "Step 2 of 4", or a different progress bar.
 
 Owner approval, 2026-10-30: both `ProgressHeader` and `SendWizardHeader`
-consume `src/styles/components/progressHeader.styles.js`. The header is 64
+consume `src/styles/components/progressHeader.styles.js`. The header is 63
 points high before its top safe-area inset: 4 top, 44 action row, 4 progress
-gap, 3 progress track, 8 bottom, and 1 border. Back and Close retain their
+gap, 3 progress track, and 8 bottom. The owner removed the divider below the
+progress track on 2026-10-30. Back and Close retain their
 44-point targets. The controls use a 24-point inset with their existing
 8-point offsets; the progress track uses a 16-point inset. Preserve each
 header's progress calculation, focus ownership, reduced-motion behavior,

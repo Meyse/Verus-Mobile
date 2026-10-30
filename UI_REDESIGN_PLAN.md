@@ -2278,3 +2278,26 @@ VRSCTEST rate, full assistive-technology/text-scaling checks, and the complete
 shared-header consumer matrix remain unverified. Android automation ended with
 an adb helper timeout after the recorded Amount/error/MAX checks. A single
 recommended adb restart failed; no further Android UI actions were attempted.
+
+### TX-1.STEPPER-DIVIDER — shared stepper follow-up (2026-10-30)
+
+- [x] Remove the divider below the progress track from the shared header style.
+- [x] Audit all existing top progress bars and their wrapper consumers.
+- [x] Spot-check the shared headers in native normal/compact and light/dark states.
+
+Source audit: the only top progress-track renderers are `ProgressHeader` and
+`SendWizardHeader`. Both consume `progressHeader.styles.js`. Wallet/profile
+setup, seed import/create and shielded setup use the `CompactSetupHeader`
+wrapper. Receive requests, invoices, gift-card funding, recovery/revocation,
+and scanners use one of the two shared headers. GenericRequest identity-update
+steps retain their separate approved request layout, without a top progress
+track. Loading checklists, activity rings and hold-button progress are status
+indicators rather than navigation steppers. No consumer migration is required
+for this divider removal.
+
+Evidence: `artifacts/stepper-divider-2026-10-30/audit.local.md`. Native setup
+headers were checked at 402x874 and 375x667; Send Amount was checked at
+375x667. Light and dark were observed, but the complete consumer/platform
+matrix was not rerun. Design, scoped safe-area, parser and whitespace checks
+pass. The later development reload hit an iOS runner watchdog, so further
+runtime verification stopped. Existing local work remains separate.
