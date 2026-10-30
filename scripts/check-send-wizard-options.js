@@ -3,7 +3,8 @@
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const {DEST_ETH} = require('verus-typescript-primitives');
+const {DEST_ETH, fromBase58Check} = require('verus-typescript-primitives');
+const {ethers} = require('ethers');
 
 const loadWizardUtils = coinDirectory => {
   const filename = path.resolve(
@@ -16,18 +17,26 @@ const loadWizardUtils = coinDirectory => {
       "import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';",
       '',
     )
-    .replace("import {DEST_ETH} from 'verus-typescript-primitives';", '')
+    .replace(/import\s+\{\s*I_ADDRESS_VERSION,\s*R_ADDRESS_VERSION,\s*\}\s+from [^;]+;/, '')
+    .replace("import {DEST_ETH, fromBase58Check} from 'verus-typescript-primitives';", '')
+    .replace("import {Buffer} from 'buffer';", '')
+    .replace("import {ethers} from 'ethers';", '')
     .replace(/export const /g, 'const ')
     .concat(
       '\nmodule.exports = {buildSendTarget, buildTargetOptions, isConversionChannel};\n',
     );
   const appModule = {exports: {}};
 
-  new Function('module', 'exports', 'CoinDirectory', 'DEST_ETH', source)(
+  new Function('module', 'exports', 'CoinDirectory', 'DEST_ETH', 'Buffer', 'ethers', 'fromBase58Check', 'I_ADDRESS_VERSION', 'R_ADDRESS_VERSION', source)(
     appModule,
     appModule.exports,
     coinDirectory,
     DEST_ETH,
+    Buffer,
+    ethers,
+    fromBase58Check,
+    102,
+    60,
   );
 
   return appModule.exports;

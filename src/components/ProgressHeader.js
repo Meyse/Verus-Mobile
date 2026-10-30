@@ -11,6 +11,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAppTheme} from '../theme/app';
 import HeaderCloseButton from './HeaderCloseButton';
 import OnboardingBackButton from './OnboardingBackButton';
+import {progressHeaderStyles as headerStyles} from '../styles';
+import {PROGRESS_HEADER_METRICS} from '../styles/components/progressHeader.styles';
 
 const ProgressHeader = ({
   backDisabled = false,
@@ -78,17 +80,17 @@ const ProgressHeader = ({
   return (
     <View
       style={[
-        styles.container,
+        headerStyles.container,
         borderless && {borderBottomWidth: 0},
         {
-          paddingTop: insets.top + 16,
-          paddingLeft: insets.left + 24,
-          paddingRight: insets.right + 24,
+          paddingTop: insets.top + PROGRESS_HEADER_METRICS.top,
+          paddingLeft: insets.left + PROGRESS_HEADER_METRICS.horizontal,
+          paddingRight: insets.right + PROGRESS_HEADER_METRICS.horizontal,
           backgroundColor: theme.colors.background,
           borderBottomColor: theme.colors.border,
         },
       ]}>
-      <View style={styles.actionRow}>
+      <View style={headerStyles.actionRow}>
         {showBack ? (
           <OnboardingBackButton
             disabled={backDisabled}
@@ -132,12 +134,12 @@ const ProgressHeader = ({
             now: Math.round(clampedProgress * 100),
           }}
           style={[
-            styles.progressTrack,
+            headerStyles.progressTrack,
             {backgroundColor: theme.colors.surfaceMuted},
           ]}>
           <Animated.View
             style={[
-              styles.progressFill,
+              headerStyles.progressFill,
               {
                 width: progressWidth,
                 backgroundColor: theme.colors.primary,
@@ -151,21 +153,13 @@ const ProgressHeader = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   actionPlaceholder: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   actionSlot: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -178,16 +172,6 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-  },
-  progressTrack: {
-    height: 5,
-    marginTop: 10,
-    overflow: 'hidden',
-    borderRadius: 999,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
   },
 });
 

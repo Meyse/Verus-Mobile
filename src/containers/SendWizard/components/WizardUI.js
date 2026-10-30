@@ -383,10 +383,10 @@ export const ErrorMessage = ({children, style}) => {
     <View style={[styles.errorBox, {backgroundColor: theme.colors.surfaceMuted}, style]}>
       <MaterialCommunityIcons
         name="alert-circle-outline"
-        size={19}
+        size={16}
         color={theme.colors.danger}
       />
-      <Text style={[styles.errorText, {color: theme.colors.danger}]}>
+      <Text style={[theme.typography.caption, styles.errorText, {color: theme.colors.danger}]}>
         {children}
       </Text>
     </View>
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   screen: {flex: 1},
   scrollContent: {flexGrow: 1, paddingBottom: 24},
   formError: {marginHorizontal: 0, marginVertical: 8},
-  formErrorCompact: {padding: 8},
+  formErrorCompact: {paddingVertical: 6, paddingHorizontal: 10},
   search: {
     height: 52,
     marginHorizontal: WIZARD_CONTENT_INSET,
@@ -541,9 +541,10 @@ const styles = StyleSheet.create({
     marginHorizontal: WIZARD_CONTENT_INSET,
     marginVertical: 12,
     borderRadius: 12,
-    padding: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  errorText: {flex: 1, marginLeft: 8, fontSize: 14, lineHeight: 20, ...fontStyle('regular')},
+  errorText: {flex: 1, marginLeft: 6},
 });

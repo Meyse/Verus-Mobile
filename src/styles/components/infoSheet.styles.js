@@ -6,7 +6,7 @@ import {fontStyle} from '../../globals/fonts';
 export const COMPACT_INFO_SHEET_METRICS = {
   paddingTop: 12,
   paddingBottom: 16,
-  headerHeight: 32,
+  headerHeight: 28,
   headerGap: 6,
   actionGap: 12,
 };
@@ -16,7 +16,7 @@ export const createInfoSheetStyles = (theme, {compact = false} = {}) => {
   return StyleSheet.create({
     requestSheetBody: {
       flexShrink: 1,
-      paddingHorizontal: theme.spacing.sheetPadding,
+      paddingHorizontal: compact ? 16 : theme.spacing.sheetPadding,
       paddingTop: compact ? metrics.paddingTop : 8,
       paddingBottom: compact ? metrics.paddingBottom : 22,
     },
@@ -30,7 +30,7 @@ export const createInfoSheetStyles = (theme, {compact = false} = {}) => {
     requestSheetHeaderText: {flex: 1, minWidth: 0},
     requestSheetTitle: {
       color: theme.colors.textPrimary,
-      ...theme.typography.titleSheet,
+      ...(compact ? theme.typography.titleSheetCompact : theme.typography.titleSheet),
     },
     requestSheetSubtitle: {
       color: theme.colors.textSecondary,

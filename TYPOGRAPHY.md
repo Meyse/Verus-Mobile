@@ -43,3 +43,14 @@ shared role instead of adding another local combination.
 - `labelMd`: 14/19 semibold labels.
 - `labelSm`: 13/18 semibold labels for compact one-line surfaces, such as the
   Send/Convert context band. Pair it with `caption` for the quieter words.
+
+## Compact Amount and quote details
+
+Owner-approved 2026-10-30: `titleSheetCompact` is 18/24, `titleRowDense` is
+14/18, `captionDense` and `labelDense` are 12/16. Price facts and wizard errors
+use the existing 13/18 `caption`; emphasized facts use `labelSm`. Normal sheet
+and selection roles retain their current values.
+
+`amountInput` is 40/48 bold, with the Amount field's existing 20-point sizing
+floor. `amountKey` is 28/34 regular. `amountKeyCompact` is 26/32 regular for the
+smaller visible iOS keys. These roles apply to numeric entry, not page titles.

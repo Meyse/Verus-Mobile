@@ -25,6 +25,7 @@ export const SelectionRow = ({
   badge,
   accessibilityLabel,
   compact = false,
+  dense = false,
   // A choice that exists but cannot be picked now, such as a private card
   // that still syncs. The subtitle says why.
   disabled = false,
@@ -46,14 +47,15 @@ export const SelectionRow = ({
       }
       activeOpacity={0.74}
       disabled={disabled}
+      hitSlop={dense ? {top: 2, bottom: 2, left: 0, right: 0} : undefined}
       onPress={onPress}
-      style={[styles.row, compact && styles.compactRow, selected && styles.selectedRow]}>
+      style={[styles.row, compact && styles.compactRow, dense && styles.denseRow, selected && styles.selectedRow]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={[styles.copy, preserveSubtitle && styles.preservedCopy, disabled && styles.disabledContent]}>
         <Text
           ellipsizeMode="tail"
           numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
-          style={[styles.rowTitle, compact && styles.compactTitle, titleMonospace && styles.identifier]}>
+          style={[styles.rowTitle, compact && styles.compactTitle, dense && styles.denseTitle, titleMonospace && styles.identifier]}>
           {title}
         </Text>
         {subtitle ? (
@@ -62,6 +64,7 @@ export const SelectionRow = ({
             style={[
               styles.rowSubtitle,
               compact && styles.compactSubtitle,
+              dense && styles.denseSubtitle,
               subtitleMonospace && styles.identifier,
             ]}>
             {subtitle}

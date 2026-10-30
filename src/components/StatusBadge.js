@@ -38,6 +38,7 @@ const getToneColors = (tone, colors) => {
 // `variant="card"`, light for the payment-request `variant="paper"`.
 const StatusBadge = ({
   label,
+  labelStyle,
   style,
   tone = STATUS_BADGE_TONE.NEUTRAL,
   variant,
@@ -53,7 +54,7 @@ const StatusBadge = ({
     <View
       accessibilityLabel={`Status: ${label}`}
       style={[styles.badge, {backgroundColor}, style]}>
-      <Text numberOfLines={1} style={[styles.label, {color}]}>
+      <Text numberOfLines={1} style={[styles.label, labelStyle, {color}]}>
         {label}
       </Text>
     </View>
