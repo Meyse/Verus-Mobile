@@ -365,6 +365,17 @@ Use the shared `ProgressHeader` for new full-screen stepped work. Onboarding and
 Gift Card already share it; new flows must not invent dots, numbered circles,
 an eyebrow such as "Step 2 of 4", or a different progress bar.
 
+Owner approval, 2026-10-30: both `ProgressHeader` and `SendWizardHeader`
+consume `src/styles/components/progressHeader.styles.js`. The header is 63
+points high before its top safe-area inset: 4 top, 44 action row, 4 progress
+gap, 3 progress track, and 8 bottom. The owner removed the divider below the
+progress track on 2026-10-30. Back and Close retain their
+44-point targets. The controls use a 24-point inset with their existing
+8-point offsets; the progress track uses a 16-point inset. Preserve each
+header's progress calculation, focus ownership, reduced-motion behavior,
+optional actions, and close guards. This applies to every consumer of those
+two headers. Other navigation bars keep their current layout.
+
 For signed-out setup, use `createSignedOutFlowStyles(theme)` directly: its
 normal and compact padding, title metrics, width limit, keyboard clearance, and
 footer spacing are one unit.
@@ -423,8 +434,9 @@ For a signed-in task wizard:
 - Stable loading, error, review, processing, and result states within the same
   flow structure.
 
-Send/Convert also shows a context band directly under the header on Amount and
-Recipient. The owner approved it on 2026-10-17 (option C of the review mockup).
+Send/Convert shows a context band directly under the header on Recipient.
+Select asset can also show its source identity. Amount uses the compact context
+row described below instead of this band. The owner approved it on 2026-10-17 (option C of the review mockup).
 It reminds the user what moves and where, in one line, without a second title.
 
 - `WizardContextBand` draws it through the `context` slot of `SendWizardHeader`,
@@ -438,21 +450,51 @@ It reminds the user what moves and where, in one line, without a second title.
 - A Send or Convert from the VerusID page starts on Select asset with only that
   VerusID's assets. There the band reads "From <VerusID name>", with the name in
   normal type.
-- Send shows the source asset alone. On Recipient, a Send to another chain adds an
-  arrow and the chain. Amount does not, because its Network row is right below.
+- On Recipient, Send shows the source asset alone. A Send to another chain adds
+  an arrow and the chain. Amount owns its network context separately.
 - Drop `[ERC20]` from asset names. The logo badge says it. Hide the target's badge
   when the chain is named on the right.
 - When the line is too long, the chain name shortens first, then the asset names.
 - No band on Confirm or Success. They already show the whole route.
 
+Owner approval, 2026-10-30: Send/Convert Amount uses `AmountInput` with
+`AmountKeypad`. The native field remains editable for selection, paste,
+hardware keyboards, and accessibility, with `showSoftInputOnFocus={false}`.
+The keypad edits decimal text through `editAmountInput`; it does not parse,
+round, or calculate funds. Keep the existing precision, quote, network, MAX,
+and fee-reserve rules in `SendWizardAmount`.
+
+- The 44-point context slot shows Change network only when an alternative is
+  available. It shows source network to destination network for a cross-chain
+  route, or To and the target ticker for a same-chain conversion. A simple Send
+  omits the default network name. The slot keeps its height in every case.
+- Put the amount and its current unit on one line. Keep 40-to-20-point amount
+  sizing. A long amount can put its unit below it. The entry starts 48 points
+  below the context on normal windows, or 8 points on compact windows.
+- Keep a 44-point fiat-mode action and a 48-point Available / MAX row. Missing
+  fiat rates show no action or empty slot. Private pending funds retain their caption.
+- Place one Continue action above `AmountKeypad` through `WizardFooter` and
+  `SafeBottomActionStack`. The keypad owns the bottom safe area. Keys are 48
+  points with 8-point gaps on normal windows. Compact iOS uses 44-point visible
+  keys centered in 48-point tap areas, with 4-point visible gaps. Compact Android keeps 48-point
+  keys and 4-point gaps. Use the existing window-height cutoff of 667.
+- Keep the keypad's space while a sheet covers it, but hide its controls.
+  Sheet selection and closure restore the native amount field without opening
+  the operating-system keypad. Recipient and other text-entry screens retain
+  their native keyboards.
+- `WizardUI.ErrorMessage` uses 13/18 `caption`, a 16-point icon, and 6/10-point
+  padding. Amount's insufficient-balance text is "The amount exceeds this
+  address's spendable balance." Keep validation and recovery actions intact.
+
 Send/Convert Amount pins one receive line above Continue. The owner approved
 option A2 on 2026-10-19: a receive amount and a percent chip that opens
 "Price and route".
 
-- `WizardFormLayout` keeps its `pinned` slot outside the scroll area, with a
-  hairline on top. `AmountEstimate` shows only "You receive", the chip when it
-  applies, and "≈ <amount> <ticker>". Loading uses one skeleton line. Empty and
-  invalid amounts pin nothing. There is no Market price, money, suggestion,
+- Amount keeps `AmountEstimate` and `WizardFooter` outside its ScrollView.
+  The receive line uses at least 49 points when present. Empty slots occupy
+  no space. Top-anchored entry keeps the amount still during network changes. `AmountEstimate` shows only "You receive",
+  the chip when it applies, and "≈ <amount> <ticker>". Loading uses one skeleton
+  line. Empty and invalid amounts show no receive content. There is no Market price, money, suggestion,
   unit price, Via, or Ethereum fee row on Amount.
 - For a conversion or Ethereum export, show the chip when impact is at least
   0.1%, more than one basket is available, or an Ethereum network fee needs a
@@ -465,21 +507,24 @@ option A2 on 2026-10-19: a receive amount and a percent chip that opens
   stay in place. The amount, unit chip, and "Available / MAX" remain scrollable.
 - "Price and route" uses `BottomSheetModal` directly with the shared
   information-sheet styles in `src/styles/components/infoSheet.styles.js` and
-  `titleSheet`. The shell keeps its 24-point radius and 78% maximum height.
+  `titleSheetCompact` (18/24). The shell keeps its 24-point radius and 78% maximum height.
   The owner chose variation A on 2026-10-19.
-  Deliberate spacing deviations: 12-point top padding, a 32-point title block
-  with a 6-point gap, 16-point bottom padding, and 12 points above Done.
+  Owner-approved compact revision, 2026-10-30: 16-point side padding,
+  12-point top padding, a 28-point title block with a 6-point gap, 16-point
+  bottom padding, and 12 points above Done.
 - When there is a choice, basket rows come directly under the title, best
   first. There is no explanatory sentence and no Price or Route section title.
-  Reuse compact `SelectionRow`: 48-point rows with a 4-point gap, instead of
-  the canonical 56-point minimum. This is an owner-approved deviation; tap
-  targets remain at least 44 points. Show the basket name, estimated receive
+  Reuse `SelectionRow` with `compact` and `dense`: 44-point visible rows,
+  a 4-point gap, and 48-point effective tap areas. This is an owner-approved
+  deviation from the canonical 56-point minimum. Titles use `titleRowDense`
+  (14/18), estimates use `captionDense` (12/16), and badge labels use
+  `labelDense` (12/16). Show the basket name, estimated receive
   amount or "Estimate unavailable.", a success "Best price" or neutral
   "x% less" pill, and the selected green check or unselected chevron.
 - Follow the baskets with single-line, non-tappable fact rows: Market price,
   Your price, and Difference. Labels sit left and values right, with hairline
-  dividers. Their 40-point height is an owner-approved deviation from stacked
-  information rows. Hide absent data. With one basket, omit the basket list
+  dividers. Their 32-point height and 13/18 `caption` text are an owner-approved
+  deviation from stacked information rows. Emphasized values use `labelSm`. Hide absent data. With one basket, omit the basket list
   and show "Route" after the price facts only when the route has a `via`.
   Preserve the full route name, including "Bridge.vETH". An Ethereum export
   adds Network fee last, with a skeleton while loading or "Fee unavailable."

@@ -59,6 +59,13 @@ const shared = {
       letterSpacing: -0.3,
       ...fontStyle('semiBold'),
     },
+    titleSheetCompact: {fontSize: 18, lineHeight: 24, letterSpacing: -0.2, ...fontStyle('semiBold')},
+    titleRowDense: {fontSize: 14, lineHeight: 18, ...fontStyle('semiBold')},
+    captionDense: {fontSize: 12, lineHeight: 16, ...fontStyle('regular')},
+    labelDense: {fontSize: 12, lineHeight: 16, ...fontStyle('semiBold')},
+    amountInput: {fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
+    amountKey: {fontSize: 28, lineHeight: 34, ...fontStyle('regular')},
+    amountKeyCompact: {fontSize: 26, lineHeight: 32, ...fontStyle('regular')},
     titleRow: {
       fontSize: 16,
       lineHeight: 22,

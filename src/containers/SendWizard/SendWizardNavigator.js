@@ -50,7 +50,6 @@ const Stack = createStackNavigator();
 // and Success already show all of it.
 const CONTEXT_STEPS = {
   SendWizardSelectSource: WIZARD_CONTEXT_STEP.SOURCE,
-  SendWizardAmount: WIZARD_CONTEXT_STEP.AMOUNT,
   SendWizardRecipient: WIZARD_CONTEXT_STEP.RECIPIENT,
 };
 

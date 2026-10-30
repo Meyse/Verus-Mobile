@@ -1,23 +1,25 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   InteractionManager,
-  Platform,
+  Keyboard,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {
   useFocusEffect,
   useNavigation,
-  useRoute,
+  useIsFocused,
 } from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {fontStyle} from '../../globals/fonts';
+import AmountInput from '../../components/AmountInput';
+import AmountKeypad from '../../components/AmountKeypad';
+import {getAmountDecimalSeparator} from '../../utils/amountInput';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -33,7 +35,7 @@ import {compareRoutes, IMPACT_LEVEL} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
 import {
   ErrorMessage,
-  WizardFormLayout,
+  WizardFooter,
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
@@ -51,9 +53,9 @@ import {
 
 const SendWizardAmount = () => {
   const navigation = useNavigation();
-  const {params} = useRoute();
+  const focused = useIsFocused();
   const theme = useOnboardingTheme();
-  const {smallDevice, smallDeviceKeyboardVisible} = useOnboardingSmallDeviceLayout();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
   const {mode, state, setAmount, setEstimate, setRecipient, setRoute} = useSendWizard();
   const {
     channel,
@@ -76,55 +78,15 @@ const SendWizardAmount = () => {
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
   const [exportFeeQuote, setExportFeeQuote] = useState(null);
-  const [amountWidth, setAmountWidth] = useState(0);
   const amountInputRef = useRef(null);
+  const decimalSeparator = useMemo(getAmountDecimalSeparator, []);
+  const refocusAfterSheet = useCallback(() => amountInputRef.current?.focus(), []);
 
-  // Match Request amount's 40-to-20 point sizing. Limit typing to what fits
-  // at 20 points, including Ethereum's 18-decimal amounts.
-  const amountRoom = amountWidth * 0.9;
-  const amountFontSize =
-    amountWidth > 0
-      ? Math.max(
-          20,
-          Math.min(40, Math.floor(amountRoom / (Math.max(input.length, 1) * 0.64))),
-        )
-      : 40;
-  const maxAmountLength =
-    amountWidth > 0 ? Math.floor(amountRoom / (20 * 0.64)) : 23;
-
-  // Android does not show the keyboard for a field that is focused while a
-  // sheet is still closing. Toggling focus once the sheet is gone asks the
-  // keyboard to show. Do it only where a sheet was just closed: toggling a
-  // keyboard that is already showing hides it, and Keyboard.isVisible() is not
-  // reliable here because the window pans instead of resizing.
-  const refocusAmount = useCallback(() => {
-    const input = amountInputRef.current;
-    if (!input) return;
-    input.blur();
-    input.focus();
-  }, []);
-  const refocusAfterSheet = useCallback(() => {
-    if (Platform.OS === 'android') setTimeout(refocusAmount, 700);
-  }, [refocusAmount]);
-  const openedAfterSheet = useRef(Boolean(params?.afterSheet));
-
-  // `autoFocus` only covers the first mount. A step reached while a sheet is
-  // still closing, or reached again with Back, needs the keypad opened here.
-  useFocusEffect(
-    useCallback(() => {
-      const focus = () => amountInputRef.current?.focus();
-      const task = InteractionManager.runAfterInteractions(focus);
-      const timers = [setTimeout(focus, 450)];
-      if (Platform.OS === 'android' && openedAfterSheet.current) {
-        openedAfterSheet.current = false;
-        timers.push(setTimeout(refocusAmount, 900));
-      }
-      return () => {
-        task.cancel();
-        timers.forEach(clearTimeout);
-      };
-    }, [refocusAmount]),
-  );
+  useFocusEffect(useCallback(() => {
+    Keyboard.dismiss();
+    const task = InteractionManager.runAfterInteractions(() => amountInputRef.current?.focus());
+    return () => task.cancel();
+  }, []));
 
   const displayCurrency = useSelector(
     stateValue =>
@@ -259,7 +221,7 @@ const SendWizardAmount = () => {
     amountError = `Use no more than ${decimals} decimal places.`;
   } else if (input && !validAmount) {
     amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
-      ? 'Amount exceeds this Card’s spendable balance.'
+      ? "The amount exceeds this address's spendable balance."
       : 'Enter a valid amount.';
   }
   const exportFeeError = insufficientExportFunds
@@ -518,175 +480,115 @@ const SendWizardAmount = () => {
     ? `${enteredCryptoAmount} ${sourceCoin.display_ticker}`
     : convertedFiat || `— ${displayCurrency}`;
 
+  const sourceNetworkId = channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id;
+  const sourceNetwork = sendTarget?.networkOptions?.find(option => option.isSameNetwork)?.networkName ||
+    getCurrencyDisplay(sourceNetworkId, sourceCoin.display_name).name;
+  const destinationNetwork = selectedNetwork?.networkName || route.networkName || sourceNetwork;
+  const canChangeNetwork = mode === SEND_WIZARD_MODE.SEND &&
+    isConversionChannel(channel) && sendNetworkOptions.length > 1;
+  const amountErrorMessage = (exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError;
+  const estimateVisible = validAmount && (target.isConversion || ethereumExport) &&
+    (preconvert || estimateLoading || receiveAmount != null || showPriceRouteChip);
+
   return (
     <WizardScreen scroll={false}>
-      <WizardFormLayout
-        contentContainerStyle={[styles.content, smallDevice && styles.contentCompact]}
-        error={(exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError}
-        pinned={
-          validAmount && (target.isConversion || ethereumExport) &&
-          (preconvert || estimateLoading || receiveAmount != null || showPriceRouteChip) ? (
-            <AmountEstimate
-              atLaunch={preconvert}
-              estimateLoading={estimateLoading}
-              estimatedOutput={receiveAmount}
-              onOpenDetails={() => setRouteSheetOpen(true)}
-              priceImpact={priceImpact}
-              showDetails={showPriceRouteChip}
-              target={target}
-            />
-          ) : null
-        }
-        disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
-        onPress={continueToRecipient}>
-        {(errorMessage, onFieldLayout, onRecoveryLayout) => <>
-          {mode === SEND_WIZARD_MODE.SEND &&
-          isConversionChannel(channel) ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{
-                  disabled: networkLoading || sendNetworkOptions.length < 2,
-                }}
-                disabled={networkLoading || sendNetworkOptions.length < 2}
-                onPress={() => setNetworkSheetOpen(true)}
-                style={[
-                  styles.networkRow,
-                  {
-                    backgroundColor: theme.colors.surfaceMuted,
-                    borderColor: theme.colors.border,
-                  },
-                ]}>
-                <View>
-                  <Text
-                    style={[
-                      styles.networkLabel,
-                      {color: theme.colors.textSecondary},
-                    ]}>
-                    Network
-                  </Text>
-                  <Text
-                    style={[
-                      styles.networkValue,
-                      {color: theme.colors.textPrimary},
-                    ]}>
-                    {selectedNetwork?.networkName ||
-                      route.networkName ||
-                      sourceCoin.display_name}
-                  </Text>
-                </View>
-                <View style={styles.networkStatus}>
-                  {networkLoading ? (
-                    <Text
-                      style={[
-                        styles.networkHint,
-                        {color: theme.colors.textSubtle},
-                      ]}>
-                      Checking…
-                    </Text>
-                  ) : sendNetworkOptions.length > 1 ? (
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={20}
-                      color={theme.colors.textSubtle}
-                    />
-                  ) : null}
-                </View>
-              </Pressable>
-              {networkError ? (
-                <Text
-                  style={[
-                    styles.networkError,
-                    {color: theme.colors.textSubtle},
-                  ]}>
-                  {networkError}
-                </Text>
-              ) : null}
-            </>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={Boolean(amountErrorMessage)}>
+        <View style={styles.context}>
+          {route.isCrossChain ? (
+            <Pressable
+              accessibilityLabel={`From ${sourceNetwork} to ${destinationNetwork}${canChangeNetwork ? '. Change destination network' : ''}`}
+              accessibilityRole={canChangeNetwork ? 'button' : undefined}
+              disabled={!canChangeNetwork || networkLoading}
+              onPress={() => setNetworkSheetOpen(true)}
+              style={styles.networkAction}>
+              <Text numberOfLines={1} style={[theme.typography.bodySm, styles.contextText, {color: theme.colors.textSecondary}]}>{sourceNetwork}</Text>
+              <MaterialCommunityIcons name="arrow-right" size={17} color={theme.colors.textSecondary} />
+              <Text numberOfLines={1} style={[theme.typography.labelMd, styles.contextText, {color: theme.colors.textPrimary}]}>{destinationNetwork}</Text>
+              {canChangeNetwork ? <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.textSecondary} /> : null}
+            </Pressable>
+          ) : target.isConversion ? (
+            <View style={styles.networkAction}>
+              <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>To</Text>
+              <Text numberOfLines={1} style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>{target.ticker}</Text>
+            </View>
+          ) : canChangeNetwork || networkLoading || networkError ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={networkLoading || !canChangeNetwork}
+              onPress={() => setNetworkSheetOpen(true)}
+              style={styles.networkAction}>
+              <Text style={[theme.typography.caption, {color: theme.colors.textSecondary}]}>
+                {networkLoading ? 'Checking networks…' : networkError || 'Change network'}
+              </Text>
+            </Pressable>
           ) : null}
-          <View
-            onLayout={event => {
-              setAmountWidth(event.nativeEvent.layout.width);
-              onFieldLayout(event);
-            }}
-            style={[styles.amountBlock, smallDevice && styles.amountBlockCompact]}>
-            <TextInput
-              ref={amountInputRef}
-              autoFocus
-              keyboardType="decimal-pad"
-              maxLength={maxAmountLength}
-              onChangeText={setInput}
-              placeholder="0"
-              placeholderTextColor={theme.colors.textSubtle}
-              selectionColor={theme.colors.primary}
-              style={[
-                styles.amountInput,
-                {
-                  color: theme.colors.textPrimary,
-                  fontSize: amountFontSize,
-                  lineHeight: amountFontSize + 8,
-                },
-                // Leave room for a wrapped error and Available/MAX above the
-                // compact Android keypad. Use the existing 20-point floor.
-                Platform.OS === 'android' && smallDeviceKeyboardVisible &&
-                  errorMessage && styles.amountInputWithError,
-              ]}
-              value={input}
-            />
-          </View>
-          {errorMessage}
-          <View
-            onLayout={onRecoveryLayout}
-            style={[
-              styles.amountControls,
-              errorMessage && smallDeviceKeyboardVisible && styles.amountControlsWithError,
-            ]}>
+        </View>
+        <View style={[styles.entry, smallDevice && styles.entryCompact]}>
+          <AmountInput
+            ref={amountInputRef}
+            decimalSeparator={decimalSeparator}
+            onChangeText={setInput}
+            unit={fiatMode ? displayCurrency : sourceCoin.display_ticker}
+            value={input}
+          />
+          <View style={rate != null ? styles.modeSlot : null}>
             {rate != null ? (
               <Pressable
+                accessibilityLabel={`Switch amount between ${sourceCoin.display_ticker} and ${displayCurrency}`}
                 accessibilityRole="button"
                 onPress={toggleInputMode}
-                style={[
-                  styles.modeChip,
-                  smallDevice && styles.modeChipCompact,
-                  errorMessage && smallDeviceKeyboardVisible && styles.modeChipWithError,
-                  {backgroundColor: theme.colors.surfaceMuted},
-                ]}>
-                <Text style={[styles.modeText, {color: theme.colors.textPrimary}]}>
-                  {modeText}
-                </Text>
-                <MaterialCommunityIcons
-                  name="swap-vertical"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                  style={styles.modeIcon}
-                />
+                style={styles.modeAction}>
+                <View style={[styles.modeChip, {backgroundColor: theme.colors.surfaceMuted}]}>
+                  <Text style={[theme.typography.bodySm, {color: theme.colors.textPrimary}]}>{modeText}</Text>
+                  <MaterialCommunityIcons name="swap-vertical" size={16} color={theme.colors.textSecondary} />
+                </View>
               </Pressable>
-            ) : null}
-            <View
-              style={[
-                styles.balanceRow,
-                rate == null && styles.balanceRowNoChip,
-                rate == null && smallDevice && styles.balanceRowNoChipCompact,
-                errorMessage && smallDeviceKeyboardVisible && styles.balanceRowWithError,
-              ]}>
-              <Text style={[styles.balance, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{disabled: maximumDisabled}}
-                disabled={maximumDisabled}
-                onPress={useMaximum}
-                style={[styles.maxButton, {borderColor: theme.colors.primary}, maximumDisabled && styles.maxDisabled]}>
-                <Text style={[styles.maxText, {color: theme.colors.primary}]}>MAX</Text>
-              </Pressable>
-            </View>
-            {confirming ? (
-              <Text style={[styles.confirming, {color: theme.colors.textSecondary}]}>
-                {confirming}
-              </Text>
             ) : null}
           </View>
-        </>}
-      </WizardFormLayout>
+          <ErrorMessage style={styles.error}>{amountErrorMessage}</ErrorMessage>
+          <View style={styles.balanceRow}>
+            <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
+            <Pressable
+              accessibilityLabel="Use maximum available amount"
+              accessibilityRole="button"
+              accessibilityState={{disabled: maximumDisabled}}
+              disabled={maximumDisabled}
+              onPress={useMaximum}
+              style={[styles.maxButton, maximumDisabled && styles.maxDisabled]}>
+              <Text style={[theme.typography.labelDense, styles.maxText, {color: theme.colors.primary, borderColor: theme.colors.primary}]}>MAX</Text>
+            </Pressable>
+          </View>
+          {confirming ? <Text style={[theme.typography.caption, styles.confirming, {color: theme.colors.textSecondary}]}>{confirming}</Text> : null}
+        </View>
+      </ScrollView>
+      {estimateVisible ? (
+        <View style={styles.estimateSlot}>
+          <AmountEstimate
+            atLaunch={preconvert}
+            estimateLoading={estimateLoading}
+            estimatedOutput={receiveAmount}
+            onOpenDetails={() => setRouteSheetOpen(true)}
+            priceImpact={priceImpact}
+            showDetails={showPriceRouteChip}
+            target={target}
+          />
+        </View>
+      ) : null}
+      <WizardFooter
+        bottomSpacing={smallDevice ? 8 : 16}
+        disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
+        includeBottomInset={false}
+        onPress={continueToRecipient}
+        safeAreaSpacing={0}
+      />
+      <AmountKeypad
+        decimalSeparator={decimalSeparator}
+        onKeyPress={key => amountInputRef.current?.edit(key)}
+        visible={focused && !routeSheetOpen && !networkSheetOpen}
+      />
       <PriceRouteSheet
         cryptoAmount={cryptoAmount}
         displayCurrency={displayCurrency}
@@ -727,46 +629,24 @@ const SendWizardAmount = () => {
 };
 
 const styles = StyleSheet.create({
-  content: {flexGrow: 1, paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 12},
-  contentCompact: {paddingTop: 8},
+  content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 8},
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},
-  networkRow: {
-    minHeight: 58,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  networkLabel: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
-  networkValue: {fontSize: 15, lineHeight: 20, marginTop: 1, ...fontStyle('semiBold')},
-  networkStatus: {minWidth: 28, alignItems: 'flex-end'},
-  networkHint: {fontSize: 12, lineHeight: 17, ...fontStyle('regular')},
-  networkError: {fontSize: 12, lineHeight: 17, marginBottom: 4, ...fontStyle('regular')},
-  amountBlock: {alignItems: 'center', marginTop: 8},
-  amountBlockCompact: {marginTop: 4},
-  amountControls: {alignItems: 'center', marginBottom: 8},
-  amountControlsWithError: {marginBottom: 0},
-  amountInput: {minWidth: 160, maxWidth: '90%', padding: 0, textAlign: 'center', fontSize: 40, lineHeight: 48, ...fontStyle('bold')},
-  amountInputWithError: {fontSize: 20, lineHeight: 28},
-  modeChip: {borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 12, flexDirection: 'row', alignItems: 'center'},
-  modeChipCompact: {marginBottom: 6},
-  modeChipWithError: {marginTop: 0, marginBottom: 2},
-  modeText: {fontSize: 14, lineHeight: 20, ...fontStyle('semiBold')},
-  modeIcon: {marginLeft: 6},
-  balanceRowNoChip: {marginTop: 12},
-  balanceRowNoChipCompact: {marginTop: 6},
-  balanceRow: {width: '100%', paddingHorizontal: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  balanceRowWithError: {marginBottom: 4},
-  balance: {fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
-  confirming: {width: '100%', paddingHorizontal: 4, marginTop: -2, marginBottom: 8, fontSize: 13, lineHeight: 18, ...fontStyle('regular')},
-  maxButton: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4},
+  context: {height: 44, alignItems: 'center', justifyContent: 'center'},
+  networkAction: {minHeight: 44, maxWidth: '100%', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center'},
+  contextText: {flexShrink: 1},
+  entry: {paddingTop: 48, alignItems: 'center'},
+  entryCompact: {paddingTop: 8},
+  modeSlot: {minHeight: 44, width: '100%', alignItems: 'center', justifyContent: 'center'},
+  modeAction: {minHeight: 44, justifyContent: 'center'},
+  modeChip: {borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 6},
+  error: {marginHorizontal: 0, marginVertical: 4, alignSelf: 'stretch'},
+  balanceRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
+  maxButton: {minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center'},
+  maxText: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3},
   maxDisabled: {opacity: 0.4},
-  maxText: {fontSize: 11, lineHeight: 15, letterSpacing: 0.5, ...fontStyle('bold')},
+  confirming: {textAlign: 'center', marginBottom: 4},
+  estimateSlot: {minHeight: 49, paddingHorizontal: 16},
 });
 
 export default SendWizardAmount;

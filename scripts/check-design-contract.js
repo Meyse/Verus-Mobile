@@ -162,7 +162,11 @@ const requiredSourceFragments = [
   },
   {
     path: 'src/components/ProgressHeader.js',
-    fragments: ['paddingLeft: insets.left + 24', 'height: 5', 'rightAction'],
+    fragments: ['PROGRESS_HEADER_METRICS.horizontal', 'headerStyles.progressTrack', 'rightAction'],
+  },
+  {
+    path: 'src/styles/components/progressHeader.styles.js',
+    fragments: ['top: 4', 'bottom: 8', 'action: 44', 'trackHeight: 3', 'trackGap: 4'],
   },
   {
     path: 'src/styles/components/signedOutFlow.styles.js',

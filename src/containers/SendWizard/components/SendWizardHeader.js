@@ -13,10 +13,9 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {SEND_WIZARD_MODE} from '../wizardUtils';
-import {WIZARD_CONTENT_INSET} from './WizardUI';
 import WizardContextBand from './WizardContextBand';
-
-const HEADER_HORIZONTAL_PADDING = 24;
+import {progressHeaderStyles as headerStyles} from '../../../styles';
+import {PROGRESS_HEADER_METRICS} from '../../../styles/components/progressHeader.styles';
 
 const FLOW_STEPS = {
   [SEND_WIZARD_MODE.SEND]: {
@@ -146,16 +145,16 @@ const SendWizardHeader = ({
   const header = (
     <View
       style={[
-        styles.container,
+        headerStyles.container,
         {
-          paddingTop: insets.top + 16,
-          paddingLeft: insets.left + HEADER_HORIZONTAL_PADDING,
-          paddingRight: insets.right + HEADER_HORIZONTAL_PADDING,
+          paddingTop: insets.top + PROGRESS_HEADER_METRICS.top,
+          paddingLeft: insets.left + PROGRESS_HEADER_METRICS.horizontal,
+          paddingRight: insets.right + PROGRESS_HEADER_METRICS.horizontal,
           backgroundColor: theme.colors.background,
           borderBottomColor: theme.colors.border,
         },
       ]}>
-      <View style={styles.actionRow}>
+      <View style={[headerStyles.actionRow, styles.actionRow]}>
         {onBack ? (
           <OnboardingBackButton
             disabled={disabled}
@@ -195,12 +194,12 @@ const SendWizardHeader = ({
         accessibilityRole="progressbar"
         accessibilityValue={{min: 0, max: 100, now: progressPercent}}
         style={[
-          styles.progressTrack,
+          headerStyles.progressTrack,
           {backgroundColor: theme.colors.surfaceMuted},
         ]}>
         <Animated.View
           style={[
-            styles.progressFill,
+            headerStyles.progressFill,
             {
               width: progressWidth,
               backgroundColor: theme.colors.primary,
@@ -222,10 +221,6 @@ const SendWizardHeader = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -255,17 +250,6 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
-  },
-  progressTrack: {
-    height: 5,
-    marginHorizontal: WIZARD_CONTENT_INSET - HEADER_HORIZONTAL_PADDING,
-    marginTop: 10,
-    overflow: 'hidden',
-    borderRadius: 999,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
   },
 });
 

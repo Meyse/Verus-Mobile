@@ -36,8 +36,8 @@ import {
   getImpactLossText,
 } from './impactFormat';
 
-const FACT_ROW_HEIGHT = 40;
-const SUGGESTION_ROW_HEIGHT = 52;
+const FACT_ROW_HEIGHT = 32;
+const SUGGESTION_ROW_HEIGHT = 48;
 const FACT_LIST_GAP = 8;
 const SHEET_HEIGHT_SHARE = 0.78;
 
@@ -169,7 +169,7 @@ const PriceRouteSheet = ({
   const listMaxHeight = Math.max(
     0,
     Math.floor(availableHeight * SHEET_HEIGHT_SHARE) - fixedHeight -
-      (theme.isDark ? 2 * StyleSheet.hairlineWidth : 0),
+      4 - (theme.isDark ? 2 * StyleSheet.hairlineWidth : 0),
   );
 
   return (
@@ -196,6 +196,7 @@ const PriceRouteSheet = ({
               return (
                 <SelectionRow
                   compact
+                  dense
                   key={item.key}
                   title={name}
                   subtitle={subtitle}
@@ -208,6 +209,8 @@ const PriceRouteSheet = ({
                   badge={badgeLabel ? (
                     <StatusBadge
                       label={badgeLabel}
+                      labelStyle={theme.typography.labelDense}
+                      style={styles.badge}
                       tone={isBest
                         ? STATUS_BADGE_TONE.SUCCESS
                         : STATUS_BADGE_TONE.NEUTRAL}
@@ -235,7 +238,7 @@ const PriceRouteSheet = ({
                     {borderColor: theme.colors.border},
                   ]}>
                   <Text style={[
-                    theme.typography.bodySm,
+                    theme.typography.caption,
                     styles.factLabel,
                     {color: theme.colors.textSecondary},
                   ]}>
@@ -253,7 +256,7 @@ const PriceRouteSheet = ({
                       minimumFontScale={0.8}
                       numberOfLines={1}
                       style={[
-                        fact.emphasis ? theme.typography.labelMd : theme.typography.bodySm,
+                        fact.emphasis ? theme.typography.labelSm : theme.typography.caption,
                         styles.factValue,
                         {color: fact.color || theme.colors.textPrimary},
                       ]}>
@@ -275,20 +278,22 @@ const PriceRouteSheet = ({
                 {borderColor: theme.colors.border},
                 pressed && styles.pressed,
               ]}>
-              <Text
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-                numberOfLines={1}
-                style={[selectionStyles.actionText, styles.suggestionLabel]}>
-                Use {truncateDecimal(suggestion.amount, 8)} {sourceTicker} instead
-              </Text>
-              <Text style={[
-                theme.typography.bodySm,
-                styles.suggestionImpact,
-                {color: theme.colors.textSecondary},
-              ]}>
-                {getImpactBadgeLabel(suggestion.impact)}
-              </Text>
+              <View style={styles.suggestionCopy}>
+                <Text
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  numberOfLines={1}
+                  style={[theme.typography.labelSm, {color: theme.colors.textPrimary}]}>
+                  Use {truncateDecimal(suggestion.amount, 8)} {sourceTicker} instead
+                </Text>
+                <Text style={[
+                  theme.typography.captionDense,
+                  styles.suggestionImpact,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                  {getImpactBadgeLabel(suggestion.impact)}
+                </Text>
+              </View>
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={20}
@@ -298,6 +303,7 @@ const PriceRouteSheet = ({
           ) : null}
           <AppButton
             accessibilityLabel="Done"
+            labelStyle={theme.typography.titleRow}
             onPress={dismissal.close}
             style={sheetStyles.requestSheetActionButton}
             variant="secondary">
@@ -313,7 +319,8 @@ const styles = StyleSheet.create({
   // SemiModal supplies 10 points by default. This sheet owns its 12-point top inset.
   shell: {paddingTop: 0},
   fixed: {flexShrink: 0},
-  baskets: {paddingBottom: 0, gap: 4},
+  baskets: {paddingVertical: 2, gap: 4},
+  badge: {paddingHorizontal: 6, paddingVertical: 2},
   factsAfterBaskets: {marginTop: FACT_LIST_GAP, borderTopWidth: StyleSheet.hairlineWidth},
   fact: {
     height: FACT_ROW_HEIGHT,
@@ -326,7 +333,7 @@ const styles = StyleSheet.create({
   factValue: {flex: 1, minWidth: 0, textAlign: 'right'},
   feeSkeleton: {flex: 1, alignItems: 'flex-end'},
   suggestion: {minHeight: SUGGESTION_ROW_HEIGHT, borderTopWidth: StyleSheet.hairlineWidth},
-  suggestionLabel: {flex: 1, marginRight: 8},
+  suggestionCopy: {flex: 1, marginRight: 8},
   suggestionImpact: {marginRight: 6},
   pressed: {opacity: 0.7},
 });

@@ -2237,3 +2237,67 @@ patch exists.
   task owns the remaining Send/Convert work. ID-1 retains its explicit proof
   limits: iOS-only native evidence, with Android runtime, authenticated
   real-wallet, signing/funds, live RPC, and full accessibility proof still open.
+
+
+### TX-1.AMOUNT-KEYPAD — compact Amount and shared stepper (2026-10-30)
+
+Owner-approved reference: `artifacts/space-review-2026-10-30/v2/interactive.local.html`.
+Implementation branch: `codex/compact-amount-keypad`, from `redesign` at
+`0c63f8109888da6b4515c2e41706203d2ca07f4a`.
+
+- [x] Share compact header geometry between ProgressHeader and SendWizardHeader.
+- [x] Integrate native AmountInput, app-owned AmountKeypad, stable route context,
+  pinned receive content, and the existing safe Continue action.
+- [x] Integrate compact Price and route typography and rows, fixed facts,
+  suggestion, and secondary Done, with existing quote and selection callbacks.
+- [x] Use compact errors and the approved address-based balance message.
+- [x] Complete scoped source checks and native normal/compact light/dark QA.
+- [x] Attach before/after evidence and an inventory of later keypad candidates.
+
+Evidence: `artifacts/compact-amount-keypad-2026-10-30/report.local.html`.
+Native before captures use the branch base on a 402x874 iOS simulator.
+Native after captures cover that size, a 375x667 iPhone SE, and 360x640 Android.
+Light/dark Amount and balance errors passed on all three sizes. iOS also
+covered same-chain conversion, basket selection persistence, sheet closure,
+Recipient Back, and cross-chain conversion with a live source-paid fee block.
+Network changes retained the value and its y=218 position on normal iOS.
+The SE profile was created from a disposable Testnet fixture and Touch ID
+unlock passed after relaunch. Delete hold/release and 18-decimal text retention
+passed natively; asset precision validation remained active.
+
+The 20 public text-edit checks pass. Separately, 17 named MAX, amount/precision,
+export-fee, route, quote, and Continue expressions match the base in a local
+source audit. The shared design guard now checks the
+approved 3-point progress track through its shared metrics. The existing route
+matrix loader needed bindings for the base's Buffer, ethers and address-type
+imports; its expected option cases were retained. No funds are broadcast by
+this UI QA round. Design, explicit safe-area, parser, route-matrix, and both
+production-platform bundle checks passed. The report lists later keypad
+candidates. Native high-impact suggestions, fiat switching without an available
+VRSCTEST rate, full assistive-technology/text-scaling checks, and the complete
+shared-header consumer matrix remain unverified. Android automation ended with
+an adb helper timeout after the recorded Amount/error/MAX checks. A single
+recommended adb restart failed; no further Android UI actions were attempted.
+
+### TX-1.STEPPER-DIVIDER — shared stepper follow-up (2026-10-30)
+
+- [x] Remove the divider below the progress track from the shared header style.
+- [x] Audit all existing top progress bars and their wrapper consumers.
+- [x] Spot-check the shared headers in native normal/compact and light/dark states.
+
+Source audit: the only top progress-track renderers are `ProgressHeader` and
+`SendWizardHeader`. Both consume `progressHeader.styles.js`. Wallet/profile
+setup, seed import/create and shielded setup use the `CompactSetupHeader`
+wrapper. Receive requests, invoices, gift-card funding, recovery/revocation,
+and scanners use one of the two shared headers. GenericRequest identity-update
+steps retain their separate approved request layout, without a top progress
+track. Loading checklists, activity rings and hold-button progress are status
+indicators rather than navigation steppers. No consumer migration is required
+for this divider removal.
+
+Evidence: `artifacts/stepper-divider-2026-10-30/audit.local.md`. Native setup
+headers were checked at 402x874 and 375x667; Send Amount was checked at
+375x667. Light and dark were observed, but the complete consumer/platform
+matrix was not rerun. Design, scoped safe-area, parser and whitespace checks
+pass. The later development reload hit an iOS runner watchdog, so further
+runtime verification stopped. Existing local work remains separate.
