@@ -32,7 +32,8 @@ import {
 const CONTENT_ANIMATION_DURATION = 320;
 const WALLET_AVATAR_SIZE = 56;
 const WALLET_AVATAR_EMOJI_SIZE = 28;
-const WALLET_AVATAR_INPUT_OFFSET = 27;
+// Label (19) + gap (8), then center the 56-point avatar beside the 48-point field.
+const WALLET_AVATAR_INPUT_OFFSET = 23;
 
 export default function ChooseName({
   profileName,

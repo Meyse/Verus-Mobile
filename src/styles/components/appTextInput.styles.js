@@ -53,6 +53,10 @@ export default StyleSheet.create({
     textAlignVertical: 'center',
     ...androidFontPaddingFix,
   },
+  iosSingleLineInput: {
+    // Let UITextField center the font's native line instead of a taller paragraph.
+    lineHeight: undefined,
+  },
   compactInput: {
     height: 44,
     paddingHorizontal: 0,
