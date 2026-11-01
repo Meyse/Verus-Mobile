@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle -- The shared VRPC provider is initialized through Redux dispatchers. */
 import VrpcProvider from '../../../../vrpc/vrpcInterface';
+import { CoinDirectory } from '../../../../CoinData/CoinDirectory';
 import { getCurrencyConverters } from '../../vrpc/requests/getCurrencyConverters';
 import {
   MAINNET_PRICE_CONFIG,
@@ -31,6 +32,18 @@ const resultOf = (response) => {
   return response.result;
 };
 
+// A wallet can hold a Verus currency on Ethereum without VRSC itself, so the
+// native chain endpoint is not always initialized. Initialize it once here.
+const endpointFor = (systemId, fallbackUrl) => {
+  try {
+    return VrpcProvider.getEndpoint(systemId);
+  } catch (error) {
+    if (!fallbackUrl) throw error;
+    VrpcProvider.initEndpoint(systemId, fallbackUrl);
+    return VrpcProvider.getEndpoint(systemId);
+  }
+};
+
 const getCurrency = (endpoint, currencyId) => cached(
   `${endpoint.endpoint}:currency:${currencyId}`,
   async () => resultOf(await endpoint.getCurrency(currencyId)),
@@ -42,8 +55,12 @@ export const getOnChainRate = async (coinObj) => {
   const systemId = coinObj.price_currency_id ? config.native : coinObj.system_id;
   if (!currencyId || !systemId) return { result: { rate: null, source: null } };
 
-  const endpoint = VrpcProvider.getEndpoint(systemId);
-  const nativeEndpoint = VrpcProvider.getEndpoint(config.native);
+  const nativeUrl = CoinDirectory.getVrpcEndpoints(coinObj.testnet ? 'VRSCTEST' : 'VRSC')?.[0];
+  const endpoint = endpointFor(
+    systemId,
+    systemId === config.native ? nativeUrl : coinObj.vrpc_endpoints?.[0],
+  );
+  const nativeEndpoint = endpointFor(config.native, nativeUrl);
   const source = endpoint.endpoint;
   if (currencyId === config.anchor) return { result: { rate: '1', source } };
 

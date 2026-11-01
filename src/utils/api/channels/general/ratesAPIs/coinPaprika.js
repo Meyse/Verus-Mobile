@@ -31,7 +31,11 @@ export const getCoinPaprikaRate = (coinObj) => {
       }
       return { result: { rate, source: address } };
     })
-    .catch((error) => ({ error }));
+    .catch((error) => {
+      // Do not hold a failure for 15 minutes: the next price refresh retries.
+      cache.delete(id);
+      return { error };
+    });
   cache.set(id, { promise, expiresAt: Date.now() + CACHE_MS });
   return promise;
 };
