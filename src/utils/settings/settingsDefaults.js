@@ -21,6 +21,7 @@ export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   addressBlocklist: [],
   vrpcOverrides: {},
   testnetEnvironment: TESTNET_ENVIRONMENT_PUBLIC,
+  testnetPrices: false,
 };
 
 export const DEFAULT_SETTINGS = {
