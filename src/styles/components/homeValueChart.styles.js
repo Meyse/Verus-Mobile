@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   block: { paddingBottom: 8 },
   chart: { marginHorizontal: 20 },
-  ranges: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 28 },
+  ranges: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 8 },
   range: { width: 44, alignItems: 'center', justifyContent: 'center' },
   selected: { fontWeight: '700' },
   tabular: { fontVariant: ['tabular-nums'] },

@@ -138,7 +138,7 @@ export const label = (point, now) => {
   const today = midnight(point.t) === midnight(now);
   const yesterday = midnight(point.t) === midnight(now, -1);
   if (point.kind === 'hour') {
-    const time = new Date(point.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(point.t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     let day = dateText(point.t, now);
     if (today) day = 'Today';
     else if (yesterday) day = 'Yesterday';

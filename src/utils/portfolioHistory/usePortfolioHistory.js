@@ -8,7 +8,9 @@ import { GENERAL } from '../constants/intervalConstants';
 import { isTestnetAccount, uniqueAssets } from '../assets/assetIdentity';
 import { appendBalanceRecord, readBalanceRecord, subscribeBalanceRecord } from './balanceRecord';
 import { getFiatHistory, getUsdHistory } from './priceHistory';
-import { availableRanges, buildSeries, visibility } from './chartMath';
+import {
+  availableRanges, buildSeries, HOUR, visibility,
+} from './chartMath';
 
 const usePortfolioHistory = ({
   account, activeCoins, balances, total, rates, currency, ready, refreshing,
@@ -30,8 +32,10 @@ const usePortfolioHistory = ({
     .map((coin) => ({ ...coin, usd: rates[GENERAL]?.[coin.id]?.USD }))
     .filter((coin) => Number(coin.usd) > 0 && Number.isFinite(Number(coin.usd))),
   [activeCoins, account, rates, testnetPrices]);
+  const [readTimedOut, setReadTimedOut] = useState(null);
   const record = saved && saved.accountHash === accountHash ? saved.record : null;
-  const hydrated = !accountHash || saved?.accountHash === accountHash;
+  // Home waits briefly for the record so the header does not jump. A slow read must not keep Home hidden.
+  const hydrated = !accountHash || saved?.accountHash === accountHash || readTimedOut === accountHash;
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
@@ -42,6 +46,7 @@ const usePortfolioHistory = ({
     let active = true;
     setRange('1M');
     if (!accountHash) return undefined;
+    const timer = setTimeout(() => { if (active) setReadTimedOut(accountHash); }, 400);
     const unsubscribe = subscribeBalanceRecord((hash, value) => {
       if (active && hash === accountHash) setSaved({ accountHash, record: value });
     });
@@ -51,7 +56,7 @@ const usePortfolioHistory = ({
       console.warn('Could not read the local portfolio record.', error.message);
       if (active) setSaved({ accountHash, record: null });
     });
-    return () => { active = false; unsubscribe(); };
+    return () => { active = false; clearTimeout(timer); unsubscribe(); };
   }, [accountHash]);
 
   useEffect(() => {
@@ -73,17 +78,22 @@ const usePortfolioHistory = ({
   const state = visibility(record, coins.length > 0, total, now);
   const start = record?.start;
   // Keep replies with their account. The persistent market cache contains no account data.
-  const coinKey = coins.map((coin) => `${coin.id}:${coin.system_id}:${coin.price_currency_id}:${coin.usd}`).join('|');
+  // The current price is not part of the key: a price update must not reload the history.
+  const coinKey = coins.map((coin) => `${coin.id}:${coin.system_id}:${coin.price_currency_id}`).join('|');
   const marketKey = `${accountHash}:${coinKey}:${currency}:${start}`;
+  const coinsRef = useRef(coins);
+  coinsRef.current = coins;
+  const hourBucket = Math.floor(now / HOUR);
   useEffect(() => {
     if (!focused || state !== 'chart' || refreshing) return undefined;
     let active = true;
     const canFetch = () => active && focusedRef.current;
     const time = Date.now();
-    setMarket({
+    // Keep the drawn history while it refreshes; show skeletons only for a new key.
+    setMarket((previous) => (previous?.key === marketKey ? previous : {
       key: marketKey, loading: true, prices: {}, fx: [],
-    });
-    const priceRequests = coins.map(async (coin) => {
+    }));
+    const priceRequests = coinsRef.current.map(async (coin) => {
       try {
         const samples = await getUsdHistory(coin, start, time, canFetch);
         return [coin.id, samples];
@@ -105,7 +115,7 @@ const usePortfolioHistory = ({
       }
     });
     return () => { active = false; };
-  }, [focused, state, refreshing, marketKey, coins, start, currency]);
+  }, [focused, state, refreshing, marketKey, start, currency, hourBucket]);
 
   const ranges = record ? availableRanges(record.start, now) : ['1D', '1W', '1M', '1Y'];
   const selectedRange = ranges.includes(range) ? range : '1M';
