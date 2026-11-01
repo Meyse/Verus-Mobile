@@ -1,13 +1,16 @@
+/* eslint-disable import/no-cycle -- The shared VRPC provider is initialized through Redux dispatchers. */
+/* global __DEV__ */
+import BigNumber from 'bignumber.js';
 import { getCoinPaprikaRate } from './ratesAPIs/coinPaprika';
+import { getOnChainRate } from './ratesAPIs/onChainPrice';
 import { getMempoolSpaceBTCFees } from './btcFeesAPIs/mempoolSpace';
-import { getBlockchainComBTCFees } from'./btcFeesAPIs/blockchainCom';
-import { getFiatExchangeRates } from './ratesAPIs/fiatExchangeRates'
+import { getBlockchainComBTCFees } from './btcFeesAPIs/blockchainCom';
+import { getFiatExchangeRates } from './ratesAPIs/fiatExchangeRates';
 import ApiException from '../../errors/apiError';
 import { GENERAL } from '../../../constants/intervalConstants';
-import { USD } from '../../../constants/currencies'
+import { USD } from '../../../constants/currencies';
 import { CONNECTION_ERROR } from '../../errors/errorMessages';
 import { GENERAL_CONNECTION_ERROR } from '../../errors/errorCodes';
-import BigNumber from 'bignumber.js';
 
 export const getRecommendedBTCFees = async (testnet = false, maximum) => {
   const primary = await getMempoolSpaceBTCFees(maximum, testnet);
@@ -15,56 +18,34 @@ export const getRecommendedBTCFees = async (testnet = false, maximum) => {
   return await getBlockchainComBTCFees(maximum);
 };
 
-export const getCoinRates = (coinObj) => {
-  // Functions that can get rates for different coins. Due to the nature of Promise.all, 
-  // these should not reject, but instead resolve with an object that either has a
-  // 'result' property, or an 'error' property.
-  let rateFunctions = [getCoinPaprikaRate(coinObj)]
-  let rateUsd = null
-  let source = null
+export const getCoinRates = async (coinObj, testnetPricesEnabled = false) => {
+  if (coinObj.testnet && !(__DEV__ && testnetPricesEnabled && coinObj.proto === 'vrsc')) {
+    return { result: {}, source: null };
+  }
 
-  return new Promise((resolve, reject) => {
-    Promise.all(rateFunctions)
-      .then(rates => {
-        rates = rates.filter(rate => rate.error == null)
+  try {
+    const response = coinObj.proto === 'vrsc' || coinObj.price_currency_id
+      ? await getOnChainRate(coinObj)
+      : await getCoinPaprikaRate(coinObj);
+    if (response.error) throw response.error;
 
-        if (rates.length > 0) {
-          rateUsd = rates[0].result.rate
-          source = rates[0].result.source
-          
-          return getFiatExchangeRates()
-        } else
-          reject(
-            new ApiException(
-              CONNECTION_ERROR,
-              "No valid coin rates found",
-              coinObj.id,
-              GENERAL,
-              GENERAL_CONNECTION_ERROR
-            )
-          );
-      })
-      .then(exchangeRates => {
-        let resObj = { result: { [USD]: BigNumber(rateUsd) }, source }
+    const { rate: rateUsd, source } = response.result;
+    if (rateUsd == null) return { result: {}, source };
 
-        Object.keys(
-          exchangeRates.result == null ? {} : exchangeRates.result
-        ).map(fiatCurr => {
-          resObj.result[fiatCurr] = BigNumber(exchangeRates.result[fiatCurr]).multipliedBy(rateUsd).toString();
-        });
-
-        resolve(resObj)
-      })
-      .catch(error => {
-        reject(
-          new ApiException(
-            CONNECTION_ERROR,
-            error.message || "Error connecting to rates APIs",
-            coinObj.id,
-            GENERAL,
-            error.code || GENERAL_CONNECTION_ERROR
-          )
-        );
-      });
-  });
-}
+    const exchangeRates = await getFiatExchangeRates();
+    const result = { [USD]: BigNumber(rateUsd) };
+    Object.keys(exchangeRates.result || {}).forEach((fiatCurr) => {
+      result[fiatCurr] = BigNumber(exchangeRates.result[fiatCurr]).multipliedBy(rateUsd)
+        .toString();
+    });
+    return { result, source };
+  } catch (error) {
+    throw new ApiException(
+      CONNECTION_ERROR,
+      error.message || 'Error connecting to rates APIs',
+      coinObj.id,
+      GENERAL,
+      error.code || GENERAL_CONNECTION_ERROR,
+    );
+  }
+};
