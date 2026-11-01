@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import {Text, View} from 'react-native';
 import {statusBadgeStyles as styles} from '../styles';
 import {useAppTheme} from '../theme/app';
@@ -37,6 +38,7 @@ const getToneColors = (tone, colors) => {
 // Fixed materials use their own tone pair in both appearances: dark for
 // `variant="card"`, light for the payment-request `variant="paper"`.
 const StatusBadge = ({
+  accessibilityLabel = null,
   label,
   labelStyle,
   style,
@@ -52,13 +54,19 @@ const StatusBadge = ({
 
   return (
     <View
-      accessibilityLabel={`Status: ${label}`}
+      accessible={Boolean(accessibilityLabel)}
+      accessibilityLabel={accessibilityLabel || `Status: ${label}`}
       style={[styles.badge, {backgroundColor}, style]}>
       <Text numberOfLines={1} style={[styles.label, labelStyle, {color}]}>
         {label}
       </Text>
     </View>
   );
+};
+
+StatusBadge.propTypes = {
+  // eslint-disable-next-line react/require-default-props -- Optional label defaults in the function arguments.
+  accessibilityLabel: PropTypes.string,
 };
 
 export default StatusBadge;

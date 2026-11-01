@@ -70,6 +70,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import SignedInWalletHome from './SignedInWalletHome';
+import usePortfolioHistory from '../../utils/portfolioHistory/usePortfolioHistory';
 import {usePrelaunchAssets} from '../../utils/preconversion/usePrelaunch';
 import {getCurrencyDisplay} from '../SendWizard/wizardUtils';
 import {
@@ -126,9 +127,11 @@ const Home = () => {
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
   const showBalance = useSelector(state => state.coins.showBalance);
+  const testnetPrices = useSelector(state => state.settings.generalWalletSettings.testnetPrices === true);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(null);
   const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
+  const [balanceAccountHash, setBalanceAccountHash] = useState(null);
   const [loading, setLoading] = useState(false);
   const refreshRun = useRef(0);
   const balanceErrors = useObjectSelector((state) =>
@@ -279,7 +282,11 @@ const Home = () => {
     const totalBalances = getTotalBalances();
     setTotalFiatBalance(totalBalances.fiat);
     setTotalCryptoBalances(totalBalances.crypto);
-  }, [balances, ledgerBalances, assetManagement.snapshots, displayCurrency, activeCoinsForUser, allSubWallets, rates]);
+    setBalanceAccountHash(accountHash);
+  }, [
+    balances, ledgerBalances, assetManagement.snapshots, displayCurrency,
+    activeCoinsForUser, allSubWallets, rates, accountHash,
+  ]);
 
   useEffect(() => {
     getWidgets();
@@ -642,6 +649,18 @@ const Home = () => {
     (mainNavigation || navigation).navigate('AddAssetByIdentifier');
   };
 
+  const portfolioHistory = usePortfolioHistory({
+    account: activeAccount,
+    activeCoins: activeCoinsForUser,
+    balances: totalCryptoBalances,
+    total: balanceAccountHash === accountHash ? totalFiatBalance : null,
+    rates,
+    currency: displayCurrency,
+    ready: assetManagement.ready && balanceAccountHash === accountHash,
+    refreshing: loading,
+    testnetPrices,
+  });
+
   if (ENABLE_SIGNED_IN_REDESIGN) {
     const mainNavigation = navigation.getParent()?.getParent();
     const receiveAvailable = actionSources('wallet-receive').length > 0;
@@ -657,7 +676,8 @@ const Home = () => {
         displayCurrency={displayCurrency}
         loading={loading}
         showBalance={showBalance}
-        totalFiatBalance={totalFiatBalance}
+        totalFiatBalance={balanceAccountHash === accountHash ? totalFiatBalance : null}
+        history={portfolioHistory}
         onToggleBalance={() => dispatch({type: 'SET_BALANCE_SHOW'})}
         onSelectDisplayCurrency={setDisplayCurrencyFunc}
         onRefresh={forceUpdate}

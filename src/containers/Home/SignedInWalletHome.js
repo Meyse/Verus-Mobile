@@ -1,19 +1,24 @@
-import React, {useEffect, useRef, useState} from 'react';
+/* eslint no-use-before-define: ["error", {"functions": true, "classes": true, "variables": false}] -- Home keeps its shared styles below the component. */
+import PropTypes from 'prop-types';
+import React, {useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
   Easing,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {FlatList, RefreshControl} from 'react-native-gesture-handler';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {homeValueChartStyles as chartStyles} from '../../styles';
+import {change, percentNumber, pillText, spanText} from '../../utils/portfolioHistory/chartMath';
+import HomeValueChart, {homeValueChartHistoryPropType} from './components/HomeValueChart';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
 import StatusBadge from '../../components/StatusBadge';
@@ -108,40 +113,117 @@ const useBalanceRevealProgress = showBalance => {
   return progress;
 };
 
-const PortfolioBalance = ({
+const PortfolioBalance = React.forwardRef(({
   amount,
   currency,
   revealProgress,
   showBalance,
   theme,
-}) => {
-  const value = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
+  history,
+  onSelectCurrency,
+}, ref) => {
+  const [scrub, setScrub] = useState(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [amountWidth, setAmountWidth] = useState(0);
+  const [symbolWidth, setSymbolWidth] = useState(0);
+  const [pillWidth, setPillWidth] = useState(0);
+  useImperativeHandle(ref, () => ({setScrub: point => setScrub(point)}), []);
+  const value = (scrub?.v ?? amount) == null ? {symbol: '', value: '—'} : getCurrencyParts(scrub?.v ?? amount, currency);
+  const restValue = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
+  const compactHeader = history?.state !== 'none';
+  const chart = history?.state === 'chart';
+  const percent = history?.series ? change(history.series.points) : null;
+  const hasPill = chart && (history.loading || percent != null);
+  const wrapped = hasPill && availableWidth > 0
+    && amountWidth + symbolWidth + 4 + pillWidth + 8 > availableWidth;
+  const span = chart ? spanText(history.range, history.series.partial, history.record.start, history.now) : '';
 
   return (
-    <View style={styles.heroValueRow}>
-      <PrivacyBlurredText
-        blurRadius={6}
-        color={theme.colors.textPrimary}
-        containerStyle={styles.heroSymbolFrame}
-        hidden={!showBalance}
-        revealProgress={revealProgress}
-        style={styles.heroSymbol}>
-        {value.symbol}
-      </PrivacyBlurredText>
-      <PrivacyBlurredText
-        adjustsFontSizeToFit
-        blurRadius={11}
-        color={theme.colors.textPrimary}
-        containerStyle={styles.heroAmountFrame}
-        hidden={!showBalance}
-        minimumFontScale={0.35}
-        numberOfLines={1}
-        revealProgress={revealProgress}
-        style={styles.heroAmount}>
-        {value.value}
-      </PrivacyBlurredText>
+    <View
+      onLayout={event => setAvailableWidth(event.nativeEvent.layout.width)}
+      style={[styles.heroValueRow, compactHeader && chartStyles.compactAmountRow, wrapped && chartStyles.wrap]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Change display currency"
+        onPress={onSelectCurrency}
+        style={[styles.balanceTouchable, hasPill && chartStyles.amountWithPill,
+          wrapped && chartStyles.amountFullRow]}>
+        <View style={chartStyles.amountGroup}>
+          <PrivacyBlurredText
+            blurRadius={6}
+            color={theme.colors.textPrimary}
+            containerStyle={styles.heroSymbolFrame}
+            hidden={!showBalance}
+            revealProgress={revealProgress}
+            style={styles.heroSymbol}>
+            {value.symbol}
+          </PrivacyBlurredText>
+          <PrivacyBlurredText
+            adjustsFontSizeToFit
+            blurRadius={11}
+            color={theme.colors.textPrimary}
+            containerStyle={styles.heroAmountFrame}
+            hidden={!showBalance}
+            minimumFontScale={0.35}
+            numberOfLines={1}
+            revealProgress={revealProgress}
+            style={styles.heroAmount}
+          >
+            {value.value}
+          </PrivacyBlurredText>
+        </View>
+      </Pressable>
+      {hasPill && (
+        <View
+          onLayout={(event) => setPillWidth(event.nativeEvent.layout.width)}
+          accessibilityElementsHidden={scrub != null}
+          importantForAccessibility={scrub != null ? 'no-hide-descendants' : 'auto'}
+          style={[chartStyles.pillSlot, wrapped && chartStyles.pillBelow, scrub != null && chartStyles.hidden]}
+        >
+          {history.loading ? (
+            <SkeletonLoader accessibilityLabel="Loading value change">
+              <SkeletonBlock width={64} height={24} radius={12} />
+            </SkeletonLoader>
+          ) : (
+            <StatusBadge
+              label={pillText(percent)}
+              tone={percent >= 0 ? 'success' : 'danger'}
+              accessibilityLabel={`${percent >= 0 ? 'Up' : 'Down'} ${percentNumber(percent)} percent ${span}`}
+              style={chartStyles.pill}
+              labelStyle={[theme.typography.labelSm, chartStyles.tabular]}
+            />
+          )}
+        </View>
+      )}
+      {hasPill && (
+        <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Text
+            numberOfLines={1}
+            style={[styles.heroAmount, chartStyles.measure]}
+            onTextLayout={(event) => setAmountWidth(event.nativeEvent.lines[0]?.width || 0)}
+          >
+            {restValue.value}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[styles.heroSymbol, chartStyles.measure]}
+            onTextLayout={(event) => setSymbolWidth(event.nativeEvent.lines[0]?.width || 0)}
+          >
+            {restValue.symbol}
+          </Text>
+        </View>
+      )}
     </View>
   );
+});
+
+PortfolioBalance.propTypes = {
+  theme: PropTypes.shape({
+    colors: PropTypes.shape({textPrimary: PropTypes.string}),
+    typography: PropTypes.shape({labelSm: PropTypes.shape({})}),
+  }).isRequired,
+  history: homeValueChartHistoryPropType.isRequired,
+  onSelectCurrency: PropTypes.func.isRequired,
 };
 
 const SignedInWalletHome = ({
@@ -153,6 +235,7 @@ const SignedInWalletHome = ({
   loading,
   showBalance,
   totalFiatBalance,
+  history,
   onToggleBalance,
   onSelectDisplayCurrency,
   onRefresh,
@@ -171,6 +254,20 @@ const SignedInWalletHome = ({
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [showHeaderDivider, setShowHeaderDivider] = useState(false);
   const dividerRef = useRef(false);
+  const panRef = useRef(null);
+  const amountRef = useRef(null);
+  const scrubRef = useRef(false);
+  const [scrubbing, setScrubbing] = useState(false);
+  const [noticeHeight, setNoticeHeight] = useState(0);
+  const compactHeader = history?.state !== 'none';
+  const onScrub = useCallback((point) => {
+    amountRef.current?.setScrub(point);
+    const active = point != null;
+    if (active !== scrubRef.current) {
+      scrubRef.current = active;
+      setScrubbing(active);
+    }
+  }, []);
   const balanceRevealProgress = useBalanceRevealProgress(showBalance);
 
   const handleScroll = event => {
@@ -310,27 +407,30 @@ const SignedInWalletHome = ({
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+      pointerEvents={history.hydrated ? 'auto' : 'none'}
+      style={[styles.screen, {backgroundColor: theme.colors.background}, !history.hydrated && chartStyles.hidden]}
+      accessibilityElementsHidden={!history.hydrated}
+      importantForAccessibility={history.hydrated ? 'auto' : 'no-hide-descendants'}
+    >
       <View
         style={[
           styles.header,
           {backgroundColor: theme.colors.background},
           showHeaderDivider && {borderBottomColor: theme.colors.border, borderBottomWidth: StyleSheet.hairlineWidth},
         ]}>
-        <View style={styles.balanceRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change display currency"
-            onPress={() => setCurrencyOpen(true)}
-            style={styles.balanceTouchable}>
+        <View style={[styles.balanceRow, compactHeader && chartStyles.compactBalanceRow]}>
+          <View style={styles.balanceTouchable}>
             <PortfolioBalance
+              ref={amountRef}
               amount={totalFiatBalance}
               currency={displayCurrency}
               revealProgress={balanceRevealProgress}
               showBalance={showBalance}
               theme={theme}
+              history={history}
+              onSelectCurrency={() => setCurrencyOpen(true)}
             />
-          </Pressable>
+          </View>
           <View style={styles.balanceActions}>
             <TouchableOpacity
               activeOpacity={0.75}
@@ -356,19 +456,36 @@ const SignedInWalletHome = ({
             </TouchableOpacity>
           </View>
         </View>
-        <HomeNotice
-          loading={loading}
-          notice={homeNotice}
-          onReceive={onReceive}
-          onDismiss={onDismissFoundAssets}
-          onRetry={onRefresh}
-          onReview={onReviewFoundAssets}
-        />
-        <NotificationWidget />
+        <View
+          onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
+          style={compactHeader && noticeHeight > 0 ? {marginTop: 20} : undefined}
+        >
+          <HomeNotice
+            loading={loading}
+            notice={homeNotice}
+            onReceive={onReceive}
+            onDismiss={onDismissFoundAssets}
+            onRetry={onRefresh}
+            onReview={onReviewFoundAssets}
+          />
+          <NotificationWidget />
+        </View>
       </View>
 
       <FlatList
         data={assets}
+        waitFor={history.state === 'chart' && !history.loading ? panRef : undefined}
+        scrollEnabled={!scrubbing}
+        bounces={!scrubbing}
+        ListHeaderComponent={(
+          <HomeValueChart
+            history={history}
+            panRef={panRef}
+            showBalance={showBalance}
+            formatValue={(value) => formatFiat(value, displayCurrency)}
+            onScrub={onScrub}
+          />
+        )}
         ListEmptyComponent={
           !assetsReady && !assetsLoadError ? (
             <SkeletonLoader accessibilityLabel="Loading your assets" style={{padding: 20}}>
@@ -382,8 +499,14 @@ const SignedInWalletHome = ({
         }
         keyExtractor={item => item.coin.id}
         renderItem={renderAsset}
-        refreshing={loading}
-        onRefresh={onRefresh}
+        refreshControl={(
+          <RefreshControl
+            refreshing={loading}
+            enabled={!scrubbing}
+            waitFor={history.state === 'chart' && !history.loading ? panRef : undefined}
+            onRefresh={() => { if (!scrubRef.current) onRefresh(); }}
+          />
+        )}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         contentContainerStyle={styles.listContent}
@@ -419,7 +542,7 @@ const styles = StyleSheet.create({
   heroSymbolFrame: {marginRight: 4, marginTop: 2},
   heroSymbol: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 22},
   heroAmountFrame: {flexShrink: 1},
-  heroAmount: {...fontStyle('bold'), fontSize: 34, lineHeight: 40, letterSpacing: -0.5},
+  heroAmount: {...fontStyle('bold'), fontSize: 34, lineHeight: 40, letterSpacing: -0.5, fontVariant: ['tabular-nums']},
   listContent: {paddingBottom: 16},
   assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row'},
   logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},
@@ -434,5 +557,7 @@ const styles = StyleSheet.create({
   fiatRate: {textAlign: 'right'},
   prelaunchBadge: {flexShrink: 0},
 });
+
+SignedInWalletHome.propTypes = { history: homeValueChartHistoryPropType.isRequired };
 
 export default SignedInWalletHome;
