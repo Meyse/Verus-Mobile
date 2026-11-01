@@ -5,7 +5,7 @@ import { getCurrencyConverters } from '../../vrpc/requests/getCurrencyConverters
 import {
   MAINNET_PRICE_CONFIG,
   TESTNET_PRICE_CONFIG,
-  getCurrencyUsdPrice,
+  selectCurrencyPriceRoute,
   getNativeUsdPrice,
 } from './onChainPriceMath';
 
@@ -49,11 +49,11 @@ const getCurrency = (endpoint, currencyId) => cached(
   async () => resultOf(await endpoint.getCurrency(currencyId)),
 );
 
-export const getOnChainRate = async (coinObj) => {
+export const getOnChainPriceRoute = async (coinObj) => {
   const config = coinObj.testnet ? TESTNET_PRICE_CONFIG : MAINNET_PRICE_CONFIG;
   const currencyId = coinObj.price_currency_id || coinObj.currency_id;
   const systemId = coinObj.price_currency_id ? config.native : coinObj.system_id;
-  if (!currencyId || !systemId) return { result: { rate: null, source: null } };
+  if (!currencyId || !systemId) return null;
 
   const nativeUrl = CoinDirectory.getVrpcEndpoints(coinObj.testnet ? 'VRSCTEST' : 'VRSC')?.[0];
   const endpoint = endpointFor(
@@ -62,13 +62,20 @@ export const getOnChainRate = async (coinObj) => {
   );
   const nativeEndpoint = endpointFor(config.native, nativeUrl);
   const source = endpoint.endpoint;
-  if (currencyId === config.anchor) return { result: { rate: '1', source } };
+  const context = {
+    config, currencyId, systemId, endpoint, nativeEndpoint, source,
+  };
+  if (currencyId === config.anchor) return { ...context, kind: 'fixed', price: '1' };
 
   const nativeUsd = await cached(
     `${nativeEndpoint.endpoint}:native:${config.native}`,
     async () => getNativeUsdPrice(await getCurrency(nativeEndpoint, config.basket), config),
   );
-  if (currencyId === config.native) return { result: { rate: nativeUsd, source } };
+  if (currencyId === config.native) {
+    return {
+      ...context, kind: 'native', basketId: config.basket, price: nativeUsd,
+    };
+  }
 
   const definition = await getCurrency(endpoint, currencyId);
   let baskets = [];
@@ -90,5 +97,11 @@ export const getOnChainRate = async (coinObj) => {
       .map((basket) => getCurrency(endpoint, basket.currencyid)));
   }
 
-  return { result: { rate: getCurrencyUsdPrice(currencyId, definition, baskets, nativeUsd, config), source } };
+  const route = selectCurrencyPriceRoute(currencyId, definition, baskets, nativeUsd, config);
+  return { ...context, ...route, basketId: route.kind === 'basket' ? currencyId : route.basket?.currencyid };
+};
+
+export const getOnChainRate = async (coinObj) => {
+  const route = await getOnChainPriceRoute(coinObj);
+  return { result: { rate: route?.price ?? null, source: route?.source ?? null } };
 };

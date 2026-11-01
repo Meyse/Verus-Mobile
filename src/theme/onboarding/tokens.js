@@ -115,6 +115,8 @@ const shared = {
 };
 
 const lightColors = {
+  chartLine: '#3165D4',
+  chartRange: '#6B7280',
   primary: '#3165D4',
   primaryPressed: '#2854B4',
   onPrimary: '#FFFFFF',
@@ -156,6 +158,8 @@ const lightColors = {
 };
 
 const darkColors = {
+  chartLine: '#4A7FE6',
+  chartRange: '#7E8EA6',
   primary: '#3165D4',
   primaryPressed: '#2854B4',
   onPrimary: '#FFFFFF',

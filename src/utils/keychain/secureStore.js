@@ -26,6 +26,8 @@ import {sha256} from '../crypto/hash';
 // A password migration can touch several independently persisted records. Keep
 // its recovery journal under the same device-level encryption as those records.
 export const PASSWORD_MIGRATION_STORAGE_INTERNAL_KEY = `${USER_DATA_STORAGE_INTERNAL_KEY}:passwordMigration:v1`;
+// A new feature key: account-keyed JSON, with no legacy plaintext to migrate.
+export const PORTFOLIO_RECORD_STORAGE_INTERNAL_KEY = `${USER_DATA_STORAGE_INTERNAL_KEY}:portfolioRecord:v1`;
 export const SECURE_STORE_FLAG_KEY = 'secureStoreFlags';
 export const BIOMETRIC_VAULT_STORAGE_KEY = 'biometricVaultEnrollmentBoundV2';
 export const PRE_CURRENT_SET_BIOMETRIC_VAULT_STORAGE_KEY = 'biometricVault';
@@ -1269,6 +1271,7 @@ export const SecureStorage = new SecureStore(
     SERVICE_STORAGE_INTERNAL_KEY,
     DEEPLINK_STORAGE_INTERNAL_KEY,
     NOTIFICATIONS_STORAGE_INTERNAL_KEY,
-    PASSWORD_MIGRATION_STORAGE_INTERNAL_KEY
+    PASSWORD_MIGRATION_STORAGE_INTERNAL_KEY,
+    PORTFOLIO_RECORD_STORAGE_INTERNAL_KEY
   ]
 );

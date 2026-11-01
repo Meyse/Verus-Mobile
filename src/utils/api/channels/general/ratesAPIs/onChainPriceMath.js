@@ -39,9 +39,9 @@ export const getNativeUsdPrice = (anchorBasket, config) => {
 
 // Definitions must contain bestcurrencystate, including converter definitions.
 // Return null for an unusable route, so another basket can still supply a price.
-export const getCurrencyUsdPrice = (currencyId, definition, baskets, nativeUsd, config) => {
-  if (currencyId === config.anchor) return BigNumber(1);
-  if (currencyId === config.native) return positive(nativeUsd);
+export const selectCurrencyPriceRoute = (currencyId, definition, baskets, nativeUsd, config) => {
+  if (currencyId === config.anchor) return { kind: 'fixed', price: BigNumber(1) };
+  if (currencyId === config.native) return { kind: 'native', price: positive(nativeUsd) };
 
   const ownReserves = definition?.bestcurrencystate?.reservecurrencies;
   if (Array.isArray(ownReserves) && ownReserves.length > 0) {
@@ -49,15 +49,19 @@ export const getCurrencyUsdPrice = (currencyId, definition, baskets, nativeUsd, 
     if (native) {
       const price = positive(native.priceinreserve);
       const usd = positive(nativeUsd);
-      return price && usd ? price.multipliedBy(usd) : null;
+      return { kind: 'basket', referenceId: config.native, price: price && usd ? price.multipliedBy(usd) : null };
     }
-    return positive(reserveOf(definition, config.anchor)?.priceinreserve);
+    return {
+      kind: 'basket',
+      referenceId: config.anchor,
+      price: positive(reserveOf(definition, config.anchor)?.priceinreserve),
+    };
   }
 
   const select = (referenceId, usd) => {
     if (!positive(usd)) return null;
     let largestReserve = BigNumber(0);
-    let price = null;
+    let route = null;
     (baskets || []).forEach((basket) => {
       const currency = positive(reserveOf(basket, currencyId)?.priceinreserve);
       const reference = reserveOf(basket, referenceId);
@@ -65,11 +69,33 @@ export const getCurrencyUsdPrice = (currencyId, definition, baskets, nativeUsd, 
       const amount = positive(reference?.reserves);
       if (currency && referencePrice && amount && amount.isGreaterThan(largestReserve)) {
         largestReserve = amount;
-        price = referencePrice.dividedBy(currency).multipliedBy(usd);
+        route = {
+          kind: 'reserve', basket, referenceId, price: referencePrice.dividedBy(currency).multipliedBy(usd),
+        };
       }
     });
-    return price;
+    return route;
   };
 
-  return select(config.native, nativeUsd) || select(config.anchor, 1);
+  return select(config.native, nativeUsd) || select(config.anchor, 1) || { price: null };
+};
+
+export const getCurrencyUsdPrice = (currencyId, definition, baskets, nativeUsd, config) => (
+  selectCurrencyPriceRoute(currencyId, definition, baskets, nativeUsd, config).price
+);
+
+// Apply one fixed route to a historical state. Reuse today's bad-data checks.
+export const getRouteUsdPrice = (route, state, nativeUsd) => {
+  const {
+    kind, config, referenceId, currencyId,
+  } = route;
+  if (kind === 'fixed') return BigNumber(1);
+  if (kind === 'native') return getNativeUsdPrice({ bestcurrencystate: state }, config);
+  const definition = { bestcurrencystate: state };
+  const reference = positive(reserveOf(definition, referenceId)?.priceinreserve);
+  const usd = referenceId === config.native ? positive(nativeUsd) : BigNumber(1);
+  if (!reference || !usd) return null;
+  if (kind === 'basket') return reference.multipliedBy(usd);
+  const currency = positive(reserveOf(definition, currencyId)?.priceinreserve);
+  return currency ? reference.dividedBy(currency).multipliedBy(usd) : null;
 };

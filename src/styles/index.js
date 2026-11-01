@@ -67,3 +67,4 @@ export {default as requestCardStyles} from './components/requestCard.styles';
 export {default as dataApprovalListStyles} from './components/dataApprovalList.styles';
 export {createAmountKeypadStyles} from './components/amountKeypad.styles';
 export {default as progressHeaderStyles} from './components/progressHeader.styles';
+export { default as homeValueChartStyles } from './components/homeValueChart.styles';

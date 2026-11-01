@@ -1,3 +1,4 @@
+import {deleteBalanceRecord} from '../../utils/portfolioHistory/balanceRecord';
 import {
   setAccounts,
   signOut,
@@ -341,6 +342,11 @@ export const deleteProfile = async (account, dispatch) => {
 
     if (!teardownError) {
       const remainingAccounts = await deleteUser(account.accountHash);
+      try {
+        await deleteBalanceRecord(account.accountHash);
+      } catch (error) {
+        console.warn('Could not delete the local portfolio record.', error);
+      }
 
       try {
         dispatchForAccount(setAccounts(remainingAccounts));
