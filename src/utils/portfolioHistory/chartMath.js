@@ -168,26 +168,32 @@ const slope2 = (x0, y0, x1, y1, tangent) => {
   return h ? ((3 * (y1 - y0) / h) - tangent) / 2 : tangent;
 };
 const f = (n) => Math.round(n * 100) / 100;
-export const line = (points) => {
+// One path command per segment, so a part of the line keeps the exact curve of the whole line.
+export const segments = (points) => {
   const n = points.length;
-  if (!n) return '';
-  let path = `M${f(points[0][0])},${f(points[0][1])}`;
-  if (n === 1) return path;
-  if (n === 2) return `${path}L${f(points[1][0])},${f(points[1][1])}`;
+  if (n < 2) return [];
+  if (n === 2) return [`L${f(points[1][0])},${f(points[1][1])}`];
   const tangents = new Array(n);
   for (let i = 1; i < n - 1; i++) tangents[i] = slope3(...points[i - 1], ...points[i], ...points[i + 1]);
   tangents[0] = slope2(...points[0], ...points[1], tangents[1]);
   tangents[n - 1] = slope2(...points[n - 2], ...points[n - 1], tangents[n - 2]);
+  const result = [];
   for (let i = 0; i < n - 1; i++) {
     const dx = (points[i + 1][0] - points[i][0]) / 3;
-    path += `C${f(points[i][0] + dx)},${f(points[i][1] + (dx * tangents[i]))},`
+    result.push(`C${f(points[i][0] + dx)},${f(points[i][1] + (dx * tangents[i]))},`
       + `${f(points[i + 1][0] - dx)},${f(points[i + 1][1] - (dx * tangents[i + 1]))},`
-      + `${f(points[i + 1][0])},${f(points[i + 1][1])}`;
+      + `${f(points[i + 1][0])},${f(points[i + 1][1])}`);
   }
-  return path;
+  return result;
 };
+// The line from point `from` to point `to`, and the fill under it.
+export const lineBetween = (points, segs, from, to) => (points.length
+  ? `M${f(points[from][0])},${f(points[from][1])}${segs.slice(from, to).join('')}` : '');
+export const areaBetween = (points, segs, from, to, bottom) => (to <= from ? ''
+  : `${lineBetween(points, segs, from, to)}L${f(points[to][0])},${f(bottom)}L${f(points[from][0])},${f(bottom)}Z`);
+export const line = (points) => lineBetween(points, segments(points), 0, points.length - 1);
 export const area = (points, bottom) => (points.length < 2 ? ''
-  : `${line(points)}L${f(points[points.length - 1][0])},${f(bottom)}L${f(points[0][0])},${f(bottom)}Z`);
+  : areaBetween(points, segments(points), 0, points.length - 1, bottom));
 export const domain = (values) => {
   let min = Math.min(...values);
   let max = Math.max(...values);
@@ -207,7 +213,13 @@ export const geometry = (series, width, height, axisStart) => {
     ((p.t - axisStart) / (now - axisStart || 1)) * width,
     28 + ((1 - ((p.v - min) / (max - min || 1))) * (height - 28 - 32)),
   ]);
+  const segs = segments(points);
+  const last = points.length - 1;
   return {
-    points, top: Math.min(...points.map((p) => p[1])), line: line(points), area: area(points, height),
+    points,
+    segs,
+    top: Math.min(...points.map((p) => p[1])),
+    line: lineBetween(points, segs, 0, last),
+    area: areaBetween(points, segs, 0, last, height),
   };
 };

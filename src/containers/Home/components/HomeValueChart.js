@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import Svg, {
-  Circle, ClipPath, Defs, G, Line, LinearGradient, Path, Rect, Stop,
+  Circle, Defs, G, Line, LinearGradient, Path, Stop,
 } from 'react-native-svg';
 
 import { useOnboardingTheme } from '../../../theme/onboarding';
@@ -17,8 +17,12 @@ import SkeletonLoader, { SkeletonBlock } from '../../../components/SkeletonLoade
 import { ONBOARDING_SMALL_DEVICE_MAX_HEIGHT } from '../../../hooks/useOnboardingSmallDeviceLayout';
 import { triggerHaptic, triggerLightHaptic } from '../../../utils/haptics/haptics';
 import {
-  change, dateText, geometry, label, percentNumber, RANGE_LABELS, spanText,
+  areaBetween, change, dateText, geometry, label, lineBetween, percentNumber, RANGE_LABELS, spanText,
 } from '../../../utils/portfolioHistory/chartMath';
+
+// Room around the plot so the end dot and the scrub ring are not cut at the chart edge.
+// Native SVG clips to its own bounds, so the canvas is wider than the plot.
+const EDGE = 8;
 
 const HomeValueChart = ({
   history, panRef, showBalance, formatValue, onScrub,
@@ -119,18 +123,21 @@ const HomeValueChart = ({
     setAccessibleIndex(Math.max(0, Math.min(series.points.length - 1,
       (accessibleIndex ?? (series.points.length - 1)) + direction)));
   };
-  const layer = (clip, dim) => (
-    <G clipPath={`url(#${clip})`} opacity={dim}>
-      <Path d={geo.area} fill={`url(#${id}fill)`} />
+  // Two separate paths instead of a moving clip: Android does not redraw a changed ClipPath.
+  const last = geo ? geo.points.length - 1 : 0;
+  const layer = (from, to, dim) => (
+    <>
+      <Path d={areaBetween(geo.points, geo.segs, from, to, height)} fill={`url(#${id}fill)`} opacity={dim} />
       <Path
-        d={geo.line}
+        d={lineBetween(geo.points, geo.segs, from, to)}
         fill="none"
+        opacity={dim}
         stroke={theme.colors.chartLine}
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </G>
+    </>
   );
 
   return (
@@ -165,36 +172,40 @@ const HomeValueChart = ({
             style={[styles.chart, { height }]}
           >
             {geo && (
-              <Animated.View pointerEvents="none" style={{ opacity }}>
-                <Svg width={width} height={height} accessible={false} style={{ overflow: 'visible' }}>
+              <Animated.View pointerEvents="none" style={{ opacity, marginLeft: -EDGE }}>
+                <Svg width={width + (2 * EDGE)} height={height} accessible={false}>
                   <Defs>
                     <LinearGradient id={`${id}fill`} gradientUnits="userSpaceOnUse" x1={0} y1={geo.top} x2={0} y2={height}>
                       <Stop offset="0" stopColor={theme.colors.chartLine} stopOpacity={theme.isDark ? 0.24 : 0.18} />
                       <Stop offset="1" stopColor={theme.colors.chartLine} stopOpacity={0} />
                     </LinearGradient>
-                    <ClipPath id={`${id}left`}><Rect x={-8} y={0} width={index == null ? width + 16 : marker[0] + 8} height={height} /></ClipPath>
-                    <ClipPath id={`${id}right`}><Rect x={marker[0]} y={0} width={width - marker[0] + 8} height={height} /></ClipPath>
                   </Defs>
-                  {index != null && (
-                  <Line
-                    x1={marker[0]}
-                    x2={marker[0]}
-                    y1={24}
-                    y2={height}
-                    stroke={theme.colors.chartLine}
-                    strokeWidth={1}
-                  />
-                  )}
-                  {layer(`${id}left`, 1)}
-                  {index != null && layer(`${id}right`, theme.isDark ? 0.5 : 0.30)}
-                  <Circle
-                    cx={marker[0]}
-                    cy={marker[1]}
-                    r={index == null ? 4 : 5.5}
-                    fill={theme.colors.chartLine}
-                    stroke={theme.colors.background}
-                    strokeWidth={index == null ? 0 : 2.5}
-                  />
+                  <G x={EDGE}>
+                    {index != null && (
+                    <Line
+                      x1={marker[0]}
+                      x2={marker[0]}
+                      y1={24}
+                      y2={height}
+                      stroke={theme.colors.chartLine}
+                      strokeWidth={1}
+                    />
+                    )}
+                    {selectedIndex == null ? layer(0, last, 1) : (
+                      <>
+                        {layer(0, selectedIndex, 1)}
+                        {selectedIndex < last && layer(selectedIndex, last, theme.isDark ? 0.5 : 0.30)}
+                      </>
+                    )}
+                    <Circle
+                      cx={marker[0]}
+                      cy={marker[1]}
+                      r={index == null ? 4 : 5.5}
+                      fill={theme.colors.chartLine}
+                      stroke={theme.colors.background}
+                      strokeWidth={index == null ? 0 : 2.5}
+                    />
+                  </G>
                 </Svg>
               </Animated.View>
             )}
