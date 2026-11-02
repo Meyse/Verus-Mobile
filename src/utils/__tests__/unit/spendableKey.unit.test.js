@@ -253,6 +253,7 @@ jest.mock('verusid-ts-client', () => {
 });
 
 jest.mock('@bitgo/utxo-lib', () => ({
+  ...jest.requireActual('@bitgo/utxo-lib'),
   ECPair: {
     fromWIF: mockFromWIF,
   },

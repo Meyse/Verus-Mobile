@@ -26,7 +26,12 @@ const {
 } = require('verus-typescript-primitives');
 const {VerusIdInterface} = require('verusid-ts-client');
 const {networks, smarttxs} = require('@bitgo/utxo-lib');
-const {createUpdateIdentityTx} = require('../../api/channels/verusid/requests/updateIdentity');
+const {
+  createUpdateIdentityTx,
+  createUpdateIdentityTxWithUtxos,
+  createUpdateIdentityWithCurrencyTransferTx,
+} = require('../../api/channels/verusid/requests/updateIdentity');
+const {getSpendableUtxos} = require('../../api/channels/vrpc/callCreators');
 
 const SYSTEM_ID = 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
 const EMPTY_KEY = 'iJitWFN8PY37GrBVtF38HyftG8WohWipbL';
@@ -45,6 +50,23 @@ describe('identity update content normalization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateUpdateIdentityTransaction.mockResolvedValue({hex: 'result'});
+  });
+
+  it.each([
+    ['standard update', prepare],
+    ['update with UTXOs', identity => createUpdateIdentityTxWithUtxos({systemId: SYSTEM_ID, identity})],
+    ['update with transfer', identity => createUpdateIdentityWithCurrencyTransferTx({systemId: SYSTEM_ID, identity})],
+  ])('rejects data uploads before funding or building a %s', async (_, build) => {
+    const request = IdentityUpdateRequestDetails.fromCLIJson({
+      name: 'T1', parent: SYSTEM_ID,
+      contentmultimap: {[DataStringKey.vdxfid]: {data: {message: 'upload'}}},
+    });
+
+    await expect(build(request)).rejects.toThrow(
+      'Identity updates that upload data are not supported in this app yet.',
+    );
+    expect(getSpendableUtxos).not.toHaveBeenCalled();
+    expect(mockCreateUpdateIdentityTransaction).not.toHaveBeenCalled();
   });
 
   it('passes a normalized copy while preserving the original request bytes and explicit map presence', async () => {
@@ -130,7 +152,7 @@ describe('identity update content normalization', () => {
     );
     const originalTx = transaction({});
     const serverTx = transaction({[removeKey]: removals, [key]: additions});
-    const client = new VerusIdInterface('VRSCTEST', 'https://example.invalid');
+    const client = new VerusIdInterface(SYSTEM_ID, 'https://example.invalid');
     const validate = (details, tx = serverTx) => client.prepareIdentityUpdateTransaction(
       details, originalTx, 100, tx, true, true,
     );
