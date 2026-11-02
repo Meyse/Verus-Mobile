@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {BookUser, Gift} from 'lucide-react-native';
 import signedInCopy from '../../copy/signedIn';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -93,6 +93,7 @@ const ServiceTile = ({Icon, line, onPress, theme, title}) => (
 
 const SignedInServicesHome = ({navigation}) => {
   const theme = useOnboardingTheme();
+  const insets = useSafeAreaInsets();
   const giftCardCount = useFocusedCount(loadGiftCardCount);
   const addressCount = useFocusedCount(loadAddressCount);
 
@@ -118,10 +119,19 @@ const SignedInServicesHome = ({navigation}) => {
     rows.push(services.slice(index, index + GRID_COLUMNS));
   }
 
+  // The tab mounts hidden after sign-in, where a native SafeAreaView measures
+  // no top inset until its first visit; context insets are known up front.
   return (
-    <SafeAreaView
-      edges={['top', 'left', 'right']}
-      style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+    <View
+      style={[
+        styles.screen,
+        {
+          backgroundColor: theme.colors.background,
+          paddingTop: insets.top,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}>
       <View style={[styles.header, {backgroundColor: theme.colors.background}]}>
         <Text
           style={[
@@ -150,7 +160,7 @@ const SignedInServicesHome = ({navigation}) => {
           </View>
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
