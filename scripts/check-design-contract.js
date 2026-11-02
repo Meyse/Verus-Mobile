@@ -558,6 +558,103 @@ const backTitleFailures = (() => {
 
 failures.push(...backTitleFailures);
 
+// Left/start borders must be structure, never item accent bars (DESIGN.md).
+const leftAccentFailures = (() => {
+  const babel = require('@babel/core');
+  const sourceRoot = path.join(root, 'src');
+  const structuralBorders = [
+    // Neutral timeline connector between the pay and receive rows.
+    {
+      file: 'src/containers/SendWizard/components/TransferSummary.js',
+      owner: 'connector',
+      property: 'borderLeftWidth',
+      value: '2',
+    },
+    {
+      file: 'src/containers/SendWizard/components/TransferSummary.js',
+      owner: 'TransferConnector',
+      property: 'borderLeftColor',
+      value: 'theme.colors.border',
+    },
+    // Transparent side of the review connector's CSS triangle.
+    {
+      file: 'src/styles/deeplink/reviewStep.styles.js',
+      owner: 'connectorArrow',
+      property: 'borderLeftWidth',
+      value: '6',
+    },
+  ];
+  const hits = [];
+  const walk = directory => {
+    for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+      if (/^(__tests__|__mocks__|node_modules)$/.test(entry.name)) continue;
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(file);
+        continue;
+      }
+      if (!/\.js$/.test(entry.name)) continue;
+      const source = fs.readFileSync(file, 'utf8');
+      if (!/\bborder(Left|Start)(Width|Color)\b/.test(source)) continue;
+
+      const relativeFile = path.relative(root, file);
+      let ast;
+      try {
+        ast = babel.parseSync(source, {
+          babelrc: false,
+          configFile: false,
+          filename: file,
+          sourceType: 'module',
+          parserOpts: {plugins: ['jsx', 'flow', 'classProperties']},
+        });
+      } catch (error) {
+        hits.push(
+          `${relativeFile} could not be checked for left/start borders: ${error.message}`,
+        );
+        continue;
+      }
+
+      babel.traverse(ast, {
+        ObjectProperty(propertyPath) {
+          const {key, value} = propertyPath.node;
+          const property = key.name || key.value;
+          if (!/^border(Left|Start)(Width|Color)$/.test(property)) return;
+          if (
+            /Color$/.test(property) &&
+            value.type === 'StringLiteral' &&
+            value.value === 'transparent'
+          ) return;
+
+          // Named stylesheet entry, or the component that owns an inline style.
+          const container = propertyPath.parentPath.parentPath.node;
+          const functionPath = propertyPath.getFunctionParent();
+          const owner =
+            container.type === 'ObjectProperty'
+              ? container.key.name || container.key.value
+              : functionPath?.parentPath.node.id?.name;
+          const valueSource = source
+            .slice(value.start, value.end)
+            .replace(/\s+/g, '');
+          const allowed = structuralBorders.some(
+            border =>
+              border.file === relativeFile && border.owner === owner &&
+              border.property === property && border.value === valueSource,
+          );
+          if (allowed) return;
+
+          hits.push(
+            `${relativeFile}:${key.loc.start.line} sets ${property}. Do not use left/start accent bars; use a soft fill with a full outline or a change inside the item. Allow only documented structural borders.`,
+          );
+        },
+      });
+    }
+  };
+  if (fs.existsSync(sourceRoot)) walk(sourceRoot);
+  return hits;
+})();
+
+failures.push(...leftAccentFailures);
+
 if (failures.length > 0) {
   console.error('Design contract check failed:');
   failures.forEach(failure => console.error(`- ${failure}`));

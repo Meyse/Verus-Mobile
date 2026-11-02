@@ -7,7 +7,15 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-10-30 (compact neutral inputs implementation and QA).
+- Last updated: 2026-11-02 (content-card accent removal and design guard).
+- Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
+  `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
+  indent. Existing vertical spacing, tone panels, badges, labels and removed
+  value strikes stay unchanged. The unused encryption warning style is removed.
+  The design guard allows only the existing neutral transfer connector and
+  transparent review triangle. Static and synthetic checks pass; one existing
+  Jest suite has the same SVG mock load failure on the clean base. Owner device
+  QA stays open. See the evidence row and scoped checklist below.
 - Input integration, 2026-10-30: the owner requested a local commit and
   `--no-ff` merge of `codex/compact-neutral-inputs` into `redesign`. The
   commit scope includes the source and maintained design docs. Native QA
@@ -2047,6 +2055,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-02 | GR-4.NO-LEFT-BAR: content value blocks and design guard | `claude/no-left-bar` from `700fb18d` | Value blocks lose their left border, radius and indent; label colors and 4-point vertical padding / 6-point bottom margin stay. The unused `detailRowWarning` has no users and is removed. DESIGN.md records the rule. The AST guard permits only the neutral transfer connector and transparent review triangle. Design check passes (37 sources); restoring the old 3-point border fails. Start-edge width, both color properties and a recolored connector also fail; transparent color passes. Babel parses all 4 changed JS files. Changed-file safe-area check passes for 3 files; whitespace check passes. Synthetic component trees for 6 states, light/dark and both panel-tone modes match the base except for the approved removal (24 renders). Existing Jest: identity-update suite passes (1 test); content-display suite cannot load because its SVG mock lacks `Touchable.Mixin`, with the same result on a clean temporary `700fb18d` worktree. Logs: `/tmp/verus-no-left-bar.iZ0xzX/`. | Follow-up 01b36422: Existing/Active labels in light mode go from #CCC (1.6:1) to #6B7280 (4.7:1). Agent iOS QA on 01b36422 (Verus Night iOS, iPhone 17 Pro, iOS 26.5, Metro 8193, review only): added, appended, replace (action 3) and clear (action 4) pass in light and dark; no bar pixels, value text at the title edge, groups separate, strikes present. Evidence: `docs/qa/matrix/runs/2026-11-02-no-left-bar/`. Open: private/encrypted state on device, removed without metadata on device, Android, owner look. |
 | 2026-11-02 | Verus JS library compatibility; identity data uploads remain unsupported | `claude/verus-libs-update` from `fabfaf12` | Four approved commit pins and scoped bn.js overrides installed with one copy per library. Hermes Buffer subarray fix verified with the app Hermes binary. Non-empty signDataMap requests stop before GenericRequest network lookups and at all three shared update-build wrappers; the existing request-error screen receives a specific non-retryable message. Existing upload-success test now verifies rejection; no UI files changed. Both release bundles and hermesc compiles pass. Check scripts: 7 pass, the 3 supplied baseline failures remain. Focused Jest: 7 passed / 5 failed suites (116 passed / 29 failed tests); full Jest once: 98 passed / 30 failed suites (777 passed / 132 failed tests). | No upload support port, signing, broadcast, simulator or device work. Review follow-up: overrides moved to package.json `resolutions` (lockfile unchanged); identityUpdateEmptyContent now expects the new client to accept daemon outer-key order and to reject all 4 value changes with its new error text. Other focused failures concern existing missing mempool mocks and the credential-decryption failure policy. No merge or push. |
 | 2026-10-30 | TX-1.INPUTS follow-up: Save to address book secondary colors | `codex/compact-neutral-inputs`, uncommitted | The compact recipient chip now matches AppButton secondary colors. Dark text/icon use textPrimary on surfaceMuted; light uses primary on primaryBackground. Existing geometry and handler remain. Native iPhone 17 Pro/SE fixture captures checked in both themes. Contrast 12.22:1 dark, 4.74:1 light. Design, targeted safe-area, Babel and diff checks pass. Evidence: `docs/qa/compact-inputs/QA.local.md`. | Styling-only follow-up. No authenticated storage check, commit, merge or push. |
 | 2026-10-30 | TX-1.INPUTS: compact neutral fields | `codex/compact-neutral-inputs`, uncommitted from `5fe184a7` | Shared 48-point fields use one neutral focus border, 16/22 values and no glow. Shared address entry supplies Paste/Clear, optional QR, idle prefix/last-six display and complete editable values. Send, Address Book, manual VerusID, recovery and asset identifier consumers use it. Native component fixtures pass on iPhone 17 Pro (402x874), iPhone SE (375x667) and Android 360x640, with light/dark and keyboard states. Paste/Clear, full-value handoff and Back, wrong-network error, scanner fallback/Back, names, long identifiers, password eye, search Clear, memo grow/shrink/reopen, save failure/retry and clipboard failure/late edit passed in the recorded lanes. Fixed iOS two-line clipping and Android one-line native minimum height during QA. Production iOS signed-out name/password controls also pass. Both production JS bundles, design (37 sources), explicit safe-area (10 consumers), search-field (1257 sources), Babel (15 JS files) and diff checks pass. Screenshots and exact boundaries: `docs/qa/compact-inputs/QA.local.md`; no new Jest tests. | QR hardware decoding, live identity lookup, authenticated saves/signing/broadcast and every consumer journey remain outside fixture proof. Existing Send-options checker stops on unchanged `wizardUtils.js` ESM Buffer import. Task-owned QA server stopped; refreshed devices are unbooted with no open sessions. Existing Metro 8081 remains. No commit, merge or push. |
@@ -2376,3 +2385,19 @@ production iOS bundle request timed out on the existing Metro after 60 seconds;
 the separate fixture bundle built successfully. No new Jest tests or
 dependencies were added. Implementation ended uncommitted; the owner later
 authorized commit, push, and installation on the development iPhone.
+
+### GR-4.NO-LEFT-BAR — content value blocks (2026-11-02)
+
+- [x] Remove the content value-block bar and indent; preserve vertical spacing
+  and all other card presentation. Remove the unused encryption warning style.
+- [x] Record the rule in DESIGN.md and guard left/start border declarations
+  with explicit structural exceptions. Run parser, design, mutation, safe-area,
+  component-fixture, existing Jest and whitespace checks. Record the baseline
+  Jest failure separately from the candidate.
+- [ ] Owner device QA: added (one unlabeled block), appended (Existing + Add
+  value), removed (actions 3/4: struck Active + description), removed without
+  metadata, and private/encrypted changes; light and dark. No replacement bar
+  or indent; stacked value blocks remain separate.
+  Agent iOS QA 2026-11-02: added, appended, replace and clear pass in light
+  and dark (iOS 26.5 sim). Private/encrypted, no-metadata removal and Android
+  stay open.
