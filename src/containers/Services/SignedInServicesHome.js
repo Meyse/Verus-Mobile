@@ -1,4 +1,4 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -28,21 +28,22 @@ const loadAddressCount = async () => (await loadAddressBook()).length;
 const useFocusedCount = loadCount => {
   const [count, setCount] = useState(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      loadCount()
-        .then(nextCount => {
-          if (active) setCount(nextCount);
-        })
-        .catch(() => {
-          if (active) setCount(0);
-        });
-      return () => {
-        active = false;
-      };
-    }, [loadCount]),
-  );
+  const refreshCount = useCallback(() => {
+    let active = true;
+    loadCount()
+      .then(nextCount => {
+        if (active) setCount(nextCount);
+      })
+      .catch(() => {
+        if (active) setCount(0);
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadCount]);
+
+  useEffect(refreshCount, [refreshCount]);
+  useFocusEffect(refreshCount);
 
   return count;
 };

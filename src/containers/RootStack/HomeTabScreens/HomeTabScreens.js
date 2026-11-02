@@ -94,6 +94,8 @@ const HomeTabScreens = () => {
         name="ServicesHome"
         component={ServicesStackScreens}
         options={{
+          // These tabs load stored data on mount; mount at sign-in to avoid a first-visit loading frame.
+          lazy: false,
           title: signedInCopy.navigation.services,
           tabBarIcon: ({color}) => (
             <Feather name="compass" color={color} size={22} style={styles.icon} />
@@ -107,6 +109,7 @@ const HomeTabScreens = () => {
           focus: () => setLastSeenPendingIdentityKey(pendingIdentityMeta.key),
         }}
         options={{
+          lazy: false,
           title: signedInCopy.navigation.identity,
           tabBarIcon: ({color, focused}) => (
             <View style={styles.identityIconWrap}>
