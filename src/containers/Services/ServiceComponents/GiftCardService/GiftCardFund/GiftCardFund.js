@@ -3,6 +3,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
+  BackHandler,
   Easing,
   Keyboard,
   Platform,
@@ -85,6 +86,9 @@ import {
 } from '../../../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {setUserCoins} from '../../../../../actions/actionCreators';
 import {useObjectSelector} from '../../../../../hooks/useObjectSelector';
+import useBottomSheetActivity, {
+  isBottomSheetActive,
+} from '../../../../../hooks/useBottomSheetActivity';
 import {sanitizeNumericInput} from '../../../../Transfer/receiveInvoice';
 
 const STEP_DETAILS = 'details';
@@ -452,12 +456,14 @@ const GiftCardFund = props => {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
+  const sheetActive = useBottomSheetActivity();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const amountInputRef = useRef(null);
   const decimalSeparator = useMemo(getAmountDecimalSeparator, []);
   const [serviceData, setServiceData] = useState(null);
   const [linkedIds, setLinkedIds] = useState({});
   const [draftCard, setDraftCard] = useState(null);
+  const [savedDraftCardId, setSavedDraftCardId] = useState(null);
   const [step, setStep] = useState(
     createMode ? STEP_DETAILS : STEP_CONTENTS,
   );
@@ -490,10 +496,9 @@ const GiftCardFund = props => {
   const qrNavigationActiveRef = useRef(false);
   const operationAnnouncementRef = useRef(null);
   const pendingRouteInitializedRef = useRef(false);
+  const handleBackRef = useRef(null);
   const [selectedSystemId, setSelectedSystemId] = useState(null);
-  const [externalReturnStep, setExternalReturnStep] = useState(
-    STEP_CONTENTS,
-  );
+  const [externalReturnStep, setExternalReturnStep] = useState(null);
   const scrollViewRef = useRef(null);
   const confirmPasswordInputRef = useRef(null);
   const focusedPasswordFieldRef = useRef(null);
@@ -502,10 +507,11 @@ const GiftCardFund = props => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const pendingFundingId = props.route?.params?.pendingFundingId || null;
 
-  const storedCard = routeCardId
-    ? serviceData?.cards?.[routeCardId]
+  const storedCardId = savedDraftCardId || routeCardId;
+  const storedCard = storedCardId
+    ? serviceData?.cards?.[storedCardId]
     : null;
-  const card = draftCard || storedCard;
+  const card = storedCard || draftCard;
   const savedPendingFunding =
     pendingFundingId == null
       ? null
@@ -553,10 +559,6 @@ const GiftCardFund = props => {
     },
     [props.navigation],
   );
-
-  useEffect(() => {
-    props.navigation.setOptions({headerShown: false});
-  }, [props.navigation]);
 
   useEffect(() => {
     let mounted = true;
@@ -1109,6 +1111,11 @@ const GiftCardFund = props => {
         currentData => {
           const normalized = normalizeGiftCardServiceData(currentData);
           const currentCard = normalized.cards?.[nextCard.id];
+
+          if (savedDraftCardId && currentCard == null) {
+            throw new Error('Gift card is no longer available.');
+          }
+
           const nextData =
             currentCard == null
               ? upsertGiftCard(normalized, nextCard)
@@ -1128,7 +1135,14 @@ const GiftCardFund = props => {
       );
 
       setServiceData(savedData);
-      const savedCard = savedData.cards?.[nextCard.id] || nextCard;
+      const savedCard = savedData.cards?.[nextCard.id];
+
+      if (!savedCard) {
+        throw new Error('Gift card is no longer available.');
+      }
+
+      // Once an address can receive funds, keep this card and its key.
+      if (createMode) setSavedDraftCardId(savedCard.id);
 
       if (!canStartGiftCardFunding(savedCard)) {
         throw new Error(
@@ -1142,7 +1156,7 @@ const GiftCardFund = props => {
 
       return savedCard;
     },
-    [activeAccount],
+    [activeAccount, createMode, savedDraftCardId],
   );
 
   const updateStoredCard = useCallback(
@@ -1177,7 +1191,13 @@ const GiftCardFund = props => {
       const latestData = normalizeGiftCardServiceData(
         await requestServiceStoredData(GIFT_CARD_SERVICE_ID),
       );
-      const latestCard = latestData.cards?.[card.id] || card;
+      const storedDraft = latestData.cards?.[savedDraftCardId || card.id];
+
+      if (savedDraftCardId && !storedDraft) {
+        throw new Error('Gift card is no longer available.');
+      }
+
+      const latestCard = storedDraft || card;
 
       if (!canStartGiftCardFunding(latestCard) && !isExactSavedPendingFunding(latestCard, pendingFundingToRetry)) {
         throw new Error(
@@ -1217,7 +1237,7 @@ const GiftCardFund = props => {
 
     setServiceData(latestData);
     return latestCard;
-  }, [card, createMode, routeCardId]);
+  }, [card, createMode, routeCardId, savedDraftCardId]);
 
   const prepareShareCard = useCallback(
     async cardToShare => {
@@ -1729,7 +1749,7 @@ const GiftCardFund = props => {
     if (step === STEP_RESULT) {
       props.navigation.goBack();
     } else if (step === STEP_EXTERNAL) {
-      if (createMode || startExternal) {
+      if (externalReturnStep == null) {
         props.navigation.goBack();
       } else {
         setStep(externalReturnStep);
@@ -1738,13 +1758,44 @@ const GiftCardFund = props => {
       setPreflightPlan(null);
       setResult(null);
       setStep(STEP_CONTENTS);
-    } else if (step === STEP_CONTENTS && createMode) {
+    } else if (step === STEP_CONTENTS && createMode && !savedDraftCardId) {
       setResult(null);
       setStep(STEP_DETAILS);
     } else {
       props.navigation.goBack();
     }
   };
+
+  handleBackRef.current = handleBack;
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        // Sheets own Back, including their closing animation. Keep this listener
+        // stable so an embedded confirmation's newer listener runs first.
+        if (!isBottomSheetActive()) handleBackRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, []),
+  );
+
+  const backStaysInFlow =
+    step === STEP_REVIEW ||
+    (step === STEP_EXTERNAL && externalReturnStep != null) ||
+    (step === STEP_CONTENTS && createMode && !savedDraftCardId);
+
+  useEffect(() => {
+    props.navigation.setOptions({
+      headerShown: false,
+      gestureEnabled:
+        Platform.OS === 'ios' &&
+        !busy &&
+        step !== STEP_PROCESSING &&
+        !backStaysInFlow &&
+        !sheetActive,
+    });
+  }, [backStaysInFlow, busy, props.navigation, sheetActive, step]);
 
   const renderInlineResult = () => {
     if (!result || step === STEP_RESULT) return null;

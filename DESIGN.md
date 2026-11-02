@@ -784,7 +784,14 @@ The sole primary action is "Review gift card". It is enabled for any positive
 amount or selected VerusID, including an empty main amount. No compatible
 currency keeps the existing empty line and offers only available VerusIDs;
 there is no amount keypad. Create and existing-card funding share this step.
-Back from Review keeps the contents. Busy state disables editing and actions.
+Header Back and Android Back use the same step order and keep the contents.
+Another wallet returns to Build when opened there; direct entry leaves the flow.
+Review returns to Build. Build returns to the name step only for an unsaved new
+card. After saving, Build leaves the flow and keeps the saved card. For an existing
+card, Build leaves the flow. The name step also leaves. Processing and busy state block Back.
+Result Back leaves the flow. Open sheets keep their own Back action. iOS swipe
+is off while Back stays in the flow, a sheet is open, or an operation is busy.
+Busy state disables editing and actions.
 
 ## Lists, forms, and settings
 
