@@ -1199,13 +1199,9 @@ const IdentityUpdateRequestInfoContent = props => {
           </AppButton>
           {currentStepId === STEP_REVIEW && (
             <AppButton
-              buttonColor={theme.colors.surfaceMuted}
               height={56}
               onPress={cancel}
               themeMode={theme.mode}
-              textColor={
-                theme.isDark ? theme.colors.textPrimary : theme.colors.primary
-              }
               variant="secondary">
               Cancel
             </AppButton>

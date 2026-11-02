@@ -7,7 +7,7 @@ without repeating the entire investigation.
 ## Current position
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-02 (content-card accent removal and design guard).
+- Last updated: 2026-11-02 (shared text-action system, option B).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2110,6 +2110,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-02 | SH-1.TEXT-ACTIONS: option B | `claude/text-action-link` from `69de19d6` | Shared link token and TextAction roles; audited clients, live v1 text buttons and recovery Change actions migrated. Design, safe-area, parser, contrast, component fixtures and both production JS bundles pass. Gift Back/Close declarations match base. No Jest tests added. | Orchestrator device QA remains open. See `text-action-implementation.local.md` for the action inventory, exclusions, routes and states. No simulator, emulator, push or merge. |
 | 2026-11-02 | GR-4.NO-LEFT-BAR: content value blocks and design guard | `claude/no-left-bar` from `700fb18d` | Value blocks lose their left border, radius and indent; label colors and 4-point vertical padding / 6-point bottom margin stay. The unused `detailRowWarning` has no users and is removed. DESIGN.md records the rule. The AST guard permits only the neutral transfer connector and transparent review triangle. Design check passes (37 sources); restoring the old 3-point border fails. Start-edge width, both color properties and a recolored connector also fail; transparent color passes. Babel parses all 4 changed JS files. Changed-file safe-area check passes for 3 files; whitespace check passes. Synthetic component trees for 6 states, light/dark and both panel-tone modes match the base except for the approved removal (24 renders). Existing Jest: identity-update suite passes (1 test); content-display suite cannot load because its SVG mock lacks `Touchable.Mixin`, with the same result on a clean temporary `700fb18d` worktree. Logs: `/tmp/verus-no-left-bar.iZ0xzX/`. | Follow-up 01b36422: Existing/Active labels in light mode go from #CCC (1.6:1) to #6B7280 (4.7:1). Agent iOS QA on 01b36422 (Verus Night iOS, iPhone 17 Pro, iOS 26.5, Metro 8193, review only): added, appended, replace (action 3) and clear (action 4) pass in light and dark; no bar pixels, value text at the title edge, groups separate, strikes present. Evidence: `docs/qa/matrix/runs/2026-11-02-no-left-bar/`. Open: private/encrypted state on device, removed without metadata on device, Android, owner look. |
 | 2026-11-02 | Verus JS library compatibility; identity data uploads remain unsupported | `claude/verus-libs-update` from `fabfaf12` | Four approved commit pins and scoped bn.js overrides installed with one copy per library. Hermes Buffer subarray fix verified with the app Hermes binary. Non-empty signDataMap requests stop before GenericRequest network lookups and at all three shared update-build wrappers; the existing request-error screen receives a specific non-retryable message. Existing upload-success test now verifies rejection; no UI files changed. Both release bundles and hermesc compiles pass. Check scripts: 7 pass, the 3 supplied baseline failures remain. Focused Jest: 7 passed / 5 failed suites (116 passed / 29 failed tests); full Jest once: 98 passed / 30 failed suites (777 passed / 132 failed tests). | No upload support port, signing, broadcast, simulator or device work. Review follow-up: overrides moved to package.json `resolutions` (lockfile unchanged); identityUpdateEmptyContent now expects the new client to accept daemon outer-key order and to reject all 4 value changes with its new error text. Other focused failures concern existing missing mempool mocks and the credential-decryption failure policy. No merge or push. |
 | 2026-10-30 | TX-1.INPUTS follow-up: Save to address book secondary colors | `codex/compact-neutral-inputs`, uncommitted | The compact recipient chip now matches AppButton secondary colors. Dark text/icon use textPrimary on surfaceMuted; light uses primary on primaryBackground. Existing geometry and handler remain. Native iPhone 17 Pro/SE fixture captures checked in both themes. Contrast 12.22:1 dark, 4.74:1 light. Design, targeted safe-area, Babel and diff checks pass. Evidence: `docs/qa/compact-inputs/QA.local.md`. | Styling-only follow-up. No authenticated storage check, commit, merge or push. |
@@ -2456,3 +2457,36 @@ authorized commit, push, and installation on the development iPhone.
   Agent iOS QA 2026-11-02: added, appended, replace and clear pass in light
   and dark (iOS 26.5 sim). Private/encrypted, no-metadata removal and Android
   stay open.
+
+
+### SH-1.TEXT-ACTIONS — shared link and action roles (2026-11-02)
+
+Branch: `claude/text-action-link`, from `redesign` at `69de19d6`.
+Owner chose option B of the text-action audit. This scope changes text actions
+and their documented roles. It does not change transaction or consent logic.
+
+- [x] Add light/dark `link`, shared TextAction, small context actions and MAX chips.
+- [x] Migrate the audited actions and reachable legacy text buttons. Keep the
+  Login video exception, canonical sheet rows and the stated exclusions.
+- [x] Standardize secondary action roles and request-review Cancel fills.
+- [x] Update DESIGN.md, TYPOGRAPHY.md and the direct action-label design guard.
+- [x] Run design, safe-area, parser, component, contrast and both production
+  JS bundle checks. Keep the component fixtures temporary. Add no Jest tests.
+- [ ] Orchestrator device QA: iOS and Android, light/dark, normal/compact,
+  pressed/disabled, keyboard, Back and recovery states in the local handoff.
+
+Evidence: `text-action-implementation.local.md` lists each action, source lines,
+reachability and the device checklist. Normal link contrast is 4.88:1 or more
+in light and 5.22:1 or more in dark on background, sheet, surface,
+surfaceRaised and surfaceMuted. Component fixtures cover shared type roles,
+icons, callbacks, pressed/disabled state, accessibility roles and hit slop.
+The design guard rejects a primary-colored direct action label, while primary
+fills and icons pass. It does not infer named stylesheet callers.
+
+Both platform JS bundles pass with this checkout as Metro's project root.
+The fresh worktree reuses the existing dependency tree through a local symlink.
+A temporary Metro config exposes that dependency directory. pnpm's automatic
+install check is disabled for these commands; no package files change.
+GiftCardFund Back/Close declarations match the base. Its changes are limited
+to the MAX and add-content controls. No simulator, emulator, wallet action,
+push or merge ran. Device proof remains separate from source and fixtures.

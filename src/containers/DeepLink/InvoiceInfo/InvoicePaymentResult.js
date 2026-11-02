@@ -6,6 +6,8 @@ import {DeepLinkReviewScrollView} from '../components/RequestReview';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BigNumber from 'bignumber.js';
 import AppButton from '../../../components/AppButton';
+import SignedOutActionRow from '../../../components/SignedOutActionRow';
+import {ExternalLink} from 'lucide-react-native';
 import ProgressHeader from '../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {satsToCoins} from '../../../utils/math';
@@ -63,14 +65,16 @@ const InvoicePaymentResult = ({params, coinObj, onDone, onExplorer}) => {
           value={destination}
         />
         <InvoiceCopyRow label="Transaction ID" value={txid} />
+        {!!onExplorer && (
+          <SignedOutActionRow
+            IconComponent={ExternalLink}
+            label="View transaction"
+            onPress={onExplorer}
+          />
+        )}
       </DeepLinkReviewScrollView>
       <SafeBottomActionStack horizontalSpacing={24} style={styles.footer}>
         <AppButton onPress={onDone}>Done</AppButton>
-        {!!onExplorer && (
-          <AppButton variant="text" onPress={onExplorer}>
-            View transaction
-          </AppButton>
-        )}
       </SafeBottomActionStack>
     </SafeAreaView>
   );

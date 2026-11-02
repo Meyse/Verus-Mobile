@@ -6,7 +6,6 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -18,8 +17,9 @@ import {
   refreshAccountData,
 } from '../../../actions/actionDispatchers';
 import AppButton from '../../../components/AppButton';
+import TextAction from '../../../components/TextAction';
 import AppTextInput from '../../../components/AppTextInput';
-import BiometricAffordanceIcon from '../../../components/BiometricAffordanceIcon';
+import {getBiometryIconComponent} from '../../../components/BiometricAffordanceIcon';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import WalletUnlockLoadingContent from '../../../components/WalletUnlockLoadingContent';
@@ -471,21 +471,12 @@ const UnlockWalletSheet = ({
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 )}
                 {showBiometryAction && (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    activeOpacity={0.74}
+                  <TextAction
+                    Icon={getBiometryIconComponent(supportedBiometryType, true)}
                     onPress={() => tryBiometricUnlock(true)}
                     style={styles.biometryAction}>
-                    <BiometricAffordanceIcon
-                      supportedBiometryType={supportedBiometryType}
-                      showFallback
-                      size={24}
-                      color={theme.colors.primary}
-                    />
-                    <Text style={styles.biometryActionText}>
-                      {getBiometryLabel(supportedBiometryType)}
-                    </Text>
-                  </TouchableOpacity>
+                    {getBiometryLabel(supportedBiometryType)}
+                  </TextAction>
                 )}
               </>
             )}
@@ -590,12 +581,6 @@ const createStyles = theme =>
     marginTop: 14,
     marginBottom: 16,
     paddingHorizontal: 2,
-  },
-  biometryActionText: {
-    marginLeft: 10,
-    color: theme.colors.primary,
-    fontSize: 15,
-    ...fontStyle('semiBold'),
   },
   passwordContent: {
     paddingBottom: PASSWORD_BUTTON_TOP_MARGIN,

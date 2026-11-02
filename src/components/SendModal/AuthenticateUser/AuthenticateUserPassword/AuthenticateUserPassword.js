@@ -1,12 +1,13 @@
 import React from 'react';
 import { useEffect, useState } from "react"
 import { Keyboard, ScrollView, TouchableWithoutFeedback, View } from "react-native";
-import { Button, TextInput } from "react-native-paper";
+import Colors from '../../../../globals/colors';
+import AppButton from '../../../AppButton';
+import {Button,  TextInput } from "react-native-paper";
 import { useDispatch } from 'react-redux';
 import { initializeAccountData } from "../../../../actions/actionDispatchers";
 import {setBiometry} from '../../../../actions/actionCreators';
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
-import Colors from '../../../../globals/colors';
 import styles from "../../../../styles";
 import { SEND_MODAL_FORM_STEP_FORM, SEND_MODAL_FORM_STEP_RESULT, SEND_MODAL_USER_TO_AUTHENTICATE } from "../../../../utils/constants/sendModal";
 import { getSupportedBiometryType } from '../../../../utils/keychain/keychain';
@@ -148,12 +149,12 @@ const AuthenticateUserPassword = props => {
           justifyContent: 'space-between',
           display: 'flex',
         }}>
-        <Button
-          textColor={Colors.warningButtonColor}
+        <AppButton
+          variant="secondary"
           style={{width: 148}}
           onPress={() => goBack()}>
           Back
-        </Button>
+        </AppButton>
         <Button
           buttonColor={Colors.verusGreenColor}
           textColor={password.length == 0 ? Colors.lightGrey : Colors.secondaryColor}

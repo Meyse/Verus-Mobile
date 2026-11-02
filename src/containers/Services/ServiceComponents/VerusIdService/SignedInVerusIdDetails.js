@@ -31,6 +31,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDispatch} from 'react-redux';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../components/AppButton';
+import TextAction from '../../../../components/TextAction';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import {SignedInActionButtons} from '../../../../components/SignedInActionBar';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
@@ -777,14 +778,12 @@ const SignedInVerusIdDetails = () => {
                   {error}
                 </Text>
               </View>
-              <AppButton
+              <TextAction
                 accessibilityLabel="Try loading this VerusID again"
                 onPress={load}
-                style={styles.refreshErrorAction}
-                themeMode={theme.mode}
-                variant="text">
+                style={styles.refreshErrorAction}>
                 Try again
-              </AppButton>
+              </TextAction>
             </View>
           ) : null}
 

@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {ChevronDown, ChevronUp} from 'lucide-react-native';
 import AppButton from '../../../AppButton';
+import TextAction from '../../../TextAction';
 import ScannerScreen from '../../../BarcodeReader/ScannerScreen';
 import RevokeRecoverFlowScaffold from '../../../../containers/RevokeRecover/RevokeRecoverFlowScaffold';
 import RevokeRecoverIdentityPickerSheet, {
@@ -263,24 +264,13 @@ const EditRow = ({title, value, action = 'Change', onPress, testID}) => {
           {value}
         </Text>
       </View>
-      <TouchableOpacity
-        accessibilityRole="button"
+      <TextAction
         accessibilityLabel={`${action} ${title}`}
         onPress={onPress}
         testID={testID}
         style={localStyles.action}>
-        <Text
-          style={[
-            theme.typography.labelMd,
-            {
-              color: theme.isDark
-                ? theme.colors.textPrimary
-                : theme.colors.primary,
-            },
-          ]}>
-          {action}
-        </Text>
-      </TouchableOpacity>
+        {action}
+      </TextAction>
     </View>
   );
 };
@@ -296,6 +286,7 @@ const localStyles = StyleSheet.create({
   action: {
     minWidth: 62,
     minHeight: 44,
+    alignSelf: 'center',
     alignItems: 'flex-end',
     justifyContent: 'center',
   },

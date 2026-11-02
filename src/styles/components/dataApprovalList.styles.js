@@ -49,6 +49,7 @@ const createDataApprovalListStyles = theme =>
     undoAction: {
       minWidth: 44,
       minHeight: 44,
+      alignSelf: 'center',
       justifyContent: 'center',
       alignItems: 'flex-end',
       paddingLeft: theme.spacing.sm,
@@ -57,10 +58,6 @@ const createDataApprovalListStyles = theme =>
       minHeight: 44,
       justifyContent: 'center',
       alignSelf: 'flex-start',
-    },
-    actionText: {
-      ...theme.typography.labelMd,
-      color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
     },
     detailField: {
       paddingVertical: 12,

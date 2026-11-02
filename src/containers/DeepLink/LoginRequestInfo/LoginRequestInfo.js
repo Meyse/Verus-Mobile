@@ -1,13 +1,15 @@
 import React, {useState, useEffect} from 'react';
-import {Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
+import {Dimensions, ScrollView, TouchableOpacity, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import Colors from '../../../globals/colors';
+import AppButton from '../../../components/AppButton';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
-import { Button, Divider, List, Portal, Text } from 'react-native-paper';
+import {Button, Divider, List, Portal, Text} from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { unixToDate } from '../../../utils/math';
 import { useDispatch, useSelector } from 'react-redux';
-import Colors from '../../../globals/colors';
 import { VerusIdLogo } from '../../../images/customIcons';
 import { openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
@@ -317,12 +319,12 @@ const LoginRequestInfo = props => {
             justifyContent: 'space-between',
             display: 'flex',
           }}>
-          <Button
-            textColor={Colors.warningButtonColor}
+          <AppButton
+            variant="secondary"
             style={{width: 148}}
             onPress={() => cancel()}>
             Cancel
-          </Button>
+          </AppButton>
           <Button
             buttonColor={Colors.verusGreenColor}
             textColor={Colors.secondaryColor}

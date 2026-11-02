@@ -15,6 +15,8 @@ const requiredFiles = [
   'src/components/AppSearchField.js',
   'src/components/AppSearchLauncher.js',
   'src/components/CopyAction.js',
+  'src/components/TextAction.js',
+  'src/styles/components/textAction.styles.js',
   'src/components/EmptyState.js',
   'src/components/StepGlyph.js',
   'src/components/ProgressHeader.js',
@@ -154,7 +156,7 @@ const requiredSourceFragments = [
   },
   {
     path: 'src/containers/DeepLink/components/RequestReview/OpenInAnotherWalletAction.js',
-    fragments: ['accessibilityLabel="Open in another wallet"', 'theme.typography.caption', 'minHeight: 44', 'minHeight: 32', 'opacity: 0.4'],
+    fragments: ['accessibilityLabel="Open in another wallet"', 'accessibilityRole="link"', '<TextAction', 'size="small"', 'minHeight: 44', 'minHeight: 32'],
   },
   {
     path: 'src/components/InfoSheet.js',
@@ -654,6 +656,47 @@ const leftAccentFailures = (() => {
 })();
 
 failures.push(...leftAccentFailures);
+
+// Guard direct action labels. Do not treat primary fills, icons, selection
+// states or data in a complex row as text actions. Named stylesheet values
+// need a source review; this check deliberately does not guess their callers.
+const primaryActionTextFailures = (() => {
+  const babel = require('@babel/core');
+  const hits = [];
+  const walk = directory => {
+    for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+      if (/^(__tests__|__mocks__|node_modules)$/.test(entry.name)) continue;
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) { walk(file); continue; }
+      if (!/\.js$/.test(file)) continue;
+      const source = fs.readFileSync(file, 'utf8');
+      if (!source.includes('theme.colors.primary')) continue;
+      const ast = babel.parseSync(source, {
+        babelrc: false, configFile: false, filename: file,
+        parserOpts: {plugins: ['jsx', 'flow', 'classProperties']},
+      });
+      babel.traverse(ast, {
+        ObjectProperty(propertyPath) {
+          if ((propertyPath.node.key.name || propertyPath.node.key.value) !== 'color') return;
+          const value = propertyPath.node.value;
+          if (!/\btheme\.colors\.primary\b/.test(source.slice(value.start, value.end))) return;
+          const attribute = propertyPath.findParent(parent => parent.isJSXAttribute());
+          if (attribute?.node.name.name !== 'style') return;
+          const text = attribute.parentPath;
+          if (text.node.name?.name !== 'Text') return;
+          const action = text.parentPath.parentPath;
+          if (!action?.isJSXElement() ||
+              !['Pressable', 'TouchableOpacity', 'TouchableHighlight', 'TouchableWithoutFeedback']
+                .includes(action.node.openingElement.name.name)) return;
+          hits.push(`${path.relative(root, file)}:${value.loc.start.line} uses primary for an action label. Use TextAction and link.`);
+        },
+      });
+    }
+  };
+  walk(path.join(root, 'src'));
+  return hits;
+})();
+failures.push(...primaryActionTextFailures);
 
 if (failures.length > 0) {
   console.error('Design contract check failed:');

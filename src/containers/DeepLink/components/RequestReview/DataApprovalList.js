@@ -1,8 +1,9 @@
 import React, {useMemo, useState} from 'react';
-import {TouchableOpacity, View} from 'react-native';
+import {View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {Check} from 'lucide-react-native';
 import CopyAction from '../../../../components/CopyAction';
+import TextAction from '../../../../components/TextAction';
 import StatusBadge from '../../../../components/StatusBadge';
 import {dataApprovalListStyles as createStyles} from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
@@ -71,29 +72,29 @@ const DataApprovalItem = ({
           <View style={styles.value}>
             {item.content}
             {item.details?.length > 0 ? (
-              <TouchableOpacity
+              <TextAction
                 accessibilityRole="button"
                 accessibilityLabel={`View details for ${item.title}`}
                 accessibilityState={{disabled}}
                 disabled={disabled}
                 onPress={() => setDetailsVisible(true)}
                 style={styles.detailsAction}>
-                <Text style={styles.actionText}>View details</Text>
-              </TouchableOpacity>
+                View details
+              </TextAction>
             ) : null}
           </View>
         ) : null}
       </View>
       {approved ? (
-        <TouchableOpacity
+        <TextAction
           accessibilityRole="button"
           accessibilityLabel={`Undo approval of ${item.title}`}
           accessibilityState={{disabled}}
           disabled={disabled}
           onPress={onUndo}
           style={styles.undoAction}>
-          <Text style={styles.actionText}>Undo</Text>
-        </TouchableOpacity>
+          Undo
+        </TextAction>
       ) : null}
       <DeepLinkRequestSheetScaffold
         visible={detailsVisible && !disabled}

@@ -5,14 +5,14 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {ShieldEllipsis} from 'lucide-react-native';
+import {QrCode, ShieldEllipsis} from 'lucide-react-native';
 import AppButton from '../AppButton';
+import TextAction from '../TextAction';
 import AppTextInput from '../AppTextInput';
 import SafeBottomActionStack from '../SafeBottomActionStack';
 import ScanSeed from '../ScanSeed';
@@ -188,19 +188,13 @@ const ZSeedSetupFlow = ({cancel, seed, beginSeedSubmission, seedSubmissionIsCurr
                   textContentType="none"
                   value={importValue}
                 />
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  activeOpacity={0.72}
+                <TextAction
+                  Icon={QrCode}
                   disabled={importLoading}
                   onPress={() => setStage('scan')}
                   style={styles.scanAction}>
-                  <MaterialCommunityIcons
-                    color={theme.colors.primary}
-                    name="qrcode-scan"
-                    size={20}
-                  />
-                  <Text style={styles.scanActionText}>Scan QR code</Text>
-                </TouchableOpacity>
+                  Scan QR code
+                </TextAction>
               </>
             ) : null}
           </View>
@@ -302,18 +296,8 @@ const createStyles = theme =>
       marginTop: 24,
     },
     scanAction: {
-      minHeight: 48,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
       marginTop: 10,
-    },
-    scanActionText: {
-      color: theme.colors.primary,
-      fontSize: 14,
-      lineHeight: 19,
-      ...fontStyle('semiBold'),
+      alignSelf: 'center',
     },
   });
 

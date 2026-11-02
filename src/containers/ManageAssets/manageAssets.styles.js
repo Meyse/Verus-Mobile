@@ -29,8 +29,6 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   // The slot grows with the native switch: 51 points wide on every iOS version
   // (src/utils/applyNativeSwitchSize.js).
   switchAction: {minWidth: 52, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'center'},
-  actionLabel: {...theme.typography.labelMd, color: theme.colors.primary},
-  addedLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary},
   footer: {paddingTop: 12, backgroundColor: theme.colors.background},
   customEntry: {minHeight: 80, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border},
   customEntryCopy: {flex: 1, minWidth: 0, gap: 4},

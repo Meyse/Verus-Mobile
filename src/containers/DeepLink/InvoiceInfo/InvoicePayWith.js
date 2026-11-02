@@ -3,7 +3,7 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
-import AppButton from '../../../components/AppButton';
+import TextAction from '../../../components/TextAction';
 import FadedScrollView from '../../../components/FadedScrollView';
 import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
 import {fontStyle} from '../../../globals/fonts';
@@ -513,9 +513,9 @@ const InvoicePayWith = () => {
             {conversionError ? (
               <View>
                 <ErrorMessage>Conversion options didn’t load.</ErrorMessage>
-                <AppButton onPress={onRetryConversions} variant="text">
+                <TextAction onPress={onRetryConversions}>
                   Try again
-                </AppButton>
+                </TextAction>
               </View>
             ) : null}
           </>

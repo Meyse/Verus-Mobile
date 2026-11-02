@@ -20,6 +20,7 @@ export {default as appAddressInputStyles} from './components/appAddressInput.sty
 export {default as appEncryptionRequestInfoStyles} from './deeplink/appEncryptionRequestInfo.styles';
 export {default as appSearchStyles} from './components/appSearch.styles';
 export {default as appTextInputStyles} from './components/appTextInput.styles';
+export {default as createTextActionStyles} from './components/textAction.styles';
 export {default as authenticationRequestInfoStyles} from './deeplink/authenticationRequestInfo.styles';
 export {default as authorityInfoSheetStyles} from './deeplink/authorityInfoSheet.styles';
 export {default as barcodeReaderStyles} from './components/barcodeReader.styles';
