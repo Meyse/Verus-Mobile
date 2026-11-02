@@ -2012,6 +2012,32 @@ The existing positive-amount Review gate still permits an amount above the
 balance; funding validation stays downstream. No device or simulator QA ran
 in this implementation task, as instructed by the owner.
 
+Device-QA follow-up, 2026-11-02 (same implementation branch):
+
+- [x] Hide tabs for the active `GiftCardCreate` and `GiftCardFund` Services
+  routes, including every internal step. Other routes use the unchanged
+  `HomeTabScreens` tab style. Review drops the bottom inset with its password
+  keyboard open. Processing reserves its scroll content's bottom safe area.
+- [x] Display the main amount with the locale decimal separator. Keep
+  `fundAmounts`, funding selections and MAX values normalized. Preserve the
+  amount caret when only the displayed separator changes.
+- [x] Inspect accessibility wrappers and action semantics. No grouping or
+  descendant-hiding parent was found. Add has an explicit label. Extra rows,
+  remove actions and Add have explicit disabled states. Unit and MAX already
+  have their own button roles, labels and disabled states.
+- [ ] Orchestrator recheck: native tab restoration, safe-area geometry, locale
+  entry and separate accessibility elements on iOS and Android.
+
+Follow-up evidence: `check:design` passes (37 canonical sources). Safe-area
+checks pass for the 3 changed JS files, together and individually. Narrow
+undefined/unused lint, Babel parsing and the iOS production bundle pass.
+The earlier state/contract (26) and component (11) scripts pass against
+`700fb18d`; the existing keypad checks pass (20). Local QA regression checks
+cover tab defaults, locale entry, caret edits, accessibility props and shared
+safe-stack padding. This is source and React component evidence. No simulator
+or native accessibility check ran in this follow-up. Metro on port 8197 was
+left running for orchestrator QA.
+
 ## RG-1 — Say each fact once (result guard)
 
 **Authority:** [DESIGN.md](DESIGN.md) core rule "Say each fact once", the

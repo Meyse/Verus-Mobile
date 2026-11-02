@@ -2,6 +2,7 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {InteractionManager, StyleSheet, View} from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
 import {useDispatch} from 'react-redux';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
 import IdentityStackScreens from '../IdentityStackScreens/IdentityStackScreens';
@@ -73,7 +74,7 @@ const HomeTabScreens = () => {
 
   return (
     <HomeTabs.Navigator
-      screenOptions={{
+      screenOptions={({route}) => ({
         headerShown: false,
         tabBarActiveTintColor: theme.isDark
           ? theme.colors.onPrimary
@@ -85,12 +86,19 @@ const HomeTabScreens = () => {
           borderTopWidth: 0,
           // The library default (8) draws a line-like shadow on Android.
           elevation: 0,
+          // Both routes render GiftCardFund, which owns the bottom safe area.
+          ...(route.name === 'ServicesHome' &&
+          ['GiftCardCreate', 'GiftCardFund'].includes(
+            getFocusedRouteNameFromRoute(route),
+          )
+            ? {display: 'none'}
+            : {}),
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
         },
-      }}>
+      })}>
       <HomeTabs.Screen
         name="WalletHome"
         component={WalletStackScreens}

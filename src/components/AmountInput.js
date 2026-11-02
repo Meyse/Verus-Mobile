@@ -25,7 +25,10 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
 
   useLayoutEffect(() => {
     if (valueRef.current === value) return;
+    const previousValue = valueRef.current;
     valueRef.current = value;
+    // A locale-only separator change keeps the same character positions.
+    if (previousValue.replace(/,/g, '.') === value.replace(/,/g, '.')) return;
     const cursor = {start: value.length, end: value.length};
     selectionRef.current = cursor;
     setSelection(cursor);

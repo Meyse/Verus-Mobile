@@ -893,6 +893,9 @@ const GiftCardFund = props => {
   );
   const canAddCurrency = availableCurrencyOptions.length > 0;
   const canAddIdentity = linkedIdentityOptions.some(identity => !selectedIds[identity.key]);
+  const addContentsLabel = canAddCurrency && canAddIdentity
+    ? 'Add currency or VerusID'
+    : canAddCurrency ? 'Add currency' : 'Add VerusID';
   const mainBalance = mainFundingCoin
     ? getCoinBalance(mainFundingCoin, activeAccount, ledgerBalances)
     : null;
@@ -1889,7 +1892,7 @@ const GiftCardFund = props => {
         onChangeText={changeMainAmount}
         onUnitPress={() => openCurrencyPicker('replace')}
         unit={mainFundingCoin.display_ticker || mainFundingCoin.id}
-        value={fundAmounts[mainKey] || ''}
+        value={(fundAmounts[mainKey] || '').replace('.', decimalSeparator)}
       />
       <View style={styles.balanceRow}>
         <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
@@ -1921,6 +1924,7 @@ const GiftCardFund = props => {
       <Pressable
         accessibilityLabel={text}
         accessibilityRole="button"
+        accessibilityState={{disabled: busy}}
         disabled={busy}
         onPress={onPress}
         style={styles.extraAction}>
@@ -1934,6 +1938,7 @@ const GiftCardFund = props => {
       <Pressable
         accessibilityLabel={`Remove ${text}`}
         accessibilityRole="button"
+        accessibilityState={{disabled: busy}}
         disabled={busy}
         onPress={onRemove}
         style={styles.removeExtraButton}>
@@ -1965,15 +1970,15 @@ const GiftCardFund = props => {
           ))}
           {canAddCurrency || canAddIdentity ? (
             <Pressable
+              accessibilityLabel={addContentsLabel}
               accessibilityRole="button"
+              accessibilityState={{disabled: busy}}
               disabled={busy}
               onPress={openAddContents}
               style={[styles.addContents, {borderTopColor: theme.colors.border}]}>
               <MaterialCommunityIcons name="plus" size={18} color={addActionColor} />
               <Text style={[theme.typography.labelMd, {color: addActionColor}]}>
-                {canAddCurrency && canAddIdentity
-                  ? 'Add currency or VerusID'
-                  : canAddCurrency ? 'Add currency' : 'Add VerusID'}
+                {addContentsLabel}
               </Text>
             </Pressable>
           ) : null}
@@ -2404,8 +2409,10 @@ const GiftCardFund = props => {
     if (step === STEP_REVIEW) {
       return (
         <SafeBottomActionStack
+          bottomSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30}
           gap={8}
           horizontalSpacing={20}
+          includeBottomInset={!keyboardVisible}
           safeAreaSpacing={0}>
           {preflightPlan ? (
             <AppButton
@@ -2602,6 +2609,7 @@ const GiftCardFund = props => {
               paddingRight: 20 + insets.right,
             },
             step === STEP_PROCESSING && styles.processingScrollContent,
+            step === STEP_PROCESSING && {paddingBottom: 28 + insets.bottom},
             step === STEP_CONTENTS && styles.amountScrollContent,
             step === STEP_CONTENTS && smallDevice && styles.amountScrollContentCompact,
           ]}
