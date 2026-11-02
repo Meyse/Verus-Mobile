@@ -50,6 +50,9 @@ methods, never Verus Mobile's visual direction.
   license for card-based page composition. The bordered GenericRequest card
   and compact card are an owner-approved exception (2026-10-28), limited to
   request reviews as specified in [Request-review hierarchy](#request-review-hierarchy).
+- Do not mark items with colored or thick left/start-edge accent bars in any
+  state. Use a soft fill with a full outline or a change inside the item.
+  A 1 px neutral divider and timeline connectors are structure.
 - Do not use eyebrow headings, small uppercase pre-titles, or redundant labels
   above the real title.
 - Use as few words as the task safely permits. Prefer a direct title, concise

@@ -119,9 +119,6 @@ export default StyleSheet.create({
     gap: 6,
   },
   cmmCardDescBlock: {
-    borderLeftWidth: 3,
-    borderRadius: 2,
-    paddingLeft: 10,
     paddingVertical: 4,
     marginBottom: 6,
   },
