@@ -413,7 +413,7 @@ const getRemoveActionDescription = removeMeta => {
 };
 
 const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
-  const neutralToneColor = darkMode ? '#7E8EA6' : '#CCC';
+  const neutralToneColor = darkMode ? '#7E8EA6' : '#6B7280';
   const updatedPreview = item.isEncrypted
     ? 'Encrypted upload (tap to view)'
     : item.updatedData ?? updateEntry?.data ?? item.data;
