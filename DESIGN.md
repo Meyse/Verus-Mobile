@@ -104,7 +104,34 @@ methods, never Verus Mobile's visual direction.
   `variant="secondary"` (the filled tint), 10 points below the primary, as in
   `src/containers/Services/AddressBook/AddressBookEditSheet.js`. This includes
   back-out actions such as "Cancel" and "Not now". Use `variant="text"` only
-  for a third, low-emphasis link, such as "Other options" on the login screen.
+  for a third, low-emphasis footer action. It uses the semantic `link` color.
+  Use `TextAction` for content actions, inline links, compact context actions,
+  and MAX chips. It uses `link` in both themes.
+
+## Text actions
+
+Owner approval, 2026-11-02: option B of the text-action audit.
+
+- `TextAction` draws actions tied to content. Use it for Undo, View details,
+  inline Try again, Use Face ID, Scan QR code, and Add or Review in a row.
+- Default type is `labelMd`. `size="small"` uses `caption` in a header band
+  or context slot. An optional Lucide icon is 20 points, with stroke 2 and
+  an 8-point gap.
+- Keep a 44-point target. A compact 32-point slot extends its target into the
+  padding. `variant="chip"` uses `labelDense`, a 1-point outline, 10-point
+  corners, and 3/10-point padding inside a 48 x 48-point target. Use it for MAX.
+- Text and icons use `link`. Pressed opacity is 0.72. Disabled text and icons
+  use `disabledText`. Add no underline or background.
+- The VerusID Link pill keeps its `surface` fill and 36-point visible height.
+  Use `labelMd`, `link`, and hit slop to 44 points.
+- Use the button role for an in-app action. Use the link role when an action
+  opens another app or a web page. Explorer actions keep `SignedOutActionRow`
+  with `ExternalLink`, as in `TransactionResult`; they stay above the footer.
+- Login's Other options keeps white text over video. A reachable legacy
+  action on a fixed white surface uses `themeMode="light"` until that screen
+  adopts theme surfaces. Change only its button in this migration.
+- Secondary buttons use the shared fill. Do not override Cancel to
+  `surfaceMuted`. Lock wallet and Use current values are secondary buttons.
 
 ## Input fields
 
@@ -193,6 +220,9 @@ were removed for this rule, because a shaded raster cannot follow the theme.
 | Need | Source of truth | Required starting point |
 | --- | --- | --- |
 | Theme, spacing, shapes, typography | `src/theme/onboarding/tokens.js`, `TYPOGRAPHY.md` | Consume the existing semantic roles. |
+| Link color | `src/theme/onboarding/tokens.js` | Use `link`: light `#3165D4`, dark `#7EA2F2`. Keep text contrast at 4.5:1 or more on its surface. |
+| Text action or link | `src/components/TextAction.js`, `src/styles/components/textAction.styles.js` | Use `link`; use `small` for context slots and `chip` for MAX. |
+| Footer text action | `src/components/AppButton.js` | Use `variant="text"` for the third footer action. Keep over-video Login text white. |
 | Signed-out onboarding step | `src/styles/components/signedOutFlow.styles.js`, `src/containers/Onboard/CreateProfile/CreateProfile.js` | Reuse the signed-out flow styles and compact-device rules. |
 | Full-screen stepped task | `src/components/ProgressHeader.js`, `src/containers/SendWizard/components/SendWizardHeader.js`, [Stepped tasks](#stepped-tasks) below | Reuse the shared header title treatment and safe-action composition. |
 | Selection BottomSheet | `src/containers/DeepLink/components/VerusIdIdentityPickerSheet/IdentityPickerSheet.js` as opened by `src/containers/DeepLink/AuthenticationRequestInfo/AuthenticationRequestInfo.js` | Reuse the component or match its choose, selected, provisioning, and link modes exactly. |
@@ -489,7 +519,8 @@ and fee-reserve rules in `SendWizardAmount`.
 - Put the amount and its current unit on one line. Keep 40-to-20-point amount
   sizing. A long amount can put its unit below it. The entry starts 48 points
   below the context on normal windows, or 8 points on compact windows.
-- Keep a 44-point fiat-mode action and a 48-point Available / MAX row. Missing
+- Keep a 44-point fiat-mode action and a 48-point Available / MAX row. MAX uses
+  `TextAction variant="chip"` in `link`. Missing
   fiat rates show no action or empty slot. Private pending funds retain their caption.
 - Place one Continue action above `AmountKeypad` through `WizardFooter` and
   `SafeBottomActionStack`. The keypad owns the bottom safe area. Keys are 48
@@ -766,7 +797,8 @@ and puts the previous amount in that row; an empty previous amount disappears.
 A VerusID tap reopens its picker. Amount, Available and extras scroll together
 in `FadedScrollView`; the action and keypad stay fixed.
 
-"Add currency or VerusID" opens the unfilled `GiftCardOptionsSheet` rows
+"Add currency or VerusID" uses `TextAction` in a 48-point row, with the
+Lucide Plus icon and `link` in both themes. It opens the unfilled `GiftCardOptionsSheet` rows
 "Another currency" and "VerusID". When only one kind remains, name it in the
 add action and open that picker directly. Hide the action when neither remains.
 Adding a currency lists only currencies outside the gift, makes the choice the
@@ -1554,7 +1586,7 @@ selected identity row in the footer. This is a limited exception to flat pages.
   VerusID address, authorities/content, network, signature time, response URIs,
   delivery, expiry, request ID, and screen-specific information when present.
 - `GenericRequestHome` shows "Open in another wallet" only when the other app
-  is installed. Use `caption` and the quiet details-action color, with no icon,
+  is installed. Use `TextAction size="small"` in `link`, with no icon,
   underline or background and a 44-point touch target. On headerless reviews,
   align it to the card's right edge, centered in the fixed 48-point band.
   Invoice headers keep Back, centered title and Close, without an accessory or

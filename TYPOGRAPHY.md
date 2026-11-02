@@ -43,6 +43,10 @@ shared role instead of adding another local combination.
 - `labelMd`: 14/19 semibold labels.
 - `labelSm`: 13/18 semibold labels for compact one-line surfaces, such as the
   Send/Convert context band. Pair it with `caption` for the quieter words.
+- `TextAction` uses `labelMd` by default. Its small context role uses `caption`
+  (13/18 regular). Its chip role uses `labelDense` (12/16 semibold).
+  The VerusID Link pill also uses `labelMd`. Do not override these metrics.
+  Footer text actions keep the 17-point semibold `AppButton` label.
 
 ## Compact Amount and quote details
 

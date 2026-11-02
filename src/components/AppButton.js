@@ -30,7 +30,7 @@ const createVariantStyles = theme => ({
   },
   text: {
     buttonColor: 'transparent',
-    textColor: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
+    textColor: theme.colors.link,
   },
 });
 
