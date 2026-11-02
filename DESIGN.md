@@ -132,6 +132,9 @@ Owner approval, 2026-11-02: option B of the text-action audit.
   adopts theme surfaces. Change only its button in this migration.
 - Secondary buttons use the shared fill. Do not override Cancel to
   `surfaceMuted`. Lock wallet and Use current values are secondary buttons.
+  Lock wallet keeps its 19-point `lock-outline` icon before the label, in the
+  label color, with a 10-point gap. Owner decision, 2026-11-02; no other
+  secondary button takes an icon.
 
 ## Input fields
 
