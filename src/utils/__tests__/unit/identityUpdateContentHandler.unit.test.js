@@ -41,6 +41,8 @@ const {getIdentityContent} = require('../../api/channels/verusid/requests/getIde
 const {createUpdateIdentityTx, getUpdatableIdentity} = require('../../api/channels/verusid/requests/updateIdentity');
 const {handleIdentityUpdateRequestDetailsVDXFObject} = require('../../deeplink/handlers/identityUpdateRequestDetailsHandler');
 
+const {getGenericRequestRejection} = require('../../deeplink/genericRequestRejection');
+
 const SYSTEM_ID = 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV';
 const SUBJECT_ID = toIAddress('cmm-subject', 'VRSC');
 const SIGNER_ID = toIAddress('cmm-requester', 'VRSC');
@@ -210,15 +212,23 @@ describe('identity update content history for review', () => {
     expect(displayProps.identityUpdates.contentmultimap).toEqual(removal);
   });
 
-  it('fetches current content for sign-data additions even without ordinary CMM values', async () => {
-    prepareDelta(newContent);
+  it('rejects sign-data uploads before looking up identities or building a transaction', async () => {
     const request = makeRequest({[KEY]: {data: {message: 'new signed value'}}});
     expect(request.getDetails().data.containsSignData()).toBe(true);
-    const {displayProps} = await handleRequest(request);
 
-    expect(getIdentityContent).toHaveBeenCalledWith(SYSTEM_ID, SUBJECT_ID, 0, 42);
-    expect(displayProps.subjectIdentity.identity.contentmultimap).toEqual(oldContent);
-    expect(displayProps.identityUpdates.contentmultimap).toEqual(newContent);
+    const rejection = handleRequest(request);
+    await expect(rejection).rejects.toThrow(
+      'Identity updates that upload data are not supported in this app yet.',
+    );
+    await expect(rejection.catch(getGenericRequestRejection)).resolves.toEqual({
+      canRetry: false,
+      message: 'Identity updates that upload data are not supported in this app yet.',
+      title: 'Unsupported request',
+    });
+    expect(getIdentity).not.toHaveBeenCalled();
+    expect(getUpdatableIdentity).not.toHaveBeenCalled();
+    expect(getIdentityContent).not.toHaveBeenCalled();
+    expect(createUpdateIdentityTx).not.toHaveBeenCalled();
   });
 
   it('propagates a subject history error instead of displaying an empty before-state', async () => {

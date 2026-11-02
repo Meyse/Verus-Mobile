@@ -6,6 +6,7 @@ export const GENERIC_REQUEST_REJECTION_CODES = {
   EXPERIMENTAL_DISABLED: 'EXPERIMENTAL_REQUEST_DISABLED',
   EXPIRED: 'REQUEST_EXPIRED',
   INVALID: 'REQUEST_INVALID',
+  IDENTITY_DATA_UPLOAD_UNSUPPORTED: 'IDENTITY_DATA_UPLOAD_UNSUPPORTED',
   LINK_TOO_LONG: 'REQUEST_LINK_TOO_LONG',
   NETWORK_MISMATCH: 'REQUEST_NETWORK_MISMATCH',
   SIGNATURE_INVALID: 'REQUEST_SIGNATURE_INVALID',
@@ -15,11 +16,22 @@ export const GENERIC_REQUEST_REJECTION_CODES = {
 const AUTHENTICATION_REQUEST_EXPIRED = 'AUTHENTICATION_REQUEST_EXPIRED';
 
 const NEW_REQUEST = 'Ask the requester for a new request.';
+const IDENTITY_DATA_UPLOAD_MESSAGE =
+  'Identity updates that upload data are not supported in this app yet.';
 
 export const createGenericRequestRejectionError = (code, message, fields) => {
   const error = new Error(message);
   error.code = code;
   return Object.assign(error, fields);
+};
+
+export const assertIdentityUpdateRequestSupported = identity => {
+  if (identity.signDataMap?.size > 0) {
+    throw createGenericRequestRejectionError(
+      GENERIC_REQUEST_REJECTION_CODES.IDENTITY_DATA_UPLOAD_UNSUPPORTED,
+      IDENTITY_DATA_UPLOAD_MESSAGE,
+    );
+  }
 };
 
 // Axios and verusd-rpc-ts-client report transport failures with these texts.
@@ -89,6 +101,12 @@ export const getGenericRequestRejection = (error, context = {}) => {
       };
     case GENERIC_REQUEST_REJECTION_CODES.INVALID:
       return {canRetry: false, message: NEW_REQUEST, title: 'Request not valid'};
+    case GENERIC_REQUEST_REJECTION_CODES.IDENTITY_DATA_UPLOAD_UNSUPPORTED:
+      return {
+        canRetry: false,
+        message: IDENTITY_DATA_UPLOAD_MESSAGE,
+        title: 'Unsupported request',
+      };
     case GENERIC_REQUEST_REJECTION_CODES.DETAIL_UNSUPPORTED:
       return {
         canRetry: false,

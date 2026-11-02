@@ -10,7 +10,7 @@ import { getSystemNameFromSystemId } from "../../CoinData/CoinData";
 import { createUpdateIdentityTx, getUpdatableIdentity } from "../../api/channels/verusid/requests/updateIdentity";
 import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
 import { capitalizeString } from "../../stringUtils";
-import { createGenericRequestRejectionError, GENERIC_REQUEST_REJECTION_CODES } from "../genericRequestRejection";
+import { assertIdentityUpdateRequestSupported, createGenericRequestRejectionError, GENERIC_REQUEST_REJECTION_CODES } from "../genericRequestRejection";
 import { getKnownVDXFKeyName } from "../../vdxf/vdxfTypeLabels";
 
 /**
@@ -50,6 +50,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
 
   const rootSystem = request.isTestnet() ? 'VRSCTEST' : 'VRSC';
   const requestDetails = details.data;
+  assertIdentityUpdateRequestSupported(requestDetails);
   const requestSystem = requestDetails.containsSystem()
     ? requestDetails.systemID.toAddress()
     : rootSystem;
@@ -200,13 +201,6 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
     partialIdentity.contentMultiMap.kvContent.hasAddress(IDENTITY_CREDENTIAL.vdxfid)
   );
 
-  // Credential encryption via signDataMap is not supported on mobile
-  if (requestDetails.containsSignData()) {
-    if (requestDetails.signDataMap.hasAddress(IDENTITY_CREDENTIAL.vdxfid)) {
-      throw new Error('Encrypted credentials in signDataMap are not supported on mobile');
-    }
-  }
-
   // When the request contains encrypted credential keys, we must NOT call
   // createUpdateIdentityTx here — that sends toCLIJson() (with plaintext
   // credentials) to the RPC server.  Instead, compute the merged identity
@@ -243,7 +237,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
   const hasCmmUpdates = (
     partialIdentity.containsContentMultiMap() &&
     Array.from(partialIdentity.contentMultiMap.kvContent.entries()).some(([, values]) => values.length > 0)
-  ) || (requestDetails.containsSignData() && requestDetails.signDataMap.size > 0);
+  );
   if (hasCmmUpdates) {
     const contentRes = await getIdentityContent(
       coinObj.system_id, identityAddress, 0, subjectIdentity.blockheight,

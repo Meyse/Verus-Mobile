@@ -4,6 +4,7 @@ import { getIdentity } from "./getIdentity";
 import { getSpendableUtxos, getTransaction, sendRawTransaction } from "../../vrpc/callCreators";
 import { networks, Transaction } from "@bitgo/utxo-lib";
 import { I_ADDRESS_VERSION } from "../../../../constants/constants";
+import { assertIdentityUpdateRequestSupported } from "../../../../deeplink/genericRequestRejection";
 
 export const extractIdOutputFromTx = (rawIdTx, vout = null) => {
   const identityTransaction = Transaction.fromHex(rawIdTx, networks.verus);
@@ -72,6 +73,7 @@ export const getUpdatableIdentity = async (systemId, getIdentityResult) => {
  * @returns 
  */
 export const createUpdateIdentityTx = async (systemId, identity, changeAaddr, rawIdTx, idHeight, fundTransaction = true, updateIdentityTransactionHex, isTestnet) => {
+  assertIdentityUpdateRequestSupported(identity);
   const verusid = VrpcProvider.getVerusIdInterface(systemId);
   const utxos = fundTransaction ? await getSpendableUtxos(systemId, systemId, [changeAaddr]) : undefined;
 
@@ -134,6 +136,7 @@ export const createUpdateIdentityTxWithUtxos = async ({
   updateIdentityTransactionHex,
   isTestnet,
 }) => {
+  assertIdentityUpdateRequestSupported(identity);
   const verusid = VrpcProvider.getVerusIdInterface(systemId);
 
   return verusid.createUpdateIdentityTransaction(
@@ -165,6 +168,7 @@ export const createUpdateIdentityWithCurrencyTransferTx = async ({
   updateIdentityTransactionHex,
   isTestnet,
 }) => {
+  assertIdentityUpdateRequestSupported(identity);
   const verusid = VrpcProvider.getVerusIdInterface(systemId);
 
   return verusid.createUpdateIdentityWithCurrencyTransferTransaction(
