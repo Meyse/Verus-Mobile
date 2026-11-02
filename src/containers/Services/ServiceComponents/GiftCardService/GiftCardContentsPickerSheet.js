@@ -55,9 +55,13 @@ const GiftCardContentsPickerSheet = ({
     [options],
   );
   const selected = new Set(identities ? draftKeys : selectedKeys);
-  const applyLabel = draftKeys.length === 0
+  // Count only VerusIDs that are new to the gift. Removals, or a mix of
+  // additions and removals, apply through the neutral "Done".
+  const addedCount = draftKeys.filter(key => !selectedKeys.includes(key)).length;
+  const removedAny = selectedKeys.some(key => !draftKeys.includes(key));
+  const applyLabel = addedCount === 0 || removedAny
     ? 'Done'
-    : `Add ${draftKeys.length} ${draftKeys.length === 1 ? 'VerusID' : 'VerusIDs'}`;
+    : `Add ${addedCount} ${addedCount === 1 ? 'VerusID' : 'VerusIDs'}`;
 
   return (
     <SelectionSheet

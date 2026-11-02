@@ -772,8 +772,9 @@ add action and open that picker directly. Hide the action when neither remains.
 Adding a currency lists only currencies outside the gift, makes the choice the
 empty main amount, and moves the previous positive amount to the first extra.
 "Choose VerusIDs" is a multi-select `SelectionSheet`: success fill and check
-for selected rows, no chevron for unselected rows. Its bottom action reads
-"Add 1 VerusID", "Add 2 VerusIDs", or "Done" after all choices are cleared.
+for selected rows, no chevron for unselected rows. Its bottom action counts
+only VerusIDs new to the gift: "Add 1 VerusID" or "Add 2 VerusIDs". It reads
+"Done" when the draft adds nothing or removes a VerusID.
 Only that action applies the draft. Outside tap and Back discard it.
 
 On this step only, `ProgressHeader` shows a 44-point "More options" action
