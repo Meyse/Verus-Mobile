@@ -157,7 +157,8 @@ describe('identity update content normalization', () => {
       details, originalTx, 100, tx, true, true,
     );
 
-    await expect(validate(request)).rejects.toThrow('changes do not appear to match');
+    // verusid-ts-client 50fa3ffa accepts the daemon's outer-key order itself.
+    await expect(validate(request)).resolves.toHaveProperty('identityOnOutput');
     mockCreateUpdateIdentityTransaction.mockImplementation(details => validate(details));
     await expect(prepare(request)).resolves.toHaveProperty('identityOnOutput');
     const normalized = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
@@ -173,7 +174,7 @@ describe('identity update content normalization', () => {
       {[removeKey]: removals, [key]: [{[key]: 'different value'}]},
     ]) {
       await expect(validate(normalized, transaction(changed)))
-        .rejects.toThrow('changes do not appear to match');
+        .rejects.toThrow('Unexpected contentmultimap entries in identity transaction');
     }
   });
 });
