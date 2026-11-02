@@ -64,6 +64,7 @@ import {
 import {walletBackupRequestInfoStyles as createStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import AppButton from '../../../components/AppButton';
+import TextAction from '../../../components/TextAction';
 import AppTextInput from '../../../components/AppTextInput';
 import NfcTapView from '../../../components/NfcTap/NfcTapView';
 import BiometricAffordanceIcon, {
@@ -694,10 +695,8 @@ const WalletBackupRequestInfo = props => {
 
   const renderSecondaryButton = (label, onPress) => (
     <AppButton
-      buttonColor={theme.colors.surfaceMuted}
       height={56}
       onPress={onPress}
-      textColor={theme.isDark ? theme.colors.textPrimary : theme.colors.primary}
       variant="secondary">
       {label}
     </AppButton>
@@ -781,11 +780,11 @@ const WalletBackupRequestInfo = props => {
     const biometryAvailable =
       supportedBiometryType != null && supportedBiometryType.biometry;
     const switchAccountChoice = matchingAccounts.length > 0 ? (
-      <AppButton
+      <TextAction
         onPress={() => setShowCreateProfile(!showCreateProfile)}
-        variant="text">
+        style={{alignSelf: 'center'}}>
         {showCreateProfile ? 'Use an existing wallet' : 'Create a new wallet'}
-      </AppButton>
+      </TextAction>
     ) : null;
 
     if (showCreateProfile) {

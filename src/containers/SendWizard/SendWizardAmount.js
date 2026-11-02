@@ -18,6 +18,7 @@ import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AmountInput from '../../components/AmountInput';
+import TextAction from '../../components/TextAction';
 import AmountKeypad from '../../components/AmountKeypad';
 import {getAmountDecimalSeparator} from '../../utils/amountInput';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
@@ -515,15 +516,14 @@ const SendWizardAmount = () => {
               <Text numberOfLines={1} style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>{target.ticker}</Text>
             </View>
           ) : canChangeNetwork || networkLoading || networkError ? (
-            <Pressable
+            <TextAction
               accessibilityRole="button"
               disabled={networkLoading || !canChangeNetwork}
               onPress={() => setNetworkSheetOpen(true)}
+              size="small"
               style={styles.networkAction}>
-              <Text style={[theme.typography.caption, {color: theme.colors.textSecondary}]}>
-                {networkLoading ? 'Checking networks…' : networkError || 'Change network'}
-              </Text>
-            </Pressable>
+              {networkLoading ? 'Checking networks…' : networkError || 'Change network'}
+            </TextAction>
           ) : null}
         </View>
         <View style={[styles.entry, smallDevice && styles.entryCompact]}>
@@ -551,15 +551,16 @@ const SendWizardAmount = () => {
           <ErrorMessage style={styles.error}>{amountErrorMessage}</ErrorMessage>
           <View style={styles.balanceRow}>
             <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
-            <Pressable
+            <TextAction
               accessibilityLabel="Use maximum available amount"
               accessibilityRole="button"
               accessibilityState={{disabled: maximumDisabled}}
               disabled={maximumDisabled}
               onPress={useMaximum}
-              style={[styles.maxButton, maximumDisabled && styles.maxDisabled]}>
-              <Text style={[theme.typography.labelDense, styles.maxText, {color: theme.colors.primary, borderColor: theme.colors.primary}]}>MAX</Text>
-            </Pressable>
+              variant="chip"
+              style={styles.maxButton}>
+              MAX
+            </TextAction>
           </View>
           {confirming ? <Text style={[theme.typography.caption, styles.confirming, {color: theme.colors.textSecondary}]}>{confirming}</Text> : null}
         </View>
@@ -633,7 +634,7 @@ const styles = StyleSheet.create({
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},
   context: {height: 44, alignItems: 'center', justifyContent: 'center'},
-  networkAction: {minHeight: 44, maxWidth: '100%', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center'},
+  networkAction: {alignSelf: 'center', minHeight: 44, maxWidth: '100%', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center'},
   contextText: {flexShrink: 1},
   entry: {paddingTop: 48, alignItems: 'center'},
   entryCompact: {paddingTop: 8},
@@ -643,8 +644,6 @@ const styles = StyleSheet.create({
   error: {marginHorizontal: 0, marginVertical: 4, alignSelf: 'stretch'},
   balanceRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
   maxButton: {minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center'},
-  maxText: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3},
-  maxDisabled: {opacity: 0.4},
   confirming: {textAlign: 'center', marginBottom: 4},
   estimateSlot: {minHeight: 49, paddingHorizontal: 16},
 });

@@ -1,7 +1,8 @@
+import TextAction from '../TextAction';
 import React, {Component} from 'react';
 import {Modal, Platform, StyleSheet, View} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
-import {Text, Portal, Button} from 'react-native-paper';
+import {Text, Portal} from 'react-native-paper';
 import Colors from '../../globals/colors';
 import {
   AUTHENTICATE_USER_SEND_MODAL,
@@ -225,13 +226,14 @@ export const SendModalRender = function () {
                       justifyContent: 'space-between',
                       backgroundColor: Colors.secondaryColor,
                     }}>
-                    <Button
+                    <TextAction
                       style={{marginBottom: 16}}
                       onPress={() => this.cancel()}
-                      textColor={Colors.primaryColor}
+                      size="small"
+                      themeMode="light"
                       disabled={this.state.preventExit}>
                       {'Close'}
-                    </Button>
+                    </TextAction>
                     <Text
                       style={{
                         marginBottom: 16,
@@ -240,13 +242,14 @@ export const SendModalRender = function () {
                       }}>
                       {title}
                     </Text>
-                    <Button
+                    <TextAction
                       style={{marginBottom: 16}}
                       onPress={() => this.showHelpModal()}
-                      textColor={Colors.primaryColor}
+                      size="small"
+                      themeMode="light"
                       disabled={this.state.preventExit}>
                       {'Help'}
-                    </Button>
+                    </TextAction>
                   </View>
                 ),
                 headerStyle: {

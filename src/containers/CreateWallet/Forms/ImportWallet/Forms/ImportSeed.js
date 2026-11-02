@@ -899,7 +899,7 @@ const createStyles = theme =>
     color: theme.colors.textPrimary,
   },
   wordSlotTextActive: {
-    color: theme.colors.primary,
+    color: theme.colors.link,
   },
   wordSlotTextInvalid: {
     color: theme.colors.danger,
@@ -942,8 +942,7 @@ const createStyles = theme =>
     backgroundColor: theme.colors.surface,
   },
   suggestionText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    ...fontStyle('semiBold'),
+    ...theme.typography.labelMd,
+    color: theme.colors.link,
   },
 });

@@ -1,7 +1,9 @@
 import React from 'react';
-import {Platform, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {Platform, StyleSheet, Text, View} from 'react-native';
 import AppButton from '../../components/AppButton';
 import CopyAction from '../../components/CopyAction';
+import SignedOutActionRow from '../../components/SignedOutActionRow';
+import {ExternalLink} from 'lucide-react-native';
 import {revokeRecoverFlowStyles as styles} from '../../styles';
 import {useAppTheme} from '../../theme/app';
 import RevokeRecoverFlowScaffold from './RevokeRecoverFlowScaffold';
@@ -60,22 +62,11 @@ const RevokeRecoverSubmittedResult = ({
           <CopyAction accessibilityLabel="Copy transaction ID" value={txid} />
         </View>
         {onViewTransaction ? (
-          <TouchableOpacity
-            accessibilityRole="link"
+          <SignedOutActionRow
+            IconComponent={ExternalLink}
+            label="View transaction"
             onPress={onViewTransaction}
-            style={localStyles.link}>
-            <Text
-              style={[
-                theme.typography.labelMd,
-                {
-                  color: theme.isDark
-                    ? theme.colors.textPrimary
-                    : theme.colors.primary,
-                },
-              ]}>
-              View transaction
-            </Text>
-          </TouchableOpacity>
+          />
         ) : null}
       </View>
       {recovery ? (
@@ -89,6 +80,5 @@ const RevokeRecoverSubmittedResult = ({
 const localStyles = StyleSheet.create({
   body: {marginTop: 8, marginBottom: 18},
   transaction: {marginBottom: 18},
-  link: {minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start'},
 });
 export default RevokeRecoverSubmittedResult;

@@ -16,6 +16,7 @@ import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import EmptyState from '../../../../components/EmptyState';
 import AppButton from '../../../../components/AppButton';
+import TextAction from '../../../../components/TextAction';
 import InfoSheet from '../../../../components/InfoSheet';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import SkeletonLoader, {
@@ -235,17 +236,17 @@ const IdentityRow = ({actionLabel, badge, name, onPress, subtitle, theme}) => (
       )}
     </TouchableOpacity>
     {actionLabel ? (
-      <TouchableOpacity
+      <TextAction
         accessibilityRole="button"
-        activeOpacity={0.75}
         onPress={onPress}
+        hitSlop={{top: 4, bottom: 4}}
         style={[
           styles.rowAction,
           actionLabel === 'Link and login' && styles.rowActionWide,
           {backgroundColor: theme.colors.surface},
         ]}>
-        <Text style={[styles.rowActionText, {color: theme.colors.primary}]}>{actionLabel}</Text>
-      </TouchableOpacity>
+        {actionLabel}
+      </TextAction>
     ) : null}
   </View>
 );
@@ -1241,13 +1242,13 @@ const styles = StyleSheet.create({
     right: 12,
     minWidth: 74,
     height: 36,
+    minHeight: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   rowActionWide: {minWidth: 132},
-  rowActionText: {...fontStyle('bold'), fontSize: 13, lineHeight: 17, letterSpacing: -0.2},
   itemSeparator: {height: 12},
   loadingSkeleton: {paddingHorizontal: 20, paddingTop: 12, rowGap: 12},
   loadingRow: {

@@ -5,6 +5,7 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AppButton from '../../components/AppButton';
+import TextAction from '../../components/TextAction';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -219,10 +220,10 @@ const Manager = ({navigation}) => {
                   <Text numberOfLines={2} style={styles.rowName}>{name}</Text>
                   <Text numberOfLines={2} style={styles.rowDescription}>{data.showBalance ? `${holding.balance.toFormat()} ${ticker}` : 'Balance hidden'}</Text>
                 </View>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Review ${name} (${networkLabel})`} style={styles.rowAction}
+                <TextAction accessibilityRole="button" accessibilityLabel={`Review ${name} (${networkLabel})`} style={styles.rowAction}
                   onPress={() => navigation.navigate('AddAssetByIdentifier', {holdingKey: holding.key, assetScope: captureAssetContext()})}>
-                  <Text style={styles.actionLabel}>Review</Text>
-                </TouchableOpacity>
+                  Review
+                </TextAction>
               </View>;
             })}
           </> : null}
@@ -277,11 +278,11 @@ const Directory = ({navigation}) => {
         {assets.map(({coin, presentation}) => {
           const added = active.has(assetKey(coin));
           return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} styles={styles} description={presentation.ticker}
-            action={<TouchableOpacity accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${presentation.name} (${presentation.ticker})`}
+            action={<TextAction accessibilityRole="button" accessibilityLabel={`${added ? 'Added' : 'Add'} ${presentation.name} (${presentation.ticker})`}
               accessibilityState={{disabled: added || pending != null || !data.management.ready, busy: pending?.key === assetKey(coin)}}
               disabled={added || pending != null || !data.management.ready} onPress={() => perform(coin)} style={styles.rowAction}>
-              <Text style={added ? styles.addedLabel : styles.actionLabel}>{added ? 'Added' : pending?.key === assetKey(coin) ? 'Adding…' : 'Add'}</Text>
-            </TouchableOpacity>} />;
+              {added ? 'Added' : pending?.key === assetKey(coin) ? 'Adding…' : 'Add'}
+            </TextAction>} />;
         })}
         {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>No matching assets</Text><Text style={styles.rowDescription}>Try another name or add a custom asset.</Text></View> : null}
         <Text style={styles.helper}>Adding an asset shows it on Home.</Text>

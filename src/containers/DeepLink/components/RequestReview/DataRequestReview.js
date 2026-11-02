@@ -348,10 +348,6 @@ export default function DataRequestReview({
           height={56}
           variant="secondary"
           themeMode={theme.mode}
-          buttonColor={theme.colors.surfaceMuted}
-          textColor={
-            theme.isDark ? theme.colors.textPrimary : theme.colors.primary
-          }
           disabled={processing}
           onPress={props.cancel}>
           Cancel

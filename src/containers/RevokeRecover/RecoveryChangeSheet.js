@@ -194,7 +194,7 @@ const RecoveryChangeSheet = ({
               : 'Use this Z-address'}
           </AppButton>
           {onReset ? (
-            <AppButton height={keyboardHeight ? 48 : undefined} variant="text" onPress={onReset}>
+            <AppButton height={keyboardHeight ? 48 : undefined} variant="secondary" onPress={onReset}>
               Use current values
             </AppButton>
           ) : null}

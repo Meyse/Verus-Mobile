@@ -11,6 +11,7 @@ import {Check, Pencil, RotateCw} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppSearchField from '../../components/AppSearchField';
 import AppAddressInput from '../../components/AppAddressInput';
+import TextAction from '../../components/TextAction';
 import BottomSheetModal from '../../components/BottomSheetModal';
 import SignedOutActionRow from '../../components/SignedOutActionRow';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
@@ -304,16 +305,13 @@ export const RevokeRecoverIdentityField = ({
           testID="revokeRecover.identity.input"
           value={value || ''}
         />
-        <TouchableOpacity
+        <TextAction
           accessibilityRole="button"
-          activeOpacity={0.74}
           onPress={onChoose}
           style={styles.chooseAvailable}
           testID="revokeRecover.identity.chooseAvailable">
-          <Text style={styles.chooseAvailableText}>
-            {`Choose from VerusIDs this authority can ${action}`}
-          </Text>
-        </TouchableOpacity>
+          {`Choose from VerusIDs this authority can ${action}`}
+        </TextAction>
       </View>
     );
   }
@@ -351,16 +349,13 @@ export const RevokeRecoverIdentityField = ({
             </Text>
           </View>
         </View>
-        <TouchableOpacity
+        <TextAction
           accessibilityRole="button"
-          activeOpacity={0.74}
           onPress={onRetry}
           style={styles.chooseAvailable}
           testID="revokeRecover.identity.retryInline">
-          <Text style={styles.chooseAvailableText}>
-            Try automatic lookup again
-          </Text>
-        </TouchableOpacity>
+          Try automatic lookup again
+        </TextAction>
         {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
       </View>
     );
@@ -559,12 +554,6 @@ const createFieldStyles = theme =>
       minHeight: 44,
       alignSelf: 'flex-start',
       justifyContent: 'center',
-    },
-    chooseAvailableText: {
-      color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
-      fontSize: 14,
-      lineHeight: 20,
-      ...fontStyle('semiBold'),
     },
     errorText: {
       marginTop: 6,

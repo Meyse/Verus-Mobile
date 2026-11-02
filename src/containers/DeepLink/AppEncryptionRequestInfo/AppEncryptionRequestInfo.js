@@ -973,14 +973,10 @@ const AppEncryptionRequestInfoContent = props => {
           {primaryActionLabel}
         </AppButton>
         <AppButton
-          buttonColor={theme.colors.surfaceMuted}
           disabled={processing}
           height={56}
           onPress={cancel}
           themeMode={theme.mode}
-          textColor={
-            theme.isDark ? theme.colors.textPrimary : theme.colors.primary
-          }
           variant="secondary">
           Cancel
         </AppButton>

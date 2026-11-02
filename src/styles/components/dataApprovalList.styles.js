@@ -58,10 +58,6 @@ const createDataApprovalListStyles = theme =>
       justifyContent: 'center',
       alignSelf: 'flex-start',
     },
-    actionText: {
-      ...theme.typography.labelMd,
-      color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
-    },
     detailField: {
       paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,

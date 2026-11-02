@@ -3,7 +3,7 @@ import {StyleSheet} from 'react-native';
 import {Portal, Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AnimatedActivityIndicator from '../AnimatedActivityIndicator';
-import AppButton from '../AppButton';
+import TextAction from '../TextAction';
 import SemiModal from '../SemiModal';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useAppTheme} from '../../theme/app';
@@ -45,12 +45,11 @@ export default function LoadingModal() {
             </Text>
           )}
           {onCancel != null && (
-            <AppButton
+            <TextAction
               onPress={onCancel}
-              style={localStyles.cancel}
-              variant="text">
+              style={localStyles.cancel}>
               {cancelLabel}
-            </AppButton>
+            </TextAction>
           )}
         </SafeAreaView>
       </SemiModal>
@@ -71,6 +70,7 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
   },
   cancel: {
+    alignSelf: 'center',
     marginTop: 16,
   },
 });

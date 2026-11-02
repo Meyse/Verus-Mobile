@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
-import {ArrowDownToLine, AtSign, CirclePlus} from 'lucide-react-native';
+import {ArrowDownToLine, AtSign, CirclePlus, Plus} from 'lucide-react-native';
 import {ActivityIndicator} from 'react-native-paper';
 import AppSwitch from '../../../../../components/AppSwitch';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import {useDispatch} from 'react-redux';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import {modifyServiceStoredDataForUser} from '../../../../../actions/actions/services/dispatchers/services';
 import AppButton from '../../../../../components/AppButton';
+import TextAction from '../../../../../components/TextAction';
 import AmountInput from '../../../../../components/AmountInput';
 import AmountKeypad from '../../../../../components/AmountKeypad';
 import AppTextInput from '../../../../../components/AppTextInput';
@@ -904,7 +905,6 @@ const GiftCardFund = props => {
     : null;
   const maximumDisabled = busy || mainMaximum == null || !hasAmount(mainMaximum);
   const pickerOpen = currencyPickerVisible || identityPickerVisible || Boolean(actionSheet?.visible);
-  const addActionColor = theme.isDark ? theme.colors.textPrimary : theme.colors.primary;
   const refocusAmount = () => {
     requestAnimationFrame(() => amountInputRef.current?.focus());
   };
@@ -1898,19 +1898,16 @@ const GiftCardFund = props => {
         <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
           Available: {mainBalance == null ? '—' : formatAmount(mainBalance)}
         </Text>
-        <Pressable
+        <TextAction
           accessibilityLabel="Use maximum available amount"
           accessibilityRole="button"
           accessibilityState={{disabled: maximumDisabled}}
           disabled={maximumDisabled}
           onPress={() => changeMainAmount(formatAmount(mainMaximum))}
-          style={[styles.maxButton, maximumDisabled && styles.maxDisabled]}>
-          <Text style={[
-            theme.typography.labelDense,
-            styles.maxText,
-            {color: theme.colors.primary, borderColor: theme.colors.primary},
-          ]}>MAX</Text>
-        </Pressable>
+          variant="chip"
+          style={styles.maxButton}>
+          MAX
+        </TextAction>
       </View>
     </>
   ) : (
@@ -1969,18 +1966,16 @@ const GiftCardFund = props => {
             () => setSelectedIds(current => ({...current, [identity.key]: false})),
           ))}
           {canAddCurrency || canAddIdentity ? (
-            <Pressable
+            <TextAction
+              Icon={Plus}
               accessibilityLabel={addContentsLabel}
               accessibilityRole="button"
               accessibilityState={{disabled: busy}}
               disabled={busy}
               onPress={openAddContents}
               style={[styles.addContents, {borderTopColor: theme.colors.border}]}>
-              <MaterialCommunityIcons name="plus" size={18} color={addActionColor} />
-              <Text style={[theme.typography.labelMd, {color: addActionColor}]}>
-                {addContentsLabel}
-              </Text>
-            </Pressable>
+              {addContentsLabel}
+            </TextAction>
           ) : null}
         </View>
       ) : null}
@@ -2774,13 +2769,11 @@ const styles = StyleSheet.create({
   emptyCopy: {paddingVertical: 14, fontSize: 14, lineHeight: 21, ...fontStyle('regular')},
   balanceRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
   maxButton: {minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center'},
-  maxText: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3},
-  maxDisabled: {opacity: 0.4},
   extras: {marginTop: 12, borderBottomWidth: StyleSheet.hairlineWidth},
   extraRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth},
   extraAction: {flex: 1, minWidth: 0, minHeight: 48, justifyContent: 'center'},
   removeExtraButton: {width: 44, height: 44, marginRight: -13, alignItems: 'center', justifyContent: 'center'},
-  addContents: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth},
+  addContents: {alignSelf: 'stretch', minHeight: 48, borderTopWidth: StyleSheet.hairlineWidth},
   headerAction: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
   assetTitle: {
     fontSize: 15,

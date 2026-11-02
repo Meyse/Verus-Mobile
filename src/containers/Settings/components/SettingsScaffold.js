@@ -181,23 +181,6 @@ const createStyles = theme =>
     dangerText: {
       color: theme.colors.danger,
     },
-    lockAction: {
-      minHeight: 56,
-      width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      paddingHorizontal: 18,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderRadius: 18,
-    },
-    lockActionText: {
-      color: theme.isDark ? theme.colors.textPrimary : theme.colors.primary,
-      fontSize: 16,
-      lineHeight: 22,
-      ...fontStyle('semiBold'),
-    },
     profile: {
       minHeight: 62,
       flexDirection: 'row',
@@ -638,26 +621,11 @@ export const SettingsSwitchRow = ({
   );
 };
 
-export const SettingsLockAction = ({onPress}) => {
-  const theme = useOnboardingTheme();
-  const styles = getStyles(theme);
-
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      activeOpacity={0.72}
-      onPress={onPress}
-      style={styles.lockAction}
-      testID="settings.lockWallet">
-      <MaterialCommunityIcons
-        color={theme.isDark ? theme.colors.textPrimary : theme.colors.primary}
-        name="lock-outline"
-        size={19}
-      />
-      <Text style={styles.lockActionText}>Lock wallet</Text>
-    </TouchableOpacity>
-  );
-};
+export const SettingsLockAction = ({onPress}) => (
+  <AppButton onPress={onPress} testID="settings.lockWallet" variant="secondary">
+    Lock wallet
+  </AppButton>
+);
 
 export const SettingsProfileSummary = ({name, subtitle, walletAvatar}) => {
   const theme = useOnboardingTheme();

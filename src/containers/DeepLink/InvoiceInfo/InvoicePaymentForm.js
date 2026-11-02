@@ -109,7 +109,7 @@ const InvoicePaymentForm = ({
               }}>
               Review payment
             </AppButton>
-            <AppButton variant="text" onPress={onBack}>
+            <AppButton variant="secondary" onPress={onBack}>
               Back to invoice
             </AppButton>
           </SafeBottomActionStack>
