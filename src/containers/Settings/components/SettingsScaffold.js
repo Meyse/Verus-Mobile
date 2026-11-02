@@ -621,8 +621,25 @@ export const SettingsSwitchRow = ({
   );
 };
 
+// The lock icon is approved for this button only. AppButton passes the
+// label color to the icon. Paper puts the icon in a box with a 12-point left
+// and -4-point right margin; a 14-point label margin gives the old 10-point
+// gap, and the 12-point right margin keeps icon and label centered as a group.
+const LockWalletIcon = ({color}) => (
+  <MaterialCommunityIcons color={color} name="lock-outline" size={19} />
+);
+
+const lockActionStyles = StyleSheet.create({
+  label: {marginLeft: 14, marginRight: 12},
+});
+
 export const SettingsLockAction = ({onPress}) => (
-  <AppButton onPress={onPress} testID="settings.lockWallet" variant="secondary">
+  <AppButton
+    icon={LockWalletIcon}
+    labelStyle={lockActionStyles.label}
+    onPress={onPress}
+    testID="settings.lockWallet"
+    variant="secondary">
     Lock wallet
   </AppButton>
 );
