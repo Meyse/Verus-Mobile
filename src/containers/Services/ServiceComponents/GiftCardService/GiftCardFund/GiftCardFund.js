@@ -6,12 +6,14 @@ import {
   Easing,
   Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
+import {ArrowDownToLine, AtSign, CirclePlus} from 'lucide-react-native';
 import {ActivityIndicator} from 'react-native-paper';
 import AppSwitch from '../../../../../components/AppSwitch';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -20,6 +22,8 @@ import {useDispatch} from 'react-redux';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import {modifyServiceStoredDataForUser} from '../../../../../actions/actions/services/dispatchers/services';
 import AppButton from '../../../../../components/AppButton';
+import AmountInput from '../../../../../components/AmountInput';
+import AmountKeypad from '../../../../../components/AmountKeypad';
 import AppTextInput from '../../../../../components/AppTextInput';
 import CopyAction from '../../../../../components/CopyAction';
 import FadedScrollView from '../../../../../components/FadedScrollView';
@@ -54,7 +58,6 @@ import {
   getRetryableGiftCardFunding,
   getSubmittedGiftCardFundingIdentities,
   hasGiftCardBeenShared,
-  hasGiftCardClaims,
   hasGiftCardShareInProgress,
   hasGiftCardShareReservation,
   hasPendingGiftCardFunding,
@@ -66,7 +69,12 @@ import {
 } from '../../../../../utils/giftCard/giftCard';
 import {truncateDecimal} from '../../../../../utils/math';
 import {SPENDABLE_KEY_CLAIM_NON_NATIVE_FEE_COINS} from '../../../../../utils/spendableKey/spendableKey';
-import GiftCardCurrencyPickerSheet from '../GiftCardCurrencyPickerSheet';
+import GiftCardContentsPickerSheet from '../GiftCardContentsPickerSheet';
+import GiftCardOptionsSheet from '../GiftCardOptionsSheet';
+import {WizardFooter} from '../../../../SendWizard/components/WizardUI';
+import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
+import {getAmountDecimalSeparator} from '../../../../../utils/amountInput';
+import {isMainAsset} from '../../../../../utils/assets/assetIdentity';
 import GiftCardShareSheet from '../GiftCardShareSheet';
 import {unlinkGiftedIdentitiesForSession} from '../../../../../utils/spendableKey/claimMetadataSession';
 import {unlinkVerusId} from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
@@ -443,6 +451,10 @@ const GiftCardFund = props => {
   const ledgerBalances = useObjectSelector(state => state.ledger.balances);
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
+  const {smallDevice} = useOnboardingSmallDeviceLayout();
+  const amountInputRef = useRef(null);
+  const decimalSeparator = useMemo(getAmountDecimalSeparator, []);
   const [serviceData, setServiceData] = useState(null);
   const [linkedIds, setLinkedIds] = useState({});
   const [draftCard, setDraftCard] = useState(null);
@@ -457,7 +469,11 @@ const GiftCardFund = props => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fundAmounts, setFundAmounts] = useState({});
   const [selectedFundingCoinKeys, setSelectedFundingCoinKeys] = useState([]);
+  const [mainFundingCoinKey, setMainFundingCoinKey] = useState(null);
+  const [currencyPickerMode, setCurrencyPickerMode] = useState('replace');
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
+  const [identityPickerVisible, setIdentityPickerVisible] = useState(false);
+  const [actionSheet, setActionSheet] = useState(null);
   const [selectedIds, setSelectedIds] = useState({});
   const [identityFunding, setIdentityFunding] = useState([]);
   const [identityFundingLoading, setIdentityFundingLoading] = useState(false);
@@ -754,13 +770,21 @@ const GiftCardFund = props => {
     () => new Set(selectedFundingCoinKeys),
     [selectedFundingCoinKeys],
   );
-  const selectedFundingCoins = useMemo(
-    () =>
-      activeFundingCoins.filter(coinObj =>
-        selectedFundingCoinKeySet.has(getFundingCoinKey(coinObj)),
-      ),
-    [activeFundingCoins, selectedFundingCoinKeySet],
-  );
+  const mainFundingCoin =
+    activeFundingCoins.find(coin => getFundingCoinKey(coin) === mainFundingCoinKey) ||
+    activeFundingCoins.find(coin => isMainAsset(coin, activeAccount)) ||
+    activeFundingCoins[0];
+  const mainKey = mainFundingCoin ? getFundingCoinKey(mainFundingCoin) : null;
+
+  // The main/extras distinction changes presentation only. Amounts stay in the
+  // existing map, and selection keys also keep the order of currency extras.
+  useEffect(() => {
+    if (mainKey == null) return;
+    setSelectedFundingCoinKeys(current =>
+      current.includes(mainKey) ? current : [...current, mainKey],
+    );
+  }, [mainKey]);
+
   const fundingCurrencyOptions = useMemo(
     () =>
       activeFundingCoins.map(coinObj => {
@@ -860,37 +884,83 @@ const GiftCardFund = props => {
   );
   const hasSelections =
     selections.funds.length > 0 || selections.identities.length > 0;
-  const applyFundingCurrencies = useCallback(
-    nextSelectedKeys => {
-      const availableKeySet = new Set(
-        activeFundingCoins.map(getFundingCoinKey),
-      );
-      const availableSelectedKeys = nextSelectedKeys.filter(key =>
-        availableKeySet.has(key),
-      );
-      const nextSelectedKeySet = new Set(availableSelectedKeys);
-
-      setSelectedFundingCoinKeys(availableSelectedKeys);
-      setFundAmounts(current =>
-        Object.fromEntries(
-          Object.entries(current).filter(([key]) =>
-            nextSelectedKeySet.has(key),
-          ),
-        ),
-      );
-    },
-    [activeFundingCoins],
+  const extraFundingCoins = selectedFundingCoinKeys
+    .filter(key => key !== mainKey && hasAmount(fundAmounts[key]))
+    .map(key => activeFundingCoins.find(coin => getFundingCoinKey(coin) === key))
+    .filter(Boolean);
+  const availableCurrencyOptions = fundingCurrencyOptions.filter(option =>
+    option.key !== mainKey && !selectedFundingCoinKeySet.has(option.key),
   );
-  const removeFundingCurrency = useCallback(key => {
-    setSelectedFundingCoinKeys(current =>
-      current.filter(currentKey => currentKey !== key),
-    );
+  const canAddCurrency = availableCurrencyOptions.length > 0;
+  const canAddIdentity = linkedIdentityOptions.some(identity => !selectedIds[identity.key]);
+  const addContentsLabel = canAddCurrency && canAddIdentity
+    ? 'Add currency or VerusID'
+    : canAddCurrency ? 'Add currency' : 'Add VerusID';
+  const mainBalance = mainFundingCoin
+    ? getCoinBalance(mainFundingCoin, activeAccount, ledgerBalances)
+    : null;
+  const mainMaximum = mainFundingCoin
+    ? getMaxFundAmount(mainFundingCoin, mainBalance)
+    : null;
+  const maximumDisabled = busy || mainMaximum == null || !hasAmount(mainMaximum);
+  const pickerOpen = currencyPickerVisible || identityPickerVisible || Boolean(actionSheet?.visible);
+  const addActionColor = theme.isDark ? theme.colors.textPrimary : theme.colors.primary;
+  const refocusAmount = () => {
+    requestAnimationFrame(() => amountInputRef.current?.focus());
+  };
+  const changeMainAmount = value => {
+    if (busy || mainKey == null) return;
+    setFundAmounts(current => ({...current, [mainKey]: sanitizeNumericInput(value)}));
+  };
+  const chooseFundingCurrency = key => {
+    if (busy || key === mainKey || !activeFundingCoins.some(coin => getFundingCoinKey(coin) === key)) return;
+    const swapping = selectedFundingCoinKeySet.has(key) && hasAmount(fundAmounts[key]);
+    const keepPrevious = hasAmount(fundAmounts[mainKey]);
+
+    setSelectedFundingCoinKeys(current => {
+      const extras = current.filter(currentKey => currentKey !== mainKey);
+      if (swapping) {
+        // Replace the tapped extra in place. Its exact amount stays in the map.
+        return [...extras.flatMap(currentKey => currentKey === key
+          ? (keepPrevious ? [mainKey] : [])
+          : [currentKey]), key];
+      }
+      const otherExtras = extras.filter(currentKey => currentKey !== key);
+      return currencyPickerMode === 'add' && keepPrevious
+        ? [mainKey, ...otherExtras, key]
+        : [...otherExtras, key];
+    });
+    setFundAmounts(current => {
+      const next = {...current};
+      if (!swapping) delete next[key];
+      if (!keepPrevious || (!swapping && currencyPickerMode !== 'add')) delete next[mainKey];
+      return next;
+    });
+    setMainFundingCoinKey(key);
+  };
+  const removeFundingCurrency = key => {
+    if (busy) return;
+    setSelectedFundingCoinKeys(current => current.filter(currentKey => currentKey !== key));
     setFundAmounts(current => {
       const next = {...current};
       delete next[key];
       return next;
     });
-  }, []);
+  };
+  const openCurrencyPicker = mode => {
+    if (busy) return;
+    setCurrencyPickerMode(mode);
+    setCurrencyPickerVisible(true);
+  };
+  const openIdentityPicker = () => {
+    if (!busy) setIdentityPickerVisible(true);
+  };
+  const openAddContents = () => {
+    if (busy) return;
+    if (canAddCurrency && canAddIdentity) setActionSheet({kind: 'add', visible: true});
+    else if (canAddCurrency) openCurrencyPicker('add');
+    else if (canAddIdentity) openIdentityPicker();
+  };
   const selectedIdentityKeys = useMemo(
     () => selections.identities.map(identity => identity.key).join('|'),
     [selections.identities],
@@ -1813,286 +1883,107 @@ const GiftCardFund = props => {
     </>
   );
 
-  const renderFunds = () => (
-    <View style={styles.composerSection}>
-      <View style={styles.sectionHeading}>
-        <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
-          Add funds
+  const renderFunds = () => mainFundingCoin ? (
+    <>
+      <AmountInput
+        ref={amountInputRef}
+        decimalSeparator={decimalSeparator}
+        disabled={busy}
+        onChangeText={changeMainAmount}
+        onUnitPress={() => openCurrencyPicker('replace')}
+        unit={mainFundingCoin.display_ticker || mainFundingCoin.id}
+        value={(fundAmounts[mainKey] || '').replace('.', decimalSeparator)}
+      />
+      <View style={styles.balanceRow}>
+        <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+          Available: {mainBalance == null ? '—' : formatAmount(mainBalance)}
         </Text>
-        <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
-          Choose currencies, then enter the amount for each.
-        </Text>
-      </View>
-
-      {activeFundingCoins.length === 0 ? (
-        <Text style={[styles.emptyCopy, {color: theme.colors.textSecondary}]}>
-          No compatible VRPC balances are available for this card.
-        </Text>
-      ) : selectedFundingCoins.length === 0 ? (
-        <TouchableOpacity
-          accessibilityHint="Opens the currency list."
+        <Pressable
+          accessibilityLabel="Use maximum available amount"
           accessibilityRole="button"
-          activeOpacity={0.74}
-          disabled={busy}
-          onPress={() => setCurrencyPickerVisible(true)}
-          style={styles.currencyPickerLauncher}>
-          <View
-            style={[
-              styles.currencyPickerLauncherIcon,
-              {backgroundColor: theme.colors.surfaceMuted},
-            ]}>
-            <MaterialCommunityIcons
-              color={theme.colors.primary}
-              name="plus"
-              size={23}
-            />
-          </View>
-          <View style={styles.currencyPickerLauncherCopy}>
-            <Text
-              style={[
-                styles.assetTitle,
-                {color: theme.colors.textPrimary},
-              ]}>
-              Choose currencies
-            </Text>
-            <Text
-              style={[
-                styles.assetMeta,
-                {color: theme.colors.textSecondary},
-              ]}>
-              {activeFundingCoins.length}{' '}
-              {activeFundingCoins.length === 1
-                ? 'currency'
-                : 'currencies'}{' '}
-              available
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            color={theme.colors.textSubtle}
-            name="chevron-right"
-            size={22}
-          />
-        </TouchableOpacity>
-      ) : (
-        <>
-          {selectedFundingCoins.map(coinObj => {
-            const key = getFundingCoinKey(coinObj);
-            const balance = getCoinBalance(
-              coinObj,
-              activeAccount,
-              ledgerBalances,
-            );
-            const maxAmount = getMaxFundAmount(coinObj, balance);
-            const ticker = coinObj.display_ticker || coinObj.id;
-
-            return (
-              <View
-                key={key}
-                style={[
-                  styles.assetRow,
-                  {borderTopColor: theme.colors.border},
-                ]}>
-                <View style={styles.assetCopy}>
-                  <View style={styles.assetTitleRow}>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.assetTitle,
-                        styles.assetTitleFlexible,
-                        {color: theme.colors.textPrimary},
-                      ]}>
-                      {ticker}
-                    </Text>
-                    <TouchableOpacity
-                      accessibilityLabel={`Remove ${ticker}`}
-                      accessibilityRole="button"
-                      activeOpacity={0.7}
-                      disabled={busy}
-                      hitSlop={{top: 8, right: 8, bottom: 8, left: 8}}
-                      onPress={() => removeFundingCurrency(key)}
-                      style={styles.removeCurrencyButton}>
-                      <MaterialCommunityIcons
-                        color={theme.colors.textSubtle}
-                        name="close"
-                        size={18}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <Text
-                    style={[
-                      styles.assetMeta,
-                      {color: theme.colors.textSecondary},
-                    ]}>
-                    Balance: {balance == null ? '—' : formatAmount(balance)}{' '}
-                    {ticker}
-                  </Text>
-                </View>
-                <View style={styles.amountEditor}>
-                  <AppTextInput
-                    accessibilityLabel={`Amount of ${ticker}`}
-                    containerStyle={styles.amountInput}
-                    inputMode="decimal"
-                    keyboardType="decimal-pad"
-                    onChangeText={value =>
-                      setFundAmounts(current => ({
-                        ...current,
-                        [key]: sanitizeNumericInput(value),
-                      }))
-                    }
-                    placeholder="0"
-                    size="compact"
-                    inputStyle={styles.amountInputText}
-                    value={fundAmounts[key] || ''}
-                  />
-                  <TouchableOpacity
-                    accessibilityLabel={`Use maximum ${ticker} balance`}
-                    accessibilityRole="button"
-                    disabled={maxAmount == null || !hasAmount(maxAmount)}
-                    onPress={() =>
-                      setFundAmounts(current => ({
-                        ...current,
-                        [key]: formatAmount(maxAmount),
-                      }))
-                    }
-                    style={styles.maxButton}>
-                    <Text
-                      style={[
-                        styles.maxLabel,
-                        {
-                          color:
-                            maxAmount == null || !hasAmount(maxAmount)
-                              ? theme.colors.disabledText
-                              : theme.colors.primary,
-                        },
-                      ]}>
-                      Max
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })}
-          <TouchableOpacity
-            accessibilityHint="Opens the currency picker with current selections."
-            accessibilityRole="button"
-            activeOpacity={0.74}
-            disabled={busy}
-            onPress={() => setCurrencyPickerVisible(true)}
-            style={[
-              styles.editCurrenciesRow,
-              {borderTopColor: theme.colors.border},
-            ]}>
-            <MaterialCommunityIcons
-              color={theme.colors.primary}
-              name="plus-circle-outline"
-              size={20}
-            />
-            <Text
-              style={[
-                styles.editCurrenciesLabel,
-                {color: theme.colors.primary},
-              ]}>
-              Add or remove currencies
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
+          accessibilityState={{disabled: maximumDisabled}}
+          disabled={maximumDisabled}
+          onPress={() => changeMainAmount(formatAmount(mainMaximum))}
+          style={[styles.maxButton, maximumDisabled && styles.maxDisabled]}>
+          <Text style={[
+            theme.typography.labelDense,
+            styles.maxText,
+            {color: theme.colors.primary, borderColor: theme.colors.primary},
+          ]}>MAX</Text>
+        </Pressable>
+      </View>
+    </>
+  ) : (
+    <Text style={[styles.emptyCopy, {color: theme.colors.textSecondary}]}>
+      No compatible VRPC balances are available for this card.
+    </Text>
   );
 
-  const renderIdentities = () => (
-    <View style={styles.composerSection}>
-      <View style={styles.sectionHeading}>
-        <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
-          Add VerusID
+  const renderExtra = (key, text, onPress, onRemove) => (
+    <View key={key} style={[styles.extraRow, {borderTopColor: theme.colors.border}]}>
+      <Pressable
+        accessibilityLabel={text}
+        accessibilityRole="button"
+        accessibilityState={{disabled: busy}}
+        disabled={busy}
+        onPress={onPress}
+        style={styles.extraAction}>
+        <Text
+          ellipsizeMode="tail"
+          numberOfLines={1}
+          style={[theme.typography.titleRow, {color: theme.colors.textPrimary}]}>
+          {text}
         </Text>
-        <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
-          Move one or more linked identities into the gift card.
-        </Text>
-      </View>
-
-      {linkedIdentityOptions.map(identity => {
-        const selected = selectedIds[identity.key] === true;
-
-        return (
-          <TouchableOpacity
-            accessibilityLabel={
-              identity.fullyQualifiedName || identity.identityAddress
-            }
-            accessibilityRole="checkbox"
-            accessibilityState={{checked: selected}}
-            key={identity.key}
-            onPress={() =>
-              setSelectedIds(current => ({
-                ...current,
-                [identity.key]: !current[identity.key],
-              }))
-            }
-            style={[
-              styles.identityRow,
-              {borderTopColor: theme.colors.border},
-            ]}>
-            <MaterialCommunityIcons
-              color={
-                selected
-                  ? theme.colors.primary
-                  : theme.colors.textSubtle
-              }
-              name={
-                selected
-                  ? 'checkbox-marked-circle'
-                  : 'checkbox-blank-circle-outline'
-              }
-              size={24}
-            />
-            <View style={styles.identityCopy}>
-              <Text
-                numberOfLines={1}
-                style={[styles.assetTitle, {color: theme.colors.textPrimary}]}>
-                {identity.fullyQualifiedName || identity.identityAddress}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={[styles.assetMeta, {color: theme.colors.textSecondary}]}>
-                {getSystemName(identity.systemId, activeCoinsForUser)}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+      </Pressable>
+      <Pressable
+        accessibilityLabel={`Remove ${text}`}
+        accessibilityRole="button"
+        accessibilityState={{disabled: busy}}
+        disabled={busy}
+        onPress={onRemove}
+        style={styles.removeExtraButton}>
+        <MaterialCommunityIcons name="close" size={18} color={theme.colors.textSubtle} />
+      </Pressable>
     </View>
   );
 
   const renderContents = () => (
     <>
       {renderFunds()}
-      {linkedIdentityOptions.length > 0 ? renderIdentities() : null}
-
-      <TouchableOpacity
-        accessibilityRole="button"
-        disabled={busy}
-        onPress={openExternalFunding}
-        style={[
-          styles.externalBranch,
-          {
-            backgroundColor: theme.colors.surfaceMuted,
-          },
-        ]}>
-        <View style={styles.externalBranchCopy}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.textPrimary}]}>
-            Fund from another wallet
-          </Text>
-          <Text style={[styles.helper, {color: theme.colors.textSecondary}]}>
-            Save this card and choose the receiving system address.
-          </Text>
+      {extraFundingCoins.length > 0 || selections.identities.length > 0 || canAddCurrency || canAddIdentity ? (
+        <View style={[styles.extras, {borderBottomColor: theme.colors.border}]}>
+          {extraFundingCoins.map(coin => {
+            const key = getFundingCoinKey(coin);
+            const ticker = coin.display_ticker || coin.id;
+            return renderExtra(
+              key,
+              `${fundAmounts[key]} ${ticker}`,
+              () => chooseFundingCurrency(key),
+              () => removeFundingCurrency(key),
+            );
+          })}
+          {selections.identities.map(identity => renderExtra(
+            identity.key,
+            identity.fullyQualifiedName || identity.identityAddress,
+            openIdentityPicker,
+            () => setSelectedIds(current => ({...current, [identity.key]: false})),
+          ))}
+          {canAddCurrency || canAddIdentity ? (
+            <Pressable
+              accessibilityLabel={addContentsLabel}
+              accessibilityRole="button"
+              accessibilityState={{disabled: busy}}
+              disabled={busy}
+              onPress={openAddContents}
+              style={[styles.addContents, {borderTopColor: theme.colors.border}]}>
+              <MaterialCommunityIcons name="plus" size={18} color={addActionColor} />
+              <Text style={[theme.typography.labelMd, {color: addActionColor}]}>
+                {addContentsLabel}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
-        <MaterialCommunityIcons
-          color={theme.colors.textSubtle}
-          name="chevron-right"
-          size={22}
-        />
-      </TouchableOpacity>
-
+      ) : null}
       {renderInlineResult()}
     </>
   );
@@ -2501,27 +2392,27 @@ const GiftCardFund = props => {
 
     if (step === STEP_CONTENTS) {
       return (
-        <SafeBottomActionStack
-          gap={8}
-          horizontalSpacing={20}
-          safeAreaSpacing={0}>
-          <AppButton
-            disabled={!hasSelections || busy}
-            onPress={() => {
-              setResult(null);
-              setStep(STEP_REVIEW);
-            }}>
-            Review gift card
-          </AppButton>
-        </SafeBottomActionStack>
+        <WizardFooter
+          bottomSpacing={mainFundingCoin ? (smallDevice ? 8 : 16) : 24}
+          disabled={!hasSelections || busy}
+          includeBottomInset={!mainFundingCoin}
+          onPress={() => {
+            setResult(null);
+            setStep(STEP_REVIEW);
+          }}
+          safeAreaSpacing={mainFundingCoin ? 0 : 12}>
+          Review gift card
+        </WizardFooter>
       );
     }
 
     if (step === STEP_REVIEW) {
       return (
         <SafeBottomActionStack
+          bottomSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30}
           gap={8}
           horizontalSpacing={20}
+          includeBottomInset={!keyboardVisible}
           safeAreaSpacing={0}>
           {preflightPlan ? (
             <AppButton
@@ -2669,6 +2560,16 @@ const GiftCardFund = props => {
         backDisabled={busy || step === STEP_PROCESSING}
         onBack={handleBack}
         progress={getProgress(step, createMode)}
+        rightAction={step === STEP_CONTENTS ? (
+          <Pressable
+            accessibilityLabel="More options"
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => setActionSheet({kind: 'more', visible: true})}
+            style={styles.headerAction}>
+            <MaterialCommunityIcons name="dots-horizontal" size={24} color={theme.colors.textPrimary} />
+          </Pressable>
+        ) : null}
         title={getStepTitle(step)}
       />
       {card?.label && step !== STEP_DETAILS ? (
@@ -2708,6 +2609,9 @@ const GiftCardFund = props => {
               paddingRight: 20 + insets.right,
             },
             step === STEP_PROCESSING && styles.processingScrollContent,
+            step === STEP_PROCESSING && {paddingBottom: 28 + insets.bottom},
+            step === STEP_CONTENTS && styles.amountScrollContent,
+            step === STEP_CONTENTS && smallDevice && styles.amountScrollContentCompact,
           ]}
           key={step}
           fadeBackgroundColor={theme.colors.background}
@@ -2723,13 +2627,45 @@ const GiftCardFund = props => {
           <GiftCardPageContent key={step}>{renderStep()}</GiftCardPageContent>
         </FadedScrollView>
         {renderActions()}
+        {step === STEP_CONTENTS && mainFundingCoin ? (
+          <AmountKeypad
+            decimalSeparator={decimalSeparator}
+            onKeyPress={key => amountInputRef.current?.edit(key)}
+            visible={focused && !busy && !pickerOpen}
+          />
+        ) : null}
       </KeyboardAvoidingForm>
-      <GiftCardCurrencyPickerSheet
-        onApply={applyFundingCurrencies}
+      <GiftCardContentsPickerSheet
         onClose={() => setCurrencyPickerVisible(false)}
-        options={fundingCurrencyOptions}
-        selectedKeys={selectedFundingCoinKeys}
+        onClosed={refocusAmount}
+        onSelect={chooseFundingCurrency}
+        options={currencyPickerMode === 'add' ? availableCurrencyOptions : fundingCurrencyOptions}
+        selectedKeys={mainKey ? [mainKey] : []}
         visible={currencyPickerVisible}
+      />
+      <GiftCardContentsPickerSheet
+        identities
+        onApply={keys => {
+          if (!busy) setSelectedIds(Object.fromEntries(keys.map(key => [key, true])));
+        }}
+        onClose={() => setIdentityPickerVisible(false)}
+        onClosed={refocusAmount}
+        options={linkedIdentityOptions}
+        selectedKeys={selections.identities.map(identity => identity.key)}
+        visible={identityPickerVisible}
+      />
+      <GiftCardOptionsSheet
+        actions={actionSheet?.kind === 'add' ? [
+          {key: 'currency', label: 'Another currency', IconComponent: CirclePlus,
+            disabled: busy, onPress: () => openCurrencyPicker('add')},
+          {key: 'identity', label: 'VerusID', IconComponent: AtSign,
+            disabled: busy, onPress: openIdentityPicker},
+        ] : [
+          {key: 'external', label: 'Fund from another wallet', IconComponent: ArrowDownToLine,
+            disabled: busy, onPress: openExternalFunding},
+        ]}
+        onClose={() => setActionSheet(current => ({...current, visible: false}))}
+        visible={Boolean(actionSheet?.visible)}
       />
       <GiftCardShareSheet
         card={shareCard}
@@ -2833,134 +2769,29 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     ...fontStyle('regular'),
   },
-  composerSection: {
-    marginBottom: 24,
-  },
-  sectionHeading: {
-    marginBottom: 12,
-  },
-  emptyCopy: {
-    paddingVertical: 14,
-    fontSize: 14,
-    lineHeight: 21,
-    ...fontStyle('regular'),
-  },
-  currencyPickerLauncher: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  currencyPickerLauncherIcon: {
-    width: 38,
-    height: 38,
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 19,
-  },
-  currencyPickerLauncherCopy: {
-    minWidth: 0,
-    flex: 1,
-    paddingRight: 12,
-  },
-  assetRow: {
-    minHeight: 76,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  assetCopy: {
-    minWidth: 0,
-    flex: 1,
-    paddingRight: 12,
-  },
-  assetTitleRow: {
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  amountScrollContent: {paddingTop: 48, paddingBottom: 8},
+  amountScrollContentCompact: {paddingTop: 8},
+  emptyCopy: {paddingVertical: 14, fontSize: 14, lineHeight: 21, ...fontStyle('regular')},
+  balanceRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
+  maxButton: {minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center'},
+  maxText: {borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3},
+  maxDisabled: {opacity: 0.4},
+  extras: {marginTop: 12, borderBottomWidth: StyleSheet.hairlineWidth},
+  extraRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth},
+  extraAction: {flex: 1, minWidth: 0, minHeight: 48, justifyContent: 'center'},
+  removeExtraButton: {width: 44, height: 44, marginRight: -13, alignItems: 'center', justifyContent: 'center'},
+  addContents: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth},
+  headerAction: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
   assetTitle: {
     fontSize: 15,
     lineHeight: 21,
     ...fontStyle('semiBold'),
-  },
-  assetTitleFlexible: {
-    minWidth: 0,
-    flex: 1,
   },
   assetMeta: {
     marginTop: 2,
     fontSize: 12,
     lineHeight: 18,
     ...fontStyle('regular'),
-  },
-  removeCurrencyButton: {
-    width: 32,
-    height: 32,
-    marginRight: -6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  amountEditor: {
-    width: 172,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  amountInput: {
-    width: 112,
-  },
-  amountInputText: {
-    paddingHorizontal: 12,
-    textAlign: 'right',
-  },
-  maxButton: {
-    width: 52,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  maxLabel: {
-    fontSize: 13,
-    lineHeight: 18,
-    ...fontStyle('semiBold'),
-  },
-  editCurrenciesRow: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 8,
-  },
-  editCurrenciesLabel: {
-    fontSize: 14,
-    lineHeight: 20,
-    ...fontStyle('semiBold'),
-  },
-  identityRow: {
-    minHeight: 64,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  identityCopy: {
-    minWidth: 0,
-    flex: 1,
-    marginLeft: 12,
-  },
-  externalBranch: {
-    minHeight: 78,
-    padding: 14,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  externalBranchCopy: {
-    minWidth: 0,
-    flex: 1,
-    marginRight: 12,
   },
   reviewGroup: {
     marginBottom: 18,

@@ -1983,6 +1983,61 @@ visible without a gesture and asks once before the key leaves the wallet. The
 Services root grows by one tile per service with no new artwork. Status uses
 the badge without dots everywhere SV-1 touches. Preserved behavior still works.
 
+### SV-1.GIFT-AMOUNT-FIRST — Build the gift (2026-11-02)
+
+Owner-approved reference: option B, frames B1–B10 in
+`/tmp/vm-mock-gbuild/out/`, with `opt-b.js` and `opt-b.css` as the measurement
+source. Implementation branch: `claude/gift-amount-first`, from `redesign`
+at `700fb18d`.
+
+- [x] Replace the currency form and inline identity list with shared amount
+  entry, keypad, Available / MAX, ordered extras, canonical currency and
+  multi-select VerusID sheets, and the contextual add action.
+- [x] Move external funding to the Build step's header options. Preserve the
+  funding payload, downstream funding flow, and Review return state. Update
+  DESIGN.md and remove the unused old currency picker.
+- [ ] Orchestrator QA: compare B1–B10 in light/dark on normal and compact
+  iOS and Android. Check swaps, removal, identity-only gifts, long lists,
+  sheet dismissal, Review Back, busy state, and external funding.
+
+Evidence: `check:design` passes (37 canonical sources). Safe-area checks pass
+for all 4 changed JS files. The iOS production JS bundle and Babel parsing
+pass. Local source-extracted state/contract checks pass 26 cases, component
+tree/callback checks pass 11 cases, and the existing amount-keypad script
+passes 20 cases. Repository ESLint cannot load its existing `import` plugin
+(`ERR_PACKAGE_PATH_NOT_EXPORTED`); isolated undefined/unused lint passes.
+The amount map stays the single source for `selections.funds`.
+The clear-all VerusID action reads "Done" and applies an empty selection.
+The existing positive-amount Review gate still permits an amount above the
+balance; funding validation stays downstream. No device or simulator QA ran
+in this implementation task, as instructed by the owner.
+
+Device-QA follow-up, 2026-11-02 (same implementation branch):
+
+- [x] Hide tabs for the active `GiftCardCreate` and `GiftCardFund` Services
+  routes, including every internal step. Other routes use the unchanged
+  `HomeTabScreens` tab style. Review drops the bottom inset with its password
+  keyboard open. Processing reserves its scroll content's bottom safe area.
+- [x] Display the main amount with the locale decimal separator. Keep
+  `fundAmounts`, funding selections and MAX values normalized. Preserve the
+  amount caret when only the displayed separator changes.
+- [x] Inspect accessibility wrappers and action semantics. No grouping or
+  descendant-hiding parent was found. Add has an explicit label. Extra rows,
+  remove actions and Add have explicit disabled states. Unit and MAX already
+  have their own button roles, labels and disabled states.
+- [ ] Orchestrator recheck: native tab restoration, safe-area geometry, locale
+  entry and separate accessibility elements on iOS and Android.
+
+Follow-up evidence: `check:design` passes (37 canonical sources). Safe-area
+checks pass for the 3 changed JS files, together and individually. Narrow
+undefined/unused lint, Babel parsing and the iOS production bundle pass.
+The earlier state/contract (26) and component (11) scripts pass against
+`700fb18d`; the existing keypad checks pass (20). Local QA regression checks
+cover tab defaults, locale entry, caret edits, accessibility props and shared
+safe-stack padding. This is source and React component evidence. No simulator
+or native accessibility check ran in this follow-up. Metro on port 8197 was
+left running for orchestrator QA.
+
 ## RG-1 — Say each fact once (result guard)
 
 **Authority:** [DESIGN.md](DESIGN.md) core rule "Say each fact once", the

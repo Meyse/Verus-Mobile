@@ -24,6 +24,8 @@ export const SelectionRow = ({
   leading,
   badge,
   accessibilityLabel,
+  accessibilityRole = 'button',
+  showChevron = true,
   compact = false,
   dense = false,
   // A choice that exists but cannot be picked now, such as a private card
@@ -35,7 +37,7 @@ export const SelectionRow = ({
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   return (
     <TouchableOpacity
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={
         accessibilityLabel ||
         [title, subtitle, value, valueLabel]
@@ -43,7 +45,9 @@ export const SelectionRow = ({
           .join(', ')
       }
       accessibilityState={
-        selected == null && !disabled ? undefined : {selected: Boolean(selected), disabled}
+        accessibilityRole === 'checkbox'
+          ? {checked: Boolean(selected), disabled}
+          : selected == null && !disabled ? undefined : {selected: Boolean(selected), disabled}
       }
       activeOpacity={0.74}
       disabled={disabled}
@@ -90,13 +94,13 @@ export const SelectionRow = ({
         style={[styles.indicator, compact && styles.compactIndicator]}>
         {disabled ? null : selected ? (
           <Check color={theme.colors.successText} size={20} strokeWidth={2.4} />
-        ) : (
+        ) : showChevron ? (
           <MaterialCommunityIcons
             name="chevron-right"
             size={20}
             color={theme.colors.textSubtle}
           />
-        )}
+        ) : null}
       </View>
     </TouchableOpacity>
   );

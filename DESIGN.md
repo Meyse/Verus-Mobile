@@ -748,6 +748,44 @@ shows in a `HeaderContextBand` under the header (owner chose option A on
 2026-10-23): a 16-point `gift-outline` icon in `textSecondary` and the name in
 `labelSm`, with the 20-point gift card inset.
 
+Owner-approved 2026-11-02, option B (Amount first): "Build the gift" reuses
+`AmountInput`, its opt-in tappable unit, `AmountKeypad`, and `WizardFooter`.
+The wallet's main coin (including its Testnet override) starts empty; if it
+cannot fund the card, use the first compatible currency. Keep the Send amount
+sizing, 48-point Available / MAX row, fee reserve, compact rules, and keypad
+safe area. Available shows no ticker. The card-name band replaces Send's
+network context. Amount starts 48 points below it, or 8 on compact windows.
+
+The unit opens "Choose a currency", a single-choice `SelectionSheet`. A new
+choice replaces the main currency and clears its amount. A currency already
+in the gift swaps with the main amount. Other currencies with positive amounts
+come first in 48-point hairline rows, then selected VerusIDs. Currency rows show
+the exact amount and ticker; VerusID names keep one line with a tail ellipsis.
+Each row has a 44-point remove action. A currency tap swaps it into the input
+and puts the previous amount in that row; an empty previous amount disappears.
+A VerusID tap reopens its picker. Amount, Available and extras scroll together
+in `FadedScrollView`; the action and keypad stay fixed.
+
+"Add currency or VerusID" opens the unfilled `GiftCardOptionsSheet` rows
+"Another currency" and "VerusID". When only one kind remains, name it in the
+add action and open that picker directly. Hide the action when neither remains.
+Adding a currency lists only currencies outside the gift, makes the choice the
+empty main amount, and moves the previous positive amount to the first extra.
+"Choose VerusIDs" is a multi-select `SelectionSheet`: success fill and check
+for selected rows, no chevron for unselected rows. Its bottom action counts
+only VerusIDs new to the gift: "Add 1 VerusID" or "Add 2 VerusIDs". It reads
+"Done" when the draft adds nothing or removes a VerusID.
+Only that action applies the draft. Outside tap and Back discard it.
+
+On this step only, `ProgressHeader` shows a 44-point "More options" action
+(`dots-horizontal`). Its one sheet row, "Fund from another wallet", keeps the
+detail sheet's `ArrowDownToLine` icon and the existing external-funding flow.
+The sole primary action is "Review gift card". It is enabled for any positive
+amount or selected VerusID, including an empty main amount. No compatible
+currency keeps the existing empty line and offers only available VerusIDs;
+there is no amount keypad. Create and existing-card funding share this step.
+Back from Review keeps the contents. Busy state disables editing and actions.
+
 ## Lists, forms, and settings
 
 Address Book and Gift Cards establish the service-manager pattern:
@@ -807,8 +845,8 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   index, as in the revoke and recover picker (owner, 2026-10-26)), Saved
   addresses in Send (the recipient step passes in the count of addresses that
   fit the send, so the field does not pop in when the sheet finishes loading),
-  Choose currencies for a gift card, the Address book screen (its search and
-  network filter) and Pay with for burn invoices. The
+  "Choose a currency" and "Choose VerusIDs" in Build the gift, the Address book
+  screen (its search and network filter) and Pay with for burn invoices. The
   identity picker for revoke and recover already uses 7. The display currency
   sheet always has 33 items and always shows its field.
 - When the controls hide, because the count drops below 7, the screen clears the
@@ -820,16 +858,19 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   chrome that shows. The list starts where the sheet's own title-to-list gap puts
   it. A sheet that filled 76% of the screen for the field (Saved addresses)
   fits its content instead.
-- "Choose an address" and Choose currencies for a gift card show no count line
+- "Choose an address", "Choose a currency" and "Choose VerusIDs" show no count line
   under the title, because the rows already show how many there are (owner,
   2026-10-25). A row shows its network only when the list has more than one
   network, and never when the network repeats the row's own name (a native
   coin such as VRSCTEST, "Verus Testnet"). A gift currency row shows its amount
   without the ticker, because the row title names it. A card row without the
-  network line has one line and is 60 points high (72 with it).
-- Below 7 items these two sheets grow past 76% when they must, up to 16 points
+  network line has one line and is 60 points high (72 with it). Gift currency
+  and VerusID choices use the canonical `SelectionRow` at 56 points minimum;
+  their title and value styles stay on the shared theme roles.
+- Below 7 items the address sheet grows past 76% when it must, up to 16 points
   under the top safe area, so every row shows without scrolling on an iPhone
-  SE. With 7 or more items they keep 76% and the list scrolls.
+  SE. With 7 or more items it keeps 76% and the list scrolls. Gift content
+  pickers keep the canonical 76% `SelectionSheet` shell and scroll when needed.
 
 Use `AddressBookEditSheet` for compact add/edit forms. Preserve its shared sheet
 title, 20-point form inset, `AppTextInput`, keyboard-aware height, and
