@@ -1975,6 +1975,35 @@ visible without a gesture and asks once before the key leaves the wallet. The
 Services root grows by one tile per service with no new artwork. Status uses
 the badge without dots everywhere SV-1 touches. Preserved behavior still works.
 
+### SV-1.GIFT-AMOUNT-FIRST — Build the gift (2026-11-02)
+
+Owner-approved reference: option B, frames B1–B10 in
+`/tmp/vm-mock-gbuild/out/`, with `opt-b.js` and `opt-b.css` as the measurement
+source. Implementation branch: `claude/gift-amount-first`, from `redesign`
+at `700fb18d`.
+
+- [x] Replace the currency form and inline identity list with shared amount
+  entry, keypad, Available / MAX, ordered extras, canonical currency and
+  multi-select VerusID sheets, and the contextual add action.
+- [x] Move external funding to the Build step's header options. Preserve the
+  funding payload, downstream funding flow, and Review return state. Update
+  DESIGN.md and remove the unused old currency picker.
+- [ ] Orchestrator QA: compare B1–B10 in light/dark on normal and compact
+  iOS and Android. Check swaps, removal, identity-only gifts, long lists,
+  sheet dismissal, Review Back, busy state, and external funding.
+
+Evidence: `check:design` passes (37 canonical sources). Safe-area checks pass
+for all 4 changed JS files. The iOS production JS bundle and Babel parsing
+pass. Local source-extracted state/contract checks pass 26 cases, component
+tree/callback checks pass 11 cases, and the existing amount-keypad script
+passes 20 cases. Repository ESLint cannot load its existing `import` plugin
+(`ERR_PACKAGE_PATH_NOT_EXPORTED`); isolated undefined/unused lint passes.
+The amount map stays the single source for `selections.funds`.
+The clear-all VerusID action reads "Done" and applies an empty selection.
+The existing positive-amount Review gate still permits an amount above the
+balance; funding validation stays downstream. No device or simulator QA ran
+in this implementation task, as instructed by the owner.
+
 ## RG-1 — Say each fact once (result guard)
 
 **Authority:** [DESIGN.md](DESIGN.md) core rule "Say each fact once", the
