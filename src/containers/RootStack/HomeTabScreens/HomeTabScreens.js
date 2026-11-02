@@ -1,5 +1,5 @@
-import React, {useMemo, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {InteractionManager, StyleSheet, View} from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useDispatch} from 'react-redux';
@@ -33,6 +33,17 @@ const HomeTabScreens = () => {
     state => state.channelStore_verusid?.pendingIds || {},
   );
   const [lastSeenPendingIdentityKey, setLastSeenPendingIdentityKey] = useState('');
+  // Services and VerusID load stored data on mount. Mount them hidden once the
+  // sign-in transition ends, so their first visit shows no loading frame and
+  // Home's first render does not wait for them.
+  const [preloadTabs, setPreloadTabs] = useState(false);
+
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() =>
+      setPreloadTabs(true),
+    );
+    return () => task.cancel();
+  }, []);
 
   const pendingIdentityMeta = useMemo(() => {
     const actionable = [];
@@ -94,6 +105,7 @@ const HomeTabScreens = () => {
         name="ServicesHome"
         component={ServicesStackScreens}
         options={{
+          lazy: !preloadTabs,
           title: signedInCopy.navigation.services,
           tabBarIcon: ({color}) => (
             <Feather name="compass" color={color} size={22} style={styles.icon} />
@@ -107,6 +119,7 @@ const HomeTabScreens = () => {
           focus: () => setLastSeenPendingIdentityKey(pendingIdentityMeta.key),
         }}
         options={{
+          lazy: !preloadTabs,
           title: signedInCopy.navigation.identity,
           tabBarIcon: ({color, focused}) => (
             <View style={styles.identityIconWrap}>

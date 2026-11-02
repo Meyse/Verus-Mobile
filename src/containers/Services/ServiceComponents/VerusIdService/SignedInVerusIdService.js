@@ -11,7 +11,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {AtSign, CircleAlert} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {primitives} from 'verusid-ts-client';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import EmptyState from '../../../../components/EmptyState';
@@ -914,10 +914,19 @@ const handleReady = useCallback(
     );
   };
 
+  // The tab mounts hidden after sign-in, where a native SafeAreaView measures
+  // no top inset until its first visit; context insets are known up front.
   return (
-    <SafeAreaView
-      edges={['top', 'left', 'right']}
-      style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+    <View
+      style={[
+        styles.screen,
+        {
+          backgroundColor: theme.colors.background,
+          paddingTop: insets.top,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}>
       <View
         style={[
           styles.header,
@@ -1177,7 +1186,7 @@ const handleReady = useCallback(
           </SafeBottomActionStack>
         </View>
       </BottomSheetModal>
-    </SafeAreaView>
+    </View>
   );
 };
 
