@@ -360,13 +360,13 @@ const truncatePreview = (text, maxLen = 60) => {
 const renderCmmDescBlock = (
   label,
   value,
-  borderColor,
+  toneColor,
   muted = false,
   darkMode = false,
 ) => (
-  <View style={[LocalStyles.cmmCardDescBlock, {borderLeftColor: borderColor}]}>
+  <View style={LocalStyles.cmmCardDescBlock}>
     {label ? (
-      <Text style={[LocalStyles.cmmCardDescLabel, {color: borderColor}]}>
+      <Text style={[LocalStyles.cmmCardDescLabel, {color: toneColor}]}>
         {label}
       </Text>
     ) : null}
@@ -413,7 +413,7 @@ const getRemoveActionDescription = removeMeta => {
 };
 
 const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
-  const neutralBorderColor = darkMode ? '#7E8EA6' : '#CCC';
+  const neutralToneColor = darkMode ? '#7E8EA6' : '#CCC';
   const updatedPreview = item.isEncrypted
     ? 'Encrypted upload (tap to view)'
     : item.updatedData ?? updateEntry?.data ?? item.data;
@@ -441,7 +441,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
             renderCmmDescBlock(
               'Active',
               item.data,
-              neutralBorderColor,
+              neutralToneColor,
               removesDisplayedActive,
               darkMode,
             )}
@@ -472,7 +472,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
           renderCmmDescBlock(
             'Existing',
             item.data,
-            neutralBorderColor,
+            neutralToneColor,
             false,
             darkMode,
           )}
