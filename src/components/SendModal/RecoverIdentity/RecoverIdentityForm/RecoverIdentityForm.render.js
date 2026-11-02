@@ -286,6 +286,7 @@ const localStyles = StyleSheet.create({
   action: {
     minWidth: 62,
     minHeight: 44,
+    alignSelf: 'center',
     alignItems: 'flex-end',
     justifyContent: 'center',
   },

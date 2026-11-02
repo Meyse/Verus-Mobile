@@ -49,6 +49,7 @@ const createDataApprovalListStyles = theme =>
     undoAction: {
       minWidth: 44,
       minHeight: 44,
+      alignSelf: 'center',
       justifyContent: 'center',
       alignItems: 'flex-end',
       paddingLeft: theme.spacing.sm,

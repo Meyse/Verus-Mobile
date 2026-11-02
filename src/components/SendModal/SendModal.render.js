@@ -227,7 +227,7 @@ export const SendModalRender = function () {
                       backgroundColor: Colors.secondaryColor,
                     }}>
                     <TextAction
-                      style={{marginBottom: 16}}
+                      style={{alignSelf: 'center', marginBottom: 16}}
                       onPress={() => this.cancel()}
                       size="small"
                       themeMode="light"
@@ -243,7 +243,7 @@ export const SendModalRender = function () {
                       {title}
                     </Text>
                     <TextAction
-                      style={{marginBottom: 16}}
+                      style={{alignSelf: 'center', marginBottom: 16}}
                       onPress={() => this.showHelpModal()}
                       size="small"
                       themeMode="light"
