@@ -2709,8 +2709,11 @@ QA follow-up, 2026-11-03 (P2 keyboard overflow and P3 opening scroll):
 - [x] Owner testers, iOS: SE S7 and the Pro keyboard/note re-check passed in
   both themes (search, clear, chips, pin/unpin, note, no results, last row,
   keyboard close and reopen; opening with a pinned front, a middle and an end
-  row). Open P3s, older than this branch: with the keyboard up, the first chip
-  tap only dismisses the keyboard; focusing search scrolls the list to the top.
+  row). Focusing search no longer moves the list to the top (`c1364d56`; the
+  keyboard resize had reset the scroll). Open P3s: with the keyboard up, the
+  first chip tap only dismisses the keyboard (older than this branch; the chip
+  rows have no `keyboardShouldPersistTaps`); right after the keyboard opens at
+  a scrolled position, the list shows no bottom fade until the next scroll.
 
 Cause: the modal already adjusts its percentage cap above the keyboard, but
 the picker body and fixed-height list did not shrink. The child list therefore
