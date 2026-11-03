@@ -89,6 +89,7 @@ import {useWizardFiat} from './useWizardFiat';
 import {
   getCurrencyDisplay,
   getDestinationNetwork,
+  getPreparedConversionEstimate,
   getRouteName,
   getTransactionId,
   isOwnChannelAddress,
@@ -414,8 +415,7 @@ const SendWizardConfirm = () => {
         if (
           target.isConversion &&
           !route.preconvert &&
-          preflightEstimate == null &&
-          estimate?.estimatedcurrencyout == null
+          getPreparedConversionEstimate(preflight, estimate)?.estimatedcurrencyout == null
         ) {
           nextWarnings.push('Could not calculate an estimated result for this conversion.');
         }
@@ -620,7 +620,7 @@ const SendWizardConfirm = () => {
       reviewResult.output?.address?.getAddressString?.() ||
       (privateSource ? reviewResult.toAddress : null)
     : null;
-  const displayEstimate = reviewResult?.estimate || estimate;
+  const displayEstimate = getPreparedConversionEstimate(reviewResult, estimate);
   const estimatedReceive = displayEstimate?.estimatedcurrencyout;
   // An invoice is paid in full or not at all, so its amount never shrinks.
   const displayAmount = invoiceShortfall
@@ -672,6 +672,34 @@ const SendWizardConfirm = () => {
   const feeSummary = feeItems.length
     ? feeItems.map(item => `${item.amount} ${item.currency}`).join(' + ')
     : 'Calculated by wallet';
+  const hasExportFees = Boolean(route?.isCrossChain && channel?.split('.')[0] === 'vrpc');
+  const exportFees = hasExportFees && reviewResult?.feeDetails
+    ? {
+        bridge: Object.entries(reviewResult.feeDetails.bridge)
+          .map(([currencyId, satoshis]) => `${satsToCoins(BigNumber(satoshis)).toFixed()} ${
+            getCurrencyDisplay(currencyId, reviewResult.names?.get?.(currencyId)).ticker
+          }`).join(' + '),
+        network: Object.entries(reviewResult.feeDetails.network)
+          .filter(([, satoshis]) => BigNumber(satoshis).isGreaterThan(0))
+          .map(([currencyId, satoshis]) => `${satsToCoins(BigNumber(satoshis)).toFixed()} ${
+            getCurrencyDisplay(currencyId, reviewResult.names?.get?.(currencyId)).ticker
+          }`).join(' + '),
+      }
+    : null;
+  // Sum by currency ID, not ticker: each currency the user pays appears once.
+  const totalPaid = new Map([[
+    sourceCoin?.currency_id || sourceCoin?.id,
+    {amount: displayAmount, currency: sourceCoin?.display_ticker || ''},
+  ]]);
+  feeItems.forEach(item => {
+    const previous = totalPaid.get(item.currencyId);
+    totalPaid.set(item.currencyId, {
+      amount: BigNumber(previous?.amount || 0).plus(item.amount),
+      currency: previous?.currency || item.currency,
+    });
+  });
+  const exportTotal = [...totalPaid.values()]
+    .map(item => `${item.amount.toFixed()} ${item.currency}`).join(' + ');
   const destinationNetwork = getDestinationNetwork(
     route,
     sourceCoin?.display_name,
@@ -738,9 +766,7 @@ const SendWizardConfirm = () => {
   const refundCaption = preconvert ? 'Refunds also go here.' : null;
 
   if (preflighting && (!feeKind || !reviewResult)) {
-    const preparingReceive = Boolean(
-      target?.isConversion && estimatedReceive != null,
-    );
+    const preparingReceive = Boolean(target?.isConversion);
 
     return (
       <WizardScreen scroll={false}>
@@ -752,6 +778,7 @@ const SendWizardConfirm = () => {
           isConversion={preparingReceive}
           fromLabel={fromLabel}
           networkFee={Boolean(feeKind)}
+          exportFees={hasExportFees}
           recipient={recipientAddress}
           recipientCaption={refundCaption}
           routeRows={launchRows}
@@ -818,13 +845,13 @@ const SendWizardConfirm = () => {
   const showImpact = showReceive && (impact != null || Boolean(route?.via));
   // Notices and errors stay above Hold to confirm. On a short screen they would
   // otherwise sit below the fold, out of sight when the user holds.
-  // A conversion or export whose fees in the paid currency reach the amount
-  // would cost more than it moves.
-  const feeShortfall =
-    !simpleSend && !invoice && reviewResult && sourceFees.isGreaterThanOrEqualTo(BigNumber(amount || 0))
-      ? 'This amount does not cover the fees. Enter a larger amount.'
+  // Fees are paid on top. A local conversion can cost more than it converts;
+  // tell the user without blocking an otherwise valid prepared transaction.
+  const conversionFeeNotice =
+    target?.isConversion && !route?.isCrossChain && !invoice && reviewResult && sourceFees.isGreaterThan(displayAmount)
+      ? 'The fees are higher than the amount you convert.'
       : null;
-  const pinnedMessage = state.broadcastError || error || invoiceShortfall || feeShortfall;
+  const pinnedMessage = state.broadcastError || error || invoiceShortfall;
   // A scanned request that names another network warns here, above the hold.
   // From the private card, a transparent address makes the amount public.
   const publicNotice =
@@ -851,6 +878,7 @@ const SendWizardConfirm = () => {
     selfNotice,
     publicNotice,
     launchNotice,
+    conversionFeeNotice,
     ...warnings,
   ].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
@@ -904,6 +932,8 @@ const SendWizardConfirm = () => {
           arrives={estimatedTime}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
+          exportFees={exportFees}
+          total={hasExportFees ? exportTotal : null}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={
@@ -971,8 +1001,7 @@ const SendWizardConfirm = () => {
           submitted.current ||
           Boolean(state.txResult) ||
           Boolean(state.broadcastError) ||
-          Boolean(invoiceShortfall) ||
-          Boolean(feeShortfall)
+          Boolean(invoiceShortfall)
         }
         holdToConfirm={!needsFeeRetry}
         holdHint={target?.isConversion ? 'Hold the button to convert.' : 'Hold the button to send.'}

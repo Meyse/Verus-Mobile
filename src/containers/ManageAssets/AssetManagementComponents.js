@@ -107,7 +107,7 @@ export const ReviewRow = ({label, value, copy = false, styles, valueStyle}) => (
 
 export const AssetLogo = ({coin, presentation = coin && getAssetPresentation(coin), styles}) => (
   <View style={styles.rowLogo}>
-    <AssetCoinLogo coinId={presentation?.iconId} badgeTicker={presentation?.badgeTicker || null} size={38} />
+    <AssetCoinLogo coinId={presentation?.logoId} badgeTicker={presentation?.badgeTicker || null} size={38} />
   </View>
 );
 

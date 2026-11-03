@@ -226,7 +226,7 @@ const SendWizardAmount = () => {
       : 'Enter a valid amount.';
   }
   const exportFeeError = insufficientExportFunds
-    ? `Not enough ${sourceCoin.display_ticker} for the Ethereum network fee (about ${exportFeeDisplay}).`
+    ? `Not enough ${sourceCoin.display_ticker} for the bridge fee (about ${exportFeeDisplay}).`
     : null;
 
   useEffect(() => {
@@ -441,7 +441,7 @@ const SendWizardAmount = () => {
     const nextRoute =
       option.routes.find(candidate => !candidate.via) || option.routes[0];
 
-    if (nextRoute) setRoute(nextRoute);
+    if (nextRoute) setRoute(nextRoute, option);
     setNetworkSheetOpen(false);
   };
 

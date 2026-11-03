@@ -1784,6 +1784,7 @@ describe('spendable key claim utilities', () => {
 
   it('broadcasts identity updates and locally signed sweeps', async () => {
     const persistPendingBroadcast = jest.fn().mockResolvedValue();
+    const fundingApproval = {systemId: mockRootCoin.system_id, txHex: 'identity-hex'};
     const result = await broadcastSpendableKeyClaim({
       ownerAccountHash: mockOwnerAccountHash,
       preflightPlan: {
@@ -1795,6 +1796,7 @@ describe('spendable key claim utilities', () => {
             txHex: 'identity-hex',
             inputs: [rootFeeUtxo],
             keys: [['claim-wif']],
+            fundingApproval,
           },
           {
             type: 'sweep',
@@ -1813,7 +1815,9 @@ describe('spendable key claim utilities', () => {
       'identity-hex',
       [rootFeeUtxo],
       [['claim-wif']],
+      fundingApproval,
     );
+    expect(mockSignUpdateIdentityTx.mock.calls[0][4]).toBe(fundingApproval);
     expect(mockFromWIF).toHaveBeenCalledWith('claim-wif', {});
     expect(mockSendRawTransaction.mock.calls).toEqual([
       [mockRootCoin.system_id, 'signed-identity'],

@@ -21,6 +21,7 @@ import {FlatRow} from './components/WizardUI';
 import {useWizardFiat} from './useWizardFiat';
 import {
   getDestinationNetwork,
+  getPreparedConversionEstimate,
   getTransactionId,
   isOwnChannelAddress,
   shortAddress,
@@ -47,9 +48,9 @@ const SendWizardSuccess = () => {
   } = state;
   const {format: formatFiat} = useWizardFiat(sourceSubWallet);
   const txid = getTransactionId(txResult);
-  const estimatedReceive =
-    preflightResult?.estimate?.estimatedcurrencyout ||
-    estimate?.estimatedcurrencyout;
+  const estimatedReceive = getPreparedConversionEstimate(
+    preflightResult, estimate,
+  )?.estimatedcurrencyout;
   const isConversion = Boolean(target?.isConversion);
   const isBridge = Boolean(route?.isCrossChain);
   const selfSend = Boolean(

@@ -15,6 +15,8 @@ const ConfirmFacts = ({
   arrives,
   destinationNetwork,
   fees,
+  exportFees,
+  total,
   impact,
   onOpenFees,
   networkFee,
@@ -53,7 +55,13 @@ const ConfirmFacts = ({
           pay={impact.pay}
         />
       ) : null}
-      {networkFee ? (
+      {exportFees ? (
+        <>
+          <FlatRow label="Bridge fee" numberOfLines={0} value={exportFees.bridge} />
+          <FlatRow label="Network fee" numberOfLines={0} value={exportFees.network} />
+          <FlatRow label="Total" numberOfLines={0} value={total} />
+        </>
+      ) : networkFee ? (
         <FlatRow label="Network fee" onPress={onOpenFees}>
           {feeLoading ? <FeeSkeleton /> : <FeeValue amount={networkFee.amount} caption={networkFee.caption} />}
         </FlatRow>

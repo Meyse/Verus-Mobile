@@ -19,7 +19,7 @@ const createConfirmPayStepStyles = theme => StyleSheet.create({
     paddingVertical: 16, borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border,
   },
-  feeLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary, flex: 1},
+  feeLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary, flexShrink: 0},
   feeContent: {minHeight: 24, flexShrink: 1, alignItems: 'flex-end', justifyContent: 'center'},
   feeValue: {
     ...theme.typography.labelMd,

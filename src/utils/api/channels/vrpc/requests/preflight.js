@@ -408,7 +408,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     const txSatsBn = BigNumber(output.satoshis);
 
     if (isNativeSend && (txSatsBn.plus(nativeFeesPaid)).isGreaterThan(balanceBn)) {
-      output.satoshis = txSatsBn.minus(nativeFeesPaid).toString();
+      output.satoshis = balanceBn.minus(nativeFeesPaid).toString();
       const newTxSatsBn = BigNumber(output.satoshis);
 
       if (
@@ -579,6 +579,25 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       }
     })
 
+    // The intent check binds both bridge fee legs to the candidate. Funding
+    // validation supplies the total actually paid, including the parent fee.
+    // Keep this split with the same hex that will be signed, never a new quote.
+    let feeDetails;
+    if (exportto) {
+      const bridgeCurrency = approvedTransfer?.context.fees.currency || _feecurrency || systemId;
+      const bridgeSatoshis = BigNumber(approvedTransfer?.totalFeeSatoshis ?? _feeamount ?? 0);
+      const network = {...validation.fees};
+      const networkRemainder = BigNumber(network[bridgeCurrency] || 0).minus(bridgeSatoshis);
+      if (!networkRemainder.isFinite() || networkRemainder.isNegative()) {
+        throw new Error('Bridge fee does not match the validated transaction fees.');
+      }
+      network[bridgeCurrency] = networkRemainder.toFixed(0);
+      feeDetails = {
+        bridge: {[bridgeCurrency]: bridgeSatoshis.toFixed(0)},
+        network,
+      };
+    }
+
     const preflightTx = Transaction.fromHex(fundRes.result.hex, networks.verus);
 
     const inputs = []
@@ -622,6 +641,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       result: {
         output,
         validation,
+        feeDetails,
         hex: fundRes.result.hex,
         names: friendlyNames,
         deltas,

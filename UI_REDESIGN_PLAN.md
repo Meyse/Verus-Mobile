@@ -6,6 +6,17 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped meeting fixes: **RG-1.8** and wallet logo fallback on
+  `claude/meeting-ui-fixes` from `052d0b5c`: **Ready for verification**.
+  Static, behavior and bundle checks pass. Existing gift card tests retain two
+  baseline mock failures. Next: owner device QA of the affected states.
+
+- Scoped request work: **GR-4.IDENTITY-UPLOAD**, ready for device verification.
+  `claude/identity-data-upload` starts at `052d0b5c`. Upload modules come from
+  upstream `identity-registration` `0a99f88a`; registration is outside scope.
+  Source implementation is `251ed289`. No simulator or emulator was started.
+  Next: run the disposable VRSCTEST device matrix below.
+
 - Scoped asset-screen work: **TX-1.ASSET-STACK** on
   `claude/asset-stack-sheet` from `ae8758e4`. The owner approved Final E-r4
   variant 5 with Jewel saved slots on 2026-11-03. Implementation replaces the
@@ -14,7 +25,7 @@ without repeating the entire investigation.
   or drive devices. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-03 (asset stack and transactions sheet: device QA).
+- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload and its test follow-up; device QA in progress).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -819,6 +830,70 @@ this scope.
   screenshots kept beside the initial captures. All task-owned runtimes are
   stopped. No commit, merge or push.
 
+### GR-4.IDENTITY-UPLOAD — identity update data (2026-11-03)
+
+Status: **Ready for verification**. Scope: upload data in identity update
+requests only. Do not import the upstream registration feature.
+
+- [x] Copy the eight `src/utils/identityUpdate` modules unchanged from upstream
+  `identity-registration` `0a99f88a` (implementation commit `c9d571d0`).
+- [x] Replace the blanket refusal with upstream upload policy plus coded
+  refusals for signatures, bindings, `createmmr=false`, and upload credentials.
+- [x] Wire session-scoped native crypto, lossless request copies, pre-funding
+  decrypt/verify, verified funding approval, and verified submission. Dispose
+  build keys in `finally` and on cancellation or session change.
+- [x] Keep GR-4 content rows and the review/content/risk/confirm sequence.
+  Add Public, Encrypted upload, and Encrypted credential visibility labels.
+  Review original upload fields and warnings inline and through `InfoSheet`.
+  Reuse `InfoSheetRow`, `StatusBadge`, `CopyAction`, and `SkeletonLoader`.
+- [x] Run frozen install, parser, design, safe-area, authority-funding, iOS
+  production bundle, temporary upstream tests, and the existing identity tests.
+  Eight unchanged modules match upstream byte for byte. The library stays at
+  `50fa3ffa`: the diff to `5ddc4b8b` changes registration only.
+- [x] Update existing tests for approved uploads, SDK canonicalization, request
+  cloning, network fields, and the fifth signer argument. Use the approved
+  plain rejection copy. Keep baseline test failures separate from regressions.
+- [ ] Device QA on disposable VRSCTEST: public upload, encrypted upload, mixed
+  uploads and ordinary content, encrypted credentials through the existing
+  credential path, refused signature/binding/credential/no-MMR requests,
+  signed-out open/unlock/cancel, Back/cancel during build, source replacement,
+  retry, reload, interrupted submission, and unknown broadcast. Check normal
+  and iPhone SE sizes, light/dark, iOS/Android, copy and sheet Back.
+
+Design contract: operate mode; existing GR-4 content cards and compact request
+card are the exemplars. Add fields within those rows and use the information
+sheet primitives. Keep current badges, filters, summaries, removal details,
+footer, and completion sheet. No new card style, dot, or left-edge bar. Full
+upload fields stay visible. Native visual and accessibility review is deferred
+by the task instruction. Existing zero-delta token fee support stays; all other
+currency deltas must be zero and the shown fee comes from the SDK approval.
+
+Initial port checks: 188 unmodified upstream module/wrapper tests pass. With the upstream
+handler fixture adapted to this app's separate `subjectIdentityContent` and
+explicit `createmmr=true`, 200 tests pass. The unmodified extra handler fixture
+had five contract/fixture failures. Existing identity tests: 28 pass, 16 fail
+(old wrapper/blanket-refusal expectations or missing chain fields), four suites
+stop on the baseline SVG mock error. Existing gift/claim tests: 63 pass, 20 fail;
+19 failures also occur against base source, and one assertion expects the old
+four-argument signer. No existing test was changed. Temporary tests were removed.
+Node policy and synthetic component fixtures pass; they do not prove native UI.
+
+Test follow-up, `claude/identity-upload-tests` from `05e541f3`: the complete
+requested identity group has 62 passing tests and no failing tests (base
+`052d0b5c`: 53 passing, no failing). Nine cases were added within existing files
+for refused options and supported-upload crypto. The same four SVG
+`Touchable.Mixin` suite-load errors remain. Gift-card, claim, and spendable-key
+tests have 77 passing and 19 failing tests on both base and candidate; all 19
+failures still come from the existing missing `getMempoolUnspentUtxos` mock.
+The branch-only signer failure is fixed with an explicit funding approval.
+Parser checks on four changed JS files, design checks, and whitespace checks
+pass. No new test files, skipped tests, or device checks.
+
+Local details: `identity-data-upload.local.md`. No device runtime, transaction,
+merge, push, dependency change, or registration work. The three local
+`deeplink-sim` folders do not expose `--variant data-upload`; no upload command
+was verified and those folders were not changed.
+
 ## NFC-1 — Claim from an NFC card
 
 **Finding (2026-10-11, source; GR3-B10):** The app cannot read a Verus NFC
@@ -1396,7 +1471,31 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   definition's `nativecurrencyid.type` with `DEST_ETH`. Keep explicit `ethdest`
   routes and the existing recipient, self-address, and preflight paths.
 - [x] **TX-1.A22** Use the asset portion of an unknown currency's qualified
-  name for its fallback ticker. The MKR.vETH network rows now say "Receive as MKR".
+  name for its fallback ticker. Owner decision, 2026-11-03: network rows and
+  their selected target keep the full unknown Verus name ("MKR.vETH"). The
+  Ethereum row uses the Ethereum asset name. Other fallback consumers retain
+  the asset-portion rule.
+- [x] **TX-1.BRIDGE-NAMES** Use per-route Ethereum symbols on network rows
+  and the selected target. Native ETH reads "ETH" on both networks. Retain
+  Verus currency IDs for routing, logos and prices. Address Book records are
+  redesign-only; no released-record migration is required.
+- [ ] **TX-1.BRIDGE-NAMES-QA** Check Convert and Send network choices, Amount,
+  Price and route, context, Confirm/preparing, Sent and saved-address context
+  in light/dark on normal phones and iPhone SE. No device ran in this task.
+- [x] **TX-1.BRIDGE-FUNDING** Reduce native sends only to balance minus fees.
+  Preserve submitted amount for the Reduced from notice. Expose export bridge
+  and parent network fees from the validated preflight that is signed.
+- [x] **TX-1.BRIDGE-FEES** Remove fee-versus-amount blocks. Local conversions
+  show one light notice only when paid-currency fees exceed the prepared
+  amount. VRPC exports show exact Bridge fee, Network fee and Total rows,
+  with each paid currency listed once. Amount names the bridge fee. Preparing
+  mirrors the rows and keeps the chosen receive name even without an estimate.
+  Confirm and Sent omit an old Amount quote after a fee reduction when a fresh
+  preflight estimate is unavailable. Confirm retains the estimate-unavailable notice.
+- [ ] **TX-1.BRIDGE-FEES-QA** Check affordable small exports, conversion fees
+  above/equal/below amount, exact Bridge fee / Network fee / Total rows with
+  one or several paid currencies, MAX with a fee rise, plain MAX, errors,
+  retry and Back in light/dark on normal phones and iPhone SE.
 - [x] **TX-1.I16-A11** Refresh the source balance after a successful broadcast.
   Expire the source system's address-response caches. Include mempool deltas in
   VRPC totals and discovery snapshots. Keep an open wizard's balance current,
@@ -2066,6 +2165,9 @@ left running for orchestrator QA.
 - [x] **RG-1.6** Move the card claim result onto `TransactionResult` after the
   claim branch merges; `check:design` then passes with no hits.
 - [ ] **RG-1.7** Android QA of the Send and gift card results.
+- [x] **RG-1.8** Gift card funding results use the detail screen's `canShare`
+  rule for Share availability. Pending funding keeps View gift cards primary;
+  an unfunded retryable failure keeps Share available. Device QA remains open.
 
 **Acceptance:** Every result screen states its outcome once, in the title.
 `check:design` passes with no repeated-fact hits.
@@ -2117,6 +2219,12 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-03 | GR-4.IDENTITY-UPLOAD tests and plain rejection | `claude/identity-upload-tests` from `05e541f3` | Existing suites now check supported upload crypto, nine refused variants, real SDK canonicalization, unchanged signed request bytes, history checks, and the fifth signer argument. Exact approved rejection copy applied. Requested identity group: base 53 pass / 0 fail; candidate 62 pass / 0 fail. Four unchanged SVG suite-load errors. Gift/claim/spendable-key group: 77 pass / 19 fail on both. Frozen install, four-file parser, design, and whitespace checks pass. | The 19 missing-mempool-mock failures and native verification remain open. No new test files, device work, merge, or push. |
+| 2026-11-03 | Meeting UI fixes: wallet logos and RG-1.8 gift funding results | `claude/meeting-ui-fixes` from `052d0b5c` | `logoId` uses built-in artwork or raw `coin.id`; Home, shared asset rows/reviews and setup consume it. Claim animation keeps `iconId`. Funding result Share uses the detail screen's `canShare` rule; caption, unfunded sharing and share guards remain. Frozen install, design, safe-area (5 files), Babel (5 files), 15 temporary Node behavior checks, iOS production JS bundle and whitespace checks pass. Existing unit suites: 51 pass, the same 2 baseline failures from a missing `getMempoolUnspentUtxos` mock. Details: `meeting-ui-fixes.local.md` (local only). | Owner device QA: light/dark, normal/iPhone SE; Home identifier currency, Manage assets, details/identifier review, setup logos, pending/partial/retryable/confirmed gift funding results and Back. No device runtime or rendered evidence in this task. |
+| 2026-11-03 | TX-1.BRIDGE-FEES and naming state follow-up | `claude/bridge-names-fees` after `865bfb68` | Production iOS JS bundle, design (39 sources), safe-area, option matrix and Babel checks pass. Synthetic React checks run production Confirm, facts/preparing and provider: affordable amount 10 / bridge 17 / network 0.0001 / Total 27.0001 keeps Hold enabled; mixed-currency Total is 10 DAI.vETH + 17.0001 VRSCTEST; reduced amount and notice agree; conversion fees above/equal/below amount show one/zero/zero notices without blocking; preflight error has no Hold. After a reduction, a failed fresh estimate hides the old Amount quote and shows the existing notice. Network changes retain amount, recipient and memo, clear preflight, and restore the Verus ticker on return. Existing related Jest: 7 suites / 88 tests pass, 1 suite / 8 tests fail identically on the untouched base and candidate because currencyTransferIntent mocks the removed getSpendableUtxos interface. No wizardUtils/SendWizard Jest suite exists; the existing option script passes. Logs and throwaway scripts: `/tmp/bridge-names-fees*`. | Native rendered checks, accessibility and broadcast/settlement remain unverified. Check Convert and Send network sheets, all downstream target labels, export fee rows/Total, local fee notice, MAX with a fee rise and plain MAX, Back/retry and loading in both themes, normal phones and iPhone SE. No device, wallet keys, signing, broadcast, merge or push. |
+| 2026-11-03 | TX-1.BRIDGE-FUNDING | `claude/bridge-names-fees` after `018b493c` | `/tmp/bridge-names-fees-preflight.cjs` runs real preflight and protocol validation with synthetic network boundaries. Base amount 90 / balance 100 / fees 17.0001 sends 72.9999; candidate sends 82.9999 and retains submitted amount 90. Amount 10 stays 10 with bridge 17 + network 0.0001. Plain MAX 100 produces 99.9999 and byte-identical hex to base. Ordinary send and insufficient-funds failure pass. | No signing or broadcast. Device review of Reduced from, MAX and fee rows remains open. |
+| 2026-11-03 | TX-1.BRIDGE-NAMES | `claude/bridge-names-fees` from `052d0b5c` | Pure Ethereum-name helper; per-route receive ticker; network rows preserve full unknown Verus names. Existing option matrix and design check pass. Throwaway `/tmp/bridge-names-fees-live.cjs` reproduces the base defect and checks live public-testnet definitions/routes: vETH/ETH for DAI and VRSCTEST conversions, DAI.vETH/DAI for Send, DAI for an ETH-source bounceback built from live definitions and live Sepolia contract metadata in the app's route shape. All downstream target labels consume the selected target ticker. Upstream has only personal email/phone contacts, with no redesign Address Book record format. | No record migration. Device QA remains open, including light/dark, iPhone SE, selected names, Back and saved-address context. No keys, signing, broadcast, simulator or emulator used. |
+| 2026-11-03 | GR-4.IDENTITY-UPLOAD | `claude/identity-data-upload`, source `251ed289`, modules `4fd048e8`, base `052d0b5c` | Eight upstream modules match `0a99f88a`. Handler, confirm, wrappers, sign-in gate, original-content review, and visibility labels are wired by hand. Frozen install, parser (24 files), design (39 sources), safe-area (24 files), authority funding, iOS production bundle, 188 unchanged upstream tests / 200 with adapted handler fixtures, and Node policy/component fixtures pass. Existing test failures and baseline comparisons are recorded in the scoped checklist and local report. Temporary tests removed; no library bump. | Native encryption with VRSCTEST `zs` recipients, real funding/submission, all rendered states, normal/SE sizes, light/dark and accessibility await the device tester. No devices started, main checkout edits, merge, push or registration port. |
 | 2026-11-03 | TX-1.ASSET-STACK: Final E-r4 variant 5 | `claude/asset-stack-sheet` from `ae8758e4` | Safe top row, 6/4-shape stack, hidden sum, flat SVG materials, saved per-account Jewel slots, picker swatches and persistent sheet implemented. Existing total, sync, copy, history/details, action and pre-launch contracts remain. Offline frozen install, design (39 sources), safe-area (9 files), color guard (17 materials, minimum 5.014:1), Babel (17 changed JS files), Node behavior fixtures and both production JS bundles pass. The fixtures cover 506 stack selections, stable slots, account isolation, save failure/retry, sheet taps/drags/zero-pointer reset/Reduce Motion, total/error/loading/privacy/sync states, Overview refresh gating and the screen Back/pre-launch paths. A source-derived HTML fixture was inspected in light/dark, normal/compact, peek/open and single-card states. | Owner device QA and native accessibility/motion remain open. Open history closes by header only. Source-derived fixtures substitute native controls and history rows; they do not prove native rendering or gesture arbitration. No devices, new dependencies, Jest tests, ESLint, push, merge or PR. Exact check commands and temporary fixtures: `/tmp/asset-stack-checks.local.md`. |
 | 2026-11-03 | TX-1.ASSET-STACK: device QA | `claude/asset-stack-sheet` (`fe53c0c3`..`958ba89f`) | Sonnet testers on VRSCTEST: iPhone 17 Pro sim (P0–P14), iPhone SE sim (S0–S8) and Pixel 8 Android 15 emulator (A0–A9), light and dark, with an in-memory 20-ID fixture for the cap, "N more" sum, picker swatches, long names and neighbor colors. Fixed after QA: card colors can no longer block publishing cards; the front card SVG redrew late after a strip tap (darker band); body clipping cut the top strip shadow; a tap open/close on Android froze and then jumped (state now commits when the sheet rests); the sync badge now sits left of a strip amount and under the front-card amount as in the mockup. Each fix re-checked on device (Android frame recordings before/after; iOS recording after). Saved slots held across relaunch and theme. Edge swipe, Android Back (sheet first, details sheet only), row taps, refresh and copy pass. | Not proven: VoiceOver/TalkBack (tool reads the tree only), real-finger motion and Release-build performance, hidden balances on a real Android phone (the shared native blur showed readable text on the emulator, also on Home), header drag on the VRSCTEST stack at Pro height (tool limit; proven on gETH and SE), DAI.vETH bridged line on SE/Android (asset absent). Older items kept: picker opens with the current row half under the chips, picker list overhangs its sheet on Android, testnet fiat "—", 4-decimal total. Run folder: `docs/qa/matrix/runs/2026-11-03-asset-stack/` (ignored). |
 | 2026-11-02 | SH-1.TEXT-ACTIONS: option B | `claude/text-action-link` from `69de19d6` | Shared link token and TextAction roles; audited clients, live v1 text buttons and recovery Change actions migrated. Design, safe-area, parser, contrast, component fixtures and both production JS bundles pass. Gift Back/Close declarations match base. No Jest tests added. | Orchestrator device QA remains open. See `text-action-implementation.local.md` for the action inventory, exclusions, routes and states. No simulator, emulator, push or merge. |

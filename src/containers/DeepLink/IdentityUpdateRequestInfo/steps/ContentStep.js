@@ -8,10 +8,14 @@
   - 2026-06-18: Replaced the generic accordion renderer with a focused
     card/filter review layout for identity content changes.
 */
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CopyAction from '../../../../components/CopyAction';
+import InfoSheet from '../../../../components/InfoSheet';
+import {InfoSheetRow} from '../../../../components/InfoSheetSection';
+import {buildContentReview} from '../../../../utils/identityUpdate/contentReview';
+import {useRequestBackHandler} from '../../useRequestNavigation';
 import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
@@ -233,6 +237,12 @@ const VerusIdContentChanges = ({
   privateInfoItems,
 }) => {
   const [filter, setFilter] = useState('all');
+  const [uploadReview, setUploadReview] = useState(null);
+  const closeUploadReview = useCallback(() => {
+    setUploadReview(previous => previous && {...previous, visible: false});
+  }, []);
+  useRequestBackHandler(closeUploadReview, false, 2,
+    uploadReview != null && uploadReview.visible !== false);
   const showFilters = filterOptions.length > 0;
   const filterIsAvailable = filterOptions.some(option => option.id === filter);
   const activeFilter = showFilters && filterIsAvailable ? filter : 'all';
@@ -285,8 +295,24 @@ const VerusIdContentChanges = ({
           darkMode={darkMode}
           panelTone={true}
           updateEntry={cmmUpdates[item.key]}
-        />
+          visibilityLabel={item.changeType === 'removed' ? null :
+            item.isEncrypted ? 'Encrypted upload' : item.isEncryptedKey ? 'Encrypted credential' : 'Public'}
+          onPress={cmmUpdates[item.key]?.signData
+            ? () => setUploadReview({title: item.title, upload: cmmUpdates[item.key].signData})
+            : undefined}>
+          {cmmUpdates[item.key]?.signData && (
+            <UploadContentReview upload={cmmUpdates[item.key].signData} />
+          )}
+        </VerusIdContentChangeCard>
       ))}
+
+      <InfoSheet
+        visible={uploadReview != null && uploadReview.visible !== false}
+        title={uploadReview?.title || 'Upload content'}
+        onClose={closeUploadReview}
+        onClosed={() => setUploadReview(null)}>
+        {uploadReview && <UploadContentReview upload={uploadReview.upload} copy />}
+      </InfoSheet>
 
       <PrivateInfoFallback
         darkMode={darkMode}
@@ -308,6 +334,31 @@ const VerusIdContentChanges = ({
           </Text>
         </View>
       )}
+    </View>
+  );
+};
+
+// Read the original typed upload. Keep every field and warning visible, including
+// exact encoded bytes. The sheet adds shared copy actions without changing data.
+const UploadContentReview = ({upload, copy = false}) => {
+  const theme = useOnboardingTheme();
+  const review = useMemo(() => buildContentReview(upload, {isUpload: true, label: 'Upload content'}), [upload]);
+  return (
+    <View>
+      {review.warnings.map(warning => (
+        <Text key={warning} style={[theme.typography.bodySm, {color: theme.colors.warningText}]}>
+          {warning}
+        </Text>
+      ))}
+      {review.fields.map(field => (
+        <InfoSheetRow
+          key={field.id}
+          label={field.path ? `${field.path} › ${field.label}` : field.label}
+          value={field.value}
+          copy={copy}
+          valueStyle={field.kind === 'encoded' ? [contentStyles.cmmCardKeyId, theme.isDark && contentStyles.cmmCardKeyIdDark] : undefined}
+        />
+      ))}
     </View>
   );
 };

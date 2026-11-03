@@ -320,7 +320,7 @@ const SignedInWalletHome = ({
         onPress={() => onOpenAsset(item.coin, item.preferredCard)}
         style={styles.assetRow}>
         <WalletSetupLogoSlot coinId={item.coin.id} style={styles.logoWrap}>
-          <AssetCoinLogo coinId={presentation.iconId} badgeTicker={presentation.badgeTicker} size={38} />
+          <AssetCoinLogo coinId={presentation.logoId} badgeTicker={presentation.badgeTicker} size={38} />
         </WalletSetupLogoSlot>
         <View style={styles.assetCopy}>
           <View style={styles.assetLine}>

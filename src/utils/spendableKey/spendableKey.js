@@ -1532,6 +1532,7 @@ const buildCombinedIdentityAndSweepTransaction = async ({
     coinObj: system.coinObj,
     txHex: updateTx.hex,
     inputs: updateTx.utxos,
+    fundingApproval: updateTx.fundingApproval,
     keys: updateTx.utxos.map(() => [system.claimWif]),
     identity: {
       identityAddress: identity.identityAddress,
@@ -1605,6 +1606,7 @@ const buildIdentityTransactionWithIdentityFee = async ({
     coinObj: system.coinObj,
     txHex: updateTx.hex,
     inputs: updateTx.utxos,
+    fundingApproval: updateTx.fundingApproval,
     keys: updateTx.utxos.map(() => [system.claimWif]),
     identity: {
       identityAddress: identity.identityAddress,
@@ -1799,6 +1801,7 @@ export const preflightSpendableKeyClaim = async ({
         coinObj: system.coinObj,
         txHex: updateTx.hex,
         inputs: updateTx.utxos,
+        fundingApproval: updateTx.fundingApproval,
         keys: updateTx.utxos.map(() => [system.claimWif]),
         identity: {
           identityAddress: identity.identityAddress,
@@ -1904,6 +1907,7 @@ const prepareSpendableKeyClaimBroadcast = (
         transaction.txHex,
         transaction.inputs,
         transaction.keys,
+        transaction.fundingApproval,
       );
     } else if (transaction.type === 'sweep') {
       rawTx = signSweepTransaction(transaction);

@@ -113,10 +113,13 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     }));
   }, []);
 
-  const setRoute = useCallback(route => {
+  const setRoute = useCallback((route, target = null) => {
     setState(current => ({
       ...current,
       route,
+      // Send's network chooser changes the receive name without clearing the
+      // amount or recipient. Basket-only choices retain the selected target.
+      ...(target ? {target} : {}),
       estimate: null,
       // The market price belongs to a route. Choosing the same route again
       // (the Amount step re-chooses the best one) must not lose it.
