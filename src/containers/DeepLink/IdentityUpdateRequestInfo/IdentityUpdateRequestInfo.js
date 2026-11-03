@@ -1,3 +1,5 @@
+import {identityUploadToDisplayJson} from '../../../utils/identityUpdate/uploadDisplay';
+import {identityToDisplayJson} from '../../../utils/identityUpdate/identityDisplay';
 import {useRequestBackHandler} from '../useRequestNavigation';
 /*
   IdentityUpdateRequestInfo
@@ -229,7 +231,7 @@ const IdentityUpdateRequestInfoContent = props => {
     completeIdentityUpdateWithoutDelivery,
     next,
     subjectIdTxHex,
-    updateIdTxHex,
+    identityPreviewPrepared,
     hasEncryptedKeys,
   } = props;
   const theme = useOnboardingTheme();
@@ -315,7 +317,7 @@ const IdentityUpdateRequestInfoContent = props => {
       const str = String(value);
       return str.length > maxLen ? `${str.slice(0, maxLen)}...` : str;
     };
-    const dataJson = signData.toCLIJson();
+    const dataJson = identityUploadToDisplayJson(signData);
     if (signData.isVdxfData()) return 'VDXF data';
     if (signData.isMMRData()) return 'MMR data';
     if (dataJson.filename) return `Filename: ${trim(dataJson.filename)}`;
@@ -332,7 +334,7 @@ const IdentityUpdateRequestInfoContent = props => {
       return null;
     }
 
-    return signData.toCLIJson();
+    return identityUploadToDisplayJson(signData);
   };
 
   const getCmmDataKey = iAddr => {
@@ -502,97 +504,96 @@ const IdentityUpdateRequestInfoContent = props => {
       }
     }
 
-    if (identityUpdates.contentmultimap) {
-      for (const key in identityUpdates.contentmultimap) {
-        const updates = identityUpdates.contentmultimap[key];
-        const signData = details.containsSignData()
-          ? getSignDataForKey(key)
-          : null;
+    // Review the original request, before uploads become transaction references.
+    const requestedContent = detailsBufferString
+      ? identityToDisplayJson(details.identity).contentmultimap || {}
+      : identityUpdates.contentmultimap || {};
+    const contentKeys = new Set(Object.keys(requestedContent));
+    if (details.containsSignData()) {
+      for (const [key] of signDataMap.entries()) contentKeys.add(key.toIAddress());
+    }
+    for (const key of contentKeys) {
+      const updates = requestedContent[key];
+      const signData = details.containsSignData() ? getSignDataForKey(key) : null;
+      if (signData != null) {
+        displayUpdates[VERUSID_CMM_INFO.key][`${VERUSID_CMM_DATA.key}:${key}:upload`] = {
+          data: getSignDataLabel(signData),
+          signData,
+          contentKey: key,
+          displayTitle: getCmmDataKey(key),
+          isEncrypted: !!signData.encryptToAddress,
+          onPress: () => openRawDataSheet(getSignDataRawValue(signData), getCmmDataKey(key)),
+        };
+      }
+      const {removeEntries, nonRemoveUpdates} = splitContentMultiMapUpdates(key, updates);
 
-        if (signData != null) {
-          displayUpdates[VERUSID_CMM_INFO.key][
-            `${VERUSID_CMM_DATA.key}:${key}`
-          ] = {
-            data: getSignDataLabel(signData),
-            isEncrypted: true,
+      if (removeEntries.length > 0) {
+        removeEntries.forEach(({update, removeMeta, index}) => {
+          const removeUi = buildContentMultiMapRemoveUi({
+            removeMeta,
+            fallbackKey: key,
+            currentContentMultiMap: activeContentMultiMap,
+            getKeyLabel: getCmmDataKey,
+            definedKeyVdxfId: DATA_TYPE_DEFINEDKEY.vdxfid,
+          });
+          if (!removeUi) return;
+          const targetKey =
+            removeMeta.action === 4
+              ? CMM_CLEAR_MAP_SENTINEL
+              : removeMeta.entryKey || key;
+          const baseUpdateKey = `${VERUSID_CMM_DATA.key}:${targetKey}`;
+          const updateKey = `${baseUpdateKey}:remove:${key}:${index}`;
+
+          // derive remove-action copy from the current identity state, not from chain permanence.
+          displayUpdates[VERUSID_CMM_INFO.key][updateKey] = {
+            data: removeUi.summary,
+            rawData: [update],
+            removeMeta: {
+              ...removeMeta,
+              entryLabel: removeUi.targetLabel,
+            },
+            ackRows: [
+              ['Action', removeUi.summary],
+              ['Target', removeUi.targetLabel],
+              ['Active content keys', String(removeUi.currentKeyCount)],
+              ['Active content values', String(removeUi.currentValueCount)],
+            ],
+            highRisk: removeMeta.action === 4,
+            highRiskType:
+              removeMeta.action === 4 ? 'content-clear' : undefined,
+            highRiskTitle:
+              removeMeta.action === 4
+                ? 'Clear active identity content'
+                : undefined,
+            highRiskWarning:
+              removeMeta.action === 4
+                ? removeUi.highRiskWarning
+                : undefined,
+            displayTitle: removeUi.displayTitle,
             onPress: () =>
-              openRawDataSheet(
-                getSignDataRawValue(signData),
-                getCmmDataKey(key),
-              ),
+              openRawDataSheet([update], removeUi.modalTitle),
           };
-        } else {
-          const {removeEntries, nonRemoveUpdates} = splitContentMultiMapUpdates(key, updates);
+        });
+      }
 
-          if (removeEntries.length > 0) {
-            removeEntries.forEach(({update, removeMeta, index}) => {
-              const removeUi = buildContentMultiMapRemoveUi({
-                removeMeta,
-                fallbackKey: key,
-                currentContentMultiMap: activeContentMultiMap,
-                getKeyLabel: getCmmDataKey,
-                definedKeyVdxfId: DATA_TYPE_DEFINEDKEY.vdxfid,
-              });
-              if (!removeUi) return;
-              const targetKey =
-                removeMeta.action === 4
-                  ? CMM_CLEAR_MAP_SENTINEL
-                  : removeMeta.entryKey || key;
-              const baseUpdateKey = `${VERUSID_CMM_DATA.key}:${targetKey}`;
-              const updateKey = `${baseUpdateKey}:remove:${key}:${index}`;
-
-              // derive remove-action copy from the current identity state, not from chain permanence.
-              displayUpdates[VERUSID_CMM_INFO.key][updateKey] = {
-                data: removeUi.summary,
-                rawData: [update],
-                removeMeta: {
-                  ...removeMeta,
-                  entryLabel: removeUi.targetLabel,
-                },
-                ackRows: [
-                  ['Action', removeUi.summary],
-                  ['Target', removeUi.targetLabel],
-                  ['Active content keys', String(removeUi.currentKeyCount)],
-                  ['Active content values', String(removeUi.currentValueCount)],
-                ],
-                highRisk: removeMeta.action === 4,
-                highRiskType:
-                  removeMeta.action === 4 ? 'content-clear' : undefined,
-                highRiskTitle:
-                  removeMeta.action === 4
-                    ? 'Clear active identity content'
-                    : undefined,
-                highRiskWarning:
-                  removeMeta.action === 4
-                    ? removeUi.highRiskWarning
-                    : undefined,
-                displayTitle: removeUi.displayTitle,
-                onPress: () =>
-                  openRawDataSheet([update], removeUi.modalTitle),
-              };
-            });
-          }
-
-          if (nonRemoveUpdates.length > 0) {
-            const dataLabel = getCmmDataLabel(nonRemoveUpdates);
-            const isCredentialKey =
-              hasEncryptedKeys && key === IDENTITY_CREDENTIAL.vdxfid;
-            displayUpdates[VERUSID_CMM_INFO.key][
-              `${VERUSID_CMM_DATA.key}:${key}`
-            ] = {
-              data: dataLabel,
-              rawData: nonRemoveUpdates,
-              isEncryptedKey: isCredentialKey,
-              onPress: () =>
-                openRawDataSheet(
-                  nonRemoveUpdates.length === 1
-                    ? nonRemoveUpdates[0]
-                    : nonRemoveUpdates,
-                  getCmmDataKey(key),
-                ),
-            };
-          }
-        }
+      if (nonRemoveUpdates.length > 0) {
+        const dataLabel = getCmmDataLabel(nonRemoveUpdates);
+        const isCredentialKey =
+          hasEncryptedKeys && key === IDENTITY_CREDENTIAL.vdxfid;
+        displayUpdates[VERUSID_CMM_INFO.key][
+          `${VERUSID_CMM_DATA.key}:${key}`
+        ] = {
+          data: dataLabel,
+          rawData: nonRemoveUpdates,
+          isEncryptedKey: isCredentialKey,
+          onPress: () =>
+            openRawDataSheet(
+              nonRemoveUpdates.length === 1
+                ? nonRemoveUpdates[0]
+                : nonRemoveUpdates,
+              getCmmDataKey(key),
+            ),
+        };
       }
     }
 
@@ -818,9 +819,9 @@ const IdentityUpdateRequestInfoContent = props => {
         updatedIdentity: identityUpdates,
         chainHeight: chainInfo?.longestchain,
         secondsPerBlock: coinObj.seconds_per_block,
-        prepared: Boolean(updateIdTxHex),
+        prepared: identityPreviewPrepared,
       }),
-    [identity, identityUpdates, chainInfo?.longestchain, coinObj.seconds_per_block, updateIdTxHex],
+    [identity, identityUpdates, chainInfo?.longestchain, coinObj.seconds_per_block, identityPreviewPrepared],
   );
 
   const highRiskChanges = useMemo(
@@ -951,10 +952,10 @@ const IdentityUpdateRequestInfoContent = props => {
   useEffect(() => {
     if (detailsBufferString) {
       const det = new IdentityUpdateRequestDetails();
-      det.fromBuffer(Buffer.from(detailsBufferString, 'hex'), 0);
+      det.fromBuffer(Buffer.from(detailsBufferString, 'hex'), 0, true, requestIsTestnet ? 'VRSCTEST' : 'VRSC');
       setDetails(det);
     }
-  }, [detailsBufferString]);
+  }, [detailsBufferString, requestIsTestnet]);
 
   useEffect(() => {
     setSigDateString(unixToDate(sigtime));
@@ -1144,7 +1145,6 @@ const IdentityUpdateRequestInfoContent = props => {
           requestIsTestnet={requestIsTestnet}
           subjectIdentity={subjectIdentity}
           subjectIdTxHex={subjectIdTxHex}
-          updateIdTxHex={updateIdTxHex}
           friendlyNames={friendlyNames}
           coinObj={coinObj}
           responseBufferString={responseBufferString}

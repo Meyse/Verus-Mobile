@@ -74,6 +74,7 @@ const RecoverIdentityConfirm = props => {
         recoveryResult.hex,
         recoveryResult.utxos,
         keys,
+        recoveryResult.fundingApproval,
       );
 
       if (result.error) {

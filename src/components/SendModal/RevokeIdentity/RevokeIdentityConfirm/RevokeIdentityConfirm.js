@@ -69,6 +69,7 @@ const RevokeIdentityConfirm = props => {
         revocationResult.hex,
         revocationResult.utxos,
         keys,
+        revocationResult.fundingApproval,
       );
 
       if (result.error) {
