@@ -2668,3 +2668,22 @@ React picker fixtures cover groups, pin order/limits, filters, frozen balance
 order, reopen reset and current-row offsets. Token checks cover pin and notice
 contrast. These fixtures do not establish native rendering or accessibility.
 No device runtime ran. No new dependencies, Jest tests or design-check changes.
+
+QA follow-up, 2026-11-03 (P2-1 and P3):
+
+- [x] Resolve Main from `MAIN_WALLET`, else the first Transparent card in
+  original card order. Apply it to ordering, selection, pin limits and picker
+  buttons. Ignore saved Main pins and last-used IDs.
+- [x] Let picker amounts use intrinsic width, capped at the existing 108 points.
+  Keep the existing 0.72 font-scale floor and 44-point pin targets.
+
+Temporary checks reproduce the dynamic-Transparent last-used failure before the
+fix. Both Main variants pass 482,617 randomized checks each at caps 6 and 4,
+plus settings/saga and light/dark normal/compact picker fixtures. Native Yoga
+geometry passes 72 row cases: short amounts free name space; long amounts get
+no less space. Design, safe-area, Babel and iOS production bundle checks pass.
+The old picker fixture expected OTHERS without visible pins; it failed on the
+starting commit too. Its assertion now follows DESIGN.md (no group title).
+No Metro or device actions ran. Device re-checks remain open for Transparent
+selection/order/pin exclusion, saved Main IDs, and long names and amounts in
+both themes at normal and compact sizes.

@@ -1006,9 +1006,12 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   44-point target and information sheet. Pre-launch assets keep this row and
   `PrelaunchAssetPanel`, without cards or a picker. Remove the Layers button.
 - The selected card is at the bottom/front of the pile. Other cards, nearest
-  the front first: Main (`MAIN_WALLET`), pins in pin order, one last-used
+  the front first: Main, pins in pin order, one last-used
   card, then confirmed balance from high to low (ties keep card order).
-  Omit the front from those strips. Main always shows and has no pin toggle.
+  Main is `MAIN_WALLET` when present, else the first Transparent card in the
+  coin's original card order, else none. Verus/PBaaS Transparent cards use
+  dynamic `SUBWALLET_vrpc.<address>.<system>` IDs. Omit the front from those
+  strips. Main always shows, is never pinned or last used, and has no pin toggle.
   Count every shape, including "N more": the cap is 6, or 4 compact. Up to
   the cap, show every card. Above it, show the front, cap minus 2 strips, and
   a neutral "N more" strip. That strip shows the hidden cards' total and fiat
@@ -1028,7 +1031,8 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   One observer of `setCoinSubWallet` records all active-card changes. Leaving,
   signing out and restarting keep these choices. Home's existing opening rule
   first restores a saved selected ID that still exists, then uses its previous
-  funded/default rule. Ignore stale IDs. Prune stale pins on the next pin edit.
+  funded/default rule. Ignore stale IDs and saved Main IDs in pins or last used.
+  Prune stale and Main pins on the next pin edit.
   Above the layout's limit, the stack uses the first live pins in pin order;
   the picker retains all live pins. Its limit note stays through unpins until
   the count falls below the limit.

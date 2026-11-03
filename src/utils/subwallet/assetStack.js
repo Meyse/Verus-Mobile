@@ -1,8 +1,8 @@
 import {sortSubWalletsByBalance} from './cardPresentation';
 import {
+  getCardStackMainId,
   getCardStackPinLimit,
   getCardStackPins,
-  MAIN_CARD_ID,
 } from './cardStackPreferences';
 
 // Input is already in priority order. Every visible shape counts toward the cap.
@@ -33,18 +33,19 @@ export const buildOrderedAssetStack = ({
   const front = byId.get(selectedId);
   if (!front) return [];
   const wallets = [...byId.values()].map(card => card.wallet);
+  const mainId = getCardStackMainId(wallets);
   const livePins = getCardStackPins(wallets, pins);
   const stackPins = livePins.slice(0, getCardStackPinLimit(compact));
   // The front consumes the last-used slot unless it is Main or a visible pin.
   // This also keeps an old, larger pin list within the compact shape cap.
   const last =
-    selectedId !== MAIN_CARD_ID && !stackPins.includes(selectedId)
+    selectedId !== mainId && !stackPins.includes(selectedId)
       ? selectedId
-      : livePins.includes(lastUsedId)
+      : lastUsedId === mainId || livePins.includes(lastUsedId)
       ? null
       : lastUsedId;
   const priority = [
-    MAIN_CARD_ID,
+    mainId,
     ...stackPins,
     last,
     ...sortSubWalletsByBalance(wallets, balances).map(wallet => wallet.id),

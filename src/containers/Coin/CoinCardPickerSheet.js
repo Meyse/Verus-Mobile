@@ -39,9 +39,9 @@ import {
 import {truncateDecimal} from '../../utils/math';
 import {getCardColors} from '../../utils/subwallet/cardColors';
 import {
+  getCardStackMainId,
   getCardStackPinLimit,
   getCardStackPins,
-  MAIN_CARD_ID,
   toggleCardStackPin,
 } from '../../utils/subwallet/cardStackPreferences';
 import {
@@ -116,6 +116,7 @@ const CoinCardPickerSheet = ({
     () => getCardStackPins(subWallets, stackPreferences.pins),
     [stackPreferences.pins, subWallets],
   );
+  const mainId = useMemo(() => getCardStackMainId(subWallets), [subWallets]);
   const identitySlots = useSelector(state =>
     state.settings.generalWalletSettings.identityColorSlotsByAccount?.[activeAccount?.accountHash],
   );
@@ -621,11 +622,11 @@ const CoinCardPickerSheet = ({
                 {displayTicker}
               </Text>
             </View>
-            {item.wallet.id === MAIN_CARD_ID ? (
+            {item.wallet.id === mainId ? (
               <View style={styles.pinSlot} />
             ) : null}
           </TouchableOpacity>
-          {item.wallet.id !== MAIN_CARD_ID ? (
+          {item.wallet.id !== mainId ? (
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={
@@ -651,6 +652,7 @@ const CoinCardPickerSheet = ({
       handleSelect,
       handleTogglePin,
       identitySlots,
+      mainId,
       rowHeight,
       pinLimit,
       pins,
@@ -970,7 +972,8 @@ const createStyles = theme =>
       ...fontStyle('regular'),
     },
     balanceColumn: {
-      width: 108,
+      maxWidth: 108,
+      flexShrink: 0,
       alignItems: 'flex-end',
     },
     balanceFrame: {
