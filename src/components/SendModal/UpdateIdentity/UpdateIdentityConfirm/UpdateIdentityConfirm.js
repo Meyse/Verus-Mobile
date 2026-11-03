@@ -44,7 +44,7 @@ const UpdateIdentityConfirm = props => {
         keys.push([spendingKey])
       }
 
-      const result = await pushUpdateIdentityTx(systemId, txHex, utxos, keys);
+      const result = await pushUpdateIdentityTx(systemId, txHex, utxos, keys, props.route.params.fundingApproval);
       
       if (result.error) {
         throw new Error(result.error.message);

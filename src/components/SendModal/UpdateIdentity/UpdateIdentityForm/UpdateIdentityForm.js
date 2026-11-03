@@ -5,8 +5,7 @@ import {
   SEND_MODAL_IDENTITY_UPDATE_ID_BLOCKHEIGHT,
   SEND_MODAL_IDENTITY_UPDATE_ID_RAW_TX_HEX,
   SEND_MODAL_IDENTITY_UPDATE_DETAILS_HEX,
-  SEND_MODAL_IDENTITY_UPDATE_IS_TESTNET,
-  SEND_MODAL_IDENTITY_UPDATE_TX_HEX
+  SEND_MODAL_IDENTITY_UPDATE_IS_TESTNET
 } from '../../../../utils/constants/sendModal';
 import {UpdateIdentityFormRender} from './UpdateIdentityForm.render';
 import { createUpdateIdentityTx, getUpdateIdentityFeeSats } from '../../../../utils/api/channels/verusid/requests/updateIdentity';
@@ -33,7 +32,6 @@ const UpdateIdentityForm = (props) => {
       const isTestnet = data[SEND_MODAL_IDENTITY_UPDATE_IS_TESTNET];
       const rawIdHex = data[SEND_MODAL_IDENTITY_UPDATE_ID_RAW_TX_HEX];
       const idHeight = data[SEND_MODAL_IDENTITY_UPDATE_ID_BLOCKHEIGHT];
-      const updateIdTxHex = data[SEND_MODAL_IDENTITY_UPDATE_TX_HEX];
 
       const details = new IdentityUpdateRequestDetails();
       details.fromBuffer(Buffer.from(detailsHex, 'hex'));
@@ -45,7 +43,6 @@ const UpdateIdentityForm = (props) => {
         rawIdHex,
         idHeight,
         true,
-        updateIdTxHex,
         isTestnet
       );
 
@@ -57,6 +54,7 @@ const UpdateIdentityForm = (props) => {
         feeCurrency: systemId,
         txHex: updateIdentityTx.hex,
         utxos: updateIdentityTx.utxos,
+        fundingApproval: updateIdentityTx.fundingApproval,
         identity: details.identity.toJson()
       });
     } catch (e) {

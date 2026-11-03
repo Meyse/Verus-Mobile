@@ -211,6 +211,10 @@ const DeepLink = (props) => {
     }
 
     const requiresDelegatedUserCheck = isDelegatedSignerRequest(request);
+    const requiresUploadSession = request.details.some(detail =>
+      detail.getIAddressKey() === primitives.IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid &&
+      detail.data.signDataMap?.size > 0,
+    );
     
     assertExperimentalGenericRequestAllowed(request, store.getState());
 
@@ -224,16 +228,16 @@ const DeepLink = (props) => {
         unlockCancelledCode: WALLET_UNLOCK_CANCELLED,
         unlockOptions: {
           reason: 'delegated-signer-verification',
-          title: signedIn
-            ? 'Switch wallet to verify signer'
-            : 'Unlock wallet to verify signer',
+          title: requiresUploadSession && !signedIn
+            ? 'Unlock wallet to upload data'
+            : signedIn ? 'Switch wallet to verify signer' : 'Unlock wallet to verify signer',
           requestLabel: 'Generic request',
           networkLabel: request.isTestnet() ? 'Testnet' : 'Mainnet',
         },
       });
 
     const validationResult = await validateWithDelegatedSignerGate({
-      requiresDelegatedSignerCheck: requiresDelegatedUserCheck,
+      requiresDelegatedSignerCheck: requiresDelegatedUserCheck || requiresUploadSession,
       signedIn,
       validateRequest: () => validateGenericRequest(request),
       unlockForDelegatedSigner,
@@ -505,7 +509,6 @@ const DeepLink = (props) => {
       subjectIdTxHex,
       subjectIdentity.blockheight,
       false,
-      undefined,
       req.isTestnet()
     );
 

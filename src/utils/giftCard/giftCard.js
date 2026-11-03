@@ -2284,6 +2284,7 @@ const buildIdentityFundingTransaction = async ({
     systemId: group.systemId,
     txHex: updateTx.hex,
     inputs: updateTx.utxos,
+    fundingApproval: updateTx.fundingApproval,
     signingCoinId: sourceCoin.id,
     sourceAddress,
     identity: {
@@ -2470,6 +2471,7 @@ const prepareGiftCardFundingBroadcast = async preflightPlan => {
         transaction.txHex,
         transaction.inputs,
         keys,
+        transaction.fundingApproval,
       );
     } else if (transaction.type === 'currency') {
       rawTx = await signCurrencyFundingTransaction(transaction);

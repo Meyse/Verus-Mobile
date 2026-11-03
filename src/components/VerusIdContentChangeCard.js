@@ -4,6 +4,7 @@ import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {ContentMultiMapRemoveKey} from 'verus-typescript-primitives';
 import Colors from '../globals/colors';
+import StatusBadge from './StatusBadge';
 import {verusIdObjectDataStyles as LocalStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
@@ -126,7 +127,7 @@ const getUpdateKeyTarget = updateKey => {
   const prefix = `${VERUSID_CMM_DATA.key}:`;
   if (!updateKey.startsWith(prefix)) return updateKey;
 
-  return updateKey.slice(prefix.length).split(':remove:')[0];
+  return updateKey.slice(prefix.length).split(':upload')[0].split(':remove:')[0];
 };
 
 const getSameRequestRemoveTargets = cmmUpdates => {
@@ -414,7 +415,7 @@ const getRemoveActionDescription = removeMeta => {
 
 const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
   const neutralToneColor = darkMode ? '#7E8EA6' : '#6B7280';
-  const updatedPreview = item.isEncrypted
+  const updatedPreview = item.isEncrypted && !updateEntry?.signData
     ? 'Encrypted upload (tap to view)'
     : item.updatedData ?? updateEntry?.data ?? item.data;
 
@@ -518,6 +519,9 @@ const getTonePanelStyle = (item, darkMode = false) => {
 };
 
 const VerusIdContentChangeCard = ({
+  children,
+  visibilityLabel,
+  onPress: onPressProp,
   darkMode: darkModeProp,
   item,
   panelTone = false,
@@ -529,8 +533,8 @@ const VerusIdContentChangeCard = ({
   const encryptedInfoColor = darkMode ? '#8FB1FF' : Colors.primaryColor;
   const badges = getContentChangeBadges(item);
   const unnamedKey = isUnnamedKeyTitle(item);
-  const onPress =
-    updateEntry && updateEntry.onPress ? updateEntry.onPress : item.onPress;
+  const onPress = onPressProp || (
+    updateEntry && updateEntry.onPress ? updateEntry.onPress : item.onPress);
 
   return (
     <TouchableOpacity
@@ -586,7 +590,9 @@ const VerusIdContentChangeCard = ({
         )}
       </View>
 
+      {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
       {renderCmmChangeDescription(item, updateEntry, darkMode)}
+      {children}
 
       {item.isEncryptedKey && (
         <View
