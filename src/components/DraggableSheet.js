@@ -57,18 +57,32 @@ const DraggableSheet = forwardRef(
       (next, velocity = 0) => {
         'worklet';
         target.value = next;
+        // Commit the open state only when the sheet comes to rest. On Android
+        // a re-render during the move holds back the animated layout values
+        // (top, height), so the sheet stood still and then jumped.
+        const done = finished => {
+          'worklet';
+          if (finished) runOnJS(commitOpen)(next === 1);
+        };
         progress.value = reduceMotion
-          ? withTiming(next, {duration: 140, reduceMotion: ReduceMotion.Never})
-          : withSpring(next, {
-              damping: 29,
-              stiffness: 260,
-              mass: 1,
-              overshootClamping: true,
-              velocity: -velocity / distance,
-              restDisplacementThreshold: 0.001,
-              restSpeedThreshold: 0.01,
-            });
-        runOnJS(commitOpen)(next === 1);
+          ? withTiming(
+              next,
+              {duration: 140, reduceMotion: ReduceMotion.Never},
+              done,
+            )
+          : withSpring(
+              next,
+              {
+                damping: 29,
+                stiffness: 260,
+                mass: 1,
+                overshootClamping: true,
+                velocity: -velocity / distance,
+                restDisplacementThreshold: 0.001,
+                restSpeedThreshold: 0.01,
+              },
+              done,
+            );
       },
       [commitOpen, distance, progress, reduceMotion, target],
     );
@@ -173,7 +187,7 @@ const DraggableSheet = forwardRef(
                   if (nativeEvent.actionName === 'close') settle(0);
                 }}
                 onAccessibilityEscape={() => settle(0)}
-                onPress={() => settle(open ? 0 : 1)}
+                onPress={() => settle(target.value === 1 ? 0 : 1)}
                 style={styles.header}>
                 <View
                   pointerEvents="none"
