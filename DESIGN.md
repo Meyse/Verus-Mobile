@@ -983,11 +983,93 @@ The owner revised the pending-balance rule on 2026-10-26. It applies
 to `SignedInAssetHeader` and the asset screen's "Choose an address" sheet
 (`CoinCardPickerSheet`).
 
-On windows of 667 points or less, the carousel card is 144 points high instead
-of 206. Keep its address copy target at 44 points and its sync badge readable.
-Use tighter header spacing and 6-point top / 8-point bottom action-bar padding;
-the tab bar owns the bottom safe area. The header stays fixed above history.
-Normal windows keep their existing card and action-bar sizes.
+Owner approval, 2026-11-03: Final (E-r4, variant 5) replaces the carousel
+with a card stack and a persistent transactions sheet. It applies to the asset
+screen only. Other `SignedInActionBar` users keep their existing layout.
+
+- Hide the native header. Under the top safe area, draw one 48-point top row
+  (44 on windows of 667 points or less), then a 4-point gap (2 compact).
+  Use 20-point side margins, the 44-point back arrow, a 24-point logo and the
+  coin's display name in `titleRow`. Keep the iOS edge swipe. The total is
+  16-point bold with tabular figures and no ticker; its fiat is 12-point
+  medium in `textSecondary`. Both blur when balances are hidden and form one
+  accessibility element. Bridged origin sits under the name, with its existing
+  44-point target and information sheet. Pre-launch assets keep this row and
+  `PrelaunchAssetPanel`, without cards or a picker. Remove the Layers button.
+- The selected card is at the bottom/front of the pile. Other cards use
+  `sortSubWalletsByBalance`, with the best balance nearest the front.
+  Count every shape, including "N more": the cap is 6, or 4 compact. Up to
+  the cap, show every card. Above it, show the front, cap minus 2 strips, and
+  a neutral "N more" strip. That strip shows the hidden cards' total and fiat
+  and opens `CoinCardPickerSheet`. Selecting any card makes it the front card
+  through `setCoinSubWallet` with the explicit-choice flag.
+- Strips expose 52 points (48 compact), with 24-point corners (22 compact)
+  and 20-point padding. Show the VerusID name, preserving its final @ with a
+  middle ellipsis, or the card type. Titles use `titleRow`; amounts are
+  15-point bold tabular; fiat is 12-point medium at 86% white. Keep the sync
+  badge in place of fiat and the existing connection-error copy. Pressed strips
+  get a 12% dark overlay. Selection moves cards with a 400 ms transform;
+  Reduce Motion uses a short fade.
+- The front card is 140 points high (126 compact). Its quiet 12-point line
+  shows the address in monospace, truncated 8...8, or "VerusID". Its top-right
+  `CopyAction` keeps a 44-point target and copies the existing identifier.
+  The amount is 32-point bold tabular (28 compact), and fiat uses `labelSm`
+  at 86% white. One card uses 74 points (70 compact) and omits its amount and
+  fiat because the top row shows the total. Show "<ticker> network" at the
+  right of the quiet line only when the card's network differs from the coin's
+  own system. VRSC on VRSC shows no network line.
+- Materials are flat two-stop SVG gradients, top left to bottom right, in both
+  themes. Transparent and other address types use #2B5CC2/#2350A6; Private uses
+  #2C3544/#1C2330. VerusIDs use Jewel, in this hue order (mid, then deep):
+  Grape #7843A0/#693491 and #642E8B/#58207D; Rust #9A3E21/#8A3010 and
+  #842A09/#722000; Teal #066567/#045758 and #015253/#024446; Plum
+  #98366F/#882661 and #82215B/#74104F; Olive #5C6002/#4E5000 and
+  #4A4C00/#3D4000; Ochre #7C5401/#6A4600 and #644200/#543700; Forest
+  #006A3C/#005932 and #00552F/#014627. Use one upward shadow per card and
+  Android elevation. No outlines, grain, foil, glass, streaks, glows, text
+  shadows, 3D neighbors, rail or dots.
+- Save an integer color slot per identity i-address and account. Slot is
+  hue * 2 + tone. Start at FNV-1a-32(i-address) modulo 7, walk forward to the
+  first least-used saved hue, and alternate its mid/deep tone. Seed a missing
+  map in i-address order. Keep old assignments after unlinking. Load/save slots
+  before publishing cards in the coin saga, using
+  `generalWalletSettings.identityColorSlotsByAccount[accountHash]`. Coin,
+  balance order, cap and theme cannot change an identity's color. Looks may
+  repeat above 14 identities. A storage-write failure keeps the session map
+  and retries on the next card rebuild. It does not block wallet access.
+- Picker rows start with the same material in a 28 x 19-point swatch with
+  5-point corners. Dark swatches have a 1-point rgba(255,255,255,.2) border.
+  Keep the rest of the picker unchanged. `check:card-colors`, also run by
+  `check:design`, checks white and 86% white at 4.5:1 or more on every material.
+- Receive, Send and Convert reuse `SignedInActionBar` at 48 points, including
+  compact windows, with 20-point side margins. The gap above is 14 points
+  (10 compact); the gap below is 16 (10 compact). Keep all enable rules.
+
+The top row stays fixed. Transactions live in a sheet: it peeks under the
+actions and opens by a drag or a tap on its header. When it is open, the stack
+folds into a bar that names the selected card.
+
+- `DraggableSheet` is non-modal and uses Gesture Handler and Reanimated only.
+  One progress value drives the sheet, stack fold, selected bar and chevron.
+  It ends above the tab bar, which owns the bottom safe area. The sheet uses
+  `sheet`, 28-point top corners, an upward shadow and a 52-point header with
+  a handle and the `titleRow` title "Transactions".
+- At peek, a vertical drag anywhere moves the sheet and history cannot scroll
+  or pull to refresh. Open history scrolls and can refresh at the top. Only
+  the open header drags down to close, so refresh and closing stay separate.
+  A 6-point vertical activation threshold keeps row taps; horizontal movement
+  fails the pan. A flick from 500 points/second selects the far snap point.
+  Slow drags settle to the nearer point. Ignore zero-pointer iOS pan resets.
+- The open selected bar is 48 points high, 6 points below the top row's gap
+  (4 compact), with 14 points to the sheet (12 compact). Show its name and
+  amount in `titleRowCompact`, without fiat, then a down chevron. Tap it to
+  show all cards. Strips tuck and fade; the sheet covers the actions.
+- Android Back closes an open sheet before leaving. The header is an accessible
+  button with Open and Close actions and the appropriate hint. Open state hides
+  the normal stack and actions from accessibility; the selected bar and fixed
+  top row stay reachable. Reset to peek on screen focus and card changes.
+  Keep Overview's rows, details sheet, empty/error/loading states and channel
+  refresh behavior.
 
 - Every card and the asset total show the card's total, the number Home adds
   up: confirmed funds plus funds that still confirm. Read it with
@@ -1006,7 +1088,7 @@ The owner chose variation C of the "mapped to" mockup on 2026-10-23. It
 applies to `SignedInAssetHeader` only.
 
 - A Verus currency whose original lives on Ethereum shows one line under the
-  ticker: "Bridged from Ethereum ›", or "Bridged from Sepolia ›" on testnet. It
+  display name: "Bridged from Ethereum ›", or "Bridged from Sepolia ›" on testnet. It
   uses `caption` in `textSecondary` with a 14-point `textSubtle` chevron. The
   text truncates and the chevron stays; the target is 44 points high.
 - `getBridgedOrigin` in `src/utils/assets/bridgedOrigin.js` decides it from

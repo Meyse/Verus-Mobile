@@ -6,8 +6,15 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped asset-screen work: **TX-1.ASSET-STACK** on
+  `claude/asset-stack-sheet` from `ae8758e4`. The owner approved Final E-r4
+  variant 5 with Jewel saved slots on 2026-11-03. Implementation replaces the
+  native title/carousel with one top row, capped stack and persistent history
+  sheet. Device QA belongs to the owner's testers; this task must not start
+  or drive devices. See the scoped checklist below.
+
 - Created: 2026-09-10.
-- Last updated: 2026-11-02 (shared text-action system, option B).
+- Last updated: 2026-11-03 (approved asset stack and transactions sheet).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2110,6 +2117,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-03 | TX-1.ASSET-STACK: Final E-r4 variant 5 | `claude/asset-stack-sheet` from `ae8758e4` | Safe top row, 6/4-shape stack, hidden sum, flat SVG materials, saved per-account Jewel slots, picker swatches and persistent sheet implemented. Existing total, sync, copy, history/details, action and pre-launch contracts remain. Offline frozen install, design (39 sources), safe-area (9 files), color guard (17 materials, minimum 5.014:1), Babel (17 changed JS files), Node behavior fixtures and both production JS bundles pass. The fixtures cover 506 stack selections, stable slots, account isolation, save failure/retry, sheet taps/drags/zero-pointer reset/Reduce Motion, total/error/loading/privacy/sync states, Overview refresh gating and the screen Back/pre-launch paths. A source-derived HTML fixture was inspected in light/dark, normal/compact, peek/open and single-card states. | Owner device QA and native accessibility/motion remain open. Open history closes by header only. Source-derived fixtures substitute native controls and history rows; they do not prove native rendering or gesture arbitration. No devices, new dependencies, Jest tests, ESLint, push, merge or PR. Exact check commands and temporary fixtures: `/tmp/asset-stack-checks.local.md`. |
 | 2026-11-02 | SH-1.TEXT-ACTIONS: option B | `claude/text-action-link` from `69de19d6` | Shared link token and TextAction roles; audited clients, live v1 text buttons and recovery Change actions migrated. Design, safe-area, parser, contrast, component fixtures and both production JS bundles pass. Gift Back/Close declarations match base. No Jest tests added. | Orchestrator device QA remains open. See `text-action-implementation.local.md` for the action inventory, exclusions, routes and states. No simulator, emulator, push or merge. |
 | 2026-11-02 | GR-4.NO-LEFT-BAR: content value blocks and design guard | `claude/no-left-bar` from `700fb18d` | Value blocks lose their left border, radius and indent; label colors and 4-point vertical padding / 6-point bottom margin stay. The unused `detailRowWarning` has no users and is removed. DESIGN.md records the rule. The AST guard permits only the neutral transfer connector and transparent review triangle. Design check passes (37 sources); restoring the old 3-point border fails. Start-edge width, both color properties and a recolored connector also fail; transparent color passes. Babel parses all 4 changed JS files. Changed-file safe-area check passes for 3 files; whitespace check passes. Synthetic component trees for 6 states, light/dark and both panel-tone modes match the base except for the approved removal (24 renders). Existing Jest: identity-update suite passes (1 test); content-display suite cannot load because its SVG mock lacks `Touchable.Mixin`, with the same result on a clean temporary `700fb18d` worktree. Logs: `/tmp/verus-no-left-bar.iZ0xzX/`. | Follow-up 01b36422: Existing/Active labels in light mode go from #CCC (1.6:1) to #6B7280 (4.7:1). Agent iOS QA on 01b36422 (Verus Night iOS, iPhone 17 Pro, iOS 26.5, Metro 8193, review only): added, appended, replace (action 3) and clear (action 4) pass in light and dark; no bar pixels, value text at the title edge, groups separate, strikes present. Evidence: `docs/qa/matrix/runs/2026-11-02-no-left-bar/`. Open: private/encrypted state on device, removed without metadata on device, Android, owner look. |
 | 2026-11-02 | Verus JS library compatibility; identity data uploads remain unsupported | `claude/verus-libs-update` from `fabfaf12` | Four approved commit pins and scoped bn.js overrides installed with one copy per library. Hermes Buffer subarray fix verified with the app Hermes binary. Non-empty signDataMap requests stop before GenericRequest network lookups and at all three shared update-build wrappers; the existing request-error screen receives a specific non-retryable message. Existing upload-success test now verifies rejection; no UI files changed. Both release bundles and hermesc compiles pass. Check scripts: 7 pass, the 3 supplied baseline failures remain. Focused Jest: 7 passed / 5 failed suites (116 passed / 29 failed tests); full Jest once: 98 passed / 30 failed suites (777 passed / 132 failed tests). | No upload support port, signing, broadcast, simulator or device work. Review follow-up: overrides moved to package.json `resolutions` (lockfile unchanged); identityUpdateEmptyContent now expects the new client to accept daemon outer-key order and to reject all 4 value changes with its new error text. Other focused failures concern existing missing mempool mocks and the credential-decryption failure policy. No merge or push. |
@@ -2490,3 +2498,30 @@ install check is disabled for these commands; no package files change.
 GiftCardFund Back/Close declarations match the base. Its changes are limited
 to the MAX and add-content controls. No simulator, emulator, wallet action,
 push or merge ran. Device proof remains separate from source and fixtures.
+
+
+### TX-1.ASSET-STACK — Final stack and transactions sheet (2026-11-03)
+
+Owner-approved scope: `/tmp/vm-mock-cards/BUILD-ASSET-STACK.md`, Final
+`E-r4.html?v=5`, reference states in `ref-final/`, and Jewel palette 1.
+Design contract: `DESIGN.md`, Asset screen balances. The approved mockup owns
+geometry and materials. Existing CopyAction, PrivacyBlurredText, StatusBadge,
+SignedInActionBar, CoinCardPickerSheet and Overview own their behavior.
+
+- [x] Trace subwallets, ledger totals, identity i-addresses, selection and account
+  settings. Assign saved slots before `SET_USER_COINS_COMPLETE` publishes cards.
+- [x] Implement the fixed safe top row, 6/4-shape stack, hidden-card sum, card
+  selection, single-card rule, network rule, flat materials and picker swatches.
+- [x] Implement the reusable two-snap non-modal sheet, shared fold progress,
+  vertical pan guard, header tap, Reduce Motion, open-list scrolling/refresh,
+  Android Back and accessibility alternatives.
+- [x] Preserve pre-launch facts, selected-card history, details, action gates,
+  and other action-bar consumers.
+- [x] Run the final design, safe-area, contrast, parser, logic and bundle checks.
+- [ ] Owner testers: verify iOS normal/SE and Android, both themes, all approved
+  states, motion interruptions, edge Back, Android Back, list refresh, row taps,
+  hidden balances, VoiceOver/TalkBack, color restore/relink and large text.
+
+Allowed choice: open-list drag does not close the sheet. Only its header does,
+so native pull-to-refresh has no closing gesture competitor. No new libraries,
+Jest tests, ESLint fixes or device runtimes belong to this task.
