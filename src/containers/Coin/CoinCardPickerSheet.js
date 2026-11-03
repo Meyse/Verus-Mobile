@@ -22,6 +22,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import BottomSheetModal from '../../components/BottomSheetModal';
+import CardMaterial from '../../components/CardMaterial';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
@@ -33,6 +34,7 @@ import {
   extractLedgerData,
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
+import {getCardColors} from '../../utils/subwallet/cardColors';
 import {
   getLedgerTotal,
   getNetworkTicker,
@@ -95,6 +97,9 @@ const CoinCardPickerSheet = ({
     state => state.authentication.activeAccount,
   );
   const showBalance = useSelector(state => state.coins.showBalance);
+  const identitySlots = useSelector(state =>
+    state.settings.generalWalletSettings.identityColorSlotsByAccount?.[activeAccount?.accountHash],
+  );
   const balances = useObjectSelector(state =>
     chainTicker
       ? extractLedgerData(state, 'balances', API_GET_BALANCES, chainTicker)
@@ -467,6 +472,9 @@ const CoinCardPickerSheet = ({
             {height: rowHeight},
             current && styles.cardRowCurrent,
           ]}>
+          <View style={[styles.swatch, theme.isDark && styles.swatchDark]}>
+            <CardMaterial colors={getCardColors(item.wallet, identitySlots)} radius={5} />
+          </View>
           <View style={styles.identifierColumn}>
             <Text
               ellipsizeMode="middle"
@@ -505,12 +513,14 @@ const CoinCardPickerSheet = ({
     [
       displayTicker,
       handleSelect,
+      identitySlots,
       rowHeight,
       selectedSubWalletId,
       showBalance,
       showNetwork,
       styles,
       theme.colors.textPrimary,
+      theme.isDark,
     ],
   );
 
@@ -770,6 +780,8 @@ const createStyles = theme =>
     cardRowCurrent: {
       backgroundColor: theme.colors.successBackground,
     },
+    swatch: {width: 28, height: 19, borderRadius: 5, marginRight: 10, overflow: 'hidden'},
+    swatchDark: {borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'},
     identifierColumn: {
       flex: 1,
       minWidth: 0,
