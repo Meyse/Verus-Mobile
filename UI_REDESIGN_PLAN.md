@@ -24,8 +24,14 @@ without repeating the entire investigation.
   sheet. Device QA belongs to the owner's testers; this task must not start
   or drive devices. See the scoped checklist below.
 
+- Scoped picker follow-up: **TX-1.ASSET-STACK-ORDER**, P2 keyboard overflow
+  and P3 opening scroll, on `claude/asset-stack-order` from `69a52d25`:
+  **Ready for verification**. Source and native Yoga fixtures cover list
+  resizing above the keyboard. Next: owner testers repeat SE S7 and Pro
+  keyboard/note checks, then opening scroll, in both themes. No device ran here.
+
 - Created: 2026-09-10.
-- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done).
+- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; picker keyboard and opening-scroll fixes ready for device re-check).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2381,6 +2387,7 @@ plan into a repository-wide migration test project.
 | 2026-10-23 | RG-1.6 claim result on `TransactionResult` | `claude/result-guard` with `redesign` `c04cc956` merged (claim animation, step titles); `TransactionResult.js` (description, itemized blocks, explorer row, caption list, warning, `above`), `SpendableKeyRequestInfo.js`, `spendableKeyRequestInfo.styles.js`, `DESIGN.md` | iPhone SE (iOS 18.6) and iPhone 17 Pro (iOS 26.5), new disposable VRSCTEST wallet "Guard RG" funded with 1 VRSCTEST from the local daemon: real gift card claims of 0.0499 VRSCTEST (Cancel gift card, Review redemption, Claim) on both sizes, light and dark. Compared with the approved claim screenshots (`docs/qa/claim-animation/12`-`15`): same rows and spacing; only the title size (Sent step 28/36) and the footer bottom spacing differ. Several transactions and partial failure through a temporary, reverted fake-result patch on both sizes, light and dark. Real Send result on SE pixel-identical to the phase-1 component and to `redesign` except the status-bar clock; real gift card funding on both sizes. `check:design` passes with no hits; safe-area, bundle, `git diff --check`, `genericResponseNetwork` and `genericRequestCompletionFlow` pass. Evidence (ignored): `docs/qa/result-guard/phase2/` | RG-1.7 Android; a real multi-chain or partial claim and a VerusID claim are not seen on a device |
 | 2026-10-24 | Wallet setup: Face ID sheet without the privacy cover; coins land on moving rows | `claude/setup-landing` from `redesign` `250d242d`. Cause (phone run 2026-10-24): iOS keeps all Face ID wallet passwords in one keychain item, so adding a wallet reads it with Face ID when another Face ID wallet exists, and the app showed its privacy cover on every iOS "inactive". New `utils/keychain/biometricPrompt.js` (`withBiometricPrompt`, `isBiometricPromptOpen`); the four iOS biometric reads in `keychain.js` run through it; `VerusMobile.js` skips the cover while a prompt is open and covers on "background" (except with a send modal). `WalletSetupOverlay.js`: flight starts after two equal measurements 150 ms apart (first one 150 ms before the 1.1 s hold ends), rows measured every 100 ms in flight and the end point steered (160 ms), coin moves by a 0–1 progress times a movable end point; the landing worklet captures only the coin id (it captured the coin, whose presentation holds live `CoinDirectory` records, so in development Reanimated froze them: 104 "Tried to modify key" warnings per run). `WalletSetupLogoSlot.js` fades the row logo in (150 ms), then the coin fades. DESIGN.md "Wallet setup screen" | New simulator "Verus Landing QA" (iPhone 17 Pro, iOS 26.5), worktree Metro 8083; the setup screen was driven through the JS debugger with stand-in Home targets (no app code). Rows moved 40 pt at 250 ms into the flight: the follow-up measurement caught it and both coins stopped on the new centres (35, 222) and (35, 291) pt, path continuous, no stall. Rows still: (35, 182) and (35, 251) = target centres. Reanimated warnings 104 before the id fix, 0 after. App-state events sent through the debugger: prompt open + inactive → setup screen stays; no prompt + inactive → cover (old behaviour); prompt open + background → cover; active → cover gone. Babel parse (6 files), `check:design`, `check:safe-areas` (3 files), `git diff --check`; Jest keychain/biometric suites 6/6 (57 tests) pass. ESLint does not load (plugin `import` export error). | A real Face ID sheet (the simulator returned the protected item without one), a real Home landing and the logo fade on a real Home, the phone, Android, dark mode, iPhone SE. |
 | 2026-10-26 | SV-1.LIST-ROWS: gift card list option C | `claude/gift-card-list` from `redesign` `e3d7b53b`; `GiftCardServiceOverview.js` (rows, Claimed group, skeleton), `DESIGN.md` | New task sims "Verus GiftList QA" (iPhone 17 Pro) and "Verus GiftList SE" (iPhone SE 3rd gen), iOS 26.5, slimmed with simslim (`--except photos`), Metro 8192. Disposable testnet wallet "GiftList QA" (key from the local VRSCTEST daemon). Seven real cards: one not funded, two Ready and one Shared (funded from the daemon), three claimed back to the wallet in the app. Checked: All, Ready and Claimed filters; Claimed title hidden in the Claimed filter; a claimed row opens its card and Back returns; light and dark on both sizes; SE scroll and bottom fade. Design and safe-area checks pass. Evidence (ignored): `docs/qa/gift-card-list/`. | Not run: Android, a Pending row (badge unchanged), the loading skeleton on a device. |
+| 2026-11-03 | TX-1.ASSET-STACK-ORDER: picker keyboard overflow and opening scroll | `claude/asset-stack-order` from `69a52d25`; `CoinCardPickerSheet.js` | See the scoped follow-up below. Source-driven fixtures reproduce overflow on `ec3089de` and `69a52d25`; corrected Yoga geometry and measured scroll bounds pass. Required design, safe-area and iOS production bundle checks pass. | Owner device re-check remains open. No Metro or device actions ran. |
 
 Append one row per coherent delivery. Link safe local QA notes or durable evidence
 where appropriate, and distinguish worktree verification from integration into
@@ -2687,3 +2694,35 @@ starting commit too. Its assertion now follows DESIGN.md (no group title).
 No Metro or device actions ran. Device re-checks remain open for Transparent
 selection/order/pin exclusion, saved Main IDs, and long names and amounts in
 both themes at normal and compact sizes.
+
+QA follow-up, 2026-11-03 (P2 keyboard overflow and P3 opening scroll):
+
+- [x] Let the picker body and list shrink inside the existing keyboard-aware
+  modal cap. Keep search and chip heights fixed. Keep list clipping inside the
+  sheet's padding. Preserve the shared modal and keyboard dismissal behavior.
+- [x] Measure the actual list viewport for scrollability, bounds and fades.
+  Use the native indicator below the canonical 128-point fade cutoff.
+- [x] Open at the top when the current row is pinned and PINNED fits. Otherwise
+  leave the current row below the full top fade and clamp to the list bounds.
+- [x] Run the temporary fixtures and required static/bundle checks.
+- [ ] Owner testers: repeat SE S7 and Pro's keyboard/note re-check in both
+  themes. Check search, clear, chips, pin/unpin, note changes, no results,
+  last-row reachability, keyboard close and reopen. Check opening with a
+  fitting PINNED group, a current middle/end row and an oversized PINNED group.
+
+Cause: the modal already adjusts its percentage cap above the keyboard, but
+the picker body and fixed-height list did not shrink. The child list therefore
+extended past the sheet, and scrollability used its requested full-window
+height. The same source-executed picker/Yoga fixture reproduces overflow on
+`ec3089de` and `69a52d25`; the layout defect predates this branch. Groups and
+the limit note make it easier to trigger. Opening scroll also placed the current
+row directly under the top fade before this branch.
+
+Evidence: `/tmp/stack-order-check/picker.cjs` and `picker-sheet-layout.cpp`
+exercise the real component's styles through installed native Yoga with controlled
+keyboard frames. Both Main variants pass 112 keyboard geometry/scroll cases and
+21 opening cases each, plus the existing picker fixtures. Four opening cases
+defer animation frames to check resize and rapid close/reopen. The existing invariant,
+settings/saga, 72 row-layout and parser checks pass. These checks establish
+source behavior and controlled layout geometry, not simulator rendering,
+keyboard animation, native text sizing or accessibility. Device QA stays open.

@@ -77,6 +77,7 @@ const SHEET_MAX_HEIGHT_RATIO = 0.76;
 // Space kept free above a sheet that grows past 76%.
 const SHEET_TOP_CLEARANCE = 16;
 const SCROLL_CUE_HEIGHT = 42;
+const MIN_FADE_VIEWPORT_HEIGHT = 128;
 const SCROLL_END_THRESHOLD = 8;
 const MONOSPACE_FONT = Platform.select({
   ios: 'Menlo',
@@ -136,6 +137,7 @@ const CoinCardPickerSheet = ({
   const [showTopScrollCue, setShowTopScrollCue] = useState(false);
   const [showPinLimit, setShowPinLimit] = useState(false);
   const [noticeHeight, setNoticeHeight] = useState(52);
+  const [listViewportHeight, setListViewportHeight] = useState(null);
   const limitNoteVisible = showPinLimit || pins.length > pinLimit;
 
   useEffect(() => {
@@ -335,8 +337,12 @@ const CoinCardPickerSheet = ({
     Math.max(listContentHeight, itemStride),
     maximumListHeight,
   );
+  // The modal's keyboard avoider can leave less room than the window-based
+  // height above. Yoga shrinks the list; use that viewport for scroll bounds.
+  const viewportHeight = Math.min(listHeight, listViewportHeight ?? listHeight);
   const listScrollable =
-    listContentHeight > listHeight + SCROLL_END_THRESHOLD;
+    listContentHeight > viewportHeight + SCROLL_END_THRESHOLD;
+  const showScrollFades = viewportHeight >= MIN_FADE_VIEWPORT_HEIGHT;
 
   useEffect(() => {
     if (!visible) {
@@ -352,9 +358,9 @@ const CoinCardPickerSheet = ({
     activeChainFilter,
     activeTypeFilter,
     filteredItems.length,
-    listHeight,
     listScrollable,
     normalizedQuery,
+    viewportHeight,
     visible,
   ]);
 
@@ -372,6 +378,7 @@ const CoinCardPickerSheet = ({
     if (
       !visible ||
       frozenSubWallets.length === 0 ||
+      listViewportHeight == null ||
       didInitialScrollRef.current
     ) {
       return undefined;
@@ -382,9 +389,14 @@ const CoinCardPickerSheet = ({
     );
     if (!selectedEntry) return undefined;
 
-    const offset = Math.min(
-      selectedEntry.offset,
-      Math.max(listContentHeight - listHeight, 0),
+    const pinnedGroupHeight = listEntries.find(
+      entry => entry.kind === 'group' && entry.title === 'OTHERS',
+    )?.offset ?? listContentHeight;
+    const showPinnedGroup =
+      pins.includes(selectedSubWalletId) && pinnedGroupHeight <= viewportHeight;
+    const offset = showPinnedGroup ? 0 : Math.min(
+      Math.max(selectedEntry.offset - (showScrollFades ? SCROLL_CUE_HEIGHT : 0), 0),
+      Math.max(listContentHeight - viewportHeight, 0),
     );
 
     const frame = requestAnimationFrame(() => {
@@ -398,7 +410,7 @@ const CoinCardPickerSheet = ({
       );
       setShowBottomScrollCue(
         listScrollable &&
-          offset + listHeight < listContentHeight - SCROLL_END_THRESHOLD,
+          offset + viewportHeight < listContentHeight - SCROLL_END_THRESHOLD,
       );
     });
 
@@ -408,9 +420,12 @@ const CoinCardPickerSheet = ({
     itemStride,
     listEntries,
     listContentHeight,
-    listHeight,
+    listViewportHeight,
     listScrollable,
+    pins,
     selectedSubWalletId,
+    showScrollFades,
+    viewportHeight,
     visible,
   ]);
 
@@ -501,6 +516,7 @@ const CoinCardPickerSheet = ({
     setShowBottomScrollCue(false);
     setShowTopScrollCue(false);
     setShowPinLimit(false);
+    setListViewportHeight(null);
 
     if (typeof onClosed === 'function') onClosed();
   }, [onClosed]);
@@ -733,7 +749,9 @@ const CoinCardPickerSheet = ({
         ) : null}
 
         {filteredItems.length > 0 ? (
-          <View style={[styles.listFrame, {height: listHeight}]}>
+          <View
+            onLayout={event => setListViewportHeight(event.nativeEvent.layout.height)}
+            style={[styles.listFrame, {height: listHeight}]}>
             <FlatList
               ref={listRef}
               alwaysBounceVertical={false}
@@ -755,14 +773,14 @@ const CoinCardPickerSheet = ({
               showsVerticalScrollIndicator={listScrollable}
               style={styles.list}
             />
-            {showTopScrollCue ? (
+            {showTopScrollCue && showScrollFades ? (
               <CardPickerScrollCue
                 position="top"
                 styles={styles}
                 theme={theme}
               />
             ) : null}
-            {showBottomScrollCue ? (
+            {showBottomScrollCue && showScrollFades ? (
               <CardPickerScrollCue
                 position="bottom"
                 styles={styles}
@@ -831,6 +849,7 @@ const CardPickerScrollCue = ({position, styles, theme}) => {
 const createStyles = theme =>
   StyleSheet.create({
     body: {
+      flexShrink: 1,
       paddingHorizontal: 20,
       paddingTop: 8,
       paddingBottom: 18,
@@ -847,10 +866,12 @@ const createStyles = theme =>
     filterRow: {
       marginTop: 12,
       flexGrow: 0,
+      flexShrink: 0,
     },
     chainFilterRow: {
       marginTop: 8,
       flexGrow: 0,
+      flexShrink: 0,
     },
     filterContent: {
       paddingRight: 2,
@@ -876,6 +897,7 @@ const createStyles = theme =>
       color: theme.colors.onPrimary,
     },
     listFrame: {
+      flexShrink: 1,
       marginTop: 12,
       width: '100%',
       overflow: 'hidden',
@@ -996,6 +1018,7 @@ const createStyles = theme =>
       ...fontStyle('semiBold'),
     },
     emptyState: {
+      flexShrink: 1,
       marginTop: 12,
       paddingHorizontal: 20,
       alignItems: 'center',
