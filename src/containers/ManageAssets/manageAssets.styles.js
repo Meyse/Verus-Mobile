@@ -46,7 +46,7 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   formContent: {paddingTop: 28},
   fieldGroup: {gap: 8, marginBottom: 24},
   fieldLabel: {...theme.typography.labelMd, color: theme.colors.textSecondary},
-  networkInput: {minHeight: 56, borderWidth: 1, borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.input, borderRadius: theme.rounded.md, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14},
+  networkInput: {minHeight: 56, borderWidth: 1, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.input, borderRadius: theme.rounded.md, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14},
   fieldValue: {...theme.typography.bodyMd, color: theme.colors.textPrimary, flex: 1},
   networkSummary: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16},
   networkSummaryValue: {...theme.typography.bodyMd, color: theme.colors.textPrimary, textAlign: 'right', flexShrink: 1},
