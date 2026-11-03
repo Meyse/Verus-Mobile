@@ -8,11 +8,9 @@ import {
 } from "../constants/storeType";
 import { hashAccountId } from '../crypto/hash';
 import { getCachedVrpcResponse, getVrpcResponseCacheKey, setCachedVrpcResponse } from '../asyncStore/asyncStore';
-import {
-  ApiRequest,
-  GetBlockHashRequest,
-} from 'verus-typescript-primitives';
+import {GetBlockHashRequest} from 'verus-typescript-primitives';
 import { coinsList } from '../CoinData/CoinsList';
+import { Alert } from 'react-native';
 import { CoinDirectory } from '../CoinData/CoinDirectory';
 import { VRPC_API_KEYS, VRPC_API_APP_ID } from '../../../env/index';
 import { getUrlKey } from '../url';
@@ -20,18 +18,12 @@ import {
   CACHED_VRPC_REQUESTS,
   DEFAULT_VRPC_CACHE_MAX_AGE_MS,
   VRPC_CACHE_MAX_AGE_MS,
-  VRPC_ADDRESS_CACHE_REQUESTS,
   isVrpcResponseCacheable,
   shouldUseCachedVrpcResponse,
 } from './vrpcCachePolicy';
 import {getManyUtxoFundRawTransactionError} from './fundRawTransactionError';
-import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
-
-// Without a limit, Android keeps a request open for good when the connection
-// drops after it starts, so a send or a refresh never ends.
-export const VRPC_REQUEST_TIMEOUT_MS = 30000;
-const VRPC_CLIENT_CONFIG = {timeout: VRPC_REQUEST_TIMEOUT_MS};
 import VrpcRequestBatcher from './vrpcRequestBatcher';
+import {planVrpcRequests, vrpcErrorResponse} from './vrpcRequestMany';
 
 class CachedVerusdRpcInterface extends VerusdRpcInterface {
   static CACHED_REQUESTS = CACHED_VRPC_REQUESTS;
@@ -44,15 +36,6 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
   endpoint;
   
   callswaiting = {};
-  addressCacheIds = new Set();
-  addressCacheGeneration = 0;
-
-  expireAddressResponses() {
-    this.addressCacheGeneration++;
-    for (const cacheId of this.addressCacheIds) {
-      this.setLastNetworkResponseTime(cacheId, 0);
-    }
-  }
   pendingBatchRequests = new Map();
 
   /**
@@ -70,9 +53,9 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     APIAuth,
   ) {
     if (APIAuth) {
-      super(systemId, endpoint, VRPC_CLIENT_CONFIG, undefined, APIAuth)
+      super(systemId, endpoint, undefined, undefined, APIAuth)
     } else {
-      super(systemId, endpoint, VRPC_CLIENT_CONFIG)
+      super(systemId, endpoint)
     }
     
     this.endpoint = endpoint;
@@ -107,107 +90,144 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     return this.request(new GetBlockHashRequest(this.chain, height));
   }
 
-  /**
-   * This is a hack implemented when multicurrency was added to 
-   * ensure that multiple simultaneous calls to getwalletinfo or getaddressdeltas
-   * or any other API request that returns information about multiple wallet currencies
-   * with one set of parameters doesn't needlessly get called multiple times when the wallet
-   * updates multiple currencies at the same time. A much better way to implement this would be 
-   * to refactor the way update polling/intervals work so that multiple PBaaS currencies can 
-   * fetch info from one interval as long as they exist on the same system (TODO)
-   * @param {ApiRequest} req 
-   * @param {{skipCache?: boolean}} options Bypass cached reads for funding checks.
-   * @returns 
-   */
-  async request(req, {skipCache = false} = {}) {
-    const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
-    const batchable = this.requestBatcher.canBatch(req.cmd);
-    if (batchable && this.pendingBatchRequests.has(cacheId)) {
-      return this.pendingBatchRequests.get(cacheId);
+  async getCachedResponse(req, cacheId) {
+    if (!shouldUseCachedVrpcResponse({
+      command: req.cmd,
+      lastNetworkResponseAt: this.getLastNetworkResponseTime(cacheId),
+    })) return null;
+
+    try {
+      return await getCachedVrpcResponse(this.chain, this.endpoint, req);
+    } catch (error) {
+      console.log('Failed to get cached request:', error.message);
+      return null;
+    }
+  }
+
+  async cacheResponse(req, cacheId, response) {
+    if (isVrpcResponseCacheable(req.cmd) && response.error == null) {
+      try {
+        await setCachedVrpcResponse(this.chain, this.endpoint, req, response);
+        this.setLastNetworkResponseTime(cacheId, Date.now());
+      } catch (error) {
+        console.log('Failed to save cached response:', error.message);
+      }
     }
 
-    const callDelay = this.registerCallStart(cacheId);
+    return response;
+  }
 
-    const pending = new Promise((resolve, reject) => {
-      setTimeout(async () => {
-        try {
-          const cmd = req.cmd;
-          const addressResponse = VRPC_ADDRESS_CACHE_REQUESTS.includes(cmd);
-          if (addressResponse) this.addressCacheIds.add(cacheId);
-          const cacheGeneration = this.addressCacheGeneration;
-          const saveToCache = isVrpcResponseCacheable(cmd);
-          const getFromCache = !skipCache && shouldUseCachedVrpcResponse({
-            command: cmd,
-            lastNetworkResponseAt: this.getLastNetworkResponseTime(cacheId),
-          });
-    
-          if (getFromCache) {
-            try {
-              const cachedRes = await getCachedVrpcResponse(this.chain, this.endpoint, req);
-        
-              if (cachedRes != null &&
-                  (!addressResponse || cacheGeneration === this.addressCacheGeneration)) {
-                this.registerCallComplete(cacheId);
-                resolve(cachedRes);
-                return;
-              }
-            } catch(e) {
-              console.log("Failed to get cached request:")
-              console.log(e.message)
-            }
-          }
-          
-          const res = batchable
-            ? await this.requestBatcher.request(req)
-            : await super.request(req);
-          const fundingError =
-            req.cmd === 'fundrawtransaction'
-              ? getManyUtxoFundRawTransactionError(res.error, req.utxos)
-              : null;
-
-          if (fundingError) throw fundingError;
-      
-          if (saveToCache && res.error == null &&
-              (!addressResponse || cacheGeneration === this.addressCacheGeneration)) {
-            try {
-              await setCachedVrpcResponse(this.chain, this.endpoint, req, res);
-              // A response started before broadcast must not renew the cache,
-              // including when expiry happens during the AsyncStorage write.
-              this.setLastNetworkResponseTime(
-                cacheId,
-                !addressResponse || cacheGeneration === this.addressCacheGeneration
-                  ? Date.now()
-                  : 0,
-              );
-            } catch(e) {
-              console.log("Failed to save cached response:")
-              console.log(e.message)
-            }
-          }
-      
-          this.registerCallComplete(cacheId);
-          resolve(res);
-        } catch(e) {
-          const fundingError =
-            req.cmd === 'fundrawtransaction'
-              ? getManyUtxoFundRawTransactionError(e, req.utxos)
-              : null;
-          const requestError = fundingError || e;
-
-          console.error(requestError)
-          this.registerCallComplete(cacheId);
-          reject(requestError)
-        }
-      }, callDelay)
-    });
-
-    if (!batchable) return pending;
-
-    // Share identical address lookups through the network request AND cache
-    // write, so the old per-key delay cannot put duplicates in another batch.
+  shareRead(cacheId, pending) {
+    // Keep sharing until the cache write finishes, including requests made by
+    // another refresh or by the ordinary single-request API.
     const shared = pending.finally(() => this.pendingBatchRequests.delete(cacheId));
     this.pendingBatchRequests.set(cacheId, shared);
     return shared;
+  }
+
+  /**
+   * Execute an explicit refresh without a collection delay. Cache entries and
+   * in-flight reads belong to the original requests, never the merged queries.
+   * Each result settles independently so one failed history read cannot discard
+   * a successful balance update from the same batch.
+   */
+  async requestMany(requests) {
+    const owned = [];
+    const results = requests.map(req => {
+      if (!this.requestBatcher.supportsRefresh(req.cmd)) {
+        return vrpcErrorResponse({code: -32601, message: `Unsupported refresh method: ${req.cmd}`});
+      }
+
+      const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
+      let pending = this.pendingBatchRequests.get(cacheId);
+
+      if (!pending) {
+        const entry = {req, cacheId};
+        pending = this.shareRead(cacheId, new Promise((resolve, reject) => {
+          entry.resolve = resolve;
+          entry.reject = reject;
+        }));
+        owned.push(entry);
+      }
+
+      return pending.catch(vrpcErrorResponse);
+    });
+
+    // Reserve every key before the first await, then read caches concurrently.
+    // Filtering afterward keeps network order independent of storage latency.
+    const cached = await Promise.all(owned.map(entry =>
+      this.getCachedResponse(entry.req, entry.cacheId),
+    ));
+    const misses = owned.filter((entry, index) => {
+      if (cached[index] == null) return true;
+      entry.resolve(cached[index]);
+      return false;
+    });
+
+    try {
+      const plan = planVrpcRequests(misses.map(entry => entry.req));
+      const responses = plan.splitResponses(await this.requestBatcher.requestMany(plan.requests));
+
+      await Promise.all(misses.map(async (entry, index) => {
+        try {
+          entry.resolve(await this.cacheResponse(entry.req, entry.cacheId, responses[index]));
+        } catch (error) {
+          entry.reject(error);
+        }
+      }));
+    } catch (error) {
+      misses.forEach(entry => entry.reject(error));
+    }
+
+    return Promise.all(results);
+  }
+
+  /** Keep the single-request API and its throwing behavior for transport errors. */
+  async request(req) {
+    if (Array.isArray(req)) return this.requestMany(req);
+
+    const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
+
+    if (this.requestBatcher.supportsRefresh(req.cmd)) {
+      if (this.pendingBatchRequests.has(cacheId)) {
+        return this.pendingBatchRequests.get(cacheId);
+      }
+
+      return this.shareRead(cacheId, (async () => {
+        const cached = await this.getCachedResponse(req, cacheId);
+        if (cached != null) return cached;
+
+        const response = await this.requestBatcher.request(req);
+        return this.cacheResponse(req, cacheId, response);
+      })());
+    }
+
+    // Preserve serialization and error handling for operations outside the
+    // explicitly supported refresh reads, particularly transaction creation.
+    const callDelay = this.registerCallStart(cacheId);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, callDelay));
+      const cached = await this.getCachedResponse(req, cacheId);
+      if (cached != null) return cached;
+
+      const response = await super.request(req);
+      const fundingError = req.cmd === 'fundrawtransaction'
+        ? getManyUtxoFundRawTransactionError(response.error, req.utxos)
+        : null;
+
+      if (fundingError) throw fundingError;
+      return await this.cacheResponse(req, cacheId, response);
+    } catch (error) {
+      const fundingError = req.cmd === 'fundrawtransaction'
+        ? getManyUtxoFundRawTransactionError(error, req.utxos)
+        : null;
+      const requestError = fundingError || error;
+      console.error(requestError);
+      throw requestError;
+    } finally {
+      this.registerCallComplete(cacheId);
+    }
   }
 }
 
@@ -218,13 +238,6 @@ class VrpcInterface {
   cacheInterfaces = {};
 
   lastNetworkResponseTimes = new Map();
-
-  expireAddressResponses(systemId) {
-    // The next request may choose another endpoint for the same system.
-    for (const rpc of Object.values(this.cacheInterfaces)) {
-      if (rpc.chain === systemId) rpc.expireAddressResponses();
-    }
-  }
 
   static getEndpointId(systemId, endpoint) {
     return hashAccountId(`${systemId}:${endpoint}`).toString('hex');
@@ -367,10 +380,13 @@ class VrpcInterface {
     const id = VrpcInterface.getEndpointId(systemId, endpoint);
 
     try {
-      if (!endpoints[id]) {
-        delete this.endpointConnections[id];
-        return;
-      }
+      if (!endpoints[id])
+        throw new Error(
+          'Cannot delete uninitialized endpoint ' +
+            endpoint +
+            ' for systemId ' +
+            systemId,
+        );
 
       this.endEndpointConnection(id);
 
@@ -395,7 +411,6 @@ class VrpcInterface {
     this.systemEndpointIds = {};
     this.endpointConnections = {};
     this.cacheInterfaces = {};
-    this.endpointConnections = {};
   };
 
   getEndpoint = systemId => {
@@ -427,12 +442,12 @@ class VrpcInterface {
     let verusIdInterface;
 
     if (VRPC_API_KEYS[urlKey]) {
-      verusIdInterface = new VerusIdInterface(systemId, endpoint, VRPC_CLIENT_CONFIG, undefined, {
+      verusIdInterface = new VerusIdInterface(systemId, endpoint, undefined, undefined, {
         id: VRPC_API_APP_ID,
         key: VRPC_API_KEYS[urlKey]
       });
     } else {
-      verusIdInterface = new VerusIdInterface(systemId, endpoint, VRPC_CLIENT_CONFIG)
+      verusIdInterface = new VerusIdInterface(systemId, endpoint)
     }
 
     // Preserve fundrawtransaction errors raised while the VerusID client builds
@@ -465,8 +480,7 @@ setImmediate(() => {
     // that make calls to vrpc even if VRSC/VRSCTEST isn't added as a coin
     VerusMobileVrpcInterface.addDefaultEndpoints() 
   } catch(e) {
-    console.error(e);
-    createAlert("Verus servers not set up", "Quit Verus Mobile and open it again.");
+    Alert.alert("Error initializing Verus lite mode", e.message)
   }  
 })
 

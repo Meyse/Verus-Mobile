@@ -17,7 +17,7 @@ import {
 import { connect } from 'react-redux';
 import { expireCoinData, expireServiceData, setActiveOverviewFilter } from '../../../actions/actionCreators';
 import Styles from '../../../styles/index'
-import { conditionallyUpdateService, conditionallyUpdateWallet } from "../../../actions/actionDispatchers";
+import { conditionallyUpdateService, conditionallyUpdateWallets } from "../../../actions/actionDispatchers";
 import store from "../../../store";
 import TransactionDetailsSheet, {decodeTxid} from './TransactionDetailsSheet';
 import SkeletonLoader, {
@@ -609,32 +609,33 @@ class Overview extends Component {
           API_GET_TRANSACTIONS,
         ];
 
-        const coinId = this.props.activeCoin.id;
+        // Balance and transaction requests belong to the same refresh batch.
+        // Start them before service work so notifications cannot hold them up.
+        const walletRefresh = conditionallyUpdateWallets(
+          store.getState(),
+          this.props.dispatch,
+          coinUpdates.map(updateId => ({
+            chainTicker: this.props.activeCoin.id,
+            updateId,
+          })),
+        ).catch(e => {
+          console.warn('Error forcing wallet updates');
+          console.warn(e);
+        });
 
-        await runRefreshUpdates(
-          [
-            ...serviceUpdates.map(key => [
-              {
-                label: key,
-                update: () =>
-                  conditionallyUpdateService(store.getState(), this.props.dispatch, key),
-              },
-            ]),
-            ...coinUpdates.map(key => [
-              {
-                label: key,
-                update: () =>
-                  conditionallyUpdateWallet(store.getState(), this.props.dispatch, coinId, key),
-              },
-            ]),
-          ],
-        );
-
-        if (this._isMounted) {
-          this.setState({loading: false, refreshing: false});
+        for (const updateId of serviceUpdates) {
+          try {
+            await conditionallyUpdateService(store.getState(), this.props.dispatch, updateId);
+          } catch (e) {
+            console.warn('Error forcing update to ' + updateId);
+            console.warn(e);
+          }
         }
-      },
-    );
+
+        await walletRefresh;
+        if (this._isMounted) this.setState({loading: false, refreshing: false});
+      });
+    }
   };
 
   forceUpdate = () => {

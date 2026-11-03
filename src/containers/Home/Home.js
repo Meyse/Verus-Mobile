@@ -36,7 +36,7 @@ import {
 import { USD } from '../../utils/constants/currencies';
 import {
   conditionallyUpdateService,
-  conditionallyUpdateWallet,
+  conditionallyUpdateWallets,
   dispatchAddWidget,
 } from '../../actions/actionDispatchers';
 import BigNumber from 'bignumber.js';
@@ -325,23 +325,29 @@ const Home = () => {
 
       const coinUpdates = [API_GET_FIATPRICE, API_GET_BALANCES, API_GET_INFO];
 
-      await runRefreshUpdates([
-        ...serviceUpdates.map((key) => [
-          {
-            label: key,
-            update: () => conditionallyUpdateService(store.getState(), dispatch, key),
-          },
-        ]),
-        ...coinUpdates.map((key) =>
-          activeCoinsForUser.map((coinObj) => ({
-            label: `${key} for ${coinObj.id}`,
-            update: () =>
-              conditionallyUpdateWallet(store.getState(), dispatch, coinObj.id, key),
-          })),
+      // Plan the whole wallet refresh together so address requests can share a
+      // batch. Service work runs alongside it without delaying wallet requests.
+      const walletRefresh = conditionallyUpdateWallets(
+        store.getState(),
+        dispatch,
+        coinUpdates.flatMap(updateId =>
+          activeCoinsForUser.map(coin => ({chainTicker: coin.id, updateId})),
         ),
-      ]);
+      ).catch(e => {
+        console.warn('Error forcing wallet updates');
+        console.warn(e);
+      });
 
-      // An older refresh that ends late must not stop a newer one's spinner.
+      for (const updateId of serviceUpdates) {
+        try {
+          await conditionallyUpdateService(store.getState(), dispatch, updateId);
+        } catch (e) {
+          console.warn('Error forcing update to ' + updateId);
+          console.warn(e);
+        }
+      }
+
+      await walletRefresh;
       if (run === refreshRun.current) setLoading(false);
     },
     [activeCoinsForUser, dispatch],
