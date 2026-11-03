@@ -505,7 +505,8 @@ const IdentityUpdateRequestInfoContent = props => {
     }
 
     // Review the original request, before uploads become transaction references.
-    const requestedContent = detailsBufferString
+    // The request is parsed in an effect, so the first render has no identity yet.
+    const requestedContent = detailsBufferString && details.identity
       ? identityToDisplayJson(details.identity).contentmultimap || {}
       : identityUpdates.contentmultimap || {};
     const contentKeys = new Set(Object.keys(requestedContent));
