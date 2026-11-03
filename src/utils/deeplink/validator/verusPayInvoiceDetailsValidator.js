@@ -36,6 +36,10 @@ export const validateVerusPayInvoiceVDXFObject = (request, detailIndex) => {
 export const validateVerusPayInvoiceDetails = async (details) => {
   if (!details) throw new Error("No invoice details found.")
 
+  if (details.isTagged() && (details.tag == null || !details.tag.isValid())) {
+    throw new Error("Invalid VerusPay invoice tag.")
+  }
+
   if (details.acceptsNonVerusSystems() && details.excludesVerusBlockchain()) {
     throw new Error("This invoice accepts no systems to pay on, and is therefore unpayable.")
   }
@@ -68,10 +72,6 @@ export const validateVerusPayInvoiceDetails = async (details) => {
       GENERIC_REQUEST_REJECTION_CODES.EXPIRED,
       `This invoice is expired (expired for approx. ${blocksToTime(age)}).`,
     )
-  }
-
-  if (details.isTagged()) {
-    throw new Error("Tagged invoices not yet supported.")
   }
 
   if (details.destinationIsSaplingPaymentAddress()) {
