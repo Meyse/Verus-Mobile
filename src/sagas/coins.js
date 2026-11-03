@@ -13,6 +13,7 @@ import { getVerusIdCurrency } from '../utils/CoinData/CoinData';
 import { IS_PBAAS_CHAIN } from '../utils/constants/currencies';
 import { coinsList } from '../utils/CoinData/CoinsList';
 import {sessionActionIsCurrent} from '../actions/actions/updates/sessionRequests';
+import {ensureIdentityColorSlots} from '../utils/subwallet/identityColorSettings';
 
 export default function* setUserCoinsSaga() {
   yield all([takeEvery(SET_USER_COINS, handleFinishSetUserCoins)]);
@@ -32,6 +33,19 @@ function* handleFinishSetUserCoins(action) {
     );
     const linkedIds =
       verusIdStoredData.linked_ids == null ? {} : verusIdStoredData.linked_ids;
+    if (!sessionActionIsCurrent(yield select(), action)) return;
+    // Card colors are cosmetic. An unexpected failure here must never stop
+    // the wallet from publishing its cards.
+    try {
+      yield call(
+        ensureIdentityColorSlots,
+        (yield select()).authentication.activeAccount?.accountHash,
+        linkedIds,
+      );
+    } catch (colorError) {
+      console.warn('Could not prepare identity card colors.', colorError);
+    }
+    if (!sessionActionIsCurrent(yield select(), action)) return;
     const state = store.getState()
     const { watchedAddresses } = state.channelStore_vrpc
 

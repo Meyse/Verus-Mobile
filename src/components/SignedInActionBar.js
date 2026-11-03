@@ -45,6 +45,7 @@ export const SignedInActionButtons = ({
   receiveDisabled = false,
   sendDisabled = false,
   style,
+  fixedHeight = false,
 }) => {
   const {fontScale} = useWindowDimensions();
   const stacked = fontScale >= 1.3;
@@ -61,6 +62,7 @@ export const SignedInActionButtons = ({
         accessibilityLabel={signedInCopy.actions.receive}
         compact
         height={ACTION_BUTTON_HEIGHT}
+        contentStyle={fixedHeight ? {height: ACTION_BUTTON_HEIGHT} : undefined}
         disabled={receiveDisabled}
         icon={ACTION_ICONS.receive}
         labelStyle={styles.label}
@@ -76,6 +78,7 @@ export const SignedInActionButtons = ({
         accessibilityLabel={signedInCopy.actions.send}
         compact
         height={ACTION_BUTTON_HEIGHT}
+        contentStyle={fixedHeight ? {height: ACTION_BUTTON_HEIGHT} : undefined}
         disabled={sendDisabled}
         icon={ACTION_ICONS.send}
         labelStyle={styles.label}
@@ -93,6 +96,7 @@ export const SignedInActionButtons = ({
         accessibilityLabel={signedInCopy.actions.convert}
         compact
         height={ACTION_BUTTON_HEIGHT}
+        contentStyle={fixedHeight ? {height: ACTION_BUTTON_HEIGHT} : undefined}
         disabled={convertDisabled}
         icon={ACTION_ICONS.convert}
         labelStyle={styles.label}
@@ -108,6 +112,7 @@ export const SignedInActionButtons = ({
 const SignedInActionBar = ({
   includeBottomInset = true,
   showFade = false,
+  placement = 'footer',
   ...actions
 }) => {
   const theme = useOnboardingTheme();
@@ -129,7 +134,10 @@ const SignedInActionBar = ({
       />
       <SignedInActionButtons
         {...actions}
-        style={[styles.barPadding, compact && styles.barPaddingCompact, {paddingBottom: bottomPadding}]}
+        fixedHeight={placement === 'assetStack'}
+        style={placement === 'assetStack'
+          ? {paddingHorizontal: 20, paddingTop: compact ? 10 : 14, paddingBottom: compact ? 10 : 16}
+          : [styles.barPadding, compact && styles.barPaddingCompact, {paddingBottom: bottomPadding}]}
       />
     </View>
   );

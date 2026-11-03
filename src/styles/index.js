@@ -26,6 +26,7 @@ export {default as authorityInfoSheetStyles} from './deeplink/authorityInfoSheet
 export {default as barcodeReaderStyles} from './components/barcodeReader.styles';
 export {default as confirmPayStepStyles} from './deeplink/confirmPayStep.styles';
 export {default as copyActionStyles} from './components/copyAction.styles';
+export {default as draggableSheetStyles} from './components/draggableSheet.styles';
 export {default as dataRequestInfoStyles} from './deeplink/dataRequestInfo.styles';
 export {default as deepLinkRequestReviewStyles} from './components/deepLinkRequestReview.styles';
 export {default as gradientButtonStyles} from './components/gradientButton.styles';

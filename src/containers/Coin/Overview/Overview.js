@@ -419,6 +419,7 @@ class Overview extends Component {
     this.transactionRequestChannel = null;
     this.transactionSkeletonTimer = null;
     this._isMounted = false;
+    this.transactionListRef = React.createRef();
     //this.updateProps = this.updateProps.bind(this);
     this.refresh = this.refresh.bind(this);
   }
@@ -446,6 +447,9 @@ class Overview extends Component {
   }
 
   componentDidUpdate(prevProps) {
+    if (this.props.sheetOpen === false && prevProps.sheetOpen === true) {
+      this.transactionListRef.current?.scrollToOffset({offset: 0, animated: false});
+    }
     const previousChannel = prevProps.transactions?.channel;
     const transactions = this.props.transactions;
 
@@ -927,7 +931,7 @@ class Overview extends Component {
           onLayout={this.handleTransactionLayout}
           style={[
             transactionStyles.loadingPlaceholder,
-            {backgroundColor: this.context.colors.background},
+            {backgroundColor: (this.props.backgroundColor || this.context.colors.background)},
           ]}>
           {this.state.showTransactionSkeleton && (
             <TransactionSkeleton animated={!this.state.reduceMotionEnabled} />
@@ -938,28 +942,29 @@ class Overview extends Component {
 
     return (
       <FlatList
+        ref={this.transactionListRef}
         style={Styles.fullWidth}
         contentContainerStyle={{
           flexGrow: 1,
-          backgroundColor: this.context.colors.background,
+          backgroundColor: (this.props.backgroundColor || this.context.colors.background),
           paddingBottom: TRANSACTION_LIST_BOTTOM_PADDING,
         }}
         data={this.parseTransactionLists()}
-        scrollEnabled={true}
+        scrollEnabled={this.props.sheetOpen !== false}
         ListEmptyComponent={
           this.props.transactions?.errors != null ? (
             <EmptyState
               actionLabel={signedInCopy.actions.retry}
               icon={CircleAlert}
               onAction={this.forceUpdate}
-              style={{backgroundColor: this.context.colors.background}}
+              style={{backgroundColor: (this.props.backgroundColor || this.context.colors.background)}}
               title="Unable to load transactions"
             />
           ) : (
           <View
             style={[
               transactionStyles.emptyState,
-              {backgroundColor: this.context.colors.background},
+              {backgroundColor: (this.props.backgroundColor || this.context.colors.background)},
             ]}>
             <History
               color={this.context.colors.textSecondary}
@@ -983,7 +988,7 @@ class Overview extends Component {
             : String(index)
         }
         refreshing={this.state.refreshing}
-        onRefresh={this.forceUpdate}
+        onRefresh={this.props.sheetOpen === false ? undefined : this.forceUpdate}
         onContentSizeChange={this.handleTransactionContentSizeChange}
         onLayout={this.handleTransactionLayout}
         onScroll={this.handleTransactionScroll}
@@ -1003,7 +1008,7 @@ class Overview extends Component {
       <View
         style={[
           Styles.defaultRoot,
-          {backgroundColor: this.context.colors.background},
+          {backgroundColor: (this.props.backgroundColor || this.context.colors.background)},
         ]}>
         <TransactionDetailsSheet
           details={this.state.txDetails}

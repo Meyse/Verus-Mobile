@@ -9,6 +9,7 @@ export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   displayCurrency: USD,
   appearance: 'system',
   lastOpenedAccountTimestamps: {},
+  identityColorSlotsByAccount: {},
   lastWalletNetwork: WALLET_NETWORKS.MAINNET,
   homeCardDragDetection: false,
   allowSettingVerusPaySlippage: false,
