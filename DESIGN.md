@@ -139,6 +139,7 @@ Owner approval, 2026-11-02: option B of the text-action audit.
 ## Input fields
 
 Owner approval, 2026-10-30: the compact neutral input study, revision 2.
+Owner approval, 2026-11-03: the outline-only field, D2 dark / L2 light.
 
 - `AppTextInput` is the shared text-field shell: 48-point single-line height,
   12-point corners, and the semantic `input*` colors. Focus changes the color
@@ -148,8 +149,10 @@ Owner approval, 2026-10-30: the compact neutral input study, revision 2.
   the forced paragraph height shifted editing text down. Keep 16-point type,
   labels, errors, password eyes, search controls, units, and existing keyboard
   and validation behavior. Multiline fields retain 22-point line spacing.
-- The idle border stays quiet and focus has a stronger neutral shade: darker
-  in light mode, brighter in dark mode. Keep the one-border treatment.
+- The field has no fill and takes the surface behind it. The idle border uses
+  the cool grey-blue `inputBorder`. Focus changes that one border to
+  `inputFocusBorder`: near black in light mode, near white in dark mode.
+  The caret uses `link`. Keep the one-border treatment.
 - Personalize wallet keeps its 56-point avatar and 28-point icon. Center the
   circle beside the 48-point input; the field label and errors do not set the
   circle's center.
