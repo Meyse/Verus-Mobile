@@ -1407,6 +1407,13 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 - [ ] **TX-1.BRIDGE-NAMES-QA** Check Convert and Send network choices, Amount,
   Price and route, context, Confirm/preparing, Sent and saved-address context
   in light/dark on normal phones and iPhone SE. No device ran in this task.
+- [x] **TX-1.BRIDGE-FUNDING** Reduce native sends only to balance minus fees.
+  Preserve submitted amount for the Reduced from notice. Expose export bridge
+  and parent network fees from the validated preflight that is signed.
+- [ ] **TX-1.BRIDGE-FEES-QA** Check affordable small exports, conversion fees
+  above/equal/below amount, exact Bridge fee / Network fee / Total rows with
+  one or several paid currencies, MAX with a fee rise, plain MAX, errors,
+  retry and Back in light/dark on normal phones and iPhone SE.
 - [x] **TX-1.I16-A11** Refresh the source balance after a successful broadcast.
   Expire the source system's address-response caches. Include mempool deltas in
   VRPC totals and discovery snapshots. Keep an open wizard's balance current,
@@ -2126,6 +2133,7 @@ plan into a repository-wide migration test project.
 ## Evidence and handoff log
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
+| 2026-11-03 | TX-1.BRIDGE-FUNDING | `claude/bridge-names-fees` after `018b493c` | `/tmp/bridge-names-fees-preflight.cjs` runs real preflight and protocol validation with synthetic network boundaries. Base amount 90 / balance 100 / fees 17.0001 sends 72.9999; candidate sends 82.9999 and retains submitted amount 90. Amount 10 stays 10 with bridge 17 + network 0.0001. Plain MAX 100 produces 99.9999 and byte-identical hex to base. Ordinary send and insufficient-funds failure pass. | No signing or broadcast. Device review of Reduced from, MAX and fee rows remains open. |
 | 2026-11-03 | TX-1.BRIDGE-NAMES | `claude/bridge-names-fees` from `052d0b5c` | Pure Ethereum-name helper; per-route receive ticker; network rows preserve full unknown Verus names. Existing option matrix and design check pass. Throwaway `/tmp/bridge-names-fees-live.cjs` reproduces the base defect and checks live public-testnet definitions/routes: vETH/ETH for DAI and VRSCTEST conversions, DAI.vETH/DAI for Send, DAI for an ETH-source bounceback built from live definitions and live Sepolia contract metadata in the app's route shape. All downstream target labels consume the selected target ticker. Upstream has only personal email/phone contacts, with no redesign Address Book record format. | No record migration. Device QA remains open, including light/dark, iPhone SE, selected names, Back and saved-address context. No keys, signing, broadcast, simulator or emulator used. |
 | --- | --- | --- | --- | --- |
 | 2026-11-03 | TX-1.ASSET-STACK: Final E-r4 variant 5 | `claude/asset-stack-sheet` from `ae8758e4` | Safe top row, 6/4-shape stack, hidden sum, flat SVG materials, saved per-account Jewel slots, picker swatches and persistent sheet implemented. Existing total, sync, copy, history/details, action and pre-launch contracts remain. Offline frozen install, design (39 sources), safe-area (9 files), color guard (17 materials, minimum 5.014:1), Babel (17 changed JS files), Node behavior fixtures and both production JS bundles pass. The fixtures cover 506 stack selections, stable slots, account isolation, save failure/retry, sheet taps/drags/zero-pointer reset/Reduce Motion, total/error/loading/privacy/sync states, Overview refresh gating and the screen Back/pre-launch paths. A source-derived HTML fixture was inspected in light/dark, normal/compact, peek/open and single-card states. | Owner device QA and native accessibility/motion remain open. Open history closes by header only. Source-derived fixtures substitute native controls and history rows; they do not prove native rendering or gesture arbitration. No devices, new dependencies, Jest tests, ESLint, push, merge or PR. Exact check commands and temporary fixtures: `/tmp/asset-stack-checks.local.md`. |
