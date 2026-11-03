@@ -15,11 +15,8 @@ import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import useReduceMotion from '../../hooks/useReduceMotion';
 import {useOnboardingTheme} from '../../theme/onboarding';
-import {buildAssetStack} from '../../utils/subwallet/assetStack';
-import {
-  sortSubWalletsByBalance,
-  truncateMiddle,
-} from '../../utils/subwallet/cardPresentation';
+import {buildOrderedAssetStack} from '../../utils/subwallet/assetStack';
+import {truncateMiddle} from '../../utils/subwallet/cardPresentation';
 
 const WHITE = '#FFFFFF';
 const QUIET = 'rgba(255,255,255,0.86)';
@@ -350,17 +347,15 @@ const AssetCardStack = props => {
   const {asset, compact} = props;
   const reduceMotion = useReduceMotion();
   const items = useMemo(() => {
-    const sortedWallets = sortSubWalletsByBalance(
-      asset.cards.map(card => card.wallet),
-      asset.balances,
-    );
-    const byId = new Map(asset.cards.map(card => [card.wallet.id, card]));
-    return buildAssetStack(
-      sortedWallets.map(wallet => byId.get(wallet.id)),
-      asset.selected?.id,
+    return buildOrderedAssetStack({
+      cards: asset.cards,
+      balances: asset.balances,
+      selectedId: asset.selected?.id,
+      pins: asset.stackPreferences.pins,
+      lastUsedId: asset.stackPreferences.lastUsedId,
       compact,
-    );
-  }, [asset.balances, asset.cards, asset.selected?.id, compact]);
+    });
+  }, [asset.balances, asset.cards, asset.selected?.id, asset.stackPreferences, compact]);
   const single = asset.cards.length === 1;
   const height =
     Math.max(0, items.length - 1) * (compact ? 48 : 52) +
