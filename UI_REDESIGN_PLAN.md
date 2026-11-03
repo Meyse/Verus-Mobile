@@ -6,6 +6,11 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped meeting fixes: **RG-1.8** and wallet logo fallback on
+  `claude/meeting-ui-fixes` from `052d0b5c`: **Ready for verification**.
+  Static, behavior and bundle checks pass. Existing gift card tests retain two
+  baseline mock failures. Next: owner device QA of the affected states.
+
 - Scoped asset-screen work: **TX-1.ASSET-STACK** on
   `claude/asset-stack-sheet` from `ae8758e4`. The owner approved Final E-r4
   variant 5 with Jewel saved slots on 2026-11-03. Implementation replaces the
@@ -14,7 +19,7 @@ without repeating the entire investigation.
   or drive devices. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-03 (asset stack and transactions sheet: device QA).
+- Last updated: 2026-11-03 (meeting UI fixes: ready for device QA).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2066,6 +2071,9 @@ left running for orchestrator QA.
 - [x] **RG-1.6** Move the card claim result onto `TransactionResult` after the
   claim branch merges; `check:design` then passes with no hits.
 - [ ] **RG-1.7** Android QA of the Send and gift card results.
+- [x] **RG-1.8** Gift card funding results use the detail screen's `canShare`
+  rule for Share availability. Pending funding keeps View gift cards primary;
+  an unfunded retryable failure keeps Share available. Device QA remains open.
 
 **Acceptance:** Every result screen states its outcome once, in the title.
 `check:design` passes with no repeated-fact hits.
@@ -2117,6 +2125,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-03 | Meeting UI fixes: wallet logos and RG-1.8 gift funding results | `claude/meeting-ui-fixes` from `052d0b5c` | `logoId` uses built-in artwork or raw `coin.id`; Home, shared asset rows/reviews and setup consume it. Claim animation keeps `iconId`. Funding result Share uses the detail screen's `canShare` rule; caption, unfunded sharing and share guards remain. Frozen install, design, safe-area (5 files), Babel (5 files), 15 temporary Node behavior checks, iOS production JS bundle and whitespace checks pass. Existing unit suites: 51 pass, the same 2 baseline failures from a missing `getMempoolUnspentUtxos` mock. Details: `meeting-ui-fixes.local.md` (local only). | Owner device QA: light/dark, normal/iPhone SE; Home identifier currency, Manage assets, details/identifier review, setup logos, pending/partial/retryable/confirmed gift funding results and Back. No device runtime or rendered evidence in this task. |
 | 2026-11-03 | TX-1.ASSET-STACK: Final E-r4 variant 5 | `claude/asset-stack-sheet` from `ae8758e4` | Safe top row, 6/4-shape stack, hidden sum, flat SVG materials, saved per-account Jewel slots, picker swatches and persistent sheet implemented. Existing total, sync, copy, history/details, action and pre-launch contracts remain. Offline frozen install, design (39 sources), safe-area (9 files), color guard (17 materials, minimum 5.014:1), Babel (17 changed JS files), Node behavior fixtures and both production JS bundles pass. The fixtures cover 506 stack selections, stable slots, account isolation, save failure/retry, sheet taps/drags/zero-pointer reset/Reduce Motion, total/error/loading/privacy/sync states, Overview refresh gating and the screen Back/pre-launch paths. A source-derived HTML fixture was inspected in light/dark, normal/compact, peek/open and single-card states. | Owner device QA and native accessibility/motion remain open. Open history closes by header only. Source-derived fixtures substitute native controls and history rows; they do not prove native rendering or gesture arbitration. No devices, new dependencies, Jest tests, ESLint, push, merge or PR. Exact check commands and temporary fixtures: `/tmp/asset-stack-checks.local.md`. |
 | 2026-11-03 | TX-1.ASSET-STACK: device QA | `claude/asset-stack-sheet` (`fe53c0c3`..`958ba89f`) | Sonnet testers on VRSCTEST: iPhone 17 Pro sim (P0–P14), iPhone SE sim (S0–S8) and Pixel 8 Android 15 emulator (A0–A9), light and dark, with an in-memory 20-ID fixture for the cap, "N more" sum, picker swatches, long names and neighbor colors. Fixed after QA: card colors can no longer block publishing cards; the front card SVG redrew late after a strip tap (darker band); body clipping cut the top strip shadow; a tap open/close on Android froze and then jumped (state now commits when the sheet rests); the sync badge now sits left of a strip amount and under the front-card amount as in the mockup. Each fix re-checked on device (Android frame recordings before/after; iOS recording after). Saved slots held across relaunch and theme. Edge swipe, Android Back (sheet first, details sheet only), row taps, refresh and copy pass. | Not proven: VoiceOver/TalkBack (tool reads the tree only), real-finger motion and Release-build performance, hidden balances on a real Android phone (the shared native blur showed readable text on the emulator, also on Home), header drag on the VRSCTEST stack at Pro height (tool limit; proven on gETH and SE), DAI.vETH bridged line on SE/Android (asset absent). Older items kept: picker opens with the current row half under the chips, picker list overhangs its sheet on Android, testnet fiat "—", 4-decimal total. Run folder: `docs/qa/matrix/runs/2026-11-03-asset-stack/` (ignored). |
 | 2026-11-02 | SH-1.TEXT-ACTIONS: option B | `claude/text-action-link` from `69de19d6` | Shared link token and TextAction roles; audited clients, live v1 text buttons and recovery Change actions migrated. Design, safe-area, parser, contrast, component fixtures and both production JS bundles pass. Gift Back/Close declarations match base. No Jest tests added. | Orchestrator device QA remains open. See `text-action-implementation.local.md` for the action inventory, exclusions, routes and states. No simulator, emulator, push or merge. |

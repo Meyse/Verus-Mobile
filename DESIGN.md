@@ -1172,6 +1172,8 @@ submitted", "The claim transaction was submitted.", "SUBMITTED TRANSACTIONS",
 - The caption says what happens next ("Sharing unlocks after it confirms."). A
   `warning` line asks the user to do something. The actions sit in the safe
   footer; the first is primary.
+- Gift card funding results offer Share only when
+  `getGiftCardCapabilities(card).canShare` is true.
 - The component has no prop for a section label or a count line, because the
   title and the rows already say both.
 
