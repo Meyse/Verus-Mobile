@@ -16,7 +16,6 @@ import {deriveKeyPair} from '../../../../../utils/keys';
 import {ELECTRUM} from '../../../../../utils/constants/intervalConstants';
 import { dispatchRemoveNotification } from '../../../../actions/notifications/dispatchers/notifications';
 import { verifyIdProvisioningResponse } from "../../../../../utils/api/channels/vrpc/requests/verifyIdProvisioningResponse";
-import { getStoredProvisioningRequestKey } from '../../../../../utils/verusid/provisioningRequestState';
 import {
   captureSessionScope,
   sessionScopeIsCurrent,
@@ -62,28 +61,19 @@ const getOriginatingAccountHash = requestContext => {
   return {accountHash, context};
 };
 
+// Every writer of this encrypted record updates the latest data inside the
+// storage queue. Snapshot replacements can erase a concurrently saved reservation.
 export const linkVerusId = async (iAddress, fqn, chain, requestContext) => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
-  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-  assertOriginatingSessionCurrent(context);
-  const currentLinkedIdentities =
-    serviceData.linked_ids == null ? {} : serviceData.linked_ids;
-
-  assertOriginatingSessionCurrent(context);
-  return await modifyServiceStoredDataForUser(
-    {
-      ...serviceData,
+  return modifyServiceStoredDataForUser(
+    current => ({
+      ...current,
       linked_ids: {
-        ...currentLinkedIdentities,
-        [chain]: currentLinkedIdentities[chain]
-          ? {
-            ...currentLinkedIdentities[chain],
-            [iAddress]: fqn,
-          }
-          : { [iAddress]: fqn },
+        ...(current.linked_ids || {}),
+        [chain]: {...(current.linked_ids?.[chain] || {}), [iAddress]: fqn},
       },
-    },
+    }),
     VERUSID_SERVICE_ID,
     accountHash,
     context,
@@ -93,20 +83,14 @@ export const linkVerusId = async (iAddress, fqn, chain, requestContext) => {
 export const unlinkVerusId = async (iAddress, chain, requestContext) => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
-  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-  assertOriginatingSessionCurrent(context);
-  let currentLinkedIdentities =
-    serviceData.linked_ids == null ? {} : serviceData.linked_ids;
-
-  if (currentLinkedIdentities[chain]) {
-    delete currentLinkedIdentities[chain][iAddress];
-  }
-
-  assertOriginatingSessionCurrent(context);
-  return await modifyServiceStoredDataForUser(
-    {
-      ...serviceData,
-      linked_ids: currentLinkedIdentities,
+  return modifyServiceStoredDataForUser(
+    current => {
+      const identities = {...(current.linked_ids?.[chain] || {})};
+      delete identities[iAddress];
+      return {
+        ...current,
+        linked_ids: {...(current.linked_ids || {}), [chain]: identities},
+      };
     },
     VERUSID_SERVICE_ID,
     accountHash,
@@ -122,81 +106,31 @@ export const setRequestedVerusId = async (
 ) => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
-  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-  assertOriginatingSessionCurrent(context);
-  const currentPendingIdentities =
-    serviceData.pending_ids == null ? {} : serviceData.pending_ids;
-
-  assertOriginatingSessionCurrent(context);
-  return await modifyServiceStoredDataForUser(
-    {
-      ...serviceData,
+  return modifyServiceStoredDataForUser(
+    current => ({
+      ...current,
       pending_ids: {
-        ...currentPendingIdentities,
-        [chain]: currentPendingIdentities[chain]
-          ? {
-            ...currentPendingIdentities[chain],
-            [iAddress]: provisioningDetails,
-          }
-          : { [iAddress]: provisioningDetails },
+        ...(current.pending_ids || {}),
+        [chain]: {...(current.pending_ids?.[chain] || {}), [iAddress]: provisioningDetails},
       },
-    },
+    }),
     VERUSID_SERVICE_ID,
     accountHash,
     context,
   );
 };
 
-export const deleteProvisionedIds = async (
-  iAddress,
-  chain,
-  completed = false,
-  requestContext = null,
-) => {
-  if (completed != null && typeof completed === 'object') {
-    requestContext = completed;
-    completed = false;
-  }
+export const deleteProvisionedIds = async (iAddress, chain, requestContext) => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
-  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-  assertOriginatingSessionCurrent(context);
-  const currentPendingIdentities =
-    serviceData.pending_ids == null ? {} : serviceData.pending_ids;
-  const currentCompletedProvisioningRequests =
-    serviceData.completed_provisioning_requests == null
-      ? {}
-      : serviceData.completed_provisioning_requests;
-  const pendingIdentity = currentPendingIdentities[chain]?.[iAddress];
-  let completedProvisioningRequests = currentCompletedProvisioningRequests;
-
-  if (completed && pendingIdentity) {
-    const requestKey = getStoredProvisioningRequestKey(pendingIdentity);
-
-    if (requestKey) {
-      completedProvisioningRequests = {
-        ...currentCompletedProvisioningRequests,
-        [requestKey]: {
-          chainId: chain,
-          completedAt: Math.floor(Date.now() / 1000),
-          fqn: pendingIdentity.fqn,
-          iAddress,
-          requestKey,
-        },
+  return modifyServiceStoredDataForUser(
+    current => {
+      const identities = {...(current.pending_ids?.[chain] || {})};
+      delete identities[iAddress];
+      return {
+        ...current,
+        pending_ids: {...(current.pending_ids || {}), [chain]: identities},
       };
-    }
-  }
-
-  if (currentPendingIdentities[chain]) {
-    delete currentPendingIdentities[chain][iAddress];
-  }
-
-  assertOriginatingSessionCurrent(context);
-  return await modifyServiceStoredDataForUser(
-    {
-      ...serviceData,
-      completed_provisioning_requests: completedProvisioningRequests,
-      pending_ids: currentPendingIdentities,
     },
     VERUSID_SERVICE_ID,
     accountHash,
@@ -207,16 +141,8 @@ export const deleteProvisionedIds = async (
 export const deleteAllProvisionedIds = async requestContext => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
-  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-  assertOriginatingSessionCurrent(context);
-
-  assertOriginatingSessionCurrent(context);
-  return await modifyServiceStoredDataForUser(
-    {
-      ...serviceData,
-      completed_provisioning_requests: {},
-      pending_ids: {},
-    },
+  return modifyServiceStoredDataForUser(
+    current => ({...current, pending_ids: {}}),
     VERUSID_SERVICE_ID,
     accountHash,
     context,
@@ -271,7 +197,7 @@ export const checkVerusIdNotificationsForUpdates = async requestContext => {
       // once an ID is linked, remove it from pending IDs, or if the server has rejected it delete.
       if (pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_READY) {
         if (currentLinkedIdentities.indexOf(iaddress) > -1 || pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_FAILED) {
-          await deleteProvisionedIds(iaddress, ticker, true, context);
+          await deleteProvisionedIds(iaddress, ticker, context);
           assertCurrent();
           await updatePendingVerusIds(context);
           assertCurrent();
@@ -414,7 +340,7 @@ export const checkVerusIdNotificationsForUpdates = async requestContext => {
         }
 
         const newVerusIdProvisioningNotification = new VerusIdProvisioningNotification (
-          hasResponseUris ? "Use" : "Link VerusID",
+          hasResponseUris ? "link and login" : "link VerusID",
           [`${identity.result.fullyqualifiedname.substring(0, identity.result.fullyqualifiedname.lastIndexOf('.'))}@`, ` is ready`],
           null,
           pendingIds[ticker][iaddress].notificationUid,
@@ -436,32 +362,25 @@ export const checkVerusIdNotificationsForUpdates = async requestContext => {
 export const clearOldPendingVerusIds = async requestContext => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
-  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-  assertOriginatingSessionCurrent(context);
-  const currentPendingIdentities = Object.entries(
-    serviceData.pending_ids || {},
-  ).reduce((allPending, [chain, ids]) => {
-    allPending[chain] = {...(ids || {})};
-    return allPending;
-  }, {});
-
-  const chainObjects = Object.keys(currentPendingIdentities);
-
-  for (const chain of chainObjects) {
-    const ids = Object.keys(currentPendingIdentities[chain] || {});
-    for (const id of ids) {
-      assertOriginatingSessionCurrent(context);
-      if ((currentPendingIdentities[chain][id].createdAt + 604800) < Math.floor(Date.now() / 1000)) {
-        delete currentPendingIdentities[chain][id];
-      }
-    }
-  }
-
-  assertOriginatingSessionCurrent(context);
-  return await modifyServiceStoredDataForUser(
-    {
-      ...serviceData,
-      pending_ids: currentPendingIdentities,
+  return modifyServiceStoredDataForUser(
+    current => {
+      const pendingIds = Object.entries(current.pending_ids || {}).reduce(
+        (pending, [chain, identities]) => {
+          pending[chain] = Object.entries(identities || {}).reduce(
+            (remaining, [id, details]) => {
+              if (!(details.createdAt + 604800 < Math.floor(Date.now() / 1000))) {
+                remaining[id] = details;
+              }
+              return remaining;
+            },
+            {},
+          );
+          return pending;
+        },
+        {},
+      );
+      // Registration recovery data has no provider TTL.
+      return {...current, pending_ids: pendingIds};
     },
     VERUSID_SERVICE_ID,
     accountHash,

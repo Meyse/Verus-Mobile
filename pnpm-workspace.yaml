@@ -114,4 +114,4 @@ allowBuilds:
   core-js-pure: true
   keccak: true
   react-native-elements: true
-  secp256k1: true
+  secp256k1: set this to true or false
