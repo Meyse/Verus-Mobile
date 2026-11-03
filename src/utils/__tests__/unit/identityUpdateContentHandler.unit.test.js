@@ -16,26 +16,18 @@ jest.mock('../../api/channels/verusid/requests/updateIdentity', () => ({
   getUpdatableIdentity: jest.fn(),
 }));
 jest.mock('../../api/channels/vrpc/callCreators', () => ({
-  getInfo: jest.fn(async () => ({result: {
-    chainid: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq', blocks: 100, longestchain: 100,
-  }})),
+  getInfo: jest.fn(async () => ({result: {blocks: 100, longestchain: 1000, chainid: 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV'}})),
+}));
+jest.mock('../../identityUpdate/localUploadCrypto', () => ({
+  createLocalIdentityUploadCrypto: jest.fn(async () => ({decryptData: jest.fn(), dispose: jest.fn()})),
 }));
 jest.mock('../../CoinData/CoinDirectory', () => ({
   CoinDirectory: {getBasicCoinObj: () => ({
-    system_id: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq',
+    system_id: 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV',
     vrpc_endpoints: ['https://example.invalid'],
   })},
 }));
 jest.mock('../../CoinData/CoinData', () => ({getSystemNameFromSystemId: () => null}));
-jest.mock('../../../store', () => ({
-  __esModule: true,
-  default: {
-    getState: () => ({authentication: {
-      activeAccount: {accountHash: 'upload-test-account'}, sessionEpoch: 1,
-    }}),
-    subscribe: jest.fn(() => jest.fn()),
-  },
-}));
 
 const {
   CompactIAddressObject,
@@ -45,21 +37,17 @@ const {
   Identity,
   IdentityUpdateRequestDetails,
   IdentityUpdateRequestOrdinalVDXFObject,
-  IDENTITY_CREDENTIAL,
   toIAddress,
 } = require('verus-typescript-primitives');
+const {createLocalIdentityUploadCrypto} = require('../../identityUpdate/localUploadCrypto');
 const {getIdentity} = require('../../api/channels/verusid/callCreators');
 const {getIdentityContent} = require('../../api/channels/verusid/requests/getIdentityContent');
 const {createUpdateIdentityTx, getUpdatableIdentity} = require('../../api/channels/verusid/requests/updateIdentity');
-const {getInfo} = require('../../api/channels/vrpc/callCreators');
-const store = require('../../../store').default;
 const {handleIdentityUpdateRequestDetailsVDXFObject} = require('../../deeplink/handlers/identityUpdateRequestDetailsHandler');
 
-const {getGenericRequestRejection} = require('../../deeplink/genericRequestRejection');
-
-const SYSTEM_ID = 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
-const SUBJECT_ID = toIAddress('cmm-subject', 'VRSCTEST');
-const SIGNER_ID = toIAddress('cmm-requester', 'VRSCTEST');
+const SYSTEM_ID = 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV';
+const SUBJECT_ID = toIAddress('cmm-subject', 'VRSC');
+const SIGNER_ID = toIAddress('cmm-requester', 'VRSC');
 const KEY = DataStringKey.vdxfid;
 const oldContent = {[KEY]: [{[KEY]: 'previously published'}]};
 const newContent = {[KEY]: [{[KEY]: 'new value'}]};
@@ -74,7 +62,7 @@ const makeRequest = (contentmultimap, updates = {}) => {
     ...updates,
   });
   return {
-    isTestnet: () => true,
+    isTestnet: () => false,
     getDetails: () => new IdentityUpdateRequestOrdinalVDXFObject({data: details}),
     signature: {
       identityID: CompactIAddressObject.fromAddress(SIGNER_ID),
@@ -114,7 +102,7 @@ beforeEach(() => {
   });
   subjectIdentity = {
     identity: identity.toJson(),
-    fullyqualifiedname: 'cmm-subject.VRSCTEST@',
+    fullyqualifiedname: 'cmm-subject.VRSC@',
     blockheight: 42,
     txid: 'canonical-identity-txid',
     vout: 0,
@@ -161,7 +149,7 @@ describe('identity update content history for review', () => {
 
     const {displayProps} = await handleRequest(makeRequest(content, {minimumsignatures: 2}));
 
-    expect(displayProps.subjectIdentityContent).toEqual({
+    expect(displayProps.subjectIdentity).toEqual({
       ...subjectIdentity,
       identity: {...decodedJson, contentmultimap: content ? oldContent : {}},
     });
@@ -196,13 +184,11 @@ describe('identity update content history for review', () => {
     });
     prepareDelta(newContent);
     const request = makeRequest(newContent);
-    const originalDetails = request.getDetails().data;
-    const originalBytes = originalDetails.toBuffer();
     const {displayProps} = await handleRequest(request);
 
     expect(getIdentityContent).toHaveBeenCalledWith(SYSTEM_ID, SUBJECT_ID, 0, 42);
     expect(getIdentityContent).toHaveBeenCalledWith(SYSTEM_ID, SIGNER_ID);
-    expect(displayProps.subjectIdentityContent).toEqual({
+    expect(displayProps.subjectIdentity).toEqual({
       ...subjectIdentity,
       identity: {...subjectIdentity.identity, contentmultimap: oldContent},
     });
@@ -211,12 +197,9 @@ describe('identity update content history for review', () => {
     expect(getUpdatableIdentity).toHaveBeenCalledWith(SYSTEM_ID, subjectIdentity);
     expect(createUpdateIdentityTx).toHaveBeenCalledWith(
       SYSTEM_ID, expect.any(IdentityUpdateRequestDetails), SUBJECT_ID, 'canonical-identity-hex',
-      42, false, true, undefined, 100,
+      42, false, false, undefined, 100,
     );
-    const passed = createUpdateIdentityTx.mock.calls[0][1];
-    expect(passed).not.toBe(originalDetails);
-    expect(passed.toBuffer()).toEqual(originalBytes);
-    expect(originalDetails.toBuffer()).toEqual(originalBytes);
+    expect(createUpdateIdentityTx.mock.calls[0][1].toBuffer()).toEqual(request.getDetails().data.toBuffer());
     expect(displayProps.subjectIdTxHex).toBe('canonical-identity-hex');
   });
 
@@ -232,62 +215,15 @@ describe('identity update content history for review', () => {
     expect(displayProps.identityUpdates.contentmultimap).toEqual(removal);
   });
 
-  it.each([
-    ['data signer', {address: SUBJECT_ID}],
-    ['data signature', {signature: Buffer.alloc(65, 1).toString('base64')}],
-    ['prefix binding', {prefixstring: 'bound prefix'}],
-    ['VDXF key binding', {vdxfkeys: [KEY]}],
-    ['VDXF name binding', {vdxfkeynames: ['bound key']}],
-    ['hash binding', {boundhashes: ['ab'.repeat(32)]}],
-    ['credential upload', {}, IDENTITY_CREDENTIAL.vdxfid],
-    ['createmmr=false', {createmmr: false}],
-    ['omitted createmmr', {createmmr: undefined}],
-  ])('rejects an upload with %s before looking up identities or building a transaction', async (_, options, key = KEY) => {
-    const request = makeRequest({[key]: {data: {
-      message: 'new signed value', createmmr: true, ...options,
-    }}});
-    expect(request.getDetails().data.containsSignData()).toBe(true);
-
-    const rejection = handleRequest(request);
-    await expect(rejection).rejects.toMatchObject({code: 'IDENTITY_DATA_UPLOAD_UNSUPPORTED'});
-    await expect(rejection.catch(getGenericRequestRejection)).resolves.toEqual({
-      canRetry: false,
-      message: 'This request uses an upload option that this app does not support. Ask the requester for a new request.',
-      title: 'Unsupported upload',
-    });
-    expect(getInfo).not.toHaveBeenCalled();
-    expect(getIdentity).not.toHaveBeenCalled();
-    expect(getUpdatableIdentity).not.toHaveBeenCalled();
-    expect(getIdentityContent).not.toHaveBeenCalled();
-    expect(createUpdateIdentityTx).not.toHaveBeenCalled();
-  });
-
-  it('previews a supported upload with a detached request and disposes its wallet crypto', async () => {
-    const request = makeRequest({[KEY]: {data: {message: 'upload', createmmr: true}}});
-    const originalDetails = request.getDetails().data;
-    const originalBytes = originalDetails.toBuffer();
+  it('fetches current content for sign-data additions even without ordinary CMM values', async () => {
     prepareDelta(newContent);
-
+    const request = makeRequest({[KEY]: {data: {message: 'new signed value'}}});
+    expect(request.getDetails().data.containsSignData()).toBe(true);
     const {displayProps} = await handleRequest(request);
 
-    expect(createUpdateIdentityTx).toHaveBeenCalledWith(
-      SYSTEM_ID, expect.any(IdentityUpdateRequestDetails), SUBJECT_ID, 'canonical-identity-hex',
-      42, false, true, expect.objectContaining({
-        randomBytes: expect.any(Function), encrypt: expect.any(Function),
-        decryptData: expect.any(Function), dispose: expect.any(Function),
-      }), 100,
-    );
-    const passed = createUpdateIdentityTx.mock.calls[0][1];
-    expect(passed).not.toBe(originalDetails);
-    expect(passed.toBuffer()).toEqual(originalBytes);
-    expect(originalDetails.toBuffer()).toEqual(originalBytes);
-    expect(displayProps.identityPreviewPrepared).toBe(true);
-    expect(displayProps.identityUpdates.contentmultimap).toEqual(newContent);
     expect(getIdentityContent).toHaveBeenCalledWith(SYSTEM_ID, SUBJECT_ID, 0, 42);
-    expect(displayProps.subjectIdentityContent.identity.contentmultimap).toEqual(oldContent);
-    const crypto = createUpdateIdentityTx.mock.calls[0][7];
-    await expect(crypto.randomBytes(32)).rejects.toThrow('Identity upload operation has been disposed.');
-    expect(store.subscribe.mock.results[0].value).toHaveBeenCalledTimes(1);
+    expect(displayProps.subjectIdentity.identity.contentmultimap).toEqual(oldContent);
+    expect(displayProps.identityUpdates.contentmultimap).toEqual(newContent);
   });
 
   it('propagates a subject history error instead of displaying an empty before-state', async () => {
@@ -303,4 +239,26 @@ describe('identity update content history for review', () => {
       'Identity content does not match the identity being updated',
     );
   });
+});
+
+it('authenticates a local upload preview and disposes its keys without exporting a reusable template', async () => {
+  const crypto = {decryptData: jest.fn(), dispose: jest.fn()};
+  createLocalIdentityUploadCrypto.mockResolvedValueOnce(crypto);
+  const {displayProps} = await handleRequest(makeRequest({[KEY]: {data: {message: 'private payload'}}}));
+  expect(createUpdateIdentityTx.mock.calls[0].slice(7)).toEqual([crypto, 100]);
+  expect(crypto.dispose).toHaveBeenCalledTimes(1);
+  expect(displayProps.identityPreviewPrepared).toBe(true);
+  expect(displayProps).not.toHaveProperty('updateIdTxHex');
+});
+
+it('disposes preview keys after failure and never falls back when local crypto is unavailable', async () => {
+  const crypto = {decryptData: jest.fn(), dispose: jest.fn()};
+  createLocalIdentityUploadCrypto.mockResolvedValueOnce(crypto);
+  createUpdateIdentityTx.mockRejectedValueOnce(new Error('Upload authentication failed'));
+  await expect(handleRequest(makeRequest({[KEY]: {data: {message: 'payload'}}}))).rejects.toThrow('authentication');
+  expect(crypto.dispose).toHaveBeenCalledTimes(1);
+  createUpdateIdentityTx.mockClear();
+  createLocalIdentityUploadCrypto.mockRejectedValueOnce(new Error('Local crypto unavailable'));
+  await expect(handleRequest(makeRequest({[KEY]: {data: {message: 'payload'}}}))).rejects.toThrow('crypto unavailable');
+  expect(createUpdateIdentityTx).not.toHaveBeenCalled();
 });

@@ -35,7 +35,9 @@ export const getKeyMaterial = async (systemID) => {
         : esk;
       return { extsk: hex };
     }
-  } catch (e) {}
+  } catch (e) {
+    if (e?.code === 'SESSION_CHANGED') throw e;
+  }
 
   throw new Error(
     `No Z recovery secret has been set up. ` +

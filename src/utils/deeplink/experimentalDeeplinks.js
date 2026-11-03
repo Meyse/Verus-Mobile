@@ -4,19 +4,9 @@ import {
   IDENTITY_UPDATE_REQUEST_VDXF_KEY,
   USER_DATA_REQUEST_VDXF_KEY,
 } from 'verus-typescript-primitives';
-import {
-  createGenericRequestRejectionError,
-  GENERIC_REQUEST_REJECTION_CODES,
-} from './genericRequestRejection';
 
 export const EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE =
   'This type of request is currently experimental and disabled in your general wallet settings.';
-
-export const createExperimentalRequestDisabledError = () =>
-  createGenericRequestRejectionError(
-    GENERIC_REQUEST_REJECTION_CODES.EXPERIMENTAL_DISABLED,
-    EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE,
-  );
 
 export const EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEYS = [
   IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid,
@@ -25,23 +15,15 @@ export const EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEYS = [
   DATA_PACKET_REQUEST_VDXF_KEY.vdxfid,
 ];
 
-export const EXPERIMENTAL_DEEPLINK_IDS = [
-  IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid,
-];
-
 const EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEY_SET = new Set(
   EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEYS,
 );
-const EXPERIMENTAL_DEEPLINK_ID_SET = new Set(EXPERIMENTAL_DEEPLINK_IDS);
 
 export const isExperimentalGenericRequestsEnabled = state =>
   state?.settings?.generalWalletSettings?.enableExperimentalGenericRequests === true;
 
 export const isExperimentalGenericRequestDetailKey = detailKey =>
   EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEY_SET.has(detailKey);
-
-export const isExperimentalDeeplinkId = deeplinkId =>
-  EXPERIMENTAL_DEEPLINK_ID_SET.has(deeplinkId);
 
 export const hasExperimentalGenericRequestDetails = request =>
   Array.isArray(request?.details) &&
@@ -54,15 +36,6 @@ export const assertExperimentalGenericRequestAllowed = (request, state) => {
     !isExperimentalGenericRequestsEnabled(state) &&
     hasExperimentalGenericRequestDetails(request)
   ) {
-    throw createExperimentalRequestDisabledError();
-  }
-};
-
-export const assertExperimentalDeeplinkAllowed = (deeplinkId, state) => {
-  if (
-    !isExperimentalGenericRequestsEnabled(state) &&
-    isExperimentalDeeplinkId(deeplinkId)
-  ) {
-    throw createExperimentalRequestDisabledError();
+    throw new Error(EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE);
   }
 };

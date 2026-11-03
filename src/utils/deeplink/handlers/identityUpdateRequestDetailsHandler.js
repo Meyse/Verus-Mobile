@@ -1,4 +1,3 @@
-import {assertIdentityUpdateRequestSupported} from '../genericRequestRejection';
 import { DefinedKey, IdentityUpdateRequestOrdinalVDXFObject, GenericRequest, GenericResponse, DATA_TYPE_DEFINEDKEY, IDENTITY_CREDENTIAL, fqnToAddress, toIAddress, getDataKey } from "verus-typescript-primitives";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
@@ -32,7 +31,6 @@ import {assertIdentityUpdateRequestConstraints} from '../validator/identityUpdat
  *    coinObj: any;
  *    chainInfo: any;
  *    subjectIdentity: any;
- *    subjectIdentityContent: any;
  *    identityUpdates: any;
  *    friendlyNames: any;
  *    cmmDataKeys: any;
@@ -54,7 +52,6 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
 
   const rootSystem = request.isTestnet() ? 'VRSCTEST' : 'VRSC';
   const requestDetails = cloneIdentityUpdateRequest(details.data, rootSystem);
-  assertIdentityUpdateRequestSupported(requestDetails);
   const requestSystem = requestDetails.containsSystem()
     ? requestDetails.systemID.toAddress()
     : rootSystem;
@@ -305,8 +302,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
       signerSystemID,
       signerSystemName,
       signerIdentityID,
-      subjectIdentity,
-      subjectIdentityContent: displaySubjectIdentity,
+      subjectIdentity: displaySubjectIdentity,
       identityUpdates,
       identityPreviewPrepared,
       coinObj,
