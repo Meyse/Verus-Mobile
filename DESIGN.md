@@ -1006,8 +1006,10 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
 - Strips expose 52 points (48 compact), with 24-point corners (22 compact)
   and 20-point padding. Show the VerusID name, preserving its final @ with a
   middle ellipsis, or the card type. Titles use `titleRow`; amounts are
-  15-point bold tabular; fiat is 12-point medium at 86% white. Keep the sync
-  badge in place of fiat and the existing connection-error copy. Pressed strips
+  15-point bold tabular; fiat is 12-point medium at 86% white. On a strip the
+  sync badge sits 10 points left of the amount on one line; on the front card
+  it takes the fiat line under the amount. Keep the existing connection-error
+  copy. Pressed strips
   get a 12% dark overlay. Selection moves cards with a 400 ms transform;
   Reduce Motion uses a short fade.
 - The front card is 140 points high (126 compact). Its quiet 12-point line
