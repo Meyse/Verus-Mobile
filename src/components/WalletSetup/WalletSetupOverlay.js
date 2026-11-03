@@ -256,7 +256,7 @@ const SetupCoin = React.forwardRef(
       <View ref={ref} collapsable={false} style={styles.coinBox}>
         <Animated.View style={animatedStyle}>
           <AssetCoinLogo
-            coinId={coin.presentation.iconId}
+            coinId={coin.presentation.logoId}
             badgeTicker={coin.presentation.badgeTicker}
             size={COIN}
           />

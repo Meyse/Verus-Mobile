@@ -2520,7 +2520,7 @@ const GiftCardFund = props => {
           },
         }
       : null,
-    result?.card && !result?.pendingRetry
+    result?.card && !result?.pendingRetry && getGiftCardCapabilities(result.card).canShare
       ? {
           label: 'Share gift card',
           onPress: () => openShareOptions(result.card),
