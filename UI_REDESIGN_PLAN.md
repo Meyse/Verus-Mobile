@@ -25,7 +25,7 @@ without repeating the entire investigation.
   or drive devices. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; device QA pending).
+- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload and its test follow-up; device QA in progress).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -850,6 +850,9 @@ requests only. Do not import the upstream registration feature.
   production bundle, temporary upstream tests, and the existing identity tests.
   Eight unchanged modules match upstream byte for byte. The library stays at
   `50fa3ffa`: the diff to `5ddc4b8b` changes registration only.
+- [x] Update existing tests for approved uploads, SDK canonicalization, request
+  cloning, network fields, and the fifth signer argument. Use the approved
+  plain rejection copy. Keep baseline test failures separate from regressions.
 - [ ] Device QA on disposable VRSCTEST: public upload, encrypted upload, mixed
   uploads and ordinary content, encrypted credentials through the existing
   credential path, refused signature/binding/credential/no-MMR requests,
@@ -865,7 +868,7 @@ upload fields stay visible. Native visual and accessibility review is deferred
 by the task instruction. Existing zero-delta token fee support stays; all other
 currency deltas must be zero and the shown fee comes from the SDK approval.
 
-Checks: 188 unmodified upstream module/wrapper tests pass. With the upstream
+Initial port checks: 188 unmodified upstream module/wrapper tests pass. With the upstream
 handler fixture adapted to this app's separate `subjectIdentityContent` and
 explicit `createmmr=true`, 200 tests pass. The unmodified extra handler fixture
 had five contract/fixture failures. Existing identity tests: 28 pass, 16 fail
@@ -874,6 +877,17 @@ stop on the baseline SVG mock error. Existing gift/claim tests: 63 pass, 20 fail
 19 failures also occur against base source, and one assertion expects the old
 four-argument signer. No existing test was changed. Temporary tests were removed.
 Node policy and synthetic component fixtures pass; they do not prove native UI.
+
+Test follow-up, `claude/identity-upload-tests` from `05e541f3`: the complete
+requested identity group has 62 passing tests and no failing tests (base
+`052d0b5c`: 53 passing, no failing). Nine cases were added within existing files
+for refused options and supported-upload crypto. The same four SVG
+`Touchable.Mixin` suite-load errors remain. Gift-card, claim, and spendable-key
+tests have 77 passing and 19 failing tests on both base and candidate; all 19
+failures still come from the existing missing `getMempoolUnspentUtxos` mock.
+The branch-only signer failure is fixed with an explicit funding approval.
+Parser checks on four changed JS files, design checks, and whitespace checks
+pass. No new test files, skipped tests, or device checks.
 
 Local details: `identity-data-upload.local.md`. No device runtime, transaction,
 merge, push, dependency change, or registration work. The three local
@@ -2205,6 +2219,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-03 | GR-4.IDENTITY-UPLOAD tests and plain rejection | `claude/identity-upload-tests` from `05e541f3` | Existing suites now check supported upload crypto, nine refused variants, real SDK canonicalization, unchanged signed request bytes, history checks, and the fifth signer argument. Exact approved rejection copy applied. Requested identity group: base 53 pass / 0 fail; candidate 62 pass / 0 fail. Four unchanged SVG suite-load errors. Gift/claim/spendable-key group: 77 pass / 19 fail on both. Frozen install, four-file parser, design, and whitespace checks pass. | The 19 missing-mempool-mock failures and native verification remain open. No new test files, device work, merge, or push. |
 | 2026-11-03 | Meeting UI fixes: wallet logos and RG-1.8 gift funding results | `claude/meeting-ui-fixes` from `052d0b5c` | `logoId` uses built-in artwork or raw `coin.id`; Home, shared asset rows/reviews and setup consume it. Claim animation keeps `iconId`. Funding result Share uses the detail screen's `canShare` rule; caption, unfunded sharing and share guards remain. Frozen install, design, safe-area (5 files), Babel (5 files), 15 temporary Node behavior checks, iOS production JS bundle and whitespace checks pass. Existing unit suites: 51 pass, the same 2 baseline failures from a missing `getMempoolUnspentUtxos` mock. Details: `meeting-ui-fixes.local.md` (local only). | Owner device QA: light/dark, normal/iPhone SE; Home identifier currency, Manage assets, details/identifier review, setup logos, pending/partial/retryable/confirmed gift funding results and Back. No device runtime or rendered evidence in this task. |
 | 2026-11-03 | TX-1.BRIDGE-FEES and naming state follow-up | `claude/bridge-names-fees` after `865bfb68` | Production iOS JS bundle, design (39 sources), safe-area, option matrix and Babel checks pass. Synthetic React checks run production Confirm, facts/preparing and provider: affordable amount 10 / bridge 17 / network 0.0001 / Total 27.0001 keeps Hold enabled; mixed-currency Total is 10 DAI.vETH + 17.0001 VRSCTEST; reduced amount and notice agree; conversion fees above/equal/below amount show one/zero/zero notices without blocking; preflight error has no Hold. After a reduction, a failed fresh estimate hides the old Amount quote and shows the existing notice. Network changes retain amount, recipient and memo, clear preflight, and restore the Verus ticker on return. Existing related Jest: 7 suites / 88 tests pass, 1 suite / 8 tests fail identically on the untouched base and candidate because currencyTransferIntent mocks the removed getSpendableUtxos interface. No wizardUtils/SendWizard Jest suite exists; the existing option script passes. Logs and throwaway scripts: `/tmp/bridge-names-fees*`. | Native rendered checks, accessibility and broadcast/settlement remain unverified. Check Convert and Send network sheets, all downstream target labels, export fee rows/Total, local fee notice, MAX with a fee rise and plain MAX, Back/retry and loading in both themes, normal phones and iPhone SE. No device, wallet keys, signing, broadcast, merge or push. |
 | 2026-11-03 | TX-1.BRIDGE-FUNDING | `claude/bridge-names-fees` after `018b493c` | `/tmp/bridge-names-fees-preflight.cjs` runs real preflight and protocol validation with synthetic network boundaries. Base amount 90 / balance 100 / fees 17.0001 sends 72.9999; candidate sends 82.9999 and retains submitted amount 90. Amount 10 stays 10 with bridge 17 + network 0.0001. Plain MAX 100 produces 99.9999 and byte-identical hex to base. Ordinary send and insufficient-funds failure pass. | No signing or broadcast. Device review of Reduced from, MAX and fee rows remains open. |
