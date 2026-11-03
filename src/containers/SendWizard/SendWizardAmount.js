@@ -441,7 +441,7 @@ const SendWizardAmount = () => {
     const nextRoute =
       option.routes.find(candidate => !candidate.via) || option.routes[0];
 
-    if (nextRoute) setRoute(nextRoute);
+    if (nextRoute) setRoute(nextRoute, option);
     setNetworkSheetOpen(false);
   };
 
