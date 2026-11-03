@@ -1005,13 +1005,33 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   accessibility element. Bridged origin sits under the name, with its existing
   44-point target and information sheet. Pre-launch assets keep this row and
   `PrelaunchAssetPanel`, without cards or a picker. Remove the Layers button.
-- The selected card is at the bottom/front of the pile. Other cards use
-  `sortSubWalletsByBalance`, with the best balance nearest the front.
+- The selected card is at the bottom/front of the pile. Other cards, nearest
+  the front first: Main (`MAIN_WALLET`), pins in pin order, one last-used
+  card, then confirmed balance from high to low (ties keep card order).
+  Omit the front from those strips. Main always shows and has no pin toggle.
   Count every shape, including "N more": the cap is 6, or 4 compact. Up to
   the cap, show every card. Above it, show the front, cap minus 2 strips, and
   a neutral "N more" strip. That strip shows the hidden cards' total and fiat
   and opens `CoinCardPickerSheet`. Selecting any card makes it the front card
   through `setCoinSubWallet` with the explicit-choice flag.
+- Owner-approved order, 2026-11-03: Private starts pinned when present. Pin
+  limits are 3 on normal windows and 1 on compact windows (cap minus 3).
+  The user can unpin Private. Missing pins use that default; an explicit empty
+  list stays empty. Last used is the last selected card outside Main and the
+  pins. Selecting Main or a pin keeps it. Pinning it frees the slot. Unpinning
+  the front makes it last used; unpinning another card leaves last used alone.
+  The pure stack rule derives last used from a front outside Main and the
+  visible pins. Pending saves and larger saved pin lists cannot exceed the cap.
+- Save ordered pin IDs, last-used ID and selected ID per account and coin in
+  `generalWalletSettings.cardStackPreferencesByAccount[accountHash][coinId]`.
+  IDs are subwallet IDs, including `SUBWALLET_vrpc.<address>.<system>`.
+  One observer of `setCoinSubWallet` records all active-card changes. Leaving,
+  signing out and restarting keep these choices. Home's existing opening rule
+  first restores a saved selected ID that still exists, then uses its previous
+  funded/default rule. Ignore stale IDs. Prune stale pins on the next pin edit.
+  Above the layout's limit, the stack uses the first live pins in pin order;
+  the picker retains all live pins. Its limit note stays through unpins until
+  the count falls below the limit.
 - Strips expose 52 points (48 compact), with 24-point corners (22 compact)
   and 20-point padding. Show the VerusID name, preserving its final @ with a
   middle ellipsis, or the card type. Titles use `titleRow`; amounts are
@@ -1050,7 +1070,18 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   and retries on the next card rebuild. It does not block wallet access.
 - Picker rows start with the same material in a 28 x 19-point swatch with
   5-point corners. Dark swatches have a 1-point rgba(255,255,255,.2) border.
-  Keep the rest of the picker unchanged. `check:card-colors`, also run by
+  The picker groups live pins under "PINNED" in pin order and the rest under
+  "OTHERS" in its frozen balance order. Hide empty groups. Search and type
+  chips filter both groups. Titles use Convert to's `labelSm`, `textSecondary`
+  and 0.5 tracking. Every row except Main has a separate 44-point Lucide Pin
+  button: outline in `textSecondary`, filled in `link` when pinned. Pin edits
+  move rows immediately and save. At the limit, tapping an off pin shows one
+  inline warning below PINNED: "You can pin 3 cards. Unpin a card first."
+  Compact reads "You can pin 1 card. Unpin a card first." Clear it on unpin or
+  reopen. If saved pins exceed the limit, keep the note through unpins until
+  the count falls below the limit.
+  Keep the existing rows, current fill, swatches and current-row scrolling.
+  No pin marks show on stack cards. `check:card-colors`, also run by
   `check:design`, checks white and 86% white at 4.5:1 or more on every material.
 - Receive, Send and Convert reuse `SignedInActionBar` at 48 points, including
   compact windows, with 20-point side margins. The gap above is 14 points

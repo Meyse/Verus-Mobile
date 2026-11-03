@@ -2642,3 +2642,29 @@ SignedInActionBar, CoinCardPickerSheet and Overview own their behavior.
 Allowed choice: open-list drag does not close the sheet. Only its header does,
 so native pull-to-refresh has no closing gesture competitor. No new libraries,
 Jest tests, ESLint fixes or device runtimes belong to this task.
+
+### TX-1.ASSET-STACK-ORDER — Pins and last used (2026-11-03)
+
+Approved scope: `/tmp/vm-mock-cards/BUILD-STACK-ORDER.md` and Recommended in
+`O-order.html?rule=rec`. Contract: `DESIGN.md`, Asset screen balances.
+
+- [x] Trace stable subwallet IDs, every active-card setter and settings storage.
+- [x] Save ordered pins, last-used ID and selected ID per account and coin.
+  Restore the saved front through Home's existing opening rule.
+- [x] Apply Main, pins, last used and confirmed-balance order at caps 6 and 4.
+  Keep Private's default pin distinct from an explicit empty pin list.
+- [x] Add PINNED / OTHERS groups, separate 44-point pin buttons and the inline
+  limit note. Preserve rows, search, chips, swatches and current-row scrolling.
+- [x] Run design, safe-area, Babel, iOS bundle and temporary non-Jest checks.
+- [ ] Owner testers: verify normal/compact iOS and Android in both themes,
+  pin versus row touch targets, long names, note wrapping, current-row scroll,
+  leave/reopen, sign-out/sign-in, cold restart and stale/excess pins.
+
+Evidence: temporary source fixtures in `/tmp/stack-order-check/` reproduce the
+old hidden-card behavior. The new rule passes 482,617 randomized checks at
+caps 6 and 4. Settings/saga fixtures cover rapid changes, account/coin isolation,
+null choices, stale sessions, sign-out, settings reload and failed-save retry.
+React picker fixtures cover groups, pin order/limits, filters, frozen balance
+order, reopen reset and current-row offsets. Token checks cover pin and notice
+contrast. These fixtures do not establish native rendering or accessibility.
+No device runtime ran. No new dependencies, Jest tests or design-check changes.

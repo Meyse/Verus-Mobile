@@ -618,10 +618,11 @@ const CoinCardPickerSheet = ({
                 {displayTicker}
               </Text>
             </View>
+            {item.wallet.id === MAIN_CARD_ID ? (
+              <View style={styles.pinSlot} />
+            ) : null}
           </TouchableOpacity>
-          {item.wallet.id === MAIN_CARD_ID ? (
-            <View style={styles.pinSlot} />
-          ) : (
+          {item.wallet.id !== MAIN_CARD_ID ? (
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={
@@ -638,7 +639,7 @@ const CoinCardPickerSheet = ({
                 fill={pinned ? theme.colors.link : 'none'}
               />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       );
     },
