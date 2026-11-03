@@ -156,6 +156,8 @@ export const SET_OVERVIEW_FILTER = 'SET_OVERVIEW_FILTER';
 
 // Coin Menus Screens GUI state
 export const SET_COIN_SUB_WALLET = 'SET_COIN_SUB_WALLET'
+export const SET_CARD_STACK_PREFERENCES = 'SET_CARD_STACK_PREFERENCES';
+export const TOGGLE_COIN_CARD_PIN = 'TOGGLE_COIN_CARD_PIN';
 
 // Identity app
 export const APP_SETUP = 'APP_SETUP';
