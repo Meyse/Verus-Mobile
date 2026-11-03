@@ -121,7 +121,7 @@ const getDeliveryTitle = deliveryInfo => {
 const NETWORK_UNAVAILABLE_MESSAGE =
   'Verus Mobile could not reach the Verus network. Check your connection';
 
-// The fee calculation failed. The raw error stays in the log.
+// The fee calculation failed. The raw error is not shown or logged.
 const getFeeErrorMessage = error => {
   const message = typeof error?.message === 'string' ? error.message : '';
 
@@ -130,6 +130,13 @@ const getFeeErrorMessage = error => {
   }
   if (isNetworkFailureError(error)) {
     return `${NETWORK_UNAVAILABLE_MESSAGE}, then select a payment source again.`;
+  }
+  // The identity changed or the review expired after the request opened. The
+  // review keeps the identity state it opened with, so only a reopened request
+  // helps. Other REVIEW_CHANGED cases (a spent or immature input) need another
+  // payment source and keep the message below.
+  if (error?.code === 'REVIEW_CHANGED' && /changed after review|expired/.test(message)) {
+    return 'This review is out of date. Close the request and open it again.';
   }
 
   return 'The fee could not be calculated. Select a payment source again.';
