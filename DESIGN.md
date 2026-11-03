@@ -1071,7 +1071,8 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
 - Picker rows start with the same material in a 28 x 19-point swatch with
   5-point corners. Dark swatches have a 1-point rgba(255,255,255,.2) border.
   The picker groups live pins under "PINNED" in pin order and the rest under
-  "OTHERS" in its frozen balance order. Hide empty groups. Search and type
+  "OTHERS" in its frozen balance order. Hide empty groups. Without a
+  visible PINNED group, show no group titles. Search and type
   chips filter both groups. Titles use Convert to's `labelSm`, `textSecondary`
   and 0.5 tracking. Every row except Main has a separate 44-point Lucide Pin
   button: outline in `textSecondary`, filled in `link` when pinned. Pin edits

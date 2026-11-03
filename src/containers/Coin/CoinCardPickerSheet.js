@@ -274,14 +274,16 @@ const CoinCardPickerSheet = ({
     const pinned = pins.map(id => byId.get(id)).filter(Boolean);
     const others = filteredItems.filter(item => !pins.includes(item.wallet.id));
     const entries = [];
-    const addGroup = (title, rows, showNote = false) => {
+    const addGroup = (title, rows, showNote = false, showTitle = true) => {
       if (!rows.length && !showNote) return;
-      entries.push({
-        kind: 'group',
-        key: title,
-        title,
-        length: entries.length ? 42 : 26,
-      });
+      if (showTitle) {
+        entries.push({
+          kind: 'group',
+          key: title,
+          title,
+          length: entries.length ? 42 : 26,
+        });
+      }
       if (showNote) {
         entries.push({
           kind: 'notice',
@@ -294,7 +296,8 @@ const CoinCardPickerSheet = ({
       }));
     };
     addGroup('PINNED', pinned, limitNoteVisible);
-    addGroup('OTHERS', others);
+    // "OTHERS" only makes sense under a visible "PINNED" group.
+    addGroup('OTHERS', others, false, entries.length > 0);
     let offset = 0;
     return entries.map(entry => {
       const result = {...entry, offset};
