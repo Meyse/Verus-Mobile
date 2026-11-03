@@ -25,7 +25,7 @@ without repeating the entire investigation.
   or drive devices. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload and its test follow-up; device QA in progress).
+- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -853,12 +853,15 @@ requests only. Do not import the upstream registration feature.
 - [x] Update existing tests for approved uploads, SDK canonicalization, request
   cloning, network fields, and the fifth signer argument. Use the approved
   plain rejection copy. Keep baseline test failures separate from regressions.
-- [ ] Device QA on disposable VRSCTEST: public upload, encrypted upload, mixed
-  uploads and ordinary content, encrypted credentials through the existing
-  credential path, refused signature/binding/credential/no-MMR requests,
-  signed-out open/unlock/cancel, Back/cancel during build, source replacement,
-  retry, reload, interrupted submission, and unknown broadcast. Check normal
-  and iPhone SE sizes, light/dark, iOS/Android, copy and sheet Back.
+- [x] Device QA on disposable VRSCTEST (iOS, iPhone 17 Pro and iPhone SE,
+  light/dark): ordinary content, public upload and encrypted upload confirmed
+  on chain and verified by the requester; a refused upload ends on
+  "Unsupported upload" with the plain copy; signed-out open and unlock; Back
+  and Cancel from review and Confirm; an out-of-date review asks the user to
+  reopen the request.
+- [ ] Still open: Android (native encryption untested there), mixed uploads
+  with ordinary content in one request, encrypted credentials, interrupted
+  submission and unknown broadcast.
 
 Design contract: operate mode; existing GR-4 content cards and compact request
 card are the exemplars. Add fields within those rows and use the information
@@ -2219,6 +2222,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-03 | Meeting fixes device QA (wallet logos, gift Share, bridge names and fees, identity upload) | `claude/meeting-fixes-int` `40378c38` (redesign `f278b505` + `claude/meeting-ui-fixes` `cd5f18ad` + `claude/bridge-names-fees` `f1b90816` + `claude/identity-data-upload`) | Sonnet testers plus Opus checks on VRSCTEST, iPhone 17 Pro and iPhone SE sims, light and dark. Pixel icons on Home and Manage assets (no "?"). Gift card funded (txid `a6eabb77…`): result has no Share while pending. Network rows: vETH on Verus, ETH on Ethereum; DAI.vETH → DAI. Confirm for a send to Ethereum shows Bridge fee, Network fee and Total with Hold enabled; local conversion below fees shows the notice. Identity updates: content add `9847dd47…`, public upload `0c9a765d…`, encrypted upload `7fd6fa39…`, all verified by the requester; refused upload shows the plain copy; signed-out unlock works. Fixed during QA: first-render crash on every identity update request, `0x…` contract names shown as asset names, and an out-of-date review shown as a fee error. | No real bridge or conversion broadcast (public VRSCTEST DeFi disabled). Android not run. P3 polish items are listed in the meeting-fixes run folder `docs/qa/matrix/runs/2026-11-03-meeting-fixes/` (ignored). No push. |
 | 2026-11-03 | GR-4.IDENTITY-UPLOAD tests and plain rejection | `claude/identity-upload-tests` from `05e541f3` | Existing suites now check supported upload crypto, nine refused variants, real SDK canonicalization, unchanged signed request bytes, history checks, and the fifth signer argument. Exact approved rejection copy applied. Requested identity group: base 53 pass / 0 fail; candidate 62 pass / 0 fail. Four unchanged SVG suite-load errors. Gift/claim/spendable-key group: 77 pass / 19 fail on both. Frozen install, four-file parser, design, and whitespace checks pass. | The 19 missing-mempool-mock failures and native verification remain open. No new test files, device work, merge, or push. |
 | 2026-11-03 | Meeting UI fixes: wallet logos and RG-1.8 gift funding results | `claude/meeting-ui-fixes` from `052d0b5c` | `logoId` uses built-in artwork or raw `coin.id`; Home, shared asset rows/reviews and setup consume it. Claim animation keeps `iconId`. Funding result Share uses the detail screen's `canShare` rule; caption, unfunded sharing and share guards remain. Frozen install, design, safe-area (5 files), Babel (5 files), 15 temporary Node behavior checks, iOS production JS bundle and whitespace checks pass. Existing unit suites: 51 pass, the same 2 baseline failures from a missing `getMempoolUnspentUtxos` mock. Details: `meeting-ui-fixes.local.md` (local only). | Owner device QA: light/dark, normal/iPhone SE; Home identifier currency, Manage assets, details/identifier review, setup logos, pending/partial/retryable/confirmed gift funding results and Back. No device runtime or rendered evidence in this task. |
 | 2026-11-03 | TX-1.BRIDGE-FEES and naming state follow-up | `claude/bridge-names-fees` after `865bfb68` | Production iOS JS bundle, design (39 sources), safe-area, option matrix and Babel checks pass. Synthetic React checks run production Confirm, facts/preparing and provider: affordable amount 10 / bridge 17 / network 0.0001 / Total 27.0001 keeps Hold enabled; mixed-currency Total is 10 DAI.vETH + 17.0001 VRSCTEST; reduced amount and notice agree; conversion fees above/equal/below amount show one/zero/zero notices without blocking; preflight error has no Hold. After a reduction, a failed fresh estimate hides the old Amount quote and shows the existing notice. Network changes retain amount, recipient and memo, clear preflight, and restore the Verus ticker on return. Existing related Jest: 7 suites / 88 tests pass, 1 suite / 8 tests fail identically on the untouched base and candidate because currencyTransferIntent mocks the removed getSpendableUtxos interface. No wizardUtils/SendWizard Jest suite exists; the existing option script passes. Logs and throwaway scripts: `/tmp/bridge-names-fees*`. | Native rendered checks, accessibility and broadcast/settlement remain unverified. Check Convert and Send network sheets, all downstream target labels, export fee rows/Total, local fee notice, MAX with a fee rise and plain MAX, Back/retry and loading in both themes, normal phones and iPhone SE. No device, wallet keys, signing, broadcast, merge or push. |
