@@ -36,17 +36,35 @@ const CardBalance = ({
   const theme = useOnboardingTheme();
   const color = neutral ? theme.colors.textPrimary : WHITE;
   const quiet = neutral ? theme.colors.textSecondary : QUIET;
+  // As in the approved mockup: on a strip the sync badge sits left of the
+  // amount on one line; on the front card it takes the fiat line.
+  const syncBadge =
+    !bar && card.syncStatus ? (
+      <StatusBadge
+        label={card.syncStatus}
+        variant="card"
+        style={[
+          styles.sync,
+          hero ? {marginTop: compact ? 4 : 5} : styles.stripSync,
+        ]}
+      />
+    ) : null;
+  const inlineSync = !hero && syncBadge != null;
   return (
     <View
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={hero ? styles.heroBalance : styles.stripBalance}>
+      style={[
+        hero ? styles.heroBalance : styles.stripBalance,
+        inlineSync && styles.stripBalanceSync,
+      ]}>
+      {inlineSync ? syncBadge : null}
       <PrivacyBlurredText
         adjustsFontSizeToFit
         blurRadius={hero ? 10 : 5}
         color={color}
-        containerStyle={styles.balanceFrame}
+        containerStyle={[styles.balanceFrame, inlineSync && styles.shrink]}
         hidden={!showBalance && card.balance != null && !card.hasError}
         minimumFontScale={hero ? 0.6 : 0.8}
         numberOfLines={1}
@@ -58,12 +76,8 @@ const CardBalance = ({
         ]}>
         {card.amountText}
       </PrivacyBlurredText>
-      {!bar && card.syncStatus ? (
-        <StatusBadge
-          label={card.syncStatus}
-          variant="card"
-          style={styles.sync}
-        />
+      {syncBadge != null ? (
+        inlineSync ? null : syncBadge
       ) : !bar && card.fiatText != null ? (
         <PrivacyBlurredText
           blurRadius={5}
@@ -398,7 +412,10 @@ const styles = StyleSheet.create({
     ...fontStyle('medium'),
     textAlign: 'right',
   },
-  sync: {alignSelf: 'flex-end', paddingVertical: 1, paddingHorizontal: 6},
+  sync: {paddingVertical: 1, paddingHorizontal: 6},
+  stripSync: {marginRight: 10, flexShrink: 0},
+  stripBalanceSync: {flexDirection: 'row', alignItems: 'center'},
+  shrink: {flexShrink: 1},
   frontFacts: {...StyleSheet.absoluteFillObject},
   quietRow: {
     position: 'absolute',
