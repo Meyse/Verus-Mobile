@@ -26,6 +26,7 @@ const ConfirmPreparing = ({
   isConversion,
   fromLabel,
   networkFee = false,
+  exportFees = false,
   recipient,
   recipientCaption,
   routeRows = [],
@@ -81,9 +82,15 @@ const ConfirmPreparing = ({
             <ValueSkeleton width={120} />
           </FlatRow>
         ) : null}
-        <FlatRow label={networkFee ? "Network fee" : "Fees"}>
+        {exportFees ? (
+          <FlatRow label="Bridge fee"><ValueSkeleton /></FlatRow>
+        ) : null}
+        <FlatRow label={networkFee || exportFees ? "Network fee" : "Fees"}>
           <ValueSkeleton />
         </FlatRow>
+        {exportFees ? (
+          <FlatRow label="Total"><ValueSkeleton /></FlatRow>
+        ) : null}
         {arrives ? (
           <FlatRow label="Arrives" value={arrives} />
         ) : (

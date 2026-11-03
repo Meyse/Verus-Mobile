@@ -3,8 +3,12 @@
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const {DEST_ETH, fromBase58Check} = require('verus-typescript-primitives');
+const {DEST_ETH, FLAG_MASK, fromBase58Check} = require('verus-typescript-primitives');
 const {ethers} = require('ethers');
+const getEthereumAssetName = new Function('DEST_ETH', 'FLAG_MASK', fs.readFileSync(
+  path.resolve(__dirname, '../src/utils/assets/ethereumAssetName.js'), 'utf8',
+).replace(/import[^;]+;/g, '').replace(/export const /g, 'const ')
+  .concat('\nreturn getEthereumAssetName;'))(DEST_ETH, FLAG_MASK);
 
 const loadWizardUtils = coinDirectory => {
   const filename = path.resolve(
@@ -21,13 +25,14 @@ const loadWizardUtils = coinDirectory => {
     .replace("import {DEST_ETH, fromBase58Check} from 'verus-typescript-primitives';", '')
     .replace("import {Buffer} from 'buffer';", '')
     .replace("import {ethers} from 'ethers';", '')
+    .replace(/import[^;]+;/g, '')
     .replace(/export const /g, 'const ')
     .concat(
       '\nmodule.exports = {buildSendTarget, buildTargetOptions, isConversionChannel};\n',
     );
   const appModule = {exports: {}};
 
-  new Function('module', 'exports', 'CoinDirectory', 'DEST_ETH', 'Buffer', 'ethers', 'fromBase58Check', 'I_ADDRESS_VERSION', 'R_ADDRESS_VERSION', source)(
+  new Function('module', 'exports', 'CoinDirectory', 'DEST_ETH', 'Buffer', 'ethers', 'fromBase58Check', 'I_ADDRESS_VERSION', 'R_ADDRESS_VERSION', 'getEthereumAssetName', 'getTestnetBridgeDelegator', 'VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT', source)(
     appModule,
     appModule.exports,
     coinDirectory,
@@ -37,6 +42,9 @@ const loadWizardUtils = coinDirectory => {
     fromBase58Check,
     102,
     60,
+    getEthereumAssetName,
+    () => null,
+    null,
   );
 
   return appModule.exports;
@@ -298,6 +306,7 @@ const main = () => {
     assert.strictEqual(ethTarget.routes[0].addressType, 'ethereum');
     assert.strictEqual(ethTarget.routes[0].networkKey, '.eth');
     assert.strictEqual(ethTarget.routes[0].networkName, 'Ethereum');
+    assert.strictEqual(ethTarget.ticker, 'ETH');
     assert.strictEqual(ethTarget.transactionCurrency, exportId);
     assert.strictEqual(ethTarget.convertToFqn, 'vETH');
     assert.strictEqual(ethTarget.routes[0].exportTo, exportId);
@@ -312,7 +321,8 @@ const main = () => {
       maker.networkOptions.map(network => network.networkKey).sort(),
       ['.eth', sourceId].sort(),
     );
-    assert(maker.networkOptions.every(network => network.ticker === 'MKR'));
+    assert.strictEqual(maker.networkOptions.find(network => network.networkKey !== '.eth').ticker, 'MKR.vETH');
+    assert.strictEqual(maker.networkOptions.find(network => network.networkKey === '.eth').ticker, 'MKR.vETH', 'Missing Ethereum mapping keeps the full Verus name');
 
     const exportAddressType = definition => buildTargetOptions({
       [exportId]: [{destination: exportDefinition, exportto: definition}],
