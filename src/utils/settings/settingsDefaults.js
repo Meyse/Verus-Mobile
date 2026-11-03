@@ -10,6 +10,7 @@ export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   appearance: 'system',
   lastOpenedAccountTimestamps: {},
   identityColorSlotsByAccount: {},
+  cardStackPreferencesByAccount: {},
   lastWalletNetwork: WALLET_NETWORKS.MAINNET,
   homeCardDragDetection: false,
   allowSettingVerusPaySlippage: false,

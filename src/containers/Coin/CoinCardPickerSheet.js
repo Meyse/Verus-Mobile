@@ -17,7 +17,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
+import {Pin} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
@@ -25,7 +26,9 @@ import BottomSheetModal from '../../components/BottomSheetModal';
 import CardMaterial from '../../components/CardMaterial';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import {fontStyle} from '../../globals/fonts';
+import {toggleCoinCardPin} from '../../actions/actionCreators';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CONNECTION_ERROR} from '../../utils/api/errors/errorMessages';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
@@ -35,6 +38,12 @@ import {
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
 import {getCardColors} from '../../utils/subwallet/cardColors';
+import {
+  getCardStackMainId,
+  getCardStackPinLimit,
+  getCardStackPins,
+  toggleCardStackPin,
+} from '../../utils/subwallet/cardStackPreferences';
 import {
   getLedgerTotal,
   getNetworkTicker,
@@ -68,6 +77,7 @@ const SHEET_MAX_HEIGHT_RATIO = 0.76;
 // Space kept free above a sheet that grows past 76%.
 const SHEET_TOP_CLEARANCE = 16;
 const SCROLL_CUE_HEIGHT = 42;
+const MIN_FADE_VIEWPORT_HEIGHT = 128;
 const SCROLL_END_THRESHOLD = 8;
 const MONOSPACE_FONT = Platform.select({
   ios: 'Menlo',
@@ -84,8 +94,11 @@ const CoinCardPickerSheet = ({
   onClose,
   onClosed,
 }) => {
+  const dispatch = useDispatch();
   const theme = useOnboardingTheme();
   const {height: screenHeight} = useWindowDimensions();
+  const compact = screenHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const pinLimit = getCardStackPinLimit(compact);
   const insets = useSafeAreaInsets();
   const listRef = useRef(null);
   const didInitialScrollRef = useRef(false);
@@ -97,6 +110,14 @@ const CoinCardPickerSheet = ({
     state => state.authentication.activeAccount,
   );
   const showBalance = useSelector(state => state.coins.showBalance);
+  const stackPreferences = useObjectSelector(state =>
+    state.settings.generalWalletSettings.cardStackPreferencesByAccount?.[activeAccount?.accountHash]?.[chainTicker] || {},
+  );
+  const pins = useMemo(
+    () => getCardStackPins(subWallets, stackPreferences.pins),
+    [stackPreferences.pins, subWallets],
+  );
+  const mainId = useMemo(() => getCardStackMainId(subWallets), [subWallets]);
   const identitySlots = useSelector(state =>
     state.settings.generalWalletSettings.identityColorSlotsByAccount?.[activeAccount?.accountHash],
   );
@@ -114,6 +135,10 @@ const CoinCardPickerSheet = ({
   const [chainFilter, setChainFilter] = useState(ALL_CHAINS);
   const [showBottomScrollCue, setShowBottomScrollCue] = useState(false);
   const [showTopScrollCue, setShowTopScrollCue] = useState(false);
+  const [showPinLimit, setShowPinLimit] = useState(false);
+  const [noticeHeight, setNoticeHeight] = useState(52);
+  const [listViewportHeight, setListViewportHeight] = useState(null);
+  const limitNoteVisible = showPinLimit || pins.length > pinLimit;
 
   useEffect(() => {
     if (visible && !wasVisibleRef.current) {
@@ -122,6 +147,7 @@ const CoinCardPickerSheet = ({
       setQuery('');
       setTypeFilter('all');
       setChainFilter(ALL_CHAINS);
+      setShowPinLimit(false);
     }
 
     if (!visible) didInitialScrollRef.current = false;
@@ -244,6 +270,47 @@ const CoinCardPickerSheet = ({
   const showNetwork = chainOptions.length > 1;
   const rowHeight = showNetwork ? ROW_HEIGHT : ROW_HEIGHT_ONE_NETWORK;
   const itemStride = rowHeight + ROW_GAP;
+  // Headers and the notice are list entries, so initial scroll and the sheet's
+  // height include them. The balance order stays frozen while pins move live.
+  const listEntries = useMemo(() => {
+    const byId = new Map(filteredItems.map(item => [item.wallet.id, item]));
+    const pinned = pins.map(id => byId.get(id)).filter(Boolean);
+    const others = filteredItems.filter(item => !pins.includes(item.wallet.id));
+    const entries = [];
+    const addGroup = (title, rows, showNote = false, showTitle = true) => {
+      if (!rows.length && !showNote) return;
+      if (showTitle) {
+        entries.push({
+          kind: 'group',
+          key: title,
+          title,
+          length: entries.length ? 42 : 26,
+        });
+      }
+      if (showNote) {
+        entries.push({
+          kind: 'notice',
+          key: 'pin-limit',
+          length: noticeHeight + ROW_GAP,
+        });
+      }
+      rows.forEach(item => entries.push({
+        kind: 'card', key: item.wallet.id, item, length: itemStride,
+      }));
+    };
+    addGroup('PINNED', pinned, limitNoteVisible);
+    // "OTHERS" only makes sense under a visible "PINNED" group.
+    addGroup('OTHERS', others, false, entries.length > 0);
+    let offset = 0;
+    return entries.map(entry => {
+      const result = {...entry, offset};
+      offset += entry.length;
+      return result;
+    });
+  }, [filteredItems, itemStride, limitNoteVisible, noticeHeight, pins]);
+  const listContentHeight = listEntries.reduce(
+    (total, entry) => total + entry.length, 0,
+  );
   const sheetChromeHeight =
     SHEET_CHROME_BASE +
     (searchable ? SHEET_CHROME_CONTROLS : 0) +
@@ -251,7 +318,7 @@ const CoinCardPickerSheet = ({
   // Below 7 cards every card must show without scrolling, so on a short
   // phone such as the iPhone SE the sheet grows past 76% when it has to.
   const defaultSheetHeight = screenHeight * SHEET_MAX_HEIGHT_RATIO;
-  const fullCardListHeight = sheetChromeHeight + items.length * itemStride;
+  const fullCardListHeight = sheetChromeHeight + listContentHeight;
   const sheetGrows = !searchable && fullCardListHeight > defaultSheetHeight;
   const sheetMaxHeight = sheetGrows
     ? Math.min(
@@ -267,12 +334,15 @@ const CoinCardPickerSheet = ({
     sheetMaxHeight - sheetChromeHeight,
   );
   const listHeight = Math.min(
-    Math.max(filteredItems.length, 1) * itemStride,
+    Math.max(listContentHeight, itemStride),
     maximumListHeight,
   );
-  const listContentHeight = filteredItems.length * itemStride;
+  // The modal's keyboard avoider can leave less room than the window-based
+  // height above. Yoga shrinks the list; use that viewport for scroll bounds.
+  const viewportHeight = Math.min(listHeight, listViewportHeight ?? listHeight);
   const listScrollable =
-    listContentHeight > listHeight + SCROLL_END_THRESHOLD;
+    listContentHeight > viewportHeight + SCROLL_END_THRESHOLD;
+  const showScrollFades = viewportHeight >= MIN_FADE_VIEWPORT_HEIGHT;
 
   useEffect(() => {
     if (!visible) {
@@ -284,11 +354,12 @@ const CoinCardPickerSheet = ({
     listRef.current?.scrollToOffset({animated: false, offset: 0});
     setShowTopScrollCue(false);
     setShowBottomScrollCue(listScrollable);
+    // Not on viewport changes: the keyboard resizes the list, and focusing
+    // search must not move the list back to the top.
   }, [
     activeChainFilter,
     activeTypeFilter,
     filteredItems.length,
-    listHeight,
     listScrollable,
     normalizedQuery,
     visible,
@@ -308,24 +379,29 @@ const CoinCardPickerSheet = ({
     if (
       !visible ||
       frozenSubWallets.length === 0 ||
+      listViewportHeight == null ||
       didInitialScrollRef.current
     ) {
       return undefined;
     }
 
-    didInitialScrollRef.current = true;
-
-    const selectedIndex = frozenSubWallets.findIndex(
-      wallet => wallet.id === selectedSubWalletId,
+    const selectedEntry = listEntries.find(
+      entry => entry.kind === 'card' && entry.item.wallet.id === selectedSubWalletId,
     );
-    if (selectedIndex < 0) return undefined;
+    if (!selectedEntry) return undefined;
 
-    const offset = Math.min(
-      selectedIndex * itemStride,
-      Math.max(listContentHeight - listHeight, 0),
+    const pinnedGroupHeight = listEntries.find(
+      entry => entry.kind === 'group' && entry.title === 'OTHERS',
+    )?.offset ?? listContentHeight;
+    const showPinnedGroup =
+      pins.includes(selectedSubWalletId) && pinnedGroupHeight <= viewportHeight;
+    const offset = showPinnedGroup ? 0 : Math.min(
+      Math.max(selectedEntry.offset - (showScrollFades ? SCROLL_CUE_HEIGHT : 0), 0),
+      Math.max(listContentHeight - viewportHeight, 0),
     );
 
     const frame = requestAnimationFrame(() => {
+      didInitialScrollRef.current = true;
       listRef.current?.scrollToOffset({
         animated: false,
         offset,
@@ -335,7 +411,7 @@ const CoinCardPickerSheet = ({
       );
       setShowBottomScrollCue(
         listScrollable &&
-          offset + listHeight < listContentHeight - SCROLL_END_THRESHOLD,
+          offset + viewportHeight < listContentHeight - SCROLL_END_THRESHOLD,
       );
     });
 
@@ -343,10 +419,14 @@ const CoinCardPickerSheet = ({
   }, [
     frozenSubWallets,
     itemStride,
+    listEntries,
     listContentHeight,
-    listHeight,
+    listViewportHeight,
     listScrollable,
+    pins,
     selectedSubWalletId,
+    showScrollFades,
+    viewportHeight,
     visible,
   ]);
 
@@ -398,6 +478,26 @@ const CoinCardPickerSheet = ({
     [onSelect],
   );
 
+  const handleTogglePin = useCallback(cardId => {
+    const {result} = toggleCardStackPin({
+      preferences: stackPreferences,
+      cards: subWallets,
+      selectedId: selectedSubWalletId,
+      cardId,
+      compact,
+    });
+    if (result === 'limit') {
+      setShowPinLimit(true);
+      scrollToTop();
+      return;
+    }
+    if (result === 'unavailable') return;
+    if (result === 'unpinned') {
+      setShowPinLimit(pins.length > pinLimit && pins.length - 1 >= pinLimit);
+    }
+    dispatch(toggleCoinCardPin(chainTicker, cardId, compact));
+  }, [chainTicker, compact, dispatch, pinLimit, pins.length, scrollToTop, selectedSubWalletId, stackPreferences, subWallets]);
+
   const handleListScroll = useCallback(event => {
     const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
     const isAtTop = contentOffset.y <= SCROLL_END_THRESHOLD;
@@ -416,6 +516,8 @@ const CoinCardPickerSheet = ({
     setChainFilter(ALL_CHAINS);
     setShowBottomScrollCue(false);
     setShowTopScrollCue(false);
+    setShowPinLimit(false);
+    setListViewportHeight(null);
 
     if (typeof onClosed === 'function') onClosed();
   }, [onClosed]);
@@ -445,8 +547,33 @@ const CoinCardPickerSheet = ({
   );
 
   const renderItem = useCallback(
-    ({item}) => {
+    ({item: entry}) => {
+      if (entry.kind === 'group') {
+        return (
+          <View style={[styles.groupHeader, {height: entry.length}]}>
+            <Text accessibilityRole="header" style={styles.groupTitle}>
+              {entry.title}
+            </Text>
+          </View>
+        );
+      }
+      if (entry.kind === 'notice') {
+        return (
+          <View
+            onLayout={event => setNoticeHeight(event.nativeEvent.layout.height)}
+            style={styles.pinNotice}>
+            <Text accessibilityLiveRegion="polite" style={styles.pinNoticeText}>
+              {`You can pin ${pinLimit} ${pinLimit === 1 ? 'card' : 'cards'}. Unpin a card first.`}
+            </Text>
+          </View>
+        );
+      }
+      const {item} = entry;
       const current = item.wallet.id === selectedSubWalletId;
+      const pinned = pins.includes(item.wallet.id);
+      const pinName = item.verusId
+        ? item.identifier
+        : item.wallet.name || item.type;
       const fullIdentifier =
         item.identifier === '-' ? item.displayIdentifier : item.identifier;
       const accessibilityLabel = [
@@ -460,66 +587,99 @@ const CoinCardPickerSheet = ({
         .join('. ');
 
       return (
-        <TouchableOpacity
-          accessibilityHint="Selects this address and closes the sheet."
-          accessibilityLabel={`${accessibilityLabel}.`}
-          accessibilityRole="button"
-          accessibilityState={{selected: current}}
-          activeOpacity={0.74}
-          onPress={() => handleSelect(item.wallet)}
+        <View
           style={[
             styles.cardRow,
-            {height: rowHeight},
+            {height: rowHeight, marginBottom: ROW_GAP},
             current && styles.cardRowCurrent,
           ]}>
-          <View style={[styles.swatch, theme.isDark && styles.swatchDark]}>
-            <CardMaterial colors={getCardColors(item.wallet, identitySlots)} radius={5} />
-          </View>
-          <View style={styles.identifierColumn}>
-            <Text
-              ellipsizeMode="middle"
-              numberOfLines={1}
-              style={[
-                styles.identifier,
-                !item.verusId && styles.addressIdentifier,
-              ]}>
-              {item.displayIdentifier}
-            </Text>
-            {showNetwork ? (
-              <Text numberOfLines={1} style={styles.metadata}>
-                {item.networkLabel || displayTicker}
+          <TouchableOpacity
+            accessibilityHint="Selects this address and closes the sheet."
+            accessibilityLabel={`${accessibilityLabel}.`}
+            accessibilityRole="button"
+            accessibilityState={{selected: current}}
+            activeOpacity={0.74}
+            onPress={() => handleSelect(item.wallet)}
+            style={styles.rowSelection}>
+            <View style={[styles.swatch, theme.isDark && styles.swatchDark]}>
+              <CardMaterial
+                colors={getCardColors(item.wallet, identitySlots)}
+                radius={5}
+              />
+            </View>
+            <View style={styles.identifierColumn}>
+              <Text
+                ellipsizeMode="middle"
+                numberOfLines={1}
+                style={[
+                  styles.identifier,
+                  !item.verusId && styles.addressIdentifier,
+                ]}>
+                {item.displayIdentifier}
               </Text>
+              {showNetwork ? (
+                <Text numberOfLines={1} style={styles.metadata}>
+                  {item.networkLabel || displayTicker}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.balanceColumn}>
+              <PrivacyBlurredText
+                adjustsFontSizeToFit
+                blurRadius={5}
+                color={theme.colors.textPrimary}
+                containerStyle={styles.balanceFrame}
+                hidden={!showBalance && item.hasBalanceValue}
+                minimumFontScale={0.72}
+                numberOfLines={1}
+                style={styles.balance}>
+                {item.amountText}
+              </PrivacyBlurredText>
+              <Text numberOfLines={1} style={styles.balanceTicker}>
+                {displayTicker}
+              </Text>
+            </View>
+            {item.wallet.id === mainId ? (
+              <View style={styles.pinSlot} />
             ) : null}
-          </View>
-          <View style={styles.balanceColumn}>
-            <PrivacyBlurredText
-              adjustsFontSizeToFit
-              blurRadius={5}
-              color={theme.colors.textPrimary}
-              containerStyle={styles.balanceFrame}
-              hidden={!showBalance && item.hasBalanceValue}
-              minimumFontScale={0.72}
-              numberOfLines={1}
-              style={styles.balance}>
-              {item.amountText}
-            </PrivacyBlurredText>
-            <Text numberOfLines={1} style={styles.balanceTicker}>
-              {displayTicker}
-            </Text>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+          {item.wallet.id !== mainId ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={
+                pinned ? `Unpin ${pinName}` : `Pin ${pinName} to the stack`
+              }
+              accessibilityState={{selected: pinned}}
+              activeOpacity={0.72}
+              onPress={() => handleTogglePin(item.wallet.id)}
+              style={styles.pinSlot}>
+              <Pin
+                size={20}
+                strokeWidth={2}
+                color={pinned ? theme.colors.link : theme.colors.textSecondary}
+                fill={pinned ? theme.colors.link : 'none'}
+              />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       );
     },
     [
       displayTicker,
       handleSelect,
+      handleTogglePin,
       identitySlots,
+      mainId,
       rowHeight,
+      pinLimit,
+      pins,
       selectedSubWalletId,
       showBalance,
       showNetwork,
       styles,
       theme.colors.textPrimary,
+      theme.colors.link,
+      theme.colors.textSecondary,
       theme.isDark,
     ],
   );
@@ -590,24 +750,23 @@ const CoinCardPickerSheet = ({
         ) : null}
 
         {filteredItems.length > 0 ? (
-          <View style={[styles.listFrame, {height: listHeight}]}>
+          <View
+            onLayout={event => setListViewportHeight(event.nativeEvent.layout.height)}
+            style={[styles.listFrame, {height: listHeight}]}>
             <FlatList
               ref={listRef}
               alwaysBounceVertical={false}
               bounces={false}
               contentContainerStyle={styles.listContent}
-              data={filteredItems}
+              data={listEntries}
               getItemLayout={(_, index) => ({
                 index,
-                length: itemStride,
-                offset: itemStride * index,
+                length: listEntries[index].length,
+                offset: listEntries[index].offset,
               })}
-              ItemSeparatorComponent={() => (
-                <View style={styles.rowSeparator} />
-              )}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
-              keyExtractor={item => String(item.wallet.id)}
+              keyExtractor={entry => entry.key}
               onScroll={handleListScroll}
               renderItem={renderItem}
               scrollEnabled={listScrollable}
@@ -615,14 +774,14 @@ const CoinCardPickerSheet = ({
               showsVerticalScrollIndicator={listScrollable}
               style={styles.list}
             />
-            {showTopScrollCue ? (
+            {showTopScrollCue && showScrollFades ? (
               <CardPickerScrollCue
                 position="top"
                 styles={styles}
                 theme={theme}
               />
             ) : null}
-            {showBottomScrollCue ? (
+            {showBottomScrollCue && showScrollFades ? (
               <CardPickerScrollCue
                 position="bottom"
                 styles={styles}
@@ -691,6 +850,7 @@ const CardPickerScrollCue = ({position, styles, theme}) => {
 const createStyles = theme =>
   StyleSheet.create({
     body: {
+      flexShrink: 1,
       paddingHorizontal: 20,
       paddingTop: 8,
       paddingBottom: 18,
@@ -707,10 +867,12 @@ const createStyles = theme =>
     filterRow: {
       marginTop: 12,
       flexGrow: 0,
+      flexShrink: 0,
     },
     chainFilterRow: {
       marginTop: 8,
       flexGrow: 0,
+      flexShrink: 0,
     },
     filterContent: {
       paddingRight: 2,
@@ -736,6 +898,7 @@ const createStyles = theme =>
       color: theme.colors.onPrimary,
     },
     listFrame: {
+      flexShrink: 1,
       marginTop: 12,
       width: '100%',
       overflow: 'hidden',
@@ -745,9 +908,6 @@ const createStyles = theme =>
     },
     listContent: {
       paddingBottom: 2,
-    },
-    rowSeparator: {
-      height: ROW_GAP,
     },
     scrollCue: {
       position: 'absolute',
@@ -771,11 +931,42 @@ const createStyles = theme =>
       justifyContent: 'center',
     },
     cardRow: {
-      paddingHorizontal: 14,
       flexDirection: 'row',
       alignItems: 'center',
       borderRadius: 18,
       backgroundColor: theme.colors.surfaceMuted,
+    },
+    rowSelection: {
+      flex: 1,
+      minWidth: 0,
+      height: '100%',
+      paddingLeft: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    pinSlot: {
+      width: 44,
+      height: 44,
+      marginRight: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    groupHeader: {justifyContent: 'flex-end', paddingBottom: 8},
+    groupTitle: {
+      ...theme.typography.labelSm,
+      letterSpacing: 0.5,
+      color: theme.colors.textSecondary,
+    },
+    pinNotice: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      marginBottom: ROW_GAP,
+      backgroundColor: theme.colors.warningBackground,
+    },
+    pinNoticeText: {
+      ...theme.typography.caption,
+      color: theme.colors.warningText,
     },
     cardRowCurrent: {
       backgroundColor: theme.colors.successBackground,
@@ -804,7 +995,8 @@ const createStyles = theme =>
       ...fontStyle('regular'),
     },
     balanceColumn: {
-      width: 108,
+      maxWidth: 108,
+      flexShrink: 0,
       alignItems: 'flex-end',
     },
     balanceFrame: {
@@ -827,6 +1019,7 @@ const createStyles = theme =>
       ...fontStyle('semiBold'),
     },
     emptyState: {
+      flexShrink: 1,
       marginTop: 12,
       paddingHorizontal: 20,
       alignItems: 'center',

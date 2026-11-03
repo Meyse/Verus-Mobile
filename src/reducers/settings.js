@@ -9,6 +9,7 @@ import {
   SET_ALL_SETTINGS,
   SET_CONFIG_SECTION,
   SET_GENERAL_WALLET_SETTINGS_STATE,
+  SET_CARD_STACK_PREFERENCES,
   SET_COIN_SETTINGS_STATE,
   SET_BUY_SELL_SETTINGS_STATE
 } from '../utils/constants/storeType'
@@ -71,8 +72,29 @@ export const settings = (state = DEFAULT_SETTINGS, action) => {
     case SET_GENERAL_WALLET_SETTINGS_STATE:
       return {
         ...state,
-        generalWalletSettings: normalizeGeneralWalletSettings(action.state)
+        generalWalletSettings: normalizeGeneralWalletSettings({
+          ...action.state,
+          // A settings write may finish after a new card choice. Loading uses
+          // SET_ALL_SETTINGS; write completions must keep the live choices.
+          cardStackPreferencesByAccount:
+            state.generalWalletSettings.cardStackPreferencesByAccount,
+        })
       }
+    case SET_CARD_STACK_PREFERENCES: {
+      const {accountHash, coinId, preferences} = action.payload;
+      const byAccount =
+        state.generalWalletSettings.cardStackPreferencesByAccount || {};
+      return {
+        ...state,
+        generalWalletSettings: {
+          ...state.generalWalletSettings,
+          cardStackPreferencesByAccount: {
+            ...byAccount,
+            [accountHash]: {...byAccount[accountHash], [coinId]: preferences},
+          },
+        },
+      };
+    }
     case SET_COIN_SETTINGS_STATE:
       return {
         ...state,

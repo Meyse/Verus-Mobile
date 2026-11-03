@@ -53,6 +53,9 @@ export default function useAssetCardData() {
   );
   const rates = useObjectSelector(state => state.ledger.rates);
   const account = useSelector(state => state.authentication.activeAccount);
+  const stackPreferences = useObjectSelector(state =>
+    state.settings.generalWalletSettings.cardStackPreferencesByAccount?.[account?.accountHash]?.[coin.id] || {},
+  );
   const showBalance = useSelector(state => state.coins.showBalance);
   const currency = useSelector(
     state => state.settings.generalWalletSettings.displayCurrency || USD,
@@ -162,6 +165,7 @@ export default function useAssetCardData() {
       cards,
       selected,
       balances,
+      stackPreferences,
       showBalance,
       total,
       totalFiat,
@@ -178,6 +182,7 @@ export default function useAssetCardData() {
     selected,
     showBalance,
     slots,
+    stackPreferences,
     wallets,
   ]);
 }

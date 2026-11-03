@@ -71,6 +71,8 @@ import {
   SET_ETH_TX_RECEIPTS,
   ADD_ETH_TX_RECEIPT,
   SET_COIN_SUB_WALLET,
+  SET_CARD_STACK_PREFERENCES,
+  TOGGLE_COIN_CARD_PIN,
   ADD_GOOD_SERVER,
   ADD_BAD_SERVER,
   SET_SECURE_LOADING_SUCCESS_DATA,
@@ -416,6 +418,16 @@ export const setCoinSubWallet = (chainTicker, subWallet, userSelected = false) =
     }
   }
 }
+
+export const setCardStackPreferences = (accountHash, coinId, preferences) => ({
+  type: SET_CARD_STACK_PREFERENCES,
+  payload: {accountHash, coinId, preferences},
+});
+
+export const toggleCoinCardPin = (chainTicker, cardId, compact) => ({
+  type: TOGGLE_COIN_CARD_PIN,
+  payload: {chainTicker, cardId, compact},
+});
 
 //Reducer name: buySellCrypto
 export const setActiveSectionBuySellCrypto = (activeSection) => {

@@ -115,6 +115,9 @@ const Home = () => {
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
   const activeSubWallets = useObjectSelector((state) => state.coinMenus.activeSubWallets);
   const userSelectedSubWallets = useObjectSelector(state => state.coinMenus.userSelectedSubWallets || {});
+  const cardStackPreferences = useObjectSelector(state =>
+    state.settings.generalWalletSettings.cardStackPreferencesByAccount?.[activeAccount?.accountHash] || {},
+  );
   const widgetOrder = useObjectSelector((state) => state.widgets.order);
   // A currency before its launch shows when it launches and what this wallet
   // pre-converted to it, instead of a price.
@@ -419,6 +422,7 @@ const Home = () => {
       balances: balances[coinObj.id],
       activeSubWallet: activeSubWallets[coinObj.id],
       userSelectedSubWallet: userSelectedSubWallets[coinObj.id],
+      savedSelectedId: cardStackPreferences[coinObj.id]?.selectedId,
     });
     if (openingCard != null) {
       dispatch(setCoinSubWallet(coinObj.id, openingCard));
@@ -509,6 +513,7 @@ const Home = () => {
           balances: balances[coin.id],
           activeSubWallet: activeSubWallets[coin.id],
           userSelectedSubWallet: userSelectedSubWallets[coin.id],
+          savedSelectedId: cardStackPreferences[coin.id]?.selectedId,
         });
         const statusDescription = getAssetStatusDescription(coin);
         const prelaunchInfo = prelaunchAssets.get(coin.id);
@@ -557,6 +562,7 @@ const Home = () => {
     activeCoinsForUser,
     activeSubWallets,
     userSelectedSubWallets,
+    cardStackPreferences,
     allSubWallets,
     balances,
     displayCurrency,
