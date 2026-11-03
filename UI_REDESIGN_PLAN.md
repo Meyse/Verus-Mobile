@@ -1396,7 +1396,17 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   definition's `nativecurrencyid.type` with `DEST_ETH`. Keep explicit `ethdest`
   routes and the existing recipient, self-address, and preflight paths.
 - [x] **TX-1.A22** Use the asset portion of an unknown currency's qualified
-  name for its fallback ticker. The MKR.vETH network rows now say "Receive as MKR".
+  name for its fallback ticker. Owner decision, 2026-11-03: network rows and
+  their selected target keep the full unknown Verus name ("MKR.vETH"). The
+  Ethereum row uses the Ethereum asset name. Other fallback consumers retain
+  the asset-portion rule.
+- [x] **TX-1.BRIDGE-NAMES** Use per-route Ethereum symbols on network rows
+  and the selected target. Native ETH reads "ETH" on both networks. Retain
+  Verus currency IDs for routing, logos and prices. Address Book records are
+  redesign-only; no released-record migration is required.
+- [ ] **TX-1.BRIDGE-NAMES-QA** Check Convert and Send network choices, Amount,
+  Price and route, context, Confirm/preparing, Sent and saved-address context
+  in light/dark on normal phones and iPhone SE. No device ran in this task.
 - [x] **TX-1.I16-A11** Refresh the source balance after a successful broadcast.
   Expire the source system's address-response caches. Include mempool deltas in
   VRPC totals and discovery snapshots. Keep an open wizard's balance current,
@@ -2116,6 +2126,7 @@ plan into a repository-wide migration test project.
 ## Evidence and handoff log
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
+| 2026-11-03 | TX-1.BRIDGE-NAMES | `claude/bridge-names-fees` from `052d0b5c` | Pure Ethereum-name helper; per-route receive ticker; network rows preserve full unknown Verus names. Existing option matrix and design check pass. Throwaway `/tmp/bridge-names-fees-live.cjs` reproduces the base defect and checks live public-testnet definitions/routes: vETH/ETH for DAI and VRSCTEST conversions, DAI.vETH/DAI for Send, DAI for an ETH-source bounceback built from live definitions and live Sepolia contract metadata in the app's route shape. All downstream target labels consume the selected target ticker. Upstream has only personal email/phone contacts, with no redesign Address Book record format. | No record migration. Device QA remains open, including light/dark, iPhone SE, selected names, Back and saved-address context. No keys, signing, broadcast, simulator or emulator used. |
 | --- | --- | --- | --- | --- |
 | 2026-11-03 | TX-1.ASSET-STACK: Final E-r4 variant 5 | `claude/asset-stack-sheet` from `ae8758e4` | Safe top row, 6/4-shape stack, hidden sum, flat SVG materials, saved per-account Jewel slots, picker swatches and persistent sheet implemented. Existing total, sync, copy, history/details, action and pre-launch contracts remain. Offline frozen install, design (39 sources), safe-area (9 files), color guard (17 materials, minimum 5.014:1), Babel (17 changed JS files), Node behavior fixtures and both production JS bundles pass. The fixtures cover 506 stack selections, stable slots, account isolation, save failure/retry, sheet taps/drags/zero-pointer reset/Reduce Motion, total/error/loading/privacy/sync states, Overview refresh gating and the screen Back/pre-launch paths. A source-derived HTML fixture was inspected in light/dark, normal/compact, peek/open and single-card states. | Owner device QA and native accessibility/motion remain open. Open history closes by header only. Source-derived fixtures substitute native controls and history rows; they do not prove native rendering or gesture arbitration. No devices, new dependencies, Jest tests, ESLint, push, merge or PR. Exact check commands and temporary fixtures: `/tmp/asset-stack-checks.local.md`. |
 | 2026-11-03 | TX-1.ASSET-STACK: device QA | `claude/asset-stack-sheet` (`fe53c0c3`..`958ba89f`) | Sonnet testers on VRSCTEST: iPhone 17 Pro sim (P0–P14), iPhone SE sim (S0–S8) and Pixel 8 Android 15 emulator (A0–A9), light and dark, with an in-memory 20-ID fixture for the cap, "N more" sum, picker swatches, long names and neighbor colors. Fixed after QA: card colors can no longer block publishing cards; the front card SVG redrew late after a strip tap (darker band); body clipping cut the top strip shadow; a tap open/close on Android froze and then jumped (state now commits when the sheet rests); the sync badge now sits left of a strip amount and under the front-card amount as in the mockup. Each fix re-checked on device (Android frame recordings before/after; iOS recording after). Saved slots held across relaunch and theme. Edge swipe, Android Back (sheet first, details sheet only), row taps, refresh and copy pass. | Not proven: VoiceOver/TalkBack (tool reads the tree only), real-finger motion and Release-build performance, hidden balances on a real Android phone (the shared native blur showed readable text on the emulator, also on Home), header drag on the VRSCTEST stack at Pro height (tool limit; proven on gETH and SE), DAI.vETH bridged line on SE/Android (asset absent). Older items kept: picker opens with the current row half under the chips, picker list overhangs its sheet on Android, testnet fiat "—", 4-decimal total. Run folder: `docs/qa/matrix/runs/2026-11-03-asset-stack/` (ignored). |

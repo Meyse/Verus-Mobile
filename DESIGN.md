@@ -313,6 +313,7 @@ The Send/Convert network sheet ("Choose a network") groups its rows with
 first; "Other networks" holds the rest in route order. Row titles are the plain
 network name and subtitles read "Receive as <ticker>". Do not add a "Default"
 badge or repeat "network" in a row. The owner approved this on 2026-10-18.
+The ticker is the asset's name on that network (owner, 2026-11-03).
 
 ### Information
 

@@ -6,6 +6,28 @@ import {
   R_ADDRESS_VERSION,
 } from '../../utils/constants/constants';
 import {DEST_ETH, fromBase58Check} from 'verus-typescript-primitives';
+import {getEthereumAssetName} from '../../utils/assets/ethereumAssetName';
+import {VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT} from '../../utils/constants/web3Constants';
+import {getTestnetBridgeDelegator} from '../../utils/testnetEnvironment';
+
+const lookupCoin = id => {
+  if (!id) return null;
+  try {
+    return CoinDirectory.findCoinObj(id);
+  } catch (error) {
+    return /^0x/i.test(id)
+      ? Object.values(CoinDirectory.coins || {}).find(coin =>
+          coin.currency_id?.toLowerCase() === id.toLowerCase()) || null
+      : null;
+  }
+};
+const ethereumAssetName = (destination, route, sourceCoin) =>
+  getEthereumAssetName(destination, route, {
+    lookupCoin,
+    bridgeDelegator: sourceCoin?.testnet
+      ? getTestnetBridgeDelegator()
+      : VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT,
+  });
 
 export const SEND_WIZARD_MODE = {
   CONVERT: 'convert',
@@ -354,6 +376,9 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
   return {
     ...route,
     ...getRouteNetwork(sourceCoin, sourceNetworkId, route),
+    receiveTicker: route.addressType === ADDRESS_TYPE.ETHEREUM
+      ? ethereumAssetName(path.destination, route, sourceCoin)
+      : null,
   };
 };
 
@@ -392,12 +417,17 @@ const getCanonicalAssetDisplay = canonicalKey => {
   return display || {name: canonicalKey, ticker: canonicalKey};
 };
 
-const buildNetworkOptions = (option, sourceCoin, sourceNetworkId) => {
+export const buildNetworkOptions = (option, sourceCoin, sourceNetworkId) => {
   const networks = new Map();
 
   option.routes.forEach(route => {
+    const ticker = route.networkKey === '.eth'
+      ? route.receiveTicker || option.ticker
+      : lookupCoin(option.coinId)?.display_ticker || option.name;
     const network = networks.get(route.networkKey) || {
       ...option,
+      ticker,
+      name: route.networkKey === '.eth' ? ticker : option.name,
       networkKey: route.networkKey,
       networkName: route.networkName,
       networkIcon: route.networkIcon,
@@ -596,6 +626,7 @@ export const buildSendTarget = (
     bridgePrelaunch: false,
     isCrossChain: false,
     addressType: getSourceAddressType(sourceCoin),
+    receiveTicker: ethereumAssetName(sourceCoin, null, sourceCoin),
   };
   const sourceOption = {
     id: sourceCurrencyId,
