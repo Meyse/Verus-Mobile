@@ -354,13 +354,14 @@ const CoinCardPickerSheet = ({
     listRef.current?.scrollToOffset({animated: false, offset: 0});
     setShowTopScrollCue(false);
     setShowBottomScrollCue(listScrollable);
+    // Not on viewport changes: the keyboard resizes the list, and focusing
+    // search must not move the list back to the top.
   }, [
     activeChainFilter,
     activeTypeFilter,
     filteredItems.length,
     listScrollable,
     normalizedQuery,
-    viewportHeight,
     visible,
   ]);
 
