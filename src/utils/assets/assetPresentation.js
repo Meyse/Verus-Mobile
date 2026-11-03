@@ -84,6 +84,7 @@ export const getAssetPresentation = (coin, context = {}) => {
     fullName: coin.display_name || known?.display_name || name,
     identifier: coin.currency_id || coin.id,
     iconId: known && CoinLogos[known.id] ? known.id : null,
+    logoId: known && CoinLogos[known.id] ? known.id : coin.id,
     badgeTicker,
     networks,
     networkLabel: networks.map(item => item.label).join(', ') || 'Network unavailable',
