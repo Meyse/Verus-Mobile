@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   screen: {flex: 1},
   transactions: {flex: 1},
   prelaunchBar: {paddingHorizontal: 16, paddingTop: 10},
-  body: {flex: 1, overflow: 'hidden'},
+  body: {flex: 1},
 });
 
 export default SignedInCoinDetail;

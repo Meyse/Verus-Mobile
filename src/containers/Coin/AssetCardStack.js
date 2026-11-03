@@ -175,7 +175,11 @@ const StackCard = ({
           },
         ]}>
         {!neutral ? (
-          <CardMaterial colors={card.colors} radius={radius} />
+          <CardMaterial
+            colors={card.colors}
+            radius={radius}
+            height={frontHeight}
+          />
         ) : null}
         <Animated.View
           pointerEvents={sheetOpen ? 'none' : 'auto'}
@@ -372,7 +376,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     shadowOffset: {width: 0, height: -3},
-    shadowRadius: 12,
+    shadowRadius: 6,
     elevation: 4,
   },
   materialClip: {flex: 1, overflow: 'hidden'},

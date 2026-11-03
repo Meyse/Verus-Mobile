@@ -160,6 +160,7 @@ const DraggableSheet = forwardRef(
                 ref={headerRef}
                 accessibilityRole="button"
                 accessibilityLabel={title}
+                accessibilityState={{expanded: open}}
                 accessibilityHint={
                   open ? 'Closes the list.' : 'Opens the list.'
                 }
