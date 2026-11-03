@@ -2389,6 +2389,8 @@ runtime verification stopped. Existing local work remains separate.
 
 ### Shared input alignment and focus follow-up (2026-10-30)
 
+Evidence, 2026-11-03: Max approved the outline-only field (D2 dark / L2 light). Both `input` fills are transparent; idle/focus borders, placeholders, and address actions use the approved cool colours. The caret uses `link`, and the Manage assets network picker uses `inputBorder`. Consumer source audit, Babel parse, and `check:design` pass. Device QA follows separately.
+
 Branch: `codex/input-baseline-and-wallet-icon`, from `redesign` at `f154138b7`.
 Owner correction: keep the wallet avatar's size; change its alignment only.
 
