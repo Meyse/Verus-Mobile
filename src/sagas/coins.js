@@ -34,11 +34,17 @@ function* handleFinishSetUserCoins(action) {
     const linkedIds =
       verusIdStoredData.linked_ids == null ? {} : verusIdStoredData.linked_ids;
     if (!sessionActionIsCurrent(yield select(), action)) return;
-    yield call(
-      ensureIdentityColorSlots,
-      (yield select()).authentication.activeAccount?.accountHash,
-      linkedIds,
-    );
+    // Card colors are cosmetic. An unexpected failure here must never stop
+    // the wallet from publishing its cards.
+    try {
+      yield call(
+        ensureIdentityColorSlots,
+        (yield select()).authentication.activeAccount?.accountHash,
+        linkedIds,
+      );
+    } catch (colorError) {
+      console.warn('Could not prepare identity card colors.', colorError);
+    }
     if (!sessionActionIsCurrent(yield select(), action)) return;
     const state = store.getState()
     const { watchedAddresses } = state.channelStore_vrpc
