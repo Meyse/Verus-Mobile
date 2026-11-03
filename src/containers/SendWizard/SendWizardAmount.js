@@ -226,7 +226,7 @@ const SendWizardAmount = () => {
       : 'Enter a valid amount.';
   }
   const exportFeeError = insufficientExportFunds
-    ? `Not enough ${sourceCoin.display_ticker} for the Ethereum network fee (about ${exportFeeDisplay}).`
+    ? `Not enough ${sourceCoin.display_ticker} for the bridge fee (about ${exportFeeDisplay}).`
     : null;
 
   useEffect(() => {

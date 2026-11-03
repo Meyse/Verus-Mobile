@@ -612,8 +612,13 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - A send to the card's own address shows one light notice above Hold: "This is
   your own address. Only the network fee leaves your wallet." It does not block
   (owner, 2026-10-26).
-- A conversion or export whose fees in the paid currency reach the amount stays
-  blocked with "This amount does not cover the fees. Enter a larger amount."
+- Fees are paid on top of the amount. Exports never block because fees reach
+  the amount. A local conversion whose fees in the paid currency exceed its
+  prepared amount shows one non-blocking light notice above Hold: "The fees
+  are higher than the amount you convert." Keep balance and preflight blocks.
+  VRPC exports show separate Bridge fee, Network fee and Total rows from the
+  validated preflight that is signed. Total adds the prepared amount and all
+  fees by currency ID, listing each paid currency once (owner, 2026-11-03).
 - After "Status unknown", Confirm shows only Close: the back arrow goes, and
   Android Back and the iOS swipe close the whole wizard, as Close does (owner,
   2026-10-26). A step back would lead to a Confirm that stays locked.

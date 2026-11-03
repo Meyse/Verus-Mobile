@@ -44,6 +44,17 @@ const CONVERSION_CHANNEL_TYPES = new Set([
 export const isConversionChannel = channel =>
   CONVERSION_CHANNEL_TYPES.has(channel?.split('.')[0]);
 
+// An Amount quote belongs to its original input. After a fee reduction, only
+// a fresh preflight estimate can describe what this transaction may receive.
+export const getPreparedConversionEstimate = (preflight, estimate) => {
+  if (preflight?.estimate) return preflight.estimate;
+  if (
+    preflight?.submittedsats != null && preflight?.output?.satoshis != null &&
+    String(preflight.submittedsats) !== String(preflight.output.satoshis)
+  ) return null;
+  return estimate;
+};
+
 export const WIZARD_CONTEXT_STEP = {
   AMOUNT: 'amount',
   RECIPIENT: 'recipient',
@@ -421,9 +432,10 @@ export const buildNetworkOptions = (option, sourceCoin, sourceNetworkId) => {
   const networks = new Map();
 
   option.routes.forEach(route => {
+    const verusTicker = lookupCoin(option.coinId)?.display_ticker || option.name;
     const ticker = route.networkKey === '.eth'
-      ? route.receiveTicker || option.ticker
-      : lookupCoin(option.coinId)?.display_ticker || option.name;
+      ? route.receiveTicker || verusTicker
+      : verusTicker;
     const network = networks.get(route.networkKey) || {
       ...option,
       ticker,

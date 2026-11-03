@@ -306,6 +306,7 @@ const main = () => {
     assert.strictEqual(ethTarget.routes[0].addressType, 'ethereum');
     assert.strictEqual(ethTarget.routes[0].networkKey, '.eth');
     assert.strictEqual(ethTarget.routes[0].networkName, 'Ethereum');
+    assert.strictEqual(ethTarget.ticker, 'ETH');
     assert.strictEqual(ethTarget.transactionCurrency, exportId);
     assert.strictEqual(ethTarget.convertToFqn, 'vETH');
     assert.strictEqual(ethTarget.routes[0].exportTo, exportId);
@@ -321,6 +322,7 @@ const main = () => {
       ['.eth', sourceId].sort(),
     );
     assert.strictEqual(maker.networkOptions.find(network => network.networkKey !== '.eth').ticker, 'MKR.vETH');
+    assert.strictEqual(maker.networkOptions.find(network => network.networkKey === '.eth').ticker, 'MKR.vETH', 'Missing Ethereum mapping keeps the full Verus name');
 
     const exportAddressType = definition => buildTargetOptions({
       [exportId]: [{destination: exportDefinition, exportto: definition}],
