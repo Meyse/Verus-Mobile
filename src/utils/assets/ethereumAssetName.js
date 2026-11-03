@@ -1,7 +1,12 @@
 import {DEST_ETH, FLAG_MASK} from 'verus-typescript-primitives';
 
-const cleanTicker = value =>
-  typeof value === 'string' ? value.replace(/\s*\[ERC20\]\s*$/i, '').trim() || null : null;
+// A failed contract lookup reports the address (or its first bytes) as the
+// name and symbol. A raw address is never an asset name.
+const cleanTicker = value => {
+  if (typeof value !== 'string') return null;
+  const ticker = value.replace(/\s*\[ERC20\]\s*$/i, '').trim();
+  return ticker && !/^0x[0-9a-f]*$/i.test(ticker) ? ticker : null;
+};
 const sameAddress = (left, right) =>
   Boolean(left && right) && left.toLowerCase() === right.toLowerCase();
 
