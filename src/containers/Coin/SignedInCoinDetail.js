@@ -1,26 +1,23 @@
 import React, {useCallback, useLayoutEffect, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
+  BackHandler,
   findNodeHandle,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useFocusEffect} from '@react-navigation/native';
+import {useSharedValue} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch, useSelector} from 'react-redux';
-import {Layers} from 'lucide-react-native';
 import BigNumber from 'bignumber.js';
 import {CONVERSION_DISABLED} from '../../../env/index';
 import {setCoinSubWallet} from '../../actions/actionCreators';
 import AppButton from '../../components/AppButton';
 import MissingInfoRedirect from '../../components/MissingInfoRedirect/MissingInfoRedirect';
-import SignedInActionBar, {
-  SignedInEdgeFade,
-} from '../../components/SignedInActionBar';
-import {fontStyle} from '../../globals/fonts';
+import SignedInActionBar from '../../components/SignedInActionBar';
+import DraggableSheet from '../../components/DraggableSheet';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -42,17 +39,22 @@ import {
   isPrivateCard,
   selectPrivateWalletInfo,
 } from '../../utils/subwallet/privateWallet';
-import {
-  isConversionChannel,
-  SEND_WIZARD_MODE,
-} from '../SendWizard/wizardUtils';
+import {isConversionChannel, SEND_WIZARD_MODE} from '../SendWizard/wizardUtils';
 import CoinCardPickerSheet from './CoinCardPickerSheet';
 import Overview from './Overview/Overview';
 import PrelaunchAssetPanel from './PrelaunchAssetPanel';
 import SignedInAssetHeader from './SignedInAssetHeader';
+import AssetCardStack from './AssetCardStack';
+import useAssetCardData from './useAssetCardData';
 
 const SignedInCoinDetail = ({navigation, route}) => {
   const dispatch = useDispatch();
+  const asset = useAssetCardData();
+  const sheetRef = useRef(null);
+  const progress = useSharedValue(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [peekHeight, setPeekHeight] = useState(0);
+  const [bodyHeight, setBodyHeight] = useState(0);
   const theme = useOnboardingTheme();
   const activeCoin = useObjectSelector(state => state.coins.activeCoin);
   const selectedSubWallet = useObjectSelector(
@@ -76,11 +78,14 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const services = useSelector(state => state.services);
   const showBalance = useSelector(state => state.coins.showBalance);
   const insets = useSafeAreaInsets();
-  const compact = useWindowDimensions().height <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const compact =
+    useWindowDimensions().height <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
   // Before its launch a currency has no balance and no price. Its screen shows
   // the launch and this wallet's pre-conversions instead of cards and history.
   const {prelaunch} = usePrelaunchAsset(activeCoin, allSubWallets);
-  const activeCoins = useObjectSelector(state => state.coins.activeCoinsForUser);
+  const activeCoins = useObjectSelector(
+    state => state.coins.activeCoinsForUser,
+  );
   const ledgerBalances = useObjectSelector(state =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
@@ -89,16 +94,12 @@ const SignedInCoinDetail = ({navigation, route}) => {
   const privateSyncing = useSelector(
     state =>
       isPrivateCard(selectedSubWallet) &&
-      getPrivateSyncPercent(selectPrivateWalletInfo(state)[activeCoin.id]) != null,
+      getPrivateSyncPercent(selectPrivateWalletInfo(state)[activeCoin.id]) !=
+        null,
   );
   const cardPickerTriggerRef = useRef(null);
   const restorePickerFocusRef = useRef(false);
   const [cardPickerVisible, setCardPickerVisible] = useState(false);
-  const [transactionFades, setTransactionFades] = useState({
-    showBottomFade: false,
-    showTopFade: false,
-    subWalletId: null,
-  });
   const compatibleApps = selectedSubWallet?.compatible_apps || [];
   const hasOverview = compatibleApps.includes(WALLET_APP_OVERVIEW);
   const canReceive = compatibleApps.includes(WALLET_APP_RECEIVE);
@@ -109,9 +110,7 @@ const SignedInCoinDetail = ({navigation, route}) => {
     !privateSyncing &&
     BigNumber(selectedBalance).isGreaterThan(0);
   const canConvert =
-    canSend &&
-    !CONVERSION_DISABLED &&
-    isConversionChannel(sendChannel);
+    canSend && !CONVERSION_DISABLED && isConversionChannel(sendChannel);
 
   const mainNavigation = navigation.getParent()?.getParent() || navigation;
   const sourceParams = {
@@ -142,7 +141,8 @@ const SignedInCoinDetail = ({navigation, route}) => {
         funded(coin),
     );
     const fundingCoin =
-      candidates.find(coin => coin.currency_id === coin.system_id) || candidates[0];
+      candidates.find(coin => coin.currency_id === coin.system_id) ||
+      candidates[0];
 
     mainNavigation.navigate('SendWizard', {
       mode: SEND_WIZARD_MODE.CONVERT,
@@ -185,103 +185,36 @@ const SignedInCoinDetail = ({navigation, route}) => {
     }
   }, []);
 
-  const handleTransactionBoundariesChange = useCallback(nextFades => {
-    setTransactionFades(currentFades => {
-      const nextState = {
-        ...nextFades,
-        subWalletId: selectedSubWallet?.id || null,
-      };
-
-      return currentFades.showBottomFade === nextState.showBottomFade &&
-        currentFades.showTopFade === nextState.showTopFade &&
-        currentFades.subWalletId === nextState.subWalletId
-        ? currentFades
-        : nextState;
-    });
-  }, [selectedSubWallet?.id]);
-
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerBackTitleVisible: false,
-      headerTitleAlign: 'center',
-      headerTitleStyle: {
-        color: theme.colors.textPrimary,
-        fontSize: 18,
-        ...fontStyle('bold'),
-      },
-      title: activeCoin.display_name,
-      headerLeft: ({onPress}) => (
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            activeOpacity={0.74}
-            onPress={onPress || navigation.goBack}
-            style={styles.headerBackButton}>
-            <MaterialCommunityIcons
-              color={theme.colors.textPrimary}
-              name="arrow-left"
-              size={24}
-            />
-          </TouchableOpacity>
-        </View>
-      ),
-      // Before its launch an asset has no card to choose.
-      headerRight:
-        allSubWallets.length > 1 && !prelaunch
-          ? () => (
-              <View style={styles.headerRight}>
-                <TouchableOpacity
-                  ref={cardPickerTriggerRef}
-                  accessibilityLabel={`Choose an address. ${allSubWallets.length} sources.`}
-                  accessibilityRole="button"
-                  activeOpacity={0.7}
-                  onPress={openCardPicker}
-                  style={styles.headerRightButton}>
-                  <Layers
-                    color={theme.colors.textSecondary}
-                    size={20}
-                    strokeWidth={2}
-                  />
-                  <View
-                    style={[
-                      styles.cardCountBadge,
-                      {
-                        backgroundColor: theme.colors.primary,
-                        borderColor: theme.colors.background,
-                      },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.cardCountText,
-                        {color: theme.colors.onPrimary},
-                      ]}>
-                      {allSubWallets.length}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )
-          : undefined,
-    });
-  }, [
-    activeCoin.display_name,
-    allSubWallets.length,
-    navigation,
-    openCardPicker,
-    prelaunch,
-    theme.colors,
-  ]);
+    navigation.setOptions({headerShown: false});
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      sheetRef.current?.reset();
+    }, []),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          if (!sheetOpen) return false;
+          sheetRef.current?.close();
+          return true;
+        },
+      );
+      return () => subscription.remove();
+    }, [sheetOpen]),
+  );
 
   let overviewActive = false;
-  let fadesMatchSelectedSubWallet = false;
   let overviewContent = null;
 
   if (selectedSubWallet != null) {
     const {placeholder, active} = subWalletActivity(selectedSubWallet.id);
     overviewActive = hasOverview && active(services);
-    fadesMatchSelectedSubWallet =
-      transactionFades.subWalletId === selectedSubWallet.id;
     overviewContent = !hasOverview ? (
       <MissingInfoRedirect
         icon="power-plug-off"
@@ -291,7 +224,9 @@ const SignedInCoinDetail = ({navigation, route}) => {
       <Overview
         navigation={navigation}
         data={route?.params?.data || null}
-        onScrollBoundaryChange={handleTransactionBoundariesChange}
+        key={selectedSubWallet.id}
+        sheetOpen={sheetOpen}
+        backgroundColor={theme.colors.sheet}
       />
     ) : (
       <MissingInfoRedirect icon={placeholder.icon} label={placeholder.label} />
@@ -302,8 +237,17 @@ const SignedInCoinDetail = ({navigation, route}) => {
     const preconverted = (prelaunch.preconversions || []).length > 0;
 
     return (
-      <View style={[styles.screen, {backgroundColor: theme.colors.background}]}>
-        <SignedInAssetHeader showCards={false} />
+      <View
+        style={[
+          styles.screen,
+          {backgroundColor: theme.colors.background, paddingTop: insets.top},
+        ]}>
+        <SignedInAssetHeader
+          asset={asset}
+          compact={compact}
+          onBack={navigation.goBack}
+          showCards={false}
+        />
         <View style={styles.transactions}>
           <PrelaunchAssetPanel
             coin={activeCoin}
@@ -331,51 +275,83 @@ const SignedInCoinDetail = ({navigation, route}) => {
   }
 
   return (
-    <View style={[styles.screen, {backgroundColor: theme.colors.background}]}>
+    <View
+      style={[
+        styles.screen,
+        {backgroundColor: theme.colors.background, paddingTop: insets.top},
+      ]}>
+      <SignedInAssetHeader
+        asset={asset}
+        compact={compact}
+        onBack={navigation.goBack}
+        showCards={false}
+      />
       {selectedSubWallet != null ? (
-        <>
-          <SignedInAssetHeader />
-          <View style={styles.transactions}>
-            {overviewContent}
-            <SignedInEdgeFade
-              edge="top"
-              height={32}
-              style={styles.topFade}
-              visible={
-                overviewActive &&
-                fadesMatchSelectedSubWallet &&
-                transactionFades.showTopFade
-              }
+        <View
+          onLayout={event => setBodyHeight(event.nativeEvent.layout.height)}
+          style={styles.body}>
+          <View
+            onLayout={event => setPeekHeight(event.nativeEvent.layout.height)}>
+            <AssetCardStack
+              asset={asset}
+              compact={compact}
+              progress={progress}
+              sheetOpen={sheetOpen}
+              onCloseSheet={() => sheetRef.current?.close()}
+              onSelect={selectCard}
+              onMore={openCardPicker}
+              moreRef={cardPickerTriggerRef}
             />
+            <View
+              pointerEvents={sheetOpen ? 'none' : 'auto'}
+              accessibilityElementsHidden={sheetOpen}
+              importantForAccessibility={
+                sheetOpen ? 'no-hide-descendants' : 'auto'
+              }>
+              <SignedInActionBar
+                placement="assetStack"
+                includeBottomInset={false}
+                convertDisabled={!canConvert}
+                receiveDisabled={!canReceive}
+                sendDisabled={!canSend}
+                onReceive={() =>
+                  mainNavigation.navigate('ReceiveAssetDetails', receiveParams)
+                }
+                onSend={() =>
+                  mainNavigation.navigate('SendWizard', {
+                    ...sourceParams,
+                    mode: SEND_WIZARD_MODE.SEND,
+                  })
+                }
+                onConvert={() =>
+                  mainNavigation.navigate('SendWizard', {
+                    ...sourceParams,
+                    mode: SEND_WIZARD_MODE.CONVERT,
+                  })
+                }
+              />
+            </View>
           </View>
-          <SignedInActionBar
-            // The tab bar below already owns the bottom safe area.
-            includeBottomInset={!compact}
-            convertDisabled={!canConvert}
-            receiveDisabled={!canReceive}
-            sendDisabled={!canSend}
-            showFade={
-              overviewActive &&
-              fadesMatchSelectedSubWallet &&
-              transactionFades.showBottomFade
-            }
-            onReceive={() =>
-              mainNavigation.navigate('ReceiveAssetDetails', receiveParams)
-            }
-            onSend={() =>
-              mainNavigation.navigate('SendWizard', {
-                ...sourceParams,
-                mode: SEND_WIZARD_MODE.SEND,
-              })
-            }
-            onConvert={() =>
-              mainNavigation.navigate('SendWizard', {
-                ...sourceParams,
-                mode: SEND_WIZARD_MODE.CONVERT,
-              })
-            }
-          />
-        </>
+          {bodyHeight > 0 && peekHeight > 0 ? (
+            <DraggableSheet
+              ref={sheetRef}
+              title="Transactions"
+              progress={progress}
+              peekTop={Math.min(
+                peekHeight,
+                Math.max(compact ? 64 : 68, bodyHeight - 52),
+              )}
+              openTop={compact ? 64 : 68}
+              resetKey={`${activeCoin.id}:${selectedSubWallet.id}`}
+              onOpenChange={setSheetOpen}>
+              <View
+                pointerEvents={!overviewActive && !sheetOpen ? 'none' : 'auto'}
+                style={styles.transactions}>
+                {overviewContent}
+              </View>
+            </DraggableSheet>
+          ) : null}
+        </View>
       ) : null}
       <CoinCardPickerSheet
         coin={activeCoin}
@@ -394,45 +370,7 @@ const styles = StyleSheet.create({
   screen: {flex: 1},
   transactions: {flex: 1},
   prelaunchBar: {paddingHorizontal: 16, paddingTop: 10},
-  topFade: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-  },
-  headerLeft: {paddingLeft: 16},
-  headerBackButton: {
-    width: 44,
-    height: 44,
-    marginLeft: -8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerRight: {paddingRight: 16},
-  headerRightButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardCountBadge: {
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 3,
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderRadius: 9,
-  },
-  cardCountText: {
-    fontSize: 9,
-    lineHeight: 12,
-    ...fontStyle('bold'),
-  },
+  body: {flex: 1, overflow: 'hidden'},
 });
 
 export default SignedInCoinDetail;
