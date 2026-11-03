@@ -19,7 +19,7 @@ const AUTHENTICATION_REQUEST_EXPIRED = 'AUTHENTICATION_REQUEST_EXPIRED';
 
 const NEW_REQUEST = 'Ask the requester for a new request.';
 const IDENTITY_DATA_UPLOAD_MESSAGE =
-  'Ask the requester for an upload without data signatures, signature bindings, or credentials. The upload must create a content tree.';
+  'This request uses an upload option that this app does not support. Ask the requester for a new request.';
 
 export const createGenericRequestRejectionError = (code, message, fields) => {
   const error = new Error(message);
