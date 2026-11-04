@@ -377,7 +377,9 @@ that deletes data the wallet cannot restore. In `createAlert`, set the action's
 `style` to `'destructive'`. Keep the primary button's size, shape and label
 style. Disabled uses the primary button's disabled colors. Both themes use
 `destructive` (`#D1242F`), `destructivePressed` (`#B01E28`) and `onDestructive`
-(`#FFFFFF`). Remove asset and Unlink VerusID keep `primary`; both can be undone.
+(`#FFFFFF`). Remove asset keeps `primary`; it can be undone. The existing red
+buttons (Delete wallet screen, Unlink VerusID, Submit revocation) also use
+`destructive`. Never fill a button with `danger`: white text on it is 4.03:1.
 
 Copy: a specific title, never "Error". At most two short sentences. No raw
 error, RPC or library text; log it instead.

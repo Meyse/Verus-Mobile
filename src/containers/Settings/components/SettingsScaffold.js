@@ -770,13 +770,7 @@ export const SettingsActionFooter = ({
             onPress={primaryOnPress}
             style={styles.footerPrimaryButton}
             testID={primaryTestID}
-            buttonColor={
-              primaryVariant === 'danger' ? theme.colors.danger : undefined
-            }
-            textColor={
-              primaryVariant === 'danger' ? theme.colors.onPrimary : undefined
-            }
-            variant={primaryVariant === 'danger' ? 'primary' : primaryVariant}>
+            variant={primaryVariant}>
             {primaryLabel}
           </AppButton>
         </View>
