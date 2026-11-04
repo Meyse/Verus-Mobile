@@ -64,7 +64,7 @@ class DeleteProfile extends Component {
           onPress: () => resolveAlert(false),
           style: 'cancel',
         },
-        {text: 'Delete wallet', onPress: () => resolveAlert(true)},
+        {text: 'Delete wallet', style: 'destructive', onPress: () => resolveAlert(true)},
       ],
     )
   }
@@ -200,7 +200,7 @@ class DeleteProfile extends Component {
             primaryLabel="Delete wallet"
             primaryOnPress={this._handleSubmit}
             primaryTestID="settings.deleteProfile.submit"
-            primaryVariant="danger"
+            primaryVariant="destructive"
             secondaryDisabled={this.state.loading}
             secondaryLabel="Cancel"
             secondaryOnPress={this.cancel}

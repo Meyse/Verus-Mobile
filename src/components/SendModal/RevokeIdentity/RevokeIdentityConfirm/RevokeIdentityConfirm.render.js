@@ -54,10 +54,10 @@ export const RevokeIdentityConfirmRender = ({
             value={acknowledged}
           />
           <AppButton
-            buttonColor={theme.colors.danger}
             disabled={!acknowledged}
             onPress={submitData}
-            testID="revokeRecover.submit">
+            testID="revokeRecover.submit"
+            variant="destructive">
             Submit revocation
           </AppButton>
         </>

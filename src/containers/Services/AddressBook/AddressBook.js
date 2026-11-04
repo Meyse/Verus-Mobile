@@ -209,7 +209,7 @@ const AddressBook = ({navigation}) => {
       'Delete this address?',
       `This removes "${record.label}" from the address book.`,
       [
-        {text: 'Delete', onPress: () => resolveAlert(true)},
+        {text: 'Delete', style: 'destructive', onPress: () => resolveAlert(true)},
         {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
       ],
     );

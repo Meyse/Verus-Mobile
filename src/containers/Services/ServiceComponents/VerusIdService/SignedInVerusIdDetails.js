@@ -587,7 +587,6 @@ const SignedInVerusIdDetails = () => {
         key: 'unlink',
         label: 'Unlink VerusID',
         icon: 'link-variant-off',
-        danger: true,
         onPress: () => {
           setUnlinkError(null);
           setUnlinkVisible(true);
@@ -967,12 +966,11 @@ const SignedInVerusIdDetails = () => {
             style={styles.unlinkActions}>
             <AppButton
               accessibilityLabel={`Unlink ${title}`}
-              buttonColor={theme.colors.danger}
               disabled={unlinking}
               height={56}
               onPress={unlinkIdentity}
-              textColor={theme.colors.onPrimary}
-              themeMode={theme.mode}>
+              themeMode={theme.mode}
+              variant="primary">
               {unlinking ? 'Unlinking...' : 'Unlink VerusID'}
             </AppButton>
             <AppButton

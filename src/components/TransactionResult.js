@@ -39,7 +39,7 @@ import {openUrl} from '../utils/linking';
 // - `warning`: optional line in the warning color, for something the user
 //   must do.
 // - `above`: optional content over the actions, such as why one is off.
-// - `actions`: `[{label, onPress, variant, disabled}]`. The first action is
+// - `actions`: `[{label, onPress, variant, disabled, loading}]`. The first action is
 //   primary unless it sets `variant`; the others are secondary.
 const TransactionResult = ({
   above = null,
@@ -205,6 +205,7 @@ const TransactionResult = ({
             <AppButton
               disabled={action.disabled}
               key={action.label}
+              loading={action.loading}
               onPress={action.onPress}
               variant={action.variant || (index === 0 ? 'primary' : 'secondary')}>
               {action.label}

@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
+import {formatCurrency} from 'react-native-format-currency';
 import {CurrencyIdentityRegistration} from 'verus-typescript-primitives';
+import {USD} from '../../../../../utils/constants/currencies';
 import VrpcProvider from '../../../../../utils/vrpc/vrpcInterface';
 import {getOnChainRate} from '../../../../../utils/api/channels/general/ratesAPIs/onChainPrice';
 import {getCurrencyUsdPrice} from '../../../../../utils/api/channels/general/ratesAPIs/onChainPriceMath';
@@ -85,8 +87,9 @@ export const loadRegistrationNamespaces = async (coin, signingAddress, nativeUsd
       }
     } catch (_) { item.reason = 'Namespace authorization could not be checked. Try again.'; }
   }
+  // The chain itself first, then A–Z. The sheet has no priced group heading.
   return namespaces.sort((a, b) => Number(b.id === coin.system_id) - Number(a.id === coin.system_id) ||
-    Number(!!b.usd) - Number(!!a.usd) || a.name.localeCompare(b.name));
+    a.name.localeCompare(b.name));
 };
 
 export const registrationDisplayPrices = async (coin, currencyIds) => {
@@ -106,9 +109,20 @@ export const registrationDisplayPrices = async (coin, currencyIds) => {
   return prices;
 };
 
-export const registrationFiat = (amounts, prices) => {
+export const registrationFiat = (amounts, prices, displayCurrency = USD, rates = {}) => {
   const entries = Object.entries(amounts || {}).filter(([, amount]) => new BigNumber(amount).gt(0));
   if (!entries.length || entries.some(([id]) => !prices?.[id])) return null;
-  const total = entries.reduce((sum, [id, amount]) => sum.plus(new BigNumber(amount).div('100000000').times(prices[id])), new BigNumber(0));
-  return total.gt(0) && total.lt('0.01') ? '< $0.01' : `$${total.toFormat(2)}`;
+  let total = entries.reduce((sum, [id, amount]) => sum.plus(new BigNumber(amount).div('100000000').times(prices[id])), new BigNumber(0));
+  if (displayCurrency !== USD) {
+    // Each GENERAL rate record shares one USD price and its fiat conversions.
+    // Their ratio is the cached exchange rate, as on the portfolio chart.
+    const pair = Object.values(rates || {}).find(record => [USD, displayCurrency].every(code => {
+      const rate = new BigNumber(record?.[code]);
+      return rate.isFinite() && rate.gt(0);
+    }));
+    if (!pair) return null;
+    total = total.times(pair[displayCurrency]).div(pair[USD]);
+  }
+  const small = total.gt(0) && total.lt('0.01');
+  return `${small ? '< ' : ''}${formatCurrency({amount: small ? '0.01' : total.toFixed(2), code: displayCurrency})[0]}`;
 };

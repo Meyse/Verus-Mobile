@@ -147,7 +147,9 @@ const AlertModal = ({activeAlert}) => {
               onPress={() => choose(button)}
               style={index === 0 ? styles.button : styles.dismissButton}
               testID={`app.alert.button.${index}`}
-              variant={index === 0 ? 'primary' : 'secondary'}>
+              variant={index === 0
+                ? button.style === 'destructive' ? 'destructive' : 'primary'
+                : 'secondary'}>
               {button.text}
             </AppButton>
           ))}

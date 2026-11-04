@@ -37,6 +37,7 @@ const {
   IdentityRegistrationReview, IdentityRegistrationProgress,
 } = require('../../../containers/Services/ServiceComponents/VerusIdService/IdentityRegistration/RegistrationScreens');
 const {CostReview, AmountRows} = require('../../../containers/Services/ServiceComponents/VerusIdService/IdentityRegistration/RegistrationComponents');
+const AppButton = require('../../../components/AppButton').default;
 const {preferredRegistrationFundingSource, registrationFundingSources} = require('../../../containers/Services/ServiceComponents/VerusIdService/IdentityRegistration/fundingSources');
 const quote = {totalOperationRequired: {chain: '100010000'}, totalRequired: {chain: '100000000'}, commitmentFee: '10000', systemID: 'chain'};
 const review = {
@@ -599,52 +600,46 @@ it.each([
   expect(view.root.findAllByType(CostReview)).toHaveLength(0);
 });
 
-it('offers to link a confirmed identity and links only after explicit confirmation', async () => {
+it('links a confirmed identity in one tap and returns after linking', async () => {
   const registered = {...review, status: 'registered', linked: false, commitmentHeight: 10, registrationTxid: 'registration-txid'};
   setSavedReview(registered);
-  const navigation = {navigate: jest.fn(), replace: jest.fn()};
+  const goBack = jest.fn();
+  const navigation = {navigate: jest.fn(), replace: jest.fn(), addListener: jest.fn(() => jest.fn()), getParent: () => ({goBack})};
   const view = await mount(IdentityRegistrationProgress, {navigation});
   expect(mockApi.linkRegisteredIdentity).not.toHaveBeenCalled();
-  expect(textContent(view.root)).toContain('Ready to link');
-  expect(textContent(view.root)).toContain('Registration paid');
+  expect(textContent(view.root)).toContain('VerusID created');
+  expect(view.root.findAllByType(AppButton).some(node => node.props.children === 'Not now')).toBe(true);
   expect(button(view, 'Pay & register identity')).toBeUndefined();
-  await press(button(view, 'Link to wallet'));
-  expect(mockApi.linkRegisteredIdentity).not.toHaveBeenCalled();
-  const actions = mockAlert.mock.calls[0][2];
-  expect(actions.find(action => action.text === 'Not now').style).toBe('cancel');
-  await act(async () => actions.find(action => action.text === 'Link identity').onPress());
+  await press(view.root.findAllByType(AppButton).find(node => node.props.children === 'Link to wallet'));
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledTimes(1);
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledWith('job', expect.any(Object));
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
   expect(mockApi.approveCommitment).not.toHaveBeenCalled();
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(mockAlert).not.toHaveBeenCalled();
+  expect(goBack).toHaveBeenCalledTimes(1);
 });
 
-it('stops passive polling after registration is ready to link and accepts confirmation once', async () => {
+it('stops passive polling after registration is ready to link and links once during repeated taps', async () => {
   jest.useFakeTimers();
   setSavedReview({...review, status: 'registered', linked: false});
-  const navigation = {navigate: jest.fn(), replace: jest.fn()};
+  const goBack = jest.fn();
+  const navigation = {navigate: jest.fn(), replace: jest.fn(), addListener: jest.fn(() => jest.fn()), getParent: () => ({goBack})};
+  let finishLinking;
+  mockApi.linkRegisteredIdentity.mockReturnValueOnce(new Promise(resolve => { finishLinking = resolve; }));
   const view = await mount(IdentityRegistrationProgress, {navigation});
   const initialChecks = mockApi.reconcileRegistration.mock.calls.length;
-  await press(button(view, 'Link to wallet'));
-  await press(button(view, 'Link to wallet'));
-  expect(mockAlert).toHaveBeenCalledTimes(1);
-  await act(async () => jest.advanceTimersByTime(20000));
-  expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(initialChecks);
-  expect(mockApi.linkRegisteredIdentity).not.toHaveBeenCalled();
-
-  await act(async () => mockAlert.mock.calls[0][2].find(action => action.text === 'Not now').onPress());
-  await act(async () => jest.advanceTimersByTime(20000));
-  expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(initialChecks);
-  expect(mockApi.linkRegisteredIdentity).not.toHaveBeenCalled();
-
-  await press(button(view, 'Link to wallet'));
-  expect(mockAlert).toHaveBeenCalledTimes(2);
-  await act(async () => jest.advanceTimersByTime(20000));
-  expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(initialChecks);
-  await act(async () => mockAlert.mock.calls[1][2].find(action => action.text === 'Link identity').onPress());
+  const linkButton = () => view.root.findAllByType(AppButton).find(node => node.props.children === 'Link to wallet');
+  const link = linkButton().props.onPress;
+  await act(async () => { link(); link(); });
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledTimes(1);
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(linkButton().props).toMatchObject({disabled: true, loading: true});
+  expect(goBack).not.toHaveBeenCalled();
+  await act(async () => jest.advanceTimersByTime(20000));
+  expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(initialChecks);
+  await act(async () => finishLinking({...review, status: 'complete', linked: true}));
+  expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledTimes(1);
+  expect(mockAlert).not.toHaveBeenCalled();
+  expect(goBack).toHaveBeenCalledTimes(1);
 });
 
 it('keeps the full cost estimate visible when the wallet needs more funding', async () => {

@@ -182,8 +182,8 @@ are shown before you confirm". Use "The wallet" only when the software acts.
 
 ## Button sizes
 
-On a window of 667 points or less, primary, secondary and tonal buttons are 44
-points high (a tonal button is the secondary action on a dark surface, so it
+On a window of 667 points or less, primary, destructive, secondary and tonal
+buttons are 44 points high (a tonal button is the secondary action on a dark surface, so it
 follows the same rule); the wizard footer's top padding is 8 points. Normal
 windows retain the 56-point default and 16-point wizard footer top padding.
 Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rule
@@ -329,6 +329,10 @@ overflow cue, and a 56-point quiet Done action (44 points on small windows).
 Keep the title literal and the
 content concise. Do not add an illustration, hero icon, or eyebrow.
 
+Prose topics use `InfoSheetTopic` (I1): `titleRow` in `textPrimary`, then
+`bodySm` in `textSecondary` after 4 points, with 20 points between topics.
+Use no dividers, borders, or fill. Keep label/value rows for data only.
+
 Both information and selection sheets use `src/components/SheetScrollView.js`
 for measured overflow cues. Below a 128-point scroll viewport, use the native
 scroll indicator instead of a fade that would obscure the visible content.
@@ -343,6 +347,9 @@ with `variant="secondary"` 10 points under the primary action. Do not rely on
 an outside tap as the only visible way out: users do not reliably know they can
 tap outside a sheet. A warning that the user must accept, such as the seed warning, keeps the
 single button.
+
+For a deletion that the wallet cannot restore, pass `destructive` to
+`AcknowledgeSheet`. Use the destructive button rule in App alerts below.
 
 ### App alerts
 
@@ -368,6 +375,15 @@ Buttons: the action is the primary button and names the action ("Delete wallet",
 "Change and sign out", "Turn on"). The way out is "Not now" with
 `style: 'cancel'`. A one-button alert uses "Close". Outside tap and Android back
 run the way out unless the alert sets `cancelable: false`.
+
+Owner request, 2026-11-04: use `AppButton variant="destructive"` for an action
+that deletes data the wallet cannot restore. In `createAlert`, set the action's
+`style` to `'destructive'`. Keep the primary button's size, shape and label
+style. Disabled uses the primary button's disabled colors. Both themes use
+`destructive` (`#D1242F`), `destructivePressed` (`#B01E28`) and `onDestructive`
+(`#FFFFFF`). Remove asset and Unlink VerusID keep `primary`; both can be undone.
+The Delete wallet screen and Submit revocation use `destructive`.
+Never fill a button with `danger`: white text on it is 4.03:1.
 
 Copy: a specific title, never "Error". At most two short sentences. No raw
 error, RPC or library text; log it instead.
@@ -1391,8 +1407,9 @@ namespace sheet. Canonical source: `IdentityRegistration/RegistrationDesign.js`
 and `identityRegistration.styles.js`. This applies to registration only.
 
 - Reuse `AppTextInput` with the namespace in `endAccessory`: one 48-point
-  outline, 12-point radius, a neutral hairline between the editable name and
-  the growing namespace segment. Focus wraps both. Taken uses a danger outline
+  outline, 12-point radius, and a 1-point divider between the editable name and
+  the growing namespace segment. The divider uses the outline's current color.
+  Focus wraps both. Taken uses a danger outline
   and the status badge. No fill. V3 replaces the earlier filled R/NS fields.
 - Use `ProgressHeader` without the progress track for the combined "New
   VerusID" task. Its right action contains the 44-point Info and Close targets.
@@ -1400,10 +1417,16 @@ and `identityRegistration.styles.js`. This applies to registration only.
   button and `SafeBottomActionStack`. First hold commits; a separate second
   hold registers after one confirmation. Preserve all upstream recovery paths.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
-  seven items, success fill/check for selection, no unselected chevron, prices
-  first, then "No market price". Unavailable rows explain why. Use exact SDK
-  prices and engine quotes; fiat is optional public display data.
-- Explanations and transaction details use `InfoSheet` and `InfoSheetSection`.
+  seven items, success fill/check for selection and no unselected chevron.
+  Hide unavailable namespaces and list the chain's own namespace first, then A–Z.
+  Search can explain a permanently unavailable match. A partial check failure
+  keeps one muted context line and Try again. Owner-approved V1 keeps the
+  canonical rows and uses `quietValue`: bodySm/textSecondary for the price,
+  caption/textSubtle for its fiat line. Token prices show only the number;
+  zero reads Free. The root keeps its ticker. Use exact SDK prices and engine
+  quotes. Fiat uses the display currency and existing cached ledger exchange
+  rates. Hide it when the exchange rate is unavailable; do not fall back to USD.
+- Explanations use `InfoSheetTopic` in `InfoSheet`; transaction details use `InfoSheetSection`.
   Saved/pending jobs use the VerusID tab's filled-row rhythm and Continue pill.
   Results reuse `TransactionResult` and the existing `VerusIdCard`.
 

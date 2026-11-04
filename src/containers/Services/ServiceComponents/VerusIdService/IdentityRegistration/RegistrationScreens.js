@@ -54,7 +54,7 @@ import {
   publishRegistrationJobs,
 } from '../../../../../actions/actions/services/dispatchers/verusid/registration';
 import AppTextInput from '../../../../../components/AppTextInput';
-import InfoSheetSection from '../../../../../components/InfoSheetSection';
+import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import TransactionResult from '../../../../../components/TransactionResult';
 import TextAction from '../../../../../components/TextAction';
 import {createAlert, resolveAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
@@ -77,7 +77,7 @@ const registrationAlert = (title, message, buttons, options) => createAlert(
   }})), options,
 );
 
-// One section per topic, as the VerusID management info sheets do.
+// Prose topics use the shared I1 heading and paragraph treatment.
 const registrationInfo = stage => [
   ['How registration works', 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'],
   ['Commitment', 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'],
@@ -90,7 +90,7 @@ const registrationInfo = stage => [
   ['Referral', 'An eligible VerusID referral discounts your registration cost. You’ll see the discounted price before paying.'],
   ['Recovery', 'Can restore your VerusID if it is revoked.'],
   ['Revocation', 'Can revoke your VerusID. Leave both empty to manage it yourself.'],
-].map(([title, value]) => <InfoSheetSection key={title} title={title} rows={[{label: '', value}]} />);
+].map(([title, value]) => <InfoSheetTopic key={title} title={title}>{value}</InfoSheetTopic>);
 
 const priorQuotes = new Map();
 const rememberQuote = review => {
@@ -157,7 +157,7 @@ const confirmRegistrationDeletion = (record, remove, close) => {
 
   let message = kind === 'completed'
     ? 'Remove this finished registration from the list? Your identity stays registered and linked wallets are kept.'
-    : 'Remove this saved draft? No payment has been sent.';
+    : 'No payment has been sent.';
 
   if (kind === 'commitment') {
     const fee = record.commitmentFee || record.quote?.commitmentFee;
@@ -484,7 +484,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
   ).map(field => preview.identityNames?.[preview.request[field]] || request[field]))];
   const networkName = coin => `${coin.display_ticker}${coin.testnet ? ' · Testnet' : ''}`;
 
-  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || previewError}
+  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error}
     onRetry={() => {setError(null); setPreviewAttempt(value => value + 1);}}
     info={<>{registrationInfo('commitment')}<RegistrationPreviewDetails preview={preview} /></>}
     footer={<>
@@ -492,8 +492,11 @@ export function IdentityRegistrationCreate({navigation, route}) {
       <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>
     </>}>
     <NameField name={name} setName={value => { if (!running.current) setName(value); }} namespace={namespace}
-      availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} />
-    {!!previewError && !isVerusIdTransportError(previewError) && <TextAction disabled={busy} onPress={() => setPreviewAttempt(value => value + 1)}>Try again</TextAction>}
+      availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} previewError={previewError}
+      onRetry={() => {
+        if (isVerusIdTransportError(previewError)) setError(null);
+        setPreviewAttempt(value => value + 1);
+      }} />
     {!!quoteData && (preview?.savedReview && preview.status !== 'commitment_prepared'
       ? <View style={styles.section}><StatusBadge status={preview.status} /><RegistrationText muted>Continue where you left off.</RegistrationText></View>
       : <CostReview {...quoteData} prices={prices} stage="commitment" />)}
@@ -763,23 +766,8 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const confirmLink = () => {
     if (running.current || promptOpen.current) return;
 
-    promptOpen.current = true;
-    const closePrompt = () => {
-      promptOpen.current = false;
-    };
-
-    registrationAlert('Link identity to this wallet?',
-      `${review.displayName} will appear in your wallet cards and addresses. Your wallets will refresh. Linking is free.`, [
-        {text: 'Not now', style: 'cancel', onPress: closePrompt},
-        {
-          text: 'Link identity',
-          onPress: () => {
-            closePrompt();
-            // Linking finishes and removes the saved registration.
-            return runForeground(requestContext => linkRegisteredIdentity(jobId, requestContext), openOverview);
-          },
-        },
-      ], {cancelable: true, onDismiss: closePrompt});
+    // Linking finishes and removes the saved registration.
+    return runForeground(requestContext => linkRegisteredIdentity(jobId, requestContext), openOverview);
   };
 
   const openOverview = () => navigation.getParent().goBack();
@@ -828,17 +816,21 @@ export function IdentityRegistrationProgress({navigation, route}) {
     <TextAction disabled={busy} onPress={() => dismiss(() => navigation.navigate('IdentityRegistrationStart'))}>All registrations</TextAction>
     {!!review.deletionKind && <TextAction disabled={busy} onPress={confirmDelete}>Delete saved registration</TextAction>}
   </>}</RegistrationDetails>;
-  if (review && state.chainComplete) return <TransactionResult title="VerusID created" success
+  if (review && state.chainComplete) {
+    const networkName = currencyLabel(review.systemId, review.currencyNames);
+    const showNetwork = !review.displayName.toLowerCase().endsWith(`.${networkName.toLowerCase()}@`);
+    return <TransactionResult title="VerusID created" success
     description={status === 'registered' ? 'It is not in this wallet yet.' : null}
-    amount={<VerusIdCard name={review.displayName} networkName={currencyLabel(review.systemId, review.currencyNames)} />}
+    amount={<VerusIdCard name={review.displayName} networkName={networkName} showNetwork={showNetwork} />}
     details={<View style={styles.section}>
       <AmountRows label="You paid" amounts={review.quote.totalOperationRequired} currencyNames={review.currencyNames} />
       {details}
     </View>}
     above={(error || loadError) ? <View><RegistrationText style={styles.errorText}>{verusIdErrorMessage(error || loadError)}</RegistrationText>
       {isVerusIdTransportError(error || loadError) && <TextAction disabled={busy} onPress={refresh}>Try again</TextAction>}</View> : null}
-    actions={[{label: action.label, onPress: action.onPress, disabled: busy},
+    actions={[{label: action.label, onPress: action.onPress, disabled: busy, loading: busy},
       ...(status === 'registered' ? [{label: 'Not now', onPress: openOverview, disabled: busy}] : [])]} />;
+  }
 
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || loadError} info={registrationInfo(review?.stage)}
     onRetry={refresh}

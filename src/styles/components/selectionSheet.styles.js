@@ -60,6 +60,8 @@ export const createSelectionSheetStyles = theme =>
     wrappingValueText: {textAlign: 'right'},
     valueText: {...theme.typography.titleRow, color: theme.colors.textPrimary},
     valueLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary},
+    quietValueText: {...theme.typography.bodySm, color: theme.colors.textSecondary},
+    quietValueLabel: {...theme.typography.caption, color: theme.colors.textSubtle},
     indicator: {marginLeft: 10, width: 22, alignItems: 'center'},
     action: {
       minHeight: 62,

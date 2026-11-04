@@ -2,8 +2,20 @@ import React, {useMemo} from 'react';
 import {View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CopyAction from './CopyAction';
-import {deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../styles';
+import {createInfoSheetStyles, deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
+
+export const InfoSheetTopic = ({title, children}) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createInfoSheetStyles(theme), [theme]);
+
+  return (
+    <View style={styles.topic}>
+      <Text accessibilityRole="header" style={styles.topicTitle}>{title}</Text>
+      <Text selectable style={styles.topicBody}>{children}</Text>
+    </View>
+  );
+};
 
 // `copy` adds the shared copy button beside the row. It copies `copyValue`
 // when the shown value differs from the text to copy. `accessory` is a node at

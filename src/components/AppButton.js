@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {Button} from 'react-native-paper';
 import Colors from '../globals/colors';
 import {appButtonStyles as styles} from '../styles';
@@ -17,6 +17,10 @@ const createVariantStyles = theme => ({
   primary: {
     buttonColor: theme.colors.primary,
     textColor: theme.colors.onPrimary,
+  },
+  destructive: {
+    buttonColor: theme.colors.destructive,
+    textColor: theme.colors.onDestructive,
   },
   secondary: {
     buttonColor: theme.isDark ? theme.colors.surfaceMuted : '#EEF2F8',
@@ -68,8 +72,11 @@ const AppButton = ({
   contentStyle,
   labelStyle,
   style,
+  onPressIn,
+  onPressOut,
   ...props
 }) => {
+  const [pressed, setPressed] = useState(false);
   const appTheme = useAppTheme();
   const buttonHeight = useButtonHeight(variant, height);
   const theme = themeMode
@@ -82,7 +89,9 @@ const AppButton = ({
     disabledVariantStyles[variant] || disabledVariantStyles.primary;
   const resolvedButtonColor = disabled
     ? disabledVariantStyle.buttonColor
-    : buttonColor || variantStyle.buttonColor;
+    : buttonColor || (variant === 'destructive' && pressed
+      ? theme.colors.destructivePressed
+      : variantStyle.buttonColor);
   const resolvedTextColor = disabled
     ? disabledVariantStyle.textColor
     : textColor || variantStyle.textColor;
@@ -91,6 +100,14 @@ const AppButton = ({
     <Button
       {...props}
       disabled={disabled}
+      onPressIn={variant === 'destructive' ? event => {
+        setPressed(true);
+        onPressIn?.(event);
+      } : onPressIn}
+      onPressOut={variant === 'destructive' ? event => {
+        setPressed(false);
+        onPressOut?.(event);
+      } : onPressOut}
       mode={mode}
       uppercase={uppercase}
       buttonColor={resolvedButtonColor}
