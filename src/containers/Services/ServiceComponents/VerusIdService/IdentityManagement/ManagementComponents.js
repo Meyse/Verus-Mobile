@@ -17,13 +17,19 @@ import {ErrorMessage} from '../../../../SendWizard/components/WizardUI';
 import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {identityManagementStyles as styles} from '../../../../../styles';
+import {VerusIdFormScrollContext, useVerusIdFormScroll} from '../VerusIdFormScroll';
+import {wrapVerusIdNames} from '../VerusIdCard';
+import TextAction from '../../../../../components/TextAction';
+import {isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
 
 // Preserve engine messages, changing only the product term at the UI boundary.
 export const verusIdText = verusIdCopy;
 
 export const Body = ({children, muted = false, style}) => {
   const theme = useOnboardingTheme();
-  return <Text style={[theme.typography.bodySm, {color: muted ? theme.colors.textSecondary : theme.colors.textPrimary}, style]}>{verusIdText(children)}</Text>;
+  return <Text accessibilityLabel={typeof children === 'string' ? verusIdText(children) : undefined}
+    style={[theme.typography.bodySm, {color: muted ? theme.colors.textSecondary : theme.colors.textPrimary}, style]}>
+    {React.Children.map(children, child => wrapVerusIdNames(verusIdText(child)))}</Text>;
 };
 
 export const SectionTitle = ({children}) => {
@@ -49,10 +55,11 @@ export function useManagementKeyboard() {
   return keyboardOpen;
 }
 
-export function ManagementPage({children, title, progress, onBack, busy, error, footer, info, infoTitle, infoHeight}) {
+export function ManagementPage({children, title, progress, onBack, busy, error, footer, info, infoTitle, infoHeight, onRetry}) {
   const theme = useOnboardingTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const keyboardOpen = useManagementKeyboard();
+  const formScroll = useVerusIdFormScroll(keyboardOpen);
   const [infoOpen, setInfoOpen] = useState(false);
   return <View style={[styles.screen, {backgroundColor: theme.colors.background}]}>
     <ProgressHeader title={title} progress={progress} showProgress={progress != null}
@@ -60,19 +67,28 @@ export function ManagementPage({children, title, progress, onBack, busy, error, 
       rightAction={info ? <ManagementInfoButton label={infoTitle || `About ${title.toLowerCase()}`}
         disabled={busy} onPress={() => {Keyboard.dismiss(); setInfoOpen(true);}} /> : undefined} />
     <KeyboardAvoidingForm style={styles.screen}>
-      <FadedScrollView key={title} containerStyle={styles.screen} contentContainerStyle={styles.content}
+      <VerusIdFormScrollContext.Provider value={formScroll.context}>
+      <FadedScrollView key={title} containerStyle={styles.screen}
+        ref={formScroll.scrollRef} onLayout={formScroll.onLayout} onContentSizeChange={formScroll.onContentSizeChange}
+        showEndFade={!keyboardOpen}
+        contentContainerStyle={[styles.content, formScroll.keyboardPadding]}
         fadeBackgroundColor={theme.colors.background} keyboardShouldPersistTaps="handled">
         {children}
       </FadedScrollView>
+      </VerusIdFormScrollContext.Provider>
+      <View onLayout={formScroll.onFooterLayout} style={{flexShrink: 0}}>
       <SafeBottomActionStack horizontalSpacing={20} bottomSpacing={keyboardOpen ? 12 : smallDevice ? 30 : 48}
         includeBottomInset={!keyboardOpen} gap={8} style={[styles.footer, smallDevice && styles.footerCompact]}>
-        {!!error && <View accessibilityRole="alert" accessibilityLiveRegion="assertive"><ErrorMessage>{verusIdText(error.message || error)}</ErrorMessage></View>}
+        {!!error && <View accessibilityRole="alert" accessibilityLiveRegion="assertive"><ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
+          {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
+        </View>}
         {footer}
       </SafeBottomActionStack>
+      </View>
     </KeyboardAvoidingForm>
     {!!info && <InfoSheet title={infoTitle || `About ${title.toLowerCase()}`} maxHeight={infoHeight}
       visible={infoOpen} onClose={() => setInfoOpen(false)}>
-      {info.map(([label, value]) => <InfoSheetSection key={label} title={label} rows={[{label: '', value: verusIdText(value)}]} />)}
+      {info.map(([label, value]) => <InfoSheetSection key={label} title={label} rows={[{label: '', value: wrapVerusIdNames(verusIdText(value))}]} />)}
     </InfoSheet>}
   </View>;
 }
@@ -85,7 +101,7 @@ export function DetailRow({label, children, technical = false}) {
   return <View style={[technical ? styles.stackedFact : styles.fact, {borderColor: theme.colors.border}]}>
     <Body muted style={technical ? undefined : styles.flexible}>{label}</Body>
     <Text selectable={technical} style={[theme.typography.labelMd, {color: theme.colors.textPrimary},
-      technical ? styles.identifier : styles.factValue]}>{verusIdText(children)}</Text>
+      technical ? styles.identifier : styles.factValue]} accessibilityLabel={verusIdText(children)}>{wrapVerusIdNames(verusIdText(children))}</Text>
   </View>;
 }
 
@@ -110,11 +126,12 @@ export function SelectionField({label, value, options, onSelect, disabled}) {
     <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} accessibilityState={{disabled: !!disabled}}
       disabled={disabled} onPress={() => {Keyboard.dismiss(); setVisible(true);}} style={[styles.fact, {borderColor: theme.colors.border}]}>
       <Body muted style={styles.flexible}>{label}</Body>
-      <Text style={[theme.typography.labelMd, styles.factValue, {color: theme.colors.textPrimary}]}>{value}</Text>
+      <Text accessibilityLabel={value} style={[theme.typography.labelMd, styles.factValue, {color: theme.colors.textPrimary}]}>{wrapVerusIdNames(value)}</Text>
       <Icon name="chevron-right" size={22} color={theme.colors.textSubtle} />
     </Pressable>
     <SelectionSheet title={label} visible={visible} onClose={dismissal.close} onClosed={dismissal.onClosed}>
-      {options.map(option => <SelectionRow key={option.value} title={option.label} subtitle={option.description}
+      {options.map(option => <SelectionRow key={option.value} title={wrapVerusIdNames(option.label)} subtitle={option.description}
+        accessibilityLabel={[option.label, option.description].filter(Boolean).join(', ')}
         selected={option.selected} showChevron={false} onPress={() => dismissal.dismiss(() => onSelect(option.value))} />)}
     </SelectionSheet>
   </>;

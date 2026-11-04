@@ -23,6 +23,9 @@ import {ManagementPage as Page, ActionButton, Body, CheckOption, DetailRow, Disc
 import {currencyLabel} from '../IdentityRegistration/RegistrationComponents';
 import {identityLabel} from '../IdentityRegistration/presentation';
 import {preferredRegistrationFundingSource, registrationFundingBalance} from '../IdentityRegistration/fundingSources';
+import {VerusIdFormField} from '../VerusIdFormScroll';
+import {VerusIdName, wrapVerusIdNames} from '../VerusIdCard';
+import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError} from '../verusIdErrors';
 
 
 const authorityName = (address, model) => address === model.identityAddress
@@ -63,10 +66,7 @@ const useAction = () => {
       succeeded = true;
     } catch (failure) {
       if (mounted.current && isCurrent() && failure.code !== 'SESSION_CHANGED')
-        setError({
-          code: failure.code,
-          message: failure.message || 'Unable to complete this step. Please try again.',
-        });
+        setError(verusIdUiError(failure, 'Unable to complete this step. Please try again.'));
     } finally {
       running.current = false;
       if (mounted.current) setBusy(false);
@@ -190,7 +190,8 @@ function Strong({children}) {
 function IdentityHeading({model, fallback}) {
   const theme = useOnboardingTheme();
   return <View style={styles.heading}>
-    <Text style={[theme.typography.titleSheet, {color: theme.colors.textPrimary}]}>{model?.displayName || fallback || 'VerusID'}</Text>
+    <VerusIdName name={model?.displayName || fallback || 'VerusID'} style={theme.typography.titleSheet}
+      leafColor={theme.colors.textPrimary} restColor={theme.colors.textSecondary} />
     {!!model && <Body muted>{`${model.feeCurrency || model.networkName || model.chainTicker}${model.isTestnet ? ' · Testnet' : ''}`}</Body>}
   </View>;
 }
@@ -271,48 +272,54 @@ function IdentityModifyForm({navigation, route}) {
     info={info} infoTitle={title} error={error} footer={<ActionButton busy={busy}
       disabled={!!model && !chosen.length && error?.code !== 'REVIEW_CHANGED'}
       onPress={error?.code === 'REVIEW_CHANGED' || !model ? load : continueStep}>
-      {error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : !model ? 'Load VerusID' : step === selected.length && step > 0 ? 'Review changes' : 'Continue'}
+      {isVerusIdTransportError(error) ? 'Try again' : error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : !model ? 'Load VerusID' : step === selected.length && step > 0 ? 'Review changes' : 'Continue'}
     </ActionButton>}>
     {!model ? busy ? <LoadingIdentity /> : <Body muted>Load this VerusID to continue.</Body> : !section ? <>
       <Body muted>{`Choose what to change for ${model.displayName}.`}</Body>
       <View style={styles.group}>
-        {sections.map(item => <SelectionRow key={item.key} title={item.title} subtitle={summaries[item.key]}
+        {sections.map(item => <SelectionRow key={item.key} title={item.title} subtitle={wrapVerusIdNames(summaries[item.key])}
+          accessibilityLabel={`${item.title}, ${summaries[item.key]}`}
           subtitleMonospace={item.key === 'private' && !!model.fields.privateaddress}
           accessibilityRole="checkbox" selected={chosen.includes(item.key)} showChevron={false} disabled={busy} onPress={() => toggle(item)} />)}
       </View>
       <View style={styles.group}><FundingSource form={form} /></View>
     </> : <View style={styles.section}>
       {section.key === 'spend' && <>
-        {fields.primaryaddresses.map((address, index) => <View key={index}>
+        {fields.primaryaddresses.map((address, index) => <VerusIdFormField key={index}>{focusProps => <>
           <AppAddressInput label={`Primary address ${index + 1}`} accessibilityLabel={`Primary address ${index + 1}`} value={address}
+            {...focusProps}
             editable={!busy} technical placeholder="R-address"
             onChangeText={value => change('primaryaddresses', fields.primaryaddresses.map((existing, at) => at === index ? value : existing))} />
           {fields.primaryaddresses.length > 1 && <TextAction disabled={busy} accessibilityLabel={`Remove primary address ${index + 1}`}
             onPress={() => change('primaryaddresses', fields.primaryaddresses.filter((_, at) => at !== index))}>Remove address</TextAction>}
-        </View>)}
+        </>}</VerusIdFormField>)}
         {fields.primaryaddresses.length < MAX_IDENTITY_PRIMARY_ADDRESSES && <TextAction Icon={Plus} disabled={busy}
           onPress={() => change('primaryaddresses', [...fields.primaryaddresses, ''])}>Add primary address</TextAction>}
-        <AppTextInput label="Required signatures" accessibilityLabel="Required signatures" value={fields.minimumsignatures}
+        <VerusIdFormField>{focusProps => <>
+        <AppTextInput {...focusProps} label="Required signatures" accessibilityLabel="Required signatures" value={fields.minimumsignatures}
           keyboardType="number-pad" editable={!busy} onChangeText={value => change('minimumsignatures', value)} />
         {Number(fields.minimumsignatures) > 1 && <Warning>Multiple signatures may prevent this wallet from making future updates on its own.</Warning>}
+        </>}</VerusIdFormField>
       </>}
       {section.key === 'recover' && <>
         {[
           ['revocationauthority', 'Revocation VerusID', 'Revocation identity'],
           ['recoveryauthority', 'Recovery VerusID', 'Recovery identity'],
-        ].map(([key, label, accessibilityLabel]) => <View key={key}>
-          <AppAddressInput label={label} accessibilityLabel={accessibilityLabel} value={fields[key]} editable={!busy} placeholder="guardian@"
+        ].map(([key, label, accessibilityLabel]) => <VerusIdFormField key={key}>{focusProps => <>
+          <AppAddressInput {...focusProps} label={label} accessibilityLabel={verusIdText(accessibilityLabel)} value={fields[key]} editable={!busy} placeholder="guardian@"
             technical={!fields[key].endsWith('@')} onChangeText={value => change(key, value)} />
-          <TextAction disabled={busy} accessibilityLabel={`Use this identity for ${accessibilityLabel.toLowerCase()}`}
+          <TextAction disabled={busy} accessibilityLabel={verusIdText(`Use this identity for ${accessibilityLabel.toLowerCase()}`)}
             onPress={() => change(key, model.displayName)}>Use this VerusID</TextAction>
-        </View>)}
-        {!selfRecovery && looksLikeVerusId(fields.recoveryauthority) && <Warning>{`${fields.recoveryauthority.trim()} can take control of this VerusID.`}</Warning>}
+          {key === 'recoveryauthority' && !selfRecovery && looksLikeVerusId(fields.recoveryauthority) && <Warning>{`${fields.recoveryauthority.trim()} can take control of this VerusID.`}</Warning>}
+        </>}</VerusIdFormField>)}
       </>}
       {section.key === 'private' && <>
-        <AppAddressInput label="Private address (optional)" accessibilityLabel="Private address (optional)" value={fields.privateaddress}
+        <VerusIdFormField>{focusProps => <>
+        <AppAddressInput {...focusProps} label="Private address (optional)" accessibilityLabel="Private address (optional)" value={fields.privateaddress}
           editable={!busy} technical placeholder="zs-address" onChangeText={value => change('privateaddress', value)} />
         {!!model.walletPrivateAddress && <TextAction disabled={busy}
           onPress={() => change('privateaddress', model.walletPrivateAddress)}>Use this wallet’s private address</TextAction>}
+        </>}</VerusIdFormField>
       </>}
     </View>}
   </Page>;
@@ -352,7 +359,7 @@ function IdentityTransferForm({navigation, route}) {
   return <Page title="Transfer VerusID" onBack={back} busy={busy} error={error} info={info} infoTitle="About this transfer" infoHeight="86%"
     footer={<ActionButton busy={busy} disabled={!!model && !recipient.trim() && error?.code !== 'REVIEW_CHANGED'}
       onPress={model && error?.code !== 'REVIEW_CHANGED' ? () => review(recipient.trim(), {returnFunds, returnAddress: model.signingAddress}) : load}>
-      {error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : model ? 'Review transfer' : 'Load VerusID'}
+      {isVerusIdTransportError(error) ? 'Try again' : error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : model ? 'Review transfer' : 'Load VerusID'}
     </ActionButton>}>
     {!model ? busy ? <LoadingIdentity /> : <Body muted>Load this VerusID to continue.</Body> : <>
       <IdentityHeading model={model} fallback={route.params?.displayName} />
@@ -461,6 +468,7 @@ export function IdentityUpdateReview({navigation}) {
     ['Other VerusID details', 'The VerusID’s name, content and any existing lock are preserved.'],
   ];
   return <Page title="Review changes" progress={transfer ? undefined : 1} onBack={leave} busy={busy} error={error}
+    onRetry={leave}
     info={info} infoTitle="About these changes" footer={<>
       {needsAcknowledgement && <CheckOption label="I understand who will control this VerusID."
         accessibilityLabel="I understand who will control this identity" checked={acknowledged} disabled={busy}
@@ -583,13 +591,15 @@ export function IdentityUpdateResult({navigation}) {
   return <TransactionResult title={deliveryUnknown ? 'Delivery not confirmed' : result ? 'Update sent' : 'VerusID update'}
     success={!!result && !deliveryUnknown}
     description={deliveryUnknown ? 'The network may have received this VerusID update. Check the transaction’s status before starting a new review.'
-      : result ? `${review?.displayName} is waiting for network confirmation.` : null}
+      : result ? wrapVerusIdNames(`${review?.displayName} is waiting for network confirmation.`) : null}
     details={!deliveryUnknown && result ? <DetailRow label="Network fee">{`${review?.fee} ${review?.feeCurrency || review?.chainTicker}`}</DetailRow> : null}
     transactions={result ? [{txid: result.txid}] : []} caption={captions.filter(Boolean)}
-    warning={result?.unlinkError ? verusIdText(`Unlinking needs another try. ${result.unlinkError}`) : null}
-    above={error ? <Body>{verusIdText(error.message)}</Body> : null}
+    warning={result?.unlinkError ? isVerusIdTransportError(result.unlinkError) ? verusIdErrorMessage(result.unlinkError)
+      : verusIdText(`Unlinking needs another try. ${result.unlinkError}`) : null}
+    above={error && !(isVerusIdTransportError(error) && isVerusIdTransportError(result?.unlinkError))
+      ? <Body>{verusIdErrorMessage(error)}</Body> : null}
     actions={[
-      ...(result?.unlinkError ? [{label: busy ? 'Retrying unlink…' : 'Retry unlink', disabled: busy, onPress: retryUnlink}] : []),
+      ...(result?.unlinkError ? [{label: busy ? 'Retrying unlink…' : isVerusIdTransportError(error || result.unlinkError) ? 'Try again' : 'Retry unlink', disabled: busy, onPress: retryUnlink}] : []),
       // An unlinked VerusID has no page left to return to, so Done goes to the VerusID list (upstream lands there too).
       {label: deliveryUnknown ? 'Close' : 'Done', disabled: busy, onPress: () => result?.unlinked
         ? navigation.getParent().popToTop() : navigation.getParent().goBack()},

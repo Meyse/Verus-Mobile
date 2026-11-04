@@ -24,16 +24,20 @@ import {createIdentityRegistrationStyles} from '../../../../../styles';
 import {currencyLabel} from './RegistrationComponents';
 import {formatRegistrationAmount, identityLabel as upstreamIdentityLabel, registrationCostRows, registrationState} from './presentation';
 import {registrationFiat} from './namespaceData';
+import {VerusIdFormField, VerusIdFormScrollContext, useVerusIdFormScroll} from '../VerusIdFormScroll';
+import {VerusIdName, wrapVerusIdNames} from '../VerusIdCard';
+import {isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
 
 export {currencyLabel};
-export const identityLabel = (...args) => upstreamIdentityLabel(...args).replace(/\bidentity\b/gi, 'VerusID');
+export const identityLabel = (...args) => verusIdCopy(upstreamIdentityLabel(...args));
 export const useRegistrationStyles = () => {
   const theme = useAppTheme();
   return useMemo(() => createIdentityRegistrationStyles(theme), [theme]);
 };
 export const RegistrationText = ({children, muted = false, style, ...props}) => {
   const styles = useRegistrationStyles();
-  return <Text {...props} style={[muted ? styles.muted : styles.body, style]}>{children}</Text>;
+  return <Text accessibilityLabel={typeof children === 'string' ? verusIdCopy(children) : undefined}
+    {...props} style={[muted ? styles.muted : styles.body, style]}>{wrapVerusIdNames(verusIdCopy(children))}</Text>;
 };
 export const RegistrationSkeleton = ({label = 'Loading costs'}) => {
   const theme = useAppTheme();
@@ -44,13 +48,14 @@ export const RegistrationSkeleton = ({label = 'Loading costs'}) => {
 };
 
 export const RegistrationPage = ({children, error, refreshing = false, onRefresh, footer,
-  navigation, title = 'New VerusID', busy = false, busyRef, info, showHeader = true}) => {
+  navigation, title = 'New VerusID', busy = false, busyRef, info, showHeader = true, onRetry}) => {
   const theme = useAppTheme();
   const styles = useRegistrationStyles();
   const insets = useSafeAreaInsets();
   const {height} = useWindowDimensions();
   const [infoVisible, setInfoVisible] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
+  const formScroll = useVerusIdFormScroll(keyboard);
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true));
     const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false));
@@ -73,18 +78,25 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
     {showHeader && <ProgressHeader showBack={false} showProgress={false} title={title} rightAction={rightAction} />}
     {/* The header is inside this page, so the form's own frame already starts below it (offset 0, as ManagementPage). */}
     <KeyboardAvoidingForm style={styles.page}>
+      <VerusIdFormScrollContext.Provider value={formScroll.context}>
       <SheetScrollView fill style={styles.scroll} scrollViewProps={{
+        ref: formScroll.scrollRef,
+        onLayout: formScroll.onLayout,
+        onContentSizeChange: formScroll.onContentSizeChange,
+        showsVerticalScrollIndicator: keyboard,
         keyboardShouldPersistTaps: 'handled',
         refreshControl: onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={() => onRefresh(true)}
           tintColor={theme.colors.primary} colors={[theme.colors.primary]} /> : undefined,
-      }} contentContainerStyle={[styles.content, !showHeader && {paddingTop: insets.top + 40}]}>
+      }} contentContainerStyle={[styles.content, !showHeader && {paddingTop: insets.top + 40}, formScroll.keyboardPadding]}>
         {children}
       </SheetScrollView>
-      {!!footer && <View testID="registration-footer"><SafeBottomActionStack gap={10} horizontalSpacing={20} bottomSpacing={height <= 667 ? 24 : 28}
+      </VerusIdFormScrollContext.Provider>
+      {!!footer && <View testID="registration-footer" onLayout={formScroll.onFooterLayout}><SafeBottomActionStack gap={10} horizontalSpacing={20} bottomSpacing={height <= 667 ? 24 : 28}
         includeBottomInset={!keyboard} style={[styles.footer, height <= 667 && {paddingTop: 8}]}
         >
         {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
-          <Text style={styles.errorText}>{verusIdCopy(String(error.message || error))}</Text>
+          <Text style={styles.errorText}>{verusIdErrorMessage(error)}</Text>
+          {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
         </View>}
         {footer}
       </SafeBottomActionStack></View>}
@@ -130,13 +142,15 @@ export const SelectionField = ({label, value, description, options, onSelect, di
     <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} accessibilityState={{expanded: open, disabled: !!disabled}}
       disabled={disabled} onPress={() => { Keyboard.dismiss(); setOpen(true); }} style={[styles.row, styles.touchRow]}>
       <Text style={styles.label}>{label}</Text><View style={[styles.flexible, {alignItems: 'flex-end'}]}>
-        <Text style={[styles.amount, {textAlign: 'right'}]}>{value}</Text>
+        <VerusIdName name={value} style={[styles.amount, {textAlign: 'right'}]}
+          leafColor={theme.colors.textPrimary} restColor={theme.colors.textSecondary} />
         {!!description && <Text style={styles.identifier}>{description}</Text>}
       </View>
       <ChevronRight size={20} color={theme.colors.textSubtle} />
     </Pressable>
     <SelectionSheet title={label === 'Pay from' ? 'Choose an address' : label} visible={open} onClose={dismissal.close} onClosed={dismissal.onClosed}>
-      {options.map(option => <SelectionRow key={option.value} title={option.label} subtitle={option.description}
+      {options.map(option => <SelectionRow key={option.value} title={wrapVerusIdNames(option.label)} subtitle={option.description}
+        accessibilityLabel={[option.label, option.description].filter(Boolean).join(', ')}
         selected={option.selected} showChevron={false} accessibilityRole="radio" disabled={disabled}
         onPress={() => dismissal.dismiss(() => onSelect(option.value))} />)}
     </SelectionSheet>
@@ -146,10 +160,11 @@ export const SelectionField = ({label, value, description, options, onSelect, di
 export const NameField = ({name, setName, namespace, onNamespace, busy, availability}) => {
   const styles = useRegistrationStyles();
   const theme = useAppTheme();
-  return <View style={styles.section}>
+  return <VerusIdFormField style={styles.section}>{focusProps => <>
     <Text style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>Name</Text>
     <Text style={styles.muted}>You cannot change it later.</Text>
-    <AppTextInput accessibilityLabel="Identity name" placeholder="Type a name" value={name} onChangeText={setName}
+    <AppTextInput accessibilityLabel={verusIdCopy('Identity name')} placeholder="Type a name" value={name} onChangeText={setName}
+      {...focusProps}
       editable={!busy} returnKeyType="done" invalid={availability === 'taken'} endAccessory={<>
         <View style={styles.namespaceDivider} />
         <Pressable accessibilityRole="button" accessibilityLabel={`Choose a namespace: ${namespace?.name || 'Verus'}`} disabled={busy}
@@ -164,7 +179,7 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
         : <Text style={styles.muted}>{availability === 'checking' ? 'Checking name…' : 'Tap @ to choose a namespace.'}</Text>}
       {availability === 'taken' && <Text style={styles.muted}>Try another name or namespace.</Text>}
     </View>
-  </View>;
+  </>}</VerusIdFormField>;
 };
 
 export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSelect, loading, error, onRetry}) => {
@@ -225,7 +240,9 @@ export const CostReview = ({quote, currencyNames, stage = 'commitment', prices =
 
 export const IdentitySummary = ({review}) => {
   const styles = useRegistrationStyles();
-  return <View style={styles.section}><Text style={styles.subtitle}>{review.displayName}</Text></View>;
+  const theme = useAppTheme();
+  return <View style={styles.section}><VerusIdName name={review.displayName} style={styles.subtitle}
+    leafColor={theme.colors.textPrimary} restColor={theme.colors.textSecondary} /></View>;
 };
 
 // Read-only facts from the same resolved policy and normalized request that
@@ -322,9 +339,10 @@ export const RegistrationListItem = ({job, onPress, disabled, busy, onDelete, de
     ? 'Second payment is ready' : state.title;
   return <View style={styles.job}>
     <View style={styles.row}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${job.displayName || job.name}. ${state.title}. ${busy ? 'Opening registration' : state.action}`}
+      <Pressable accessibilityRole="button" accessibilityLabel={`${job.displayName || job.name}. ${busy ? 'Opening registration' : subtitle}. ${actionable ? 'Continue' : state.action}`}
         disabled={disabled || deleting} accessibilityState={{disabled: !!disabled || !!deleting, busy: !!busy}} onPress={onPress} style={styles.flexible}>
-        <Text style={[theme.typography.titleRow, {color: theme.colors.textPrimary}]}>{job.displayName || job.name}</Text>
+        <VerusIdName name={job.displayName || job.name} style={theme.typography.titleRow}
+          leafColor={theme.colors.textPrimary} restColor={theme.colors.textSecondary} />
         <Text style={styles.muted}>{busy ? 'Opening registration…' : subtitle}</Text>
       </Pressable>
       {actionable ? <TextAction disabled={disabled || deleting} onPress={onPress} style={styles.jobPill}>Continue</TextAction>
