@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
 import {Keyboard, Pressable, Text, View} from 'react-native';
 import {Info, TriangleAlert} from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -18,8 +19,7 @@ import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {identityManagementStyles as styles} from '../../../../../styles';
 
 // Preserve engine messages, changing only the product term at the UI boundary.
-export const verusIdText = value => typeof value === 'string' ? value
-  .replace(/identities/gi, 'VerusIDs').replace(/identity/gi, 'VerusID') : value;
+export const verusIdText = verusIdCopy;
 
 export const Body = ({children, muted = false, style}) => {
   const theme = useOnboardingTheme();

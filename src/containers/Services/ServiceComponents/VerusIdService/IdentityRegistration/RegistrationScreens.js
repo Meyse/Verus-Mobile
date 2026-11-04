@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
 import {AppState, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
@@ -65,9 +66,9 @@ import {AtSign} from 'lucide-react-native';
 
 // The app alert calls each action only after its confirmation sheet closes.
 const registrationAlert = (title, message, buttons, options) => createAlert(
-  title.replace(/\bidentity\b/gi, 'VerusID'),
-  message.replace(/\bidentities\b/gi, 'VerusIDs').replace(/\bidentity\b/gi, 'VerusID'),
-  buttons.map(button => ({...button, text: button.text.replace(/\bidentity\b/gi, 'VerusID'), onPress: () => {
+  verusIdCopy(title),
+  verusIdCopy(message),
+  buttons.map(button => ({...button, text: verusIdCopy(button.text), onPress: () => {
     resolveAlert(button.style !== 'cancel');
     button.onPress?.();
   }})), options,
@@ -788,7 +789,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
   else if (state.kind === 'attention') action = {label: 'Check status', onPress: refresh};
 
   const details = review && <RegistrationDetails review={review}>{dismiss => <>
-    <RegistrationText muted>{state.detail.replace(/\bidentity\b/gi, 'VerusID')}</RegistrationText>
+    <RegistrationText muted>{verusIdCopy(state.detail)}</RegistrationText>
     <TextAction disabled={busy} onPress={refresh}>Check status</TextAction>
     <TextAction disabled={busy} onPress={() => dismiss(() => navigation.navigate('IdentityRegistrationStart'))}>All registrations</TextAction>
     {!!review.deletionKind && <TextAction disabled={busy} onPress={confirmDelete}>Delete saved registration</TextAction>}
@@ -818,7 +819,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       <IdentitySummary review={review} />
       {state.kind === 'attention' && <StatusBadge status={status} />}
       {review.quote && <RegistrationSteps status={status} quote={review.quote} currencyNames={review.currencyNames} prices={prices} />}
-      {state.kind === 'attention' && <RegistrationText>{state.detail.replace(/\bidentity\b/gi, 'VerusID')}</RegistrationText>}
+      {state.kind === 'attention' && <RegistrationText>{verusIdCopy(state.detail)}</RegistrationText>}
       {canRetry && <Text style={styles.muted}>Retry sends the saved transaction. It does not create another payment.</Text>}
       {details}
       {!!review.lastError && <View style={styles.notice}>

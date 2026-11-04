@@ -128,6 +128,8 @@ function useIdentityForm(route, navigation, mode) {
 
   const change = (field, value) => {
     setPlan(null);
+    // An edit answers the last review error. A changed VerusID still needs Reload.
+    if (action.error?.code !== 'REVIEW_CHANGED') action.setError(null);
     setFields(current => ({...current, [field]: value}));
   };
 

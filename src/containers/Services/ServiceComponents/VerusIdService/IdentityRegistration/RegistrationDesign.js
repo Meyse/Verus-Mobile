@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
 import {Keyboard, Pressable, RefreshControl, Text, View, useWindowDimensions} from 'react-native';
 import {ChevronDown, ChevronRight, ChevronUp, Info, Trash2} from 'lucide-react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -83,7 +84,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
         includeBottomInset={!keyboard} style={[styles.footer, height <= 667 && {paddingTop: 8}]}
         >
         {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
-          <Text style={styles.errorText}>{String(error.message || error).replace(/\bidentities\b/g, 'VerusIDs').replace(/\bidentity\b/gi, 'VerusID')}</Text>
+          <Text style={styles.errorText}>{verusIdCopy(String(error.message || error))}</Text>
         </View>}
         {footer}
       </SafeBottomActionStack></View>}
