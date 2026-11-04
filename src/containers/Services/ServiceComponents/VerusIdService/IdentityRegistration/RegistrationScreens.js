@@ -510,11 +510,11 @@ export function IdentityRegistrationCreate({navigation, route}) {
             description: balance != null && showBalance ? `${String(balance)} ${selected.display_ticker} confirmed` : source.isIdentity ? 'Linked VerusID' : source.address};
         })} onSelect={address => setManualFunding(current => ({...current, [coinId]: address}))} />
       <Disclosure title="More options" summary="Referral, recovery">
-        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Referral (optional)" accessibilityLabel="Referral identity, optional" placeholder="Optional"
+        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Referral (optional)" accessibilityLabel={verusIdCopy('Referral identity, optional')} placeholder="Optional"
           helperText="Lowers the price." value={referralID} onChangeText={setReferralID} editable={!busy} />}</VerusIdFormField>
-        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Revocation VerusID (optional)" accessibilityLabel="Revocation identity, optional" placeholder="This VerusID"
+        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Revocation VerusID (optional)" accessibilityLabel={verusIdCopy('Revocation identity, optional')} placeholder="This VerusID"
           helperText="Can revoke your VerusID. Leave both empty to manage it yourself." value={revocationAuthority} onChangeText={setRevocationAuthority} editable={!busy} />}</VerusIdFormField>
-        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Recovery VerusID (optional)" accessibilityLabel="Recovery identity, optional" placeholder="This VerusID"
+        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Recovery VerusID (optional)" accessibilityLabel={verusIdCopy('Recovery identity, optional')} placeholder="This VerusID"
           helperText="Can restore your VerusID if it is revoked." value={recoveryAuthority} onChangeText={setRecoveryAuthority} editable={!busy} />}</VerusIdFormField>
         {externalAuthorities.map(authority => <View key={authority} style={styles.notice}>
           <Text style={styles.warningText}>{identityLabel(authority)} can take control of this VerusID.</Text>

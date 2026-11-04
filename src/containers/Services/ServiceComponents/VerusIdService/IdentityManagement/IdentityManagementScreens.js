@@ -366,7 +366,7 @@ function IdentityTransferForm({navigation, route}) {
       <AppAddressInput label="New owner" accessibilityLabel="New owner" value={recipient} placeholder="R-address or satoshi@"
         technical={!!recipient && !recipient.endsWith('@')} editable={!busy} onChangeText={setRecipient}
         scanAccessibilityLabel="Scan QR code" onScan={() => {Keyboard.dismiss(); scanHandled.current = false; setScanning(true);}} />
-      <View style={{marginTop: 16}}><CheckOption label="Return VerusID funds to my wallet" accessibilityLabel="Return identity funds to my wallet"
+      <View style={{marginTop: 16}}><CheckOption label="Return VerusID funds to my wallet" accessibilityLabel={verusIdText('Return identity funds to my wallet')}
         checked={returnFunds} disabled={busy} onPress={() => setReturnFunds(value => !value)} /></View>
       {returnFunds ? <View style={styles.returnAddress}>
         <Body muted>Return to <Strong>Main wallet address</Strong></Body>
@@ -471,7 +471,7 @@ export function IdentityUpdateReview({navigation}) {
     onRetry={leave}
     info={info} infoTitle="About these changes" footer={<>
       {needsAcknowledgement && <CheckOption label="I understand who will control this VerusID."
-        accessibilityLabel="I understand who will control this identity" checked={acknowledged} disabled={busy}
+        accessibilityLabel={verusIdText('I understand who will control this identity')} checked={acknowledged} disabled={busy}
         onPress={() => setAcknowledgedPlan(value => value === plan ? null : plan)} />}
       {stale ? <ActionButton onPress={() => {
         setPlan(null); setReloadVersion(version => version + 1); navigation.goBack();
