@@ -98,9 +98,13 @@ const NotificationWidget = () => {
     <View style={styles.container}>
       {registrationNotices.map(notice => (
         <View key={notice.uid} style={[styles.card, styles.cardSpacing, {backgroundColor: theme.colors.surfaceMuted}]}>
-          {/* No flex here: this title sits in a column, where flex 1 gave it zero height. */}
-          <Text style={[styles.title, styles.columnTitle, {color: theme.colors.textPrimary}]}>
-            <Text style={styles.highlight}>{notice.identityName}</Text>{' '}{verusIdCopy(notice.statusText)}
+          {/* No flex here: these lines sit in a column, where flex 1 gave them zero height.
+              The status is its own sentence, so it gets its own line under the name. */}
+          <Text style={[styles.title, styles.columnTitle, styles.highlight, {color: theme.colors.textPrimary}]}>
+            {notice.identityName}
+          </Text>
+          <Text style={[theme.typography.bodySm, styles.noticeStatus, {color: theme.colors.textSecondary}]}>
+            {verusIdCopy(notice.statusText)}
           </Text>
           <AppButton compact height={36} variant="secondary" themeMode={theme.mode}
             buttonColor={theme.colors.surface} labelStyle={styles.actionLabel} style={styles.action}
@@ -204,6 +208,7 @@ const styles = StyleSheet.create({
     ...fontStyle('regular'),
   },
   columnTitle: {flex: 0},
+  noticeStatus: {marginTop: 2},
   highlight: {...fontStyle('semiBold')},
   // A 44-point target around the 20-point icon, centered on the first line.
   dismissButton: {

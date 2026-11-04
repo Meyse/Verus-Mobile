@@ -78,7 +78,7 @@ const registrationAlert = (title, message, buttons, options) => createAlert(
 const registrationInfo = stage => [
   ['How registration works', 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'],
   ['Commitment', 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'],
-  ['Keep your app data', 'The commitment fee is non-refundable. It does not reserve your name. Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.'],
+  ['Keep your app data', 'The commitment fee is non-refundable. Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.'],
   ['Your approval', stage === 'registration' ? 'Holding the button approves this VerusID and its registration payment.' : 'Holding the button approves the commitment fee on this screen.'],
   ['Next payment', 'You approve the registration payment separately after confirmation. Its price may change.'],
   ['Registration', 'This payment creates your VerusID after confirmation.'],
