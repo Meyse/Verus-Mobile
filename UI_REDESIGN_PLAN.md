@@ -2829,6 +2829,17 @@ No Metro server, simulator, device, signing or broadcast ran. Native rendering,
 keyboard, accessibility and live Transfer + unlink remain orchestrator gates.
 Detailed mapping, exact commands and hard-to-reach states: `idreg-ui-mgmt.local.md`.
 
+V2 decision, 2026-11-04: Max approved visible checkboxes for Link, gift-card
+VerusID choices and Modify sections. All use the shared multi-select rule in
+`DESIGN.md`. Busy rows keep their boxes. Linked rows show `Linked` once, at
+full opacity, with the name at 0.6. The five approved V2/M2/G2 mockups were
+inspected. Native normal/compact and light/dark QA remains with the orchestrator.
+V2 checks: design (39 sources, 17 materials), safe-area (3 JS files), Babel
+and 48 controlled React row scenarios pass. Single-choice output matches the
+base after resolving styles. Three existing Jest suites stop before tests run
+on native mock imports (`Mixin`, `Platform.OS`). ESLint stops on the existing
+`eslint-plugin-import` package-export error. No tests were added or changed.
+
 ### ID-3.REG — New VerusID, phase 2a (2026-11-04)
 
 Design contract: owner-approved R1–R9, V3a–V3d, V1c/e/f/g/h and NS1–NS8;

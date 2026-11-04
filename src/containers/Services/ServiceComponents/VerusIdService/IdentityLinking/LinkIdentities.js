@@ -313,7 +313,8 @@ export function LinkIdentitiesPage({ navigation, route }) {
       renderItem={({item: row}) => <View>
         <SelectionRow title={row.displayName} selected={row.linked || selection.includes(row.identityAddress)}
           accessibilityRole="checkbox" accessibilityLabel={`${row.displayName}${row.linked ? '. Already linked' : ''}`}
-          subtitle={row.linked ? 'Already linked' : undefined} showChevron={false} disabled={busy || row.linked} onPress={() => toggle(row)} />
+          readOnly={row.linked} value={row.linked ? 'Linked' : undefined} quietValue
+          showChevron={false} disabled={busy || row.linked} onPress={() => toggle(row)} />
         {failedAddresses.has(row.identityAddress) && <ErrorMessage>{verusIdText(failures.find(item => item.identity.identityAddress === row.identityAddress)?.error.message)}</ErrorMessage>}
       </View>} />
     <SafeBottomActionStack horizontalSpacing={20} bottomSpacing={keyboardOpen ? 12 : smallDevice ? 30 : 48}
