@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {AtSign, CircleAlert} from 'lucide-react-native';
+import {AtSign, CircleAlert, Info} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
@@ -878,7 +878,7 @@ const SignedInVerusIdService = ({controller}) => {
             hitSlop={10}
             onPress={() => setInfoVisible(true)}
             style={styles.headerIcon}>
-            <MaterialCommunityIcons name="information-variant" size={20} color={theme.colors.textSecondary} />
+            <Info size={23} strokeWidth={2.2} color={theme.colors.textSubtle} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Add VerusID"
