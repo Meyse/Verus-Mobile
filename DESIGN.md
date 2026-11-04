@@ -182,8 +182,8 @@ are shown before you confirm". Use "The wallet" only when the software acts.
 
 ## Button sizes
 
-On a window of 667 points or less, primary, secondary and tonal buttons are 44
-points high (a tonal button is the secondary action on a dark surface, so it
+On a window of 667 points or less, primary, destructive, secondary and tonal
+buttons are 44 points high (a tonal button is the secondary action on a dark surface, so it
 follows the same rule); the wizard footer's top padding is 8 points. Normal
 windows retain the 56-point default and 16-point wizard footer top padding.
 Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rule
@@ -344,6 +344,9 @@ an outside tap as the only visible way out: users do not reliably know they can
 tap outside a sheet. A warning that the user must accept, such as the seed warning, keeps the
 single button.
 
+For a deletion that the wallet cannot restore, pass `destructive` to
+`AcknowledgeSheet`. Use the destructive button rule in App alerts below.
+
 ### App alerts
 
 The owner chose the sheet look on 2026-10-22 (gap 4, option A).
@@ -368,6 +371,13 @@ Buttons: the action is the primary button and names the action ("Delete wallet",
 "Change and sign out", "Turn on"). The way out is "Not now" with
 `style: 'cancel'`. A one-button alert uses "Close". Outside tap and Android back
 run the way out unless the alert sets `cancelable: false`.
+
+Owner request, 2026-11-04: use `AppButton variant="destructive"` for an action
+that deletes data the wallet cannot restore. In `createAlert`, set the action's
+`style` to `'destructive'`. Keep the primary button's size, shape and label
+style. Disabled uses the primary button's disabled colors. Both themes use
+`destructive` (`#D1242F`), `destructivePressed` (`#B01E28`) and `onDestructive`
+(`#FFFFFF`). Remove asset and Unlink VerusID keep `primary`; both can be undone.
 
 Copy: a specific title, never "Error". At most two short sentences. No raw
 error, RPC or library text; log it instead.
@@ -1391,8 +1401,9 @@ namespace sheet. Canonical source: `IdentityRegistration/RegistrationDesign.js`
 and `identityRegistration.styles.js`. This applies to registration only.
 
 - Reuse `AppTextInput` with the namespace in `endAccessory`: one 48-point
-  outline, 12-point radius, a neutral hairline between the editable name and
-  the growing namespace segment. Focus wraps both. Taken uses a danger outline
+  outline, 12-point radius, and a 1-point divider between the editable name and
+  the growing namespace segment. The divider uses the outline's current color.
+  Focus wraps both. Taken uses a danger outline
   and the status badge. No fill. V3 replaces the earlier filled R/NS fields.
 - Use `ProgressHeader` without the progress track for the combined "New
   VerusID" task. Its right action contains the 44-point Info and Close targets.

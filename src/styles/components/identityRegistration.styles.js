@@ -25,9 +25,9 @@ export const createIdentityRegistrationStyles = theme => StyleSheet.create({
   errorText: {...theme.typography.caption, color: theme.colors.dangerText},
   iconButton: {width: 44, height: 44, justifyContent: 'center', alignItems: 'center'},
   namespace: {minWidth: 58, maxWidth: '65%', minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 12},
-  namespaceDivider: {width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: theme.colors.border},
+  namespaceDivider: {alignSelf: 'stretch'},
   namespaceText: {...theme.typography.inputValue, color: theme.colors.textSecondary, flexShrink: 1},
   job: {backgroundColor: theme.colors.surfaceMuted, borderRadius: 18, padding: 16, gap: 8},
-  jobPill: {backgroundColor: theme.colors.surface, borderRadius: 18, paddingHorizontal: 12, height: 36, minWidth: 74, alignItems: 'center', justifyContent: 'center'},
+  jobPill: {backgroundColor: theme.colors.surface, borderRadius: 18, paddingHorizontal: 12, height: 36, minHeight: 36, minWidth: 74, alignSelf: 'center', alignItems: 'center', justifyContent: 'center'},
   identifier: {...theme.typography.caption, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', color: theme.colors.textSecondary},
 });

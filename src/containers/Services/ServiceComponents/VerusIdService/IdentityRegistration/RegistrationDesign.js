@@ -165,8 +165,8 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
     <Text style={styles.muted}>You cannot change it later.</Text>
     <AppTextInput accessibilityLabel={verusIdCopy('Identity name')} placeholder="Type a name" value={name} onChangeText={setName}
       {...focusProps}
-      editable={!busy} returnKeyType="done" invalid={availability === 'taken'} endAccessory={<>
-        <View style={styles.namespaceDivider} />
+      editable={!busy} returnKeyType="done" invalid={availability === 'taken'} endAccessory={({borderColor, borderWidth}) => <>
+        <View style={[styles.namespaceDivider, {width: borderWidth, backgroundColor: borderColor}]} />
         <Pressable accessibilityRole="button" accessibilityLabel={`Choose a namespace: ${namespace?.name || 'Verus'}`} disabled={busy}
           onPress={onNamespace} style={styles.namespace}>
           <Text numberOfLines={1} style={styles.namespaceText}>{namespace?.suffix || '@'}</Text>

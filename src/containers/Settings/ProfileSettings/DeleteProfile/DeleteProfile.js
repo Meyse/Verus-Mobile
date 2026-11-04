@@ -64,7 +64,7 @@ class DeleteProfile extends Component {
           onPress: () => resolveAlert(false),
           style: 'cancel',
         },
-        {text: 'Delete wallet', onPress: () => resolveAlert(true)},
+        {text: 'Delete wallet', style: 'destructive', onPress: () => resolveAlert(true)},
       ],
     )
   }

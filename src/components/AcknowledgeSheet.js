@@ -20,6 +20,7 @@ const AcknowledgeSheet = ({
   children,
   confirmLabel = 'I understand',
   dismissLabel,
+  destructive = false,
   onClose,
   onAcknowledged,
   testID,
@@ -66,7 +67,7 @@ const AcknowledgeSheet = ({
           onPress={handleConfirm}
           style={styles.button}
           testID={testID}
-          variant="primary">
+          variant={destructive ? 'destructive' : 'primary'}>
           {confirmLabel}
         </AppButton>
         {dismissLabel ? (

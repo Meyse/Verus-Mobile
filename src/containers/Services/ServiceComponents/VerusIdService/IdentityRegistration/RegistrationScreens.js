@@ -763,23 +763,8 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const confirmLink = () => {
     if (running.current || promptOpen.current) return;
 
-    promptOpen.current = true;
-    const closePrompt = () => {
-      promptOpen.current = false;
-    };
-
-    registrationAlert('Link identity to this wallet?',
-      `${review.displayName} will appear in your wallet cards and addresses. Your wallets will refresh. Linking is free.`, [
-        {text: 'Not now', style: 'cancel', onPress: closePrompt},
-        {
-          text: 'Link identity',
-          onPress: () => {
-            closePrompt();
-            // Linking finishes and removes the saved registration.
-            return runForeground(requestContext => linkRegisteredIdentity(jobId, requestContext), openOverview);
-          },
-        },
-      ], {cancelable: true, onDismiss: closePrompt});
+    // Linking finishes and removes the saved registration.
+    return runForeground(requestContext => linkRegisteredIdentity(jobId, requestContext), openOverview);
   };
 
   const openOverview = () => navigation.getParent().goBack();
@@ -837,7 +822,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     </View>}
     above={(error || loadError) ? <View><RegistrationText style={styles.errorText}>{verusIdErrorMessage(error || loadError)}</RegistrationText>
       {isVerusIdTransportError(error || loadError) && <TextAction disabled={busy} onPress={refresh}>Try again</TextAction>}</View> : null}
-    actions={[{label: action.label, onPress: action.onPress, disabled: busy},
+    actions={[{label: action.label, onPress: action.onPress, disabled: busy, loading: busy},
       ...(status === 'registered' ? [{label: 'Not now', onPress: openOverview, disabled: busy}] : [])]} />;
 
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || loadError} info={registrationInfo(review?.stage)}

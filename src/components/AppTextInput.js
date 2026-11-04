@@ -1,5 +1,5 @@
 import React, {forwardRef, useImperativeHandle, useRef, useState} from 'react';
-import {Platform, Pressable, TextInput, TouchableOpacity, View} from 'react-native';
+import {Platform, Pressable, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {appTextInputStyles as styles} from '../styles';
@@ -58,6 +58,20 @@ const AppTextInput = forwardRef(function AppTextInput(
   const isMultiline = inputProps.multiline === true;
   const isCompact = size === 'compact' && !isMultiline;
   const showIdleContent = !focused && idleContent != null;
+  const shellStyle = [
+    styles.inputShell,
+    isMultiline ? styles.multilineInputShell : styles.singleLineInputShell,
+    isCompact && styles.compactInputShell,
+    {
+      backgroundColor: theme.colors.input,
+      borderColor: theme.colors.inputBorder,
+    },
+    inputShellStyle,
+    focused && {borderColor: theme.colors.inputFocusBorder},
+    (errorText || invalid) && styles.inputShellError,
+    (errorText || invalid) && {borderColor: theme.colors.danger},
+  ];
+  const {borderColor, borderWidth} = StyleSheet.flatten(shellStyle);
 
   const handleBlur = event => {
     setFocused(false);
@@ -81,26 +95,7 @@ const AppTextInput = forwardRef(function AppTextInput(
           {label}
         </Text>
       ) : null}
-      <View
-        style={[
-          styles.inputShell,
-          isMultiline
-            ? styles.multilineInputShell
-            : styles.singleLineInputShell,
-          isCompact && styles.compactInputShell,
-          {
-            backgroundColor: theme.colors.input,
-            borderColor: theme.colors.inputBorder,
-          },
-          inputShellStyle,
-          focused && {
-            borderColor: theme.colors.inputFocusBorder,
-          },
-          (errorText || invalid) && styles.inputShellError,
-          (errorText || invalid) && {
-            borderColor: theme.colors.danger,
-          },
-        ]}>
+      <View style={shellStyle}>
         {leftAccessory ? (
           <View
             style={[
@@ -162,7 +157,10 @@ const AppTextInput = forwardRef(function AppTextInput(
             </Pressable>
           ) : null}
         </View>
-        {endAccessory}
+        {/* Render-function accessories can follow the shell's current outline. */}
+        {typeof endAccessory === 'function'
+          ? endAccessory({borderColor, borderWidth})
+          : endAccessory}
         {rightAccessory ? (
           <View
             pointerEvents="none"

@@ -861,7 +861,7 @@ const GiftCardServiceOverview = ({
         ? 'The card is removed from this device only.'
         : 'Funds sent to the card later will be lost.',
       [
-        {text: 'Remove', onPress: () => resolveAlert(true)},
+        {text: 'Remove', style: 'destructive', onPress: () => resolveAlert(true)},
         {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
       ],
     );

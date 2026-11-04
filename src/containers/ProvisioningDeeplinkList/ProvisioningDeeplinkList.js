@@ -144,7 +144,7 @@ const ProvisioningDeeplinkList = props => {
           style: 'cancel',
           onPress: () => resolveAlert(false),
         },
-        {text: 'Remove', onPress: () => resolveAlert(true)},
+        {text: 'Remove', style: 'destructive', onPress: () => resolveAlert(true)},
       ],
     );
 

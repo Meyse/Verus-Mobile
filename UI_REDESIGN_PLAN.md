@@ -2874,3 +2874,32 @@ parser and both production bundles pass. These checks do not prove native
 keyboard geometry, text wrapping, accessibility or live payment transitions.
 No simulator, emulator or Metro server runs in this batch. The engine, RPC,
 funds paths and saved-job deletion code remain unchanged.
+
+### ID-3.POLISH — Owner screenshot follow-up (2026-11-04)
+
+Branch: `claude/idreg-polish-fixes`, from `af661851`.
+Design contract: operate mode. Keep the registration field and filled-row
+exemplars. Reuse AppTextInput, AppButton, createAlert, AcknowledgeSheet,
+TransactionResult, TextAction and VerusIdName. Keep the 1-point field outline,
+36-point Continue pill and 44-point targets. The owner-approved destructive
+button is the only new visual rule. Device rendering belongs to the orchestrator.
+
+- [x] Let the namespace divider follow the actual field outline in every state.
+- [x] Link on one tap. Keep the operation guard, button loading, errors and Not now.
+- [x] Add destructive button tokens and the shared variant. Apply it to the
+  named data-deletion confirmations. Preserve cancel order and dismissal.
+- [x] Center Continue with the text block and trash action. Keep the existing
+  VerusIdName dot breaks. Check waiting rows and rows without a delete action.
+- [x] Run design, safe-area, parser, component and base-comparison checks.
+- [ ] Orchestrator device QA: light/dark, normal/compact. Check field idle,
+  focus and taken states; link busy, failure and retry; destructive normal,
+  pressed and disabled states; long-name Continue and waiting rows, with and
+  without trash. Check the VerusID tab row.
+
+Evidence: the component suite retains 10 passes. The screen suite has the same
+SVG/native-mock load error on base and candidate. A focused UI suite passes 13
+checks; 10 fail on the archived base. The two updated one-tap link tests pass
+with temporary native mock repairs and fail on base. Two additional local
+checks pass for failure/retry and Not now. These checks use controlled React
+components; they do not prove native layout or a real wallet link. Design,
+safe-area and parser checks pass. The engine, SDK and RPC sources are unchanged.
