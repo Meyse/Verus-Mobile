@@ -176,7 +176,7 @@ export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSele
   const matches = namespaces.filter(item => item.name.toLowerCase().includes(showSearch ? query.trim().toLowerCase() : ''));
   const groups = [matches.filter(item => item.usd), matches.filter(item => !item.usd)];
   const row = item => <SelectionRow key={item.id} title={item.name} selected={item.id === selectedId} showChevron={false}
-    disabled={!!item.reason} preserveSubtitle subtitle={item.reason || (item.referralRequired ? 'Requires a referral signature.' : undefined)}
+    disabled={!!item.reason} subtitle={item.reason || (item.referralRequired ? 'Requires a referral signature.' : undefined)}
     value={item.reason ? undefined : `${formatRegistrationAmount(item.amount)} ${item.currency}`}
     valueLabel={!item.reason && item.usd ? registrationFiat({[item.id]: item.amount}, {[item.id]: item.usd}) : undefined}
     onPress={() => dismissal.dismiss(() => onSelect(item))} />;
