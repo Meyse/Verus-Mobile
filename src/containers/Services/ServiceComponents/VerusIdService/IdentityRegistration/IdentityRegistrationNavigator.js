@@ -1,7 +1,6 @@
 import React from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import {useSelector} from 'react-redux';
-import {defaultHeaderOptions} from '../../../../../utils/navigation/header';
 import {IdentityRegistrationStart, IdentityRegistrationCreate, IdentityCommitmentReview, IdentityRegistrationReview, IdentityRegistrationProgress} from './RegistrationScreens';
 
 const Stack = createStackNavigator();
@@ -14,18 +13,12 @@ const Stack = createStackNavigator();
 export default function IdentityRegistrationNavigator() {
   const sessionKey = useSelector(state => `${state.authentication.activeAccount?.accountHash}:${state.authentication.sessionEpoch || 0}`);
   return (
-    <Stack.Navigator key={sessionKey} screenOptions={props => ({
-      ...defaultHeaderOptions(props),
-      headerStyle: {backgroundColor: '#fff'},
-      headerTitleStyle: {fontSize: 17, fontWeight: '600', color: '#172033'},
-      headerTintColor: '#3165d4', headerShadowVisible: false, headerBackTitleVisible: false,
-      headerRight: () => null,
-    })}>
+    <Stack.Navigator key={sessionKey} screenOptions={{headerShown: false, gestureEnabled: false}}>
       <Stack.Screen name="IdentityRegistrationStart" component={IdentityRegistrationStart} options={{title: 'VerusID'}} />
-      <Stack.Screen name="IdentityRegistrationCreate" component={IdentityRegistrationCreate} options={{title: 'New identity'}} />
+      <Stack.Screen name="IdentityRegistrationCreate" component={IdentityRegistrationCreate} options={{title: 'New VerusID'}} />
       <Stack.Screen name="IdentityCommitmentReview" component={IdentityCommitmentReview} getId={({params}) => params?.jobId} options={{title: 'Commit name'}} />
       <Stack.Screen name="IdentityRegistrationProgress" component={IdentityRegistrationProgress} getId={({params}) => params?.jobId} options={{title: 'Progress'}} />
-      <Stack.Screen name="IdentityRegistrationReview" component={IdentityRegistrationReview} getId={({params}) => params?.jobId} options={{title: 'Register identity'}} />
+      <Stack.Screen name="IdentityRegistrationReview" component={IdentityRegistrationReview} getId={({params}) => params?.jobId} options={{title: 'Register VerusID'}} />
     </Stack.Navigator>
   );
 }

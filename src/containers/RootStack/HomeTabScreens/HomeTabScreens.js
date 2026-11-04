@@ -86,11 +86,13 @@ const HomeTabScreens = () => {
           borderTopWidth: 0,
           // The library default (8) draws a line-like shadow on Android.
           elevation: 0,
-          // Both routes render GiftCardFund, which owns the bottom safe area.
-          ...(route.name === 'ServicesHome' &&
-          ['GiftCardCreate', 'GiftCardFund'].includes(
-            getFocusedRouteNameFromRoute(route),
-          )
+          // These full-screen tasks own their bottom safe area.
+          ...((route.name === 'IdentityTab' &&
+            getFocusedRouteNameFromRoute(route) === 'IdentityRegistration') ||
+          (route.name === 'ServicesHome' &&
+            ['GiftCardCreate', 'GiftCardFund'].includes(
+              getFocusedRouteNameFromRoute(route),
+            ))
             ? {display: 'none'}
             : {}),
         },

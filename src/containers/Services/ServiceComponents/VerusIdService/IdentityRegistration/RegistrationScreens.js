@@ -1,11 +1,9 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Alert, AppState, Pressable, View} from 'react-native';
-import {ActivityIndicator, Text, TextInput} from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {AppState, View} from 'react-native';
+import {Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {useFocusEffect} from '@react-navigation/native';
 import {DLIGHT_PRIVATE, VRPC} from '../../../../../utils/constants/intervalConstants';
-import {VERUSID_SERVICE_ID} from '../../../../../utils/constants/services';
 import {
   createRegistrationContext,
   prepareCommitment,
@@ -18,6 +16,9 @@ import {
   reconcileRegistration,
   refreshRegistrationReview,
   linkRegisteredIdentity,
+  resolveRegistration,
+  findExistingRegistration,
+  registrationQuotesEqual,
 } from '../../../../../utils/identityRegistration';
 import {
   RegistrationPage,
@@ -32,9 +33,15 @@ import {
   SelectionField,
   StatusBadge,
   currencyLabel,
-  registrationStyles as styles,
-} from './RegistrationComponents';
-import {identityLabel, registrationState} from './presentation';
+  identityLabel,
+  useRegistrationStyles,
+  RegistrationSkeleton,
+  RegistrationText,
+  NameField,
+  NamespaceSheet,
+  RegistrationPreviewDetails,
+} from './RegistrationDesign';
+import {registrationState} from './presentation';
 import {
   preferredRegistrationFundingSource,
   registrationFundingBalance,
@@ -45,7 +52,50 @@ import {
   clearRegistrationJobs,
   publishRegistrationJobs,
 } from '../../../../../actions/actions/services/dispatchers/verusid/registration';
-import Colors from '../../../../../globals/colors';
+import AppTextInput from '../../../../../components/AppTextInput';
+import InfoSheetSection from '../../../../../components/InfoSheetSection';
+import TransactionResult from '../../../../../components/TransactionResult';
+import TextAction from '../../../../../components/TextAction';
+import {createAlert, resolveAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
+import {loadRegistrationNamespaces} from './namespaceData';
+import useRegistrationPrices from './useRegistrationPrices';
+import VerusIdCard from '../VerusIdCard';
+import EmptyState from '../../../../../components/EmptyState';
+import {AtSign} from 'lucide-react-native';
+
+// The app alert calls each action only after its confirmation sheet closes.
+const registrationAlert = (title, message, buttons, options) => createAlert(
+  title.replace(/\bidentity\b/gi, 'VerusID'),
+  message.replace(/\bidentities\b/gi, 'VerusIDs').replace(/\bidentity\b/gi, 'VerusID'),
+  buttons.map(button => ({...button, text: button.text.replace(/\bidentity\b/gi, 'VerusID'), onPress: () => {
+    resolveAlert(button.style !== 'cancel');
+    button.onPress?.();
+  }})), options,
+);
+
+const registrationInfo = stage => <>
+  <InfoSheetSection title="Two payments" rows={[
+    {label: 'How registration works', value: 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'},
+    {label: 'Commitment', value: 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'},
+    {label: 'Keep your app data', value: 'The commitment fee is non-refundable. It does not reserve your name. Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.'},
+    {label: 'Your approval', value: stage === 'registration' ? 'I approve this VerusID and registration payment.' : 'I approve the commitment fee shown above.'},
+    {label: 'Next payment', value: 'You approve the registration payment separately after confirmation. Its price may change.'},
+    {label: 'Registration', value: 'This payment creates your VerusID after confirmation.'},
+  ]} />
+  <InfoSheetSection title="Payment and control" rows={[
+    {label: 'Pay from', value: 'Both payments use this source. Change returns here.'},
+    {label: 'Private payments', value: 'Your VerusID will use this wallet’s private address for private payments when available.'},
+    {label: 'Referral', value: 'An eligible VerusID referral discounts your registration cost. You’ll see the discounted price before paying.'},
+    {label: 'Recovery', value: 'Can restore your VerusID if it is revoked.'},
+    {label: 'Revocation', value: 'Can revoke your VerusID. Leave both empty to manage it yourself.'},
+  ]} />
+</>;
+
+const priorQuotes = new Map();
+const rememberQuote = review => {
+  if (!priorQuotes.has(review.jobId)) priorQuotes.set(review.jobId, review.quote);
+  if (priorQuotes.size > 32) priorQuotes.delete(priorQuotes.keys().next().value);
+};
 
 // A ref closes the double-tap window before React renders a disabled button.
 const useRegistrationAction = () => {
@@ -72,7 +122,13 @@ const useRegistrationAction = () => {
 
     try {
       const result = await operation(context);
-      if (mounted.current && onSuccess) onSuccess(result);
+      if (mounted.current && onSuccess) {
+        // The operation has settled. Its own navigation may now leave the busy
+        // screen; user Back remains blocked while the awaited work runs.
+        running.current = false;
+        setBusy(false);
+        onSuccess(result);
+      }
     } catch (e) {
       if (mounted.current && e.code !== 'SESSION_CHANGED') {
         // A new object makes every failure visible, even when a fast retry
@@ -88,7 +144,7 @@ const useRegistrationAction = () => {
     }
   }, [context]);
 
-  return {context, busy, error, run, running};
+  return {context, busy, error, run, running, setError};
 };
 
 const confirmRegistrationDeletion = (record, remove, close) => {
@@ -122,7 +178,7 @@ const confirmRegistrationDeletion = (record, remove, close) => {
     message = `Deleting permanently removes the saved commitment secret. The ${amount} ${currency} commitment fee will be lost forever, and you cannot finish this registration. This cannot be undone.`;
   }
 
-  Alert.alert(`Delete ${record.displayName}?`, message, [
+  registrationAlert(`Delete ${record.displayName}?`, message, [
     {text: 'Keep registration', style: 'cancel', onPress: close},
     {
       text: 'Delete',
@@ -136,6 +192,7 @@ const confirmRegistrationDeletion = (record, remove, close) => {
 };
 
 export function IdentityRegistrationStart({navigation, route}) {
+  const styles = useRegistrationStyles();
   const jobs = useSelector(state => state.channelStore_verusid.registrationJobs || {});
   const [loaded, setLoaded] = useState(false);
   const [openingJobId, setOpeningJobId] = useState(null);
@@ -205,7 +262,7 @@ export function IdentityRegistrationStart({navigation, route}) {
       deletePromptOpen.current = false;
     };
 
-    Alert.alert(
+    registrationAlert(
       'Clear all registration data?',
       'Are you sure? This permanently deletes all saved registration records and commitment secrets for this profile. ' +
         'Unfinished registrations may become impossible to complete, and fees already paid will not be refunded. ' +
@@ -238,9 +295,13 @@ export function IdentityRegistrationStart({navigation, route}) {
   />;
 
   return <RegistrationPage
+    navigation={navigation}
+    title="Registrations"
+    busy={busy}
+    busyRef={running}
     error={error}
     onRefresh={refresh}
-    refreshing={busy && !loaded}
+    refreshing={busy && !loaded && visible.length > 0}
     footer={
       <ActionButton
         disabled={busy || !loaded}
@@ -252,9 +313,9 @@ export function IdentityRegistrationStart({navigation, route}) {
     }
   >
     <View style={styles.section}>
-      <Text style={styles.title}>Your registrations</Text>
       <Text style={styles.muted}>Create a VerusID or continue where you left off.</Text>
     </View>
+    {!loaded && !error && visible.length === 0 && <RegistrationSkeleton label="Loading registrations" />}
     {!loaded && !!error && <View style={styles.section}>
       <ActionButton secondary disabled={busy} onPress={refresh}>
         Retry loading registrations
@@ -263,15 +324,12 @@ export function IdentityRegistrationStart({navigation, route}) {
         Clear all registration data
       </ActionButton>
     </View>}
-    {loaded && !busy && !error && !active.length && !completed.length && <View style={styles.card}>
-      <View style={styles.badge}><Icon name="at" size={28} color={Colors.primaryColor} accessible={false} /></View>
-      <Text style={styles.subtitle}>A name that’s yours</Text>
-      <Text style={styles.body}>Commit a name, then register it after confirmation. You review and approve each payment.</Text>
-    </View>}
+    {loaded && !busy && !error && !active.length && !completed.length && <EmptyState icon={AtSign}
+      title="A name that’s yours" message="Commit a name, then register it after confirmation. You review and approve each payment." />}
     {['Needs you', 'In progress'].map(group => {
       const items = active.filter(job => registrationState(job.status).group === group);
       return items.length > 0 && <View key={group} style={styles.section}>
-        <Text style={styles.eyebrow}>{group.toUpperCase()}</Text>
+        <Text style={styles.body}>{group}</Text>
         {items.map(renderJob)}
       </View>;
     })}
@@ -282,308 +340,238 @@ export function IdentityRegistrationStart({navigation, route}) {
 }
 
 export function IdentityRegistrationCreate({navigation, route}) {
+  const styles = useRegistrationStyles();
   const coins = useSelector(state => state.coins.activeCoinsForUser);
   const account = useSelector(state => state.authentication.activeAccount);
   const linkedIds = useSelector(state => state.channelStore_verusid.watchedVerusIds || {});
   const balances = useSelector(state => state.ledger?.balances || {});
   const showBalance = useSelector(state => state.coins.showBalance !== false);
-
   const wallets = useMemo(() => (coins || []).filter(coin =>
     coin.system_id === coin.currency_id && account?.keys?.[coin.id]?.[VRPC]?.addresses?.length > 0,
   ), [coins, account]);
   const [coinId, setCoinId] = useState(route.params?.coinId || wallets[0]?.id);
   const selected = wallets.find(coin => coin.id === coinId);
   const privateAddress = account?.keys?.[selected?.id]?.[DLIGHT_PRIVATE]?.addresses?.[0];
-  const fundingSources = useMemo(
-    () => registrationFundingSources(selected, account, linkedIds),
-    [selected, account, linkedIds],
-  );
+  const fundingSources = useMemo(() => registrationFundingSources(selected, account, linkedIds), [selected, account, linkedIds]);
   const [manualFunding, setManualFunding] = useState({});
   const fundingSource = fundingSources.find(source => source.address === manualFunding[coinId]) ||
     preferredRegistrationFundingSource(fundingSources, selected, balances);
-
   const [name, setName] = useState('');
   const [referralID, setReferralID] = useState('');
   const [recoveryAuthority, setRecoveryAuthority] = useState('');
   const [revocationAuthority, setRevocationAuthority] = useState('');
   const [estimate, setEstimate] = useState(null);
-  const {busy, error, run} = useRegistrationAction();
+  const [preview, setPreview] = useState(null);
+  const [previewError, setPreviewError] = useState(null);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const [availability, setAvailability] = useState(null);
+  const [namespace, setNamespace] = useState(null);
+  const [namespaces, setNamespaces] = useState([]);
+  const [namespaceVisible, setNamespaceVisible] = useState(false);
+  const [namespaceLoading, setNamespaceLoading] = useState(false);
+  const [namespaceError, setNamespaceError] = useState(null);
+  const [namespaceAttempt, setNamespaceAttempt] = useState(0);
+  const prices = useRegistrationPrices(selected, (estimate || preview)?.quote);
+  const nativeUsd = prices[selected?.system_id];
+  const {busy, error, run, context, running, setError} = useRegistrationAction();
+  const requestKeyRef = useRef(null);
 
   useEffect(() => {
-    if (wallets.length && !wallets.some(coin => coin.id === coinId)) {
-      setCoinId(wallets[0].id);
-    }
+    if (wallets.length && !wallets.some(coin => coin.id === coinId)) setCoinId(wallets[0].id);
   }, [wallets, coinId]);
-
   useEffect(() => {
+    setNamespace(null);
+    setNamespaces([]);
+  }, [coinId]);
+  useEffect(() => {
+    if (!namespaceVisible || !selected) return undefined;
+    let active = true;
+    setNamespaceLoading(true);
+    setNamespaceError(null);
+    loadRegistrationNamespaces(selected, fundingSource?.signingAddress, nativeUsd).then(items => {
+      if (active) setNamespaces(items);
+    }, () => { if (active) setNamespaceError('Namespaces could not be loaded. Try again.'); })
+      .finally(() => { if (active) setNamespaceLoading(false); });
+    return () => { active = false; };
+  }, [namespaceVisible, selected, fundingSource?.signingAddress, nativeUsd, namespaceAttempt]);
+
+  const request = useMemo(() => selected && fundingSource ? {
+    systemId: selected.system_id,
+    chainTicker: selected.id,
+    rootSystemName: selected.testnet ? 'VRSCTEST' : 'VRSC',
+    fundingAddress: fundingSource.address,
+    signingAddress: fundingSource.signingAddress,
+    fundingName: fundingSource.fundingName,
+    keyChannel: VRPC,
+    name: name.trim(),
+    ...(namespace ? {parent: namespace.id, parentName: namespace.parentName} : {}),
+    ...(privateAddress ? {privateAddress} : {}),
+    ...(referralID.trim() ? {referralID: referralID.trim()} : {}),
+    ...(recoveryAuthority.trim() ? {recoveryAuthority: recoveryAuthority.trim()} : {}),
+    ...(revocationAuthority.trim() ? {revocationAuthority: revocationAuthority.trim()} : {}),
+  } : null, [selected, fundingSource, name, namespace, privateAddress, referralID, recoveryAuthority, revocationAuthority]);
+  const requestKey = JSON.stringify(request);
+  requestKeyRef.current = requestKey;
+  useEffect(() => {
+    let active = true;
     setEstimate(null);
-  }, [coinId, fundingSource?.address, name, referralID, recoveryAuthority, revocationAuthority]);
+    setError(null);
+    setPreview(null);
+    setPreviewError(null);
+    setAvailability(request?.name ? 'checking' : null);
+    if (!request?.name) return undefined;
+    // Availability and the live total are read-only. No salt, job, funding
+    // transaction, key request or payment is created by typing.
+    const timer = setTimeout(() => {
+      (async () => {
+        const savedReview = await findExistingRegistration(request, context);
+        return savedReview ? {...savedReview, savedReview} : resolveRegistration(request, context);
+      })().then(value => {
+        if (!active || requestKeyRef.current !== requestKey) return;
+        setPreview({...value, requestKey});
+        setAvailability(value.savedReview ? 'saved' : 'available');
+      }, failure => {
+        if (!active || requestKeyRef.current !== requestKey || failure?.code === 'SESSION_CHANGED') return;
+        setAvailability(failure.code === 'IDENTITY_EXISTS' ? 'taken' : null);
+        if (failure.code !== 'IDENTITY_EXISTS') setPreviewError({message: failure.message});
+      });
+    }, 650);
+    return () => { active = false; clearTimeout(timer); };
+  }, [requestKey, context, previewAttempt]);
 
-  const reviewCommitment = () => run(async context => {
+  const prepare = async requestContext => {
     setEstimate(null);
-
-    const request = {
-      systemId: selected.system_id,
-      chainTicker: selected.id,
-      rootSystemName: selected.testnet ? 'VRSCTEST' : 'VRSC',
-      fundingAddress: fundingSource.address,
-      signingAddress: fundingSource.signingAddress,
-      fundingName: fundingSource.fundingName,
-      keyChannel: VRPC,
-      name: name.trim(),
-      ...(privateAddress ? {privateAddress} : {}),
-      ...(referralID.trim() ? {referralID: referralID.trim()} : {}),
-      ...(recoveryAuthority.trim() ? {recoveryAuthority: recoveryAuthority.trim()} : {}),
-      ...(revocationAuthority.trim() ? {revocationAuthority: revocationAuthority.trim()} : {}),
-    };
-
     try {
-      return await prepareCommitment({request}, context);
+      return await prepareCommitment({request}, requestContext);
     } catch (failure) {
-      // Keep the quote visible when funding needs attention, without inserting
-      // another review into a successful transition to the payment screen.
-      if (failure.code !== 'SESSION_CHANGED' && failure.registrationEstimate) {
-        setEstimate(failure.registrationEstimate);
-      }
+      if (failure.code !== 'SESSION_CHANGED' && failure.registrationEstimate) setEstimate(failure.registrationEstimate);
       throw failure;
     }
-  }, review => navigation.navigate(
-    review.status === 'commitment_prepared'
-      ? 'IdentityCommitmentReview'
-      : review.status === 'registration_prepared'
-        ? 'IdentityRegistrationReview'
-        : 'IdentityRegistrationProgress',
+  };
+  const openReview = review => navigation.navigate(
+    review.status === 'commitment_prepared' ? 'IdentityCommitmentReview'
+      : review.status === 'registration_prepared' ? 'IdentityRegistrationReview' : 'IdentityRegistrationProgress',
     {jobId: review.jobId},
-  ));
-
+  );
+  const start = () => run(async requestContext => {
+    const prepared = await prepare(requestContext);
+    rememberQuote(prepared);
+    if (preview?.savedReview) return prepared;
+    if (prepared.status !== 'commitment_prepared') return prepared;
+    const normalized = preview?.request;
+    // A same-name saved draft can have different funding or authorities. A
+    // changed quote or saved intent gets a fresh visible review, never payment.
+    const sameReview = preview && registrationQuotesEqual(preview.quote, prepared.quote) &&
+      prepared.identityAddress === preview.policy.resolvedName.identityID &&
+      prepared.fundingAddress === normalized.fundingAddress && prepared.signingAddress === normalized.signingAddress &&
+      (prepared.referralID || null) === (normalized.referralID || null) &&
+      prepared.identity.recoveryauthority === (normalized.recoveryAuthority || prepared.identityAddress) &&
+      prepared.identity.revocationauthority === (normalized.revocationAuthority || prepared.identityAddress) &&
+      (prepared.identity.privateaddress || null) === (normalized.privateAddress || null);
+    if (!sameReview) return prepared;
+    return approveCommitment(prepared.jobId, prepared.approvalToken, requestContext);
+  }, review => {
+    if (review.status === 'commitment_prepared') openReview(review);
+    else navigation.replace('IdentityRegistrationProgress', {jobId: review.jobId});
+  });
+  const save = () => run(prepare, () => navigation.getParent().goBack());
+  const quoteData = estimate || (preview?.requestKey === requestKey ? preview : null);
+  const ready = preview?.requestKey === requestKey && ['available', 'saved'].includes(availability) && !busy;
+  const ownIdentity = preview?.policy?.resolvedName?.identityID;
+  const externalAuthorities = [...new Set(['recoveryAuthority', 'revocationAuthority'].filter(field =>
+    preview?.request?.[field] && preview.request[field] !== ownIdentity,
+  ).map(field => preview.identityNames?.[preview.request[field]] || request[field]))];
   const networkName = coin => `${coin.display_ticker}${coin.testnet ? ' · Testnet' : ''}`;
 
-  return <RegistrationPage
-    error={error}
+  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || previewError}
+    info={<>{registrationInfo('commitment')}<RegistrationPreviewDetails preview={preview} /></>}
     footer={<>
-      <Text style={[styles.muted, {textAlign: 'center'}]}>No payment yet.</Text>
-      <ActionButton
-        disabled={busy || !selected || !fundingSource || !name.trim()}
-        busy={busy}
-        onPress={reviewCommitment}
-      >Review costs</ActionButton>
-    </>}
-  >
-    <View style={styles.section}>
-      <Text style={styles.title}>Choose your name</Text>
-      <Text style={styles.muted}>You’ll see both costs before making a payment.</Text>
-    </View>
-    <View style={styles.card}>
-      <TextInput
-        mode="outlined"
-        label="Identity name"
-        accessibilityLabel="Identity name"
-        placeholder="alice"
-        value={name}
-        onChangeText={setName}
-        autoCapitalize="none"
-        autoCorrect={false}
-        disabled={busy}
-        outlineColor="#b9c3d3"
-        activeOutlineColor={Colors.primaryColor}
-        style={{backgroundColor: '#fff'}}
-      />
-      <Text style={styles.muted}>For a sub-identity, use its full name: alice.community@</Text>
-      <SelectionField
-        label="Network"
-        value={selected ? networkName(selected) : 'Add a network wallet to continue'}
-        disabled={busy}
-        options={wallets.map(coin => ({value: coin.id, label: networkName(coin), selected: coin.id === coinId}))}
-        onSelect={setCoinId}
-      />
-      <View style={styles.divider} />
-      <SelectionField
-        label="Pay from"
-        value={fundingSource?.isIdentity
-          ? identityLabel(fundingSource.address, {[fundingSource.address]: fundingSource.fundingName})
-          : fundingSource?.fundingName || 'Choose a payment source'}
-        disabled={busy}
+      <ActionButton hold={!preview?.savedReview} disabled={!ready} busy={busy} onPress={start}>{preview?.savedReview ? 'Continue registration' : 'Hold to start'}</ActionButton>
+      <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>
+    </>}>
+    <NameField name={name} setName={value => { if (!running.current) setName(value); }} namespace={namespace}
+      availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} />
+    {!!previewError && <TextAction disabled={busy} onPress={() => setPreviewAttempt(value => value + 1)}>Try again</TextAction>}
+    {!!quoteData && (preview?.savedReview && preview.status !== 'commitment_prepared'
+      ? <View style={styles.section}><StatusBadge status={preview.status} /><RegistrationText muted>Continue where you left off.</RegistrationText></View>
+      : <CostReview {...quoteData} prices={prices} stage="commitment" />)}
+    {!quoteData && availability === 'checking' && <RegistrationSkeleton />}
+    <View>
+      {wallets.length !== 1 && <SelectionField label="Network" value={selected ? networkName(selected) : 'Add a network wallet to continue'} disabled={busy}
+        options={wallets.map(coin => ({value: coin.id, label: networkName(coin), selected: coin.id === coinId}))} onSelect={setCoinId} />}
+      <SelectionField label="Pay from" value={fundingSource?.isIdentity
+        ? identityLabel(fundingSource.address, {[fundingSource.address]: fundingSource.fundingName}) : 'Transparent'} disabled={busy}
+        description={!fundingSource?.isIdentity && fundingSource?.address ? `${fundingSource.address.slice(0, 5)}…${fundingSource.address.slice(-4)}` : undefined}
         options={fundingSources.map(source => {
           const balance = registrationFundingBalance(selected, source, balances);
-
-          return {
-            value: source.address,
-            label: source.isIdentity
-              ? identityLabel(source.address, {[source.address]: source.fundingName})
-              : source.fundingName,
+          return {value: source.address, label: source.isIdentity ? identityLabel(source.address, {[source.address]: source.fundingName}) : 'Transparent',
             selected: source.address === fundingSource?.address,
-            description: balance != null && showBalance
-              ? `${String(balance)} ${selected.display_ticker} confirmed`
-              : source.isIdentity
-                ? 'Linked VerusID'
-                : 'Your wallet balance',
-          };
-        })}
-        onSelect={address => setManualFunding(current => ({...current, [coinId]: address}))}
-      />
-      <Text style={styles.muted}>Both payments use this source. Change returns here.</Text>
-      {!!privateAddress && <Text style={styles.muted}>Your identity will use this wallet’s private address for private payments.</Text>}
-    </View>
-    <View style={styles.card}>
-      <Text style={styles.subtitle}>Save with a referral</Text>
-      <Text style={styles.muted}>An eligible VerusID referral discounts your registration cost. You’ll see the discounted price before paying.</Text>
-      <TextInput
-        mode="outlined"
-        label="Referral (optional)"
-        accessibilityLabel="Referral identity, optional"
-        placeholder="friend@"
-        value={referralID}
-        onChangeText={setReferralID}
-        autoCapitalize="none"
-        autoCorrect={false}
-        disabled={busy}
-        style={{backgroundColor: '#fff'}}
-      />
-    </View>
-    <View style={styles.card}>
-      <Disclosure
-        title="Recovery & revocation"
-        summary={recoveryAuthority || revocationAuthority ? 'Custom settings' : 'Optional · defaults to this identity'}
-      >
-        <TextInput
-          mode="outlined"
-          label="Recovery identity (optional)"
-          accessibilityLabel="Recovery identity, optional"
-          placeholder="alice@"
-          value={recoveryAuthority}
-          onChangeText={setRecoveryAuthority}
-          autoCapitalize="none"
-          autoCorrect={false}
-          disabled={busy}
-        />
-        <Text style={styles.muted}>Can restore your identity if it is revoked.</Text>
-        <TextInput
-          mode="outlined"
-          label="Revocation identity (optional)"
-          accessibilityLabel="Revocation identity, optional"
-          placeholder="alice@"
-          value={revocationAuthority}
-          onChangeText={setRevocationAuthority}
-          autoCapitalize="none"
-          autoCorrect={false}
-          disabled={busy}
-        />
-        <Text style={styles.muted}>Can revoke your identity. Leave both empty to manage it yourself.</Text>
+            description: balance != null && showBalance ? `${String(balance)} ${selected.display_ticker} confirmed` : source.isIdentity ? 'Linked VerusID' : source.address};
+        })} onSelect={address => setManualFunding(current => ({...current, [coinId]: address}))} />
+      <Disclosure title="More options" summary="Referral, recovery">
+        <AppTextInput label="Referral (optional)" accessibilityLabel="Referral identity, optional" placeholder="Optional"
+          helperText="Lowers the price." value={referralID} onChangeText={setReferralID} editable={!busy} />
+        <AppTextInput label="Revocation VerusID (optional)" accessibilityLabel="Revocation identity, optional" placeholder="This VerusID"
+          helperText="Can revoke your VerusID. Leave both empty to manage it yourself." value={revocationAuthority} onChangeText={setRevocationAuthority} editable={!busy} />
+        <AppTextInput label="Recovery VerusID (optional)" accessibilityLabel="Recovery identity, optional" placeholder="This VerusID"
+          helperText="Can restore your VerusID if it is revoked." value={recoveryAuthority} onChangeText={setRecoveryAuthority} editable={!busy} />
+        {externalAuthorities.map(authority => <View key={authority} style={styles.notice}>
+          <Text style={styles.warningText}>{identityLabel(authority)} can take control of this VerusID.</Text>
+        </View>)}
+        <TextAction disabled={busy} onPress={() => navigation.navigate('IdentityRegistrationStart')}>All registrations</TextAction>
       </Disclosure>
     </View>
-    {estimate && <CostReview {...estimate} stage="commitment" />}
-    <Disclosure title="How registration works">
-      <Text style={styles.body}>First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the identity.</Text>
-      <Text style={styles.muted}>A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-identities require an eligible currency namespace.</Text>
-    </Disclosure>
+    <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces}
+      selectedId={namespace?.id || selected?.system_id} onSelect={setNamespace} loading={namespaceLoading} error={namespaceError}
+      onRetry={() => setNamespaceAttempt(value => value + 1)} />
   </RegistrationPage>;
 }
 
 const PaymentReview = ({navigation, route, stage}) => {
   const {jobId} = route.params;
   const [review, setReview] = useState(null);
-  const [accepted, setAccepted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [approving, setApproving] = useState(false);
   const {busy, error, run, running} = useRegistrationAction();
-
+  const coins = useSelector(state => state.coins.activeCoinsForUser || []);
+  const coin = coins.find(item => item.id === review?.chainTicker);
+  const prices = useRegistrationPrices(coin, review?.quote);
   useFocusEffect(useCallback(() => {
-    setAccepted(false);
-    run(context => getRegistrationReview(jobId, context), setReview);
+    run(context => getRegistrationReview(jobId, context), value => { rememberQuote(value); setReview(value); });
   }, [jobId, run]));
-
   const isCommitment = stage === 'commitment';
   const ready = review?.status === `${stage}_prepared`;
-
   const refresh = async (fromPull = false) => {
-    if (busy) return;
-
-    setAccepted(false);
-
-    // Starting the native pull indicator from a button halfway down the page
-    // changes the scroll offset and can hide an error when refreshing ends.
-    setRefreshing(fromPull);
-
-    try {
-      await run(context => refreshRegistrationReview(jobId, context), setReview);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const approve = () => {
     if (running.current) return;
-
+    setRefreshing(fromPull);
+    try { await run(context => refreshRegistrationReview(jobId, context), setReview); }
+    finally { setRefreshing(false); }
+  };
+  const approve = () => {
+    if (running.current || !ready || !review) return;
     setApproving(true);
-    return run(context => isCommitment
-      ? approveCommitment(jobId, review.approvalToken, context)
+    return run(context => isCommitment ? approveCommitment(jobId, review.approvalToken, context)
       : approveRegistration(jobId, review.approvalToken, context), result => {
-      setAccepted(false);
       navigation.replace('IdentityRegistrationProgress', {jobId: result.jobId});
     }).finally(() => setApproving(false));
   };
-
-  const paymentAction = <>
-    {!!review && <Pressable
-      accessibilityRole="checkbox"
-      accessibilityLabel={isCommitment ? 'I approve the commitment fee shown above.' : 'I approve this identity and registration payment.'}
-      accessibilityState={{checked: accepted, disabled: busy || !ready || !!error}}
-      onPress={() => setAccepted(!accepted)}
-      disabled={busy || !ready || !!error}
-      style={({pressed}) => [styles.row, styles.touchRow, {alignItems: 'flex-start', opacity: pressed ? 0.6 : 1}]}
-    >
-      <Icon
-        name={accepted ? 'checkbox-marked' : 'checkbox-blank-outline'}
-        color={Colors.primaryColor}
-        size={26}
-        accessible={false}
-      />
-      <Text style={[styles.body, styles.flexible]}>{isCommitment
-        ? 'I approve the commitment fee shown above.'
-        : 'I approve this identity and registration payment.'
-      }</Text>
-    </Pressable>}
-    <ActionButton
-      onPress={approve}
-      disabled={busy || !accepted || !ready || !!error}
-      busy={approving}
-    >{isCommitment ? 'Pay & commit name' : 'Pay & register identity'}</ActionButton>
-  </>;
-
-  return <RegistrationPage
-    error={error}
-    refreshing={refreshing}
-    onRefresh={refresh}
-    footer={
-      !review && error ? <ActionButton
-        disabled={busy}
-        onPress={() => run(context => getRegistrationReview(jobId, context), setReview)}
-      >Try again</ActionButton> : paymentAction
-    }
-  >
-    <View style={styles.section}>
-      <Text style={styles.eyebrow}>STEP {isCommitment ? '1' : '2'} OF 2</Text>
-      <Text style={styles.title}>{isCommitment ? 'Commit your name' : 'Create your identity'}</Text>
-    </View>
-    {!review && busy && <ActivityIndicator accessibilityLabel="Loading costs" color={Colors.primaryColor} />}
-    {review && <>
+  const previous = priorQuotes.get(jobId);
+  const changed = !!review && !!previous && JSON.stringify(Object.entries(previous.totalRequired).sort()) !== JSON.stringify(Object.entries(review.quote.totalRequired).sort());
+  const oldPrice = changed ? Object.entries(previous.totalRequired).map(([id, amount]) => `${formatRegistrationAmount(amount)} ${currencyLabel(id, review.currencyNames)}`).join(' and ') : null;
+  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error} info={registrationInfo(stage)}
+    onRefresh={refresh} refreshing={refreshing} footer={<>
+      {changed && <RegistrationText muted>The price was {oldPrice}.</RegistrationText>}
+      {!review && error ? <ActionButton disabled={busy} onPress={() => run(context => getRegistrationReview(jobId, context), setReview)}>Try again</ActionButton>
+        : <ActionButton hold onPress={approve} disabled={busy || !ready || !!error} busy={approving}>{isCommitment ? 'Hold to start' : 'Hold to create'}</ActionButton>}
+      {isCommitment && <ActionButton secondary disabled={busy} onPress={() => navigation.getParent().goBack()}>Save for later</ActionButton>}
+    </>}>
+    {!review ? <RegistrationSkeleton /> : <>
       <IdentitySummary review={review} />
-      <CostReview
-        quote={review.quote}
-        currencyNames={review.currencyNames}
-        identityNames={review.identityNames}
-        stage={stage}
-      />
-      <View style={[styles.notice, isCommitment && styles.warning]}>
-        <Text style={styles.body}>{isCommitment
-          ? 'The commitment fee is non-refundable. It does not reserve your name.'
-          : 'This payment creates your identity after confirmation.'
-        }</Text>
-        {isCommitment && <Text style={styles.muted}>Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.</Text>}
-      </View>
-      <RegistrationDetails review={review} />
-      {!!error && <ActionButton secondary disabled={busy} onPress={() => refresh()}>Refresh review</ActionButton>}
-      <ActionButton secondary disabled={busy} onPress={() => navigation.navigate('IdentityRegistrationStart')}>Save for later</ActionButton>
+      {isCommitment ? <CostReview {...review} prices={prices} stage={stage} /> : <RegistrationSteps status={review.status} quote={review.quote} currencyNames={review.currencyNames} prices={prices} changed={changed} />}
+      <RegistrationDetails review={review}>{dismiss => !isCommitment &&
+        <TextAction disabled={busy} onPress={() => dismiss(() => navigation.getParent().goBack())}>Save for later</TextAction>
+      }</RegistrationDetails>
+      {!!error && <TextAction disabled={busy} onPress={() => refresh()}>Refresh review</TextAction>}
     </>}
   </RegistrationPage>;
 };
@@ -592,6 +580,7 @@ export const IdentityCommitmentReview = props => <PaymentReview {...props} stage
 export const IdentityRegistrationReview = props => <PaymentReview {...props} stage="registration" />;
 
 export function IdentityRegistrationProgress({navigation, route}) {
+  const styles = useRegistrationStyles();
   const {jobId} = route.params;
   const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -602,8 +591,15 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const background = useRef(null);
   const currentReview = useRef(null);
   const {context, busy, error, run, running} = useRegistrationAction();
+  const coins = useSelector(state => state.coins.activeCoinsForUser || []);
+  const prices = useRegistrationPrices(coins.find(coin => coin.id === review?.chainTicker), review?.quote);
+
+  useEffect(() => navigation.addListener('beforeRemove', event => {
+    if (running.current) event.preventDefault();
+  }), [navigation, running]);
 
   const updateReview = useCallback(value => {
+    rememberQuote(value);
     currentReview.current = value;
     setReview(value);
     setLoadError(null);
@@ -710,7 +706,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
 
   const continueRegistration = () => runForeground(
     requestContext => prepareRegistration({jobId}, requestContext),
-    () => navigation.navigate('IdentityRegistrationReview', {jobId}),
+    () => navigation.replace('IdentityRegistrationReview', {jobId}),
   );
 
   const status = review?.status;
@@ -723,6 +719,12 @@ export function IdentityRegistrationProgress({navigation, route}) {
     'registration_broadcast_unknown',
   ].includes(status);
 
+  useEffect(() => {
+    // Preparation is read-only with respect to payment. Only the next hold
+    // can approveRegistration. A failed preparation keeps the retry action.
+    if (status === 'commitment_confirmed') continueRegistration();
+  }, [status]);
+
   const confirmLink = () => {
     if (running.current || promptOpen.current) return;
 
@@ -731,7 +733,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       promptOpen.current = false;
     };
 
-    Alert.alert('Link identity to this wallet?',
+    registrationAlert('Link identity to this wallet?',
       `${review.displayName} will appear in your wallet cards and addresses. Your wallets will refresh. Linking is free.`, [
         {text: 'Not now', style: 'cancel', onPress: closePrompt},
         {
@@ -745,7 +747,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       ], {cancelable: true, onDismiss: closePrompt});
   };
 
-  const openOverview = () => navigation.navigate('IdentityRegistrationStart');
+  const openOverview = () => navigation.getParent().goBack();
   const openLinkedIdentities = () => navigation.getParent().reset({
     index: 0,
     routes: [{name: 'Identity'}],
@@ -785,47 +787,44 @@ export function IdentityRegistrationProgress({navigation, route}) {
   };
   else if (state.kind === 'attention') action = {label: 'Check status', onPress: refresh};
 
-  return <RegistrationPage
-    error={error || loadError}
-    footer={review
-      ? <ActionButton disabled={busy} busy={busy} onPress={action.onPress}>{action.label}</ActionButton>
-      : <ActionButton disabled={busy || !loadError} busy={busy} onPress={refresh}>Check status</ActionButton>
-    }
-  >
-    {!review && loading && <ActivityIndicator accessibilityLabel="Loading registration" color={Colors.primaryColor} />}
+  const details = review && <RegistrationDetails review={review}>{dismiss => <>
+    <RegistrationText muted>{state.detail.replace(/\bidentity\b/gi, 'VerusID')}</RegistrationText>
+    <TextAction disabled={busy} onPress={refresh}>Check status</TextAction>
+    <TextAction disabled={busy} onPress={() => dismiss(() => navigation.navigate('IdentityRegistrationStart'))}>All registrations</TextAction>
+    {!!review.deletionKind && <TextAction disabled={busy} onPress={confirmDelete}>Delete saved registration</TextAction>}
+  </>}</RegistrationDetails>;
+  if (review && state.chainComplete) return <TransactionResult title="VerusID created" success
+    description={status === 'registered' ? 'It is not in this wallet yet.' : null}
+    amount={<VerusIdCard name={review.displayName} networkName={currencyLabel(review.systemId, review.currencyNames)} />}
+    details={<View style={styles.section}>
+      <AmountRows label="You paid" amounts={review.quote.totalOperationRequired} currencyNames={review.currencyNames} />
+      {details}
+    </View>}
+    above={(error || loadError) ? <RegistrationText style={styles.errorText}>{(error || loadError).message}</RegistrationText> : null}
+    actions={[{label: action.label, onPress: action.onPress, disabled: busy},
+      ...(status === 'registered' ? [{label: 'Not now', onPress: openOverview, disabled: busy}] : [])]} />;
+
+  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || loadError} info={registrationInfo(review?.stage)}
+    footer={review ? <>
+      {state.kind === 'waiting' && <Text style={[styles.muted, {textAlign: 'center'}]}>
+        {status === 'commitment_broadcast' ? 'Ready in about 1 minute. You can close this screen.' : 'You can leave this screen. Follow progress from your home screen.'}
+      </Text>}
+      {state.kind === 'waiting' ? status === 'commitment_broadcast' ? <ActionButton hold disabled>Hold to create</ActionButton>
+        : <ActionButton disabled>Waiting for confirmation</ActionButton>
+        : <ActionButton disabled={busy} busy={busy} onPress={action.onPress}>{action.label}</ActionButton>}
+    </> : <ActionButton disabled={busy || !loadError} busy={busy} onPress={refresh}>Check status</ActionButton>}>
+    {!review && loading && <RegistrationSkeleton label="Loading registration" />}
     {review && <>
-      <StatusBadge status={status} />
-      <View style={styles.section}>
-        <Text style={styles.title}>{review.displayName}</Text>
-        <Text style={styles.body}>{state.detail}</Text>
-      </View>
-      <RegistrationSteps status={status} />
-      {state.kind === 'waiting' && <Text style={[styles.muted, {textAlign: 'center'}]}>You can leave this screen. Follow progress from your home screen.</Text>}
+      <IdentitySummary review={review} />
+      {state.kind === 'attention' && <StatusBadge status={status} />}
+      {review.quote && <RegistrationSteps status={status} quote={review.quote} currencyNames={review.currencyNames} prices={prices} />}
+      {state.kind === 'attention' && <RegistrationText>{state.detail.replace(/\bidentity\b/gi, 'VerusID')}</RegistrationText>}
       {canRetry && <Text style={styles.muted}>Retry sends the saved transaction. It does not create another payment.</Text>}
-      {review.quote && <View style={styles.card}>
-        <AmountRows
-          currencyNames={review.currencyNames}
-          label={state.chainComplete || review.commitmentHeight ? 'Commitment paid' : review.commitmentTxid ? 'Commitment sent' : 'Commitment fee'}
-          amounts={{[review.quote.systemID]: review.quote.commitmentFee}}
-        />
-        <AmountRows
-          currencyNames={review.currencyNames}
-          label={state.chainComplete ? 'Registration paid' : review.registrationTxid ? 'Registration sent' : 'Register later (estimated)'}
-          amounts={review.quote.totalRequired}
-          total
-        />
-        {!review.registrationTxid && <Text style={styles.muted}>You’ll review the current registration price before paying.</Text>}
+      {details}
+      {!!review.lastError && <View style={styles.notice}>
+        <RegistrationText muted>{(typeof review.lastError === 'string' ? review.lastError : review.lastError.message)
+          ?.replace(/\bi[1-9A-HJ-NP-Za-km-z]{20,40}\b/g, address => identityLabel(address, review.identityNames)).replace(/\bidentity\b/gi, 'VerusID')}</RegistrationText>
       </View>}
-      <RegistrationDetails review={review} />
-      {!!review.lastError && <View style={[styles.notice, styles.warning]}>
-        <Text style={styles.muted}>{(typeof review.lastError === 'string'
-          ? review.lastError
-          : review.lastError.message
-        )?.replace(/\bi[1-9A-HJ-NP-Za-km-z]{20,40}\b/g, address => identityLabel(address, review.identityNames))}</Text>
-      </View>}
-      {!state.chainComplete && action.label !== 'Check status' && <ActionButton secondary disabled={busy} onPress={refresh}>Check status</ActionButton>}
-      {action.onPress !== openOverview && <ActionButton secondary disabled={busy} onPress={openOverview}>All registrations</ActionButton>}
-      {!!review.deletionKind && <ActionButton secondary disabled={busy} onPress={confirmDelete}>Delete saved registration</ActionButton>}
     </>}
   </RegistrationPage>;
 }

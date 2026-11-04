@@ -2234,6 +2234,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-04 | ID-3.REG: phase 2a New VerusID | `claude/idreg-ui-reg` from `63289e4b` | V3 field, namespace prices/search, two holds, saved tab rows, app-sheet alerts and shared testnet DAI.vETH/Bridge.vETH route. Engine, backend and tests unchanged. Core suites: 268 pass; storage: 78 pass / 1 existing route failure. UI components/presentation pass; screen fixture has an incomplete native SVG mock. Design, safe-area, source behavior, price, parser and both production bundles pass. Source-derived renders only. | Orchestrator owns native light/dark normal/compact QA and real testnet flows. See `idreg-reg.local.md`. Phase 2b remains separate. No device, Metro server, push, PR or merge. |
 | 2026-11-03 | Meeting fixes device QA (wallet logos, gift Share, bridge names and fees, identity upload) | `claude/meeting-fixes-int` `40378c38` (redesign `f278b505` + `claude/meeting-ui-fixes` `cd5f18ad` + `claude/bridge-names-fees` `f1b90816` + `claude/identity-data-upload`) | Sonnet testers plus Opus checks on VRSCTEST, iPhone 17 Pro and iPhone SE sims, light and dark. Pixel icons on Home and Manage assets (no "?"). Gift card funded (txid `a6eabb77…`): result has no Share while pending. Network rows: vETH on Verus, ETH on Ethereum; DAI.vETH → DAI. Confirm for a send to Ethereum shows Bridge fee, Network fee and Total with Hold enabled; local conversion below fees shows the notice. Identity updates: content add `9847dd47…`, public upload `0c9a765d…`, encrypted upload `7fd6fa39…`, all verified by the requester; refused upload shows the plain copy; signed-out unlock works. Fixed during QA: first-render crash on every identity update request, `0x…` contract names shown as asset names, and an out-of-date review shown as a fee error. | No real bridge or conversion broadcast (public VRSCTEST DeFi disabled). Android not run. P3 polish items are listed in the meeting-fixes run folder `docs/qa/matrix/runs/2026-11-03-meeting-fixes/` (ignored). No push. |
 | 2026-11-03 | GR-4.IDENTITY-UPLOAD tests and plain rejection | `claude/identity-upload-tests` from `05e541f3` | Existing suites now check supported upload crypto, nine refused variants, real SDK canonicalization, unchanged signed request bytes, history checks, and the fifth signer argument. Exact approved rejection copy applied. Requested identity group: base 53 pass / 0 fail; candidate 62 pass / 0 fail. Four unchanged SVG suite-load errors. Gift/claim/spendable-key group: 77 pass / 19 fail on both. Frozen install, four-file parser, design, and whitespace checks pass. | The 19 missing-mempool-mock failures and native verification remain open. No new test files, device work, merge, or push. |
 | 2026-11-03 | Meeting UI fixes: wallet logos and RG-1.8 gift funding results | `claude/meeting-ui-fixes` from `052d0b5c` | `logoId` uses built-in artwork or raw `coin.id`; Home, shared asset rows/reviews and setup consume it. Claim animation keeps `iconId`. Funding result Share uses the detail screen's `canShare` rule; caption, unfunded sharing and share guards remain. Frozen install, design, safe-area (5 files), Babel (5 files), 15 temporary Node behavior checks, iOS production JS bundle and whitespace checks pass. Existing unit suites: 51 pass, the same 2 baseline failures from a missing `getMempoolUnspentUtxos` mock. Details: `meeting-ui-fixes.local.md` (local only). | Owner device QA: light/dark, normal/iPhone SE; Home identifier currency, Manage assets, details/identifier review, setup logos, pending/partial/retryable/confirmed gift funding results and Back. No device runtime or rendered evidence in this task. |
@@ -2757,6 +2758,8 @@ keyboard animation, native text sizing or accessibility. Device QA stays open.
   Test fixture compatibility failures remain. See `idreg-sync.local.md` for
   exact counts and reasons. A passing bundle does not prove wallet execution.
 - [ ] Phase 2: redesign the new upstream screens under the approved design work.
+  Phase 2a registration is implemented on `claude/idreg-ui-reg`. Phase 2b
+  Transfer/Modify/Link is a separate task. Device verification remains open.
 - [ ] Phase 3: verify complete wallet flows, interrupted operations, retry,
   confirmation, Back, and reload on devices. No device or Metro server ran in phase 1.
 
@@ -2769,3 +2772,36 @@ are available without changing existing buttons.
 
 Full stage decisions, funds-path decisions, checks, and open gaps are in the
 uncommitted `idreg-sync.local.md` merge log.
+
+### ID-3.REG — New VerusID, phase 2a (2026-11-04)
+
+Design contract: owner-approved R1–R9, V3a–V3d, V1c/e/f/g/h and NS1–NS8;
+the approved spec wins over superseded filled fields and pre-hold shortfalls.
+Reuse the V3 `AppTextInput` accessory, ProgressHeader, InfoSheet, SelectionSheet,
+AppSearchField, StatusBadge, Send hold button, SafeBottomActionStack,
+TransactionResult and VerusIdCard. Keep normal/compact and light/dark behavior.
+
+- [x] Combine create and the two payment approvals in the registration UI.
+  Preserve upstream routes, engine calls, approval tokens, one-confirmation
+  gating, reconciliation, identical-byte retries, deletion and manual linking.
+- [x] Add the V3 namespace segment, cached SDK-filtered local namespace list,
+  search, prices, unavailable reasons, no-market group, fiat and prepared-job Save.
+- [x] Add saved/pending registration rows to the VerusID tab. Preserve the
+  upstream persistent Home card. Replace native registration alerts with app sheets.
+- [x] Use DAI.vETH in Bridge.vETH for the shared testnet native dollar route.
+  Keep mainnet configuration and the existing testnet-price setting gate.
+- [x] Run registration suites, design/safe-area/parser/source checks and both
+  production bundles. Preserve upstream tests. Record test-fixture failures.
+- [ ] Orchestrator: native iOS/Android light/dark normal/compact QA. Verify
+  keyboard and namespace sheet sizing, both real approvals, one confirmation,
+  changed price, insufficient funds, save/restart, Back, unknown delivery,
+  expired/spent jobs, all deletion kinds and manual linking.
+
+Evidence: `idreg-reg.local.md` records exact commands, frame mapping, results
+and limits. Core engine suites retain 268 passes. Storage retains 78 passes and
+the existing ServicesHome/IdentityTab route assertion failure. UI component and
+presentation suites pass; the screen suite cannot load with its old incomplete
+React Native SVG mock. The notification mock load failure already exists on the
+base. Source-derived light/dark normal/compact renders are in the ignored
+`artifacts/idreg-reg/` folder. These are not native-device proof. Engine,
+dispatcher, channel, VRPC, storage, management/Link screens and tests are unchanged.
