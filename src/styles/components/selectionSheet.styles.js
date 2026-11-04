@@ -46,6 +46,7 @@ export const createSelectionSheetStyles = theme =>
     leading: {marginRight: 12},
     copy: {flex: 1, minWidth: 0},
     disabledContent: {opacity: 0.5},
+    readOnlyContent: {opacity: 0.6},
     preservedCopy: {flex: 0, flexShrink: 0},
     rowTitle: {...theme.typography.titleRow, color: theme.colors.textPrimary},
     rowSubtitle: {
@@ -63,6 +64,7 @@ export const createSelectionSheetStyles = theme =>
     quietValueText: {...theme.typography.bodySm, color: theme.colors.textSecondary},
     quietValueLabel: {...theme.typography.caption, color: theme.colors.textSubtle},
     indicator: {marginLeft: 10, width: 22, alignItems: 'center'},
+    checkboxIndicator: {width: 24},
     action: {
       minHeight: 62,
       flexDirection: 'row',

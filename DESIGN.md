@@ -311,6 +311,15 @@ a complete address choice readable on compact screens. Normal states remain at
 76%. Nested identity linking and the searchable Coin Card picker retain their
 specialized composition and behavior.
 
+Multi-select `SelectionRow`s use the checkbox role (owner-approved V2,
+2026-11-04). Each choosable row shows the `CheckOption` glyph:
+`checkbox-blank-outline` or `checkbox-marked` from MaterialCommunityIcons,
+24 points in `link`. Center it in the right indicator slot, 24 points wide
+with a 10-point left gap. Both states keep `surfaceMuted`, without an outline
+or success fill. Busy-disabled rows keep their current box, dimmed with the
+text. The row exposes its checked state; the glyph stays hidden from
+accessibility. Single-choice rows keep their success fill and check.
+
 The Send/Convert network sheet ("Choose a network") groups its rows with
 `SelectionGroup`. "Same network" holds the asset's own network and is always
 first; "Other networks" holds the rest in route order. Row titles are the plain
@@ -831,9 +840,9 @@ Lucide Plus icon and `link` in both themes. It opens the unfilled `GiftCardOptio
 add action and open that picker directly. Hide the action when neither remains.
 Adding a currency lists only currencies outside the gift, makes the choice the
 empty main amount, and moves the previous positive amount to the first extra.
-"Choose VerusIDs" is a multi-select `SelectionSheet`: success fill and check
-for selected rows, no chevron for unselected rows. Its bottom action counts
-only VerusIDs new to the gift: "Add 1 VerusID" or "Add 2 VerusIDs". It reads
+"Choose VerusIDs" follows the multi-select `SelectionRow` rule above.
+Its bottom action counts only VerusIDs new to the gift: "Add 1 VerusID" or
+"Add 2 VerusIDs". It reads
 "Done" when the draft adds nothing or removes a VerusID.
 Only that action applies the draft. Outside tap and Back discard it.
 
@@ -1379,8 +1388,9 @@ and Modify option B (MB1–MB4). The canonical sources are
 and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
 
 - Transfer is one flat form, then review. Modify first chooses sections with
-  multi-select `SelectionRow`s. Show only chosen sections, in Spend and sign,
-  Revoke and recover, Private address order, then review. Restore loaded values
+  multi-select `SelectionRow`s, following the checkbox rule above. Show only
+  chosen sections, in Spend and sign, Revoke and recover, Private address order,
+  then review. Restore loaded values
   when a section is deselected. Keep one fields state, one diff and one engine
   preparation. Progress is `(index + 1) / (max(chosen sections, 1) + 2)`, so the choose step
   starts at one third (MB1).
@@ -1392,12 +1402,16 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   hold button. Consent gates its handler as well as its disabled state. Modify
   before/after pairs use the approved soft-fill review panel. Results use
   `TransactionResult`; Retry unlink is primary and never sends again.
-- Link is a full page with `SelectionRow` multi-selection, search from 7 items,
-  skeleton loading, a counted Link action, failed rows first and still selected,
+- Link is a full page with the multi-select `SelectionRow` rule above,
+  search from 7 items, skeleton loading, a counted Link action,
+  failed rows first and still selected,
   and the existing manual-link fallback after discovery failure. The page header
   info action keeps the upstream linking explanation and wallet addresses in an
   `InfoSheet`. Do not invent
   a filtered-out count. Keep network choice when several networks are available.
+  An already-linked row has no box or subtitle. Show `Linked` with `quietValue`
+  at full opacity and dim only its name to 0.6. The row is read-only. Keep the
+  checkbox role, checked and disabled states, and `<name>. Already linked` label.
   Management and Link hide the tab bar while active.
 
 ### New VerusID registration
