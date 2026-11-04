@@ -17,6 +17,7 @@ import {
   API_GET_PENDING_DEPOSITS,
   API_GET_LINKED_IDENTITIES,
   VRPC,
+  DLIGHT_PRIVATE,
 } from '../../../../utils/constants/intervalConstants'
 import {
   renewCoinData,
@@ -30,6 +31,7 @@ import { updateDepositSources } from './UpdateDepositSources'
 import { updatePendingDeposits } from './UpdatePendingDeposits'
 import { updateLinkedIdentities } from './UpdateLinkedIdentities'
 import Store from '../../../../store'
+import {retryDlightWalletInitialization} from '../../channels/dlight/dispatchers/LightWalletReduxManager';
 import {createVrpcRefresh} from '../../../../utils/vrpc/vrpcRefresh';
 import {
   captureSessionScope,
@@ -163,6 +165,17 @@ export const conditionallyUpdateWallets = async (state, dispatch, updates) => {
   const isCurrent = () => sessionScopeIsCurrent(Store.getState(), sessionScope);
 
   if (!isCurrent()) return updates.map(() => API_ABORTED);
+
+  for (const {chainTicker, updateId} of updates) {
+    if (updateId !== API_GET_INFO) continue;
+    const channels = state.updates.coinUpdateTracker[chainTicker]?.[updateId]?.channels;
+    const coin = state.coins.activeCoinsForUser.find(item => item.id === chainTicker);
+    if (coin && channels?.includes(DLIGHT_PRIVATE)) {
+      await retryDlightWalletInitialization(coin, sessionScope);
+      if (!isCurrent()) return updates.map(() => API_ABORTED);
+      state = Store.getState();
+    }
+  }
 
   const jobs = new Map();
   const keyFor = ({chainTicker, updateId}) => `${chainTicker}:${updateId}`;

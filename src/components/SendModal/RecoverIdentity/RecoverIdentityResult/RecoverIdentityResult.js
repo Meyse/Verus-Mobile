@@ -37,6 +37,7 @@ const RecoverIdentityResult = props => {
   };
 
   return RecoverIdentityResultRender({
+    deliveryUnknown: props.route.params?.deliveryUnknown === true,
     targetId,
     values: props.route.params?.values,
     networkObj,

@@ -58,7 +58,7 @@ export class VerusIdServiceOverview extends Component {
   }
 
   openLinkIdentitiesFromChain(chain) {
-    return this.props.navigation.navigate('LinkIdentities', {chain});
+    return this.props.navigation.navigate('IdentityTab', {screen: 'LinkIdentities', params: {chain}});
   }
 
   async getVerusId(chain, iAddrOrName) {

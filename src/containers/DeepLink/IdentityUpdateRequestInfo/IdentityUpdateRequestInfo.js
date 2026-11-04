@@ -604,7 +604,7 @@ const IdentityUpdateRequestInfoContent = props => {
   const getExpiryLabel = () => {
     if (!details.expires()) return '';
     return blocksToTime(
-      details.expiryHeight.toNumber() - chainInfo.longestchain,
+      details.expiryHeight.toNumber() - chainInfo.blocks,
       coinObj.seconds_per_block,
     );
   };
@@ -818,11 +818,11 @@ const IdentityUpdateRequestInfoContent = props => {
       buildIdentityStateChange({
         currentIdentity: identity,
         updatedIdentity: identityUpdates,
-        chainHeight: chainInfo?.longestchain,
+        chainHeight: chainInfo?.blocks,
         secondsPerBlock: coinObj.seconds_per_block,
         prepared: identityPreviewPrepared,
       }),
-    [identity, identityUpdates, chainInfo?.longestchain, coinObj.seconds_per_block, identityPreviewPrepared],
+    [identity, identityUpdates, chainInfo?.blocks, coinObj.seconds_per_block, identityPreviewPrepared],
   );
 
   const highRiskChanges = useMemo(
@@ -1141,7 +1141,7 @@ const IdentityUpdateRequestInfoContent = props => {
         <ConfirmPayStep
           requestCard={compactRequestCard}
           identityStateChange={identityStateChange}
-          chainHeight={chainInfo?.longestchain}
+          chainHeight={chainInfo?.blocks}
           details={details}
           requestIsTestnet={requestIsTestnet}
           subjectIdentity={subjectIdentity}

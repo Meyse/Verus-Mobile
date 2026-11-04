@@ -1625,6 +1625,12 @@ const GiftCardFund = props => {
       const fundingResult = await broadcastGiftCardFunding({
         preflightPlan,
         pendingBroadcast: pendingFunding,
+        loadPendingBroadcast: async () => {
+          const latestCard = await loadLatestFundableCard(pendingFunding);
+          return latestCard.fundingHistory?.find(entry =>
+            entry?.id === pendingFunding?.id && isPendingFunding(entry),
+          );
+        },
         persistPendingBroadcast: pendingBroadcast =>
           persistFundingBroadcast(fundingCard, pendingBroadcast),
       });

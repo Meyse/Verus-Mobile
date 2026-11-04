@@ -747,11 +747,8 @@ export function IdentityRegistrationProgress({navigation, route}) {
 
   const openOverview = () => navigation.navigate('IdentityRegistrationStart');
   const openLinkedIdentities = () => navigation.getParent().reset({
-    index: 1,
-    routes: [
-      {name: 'Services'},
-      {name: 'Service', params: {service: VERUSID_SERVICE_ID}},
-    ],
+    index: 0,
+    routes: [{name: 'Identity'}],
   });
 
   const confirmDelete = () => {

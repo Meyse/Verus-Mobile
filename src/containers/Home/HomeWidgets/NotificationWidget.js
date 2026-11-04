@@ -1,3 +1,4 @@
+import {registrationNotifications} from '../../../utils/identityRegistration/notifications';
 import React, {useMemo} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -7,6 +8,8 @@ import AppButton from '../../../components/AppButton';
 import {
   NOTIFICATION_ICON_ERROR,
   NOTIFICATION_ICON_VERUSID,
+  NOTIFICATION_TYPE_BASIC,
+  NOTIFICATION_TYPE_LOADING,
   NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
 } from '../../../utils/constants/notifications';
 import {
@@ -16,19 +19,17 @@ import {
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {fontStyle} from '../../../globals/fonts';
-import {VerusIdProvisioningNotification} from '../../../utils/notification';
-import {processVerusId} from '../../Services/ServiceComponents/VerusIdService/VerusIdLogin';
+import {BasicNotification, LoadingNotification, VerusIdProvisioningNotification} from '../../../utils/notification';
 import VerusIdReadyCard from './VerusIdReadyCard';
 
-// A failed VerusID request reads "<name>@ could not be created" with "Try
-// again", also for notifications stored with the older wording.
+// Preserve the existing failed-provisioning wording for old saved notices.
 const getNotificationCopy = notification => {
   const segments = Array.isArray(notification.title)
     ? notification.title
     : [notification.title];
   const highlight = segments[0]?.trim() ?? '';
 
-  if (notification.iconType === NOTIFICATION_ICON_ERROR) {
+  if (notification.iconType === NOTIFICATION_ICON_ERROR && notification.type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING) {
     return {highlight, remainder: 'could not be created', label: 'Try again'};
   }
 
@@ -53,6 +54,8 @@ const NotificationWidget = () => {
   const notifications = useObjectSelector(state => state.notifications);
   const activeAccount = useSelector(state => state.authentication.activeAccount);
   const accountHash = activeAccount?.accountHash ?? null;
+  const jobs = useObjectSelector(state => state.channelStore_verusid.registrationJobs || {});
+  const registrationNotices = registrationNotifications(jobs, accountHash);
 
   const actionableNotifications = useMemo(() => {
     if (!notifications?.directory || !accountHash) return [];
@@ -60,23 +63,23 @@ const NotificationWidget = () => {
       .filter(
         ([, value]) =>
           value.acchash === accountHash &&
-          value.type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
+          [NOTIFICATION_TYPE_VERUS_ID_PROVISIONING, NOTIFICATION_TYPE_BASIC, NOTIFICATION_TYPE_LOADING].includes(value.type),
       )
       .map(([uid, value]) => {
-        const notification = VerusIdProvisioningNotification.fromJson(
-          value,
-          processVerusId,
-        );
+        const notification = value.type === NOTIFICATION_TYPE_BASIC
+          ? BasicNotification.fromJson(value)
+          : value.type === NOTIFICATION_TYPE_LOADING
+          ? LoadingNotification.fromJson(value)
+          : VerusIdProvisioningNotification.fromJson(
+              value,
+              ({navigation: targetNavigation}, _identityAddress, chain) =>
+                targetNavigation.navigate('IdentityTab', {screen: 'LinkIdentities', params: {chain}}),
+            );
         notification.uid = uid;
         notification.iconType = value.icon ?? NOTIFICATION_ICON_VERUSID;
         notification.celebrated = value.celebrated === true;
         return notification;
-      })
-      .filter(notification =>
-        typeof notification.isActionable === 'function'
-          ? notification.isActionable()
-          : false,
-      );
+      });
   }, [accountHash, notifications]);
 
   // The celebration plays once: the stored notification remembers it.
@@ -88,14 +91,26 @@ const NotificationWidget = () => {
     }
   };
 
-  if (actionableNotifications.length === 0) return null;
+  if (actionableNotifications.length === 0 && registrationNotices.length === 0) return null;
 
   return (
     <View style={styles.container}>
+      {registrationNotices.map(notice => (
+        <View key={notice.uid} style={[styles.card, styles.cardSpacing, {backgroundColor: theme.colors.surfaceMuted}]}>
+          <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
+            <Text style={styles.highlight}>{notice.identityName}</Text>{' '}{notice.statusText}
+          </Text>
+          <AppButton compact height={36} variant="secondary" themeMode={theme.mode}
+            buttonColor={theme.colors.surface} labelStyle={styles.actionLabel} style={styles.action}
+            onPress={() => notice.onAction({navigation, dispatch})}>
+            {notice.body}
+          </AppButton>
+        </View>
+      ))}
       {actionableNotifications.map((notification, index) => {
         const {highlight, label, remainder} = getNotificationCopy(notification);
 
-        if (notification.iconType !== NOTIFICATION_ICON_ERROR) {
+        if (notification.iconType !== NOTIFICATION_ICON_ERROR && notification.isActionable()) {
           return (
             <View
               key={notification.uid}
@@ -142,9 +157,14 @@ const NotificationWidget = () => {
                 />
               </TouchableOpacity>
             </View>
+            {!notification.isActionable() && !!notification.body && (
+              <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+                {notification.body}
+              </Text>
+            )}
             {/* The page color, not the light-blue tint: the tint disappears
                 on the gray card (owner-approved card A, 2026-10-22). */}
-            <AppButton
+            {notification.isActionable() && <AppButton
               buttonColor={theme.colors.surface}
               compact
               height={36}
@@ -154,7 +174,7 @@ const NotificationWidget = () => {
               themeMode={theme.mode}
               variant="secondary">
               {label}
-            </AppButton>
+            </AppButton>}
           </View>
         );
       })}

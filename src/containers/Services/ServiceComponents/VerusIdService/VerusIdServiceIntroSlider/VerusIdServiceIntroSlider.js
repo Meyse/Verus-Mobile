@@ -90,9 +90,9 @@ class VerusIdServiceIntroSlider extends Component {
           style={{marginTop: 16}}
           mode="contained"
           buttonColor={Colors.secondaryColor}
-          onPress={() => this.props.navigation.navigate('IdentityRegistration', {
+          onPress={() => this.props.navigation.navigate('IdentityTab', {screen: 'IdentityRegistration', params: {
             screen: 'IdentityRegistrationStart', params: {coinId: identityNetwork},
-          })}
+          }})}
         >
           Register VerusID
         </Button>

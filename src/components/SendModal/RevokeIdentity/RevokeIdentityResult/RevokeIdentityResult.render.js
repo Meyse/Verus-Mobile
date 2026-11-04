@@ -4,6 +4,7 @@ import {explorers} from '../../../../utils/CoinData/CoinData';
 import {identityName} from '../../../../containers/RevokeRecover/RecoveryValues';
 
 export const RevokeIdentityResultRender = ({
+  deliveryUnknown,
   finishSend,
   networkObj,
   openExplorer,
@@ -11,6 +12,7 @@ export const RevokeIdentityResultRender = ({
   txid,
 }) => (
   <RevokeRecoverSubmittedResult
+    deliveryUnknown={deliveryUnknown}
     action="revocation"
     identityName={identityName(targetId)}
     networkName={networkObj?.display_name || 'the selected blockchain'}

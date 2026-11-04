@@ -56,7 +56,7 @@ export const processVerusId = async (
       },
     });
     if (!isCurrent()) return null;
-    props.navigation.navigate('DeepLink');
+    props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
     return;
   }
 
@@ -73,6 +73,6 @@ export const processVerusId = async (
       passthrough: { fqnToAutoLink, notificationUid }
     },
   });
-  if (!isCurrent()) return null;
-  props.navigation.navigate('DeepLink');
+    if (!isCurrent()) return null;
+  props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
 }

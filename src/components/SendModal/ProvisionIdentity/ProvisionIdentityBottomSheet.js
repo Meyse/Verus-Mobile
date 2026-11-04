@@ -731,12 +731,11 @@ const ProvisionIdentityBottomSheet = ({
       await handleProvisioningResponse(
         coinObj,
         res.data,
-        requestPayload,
-        sendModal.data.fromService,
         provisioningName,
         newLoadingNotification.uid,
         nameId,
         requestedFqn,
+        provisioningSignerId,
         async originatingContext => {
           newLoadingNotification.body = '';
           const lastDotIndex = requestedFqn.lastIndexOf('.');
@@ -756,10 +755,12 @@ const ProvisionIdentityBottomSheet = ({
 
           dispatchAddNotification(newLoadingNotification);
         },
-        provisioningRequestType,
-        provisioningSignerId,
-        hasResponseUris,
-        requestContext,
+        {
+          ...requestContext,
+          provisioningRequestKey: getStoredProvisioningRequestKey({
+            loginRequest: requestPayload, requestType: provisioningRequestType,
+          }),
+        },
       );
 
       const response = new primitives.LoginConsentProvisioningResponse(

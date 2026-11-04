@@ -797,7 +797,7 @@ const GiftCardServiceOverview = ({
         },
       },
     });
-    navigation.navigate('DeepLink');
+    navigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
   };
 
   const deleteCard = async card => {

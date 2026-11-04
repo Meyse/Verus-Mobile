@@ -1,3 +1,4 @@
+import {getStoredProvisioningRequestKey} from '../../../../../utils/verusid/provisioningRequestState';
 import store from '../../../../../store';
 import axios from "axios";
 import { requestServiceStoredData } from '../../../../../utils/auth/authBox';
@@ -106,6 +107,7 @@ export const setRequestedVerusId = async (
   // Track accepted provisioning, without retaining a replayable login request.
   const details = {
     status: provisioningDetails.status,
+    requestKey: getStoredProvisioningRequestKey(provisioningDetails) || context.provisioningRequestKey,
     fqn: provisioningDetails.fqn,
     signingId: provisioningDetails.signingId,
     createdAt: provisioningDetails.createdAt,
@@ -129,15 +131,29 @@ export const setRequestedVerusId = async (
   );
 };
 
-export const deleteProvisionedIds = async (iAddress, chain, requestContext) => {
+export const deleteProvisionedIds = async (iAddress, chain, completed = false, requestContext = null) => {
+  if (completed != null && typeof completed === 'object') {
+    requestContext = completed;
+    completed = false;
+  }
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
   return modifyServiceStoredDataForUser(
     current => {
       const identities = {...(current.pending_ids?.[chain] || {})};
+      const pending = identities[iAddress];
+      const requestKey = getStoredProvisioningRequestKey(pending);
+      const completedRequests = {...(current.completed_provisioning_requests || {})};
+      if (completed && requestKey) {
+        completedRequests[requestKey] = {
+          chainId: chain, iAddress, requestKey, fqn: pending.fqn,
+          completedAt: Math.floor(Date.now() / 1000),
+        };
+      }
       delete identities[iAddress];
       return {
         ...current,
+        completed_provisioning_requests: completedRequests,
         pending_ids: {...(current.pending_ids || {}), [chain]: identities},
       };
     },
@@ -151,7 +167,7 @@ export const deleteAllProvisionedIds = async requestContext => {
   const {accountHash, context} = getOriginatingAccountHash(requestContext);
 
   return modifyServiceStoredDataForUser(
-    current => ({...current, pending_ids: {}}),
+    current => ({...current, pending_ids: {}, completed_provisioning_requests: {}}),
     VERUSID_SERVICE_ID,
     accountHash,
     context,
@@ -222,7 +238,7 @@ export const checkVerusIdNotificationsForUpdates = async requestContext => {
       // Once a ready ID is linked, its pending tracking record is no longer needed.
       if (pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_READY) {
         if (currentLinkedIdentities.indexOf(iaddress) > -1) {
-          await deleteProvisionedIds(iaddress, ticker, context);
+          await deleteProvisionedIds(iaddress, ticker, true, context);
           assertCurrent();
           await updatePendingVerusIds(context);
           assertCurrent();

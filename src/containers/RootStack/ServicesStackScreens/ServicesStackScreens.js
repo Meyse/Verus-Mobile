@@ -67,11 +67,6 @@ const ServicesStackScreens = () => {
         options={{title: ''}}
       />
       <ServicesStack.Screen
-        name="IdentityRegistration"
-        component={IdentityRegistrationNavigator}
-        options={{headerShown: false}}
-      />
-      <ServicesStack.Screen
         name="WyreServiceAccountData"
         component={WyreServiceAccountData}
       />

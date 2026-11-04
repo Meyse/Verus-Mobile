@@ -37,6 +37,7 @@ const RevokeIdentityResult = props => {
   };
 
   return RevokeIdentityResultRender({
+    deliveryUnknown: props.route.params?.deliveryUnknown === true,
     targetId,
     networkObj,
     finishSend,

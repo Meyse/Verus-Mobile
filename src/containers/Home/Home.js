@@ -312,9 +312,9 @@ const Home = () => {
   }, [widgetOrder, sortWidgets]);
 
   const refresh = useCallback(
-    async (showLoading = true) => {
-      const run = ++refreshRun.current;
-      setLoading(showLoading);
+    async (showLoading = false) => {
+      const run = showLoading ? ++refreshRun.current : null;
+      if (showLoading) setLoading(true);
 
       const serviceUpdates = [
         API_GET_SERVICE_ACCOUNT,
@@ -348,7 +348,7 @@ const Home = () => {
       }
 
       await walletRefresh;
-      if (run === refreshRun.current) setLoading(false);
+      if (showLoading && run === refreshRun.current) setLoading(false);
     },
     [activeCoinsForUser, dispatch],
   );
@@ -389,7 +389,7 @@ const Home = () => {
     dispatch(expireServiceData(API_GET_SERVICE_RATES));
     dispatch(expireServiceData(API_GET_SERVICE_NOTIFICATIONS));
 
-    refresh();
+    refresh(true);
   };
 
   const getTotalBalances = () => {

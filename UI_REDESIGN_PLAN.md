@@ -6,6 +6,13 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped integration: **ID-3.UPSTREAM-SYNC**, phase 1 on `claude/idreg-sync`
+  from local `redesign` `6b05ad97`. The owner authorized all upstream
+  `identity-registration` features on 2026-11-04. This supersedes the earlier
+  registration exclusion for this task. Preserve current redesign UI. Use
+  upstream registration, management, and Link screens until phase 2.
+  Native and device checks belong to later phases. See the phase-1 evidence below.
+
 - Scoped meeting fixes: **RG-1.8** and wallet logo fallback on
   `claude/meeting-ui-fixes` from `052d0b5c`: **Ready for verification**.
   Static, behavior and bundle checks pass. Existing gift card tests retain two
@@ -2731,3 +2738,34 @@ defer animation frames to check resize and rapid close/reopen. The existing inva
 settings/saga, 72 row-layout and parser checks pass. These checks establish
 source behavior and controlled layout geometry, not simulator rendering,
 keyboard animation, native text sizing or accessibility. Device QA stays open.
+
+
+### ID-3.UPSTREAM-SYNC — Phase 1 (2026-11-04)
+
+- [x] Merge all 12 upstream stages through `0a99f88a` with true merge history.
+  Use an ours merge for the cosmetic button commit.
+- [x] Keep upstream registration and management engines and SDK `5ddc4b8b`.
+  Keep commitment and registration as two separate approvals. Keep manual linking.
+- [x] Mount registration, management, results, and Link under `IdentityTab`.
+  The list + offers Register and Link. Page options offer Transfer, Modify,
+  and Unlink. Home registration notices open the VerusID tab.
+- [x] Adapt provisioning, verified revoke/recover, upload, tagged-invoice,
+  durable gift/claim, and deeplink callers. Preserve redesign VRPC funding,
+  pending-balance, private retry, history, and token-fee behavior.
+- [x] Run static contracts, upstream and redesign suites, baseline comparison,
+  and iOS/Android production bundles. Keep upstream test sources unchanged.
+  Test fixture compatibility failures remain. See `idreg-sync.local.md` for
+  exact counts and reasons. A passing bundle does not prove wallet execution.
+- [ ] Phase 2: redesign the new upstream screens under the approved design work.
+- [ ] Phase 3: verify complete wallet flows, interrupted operations, retry,
+  confirmation, Back, and reload on devices. No device or Metro server ran in phase 1.
+
+Design contract: keep the existing VerusID list, options rows, request cards,
+review rows, and Revoke/Recover scaffolds. No restyling. New navigation entries,
+fee facts, invoice Tag, and unknown-broadcast copy use those components.
+The unused upstream content-review style module is omitted. It has no consumer
+in the retained redesign. Shared button exports and the upstream Button wrapper
+are available without changing existing buttons.
+
+Full stage decisions, funds-path decisions, checks, and open gaps are in the
+uncommitted `idreg-sync.local.md` merge log.

@@ -50,7 +50,7 @@ export const registrationNotifications = (jobs, accountHash) =>
               ? 'Review registration'
               : 'View progress',
         isActionable: () => true,
-        onAction: props => props.navigation.navigate('ServicesHome', {
+        onAction: props => props.navigation.navigate('IdentityTab', {
           screen: 'IdentityRegistration',
           params: {
             screen: 'IdentityRegistrationProgress',

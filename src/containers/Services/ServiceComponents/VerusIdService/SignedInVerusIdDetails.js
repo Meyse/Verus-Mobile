@@ -613,6 +613,14 @@ const SignedInVerusIdDetails = () => {
 
   const optionActions = useMemo(
     () => [
+      {key: 'transfer', label: 'Transfer', icon: 'account-arrow-right-outline',
+        onPress: () => navigation.navigate('IdentityManagement', {
+          screen: 'IdentityTransfer', params: {chain, identityAddress: iAddress, displayName: title},
+        })},
+      {key: 'modify', label: 'Modify', icon: 'account-edit-outline',
+        onPress: () => navigation.navigate('IdentityManagement', {
+          screen: 'IdentityModify', params: {chain, identityAddress: iAddress, displayName: title},
+        })},
       {
         key: 'unlink',
         label: 'Unlink VerusID',
@@ -624,7 +632,7 @@ const SignedInVerusIdDetails = () => {
         },
       },
     ],
-    [],
+    [chain, iAddress, navigation, title],
   );
 
   useLayoutEffect(() => {

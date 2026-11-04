@@ -403,7 +403,9 @@ const AutoDeliverySheet = ({
   );
 };
 
-const GenericRequestHome = props => {
+const GenericRequestSession = props => {
+  const active = useRef(true);
+  useEffect(() => () => {active.current = false;}, []);
   const {
     deeplinkData
   } = props;
@@ -461,6 +463,8 @@ const GenericRequestHome = props => {
    */
   const [processedDetailIndices, setProcessedDetailIndices] = useState([]);
   const cancelRequest = useCallback(() => {
+    if (!active.current) return;
+    active.current = false;
     processGenerationRef.current += 1;
     props.cancel();
   }, [props.cancel]);
@@ -744,6 +748,7 @@ const GenericRequestHome = props => {
    *  dataPacketSigned?: boolean}} options
    */
   const next = async (updatedResponse, handledIndices, options = {}) => {
+    if (!active.current) return;
     if (options.responseIdentityName) {
       setApprovalResult(previous => ({
         identityName: options.responseIdentityName,
@@ -807,6 +812,7 @@ const GenericRequestHome = props => {
   };
 
   const deliverIdentityUpdateResponse = async (updatedResponse, handledIndices) => {
+    if (!active.current) throw new Error('Request closed');
     setInlineDeliveryInProgress(true);
 
     const newDetailsProcessed = commitResponseProgress(
@@ -828,8 +834,10 @@ const GenericRequestHome = props => {
     const result = await completeGenericResponseDelivery({
       requestBufferString,
       responseBufferString,
+      assertCurrent: () => {if (!active.current) throw new Error('Request closed');},
     });
 
+    if (!active.current) throw new Error('Request closed');
     await markSavedPendingRequestComplete();
 
     if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
@@ -1167,4 +1175,5 @@ const GenericRequestHome = props => {
   );
 };
 
+const GenericRequestHome = props => <GenericRequestSession key={props.deeplinkData} {...props} />;
 export default GenericRequestHome;

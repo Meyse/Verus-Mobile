@@ -157,8 +157,6 @@ export const getPendingDeeplinkReplay = async id => {
     passthrough: {
       ...(getPendingDeeplinkPassthrough(request) || {}),
       replayedPendingDeeplink: true,
-      replayedProvisioningDeeplink:
-        request.requestKind === PENDING_REQUEST_KIND_PROVISIONING,
       skipWalletBackupRequests: true,
     },
   };

@@ -20,7 +20,6 @@ import {
   SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET,
   SEND_MODAL_PROVISION_IDENTITY_BACK_TARGET_AUTH_PICKER,
   TRADITIONAL_CRYPTO_SEND_MODAL,
-  UPDATE_IDENTITY_SEND_MODAL,
   WITHDRAW_SEND_MODAL,
 } from '../../utils/constants/sendModal';
 import SemiModal from '../SemiModal';
@@ -60,9 +59,6 @@ import RevokeIdentityResult from './RevokeIdentity/RevokeIdentityResult/RevokeId
 import RecoverIdentityForm from './RecoverIdentity/RecoverIdentityForm/RecoverIdentityForm';
 import RecoverIdentityConfirm from './RecoverIdentity/RecoverIdentityConfirm/RecoverIdentityConfirm';
 import RecoverIdentityResult from './RecoverIdentity/RecoverIdentityResult/RecoverIdentityResult';
-import UpdateIdentityForm from './UpdateIdentity/UpdateIdentityForm/UpdateIdentityForm';
-import UpdateIdentityConfirm from './UpdateIdentity/UpdateIdentityConfirm/UpdateIdentityConfirm';
-import UpdateIdentityResult from './UpdateIdentity/UpdateIdentityResult/UpdateIdentityResult';
 
 import {InvoicePaymentLoading} from '../../containers/DeepLink/InvoiceInfo/InvoicePaymentParts';
 
@@ -80,7 +76,6 @@ const SEND_FORMS = {
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendForm,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityForm,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityForm,
-  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityForm,
 };
 
 const SEND_CONFIRMATION = {
@@ -94,7 +89,6 @@ const SEND_CONFIRMATION = {
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendConfirm,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityConfirm,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityConfirm,
-  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityConfirm,
 };
 
 const SEND_RESULTS = {
@@ -108,7 +102,6 @@ const SEND_RESULTS = {
   [CONVERT_OR_CROSS_CHAIN_SEND_MODAL]: ConvertOrCrossChainSendResult,
   [REVOKE_IDENTITY_SEND_MODAL]: RevokeIdentityResult,
   [RECOVER_IDENTITY_SEND_MODAL]: RecoverIdentityResult,
-  [UPDATE_IDENTITY_SEND_MODAL]: UpdateIdentityResult,
 };
 
 export const SendModalRender = function () {
