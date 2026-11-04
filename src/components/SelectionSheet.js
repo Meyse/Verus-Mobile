@@ -21,6 +21,7 @@ export const SelectionRow = ({
   value,
   valueLabel,
   valueContent,
+  quietValue = false,
   leading,
   badge,
   accessibilityLabel,
@@ -80,9 +81,9 @@ export const SelectionRow = ({
         <View style={[styles.value, preserveSubtitle && styles.wrappingValue, disabled && styles.disabledContent]}>
           {valueContent || (
             <>
-              <Text style={[styles.valueText, preserveSubtitle && styles.wrappingValueText]}>{value}</Text>
+              <Text style={[styles.valueText, quietValue && styles.quietValueText, preserveSubtitle && styles.wrappingValueText]}>{value}</Text>
               {valueLabel ? (
-                <Text style={styles.valueLabel}>{valueLabel}</Text>
+                <Text style={[styles.valueLabel, quietValue && styles.quietValueLabel]}>{valueLabel}</Text>
               ) : null}
             </>
           )}

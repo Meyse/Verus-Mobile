@@ -6,6 +6,10 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **ID-3.POLISH-2** on `claude/idreg-polish-fixes` from
+  `ccbb4ed4`. Eight owner-approved changes are implemented. Native/device QA
+  and the Android PC build remain with the orchestrator.
+
 - Scoped implementation: **ID-3.MANAGEMENT-UI**, phase 2b on
   `claude/idreg-ui-mgmt` from `63289e4b`. Transfer, Modify option B, results,
   Link option A, and sign-out card clearing. Registration belongs to phase 2a.
@@ -2240,6 +2244,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-04 | ID-3.POLISH-2: I1, N1/V1, repeated copy, Unlink, Android Back and display fiat | `claude/idreg-polish-fixes` from `ccbb4ed4` | Shared prose topic; hidden namespace filtering/search; quiet V1 numeric prices; result-only network suppression; unpaid-delete body; primary Unlink; manifest Back opt-out; display-currency fiat from cached ledger pairs. Design, 12-file safe-area/Babel, XML, whitespace and 60 temporary controlled checks pass. Base: 24 pass / 36 fail. Engine, SDK, storage, RPC readers and Jest sources stay unchanged. | Orchestrator owns native light/dark normal/compact QA and Android PC build/Back tests. See `idreg-polish-2.local.md`. No device, Metro, build, push or merge. |
 | 2026-11-04 | ID-3.MANAGEMENT-UI phase 2b | `claude/idreg-ui-mgmt` from `63289e4b` | Approved management options, Transfer, Modify option B, results and Link option A. Shared controls and theme roles; unchanged engines; sign-out clears active/available cards. Design, 13-file safe-area/parser, 59 synthetic checks and both production bundles pass. Requested Jest run: 316 pass / 20 fail, 3 native-fixture load errors; see scoped evidence below. | Orchestrator native normal/compact light/dark QA, consent/hold, unknown broadcast, Transfer + unlink, and Link failure/retry. No device, push or merge. |
 | 2026-11-04 | ID-3.REG: phase 2a New VerusID | `claude/idreg-ui-reg` from `63289e4b` | V3 field, namespace prices/search, two holds, saved tab rows, app-sheet alerts and shared testnet DAI.vETH/Bridge.vETH route. Engine, backend and tests unchanged. Core suites: 268 pass; storage: 78 pass / 1 existing route failure. UI components/presentation pass; screen fixture has an incomplete native SVG mock. Design, safe-area, source behavior, price, parser and both production bundles pass. Source-derived renders only. | Orchestrator owns native light/dark normal/compact QA and real testnet flows. See `idreg-reg.local.md`. Phase 2b remains separate. No device, Metro server, push, PR or merge. |
 | 2026-11-03 | Meeting fixes device QA (wallet logos, gift Share, bridge names and fees, identity upload) | `claude/meeting-fixes-int` `40378c38` (redesign `f278b505` + `claude/meeting-ui-fixes` `cd5f18ad` + `claude/bridge-names-fees` `f1b90816` + `claude/identity-data-upload`) | Sonnet testers plus Opus checks on VRSCTEST, iPhone 17 Pro and iPhone SE sims, light and dark. Pixel icons on Home and Manage assets (no "?"). Gift card funded (txid `a6eabb77…`): result has no Share while pending. Network rows: vETH on Verus, ETH on Ethereum; DAI.vETH → DAI. Confirm for a send to Ethereum shows Bridge fee, Network fee and Total with Hold enabled; local conversion below fees shows the notice. Identity updates: content add `9847dd47…`, public upload `0c9a765d…`, encrypted upload `7fd6fa39…`, all verified by the requester; refused upload shows the plain copy; signed-out unlock works. Fixed during QA: first-render crash on every identity update request, `0x…` contract names shown as asset names, and an out-of-date review shown as a fee error. | No real bridge or conversion broadcast (public VRSCTEST DeFi disabled). Android not run. P3 polish items are listed in the meeting-fixes run folder `docs/qa/matrix/runs/2026-11-03-meeting-fixes/` (ignored). No push. |
@@ -2903,3 +2908,43 @@ with temporary native mock repairs and fail on base. Two additional local
 checks pass for failure/retry and Not now. These checks use controlled React
 components; they do not prove native layout or a real wallet link. Design,
 safe-area and parser checks pass. The engine, SDK and RPC sources are unchanged.
+
+### ID-3.POLISH-2 — Eight owner-approved fixes (2026-11-04)
+
+Branch: `claude/idreg-polish-fixes`, from `ccbb4ed4`.
+Contract: approved I1 prose and N1 behavior with final V1 rows. Keep the existing
+InfoSheet/SelectionSheet shells, SelectionRow and registration result card.
+Use titleRow/bodySm, textPrimary/textSecondary and 4/20-point prose spacing.
+V1 uses quietValue for bodySm/textSecondary prices and caption/textSubtle fiat.
+Token namespaces show only the number. The root keeps its ticker. Zero is Free.
+Device rendering and the Android PC build belong to the orchestrator.
+
+- [x] Add InfoSheetTopic for registration, management and Link prose. Keep data
+  rows and existing explanation text unchanged. Record I1 in DESIGN.md.
+- [x] Hide namespaces with reasons. Keep transient retry context, visible-only
+  search counts, hidden permanent-match feedback and data order.
+- [x] Apply the final V1 row layout through a backward-compatible quietValue
+  option. Remove token units; keep the root ticker, fiat and referral subtitle.
+- [x] Hide the result card's network only when its name ends in that network.
+  Remove the unpaid-draft delete question from the body. Keep paid warnings.
+- [x] Use primary for Unlink and remove its red option-row treatment. Keep
+  Submit revocation and Delete wallet destructive. Correct DESIGN.md.
+- [x] Opt out of predictive back on the Android application tag. Keep targetSdk
+  36. Add the removal-condition comment and parse the manifest.
+- [x] Convert registration USD display prices through cached GENERAL USD/fiat
+  pairs. Use the app formatter and the selected currency's small-value case.
+  Hide missing conversion rates. Preserve USD output and all price fetches.
+- [x] Run design, safe-area, Babel, XML, whitespace and controlled checks.
+- [ ] Orchestrator: native normal/compact light/dark QA of prose scroll/Done,
+  namespace search/selection/retry, result names, deletion and Unlink sheets,
+  display-currency changes/missing rates, and Android Back after a PC build.
+
+Evidence: 60 temporary Node/React/source checks pass; 36 fail on the base.
+They cover a synthetic 301-row list with 142 refusals, search precedence/reset,
+V1 and unchanged ordinary SelectionRow styles, currency/rate changes in every
+registration fiat consumer, USD parity, EUR formatting, missing/invalid pairs,
+paid/unpaid messages, result suffixes, copy values, Unlink styling and manifest
+scope. The shared data rows, on-chain readers and price-loading effect remain
+byte-identical. This is controlled evidence, not native rendering or a live
+catalogue/rate-cache inspection. No Jest tests were added or changed. No device,
+Metro, Android build, signing or broadcast ran.

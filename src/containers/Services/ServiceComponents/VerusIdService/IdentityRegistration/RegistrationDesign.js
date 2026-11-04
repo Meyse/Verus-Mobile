@@ -12,7 +12,7 @@ import ProgressHeader from '../../../../../components/ProgressHeader';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import SheetScrollView from '../../../../../components/SheetScrollView';
-import SelectionSheet, {SelectionGroup, SelectionRow} from '../../../../../components/SelectionSheet';
+import SelectionSheet, {SelectionRow} from '../../../../../components/SelectionSheet';
 import InfoSheet from '../../../../../components/InfoSheet';
 import InfoSheetSection from '../../../../../components/InfoSheetSection';
 import TextAction from '../../../../../components/TextAction';
@@ -23,7 +23,7 @@ import {useAppTheme} from '../../../../../theme/app';
 import {createIdentityRegistrationStyles} from '../../../../../styles';
 import {currencyLabel} from './RegistrationComponents';
 import {formatRegistrationAmount, identityLabel as upstreamIdentityLabel, registrationCostRows, registrationState} from './presentation';
-import {registrationFiat} from './namespaceData';
+import {useRegistrationFiat} from './useRegistrationPrices';
 import {VerusIdFormField, VerusIdFormScrollContext, useVerusIdFormScroll} from '../VerusIdFormScroll';
 import {VerusIdName, wrapVerusIdNames} from '../VerusIdCard';
 import {isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
@@ -185,29 +185,37 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
 export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSelect, loading, error, onRetry}) => {
   const [query, setQuery] = useState('');
   const styles = useRegistrationStyles();
+  const formatFiat = useRegistrationFiat();
   const showSearch = namespaces.length >= APP_SEARCH_MIN_ITEMS;
   useEffect(() => { if (!visible || !showSearch) setQuery(''); }, [visible, showSearch]);
   const dismissal = useSheetDismissal({visible, onClose});
-  const matches = namespaces.filter(item => item.name.toLowerCase().includes(showSearch ? query.trim().toLowerCase() : ''));
-  const groups = [matches.filter(item => item.usd), matches.filter(item => !item.usd)];
-  const row = item => <SelectionRow key={item.id} title={item.name} selected={item.id === selectedId} showChevron={false}
-    disabled={!!item.reason} subtitle={item.reason || (item.referralRequired ? 'Requires a referral signature.' : undefined)}
-    value={item.reason ? undefined : `${formatRegistrationAmount(item.amount)} ${item.currency}`}
-    valueLabel={!item.reason && item.usd ? registrationFiat({[item.id]: item.amount}, {[item.id]: item.usd}) : undefined}
-    onPress={() => dismissal.dismiss(() => onSelect(item))} />;
+  const search = showSearch ? query.trim().toLowerCase() : '';
+  const matches = namespaces.filter(item => !item.reason && item.name.toLowerCase().includes(search));
+  const unchecked = namespaces.some(item => item.reason?.includes('could not be checked'));
+  const hiddenMatches = search ? namespaces.filter(item => item.reason && !item.reason.includes('could not be checked') &&
+    item.name.toLowerCase().includes(search)) : [];
+  const hiddenMatch = hiddenMatches.find(item => item.name.toLowerCase() === search) || hiddenMatches[0];
+  const row = item => {
+    const amount = formatRegistrationAmount(item.amount);
+    const unit = item.suffix === '@' ? ` ${item.currency}` : '';
+    return <SelectionRow key={item.id} title={item.name} selected={item.id === selectedId} showChevron={false}
+      quietValue
+      subtitle={item.referralRequired ? 'Requires a referral signature.' : undefined}
+      value={amount === '0' ? 'Free' : `${amount}${unit}`}
+      valueLabel={item.usd ? formatFiat({[item.id]: item.amount}, {[item.id]: item.usd}) : undefined}
+      onPress={() => dismissal.dismiss(() => onSelect(item))} />;
+  };
   return <SelectionSheet title="Choose a namespace" visible={visible} onClose={dismissal.close} onClosed={dismissal.onClosed} avoidKeyboard
-    footer={!loading && namespaces.some(item => item.reason?.includes('could not be checked'))
-      ? <TextAction onPress={onRetry}>Try again</TextAction> : null}
+    footer={!loading && unchecked ? <View style={styles.section}>
+      <Text style={styles.muted}>Some namespaces could not be checked.</Text>
+      <TextAction onPress={onRetry}>Try again</TextAction>
+    </View> : null}
     header={showSearch ? <AppSearchField accessibilityLabel="Search namespaces" placeholder="Search namespaces" value={query}
       onChangeText={setQuery} resultCount={matches.length} /> : null}>
     {loading ? <RegistrationSkeleton label="Loading namespaces" /> : error ? <View style={styles.section}>
       <Text style={styles.errorText}>{error}</Text><TextAction onPress={onRetry}>Try again</TextAction>
-    </View> : !matches.length ? <Text style={styles.muted}>No matching namespaces.</Text> : <>
-      {groups[0].map(row)}
-      {/* The heading only contrasts priced rows; with prices off, every row would sit under it. */}
-      {groups[0].length && groups[1].length
-        ? <SelectionGroup title="No market price">{groups[1].map(row)}</SelectionGroup> : groups[1].map(row)}
-    </>}
+    </View> : !matches.length ? <Text style={styles.muted}>{hiddenMatch
+      ? `This app cannot register names under ${hiddenMatch.name} yet.` : 'No matching namespaces.'}</Text> : matches.map(row)}
   </SelectionSheet>;
 };
 
@@ -224,9 +232,10 @@ export const AmountRows = ({amounts, label, total = false, currencyNames, badge}
 
 export const CostReview = ({quote, currencyNames, stage = 'commitment', prices = {}}) => {
   const styles = useRegistrationStyles();
+  const formatFiat = useRegistrationFiat();
   if (!quote) return <RegistrationSkeleton />;
   const amounts = stage === 'commitment' ? quote.totalOperationRequired : quote.totalRequired;
-  const fiat = registrationFiat(amounts, prices);
+  const fiat = formatFiat(amounts, prices);
   const later = Object.entries(quote.totalRequired).map(([id, amount]) => `${formatRegistrationAmount(amount)} ${currencyLabel(id, currencyNames)}`).join(' and ');
   const missing = Object.keys(amounts).filter(id => !prices[id] && id !== quote.systemID);
   return <View style={styles.section}>
@@ -310,6 +319,8 @@ export const RegistrationDetails = ({review, children}) => {
 export const RegistrationSteps = ({status, quote, currencyNames, prices, changed = false}) => {
   const state = registrationState(status);
   const styles = useRegistrationStyles();
+  const formatFiat = useRegistrationFiat();
+  const fiat = formatFiat(quote.totalRequired, prices);
   const uncertainCommitment = ['commitment_signed', 'commitment_broadcast_unknown', 'commitment_spent'].includes(status);
   const uncertainRegistration = ['registration_signed', 'registration_broadcast_unknown'].includes(status);
   const firstLabel = state.step > 0 || state.chainComplete ? 'Paid' : uncertainCommitment ? 'Check delivery' : status === 'commitment_broadcast' ? 'Sent' : 'Next';
@@ -322,7 +333,7 @@ export const RegistrationSteps = ({status, quote, currencyNames, prices, changed
     <AmountRows label={state.step > 0 ? 'Price' : 'Estimated price'} amounts={quote.totalRequired} currencyNames={currencyNames}
       badge={<AppStatusBadge label={secondLabel}
         tone={changed || uncertainRegistration || status === 'registration_expired' ? 'warning' : state.step > 0 ? 'success' : 'neutral'} />} />
-    {registrationFiat(quote.totalRequired, prices) && <Text style={[styles.muted, {textAlign: 'right'}]}>≈ {registrationFiat(quote.totalRequired, prices)}</Text>}
+    {fiat && <Text style={[styles.muted, {textAlign: 'right'}]}>≈ {fiat}</Text>}
     <View style={styles.divider} />
   </View>;
 };

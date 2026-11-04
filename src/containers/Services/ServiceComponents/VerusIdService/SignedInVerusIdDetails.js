@@ -587,7 +587,6 @@ const SignedInVerusIdDetails = () => {
         key: 'unlink',
         label: 'Unlink VerusID',
         icon: 'link-variant-off',
-        danger: true,
         onPress: () => {
           setUnlinkError(null);
           setUnlinkVisible(true);
@@ -971,7 +970,7 @@ const SignedInVerusIdDetails = () => {
               height={56}
               onPress={unlinkIdentity}
               themeMode={theme.mode}
-              variant="destructive">
+              variant="primary">
               {unlinking ? 'Unlinking...' : 'Unlink VerusID'}
             </AppButton>
             <AppButton

@@ -329,6 +329,10 @@ overflow cue, and a 56-point quiet Done action (44 points on small windows).
 Keep the title literal and the
 content concise. Do not add an illustration, hero icon, or eyebrow.
 
+Prose topics use `InfoSheetTopic` (I1): `titleRow` in `textPrimary`, then
+`bodySm` in `textSecondary` after 4 points, with 20 points between topics.
+Use no dividers, borders, or fill. Keep label/value rows for data only.
+
 Both information and selection sheets use `src/components/SheetScrollView.js`
 for measured overflow cues. Below a 128-point scroll viewport, use the native
 scroll indicator instead of a fade that would obscure the visible content.
@@ -377,9 +381,9 @@ that deletes data the wallet cannot restore. In `createAlert`, set the action's
 `style` to `'destructive'`. Keep the primary button's size, shape and label
 style. Disabled uses the primary button's disabled colors. Both themes use
 `destructive` (`#D1242F`), `destructivePressed` (`#B01E28`) and `onDestructive`
-(`#FFFFFF`). Remove asset keeps `primary`; it can be undone. The existing red
-buttons (Delete wallet screen, Unlink VerusID, Submit revocation) also use
-`destructive`. Never fill a button with `danger`: white text on it is 4.03:1.
+(`#FFFFFF`). Remove asset and Unlink VerusID keep `primary`; both can be undone.
+The Delete wallet screen and Submit revocation use `destructive`.
+Never fill a button with `danger`: white text on it is 4.03:1.
 
 Copy: a specific title, never "Error". At most two short sentences. No raw
 error, RPC or library text; log it instead.
@@ -1413,10 +1417,16 @@ and `identityRegistration.styles.js`. This applies to registration only.
   button and `SafeBottomActionStack`. First hold commits; a separate second
   hold registers after one confirmation. Preserve all upstream recovery paths.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
-  seven items, success fill/check for selection, no unselected chevron, prices
-  first, then "No market price". Unavailable rows explain why. Use exact SDK
-  prices and engine quotes; fiat is optional public display data.
-- Explanations and transaction details use `InfoSheet` and `InfoSheetSection`.
+  seven items, success fill/check for selection and no unselected chevron.
+  Hide unavailable namespaces and retain the data's root/priced/name order.
+  Search can explain a permanently unavailable match. A partial check failure
+  keeps one muted context line and Try again. Owner-approved V1 keeps the
+  canonical rows and uses `quietValue`: bodySm/textSecondary for the price,
+  caption/textSubtle for its fiat line. Token prices show only the number;
+  zero reads Free. The root keeps its ticker. Use exact SDK prices and engine
+  quotes. Fiat uses the display currency and existing cached ledger exchange
+  rates. Hide it when the exchange rate is unavailable; do not fall back to USD.
+- Explanations use `InfoSheetTopic` in `InfoSheet`; transaction details use `InfoSheetSection`.
   Saved/pending jobs use the VerusID tab's filled-row rhythm and Continue pill.
   Results reuse `TransactionResult` and the existing `VerusIdCard`.
 

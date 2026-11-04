@@ -6,7 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../../../../components/AppButton';
 import FadedScrollView from '../../../../../components/FadedScrollView';
 import InfoSheet from '../../../../../components/InfoSheet';
-import InfoSheetSection from '../../../../../components/InfoSheetSection';
+import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
@@ -88,7 +88,7 @@ export function ManagementPage({children, title, progress, onBack, busy, error, 
     </KeyboardAvoidingForm>
     {!!info && <InfoSheet title={infoTitle || `About ${title.toLowerCase()}`} maxHeight={infoHeight}
       visible={infoOpen} onClose={() => setInfoOpen(false)}>
-      {info.map(([label, value]) => <InfoSheetSection key={label} title={label} rows={[{label: '', value: wrapVerusIdNames(verusIdText(value))}]} />)}
+      {info.map(([label, value]) => <InfoSheetTopic key={label} title={label}>{wrapVerusIdNames(verusIdText(value))}</InfoSheetTopic>)}
     </InfoSheet>}
   </View>;
 }

@@ -54,7 +54,7 @@ import {
   publishRegistrationJobs,
 } from '../../../../../actions/actions/services/dispatchers/verusid/registration';
 import AppTextInput from '../../../../../components/AppTextInput';
-import InfoSheetSection from '../../../../../components/InfoSheetSection';
+import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import TransactionResult from '../../../../../components/TransactionResult';
 import TextAction from '../../../../../components/TextAction';
 import {createAlert, resolveAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
@@ -77,7 +77,7 @@ const registrationAlert = (title, message, buttons, options) => createAlert(
   }})), options,
 );
 
-// One section per topic, as the VerusID management info sheets do.
+// Prose topics use the shared I1 heading and paragraph treatment.
 const registrationInfo = stage => [
   ['How registration works', 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'],
   ['Commitment', 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'],
@@ -90,7 +90,7 @@ const registrationInfo = stage => [
   ['Referral', 'An eligible VerusID referral discounts your registration cost. You’ll see the discounted price before paying.'],
   ['Recovery', 'Can restore your VerusID if it is revoked.'],
   ['Revocation', 'Can revoke your VerusID. Leave both empty to manage it yourself.'],
-].map(([title, value]) => <InfoSheetSection key={title} title={title} rows={[{label: '', value}]} />);
+].map(([title, value]) => <InfoSheetTopic key={title} title={title}>{value}</InfoSheetTopic>);
 
 const priorQuotes = new Map();
 const rememberQuote = review => {
@@ -157,7 +157,7 @@ const confirmRegistrationDeletion = (record, remove, close) => {
 
   let message = kind === 'completed'
     ? 'Remove this finished registration from the list? Your identity stays registered and linked wallets are kept.'
-    : 'Remove this saved draft? No payment has been sent.';
+    : 'No payment has been sent.';
 
   if (kind === 'commitment') {
     const fee = record.commitmentFee || record.quote?.commitmentFee;
@@ -813,9 +813,12 @@ export function IdentityRegistrationProgress({navigation, route}) {
     <TextAction disabled={busy} onPress={() => dismiss(() => navigation.navigate('IdentityRegistrationStart'))}>All registrations</TextAction>
     {!!review.deletionKind && <TextAction disabled={busy} onPress={confirmDelete}>Delete saved registration</TextAction>}
   </>}</RegistrationDetails>;
-  if (review && state.chainComplete) return <TransactionResult title="VerusID created" success
+  if (review && state.chainComplete) {
+    const networkName = currencyLabel(review.systemId, review.currencyNames);
+    const showNetwork = !review.displayName.toLowerCase().endsWith(`.${networkName.toLowerCase()}@`);
+    return <TransactionResult title="VerusID created" success
     description={status === 'registered' ? 'It is not in this wallet yet.' : null}
-    amount={<VerusIdCard name={review.displayName} networkName={currencyLabel(review.systemId, review.currencyNames)} />}
+    amount={<VerusIdCard name={review.displayName} networkName={networkName} showNetwork={showNetwork} />}
     details={<View style={styles.section}>
       <AmountRows label="You paid" amounts={review.quote.totalOperationRequired} currencyNames={review.currencyNames} />
       {details}
@@ -824,6 +827,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       {isVerusIdTransportError(error || loadError) && <TextAction disabled={busy} onPress={refresh}>Try again</TextAction>}</View> : null}
     actions={[{label: action.label, onPress: action.onPress, disabled: busy, loading: busy},
       ...(status === 'registered' ? [{label: 'Not now', onPress: openOverview, disabled: busy}] : [])]} />;
+  }
 
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || loadError} info={registrationInfo(review?.stage)}
     onRetry={refresh}

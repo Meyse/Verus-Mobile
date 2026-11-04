@@ -14,6 +14,9 @@ export const COMPACT_INFO_SHEET_METRICS = {
 export const createInfoSheetStyles = (theme, {compact = false} = {}) => {
   const metrics = COMPACT_INFO_SHEET_METRICS;
   return StyleSheet.create({
+    topic: {gap: 4, marginBottom: 20},
+    topicTitle: {...theme.typography.titleRow, color: theme.colors.textPrimary},
+    topicBody: {...theme.typography.bodySm, color: theme.colors.textSecondary},
     requestSheetBody: {
       flexShrink: 1,
       paddingHorizontal: compact ? 16 : theme.spacing.sheetPadding,

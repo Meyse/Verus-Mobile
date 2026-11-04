@@ -48,7 +48,8 @@ export const VerusIdName = ({name, style, leafColor, restColor, ...props}) => {
   );
 };
 
-const VerusIdCard = ({name, networkName, state}) => {
+// Results may omit a network already named in the VerusID. Other cards keep it.
+const VerusIdCard = ({name, networkName, state, showNetwork = true}) => {
   const theme = useOnboardingTheme();
   const {height: windowHeight} = useWindowDimensions();
   const compact = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
@@ -77,8 +78,8 @@ const VerusIdCard = ({name, networkName, state}) => {
           value={name}
         />
       </View>
-      <View style={styles.networkRow}>
-        <Text
+      {showNetwork || badge ? <View style={styles.networkRow}>
+        {showNetwork ? <Text
           numberOfLines={1}
           style={[
             theme.typography.bodySm,
@@ -86,9 +87,9 @@ const VerusIdCard = ({name, networkName, state}) => {
             {color: theme.colors.textSecondary},
           ]}>
           {networkName}
-        </Text>
+        </Text> : null}
         {badge ? <StatusBadge label={badge.label} tone={badge.tone} /> : null}
-      </View>
+      </View> : null}
     </View>
   );
 };

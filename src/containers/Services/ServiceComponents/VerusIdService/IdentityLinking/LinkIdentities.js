@@ -6,7 +6,7 @@ import {AtSign, CircleAlert} from 'lucide-react-native';
 import AppButton from '../../../../../components/AppButton';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../../../../components/AppSearchField';
 import InfoSheet from '../../../../../components/InfoSheet';
-import InfoSheetSection from '../../../../../components/InfoSheetSection';
+import InfoSheetSection, {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import EmptyState from '../../../../../components/EmptyState';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
@@ -326,8 +326,8 @@ export function LinkIdentitiesPage({ navigation, route }) {
       </AppButton>}
     </SafeBottomActionStack>
     <InfoSheet title="About linking VerusIDs" visible={aboutVisible} onClose={() => setAboutVisible(false)}>
-      <InfoSheetSection title="Linking" rows={[{label: '', value: 'Choose from VerusIDs this wallet can spend from. Linking adds a VerusID to your wallet. It does not change its ownership or cost a network fee.'}]} />
-      {!!context && <InfoSheetSection title="Network" rows={[{label: '', value: `${context.networkName}${context.isTestnet ? ' · Testnet' : ''}`}]} />}
+      <InfoSheetTopic title="Linking">Choose from VerusIDs this wallet can spend from. Linking adds a VerusID to your wallet. It does not change its ownership or cost a network fee.</InfoSheetTopic>
+      {!!context && <InfoSheetTopic title="Network">{`${context.networkName}${context.isTestnet ? ' · Testnet' : ''}`}</InfoSheetTopic>}
       {!!context?.walletAddresses?.length && <InfoSheetSection title={context.walletAddresses.length === 1 ? 'Wallet address' : 'Wallet addresses'}
         rows={context.walletAddresses.map((address, index) => ({label: `Address ${index + 1}`, value: address, copy: true, valueStyle: identityManagementStyles.identifier}))} />}
     </InfoSheet>
