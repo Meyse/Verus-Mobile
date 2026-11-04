@@ -521,6 +521,14 @@ const SignedInVerusIdService = ({controller}) => {
     [openLinkSheet],
   );
 
+  // The full-page lookup hands manual fallback to the existing guarded linker.
+  const manualLinkChain = controller.props.route?.params?.manualLinkChain;
+  useEffect(() => {
+    if (!manualLinkChain) return;
+    controller.props.navigation.setParams({manualLinkChain: undefined});
+    openManualLinkSheet(manualLinkChain, '');
+  }, [manualLinkChain, controller.props.navigation, openManualLinkSheet]);
+
   const isLinkCandidateAllowed = useCallback(
     candidate => candidate?.chainId === resolvedLinkNetwork,
     [resolvedLinkNetwork],

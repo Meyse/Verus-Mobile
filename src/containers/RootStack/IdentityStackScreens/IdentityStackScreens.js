@@ -7,7 +7,7 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 
 import IdentityRegistrationNavigator from '../../Services/ServiceComponents/VerusIdService/IdentityRegistration/IdentityRegistrationNavigator';
 import IdentityManagementNavigator from '../../Services/ServiceComponents/VerusIdService/IdentityManagement/IdentityManagementNavigator';
-import {LinkIdentitiesPage} from '../../Services/ServiceComponents/VerusIdService/IdentityLinking/LinkIdentities';
+import LinkIdentities from '../../Services/ServiceComponents/VerusIdService/IdentityLinking/LinkIdentities';
 
 const IdentityStack = createStackNavigator();
 
@@ -29,7 +29,7 @@ const IdentityStackScreens = () => {
       />
       <IdentityStack.Screen name="IdentityRegistration" component={IdentityRegistrationNavigator} options={{headerShown: false}} />
       <IdentityStack.Screen name="IdentityManagement" component={IdentityManagementNavigator} options={{headerShown: false}} />
-      <IdentityStack.Screen name="LinkIdentities" component={LinkIdentitiesPage} options={{title: 'Link identities'}} />
+      <IdentityStack.Screen name="LinkIdentities" component={LinkIdentities} options={{title: 'Link VerusID'}} />
     </IdentityStack.Navigator>
   );
 };

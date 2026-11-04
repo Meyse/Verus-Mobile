@@ -1,37 +1,32 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Keyboard, Pressable, View} from 'react-native';
-import {Text, TextInput} from 'react-native-paper';
+import {Keyboard, Text, View} from 'react-native';
 import {useSelector} from 'react-redux';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
-import SemiModal from '../../../../../components/SemiModal';
-import BarcodeReader from '../../../../../components/BarcodeReader/BarcodeReader';
-import Colors from '../../../../../globals/colors';
+import {Plus} from 'lucide-react-native';
+import AppAddressInput from '../../../../../components/AppAddressInput';
+import AppTextInput from '../../../../../components/AppTextInput';
+import ScannerScreen from '../../../../../components/BarcodeReader/ScannerScreen';
+import GradientButton from '../../../../../components/GradientButton';
+import TextAction from '../../../../../components/TextAction';
+import TransactionResult from '../../../../../components/TransactionResult';
+import {SelectionRow} from '../../../../../components/SelectionSheet';
 import store from '../../../../../store';
 import {sessionScopeIsCurrent} from '../../../../../actions/actions/updates/sessionRequests';
-import {
-  loadIdentityForUpdate,
-  prepareIdentityUpdate,
-  sendIdentityUpdate,
-} from '../../../../../utils/identityManagement/updateIdentity';
+import {loadIdentityForUpdate, prepareIdentityUpdate, sendIdentityUpdate} from '../../../../../utils/identityManagement/updateIdentity';
 import {MAX_IDENTITY_PRIMARY_ADDRESSES} from '../../../../../utils/identityManagement/identityDefinition';
 import {recipientFromQr} from '../../../../../utils/identityManagement/recipient';
 import {unlinkUpdatedIdentity} from '../../../../../utils/identityManagement/unlinkAfterUpdate';
+import {getControlFacts} from '../../../../../utils/verusid/verusIdControlFacts';
+import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {identityManagementStyles as styles} from '../../../../../styles';
 import {useIdentityManagement} from './IdentityManagementContext';
-import {
-  RegistrationPage as Page,
-  ActionButton,
-  DetailRow,
-  Disclosure,
-  SelectionField,
-  currencyLabel,
-  registrationStyles as styles,
-} from '../IdentityRegistration/RegistrationComponents';
+import {ManagementPage as Page, ActionButton, Body, CheckOption, DetailRow, Disclosure, LoadingIdentity, SectionTitle, SelectionField, Warning, verusIdText} from './ManagementComponents';
+import {currencyLabel} from '../IdentityRegistration/RegistrationComponents';
 import {identityLabel} from '../IdentityRegistration/presentation';
-import {
-  preferredRegistrationFundingSource,
-  registrationFundingBalance,
-} from '../IdentityRegistration/fundingSources';
+import {preferredRegistrationFundingSource, registrationFundingBalance} from '../IdentityRegistration/fundingSources';
+
+
+const authorityName = (address, model) => address === model.identityAddress
+  ? `This VerusID (${model.displayName})` : identityLabel(address, model.identityNames);
 
 const useAction = () => {
   const {context} = useIdentityManagement();
@@ -80,65 +75,6 @@ const useAction = () => {
   return {busy, error, run, running, setError};
 };
 
-const Input = props => (
-  <TextInput
-    mode="outlined"
-    autoCapitalize="none"
-    autoCorrect={false}
-    outlineColor="#b9c3d3"
-    activeOutlineColor={Colors.primaryColor}
-    style={{backgroundColor: '#fff'}}
-    accessibilityLabel={props.label}
-    {...props}
-  />
-);
-
-const TextAction = ({children, icon, onPress, disabled, label}) => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityLabel={label || children}
-    accessibilityState={{disabled: !!disabled}}
-    disabled={disabled}
-    onPress={onPress}
-    style={({pressed}) => [styles.row, styles.touchRow, {opacity: disabled ? 0.5 : pressed ? 0.6 : 1}]}
-  >
-    {!!icon && <Icon name={icon} size={22} color={Colors.primaryColor} accessible={false} />}
-    <Text style={[styles.body, {color: Colors.primaryColor, fontWeight: '600'}]}>{children}</Text>
-  </Pressable>
-);
-
-const CheckOption = ({label, checked, disabled, onPress}) => (
-  <Pressable
-    accessibilityRole="checkbox"
-    accessibilityLabel={label}
-    accessibilityState={{checked, disabled: !!disabled}}
-    disabled={disabled}
-    onPress={onPress}
-    style={[styles.row, styles.touchRow]}
-  >
-    <Icon
-      name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'}
-      size={24}
-      color={Colors.primaryColor}
-      accessible={false}
-    />
-    <Text style={[styles.body, {flex: 1}]}>{label}</Text>
-  </Pressable>
-);
-
-const FundRows = ({funds, empty = 'No funds held at this identity address.'}) => funds?.length
-  ? funds.map(item => <DetailRow key={item.currencyId} label={currencyLabel(item.currencyId, {[item.currencyId]: item.label})}>{item.amount}</DetailRow>)
-  : <Text style={styles.muted}>{empty}</Text>;
-
-const IdentityHeading = ({model, fallback}) => <View style={styles.section}>
-  <Text style={styles.title}>{model?.displayName || fallback || 'VerusID'}</Text>
-  {!!model && <Text style={styles.muted}>{model.feeCurrency || currencyLabel(model.systemId, {[model.systemId]: model.networkName || model.chainTicker})}{model.isTestnet ? ' · Testnet' : ''}</Text>}
-</View>;
-
-const authorityName = (address, model) => address === model.identityAddress
-  ? `This identity (${model.displayName})`
-  : identityLabel(address, model.identityNames);
-
 const editableFields = model => ({
   ...model.fields,
   primaryaddresses: [...model.fields.primaryaddresses],
@@ -152,7 +88,7 @@ const editableFields = model => ({
 });
 
 function useIdentityForm(route, navigation, mode) {
-  const {setPlan, reloadVersion} = useIdentityManagement();
+  const {setPlan, setSourceModel, reloadVersion} = useIdentityManagement();
   const action = useAction();
   const balances = useSelector(state => state.ledger?.balances || {});
   const [model, setModel] = useState(null);
@@ -165,6 +101,7 @@ function useIdentityForm(route, navigation, mode) {
     if (action.running.current) return;
 
     setModel(null);
+    setFields(null);
 
     return action.run(
       context => loadIdentityForUpdate({chain, identityAddress}, context),
@@ -173,6 +110,7 @@ function useIdentityForm(route, navigation, mode) {
         initialFields.current = initial;
         setFields(initial);
         setModel(loaded);
+        setSourceModel(loaded);
 
         const coin = {id: loaded.chainTicker, system_id: loaded.systemId};
         setFundingAddress(
@@ -217,7 +155,7 @@ function useIdentityForm(route, navigation, mode) {
     },
   );
 
-  return {...action, model, fields, change, fundingAddress, setFundingAddress, balances, load, review};
+  return {...action, model, fields, change, initialFields, setFields, setPlan, fundingAddress, setFundingAddress, balances, load, review};
 }
 
 function FundingSource({form}) {
@@ -228,33 +166,36 @@ function FundingSource({form}) {
   const label = source => source?.isIdentity
     ? identityLabel(source.address, {...model.identityNames, [source.address]: source.fundingName})
     : source?.fundingName || 'Wallet address';
+  return <SelectionField label="Pay network fee from" disabled={busy}
+    value={label(sources.find(source => source.address === fundingAddress))} onSelect={setFundingAddress}
+    options={sources.map(source => {
+      const balance = registrationFundingBalance(coin, source, balances);
+      return {value: source.address, label: label(source), selected: source.address === fundingAddress,
+        description: showBalance && balance != null ? `${balance} ${model.networkName || model.chainTicker} available` : undefined};
+    })} />;
+}
 
-  return <View style={styles.card}>
-    <SelectionField
-      label="Pay network fee from"
-      value={label(sources.find(source => source.address === fundingAddress))}
-      disabled={busy}
-      onSelect={setFundingAddress}
-      options={sources.map(source => {
-        const balance = registrationFundingBalance(coin, source, balances);
-
-        return {
-          value: source.address,
-          label: label(source),
-          selected: source.address === fundingAddress,
-          description: showBalance && balance != null
-            ? `${balance} ${currencyLabel(model.systemId)} available`
-            : undefined,
-        };
-      })}
-    />
-    <Text style={styles.muted}>You’ll review the exact network fee before paying.</Text>
+function IdentityHeading({model, fallback}) {
+  const theme = useOnboardingTheme();
+  return <View style={styles.heading}>
+    <Text style={[theme.typography.titleSheet, {color: theme.colors.textPrimary}]}>{model?.displayName || fallback || 'VerusID'}</Text>
+    {!!model && <Body muted>{`${model.feeCurrency || model.networkName || model.chainTicker}${model.isTestnet ? ' · Testnet' : ''}`}</Body>}
   </View>;
 }
 
-const LoadingIdentity = ({busy}) => <View style={styles.card}>
-  <Text style={styles.body}>{busy ? 'Loading identity…' : 'Load this identity to continue.'}</Text>
-</View>;
+function useFormBack(navigation, running, back, hasLocalStep) {
+  useEffect(() => navigation.addListener('beforeRemove', event => {
+    if (navigation.isFocused?.() === false) return;
+    if (running.current) event.preventDefault();
+    else if (hasLocalStep) {event.preventDefault(); back();}
+  }), [navigation, running, back, hasLocalStep]);
+}
+
+const sections = [
+  {key: 'spend', title: 'Spend and sign', fields: ['primaryaddresses', 'minimumsignatures']},
+  {key: 'recover', title: 'Revoke and recover', fields: ['revocationauthority', 'recoveryauthority']},
+  {key: 'private', title: 'Private address', fields: ['privateaddress']},
+];
 
 export function IdentityModify(props) {
   return <IdentityModifyForm key={`${props.route.params?.chain}:${props.route.params?.identityAddress}`} {...props} />;
@@ -262,65 +203,106 @@ export function IdentityModify(props) {
 
 function IdentityModifyForm({navigation, route}) {
   const form = useIdentityForm(route, navigation, 'modify');
-  const {model, fields, change, busy, error, load, review} = form;
+  const {model, fields, change, busy, error, load, review, running, setError} = form;
+  const [chosen, setChosen] = useState([]);
+  const [step, setStep] = useState(0);
+  const selected = sections.filter(section => chosen.includes(section.key));
+  const section = selected[step - 1];
+  const back = useCallback(() => {
+    if (running.current) return;
+    if (step > 0) {Keyboard.dismiss(); setError(null); setStep(value => value - 1);}
+    else navigation.goBack();
+  }, [navigation, running, step, setError]);
+  useFormBack(navigation, running, back, step > 0);
+  useEffect(() => {setStep(0); setChosen([]);}, [model]);
 
-  return <Page error={error} footer={<>
-    <Text style={[styles.muted, {textAlign: 'center'}]}>No changes are sent until you approve.</Text>
-    <ActionButton busy={busy} onPress={model && error?.code !== 'REVIEW_CHANGED' ? () => review() : load}>
-      {error?.code === 'REVIEW_CHANGED' ? 'Reload identity' : model ? 'Review changes' : 'Load identity'}
-    </ActionButton>
-  </>}>
-    <IdentityHeading model={model} fallback={route.params?.displayName} />
-    {!model ? <LoadingIdentity busy={busy} /> : <>
-      <View style={styles.card}>
-        <Text style={styles.subtitle}>Ownership</Text>
-        <Text style={styles.muted}>These addresses can sign for this identity. Only add addresses whose owners you trust.</Text>
-        {fields.primaryaddresses.map((address, index) => <View key={index} style={styles.section}>
-          <Input label={`Primary address ${index + 1}`} value={address} disabled={busy} multiline
-            placeholder="R-address" onChangeText={value => change('primaryaddresses', fields.primaryaddresses.map((existing, at) => at === index ? value : existing))} />
-          {fields.primaryaddresses.length > 1 && <TextAction icon="minus-circle-outline" disabled={busy}
-            label={`Remove primary address ${index + 1}`} onPress={() => change('primaryaddresses', fields.primaryaddresses.filter((_, at) => at !== index))}>
-            Remove address
-          </TextAction>}
+  const toggle = item => {
+    if (busy) return;
+    if (chosen.includes(item.key)) {
+      // Deselecting restores the loaded values in the same form state.
+      form.setPlan(null);
+      form.setFields(current => ({...current, ...Object.fromEntries(item.fields.map(key => [key, form.initialFields.current[key]]))}));
+      setChosen(current => current.filter(key => key !== item.key));
+    } else setChosen(current => [...current, item.key]);
+    setError(null);
+  };
+  const continueStep = () => {
+    if (running.current || !model || !chosen.length) return;
+    setError(null);
+    Keyboard.dismiss();
+    if (step === selected.length) review();
+    else setStep(value => value + 1);
+  };
+  const title = section?.title || 'Modify VerusID';
+  const selfRecovery = fields && [model?.identityAddress, model?.displayName].includes(fields.recoveryauthority.trim());
+  const facts = model ? getControlFacts({identity: {identity: {...model.identity, ...model.fields, identityaddress: model.identityAddress}},
+    ownedAddress: model.fields.primaryaddresses.includes(model.signingAddress), friendlyNames: model.identityNames,
+    stateInfo: {state: model.locked ? 'locked' : 'active'}}) : [];
+  const factFor = key => facts.find(fact => fact.key === key);
+  const summaries = model ? {
+    spend: [factFor('spend')?.value, factFor('spend')?.detail].filter(Boolean).join(' · '),
+    recover: factFor('authorities')?.value || `Revoke: ${factFor('revoke')?.value} · Recover: ${factFor('recover')?.value}`,
+    private: model.fields.privateaddress || 'None',
+  } : {};
+  const info = section?.key === 'spend' ? [
+    ['Primary addresses', 'These addresses can sign for this VerusID. Only add addresses whose owners you trust.'],
+    ['Required signatures', `Choose 1–${Math.min(fields.primaryaddresses.length, 13)} of the ${fields.primaryaddresses.length} primary addresses to require. Multiple signatures may prevent this wallet from making future updates on its own.`],
+  ] : section?.key === 'recover' ? [
+    ['What the roles do', 'Revocation can suspend the VerusID. Recovery can restore it and change its ownership. Choose VerusIDs you trust.'],
+    ['Recovery VerusID', 'After a change, only the new recovery VerusID can authorize another change to recovery. Choose a VerusID whose owner you trust.'],
+    ['Name format', 'Use a full name ending in @ or a VerusID address. Changing either role also requires this wallet to control its current authority.'],
+  ] : section?.key === 'private' ? [
+    ['Private receiving address', 'The address published for private payments. Changing it does not move existing funds. Leave empty to remove the VerusID’s published private addresses.'],
+  ] : undefined;
+
+  return <Page title={title} progress={(step + 1) / (selected.length + 2)} onBack={back} busy={busy}
+    info={info} infoTitle={title} error={error} footer={<ActionButton busy={busy}
+      disabled={!!model && !chosen.length && error?.code !== 'REVIEW_CHANGED'}
+      onPress={error?.code === 'REVIEW_CHANGED' || !model ? load : continueStep}>
+      {error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : !model ? 'Load VerusID' : step === selected.length && step > 0 ? 'Review changes' : 'Continue'}
+    </ActionButton>}>
+    {!model ? busy ? <LoadingIdentity /> : <Body muted>Load this VerusID to continue.</Body> : !section ? <>
+      <Body muted>{`Choose what to change for ${model.displayName}.`}</Body>
+      <View style={styles.group}>
+        {sections.map(item => <SelectionRow key={item.key} title={item.title} subtitle={summaries[item.key]}
+          subtitleMonospace={item.key === 'private' && !!model.fields.privateaddress}
+          accessibilityRole="checkbox" selected={chosen.includes(item.key)} showChevron={false} disabled={busy} onPress={() => toggle(item)} />)}
+      </View>
+      <View style={styles.group}><FundingSource form={form} /></View>
+    </> : <View style={styles.section}>
+      {section.key === 'spend' && <>
+        {fields.primaryaddresses.map((address, index) => <View key={index}>
+          <AppAddressInput label={`Primary address ${index + 1}`} accessibilityLabel={`Primary address ${index + 1}`} value={address}
+            editable={!busy} technical placeholder="R-address"
+            onChangeText={value => change('primaryaddresses', fields.primaryaddresses.map((existing, at) => at === index ? value : existing))} />
+          {fields.primaryaddresses.length > 1 && <TextAction disabled={busy} accessibilityLabel={`Remove primary address ${index + 1}`}
+            onPress={() => change('primaryaddresses', fields.primaryaddresses.filter((_, at) => at !== index))}>Remove address</TextAction>}
         </View>)}
-        {fields.primaryaddresses.length < MAX_IDENTITY_PRIMARY_ADDRESSES && <TextAction icon="plus-circle-outline" disabled={busy}
+        {fields.primaryaddresses.length < MAX_IDENTITY_PRIMARY_ADDRESSES && <TextAction Icon={Plus} disabled={busy}
           onPress={() => change('primaryaddresses', [...fields.primaryaddresses, ''])}>Add primary address</TextAction>}
-        <Input label="Required signatures" value={fields.minimumsignatures} keyboardType="number-pad"
-          disabled={busy} onChangeText={value => change('minimumsignatures', value)} />
-        <Text style={styles.muted}>Choose 1–{Math.min(fields.primaryaddresses.length, 13)} of the {fields.primaryaddresses.length} primary addresses to require. Multiple signatures may prevent this wallet from making future updates on its own.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.subtitle}>Recovery & revocation</Text>
-        <Text style={styles.muted}>Revocation can suspend the identity. Recovery can restore it and change its ownership. Choose identities you trust.</Text>
+        <AppTextInput label="Required signatures" accessibilityLabel="Required signatures" value={fields.minimumsignatures}
+          keyboardType="number-pad" editable={!busy} onChangeText={value => change('minimumsignatures', value)} />
+        {Number(fields.minimumsignatures) > 1 && <Warning>Multiple signatures may prevent this wallet from making future updates on its own.</Warning>}
+      </>}
+      {section.key === 'recover' && <>
         {[
-          ['revocationauthority', 'Revocation identity'],
-          ['recoveryauthority', 'Recovery identity'],
-        ].map(([key, label]) => <View key={key} style={styles.section}>
-          <Input label={label} value={fields[key]} disabled={busy} placeholder="guardian@"
-            onChangeText={value => change(key, value)} />
-          <TextAction disabled={busy} label={`Use this identity for ${label.toLowerCase()}`}
-            onPress={() => change(key, model.displayName)}>Use this identity</TextAction>
-          {key === 'recoveryauthority' && <Text style={styles.muted}>The recovery identity can take control of this identity. After a change, only the new recovery identity can authorize another change to recovery. Choose an identity whose owner you trust.</Text>}
+          ['revocationauthority', 'Revocation VerusID', 'Revocation identity'],
+          ['recoveryauthority', 'Recovery VerusID', 'Recovery identity'],
+        ].map(([key, label, accessibilityLabel]) => <View key={key}>
+          <AppAddressInput label={label} accessibilityLabel={accessibilityLabel} value={fields[key]} editable={!busy} placeholder="guardian@"
+            technical={!fields[key].endsWith('@')} onChangeText={value => change(key, value)} />
+          <TextAction disabled={busy} accessibilityLabel={`Use this identity for ${accessibilityLabel.toLowerCase()}`}
+            onPress={() => change(key, model.displayName)}>Use this VerusID</TextAction>
         </View>)}
-        <Text style={styles.muted}>Use a full name ending in @ or an identity address. Changing either role also requires this wallet to control its current authority.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.subtitle}>Private receiving address</Text>
-        <Input label="Private address (optional)" value={fields.privateaddress} disabled={busy} multiline
-          placeholder="zs-address" onChangeText={value => change('privateaddress', value)} />
+        {!selfRecovery && !!fields.recoveryauthority.trim() && <Warning>{`${fields.recoveryauthority.trim()} can take control of this VerusID.`}</Warning>}
+      </>}
+      {section.key === 'private' && <>
+        <AppAddressInput label="Private address (optional)" accessibilityLabel="Private address (optional)" value={fields.privateaddress}
+          editable={!busy} technical placeholder="zs-address" onChangeText={value => change('privateaddress', value)} />
         {!!model.walletPrivateAddress && <TextAction disabled={busy}
           onPress={() => change('privateaddress', model.walletPrivateAddress)}>Use this wallet’s private address</TextAction>}
-        <Text style={styles.muted}>The address published for private payments. Changing it does not move existing funds. Leave empty to remove the identity’s published private addresses.</Text>
-      </View>
-      <FundingSource form={form} />
-      <View style={styles.card}>
-        <Disclosure title="Other identity details" summary="Name, content and identity address">
-          <Text style={styles.muted}>The name, namespace, content, and any existing lock stay as they are.</Text>
-          <DetailRow label="Identity address">{model.identityAddress}</DetailRow>
-          {!!model.identity?.parent && <DetailRow label="Namespace">{identityLabel(model.identity.parent, model.identityNames)}</DetailRow>}
-        </Disclosure>
-      </View>
-    </>}
+      </>}
+    </View>}
   </Page>;
 }
 
@@ -330,114 +312,56 @@ export function IdentityTransfer(props) {
 
 function IdentityTransferForm({navigation, route}) {
   const form = useIdentityForm(route, navigation, 'transfer');
-  const {model, busy, error, load, review, setError} = form;
+  const {model, busy, error, load, review, setError, running} = form;
   const [recipient, setRecipient] = useState('');
   const [returnFunds, setReturnFunds] = useState(true);
   const [scanning, setScanning] = useState(false);
   const scanHandled = useRef(false);
-
-  const closeScanner = () => {
-    scanHandled.current = true;
-    setScanning(false);
-  };
-
+  const back = useCallback(() => {
+    if (running.current) return;
+    if (scanning) {scanHandled.current = true; setScanning(false);}
+    else navigation.goBack();
+  }, [navigation, running, scanning]);
+  useFormBack(navigation, running, back, scanning);
   const onScan = codes => {
     if (scanHandled.current) return;
-
     scanHandled.current = true;
     setScanning(false);
-
-    try {
-      setRecipient(recipientFromQr(codes?.[0]?.value, model.systemId));
-      setError(null);
-    } catch (failure) {
-      setError({message: failure.message});
-    }
+    try {setRecipient(recipientFromQr(codes?.[0]?.value, model.systemId)); setError(null);}
+    catch (failure) {setError({message: failure.message});}
   };
-
-  return <>
-    <Page error={error} footer={<>
-      <Text style={[styles.muted, {textAlign: 'center'}]}>Review the new owner and fee before transferring.</Text>
-      <ActionButton busy={busy} disabled={!!model && !recipient.trim() && error?.code !== 'REVIEW_CHANGED'}
-        onPress={model && error?.code !== 'REVIEW_CHANGED' ? () => review(recipient.trim(), {returnFunds, returnAddress: model.signingAddress}) : load}>
-        {error?.code === 'REVIEW_CHANGED' ? 'Reload identity' : model ? 'Review transfer' : 'Load identity'}
-      </ActionButton>
-    </>}>
+  if (scanning) return <ScannerScreen title="Scan recipient" onBack={back} cameraOn onScan={onScan} prompt="Scan a receiving address or VerusID" />;
+  const info = [
+    ['New owner', 'Enter a transparent address, or a VerusID name ending in @. VerusID addresses also work. Transfers to a transparent address clear this VerusID’s private receiving address.'],
+    ['Using another VerusID?', 'We’ll copy its current primary addresses, required signatures, and private receiving address. If it has no private receiving address, this VerusID’s private receiving address will be cleared. Future changes to that VerusID won’t change this one.'],
+    ['Funds held by this VerusID', `Funds held at this VerusID address on ${model?.networkName || model?.chainTicker || 'this network'} return to your main wallet in the same transaction as the transfer. We’ll show the exact amounts before you approve. Private funds and funds on other networks are not moved.`],
+    ['Recovery and revocation transfer too', 'Both roles will be set to this VerusID, so its previous external authorities cannot retain these powers. Review carefully: a transfer cannot simply be undone.'],
+  ];
+  return <Page title="Transfer VerusID" onBack={back} busy={busy} error={error} info={info} infoTitle="About this transfer" infoHeight="86%"
+    footer={<ActionButton busy={busy} disabled={!!model && !recipient.trim() && error?.code !== 'REVIEW_CHANGED'}
+      onPress={model && error?.code !== 'REVIEW_CHANGED' ? () => review(recipient.trim(), {returnFunds, returnAddress: model.signingAddress}) : load}>
+      {error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : model ? 'Review transfer' : 'Load VerusID'}
+    </ActionButton>}>
+    {!model ? busy ? <LoadingIdentity /> : <Body muted>Load this VerusID to continue.</Body> : <>
       <IdentityHeading model={model} fallback={route.params?.displayName} />
-      {!model ? <LoadingIdentity busy={busy} /> : <>
-        <View style={styles.card}>
-          <Text style={styles.subtitle}>Who should own this identity?</Text>
-          <Input label="New owner" value={recipient} placeholder="R-address or satoshi@" multiline disabled={busy}
-            onChangeText={setRecipient} />
-          <TextAction icon="qrcode-scan" disabled={busy} onPress={() => {
-            Keyboard.dismiss();
-            scanHandled.current = false;
-            setScanning(true);
-          }}>Scan QR code</TextAction>
-          <Text style={styles.muted}>Enter a transparent address, or a VerusID name ending in @. Identity addresses also work. Transfers to a transparent address clear this identity’s private receiving address.</Text>
-        </View>
-        <View style={styles.notice}>
-          <Text style={styles.body}>Using another VerusID?</Text>
-          <Text style={styles.muted}>We’ll copy its current primary addresses, required signatures, and private receiving address. If it has no private receiving address, this identity’s private receiving address will be cleared. Future changes to that VerusID won’t change this one.</Text>
-        </View>
-        <View style={styles.card}>
-          <CheckOption label="Return identity funds to my wallet" checked={returnFunds} disabled={busy}
-            onPress={() => setReturnFunds(value => !value)} />
-          {returnFunds ? <>
-            <Text style={styles.muted}>Funds held at this identity address on {currencyLabel(model.systemId, {[model.systemId]: model.networkName || model.chainTicker})} return to your main wallet in the same transaction as the transfer.</Text>
-            <DetailRow label="Return to">Main wallet address</DetailRow>
-            <Text selectable style={styles.muted}>{model.signingAddress}</Text>
-            <Text style={styles.muted}>We’ll show the exact amounts before you approve. Private funds and funds on other networks are not moved.</Text>
-          </> : <View style={[styles.notice, styles.warning]}>
-            <Text style={styles.body}>The new owner will receive the identity’s funds on this network.</Text>
-            <Text style={styles.muted}>Those funds will be included in your total transfer cost. Leave this unchecked only if you intend to give them away.</Text>
-          </View>}
-        </View>
-        <FundingSource form={form} />
-        <View style={[styles.notice, styles.warning]}>
-          <Text style={styles.body}>Recovery and revocation transfer too</Text>
-          <Text style={styles.muted}>Both roles will be set to this identity, so its previous external authorities cannot retain these powers. Review carefully: a transfer cannot simply be undone.</Text>
-        </View>
-      </>}
-    </Page>
-    <SemiModal
-      visible={scanning}
-      title="Scan recipient"
-      animationType="slide"
-      flexHeight={3}
-      onRequestClose={closeScanner}
-    >
-      {scanning && <BarcodeReader
-        cameraOn={scanning}
-        onScan={onScan}
-        prompt="Scan a receiving address or VerusID"
-        button={() => (
-          <View style={{padding: 16}}>
-            <ActionButton secondary onPress={closeScanner}>Cancel</ActionButton>
-          </View>
-        )}
-      />}
-    </SemiModal>
-  </>;
+      <AppAddressInput label="New owner" accessibilityLabel="New owner" value={recipient} placeholder="R-address or satoshi@"
+        technical={!!recipient && !recipient.endsWith('@')} editable={!busy} onChangeText={setRecipient}
+        scanAccessibilityLabel="Scan QR code" onScan={() => {Keyboard.dismiss(); scanHandled.current = false; setScanning(true);}} />
+      <View style={{marginTop: 16}}><CheckOption label="Return VerusID funds to my wallet" accessibilityLabel="Return identity funds to my wallet"
+        checked={returnFunds} disabled={busy} onPress={() => setReturnFunds(value => !value)} /></View>
+      {returnFunds ? <View style={styles.returnAddress}>
+        <Body muted>Return to Main wallet address</Body>
+        <Body style={styles.identifier}>{model.signingAddress}</Body>
+      </View> : <Warning>The new owner will receive the VerusID’s funds on this network. Those funds will be included in your total transfer cost. Leave this unchecked only if you intend to give them away.</Warning>}
+      <View style={styles.group}><FundingSource form={form} /></View>
+      <Warning>A transfer cannot be undone. Recovery and revocation transfer too.</Warning>
+    </>}
+  </Page>;
 }
 
-const fieldLabels = {
-  primaryaddresses: 'Primary addresses',
-  minimumsignatures: 'Required signatures',
-  privateaddress: 'Private receiving address',
-  recoveryauthority: 'Recovery identity',
-  revocationauthority: 'Revocation identity',
-};
-
-const fieldValue = (field, value, review) => {
-  if (field.endsWith('authority')) return authorityName(value, review);
-  if (Array.isArray(value)) return value.join('\n');
-
-  return value === '' || value == null ? 'None' : String(value);
-};
-
 export function IdentityUpdateReview({navigation}) {
-  const {plan, setPlan, setResult, setReloadVersion} = useIdentityManagement();
+  const theme = useOnboardingTheme();
+  const {plan, sourceModel, setPlan, setResult, setReloadVersion} = useIdentityManagement();
   const {busy, error, run, running} = useAction();
   const [acknowledgedPlan, setAcknowledgedPlan] = useState(null);
   const [keepLinkedPlan, setKeepLinkedPlan] = useState(null);
@@ -498,184 +422,162 @@ export function IdentityUpdateReview({navigation}) {
     );
   };
 
-  if (!review) return <Page footer={<ActionButton onPress={() => navigation.goBack()}>Back</ActionButton>}>
-    <Text style={styles.body}>Choose your changes to prepare a new review.</Text>
+  const leave = () => {if (!running.current) navigation.goBack();};
+  if (!review) return <Page title="Review changes" onBack={leave} footer={<ActionButton onPress={leave}>Back</ActionButton>}>
+    <Body>Choose your changes to prepare a new review.</Body>
   </Page>;
 
   const changed = Object.keys(fieldLabels).filter(key => JSON.stringify(review.before[key]) !== JSON.stringify(review.after[key]));
   const leavingFunds = transfer && !review.returnFunds;
   const transferredTokens = (review.transferredFunds || []).filter(item => item.currencyId !== review.systemId);
-
-  return <Page error={error} footer={<>
-    {needsAcknowledgement && <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{checked: acknowledged, disabled: busy}}
-      accessibilityLabel="I understand who will control this identity"
-      disabled={busy}
-      onPress={() => setAcknowledgedPlan(value => value === plan ? null : plan)}
-      style={[styles.row, styles.touchRow]}
-    >
-      <Icon name={acknowledged ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} color={Colors.primaryColor} accessible={false} />
-      <Text style={[styles.muted, {flex: 1}]}>I understand who will control this identity.</Text>
-    </Pressable>}
-    <ActionButton
-      busy={busy}
-      disabled={!stale && needsAcknowledgement && !acknowledged}
-      onPress={stale ? () => {
-        setPlan(null);
-        setReloadVersion(version => version + 1);
-        navigation.goBack();
-      } : send}
-    >
-      {stale ? 'Reload identity' : transfer ? 'Pay & transfer identity' : 'Pay & save changes'}
-    </ActionButton>
-  </>}>
-    <IdentityHeading model={review} />
-    <View style={styles.card}>
-      <Text style={styles.eyebrow}>Total cost</Text>
-      <Text style={styles.heroAmount}>{review.nativeTotalCost || review.fee} <Text style={styles.heroCurrency}>{review.feeCurrency || review.chainTicker}</Text></Text>
-      {leavingFunds && transferredTokens.length > 0 && <FundRows funds={transferredTokens} />}
-      <Text style={styles.muted}>{leavingFunds ? 'Includes the network fee and funds given to the new owner.' : 'Network fee only. No identity registration charge.'}</Text>
-      <View style={styles.divider} />
-      <DetailRow label="Network fee">{review.fee} {review.feeCurrency || review.chainTicker}</DetailRow>
-      <DetailRow label="Fee paid from">{review.fundingAddress === review.signingAddress
-        ? review.fundingName || 'Wallet address'
-        : identityLabel(review.fundingAddress, {...review.identityNames,
-          ...(review.fundingName ? {[review.fundingAddress]: review.fundingName} : {})})}</DetailRow>
-      <Text style={styles.muted}>{leavingFunds && review.fundingAddress === review.identityAddress
-        ? 'Remaining payment funds stay with the identity for its new owner and are included above.'
-        : review.changeAddress === review.signingAddress ? 'Payment change returns to your main wallet address.' : 'Unspent change returns to this payment address.'}</Text>
+  const funds = leavingFunds ? review.transferredFunds : review.returnedFunds;
+  const info = [
+    ['Total cost', leavingFunds ? 'Includes the network fee and funds given to the new owner.' : 'Network fee only. No VerusID registration charge.'],
+    ['Payment change', leavingFunds && review.fundingAddress === review.identityAddress
+      ? 'Remaining payment funds stay with the VerusID for its new owner and are included above.'
+      : review.changeAddress === review.signingAddress ? 'Payment change returns to your main wallet address.' : 'Unspent change returns to this payment address.'],
+    ...(transfer ? [
+      ['VerusID funds', leavingFunds ? 'Included in the total cost above. You give up these funds when you transfer the VerusID.' : 'These funds return to your main wallet in the same transaction. They are not a cost.'],
+      ['New owner', 'The new primary addresses will control this VerusID. Check every address before approving.'],
+      ['Recovery and revocation', 'Both roles are set to this VerusID. Previous external authorities will no longer be able to revoke or recover it.'],
+      ['Private receiving address', review.after.privateaddress
+        ? `Private payments will use the address published by ${review.recipientName}. Existing private funds are not moved.`
+        : review.before.privateaddress ? 'The private receiving address will be cleared. Existing private funds are not moved.' : 'No private receiving address is published.'],
+    ] : []),
+    ...(review.losesControl ? [['Unlink after sending', 'This wallet will no longer be able to sign for the VerusID on its own. Unlinking removes its wallet cards; it does not delete the VerusID. Uncheck to keep viewing it here.']] : []),
+    ...(assignsExternalRecovery ? [['Recovery VerusID', 'Only that VerusID will be able to authorize future changes to the recovery VerusID.']] : []),
+    ['Other VerusID details', 'The VerusID’s name, content and any existing lock are preserved.'],
+  ];
+  return <Page title="Review changes" progress={transfer ? undefined : 1} onBack={leave} busy={busy} error={error}
+    info={info} infoTitle="About these changes" footer={<>
+      {needsAcknowledgement && <CheckOption label="I understand who will control this VerusID."
+        accessibilityLabel="I understand who will control this identity" checked={acknowledged} disabled={busy}
+        onPress={() => setAcknowledgedPlan(value => value === plan ? null : plan)} />}
+      {stale ? <ActionButton onPress={() => {
+        setPlan(null); setReloadVersion(version => version + 1); navigation.goBack();
+      }}>Reload VerusID</ActionButton> : <GradientButton holdToConfirm holdDuration={2500}
+        disabled={busy || (needsAcknowledgement && !acknowledged)}
+        holdHint={transfer ? 'Hold the button to transfer this VerusID.' : 'Hold the button to save changes.'}
+        topColor={theme.colors.primary} bottomColor={theme.colors.primary} onPress={send}>
+        {busy ? 'Sending…' : transfer ? 'Hold to pay & transfer VerusID' : 'Hold to pay & save changes'}
+      </GradientButton>}
+    </>}>
+    {transfer && <IdentityHeading model={review} />}
+    <Body muted>Total cost</Body>
+    <Text style={[theme.typography.headlineMd, {color: theme.colors.textPrimary}]}>
+      {review.nativeTotalCost || review.fee} {review.feeCurrency || review.chainTicker}
+    </Text>
+    {leavingFunds && transferredTokens.length > 0 && <FundRows funds={transferredTokens} />}
+    <View style={{marginTop: 12}}>
+      <DetailRow label="Fee paid from">{review.fundingAddress === review.signingAddress ? review.fundingName || 'Wallet address'
+        : identityLabel(review.fundingAddress, {...review.identityNames, ...(review.fundingName ? {[review.fundingAddress]: review.fundingName} : {})})}</DetailRow>
     </View>
-    {transfer && <View style={[styles.card, leavingFunds && styles.warning]}>
-      <Text style={styles.subtitle}>{leavingFunds ? 'Funds given to the new owner' : 'Funds returned to you'}</Text>
-      <FundRows funds={leavingFunds ? review.transferredFunds : review.returnedFunds} />
-      <Text style={styles.muted}>{leavingFunds
-        ? 'Included in the total cost above. You give up these funds when you transfer the identity.'
-        : 'These funds return to your main wallet in the same transaction. They are not a cost.'}</Text>
-      {!leavingFunds && <DetailRow label="Return address">{review.returnAddress}</DetailRow>}
+    {transfer && <View style={styles.group}>
+      <SectionTitle>{leavingFunds ? 'Funds given to the new owner' : 'Funds returned to you'}</SectionTitle>
+      <FundRows funds={funds} />
+      {!leavingFunds && <DetailRow technical label="Return address">{review.returnAddress}</DetailRow>}
       {!leavingFunds && review.fundingChange?.length > 0 && <Disclosure title="Additional payment change">
         <FundRows funds={review.fundingChange} />
         <DetailRow label="Change returns to">{review.changeName}</DetailRow>
-        <Text style={styles.muted}>Unused funds from the fee payment source return to that payment address.</Text>
+        <Body muted>Unused funds from the fee payment source return to that payment address.</Body>
       </Disclosure>}
+      <Warning><Text style={theme.typography.labelMd}>Transfer ownership{'\n'}</Text>
+        {review.recipientName ? `New owner: ${review.recipientName}` : 'The new primary addresses will control this VerusID.'}
+        {review.losesControl ? '\nThis wallet will no longer have primary control.' : ''}
+      </Warning>
     </View>}
-    {transfer && <View style={[styles.notice, styles.warning]}>
-      <Text style={styles.subtitle}>Transfer ownership</Text>
-      {!!review.recipientName && <DetailRow label="New owner">{review.recipientName}</DetailRow>}
-      <Text style={styles.body}>The new primary addresses will control this identity. Check every address before approving.</Text>
-      {review.losesControl && <Text style={styles.muted}>This wallet will no longer have primary control.</Text>}
-    </View>}
-    {!transfer && review.losesControl && <View style={[styles.notice, styles.warning]}>
-      <Text style={styles.body}>These changes remove this wallet’s ability to control the identity on its own.</Text>
-    </View>}
-    {assignsExternalRecovery && <View style={[styles.notice, styles.warning]}>
-      <Text style={styles.subtitle}>Recovery gives control</Text>
-      <Text style={styles.body}>{authorityName(review.after.recoveryauthority, review)} will be able to take control of this identity. Only that identity will be able to authorize future changes to the recovery identity.</Text>
-    </View>}
-    {review.losesControl && <View style={styles.card}>
-      <CheckOption label="Unlink from my wallet after sending" checked={unlinkAfterSend} disabled={busy}
-        onPress={() => setKeepLinkedPlan(value => value === plan ? null : plan)} />
-      <Text style={styles.muted}>This wallet will no longer be able to sign for the identity on its own. Unlinking removes its wallet cards; it does not delete the identity. Uncheck to keep viewing it here.</Text>
-    </View>}
-    {Number(review.after.minimumsignatures) > 1 && <View style={[styles.notice, styles.warning]}>
-      <Text style={styles.body}>Future updates require {review.after.minimumsignatures} signatures. This wallet cannot collect signatures from other owners.</Text>
-    </View>}
-    <View style={styles.card}>
-      <Text style={styles.subtitle}>{transfer ? 'New signing policy' : 'Changes to approve'}</Text>
+    {!transfer && review.losesControl && <Warning>These changes remove this wallet’s ability to control the VerusID on its own.</Warning>}
+    {assignsExternalRecovery && <Warning>{`${authorityName(review.after.recoveryauthority, review)} will be able to take control of this VerusID.`}</Warning>}
+    {review.losesControl && <CheckOption label="Unlink from my wallet after sending" checked={unlinkAfterSend} disabled={busy}
+      onPress={() => setKeepLinkedPlan(value => value === plan ? null : plan)} />}
+    {Number(review.after.minimumsignatures) > 1 && <Warning>{`Future updates require ${review.after.minimumsignatures} signatures. This wallet cannot collect signatures from other owners.`}</Warning>}
+    <View style={styles.group}>
+      <SectionTitle>{transfer ? 'New signing policy' : 'Changes to approve'}</SectionTitle>
       {transfer ? <>
-        {review.after.primaryaddresses.map((address, index) => <DetailRow key={address} label={`Primary address ${index + 1}`}>{address}</DetailRow>)}
-        <DetailRow label="Required signatures">{review.after.minimumsignatures} of {review.after.primaryaddresses.length}</DetailRow>
+        {review.after.primaryaddresses.map((address, index) => <DetailRow technical key={address} label={`Primary address ${index + 1}`}>{address}</DetailRow>)}
+        <DetailRow label="Required signatures">{`${review.after.minimumsignatures} of ${review.after.primaryaddresses.length}`}</DetailRow>
         <Disclosure title="Current ownership">
-          <DetailRow label="Primary addresses">{review.before.primaryaddresses.join('\n')}</DetailRow>
-          <DetailRow label="Required signatures">{review.before.minimumsignatures} of {review.before.primaryaddresses.length}</DetailRow>
+          <DetailRow technical label="Primary addresses">{review.before.primaryaddresses.join('\n')}</DetailRow>
+          <DetailRow label="Required signatures">{`${review.before.minimumsignatures} of ${review.before.primaryaddresses.length}`}</DetailRow>
         </Disclosure>
-      </> : changed.map(key => <View key={key} style={styles.section}>
-        <Text style={[styles.body, {fontWeight: '600'}]}>{fieldLabels[key]}</Text>
-        <DetailRow label="Currently">{fieldValue(key, review.before[key], review)}</DetailRow>
-        <DetailRow label="After update">{fieldValue(key, review.after[key], review)}</DetailRow>
-        <View style={styles.divider} />
+      </> : changed.map(key => <View key={key} style={[styles.changePanel, {backgroundColor: theme.colors.surfaceMuted}]}>
+        <Text style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>{fieldLabels[key]}</Text>
+        <Body muted style={styles.changeLabel}>Currently</Body>
+        <Body muted style={key === 'primaryaddresses' || key === 'privateaddress' ? styles.identifier : undefined}>{fieldValue(key, review.before[key], review)}</Body>
+        <Body muted style={styles.changeLabel}>After update</Body>
+        <Body style={[theme.typography.labelMd, key === 'primaryaddresses' || key === 'privateaddress' ? styles.identifier : undefined]}>{fieldValue(key, review.after[key], review)}</Body>
       </View>)}
     </View>
-    {transfer && <View style={styles.card}>
-      <Text style={styles.subtitle}>Recovery & revocation</Text>
-      <DetailRow label="Revocation identity">{authorityName(review.after.revocationauthority, review)}</DetailRow>
-      <DetailRow label="Recovery identity">{authorityName(review.after.recoveryauthority, review)}</DetailRow>
-      <Text style={styles.muted}>Both roles are set to this identity. Previous external authorities will no longer be able to revoke or recover it.</Text>
+    {transfer && <View style={styles.group}>
+      <SectionTitle>Recovery & revocation</SectionTitle>
+      <DetailRow label="Revocation VerusID">{authorityName(review.after.revocationauthority, review)}</DetailRow>
+      <DetailRow label="Recovery VerusID">{authorityName(review.after.recoveryauthority, review)}</DetailRow>
+      <DetailRow technical={!!review.after.privateaddress} label="Private receiving address">{review.after.privateaddress || (review.before.privateaddress ? 'Cleared' : 'None')}</DetailRow>
+      {review.after.privateaddress && review.before.privateaddress !== review.after.privateaddress &&
+        <DetailRow technical label="Previous private receiving address">{review.before.privateaddress || 'None'}</DetailRow>}
       {(review.before.revocationauthority !== review.after.revocationauthority || review.before.recoveryauthority !== review.after.recoveryauthority) && <Disclosure title="Previous authorities">
-        <DetailRow label="Revocation identity">{authorityName(review.before.revocationauthority, review)}</DetailRow>
-        <DetailRow label="Recovery identity">{authorityName(review.before.recoveryauthority, review)}</DetailRow>
+        <DetailRow label="Revocation VerusID">{authorityName(review.before.revocationauthority, review)}</DetailRow>
+        <DetailRow label="Recovery VerusID">{authorityName(review.before.recoveryauthority, review)}</DetailRow>
       </Disclosure>}
-      {review.after.privateaddress ? <>
-        <DetailRow label="Recipient’s private receiving address">{review.after.privateaddress}</DetailRow>
-        <Text style={styles.muted}>Private payments will use the address published by {review.recipientName}. Existing private funds are not moved.</Text>
-        {review.before.privateaddress !== review.after.privateaddress && <DetailRow label="Previous private receiving address">{review.before.privateaddress || 'None'}</DetailRow>}
-      </> : <Text style={styles.muted}>{review.before.privateaddress
-        ? 'The private receiving address will be cleared. Existing private funds are not moved.'
-        : 'No private receiving address is published.'}</Text>}
     </View>}
-    {(review.warnings || []).map((warning, index) => <View key={index} style={[styles.notice, styles.warning]}>
-      <Text style={styles.body}>{warning}</Text>
-    </View>)}
-    <View style={styles.card}>
+    {(review.warnings || []).map((warning, index) => <Warning key={index}>{verusIdText(warning)}</Warning>)}
+    <View style={styles.group}>
       <Disclosure title="Transaction details">
-        <DetailRow label="Identity address">{review.identityAddress}</DetailRow>
-        <DetailRow label="Payment address">{review.fundingAddress}</DetailRow>
-        <DetailRow label="Change address">{review.changeAddress || review.fundingAddress}</DetailRow>
-        <Text style={styles.muted}>The identity’s name, content and any existing lock are preserved.</Text>
+        <DetailRow label="Network fee">{`${review.fee} ${review.feeCurrency || review.chainTicker}`}</DetailRow>
+        <DetailRow technical label="VerusID address">{review.identityAddress}</DetailRow>
+        <DetailRow technical label="Payment address">{review.fundingAddress}</DetailRow>
+        <DetailRow technical label="Change address">{review.changeAddress || review.fundingAddress}</DetailRow>
       </Disclosure>
+      {!transfer && <Disclosure title="Other VerusID details">
+        <Body muted>The name, namespace, content, and any existing lock stay as they are.</Body>
+        <DetailRow technical label="VerusID address">{review.identityAddress}</DetailRow>
+        {!!sourceModel?.identity?.parent && <DetailRow label="Namespace">{identityLabel(sourceModel.identity.parent, review.identityNames)}</DetailRow>}
+      </Disclosure>}
     </View>
   </Page>;
 }
+
+const fieldLabels = {
+  primaryaddresses: 'Primary addresses', minimumsignatures: 'Required signatures',
+  privateaddress: 'Private receiving address', recoveryauthority: 'Recovery VerusID', revocationauthority: 'Revocation VerusID',
+};
+const fieldValue = (field, value, review) => {
+  if (field.endsWith('authority')) return authorityName(value, review);
+  if (Array.isArray(value)) return value.join('\n');
+  return value === '' || value == null ? 'None' : String(value);
+};
+const FundRows = ({funds}) => funds?.length ? funds.map(item => <DetailRow key={item.currencyId} label={item.label || currencyLabel(item.currencyId)}>{item.amount}</DetailRow>)
+  : <Body muted>No funds held at this VerusID address.</Body>;
 
 export function IdentityUpdateResult({navigation}) {
   const {result, setResult} = useIdentityManagement();
   const {busy, error, run, running} = useAction();
   const review = result?.review;
   const deliveryUnknown = !!result?.deliveryUnknown;
-
   useEffect(() => navigation.addListener('beforeRemove', event => {
     if (running.current) event.preventDefault();
   }), [navigation, running]);
-
-  // Retrying local cleanup never repeats the identity transaction.
-  const retryUnlink = () => run(
-    context => unlinkUpdatedIdentity(review, context),
-    () => {
-      setResult({...result, unlinked: true, unlinkError: null});
-    },
-  );
-
-  return <Page error={error} footer={<>
-    {!!result?.unlinkError && <ActionButton secondary busy={busy} onPress={retryUnlink}>Retry unlink</ActionButton>}
-    <ActionButton disabled={busy} onPress={() => navigation.getParent().goBack()}>{deliveryUnknown ? 'Close' : 'Done'}</ActionButton>
-  </>}>
-    <View style={styles.badge}>
-      <Icon name={deliveryUnknown ? 'clock-outline' : 'check'} size={26} color={Colors.primaryColor} accessible={false} />
-    </View>
-    <Text style={styles.title}>{deliveryUnknown ? 'Delivery not confirmed' : result ? 'Update sent' : 'Identity update'}</Text>
-    {deliveryUnknown && <>
-      <Text style={styles.body}>The network may have received this identity update. Check the transaction’s status before starting a new review.</Text>
-      <Text style={styles.muted}>This screen will not send the transaction again. The identity remains linked to your wallet.</Text>
-      <View style={styles.card}>
-        <DetailRow label="Transaction ID">{result.txid}</DetailRow>
-      </View>
-    </>}
-    {result && !deliveryUnknown && <>
-      <Text style={styles.body}>{review?.displayName} is waiting for network confirmation.</Text>
-      {result.unlinked ? <Text style={styles.muted}>The identity has been unlinked and your wallet cards refreshed.</Text>
-        : result.unlinkError ? <View style={[styles.notice, styles.warning]} accessibilityRole="alert">
-          <Text style={styles.body}>Your update was sent, but unlinking needs another try.</Text>
-          <Text style={styles.muted}>{result.unlinkError} Retry unlink only refreshes this wallet; it does not send another transaction.</Text>
-        </View> : <Text style={styles.muted}>{review?.losesControl
-          ? 'The identity stays linked for viewing. You can unlink it from VerusID whenever you’re ready.'
-          : 'You can view the updated details from VerusID. Wait for confirmation before making another change.'}</Text>}
-      {review?.mode === 'transfer' && (review.returnedFunds?.length > 0 || review.transferredFunds?.length > 0) && <Text style={styles.muted}>{review.returnFunds
-        ? 'The returned identity funds will appear at your main wallet address as this transaction confirms.'
-        : 'The funds shown in your review remain with the identity for its new owner.'}</Text>}
-      <View style={styles.card}>
-        <DetailRow label="Transaction ID">{result.txid}</DetailRow>
-        <DetailRow label="Network fee">{review?.fee} {review?.feeCurrency || review?.chainTicker}</DetailRow>
-      </View>
-    </>}
-  </Page>;
+  const retryUnlink = () => run(context => unlinkUpdatedIdentity(review, context),
+    () => setResult({...result, unlinked: true, unlinkError: null}));
+  const captions = deliveryUnknown
+    ? ['This screen will not send the transaction again. The VerusID remains linked to your wallet.']
+    : [result?.unlinked ? 'The VerusID has been unlinked and your wallet cards refreshed.'
+        : result?.unlinkError ? 'Retry unlink only refreshes this wallet; it does not send another transaction.'
+        : review?.losesControl ? 'The VerusID stays linked for viewing. You can unlink it from VerusID whenever you’re ready.'
+        : 'You can view the updated details from VerusID. Wait for confirmation before making another change.',
+      review?.mode === 'transfer' && (review.returnedFunds?.length > 0 || review.transferredFunds?.length > 0)
+        ? review.returnFunds ? 'The returned VerusID funds will appear at your main wallet address as this transaction confirms.'
+          : 'The funds shown in your review remain with the VerusID for its new owner.' : null];
+  return <TransactionResult title={deliveryUnknown ? 'Delivery not confirmed' : result ? 'Update sent' : 'VerusID update'}
+    success={!!result && !deliveryUnknown}
+    description={deliveryUnknown ? 'The network may have received this VerusID update. Check the transaction’s status before starting a new review.'
+      : result ? `${review?.displayName} is waiting for network confirmation.` : null}
+    details={!deliveryUnknown && result ? <DetailRow label="Network fee">{`${review?.fee} ${review?.feeCurrency || review?.chainTicker}`}</DetailRow> : null}
+    transactions={result ? [{txid: result.txid}] : []} caption={captions.filter(Boolean)}
+    warning={result?.unlinkError ? verusIdText(`Unlinking needs another try. ${result.unlinkError}`) : null}
+    above={error ? <Body>{verusIdText(error.message)}</Body> : null}
+    actions={[
+      ...(result?.unlinkError ? [{label: busy ? 'Retrying unlink…' : 'Retry unlink', disabled: busy, onPress: retryUnlink}] : []),
+      {label: deliveryUnknown ? 'Close' : 'Done', disabled: busy, onPress: () => navigation.getParent().goBack()},
+    ]} />;
 }
