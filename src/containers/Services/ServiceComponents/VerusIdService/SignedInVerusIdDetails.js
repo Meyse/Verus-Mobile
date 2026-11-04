@@ -298,6 +298,26 @@ const SignedInVerusIdDetails = () => {
     load();
   }, [load]);
 
+  // Coming back from Modify or Transfer reads the VerusID again, so Control
+  // shows the confirmed values. Only a return after a blur reloads; the
+  // mount load above covers the first visit.
+  const leftScreenRef = useRef(false);
+  useEffect(() => {
+    const removeBlur = navigation.addListener('blur', () => {
+      leftScreenRef.current = true;
+    });
+    const removeFocus = navigation.addListener('focus', () => {
+      if (!leftScreenRef.current) return;
+      leftScreenRef.current = false;
+      load();
+    });
+
+    return () => {
+      removeBlur();
+      removeFocus();
+    };
+  }, [navigation, load]);
+
   useEffect(() => {
     screenMountedRef.current = true;
 

@@ -166,13 +166,20 @@ function FundingSource({form}) {
   const label = source => source?.isIdentity
     ? identityLabel(source.address, {...model.identityNames, [source.address]: source.fundingName})
     : source?.fundingName || 'Wallet address';
-  return <SelectionField label="Pay network fee from" disabled={busy}
+  const theme = useOnboardingTheme();
+  return <View style={[styles.feeSource, {borderColor: theme.colors.border}]}><SelectionField label="Pay network fee from" disabled={busy}
     value={label(sources.find(source => source.address === fundingAddress))} onSelect={setFundingAddress}
     options={sources.map(source => {
       const balance = registrationFundingBalance(coin, source, balances);
       return {value: source.address, label: label(source), selected: source.address === fundingAddress,
         description: showBalance && balance != null ? `${balance} ${model.networkName || model.chainTicker} available` : undefined};
-    })} />;
+    })} /></View>;
+}
+
+// Semibold lead words inside a Body or Warning line, as in the TS2 mockup.
+function Strong({children}) {
+  const theme = useOnboardingTheme();
+  return <Text style={{fontFamily: theme.typography.labelMd.fontFamily, fontWeight: theme.typography.labelMd.fontWeight, color: theme.colors.textPrimary}}>{children}</Text>;
 }
 
 function IdentityHeading({model, fallback}) {
@@ -350,11 +357,11 @@ function IdentityTransferForm({navigation, route}) {
       <View style={{marginTop: 16}}><CheckOption label="Return VerusID funds to my wallet" accessibilityLabel="Return identity funds to my wallet"
         checked={returnFunds} disabled={busy} onPress={() => setReturnFunds(value => !value)} /></View>
       {returnFunds ? <View style={styles.returnAddress}>
-        <Body muted>Return to Main wallet address</Body>
+        <Body muted>Return to <Strong>Main wallet address</Strong></Body>
         <Body style={styles.identifier}>{model.signingAddress}</Body>
       </View> : <Warning>The new owner will receive the VerusID’s funds on this network. Those funds will be included in your total transfer cost. Leave this unchecked only if you intend to give them away.</Warning>}
       <View style={styles.group}><FundingSource form={form} /></View>
-      <Warning>A transfer cannot be undone. Recovery and revocation transfer too.</Warning>
+      <Warning><Strong>A transfer cannot be undone.</Strong> Recovery and revocation transfer too.</Warning>
     </>}
   </Page>;
 }
@@ -578,6 +585,8 @@ export function IdentityUpdateResult({navigation}) {
     above={error ? <Body>{verusIdText(error.message)}</Body> : null}
     actions={[
       ...(result?.unlinkError ? [{label: busy ? 'Retrying unlink…' : 'Retry unlink', disabled: busy, onPress: retryUnlink}] : []),
-      {label: deliveryUnknown ? 'Close' : 'Done', disabled: busy, onPress: () => navigation.getParent().goBack()},
+      // An unlinked VerusID has no page left to return to, so Done goes to the VerusID list (upstream lands there too).
+      {label: deliveryUnknown ? 'Close' : 'Done', disabled: busy, onPress: () => result?.unlinked
+        ? navigation.getParent().popToTop() : navigation.getParent().goBack()},
     ]} />;
 }

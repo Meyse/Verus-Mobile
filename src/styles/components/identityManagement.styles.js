@@ -16,6 +16,7 @@ export const identityManagementStyles = StyleSheet.create({
   infoButton: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
   checkbox: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8},
   returnAddress: {paddingLeft: 34, gap: 4},
+  feeSource: {borderTopWidth: StyleSheet.hairlineWidth},
   warning: {marginTop: 16, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 8},
   changePanel: {borderRadius: 18, padding: 16, gap: 8, marginTop: 8},
   changeLabel: {marginTop: 4},
