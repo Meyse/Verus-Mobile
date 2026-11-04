@@ -204,7 +204,9 @@ export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSele
       <Text style={styles.errorText}>{error}</Text><TextAction onPress={onRetry}>Try again</TextAction>
     </View> : !matches.length ? <Text style={styles.muted}>No matching namespaces.</Text> : <>
       {groups[0].map(row)}
-      {!!groups[1].length && <SelectionGroup title="No market price">{groups[1].map(row)}</SelectionGroup>}
+      {/* The heading only contrasts priced rows; with prices off, every row would sit under it. */}
+      {groups[0].length && groups[1].length
+        ? <SelectionGroup title="No market price">{groups[1].map(row)}</SelectionGroup> : groups[1].map(row)}
     </>}
   </SelectionSheet>;
 };

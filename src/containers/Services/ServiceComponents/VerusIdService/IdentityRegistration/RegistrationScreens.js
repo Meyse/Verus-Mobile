@@ -60,16 +60,17 @@ import TextAction from '../../../../../components/TextAction';
 import {createAlert, resolveAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import {loadRegistrationNamespaces} from './namespaceData';
 import useRegistrationPrices from './useRegistrationPrices';
-import VerusIdCard from '../VerusIdCard';
+import VerusIdCard, {wrapVerusIdNames} from '../VerusIdCard';
 import EmptyState from '../../../../../components/EmptyState';
 import {AtSign} from 'lucide-react-native';
 import {VerusIdFormField} from '../VerusIdFormScroll';
 import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError} from '../verusIdErrors';
 
 // The app alert calls each action only after its confirmation sheet closes.
+// Long names in alert text wrap at the namespace dot, as in the rows.
 const registrationAlert = (title, message, buttons, options) => createAlert(
-  verusIdCopy(title),
-  verusIdCopy(message),
+  wrapVerusIdNames(verusIdCopy(title)),
+  wrapVerusIdNames(verusIdCopy(message)),
   buttons.map(button => ({...button, text: verusIdCopy(button.text), onPress: () => {
     resolveAlert(button.style !== 'cancel');
     button.onPress?.();
