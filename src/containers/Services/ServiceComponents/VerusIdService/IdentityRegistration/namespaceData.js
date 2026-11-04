@@ -110,5 +110,5 @@ export const registrationFiat = (amounts, prices) => {
   const entries = Object.entries(amounts || {}).filter(([, amount]) => new BigNumber(amount).gt(0));
   if (!entries.length || entries.some(([id]) => !prices?.[id])) return null;
   const total = entries.reduce((sum, [id, amount]) => sum.plus(new BigNumber(amount).div('100000000').times(prices[id])), new BigNumber(0));
-  return total.gt(0) && total.lt('0.01') ? '< $0.01' : `$${total.toFixed(2)}`;
+  return total.gt(0) && total.lt('0.01') ? '< $0.01' : `$${total.toFormat(2)}`;
 };

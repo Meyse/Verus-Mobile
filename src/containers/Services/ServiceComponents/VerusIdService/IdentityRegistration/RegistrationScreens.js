@@ -78,7 +78,7 @@ const registrationInfo = stage => <>
     {label: 'How registration works', value: 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'},
     {label: 'Commitment', value: 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'},
     {label: 'Keep your app data', value: 'The commitment fee is non-refundable. It does not reserve your name. Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.'},
-    {label: 'Your approval', value: stage === 'registration' ? 'I approve this VerusID and registration payment.' : 'I approve the commitment fee shown above.'},
+    {label: 'Your approval', value: stage === 'registration' ? 'Holding the button approves this VerusID and its registration payment.' : 'Holding the button approves the commitment fee on this screen.'},
     {label: 'Next payment', value: 'You approve the registration payment separately after confirmation. Its price may change.'},
     {label: 'Registration', value: 'This payment creates your VerusID after confirmation.'},
   ]} />

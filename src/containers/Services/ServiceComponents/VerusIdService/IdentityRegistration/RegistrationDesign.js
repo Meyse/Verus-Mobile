@@ -20,7 +20,6 @@ import SkeletonLoader, {SkeletonBlock} from '../../../../../components/SkeletonL
 import useSheetDismissal from '../../../../../components/useSheetDismissal';
 import {useAppTheme} from '../../../../../theme/app';
 import {createIdentityRegistrationStyles} from '../../../../../styles';
-import {PROGRESS_HEADER_METRICS} from '../../../../../styles/components/progressHeader.styles';
 import {currencyLabel} from './RegistrationComponents';
 import {formatRegistrationAmount, identityLabel as upstreamIdentityLabel, registrationCostRows, registrationState} from './presentation';
 import {registrationFiat} from './namespaceData';
@@ -71,9 +70,9 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   </View>;
   return <View style={styles.page}>
     {showHeader && <ProgressHeader showBack={false} showProgress={false} title={title} rightAction={rightAction} />}
-    <KeyboardAvoidingForm style={styles.page} keyboardVerticalOffset={showHeader
-      ? insets.top + PROGRESS_HEADER_METRICS.top + PROGRESS_HEADER_METRICS.action + PROGRESS_HEADER_METRICS.bottom : 0}>
-      <SheetScrollView style={styles.scroll} scrollViewProps={{
+    {/* The header is inside this page, so the form's own frame already starts below it (offset 0, as ManagementPage). */}
+    <KeyboardAvoidingForm style={styles.page}>
+      <SheetScrollView fill style={styles.scroll} scrollViewProps={{
         keyboardShouldPersistTaps: 'handled',
         refreshControl: onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={() => onRefresh(true)}
           tintColor={theme.colors.primary} colors={[theme.colors.primary]} /> : undefined,
