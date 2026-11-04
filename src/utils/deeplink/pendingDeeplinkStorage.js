@@ -139,7 +139,7 @@ export const getPendingDeeplinkPassthrough = request => {
   };
 };
 
-export const getPendingDeeplinkReplay = async id => {
+export const getPendingDeeplinkReplay = async (id, {resumeWalletBackup = false} = {}) => {
   const request = await loadPendingDeeplinkRequest(id);
 
   if (!request || request.completed) return null;
@@ -157,7 +157,7 @@ export const getPendingDeeplinkReplay = async id => {
     passthrough: {
       ...(getPendingDeeplinkPassthrough(request) || {}),
       replayedPendingDeeplink: true,
-      skipWalletBackupRequests: true,
+      skipWalletBackupRequests: !resumeWalletBackup,
     },
   };
 };

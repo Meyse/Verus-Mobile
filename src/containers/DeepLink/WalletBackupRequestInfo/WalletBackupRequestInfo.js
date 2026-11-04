@@ -2,14 +2,14 @@ import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import {Info} from 'lucide-react-native';
-import {useDispatch, useSelector} from 'react-redux';
+import {SPENDABLE_KEY_DETAILS_VDXF_KEY} from 'verus-typescript-primitives';
+import {useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import store from '../../../store';
 import {
@@ -17,8 +17,6 @@ import {
   sessionScopeIsCurrent,
 } from '../../../actions/actions/updates/sessionRequests';
 import {
-  closeLoadingModal,
-  openLoadingModal,
   requestWalletUnlock,
   WALLET_UNLOCK_CANCELLED,
 } from '../../../actions/actionDispatchers';
@@ -35,10 +33,7 @@ import {
   PASS_SCORE_LIMIT,
 } from '../../../utils/constants/constants';
 import {ELECTRUM} from '../../../utils/constants/intervalConstants';
-import {getKey} from '../../../utils/keyGenerator/keyGenerator';
 import {withKeepAwake} from '../../../utils/keepAwake/keepAwake';
-import {getSupportedBiometryType} from '../../../utils/keychain/keychain';
-import {createProfileFromSeed} from '../../../utils/profile/createProfileFromSeed';
 import {
   WALLET_BACKUP_ENCRYPTION_ITERATION_OPTIONS,
   WALLET_BACKUP_ENCRYPTION_ITERS_MEDIUM,
@@ -67,9 +62,13 @@ import AppButton from '../../../components/AppButton';
 import TextAction from '../../../components/TextAction';
 import AppTextInput from '../../../components/AppTextInput';
 import NfcTapView from '../../../components/NfcTap/NfcTapView';
-import BiometricAffordanceIcon, {
-  getBiometryPresentation,
-} from '../../../components/BiometricAffordanceIcon';
+import PasswordCheck from '../../../components/PasswordCheck';
+import KeyboardAvoidingForm from '../../../components/KeyboardAvoidingForm';
+import ProgressHeader from '../../../components/ProgressHeader';
+import CreateProfile from '../../Onboard/CreateProfile/CreateProfile';
+import WalletBackupEntry from './WalletBackupEntry';
+import WalletBackupPhrase from './WalletBackupPhrase';
+import {savePendingDeeplinkRequest} from '../../../utils/deeplink/pendingDeeplinkStorage';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
 import useSheetDismissal from '../../../components/useSheetDismissal';
@@ -116,7 +115,7 @@ const BACKUP_PROTECTION = {
 
 const BACKUP_RESULT_SUBTITLES = {
   [BACKUP_PROTECTION.WALLET_PASSWORD]:
-    'Restore it with your wallet password. Keep the card somewhere safe.',
+    'Restore it with your current wallet password. The card keeps this password if you change it later.',
   [BACKUP_PROTECTION.BACKUP_PASSWORD]:
     'Restore it with your backup password. Keep the card somewhere safe.',
   [BACKUP_PROTECTION.NONE]:
@@ -189,11 +188,16 @@ const WalletBackupRequestInfo = props => {
 
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const dispatch = useDispatch();
   const signedIn = useSelector(state => state.authentication.signedIn);
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
-  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
+  const passthrough = useObjectSelector(state => state.deeplink?.passthrough);
+  const sessionEpoch = useSelector(state => state.authentication.sessionEpoch);
+  const spendableKeyDetail = useMemo(() => request?.details?.find(
+    detail => detail?.getIAddressKey?.() === SPENDABLE_KEY_DETAILS_VDXF_KEY.vdxfid,
+  ), [request]);
+  const giftContext = !profileBackup && !!spendableKeyDetail;
+  const walletPasswordTypedScope = props.walletPasswordTypedScope || passthrough?.walletPasswordTypedScope;
   const activeAccountHash = activeAccount?.accountHash;
 
   const activeAccountIsTestnet = activeAccount ? isTestProfile(activeAccount) : false;
@@ -212,15 +216,16 @@ const WalletBackupRequestInfo = props => {
     return accounts.filter(account => isTestProfile(account) === requestIsTestnet);
   }, [accounts, requestIsTestnet]);
 
-  const [profileName, setProfileName] = useState(
-    accounts.length === 0 ? 'My Verus Wallet' : '',
-  );
-  const [profilePassword, setProfilePassword] = useState('');
-  const [profilePasswordConfirm, setProfilePasswordConfirm] = useState('');
   const [showCreateProfile, setShowCreateProfile] = useState(matchingAccounts.length === 0);
-  const [useBiometrics, setUseBiometrics] = useState(false);
-  const [supportedBiometryType, setSupportedBiometryType] = useState(null);
-
+  const [onboardingParams, setOnboardingParams] = useState(null);
+  const [phraseBackup, setPhraseBackup] = useState(null);
+  const [passwordCheckVisible, setPasswordCheckVisible] = useState(false);
+  const [passwordCheckError, setPasswordCheckError] = useState(null);
+  const typedPasswordRef = useRef(null);
+  const passwordDismissal = useSheetDismissal({
+    visible: passwordCheckVisible,
+    onClose: () => setPasswordCheckVisible(false),
+  });
   const [encryptBackup, setEncryptBackup] = useState(true);
   const [useProfilePasswordForBackup, setUseProfilePasswordForBackup] =
     useState(true);
@@ -230,9 +235,7 @@ const WalletBackupRequestInfo = props => {
     WALLET_BACKUP_ENCRYPTION_ITERS_MEDIUM,
   );
   const [backupKdfSheetVisible, setBackupKdfSheetVisible] = useState(false);
-  const [creatingProfile, setCreatingProfile] = useState(false);
   // Inline field errors: {field, message}. A change to the field clears it.
-  const [profileFormError, setProfileFormError] = useState(null);
   const [backupPasswordError, setBackupPasswordError] = useState(null);
   // The NFC tap step while the backup is written, or the failed write.
   const [nfcTap, setNfcTap] = useState(null);
@@ -243,23 +246,11 @@ const WalletBackupRequestInfo = props => {
     !showSpendableKeyBackupChoice,
   );
   const walletBackupCacheRef = useRef(null);
-  const creatingProfileRef = useRef(false);
   const writingBackupRef = useRef(false);
   const finishingRef = useRef(false);
-  // Settings shows a navigation header above this screen. The keyboard offset
-  // must include it, or the footer stays partly under the keyboard.
   const keyboardFrameRef = useRef(null);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
-
-  const profilePasswordDetails = passwordStrengthDetails(profilePassword, theme);
   const backupPasswordDetails = passwordStrengthDetails(backupPassword, theme);
-  const profileFieldError = field =>
-    profileFormError?.field === field ? profileFormError.message : undefined;
-  const clearProfileFieldError = fields => {
-    if (profileFormError != null && fields.includes(profileFormError.field)) {
-      setProfileFormError(null);
-    }
-  };
   const backupFieldError = field =>
     backupPasswordError?.field === field
       ? backupPasswordError.message
@@ -279,26 +270,11 @@ const WalletBackupRequestInfo = props => {
     request.details.length > detailIndex + 1;
 
   useEffect(() => {
-    let mounted = true;
-
-    getSupportedBiometryType()
-      .then(biometryType => {
-        if (mounted) setSupportedBiometryType(biometryType);
-      })
-      .catch(e => {
-        console.warn(e);
-        if (mounted) {
-          setSupportedBiometryType({
-            display_name: 'None',
-            biometry: false,
-          });
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    typedPasswordRef.current = null;
+    setPasswordCheckVisible(false);
+    setPasswordCheckError(null);
+    setPhraseBackup(null);
+  }, [activeAccountHash, sessionEpoch]);
 
   useEffect(() => {
     walletBackupCacheRef.current = null;
@@ -307,7 +283,6 @@ const WalletBackupRequestInfo = props => {
     backupKdfIters,
     backupPassword,
     encryptBackup,
-    profilePassword,
     useProfilePasswordForBackup,
   ]);
 
@@ -339,7 +314,7 @@ const WalletBackupRequestInfo = props => {
         'No wallet found',
         `No ${networkName} wallet is available for this request.`,
       );
-      return;
+      return false;
     }
 
     try {
@@ -352,6 +327,7 @@ const WalletBackupRequestInfo = props => {
         accountHashes: matchingAccounts.map(account => account.accountHash),
         networkLabel: requestIsTestnet ? 'Testnet' : 'Mainnet',
       });
+      return true;
     } catch (e) {
       if (e?.code !== WALLET_UNLOCK_CANCELLED) {
         createAlert('Cannot continue', e?.message || 'Unable to unlock wallet.');
@@ -359,61 +335,49 @@ const WalletBackupRequestInfo = props => {
     }
   };
 
-  const validateProfileForm = () => {
-    if (creatingProfile || !profileName || profileName.length < 1) {
-      return {field: 'name', message: 'Enter a wallet name.'};
-    } else if (profileName.length > 50) {
-      return {field: 'name', message: 'Use 50 characters or fewer.'};
-    } else if (accounts.find(account => account.id === profileName)) {
-      return {field: 'name', message: 'A wallet with this name already exists.'};
+  const openWalletSetup = async () => {
+    try {
+      let pendingDeeplinkId = passthrough?.pendingDeeplinkId;
+      if (spendableKeyDetail) {
+        const saved = await savePendingDeeplinkRequest({
+          requestBufferString: request.toBuffer().toString('hex'),
+          uri: request.toWalletDeeplinkUri(),
+        });
+        if (!saved?.id) throw new Error('Request was not saved.');
+        pendingDeeplinkId = saved.id;
+      }
+      setOnboardingParams({
+        walletBackupSetup: true,
+        requestIsTestnet,
+        resumePendingDeeplinkId: pendingDeeplinkId,
+        resumeWalletBackupRequest: spendableKeyDetail ? null : {
+          url: request.toWalletDeeplinkUri(),
+          passthrough,
+        },
+        walletBackupPassthrough: passthrough,
+      });
+    } catch {
+      createAlert('Cannot open wallet setup', 'The request could not be saved. Try again.');
     }
-
-    return validatePasswordPair(profilePassword, profilePasswordConfirm);
   };
 
-  const createProfile = async () => {
-    if (creatingProfileRef.current) return;
-    const error = validateProfileForm();
+  const hasTypedWalletPassword = () => {
+    const state = store.getState();
+    return state.authentication.signedIn && (
+      sessionScopeIsCurrent(state, typedPasswordRef.current?.scope) ||
+      sessionScopeIsCurrent(state, walletPasswordTypedScope)
+    );
+  };
 
-    setProfileFormError(error);
-    if (error) return;
-
-    creatingProfileRef.current = true;
-    setCreatingProfile(true);
-    let profileCreated = false;
-
+  const openPhraseBackup = async () => {
+    const scope = captureSessionScope(store.getState(), activeAccountHash);
     try {
-      Keyboard.dismiss();
-      openLoadingModal('Setting up your new wallet...');
-      const seed = await getKey(256);
-
-      await createProfileFromSeed({
-        profileName,
-        password: profilePassword,
-        seed,
-        accounts,
-        activeCoinList,
-        dispatch,
-        testProfile: requestIsTestnet,
-        includeDlightSeed: true,
-        useBiometrics,
-      });
-      // The screen moves on to the backup options for the new wallet, which
-      // shows that the wallet exists.
-      profileCreated = true;
-    } catch (e) {
-      console.error(e);
-      createAlert(
-        'Wallet not created',
-        'The wallet could not be created. Try again.',
-      );
-    } finally {
-      // Keep successful submission latched while the account UI catches up.
-      if (!profileCreated) {
-        setCreatingProfile(false);
-        creatingProfileRef.current = false;
-      }
-      closeLoadingModal();
+      const seeds = await requestSeeds();
+      if (!sessionScopeIsCurrent(store.getState(), scope)) return;
+      if (!isValid24WordBip39Mnemonic(seeds[ELECTRUM])) throw new Error('Invalid phrase.');
+      setPhraseBackup({seed: seeds[ELECTRUM], scope});
+    } catch {
+      createAlert('Cannot show recovery phrase', 'The wallet could not read its recovery phrase. Try again.');
     }
   };
 
@@ -438,8 +402,11 @@ const WalletBackupRequestInfo = props => {
   };
 
   const getProfilePasswordForBackup = async () => {
-    if (profilePassword) return profilePassword;
-    return requestPassword();
+    if (!hasTypedWalletPassword()) throw new Error('Enter your wallet password before writing the backup.');
+    const typed = typedPasswordRef.current;
+    return typed && sessionScopeIsCurrent(store.getState(), typed.scope)
+      ? typed.password
+      : requestPassword(walletPasswordTypedScope);
   };
 
   const getWalletBackupForWrite = async assertAccountCurrent => {
@@ -532,6 +499,13 @@ const WalletBackupRequestInfo = props => {
         setNfcTap(null);
         return;
       }
+    }
+
+    if (encryptBackup && useProfilePasswordForBackup && !hasTypedWalletPassword()) {
+      setNfcTap(null);
+      setPasswordCheckError(null);
+      setPasswordCheckVisible(true);
+      return;
     }
 
     const sessionScope = captureSessionScope(store.getState(), activeAccountHash);
@@ -627,70 +601,65 @@ const WalletBackupRequestInfo = props => {
   };
 
   useRequestBackHandler(() => {
-    if (backupResult) finishBackup();
+    if (onboardingParams) setOnboardingParams(null);
+    else if (phraseBackup) setPhraseBackup(null);
+    else if (backupResult) finishBackup();
     else if (nfcTap?.phase === NFC_TAP_PHASE.WAITING) cancelWalletBackupNfcRequest();
     else if (nfcTap) setNfcTap(null);
     else cancel();
-  }, creatingProfile || finishing || [NFC_TAP_PHASE.PREPARING, NFC_TAP_PHASE.ACTIVE, NFC_TAP_PHASE.RELEASE].includes(nfcTap?.phase));
+  }, finishing || [NFC_TAP_PHASE.PREPARING, NFC_TAP_PHASE.ACTIVE, NFC_TAP_PHASE.RELEASE].includes(nfcTap?.phase));
 
   const skipBackupAndClaimSpendableKey = async () => {
     await next(response, [detailIndex]);
   };
 
-  const renderScreen = ({title, subtitle, body, footer, keyboard = false, requestReview = false}) => {
+  const renderScreen = ({title, subtitle, body, footer, keyboard = false, requestReview = false, backupStep = false}) => {
+    const signedRequestReview = requestReview && !profileBackup && request?.isSigned?.() === true;
     const content = (
-      <SafeAreaView edges={safeAreaEdges} style={styles.container}>
+      <SafeAreaView edges={profileBackup || backupStep ? ['left', 'right'] : safeAreaEdges} style={styles.container}>
+        {backupStep && <ProgressHeader title="Back up wallet" progress={1} onBack={cancel} onClose={cancel} />}
         <DeepLinkReviewScrollView
           showScrollCue={requestReview && !profileBackup}
-          requestCard={requestReview && !profileBackup}
+          requestCard={signedRequestReview}
+          contentContainerStyle={backupStep ? styles.backupStepContent : undefined}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled">
-          {requestReview && !profileBackup ? (
+          {signedRequestReview ? (
             <RequestCard
               action="wants you to back up this wallet"
               requester={props}
-              caption="The wallet writes the Secret Recovery Phrase to an NFC card."
+              caption={giftContext ? undefined : 'The wallet writes the Secret Recovery Phrase to an NFC card.'}
             />
-          ) : (
+          ) : !backupStep ? (
             <View style={styles.header}>
               <RequestTitle>{title}</RequestTitle>
               {subtitle ? <Text style={styles.mainSubtitle}>{subtitle}</Text> : null}
             </View>
-          )}
+          ) : null}
           {body}
         </DeepLinkReviewScrollView>
         <SafeBottomActionStack
           bottomSpacing={keyboardVisible ? KEYBOARD_FOOTER_SPACING : 30}
           gap={10}
-          horizontalSpacing={24}
+          horizontalSpacing={backupStep ? 32 : 24}
           includeBottomInset={!keyboardVisible}
           style={styles.footer}>
           {footer}
         </SafeBottomActionStack>
       </SafeAreaView>
     );
-
-    if (!keyboard) return content;
-
-    return (
+    return keyboard ? (
       <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
         <View
-          onLayout={() =>
-            keyboardFrameRef.current?.measureInWindow((_x, y) =>
-              setKeyboardOffset(Math.max(0, y)),
-            )
-          }
           ref={keyboardFrameRef}
+          onLayout={() => keyboardFrameRef.current?.measureInWindow((_x, y) => setKeyboardOffset(Math.max(0, y)))}
           style={styles.keyboardFrame}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={keyboardOffset}
-            style={styles.keyboardFrame}>
+          <KeyboardAvoidingForm keyboardVerticalOffset={keyboardOffset} style={styles.keyboardFrame}>
             {content}
-          </KeyboardAvoidingView>
+          </KeyboardAvoidingForm>
         </View>
       </TouchableWithoutFeedback>
-    );
+    ) : content;
   };
 
   const renderSecondaryButton = (label, onPress) => (
@@ -703,28 +672,33 @@ const WalletBackupRequestInfo = props => {
   );
   const cancelButton = renderSecondaryButton('Cancel', cancel);
 
+  if (onboardingParams) {
+    return <CreateProfile
+      route={{params: onboardingParams}}
+      navigation={{goBack: () => setOnboardingParams(null)}}
+    />;
+  }
+
+  if (phraseBackup && sessionScopeIsCurrent(store.getState(), phraseBackup.scope)) {
+    return <WalletBackupPhrase
+      cancel={() => setPhraseBackup(null)}
+      seed={phraseBackup.seed}
+      onComplete={finishBackup}
+      finishing={finishing}
+    />;
+  }
+
   if (!backupChoiceMade) {
-    return renderScreen({
-      title: 'Claim this card',
-      subtitle:
-        'Claim it to a wallet you already have, or back up a wallet to this card first.',
-      footer: (
-        <>
-          <AppButton
-            height={56}
-            onPress={skipBackupAndClaimSpendableKey}
-            variant="primary">
-            Claim to existing wallet
-          </AppButton>
-          {renderSecondaryButton('Back up first', () =>
-            setBackupChoiceMade(true),
-          )}
-          <AppButton onPress={cancel} variant="text">
-            Cancel
-          </AppButton>
-        </>
-      ),
-    });
+    return <WalletBackupEntry
+      cancel={cancel}
+      choice
+      onClaim={skipBackupAndClaimSpendableKey}
+      onBackup={async () => {
+        if (activeAccountMatchesRequest || await openLogin()) setBackupChoiceMade(true);
+      }}
+      requestIsTestnet={requestIsTestnet}
+      spendableKeyDetail={spendableKeyDetail}
+    />;
   }
 
   const renderNfcTap = (step, actions = []) => (
@@ -743,7 +717,7 @@ const WalletBackupRequestInfo = props => {
       [
         {
           disabled: finishing,
-          label: moreDetailsFollow ? 'Continue' : 'Done',
+          label: giftContext ? 'Continue to claim' : moreDetailsFollow ? 'Continue' : 'Done',
           onPress: finishBackup,
           variant: 'primary',
         },
@@ -777,105 +751,19 @@ const WalletBackupRequestInfo = props => {
   }
 
   if (!activeAccountMatchesRequest) {
-    const biometryAvailable =
-      supportedBiometryType != null && supportedBiometryType.biometry;
     const switchAccountChoice = matchingAccounts.length > 0 ? (
-      <TextAction
-        onPress={() => setShowCreateProfile(!showCreateProfile)}
-        style={{alignSelf: 'center'}}>
-        {showCreateProfile ? 'Use an existing wallet' : 'Create a new wallet'}
+      <TextAction onPress={() => setShowCreateProfile(true)} style={{alignSelf: 'center'}}>
+        Create a new wallet
       </TextAction>
     ) : null;
 
-    if (showCreateProfile) {
-      return renderScreen({
-        keyboard: true,
-        title: 'Create wallet',
-        subtitle: `Create a ${networkName} wallet, then write its Secret Recovery Phrase to an NFC card.`,
-        body: (
-          <>
-            <View style={styles.inputStack}>
-              <AppTextInput
-                errorText={profileFieldError('name')}
-                label="Wallet name"
-                onChangeText={value => {
-                  clearProfileFieldError(['name']);
-                  setProfileName(value);
-                }}
-                returnKeyType="done"
-                value={profileName}
-              />
-              <AppTextInput
-                {...passwordAutofillProps}
-                errorText={profileFieldError('password')}
-                helperText={
-                  profilePasswordDetails
-                    ? `Password strength: ${profilePasswordDetails.text}`
-                    : undefined
-                }
-                label="Wallet password"
-                onChangeText={value => {
-                  clearProfileFieldError(['password', 'confirm']);
-                  setProfilePassword(value);
-                }}
-                returnKeyType="done"
-                secureTextEntry
-                supportingTextStyle={
-                  profilePasswordDetails && !profileFieldError('password')
-                    ? {color: profilePasswordDetails.color}
-                    : undefined
-                }
-                value={profilePassword}
-              />
-              <AppTextInput
-                {...passwordAutofillProps}
-                errorText={profileFieldError('confirm')}
-                label="Confirm wallet password"
-                onChangeText={value => {
-                  clearProfileFieldError(['confirm']);
-                  setProfilePasswordConfirm(value);
-                }}
-                returnKeyType="done"
-                secureTextEntry
-                value={profilePasswordConfirm}
-              />
-            </View>
-            {biometryAvailable ? (
-              <SettingsSwitchRow
-                last
-                leading={
-                  <BiometricAffordanceIcon
-                    size={19}
-                    supportedBiometryType={supportedBiometryType}
-                  />
-                }
-                onValueChange={setUseBiometrics}
-                title={getBiometryPresentation(supportedBiometryType).settingsTitle}
-                value={useBiometrics}
-              />
-            ) : null}
-            {switchAccountChoice}
-          </>
-        ),
-        footer: (
-          <>
-            <AppButton
-              disabled={
-                creatingProfile ||
-                !profileName ||
-                !profilePassword ||
-                !profilePasswordConfirm
-              }
-              height={56}
-              loading={creatingProfile}
-              onPress={createProfile}
-              variant="primary">
-              Create wallet
-            </AppButton>
-            {cancelButton}
-          </>
-        ),
-      });
+    if (showCreateProfile || matchingAccounts.length === 0) {
+      return <WalletBackupEntry
+        cancel={cancel}
+        onCreate={openWalletSetup}
+        requestIsTestnet={requestIsTestnet}
+        spendableKeyDetail={spendableKeyDetail}
+      />;
     }
 
     return renderScreen({
@@ -916,10 +804,38 @@ const WalletBackupRequestInfo = props => {
   return renderScreen({
     keyboard: true,
     requestReview: true,
+    backupStep: !profileBackup,
     title: 'Back up wallet',
     subtitle: "Write this wallet's Secret Recovery Phrase to an NFC card.",
     body: (
       <>
+        <PasswordCheck
+          account={activeAccount}
+          allowBiometry={false}
+          body="Enter the password that will lock this backup."
+          cancel={passwordDismissal.close}
+          createAttemptToken={() => captureSessionScope(store.getState(), activeAccountHash)}
+          errorMessage={passwordCheckError}
+          onClosed={passwordDismissal.onClosed}
+          onInputChange={() => setPasswordCheckError(null)}
+          redesigned
+          showWalletSummary={false}
+          submit={result => {
+            if (!sessionScopeIsCurrent(store.getState(), result.attemptToken)) return;
+            if (!result.valid) {
+              setPasswordCheckError(result.error?.message === 'Incorrect password'
+                ? 'Incorrect password.' : 'Unable to access this wallet. Try again.');
+              return;
+            }
+            typedPasswordRef.current = {password: result.password, scope: result.attemptToken};
+            passwordDismissal.dismiss(() => writeBackup());
+          }}
+          submitLabel="Write to NFC card"
+          suppressSystemAlerts
+          title="Write to NFC card"
+          userName={activeAccount.id}
+          visible={passwordCheckVisible}
+        />
         <BackupKdfSheet
           onClose={() => setBackupKdfSheetVisible(false)}
           onSelect={setBackupKdfIters}
@@ -931,9 +847,13 @@ const WalletBackupRequestInfo = props => {
           subtitle={requestIsTestnet ? 'Testnet wallet' : null}
           walletAvatar={activeAccount.walletAvatar}
         />
-        <SettingsSection title={profileBackup ? "Encryption" : undefined}>
+        {giftContext && <Text style={styles.giftBackupBody}>
+          Writing the backup replaces the gift on this card. The gift stays on this phone until you claim it.
+        </Text>}
+        <SettingsSection style={!profileBackup && styles.backupOptions} title={profileBackup ? "Encryption" : undefined}>
           <SettingsSwitchRow
-            icon="lock-outline"
+            icon={profileBackup ? "lock-outline" : undefined}
+            plain={!profileBackup}
             last={!encryptBackup}
             onValueChange={setEncryptBackup}
             title="Encrypt backup"
@@ -942,7 +862,8 @@ const WalletBackupRequestInfo = props => {
           {encryptBackup ? (
             <>
               <SettingsSwitchRow
-                icon="key-outline"
+                icon={profileBackup ? "key-outline" : undefined}
+                plain={!profileBackup}
                 onValueChange={setUseProfilePasswordForBackup}
                 title="Use wallet password"
                 value={useProfilePasswordForBackup}
@@ -986,7 +907,8 @@ const WalletBackupRequestInfo = props => {
                 </View>
               ) : null}
               <SettingsRow
-                icon="shield-key-outline"
+                icon={profileBackup ? "shield-key-outline" : undefined}
+                plain={!profileBackup}
                 last
                 onPress={() => {
                   Keyboard.dismiss();
@@ -998,6 +920,12 @@ const WalletBackupRequestInfo = props => {
             </>
           ) : null}
         </SettingsSection>
+        {giftContext && passthrough?.walletBackupSetup === true &&
+          sessionScopeIsCurrent(store.getState(), passthrough.walletPasswordTypedScope) && (
+            <TextAction onPress={openPhraseBackup} style={styles.phraseAction}>
+              Use the Secret Recovery Phrase instead
+            </TextAction>
+          )}
       </>
     ),
     footer: (

@@ -120,6 +120,18 @@ const createStyles = theme =>
     choiceRow: {
       minHeight: 58,
     },
+    plainRow: {
+      minHeight: 62,
+    },
+    plainRowTitle: {
+      ...theme.typography.titleRow,
+    },
+    plainRowValue: {
+      ...theme.typography.bodySm,
+    },
+    plainDivider: {
+      left: 0,
+    },
     rowDisabled: {
       opacity: 0.5,
     },
@@ -472,12 +484,12 @@ export const SettingsTitle = ({children, subtitle}) => {
   );
 };
 
-export const SettingsSection = ({children, compact = false, title}) => {
+export const SettingsSection = ({children, compact = false, style, title}) => {
   const theme = useOnboardingTheme();
   const styles = getStyles(theme);
 
   return (
-    <View style={[styles.section, compact && styles.compactSection]}>
+    <View style={[styles.section, compact && styles.compactSection, style]}>
       {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
       <View>{children}</View>
     </View>
@@ -504,6 +516,7 @@ export const SettingsRow = ({
   leading,
   leadingStyle,
   onPress,
+  plain = false,
   selected = false,
   showChevron,
   testID,
@@ -530,6 +543,7 @@ export const SettingsRow = ({
       style={[
         styles.row,
         choice && styles.choiceRow,
+        plain && styles.plainRow,
         selected && styles.rowSelected,
         disabled && styles.rowDisabled,
       ]}
@@ -550,7 +564,7 @@ export const SettingsRow = ({
         {React.isValidElement(title) ? (
           title
         ) : (
-          <Text style={[styles.rowTitle, danger && styles.dangerText]}>
+          <Text style={[styles.rowTitle, plain && styles.plainRowTitle, danger && styles.dangerText]}>
             {title}
           </Text>
         )}
@@ -569,7 +583,7 @@ export const SettingsRow = ({
         ) : null}
       </View>
       {value != null ? (
-        <Text numberOfLines={1} style={styles.rowValue}>
+        <Text numberOfLines={1} style={[styles.rowValue, plain && styles.plainRowValue]}>
           {value}
         </Text>
       ) : null}
@@ -582,7 +596,7 @@ export const SettingsRow = ({
           style={styles.rowChevron}
         />
       ) : null}
-      {!last && !hideDivider ? <View style={styles.divider} /> : null}
+      {!last && !hideDivider ? <View style={[styles.divider, plain && styles.plainDivider]} /> : null}
     </TouchableOpacity>
   );
 };

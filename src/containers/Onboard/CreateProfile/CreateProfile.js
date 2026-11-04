@@ -48,6 +48,9 @@ import {
   shouldOfferImportShieldedRestore,
 } from '../onboardingSetupFlow';
 import {getPendingDeeplinkReplay} from '../../../utils/deeplink/pendingDeeplinkStorage';
+import store from '../../../store';
+import {captureSessionScope} from '../../../actions/actions/updates/sessionRequests';
+import {useRequestBackHandler} from '../../DeepLink/useRequestNavigation';
 
 const DEFAULT_SEED_WORD_COUNT = 24;
 const IMPORT_SEED_PROGRESS_WEIGHT = 0.75;
@@ -113,7 +116,10 @@ export default function CreateProfileStackScreens(props) {
     () => normalizeSetupSelection(props.route?.params),
     [props.route?.params],
   );
-  const testProfile = props.testProfile === true;
+  const walletBackupSetup = props.route?.params?.walletBackupSetup === true;
+  const testProfile = walletBackupSetup
+    ? props.route.params.requestIsTestnet === true
+    : props.testProfile === true;
   const isImportSetup = setupSelection.setupPath === SETUP_PATHS.IMPORT;
   const collectImportBeforeProfile =
     shouldCollectImportBeforeProfile(setupSelection);
@@ -253,19 +259,32 @@ export default function CreateProfileStackScreens(props) {
       const resumePendingDeeplinkId =
         props.route?.params?.resumePendingDeeplinkId;
 
-      if (resumePendingDeeplinkId) {
-        const replay = await getPendingDeeplinkReplay(
-          resumePendingDeeplinkId,
-        );
+      const resumeWalletBackupRequest = props.route?.params?.resumeWalletBackupRequest;
+      const resumesRequest = !!(resumePendingDeeplinkId || resumeWalletBackupRequest);
+
+      if (resumesRequest) {
+        const replay = resumePendingDeeplinkId
+          ? await getPendingDeeplinkReplay(resumePendingDeeplinkId, {
+              resumeWalletBackup: walletBackupSetup,
+            })
+          : resumeWalletBackupRequest;
 
         if (!replay) {
           throw new Error('The saved request could not be reopened.');
         }
 
-        dispatch(setDeeplinkUrl(replay.url, replay.passthrough));
+        dispatch(setDeeplinkUrl(replay.url, {
+          ...replay.passthrough,
+          ...(walletBackupSetup && {
+            ...props.route.params.walletBackupPassthrough,
+            skipWalletBackupRequests: false,
+            walletBackupSetup: true,
+            walletPasswordTypedScope: captureSessionScope(store.getState()),
+          }),
+        }));
       }
 
-      await finishWalletSetup({landOnHome: !resumePendingDeeplinkId});
+      await finishWalletSetup({landOnHome: !resumesRequest});
       showBiometrySetupFailure();
     } catch (e) {
       console.error(e);
@@ -340,8 +359,13 @@ export default function CreateProfileStackScreens(props) {
     return finalizeImportedSeed(seed);
   };
 
-  const startWalletSetup = () => {
+  const startWalletSetup = async () => {
     if (!isImportSetup) {
+      if (walletBackupSetup) {
+        const seed = await ensureNewSeed();
+        if (seed) return createProfile(seed, testProfile, true);
+        return;
+      }
       setCurrentStep(SETUP_STEPS.SEED_INTRO);
       return;
     }
@@ -399,7 +423,7 @@ export default function CreateProfileStackScreens(props) {
   const hasBiometryStep = biometryAvailable !== false;
   const securityStepCount = 2 + (hasBiometryStep ? 1 : 0);
   const walletStepStartIndex = securityStepCount;
-  const totalStepCount = isImportSetup
+  const totalStepCount = walletBackupSetup ? securityStepCount + 1 : isImportSetup
     ? securityStepCount + 2
     : walletStepStartIndex + 1 + seedWordPageCount + 2;
   const currentStepIndex = (() => {
@@ -620,6 +644,8 @@ export default function CreateProfileStackScreens(props) {
       />
     );
   };
+
+  useRequestBackHandler(goBack, false, 2, walletBackupSetup);
 
   // Form steps name themselves in the header. The biometrics, shielded
   // address and NFC screens keep their large title instead.

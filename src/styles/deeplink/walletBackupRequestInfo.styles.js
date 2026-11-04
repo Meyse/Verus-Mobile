@@ -13,6 +13,25 @@ const createWalletBackupRequestInfoStyles = theme =>
     header: {
       marginBottom: 28,
     },
+    backupStepContent: {
+      paddingTop: 24,
+      paddingHorizontal: 32,
+    },
+    giftBackupBody: {
+      ...theme.typography.bodyMd,
+      color: theme.colors.textSecondary,
+      marginBottom: 24,
+    },
+    phraseAction: {
+      alignSelf: 'flex-start',
+      marginTop: 12,
+    },
+    backupOptions: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.border,
+      marginBottom: 0,
+    },
     mainSubtitle: {
       color: theme.colors.textSecondary,
       fontSize: 14,
@@ -20,10 +39,6 @@ const createWalletBackupRequestInfoStyles = theme =>
       letterSpacing: 0,
       marginTop: 12,
       ...fontStyle('regular'),
-    },
-    inputStack: {
-      gap: 12,
-      marginBottom: theme.spacing.sm,
     },
     passwordStack: {
       gap: 12,
