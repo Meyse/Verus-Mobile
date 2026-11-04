@@ -2254,7 +2254,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
-| 2026-11-04 | HOME.NOTICE-A | `claude/home-notice-a` from `bc6602db` | Approved smaller notice sizes and Private sync state. Design, changed-file safe-area, iOS bundle and 20 controlled selection cases pass. Native component fixtures cover light/dark on normal iPhone and SE. The notification Jest suite fails before and after edits at the same vector-icons native-module import. | Full-wallet dismissal/reopen, Android and VoiceOver/TalkBack remain open. Temporary fixtures and evidence are local. No merge or push. |
+| 2026-11-04 | HOME.NOTICE-A | `claude/home-notice-a` from `bc6602db` | Approved smaller notice sizes and Private sync state. Design, changed-file safe-area, iOS bundle and 20 controlled selection cases pass. Native component fixtures cover light/dark on normal iPhone and SE. The notification Jest suite fails before and after edits at the same vector-icons native-module import. | iOS and Android device QA passed on 2026-11-04 (dismissal/reopen, thresholds, SE and small phone 32-point buttons). VoiceOver/TalkBack speech remains open. Merged into `redesign`; not pushed. |
 | 2026-11-04 | ID-3.POLISH-2: I1, N1/V1, repeated copy, Unlink, Android Back and display fiat | `claude/idreg-polish-fixes` from `ccbb4ed4` | Shared prose topic; hidden namespace filtering/search; quiet V1 numeric prices; result-only network suppression; unpaid-delete body; primary Unlink; manifest Back opt-out; display-currency fiat from cached ledger pairs. Design, 12-file safe-area/Babel, XML, whitespace and 60 temporary controlled checks pass. Base: 24 pass / 36 fail. Engine, SDK, storage, RPC readers and Jest sources stay unchanged. | Orchestrator owns native light/dark normal/compact QA and Android PC build/Back tests. See `idreg-polish-2.local.md`. No device, Metro, build, push or merge. |
 | 2026-11-04 | ID-3.MANAGEMENT-UI phase 2b | `claude/idreg-ui-mgmt` from `63289e4b` | Approved management options, Transfer, Modify option B, results and Link option A. Shared controls and theme roles; unchanged engines; sign-out clears active/available cards. Design, 13-file safe-area/parser, 59 synthetic checks and both production bundles pass. Requested Jest run: 316 pass / 20 fail, 3 native-fixture load errors; see scoped evidence below. | Orchestrator native normal/compact light/dark QA, consent/hold, unknown broadcast, Transfer + unlink, and Link failure/retry. No device, push or merge. |
 | 2026-11-04 | ID-3.REG: phase 2a New VerusID | `claude/idreg-ui-reg` from `63289e4b` | V3 field, namespace prices/search, two holds, saved tab rows, app-sheet alerts and shared testnet DAI.vETH/Bridge.vETH route. Engine, backend and tests unchanged. Core suites: 268 pass; storage: 78 pass / 1 existing route failure. UI components/presentation pass; screen fixture has an incomplete native SVG mock. Design, safe-area, source behavior, price, parser and both production bundles pass. Source-derived renders only. | Orchestrator owns native light/dark normal/compact QA and real testnet flows. See `idreg-reg.local.md`. Phase 2b remains separate. No device, Metro server, push, PR or merge. |
@@ -3006,8 +3006,13 @@ notice-size mockups. Reuse the existing cards, theme roles and AppButton.
 - [x] Update DESIGN.md and run scoped design, safe-area and bundle checks.
   Compare the requested Jest failure with the clean base.
 - [x] Inspect native component fixtures in light/dark on normal iPhone and SE.
-- [ ] Orchestrator: verify full-wallet dismissal/reopen, Android normal/small,
-  and VoiceOver/TalkBack progress behavior.
+- [x] Orchestrator: verify full-wallet dismissal/reopen and Android normal/small.
+  iOS (iPhone 17 Pro light/dark, SE light) and Android (normal light/dark, small
+  light) passed on 2026-11-04 with real wallets and Metro state fixtures. Close
+  hides sync across a tab switch and a new percent; it returns after lock and
+  unlock. Notice buttons stay 32 points on SE and the small phone.
+- [ ] VoiceOver/TalkBack progress speech. Native reports "Private card sync",
+  progress bar, 42 percent; spoken output and update silence are not checked.
 
 Evidence: native fixtures use this worktree's components and an isolated Metro
 server. They do not unlock or use a wallet. Measured normal-card heights:
