@@ -68,10 +68,10 @@ describe('generic data request response builders', () => {
       result: {status: 'active', identity: {identityaddress}},
     }));
     mockSignHash.mockResolvedValue(Buffer.from('signature').toString('base64'));
-    mockEncryptData.mockResolvedValue({
-      encryptedData: 'abcd',
+    mockEncryptData.mockImplementation(async (_, plaintextHex) => ({
+      encryptedData: Buffer.alloc(Buffer.from(plaintextHex, 'hex').length + 16, 0xab).toString('hex'),
       ephemeralPublicKey: '11'.repeat(32),
-    });
+    }));
   });
 
   it('packages credentials in a DataResponseDetails ordinal', () => {
@@ -298,13 +298,13 @@ describe('generic data request response builders', () => {
     expect(mockEncryptData).toHaveBeenCalledWith(
       'zs1exampleencryptedresponseaddress',
       wrappedPlaintext,
-      true,
+      false,
     );
     expect(response.detailsAreEncrypted()).toBe(true);
     expect(response.hasMultiDetails()).toBe(true);
     expect(response.details).toHaveLength(1);
     expect(response.getDetails(0)).toBeInstanceOf(DataDescriptorOrdinalVDXFObject);
-    expect(response.getDetails(0).data.objectdata.toString('hex')).toBe('abcd');
+    expect(response.getDetails(0).data.objectdata).toEqual(Buffer.alloc(wrappedPlaintext.length / 2 + 16, 0xab));
     expect(response.getDetails(0).data.epk.toString('hex')).toBe('11'.repeat(32));
   });
 

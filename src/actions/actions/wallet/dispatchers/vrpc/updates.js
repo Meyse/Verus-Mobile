@@ -4,16 +4,16 @@ import { satsToCoins } from "../../../../../utils/math";
 import { standardizeVrpcTxObj } from "../../../../../utils/standardization/standardizeTxObj";
 import {finiteBalance} from '../../../../../utils/assets/assetIdentity';
 
-export const updateVrpcBalances = async (coinObj, channelId) => {
+export const updateVrpcBalances = async (coinObj, channelId, {vrpcRefresh} = {}) => {
   const [channelName, iAddress, systemId] = channelId.split('.')
 
   const currencyId = coinObj.currency_id
 
   const readBalanceAndMempool = async fresh => {
-    const balanceRes = await getAddressBalances(systemId, [iAddress], undefined, fresh);
+    const balanceRes = await (!fresh && vrpcRefresh ? vrpcRefresh.getBalance(channelId) : getAddressBalances(systemId, [iAddress], undefined, fresh));
     if (balanceRes.error) throw new Error(balanceRes.error.message);
 
-    const mempool = await getAddressMempool(systemId, [iAddress], false, 1, fresh);
+    const mempool = await (!fresh && vrpcRefresh ? vrpcRefresh.getMempool(channelId) : getAddressMempool(systemId, [iAddress], false, 1, fresh));
     if (mempool.error) throw new Error(mempool.error.message);
     if (!Array.isArray(mempool.result)) throw new Error('Mempool response unavailable');
 
@@ -86,33 +86,40 @@ export const updateVrpcBalances = async (coinObj, channelId) => {
   };
 }
 
-export const updateVrpcTransactions = async (coinObj, channelId) => {
-  const [channelName, iAddress, systemId] = channelId.split('.')
+export const updateVrpcTransactions = async (coinObj, channelId, {vrpcRefresh} = {}) => {
+  const [, iAddress, systemId] = channelId.split('.');
 
-  const deltasRes = await getAddressDeltas(systemId, [iAddress], true, 1)
-  const infoRes = await getInfo(systemId)
-  const currencyId = coinObj.currency_id
-  const isNative = currencyId === systemId
+  // These reads have independent inputs. A coordinated refresh supplies them
+  // from one planned batch; standalone callers can start all three immediately.
+  // Mempool remains best effort so a temporary failure does not hide history.
+  const [deltasRes, infoRes, mempoolRes] = await (vrpcRefresh
+    ? vrpcRefresh.getTransactions(channelId)
+    : Promise.all([
+      getAddressDeltas(systemId, [iAddress], true, 1),
+      getInfo(systemId),
+      Promise.resolve()
+        .then(() => getAddressMempool(systemId, [iAddress], true, 1))
+        .catch(error => ({error})),
+    ]));
 
-  if (deltasRes.error) throw new Error(deltasRes.error.message)
+  const currencyId = coinObj.currency_id;
+  const isNative = currencyId === systemId;
 
-  let txs = deltasRes.result
+  if (deltasRes.error) throw new Error(deltasRes.error.message);
+
+  let txs = deltasRes.result;
 
   try {
-    const mempoolRes = await getAddressMempool(systemId, [iAddress], true, 1)
-
-    if (mempoolRes.error) throw new Error(mempoolRes.error.message)
+    if (mempoolRes.error) throw new Error(mempoolRes.error.message);
 
     txs = [
-      ...mempoolRes.result.map(x => {
-        return {...x, mempool: true};
-      }),
+      ...mempoolRes.result.map(delta => ({...delta, mempool: true})),
       ...txs,
     ];
-  } catch(e) {
-    console.error(e)
+  } catch (error) {
+    console.error(error);
   }
-  
+
   const grouped = new Map();
   const confirmedTxids = new Set(txs.filter(tx => !tx.mempool).map(tx => tx.txid));
 

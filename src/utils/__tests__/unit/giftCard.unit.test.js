@@ -1,3 +1,12 @@
+const mockVerifyIdentityUpdateFunding = jest.fn();
+const mockApproval = {systemId: 'root-system', nativeFee: '10000'};
+jest.mock('../../identityUpdate/verifiedSubmission', () => ({
+  captureIdentityUpdateContext: jest.fn(() => ({sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'})),
+  assertIdentityUpdateContext: jest.fn(),
+  getIdentityUpdateLockContext: jest.fn(async context => ({chainId: context.systemId, nextBlockHeight: 101})),
+  validateIdentityUpdateContext: jest.fn(async () => 100),
+  assertIdentityUpdateSigningAuthority: jest.fn(async () => []),
+}));
 const mockRootCoin = {
   id: 'VRSC',
   display_ticker: 'VRSC',
@@ -132,19 +141,16 @@ jest.mock('@bitgo/utxo-lib/dist/src/smart_transactions', () => ({
 }));
 
 jest.mock('verusid-ts-client', () => {
-  const actual = jest.requireActual('verusid-ts-client');
-
   return {
-    ...actual,
+    verifyIdentityUpdateFunding: mockVerifyIdentityUpdateFunding,
+    primitives: jest.requireActual('verus-typescript-primitives'),
     VerusIdInterface: {
-      ...actual.VerusIdInterface,
       createUnfundedCurrencyTransferTransaction: mockCreateUnfundedCurrencyTransferTransaction,
     },
   };
 });
 
 jest.mock('@bitgo/utxo-lib', () => ({
-  ...jest.requireActual('@bitgo/utxo-lib'),
   ECPair: {
     fromWIF: mockFromWIF,
   },
@@ -170,12 +176,6 @@ const {
   GIFT_CARD_STATUS_FUNDED,
   GIFT_CARD_STATUS_REDEEMED,
   addGiftCardPendingFunding,
-  beginGiftCardShare,
-  cancelGiftCardShare,
-  completeGiftCardShare,
-  hasGiftCardShareInProgress,
-  hasGiftCardShareReservation,
-  GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS,
   broadcastGiftCardFunding,
   buildGiftCardNfcDeeplinkUri,
   canDeleteGiftCard,
@@ -218,7 +218,7 @@ describe('gift card helpers', () => {
     mockGetBlockHash.mockResolvedValue({result: 'block-hash'});
     mockGetBlock.mockResolvedValue({result: {time: 1710000000}});
     mockFundRawTransaction.mockResolvedValue({result: {hex: 'funded-gift'}});
-    mockGetInfo.mockResolvedValue({result: {longestchain: 1000}});
+    mockGetInfo.mockImplementation(async systemId => ({result: {chainid: systemId, blocks: 1000, longestchain: 1200}}));
     mockGetSpendableUtxos.mockResolvedValue([]);
     mockGetTransaction.mockResolvedValue({
       result: {
@@ -234,6 +234,7 @@ describe('gift card helpers', () => {
       },
     });
     mockTransactionFromHex.mockImplementation(hex => ({
+      expiryHeight: 1200,
       ins: [],
       getId: () =>
         hex === 'signed-gift-identity'
@@ -255,12 +256,14 @@ describe('gift card helpers', () => {
       hex: 'identity-update-tx',
       utxos: args.utxos,
       deltas: new Map([[args.systemId, '-10000']]),
+      fundingApproval: {...mockApproval, systemId: args.systemId},
     }));
     mockCreateUpdateIdentityWithCurrencyTransferTx.mockImplementation(
       async args => ({
         hex: 'identity-update-with-funds-tx',
         utxos: args.utxos,
         deltas: new Map([[args.systemId, '-20000']]),
+        fundingApproval: {...mockApproval, systemId: args.systemId, nativeFee: '20000'},
       }),
     );
     mockRequestPrivKey.mockResolvedValue('wallet-spending-key');
@@ -281,7 +284,6 @@ describe('gift card helpers', () => {
     );
     expect(card.mnemonic).toBeUndefined();
     expect(card.sharedAt).toBeNull();
-    expect(card.shareAttempt).toBeNull();
     expect(card.requestUri).toMatch(/^verus:\/\//);
     expect(canDeleteGiftCard(card)).toBe(true);
     expect(parseGiftCardRequest(card).spendableKeyOrdinal).toBeInstanceOf(
@@ -334,7 +336,6 @@ describe('gift card helpers', () => {
     expect(removedClaimed.cards[newCard.id]).toEqual({
       ...newCard,
       sharedAt: null,
-      shareAttempt: null,
     });
     expect(Object.values(upserted.cards)).toHaveLength(1);
     expect(upserted.cards[newCard.id].label).toBe('Same Label');
@@ -463,7 +464,6 @@ describe('gift card helpers', () => {
       id: 'card-id',
       label: 'Gift',
       sharedAt: null,
-      shareAttempt: null,
       updatedAt: 1,
       status: {state: 'new'},
       fundingHistory: [],
@@ -526,7 +526,7 @@ describe('gift card helpers', () => {
       removeGiftCardIfUnchangedAndDeletable(changedData, expectedCard).cards[
         expectedCard.id
       ],
-    ).toEqual({...changedCard, shareAttempt: null});
+    ).toEqual(changedCard);
   });
 
   it('does not remove an unchanged gift card that is no longer deletable', () => {
@@ -544,7 +544,7 @@ describe('gift card helpers', () => {
 
     expect(
       removeGiftCardIfUnchangedAndDeletable(serviceData, card).cards[card.id],
-    ).toEqual({...card, shareAttempt: null});
+    ).toEqual(card);
   });
 
   it('creates encrypted gift cards that require the claim password', async () => {
@@ -744,6 +744,7 @@ describe('gift card helpers', () => {
       results: [
         {
           type: 'identity',
+          fundingApproval: mockApproval,
           systemId: mockRootCoin.system_id,
           txid: 'submitted-txid',
           identity: {
@@ -1120,6 +1121,7 @@ describe('gift card helpers', () => {
         hex: 'first-identity-update',
         utxos: [firstWalletUtxo],
         deltas: new Map([[args.systemId, '-20000']]),
+        fundingApproval: {...mockApproval, systemId: args.systemId, nativeFee: '20000'},
       }),
     );
 
@@ -1763,6 +1765,7 @@ describe('gift card helpers', () => {
       results: [
         {
           type: 'identity',
+          fundingApproval: mockApproval,
           systemId: mockRootCoin.system_id,
           txid: 'identity-funding-txid',
           identity: {
@@ -2063,7 +2066,23 @@ describe('gift card helpers', () => {
     );
   });
 
+  it.each(['reviewContext', 'ownerAccountHash'])('rejects a new funding plan missing %s before signing', async missing => {
+    const {captureIdentityUpdateContext} = require('../../identityUpdate/verifiedSubmission');
+    const preflightPlan = {ownerAccountHash: 'account-a',
+      reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'}, transactions: []};
+    delete preflightPlan[missing];
+    const persistPendingBroadcast = jest.fn();
+    await expect(broadcastGiftCardFunding({preflightPlan, persistPendingBroadcast})).rejects.toThrow(/review|profile/i);
+    expect(captureIdentityUpdateContext).not.toHaveBeenCalled();
+    expect(mockRequestPrivKey).not.toHaveBeenCalled();
+    expect(mockSignUpdateIdentityTx).not.toHaveBeenCalled();
+    expect(persistPendingBroadcast).not.toHaveBeenCalled();
+    expect(mockSendRawTransaction).not.toHaveBeenCalled();
+  });
+
   it('persists signed gift-card funding before broadcasting it', async () => {
+    const {validateIdentityUpdateContext} = require('../../identityUpdate/verifiedSubmission');
+    validateIdentityUpdateContext.mockResolvedValueOnce(100).mockResolvedValueOnce(105);
     mockSendRawTransaction.mockResolvedValueOnce({
       result: 'gift-identity-txid',
     });
@@ -2071,9 +2090,12 @@ describe('gift card helpers', () => {
 
     const result = await broadcastGiftCardFunding({
       preflightPlan: {
+        ownerAccountHash: 'account-a',
+        reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'},
         transactions: [
           {
             type: 'identity',
+            fundingApproval: mockApproval,
             systemId: mockRootCoin.system_id,
             signingCoinId: mockRootCoin.id,
             txHex: 'identity-update-tx',
@@ -2099,9 +2121,11 @@ describe('gift card helpers', () => {
       }),
     );
     expect(result.results[0].txid).toBe('gift-identity-txid');
+    expect(mockSignUpdateIdentityTx.mock.calls[0][5]).toEqual({chainId: mockRootCoin.system_id, nextBlockHeight: 106});
   });
 
   it('retries the saved signed gift-card transaction after a lost response', async () => {
+    mockGetTransaction.mockResolvedValue({error: {code: -5, message: 'Not found'}});
     mockSendRawTransaction.mockRejectedValueOnce(new Error('socket closed'));
     const persistPendingBroadcast = jest.fn().mockResolvedValue();
     let error;
@@ -2109,9 +2133,12 @@ describe('gift card helpers', () => {
     try {
       await broadcastGiftCardFunding({
         preflightPlan: {
+          ownerAccountHash: 'account-a',
+          reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'},
           transactions: [
             {
               type: 'identity',
+              fundingApproval: mockApproval,
               systemId: mockRootCoin.system_id,
               signingCoinId: mockRootCoin.id,
               txHex: 'identity-update-tx',
@@ -2142,6 +2169,8 @@ describe('gift card helpers', () => {
       persistPendingBroadcast,
     });
 
+    expect(require('../../identityUpdate/verifiedSubmission').captureIdentityUpdateContext).toHaveBeenCalledTimes(1);
+    expect(mockSignUpdateIdentityTx).toHaveBeenCalledTimes(1);
     expect(mockSendRawTransaction.mock.calls.slice(-2)).toEqual([
       [mockRootCoin.system_id, 'signed-gift-identity'],
       [mockRootCoin.system_id, 'signed-gift-identity'],
@@ -2163,9 +2192,12 @@ describe('gift card helpers', () => {
     try {
       await broadcastGiftCardFunding({
         preflightPlan: {
+          ownerAccountHash: 'account-a',
+          reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'},
           transactions: [
             {
               type: 'identity',
+              fundingApproval: mockApproval,
               systemId: mockRootCoin.system_id,
               signingCoinId: mockRootCoin.id,
               txHex: 'identity-update-tx',
@@ -2195,9 +2227,12 @@ describe('gift card helpers', () => {
     try {
       await broadcastGiftCardFunding({
         preflightPlan: {
+          ownerAccountHash: 'account-a',
+          reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'},
           transactions: [
             {
               type: 'identity',
+              fundingApproval: mockApproval,
               systemId: mockRootCoin.system_id,
               signingCoinId: mockRootCoin.id,
               txHex: 'identity-update-tx',
@@ -2221,260 +2256,140 @@ describe('gift card helpers', () => {
       }),
     );
   });
-  it('reserves, completes, and rolls back gift card share attempts', () => {
-    const baseCard = {
-      id: 'share-attempt-card',
-      sharedAt: null,
-      shareAttempt: null,
-      updatedAt: 1,
-    };
-    const startedCard = beginGiftCardShare(
-      baseCard,
-      'share-attempt-1',
-      1710000000000,
-    );
+  it.each(['missing', 'wrong network', 'altered transaction'])('rejects %s funding approval before signing', async problem => {
+    const approval = problem === 'missing' ? undefined : problem === 'wrong network'
+      ? {...mockApproval, systemId: 'wrong-chain'} : mockApproval;
+    if (problem === 'altered transaction') mockVerifyIdentityUpdateFunding.mockImplementationOnce(() => { throw new Error('Changed approved change output'); });
+    await expect(broadcastGiftCardFunding({
 
-    expect(
-      hasGiftCardShareInProgress(startedCard, 1710000000001),
-    ).toBe(true);
-    expect(hasGiftCardBeenShared(startedCard)).toBe(false);
-    expect(() =>
-      beginGiftCardShare(
-        startedCard,
-        'share-attempt-2',
-        1710000000001,
-      ),
-    ).toThrow('sharing is in progress');
+      preflightPlan: {
 
-    const cancelledCard = cancelGiftCardShare(
-      startedCard,
-      'share-attempt-1',
-    );
+        ownerAccountHash: 'account-a',
 
-    expect(cancelledCard.shareAttempt).toBeNull();
-    expect(
-      hasGiftCardShareInProgress(cancelledCard, 1710000000002),
-    ).toBe(false);
+        reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'},
 
-    const restartedCard = beginGiftCardShare(
-      cancelledCard,
-      'share-attempt-2',
-      1710000000003,
-    );
-    const sharedCard = completeGiftCardShare(
-      restartedCard,
-      'share-attempt-2',
-      1710000000004,
-    );
-
-    expect(sharedCard.shareAttempt).toBeNull();
-    expect(sharedCard.sharedAt).toBe(1710000000004);
-    expect(hasGiftCardBeenShared(sharedCard)).toBe(true);
+        transactions: [{type: 'identity', systemId: mockRootCoin.system_id,
+          fundingApproval: approval, txHex: 'identity-hex', inputs: [], signingCoinId: mockRootCoin.id,}],
+      },
+      persistPendingBroadcast: jest.fn(),
+    })).rejects.toThrow();
+    expect(mockSignUpdateIdentityTx).not.toHaveBeenCalled();
+    expect(mockSendRawTransaction).not.toHaveBeenCalled();
   });
 
-  it('treats abandoned gift card share attempts as stale', () => {
-    const startedAt = 1710000000000;
-    const card = beginGiftCardShare(
-      {
-        id: 'stale-share-attempt-card',
-        sharedAt: null,
-      },
-      'stale-share-attempt',
-      startedAt,
-    );
 
-    expect(
-      hasGiftCardShareInProgress(
-        card,
-        startedAt + GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS - 1,
-      ),
-    ).toBe(true);
-    expect(
-      hasGiftCardShareInProgress(
-        card,
-        startedAt + GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS,
-      ),
-    ).toBe(false);
-    expect(hasGiftCardShareReservation(card)).toBe(true);
-
-    expect(
-      beginGiftCardShare(
-        card,
-        'replacement-share-attempt',
-        startedAt + GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS,
-      ).shareAttempt.id,
-    ).toBe('replacement-share-attempt');
-  });
-
-  it('does not overwrite a share reservation with a stale card update', () => {
-    const sourceCard = {
-      id: 'share-cas-card',
-      label: 'Gift',
-      sharedAt: null,
-      shareAttempt: null,
-      updatedAt: 1,
-      status: {state: 'funded'},
-      fundingHistory: [],
-    };
-    const reservedCard = beginGiftCardShare(
-      sourceCard,
-      'active-share-attempt',
-      Date.now(),
-    );
-    const staleUpdate = {
-      ...sourceCard,
-      label: 'Stale update',
-      updatedAt: 2,
-    };
-    const serviceData = {
-      cards: {
-        [sourceCard.id]: reservedCard,
-      },
-    };
-
-    expect(
-      upsertGiftCardIfUnchanged(
-        serviceData,
-        sourceCard,
-        staleUpdate,
-      ).cards[sourceCard.id],
-    ).toEqual(reservedCard);
-  });
-
-  it('rejects another funding attempt after a gift card has been shared', async () => {
-    await expect(
-      preflightGiftCardFunding({
-        card: {
-          id: 'shared-card',
-          sharedAt: 1710000000000,
-          fundingHistory: [{status: 'confirmed'}],
-        },
-        selections: {
-          funds: [],
-          identities: [],
-        },
-      }),
-    ).rejects.toThrow('Shared gift cards are single-use');
-  });
-
-  it('rejects funding while gift card sharing is in progress', async () => {
-    const card = beginGiftCardShare(
-      {
-        id: 'sharing-card',
-        sharedAt: null,
-      },
-      'active-share-attempt',
-      Date.now(),
-    );
-
-    await expect(
-      preflightGiftCardFunding({
-        card,
-        selections: {
-          funds: [],
-          identities: [],
-        },
-      }),
-    ).rejects.toThrow('sharing is in progress');
-  });
-
-  it('keeps funding blocked after an interrupted share attempt becomes stale', async () => {
-    const startedAt =
-      Date.now() - GIFT_CARD_SHARE_ATTEMPT_TIMEOUT_MS - 1;
-    const card = beginGiftCardShare(
-      {
-        id: 'interrupted-share-card',
-        sharedAt: null,
-      },
-      'interrupted-share-attempt',
-      startedAt,
-    );
-
-    expect(hasGiftCardShareInProgress(card)).toBe(false);
-    expect(hasGiftCardShareReservation(card)).toBe(true);
-
-    await expect(
-      preflightGiftCardFunding({
-        card,
-        selections: {
-          funds: [],
-          identities: [],
-        },
-      }),
-    ).rejects.toThrow('sharing is in progress');
-  });
-
-  it('separates native funds from the fee in a combined VerusID transfer', async () => {
-    const cardAddress = 'RDCr3h5wYGoMh2QF7akoZy2GNsjCeSqgpu';
-
-    mockDeriveKeyPair.mockImplementation(async () => ({
-      addresses: [cardAddress],
-      privKey: `K-${mockRootCoin.system_id}`,
-    }));
-    mockGetSpendableUtxos.mockResolvedValue([
-      {
-        txid: 'cc'.repeat(32),
-        outputIndex: 0,
-        satoshis: 200000000,
-        script: '00',
-        isspendable: 1,
-      },
-    ]);
-    mockGetIdentity.mockResolvedValueOnce({
-      result: {
-        blockheight: 123,
-      },
-    });
-    mockCreateUpdateIdentityWithCurrencyTransferTx.mockResolvedValueOnce({
-      hex: 'identity-update-with-funds-tx',
-      utxos: [],
-      deltas: new Map([[mockRootCoin.system_id, '-100020000']]),
+  describe('released gift funding recovery', () => {
+    // Released gift history retained exact signed bytes, but no owner fields or
+    // identity funding approval. Its input summaries also omitted scripts/values.
+    const releasedFunding = (type = 'identity') => ({
+      id: 'released-gift-funding',
+      kind: 'gift-card-funding',
+      createdAt: 1710000000000,
+      updatedAt: 1710000000000,
+      transactions: [{type, systemId: mockRootCoin.system_id,
+        rawTx: 'signed-gift-identity', txid: 'gift-identity-txid', status: 'prepared',
+        inputs: [{txid: '11'.repeat(32), outputIndex: 0, address: 'RPreviousOwner'}]}],
     });
 
-    const card = await createGiftCard({
-      requestIsTestnet: false,
-      activeCoinsForUser: [mockRootCoin],
-    });
-    const plan = await preflightGiftCardFunding({
-      card,
-      selections: {
-        funds: [
-          {
-            systemId: mockRootCoin.system_id,
-            currencyId: mockRootCoin.system_id,
-            amount: '1',
-            coinObj: mockRootCoin,
-          },
-        ],
-        identities: [
-          {
-            key: 'root-system:i-combined-id',
-            chain: 'VRSC',
-            systemId: mockRootCoin.system_id,
-            identityAddress: 'i-combined-id',
-            fullyQualifiedName: 'combined@',
-          },
-        ],
-      },
-      identityFunding: [],
-      activeCoinsForUser: [mockRootCoin],
-      activeAccount: {
-        keys: {
-          [mockRootCoin.id]: {
-            vrpc: {
-              addresses: ['RSourceAddress'],
-            },
-          },
-        },
-      },
+    beforeEach(() => {
+      mockTransactionFromHex.mockImplementation(hex => ({
+        expiryHeight: 1200,
+        ins: [{script: Buffer.from('01', 'hex')}],
+        toHex: () => hex,
+        getId: () => hex === 'signed-gift-identity' ? 'gift-identity-txid' : `${hex}-txid`,
+      }));
+      mockGetTransaction.mockResolvedValue({error: {code: -5, message: 'Not found'}});
+      mockSendRawTransaction.mockResolvedValue({result: 'gift-identity-txid'});
     });
 
-    expect(plan.transactions[0]).toEqual(
-      expect.objectContaining({
-        type: 'identity',
-        includesFunds: true,
-        feeSats: '20000',
-      }),
-    );
+    it.each(['currency', 'identity'])('resumes saved released %s funding without signing again', async type => {
+      const saved = releasedFunding(type);
+      const loadPendingBroadcast = jest.fn().mockResolvedValue(saved);
+      const persistPendingBroadcast = jest.fn().mockResolvedValue();
+      const result = await broadcastGiftCardFunding({
+        pendingBroadcast: JSON.parse(JSON.stringify(saved)), loadPendingBroadcast, persistPendingBroadcast,
+      });
+
+      expect(loadPendingBroadcast).toHaveBeenCalledTimes(1);
+      expect(mockGetTransaction).toHaveBeenCalledWith(mockRootCoin.system_id, 'gift-identity-txid', 0);
+      expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(mockRootCoin.system_id, saved.transactions[0].rawTx);
+      expect(persistPendingBroadcast.mock.invocationCallOrder[0]).toBeLessThan(mockSendRawTransaction.mock.invocationCallOrder[0]);
+      expect(result.results[0]).toMatchObject({txid: 'gift-identity-txid', status: 'submitted'});
+      expect(mockRequestPrivKey).not.toHaveBeenCalled();
+      expect(mockSignUpdateIdentityTx).not.toHaveBeenCalled();
+      expect(mockGetFundedTxBuilder).not.toHaveBeenCalled();
+      expect(mockVerifyIdentityUpdateFunding).not.toHaveBeenCalled();
+    });
+
+    it('reconciles an accepted released identity transaction before considering replay', async () => {
+      const saved = releasedFunding();
+      mockGetTransaction.mockResolvedValue({result: saved.transactions[0].rawTx});
+      const result = await broadcastGiftCardFunding({pendingBroadcast: saved,
+        loadPendingBroadcast: jest.fn().mockResolvedValue(saved), persistPendingBroadcast: jest.fn()});
+      expect(mockGetTransaction).toHaveBeenCalledWith(mockRootCoin.system_id, 'gift-identity-txid', 0);
+      expect(result.results[0].status).toBe('submitted');
+      expect(mockSendRawTransaction).not.toHaveBeenCalled();
+      expect(mockRequestPrivKey).not.toHaveBeenCalled();
+      expect(mockSignUpdateIdentityTx).not.toHaveBeenCalled();
+    });
+
+    it.each(['missing loader', 'missing saved entry', 'type', 'systemId', 'txid', 'rawTx'])('rejects recovery with %s', async difference => {
+      const pending = releasedFunding();
+      const saved = JSON.parse(JSON.stringify(pending));
+      if (['type', 'systemId', 'txid', 'rawTx'].includes(difference)) saved.transactions[0][difference] = 'different';
+      const loadPendingBroadcast = difference === 'missing loader' ? undefined
+        : jest.fn().mockResolvedValue(difference === 'missing saved entry' ? null : saved);
+      const persistPendingBroadcast = jest.fn();
+      await expect(broadcastGiftCardFunding({pendingBroadcast: pending, loadPendingBroadcast, persistPendingBroadcast})).rejects.toThrow();
+      expect(persistPendingBroadcast).not.toHaveBeenCalled();
+      expect(mockGetTransaction).not.toHaveBeenCalled();
+      expect(mockSendRawTransaction).not.toHaveBeenCalled();
+      expect(mockRequestPrivKey).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {ownerAccountHash: 'account-b', ownerWalletBinding: 'wallet-a'},
+      {ownerAccountHash: 'account-a', ownerWalletBinding: 'wallet-b'},
+      {ownerAccountHash: 'account-a'},
+      {ownerWalletBinding: 'wallet-a'},
+    ])('preserves saved owner checks for %j', async owner => {
+      const saved = {...releasedFunding(), ...owner};
+      const persistPendingBroadcast = jest.fn();
+      await expect(broadcastGiftCardFunding({pendingBroadcast: releasedFunding(),
+        loadPendingBroadcast: jest.fn().mockResolvedValue(saved), persistPendingBroadcast})).rejects.toThrow();
+      expect(persistPendingBroadcast).not.toHaveBeenCalled();
+      expect(mockSendRawTransaction).not.toHaveBeenCalled();
+      expect(mockRequestPrivKey).not.toHaveBeenCalled();
+    });
+
+    it('uses stored approval even when the supplied record omits it', async () => {
+      const pending = {...releasedFunding(), ownerAccountHash: 'account-a', ownerWalletBinding: 'wallet-a'};
+      const saved = {...pending, transactions: pending.transactions.map(transaction => ({...transaction,
+        fundingApproval: {...mockApproval, systemId: 'different-network'}}))};
+      await expect(broadcastGiftCardFunding({pendingBroadcast: pending,
+        loadPendingBroadcast: jest.fn().mockResolvedValue(saved), persistPendingBroadcast: jest.fn()})).rejects.toThrow(/approval|network/i);
+      expect(mockSendRawTransaction).not.toHaveBeenCalled();
+      expect(mockSignUpdateIdentityTx).not.toHaveBeenCalled();
+    });
   });
+
+  it('does not broadcast when expiry is reached during durable persistence', async () => {
+    const {getIdentityUpdateLockContext} = require('../../identityUpdate/verifiedSubmission');
+    getIdentityUpdateLockContext.mockResolvedValueOnce({chainId: mockRootCoin.system_id, nextBlockHeight: 101})
+      .mockResolvedValueOnce({chainId: mockRootCoin.system_id, nextBlockHeight: 101})
+      .mockResolvedValueOnce({chainId: mockRootCoin.system_id, nextBlockHeight: 1200});
+    const persistPendingBroadcast = jest.fn().mockResolvedValue();
+    await expect(broadcastGiftCardFunding({
+      preflightPlan: {
+        ownerAccountHash: 'account-a',
+        reviewContext: {sessionScope: {accountHash: 'account-a'}, walletBinding: 'wallet-a'},transactions: [{type: 'identity', fundingApproval: mockApproval,
+        systemId: mockRootCoin.system_id, signingCoinId: mockRootCoin.id,
+        txHex: 'identity-update-tx', inputs: []}]},
+      persistPendingBroadcast,
+    })).rejects.toThrow(/expired before submission/);
+    expect(persistPendingBroadcast).toHaveBeenCalledTimes(2);
+    expect(mockSendRawTransaction).not.toHaveBeenCalled();
+  });
+
 });

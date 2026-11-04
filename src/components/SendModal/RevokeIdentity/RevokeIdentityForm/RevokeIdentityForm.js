@@ -1,3 +1,7 @@
+import {captureIdentityUpdateContext, assertIdentityUpdateContext, validateIdentityUpdateContext} from '../../../../utils/identityUpdate/verifiedSubmission';
+import {satsToCoins} from '../../../../utils/math';
+import BigNumber from 'bignumber.js';
+import store from '../../../../store';
 import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSelector} from 'react-redux';
@@ -203,8 +207,13 @@ const RevokeIdentityForm = props => {
     let ownedAddress = '';
     let revocableByUser = false;
 
+    let updateContext;
     try {
+      updateContext = captureIdentityUpdateContext({
+        systemId: data[SEND_MODAL_SYSTEM_ID], modalRequestId: sendModal.requestId, allowSignedOut: true,
+      });
       const tarRes = await getIdentity(data[SEND_MODAL_SYSTEM_ID], identity);
+      assertIdentityUpdateContext(updateContext);
       if (tarRes.error) {
         throw new Error(
           'This VerusID could not be found on the selected blockchain.',
@@ -226,6 +235,7 @@ const RevokeIdentityForm = props => {
       }
 
       const revRes = await getIdentity(data[SEND_MODAL_SYSTEM_ID], revocation);
+      assertIdentityUpdateContext(updateContext);
       if (revRes.error) {
         throw new Error(
           'The revocation authority could not be verified on this blockchain.',
@@ -246,6 +256,7 @@ const RevokeIdentityForm = props => {
 
       let isInWallet = false;
       const addrs = await getPotentialPrimaryAddresses();
+      assertIdentityUpdateContext(updateContext);
 
       for (const address of revRes.result.identity.primaryaddresses) {
         if (addrs.includes(address)) {
@@ -262,11 +273,16 @@ const RevokeIdentityForm = props => {
         );
       }
 
+      updateContext = {...updateContext, identitySnapshots: [{
+        identityAddress: revRes.result.identity.identityaddress,
+        txid: revRes.result.txid, vout: revRes.result.vout,
+      }]};
       const friendlyNames = await getFriendlyNameMap(
         data[SEND_MODAL_SYSTEM_ID],
         tarRes.result,
       );
 
+      assertIdentityUpdateContext(updateContext);
       const targetIdAddr = tarRes.result.identity.identityaddress;
       const revocationResult = await createRevokeIdentityTx(
         data[SEND_MODAL_SYSTEM_ID],
@@ -274,7 +290,12 @@ const RevokeIdentityForm = props => {
         revRes.result.identity.identityaddress,
       );
 
+      await validateIdentityUpdateContext(updateContext, revocationResult);
+      assertIdentityUpdateContext(updateContext);
       props.navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, {
+        updateContext,
+        fee: satsToCoins(BigNumber(revocationResult.fundingApproval.nativeFee)).toString(),
+        feeCurrency: networkName,
         targetId: tarRes.result,
         revocationId: revRes.result,
         friendlyNames,
@@ -283,12 +304,16 @@ const RevokeIdentityForm = props => {
         revocationResult,
       });
     } catch (e) {
+      if (e.code === 'SESSION_CHANGED') return;
+      if (updateContext) {
+        try { assertIdentityUpdateContext(updateContext); } catch (_) { return; }
+      }
       if (!showFundRawTransactionErrorAlert(e)) {
         setFormError(getSafeRevocationError(e, networkName));
       }
+    } finally {
+      if (store.getState().sendModal.requestId === sendModal.requestId) props.setLoading(false);
     }
-
-    props.setLoading(false);
   }, [formHasError, getPotentialPrimaryAddresses, sendModal, props]);
 
   return RevokeIdentityFormRender({

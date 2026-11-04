@@ -10,12 +10,15 @@ import {
 } from '../../../../containers/RevokeRecover/RevokeRecoverFlowParts';
 import RecoveryValues, {
   IdentityContext,
+  RecoveryValue,
   identityName,
   recoveryValues,
 } from '../../../../containers/RevokeRecover/RecoveryValues';
 
 export const RecoverIdentityConfirmRender = ({
   acknowledged,
+  fee,
+  feeCurrency,
   friendlyNames,
   goBack,
   loading,
@@ -78,6 +81,7 @@ export const RecoverIdentityConfirmRender = ({
         })}
         title="Values after recovery"
       />
+      <RecoveryValue label="Network fee" value={`${fee} ${feeCurrency}`} />
       {submitError ? (
         <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>
       ) : null}

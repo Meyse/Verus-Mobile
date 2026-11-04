@@ -14,6 +14,7 @@ import { IS_PBAAS_CHAIN } from '../utils/constants/currencies';
 import { coinsList } from '../utils/CoinData/CoinsList';
 import {sessionActionIsCurrent} from '../actions/actions/updates/sessionRequests';
 import {ensureIdentityColorSlots} from '../utils/subwallet/identityColorSettings';
+import {convertFqnToDisplayFormat} from '../utils/fullyqualifiedname';
 
 export default function* setUserCoinsSaga() {
   yield all([takeEvery(SET_USER_COINS, handleFinishSetUserCoins)]);
@@ -53,7 +54,7 @@ function* handleFinishSetUserCoins(action) {
       const dynamicChannelNames = {};
       const verusIdCurrency = getVerusIdCurrency(coinObj);
       
-      function setVrpcChannels(addresses, isVerusId) {
+      function setVrpcChannels(addresses) {
         const allSeenSystems = [coinObj.testnet ? coinsList.VRSCTEST.currency_id : coinsList.VRSC.currency_id];
         
         if (coinObj.tags.includes(IS_PBAAS)) {
@@ -71,8 +72,10 @@ function* handleFinishSetUserCoins(action) {
         return addresses.map((addr, index) => {
           return allSeenSystems.map(system => {
             const channelId = `${VRPC}.${addr}.${system}`;
-            dynamicChannelNames[channelId] = isVerusId ? 
-              linkedIds[verusIdCurrency][addr] : (addr.substring(0, 5) + "..." + addr.substring(addr.length - 5))
+            const linkedName = linkedIds[verusIdCurrency]?.[addr];
+            dynamicChannelNames[channelId] = linkedName != null
+              ? convertFqnToDisplayFormat(linkedName)
+              : (addr.substring(0, 5) + "..." + addr.substring(addr.length - 5));
       
             return channelId;
           })
@@ -80,11 +83,11 @@ function* handleFinishSetUserCoins(action) {
       }
 
       const verusIdChannels = linkedIds[verusIdCurrency]
-        ? setVrpcChannels(Object.keys(linkedIds[verusIdCurrency]), true)
+        ? setVrpcChannels(Object.keys(linkedIds[verusIdCurrency]))
         : [];
       
       const vrpcChannels = watchedAddresses[coinObj.id]
-        ? setVrpcChannels(Object.keys(watchedAddresses[coinObj.id]), false)
+        ? setVrpcChannels(Object.keys(watchedAddresses[coinObj.id]))
         : [];
       
       allNewChannels.push(...verusIdChannels, ...vrpcChannels);

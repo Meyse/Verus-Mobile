@@ -1,12 +1,12 @@
-import {all, takeEvery, call, put} from 'redux-saga/effects';
-import {createAlert, resolveAlert} from '../actions/actions/alert/dispatchers/alert';
+import {all, takeLatest, call, put, select} from 'redux-saga/effects';
+import {createAlert} from '../actions/actions/alert/dispatchers/alert';
 import {CALLBACK_HOST, SUPPORTED_DLS} from '../utils/constants/constants';
 import {
   SET_DEEPLINK_DATA,
   SET_DEEPLINK_URL,
 } from '../utils/constants/storeType';
 import base64url from 'base64url';
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { URL } from 'react-native-url-polyfill';
 import { primitives } from 'verusid-ts-client'
 import { MAX_DEEPLINK_STRING_LENGTH } from '../utils/constants/deeplink';
@@ -17,26 +17,30 @@ import {
   savePendingDeeplinkRequest,
 } from '../utils/deeplink/pendingDeeplinkStorage';
 import {
-  createGenericRequestRejectionError,
-  GENERIC_REQUEST_REJECTION_CODES,
-  getRequestLinkRejection,
-} from '../utils/deeplink/genericRequestRejection';
+  captureSessionScope,
+  scopeSessionAction,
+  sessionScopeIsCurrent,
+} from '../actions/actions/updates/sessionRequests';
+
+const parserIsCurrent = (state, source) =>
+  state.deeplink.requestId === source.requestId &&
+  sessionScopeIsCurrent(state, source.sessionScope);
 
 export default function* deeplinkSaga() {
-  yield all([takeEvery(SET_DEEPLINK_URL, handleDeeplinkUrl)]);
+  yield all([takeLatest(SET_DEEPLINK_URL, handleDeeplinkUrl)]);
 }
 
 function* handleDeeplinkUrl(action) {
   const {url: urlstring, passthrough = null} = action.payload;
 
   if (urlstring != null) {
+    const source = yield select(state => ({
+      requestId: state.deeplink.requestId,
+      sessionScope: captureSessionScope(state),
+    }));
+
     try {
-      if (urlstring.length >= MAX_DEEPLINK_STRING_LENGTH) {
-        throw createGenericRequestRejectionError(
-          GENERIC_REQUEST_REJECTION_CODES.LINK_TOO_LONG,
-          "Deeplink URL max length exceeded.",
-        );
-      }
+      if (urlstring.length >= MAX_DEEPLINK_STRING_LENGTH) throw new Error("Deeplink URL max length exceeded.");
       const url = new URL(urlstring);
 
       const isInternalProtocol = url.protocol === `${DEEPLINK_PROTOCOL_URL_STRING}${VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID}:`;
@@ -46,6 +50,7 @@ function* handleDeeplinkUrl(action) {
           isDeeplinkHandlerInstalled,
           VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID,
         );
+        if (!(yield select(parserIsCurrent, source))) return;
 
         if (isInternalProtocol && !otherHandlerInstalled) {
           throw new Error("Internal deeplinks cannot be used unless multiple deeplink handlers are installed.");
@@ -65,15 +70,17 @@ function* handleDeeplinkUrl(action) {
           req.hasPreferredHandler() &&
           req.preferredHandler === VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID
         ) {
-          const shouldRedirect = yield call(
-            createAlert,
-            'Open in Valu Mobile?',
-            'The requester prefers that app. Verus Mobile can also open the request.',
-            [
-              {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
-              {text: 'Open Valu Mobile', onPress: () => resolveAlert(true)},
-            ],
-          );
+          const shouldRedirect = yield call(() => new Promise(resolve => {
+            Alert.alert(
+              'Open in Valu Mobile?',
+              'This request prefers to be handled in the Valu Mobile app. Would you like to open it there instead?',
+              [
+                { text: 'No', onPress: () => resolve(false), style: 'cancel' },
+                { text: 'Yes', onPress: () => resolve(true) },
+              ]
+            );
+          }));
+          if (!(yield select(parserIsCurrent, source))) return;
 
           if (shouldRedirect) {
             const redirectUrl = urlstring.replace(
@@ -94,8 +101,10 @@ function* handleDeeplinkUrl(action) {
             uri: parseUri,
           });
         } catch (e) {
+          if (!(yield select(parserIsCurrent, source))) return;
           console.warn('Unable to save pending deeplink', e?.message ?? e);
         }
+        if (!(yield select(parserIsCurrent, source))) return;
 
         const pendingPassthrough = getPendingDeeplinkPassthrough(savedPendingRequest);
         const mergedPassthrough =
@@ -113,7 +122,7 @@ function* handleDeeplinkUrl(action) {
             data: requestBufferString,
             passthrough: mergedPassthrough,
           },
-        });
+        }, source);
       } else {
         if (url.host !== CALLBACK_HOST) throw new Error('Unsupported host url.');
 
@@ -137,7 +146,7 @@ function* handleDeeplinkUrl(action) {
               id,
               data: req.toJson(),
             },
-          });
+          }, source);
         } else if (id === primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid) {
           const inv = primitives.VerusPayInvoice.fromWalletDeeplinkUri(urlstring);
 
@@ -148,30 +157,24 @@ function* handleDeeplinkUrl(action) {
               data: inv.toJson(),
               uri: urlstring
             },
-          });
+          }, source);
         }
-        // else if (id === primitives.IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid) {
-        //   const req = primitives.IdentityUpdateRequest.fromWalletDeeplinkUri(urlstring);
-
-        //   yield call(handleFinishDeeplink, {
-        //     type: SET_DEEPLINK_DATA,
-        //     payload: {
-        //       id,
-        //       data: req.toJson(),
-        //       uri: urlstring
-        //     },
-        //   });
-        // }
       }
     } catch (e) {
+      if (!(yield select(parserIsCurrent, source))) return;
       console.error(e)
-
-      const rejection = getRequestLinkRejection(e);
-      createAlert(rejection.title, rejection.message);
+      
+      createAlert('Error', e.message);
     }
   }
 }
 
-function* handleFinishDeeplink(action) {
-  yield put(action);
+function* handleFinishDeeplink(action, source) {
+  if (!(yield select(parserIsCurrent, source))) return;
+
+  // A parser must still own both the request and session when Redux accepts it.
+  yield put(scopeSessionAction({
+    ...action,
+    payload: {...action.payload, expectedRequestId: source.requestId},
+  }, source.sessionScope));
 }

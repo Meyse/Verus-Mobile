@@ -8,7 +8,7 @@ overrides:
   '@bitgo/utxo-lib': github:VerusCoin/BitGoJS#ff60e360fe608dd177e8a63c026552a06112ba59
   verus-typescript-primitives: github:VerusCoin/verus-typescript-primitives#cfe8c45e43ac7846d73083501aa42665ec9f85d9
   verusd-rpc-ts-client: github:VerusCoin/verusd-rpc-ts-client#cf9d52dc1b255492fbc18593ffb51ffbeeb0e326
-  verusid-ts-client: github:VerusCoin/verusid-ts-client#50fa3ffa3bfdd0c2a92414da540c257802c76cd5
+  verusid-ts-client: github:VerusCoin/verusid-ts-client#5ddc4b8ba18474140f92eba6ba4eda38e911457b
   verus-typescript-primitives>bn.js: 5.2.3
   verusid-ts-client>bn.js: 5.2.3
   word-wrap: 1.2.4
@@ -136,6 +136,9 @@ importers:
       '@react-navigation/drawer':
         specifier: 6.5.0
         version: 6.5.0(031a9316dfc4fc6d98ab642f791d7d27)
+      '@react-navigation/elements':
+        specifier: 1.3.17
+        version: 1.3.17(@react-navigation/native@6.0.13(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native-safe-area-context@5.3.0(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1)
       '@react-navigation/material-bottom-tabs':
         specifier: 6.2.4
         version: 6.2.4(@react-navigation/native@6.0.13(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native-paper@5.12.5(react-native-safe-area-context@5.3.0(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native-vector-icons@10.3.0)(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native-safe-area-context@5.3.0(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native-vector-icons@10.3.0)(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1)
@@ -428,8 +431,8 @@ importers:
         specifier: github:VerusCoin/verusd-rpc-ts-client#cf9d52dc1b255492fbc18593ffb51ffbeeb0e326
         version: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/cf9d52dc1b255492fbc18593ffb51ffbeeb0e326
       verusid-ts-client:
-        specifier: github:VerusCoin/verusid-ts-client#50fa3ffa3bfdd0c2a92414da540c257802c76cd5
-        version: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/50fa3ffa3bfdd0c2a92414da540c257802c76cd5
+        specifier: github:VerusCoin/verusid-ts-client#5ddc4b8ba18474140f92eba6ba4eda38e911457b
+        version: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/5ddc4b8ba18474140f92eba6ba4eda38e911457b
       vm-browserify:
         specifier: 0.0.4
         version: 0.0.4
@@ -5437,8 +5440,8 @@ packages:
     resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verusd-rpc-ts-client/tar.gz/cf9d52dc1b255492fbc18593ffb51ffbeeb0e326}
     version: 0.1.0
 
-  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/50fa3ffa3bfdd0c2a92414da540c257802c76cd5:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/50fa3ffa3bfdd0c2a92414da540c257802c76cd5}
+  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/5ddc4b8ba18474140f92eba6ba4eda38e911457b:
+    resolution: {gitHosted: true, integrity: sha512-8SRGBL6CpCEscFAl4rkrUh0V1oI1+y6Dm7UFIVWnmJcDkZR6YdkMM3RRRvQGBDhuErPstq1KPKR/oH5tJ2T9zg==, tarball: https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/5ddc4b8ba18474140f92eba6ba4eda38e911457b}
     version: 0.1.0
 
   vlq@1.0.1:
@@ -11631,7 +11634,7 @@ snapshots:
       - debug
       - supports-color
 
-  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/50fa3ffa3bfdd0c2a92414da540c257802c76cd5:
+  verusid-ts-client@https://codeload.github.com/VerusCoin/verusid-ts-client/tar.gz/5ddc4b8ba18474140f92eba6ba4eda38e911457b:
     dependencies:
       '@bitgo/utxo-lib': https://codeload.github.com/VerusCoin/BitGoJS/tar.gz/ff60e360fe608dd177e8a63c026552a06112ba59
       axios: 1.18.0

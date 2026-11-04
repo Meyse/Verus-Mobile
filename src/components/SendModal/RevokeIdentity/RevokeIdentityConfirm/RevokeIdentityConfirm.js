@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 import {useSelector} from 'react-redux';
 import {
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
@@ -7,7 +7,8 @@ import {
   SEND_MODAL_SYSTEM_ID,
 } from '../../../../utils/constants/sendModal';
 import {RevokeIdentityConfirmRender} from './RevokeIdentityConfirm.render';
-import {pushUpdateIdentityTx} from '../../../../utils/api/channels/verusid/requests/updateIdentity';
+import {assertIdentityUpdateContext, submitReviewedIdentityUpdate} from '../../../../utils/identityUpdate/verifiedSubmission';
+import store from '../../../../store';
 import {decryptkey} from '../../../../utils/seedCrypt';
 import {deriveKeyPair} from '../../../../utils/keys';
 import {ELECTRUM} from '../../../../utils/constants/intervalConstants';
@@ -19,6 +20,9 @@ const RevokeIdentityConfirm = props => {
   const revocationId = props.route.params.revocationId;
   const revocationResult = props.route.params.revocationResult;
   const friendlyNames = props.route.params.friendlyNames;
+  const updateContext = props.route.params.updateContext;
+  const submitting = useRef(false);
+  const completed = useRef(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const instanceKey = useSelector(state => state.authentication.instanceKey);
@@ -49,7 +53,8 @@ const RevokeIdentityConfirm = props => {
   }, [encryptedIdentitySeed, instanceKey, systemId]);
 
   const submitData = useCallback(async () => {
-    if (!acknowledged || props.loading) return;
+    if (!acknowledged || props.loading || submitting.current || completed.current) return;
+    submitting.current = true;
 
     setSubmitError(null);
     await props.setLoading(true);
@@ -57,41 +62,48 @@ const RevokeIdentityConfirm = props => {
     const {data} = sendModal;
 
     try {
-      const spendingKey = await getSpendingKey();
-
-      const keys = [];
-      for (let i = 0; i < revocationResult.utxos.length; i++) {
-        keys.push([spendingKey]);
-      }
-
-      const result = await pushUpdateIdentityTx(
-        data[SEND_MODAL_SYSTEM_ID],
-        revocationResult.hex,
-        revocationResult.utxos,
-        keys,
-        revocationResult.fundingApproval,
-      );
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
+      const result = await submitReviewedIdentityUpdate({
+        built: revocationResult,
+        context: updateContext,
+        getKeys: async () => {
+          const spendingKey = await getSpendingKey();
+          return revocationResult.utxos.map(() => [spendingKey]);
+        },
+      });
+      assertIdentityUpdateContext(updateContext);
+      completed.current = true;
 
       props.navigation.navigate(SEND_MODAL_FORM_STEP_RESULT, {
         targetId,
         revocationId,
-        txid: result.result,
+        txid: result.txid,
       });
     } catch (e) {
+      if (e.code === 'SESSION_CHANGED') return;
+      try { assertIdentityUpdateContext(updateContext); } catch (_) { return; }
+      if (e.code === 'BROADCAST_UNKNOWN') {
+        completed.current = true;
+        props.navigation.navigate(SEND_MODAL_FORM_STEP_RESULT, {
+          targetId, txid: e.txid, deliveryUnknown: true,
+        });
+        return;
+      }
       setSubmitError(
         'The revocation transaction could not be submitted. Review the identity and connection, then try again.',
       );
     }
-
-    props.setPreventExit(false);
-    props.setLoading(false);
-  }, [targetId, sendModal, acknowledged, props]);
+    finally {
+      submitting.current = false;
+      if (store.getState().sendModal.requestId === updateContext.modalRequestId) {
+        props.setPreventExit(false);
+        props.setLoading(false);
+      }
+    }
+  }, [targetId, sendModal, acknowledged, props, updateContext, getSpendingKey, revocationResult]);
 
   return RevokeIdentityConfirmRender({
+    fee: props.route.params.fee,
+    feeCurrency: props.route.params.feeCurrency,
     acknowledged,
     loading: props.loading,
     networkName,

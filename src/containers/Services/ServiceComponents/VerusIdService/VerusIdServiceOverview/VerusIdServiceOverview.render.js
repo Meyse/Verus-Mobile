@@ -31,6 +31,15 @@ export const VerusIdServiceOverviewRender = function () {
 
   return (
     <ScrollView style={{...styles.fullWidth, ...styles.backgroundColorWhite}}>
+      <List.Item
+        title="Identity registrations"
+        description="Create a VerusID or continue a registration."
+        descriptionNumberOfLines={3}
+        left={props => <List.Icon {...props} icon="account-plus-outline" />}
+        right={props => <List.Icon {...props} icon="chevron-right" />}
+        onPress={() => this.props.navigation.navigate('IdentityTab', {screen: 'IdentityRegistration', params: {screen: 'IdentityRegistrationStart'}})}
+      />
+      <Divider />
       <Portal>
         {this.state.verusIdDetailsModalProps != null && (
           <VerusIdDetailsModal
@@ -73,7 +82,7 @@ export const VerusIdServiceOverviewRender = function () {
                   <Divider />
                   <List.Item
                     title={linkedIds[chainId][iAddr]}
-                    description={iAddr}
+                    titleNumberOfLines={3}
                     left={props => <List.Icon {...props} icon={'account'} />}
                     onPress={() => this.openVerusIdDetailsModal(chainId, iAddr)}
                   />
@@ -84,9 +93,9 @@ export const VerusIdServiceOverviewRender = function () {
             <List.Subheader>{`Options`}</List.Subheader>
             <Divider />
             <List.Item
-              title={'Link VerusID'}
+              title={'Link identities'}
               right={props => <List.Icon {...props} icon={'plus'} size={20} />}
-              onPress={() => this.openLinkIdentityModalFromChain(chainId)}
+              onPress={() => this.openLinkIdentitiesFromChain(chainId)}
             />
             <Divider />
           </React.Fragment>

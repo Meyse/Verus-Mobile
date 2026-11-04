@@ -1,6 +1,12 @@
 import Colors from '../globals/colors';
 import {fontStyle} from '../globals/fonts';
 
+export const roundedButton = {borderRadius: 24};
+export const buttonLabel = {
+  fontSize: 16, fontWeight: '700', letterSpacing: 0,
+  textAlign: 'center', flexShrink: 1,
+};
+
 export default buttons = {
   fullWidthButton: {
     width: '100%',

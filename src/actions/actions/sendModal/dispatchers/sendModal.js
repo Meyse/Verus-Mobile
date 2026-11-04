@@ -40,7 +40,6 @@ import {
   SEND_MODAL_SYSTEM_ID,
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
   RECOVER_IDENTITY_SEND_MODAL,
-  UPDATE_IDENTITY_SEND_MODAL
 } from '../../../../utils/constants/sendModal';
 import {
   CLOSE_SEND_COIN_MODAL,
@@ -178,16 +177,6 @@ export const openRecoverIdentitySendModal = (data) => {
   );
 };
 
-export const openUpdateIdentitySendModal = (coinObj, subWallet, data) => {
-  openSendModal(
-    `Update VerusID`,
-    coinObj,
-    subWallet,
-    data,
-    UPDATE_IDENTITY_SEND_MODAL,
-    'If you are satisfied with the proposed updates, press continue to pay the fee and update your identity.',
-  );
-};
 
 export const openProvisionIdentityModal = (coinObj, reqOrData, fromService = null) => {
   const data =

@@ -4,6 +4,7 @@ import {explorers} from '../../../../utils/CoinData/CoinData';
 import {identityName} from '../../../../containers/RevokeRecover/RecoveryValues';
 
 export const RecoverIdentityResultRender = ({
+  deliveryUnknown,
   finishSend,
   networkObj,
   openExplorer,
@@ -12,6 +13,7 @@ export const RecoverIdentityResultRender = ({
   values,
 }) => (
   <RevokeRecoverSubmittedResult
+    deliveryUnknown={deliveryUnknown}
     action="recovery"
     values={values}
     identityName={identityName(targetId)}

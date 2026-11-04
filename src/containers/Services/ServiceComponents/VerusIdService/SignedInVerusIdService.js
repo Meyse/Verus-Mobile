@@ -1,5 +1,4 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Buffer} from 'buffer';
 import {
   SectionList,
   StyleSheet,
@@ -8,9 +7,8 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {AtSign, CircleAlert} from 'lucide-react-native';
+import {AtSign, CircleAlert, Info} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import {primitives} from 'verusid-ts-client';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
@@ -78,7 +76,8 @@ import LinkExistingVerusIdSheet, {
   LINK_EXISTING_VERUSID_SHEET_MODES,
 } from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
-import {processVerusId} from './VerusIdLogin';
+import VerusIdOptionsSheet from './VerusIdOptionsSheet';
+import RegistrationTabRows from './IdentityRegistration/RegistrationTabRows';
 
 const BOTTOM_FADE_HEIGHT = 48;
 const IDENTITY_SKELETON_WIDTHS = ['46%', '64%', '52%', '72%'];
@@ -106,26 +105,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const getReadyActionConfig = details => {
-  const requestType = details?.requestType || 'loginconsent';
-  let hasResponseUris = Boolean(details?.hasResponseUris);
-
-  if (!hasResponseUris && requestType === 'loginconsent' && details?.loginRequest) {
-    try {
-      const request = new primitives.LoginConsentRequest();
-      request.fromBuffer(Buffer.from(details.loginRequest, 'base64'));
-      hasResponseUris = Boolean(request.challenge?.redirect_uris?.length);
-    } catch (e) {
-      hasResponseUris = false;
-    }
-  }
-
-  return {
-    requestType,
-    hasResponseUris,
-    label: hasResponseUris ? 'Link and login' : 'Link',
-  };
-};
+const getReadyActionConfig = () => ({hasResponseUris: false, label: 'Link'});
 
 const normalizeIdentityItems = (linkedIds, pendingIds, identityNetwork) => {
   const linked = [];
@@ -339,6 +319,7 @@ const SignedInVerusIdService = ({controller}) => {
     state => state.authentication.sessionEpoch || 0,
   );
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
+  const registrationJobs = useObjectSelector(state => state.channelStore_verusid?.registrationJobs || {});
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
@@ -349,6 +330,7 @@ const SignedInVerusIdService = ({controller}) => {
   const [identityStates, setIdentityStates] = useState({});
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [infoVisible, setInfoVisible] = useState(false);
+  const [addVisible, setAddVisible] = useState(false);
   const [linkSheetContentActive, setLinkSheetContentActive] = useState(false);
   const [linkSheetInitialManualValue, setLinkSheetInitialManualValue] = useState('');
   const [linkSheetMode, setLinkSheetMode] = useState(
@@ -385,7 +367,7 @@ const SignedInVerusIdService = ({controller}) => {
     [identityNetwork, linkedIds, pendingIds],
   );
   const pendingCount = groups.ready.length + groups.attention.length + groups.progress.length;
-  const hasContent = linked.length > 0 || pendingCount > 0;
+  const hasContent = linked.length > 0 || pendingCount > 0 || Object.keys(registrationJobs).length > 0;
   const bottomPadding = Math.max(insets.bottom, 20);
   const resolvedLinkNetwork = linkSheetNetwork || identityNetwork;
   const activePendingKey = selectedPending
@@ -482,8 +464,7 @@ const SignedInVerusIdService = ({controller}) => {
     pendingSheetItem?.status === NOTIFICATION_TYPE_VERUSID_ERROR;
   const pendingIsReady =
     pendingSheetItem?.status === NOTIFICATION_TYPE_VERUSID_READY;
-  const pendingCanRetry =
-    pendingIsError && Boolean(pendingSheetItem?.details?.loginRequest);
+  const pendingCanRetry = false;
   // Writes the ref before the state update so same-frame taps and the close
   // guard see the in-flight link synchronously.
   const handleLinkSheetBusyChange = useCallback(nextBusy => {
@@ -515,6 +496,10 @@ const SignedInVerusIdService = ({controller}) => {
       manualValue = '',
       mode = LINK_EXISTING_VERUSID_SHEET_MODES.LIST,
     ) => {
+      if (mode === LINK_EXISTING_VERUSID_SHEET_MODES.LIST) {
+        controller.props.navigation.navigate('LinkIdentities', {chain: chain || identityNetwork});
+        return;
+      }
       setLinkSheetNetwork(chain || identityNetwork);
       setLinkSheetInitialManualValue(manualValue || '');
       setLinkSheetMode(mode);
@@ -525,7 +510,7 @@ const SignedInVerusIdService = ({controller}) => {
       setLinkSheetContentActive(true);
       setLinkSheetVisible(true);
     },
-    [identityNetwork],
+    [controller.props.navigation, identityNetwork],
   );
 
   const openManualLinkSheet = useCallback(
@@ -537,6 +522,14 @@ const SignedInVerusIdService = ({controller}) => {
       ),
     [openLinkSheet],
   );
+
+  // The full-page lookup hands manual fallback to the existing guarded linker.
+  const manualLinkChain = controller.props.route?.params?.manualLinkChain;
+  useEffect(() => {
+    if (!manualLinkChain) return;
+    controller.props.navigation.setParams({manualLinkChain: undefined});
+    openManualLinkSheet(manualLinkChain, '');
+  }, [manualLinkChain, controller.props.navigation, openManualLinkSheet]);
 
   const isLinkCandidateAllowed = useCallback(
     candidate => candidate?.chainId === resolvedLinkNetwork,
@@ -726,19 +719,7 @@ const SignedInVerusIdService = ({controller}) => {
             if (!isCurrent()) return;
             await dispatchRemoveNotification(item.details.notificationUid);
           }
-        } else if (action === 'retry' && item.details?.loginRequest) {
-          // The resume is bound to the captured session and this synchronous
-          // operation token. A completion from a superseded run must not
-          // dispatch, navigate, or fall through into the newer session.
-          await processVerusId(
-            {dispatch, navigation: controller.props.navigation},
-            item.details.loginRequest,
-            item.details.fromService || null,
-            item.details.fqn || null,
-            item.details.requestType || 'loginconsent',
-            null,
-            isCurrent,
-          );
+
         }
       } catch (error) {
         if (!isCurrent()) return;
@@ -756,63 +737,10 @@ const SignedInVerusIdService = ({controller}) => {
     [controller.props.navigation, dispatch, renderedAccountHash, selectedPending],
   );
 
-const handleReady = useCallback(
-  item => {
-    if (!item.readyAction.hasResponseUris || !item.details?.loginRequest) {
-      openManualLinkSheet(item.chain, item.linkInput);
-      return;
-    }
-
-    const requestContext = {
-      sessionScope: captureSessionScope(
-        Store.getState(),
-        renderedAccountHash,
-      ),
-    };
-    if (!sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope)) {
-      return;
-    }
-
-    // Single-flight: a second tap in the same session must not start a
-    // parallel processVerusId or navigate twice. `begin` also invalidates any
-    // resume still bound to a previous session scope, so a scope change frees
-    // the gate even when the old promise never settles.
-    const token = identityResumeOwner.begin(requestContext.sessionScope);
-    if (token == null) return;
-    const isResumeCurrent = () =>
-      identityResumeOwner.isActive(token) &&
-      sessionScopeIsCurrent(Store.getState(), requestContext.sessionScope);
-
-    Promise.resolve(
-      processVerusId(
-        {dispatch, navigation: controller.props.navigation},
-        item.details.loginRequest,
-        item.details.fromService || null,
-        item.details.fqn || null,
-        item.readyAction.requestType,
-        null,
-        isResumeCurrent,
-      ),
-    )
-      .catch(() => {
-        // A stale resume must not reopen the fallback sheet or attach itself
-        // to a newer session or operation.
-        if (!isResumeCurrent()) return;
-        openManualLinkSheet(item.chain, item.linkInput);
-      })
-      .finally(() => {
-        // A superseded run must not clear the newer operation's in-flight flag.
-        identityResumeOwner.release(token);
-      });
-  },
-  [
-    controller.props.navigation,
-    dispatch,
-    identityResumeOwner,
-    openManualLinkSheet,
-    renderedAccountHash,
-  ],
-);
+  const handleReady = useCallback(
+    item => openLinkSheet(item.chain),
+    [openLinkSheet],
+  );
 
   const openPendingSheet = useCallback(item => {
     // Supersede any in-flight action so it cannot write into this opening.
@@ -950,13 +878,13 @@ const handleReady = useCallback(
             hitSlop={10}
             onPress={() => setInfoVisible(true)}
             style={styles.headerIcon}>
-            <MaterialCommunityIcons name="information-variant" size={20} color={theme.colors.textSecondary} />
+            <Info size={23} strokeWidth={2.2} color={theme.colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
-            accessibilityLabel="Link existing VerusID"
+            accessibilityLabel="Add VerusID"
             accessibilityRole="button"
             hitSlop={10}
-            onPress={() => openLinkSheet()}
+            onPress={() => setAddVisible(true)}
             style={styles.headerIcon}>
             <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
@@ -986,6 +914,7 @@ const handleReady = useCallback(
           stickySectionHeadersEnabled={false}
           ListHeaderComponent={
             <View style={styles.listHeader}>
+              <RegistrationTabRows jobs={registrationJobs} navigation={controller.props.navigation} />
               {renderPendingGroup('Ready to link', groups.ready, false)}
               {renderPendingGroup('Needs attention', groups.attention)}
               {renderPendingGroup('In progress', groups.progress)}
@@ -1014,6 +943,17 @@ const handleReady = useCallback(
         />
       )}
 
+      <VerusIdOptionsSheet
+        visible={addVisible}
+        onClose={() => setAddVisible(false)}
+        actions={[
+          {key: 'register', label: 'New VerusID', icon: 'account-plus-outline',
+            onPress: () => controller.props.navigation.navigate('IdentityRegistration', {
+              screen: 'IdentityRegistrationCreate', params: {coinId: identityNetwork},
+            })},
+          {key: 'link', label: 'Link VerusID', icon: 'link-variant', onPress: () => openLinkSheet()},
+        ]}
+      />
       {hasContent ? <BottomFade backgroundColor={theme.colors.background} solidHeight={bottomPadding} /> : null}
 
       <BottomSheetModal

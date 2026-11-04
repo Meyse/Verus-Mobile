@@ -8,8 +8,9 @@ export const MAINNET_PRICE_CONFIG = {
 
 export const TESTNET_PRICE_CONFIG = {
   native: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq',
-  anchor: 'iFawzbS99RqGs7J2TNxME1TmmayBGuRkA2',
-  basket: 'i4QdaEnkSxkAK4FRhRJcq7V7WgRN2XhzMD',
+  // Owner approved 2026-11-04: DAI.vETH in Bridge.vETH.
+  anchor: 'iN9vbHXexEh6GTZ45fRoJGKTQThfbgUwMh',
+  basket: 'iSojYsotVzXz4wh2eJriASGo6UidJDDhL2',
 };
 
 const positive = (value) => {

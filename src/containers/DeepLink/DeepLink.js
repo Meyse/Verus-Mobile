@@ -20,9 +20,9 @@ import {
   extractVerusPayInvoiceSig,
   getInfo
 } from '../../utils/api/channels/vrpc/callCreators';
-import { GENERIC_REQUEST, IDENTITY_UPDATE_REQUEST_INFO, LOGIN_CONSENT_INFO, VERUSPAY_INVOICE_INFO } from '../../utils/constants/deeplink';
+import { GENERIC_REQUEST, LOGIN_CONSENT_INFO, VERUSPAY_INVOICE_INFO } from '../../utils/constants/deeplink';
 import LoginRequestInfo from './LoginRequestInfo/LoginRequestInfo';
-import { getCurrency, getFriendlyNameMap, getIdentity } from '../../utils/api/channels/verusid/callCreators';
+import { getCurrency, getIdentity } from '../../utils/api/channels/verusid/callCreators';
 import { convertFqnToDisplayFormat } from '../../utils/fullyqualifiedname';
 import { resetDeeplinkData } from '../../actions/actionCreators';
 
@@ -32,13 +32,6 @@ import BigNumber from 'bignumber.js';
 import { satsToCoins } from '../../utils/math';
 import InvoiceInfo from './InvoiceInfo/InvoiceInfo';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
-import { verifyIdentityUpdateRequest } from '../../utils/api/channels/vrpc/requests/verifyIdentityUpdateRequest';
-import { extractIdentityUpdateRequestSig } from '../../utils/api/channels/vrpc/requests/extractIdentityUpdateRequestSig';
-import { DATA_TYPE_DEFINEDKEY, DefinedKey, nameAndParentAddrToIAddr } from 'verus-typescript-primitives';
-import IdentityUpdateRequestInfo from './IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
-import { getIdentityContent } from '../../utils/api/channels/verusid/requests/getIdentityContent';
-import { capitalizeString } from '../../utils/stringUtils';
-import { createUpdateIdentityTx, getUpdatableIdentity } from '../../utils/api/channels/verusid/requests/updateIdentity';
 import { validateGenericRequest } from '../../utils/deeplink/validator/envelopeValidator';
 import GenericRequestHome from './GenericRequestHome/GenericRequestHome';
 import store from '../../store';
@@ -53,7 +46,6 @@ import {
   validateWithDelegatedSignerGate,
 } from '../../utils/deeplink/delegatedSignerGate';
 import {
-  assertExperimentalDeeplinkAllowed,
   assertExperimentalGenericRequestAllowed,
 } from '../../utils/deeplink/experimentalDeeplinks';
 import {
@@ -73,7 +65,8 @@ import {getRequestBackState, RequestNavigationContext} from './useRequestNavigat
 
 const USER_BACK_ACTIONS = ['GO_BACK', 'POP', 'POP_TO_TOP'];
 
-const DeepLink = (props) => {
+const DeepLinkSession = (props) => {
+  const requestId = useSelector(state => state.deeplink.requestId);
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkData = useObjectSelector((state) => state.deeplink.data)
   const deeplinkPassthrough = useObjectSelector(
@@ -134,9 +127,10 @@ const DeepLink = (props) => {
     if (exitedRef.current) return
     exitedRef.current = true
     processGenerationRef.current += 1
-    dispatch(resetDeeplinkData())
-    action?.()
-  }, [dispatch])
+    const current = store.getState().deeplink.requestId === requestId
+    dispatch(resetDeeplinkData(requestId))
+    if (current) action?.()
+  }, [dispatch, requestId])
 
   const cancel = () => finishRequest(() => {
 
@@ -428,196 +422,6 @@ const DeepLink = (props) => {
     }
   }
 
-  const processIdentityUpdateRequest = async () => {
-    const req = primitives.IdentityUpdateRequest.fromJson(deeplinkData);
-
-    if (!req.isValidVersion() || !req.details.identity) {
-      throw new Error("Invalid identity update request.");
-    }
-
-    setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.NETWORK);
-    const requestSystem = req.details.systemid ? req.details.systemid.toAddress() : (req.details.isTestnet() ? 'VRSCTEST' : 'VRSC');
-
-    const coinObj = CoinDirectory.getBasicCoinObj(requestSystem);
-    VrpcProvider.initEndpoint(coinObj.system_id, coinObj.vrpc_endpoints[0]);
-
-    const chainInfo = await getInfo(coinObj.system_id);
-    if (chainInfo.error) throw new Error(chainInfo.error.message);
-
-    const identityAddress = nameAndParentAddrToIAddr(
-      req.details.identity.name, 
-      req.details.identity.containsParent() ? req.details.identity.parent.toAddress() : coinObj.system_id
-    );
-
-    const subjectIdentityRes = await getIdentity(coinObj.system_id, identityAddress);
-    if (subjectIdentityRes.error) throw new Error(subjectIdentityRes.error.message);
-
-    const subjectIdentity = subjectIdentityRes.result;
-    const updatableIdentity = await getUpdatableIdentity(coinObj.system_id, subjectIdentity);
-
-    const subjectIdClass = updatableIdentity.identity;
-    const subjectIdTxHex = updatableIdentity.tx;
-
-    if (deeplinkData.details.identity.flags) {
-      if (subjectIdClass.hasActiveCurrency() !== req.details.identity.hasActiveCurrency()) {
-        throw new Error("Cannot change active currency status.");
-      }
-  
-      if (subjectIdClass.hasTokenizedIdControl() !== req.details.identity.hasTokenizedIdControl()) {
-        throw new Error("Cannot change tokenized id control status.");
-      }
-    }
-
-    let friendlyNames;
-
-    try {
-      const initAddresses = [];
-
-      if (req.details.identity.containsRevocation()) {
-        initAddresses.push(req.details.identity.revocationAuthority.toAddress());
-      }
-
-      if (req.details.identity.containsRecovery()) {
-        initAddresses.push(req.details.identity.recoveryAuthority.toAddress());
-      }
-
-      friendlyNames = await getFriendlyNameMap(coinObj.system_id, subjectIdentity, initAddresses);
-    } catch (e) {
-      friendlyNames = {
-        ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
-        ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
-        [subjectIdentity.identity.identityaddress]: subjectIdentity.fullyqualifiedname
-      };
-    }
-
-    // An expired request ends on the opening screen as "Request expired".
-    const validateExpiry = async () => {
-      if (req.details.expires() && req.details.expiryheight.toNumber() - chainInfo.result.longestchain < 0) {
-        throw createGenericRequestRejectionError(
-          GENERIC_REQUEST_REJECTION_CODES.EXPIRED,
-          'Identity update request expired.',
-        );
-      }
-    }
-
-    let cmmDataKeys = {};
-
-    const updateIdentityTx = await createUpdateIdentityTx(
-      req.systemid.toAddress(), 
-      req.details,
-      subjectIdClass.getIdentityAddress(),
-      subjectIdTxHex,
-      subjectIdentity.blockheight,
-      false,
-      req.isTestnet()
-    );
-
-    if (req.isSigned()) {
-      setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.SIGNER);
-      if (await verifyIdentityUpdateRequest(coinObj, req)) {
-        const sig = await extractIdentityUpdateRequestSig(coinObj, req);
-        const sigblock = await getBlock(coinObj.system_id, sig.height);
-       
-        if (sigblock.error) throw new Error(sigblock.error.message);
-
-        const sigtime = sigblock.result.time;
-
-        const signingIAddr = req.signingid.toAddress();
-
-        const signedBy = await getIdentity(coinObj.system_id, signingIAddr);
-        if (signedBy.error) throw new Error(signedBy.error.message);
-
-        try {
-          const contentRes = await getIdentityContent(
-            coinObj.system_id,
-            signingIAddr
-          );
-
-          if (contentRes.error) throw new Error(contentRes.error.message);
-          else {
-            const signerIdentity = contentRes.result.identity;
-
-            if (signerIdentity.contentmultimap && signerIdentity.contentmultimap[DATA_TYPE_DEFINEDKEY.vdxfid]) {
-              const definedKeyContent = signerIdentity.contentmultimap[DATA_TYPE_DEFINEDKEY.vdxfid];
-
-              let definedKeyBufs = [];
-
-              if (Array.isArray(definedKeyContent)) definedKeyBufs = definedKeyContent
-              else definedKeyBufs = [definedKeyContent]
-
-              for (const definedKeyHex of definedKeyBufs) {
-                try {
-                  const definedKey = new DefinedKey();
-                  definedKey.fromBuffer(Buffer.from(definedKeyHex, 'hex'));
-
-                  const iAddr = definedKey.getIAddr();
-                  const ns = definedKey.getNameSpaceID();
-
-                  if (ns !== signerIdentity.identityaddress) {
-                    throw new Error(`Found defined key ${definedKey.vdxfuri} with namespace ${ns} not matching signer ID.`);
-                  } else {
-                    const splitUri = definedKey.vdxfuri.split("::");
-                    const label = splitUri.length > 1 ? splitUri[1] : splitUri[0]
-
-                    cmmDataKeys[iAddr] = {
-                      vdxfuri: definedKey.vdxfuri,
-                      nsid: ns,
-                      label: capitalizeString(label.split('.').join(' ')),
-                    }
-                  }
-                } catch(e) {
-                  console.warn(e);
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(e);
-        }
-
-        setRequestLoadingStep(GENERIC_REQUEST_LOADING_STEPS.REVIEW);
-        await validateExpiry();
-        setDisplayProps({
-          detailsBufferString: req.details.toBuffer().toString('hex'),
-          sigtime,
-          signerFqn: convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname),
-          signerSystemID: coinObj.system_id,
-          signerSystemName: coinObj.id,
-          signerIdentityID: signingIAddr,
-          subjectIdentity,
-          identityUpdates: updateIdentityTx.identity.toJson(),
-          updateIdTxHex: updateIdentityTx.hex,
-          coinObj,
-          chainInfo: chainInfo.result,
-          friendlyNames,
-          cmmDataKeys,
-          subjectIdTxHex,
-        })
-        setDisplayKey(IDENTITY_UPDATE_REQUEST_INFO);
-      } else {
-        throw createGenericRequestRejectionError(
-          GENERIC_REQUEST_REJECTION_CODES.SIGNATURE_INVALID,
-          'Failed to verify identity update request signature',
-        );
-      }
-    } else {
-      throw new Error("Unsigned identity update requests not currently supported.")
-      // await validateExpiry();
-      // setDisplayProps({
-      //   deeplinkData,
-      //   subjectIdentity,
-      //   identityUpdates: updateIdentityTx.identity.toJson(),
-      //   updateIdTxHex: updateIdentityTx.hex,
-      //   coinObj,
-      //   chainInfo: chainInfo.result,
-      //   friendlyNames,
-      //   cmmDataKeys,
-      //   subjectIdTxHex
-      // })
-      // setDisplayKey(IDENTITY_UPDATE_REQUEST_INFO);
-    }
-  }
-
   const processLoginConsentRequest = async () => {
     const request = new primitives.LoginConsentRequest(deeplinkData)
 
@@ -678,7 +482,6 @@ const DeepLink = (props) => {
 
   const processDeeplink = async processGeneration => {
     try {
-      assertExperimentalDeeplinkAllowed(deeplinkId, store.getState());
 
       switch (deeplinkId) {
         case primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid:
@@ -689,9 +492,6 @@ const DeepLink = (props) => {
           break;
         case primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid:
           await processLoginConsentRequest();
-          break;
-        case primitives.IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid:
-          await processIdentityUpdateRequest();
           break;
         default:
           throw createGenericRequestRejectionError(
@@ -760,14 +560,6 @@ const DeepLink = (props) => {
         navigation={props.navigation}
       />
     ),
-    [IDENTITY_UPDATE_REQUEST_INFO]: () => (
-      <IdentityUpdateRequestInfo
-        {...displayProps}
-        cancel={cancel}
-        setLoading={setLoading}
-        navigation={props.navigation}
-      />
-    ),
     [GENERIC_REQUEST]: () => (
       <GenericRequestHome
         {...displayProps}
@@ -816,4 +608,8 @@ const styles = StyleSheet.create({
   },
 });
 
+const DeepLink = props => {
+  const requestId = useSelector(state => state.deeplink.requestId);
+  return <DeepLinkSession key={requestId} {...props} />;
+};
 export default DeepLink;

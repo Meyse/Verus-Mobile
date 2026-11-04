@@ -1,3 +1,4 @@
+import {confirmVerifiedClaimFees} from '../../../utils/spendableKey/reviewFees';
 import {useRequestBackHandler} from '../useRequestNavigation';
 import {showFundRawTransactionErrorAlert} from '../../../utils/vrpc/fundRawTransactionError';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -1456,6 +1457,21 @@ const SpendableKeyRequestInfoContent = props => {
           })
         : null;
       assertClaimMetadataSessionCurrent(claimRequestContext);
+      if (preflightPlan) {
+        const approved = await confirmVerifiedClaimFees(preflightPlan, currency => {
+          const system = preflightPlan.claimPlan.systems.find(item => item.systemId === currency);
+          if (system) return system.coinObj.display_ticker || system.coinObj.id;
+          try {
+            const coin = CoinDirectory.findCoinObj(currency);
+            return coin.display_ticker || coin.id;
+          } catch (_) { return currency; }
+        });
+        assertClaimMetadataSessionCurrent(claimRequestContext);
+        if (!approved) {
+          setStatus('review');
+          return;
+        }
+      }
       const persistPendingBroadcastForSession = async pendingBroadcast => {
         assertClaimMetadataSessionCurrent(claimRequestContext);
         await persistClaimBroadcast(pendingBroadcast);
@@ -1464,6 +1480,7 @@ const SpendableKeyRequestInfoContent = props => {
       const broadcastResult = await broadcastSpendableKeyClaim({
         preflightPlan,
         pendingBroadcast: pendingClaimBroadcast,
+        loadPendingBroadcast: loadPendingClaimBroadcast,
         ownerAccountHash: claimRequestContext.sessionScope.accountHash,
         currentOwnerWalletBinding: currentPendingClaimWalletBinding,
         persistPendingBroadcast: persistPendingBroadcastForSession,

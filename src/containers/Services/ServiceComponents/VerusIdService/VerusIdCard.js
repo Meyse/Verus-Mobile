@@ -29,6 +29,14 @@ export const splitVerusIdName = name => {
   };
 };
 
+// For names inside sentences or shared row text. Keep the existing dot-wrap
+// treatment and the unmodified name for values, copy and accessibility.
+export const wrapVerusIdNames = text => typeof text === 'string'
+  ? text.replace(/[^\s()]+@/g, name => {
+    const {leaf, rest} = splitVerusIdName(name);
+    return leaf + rest;
+  }) : text;
+
 export const VerusIdName = ({name, style, leafColor, restColor, ...props}) => {
   const {leaf, rest} = splitVerusIdName(name);
 

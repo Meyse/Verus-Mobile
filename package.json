@@ -26,7 +26,8 @@
     "check:search-fields": "node scripts/check-search-fields.js src",
     "check:send-wizard-options": "node scripts/check-send-wizard-options.js",
     "check:spendable-key-review": "node scripts/check-spendable-key-review.js",
-    "update-verus-libs": "pnpm add 'github:VerusCoin/BitGoJS#ff60e360fe608dd177e8a63c026552a06112ba59' 'github:VerusCoin/verus-typescript-primitives#cfe8c45e43ac7846d73083501aa42665ec9f85d9' 'github:VerusCoin/verusd-rpc-ts-client#cf9d52dc1b255492fbc18593ffb51ffbeeb0e326' 'github:VerusCoin/verusid-ts-client#50fa3ffa3bfdd0c2a92414da540c257802c76cd5'"
+    "update-verus-libs": "node tools/update-verus-libs.cjs",
+    "test:identity-upload-daemon": "node debug/runIdentityUploadDaemonTests.cjs"
   },
   "dependencies": {
     "@bitgo/utxo-lib": "github:VerusCoin/BitGoJS#ff60e360fe608dd177e8a63c026552a06112ba59",
@@ -39,6 +40,7 @@
     "@react-navigation/bottom-tabs": "6.6.1",
     "@react-navigation/compat": "5.3.20",
     "@react-navigation/drawer": "6.5.0",
+    "@react-navigation/elements": "1.3.17",
     "@react-navigation/material-bottom-tabs": "6.2.4",
     "@react-navigation/material-top-tabs": "6.3.0",
     "@react-navigation/native": "6.0.13",
@@ -136,7 +138,7 @@
     "verus-typescript-primitives": "github:VerusCoin/verus-typescript-primitives#cfe8c45e43ac7846d73083501aa42665ec9f85d9",
     "verus-zkedid-utils": "git+https://github.com/VerusCoin/verus-zkedid-utils.git",
     "verusd-rpc-ts-client": "github:VerusCoin/verusd-rpc-ts-client#cf9d52dc1b255492fbc18593ffb51ffbeeb0e326",
-    "verusid-ts-client": "github:VerusCoin/verusid-ts-client#50fa3ffa3bfdd0c2a92414da540c257802c76cd5",
+    "verusid-ts-client": "github:VerusCoin/verusid-ts-client#5ddc4b8ba18474140f92eba6ba4eda38e911457b",
     "vm-browserify": "0.0.4",
     "wif": "2.0.6"
   },
@@ -265,7 +267,7 @@
     "@bitgo/utxo-lib": "github:VerusCoin/BitGoJS#ff60e360fe608dd177e8a63c026552a06112ba59",
     "verus-typescript-primitives": "github:VerusCoin/verus-typescript-primitives#cfe8c45e43ac7846d73083501aa42665ec9f85d9",
     "verusd-rpc-ts-client": "github:VerusCoin/verusd-rpc-ts-client#cf9d52dc1b255492fbc18593ffb51ffbeeb0e326",
-    "verusid-ts-client": "github:VerusCoin/verusid-ts-client#50fa3ffa3bfdd0c2a92414da540c257802c76cd5",
+    "verusid-ts-client": "github:VerusCoin/verusid-ts-client#5ddc4b8ba18474140f92eba6ba4eda38e911457b",
     "verus-typescript-primitives/bn.js": "5.2.3",
     "verusid-ts-client/bn.js": "5.2.3"
   },

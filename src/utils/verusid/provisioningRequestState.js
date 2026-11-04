@@ -1,3 +1,4 @@
+import {sha256} from '@noble/hashes/sha256';
 import {primitives} from 'verusid-ts-client';
 import {GenericRequest} from 'verus-typescript-primitives';
 import {
@@ -32,9 +33,13 @@ const getAddressValue = address => {
 const normalizeRequestKey = value =>
   value == null || value === '' ? null : String(value);
 
+const fingerprintRequest = bufferString => bufferString
+  ? Buffer.from(sha256(Buffer.from(bufferString, 'hex'))).toString('hex')
+  : null;
+
 const getGenericRequestKey = (request, fallbackBufferString = null) => {
   const requestId = getAddressValue(request?.requestID);
-  return normalizeRequestKey(requestId) || normalizeRequestKey(fallbackBufferString);
+  return normalizeRequestKey(requestId) || fingerprintRequest(fallbackBufferString);
 };
 
 export const getGenericProvisioningRequestKey = ({
@@ -56,7 +61,7 @@ export const getGenericProvisioningRequestKey = ({
     parsedRequest.fromBuffer(Buffer.from(requestBufferString, 'hex'), 0);
     return getGenericRequestKey(parsedRequest, requestBufferString);
   } catch (e) {
-    return normalizeRequestKey(requestBufferString);
+    return fingerprintRequest(requestBufferString);
   }
 };
 

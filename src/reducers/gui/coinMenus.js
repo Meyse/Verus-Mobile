@@ -74,6 +74,8 @@ export const coinMenus = (state = {
     case SIGN_OUT_COMPLETE:
       return {
         ...state,
+        activeSubWallets: {},
+        allSubWallets: {},
         userSelectedSubWallets: {},
         claimDisabled: false
       };

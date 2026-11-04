@@ -26,7 +26,6 @@ import {useOnboardingTheme} from '../../theme/onboarding';
 import {
   getPendingDeeplinkPassthrough,
   loadPendingDeeplinkRequests,
-  PENDING_REQUEST_KIND_PROVISIONING,
   PENDING_REQUEST_KIND_SPENDABLE_KEY,
   removePendingDeeplinkRequest,
 } from '../../utils/deeplink/pendingDeeplinkStorage';
@@ -52,10 +51,6 @@ const getRequestTitle = request => {
     return request.title;
   }
 
-  if (request.requestKind === PENDING_REQUEST_KIND_PROVISIONING) {
-    return 'VerusID provisioning request';
-  }
-
   if (request.requestKind === PENDING_REQUEST_KIND_SPENDABLE_KEY) {
     return 'Spendable key claim';
   }
@@ -64,10 +59,6 @@ const getRequestTitle = request => {
 };
 
 const getRequestIcon = request => {
-  if (request.requestKind === PENDING_REQUEST_KIND_PROVISIONING) {
-    return 'account-plus-outline';
-  }
-
   if (request.requestKind === PENDING_REQUEST_KIND_SPENDABLE_KEY) {
     return 'key-outline';
   }
@@ -127,8 +118,6 @@ const ProvisioningDeeplinkList = props => {
           fqnToAutoLink: request.fqnToAutoLink || null,
           ...pendingPassthrough,
           replayedPendingDeeplink: true,
-          replayedProvisioningDeeplink:
-            request.requestKind === PENDING_REQUEST_KIND_PROVISIONING,
           skipWalletBackupRequests: true,
         },
       ),
@@ -139,9 +128,9 @@ const ProvisioningDeeplinkList = props => {
       props.navigation.dangerouslyGetParent?.();
 
     if (parentNavigation) {
-      parentNavigation.navigate('DeepLink');
+      parentNavigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
     } else {
-      props.navigation.navigate('DeepLink');
+      props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
     }
   };
 

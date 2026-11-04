@@ -10,7 +10,7 @@ import {
 } from 'verus-typescript-primitives';
 import VrpcProvider from '../../../../vrpc/vrpcInterface';
 import {getIdentity} from './getIdentity';
-import {getSpendableUtxos, getTransaction, sendRawTransaction} from '../../vrpc/callCreators';
+import {getSpendableUtxos, getTransaction} from '../../vrpc/callCreators';
 import {networks, Transaction} from '@bitgo/utxo-lib';
 import {I_ADDRESS_VERSION} from '../../../../constants/constants';
 import {verifyIdentityUpdateFunding} from 'verusid-ts-client';
@@ -374,10 +374,4 @@ export const signUpdateIdentityTx = (
   verifyIdentityUpdateTx(systemId, signedHex, inputs, fundingApproval, lockContext);
 
   return signedHex;
-};
-
-// Legacy management callers retain their response contract and pass the SDK approval.
-export const pushUpdateIdentityTx = (systemId, txHex, inputs, keys, fundingApproval, lockContext) => {
-  const signedTx = signUpdateIdentityTx(systemId, txHex, inputs, keys, fundingApproval, lockContext);
-  return sendRawTransaction(systemId, signedTx);
 };

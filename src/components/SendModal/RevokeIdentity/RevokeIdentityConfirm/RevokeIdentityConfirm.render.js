@@ -17,6 +17,8 @@ import {useAppTheme} from '../../../../theme/app';
 
 export const RevokeIdentityConfirmRender = ({
   acknowledged,
+  fee,
+  feeCurrency,
   goBack,
   loading,
   networkName,
@@ -76,6 +78,7 @@ export const RevokeIdentityConfirmRender = ({
         value={targetId?.identity?.identityaddress}
         technical
       />
+      <RecoveryValue label="Network fee" value={`${fee} ${feeCurrency}`} />
       {submitError ? (
         <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>
       ) : null}

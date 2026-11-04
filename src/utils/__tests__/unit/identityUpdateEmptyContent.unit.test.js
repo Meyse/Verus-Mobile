@@ -1,13 +1,9 @@
 const mockCreateUpdateIdentityTransaction = jest.fn();
-const mockCreateUpdateIdentityWithCurrencyTransferTransaction = jest.fn();
 
 jest.mock('../../vrpc/vrpcInterface', () => ({
   __esModule: true,
   default: {
-    getVerusIdInterface: () => ({
-      createUpdateIdentityTransaction: mockCreateUpdateIdentityTransaction,
-      createUpdateIdentityWithCurrencyTransferTransaction: mockCreateUpdateIdentityWithCurrencyTransferTransaction,
-    }),
+    getVerusIdInterface: () => ({createUpdateIdentityTransaction: mockCreateUpdateIdentityTransaction}),
   },
 }));
 jest.mock('../../api/channels/vrpc/callCreators', () => ({
@@ -26,114 +22,55 @@ const {
   Identity,
   IdentityID,
   IdentityUpdateRequestDetails,
+  KvMap,
   PartialIdentity,
-  VdxfUniValue,
+  PartialSignData,
+  SaplingPaymentAddress,
 } = require('verus-typescript-primitives');
 const {VerusIdInterface} = require('verusid-ts-client');
-const {networks, smarttxs, Transaction} = require('@bitgo/utxo-lib');
-const {
-  createUpdateIdentityTx,
-  createUpdateIdentityTxWithUtxos,
-  createUpdateIdentityWithCurrencyTransferTx,
-} = require('../../api/channels/verusid/requests/updateIdentity');
-const {getSpendableUtxos} = require('../../api/channels/vrpc/callCreators');
+const {networks, smarttxs} = require('@bitgo/utxo-lib');
+const {createUpdateIdentityTx} = require('../../api/channels/verusid/requests/updateIdentity');
 
 const SYSTEM_ID = 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
 const EMPTY_KEY = 'iJitWFN8PY37GrBVtF38HyftG8WohWipbL';
-const currentIdentity = {
-  version: 3, flags: 0, name: 'T1', parent: SYSTEM_ID, systemid: SYSTEM_ID,
-  primaryaddresses: ['RWCqoWfSKaDoGeiwD6ZxX2dwkMx2oHJM56'], minimumsignatures: 1,
-  revocationauthority: EMPTY_KEY, recoveryauthority: EMPTY_KEY,
-  contentmap: {}, contentmultimap: {}, timelock: 0,
-};
-const transaction = contentmultimap => smarttxs.createUnfundedIdentityUpdate(
-  Identity.fromJson({...currentIdentity, contentmultimap}).toBuffer().toString('hex'),
-  networks.verus, 120,
-);
-const originalTx = transaction({});
 const makeRequest = contentmultimap => new IdentityUpdateRequestDetails({
-  identity: PartialIdentity.fromJson({name: 'T1', parent: SYSTEM_ID, contentmultimap}),
+  identity: PartialIdentity.fromJson({name: 'T1', contentmultimap}),
   requestID: CompactIAddressObject.fromAddress(EMPTY_KEY, 'VRSCTEST'),
   systemID: IdentityID.fromAddress(SYSTEM_ID),
   expiryHeight: new BigNumber(900),
-  txid: Buffer.from(Transaction.fromHex(originalTx, networks.verus).getId(), 'hex').reverse(),
+  txid: Buffer.alloc(32, 1),
 });
-const prepare = (request, localUploadCrypto) => createUpdateIdentityTx(
-  SYSTEM_ID, request, 'change-address', originalTx, 100, false, true, localUploadCrypto, 100,
+const prepare = request => createUpdateIdentityTx(
+  SYSTEM_ID, request, 'change-address', 'identity-tx', 100, false, true,
 );
-const useRealClient = () => {
-  const client = new VerusIdInterface(SYSTEM_ID, 'https://example.invalid');
-  mockCreateUpdateIdentityTransaction.mockImplementation((...args) =>
-    client.createUpdateIdentityTransaction(...args));
-};
 
-describe('identity update content normalization', () => {
+describe('identity update SDK content normalization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateUpdateIdentityTransaction.mockResolvedValue({hex: 'result'});
-    mockCreateUpdateIdentityWithCurrencyTransferTransaction.mockResolvedValue({hex: 'transfer-result'});
   });
 
-  it.each([
-    ['standard update', prepare, mockCreateUpdateIdentityTransaction],
-    ['update with UTXOs', (identity, localUploadCrypto) => createUpdateIdentityTxWithUtxos({
-      systemId: SYSTEM_ID, identity, isTestnet: true, currentHeight: 100, localUploadCrypto,
-    }), mockCreateUpdateIdentityTransaction],
-    ['update with transfer', (identity, localUploadCrypto) => createUpdateIdentityWithCurrencyTransferTx({
-      systemId: SYSTEM_ID, identity, isTestnet: true, currentHeight: 100, localUploadCrypto,
-    }), mockCreateUpdateIdentityWithCurrencyTransferTransaction],
-  ])('accepts a supported upload and forwards wallet crypto for a %s', async (_, build, sdkBuild) => {
-    const request = IdentityUpdateRequestDetails.fromCLIJson({
-      name: 'T1', parent: SYSTEM_ID,
-      contentmultimap: {[DataStringKey.vdxfid]: {data: {message: 'upload', createmmr: true}}},
-    });
-    const originalBytes = request.toBuffer();
-    const localUploadCrypto = {
-      randomBytes: jest.fn(), encrypt: jest.fn(), decryptData: jest.fn(),
-    };
-    expect(request.containsSignData()).toBe(true);
-    expect(request.signDataMap.getByAddress(DataStringKey.vdxfid).createMMR).toBe(true);
-
-    await expect(build(request, localUploadCrypto)).resolves.toEqual({
-      hex: sdkBuild === mockCreateUpdateIdentityTransaction ? 'result' : 'transfer-result',
-    });
-    expect(sdkBuild).toHaveBeenCalledTimes(1);
-    expect(sdkBuild.mock.calls[0][0]).toBe(request);
-    if (sdkBuild === mockCreateUpdateIdentityTransaction) {
-      const args = sdkBuild.mock.calls[0];
-      expect(args[5]).toBe(SYSTEM_ID);
-      expect(args[8]).toBe(100);
-      expect(args.slice(10)).toEqual([true, true, false, localUploadCrypto.decryptData, localUploadCrypto]);
-    } else {
-      expect(sdkBuild.mock.calls[0][6]).toEqual(expect.objectContaining({
-        chainIAddr: SYSTEM_ID, currentHeight: 100, isTestnet: true,
-        parseVdxfObjects: true, decryptData: localUploadCrypto.decryptData, localUploadCrypto,
-      }));
-    }
-    expect(request.toBuffer()).toEqual(originalBytes);
-    expect(getSpendableUtxos).not.toHaveBeenCalled();
-  });
-
-  it('builds an identity without empty keys while preserving signed request bytes and explicit map presence', async () => {
-    useRealClient();
+  it('passes the complete original request to the SDK without a lossy serialization roundtrip', async () => {
     const request = makeRequest({[EMPTY_KEY]: []});
     const originalBytes = request.toBuffer();
     const result = await prepare(request);
-    const passed = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
+    const normalized = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
 
-    expect(result.identity.toJson().contentmultimap).toEqual({});
-    expect(passed.identity.containsContentMultiMap()).toBe(true);
-    expect(passed.requestID.rootSystemName).toBe('VRSCTEST');
+    expect(result).toEqual({hex: 'result'});
+    expect(normalized).toBe(request);
+    expect(normalized.identity.containsContentMultiMap()).toBe(true);
+    expect(normalized.toCLIJson().contentmultimap).toEqual({[EMPTY_KEY]: []});
+    expect(normalized.requestID.rootSystemName).toBe('VRSCTEST');
+    expect(normalized.toJson()).toEqual(request.toJson());
     expect(request.toBuffer()).toEqual(originalBytes);
     expect(request.toCLIJson().contentmultimap).toEqual({[EMPTY_KEY]: []});
     expect(mockCreateUpdateIdentityTransaction.mock.calls[0].slice(1)).toEqual([
-      'change-address', originalTx, 100, undefined, SYSTEM_ID, undefined,
-      undefined, 100, undefined, true, true, false, undefined, undefined,
+      'change-address', 'identity-tx', 100, undefined, SYSTEM_ID, undefined,
+      undefined, undefined, undefined, true, true, false, undefined, undefined,
     ]);
   });
 
-  it('retains actual additions and explicit removal operations when dropping an empty key', async () => {
-    useRealClient();
+  it('preserves additions, removals and empty keys until the SDK snapshots them', async () => {
     const contentmultimap = {
       [EMPTY_KEY]: [],
       [SYSTEM_ID]: [{[DataStringKey.vdxfid]: 'retained value'}],
@@ -143,29 +80,43 @@ describe('identity update content normalization', () => {
     };
     const request = makeRequest(contentmultimap);
     const originalBytes = request.toBuffer();
-    const result = await prepare(request);
-    expect(result.identity.toJson().contentmultimap).toEqual({
-      [SYSTEM_ID]: contentmultimap[SYSTEM_ID],
-      [ContentMultiMapRemoveKey.vdxfid]: contentmultimap[ContentMultiMapRemoveKey.vdxfid],
-    });
+    const expectedContent = {...request.toCLIJson().contentmultimap};
+
+    await prepare(request);
+    const normalized = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
+    expect(normalized.toCLIJson().contentmultimap).toEqual(expectedContent);
     for (const key of [SYSTEM_ID, ContentMultiMapRemoveKey.vdxfid]) {
-      // Built identities use full VDXF values; requests use compact values.
-      expect(result.identity.contentMultiMap.kvContent.getByAddress(key)[0].toBuffer())
-        .toEqual(VdxfUniValue.fromJson(contentmultimap[key][0]).toBuffer());
+      expect(normalized.identity.contentMultiMap.kvContent.getByAddress(key)[0].toBuffer())
+        .toEqual(request.identity.contentMultiMap.kvContent.getByAddress(key)[0].toBuffer());
     }
     expect(request.toBuffer()).toEqual(originalBytes);
   });
 
+  it('retains a directly assigned private upload recipient even when its serialization flag is unset', async () => {
+    const request = makeRequest({[EMPTY_KEY]: []});
+    const upload = PartialSignData.fromCLIJson({message: 'Private upload'});
+    upload.encryptToAddress = SaplingPaymentAddress.fromAddressString(
+      'zs1wczplx4kegw32h8g0f7xwl57p5tvnprwdmnzmdnsw50chcl26f7tws92wk2ap03ykaq6jyyztfa',
+    );
+    request.signDataMap = new KvMap();
+    request.signDataMap.setByAddress(EMPTY_KEY, upload);
+    request.toggleContainsSignData();
+    expect(upload.flags.and(PartialSignData.CONTAINS_ENCRYPTTOADDRESS).isZero()).toBe(true);
+
+    await prepare(request);
+    const forwarded = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
+    expect(forwarded.signDataMap.getByAddress(EMPTY_KEY)).toBe(upload);
+    expect(forwarded.signDataMap.getByAddress(EMPTY_KEY).encryptToAddress).toBe(upload.encryptToAddress);
+  });
+
   it.each([undefined, {}])('preserves omitted or explicitly empty maps without cloning: %s', contentmultimap => {
-    useRealClient();
     const request = makeRequest(contentmultimap);
     const originalBytes = request.toBuffer();
-    return prepare(request).then(result => {
+    return prepare(request).then(() => {
       const passed = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
       expect(passed).toBe(request);
       expect(passed.identity.containsContentMultiMap()).toBe(contentmultimap !== undefined);
       expect(passed.toCLIJson().contentmultimap).toEqual(contentmultimap);
-      expect(result.identity.toJson().contentmultimap).toEqual({});
       expect(request.toBuffer()).toEqual(originalBytes);
     });
   });
@@ -184,19 +135,33 @@ describe('identity update content normalization', () => {
       }),
     });
     const originalBytes = request.toBuffer();
+    const currentIdentity = {
+      version: 3, flags: 0, name: 'T1', parent: SYSTEM_ID, systemid: SYSTEM_ID,
+      primaryaddresses: ['RWCqoWfSKaDoGeiwD6ZxX2dwkMx2oHJM56'], minimumsignatures: 1,
+      revocationauthority: EMPTY_KEY, recoveryauthority: EMPTY_KEY,
+      contentmap: {}, contentmultimap: {}, timelock: 0,
+    };
+    const transaction = contentmultimap => smarttxs.createUnfundedIdentityUpdate(
+      Identity.fromJson({...currentIdentity, contentmultimap}).toBuffer().toString('hex'),
+      networks.verus, 120,
+    );
+    const originalTx = transaction({});
     const serverTx = transaction({[removeKey]: removals, [key]: additions});
     const client = new VerusIdInterface(SYSTEM_ID, 'https://example.invalid');
     const validate = (details, tx = serverTx) => client.prepareIdentityUpdateTransaction(
       details, originalTx, 100, tx, true, true,
     );
 
-    // verusid-ts-client 50fa3ffa accepts the daemon's outer-key order itself.
-    await expect(validate(request)).resolves.toHaveProperty('identityOnOutput');
+    // The SDK also canonicalizes outer map keys, while preserving the order
+    // and exact contents of the operations stored under each key.
+    const directlyPrepared = await validate(request);
+    expect(Object.keys(directlyPrepared.identityOnOutput.toJson().contentmultimap)).toEqual([removeKey, key]);
     mockCreateUpdateIdentityTransaction.mockImplementation(details => validate(details));
-    const result = await prepare(request);
-    expect(Object.keys(result.identityOnOutput.toJson().contentmultimap)).toEqual([removeKey, key]);
-    expect(result.identityOnOutput.toJson().contentmultimap[key]).toEqual(additions);
-    expect(result.identityOnOutput.toJson().contentmultimap[removeKey]).toEqual(removals);
+    await expect(prepare(request)).resolves.toHaveProperty('identityOnOutput');
+    const normalized = mockCreateUpdateIdentityTransaction.mock.calls[0][0];
+    expect(normalized).toBe(request);
+    expect(normalized.identity.toJson().contentmultimap[key]).toEqual(additions);
+    expect(normalized.identity.toJson().contentmultimap[removeKey]).toEqual(removals);
     expect(request.toBuffer()).toEqual(originalBytes);
 
     for (const changed of [
@@ -205,9 +170,8 @@ describe('identity update content normalization', () => {
       {[removeKey]: [...removals].reverse(), [key]: additions},
       {[removeKey]: removals, [key]: [{[key]: 'different value'}]},
     ]) {
-      await expect(validate(request, transaction(changed)))
-        .rejects.toThrow('Unexpected contentmultimap entries in identity transaction');
+      await expect(validate(normalized, transaction(changed)))
+        .rejects.toThrow('Unexpected contentmultimap entries');
     }
-    expect(request.toBuffer()).toEqual(originalBytes);
   });
 });

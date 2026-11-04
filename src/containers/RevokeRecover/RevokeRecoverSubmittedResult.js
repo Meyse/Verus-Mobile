@@ -11,6 +11,7 @@ import RecoveryValues, {IdentityContext, RecoveryValue} from './RecoveryValues';
 
 const RevokeRecoverSubmittedResult = ({
   action,
+  deliveryUnknown,
   identityName,
   networkName,
   onDone,
@@ -30,7 +31,7 @@ const RevokeRecoverSubmittedResult = ({
       backDisabled
       showBack={false}
       showProgress={false}
-      headerTitle={recovery ? 'Recovery submitted' : 'Revocation submitted'}
+      headerTitle={deliveryUnknown ? 'Delivery not confirmed' : recovery ? 'Recovery submitted' : 'Revocation submitted'}
       keyboardAvoiding={false}>
       <Text
         style={[
@@ -38,7 +39,9 @@ const RevokeRecoverSubmittedResult = ({
           localStyles.body,
           {color: theme.colors.textSecondary},
         ]}>
-        {recovery
+        {deliveryUnknown
+          ? 'The network may have received this update. Check the transaction before you start another review.'
+          : recovery
           ? 'Your VerusID becomes active after one network confirmation.'
           : 'Your VerusID becomes revoked after one network confirmation.'}
       </Text>
@@ -69,7 +72,7 @@ const RevokeRecoverSubmittedResult = ({
           />
         ) : null}
       </View>
-      {recovery ? (
+      {deliveryUnknown ? null : recovery ? (
         <RecoveryValues values={values} title="Submitted values" />
       ) : (
         <RecoveryValue label="Requested status" value="Active → Revoked" />

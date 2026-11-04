@@ -6,6 +6,19 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped implementation: **ID-3.MANAGEMENT-UI**, phase 2b on
+  `claude/idreg-ui-mgmt` from `63289e4b`. Transfer, Modify option B, results,
+  Link option A, and sign-out card clearing. Registration belongs to phase 2a.
+  No Metro, simulator or device work is authorized in this task.
+
+
+- Scoped integration: **ID-3.UPSTREAM-SYNC**, phase 1 on `claude/idreg-sync`
+  from local `redesign` `6b05ad97`. The owner authorized all upstream
+  `identity-registration` features on 2026-11-04. This supersedes the earlier
+  registration exclusion for this task. Preserve current redesign UI. Use
+  upstream registration, management, and Link screens until phase 2.
+  Native and device checks belong to later phases. See the phase-1 evidence below.
+
 - Scoped meeting fixes: **RG-1.8** and wallet logo fallback on
   `claude/meeting-ui-fixes` from `052d0b5c`: **Ready for verification**.
   Static, behavior and bundle checks pass. Existing gift card tests retain two
@@ -30,7 +43,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-03 (meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; asset stack order: pins and last used, iOS device QA passed, Android open).
+- Last updated: 2026-11-04 (phase 2b management implementation and checks; meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; asset stack order: pins and last used, iOS device QA passed, Android open).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2227,6 +2240,8 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-04 | ID-3.MANAGEMENT-UI phase 2b | `claude/idreg-ui-mgmt` from `63289e4b` | Approved management options, Transfer, Modify option B, results and Link option A. Shared controls and theme roles; unchanged engines; sign-out clears active/available cards. Design, 13-file safe-area/parser, 59 synthetic checks and both production bundles pass. Requested Jest run: 316 pass / 20 fail, 3 native-fixture load errors; see scoped evidence below. | Orchestrator native normal/compact light/dark QA, consent/hold, unknown broadcast, Transfer + unlink, and Link failure/retry. No device, push or merge. |
+| 2026-11-04 | ID-3.REG: phase 2a New VerusID | `claude/idreg-ui-reg` from `63289e4b` | V3 field, namespace prices/search, two holds, saved tab rows, app-sheet alerts and shared testnet DAI.vETH/Bridge.vETH route. Engine, backend and tests unchanged. Core suites: 268 pass; storage: 78 pass / 1 existing route failure. UI components/presentation pass; screen fixture has an incomplete native SVG mock. Design, safe-area, source behavior, price, parser and both production bundles pass. Source-derived renders only. | Orchestrator owns native light/dark normal/compact QA and real testnet flows. See `idreg-reg.local.md`. Phase 2b remains separate. No device, Metro server, push, PR or merge. |
 | 2026-11-03 | Meeting fixes device QA (wallet logos, gift Share, bridge names and fees, identity upload) | `claude/meeting-fixes-int` `40378c38` (redesign `f278b505` + `claude/meeting-ui-fixes` `cd5f18ad` + `claude/bridge-names-fees` `f1b90816` + `claude/identity-data-upload`) | Sonnet testers plus Opus checks on VRSCTEST, iPhone 17 Pro and iPhone SE sims, light and dark. Pixel icons on Home and Manage assets (no "?"). Gift card funded (txid `a6eabb77…`): result has no Share while pending. Network rows: vETH on Verus, ETH on Ethereum; DAI.vETH → DAI. Confirm for a send to Ethereum shows Bridge fee, Network fee and Total with Hold enabled; local conversion below fees shows the notice. Identity updates: content add `9847dd47…`, public upload `0c9a765d…`, encrypted upload `7fd6fa39…`, all verified by the requester; refused upload shows the plain copy; signed-out unlock works. Fixed during QA: first-render crash on every identity update request, `0x…` contract names shown as asset names, and an out-of-date review shown as a fee error. | No real bridge or conversion broadcast (public VRSCTEST DeFi disabled). Android not run. P3 polish items are listed in the meeting-fixes run folder `docs/qa/matrix/runs/2026-11-03-meeting-fixes/` (ignored). No push. |
 | 2026-11-03 | GR-4.IDENTITY-UPLOAD tests and plain rejection | `claude/identity-upload-tests` from `05e541f3` | Existing suites now check supported upload crypto, nine refused variants, real SDK canonicalization, unchanged signed request bytes, history checks, and the fifth signer argument. Exact approved rejection copy applied. Requested identity group: base 53 pass / 0 fail; candidate 62 pass / 0 fail. Four unchanged SVG suite-load errors. Gift/claim/spendable-key group: 77 pass / 19 fail on both. Frozen install, four-file parser, design, and whitespace checks pass. | The 19 missing-mempool-mock failures and native verification remain open. No new test files, device work, merge, or push. |
 | 2026-11-03 | Meeting UI fixes: wallet logos and RG-1.8 gift funding results | `claude/meeting-ui-fixes` from `052d0b5c` | `logoId` uses built-in artwork or raw `coin.id`; Home, shared asset rows/reviews and setup consume it. Claim animation keeps `iconId`. Funding result Share uses the detail screen's `canShare` rule; caption, unfunded sharing and share guards remain. Frozen install, design, safe-area (5 files), Babel (5 files), 15 temporary Node behavior checks, iOS production JS bundle and whitespace checks pass. Existing unit suites: 51 pass, the same 2 baseline failures from a missing `getMempoolUnspentUtxos` mock. Details: `meeting-ui-fixes.local.md` (local only). | Owner device QA: light/dark, normal/iPhone SE; Home identifier currency, Manage assets, details/identifier review, setup logos, pending/partial/retryable/confirmed gift funding results and Back. No device runtime or rendered evidence in this task. |
@@ -2731,3 +2746,131 @@ defer animation frames to check resize and rapid close/reopen. The existing inva
 settings/saga, 72 row-layout and parser checks pass. These checks establish
 source behavior and controlled layout geometry, not simulator rendering,
 keyboard animation, native text sizing or accessibility. Device QA stays open.
+
+
+### ID-3.UPSTREAM-SYNC — Phase 1 (2026-11-04)
+
+- [x] Merge all 12 upstream stages through `0a99f88a` with true merge history.
+  Use an ours merge for the cosmetic button commit.
+- [x] Keep upstream registration and management engines and SDK `5ddc4b8b`.
+  Keep commitment and registration as two separate approvals. Keep manual linking.
+- [x] Mount registration, management, results, and Link under `IdentityTab`.
+  The list + offers Register and Link. Page options offer Transfer, Modify,
+  and Unlink. Home registration notices open the VerusID tab.
+- [x] Adapt provisioning, verified revoke/recover, upload, tagged-invoice,
+  durable gift/claim, and deeplink callers. Preserve redesign VRPC funding,
+  pending-balance, private retry, history, and token-fee behavior.
+- [x] Run static contracts, upstream and redesign suites, baseline comparison,
+  and iOS/Android production bundles. Keep upstream test sources unchanged.
+  Test fixture compatibility failures remain. See `idreg-sync.local.md` for
+  exact counts and reasons. A passing bundle does not prove wallet execution.
+- [ ] Phase 2: redesign the new upstream screens under the approved design work.
+  Phase 2a registration is implemented on `claude/idreg-ui-reg`. Phase 2b
+  Transfer/Modify/Link is a separate task. Device verification remains open.
+- [ ] Phase 3: verify complete wallet flows, interrupted operations, retry,
+  confirmation, Back, and reload on devices. No device or Metro server ran in phase 1.
+
+Design contract: keep the existing VerusID list, options rows, request cards,
+review rows, and Revoke/Recover scaffolds. No restyling. New navigation entries,
+fee facts, invoice Tag, and unknown-broadcast copy use those components.
+The unused upstream content-review style module is omitted. It has no consumer
+in the retained redesign. Shared button exports and the upstream Button wrapper
+are available without changing existing buttons.
+
+Full stage decisions, funds-path decisions, checks, and open gaps are in the
+uncommitted `idreg-sync.local.md` merge log.
+
+
+### ID-3.MANAGEMENT-UI — Phase 2b (2026-11-04)
+
+- [x] Read the approved management specification and light/dark references.
+  Record the small design contract in `idreg-ui-mgmt.local.md`.
+- [x] Use the three-row options sheet, one-screen Transfer, Modify option B,
+  information sheets, hold review, shared results and full-page Link.
+  Preserve engine functions, session guards, consent, unknown broadcast and
+  local unlink retry. Registration screens stay outside this scope.
+- [x] Clear active and available subwallets on sign out. Keep explicit-choice
+  preferences and reconcile removed cards to null. Run the three lifecycle suites.
+- [x] Finish static, component, suite and production-bundle checks. Record exact
+  results and fixture limitations before handoff.
+- [ ] Orchestrator device QA: normal/compact iOS and Android, light/dark;
+  loading, field and keyboard states, chosen-step Back, deselection reset,
+  no diff, stale review/reload, consent/hold, interrupted/unknown send, unlink
+  retry, Link search/partial failures/manual fallback/refresh failure.
+
+Design contract: operate mode. Approved TS/TU/LK and MB frames are the visual
+exemplars. Reuse ProgressHeader, outline fields, selection and info sheets,
+Send hold, safe footers, SkeletonLoader and TransactionResult. Use theme and
+typography roles, 20-point content inset and 24-point top inset. Native rendered
+proof belongs to the orchestrator under the task's explicit no-device rule.
+
+
+Phase 2b evidence: design (39 sources, 17 materials), safe-area (13 JS files),
+parser/Babel, staged whitespace, 59 synthetic public-component/reducer checks,
+and iOS/Android production bundles pass. All six management/link engine modules
+are byte-identical to the base. Six management engine suites pass 266 tests;
+the management screen suite cannot load its native SVG mock (base: 47 tests).
+Link engine passes 37; Link screen has the same new SVG load block (base: 13).
+The complete requested run has 8 suites pass / 5 fail, 316 tests pass / 20 fail,
+and 3 load errors. Existing action-controller assertions account for 15 failures.
+Subwallet lifecycle has 5 assertion mismatches: null/Total reconciliation and
+its additional explicit-choice map. Carousel now passes all 8 tests; the old
+coin-menu fixture still cannot load native Gesture Handler. Tests are unchanged.
+No Metro server, simulator, device, signing or broadcast ran. Native rendering,
+keyboard, accessibility and live Transfer + unlink remain orchestrator gates.
+Detailed mapping, exact commands and hard-to-reach states: `idreg-ui-mgmt.local.md`.
+
+### ID-3.REG — New VerusID, phase 2a (2026-11-04)
+
+Design contract: owner-approved R1–R9, V3a–V3d, V1c/e/f/g/h and NS1–NS8;
+the approved spec wins over superseded filled fields and pre-hold shortfalls.
+Reuse the V3 `AppTextInput` accessory, ProgressHeader, InfoSheet, SelectionSheet,
+AppSearchField, StatusBadge, Send hold button, SafeBottomActionStack,
+TransactionResult and VerusIdCard. Keep normal/compact and light/dark behavior.
+
+- [x] Combine create and the two payment approvals in the registration UI.
+  Preserve upstream routes, engine calls, approval tokens, one-confirmation
+  gating, reconciliation, identical-byte retries, deletion and manual linking.
+- [x] Add the V3 namespace segment, cached SDK-filtered local namespace list,
+  search, prices, unavailable reasons, no-market group, fiat and prepared-job Save.
+- [x] Add saved/pending registration rows to the VerusID tab. Preserve the
+  upstream persistent Home card. Replace native registration alerts with app sheets.
+- [x] Use DAI.vETH in Bridge.vETH for the shared testnet native dollar route.
+  Keep mainnet configuration and the existing testnet-price setting gate.
+- [x] Run registration suites, design/safe-area/parser/source checks and both
+  production bundles. Preserve upstream tests. Record test-fixture failures.
+- [ ] Orchestrator: native iOS/Android light/dark normal/compact QA. Verify
+  keyboard and namespace sheet sizing, both real approvals, one confirmation,
+  changed price, insufficient funds, save/restart, Back, unknown delivery,
+  expired/spent jobs, all deletion kinds and manual linking.
+
+Evidence: `idreg-reg.local.md` records exact commands, frame mapping, results
+and limits. Core engine suites retain 268 passes. Storage retains 78 passes and
+the existing ServicesHome/IdentityTab route assertion failure. UI component and
+presentation suites pass; the screen suite cannot load with its old incomplete
+React Native SVG mock. The notification mock load failure already exists on the
+base. Source-derived light/dark normal/compact renders are in the ignored
+`artifacts/idreg-reg/` folder. These are not native-device proof. Engine,
+dispatcher, channel, VRPC, storage, management/Link screens and tests are unchanged.
+
+### ID-3.FIX4 — Device QA follow-up (2026-11-04)
+
+- [x] Reveal the focused registration/Modify input and its supporting line above
+  the existing keyboard footer. Scope the measured scroll behavior to these forms.
+- [x] Reuse VerusID dot wrapping in job, funding and management text. Match saved
+  draft accessibility to its visible status and Continue action.
+- [x] Show the saved job during a reconcile lock. Retry passive checks while
+  locked and open the second hold review when ready. Keep engine approval gates.
+- [x] Map only transport failures to Send/Convert connection copy and Try again.
+  Preserve domain, safety and unknown-delivery messages.
+- [x] Run design, safe-area, parser and iOS/Android production bundle checks.
+- [ ] Device tester: verify light/dark on iPhone 17 Pro, iPhone SE, Pixel 9 and
+  Android 360×640. Follow the per-item steps in `idreg-fix4.local.md`.
+
+Evidence: 13 controlled React component/scroll scenarios pass. Base checks
+reproduce missing focus reveal, missing namespace breaks, the stale saved-draft
+label, the error-only locked opening and raw transport text. Design, safe-area,
+parser and both production bundles pass. These checks do not prove native
+keyboard geometry, text wrapping, accessibility or live payment transitions.
+No simulator, emulator or Metro server runs in this batch. The engine, RPC,
+funds paths and saved-job deletion code remain unchanged.

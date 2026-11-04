@@ -5,6 +5,10 @@ import SignedInVerusIdDetails from '../../Services/ServiceComponents/VerusIdServ
 import {createRedesignedHeaderOptions} from '../../../utils/navigation/header';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 
+import IdentityRegistrationNavigator from '../../Services/ServiceComponents/VerusIdService/IdentityRegistration/IdentityRegistrationNavigator';
+import IdentityManagementNavigator from '../../Services/ServiceComponents/VerusIdService/IdentityManagement/IdentityManagementNavigator';
+import LinkIdentities from '../../Services/ServiceComponents/VerusIdService/IdentityLinking/LinkIdentities';
+
 const IdentityStack = createStackNavigator();
 
 const IdentityStackScreens = () => {
@@ -23,6 +27,9 @@ const IdentityStackScreens = () => {
         component={SignedInVerusIdDetails}
         options={{title: ''}}
       />
+      <IdentityStack.Screen name="IdentityRegistration" component={IdentityRegistrationNavigator} options={{headerShown: false}} />
+      <IdentityStack.Screen name="IdentityManagement" component={IdentityManagementNavigator} options={{headerShown: false}} />
+      <IdentityStack.Screen name="LinkIdentities" component={LinkIdentities} options={{title: 'Link VerusID'}} />
     </IdentityStack.Navigator>
   );
 };

@@ -17,7 +17,7 @@ import {
 import { connect } from 'react-redux';
 import { expireCoinData, expireServiceData, setActiveOverviewFilter } from '../../../actions/actionCreators';
 import Styles from '../../../styles/index'
-import { conditionallyUpdateService, conditionallyUpdateWallet } from "../../../actions/actionDispatchers";
+import { conditionallyUpdateService, conditionallyUpdateWallet, conditionallyUpdateWallets } from "../../../actions/actionDispatchers";
 import store from "../../../store";
 import TransactionDetailsSheet, {decodeTxid} from './TransactionDetailsSheet';
 import SkeletonLoader, {
@@ -611,24 +611,17 @@ class Overview extends Component {
 
         const coinId = this.props.activeCoin.id;
 
-        await runRefreshUpdates(
-          [
-            ...serviceUpdates.map(key => [
-              {
-                label: key,
-                update: () =>
-                  conditionallyUpdateService(store.getState(), this.props.dispatch, key),
-              },
-            ]),
-            ...coinUpdates.map(key => [
-              {
-                label: key,
-                update: () =>
-                  conditionallyUpdateWallet(store.getState(), this.props.dispatch, coinId, key),
-              },
-            ]),
-          ],
+        const walletRefresh = conditionallyUpdateWallets(
+          store.getState(), this.props.dispatch,
+          coinUpdates.map(updateId => ({chainTicker: coinId, updateId})),
         );
+        await runRefreshUpdates([
+          ...serviceUpdates.map(key => [{
+            label: key,
+            update: () => conditionallyUpdateService(store.getState(), this.props.dispatch, key),
+          }]),
+          [{label: 'wallet refresh', update: () => walletRefresh}],
+        ]);
 
         if (this._isMounted) {
           this.setState({loading: false, refreshing: false});

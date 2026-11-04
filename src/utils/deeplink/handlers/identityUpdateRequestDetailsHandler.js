@@ -54,6 +54,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
 
   const rootSystem = request.isTestnet() ? 'VRSCTEST' : 'VRSC';
   const requestDetails = cloneIdentityUpdateRequest(details.data, rootSystem);
+  // Redesign: refuse unsupported upload options with their own message before any lookup.
   assertIdentityUpdateRequestSupported(requestDetails);
   const requestSystem = requestDetails.containsSystem()
     ? requestDetails.systemID.toAddress()
@@ -305,7 +306,8 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
       signerSystemID,
       signerSystemName,
       signerIdentityID,
-      subjectIdentity,
+      subjectIdentity: displaySubjectIdentity,
+      // The redesigned review compares requested content with this accumulated content.
       subjectIdentityContent: displaySubjectIdentity,
       identityUpdates,
       identityPreviewPrepared,

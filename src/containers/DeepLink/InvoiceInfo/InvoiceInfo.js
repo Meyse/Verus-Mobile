@@ -262,6 +262,7 @@ const InvoiceInfo = props => {
     {label: 'Supported networks', value: [...networks.map(network => network.fullyqualifiedname), ...otherNetworks].join('\n') || null},
     {label: 'Conversion', value: details.acceptsConversion() && !isBurn ? 'Supported' : null},
     {label: isBurn ? 'Burn output address' : 'Destination', value: details.acceptsAnyDestination() ? null : details.destination.getAddressString(), copy: true},
+    {label: 'Tag', value: details.isTagged() ? details.tag.toXAddress() : null, copy: true},
     {label: 'Expires', value: expiry},
     {label: 'Amount', value: anyAmount ? 'You choose' : `${amountDisplay} ${currency}`},
     {label: 'Maximum estimated slippage', value: details.acceptsConversion() && !isBurn ? `${satsToCoins(BigNumber(details.maxestimatedslippage)).times(100).toString()}%` : null},
@@ -304,6 +305,7 @@ const InvoiceInfo = props => {
                   : null
               }
             />
+            {details.isTagged() && <InvoiceCopyRow label="Tag" value={details.tag.toXAddress()} />}
             {isSigned && (
               <InvoiceRow label="Signed" value={unixToDate(sigtime)} />
             )}

@@ -1316,9 +1316,10 @@ page itself shows no mark.
   and "Link VerusID". The list header's ⓘ ("About VerusID") opens the
   explainer; the empty state has no second link to it.
 - Header: the arrow back button, and ⋯ on the right. After the card scrolls
-  away, the header shows the first part of the name. ⋯ opens a sheet with one
-  action row, "Unlink VerusID" (danger), which opens the existing unlink
-  confirmation.
+  away, the header shows the first part of the name. ⋯ opens three action rows:
+  "Transfer VerusID", "Modify VerusID", and
+  "Unlink VerusID" (danger). Unlink opens the existing confirmation. This menu
+  revision is owner approved 2026-11-04.
 - Card (`VerusIdCard.js`), at the content width: `surfaceMuted`, 24-point
   radius, no border, no shadow, no mark. The name in `headlineMd`
   (`headlineCompact` on windows of 667 points or less), in the two list colors,
@@ -1353,6 +1354,58 @@ page itself shows no mark.
   selected; Back returns to the VerusID page. Skeleton rows show while balances
   load. "This VerusID holds no funds." shows when there are none. Hidden
   balances read "Balance hidden".
+
+### VerusID management and Link
+
+Owner approved 2026-11-04: TS1–TS5/TS8, TU10–TU12, Link option A (LK2),
+and Modify option B (MB1–MB4). The canonical sources are
+`IdentityManagement/IdentityManagementScreens.js`, `ManagementComponents.js`,
+and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
+
+- Transfer is one flat form, then review. Modify first chooses sections with
+  multi-select `SelectionRow`s. Show only chosen sections, in Spend and sign,
+  Revoke and recover, Private address order, then review. Restore loaded values
+  when a section is deselected. Keep one fields state, one diff and one engine
+  preparation. Progress is `(index + 1) / (max(chosen sections, 1) + 2)`, so the choose step
+  starts at one third (MB1).
+- Use `ProgressHeader` with the step title. Its existing right slot holds one
+  44-point info action: Lucide `Info`, 23 points, stroke 2.2, `textSubtle`.
+  The choose step has no info action. Transfer has no progress track. Long
+  upstream explanations live in `InfoSheet`; About this transfer uses 86%.
+- Reuse the outline fields and normal-flow safe footer. Review uses the Send
+  hold button. Consent gates its handler as well as its disabled state. Modify
+  before/after pairs use the approved soft-fill review panel. Results use
+  `TransactionResult`; Retry unlink is primary and never sends again.
+- Link is a full page with `SelectionRow` multi-selection, search from 7 items,
+  skeleton loading, a counted Link action, failed rows first and still selected,
+  and the existing manual-link fallback after discovery failure. The page header
+  info action keeps the upstream linking explanation and wallet addresses in an
+  `InfoSheet`. Do not invent
+  a filtered-out count. Keep network choice when several networks are available.
+  Management and Link hide the tab bar while active.
+
+### New VerusID registration
+
+Owner approved 2026-11-04: V3 name field, two-hold registration screen, and
+namespace sheet. Canonical source: `IdentityRegistration/RegistrationDesign.js`
+and `identityRegistration.styles.js`. This applies to registration only.
+
+- Reuse `AppTextInput` with the namespace in `endAccessory`: one 48-point
+  outline, 12-point radius, a neutral hairline between the editable name and
+  the growing namespace segment. Focus wraps both. Taken uses a danger outline
+  and the status badge. No fill. V3 replaces the earlier filled R/NS fields.
+- Use `ProgressHeader` without the progress track for the combined "New
+  VerusID" task. Its right action contains the 44-point Info and Close targets.
+  The content keeps the signed-in 20/24/28-point insets. Use the Send hold
+  button and `SafeBottomActionStack`. First hold commits; a separate second
+  hold registers after one confirmation. Preserve all upstream recovery paths.
+- The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
+  seven items, success fill/check for selection, no unselected chevron, prices
+  first, then "No market price". Unavailable rows explain why. Use exact SDK
+  prices and engine quotes; fiat is optional public display data.
+- Explanations and transaction details use `InfoSheet` and `InfoSheetSection`.
+  Saved/pending jobs use the VerusID tab's filled-row rhythm and Continue pill.
+  Results reuse `TransactionResult` and the existing `VerusIdCard`.
 
 ## Home notification card
 

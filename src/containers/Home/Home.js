@@ -9,6 +9,7 @@
 */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {AppState} from 'react-native';
 import {
   setActiveCoin,
   setActiveApp,
@@ -35,7 +36,7 @@ import {
 import { USD } from '../../utils/constants/currencies';
 import {
   conditionallyUpdateService,
-  conditionallyUpdateWallet,
+  conditionallyUpdateWallets,
   dispatchAddWidget,
 } from '../../actions/actionDispatchers';
 import BigNumber from 'bignumber.js';
@@ -69,6 +70,7 @@ import { dragDetectionEnabled } from '../../utils/dragDetection';
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import {refreshRegistrationJobs} from '../../actions/actions/services/dispatchers/verusid/registration';
 import SignedInWalletHome from './SignedInWalletHome';
 import usePortfolioHistory from '../../utils/portfolioHistory/usePortfolioHistory';
 import {usePrelaunchAssets} from '../../utils/preconversion/usePrelaunch';
@@ -273,7 +275,17 @@ const Home = () => {
   useFocusEffect(
     useCallback(() => {
       refresh(false);
-      return () => {};
+      const resumeRegistrations = () => {
+        if (!store.getState().authentication.activeAccount) return;
+        // A suspended app may miss polling intervals. Reconcile protected jobs
+        // when Home is shown again; failed lookups retain their durable state.
+        refreshRegistrationJobs().catch(() => {});
+      };
+      resumeRegistrations();
+      const subscription = AppState.addEventListener('change', state => {
+        if (state === 'active') resumeRegistrations();
+      });
+      return () => subscription.remove();
     }, []),
   );
 
@@ -300,9 +312,9 @@ const Home = () => {
   }, [widgetOrder, sortWidgets]);
 
   const refresh = useCallback(
-    async (showLoading = true) => {
-      const run = ++refreshRun.current;
-      setLoading(showLoading);
+    async (showLoading = false) => {
+      const run = showLoading ? ++refreshRun.current : null;
+      if (showLoading) setLoading(true);
 
       const serviceUpdates = [
         API_GET_SERVICE_ACCOUNT,
@@ -313,24 +325,30 @@ const Home = () => {
 
       const coinUpdates = [API_GET_FIATPRICE, API_GET_BALANCES, API_GET_INFO];
 
-      await runRefreshUpdates([
-        ...serviceUpdates.map((key) => [
-          {
-            label: key,
-            update: () => conditionallyUpdateService(store.getState(), dispatch, key),
-          },
-        ]),
-        ...coinUpdates.map((key) =>
-          activeCoinsForUser.map((coinObj) => ({
-            label: `${key} for ${coinObj.id}`,
-            update: () =>
-              conditionallyUpdateWallet(store.getState(), dispatch, coinObj.id, key),
-          })),
+      // Plan the whole wallet refresh together so address requests can share a
+      // batch. Service work runs alongside it without delaying wallet requests.
+      const walletRefresh = conditionallyUpdateWallets(
+        store.getState(),
+        dispatch,
+        coinUpdates.flatMap(updateId =>
+          activeCoinsForUser.map(coin => ({chainTicker: coin.id, updateId})),
         ),
-      ]);
+      ).catch(e => {
+        console.warn('Error forcing wallet updates');
+        console.warn(e);
+      });
 
-      // An older refresh that ends late must not stop a newer one's spinner.
-      if (run === refreshRun.current) setLoading(false);
+      for (const updateId of serviceUpdates) {
+        try {
+          await conditionallyUpdateService(store.getState(), dispatch, updateId);
+        } catch (e) {
+          console.warn('Error forcing update to ' + updateId);
+          console.warn(e);
+        }
+      }
+
+      await walletRefresh;
+      if (showLoading && run === refreshRun.current) setLoading(false);
     },
     [activeCoinsForUser, dispatch],
   );
@@ -371,7 +389,7 @@ const Home = () => {
     dispatch(expireServiceData(API_GET_SERVICE_RATES));
     dispatch(expireServiceData(API_GET_SERVICE_NOTIFICATIONS));
 
-    refresh();
+    refresh(true);
   };
 
   const getTotalBalances = () => {
