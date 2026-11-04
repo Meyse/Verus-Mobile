@@ -63,6 +63,8 @@ import useRegistrationPrices from './useRegistrationPrices';
 import VerusIdCard from '../VerusIdCard';
 import EmptyState from '../../../../../components/EmptyState';
 import {AtSign} from 'lucide-react-native';
+import {VerusIdFormField} from '../VerusIdFormScroll';
+import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError} from '../verusIdErrors';
 
 // The app alert calls each action only after its confirmation sheet closes.
 const registrationAlert = (title, message, buttons, options) => createAlert(
@@ -131,10 +133,9 @@ const useRegistrationAction = () => {
       if (mounted.current && e.code !== 'SESSION_CHANGED') {
         // A new object makes every failure visible, even when a fast retry
         // returns the same message before the cleared state renders.
-        setError({
-          message: (e.message || 'Unable to complete this step. Your saved registration is preserved.')
-            .replace(/\bi[1-9A-HJ-NP-Za-km-z]{20,40}\b/g, address => identityLabel(address)),
-        });
+        const displayError = verusIdUiError(e, 'Unable to complete this step. Your saved registration is preserved.');
+        setError({...displayError, message: displayError.message
+          .replace(/\bi[1-9A-HJ-NP-Za-km-z]{20,40}\b/g, address => identityLabel(address))});
       }
     } finally {
       running.current = false;
@@ -298,6 +299,7 @@ export function IdentityRegistrationStart({navigation, route}) {
     busy={busy}
     busyRef={running}
     error={error}
+    onRetry={refresh}
     onRefresh={refresh}
     refreshing={busy && !loaded && visible.length > 0}
     footer={
@@ -431,7 +433,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
       }, failure => {
         if (!active || requestKeyRef.current !== requestKey || failure?.code === 'SESSION_CHANGED') return;
         setAvailability(failure.code === 'IDENTITY_EXISTS' ? 'taken' : null);
-        if (failure.code !== 'IDENTITY_EXISTS') setPreviewError({message: failure.message});
+        if (failure.code !== 'IDENTITY_EXISTS') setPreviewError(verusIdUiError(failure));
       });
     }, 650);
     return () => { active = false; clearTimeout(timer); };
@@ -482,6 +484,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
   const networkName = coin => `${coin.display_ticker}${coin.testnet ? ' · Testnet' : ''}`;
 
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || previewError}
+    onRetry={() => {setError(null); setPreviewAttempt(value => value + 1);}}
     info={<>{registrationInfo('commitment')}<RegistrationPreviewDetails preview={preview} /></>}
     footer={<>
       <ActionButton hold={!preview?.savedReview} disabled={!ready} busy={busy} onPress={start}>{preview?.savedReview ? 'Continue registration' : 'Hold to start'}</ActionButton>
@@ -489,7 +492,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
     </>}>
     <NameField name={name} setName={value => { if (!running.current) setName(value); }} namespace={namespace}
       availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} />
-    {!!previewError && <TextAction disabled={busy} onPress={() => setPreviewAttempt(value => value + 1)}>Try again</TextAction>}
+    {!!previewError && !isVerusIdTransportError(previewError) && <TextAction disabled={busy} onPress={() => setPreviewAttempt(value => value + 1)}>Try again</TextAction>}
     {!!quoteData && (preview?.savedReview && preview.status !== 'commitment_prepared'
       ? <View style={styles.section}><StatusBadge status={preview.status} /><RegistrationText muted>Continue where you left off.</RegistrationText></View>
       : <CostReview {...quoteData} prices={prices} stage="commitment" />)}
@@ -507,12 +510,12 @@ export function IdentityRegistrationCreate({navigation, route}) {
             description: balance != null && showBalance ? `${String(balance)} ${selected.display_ticker} confirmed` : source.isIdentity ? 'Linked VerusID' : source.address};
         })} onSelect={address => setManualFunding(current => ({...current, [coinId]: address}))} />
       <Disclosure title="More options" summary="Referral, recovery">
-        <AppTextInput label="Referral (optional)" accessibilityLabel="Referral identity, optional" placeholder="Optional"
-          helperText="Lowers the price." value={referralID} onChangeText={setReferralID} editable={!busy} />
-        <AppTextInput label="Revocation VerusID (optional)" accessibilityLabel="Revocation identity, optional" placeholder="This VerusID"
-          helperText="Can revoke your VerusID. Leave both empty to manage it yourself." value={revocationAuthority} onChangeText={setRevocationAuthority} editable={!busy} />
-        <AppTextInput label="Recovery VerusID (optional)" accessibilityLabel="Recovery identity, optional" placeholder="This VerusID"
-          helperText="Can restore your VerusID if it is revoked." value={recoveryAuthority} onChangeText={setRecoveryAuthority} editable={!busy} />
+        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Referral (optional)" accessibilityLabel="Referral identity, optional" placeholder="Optional"
+          helperText="Lowers the price." value={referralID} onChangeText={setReferralID} editable={!busy} />}</VerusIdFormField>
+        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Revocation VerusID (optional)" accessibilityLabel="Revocation identity, optional" placeholder="This VerusID"
+          helperText="Can revoke your VerusID. Leave both empty to manage it yourself." value={revocationAuthority} onChangeText={setRevocationAuthority} editable={!busy} />}</VerusIdFormField>
+        <VerusIdFormField>{focusProps => <AppTextInput {...focusProps} label="Recovery VerusID (optional)" accessibilityLabel="Recovery identity, optional" placeholder="This VerusID"
+          helperText="Can restore your VerusID if it is revoked." value={recoveryAuthority} onChangeText={setRecoveryAuthority} editable={!busy} />}</VerusIdFormField>
         {externalAuthorities.map(authority => <View key={authority} style={styles.notice}>
           <Text style={styles.warningText}>{identityLabel(authority)} can take control of this VerusID.</Text>
         </View>)}
@@ -557,6 +560,7 @@ const PaymentReview = ({navigation, route, stage}) => {
   const changed = !!review && !!previous && JSON.stringify(Object.entries(previous.totalRequired).sort()) !== JSON.stringify(Object.entries(review.quote.totalRequired).sort());
   const oldPrice = changed ? Object.entries(previous.totalRequired).map(([id, amount]) => `${formatRegistrationAmount(amount)} ${currencyLabel(id, review.currencyNames)}`).join(' and ') : null;
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error} info={registrationInfo(stage)}
+    onRetry={review ? () => refresh() : undefined}
     onRefresh={refresh} refreshing={refreshing} footer={<>
       {changed && <RegistrationText muted>The price was {oldPrice}.</RegistrationText>}
       {!review && error ? <ActionButton disabled={busy} onPress={() => run(context => getRegistrationReview(jobId, context), setReview)}>Try again</ActionButton>
@@ -569,7 +573,7 @@ const PaymentReview = ({navigation, route, stage}) => {
       <RegistrationDetails review={review}>{dismiss => !isCommitment &&
         <TextAction disabled={busy} onPress={() => dismiss(() => navigation.getParent().goBack())}>Save for later</TextAction>
       }</RegistrationDetails>
-      {!!error && <TextAction disabled={busy} onPress={() => refresh()}>Refresh review</TextAction>}
+      {!!error && !isVerusIdTransportError(error) && <TextAction disabled={busy} onPress={() => refresh()}>Refresh review</TextAction>}
     </>}
   </RegistrationPage>;
 };
@@ -588,6 +592,9 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const resultVersion = useRef(0);
   const background = useRef(null);
   const currentReview = useRef(null);
+  const lockRetry = useRef(null);
+  const autoAdvanceStatus = useRef(null);
+  const [locked, setLocked] = useState(false);
   const {context, busy, error, run, running} = useRegistrationAction();
   const coins = useSelector(state => state.coins.activeCoinsForUser || []);
   const prices = useRegistrationPrices(coins.find(coin => coin.id === review?.chainTicker), review?.quote);
@@ -601,9 +608,12 @@ export function IdentityRegistrationProgress({navigation, route}) {
     currentReview.current = value;
     setReview(value);
     setLoadError(null);
+    setLocked(false);
+    clearTimeout(lockRetry.current);
+    lockRetry.current = null;
   }, []);
 
-  const refreshBackground = useCallback(() => {
+  const refreshBackground = useCallback((readSaved = false) => {
     if (!focused.current || running.current || promptOpen.current || background.current) return;
 
     const version = resultVersion.current;
@@ -613,6 +623,13 @@ export function IdentityRegistrationProgress({navigation, route}) {
 
     task.promise = (async () => {
       try {
+        // This read does not take the job lock. Keep the saved name and payment
+        // rows visible even when Home's passive reconcile already owns it.
+        if (readSaved || !currentReview.current) {
+          const saved = await getRegistrationReview(jobId, {...context, signal: controller.signal});
+          if (focused.current && !controller.signal.aborted && version === resultVersion.current)
+            updateReview(saved);
+        }
         const result = await reconcileRegistration(jobId, {
           ...context,
           registrationBackground: true,
@@ -626,10 +643,20 @@ export function IdentityRegistrationProgress({navigation, route}) {
           focused.current &&
           !controller.signal.aborted &&
           version === resultVersion.current &&
-          failure.code !== 'SESSION_CHANGED' &&
-          !currentReview.current
+          failure.code !== 'SESSION_CHANGED'
         ) {
-          setLoadError({message: failure.message || 'Unable to check registration. Try again.'});
+          if (failure.code === 'REGISTRATION_BUSY') {
+            setLocked(true);
+            setLoadError({code: failure.code, message: failure.message});
+            // A lock failure has no status to drive upstream's waiting-state
+            // poll. Retry the passive read until its owner finishes.
+            clearTimeout(lockRetry.current);
+            lockRetry.current = setTimeout(() => {
+              if (AppState.currentState === 'active') refreshBackground();
+            }, 1000);
+          } else {
+            setLoadError(verusIdUiError(failure, 'Unable to check registration. Try again.'));
+          }
         }
       } finally {
         if (background.current === task) background.current = null;
@@ -669,23 +696,24 @@ export function IdentityRegistrationProgress({navigation, route}) {
 
   useFocusEffect(useCallback(() => {
     focused.current = true;
+    autoAdvanceStatus.current = null;
     const version = ++resultVersion.current;
     const start = async () => {
       await background.current?.promise;
-      if (focused.current && version === resultVersion.current) refreshBackground();
+      if (focused.current && version === resultVersion.current) refreshBackground(true);
     };
     start();
 
     // Poll only while this screen owns the active registration view.
     const poll = () => {
-      if (AppState.currentState !== 'active' || ![
+      if (AppState.currentState !== 'active' || (!lockRetry.current && ![
         'commitment_signed',
         'commitment_broadcast',
         'commitment_broadcast_unknown',
         'registration_signed',
         'registration_broadcast',
         'registration_broadcast_unknown',
-      ].includes(currentReview.current?.status)) return;
+      ].includes(currentReview.current?.status))) return;
       refreshBackground();
     };
     const timer = setInterval(poll, 20000);
@@ -697,6 +725,8 @@ export function IdentityRegistrationProgress({navigation, route}) {
       focused.current = false;
       ++resultVersion.current;
       background.current?.controller.abort();
+      clearTimeout(lockRetry.current);
+      lockRetry.current = null;
       clearInterval(timer);
       listener.remove();
     };
@@ -720,8 +750,14 @@ export function IdentityRegistrationProgress({navigation, route}) {
   useEffect(() => {
     // Preparation is read-only with respect to payment. Only the next hold
     // can approveRegistration. A failed preparation keeps the retry action.
-    if (status === 'commitment_confirmed') continueRegistration();
-  }, [status]);
+    if (error) {autoAdvanceStatus.current = null; return;}
+    if (!focused.current || locked || busy || autoAdvanceStatus.current === status) return;
+    if (status === 'commitment_confirmed' || status === 'registration_prepared') {
+      autoAdvanceStatus.current = status;
+      if (status === 'commitment_confirmed') continueRegistration();
+      else navigation.replace('IdentityRegistrationReview', {jobId});
+    }
+  }, [status, locked, busy, error]);
 
   const confirmLink = () => {
     if (running.current || promptOpen.current) return;
@@ -798,12 +834,14 @@ export function IdentityRegistrationProgress({navigation, route}) {
       <AmountRows label="You paid" amounts={review.quote.totalOperationRequired} currencyNames={review.currencyNames} />
       {details}
     </View>}
-    above={(error || loadError) ? <RegistrationText style={styles.errorText}>{(error || loadError).message}</RegistrationText> : null}
+    above={(error || loadError) ? <View><RegistrationText style={styles.errorText}>{verusIdErrorMessage(error || loadError)}</RegistrationText>
+      {isVerusIdTransportError(error || loadError) && <TextAction disabled={busy} onPress={refresh}>Try again</TextAction>}</View> : null}
     actions={[{label: action.label, onPress: action.onPress, disabled: busy},
       ...(status === 'registered' ? [{label: 'Not now', onPress: openOverview, disabled: busy}] : [])]} />;
 
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || loadError} info={registrationInfo(review?.stage)}
-    footer={review ? <>
+    onRetry={refresh}
+    footer={locked ? <ActionButton disabled>Check status</ActionButton> : review ? <>
       {state.kind === 'waiting' && <Text style={[styles.muted, {textAlign: 'center'}]}>
         {status === 'commitment_broadcast' ? 'Ready in about 1 minute. You can close this screen.' : 'You can leave this screen. Follow progress from your home screen.'}
       </Text>}
@@ -819,9 +857,10 @@ export function IdentityRegistrationProgress({navigation, route}) {
       {state.kind === 'attention' && <RegistrationText>{verusIdCopy(state.detail)}</RegistrationText>}
       {canRetry && <Text style={styles.muted}>Retry sends the saved transaction. It does not create another payment.</Text>}
       {details}
-      {!!review.lastError && <View style={styles.notice}>
-        <RegistrationText muted>{(typeof review.lastError === 'string' ? review.lastError : review.lastError.message)
+      {!!review.lastError && !(isVerusIdTransportError(error || loadError) && isVerusIdTransportError(review.lastError)) && <View style={styles.notice}>
+        <RegistrationText muted>{verusIdErrorMessage(review.lastError)
           ?.replace(/\bi[1-9A-HJ-NP-Za-km-z]{20,40}\b/g, address => identityLabel(address, review.identityNames)).replace(/\bidentity\b/gi, 'VerusID')}</RegistrationText>
+        {isVerusIdTransportError(review.lastError) && <TextAction disabled={busy} onPress={refresh}>Try again</TextAction>}
       </View>}
     </>}
   </RegistrationPage>;

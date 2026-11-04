@@ -2852,3 +2852,25 @@ React Native SVG mock. The notification mock load failure already exists on the
 base. Source-derived light/dark normal/compact renders are in the ignored
 `artifacts/idreg-reg/` folder. These are not native-device proof. Engine,
 dispatcher, channel, VRPC, storage, management/Link screens and tests are unchanged.
+
+### ID-3.FIX4 — Device QA follow-up (2026-11-04)
+
+- [x] Reveal the focused registration/Modify input and its supporting line above
+  the existing keyboard footer. Scope the measured scroll behavior to these forms.
+- [x] Reuse VerusID dot wrapping in job, funding and management text. Match saved
+  draft accessibility to its visible status and Continue action.
+- [x] Show the saved job during a reconcile lock. Retry passive checks while
+  locked and open the second hold review when ready. Keep engine approval gates.
+- [x] Map only transport failures to Send/Convert connection copy and Try again.
+  Preserve domain, safety and unknown-delivery messages.
+- [x] Run design, safe-area, parser and iOS/Android production bundle checks.
+- [ ] Device tester: verify light/dark on iPhone 17 Pro, iPhone SE, Pixel 9 and
+  Android 360×640. Follow the per-item steps in `idreg-fix4.local.md`.
+
+Evidence: 13 controlled React component/scroll scenarios pass. Base checks
+reproduce missing focus reveal, missing namespace breaks, the stale saved-draft
+label, the error-only locked opening and raw transport text. Design, safe-area,
+parser and both production bundles pass. These checks do not prove native
+keyboard geometry, text wrapping, accessibility or live payment transitions.
+No simulator, emulator or Metro server runs in this batch. The engine, RPC,
+funds paths and saved-job deletion code remain unchanged.
