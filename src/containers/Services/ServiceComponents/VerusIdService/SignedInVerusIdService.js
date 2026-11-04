@@ -878,7 +878,7 @@ const SignedInVerusIdService = ({controller}) => {
             hitSlop={10}
             onPress={() => setInfoVisible(true)}
             style={styles.headerIcon}>
-            <Info size={23} strokeWidth={2.2} color={theme.colors.textSubtle} />
+            <Info size={23} strokeWidth={2.2} color={theme.colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Add VerusID"

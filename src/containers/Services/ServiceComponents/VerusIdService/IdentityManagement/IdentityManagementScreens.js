@@ -28,6 +28,9 @@ import {preferredRegistrationFundingSource, registrationFundingBalance} from '..
 const authorityName = (address, model) => address === model.identityAddress
   ? `This VerusID (${model.displayName})` : identityLabel(address, model.identityNames);
 
+// The risk line names a VerusID only when the field holds one (a name ending in @ or an i-address).
+const looksLikeVerusId = value => /@$/.test(value.trim()) || /^i[1-9A-HJ-NP-Za-km-z]{33}$/.test(value.trim());
+
 const useAction = () => {
   const {context} = useIdentityManagement();
   const mounted = useRef(true);
@@ -303,7 +306,7 @@ function IdentityModifyForm({navigation, route}) {
           <TextAction disabled={busy} accessibilityLabel={`Use this identity for ${accessibilityLabel.toLowerCase()}`}
             onPress={() => change(key, model.displayName)}>Use this VerusID</TextAction>
         </View>)}
-        {!selfRecovery && !!fields.recoveryauthority.trim() && <Warning>{`${fields.recoveryauthority.trim()} can take control of this VerusID.`}</Warning>}
+        {!selfRecovery && looksLikeVerusId(fields.recoveryauthority) && <Warning>{`${fields.recoveryauthority.trim()} can take control of this VerusID.`}</Warning>}
       </>}
       {section.key === 'private' && <>
         <AppAddressInput label="Private address (optional)" accessibilityLabel="Private address (optional)" value={fields.privateaddress}

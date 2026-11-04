@@ -74,23 +74,20 @@ const registrationAlert = (title, message, buttons, options) => createAlert(
   }})), options,
 );
 
-const registrationInfo = stage => <>
-  <InfoSheetSection title="Two payments" rows={[
-    {label: 'How registration works', value: 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'},
-    {label: 'Commitment', value: 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'},
-    {label: 'Keep your app data', value: 'The commitment fee is non-refundable. It does not reserve your name. Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.'},
-    {label: 'Your approval', value: stage === 'registration' ? 'Holding the button approves this VerusID and its registration payment.' : 'Holding the button approves the commitment fee on this screen.'},
-    {label: 'Next payment', value: 'You approve the registration payment separately after confirmation. Its price may change.'},
-    {label: 'Registration', value: 'This payment creates your VerusID after confirmation.'},
-  ]} />
-  <InfoSheetSection title="Payment and control" rows={[
-    {label: 'Pay from', value: 'Both payments use this source. Change returns here.'},
-    {label: 'Private payments', value: 'Your VerusID will use this wallet’s private address for private payments when available.'},
-    {label: 'Referral', value: 'An eligible VerusID referral discounts your registration cost. You’ll see the discounted price before paying.'},
-    {label: 'Recovery', value: 'Can restore your VerusID if it is revoked.'},
-    {label: 'Revocation', value: 'Can revoke your VerusID. Leave both empty to manage it yourself.'},
-  ]} />
-</>;
+// One section per topic, as the VerusID management info sheets do.
+const registrationInfo = stage => [
+  ['How registration works', 'First, pay a small fee to commit your name. After a block confirmation, review a separate payment to create the VerusID.'],
+  ['Commitment', 'A commitment hides your name on-chain until registration, but doesn’t reserve it. The RPC server sees the name when checking availability. Sub-VerusIDs require an eligible currency namespace.'],
+  ['Keep your app data', 'The commitment fee is non-refundable. It does not reserve your name. Keep this wallet and its app data until you finish. Your seed alone cannot restore a pending commitment.'],
+  ['Your approval', stage === 'registration' ? 'Holding the button approves this VerusID and its registration payment.' : 'Holding the button approves the commitment fee on this screen.'],
+  ['Next payment', 'You approve the registration payment separately after confirmation. Its price may change.'],
+  ['Registration', 'This payment creates your VerusID after confirmation.'],
+  ['Pay from', 'Both payments use this source. Change returns here.'],
+  ['Private payments', 'Your VerusID will use this wallet’s private address for private payments when available.'],
+  ['Referral', 'An eligible VerusID referral discounts your registration cost. You’ll see the discounted price before paying.'],
+  ['Recovery', 'Can restore your VerusID if it is revoked.'],
+  ['Revocation', 'Can revoke your VerusID. Leave both empty to manage it yourself.'],
+].map(([title, value]) => <InfoSheetSection key={title} title={title} rows={[{label: '', value}]} />);
 
 const priorQuotes = new Map();
 const rememberQuote = review => {

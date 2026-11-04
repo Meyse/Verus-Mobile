@@ -1,4 +1,5 @@
 import {registrationNotifications} from '../../../utils/identityRegistration/notifications';
+import {verusIdCopy} from '../../../utils/verusid/verusIdCopy';
 import React, {useMemo} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -97,8 +98,9 @@ const NotificationWidget = () => {
     <View style={styles.container}>
       {registrationNotices.map(notice => (
         <View key={notice.uid} style={[styles.card, styles.cardSpacing, {backgroundColor: theme.colors.surfaceMuted}]}>
-          <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
-            <Text style={styles.highlight}>{notice.identityName}</Text>{' '}{notice.statusText}
+          {/* No flex here: this title sits in a column, where flex 1 gave it zero height. */}
+          <Text style={[styles.title, styles.columnTitle, {color: theme.colors.textPrimary}]}>
+            <Text style={styles.highlight}>{notice.identityName}</Text>{' '}{verusIdCopy(notice.statusText)}
           </Text>
           <AppButton compact height={36} variant="secondary" themeMode={theme.mode}
             buttonColor={theme.colors.surface} labelStyle={styles.actionLabel} style={styles.action}
@@ -201,6 +203,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     ...fontStyle('regular'),
   },
+  columnTitle: {flex: 0},
   highlight: {...fontStyle('semiBold')},
   // A 44-point target around the 20-point icon, centered on the first line.
   dismissButton: {
