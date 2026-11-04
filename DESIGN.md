@@ -1446,16 +1446,31 @@ and `identityRegistration.styles.js`. This applies to registration only.
 
 ## Home notification card
 
-The owner chose card A on 2026-10-22 (gap 5 mockups). A VerusID request
+The owner chose card A on 2026-10-22 (gap 5 mockups). On 2026-11-04, the owner
+chose look A of the notice-size mockups: the same layout, scaled down.
+A VerusID request
 (`NotificationWidget.js`) shows one card under the Home balance.
 
-- `surfaceMuted` fill, 18-point corners, no border. The name in semibold and the
-  rest in regular, 16/22: "<name>@ is ready" or "<name>@ could not be created".
-- One small `AppButton` (`compact`, 36 points, 12-point corners) on the page
+- `surfaceMuted` fill, 16-point corners, no border. Padding is 12 points at the
+  top and bottom and 14 on the left. Right padding is 0 with a close target,
+  or 14 without it. The name is semibold and the rest regular in `bodySm`
+  (14/20): "<name>@ is ready" or "<name>@ could not be created".
+- A second body line uses `caption` (13/18), `textSecondary`, and a 14-point
+  right inset. Registration cards show the name alone in semibold `bodySm`,
+  then the status in `caption` and `textSecondary`, 2 points below it.
+- One small secondary `AppButton` (`compact`, 32 points, 10-point corners) on the page
   color, because the secondary tint disappears on the gray card. The label is
-  the request's action ("Link VerusID", "Use") or "Try again".
-- A close icon (20 points, `textSubtle`) in a 44-point target removes the card.
-  No "×" letter and no filled circle.
+  `labelSm` (13/18 semibold), with 12-point side margins. It sits 10 points below
+  the text. The label is the request's action ("Link VerusID", "Use") or "Try again".
+  Only notice buttons opt out of the small-window height rule. They stay 32
+  points on iPhone SE. `getButtonHitSlop` adds 8 points above and below for a
+  48-point touch target. Other action buttons keep the shared 44-point rule.
+- A close icon (18 points, `textSubtle`) in a 44-point target removes the card.
+  Center it on the first 20-point line. Its target is flush with the right
+  edge, so the glyph sits 13 points from it. No "×" letter and no filled circle.
+- Cards have an 8-point gap. Each container has 4-point top and 6-point bottom
+  padding. After a Home notice, the notification container uses 2-point top
+  padding, so the gap stays 8 points.
 
 ### Ready card celebration
 
@@ -1468,6 +1483,9 @@ failed request keeps the gray card.
   material like the gift card, not a theme token. No border, no traced outline.
   The close icon uses `textSecondary`, because `textSubtle` is too faint on the
   tint.
+- It uses the smaller look A sizes: 16-point corners, 12/0/12/14 padding,
+  14/20 name and rest, an 18-point close icon in its 44-point target, and the
+  32-point button with a 13/18 label. Confetti uses the measured card size.
 - The first time the card shows, it celebrates once (2.2 s): the tint blooms,
   the name rises into place, "is ready" fades up, and 12 confetti pieces fall
   behind the text. With Reduce Motion, the tint only fades in.
@@ -1481,9 +1499,12 @@ the Home balance, above the notification cards. The owner approved the
 connection card on 2026-10-26 (issue 4 of the first E2E night run) and the
 welcome card the same day (option D of the empty-Home mockups).
 
-- It uses the card A look and its styles: `surfaceMuted`, 18-point corners and
-  16/22 text with the first sentence in semibold. Only the found-assets card
-  has card A's close icon; the others go away by themselves when their state
+- It uses the smaller look A and its shared styles: `surfaceMuted`, 16-point
+  corners, 12-point top and bottom padding, and 14/20 `bodySm` text with the
+  first sentence in semibold. The left inset is 14 points. The right inset is
+  14 without a close target, or 0 with one. Actions keep the 32-point button,
+  including on iPhone SE. Found-assets and sync cards have the 18-point close
+  icon in a 44-point target; the others go away by themselves when their state
   ends.
 - The first state that applies wins:
   1. Offline: "**No internet connection.** Balances may be out of date." No
@@ -1500,7 +1521,19 @@ welcome card the same day (option D of the empty-Home mockups).
      not come back for them, also when the user adds nothing (owner,
      2026-10-26). They stay under "New assets found". A currency found later
      shows the card again, counting only the new one.
-  4. The wallet is empty: every transparent and VerusID card of every asset,
+  4. A Private card is syncing: "**Your Private card is syncing.** Balances may
+     be incomplete." Show it for a known percent below 99. Unknown (-1) shows
+     no card. Read `selectPrivateWalletInfo` and `getPrivateSyncPercent` for
+     the signed-in account's active coins that have a private card. With more
+     than one syncing coin, use the lowest percent, rounded down.
+     There is no button. A row sits 10 points below the text, with a 14-point
+     right inset. Its progress bar is 4 points high with 2-point corners:
+     `borderStrong` track, `primary` fill. The percent uses tabular `caption`
+     (13/18) in `textSecondary`, 10 points after the bar. The bar exposes the
+     progressbar role and its 0–100 value. The card has no live announcements
+     for percent changes. Close hides it until the wallet opens again. Keep
+     this dismissal in memory only.
+  5. The wallet is empty: every transparent and VerusID card of every asset,
      hidden ones too, is known to hold 0, pending funds included, and nothing
      was found or pre-converted: "**Your wallet is empty.** Receive coins to
      start." with "Receive", which opens the Receive list. A private card that

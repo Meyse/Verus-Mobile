@@ -28,7 +28,7 @@ import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
-import HomeNotice from './HomeWidgets/HomeNotice';
+import HomeNotice, {HOME_NOTICE_SYNC} from './HomeWidgets/HomeNotice';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import WalletSetupLogoSlot from '../../components/WalletSetup/WalletSetupLogoSlot';
 
@@ -249,6 +249,7 @@ const SignedInWalletHome = ({
   onManageAssets,
   onReviewFoundAssets,
   onDismissFoundAssets,
+  onDismissSyncNotice,
 }) => {
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -464,11 +465,11 @@ const SignedInWalletHome = ({
             loading={loading}
             notice={homeNotice}
             onReceive={onReceive}
-            onDismiss={onDismissFoundAssets}
+            onDismiss={homeNotice?.kind === HOME_NOTICE_SYNC ? onDismissSyncNotice : onDismissFoundAssets}
             onRetry={onRefresh}
             onReview={onReviewFoundAssets}
           />
-          <NotificationWidget />
+          <NotificationWidget followsHomeNotice={homeNotice != null} />
         </View>
       </View>
 

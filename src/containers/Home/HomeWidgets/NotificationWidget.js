@@ -47,7 +47,7 @@ const formatCtaLabel = body => {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 };
 
-const NotificationWidget = () => {
+const NotificationWidget = ({followsHomeNotice = false}) => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const theme = useOnboardingTheme();
@@ -95,19 +95,21 @@ const NotificationWidget = () => {
   if (actionableNotifications.length === 0 && registrationNotices.length === 0) return null;
 
   return (
-    <View style={styles.container}>
-      {registrationNotices.map(notice => (
-        <View key={notice.uid} style={[styles.card, styles.cardSpacing, {backgroundColor: theme.colors.surfaceMuted}]}>
+    <View style={[styles.container, followsHomeNotice && styles.followingContainer]}>
+      {registrationNotices.map((notice, index) => (
+        <View key={notice.uid} style={[styles.card, styles.cardWithoutDismiss,
+          (index < registrationNotices.length - 1 || actionableNotifications.length > 0) && styles.cardSpacing,
+          {backgroundColor: theme.colors.surfaceMuted}]}>
           {/* No flex here: these lines sit in a column, where flex 1 gave them zero height.
               The status is its own sentence, so it gets its own line under the name. */}
-          <Text style={[styles.title, styles.columnTitle, styles.highlight, {color: theme.colors.textPrimary}]}>
+          <Text style={[theme.typography.bodySm, styles.title, styles.columnTitle, styles.highlight, {color: theme.colors.textPrimary}]}>
             {notice.identityName}
           </Text>
-          <Text style={[theme.typography.bodySm, styles.noticeStatus, {color: theme.colors.textSecondary}]}>
+          <Text style={[theme.typography.caption, styles.noticeStatus, {color: theme.colors.textSecondary}]}>
             {verusIdCopy(notice.statusText)}
           </Text>
-          <AppButton compact height={36} variant="secondary" themeMode={theme.mode}
-            buttonColor={theme.colors.surface} labelStyle={styles.actionLabel} style={styles.action}
+          <AppButton compact height={32} preserveHeightOnSmallWindow variant="secondary" themeMode={theme.mode}
+            buttonColor={theme.colors.surface} labelStyle={[theme.typography.labelSm, styles.actionLabel]} style={styles.action}
             onPress={() => notice.onAction({navigation, dispatch})}>
             {notice.body}
           </AppButton>
@@ -147,7 +149,7 @@ const NotificationWidget = () => {
               index < actionableNotifications.length - 1 && styles.cardSpacing,
             ]}>
             <View style={styles.topRow}>
-              <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
+              <Text style={[theme.typography.bodySm, styles.title, {color: theme.colors.textPrimary}]}>
                 <Text style={styles.highlight}>{highlight}</Text>
                 {remainder.length > 0 ? ` ${remainder}` : ''}
               </Text>
@@ -159,12 +161,12 @@ const NotificationWidget = () => {
                 <MaterialCommunityIcons
                   color={theme.colors.textSubtle}
                   name="close"
-                  size={20}
+                  size={18}
                 />
               </TouchableOpacity>
             </View>
             {!notification.isActionable() && !!notification.body && (
-              <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+              <Text style={[theme.typography.caption, styles.body, {color: theme.colors.textSecondary}]}>
                 {notification.body}
               </Text>
             )}
@@ -173,8 +175,9 @@ const NotificationWidget = () => {
             {notification.isActionable() && <AppButton
               buttonColor={theme.colors.surface}
               compact
-              height={36}
-              labelStyle={styles.actionLabel}
+              height={32}
+              preserveHeightOnSmallWindow
+              labelStyle={[theme.typography.labelSm, styles.actionLabel]}
               onPress={() => notification.onAction({navigation, dispatch})}
               style={styles.action}
               themeMode={theme.mode}
@@ -190,42 +193,38 @@ const NotificationWidget = () => {
 
 const styles = StyleSheet.create({
   container: {paddingTop: 4, paddingBottom: 6},
+  followingContainer: {paddingTop: 2},
   card: {
     width: '100%',
-    borderRadius: 18,
-    paddingTop: 14,
-    paddingRight: 4,
-    paddingBottom: 16,
-    paddingLeft: 16,
+    borderRadius: 16,
+    paddingTop: 12,
+    paddingRight: 0,
+    paddingBottom: 12,
+    paddingLeft: 14,
   },
-  cardSpacing: {marginBottom: 10},
+  cardWithoutDismiss: {paddingRight: 14},
+  cardSpacing: {marginBottom: 8},
   topRow: {flexDirection: 'row', alignItems: 'flex-start'},
   title: {
     flex: 1,
-    paddingTop: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    ...fontStyle('regular'),
   },
   columnTitle: {flex: 0},
   noticeStatus: {marginTop: 2},
+  body: {paddingRight: 14},
   highlight: {...fontStyle('semiBold')},
-  // A 44-point target around the 20-point icon, centered on the first line.
+  // A 44-point target around the 18-point icon, centered on the first 20-point line.
   dismissButton: {
     width: 44,
     height: 44,
-    marginTop: -11,
-    marginBottom: -11,
-    marginLeft: 4,
+    marginTop: -12,
+    marginBottom: -12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  action: {alignSelf: 'flex-start', marginTop: 12, borderRadius: 12},
+  action: {alignSelf: 'flex-start', marginTop: 10, borderRadius: 10},
   actionLabel: {
-    fontSize: 14,
-    lineHeight: 19,
     marginVertical: 0,
-    marginHorizontal: 14,
+    marginHorizontal: 12,
   },
 });
 
