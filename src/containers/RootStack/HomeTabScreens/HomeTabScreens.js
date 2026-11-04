@@ -91,7 +91,7 @@ const HomeTabScreens = () => {
           ['GiftCardCreate', 'GiftCardFund'].includes(
             getFocusedRouteNameFromRoute(route),
           )) || (route.name === 'IdentityTab' &&
-          ['IdentityManagement', 'LinkIdentities'].includes(
+          ['IdentityManagement', 'LinkIdentities', 'IdentityRegistration'].includes(
             getFocusedRouteNameFromRoute(route),
           ))
             ? {display: 'none'}

@@ -77,6 +77,7 @@ import LinkExistingVerusIdSheet, {
 } from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import VerusIdOptionsSheet from './VerusIdOptionsSheet';
+import RegistrationTabRows from './IdentityRegistration/RegistrationTabRows';
 
 const BOTTOM_FADE_HEIGHT = 48;
 const IDENTITY_SKELETON_WIDTHS = ['46%', '64%', '52%', '72%'];
@@ -318,6 +319,7 @@ const SignedInVerusIdService = ({controller}) => {
     state => state.authentication.sessionEpoch || 0,
   );
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
+  const registrationJobs = useObjectSelector(state => state.channelStore_verusid?.registrationJobs || {});
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
@@ -365,7 +367,7 @@ const SignedInVerusIdService = ({controller}) => {
     [identityNetwork, linkedIds, pendingIds],
   );
   const pendingCount = groups.ready.length + groups.attention.length + groups.progress.length;
-  const hasContent = linked.length > 0 || pendingCount > 0;
+  const hasContent = linked.length > 0 || pendingCount > 0 || Object.keys(registrationJobs).length > 0;
   const bottomPadding = Math.max(insets.bottom, 20);
   const resolvedLinkNetwork = linkSheetNetwork || identityNetwork;
   const activePendingKey = selectedPending
@@ -912,6 +914,7 @@ const SignedInVerusIdService = ({controller}) => {
           stickySectionHeadersEnabled={false}
           ListHeaderComponent={
             <View style={styles.listHeader}>
+              <RegistrationTabRows jobs={registrationJobs} navigation={controller.props.navigation} />
               {renderPendingGroup('Ready to link', groups.ready, false)}
               {renderPendingGroup('Needs attention', groups.attention)}
               {renderPendingGroup('In progress', groups.progress)}
@@ -946,7 +949,7 @@ const SignedInVerusIdService = ({controller}) => {
         actions={[
           {key: 'register', label: 'Register VerusID', icon: 'account-plus-outline',
             onPress: () => controller.props.navigation.navigate('IdentityRegistration', {
-              screen: 'IdentityRegistrationStart', params: {coinId: identityNetwork},
+              screen: 'IdentityRegistrationCreate', params: {coinId: identityNetwork},
             })},
           {key: 'link', label: 'Link identities', icon: 'link-variant', onPress: () => openLinkSheet()},
         ]}

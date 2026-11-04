@@ -71,3 +71,4 @@ export {createAmountKeypadStyles} from './components/amountKeypad.styles';
 export {default as progressHeaderStyles} from './components/progressHeader.styles';
 export { default as homeValueChartStyles } from './components/homeValueChart.styles';
 export {identityManagementStyles} from './components/identityManagement.styles';
+export {createIdentityRegistrationStyles} from './components/identityRegistration.styles';

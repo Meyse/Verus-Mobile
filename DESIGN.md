@@ -1383,6 +1383,29 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   a filtered-out count. Keep network choice when several networks are available.
   Management and Link hide the tab bar while active.
 
+### New VerusID registration
+
+Owner approved 2026-11-04: V3 name field, two-hold registration screen, and
+namespace sheet. Canonical source: `IdentityRegistration/RegistrationDesign.js`
+and `identityRegistration.styles.js`. This applies to registration only.
+
+- Reuse `AppTextInput` with the namespace in `endAccessory`: one 48-point
+  outline, 12-point radius, a neutral hairline between the editable name and
+  the growing namespace segment. Focus wraps both. Taken uses a danger outline
+  and the status badge. No fill. V3 replaces the earlier filled R/NS fields.
+- Use `ProgressHeader` without the progress track for the combined "New
+  VerusID" task. Its right action contains the 44-point Info and Close targets.
+  The content keeps the signed-in 20/24/28-point insets. Use the Send hold
+  button and `SafeBottomActionStack`. First hold commits; a separate second
+  hold registers after one confirmation. Preserve all upstream recovery paths.
+- The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
+  seven items, success fill/check for selection, no unselected chevron, prices
+  first, then "No market price". Unavailable rows explain why. Use exact SDK
+  prices and engine quotes; fiat is optional public display data.
+- Explanations and transaction details use `InfoSheet` and `InfoSheetSection`.
+  Saved/pending jobs use the VerusID tab's filled-row rhythm and Continue pill.
+  Results reuse `TransactionResult` and the existing `VerusIdCard`.
+
 ## Home notification card
 
 The owner chose card A on 2026-10-22 (gap 5 mockups). A VerusID request
