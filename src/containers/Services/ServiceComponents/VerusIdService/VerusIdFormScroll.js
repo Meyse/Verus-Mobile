@@ -24,14 +24,16 @@ export function useVerusIdFormScroll(keyboardVisible) {
         const scroll = inputTop => {
           if (focusedField.current !== field) return;
           // Labels may scroll above the viewport. Keep the editable field
-          // itself visible together with its status/help/risk line.
+          // itself visible together with its status/help/risk line. The
+          // native input sits inside the 48-point outline, so keep 8 points
+          // above it; otherwise the outline's top edge scrolls out of view.
           scrollRef.current?.scrollTo({
             y: Math.max(0, Math.min(inputTop, y + height + 12 - viewportHeight.current)),
             animated: false,
           });
         };
         if (field.input?.measureLayout)
-          field.input.measureLayout(content, (_inputX, inputY) => scroll(inputY - 1), () => scroll(y));
+          field.input.measureLayout(content, (_inputX, inputY) => scroll(inputY - 8), () => scroll(y));
         else scroll(y);
       }, () => {});
     });
