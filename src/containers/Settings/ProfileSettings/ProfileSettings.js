@@ -504,7 +504,7 @@ class ProfileSettings extends Component {
     if (await this.canBackupCurrentProfileToNfc()) {
       this.openPasswordCheck(this.startNfcBackup, {
         title: 'Back up to NFC',
-        body: 'Enter the password that will lock this backup.',
+        body: 'The backup can use your wallet password as its lock.',
         submitLabel: 'Back up to NFC',
         allowBiometry: false,
       });
