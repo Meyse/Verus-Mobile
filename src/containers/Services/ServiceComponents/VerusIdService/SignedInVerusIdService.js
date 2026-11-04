@@ -947,11 +947,11 @@ const SignedInVerusIdService = ({controller}) => {
         visible={addVisible}
         onClose={() => setAddVisible(false)}
         actions={[
-          {key: 'register', label: 'Register VerusID', icon: 'account-plus-outline',
+          {key: 'register', label: 'New VerusID', icon: 'account-plus-outline',
             onPress: () => controller.props.navigation.navigate('IdentityRegistration', {
               screen: 'IdentityRegistrationCreate', params: {coinId: identityNetwork},
             })},
-          {key: 'link', label: 'Link identities', icon: 'link-variant', onPress: () => openLinkSheet()},
+          {key: 'link', label: 'Link VerusID', icon: 'link-variant', onPress: () => openLinkSheet()},
         ]}
       />
       {hasContent ? <BottomFade backgroundColor={theme.colors.background} solidHeight={bottomPadding} /> : null}

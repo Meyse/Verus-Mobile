@@ -73,7 +73,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
     {showHeader && <ProgressHeader showBack={false} showProgress={false} title={title} rightAction={rightAction} />}
     <KeyboardAvoidingForm style={styles.page} keyboardVerticalOffset={showHeader
       ? insets.top + PROGRESS_HEADER_METRICS.top + PROGRESS_HEADER_METRICS.action + PROGRESS_HEADER_METRICS.bottom : 0}>
-      <SheetScrollView style={styles.scroll} scrollViewProps={{
+      <SheetScrollView fill style={styles.scroll} scrollViewProps={{
         keyboardShouldPersistTaps: 'handled',
         refreshControl: onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={() => onRefresh(true)}
           tintColor={theme.colors.primary} colors={[theme.colors.primary]} /> : undefined,
