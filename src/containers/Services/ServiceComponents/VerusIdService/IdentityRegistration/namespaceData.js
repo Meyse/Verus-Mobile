@@ -87,8 +87,9 @@ export const loadRegistrationNamespaces = async (coin, signingAddress, nativeUsd
       }
     } catch (_) { item.reason = 'Namespace authorization could not be checked. Try again.'; }
   }
+  // The chain itself first, then A–Z. The sheet has no priced group heading.
   return namespaces.sort((a, b) => Number(b.id === coin.system_id) - Number(a.id === coin.system_id) ||
-    Number(!!b.usd) - Number(!!a.usd) || a.name.localeCompare(b.name));
+    a.name.localeCompare(b.name));
 };
 
 export const registrationDisplayPrices = async (coin, currencyIds) => {

@@ -1418,7 +1418,7 @@ and `identityRegistration.styles.js`. This applies to registration only.
   hold registers after one confirmation. Preserve all upstream recovery paths.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
   seven items, success fill/check for selection and no unselected chevron.
-  Hide unavailable namespaces and retain the data's root/priced/name order.
+  Hide unavailable namespaces and list the chain's own namespace first, then A–Z.
   Search can explain a permanently unavailable match. A partial check failure
   keeps one muted context line and Try again. Owner-approved V1 keeps the
   canonical rows and uses `quietValue`: bodySm/textSecondary for the price,
