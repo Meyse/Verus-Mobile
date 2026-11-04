@@ -398,6 +398,16 @@ For a signed-in password sheet, the title names the action. The body says only
 why the password is needed, or is left out. The primary button names the action.
 Show no wallet row when the user is already inside that wallet.
 
+For NFC backup, the wallet password must be typed in the current flow before
+it can encrypt a card (owner, 2026-11-04). Settings disables biometrics for
+this action only. Pass a session flag to the backup screen, never the password.
+Request unlocks can use biometrics, but Write to NFC card then asks for the
+typed password in `PasswordCheck`, with biometrics off. A password typed during
+new-wallet setup counts in that session. The result says that the card keeps
+this password if the wallet password changes later. NFC import labels its
+field Password, since either a wallet password or a separate backup password
+can open a card.
+
 `src/containers/Login/components/UnlockWalletSheet.js` unlocks a wallet on the
 login screen and for requests (`WalletUnlockCoordinator`).
 
@@ -1266,6 +1276,33 @@ only and does not permit cards on other pages.
   badges, or dots on a tile.
 - A new service adds one tile: an icon, a name, a count rule, and a purpose
   line. It needs no new artwork.
+
+## Claim a gift from an NFC card
+
+Owner-approved 2026-11-04: G1–G8, G6b and C1 in the gift NFC claim mockup.
+Without a wallet for the request's network, lead with the Gift `StepGlyph` and
+This card holds followed by the discovered amount. Use `SkeletonLoader` while
+reading. A protected key, failed scan or several assets uses This card holds
+a gift. The preview uses the existing root-chain discovery with no wallet.
+Reuse Personalize wallet, Create password, biometrics and `WalletSetup`.
+Keep the wallet name empty. Create on the request's network with the primary
+phrase also used for the shielded seed. Resume at Back up wallet.
+
+The backup step uses `ProgressHeader`, the wallet summary and plain
+`SettingsRow`s: 62-point minimum, `titleRow`, full-width dividers and no icons.
+Keep the Settings backup layout and icons. State the overwrite once: Writing
+the backup replaces the gift on this card. The gift stays on this phone until
+you claim it. A newly created wallet offers Use the Secret Recovery Phrase
+instead. Reuse the onboarding phrase pages and check, then skip the backup
+detail without writing the card. Backup written offers Continue to claim.
+
+With a matching wallet, C1 uses two canonical `SelectionRow`s, preselects Claim
+to existing wallet, and shows Continue and Cancel. Preserve success fill and
+check with no outline. Back up a wallet first goes directly to unlock or the
+backup options. Unsigned backup and claim screens use plain action titles;
+signed requests keep their requester card. Keep the saved-request overwrite
+guard and claim engine. A backup-only request without a wallet uses the same
+onboarding and setup, with copy about creating and backing up a wallet.
 
 ## Gift card detail
 
