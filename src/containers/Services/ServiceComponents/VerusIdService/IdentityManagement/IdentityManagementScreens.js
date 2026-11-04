@@ -599,7 +599,7 @@ export function IdentityUpdateResult({navigation}) {
     above={error && !(isVerusIdTransportError(error) && isVerusIdTransportError(result?.unlinkError))
       ? <Body>{verusIdErrorMessage(error)}</Body> : null}
     actions={[
-      ...(result?.unlinkError ? [{label: busy ? 'Retrying unlink…' : isVerusIdTransportError(error || result.unlinkError) ? 'Try again' : 'Retry unlink', disabled: busy, onPress: retryUnlink}] : []),
+      ...(result?.unlinkError ? [{label: busy ? 'Retrying unlink…' : 'Retry unlink', disabled: busy, onPress: retryUnlink}] : []),
       // An unlinked VerusID has no page left to return to, so Done goes to the VerusID list (upstream lands there too).
       {label: deliveryUnknown ? 'Close' : 'Done', disabled: busy, onPress: () => result?.unlinked
         ? navigation.getParent().popToTop() : navigation.getParent().goBack()},
