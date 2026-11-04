@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Button} from 'react-native-paper';
 import Colors from '../globals/colors';
 import {appButtonStyles as styles} from '../styles';
@@ -6,8 +7,8 @@ import {
   resolveAppTheme,
   useAppTheme,
 } from '../theme/app';
-import {APP_BUTTON_HEIGHT} from '../styles/components/appButton.styles';
-import {useButtonHeight} from '../hooks/useButtonHeight';
+import {APP_BUTTON_HEIGHT, APP_BUTTON_RADIUS} from '../styles/components/appButton.styles';
+import {getButtonHitSlop, useButtonHeight} from '../hooks/useButtonHeight';
 
 const TONAL_ON_DARK_COLOR = 'rgba(255, 255, 255, 0.16)';
 const DISABLED_BUTTON_COLOR = '#E4E8EF';
@@ -63,6 +64,9 @@ const AppButton = ({
   children,
   variant = 'primary',
   height = APP_BUTTON_HEIGHT,
+  // Compact Home notices keep their visible height, with a 48-point target.
+  preserveHeightOnSmallWindow = false,
+  hitSlop,
   mode = 'text',
   uppercase = false,
   disabled = false,
@@ -78,7 +82,7 @@ const AppButton = ({
 }) => {
   const [pressed, setPressed] = useState(false);
   const appTheme = useAppTheme();
-  const buttonHeight = useButtonHeight(variant, height);
+  const buttonHeight = useButtonHeight(variant, height, preserveHeightOnSmallWindow);
   const theme = themeMode
     ? resolveAppTheme(themeMode)
     : appTheme;
@@ -96,18 +100,22 @@ const AppButton = ({
     ? disabledVariantStyle.textColor
     : textColor || variantStyle.textColor;
 
-  return (
+  const handlePressIn = variant === 'destructive' ? event => {
+    setPressed(true);
+    onPressIn?.(event);
+  } : onPressIn;
+  const handlePressOut = variant === 'destructive' ? event => {
+    setPressed(false);
+    onPressOut?.(event);
+  } : onPressOut;
+
+  const button = (
     <Button
       {...props}
+      hitSlop={hitSlop}
       disabled={disabled}
-      onPressIn={variant === 'destructive' ? event => {
-        setPressed(true);
-        onPressIn?.(event);
-      } : onPressIn}
-      onPressOut={variant === 'destructive' ? event => {
-        setPressed(false);
-        onPressOut?.(event);
-      } : onPressOut}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       mode={mode}
       uppercase={uppercase}
       buttonColor={resolvedButtonColor}
@@ -131,10 +139,36 @@ const AppButton = ({
         {
           backgroundColor: resolvedButtonColor,
         },
-        style,
+        preserveHeightOnSmallWindow
+          ? {borderRadius: StyleSheet.flatten(style)?.borderRadius ?? APP_BUTTON_RADIUS}
+          : style,
       ]}>
       {children}
     </Button>
+  );
+
+  if (!preserveHeightOnSmallWindow) return button;
+
+  // Paper Button forwards hitSlop to its Surface, not its touchable. Give
+  // these small pills a real expanded target without changing their layout.
+  return (
+    <TouchableOpacity
+      accessibilityLabel={props.accessibilityLabel ?? (typeof children === 'string' ? children : undefined)}
+      accessibilityHint={props.accessibilityHint}
+      accessibilityRole="button"
+      accessibilityState={{disabled}}
+      activeOpacity={0.72}
+      disabled={disabled}
+      hitSlop={getButtonHitSlop(buttonHeight, hitSlop)}
+      onPress={props.onPress}
+      onLongPress={props.onLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={style}>
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {button}
+      </View>
+    </TouchableOpacity>
   );
 };
 

@@ -50,6 +50,7 @@ import {
   HOME_NOTICE_EMPTY,
   HOME_NOTICE_FOUND,
   HOME_NOTICE_OFFLINE,
+  HOME_NOTICE_SYNC,
   HOME_NOTICE_UNREACHABLE,
 } from './HomeWidgets/HomeNotice';
 import {
@@ -59,6 +60,11 @@ import {
 import { HomeRender, HomeRenderCoinsList, HomeRenderWidget } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import {getOpeningSubWallet} from '../../utils/subwallet/getOpeningSubWallet';
+import {
+  getPrivateSyncPercent,
+  isPrivateCard,
+  selectPrivateWalletInfo,
+} from '../../utils/subwallet/privateWallet';
 import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
@@ -115,6 +121,7 @@ const Home = () => {
   );
   const rates = useObjectSelector((state) => state.ledger.rates);
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
+  const privateWalletInfo = useObjectSelector(selectPrivateWalletInfo);
   const activeSubWallets = useObjectSelector((state) => state.coinMenus.activeSubWallets);
   const userSelectedSubWallets = useObjectSelector(state => state.coinMenus.userSelectedSubWallets || {});
   const cardStackPreferences = useObjectSelector(state =>
@@ -179,6 +186,9 @@ const Home = () => {
 
   // Locking the wallet clears the account while Home is still mounted.
   const accountHash = activeAccount?.accountHash ?? null;
+  const [syncNoticeDismissed, setSyncNoticeDismissed] = useState(false);
+  // This dismissal belongs to the open wallet, not its saved settings.
+  useEffect(() => setSyncNoticeDismissed(false), [accountHash]);
 
   const getWidgets = useCallback(async () => {
     if (accountHash == null) return;
@@ -594,8 +604,8 @@ const Home = () => {
 
   // One card under the balance: the connection first, because balances are
   // not known without it; then Verus currencies found on the wallet's
-  // addresses (never added by themselves); then an empty wallet. The private card shows its own sync state, and Wyre
-  // is a service, so neither counts for the connection.
+  // addresses (never added by themselves); then private sync and an empty wallet.
+  // Private sync and Wyre service errors do not count for the connection.
   const homeNotice = useMemo(() => {
     if (isConnected === false) return {kind: HOME_NOTICE_OFFLINE};
 
@@ -618,6 +628,18 @@ const Home = () => {
     // Found currencies wait for the user's review, also when Home has funds.
     if (foundAssets.length > 0) {
       return {kind: HOME_NOTICE_FOUND, count: foundAssets.length};
+    }
+    if (accountHash && !syncNoticeDismissed) {
+      // SET_INFO stores the Dlight result at info[dlight_private][coin.id].
+      // Include hidden active assets, but only this account's network and cards.
+      const syncing = activeCoinsForUser
+        .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount) &&
+          (allSubWallets[coin.id] || []).some(isPrivateCard))
+        .map(coin => getPrivateSyncPercent(privateWalletInfo[coin.id]))
+        .filter(percent => percent != null && percent < 99);
+      if (syncing.length > 0) {
+        return {kind: HOME_NOTICE_SYNC, percent: Math.floor(Math.min(...syncing))};
+      }
     }
     if (prelaunchAssets.size > 0) return null;
 
@@ -642,6 +664,7 @@ const Home = () => {
     return walletEmpty ? {kind: HOME_NOTICE_EMPTY} : null;
   }, [
     activeAccount,
+    accountHash,
     activeCoinsForUser,
     allSubWallets,
     assetManagement,
@@ -650,7 +673,9 @@ const Home = () => {
     isConnected,
     ledgerBalances,
     prelaunchAssets,
+    privateWalletInfo,
     signedInAssets,
+    syncNoticeDismissed,
   ]);
 
   // Update as soon as the connection returns, without a pull.
@@ -728,6 +753,7 @@ const Home = () => {
           (mainNavigation || navigation).navigate('ManageAssets');
         }}
         onDismissFoundAssets={reviewFoundAssets}
+        onDismissSyncNotice={() => setSyncNoticeDismissed(true)}
       />
     );
   }

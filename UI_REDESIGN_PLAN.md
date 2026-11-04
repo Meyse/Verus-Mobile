@@ -6,6 +6,12 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **HOME.NOTICE-A** on `claude/home-notice-a` from
+  `bc6602db`. Owner chose smaller look A on 2026-11-04. Home and VerusID
+  notices use the smaller sizes. Private sync has one session-only notice.
+  Static checks, the iOS bundle and native component fixtures pass. Full-wallet,
+  Android and screen-reader QA remain open. See the scoped checklist below.
+
 - Scoped follow-up: **ID-3.K2** on `claude/idreg-k2` from `e8f39d04`.
   Name-check errors and their retry action now use the field status row.
   Static and controlled component checks pass. Device QA stays with the orchestrator.
@@ -51,7 +57,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-04 (phase 2b management implementation and checks; meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; asset stack order: pins and last used, iOS device QA passed, Android open).
+- Last updated: 2026-11-04 (Home notice look A and Private sync; phase 2b management implementation and checks; meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; asset stack order: pins and last used, iOS device QA passed, Android open).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2248,6 +2254,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-04 | HOME.NOTICE-A | `claude/home-notice-a` from `bc6602db` | Approved smaller notice sizes and Private sync state. Design, changed-file safe-area, iOS bundle and 20 controlled selection cases pass. Native component fixtures cover light/dark on normal iPhone and SE. The notification Jest suite fails before and after edits at the same vector-icons native-module import. | Full-wallet dismissal/reopen, Android and VoiceOver/TalkBack remain open. Temporary fixtures and evidence are local. No merge or push. |
 | 2026-11-04 | ID-3.POLISH-2: I1, N1/V1, repeated copy, Unlink, Android Back and display fiat | `claude/idreg-polish-fixes` from `ccbb4ed4` | Shared prose topic; hidden namespace filtering/search; quiet V1 numeric prices; result-only network suppression; unpaid-delete body; primary Unlink; manifest Back opt-out; display-currency fiat from cached ledger pairs. Design, 12-file safe-area/Babel, XML, whitespace and 60 temporary controlled checks pass. Base: 24 pass / 36 fail. Engine, SDK, storage, RPC readers and Jest sources stay unchanged. | Orchestrator owns native light/dark normal/compact QA and Android PC build/Back tests. See `idreg-polish-2.local.md`. No device, Metro, build, push or merge. |
 | 2026-11-04 | ID-3.MANAGEMENT-UI phase 2b | `claude/idreg-ui-mgmt` from `63289e4b` | Approved management options, Transfer, Modify option B, results and Link option A. Shared controls and theme roles; unchanged engines; sign-out clears active/available cards. Design, 13-file safe-area/parser, 59 synthetic checks and both production bundles pass. Requested Jest run: 316 pass / 20 fail, 3 native-fixture load errors; see scoped evidence below. | Orchestrator native normal/compact light/dark QA, consent/hold, unknown broadcast, Transfer + unlink, and Link failure/retry. No device, push or merge. |
 | 2026-11-04 | ID-3.REG: phase 2a New VerusID | `claude/idreg-ui-reg` from `63289e4b` | V3 field, namespace prices/search, two holds, saved tab rows, app-sheet alerts and shared testnet DAI.vETH/Bridge.vETH route. Engine, backend and tests unchanged. Core suites: 268 pass; storage: 78 pass / 1 existing route failure. UI components/presentation pass; screen fixture has an incomplete native SVG mock. Design, safe-area, source behavior, price, parser and both production bundles pass. Source-derived renders only. | Orchestrator owns native light/dark normal/compact QA and real testnet flows. See `idreg-reg.local.md`. Phase 2b remains separate. No device, Metro server, push, PR or merge. |
@@ -2984,3 +2991,29 @@ taken-only invalid state, outline-driven divider, retry callbacks and both
 footer buttons. Token contrast is 5.022:1 light and 7.841:1 dark. This is
 controlled evidence, not native layout or screen-reader proof. No device,
 Metro, engine, SDK, storage or RPC changes. Details: idreg-k2.local.md.
+
+### HOME.NOTICE-A — Smaller notices and Private sync (2026-11-04)
+
+Branch: `claude/home-notice-a`, from `bc6602db`. The owner chose look A of the
+notice-size mockups. Reuse the existing cards, theme roles and AppButton.
+
+- [x] Apply 16-point corners, 12/14-point padding, 14/20 text, 18-point close
+  glyphs and 8-point card gaps. Keep existing copy and notification behavior.
+- [x] Keep notice buttons at 32 points on SE, with 48-point effective targets.
+  Keep the ordinary small-window action rule unchanged.
+- [x] Add Private sync after assets found and before empty. Use the lowest
+  known active private-card percent below 99. Dismiss it in memory only.
+- [x] Update DESIGN.md and run scoped design, safe-area and bundle checks.
+  Compare the requested Jest failure with the clean base.
+- [x] Inspect native component fixtures in light/dark on normal iPhone and SE.
+- [ ] Orchestrator: verify full-wallet dismissal/reopen, Android normal/small,
+  and VoiceOver/TalkBack progress behavior.
+
+Evidence: native fixtures use this worktree's components and an isolated Metro
+server. They do not unlock or use a wallet. Measured normal-card heights:
+offline 64, unreachable/found/empty 86, sync 92 points. SE keeps 32-point
+buttons; unreachable wraps to 106 points. Controlled selection checks cover
+priority, minimum percent, unknown/complete values, inactive coins, network,
+private-card presence and dismissal. The existing Jest suite fails on both
+base and candidate before running tests: vector-icons native-module import.
+Full-wallet, Android and screen-reader results remain separate from fixtures.
