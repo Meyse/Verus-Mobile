@@ -1366,7 +1366,8 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   multi-select `SelectionRow`s. Show only chosen sections, in Spend and sign,
   Revoke and recover, Private address order, then review. Restore loaded values
   when a section is deselected. Keep one fields state, one diff and one engine
-  preparation. Progress is `(index + 1) / (chosen sections + 2)`.
+  preparation. Progress is `(index + 1) / (max(chosen sections, 1) + 2)`, so the choose step
+  starts at one third (MB1).
 - Use `ProgressHeader` with the step title. Its existing right slot holds one
   44-point info action: Lucide `Info`, 23 points, stroke 2.2, `textSubtle`.
   The choose step has no info action. Transfer has no progress track. Long

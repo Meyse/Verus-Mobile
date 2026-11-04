@@ -255,7 +255,7 @@ function IdentityModifyForm({navigation, route}) {
     ['Private receiving address', 'The address published for private payments. Changing it does not move existing funds. Leave empty to remove the VerusID’s published private addresses.'],
   ] : undefined;
 
-  return <Page title={title} progress={(step + 1) / (selected.length + 2)} onBack={back} busy={busy}
+  return <Page title={title} progress={(step + 1) / (Math.max(selected.length, 1) + 2)} onBack={back} busy={busy}
     info={info} infoTitle={title} error={error} footer={<ActionButton busy={busy}
       disabled={!!model && !chosen.length && error?.code !== 'REVIEW_CHANGED'}
       onPress={error?.code === 'REVIEW_CHANGED' || !model ? load : continueStep}>
