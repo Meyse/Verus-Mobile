@@ -157,7 +157,7 @@ export const SelectionField = ({label, value, description, options, onSelect, di
   </>;
 };
 
-export const NameField = ({name, setName, namespace, onNamespace, busy, availability}) => {
+export const NameField = ({name, setName, namespace, onNamespace, busy, availability, previewError, onRetry}) => {
   const styles = useRegistrationStyles();
   const theme = useAppTheme();
   return <VerusIdFormField style={styles.section}>{focusProps => <>
@@ -174,10 +174,16 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
         </Pressable>
       </>} />
     <View style={[styles.row, {minHeight: 24}]} accessibilityLiveRegion="polite">
-      {['available', 'taken', 'saved'].includes(availability)
-        ? <AppStatusBadge tone={availability === 'taken' ? 'danger' : availability === 'saved' ? 'neutral' : 'success'} label={availability === 'taken' ? 'Taken' : availability === 'saved' ? 'Saved registration' : 'Available'} />
-        : <Text style={styles.muted}>{availability === 'checking' ? 'Checking name…' : 'Tap @ to choose a namespace.'}</Text>}
-      {availability === 'taken' && <Text style={styles.muted}>Try another name or namespace.</Text>}
+      {previewError ? <View style={styles.flexible}>
+        <Text style={styles.errorText}>{wrapVerusIdNames(isVerusIdTransportError(previewError)
+          ? 'Could not connect. Check your connection.' : verusIdErrorMessage(previewError))}</Text>
+        <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>
+      </View> : <>
+        {['available', 'taken', 'saved'].includes(availability)
+          ? <AppStatusBadge tone={availability === 'taken' ? 'danger' : availability === 'saved' ? 'neutral' : 'success'} label={availability === 'taken' ? 'Taken' : availability === 'saved' ? 'Saved registration' : 'Available'} />
+          : <Text style={styles.muted}>{availability === 'checking' ? 'Checking name…' : 'Tap @ to choose a namespace.'}</Text>}
+        {availability === 'taken' && <Text style={styles.muted}>Try another name or namespace.</Text>}
+      </>}
     </View>
   </>}</VerusIdFormField>;
 };

@@ -6,6 +6,10 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **ID-3.K2** on `claude/idreg-k2` from `e8f39d04`.
+  Name-check errors and their retry action now use the field status row.
+  Static and controlled component checks pass. Device QA stays with the orchestrator.
+
 - Scoped follow-up: **ID-3.POLISH-2** on `claude/idreg-polish-fixes` from
   `ccbb4ed4`. Eight owner-approved changes are implemented. Native/device QA
   and the Android PC build remain with the orchestrator.
@@ -2948,3 +2952,24 @@ scope. The shared data rows, on-chain readers and price-loading effect remain
 byte-identical. This is controlled evidence, not native rendering or a live
 catalogue/rate-cache inspection. No Jest tests were added or changed. No device,
 Metro, Android build, signing or broadcast ran.
+
+### ID-3.K2 — Name-check error placement (2026-11-04)
+
+Contract: operate mode. Use the approved K2 mockup and existing V3 NameField.
+Reuse AppTextInput, caption/dangerText, TextAction and the polite status row.
+Keep the outline/divider rule, action-error footer and both footer buttons.
+
+- [x] Show every previewError below the name field with one Try again action.
+  Use the shorter approved connection copy here only. Keep other error messages.
+- [x] Keep the existing previewAttempt retry path and transport-error clearing.
+- [x] Run design, changed-file safe-area, Babel, whitespace and controlled checks.
+  Read the connection, other-error, taken, available and checking copy.
+- [ ] Orchestrator device QA: iOS/Android, light/dark, normal/compact, keyboard
+  open/closed. Check field visibility, retry, status announcements and action errors.
+
+Evidence: 32 temporary React/source checks pass; 11 fail on base e8f39d04.
+They cover status content, one field retry, caption tokens, busy disabling,
+taken-only invalid state, outline-driven divider, retry callbacks and both
+footer buttons. Token contrast is 5.022:1 light and 7.841:1 dark. This is
+controlled evidence, not native layout or screen-reader proof. No device,
+Metro, engine, SDK, storage or RPC changes. Details: idreg-k2.local.md.

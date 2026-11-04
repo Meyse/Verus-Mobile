@@ -484,7 +484,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
   ).map(field => preview.identityNames?.[preview.request[field]] || request[field]))];
   const networkName = coin => `${coin.display_ticker}${coin.testnet ? ' · Testnet' : ''}`;
 
-  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error || previewError}
+  return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error}
     onRetry={() => {setError(null); setPreviewAttempt(value => value + 1);}}
     info={<>{registrationInfo('commitment')}<RegistrationPreviewDetails preview={preview} /></>}
     footer={<>
@@ -492,8 +492,11 @@ export function IdentityRegistrationCreate({navigation, route}) {
       <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>
     </>}>
     <NameField name={name} setName={value => { if (!running.current) setName(value); }} namespace={namespace}
-      availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} />
-    {!!previewError && !isVerusIdTransportError(previewError) && <TextAction disabled={busy} onPress={() => setPreviewAttempt(value => value + 1)}>Try again</TextAction>}
+      availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} previewError={previewError}
+      onRetry={() => {
+        if (isVerusIdTransportError(previewError)) setError(null);
+        setPreviewAttempt(value => value + 1);
+      }} />
     {!!quoteData && (preview?.savedReview && preview.status !== 'commitment_prepared'
       ? <View style={styles.section}><StatusBadge status={preview.status} /><RegistrationText muted>Continue where you left off.</RegistrationText></View>
       : <CostReview {...quoteData} prices={prices} stage="commitment" />)}
