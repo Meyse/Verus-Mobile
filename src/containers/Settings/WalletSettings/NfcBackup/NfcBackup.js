@@ -12,6 +12,7 @@ const NfcBackup = props => {
       cancel={() => props.navigation.goBack()}
       next={finishBackup}
       profileBackup
+      walletPasswordTypedScope={props.route?.params?.walletPasswordTypedScope}
     />
   );
 };

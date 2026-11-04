@@ -267,9 +267,9 @@ export default function ImportNfc({
                   helperText={
                     decrypting
                       ? 'Decrypting your wallet backup. This can take a few minutes.'
-                      : null
+                      : 'The wallet password or backup password used when the card was written.'
                   }
-                  label="Backup password"
+                  label="Password"
                   onChangeText={setBackupPassword}
                   onRightPress={() => setShowPassword(!showPassword)}
                   onSubmitEditing={

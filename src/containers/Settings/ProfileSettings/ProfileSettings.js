@@ -41,6 +41,8 @@ import SelectionSheet, { SelectionRow } from "../../../components/SelectionSheet
 import useSheetDismissal from "../../../components/useSheetDismissal";
 import { removeBiometricPassword, storeBiometricPassword } from "../../../utils/keychain/biometrics";
 import { requestSeeds } from "../../../utils/auth/authBox";
+import {captureSessionScope, sessionScopeIsCurrent} from '../../../actions/actions/updates/sessionRequests';
+import store from '../../../store';
 import { isSeedPhrase } from "../../../utils/keys";
 import {
   SettingsNotice,
@@ -102,6 +104,7 @@ class ProfileSettings extends Component {
       passwordDialogTitle: "",
       passwordDialogBody: null,
       passwordDialogSubmitLabel: 'Continue',
+      passwordDialogAllowBiometry: true,
       passwordError: null,
       seedWarningError: null,
       supportedBiometryType: null,
@@ -467,6 +470,7 @@ class ProfileSettings extends Component {
 
     const { activeAccount } = this.props;
     const { id } = activeAccount;
+    const passwordScope = captureSessionScope(store.getState(), activeAccount.accountHash);
 
     this.closePasswordDialog(async () => {
       this.setState({ checkingNfcBackupSeed: true });
@@ -482,7 +486,8 @@ class ProfileSettings extends Component {
         }
 
         this.setState({nfcBackupEligible: true});
-        this.props.navigation.navigate("NfcBackup");
+        if (!sessionScopeIsCurrent(store.getState(), passwordScope)) return;
+        this.props.navigation.navigate("NfcBackup", {walletPasswordTypedScope: passwordScope});
       } catch (e) {
         console.warn(e);
         createAlert(
@@ -497,16 +502,22 @@ class ProfileSettings extends Component {
 
   openNfcBackup = async () => {
     if (await this.canBackupCurrentProfileToNfc()) {
-      this.openPasswordCheck(this.startNfcBackup, {title: 'Back up to NFC'});
+      this.openPasswordCheck(this.startNfcBackup, {
+        title: 'Back up to NFC',
+        body: 'Enter the password that will lock this backup.',
+        submitLabel: 'Back up to NFC',
+        allowBiometry: false,
+      });
     }
   }
 
-  openPasswordCheck = (onPasswordCorrect, {title, body = null, submitLabel = 'Continue'}) =>
+  openPasswordCheck = (onPasswordCorrect, {title, body = null, submitLabel = 'Continue', allowBiometry = true}) =>
     this.setState({
       passwordDialogOpen: true,
       passwordDialogTitle: title,
       passwordDialogBody: body,
       passwordDialogSubmitLabel: submitLabel,
+      passwordDialogAllowBiometry: allowBiometry,
       passwordError: null,
       onPasswordCorrect,
     });
@@ -704,13 +715,14 @@ class ProfileSettings extends Component {
           onInputChange={this.clearPasswordError}
           redesigned
           showWalletSummary={false}
+          suppressSystemAlerts={!this.state.passwordDialogAllowBiometry}
           submit={(result) => this.state.onPasswordCorrect(result)}
           submitLabel={this.state.passwordDialogSubmitLabel}
           visible={this.state.passwordDialogOpen}
           title={this.state.passwordDialogTitle}
           userName={this.props.activeAccount.id}
           account={this.props.activeAccount}
-          allowBiometry={true}
+          allowBiometry={this.state.passwordDialogAllowBiometry}
         />
         <SettingsSection title="Wallet actions">
           <SettingsRow
