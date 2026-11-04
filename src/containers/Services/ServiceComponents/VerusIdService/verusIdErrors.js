@@ -6,6 +6,9 @@ import {verusIdCopy} from '../../../../utils/verusid/verusIdCopy';
 const TRANSPORT_CODES = ['ECONNABORTED', 'ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'ERR_NETWORK', 'ERR_BAD_RESPONSE', 'ERR_BAD_REQUEST'];
 export const isVerusIdTransportError = error => {
   if (error?.transport === true) return true;
+  // The SDK wraps every RPC failure as RPC_ERROR and keeps the client error in
+  // details, such as {code: -32603, message: 'Network Error'}. Judge that one.
+  if (error?.code === 'RPC_ERROR' && error.details) return isVerusIdTransportError(error.details);
   if (typeof error?.code === 'string' && !TRANSPORT_CODES.includes(error.code)) return false;
   const message = String(error?.message || error || '');
   return TRANSPORT_CODES.includes(error?.code) || isConnectionErrorMessage(message) ||

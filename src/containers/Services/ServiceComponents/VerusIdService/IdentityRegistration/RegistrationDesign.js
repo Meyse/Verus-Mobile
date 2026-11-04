@@ -95,7 +95,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
         includeBottomInset={!keyboard} style={[styles.footer, height <= 667 && {paddingTop: 8}]}
         >
         {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
-          <Text style={styles.errorText}>{verusIdErrorMessage(error)}</Text>
+          <Text style={styles.errorText}>{wrapVerusIdNames(verusIdErrorMessage(error))}</Text>
           {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
         </View>}
         {footer}
