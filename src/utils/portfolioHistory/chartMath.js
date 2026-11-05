@@ -206,12 +206,12 @@ export const domain = (values) => {
   return [min, max];
 };
 
-export const geometry = (series, width, height, axisStart) => {
+export const geometry = (series, width, height, axisStart, top = 28, bottom = 32) => {
   const [min, max] = domain(series.map((p) => p.v));
   const now = series[series.length - 1].t;
   const points = series.map((p) => [
     ((p.t - axisStart) / (now - axisStart || 1)) * width,
-    28 + ((1 - ((p.v - min) / (max - min || 1))) * (height - 28 - 32)),
+    top + ((1 - ((p.v - min) / (max - min || 1))) * (height - top - bottom)),
   ]);
   const segs = segments(points);
   const last = points.length - 1;

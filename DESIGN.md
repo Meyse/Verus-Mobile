@@ -1444,6 +1444,18 @@ and `identityRegistration.styles.js`. This applies to registration only.
   Saved/pending jobs use the VerusID tab's filled-row rhythm and Continue pill.
   Results reuse `TransactionResult` and the existing `VerusIdCard`.
 
+## Home value chart
+
+Home starts with a closed 48-point value strip (44 on compact windows). Its
+44-point range label and down chevron open the chart. A strip tap also opens it;
+a horizontal scrub does not. Open keeps the 124-point chart (108 compact) and
+range row, with an up-chevron toggle at its end. The phone remembers open or
+closed across accounts and restarts, without an opening animation on load.
+Height changes take 240 ms with the V2 ease-out curve. Redraw the line without
+scaling it; Reduce Motion is instant. During a closed-strip scrub, the date
+replaces the hero pill and the eye and plus fade out. Keep the existing chart
+tokens, loading skeletons, hidden balances, and day-one behavior.
+
 ## Home notification card
 
 The owner chose card A on 2026-10-22 (gap 5 mockups). On 2026-11-04, the owner

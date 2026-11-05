@@ -17,7 +17,8 @@ import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {homeValueChartStyles as chartStyles} from '../../styles';
-import {change, percentNumber, pillText, spanText} from '../../utils/portfolioHistory/chartMath';
+import {change, label, percentNumber, pillText, spanText} from '../../utils/portfolioHistory/chartMath';
+import useHomeChartPreference from '../../utils/portfolioHistory/useHomeChartPreference';
 import HomeValueChart, {homeValueChartHistoryPropType} from './components/HomeValueChart';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
@@ -120,6 +121,7 @@ const PortfolioBalance = React.forwardRef(({
   showBalance,
   theme,
   history,
+  chartExpanded,
   onSelectCurrency,
 }, ref) => {
   const [scrub, setScrub] = useState(null);
@@ -132,9 +134,11 @@ const PortfolioBalance = React.forwardRef(({
   const restValue = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
   const compactHeader = history?.state !== 'none';
   const chart = history?.state === 'chart';
+  const stripScrub = scrub != null && !chartExpanded;
   const percent = history?.series ? change(history.series.points) : null;
   const hasPill = chart && (history.loading || percent != null);
-  const wrapped = hasPill && availableWidth > 0
+  const hasAccessory = hasPill || stripScrub;
+  const wrapped = hasAccessory && availableWidth > 0
     && amountWidth + symbolWidth + 4 + pillWidth + 8 > availableWidth;
   const span = chart ? spanText(history.range, history.series.partial, history.record.start, history.now) : '';
 
@@ -146,7 +150,7 @@ const PortfolioBalance = React.forwardRef(({
         accessibilityRole="button"
         accessibilityLabel="Change display currency"
         onPress={onSelectCurrency}
-        style={[styles.balanceTouchable, hasPill && chartStyles.amountWithPill,
+        style={[styles.balanceTouchable, hasAccessory && chartStyles.amountWithPill,
           wrapped && chartStyles.amountFullRow]}>
         <View style={chartStyles.amountGroup}>
           <PrivacyBlurredText
@@ -173,14 +177,21 @@ const PortfolioBalance = React.forwardRef(({
           </PrivacyBlurredText>
         </View>
       </Pressable>
-      {hasPill && (
+      {hasAccessory && (
         <View
           onLayout={(event) => setPillWidth(event.nativeEvent.layout.width)}
-          accessibilityElementsHidden={scrub != null}
-          importantForAccessibility={scrub != null ? 'no-hide-descendants' : 'auto'}
-          style={[chartStyles.pillSlot, wrapped && chartStyles.pillBelow, scrub != null && chartStyles.hidden]}
+          accessibilityElementsHidden={scrub != null && !stripScrub}
+          importantForAccessibility={scrub != null && !stripScrub ? 'no-hide-descendants' : 'auto'}
+          style={[chartStyles.pillSlot, wrapped && chartStyles.pillBelow,
+            scrub != null && !stripScrub && chartStyles.hidden]}
         >
-          {history.loading ? (
+          {stripScrub && (
+            <Text style={[theme.typography.labelSm, chartStyles.tabular, chartStyles.scrubDate,
+              { color: theme.colors.textSecondary }]}>
+              {label(scrub, history.now)}
+            </Text>
+          )}
+          {!stripScrub && (history.loading ? (
             <SkeletonLoader accessibilityLabel="Loading value change">
               <SkeletonBlock width={64} height={24} radius={12} />
             </SkeletonLoader>
@@ -192,10 +203,10 @@ const PortfolioBalance = React.forwardRef(({
               style={chartStyles.pill}
               labelStyle={[theme.typography.labelSm, chartStyles.tabular]}
             />
-          )}
+          ))}
         </View>
       )}
-      {hasPill && (
+      {hasAccessory && (
         <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <Text
             numberOfLines={1}
@@ -219,10 +230,11 @@ const PortfolioBalance = React.forwardRef(({
 
 PortfolioBalance.propTypes = {
   theme: PropTypes.shape({
-    colors: PropTypes.shape({textPrimary: PropTypes.string}),
+    colors: PropTypes.shape({textPrimary: PropTypes.string, textSecondary: PropTypes.string}),
     typography: PropTypes.shape({labelSm: PropTypes.shape({})}),
   }).isRequired,
   history: homeValueChartHistoryPropType.isRequired,
+  chartExpanded: PropTypes.bool.isRequired,
   onSelectCurrency: PropTypes.func.isRequired,
 };
 
@@ -253,6 +265,8 @@ const SignedInWalletHome = ({
 }) => {
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const { expanded: chartExpanded, hydrated: preferenceHydrated, setExpanded } = useHomeChartPreference();
+  const hydrated = history.hydrated && preferenceHydrated;
   const [showHeaderDivider, setShowHeaderDivider] = useState(false);
   const dividerRef = useRef(false);
   const panRef = useRef(null);
@@ -270,6 +284,8 @@ const SignedInWalletHome = ({
     }
   }, []);
   const balanceRevealProgress = useBalanceRevealProgress(showBalance);
+  const stripScrubbing = scrubbing && !chartExpanded;
+  const actionsOpacity = useBalanceRevealProgress(!stripScrubbing);
 
   const handleScroll = event => {
     const next = (event?.nativeEvent?.contentOffset?.y || 0) > HEADER_DIVIDER_THRESHOLD;
@@ -408,10 +424,10 @@ const SignedInWalletHome = ({
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      pointerEvents={history.hydrated ? 'auto' : 'none'}
-      style={[styles.screen, {backgroundColor: theme.colors.background}, !history.hydrated && chartStyles.hidden]}
-      accessibilityElementsHidden={!history.hydrated}
-      importantForAccessibility={history.hydrated ? 'auto' : 'no-hide-descendants'}
+      pointerEvents={hydrated ? 'auto' : 'none'}
+      style={[styles.screen, {backgroundColor: theme.colors.background}, !hydrated && chartStyles.hidden]}
+      accessibilityElementsHidden={!hydrated}
+      importantForAccessibility={hydrated ? 'auto' : 'no-hide-descendants'}
     >
       <View
         style={[
@@ -429,10 +445,16 @@ const SignedInWalletHome = ({
               showBalance={showBalance}
               theme={theme}
               history={history}
+              chartExpanded={chartExpanded}
               onSelectCurrency={() => setCurrencyOpen(true)}
             />
           </View>
-          <View style={styles.balanceActions}>
+          <Animated.View
+            pointerEvents={stripScrubbing ? 'none' : 'auto'}
+            accessibilityElementsHidden={stripScrubbing}
+            importantForAccessibility={stripScrubbing ? 'no-hide-descendants' : 'auto'}
+            style={[styles.balanceActions, { opacity: actionsOpacity }]}
+          >
             <TouchableOpacity
               activeOpacity={0.75}
               accessibilityRole="button"
@@ -452,10 +474,11 @@ const SignedInWalletHome = ({
               accessibilityLabel="Manage assets"
               hitSlop={ICON_HIT_SLOP}
               onPress={onManageAssets}
-              style={styles.iconButton}>
+              style={styles.iconButton}
+            >
               <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSubtle} />
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
         <View
           onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
@@ -485,6 +508,9 @@ const SignedInWalletHome = ({
             showBalance={showBalance}
             formatValue={(value) => formatFiat(value, displayCurrency)}
             onScrub={onScrub}
+            expanded={chartExpanded}
+            preferenceHydrated={preferenceHydrated}
+            onToggle={() => setExpanded(!chartExpanded)}
           />
         )}
         ListEmptyComponent={
