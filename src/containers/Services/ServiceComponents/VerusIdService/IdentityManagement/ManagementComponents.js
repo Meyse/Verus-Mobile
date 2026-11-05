@@ -55,6 +55,14 @@ export function useManagementKeyboard() {
   return keyboardOpen;
 }
 
+export function ManagementError({error, busy, onRetry}) {
+  if (!error) return null;
+  return <View accessibilityRole="alert" accessibilityLiveRegion="assertive">
+    <ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
+    {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
+  </View>;
+}
+
 export function ManagementPage({children, title, progress, onBack, busy, error, footer, info, infoTitle, infoHeight, onRetry}) {
   const theme = useOnboardingTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
@@ -79,9 +87,7 @@ export function ManagementPage({children, title, progress, onBack, busy, error, 
       <View onLayout={formScroll.onFooterLayout} style={{flexShrink: 0}}>
       <SafeBottomActionStack horizontalSpacing={20} bottomSpacing={keyboardOpen ? 12 : smallDevice ? 30 : 48}
         includeBottomInset={!keyboardOpen} gap={8} style={[styles.footer, smallDevice && styles.footerCompact]}>
-        {!!error && <View accessibilityRole="alert" accessibilityLiveRegion="assertive"><ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
-          {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
-        </View>}
+        <ManagementError error={error} busy={busy} onRetry={onRetry} />
         {footer}
       </SafeBottomActionStack>
       </View>

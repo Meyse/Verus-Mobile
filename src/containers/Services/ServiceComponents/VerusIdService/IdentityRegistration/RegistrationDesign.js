@@ -165,7 +165,7 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
     <Text style={styles.muted}>You cannot change it later.</Text>
     <AppTextInput accessibilityLabel={verusIdCopy('Identity name')} placeholder="Type a name" value={name} onChangeText={setName}
       {...focusProps}
-      editable={!busy} returnKeyType="done" invalid={availability === 'taken'} endAccessory={({borderColor, borderWidth}) => <>
+      editable={!busy} returnKeyType="done" invalid={availability === 'taken' || !!previewError} endAccessory={({borderColor, borderWidth}) => <>
         <View style={[styles.namespaceDivider, {width: borderWidth, backgroundColor: borderColor}]} />
         <Pressable accessibilityRole="button" accessibilityLabel={`Choose a namespace: ${namespace?.name || 'Verus'}`} disabled={busy}
           onPress={onNamespace} style={styles.namespace}>
@@ -175,9 +175,8 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
       </>} />
     <View style={[styles.row, {minHeight: 24}]} accessibilityLiveRegion="polite">
       {previewError ? <View style={styles.flexible}>
-        <Text style={styles.errorText}>{wrapVerusIdNames(isVerusIdTransportError(previewError)
-          ? 'Could not connect. Check your connection.' : verusIdErrorMessage(previewError))}</Text>
-        <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>
+        <Text style={styles.errorText}>{previewError.message}</Text>
+        {previewError.retryable && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
       </View> : <>
         {['available', 'taken', 'saved'].includes(availability)
           ? <AppStatusBadge tone={availability === 'taken' ? 'danger' : availability === 'saved' ? 'neutral' : 'success'} label={availability === 'taken' ? 'Taken' : availability === 'saved' ? 'Saved registration' : 'Available'} />

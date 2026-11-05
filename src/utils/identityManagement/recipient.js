@@ -10,6 +10,16 @@ const isRecipient = recipient => {
   return recipient.length <= 256 && /^[^@:/?#\u0000-\u001f\u007f]+@$/u.test(recipient);
 };
 
+export const validateTransferRecipient = value => {
+  const recipient = typeof value === 'string' ? value.trim() : '';
+  let address = false;
+  try { address = [R_ADDR_VERSION, I_ADDR_VERSION].includes(fromBase58Check(recipient).version); }
+  catch (_) {}
+  if (!address && !/^[^@]+@$/.test(recipient))
+    throw Object.assign(new Error('Enter an R-address, an i-address, or a VerusID ending in @.'), {code: 'INVALID_RECIPIENT'});
+  return recipient;
+};
+
 // Read receiving QR codes without invoking VerusPay's payment/deeplink actions.
 // A scan fills a form; it never looks up, approves, signs, or sends an update.
 export const recipientFromQr = (raw, systemId) => {

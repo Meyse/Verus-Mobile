@@ -25,6 +25,7 @@ import {
 import {getManyUtxoFundRawTransactionError} from './fundRawTransactionError';
 import VrpcRequestBatcher from './vrpcRequestBatcher';
 import {planVrpcRequests, vrpcErrorResponse} from './vrpcRequestMany';
+import {compatibleGetBlockRequest} from './getBlockRequest';
 
 export const VRPC_REQUEST_TIMEOUT_MS = 30000;
 const VRPC_CLIENT_CONFIG = {timeout: VRPC_REQUEST_TIMEOUT_MS};
@@ -159,6 +160,7 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
    * reuse; fresh verification reads also bypass previously started requests.
    */
   async requestMany(requests, {cacheMethods = CACHED_VRPC_REQUESTS} = {}) {
+    requests = requests.map(compatibleGetBlockRequest);
     const owned = [];
     const results = requests.map(req => {
       if (!this.requestBatcher.supportsExplicit(req.cmd)) {
@@ -217,6 +219,7 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
   /** Keep the single-request API and its throwing behavior for transport errors. */
   async request(req, {skipCache = false} = {}) {
     if (Array.isArray(req)) return this.requestMany(req, skipCache ? {cacheMethods: []} : undefined);
+    req = compatibleGetBlockRequest(req);
 
     const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
     const generation = this.trackAddressRequest(req, cacheId);
@@ -508,6 +511,7 @@ class VrpcInterface {
     // verification fresh. The SDK supplies independent reads as explicit groups;
     // the shared transport handles batch limits and unsupported-server fallback.
     verusIdInterface.interface.getCurrency = cachedInterface.getCurrency.bind(cachedInterface);
+    verusIdInterface.interface.getBlock = cachedInterface.getBlock.bind(cachedInterface);
     verusIdInterface.interface.requestMany = requests =>
       cachedInterface.requestMany(requests, {cacheMethods: ['getcurrency']});
 

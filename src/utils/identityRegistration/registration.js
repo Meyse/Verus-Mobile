@@ -39,6 +39,7 @@ import {validateLookupBinding} from '../api/channels/verusid/requests/lookupBind
 import {identityOutputAmounts} from '../identityManagement/identityFunds';
 import {validatePrivateAddress} from '../identityManagement/identityDefinition';
 import {convertFqnToDisplayFormat} from '../fullyqualifiedname';
+import {withRegistrationChainContextRetry} from './chainContext';
 
 const inFlight = new Map();
 const verifiedReceipts = new Map();
@@ -444,7 +445,8 @@ export const resolveRegistration = async (request, requestContext) => {
   const context = createRegistrationContext(requestContext);
   request = await normalizeRegistrationRequest(request, context);
   const client = VrpcProvider.getVerusIdInterface(request.systemId);
-  const result = await guarded(context, () => client.resolveIdentityRegistration(sdkRequest(request)));
+  const result = await withRegistrationChainContextRetry(() =>
+    guarded(context, () => client.resolveIdentityRegistration(sdkRequest(request))));
   validateRegistrationQuote(result.quote);
   const signingAddress = request.signingAddress;
   assertPolicyCanBeSigned(result.policy, signingAddress);
@@ -523,14 +525,14 @@ const buildCommitment = async (request, saltHex, approvedCosts, context, replace
 
   let built;
   try {
-    built = await guarded(context, () => client.createNameReservationTransaction({
+    built = await withRegistrationChainContextRetry(() => guarded(context, () => client.createNameReservationTransaction({
       ...sdkRequest(request),
       controller: request.signingAddress,
       salt: Buffer.from(saltHex, 'hex'),
       funding,
       changeAddress: request.fundingAddress,
       approvedCosts: copy(approvedCosts),
-    }));
+    })));
   } catch (error) {
     if (error.code === 'INSUFFICIENT_FUNDS') {
       throw errorWithCode('INSUFFICIENT_FUNDS',
@@ -643,7 +645,7 @@ export const getRegistrationReview = async (jobId, requestContext) => {
 const buildRegistration = async (job, identity, approvedCosts, context) => {
   const funding = await guarded(context, () => getIdentityRegistrationFunding(job.systemId, job.fundingAddress));
   const client = VrpcProvider.getVerusIdInterface(job.systemId);
-  const prepared = await withCalculatedFee(costs => guarded(context, () => client.createIdentityRegistrationTransaction({
+  const prepared = await withCalculatedFee(costs => withRegistrationChainContextRetry(() => guarded(context, () => client.createIdentityRegistrationTransaction({
     reservation: copy(job.reservation),
     commitment: {
       txid: job.commitment.txid,
@@ -662,7 +664,7 @@ const buildRegistration = async (job, identity, approvedCosts, context) => {
     changeAddress: job.fundingAddress,
     commitmentFee: job.commitment.prepared.quote.commitmentFee,
     approvedCosts: copy(costs),
-  })), approvedCosts);
+  }))), approvedCosts);
   validateRegistrationQuote(prepared.quote);
   assertPreparedCanBeSigned(prepared, job.signingAddress);
   verifyRegistrationFundingSource(prepared, job);
@@ -959,7 +961,7 @@ const transactionEvidence = async (job, stage, context) => {
   if (!Number.isSafeInteger(result.confirmations) || result.confirmations < 1 || !result.blockhash) {
     return {found: true, confirmed: false};
   }
-  const block = registrationRpcResult(await guarded(context, () => rpc.getBlock(result.blockhash, 1)), 'Check registration block');
+  const block = registrationRpcResult(await guarded(context, () => rpc.getBlock(result.blockhash, true)), 'Check registration block');
   if (
     block.hash !== result.blockhash ||
     !Number.isSafeInteger(block.height) ||
@@ -969,7 +971,7 @@ const transactionEvidence = async (job, stage, context) => {
   ) {
     return {found: true, confirmed: false};
   }
-  const activeBlock = registrationRpcResult(await guarded(context, () => rpc.getBlock(String(block.height), 1)), 'Check active registration block');
+  const activeBlock = registrationRpcResult(await guarded(context, () => rpc.getBlock(String(block.height), true)), 'Check active registration block');
   const includesTransaction = Array.isArray(block.tx) && block.tx.some(tx =>
     (typeof tx === 'string' ? tx : tx?.txid) === transaction.txid
   );
@@ -1009,7 +1011,7 @@ const checkedTip = (info, response) => {
 const currentTip = async (job, context) => {
   const rpc = VrpcProvider.getVerusIdInterface(job.systemId).interface;
   const info = await currentChainInfo(job, context);
-  return checkedTip(info, await guarded(context, () => rpc.getBlock(String(info.blocks), 1)));
+  return checkedTip(info, await guarded(context, () => rpc.getBlock(String(info.blocks), true)));
 };
 
 const reconcileJob = async (job, context) => {
@@ -1234,7 +1236,7 @@ const broadcastSaved = async (job, stage, context) => {
   // Send them together and bind every unspent result to that verified tip.
   const prevouts = transaction.prepared.prevouts;
   const [blockResponse, ...responses] = await guarded(context, () => client.interface.requestMany([
-    new GetBlockRequest(job.systemId, String(info.blocks), 1),
+    new GetBlockRequest(job.systemId, String(info.blocks), true),
     ...prevouts.map(prevout => new GetTxOutRequest(job.systemId, prevout.txid, prevout.vout, true)),
   ]));
   const tip = checkedTip(info, blockResponse);

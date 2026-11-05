@@ -3060,3 +3060,81 @@ checks keep the setting through account actions. Component checks use the
 actual blur, transfer-node and information-row components with native host
 stubs and theme tokens. They establish props and accessibility labels, not
 native blur quality, layout, speech or scrolling. No device or Metro ran.
+
+### ID-3.NIGHT3-A — Registration and Transfer bugs (2026-11-05)
+
+Contract: operate mode. Keep the V3 name field and TS transfer form, shared
+outline inputs, semantic error text, existing amber warning and safe footer.
+Use a name-only Inter derivative without contextual alternates. Keep glyphs,
+metrics and ordinary text unchanged. Device QA is outside this implementation.
+
+- [x] Use boolean getblock verbosity and string heights, including SDK reads.
+- [x] Validate typed names locally. Use plain errors, retry only failed checks,
+  and mark every name error with the danger outline.
+- [x] Add name fonts and shared name rendering for registration, management,
+  Link rows, manual Link, selection rows and information sheets.
+- [x] Debounce read-only owner checks. Disable blocked Transfer review, discard
+  stale results, and put errors below the warning in scroll content.
+- [x] Pass design, safe-area, parser, focused lint, controlled form/engine,
+  font-shaping and iOS/Android release-bundle checks. Standard ESLint cannot
+  load its existing import plugin (ERR_PACKAGE_PATH_NOT_EXPORTED).
+- [ ] Native rebuild and normal/compact iOS/Android light/dark QA: font loading,
+  name glyphs, field errors/retry, transfer warning/error layout, keyboard,
+  correction, Back/reload, and real request/registration/transfer flows.
+
+Evidence: 59 temporary controlled checks, 9 public transfer-engine checks with
+real identity primitives and simulated RPC, and 60 font checks pass. The base
+fails the name-error outline regression check. Live api.verustest.net rejects
+numeric verbosity with -32601 and returns the required fields for true.
+Both release bundles pass after the repository's existing postinstall patches.
+No Jest tests, devices, signing, broadcasts or mainnet wallet actions ran.
+
+### ID-3.NIGHT3-A — Batch A round 2 (2026-11-05)
+
+Contract: operate mode. Keep the V3 field and TS transfer form. Use
+AppAddressInput errorText for recipient input errors and helperText for identity
+blocks. Keep both inside VerusIdFormField for measured keyboard reveal. Preserve
+the amber warning, action-error position, safe footer and review gates.
+
+This supersedes round 1's name-only font solution and owner-check position.
+
+- [x] Patch all 18 bundled Inter variants in both platform asset folders.
+  Remove only the two adjacent-digit x substitution rules. Preserve every
+  other calt rule, font name, outline, metric and feature.
+- [x] Remove the VerusName assets, native registrations and component opt-ins.
+- [x] Put owner-check results under New owner. Use a red outline only for bad
+  recipient format or a missing recipient VerusID. Keep action errors below
+  the warning and dismiss the keyboard when Review transfer is pressed.
+- [x] Retry only unsigned registration SDK reads/builds for
+  INVALID_CHAIN_CONTEXT and STALE_CHAIN_CONTEXT, at most twice, after 1.5 s.
+  Map both codes to plain words at the shared UI boundary. Never retry a
+  signing, broadcast or saved-transaction resend step through this helper.
+- [x] Pass design, safe-area, Babel, focused ESLint, plist, both release
+  bundles, controlled behavior checks and the full font shaping comparison.
+- [x] Rebuild both native apps. Verify names and addresses app-wide, plus
+  normal/compact light/dark Transfer keyboard and registration retry states.
+- [ ] Follow-up (Batch B): with the keyboard open, the Transfer amber warning
+  scrolls behind the safe footer on Android (reachable by scrolling).
+
+Evidence: 20,520 HarfBuzz comparisons cover 228 strings, five feature settings
+and every Inter variant. Only digit-x-digit samples differ. All other font
+table bytes match, except GSUB and the required checksum. Every remaining GSUB
+rule matches. Fifty controlled component/helper checks, ten public transfer
+engine checks and 29 retry/boundary checks pass. The default V1 testnet server
+returns -5 for the missing test VerusID. Repository ESLint remains blocked by
+its existing import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED error.
+
+The owner supplied successful round-1 native iOS QA, including a real VRSCTEST
+registration. It is baseline evidence only. Round-2 native rendering, keyboard,
+screen-reader and end-to-end behavior remain unverified. The font sample is
+rendered with HarfBuzz; it does not prove native font loading. No Jest tests or
+dependency changes. The full report stays in verusid-batch-a-round2.local.md.
+
+Device QA 2026-11-05 (native Debug builds of 2b2753c6, Sonnet testers): iOS 17
+Pro and SE light/dark pass. Plain x in names everywhere; a second real root
+registration (qa7x71658.VRSCTEST@) on the default V1 server passed with no raw
+tip errors seen. Owner errors stay under the field above the keyboard. Android
+normal and 360x640 pass on V1: Available, all name errors, plain x, Transfer
+format/not-found errors (red) and the outside-recovery block (neutral, Review
+off). Open: the Android keyboard-open warning position above. Retry banners
+were not forced on a device; the retry boundary is checked in code only.

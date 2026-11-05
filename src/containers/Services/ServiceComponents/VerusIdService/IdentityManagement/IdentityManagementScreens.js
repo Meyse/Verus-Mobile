@@ -11,7 +11,7 @@ import TransactionResult from '../../../../../components/TransactionResult';
 import {SelectionRow} from '../../../../../components/SelectionSheet';
 import store from '../../../../../store';
 import {sessionScopeIsCurrent} from '../../../../../actions/actions/updates/sessionRequests';
-import {loadIdentityForUpdate, prepareIdentityUpdate, sendIdentityUpdate} from '../../../../../utils/identityManagement/updateIdentity';
+import {loadIdentityForUpdate, prepareIdentityUpdate, sendIdentityUpdate, validateIdentityTransfer} from '../../../../../utils/identityManagement/updateIdentity';
 import {MAX_IDENTITY_PRIMARY_ADDRESSES} from '../../../../../utils/identityManagement/identityDefinition';
 import {recipientFromQr} from '../../../../../utils/identityManagement/recipient';
 import {unlinkUpdatedIdentity} from '../../../../../utils/identityManagement/unlinkAfterUpdate';
@@ -19,7 +19,7 @@ import {getControlFacts} from '../../../../../utils/verusid/verusIdControlFacts'
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {identityManagementStyles as styles} from '../../../../../styles';
 import {useIdentityManagement} from './IdentityManagementContext';
-import {ManagementPage as Page, ActionButton, Body, CheckOption, DetailRow, Disclosure, LoadingIdentity, SectionTitle, SelectionField, Warning, verusIdText} from './ManagementComponents';
+import {ManagementPage as Page, ManagementError, ActionButton, Body, CheckOption, DetailRow, Disclosure, LoadingIdentity, SectionTitle, SelectionField, Warning, verusIdText} from './ManagementComponents';
 import {currencyLabel} from '../IdentityRegistration/RegistrationComponents';
 import {identityLabel} from '../IdentityRegistration/presentation';
 import {preferredRegistrationFundingSource, registrationFundingBalance} from '../IdentityRegistration/fundingSources';
@@ -330,11 +330,39 @@ export function IdentityTransfer(props) {
 }
 
 function IdentityTransferForm({navigation, route}) {
+  const {context} = useIdentityManagement();
   const form = useIdentityForm(route, navigation, 'transfer');
   const {model, busy, error, load, review, setError, running} = form;
   const [recipient, setRecipient] = useState('');
   const [returnFunds, setReturnFunds] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [ownerCheck, setOwnerCheck] = useState(null);
+  const [checkAttempt, setCheckAttempt] = useState(0);
+  const ownerValid = ownerCheck?.model === model && ownerCheck?.recipient === recipient &&
+    ownerCheck?.returnFunds === returnFunds && ownerCheck?.valid === true;
+  const ownerError = ownerCheck?.model === model && ownerCheck?.recipient === recipient &&
+    ownerCheck?.returnFunds === returnFunds ? ownerCheck.error : null;
+  const ownerInputError = ['INVALID_RECIPIENT', 'RECIPIENT_NOT_FOUND'].includes(ownerError?.code);
+  const needsReload = error?.code === 'REVIEW_CHANGED' || ownerError?.code === 'REVIEW_CHANGED';
+  const changeRecipient = value => {
+    if (running.current) return;
+    if (error?.code !== 'REVIEW_CHANGED') setError(null);
+    setRecipient(value);
+  };
+  useEffect(() => {
+    if (!model || !recipient.trim()) {setOwnerCheck(null); return undefined;}
+    let active = true;
+    setOwnerCheck(null);
+    const timer = setTimeout(() => {
+      validateIdentityTransfer(model, recipient, {returnFunds}, context).then(() => {
+        if (active) setOwnerCheck({model, recipient, returnFunds, valid: true});
+      }, failure => {
+        if (active && failure.code !== 'SESSION_CHANGED')
+          setOwnerCheck({model, recipient, returnFunds, error: verusIdUiError(failure)});
+      });
+    }, 650);
+    return () => {active = false; clearTimeout(timer);};
+  }, [model, recipient, returnFunds, context, checkAttempt]);
   const scanHandled = useRef(false);
   const back = useCallback(() => {
     if (running.current) return;
@@ -346,7 +374,7 @@ function IdentityTransferForm({navigation, route}) {
     if (scanHandled.current) return;
     scanHandled.current = true;
     setScanning(false);
-    try {setRecipient(recipientFromQr(codes?.[0]?.value, model.systemId)); setError(null);}
+    try {changeRecipient(recipientFromQr(codes?.[0]?.value, model.systemId));}
     catch (failure) {setError({message: failure.message});}
   };
   if (scanning) return <ScannerScreen title="Scan recipient" onBack={back} cameraOn onScan={onScan} prompt="Scan a receiving address or VerusID" />;
@@ -356,24 +384,39 @@ function IdentityTransferForm({navigation, route}) {
     ['Funds held by this VerusID', `Funds held at this VerusID address on ${model?.networkName || model?.chainTicker || 'this network'} return to your main wallet in the same transaction as the transfer. We’ll show the exact amounts before you approve. Private funds and funds on other networks are not moved.`],
     ['Recovery and revocation transfer too', 'Both roles will be set to this VerusID, so its previous external authorities cannot retain these powers. Review carefully: a transfer cannot simply be undone.'],
   ];
-  return <Page title="Transfer VerusID" onBack={back} busy={busy} error={error} info={info} infoTitle="About this transfer" infoHeight="86%"
-    footer={<ActionButton busy={busy} disabled={!!model && !recipient.trim() && error?.code !== 'REVIEW_CHANGED'}
-      onPress={model && error?.code !== 'REVIEW_CHANGED' ? () => review(recipient.trim(), {returnFunds, returnAddress: model.signingAddress}) : load}>
-      {isVerusIdTransportError(error) ? 'Try again' : error?.code === 'REVIEW_CHANGED' ? 'Reload VerusID' : model ? 'Review transfer' : 'Load VerusID'}
+  return <Page title="Transfer VerusID" onBack={back} busy={busy} error={model ? null : error} info={info} infoTitle="About this transfer" infoHeight="86%"
+    footer={<ActionButton busy={busy} disabled={!!model && !needsReload && (!ownerValid || !!error)}
+      onPress={model && !needsReload ? () => {
+        Keyboard.dismiss();
+        if (ownerValid && !error) review(recipient.trim(), {returnFunds, returnAddress: model.signingAddress});
+      } : load}>
+      {needsReload ? 'Reload VerusID' : model ? 'Review transfer' : isVerusIdTransportError(error) ? 'Try again' : 'Load VerusID'}
     </ActionButton>}>
     {!model ? busy ? <LoadingIdentity /> : <Body muted>Load this VerusID to continue.</Body> : <>
       <IdentityHeading model={model} fallback={route.params?.displayName} />
-      <AppAddressInput label="New owner" accessibilityLabel="New owner" value={recipient} placeholder="R-address or satoshi@"
-        technical={!!recipient && !recipient.endsWith('@')} editable={!busy} onChangeText={setRecipient}
-        scanAccessibilityLabel="Scan QR code" onScan={() => {Keyboard.dismiss(); scanHandled.current = false; setScanning(true);}} />
+      <VerusIdFormField>{focusProps => <>
+        <AppAddressInput {...focusProps} label="New owner" accessibilityLabel="New owner" value={recipient} placeholder="R-address or satoshi@"
+          errorText={ownerInputError ? verusIdErrorMessage(ownerError) : undefined}
+          helperText={!ownerInputError && ownerError ? verusIdErrorMessage(ownerError) : undefined}
+          technical={!!recipient && !recipient.endsWith('@')} editable={!busy} onChangeText={changeRecipient}
+          scanAccessibilityLabel="Scan QR code" onScan={() => {Keyboard.dismiss(); scanHandled.current = false; setScanning(true);}} />
+        {isVerusIdTransportError(ownerError) && <TextAction disabled={busy} onPress={() => setCheckAttempt(value => value + 1)}>Try again</TextAction>}
+      </>}</VerusIdFormField>
       <View style={{marginTop: 16}}><CheckOption label="Return VerusID funds to my wallet" accessibilityLabel={verusIdText('Return identity funds to my wallet')}
-        checked={returnFunds} disabled={busy} onPress={() => setReturnFunds(value => !value)} /></View>
+        checked={returnFunds} disabled={busy} onPress={() => {if (error?.code !== 'REVIEW_CHANGED') setError(null); setReturnFunds(value => !value);}} /></View>
       {returnFunds ? <View style={styles.returnAddress}>
         <Body muted>Return to <Strong>Main wallet address</Strong></Body>
         <Body style={styles.identifier}>{model.signingAddress}</Body>
       </View> : <Warning>The new owner will receive the VerusID’s funds on this network. Those funds will be included in your total transfer cost. Leave this unchecked only if you intend to give them away.</Warning>}
-      <View style={styles.group}><FundingSource form={form} /></View>
+      <View style={styles.group}><FundingSource form={{...form, setFundingAddress: value => {
+        if (error?.code !== 'REVIEW_CHANGED') setError(null);
+        form.setFundingAddress(value);
+      }}} /></View>
       <Warning><Strong>A transfer cannot be undone.</Strong> Recovery and revocation transfer too.</Warning>
+      <View style={styles.transferError}><ManagementError error={error} busy={busy} onRetry={() => {
+        setError(null);
+        setCheckAttempt(value => value + 1);
+      }} /></View>
     </>}
   </Page>;
 }

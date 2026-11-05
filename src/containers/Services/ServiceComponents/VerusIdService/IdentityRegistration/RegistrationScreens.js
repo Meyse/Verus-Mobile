@@ -64,7 +64,7 @@ import VerusIdCard, {wrapVerusIdNames} from '../VerusIdCard';
 import EmptyState from '../../../../../components/EmptyState';
 import {AtSign} from 'lucide-react-native';
 import {VerusIdFormField} from '../VerusIdFormScroll';
-import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError} from '../verusIdErrors';
+import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError, registrationNameError, registrationNameCheckError} from '../verusIdErrors';
 
 // The app alert calls each action only after its confirmation sheet closes.
 // Long names in alert text wrap at the namespace dot, as in the rows.
@@ -421,6 +421,12 @@ export function IdentityRegistrationCreate({navigation, route}) {
     setPreviewError(null);
     setAvailability(request?.name ? 'checking' : null);
     if (!request?.name) return undefined;
+    const nameError = registrationNameError(request.name);
+    if (nameError) {
+      setAvailability(null);
+      setPreviewError(nameError);
+      return undefined;
+    }
     // Availability and the live total are read-only. No salt, job, funding
     // transaction, key request or payment is created by typing.
     const timer = setTimeout(() => {
@@ -434,7 +440,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
       }, failure => {
         if (!active || requestKeyRef.current !== requestKey || failure?.code === 'SESSION_CHANGED') return;
         setAvailability(failure.code === 'IDENTITY_EXISTS' ? 'taken' : null);
-        if (failure.code !== 'IDENTITY_EXISTS') setPreviewError(verusIdUiError(failure));
+        if (failure.code !== 'IDENTITY_EXISTS') setPreviewError(registrationNameCheckError(failure));
       });
     }, 650);
     return () => { active = false; clearTimeout(timer); };
