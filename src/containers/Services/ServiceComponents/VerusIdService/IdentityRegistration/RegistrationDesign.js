@@ -55,7 +55,9 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   const {height} = useWindowDimensions();
   const [infoVisible, setInfoVisible] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
-  const compactKeyboard = keyboard && height <= 667;
+  // While the keyboard is open, every screen size pins the exact price and any
+  // funds warning above Hold: QA showed both cut off or hidden on Pro and Pixel 9.
+  const compactKeyboard = keyboard;
   const formScroll = useVerusIdFormScroll(keyboard);
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true));
@@ -91,7 +93,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
         {typeof children === 'function' ? children({compactKeyboard}) : children}
       </SheetScrollView>
       </VerusIdFormScrollContext.Provider>
-      {!!footer && <View testID="registration-footer" onLayout={formScroll.onFooterLayout} style={{flexShrink: 0, backgroundColor: theme.colors.background}}><SafeBottomActionStack gap={10} horizontalSpacing={20} bottomSpacing={compactKeyboard ? 12 : height <= 667 ? 24 : 28}
+      {!!footer && <View testID="registration-footer" onLayout={formScroll.onFooterLayout} style={{flexShrink: 0, backgroundColor: theme.colors.background}}><SafeBottomActionStack gap={10} horizontalSpacing={20} bottomSpacing={keyboard && height <= 667 ? 12 : height <= 667 ? 24 : 28}
         includeBottomInset={!keyboard} style={[styles.footer, height <= 667 && {paddingTop: 8}]}
         >
         {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
