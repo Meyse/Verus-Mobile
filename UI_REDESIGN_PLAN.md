@@ -6,6 +6,12 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **TX-1.HIDDEN-BALANCES** on
+  `claude/hidden-balances-tx-persist` from `bd00f503`: **Ready for verification**.
+  History and transaction-sheet amounts blur with hidden balances. The phone
+  remembers the choice. Static and controlled component/storage checks pass.
+  Opus owns review and device QA. See the scoped checklist below.
+
 - Scoped follow-up: **HOME.NOTICE-A** on `claude/home-notice-a` from
   `bc6602db`. Owner chose smaller look A on 2026-11-04. Home and VerusID
   notices use the smaller sizes. Private sync has one session-only notice.
@@ -57,7 +63,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-04 (Home notice look A and Private sync; phase 2b management implementation and checks; meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; asset stack order: pins and last used, iOS device QA passed, Android open).
+- Last updated: 2026-11-05 (hidden transaction amounts and phone-level privacy persistence; Opus review and device QA open).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2254,6 +2260,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-05 | TX-1.HIDDEN-BALANCES | `claude/hidden-balances-tx-persist` from `bd00f503` | Overview and pre-launch history rows blur signed amounts and fiat. Transaction details blur amount, fiat and fee. Hidden accessibility values use "Balance hidden". One phone-level AsyncStorage read starts at module load with a 400 ms fallback; startup applies an explicit visibility action before accounts load. Toggle writes are serialized. Frozen install, design/card-color checks, Babel parse (11 JS files), whitespace and temporary non-Jest checks pass. Two baseline checks fail before the fix and pass after it. Storage/Redux checks cover restarts, rapid taps, failed/stalled/late reads, save failure and account changes. Twelve controlled component scenarios cover both themes, live toggles and readable identifiers. | Opus: review the commit and run iOS normal/SE and Android normal/360x640 QA, both themes, including native blur, accessibility speech, restart and account changes. No device, native build, Metro, push or merge ran. |
 | 2026-11-04 | HOME.NOTICE-A | `claude/home-notice-a` from `bc6602db` | Approved smaller notice sizes and Private sync state. Design, changed-file safe-area, iOS bundle and 20 controlled selection cases pass. Native component fixtures cover light/dark on normal iPhone and SE. The notification Jest suite fails before and after edits at the same vector-icons native-module import. | iOS and Android device QA passed on 2026-11-04 (dismissal/reopen, thresholds, SE and small phone 32-point buttons). VoiceOver/TalkBack speech remains open. Merged into `redesign`; not pushed. |
 | 2026-11-04 | ID-3.POLISH-2: I1, N1/V1, repeated copy, Unlink, Android Back and display fiat | `claude/idreg-polish-fixes` from `ccbb4ed4` | Shared prose topic; hidden namespace filtering/search; quiet V1 numeric prices; result-only network suppression; unpaid-delete body; primary Unlink; manifest Back opt-out; display-currency fiat from cached ledger pairs. Design, 12-file safe-area/Babel, XML, whitespace and 60 temporary controlled checks pass. Base: 24 pass / 36 fail. Engine, SDK, storage, RPC readers and Jest sources stay unchanged. | Orchestrator owns native light/dark normal/compact QA and Android PC build/Back tests. See `idreg-polish-2.local.md`. No device, Metro, build, push or merge. |
 | 2026-11-04 | ID-3.MANAGEMENT-UI phase 2b | `claude/idreg-ui-mgmt` from `63289e4b` | Approved management options, Transfer, Modify option B, results and Link option A. Shared controls and theme roles; unchanged engines; sign-out clears active/available cards. Design, 13-file safe-area/parser, 59 synthetic checks and both production bundles pass. Requested Jest run: 316 pass / 20 fail, 3 native-fixture load errors; see scoped evidence below. | Orchestrator native normal/compact light/dark QA, consent/hold, unknown broadcast, Transfer + unlink, and Link failure/retry. No device, push or merge. |
@@ -3022,3 +3029,34 @@ priority, minimum percent, unknown/complete values, inactive coins, network,
 private-card presence and dismissal. The existing Jest suite fails on both
 base and candidate before running tests: vector-icons native-module import.
 Full-wallet, Android and screen-reader results remain separate from fixtures.
+
+### TX-1.HIDDEN-BALANCES — Transaction amounts and phone preference (2026-11-05)
+
+Owner decisions: blur transaction money amounts and keep the hidden/shown
+choice after restart. Scope: history rows, transaction details and persistence.
+Exemplar: `SignedInAssetHeader` total/fiat. Primitive: `PrivacyBlurredText`.
+Keep the existing type, colors and layout. No deliberate design deviation.
+
+- [x] Cover Overview and pre-launch rows, including pending and waiting rows.
+- [x] Blur amount, fiat and fee in the transaction sheet. Replace hidden
+  accessibility amounts with "Balance hidden". Keep identifiers readable.
+- [x] Save the phone-level choice at `balancePrivacy:hidden:v1`. Apply it with
+  `SET_BALANCE_VISIBILITY` before signed-in navigation can mount. Preserve
+  `SET_BALANCE_SHOW` callers, ordered writes and account-change behavior.
+- [x] Run frozen install, design/card-color, 11-file parser and whitespace
+  checks. Reproduce the missing explicit setter and spoken row amount before
+  the fix. Check storage, Redux/saga and 12 component scenarios without Jest.
+- [ ] Opus: review and run native iOS normal/SE and Android normal/360x640
+  checks in both themes. Check shown/hidden incoming, outgoing, pending,
+  failed/in-progress and pre-conversion rows, sheet amount/fiat/fee, long-list
+  scrolling, live toggles, Back/reopen and VoiceOver/TalkBack speech.
+- [ ] Opus: restart after both choices and rapid taps. Check the first signed-in
+  frame, sign-out/account switch, and failed or unavailable storage fallback.
+
+Evidence: temporary non-Jest checks pass. Storage checks cover hidden/shown
+restart, missing/malformed/rejected/synchronous/stalled reads, late-read
+protection, ordered rapid writes and recovery after a failed write. Redux/saga
+checks keep the setting through account actions. Component checks use the
+actual blur, transfer-node and information-row components with native host
+stubs and theme tokens. They establish props and accessibility labels, not
+native blur quality, layout, speech or scrolling. No device or Metro ran.

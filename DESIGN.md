@@ -1196,6 +1196,9 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
   "My address" for other cards. Do not label a row as a conversion; the owner
   removed those labels on 2026-10-19.
 - Keep the chevron, the amount, ticker and fiat value column, and the skeleton rows.
+- Hidden balances also blur all transaction amounts and fiat values in history
+  rows and the Transaction sheet, including fees; accessibility says "Balance hidden".
+  The hidden/shown choice is per phone and survives account changes and app restarts.
 
 ## Transaction details
 
