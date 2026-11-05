@@ -26,6 +26,7 @@ import {preferredRegistrationFundingSource, registrationFundingBalance} from '..
 import {VerusIdFormField} from '../VerusIdFormScroll';
 import {VerusIdName, wrapVerusIdNames} from '../VerusIdCard';
 import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError} from '../verusIdErrors';
+import {changedFieldValues, signingPolicySummary} from './reviewPresentation';
 
 
 const authorityName = (address, model) => address === model.identityAddress
@@ -382,7 +383,7 @@ function IdentityTransferForm({navigation, route}) {
     ['New owner', 'Enter a transparent address, or a VerusID name ending in @. VerusID addresses also work. Transfers to a transparent address clear this VerusID’s private receiving address.'],
     ['Using another VerusID?', 'We’ll copy its current primary addresses, required signatures, and private receiving address. If it has no private receiving address, this VerusID’s private receiving address will be cleared. Future changes to that VerusID won’t change this one.'],
     ['Funds held by this VerusID', `Funds held at this VerusID address on ${model?.networkName || model?.chainTicker || 'this network'} return to your main wallet in the same transaction as the transfer. We’ll show the exact amounts before you approve. Private funds and funds on other networks are not moved.`],
-    ['Recovery and revocation transfer too', 'Both roles will be set to this VerusID, so its previous external authorities cannot retain these powers. Review carefully: a transfer cannot simply be undone.'],
+    ['Revoke and recover', 'The new owner also gets revoke and recover. Any outside VerusID that had these rights loses them. A transfer cannot be undone.'],
   ];
   return <Page title="Transfer VerusID" onBack={back} busy={busy} error={model ? null : error} info={info} infoTitle="About this transfer" infoHeight="86%"
     footer={<ActionButton busy={busy} disabled={!!model && !needsReload && (!ownerValid || !!error)}
@@ -412,7 +413,7 @@ function IdentityTransferForm({navigation, route}) {
         if (error?.code !== 'REVIEW_CHANGED') setError(null);
         form.setFundingAddress(value);
       }}} /></View>
-      <Warning><Strong>A transfer cannot be undone.</Strong> Recovery and revocation transfer too.</Warning>
+      <Warning><Strong>A transfer cannot be undone.</Strong> The new owner also gets revoke and recover.</Warning>
       <View style={styles.transferError}><ManagementError error={error} busy={busy} onRetry={() => {
         setError(null);
         setCheckAttempt(value => value + 1);
@@ -429,6 +430,7 @@ export function IdentityUpdateReview({navigation}) {
   const [keepLinkedPlan, setKeepLinkedPlan] = useState(null);
   const completedPlan = useRef(null);
   const review = plan?.review;
+  const walletAddresses = useSelector(state => state.authentication.activeAccount?.keys?.[review?.chainTicker]?.vrpc?.addresses);
   const transfer = review?.mode === 'transfer';
   const assignsExternalRecovery = !transfer && !!review &&
     review.before.recoveryauthority !== review.after.recoveryauthority &&
@@ -490,6 +492,8 @@ export function IdentityUpdateReview({navigation}) {
   </Page>;
 
   const changed = Object.keys(fieldLabels).filter(key => JSON.stringify(review.before[key]) !== JSON.stringify(review.after[key]));
+  const policy = !transfer && changed.some(key => ['primaryaddresses', 'minimumsignatures'].includes(key))
+    ? signingPolicySummary(review, walletAddresses || []) : null;
   const leavingFunds = transfer && !review.returnFunds;
   const transferredTokens = (review.transferredFunds || []).filter(item => item.currencyId !== review.systemId);
   const funds = leavingFunds ? review.transferredFunds : review.returnedFunds;
@@ -525,7 +529,11 @@ export function IdentityUpdateReview({navigation}) {
         {busy ? 'Sending…' : transfer ? 'Hold to pay & transfer VerusID' : 'Hold to pay & save changes'}
       </GradientButton>}
     </>}>
-    {transfer && <IdentityHeading model={review} />}
+    <IdentityHeading model={review} />
+    {!!policy && <View style={[styles.section, {marginBottom: 24}]}>
+      <Body style={theme.typography.titleRow}>{policy.summary}</Body>
+      <Body muted>{policy.meaning}</Body>
+    </View>}
     <Body muted>Total cost</Body>
     <Text style={[theme.typography.headlineMd, {color: theme.colors.textPrimary}]}>
       {review.nativeTotalCost || review.fee} {review.feeCurrency || review.chainTicker}
@@ -565,10 +573,10 @@ export function IdentityUpdateReview({navigation}) {
         </Disclosure>
       </> : changed.map(key => <View key={key} style={[styles.changePanel, {backgroundColor: theme.colors.surfaceMuted}]}>
         <Text style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>{fieldLabels[key]}</Text>
-        <Body muted style={styles.changeLabel}>Currently</Body>
-        <Body muted style={key === 'primaryaddresses' || key === 'privateaddress' ? styles.identifier : undefined}>{fieldValue(key, review.before[key], review)}</Body>
-        <Body muted style={styles.changeLabel}>After update</Body>
-        <Body style={[theme.typography.labelMd, key === 'primaryaddresses' || key === 'privateaddress' ? styles.identifier : undefined]}>{fieldValue(key, review.after[key], review)}</Body>
+        {key === 'minimumsignatures' ? <Body>{`${review.before[key]} → ${review.after[key]}`}</Body>
+          : changedFieldValues(review.before[key], review.after[key]).map(({value, status}) =>
+            <DetailRow key={`${status || 'unchanged'}:${value}`} status={status}
+              technical={key === 'primaryaddresses' || key === 'privateaddress'}>{fieldValue(key, value, review)}</DetailRow>)}
       </View>)}
     </View>
     {transfer && <View style={styles.group}>

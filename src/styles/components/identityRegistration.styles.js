@@ -2,7 +2,7 @@ import {Platform, StyleSheet} from 'react-native';
 
 export const createIdentityRegistrationStyles = theme => StyleSheet.create({
   page: {flex: 1, backgroundColor: theme.colors.background},
-  scroll: {flex: 1},
+  scroll: {flex: 1, minHeight: 0, overflow: 'hidden'},
   content: {paddingHorizontal: 20, paddingTop: 24, paddingBottom: 28, gap: 24, width: '100%', maxWidth: 600, alignSelf: 'center'},
   footer: {flexShrink: 0, paddingTop: 16},
   section: {gap: 8, minWidth: 0},

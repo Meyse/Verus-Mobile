@@ -2,6 +2,7 @@ import {Platform, StyleSheet} from 'react-native';
 
 export const identityManagementStyles = StyleSheet.create({
   screen: {flex: 1},
+  scroll: {flex: 1, minHeight: 0, overflow: 'hidden'},
   content: {flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 28},
   footer: {paddingTop: 16},
   footerCompact: {paddingTop: 8},
