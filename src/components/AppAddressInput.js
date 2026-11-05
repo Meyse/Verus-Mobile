@@ -4,7 +4,6 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import AppTextInput from './AppTextInput';
 import {appAddressInputStyles as styles} from '../styles';
 import {resolveAppTheme, useAppTheme} from '../theme/app';
-import {verusIdFontStyle} from './VerusIdText';
 
 // The editable value is always complete. Only the idle presentation is shortened.
 const AppAddressInput = forwardRef(function AppAddressInput(
@@ -15,7 +14,6 @@ const AppAddressInput = forwardRef(function AppAddressInput(
     inlineLabel,
     inputStyle,
     label,
-    nameFont = false,
     onChangeText,
     onScan,
     scanAccessibilityLabel = 'Scan address QR',
@@ -35,8 +33,7 @@ const AppAddressInput = forwardRef(function AppAddressInput(
   const pasteRequest = useRef(0);
   const hasValue = value.length > 0;
   const fieldLabel = props.accessibilityLabel || label || 'Address';
-  const nameStyle = nameFont && !technical && verusIdFontStyle(theme.typography.inputValue);
-  const textStyle = [styles.value, {color: theme.colors.textPrimary}, technical && styles.technical, nameStyle];
+  const textStyle = [styles.value, {color: theme.colors.textPrimary}, technical && styles.technical];
 
   useEffect(() => {
     pasteRequest.current += 1;
@@ -96,7 +93,6 @@ const AppAddressInput = forwardRef(function AppAddressInput(
       inputStyle={[
         inlineLabel && styles.withToInput,
         hasValue && technical && styles.technical,
-        nameStyle,
         inputStyle,
       ]}
       label={label}

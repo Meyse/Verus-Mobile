@@ -3050,3 +3050,42 @@ fails the name-error outline regression check. Live api.verustest.net rejects
 numeric verbosity with -32601 and returns the required fields for true.
 Both release bundles pass after the repository's existing postinstall patches.
 No Jest tests, devices, signing, broadcasts or mainnet wallet actions ran.
+
+### ID-3.NIGHT3-A — Batch A round 2 (2026-11-05)
+
+Contract: operate mode. Keep the V3 field and TS transfer form. Use
+AppAddressInput errorText for recipient input errors and helperText for identity
+blocks. Keep both inside VerusIdFormField for measured keyboard reveal. Preserve
+the amber warning, action-error position, safe footer and review gates.
+
+This supersedes round 1's name-only font solution and owner-check position.
+
+- [x] Patch all 18 bundled Inter variants in both platform asset folders.
+  Remove only the two adjacent-digit x substitution rules. Preserve every
+  other calt rule, font name, outline, metric and feature.
+- [x] Remove the VerusName assets, native registrations and component opt-ins.
+- [x] Put owner-check results under New owner. Use a red outline only for bad
+  recipient format or a missing recipient VerusID. Keep action errors below
+  the warning and dismiss the keyboard when Review transfer is pressed.
+- [x] Retry only unsigned registration SDK reads/builds for
+  INVALID_CHAIN_CONTEXT and STALE_CHAIN_CONTEXT, at most twice, after 1.5 s.
+  Map both codes to plain words at the shared UI boundary. Never retry a
+  signing, broadcast or saved-transaction resend step through this helper.
+- [x] Pass design, safe-area, Babel, focused ESLint, plist, both release
+  bundles, controlled behavior checks and the full font shaping comparison.
+- [ ] Rebuild both native apps. Verify names and addresses app-wide, plus
+  normal/compact light/dark Transfer keyboard and registration retry states.
+
+Evidence: 20,520 HarfBuzz comparisons cover 228 strings, five feature settings
+and every Inter variant. Only digit-x-digit samples differ. All other font
+table bytes match, except GSUB and the required checksum. Every remaining GSUB
+rule matches. Fifty controlled component/helper checks, ten public transfer
+engine checks and 29 retry/boundary checks pass. The default V1 testnet server
+returns -5 for the missing test VerusID. Repository ESLint remains blocked by
+its existing import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED error.
+
+The owner supplied successful round-1 native iOS QA, including a real VRSCTEST
+registration. It is baseline evidence only. Round-2 native rendering, keyboard,
+screen-reader and end-to-end behavior remain unverified. The font sample is
+rendered with HarfBuzz; it does not prove native font loading. No Jest tests or
+dependency changes. The full report stays in verusid-batch-a-round2.local.md.

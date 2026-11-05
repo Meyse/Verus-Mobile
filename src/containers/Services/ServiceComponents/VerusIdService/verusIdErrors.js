@@ -1,6 +1,7 @@
 import {CONNECTION_FAILED_MESSAGE, isConnectionErrorMessage} from '../../../../utils/network/connectionErrors';
 import {verusIdCopy} from '../../../../utils/verusid/verusIdCopy';
 import {validateIdentityRegistrationName} from 'verus-typescript-primitives';
+import {isRegistrationChainContextError, REGISTRATION_CHAIN_CONTEXT_MESSAGE} from '../../../../utils/identityRegistration/chainContext';
 
 const nameValidationMessage = message => {
   if (/name.*(?:1 to 64|1–64)/i.test(message)) return 'Use a shorter name.';
@@ -25,10 +26,12 @@ export const registrationNameError = name => {
 };
 
 export const registrationNameCheckError = error => {
+  if (isRegistrationChainContextError(error))
+    return {code: error.code, retryable: true, message: REGISTRATION_CHAIN_CONTEXT_MESSAGE};
   const validation = nameValidationMessage(String(error?.message || ''));
   if (validation) return {code: 'INVALID_NAME', message: validation, retryable: false};
   const retryable = isVerusIdTransportError(error) || !error?.code || typeof error.code === 'number' ||
-    ['RPC_ERROR', 'INVALID_RPC_RESPONSE', 'INVALID_CHAIN_CONTEXT', 'STALE_CHAIN_CONTEXT',
+    ['RPC_ERROR', 'INVALID_RPC_RESPONSE',
       'REFERRAL_HISTORY_UNAVAILABLE', 'WRONG_REGISTRATION_SYSTEM'].includes(error.code);
   return {code: error?.code, retryable, message: retryable
     ? 'Could not check this name.' : 'Choose another name or namespace.'};
@@ -49,8 +52,9 @@ export const isVerusIdTransportError = error => {
     /(?:^|:\s*)(?:no response(?: received)?(?: from (?:the )?(?:server|network))?|request timeout|timeout)[.!]?$/i.test(message.trim());
 };
 
-export const verusIdErrorMessage = error => isVerusIdTransportError(error)
-  ? CONNECTION_FAILED_MESSAGE : verusIdCopy(String(error?.message || error || ''));
+export const verusIdErrorMessage = error => isRegistrationChainContextError(error)
+  ? REGISTRATION_CHAIN_CONTEXT_MESSAGE : isVerusIdTransportError(error)
+    ? CONNECTION_FAILED_MESSAGE : verusIdCopy(String(error?.message || error || ''));
 
 export const verusIdUiError = (error, fallback) => ({
   code: error?.code,

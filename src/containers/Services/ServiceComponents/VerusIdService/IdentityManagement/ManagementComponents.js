@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
-import {Keyboard, Pressable, View} from 'react-native';
+import {Keyboard, Pressable, Text, View} from 'react-native';
 import {Info, TriangleAlert} from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../../../../components/AppButton';
@@ -19,7 +19,6 @@ import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {identityManagementStyles as styles} from '../../../../../styles';
 import {VerusIdFormScrollContext, useVerusIdFormScroll} from '../VerusIdFormScroll';
 import {wrapVerusIdNames} from '../VerusIdCard';
-import Text from '../../../../../components/VerusIdText';
 import TextAction from '../../../../../components/TextAction';
 import {isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
 

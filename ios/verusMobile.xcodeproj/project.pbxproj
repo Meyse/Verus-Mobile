@@ -59,10 +59,6 @@
 		F18000000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000010 /* Inter18pt-ExtraBoldItalic.ttf */; };
 		F18000000000000000000011 /* Inter18pt-Black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000011 /* Inter18pt-Black.ttf */; };
 		F18000000000000000000012 /* Inter18pt-BlackItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18100000000000000000012 /* Inter18pt-BlackItalic.ttf */; };
-		F18200000000000000000001 /* VerusName-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18300000000000000000001 /* VerusName-Regular.ttf */; };
-		F18200000000000000000002 /* VerusName-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18300000000000000000002 /* VerusName-Medium.ttf */; };
-		F18200000000000000000003 /* VerusName-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18300000000000000000003 /* VerusName-SemiBold.ttf */; };
-		F18200000000000000000004 /* VerusName-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F18300000000000000000004 /* VerusName-Bold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -194,10 +190,6 @@
 		F18100000000000000000011 /* Inter18pt-Black.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-Black.ttf"; path = "../assets/fonts/Inter18pt-Black.ttf"; sourceTree = "<group>"; };
 		F18100000000000000000012 /* Inter18pt-BlackItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter18pt-BlackItalic.ttf"; path = "../assets/fonts/Inter18pt-BlackItalic.ttf"; sourceTree = "<group>"; };
 		F9BEFF74016C4E76B8E3F8E8 /* SourceSansPro-Black.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-Black.ttf"; path = "../assets/fonts/SourceSansPro-Black.ttf"; sourceTree = "<group>"; };
-		F18300000000000000000001 /* VerusName-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "VerusName-Regular.ttf"; path = "../assets/fonts/VerusName-Regular.ttf"; sourceTree = "<group>"; };
-		F18300000000000000000002 /* VerusName-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "VerusName-Medium.ttf"; path = "../assets/fonts/VerusName-Medium.ttf"; sourceTree = "<group>"; };
-		F18300000000000000000003 /* VerusName-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "VerusName-SemiBold.ttf"; path = "../assets/fonts/VerusName-SemiBold.ttf"; sourceTree = "<group>"; };
-		F18300000000000000000004 /* VerusName-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "VerusName-Bold.ttf"; path = "../assets/fonts/VerusName-Bold.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -395,10 +387,6 @@
 				F18100000000000000000004 /* Inter18pt-ExtraLightItalic.ttf */,
 				F18100000000000000000005 /* Inter18pt-Light.ttf */,
 				F18100000000000000000006 /* Inter18pt-LightItalic.ttf */,
-				F18300000000000000000001 /* VerusName-Regular.ttf */,
-				F18300000000000000000002 /* VerusName-Medium.ttf */,
-				F18300000000000000000003 /* VerusName-SemiBold.ttf */,
-				F18300000000000000000004 /* VerusName-Bold.ttf */,
 				F18100000000000000000007 /* Inter18pt-Regular.ttf */,
 				F18100000000000000000008 /* Inter18pt-Italic.ttf */,
 				F18100000000000000000009 /* Inter18pt-Medium.ttf */,
@@ -584,10 +572,6 @@
 				F18000000000000000000004 /* Inter18pt-ExtraLightItalic.ttf in Resources */,
 				F18000000000000000000005 /* Inter18pt-Light.ttf in Resources */,
 				F18000000000000000000006 /* Inter18pt-LightItalic.ttf in Resources */,
-				F18200000000000000000001 /* VerusName-Regular.ttf in Resources */,
-				F18200000000000000000002 /* VerusName-Medium.ttf in Resources */,
-				F18200000000000000000003 /* VerusName-SemiBold.ttf in Resources */,
-				F18200000000000000000004 /* VerusName-Bold.ttf in Resources */,
 				F18000000000000000000007 /* Inter18pt-Regular.ttf in Resources */,
 				F18000000000000000000008 /* Inter18pt-Italic.ttf in Resources */,
 				F18000000000000000000009 /* Inter18pt-Medium.ttf in Resources */,

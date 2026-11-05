@@ -8,7 +8,6 @@
 import React, {useMemo} from 'react';
 import {StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import CopyAction from '../../../../components/CopyAction';
-import {verusIdFontStyle} from '../../../../components/VerusIdText';
 import StatusBadge from '../../../../components/StatusBadge';
 import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
@@ -40,10 +39,9 @@ export const wrapVerusIdNames = text => typeof text === 'string'
 
 export const VerusIdName = ({name, style, leafColor, restColor, ...props}) => {
   const {leaf, rest} = splitVerusIdName(name);
-  const theme = useOnboardingTheme();
 
   return (
-    <Text accessibilityLabel={name} style={[style, verusIdFontStyle([theme.typography.titleRow, style]), {color: restColor}]} {...props}>
+    <Text accessibilityLabel={name} style={[style, {color: restColor}]} {...props}>
       <Text style={{color: leafColor}}>{leaf}</Text>
       {rest}
     </Text>

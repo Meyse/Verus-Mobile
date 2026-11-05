@@ -16,7 +16,7 @@ export const validateTransferRecipient = value => {
   try { address = [R_ADDR_VERSION, I_ADDR_VERSION].includes(fromBase58Check(recipient).version); }
   catch (_) {}
   if (!address && !/^[^@]+@$/.test(recipient))
-    throw new Error('Enter an R-address, an i-address, or a VerusID ending in @.');
+    throw Object.assign(new Error('Enter an R-address, an i-address, or a VerusID ending in @.'), {code: 'INVALID_RECIPIENT'});
   return recipient;
 };
 

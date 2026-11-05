@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Keyboard, View} from 'react-native';
-import Text from '../../../../../components/VerusIdText';
+import {Keyboard, Text, View} from 'react-native';
 import {useSelector} from 'react-redux';
 import {Plus} from 'lucide-react-native';
 import AppAddressInput from '../../../../../components/AppAddressInput';
@@ -307,7 +306,7 @@ function IdentityModifyForm({navigation, route}) {
           ['revocationauthority', 'Revocation VerusID', 'Revocation identity'],
           ['recoveryauthority', 'Recovery VerusID', 'Recovery identity'],
         ].map(([key, label, accessibilityLabel]) => <VerusIdFormField key={key}>{focusProps => <>
-          <AppAddressInput {...focusProps} nameFont label={label} accessibilityLabel={verusIdText(accessibilityLabel)} value={fields[key]} editable={!busy} placeholder="guardian@"
+          <AppAddressInput {...focusProps} label={label} accessibilityLabel={verusIdText(accessibilityLabel)} value={fields[key]} editable={!busy} placeholder="guardian@"
             technical={!fields[key].endsWith('@')} onChangeText={value => change(key, value)} />
           <TextAction disabled={busy} accessibilityLabel={verusIdText(`Use this identity for ${accessibilityLabel.toLowerCase()}`)}
             onPress={() => change(key, model.displayName)}>Use this VerusID</TextAction>
@@ -343,6 +342,7 @@ function IdentityTransferForm({navigation, route}) {
     ownerCheck?.returnFunds === returnFunds && ownerCheck?.valid === true;
   const ownerError = ownerCheck?.model === model && ownerCheck?.recipient === recipient &&
     ownerCheck?.returnFunds === returnFunds ? ownerCheck.error : null;
+  const ownerInputError = ['INVALID_RECIPIENT', 'RECIPIENT_NOT_FOUND'].includes(ownerError?.code);
   const needsReload = error?.code === 'REVIEW_CHANGED' || ownerError?.code === 'REVIEW_CHANGED';
   const changeRecipient = value => {
     if (running.current) return;
@@ -387,15 +387,21 @@ function IdentityTransferForm({navigation, route}) {
   return <Page title="Transfer VerusID" onBack={back} busy={busy} error={model ? null : error} info={info} infoTitle="About this transfer" infoHeight="86%"
     footer={<ActionButton busy={busy} disabled={!!model && !needsReload && (!ownerValid || !!error)}
       onPress={model && !needsReload ? () => {
+        Keyboard.dismiss();
         if (ownerValid && !error) review(recipient.trim(), {returnFunds, returnAddress: model.signingAddress});
       } : load}>
       {needsReload ? 'Reload VerusID' : model ? 'Review transfer' : isVerusIdTransportError(error) ? 'Try again' : 'Load VerusID'}
     </ActionButton>}>
     {!model ? busy ? <LoadingIdentity /> : <Body muted>Load this VerusID to continue.</Body> : <>
       <IdentityHeading model={model} fallback={route.params?.displayName} />
-      <AppAddressInput nameFont label="New owner" accessibilityLabel="New owner" value={recipient} placeholder="R-address or satoshi@"
-        technical={!!recipient && !recipient.endsWith('@')} editable={!busy} onChangeText={changeRecipient}
-        scanAccessibilityLabel="Scan QR code" onScan={() => {Keyboard.dismiss(); scanHandled.current = false; setScanning(true);}} />
+      <VerusIdFormField>{focusProps => <>
+        <AppAddressInput {...focusProps} label="New owner" accessibilityLabel="New owner" value={recipient} placeholder="R-address or satoshi@"
+          errorText={ownerInputError ? verusIdErrorMessage(ownerError) : undefined}
+          helperText={!ownerInputError && ownerError ? verusIdErrorMessage(ownerError) : undefined}
+          technical={!!recipient && !recipient.endsWith('@')} editable={!busy} onChangeText={changeRecipient}
+          scanAccessibilityLabel="Scan QR code" onScan={() => {Keyboard.dismiss(); scanHandled.current = false; setScanning(true);}} />
+        {isVerusIdTransportError(ownerError) && <TextAction disabled={busy} onPress={() => setCheckAttempt(value => value + 1)}>Try again</TextAction>}
+      </>}</VerusIdFormField>
       <View style={{marginTop: 16}}><CheckOption label="Return VerusID funds to my wallet" accessibilityLabel={verusIdText('Return identity funds to my wallet')}
         checked={returnFunds} disabled={busy} onPress={() => {if (error?.code !== 'REVIEW_CHANGED') setError(null); setReturnFunds(value => !value);}} /></View>
       {returnFunds ? <View style={styles.returnAddress}>
@@ -407,7 +413,7 @@ function IdentityTransferForm({navigation, route}) {
         form.setFundingAddress(value);
       }}} /></View>
       <Warning><Strong>A transfer cannot be undone.</Strong> Recovery and revocation transfer too.</Warning>
-      <View style={styles.transferError}><ManagementError error={error || ownerError} busy={busy} onRetry={() => {
+      <View style={styles.transferError}><ManagementError error={error} busy={busy} onRetry={() => {
         setError(null);
         setCheckAttempt(value => value + 1);
       }} /></View>

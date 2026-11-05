@@ -66,7 +66,7 @@ const freeze = value => {
 
 const rpcResult = response => {
   if (response?.error) {
-    throw new Error(response.error.message || 'The network request failed.');
+    throw fail(response.error.code, response.error.message || 'The network request failed.');
   }
 
   if (!response || !Object.prototype.hasOwnProperty.call(response, 'result')) {
@@ -368,7 +368,14 @@ const transferControls = async (identity, recipient, readOnce) => {
     recipientName: recipient,
     usesRecipientPrivateAddress: false,
   };
-  const target = await readOnce(recipient);
+  let target;
+  try {
+    target = await readOnce(recipient);
+  } catch (error) {
+    if (error.code === -5)
+      throw fail('RECIPIENT_NOT_FOUND', 'VerusID not found. Check the name or address.');
+    throw error;
+  }
   return {
     updated: buildTransferredIdentity(identity, {targetIdentity: target.identity}),
     recipientName: target.name,
