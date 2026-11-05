@@ -34,6 +34,7 @@ export default function WalletBackupPhrase({cancel, seed, onComplete, finishing}
             ensureNewSeed={async () => seed}
             onNext={() => setShowWords(true)}
             showHeader={false}
+            verifyText="You will verify a few words before you claim the gift."
           />
         </>
       )}
