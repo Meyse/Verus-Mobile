@@ -5,6 +5,11 @@ import { CoinDirectory } from '../../CoinData/CoinDirectory'
 import { ANDROMEDA, QG_ANDROMEDA, SERVICE_ON_VRSCTEST } from '../../../tests/helpers/ChainDefinitions'
 import { coinsList } from '../../CoinData/CoinsList';
 
+jest.mock('../../../../env/index', () => ({
+  CURRENCY_DEFINITION_STORAGE_INTERNAL_KEY: 'test-currency-definitions',
+  VRPC_API_KEYS: {},
+}));
+
 describe('Main coin data functions', () => {
   // Applies only to tests in this describe block
   beforeEach(() => {
@@ -97,3 +102,35 @@ describe('Main coin data functions', () => {
     expect(systemObj.seconds_per_block).toBe(60)
   })
 })
+
+describe('Default VRPC endpoints', () => {
+  const testnetKeySlot = '204165660a8e26de6d447ae98005825ade4a83f0799fcbab3a0e19d49cbe40c8';
+
+  it.each([
+    ['no key map', undefined, 'https://api.verustest.net'],
+    ['no host key', {}, 'https://api.verustest.net'],
+    ['an empty key', {[testnetKeySlot]: ''}, 'https://api.verustest.net'],
+    ['the placeholder', {[testnetKeySlot]: 'V2API_API_KEY'}, 'https://api.verustest.net'],
+    ['a configured key', {[testnetKeySlot]: 'TEST_ONLY_V2_API_KEY'}, 'https://v2api.verustest.net'],
+    ['a key for another host', {otherHost: 'TEST_ONLY_V2_API_KEY'}, 'https://api.verustest.net'],
+  ])('selects the testnet endpoint with %s', (_case, keys, endpoint) => {
+    const env = require('../../../../env/index');
+    const previousKeys = env.VRPC_API_KEYS;
+
+    try {
+      env.VRPC_API_KEYS = keys;
+
+      jest.isolateModules(() => {
+        const {coinsList: configuredCoins} = require('../../CoinData/CoinsList');
+
+        expect(configuredCoins.VRSCTEST.vrpc_endpoints).toEqual([endpoint]);
+        expect(configuredCoins.VRSC.vrpc_endpoints).toEqual(['https://api.verus.services']);
+        expect(
+          configuredCoins.i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X.vrpc_endpoints,
+        ).toEqual(['https://api.verus.services']);
+      });
+    } finally {
+      env.VRPC_API_KEYS = previousKeys;
+    }
+  });
+});
