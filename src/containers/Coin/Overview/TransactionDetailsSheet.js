@@ -92,6 +92,7 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
                 label="Network fee"
                 value={details.fee}
                 valueHidden={!showBalance}
+                valueUnit={details.feeTicker}
               />
             ) : null}
             {details.memo ? (

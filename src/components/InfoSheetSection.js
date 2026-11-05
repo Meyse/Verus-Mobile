@@ -22,7 +22,8 @@ export const InfoSheetTopic = ({title, children}) => {
 // when the shown value differs from the text to copy. `accessory` is a node at
 // the right of the row, for example a status badge. It comes before the copy
 // button when the row has both. `valueHidden` blurs a money value and replaces
-// its spoken value with "Balance hidden".
+// its spoken value with "Balance hidden". `valueUnit`, for example a ticker,
+// follows the value and stays readable while the value is hidden.
 export const InfoSheetRow = ({
   accessory,
   copy = false,
@@ -35,6 +36,7 @@ export const InfoSheetRow = ({
   value,
   valueHidden = false,
   valueStyle,
+  valueUnit,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(
@@ -48,7 +50,10 @@ export const InfoSheetRow = ({
     <>
       <Text style={[styles.requestInfoLabel, labelStyle]}>{label}</Text>
       {valueHidden ? (
-        <View accessible accessibilityLabel="Balance hidden">
+        <View
+          accessible
+          accessibilityLabel="Balance hidden"
+          style={localStyles.hiddenValueRow}>
           <PrivacyBlurredText
             blurRadius={7}
             color={StyleSheet.flatten([styles.requestInfoValue, valueStyle]).color}
@@ -56,6 +61,11 @@ export const InfoSheetRow = ({
             style={[styles.requestInfoValue, valueStyle]}>
             {value}
           </PrivacyBlurredText>
+          {valueUnit ? (
+            <Text style={[styles.requestInfoValue, valueStyle]}>
+              {` ${valueUnit}`}
+            </Text>
+          ) : null}
         </View>
       ) : (
         <Text
@@ -63,7 +73,7 @@ export const InfoSheetRow = ({
           numberOfLines={numberOfLines}
           selectable={selectable}
           style={[styles.requestInfoValue, valueStyle]}>
-          {value}
+          {valueUnit ? `${value} ${valueUnit}` : value}
         </Text>
       )}
     </>
@@ -112,5 +122,9 @@ const InfoSheetSection = ({rows = [], title}) => {
     </View>
   );
 };
+
+const localStyles = StyleSheet.create({
+  hiddenValueRow: {flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap'},
+});
 
 export default InfoSheetSection;

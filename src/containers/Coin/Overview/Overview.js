@@ -869,8 +869,9 @@ class Overview extends Component {
                 : item.feeCurr,
               confirmed: item.confirmed === true,
               fee: item.fee != null && item.type !== "self"
-                ? `${scientificToDecimal(String(item.fee))} ${item.feeCurr || this.props.activeCoin.display_ticker}`
+                ? scientificToDecimal(String(item.fee))
                 : null,
+              feeTicker: item.feeCurr || this.props.activeCoin.display_ticker,
               fiat: fiatValue,
               label: detailLabel,
               memo: item.memo,
