@@ -300,7 +300,8 @@ const HomeValueChart = ({
           importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}
           style={[styles.ranges, { width: rangeWidth, height: rangeHeight * progress, opacity: progress }]}
         >
-          {history.ranges.map((item) => (
+          {/* Leave the tabs out while fully closed, so screen readers cannot reach hidden tabs. */}
+          {progress > 0 && history.ranges.map((item) => (
             <TouchableOpacity
               key={item}
               accessibilityRole="tab"
