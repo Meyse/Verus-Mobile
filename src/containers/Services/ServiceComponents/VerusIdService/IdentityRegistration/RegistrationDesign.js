@@ -55,6 +55,9 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   const {height} = useWindowDimensions();
   const [infoVisible, setInfoVisible] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
+  // While the keyboard is open, every screen size pins the exact price and any
+  // funds warning above Hold: QA showed both cut off or hidden on Pro and Pixel 9.
+  const compactKeyboard = keyboard;
   const formScroll = useVerusIdFormScroll(keyboard);
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true));
@@ -83,22 +86,21 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
         ref: formScroll.scrollRef,
         onLayout: formScroll.onLayout,
         onContentSizeChange: formScroll.onContentSizeChange,
-        showsVerticalScrollIndicator: keyboard,
         keyboardShouldPersistTaps: 'handled',
         refreshControl: onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={() => onRefresh(true)}
           tintColor={theme.colors.primary} colors={[theme.colors.primary]} /> : undefined,
       }} contentContainerStyle={[styles.content, !showHeader && {paddingTop: insets.top + 40}, formScroll.keyboardPadding]}>
-        {children}
+        {typeof children === 'function' ? children({compactKeyboard}) : children}
       </SheetScrollView>
       </VerusIdFormScrollContext.Provider>
-      {!!footer && <View testID="registration-footer" onLayout={formScroll.onFooterLayout}><SafeBottomActionStack gap={10} horizontalSpacing={20} bottomSpacing={height <= 667 ? 24 : 28}
+      {!!footer && <View testID="registration-footer" onLayout={formScroll.onFooterLayout} style={{flexShrink: 0, backgroundColor: theme.colors.background}}><SafeBottomActionStack gap={10} horizontalSpacing={20} bottomSpacing={keyboard && height <= 667 ? 12 : height <= 667 ? 24 : 28}
         includeBottomInset={!keyboard} style={[styles.footer, height <= 667 && {paddingTop: 8}]}
         >
         {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
           <Text style={styles.errorText}>{wrapVerusIdNames(verusIdErrorMessage(error))}</Text>
           {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
         </View>}
-        {footer}
+        {typeof footer === 'function' ? footer({compactKeyboard}) : footer}
       </SafeBottomActionStack></View>}
     </KeyboardAvoidingForm>
     <InfoSheet visible={infoVisible} onClose={() => setInfoVisible(false)} title="About this registration">
@@ -235,11 +237,12 @@ export const AmountRows = ({amounts, label, total = false, currencyNames, badge}
   </View>;
 };
 
-export const CostReview = ({quote, currencyNames, stage = 'commitment', prices = {}}) => {
+export const CostReview = ({quote, currencyNames, stage = 'commitment', prices = {}, compact = false}) => {
   const styles = useRegistrationStyles();
   const formatFiat = useRegistrationFiat();
   if (!quote) return <RegistrationSkeleton />;
   const amounts = stage === 'commitment' ? quote.totalOperationRequired : quote.totalRequired;
+  if (compact) return <AmountRows amounts={amounts} label={stage === 'commitment' ? 'You pay' : 'Price'} total currencyNames={currencyNames} />;
   const fiat = formatFiat(amounts, prices);
   const later = Object.entries(quote.totalRequired).map(([id, amount]) => `${formatRegistrationAmount(amount)} ${currencyLabel(id, currencyNames)}`).join(' and ');
   const missing = Object.keys(amounts).filter(id => !prices[id] && id !== quote.systemID);

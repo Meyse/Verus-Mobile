@@ -22,6 +22,22 @@ export const registrationFundingSources = (coin, account, linkedIds = {}) => {
 export const registrationFundingBalance = (coin, source, balances = {}) =>
   balances[`vrpc.${source.address}.${coin?.system_id}`]?.[coin?.id]?.confirmed;
 
+// Quote amounts are atomic integers. Ledger balances are decimal coins. Check
+// every quoted currency on this source and chain, without rounding or treating
+// a missing/loading balance as zero. The engine still checks spendable UTXOs.
+export const registrationHasInsufficientFunds = (quote, source, systemCoin, coins, balances) => {
+  if (!quote || !source || !systemCoin) return false;
+  return Object.entries(quote.totalOperationRequired).some(([currencyId, required]) => {
+    const coin = currencyId === systemCoin.currency_id ? systemCoin : coins.find(item =>
+      item.system_id === systemCoin.system_id && item.currency_id === currencyId);
+    if (!coin) return false;
+    const balance = registrationFundingBalance(coin, source, balances);
+    if (balance == null) return false;
+    const amount = new BigNumber(balance);
+    return amount.isFinite() && !amount.isNegative() && amount.times('100000000').lt(required);
+  });
+};
+
 // Compare decimal balances without rounding. Missing balances cannot outrank
 // a funded source; equal balances retain the stable source order.
 export const preferredRegistrationFundingSource = (sources, coin, balances = {}) => {

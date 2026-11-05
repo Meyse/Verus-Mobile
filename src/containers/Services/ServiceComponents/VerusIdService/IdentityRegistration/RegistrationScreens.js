@@ -47,6 +47,7 @@ import {
   preferredRegistrationFundingSource,
   registrationFundingBalance,
   registrationFundingSources,
+  registrationHasInsufficientFunds,
 } from './fundingSources';
 import {formatRegistrationAmount} from '../../../../../utils/identityRegistration/costs';
 import {
@@ -57,6 +58,7 @@ import AppTextInput from '../../../../../components/AppTextInput';
 import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import TransactionResult from '../../../../../components/TransactionResult';
 import TextAction from '../../../../../components/TextAction';
+import AppStatusBadge from '../../../../../components/StatusBadge';
 import {createAlert, resolveAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import {loadRegistrationNamespaces} from './namespaceData';
 import useRegistrationPrices from './useRegistrationPrices';
@@ -357,6 +359,8 @@ export function IdentityRegistrationCreate({navigation, route}) {
   const [manualFunding, setManualFunding] = useState({});
   const fundingSource = fundingSources.find(source => source.address === manualFunding[coinId]) ||
     preferredRegistrationFundingSource(fundingSources, selected, balances);
+  const fundingLabel = source => source?.isIdentity
+    ? identityLabel(source.address, {[source.address]: source.fundingName}) : 'Transparent';
   const [name, setName] = useState('');
   const [referralID, setReferralID] = useState('');
   const [recoveryAuthority, setRecoveryAuthority] = useState('');
@@ -402,7 +406,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
     rootSystemName: selected.testnet ? 'VRSCTEST' : 'VRSC',
     fundingAddress: fundingSource.address,
     signingAddress: fundingSource.signingAddress,
-    fundingName: fundingSource.fundingName,
+    fundingName: fundingLabel(fundingSource),
     keyChannel: VRPC,
     name: name.trim(),
     ...(namespace ? {parent: namespace.id, parentName: namespace.parentName} : {}),
@@ -460,62 +464,78 @@ export function IdentityRegistrationCreate({navigation, route}) {
       : review.status === 'registration_prepared' ? 'IdentityRegistrationReview' : 'IdentityRegistrationProgress',
     {jobId: review.jobId},
   );
-  const start = () => run(async requestContext => {
-    const prepared = await prepare(requestContext);
-    rememberQuote(prepared);
-    if (preview?.savedReview) return prepared;
-    if (prepared.status !== 'commitment_prepared') return prepared;
-    const normalized = preview?.request;
-    // A same-name saved draft can have different funding or authorities. A
-    // changed quote or saved intent gets a fresh visible review, never payment.
-    const sameReview = preview && registrationQuotesEqual(preview.quote, prepared.quote) &&
-      prepared.identityAddress === preview.policy.resolvedName.identityID &&
-      prepared.fundingAddress === normalized.fundingAddress && prepared.signingAddress === normalized.signingAddress &&
-      (prepared.referralID || null) === (normalized.referralID || null) &&
-      prepared.identity.recoveryauthority === (normalized.recoveryAuthority || prepared.identityAddress) &&
-      prepared.identity.revocationauthority === (normalized.revocationAuthority || prepared.identityAddress) &&
-      (prepared.identity.privateaddress || null) === (normalized.privateAddress || null);
-    if (!sameReview) return prepared;
-    return approveCommitment(prepared.jobId, prepared.approvalToken, requestContext);
-  }, review => {
-    if (review.status === 'commitment_prepared') openReview(review);
-    else navigation.replace('IdentityRegistrationProgress', {jobId: review.jobId});
-  });
+  const start = () => {
+    if (insufficientFunds) return;
+    return run(async requestContext => {
+      const prepared = await prepare(requestContext);
+      rememberQuote(prepared);
+      if (preview?.savedReview) return prepared;
+      if (prepared.status !== 'commitment_prepared') return prepared;
+      const normalized = preview?.request;
+      // A same-name saved draft can have different funding or authorities. A
+      // changed quote or saved intent gets a fresh visible review, never payment.
+      const sameReview = preview && registrationQuotesEqual(preview.quote, prepared.quote) &&
+        prepared.identityAddress === preview.policy.resolvedName.identityID &&
+        prepared.fundingAddress === normalized.fundingAddress && prepared.signingAddress === normalized.signingAddress &&
+        (prepared.referralID || null) === (normalized.referralID || null) &&
+        prepared.identity.recoveryauthority === (normalized.recoveryAuthority || prepared.identityAddress) &&
+        prepared.identity.revocationauthority === (normalized.revocationAuthority || prepared.identityAddress) &&
+        (prepared.identity.privateaddress || null) === (normalized.privateAddress || null);
+      if (!sameReview) return prepared;
+      return approveCommitment(prepared.jobId, prepared.approvalToken, requestContext);
+    }, review => {
+      if (review.status === 'commitment_prepared') openReview(review);
+      else navigation.replace('IdentityRegistrationProgress', {jobId: review.jobId});
+    });
+  };
   const save = () => run(prepare, () => navigation.getParent().goBack());
   const quoteData = estimate || (preview?.requestKey === requestKey ? preview : null);
+  // A later-stage saved job has already paid the commitment. Let its existing
+  // review and engine validate the remaining payment instead of charging it twice.
+  const firstPayment = !preview?.savedReview || preview.status === 'commitment_prepared';
+  const insufficientFunds = firstPayment && registrationHasInsufficientFunds(quoteData?.quote, fundingSource, selected, coins, balances);
   const ready = preview?.requestKey === requestKey && ['available', 'saved'].includes(availability) && !busy;
   const ownIdentity = preview?.policy?.resolvedName?.identityID;
   const externalAuthorities = [...new Set(['recoveryAuthority', 'revocationAuthority'].filter(field =>
     preview?.request?.[field] && preview.request[field] !== ownIdentity,
   ).map(field => preview.identityNames?.[preview.request[field]] || request[field]))];
   const networkName = coin => `${coin.display_ticker}${coin.testnet ? ' · Testnet' : ''}`;
+  const cost = compact => firstPayment ? <View style={styles.section}>
+    {!!quoteData && <CostReview {...quoteData} prices={prices} stage="commitment" compact={compact} />}
+    <RegistrationText muted>Keep this wallet and its app data until you finish.</RegistrationText>
+    {insufficientFunds && <View style={styles.section} accessibilityLiveRegion="polite">
+      <AppStatusBadge label="Not enough funds" tone="danger" />
+      {!compact && <RegistrationText muted>{`Add funds to ${fundingLabel(fundingSource)} or choose another payment source.`}</RegistrationText>}
+    </View>}
+  </View> : null;
 
   return <RegistrationPage navigation={navigation} busy={busy} busyRef={running} error={error}
     onRetry={() => {setError(null); setPreviewAttempt(value => value + 1);}}
     info={<>{registrationInfo('commitment')}<RegistrationPreviewDetails preview={preview} /></>}
-    footer={<>
-      <ActionButton hold={!preview?.savedReview} disabled={!ready} busy={busy} onPress={start}>{preview?.savedReview ? 'Continue registration' : 'Hold to start'}</ActionButton>
-      <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>
-    </>}>
+    footer={({compactKeyboard}) => <>
+      {compactKeyboard && cost(true)}
+      <ActionButton hold={!preview?.savedReview} disabled={!ready || insufficientFunds} busy={busy} onPress={start}>{preview?.savedReview ? 'Continue registration' : 'Hold to start'}</ActionButton>
+      {!compactKeyboard && <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>}
+    </>}>{({compactKeyboard}) => <>
     <NameField name={name} setName={value => { if (!running.current) setName(value); }} namespace={namespace}
       availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} previewError={previewError}
       onRetry={() => {
         if (isVerusIdTransportError(previewError)) setError(null);
         setPreviewAttempt(value => value + 1);
       }} />
+    {!compactKeyboard && cost(false)}
     {!!quoteData && (preview?.savedReview && preview.status !== 'commitment_prepared'
       ? <View style={styles.section}><StatusBadge status={preview.status} /><RegistrationText muted>Continue where you left off.</RegistrationText></View>
-      : <CostReview {...quoteData} prices={prices} stage="commitment" />)}
+      : null)}
     {!quoteData && availability === 'checking' && <RegistrationSkeleton />}
     <View>
       {wallets.length !== 1 && <SelectionField label="Network" value={selected ? networkName(selected) : 'Add a network wallet to continue'} disabled={busy}
         options={wallets.map(coin => ({value: coin.id, label: networkName(coin), selected: coin.id === coinId}))} onSelect={setCoinId} />}
-      <SelectionField label="Pay from" value={fundingSource?.isIdentity
-        ? identityLabel(fundingSource.address, {[fundingSource.address]: fundingSource.fundingName}) : 'Transparent'} disabled={busy}
+      <SelectionField label="Pay from" value={fundingLabel(fundingSource)} disabled={busy}
         description={!fundingSource?.isIdentity && fundingSource?.address ? `${fundingSource.address.slice(0, 5)}…${fundingSource.address.slice(-4)}` : undefined}
         options={fundingSources.map(source => {
           const balance = registrationFundingBalance(selected, source, balances);
-          return {value: source.address, label: source.isIdentity ? identityLabel(source.address, {[source.address]: source.fundingName}) : 'Transparent',
+          return {value: source.address, label: fundingLabel(source),
             selected: source.address === fundingSource?.address,
             description: balance != null && showBalance ? `${String(balance)} ${selected.display_ticker} confirmed` : source.isIdentity ? 'Linked VerusID' : source.address};
         })} onSelect={address => setManualFunding(current => ({...current, [coinId]: address}))} />
@@ -535,6 +555,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
     <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces}
       selectedId={namespace?.id || selected?.system_id} onSelect={setNamespace} loading={namespaceLoading} error={namespaceError}
       onRetry={() => setNamespaceAttempt(value => value + 1)} />
+    </>}
   </RegistrationPage>;
 }
 
