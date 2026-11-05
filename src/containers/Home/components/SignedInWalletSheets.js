@@ -67,6 +67,7 @@ export const DisplayCurrencySheet = ({
     <SelectionSheet
       title="Currencies"
       visible={visible}
+      showClose
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}
       // Android native modals resize; iOS needs avoidance around the sheet.

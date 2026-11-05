@@ -8,6 +8,10 @@ export const createSelectionSheetStyles = theme =>
     header: {minHeight: 36, justifyContent: 'center', marginBottom: 14},
     nestedHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start'},
     backButton: {width: 40, height: 44, marginLeft: -8, alignItems: 'center', justifyContent: 'center'},
+    headerTitleBlock: {flex: 1},
+    // The 44-point target overhangs the 36-point header and the content edge,
+    // so the 22-point glyph lines up with the rows and the header keeps its height.
+    closeButton: {marginRight: -11, marginVertical: -4},
     title: {...theme.typography.titleSheet, color: theme.colors.textPrimary},
     subtitle: {
       ...theme.typography.bodySm,

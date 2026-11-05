@@ -436,6 +436,10 @@ login screen and for requests (`WalletUnlockCoordinator`).
   animation. Do not clear visible content during `onClose`.
 - A simple sheet closes through outside tap or system back. Add explicit close
   chrome only when the task is blocking, destructive, or nested.
+- Owner exception, 2026-11-05: the display currency sheet ("Currencies") shows
+  `HeaderCloseButton` on the right of its title (`SelectionSheet showClose`).
+  It fills most of the screen and has a search field, so the dimmed area left
+  to tap is small, and iOS has no system Back. Other simple sheets keep no X.
 - Keep a loading or verification sheet's height stable while its internal state
   changes.
 
