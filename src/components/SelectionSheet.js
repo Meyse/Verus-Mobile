@@ -1,5 +1,6 @@
 import React, {useMemo} from 'react';
-import {Text, TouchableOpacity, View} from 'react-native';
+import {TouchableOpacity, View} from 'react-native';
+import Text from './VerusIdText';
 import {Check, ChevronLeft} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from './BottomSheetModal';

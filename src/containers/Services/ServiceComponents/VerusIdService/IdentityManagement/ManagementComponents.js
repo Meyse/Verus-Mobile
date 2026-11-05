@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
-import {Keyboard, Pressable, Text, View} from 'react-native';
+import {Keyboard, Pressable, View} from 'react-native';
 import {Info, TriangleAlert} from 'lucide-react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppButton from '../../../../../components/AppButton';
@@ -19,6 +19,7 @@ import {useOnboardingTheme} from '../../../../../theme/onboarding';
 import {identityManagementStyles as styles} from '../../../../../styles';
 import {VerusIdFormScrollContext, useVerusIdFormScroll} from '../VerusIdFormScroll';
 import {wrapVerusIdNames} from '../VerusIdCard';
+import Text from '../../../../../components/VerusIdText';
 import TextAction from '../../../../../components/TextAction';
 import {isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
 
@@ -55,6 +56,14 @@ export function useManagementKeyboard() {
   return keyboardOpen;
 }
 
+export function ManagementError({error, busy, onRetry}) {
+  if (!error) return null;
+  return <View accessibilityRole="alert" accessibilityLiveRegion="assertive">
+    <ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
+    {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
+  </View>;
+}
+
 export function ManagementPage({children, title, progress, onBack, busy, error, footer, info, infoTitle, infoHeight, onRetry}) {
   const theme = useOnboardingTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
@@ -79,9 +88,7 @@ export function ManagementPage({children, title, progress, onBack, busy, error, 
       <View onLayout={formScroll.onFooterLayout} style={{flexShrink: 0}}>
       <SafeBottomActionStack horizontalSpacing={20} bottomSpacing={keyboardOpen ? 12 : smallDevice ? 30 : 48}
         includeBottomInset={!keyboardOpen} gap={8} style={[styles.footer, smallDevice && styles.footerCompact]}>
-        {!!error && <View accessibilityRole="alert" accessibilityLiveRegion="assertive"><ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
-          {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
-        </View>}
+        <ManagementError error={error} busy={busy} onRetry={onRetry} />
         {footer}
       </SafeBottomActionStack>
       </View>

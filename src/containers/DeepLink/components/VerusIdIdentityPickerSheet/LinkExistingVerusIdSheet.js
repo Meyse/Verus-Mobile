@@ -1019,6 +1019,7 @@ const ManualEntryStep = ({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <AppAddressInput
+          nameFont
           accessibilityLabel="VerusID name or i-Address"
           autoCapitalize="none"
           autoCorrect={false}

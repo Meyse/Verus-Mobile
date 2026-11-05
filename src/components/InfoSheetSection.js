@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {View} from 'react-native';
-import {Text} from 'react-native-paper';
+import Text from './VerusIdText';
 import CopyAction from './CopyAction';
 import {createInfoSheetStyles, deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';

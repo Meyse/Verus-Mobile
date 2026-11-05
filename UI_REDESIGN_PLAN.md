@@ -3022,3 +3022,31 @@ priority, minimum percent, unknown/complete values, inactive coins, network,
 private-card presence and dismissal. The existing Jest suite fails on both
 base and candidate before running tests: vector-icons native-module import.
 Full-wallet, Android and screen-reader results remain separate from fixtures.
+
+### ID-3.NIGHT3-A — Registration and Transfer bugs (2026-11-05)
+
+Contract: operate mode. Keep the V3 name field and TS transfer form, shared
+outline inputs, semantic error text, existing amber warning and safe footer.
+Use a name-only Inter derivative without contextual alternates. Keep glyphs,
+metrics and ordinary text unchanged. Device QA is outside this implementation.
+
+- [x] Use boolean getblock verbosity and string heights, including SDK reads.
+- [x] Validate typed names locally. Use plain errors, retry only failed checks,
+  and mark every name error with the danger outline.
+- [x] Add name fonts and shared name rendering for registration, management,
+  Link rows, manual Link, selection rows and information sheets.
+- [x] Debounce read-only owner checks. Disable blocked Transfer review, discard
+  stale results, and put errors below the warning in scroll content.
+- [x] Pass design, safe-area, parser, focused lint, controlled form/engine,
+  font-shaping and iOS/Android release-bundle checks. Standard ESLint cannot
+  load its existing import plugin (ERR_PACKAGE_PATH_NOT_EXPORTED).
+- [ ] Native rebuild and normal/compact iOS/Android light/dark QA: font loading,
+  name glyphs, field errors/retry, transfer warning/error layout, keyboard,
+  correction, Back/reload, and real request/registration/transfer flows.
+
+Evidence: 59 temporary controlled checks, 9 public transfer-engine checks with
+real identity primitives and simulated RPC, and 60 font checks pass. The base
+fails the name-error outline regression check. Live api.verustest.net rejects
+numeric verbosity with -32601 and returns the required fields for true.
+Both release bundles pass after the repository's existing postinstall patches.
+No Jest tests, devices, signing, broadcasts or mainnet wallet actions ran.

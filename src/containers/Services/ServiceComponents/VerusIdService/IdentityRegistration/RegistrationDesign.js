@@ -1,10 +1,11 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
-import {Keyboard, Pressable, RefreshControl, Text, View, useWindowDimensions} from 'react-native';
+import {Keyboard, Pressable, RefreshControl, View, useWindowDimensions} from 'react-native';
 import {ChevronDown, ChevronRight, ChevronUp, Info, Trash2} from 'lucide-react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
+import Text, {verusIdFontStyle} from '../../../../../components/VerusIdText';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../../../../components/AppSearchField';
 import GradientButton from '../../../../../components/GradientButton';
 import HeaderCloseButton from '../../../../../components/HeaderCloseButton';
@@ -164,20 +165,20 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
     <Text style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>Name</Text>
     <Text style={styles.muted}>You cannot change it later.</Text>
     <AppTextInput accessibilityLabel={verusIdCopy('Identity name')} placeholder="Type a name" value={name} onChangeText={setName}
+      inputStyle={verusIdFontStyle(theme.typography.inputValue)}
       {...focusProps}
-      editable={!busy} returnKeyType="done" invalid={availability === 'taken'} endAccessory={({borderColor, borderWidth}) => <>
+      editable={!busy} returnKeyType="done" invalid={availability === 'taken' || !!previewError} endAccessory={({borderColor, borderWidth}) => <>
         <View style={[styles.namespaceDivider, {width: borderWidth, backgroundColor: borderColor}]} />
         <Pressable accessibilityRole="button" accessibilityLabel={`Choose a namespace: ${namespace?.name || 'Verus'}`} disabled={busy}
           onPress={onNamespace} style={styles.namespace}>
-          <Text numberOfLines={1} style={styles.namespaceText}>{namespace?.suffix || '@'}</Text>
+          <Text numberOfLines={1} style={[styles.namespaceText, verusIdFontStyle(styles.namespaceText)]}>{namespace?.suffix || '@'}</Text>
           <ChevronDown size={14} color={theme.colors.textSubtle} />
         </Pressable>
       </>} />
     <View style={[styles.row, {minHeight: 24}]} accessibilityLiveRegion="polite">
       {previewError ? <View style={styles.flexible}>
-        <Text style={styles.errorText}>{wrapVerusIdNames(isVerusIdTransportError(previewError)
-          ? 'Could not connect. Check your connection.' : verusIdErrorMessage(previewError))}</Text>
-        <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>
+        <Text style={styles.errorText}>{previewError.message}</Text>
+        {previewError.retryable && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
       </View> : <>
         {['available', 'taken', 'saved'].includes(availability)
           ? <AppStatusBadge tone={availability === 'taken' ? 'danger' : availability === 'saved' ? 'neutral' : 'success'} label={availability === 'taken' ? 'Taken' : availability === 'saved' ? 'Saved registration' : 'Available'} />
@@ -189,6 +190,7 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
 };
 
 export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSelect, loading, error, onRetry}) => {
+  const theme = useAppTheme();
   const [query, setQuery] = useState('');
   const styles = useRegistrationStyles();
   const formatFiat = useRegistrationFiat();
@@ -204,7 +206,8 @@ export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSele
   const row = item => {
     const amount = formatRegistrationAmount(item.amount);
     const unit = item.suffix === '@' ? ` ${item.currency}` : '';
-    return <SelectionRow key={item.id} title={item.name} selected={item.id === selectedId} showChevron={false}
+    return <SelectionRow key={item.id} title={<VerusIdName name={item.name} style={theme.typography.titleRow} />}
+      accessibilityLabel={item.name} selected={item.id === selectedId} showChevron={false}
       quietValue
       subtitle={item.referralRequired ? 'Requires a referral signature.' : undefined}
       value={amount === '0' ? 'Free' : `${amount}${unit}`}

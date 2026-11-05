@@ -1,5 +1,38 @@
 import {CONNECTION_FAILED_MESSAGE, isConnectionErrorMessage} from '../../../../utils/network/connectionErrors';
 import {verusIdCopy} from '../../../../utils/verusid/verusIdCopy';
+import {validateIdentityRegistrationName} from 'verus-typescript-primitives';
+
+const nameValidationMessage = message => {
+  if (/name.*(?:1 to 64|1–64)/i.test(message)) return 'Use a shorter name.';
+  if (/name.*(?:invalid UTF-8|invalid characters|separators)/i.test(message))
+    return 'Use letters, numbers, or single spaces.';
+  if (/name.*(?:leading, trailing, or repeated spaces)/i.test(message))
+    return 'Use single spaces between words.';
+  return null;
+};
+
+// The namespace is a separate control. Validate the typed leaf before lookup.
+export const registrationNameError = name => {
+  if (!name) return null;
+  let message;
+  if (name.includes('.')) message = 'Names cannot contain a dot.';
+  else if (name.includes('@')) message = 'Enter the name without @.';
+  else {
+    try { validateIdentityRegistrationName(name); return null; }
+    catch (error) { message = nameValidationMessage(error.message) || 'Choose another name.'; }
+  }
+  return {code: 'INVALID_NAME', message, retryable: false};
+};
+
+export const registrationNameCheckError = error => {
+  const validation = nameValidationMessage(String(error?.message || ''));
+  if (validation) return {code: 'INVALID_NAME', message: validation, retryable: false};
+  const retryable = isVerusIdTransportError(error) || !error?.code || typeof error.code === 'number' ||
+    ['RPC_ERROR', 'INVALID_RPC_RESPONSE', 'INVALID_CHAIN_CONTEXT', 'STALE_CHAIN_CONTEXT',
+      'REFERRAL_HISTORY_UNAVAILABLE', 'WRONG_REGISTRATION_SYSTEM'].includes(error.code);
+  return {code: error?.code, retryable, message: retryable
+    ? 'Could not check this name.' : 'Choose another name or namespace.'};
+};
 
 // Keep domain/safety errors intact. Only transport codes or transport text
 // reach the existing Send/Convert connection copy, including RPC-prefixed text.

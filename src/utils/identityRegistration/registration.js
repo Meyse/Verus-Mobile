@@ -959,7 +959,7 @@ const transactionEvidence = async (job, stage, context) => {
   if (!Number.isSafeInteger(result.confirmations) || result.confirmations < 1 || !result.blockhash) {
     return {found: true, confirmed: false};
   }
-  const block = registrationRpcResult(await guarded(context, () => rpc.getBlock(result.blockhash, 1)), 'Check registration block');
+  const block = registrationRpcResult(await guarded(context, () => rpc.getBlock(result.blockhash, true)), 'Check registration block');
   if (
     block.hash !== result.blockhash ||
     !Number.isSafeInteger(block.height) ||
@@ -969,7 +969,7 @@ const transactionEvidence = async (job, stage, context) => {
   ) {
     return {found: true, confirmed: false};
   }
-  const activeBlock = registrationRpcResult(await guarded(context, () => rpc.getBlock(String(block.height), 1)), 'Check active registration block');
+  const activeBlock = registrationRpcResult(await guarded(context, () => rpc.getBlock(String(block.height), true)), 'Check active registration block');
   const includesTransaction = Array.isArray(block.tx) && block.tx.some(tx =>
     (typeof tx === 'string' ? tx : tx?.txid) === transaction.txid
   );
@@ -1009,7 +1009,7 @@ const checkedTip = (info, response) => {
 const currentTip = async (job, context) => {
   const rpc = VrpcProvider.getVerusIdInterface(job.systemId).interface;
   const info = await currentChainInfo(job, context);
-  return checkedTip(info, await guarded(context, () => rpc.getBlock(String(info.blocks), 1)));
+  return checkedTip(info, await guarded(context, () => rpc.getBlock(String(info.blocks), true)));
 };
 
 const reconcileJob = async (job, context) => {
@@ -1234,7 +1234,7 @@ const broadcastSaved = async (job, stage, context) => {
   // Send them together and bind every unspent result to that verified tip.
   const prevouts = transaction.prepared.prevouts;
   const [blockResponse, ...responses] = await guarded(context, () => client.interface.requestMany([
-    new GetBlockRequest(job.systemId, String(info.blocks), 1),
+    new GetBlockRequest(job.systemId, String(info.blocks), true),
     ...prevouts.map(prevout => new GetTxOutRequest(job.systemId, prevout.txid, prevout.vout, true)),
   ]));
   const tip = checkedTip(info, blockResponse);

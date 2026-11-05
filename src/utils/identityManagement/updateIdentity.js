@@ -29,6 +29,7 @@ import {getSpendableUtxos} from '../api/channels/vrpc/requests/getAddressUtxos';
 import {convertFqnToDisplayFormat} from '../fullyqualifiedname';
 import {identityToDisplayJson} from '../identityUpdate/identityDisplay';
 import {DLIGHT_PRIVATE} from '../constants/intervalConstants';
+import {validateTransferRecipient} from './recipient';
 import {
   buildModifiedIdentity,
   buildTransferredIdentity,
@@ -361,6 +362,50 @@ const fundSnapshot = (coin, subject, context) => readIdentityFunds({
   call: task => guarded(context, task),
 });
 
+const transferControls = async (identity, recipient, readOnce) => {
+  if (versionOf(recipient) === R_ADDR_VERSION) return {
+    updated: buildTransferredIdentity(identity, {address: recipient}),
+    recipientName: recipient,
+    usesRecipientPrivateAddress: false,
+  };
+  const target = await readOnce(recipient);
+  return {
+    updated: buildTransferredIdentity(identity, {targetIdentity: target.identity}),
+    recipientName: target.name,
+    usesRecipientPrivateAddress: !!target.identity.privateAddresses?.[0],
+  };
+};
+
+const assertChangedAuthorities = async (before, after, signingAddress, readOnce) => {
+  for (const [field, label] of [['recoveryauthority', 'recovery'], ['revocationauthority', 'revocation']]) {
+    if (before[field] !== after[field]) {
+      const authority = await readOnce(before[field]);
+      if (!canSign(authority.identity, signingAddress)) {
+        throw new Error(`Changing the ${label} identity requires its current signing authority. This wallet cannot provide all required signatures.`);
+      }
+    }
+  }
+};
+
+// Read-only form check. Preparation and approval still repeat their own fresh
+// checks; typing never builds a payment, requests a key, or creates a plan.
+export const validateIdentityTransfer = async (model, recipient, {returnFunds = true} = {}, requestContext) => {
+  const context = captureIdentityUpdateContext(requestContext);
+  const loaded = models.get(model);
+  assertOwner(loaded, context);
+  const entered = validateTransferRecipient(recipient);
+  const {coin, subject, signingAddress} = loaded;
+  await assertSnapshotCurrent(coin, subject, context);
+  const readOnce = address => address === subject.address ? subject : readIdentity(coin, address, context);
+  const {updated} = await transferControls(subject.identity, entered, readOnce);
+  await assertChangedAuthorities(model.fields, getIdentityEditFields(updated), signingAddress, readOnce);
+  const funds = await fundSnapshot(coin, subject, context);
+  if (returnFunds && [...funds.balances.values()].some(amount => amount.gt(0)) &&
+    (model.locked || funds.utxos.some(input => input.isspendable !== true && input.isspendable !== 1))) {
+    throw new Error('This identity has locked or unavailable funds. Unlock them before returning its funds, or leave them with the identity and review the amounts transferred.');
+  }
+};
+
 const currencyTransferOutputs = (address, balances) => {
   const currencies = Object.fromEntries([...balances].map(([id, value]) => [id, value.toFixed(0)]));
   const destination = new TransferDestination({
@@ -572,14 +617,7 @@ export const prepareIdentityUpdate = async (model, options, requestContext) => {
   if (!['modify', 'transfer'].includes(mode))
     throw new Error('Choose whether to modify or transfer this identity.');
 
-  const enteredRecipient = typeof recipient === 'string' ? recipient.trim() : '';
-  if (
-    mode === 'transfer' &&
-    ![R_ADDR_VERSION, I_ADDR_VERSION].includes(versionOf(enteredRecipient)) &&
-    !/^[^@]+@$/.test(enteredRecipient)
-  ) {
-    throw new Error('Enter a transparent R-address, an identity address, or a VerusID name ending in @, such as satoshi@.');
-  }
+  const enteredRecipient = mode === 'transfer' ? validateTransferRecipient(recipient) : '';
 
   const source = fundingSources.find(item => item.address === fundingAddress);
   if (!source) throw new Error('Select a payment source belonging to this wallet.');
@@ -608,15 +646,7 @@ export const prepareIdentityUpdate = async (model, options, requestContext) => {
   let usesRecipientPrivateAddress = false;
 
   if (mode === 'transfer') {
-    if (versionOf(enteredRecipient) === R_ADDR_VERSION) {
-      updated = buildTransferredIdentity(subject.identity, {address: enteredRecipient});
-      recipientName = enteredRecipient;
-    } else {
-      const target = await readOnce(enteredRecipient);
-      updated = buildTransferredIdentity(subject.identity, {targetIdentity: target.identity});
-      recipientName = target.name;
-      usesRecipientPrivateAddress = !!target.identity.privateAddresses?.[0];
-    }
+    ({updated, recipientName, usesRecipientPrivateAddress} = await transferControls(subject.identity, enteredRecipient, readOnce));
   } else {
     const resolved = {...changes};
 
@@ -636,14 +666,7 @@ export const prepareIdentityUpdate = async (model, options, requestContext) => {
   const before = getIdentityEditFields(subject.identity);
   const after = getIdentityEditFields(updated);
 
-  for (const [field, label] of [['recoveryauthority', 'recovery'], ['revocationauthority', 'revocation']]) {
-    if (before[field] !== after[field]) {
-      const authority = await readOnce(before[field]);
-      if (!canSign(authority.identity, signingAddress)) {
-        throw new Error(`Changing the ${label} identity requires its current signing authority. This wallet cannot provide all required signatures.`);
-      }
-    }
-  }
+  await assertChangedAuthorities(before, after, signingAddress, readOnce);
 
   if (source.isIdentity) {
     const funding = await readOnce(source.address);
