@@ -41,11 +41,17 @@ const useGiftTitle = (detail, requestIsTestnet) => {
         if (currencies.length !== 1 || identities.length !== 0) return;
         const currency = currencies[0];
         const system = result.systems.find(item => item.currencies.includes(currency));
-        const name = currency.currencyId === system.systemId
+        const isSystemCurrency = currency.currencyId === system.systemId;
+        const name = isSystemCurrency
           ? getAssetPresentation(system.coinObj).ticker
           : currency.display?.name;
+        // Discovery takes the claim fee off the system currency. The title
+        // states what the card holds, as the claim review does.
+        const amount = BigNumber(currency.amount).plus(
+          isSystemCurrency ? system.feeAmount || 0 : 0,
+        );
         if (name && name !== currency.currencyId && active) {
-          setPreview({loading: false, amount: `${BigNumber(currency.amount).toFormat()}\u00a0${name}`});
+          setPreview({loading: false, amount: `${amount.toFormat()}\u00a0${name}`});
         }
       } catch {
         // A title must never block setup or expose a network error.

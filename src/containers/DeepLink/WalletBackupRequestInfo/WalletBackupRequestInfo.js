@@ -12,6 +12,7 @@ import {SPENDABLE_KEY_DETAILS_VDXF_KEY} from 'verus-typescript-primitives';
 import {useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import store from '../../../store';
+import {setDeeplinkPassthroughData} from '../../../actions/actions/deeplink/creators/deeplink';
 import {
   captureSessionScope,
   sessionScopeIsCurrent,
@@ -242,8 +243,10 @@ const WalletBackupRequestInfo = props => {
   const [backupResult, setBackupResult] = useState(null);
   const [finishing, setFinishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  // Unlocking can open this screen again; the saved choice skips the choice.
   const [backupChoiceMade, setBackupChoiceMade] = useState(
-    !showSpendableKeyBackupChoice,
+    !showSpendableKeyBackupChoice ||
+      passthrough?.walletBackupChoice === 'backup',
   );
   const walletBackupCacheRef = useRef(null);
   const writingBackupRef = useRef(false);
@@ -287,7 +290,10 @@ const WalletBackupRequestInfo = props => {
   ]);
 
   useEffect(() => {
-    setBackupChoiceMade(!showSpendableKeyBackupChoice);
+    setBackupChoiceMade(
+      !showSpendableKeyBackupChoice ||
+        store.getState().deeplink?.passthrough?.walletBackupChoice === 'backup',
+    );
   }, [showSpendableKeyBackupChoice]);
 
   useEffect(() => {
@@ -307,6 +313,11 @@ const WalletBackupRequestInfo = props => {
       hideSubscription.remove();
     };
   }, []);
+
+  const setWalletBackupChoice = walletBackupChoice => {
+    const current = store.getState().deeplink?.passthrough;
+    store.dispatch(setDeeplinkPassthroughData({...current, walletBackupChoice}));
+  };
 
   const openLogin = async () => {
     if (matchingAccounts.length === 0) {
@@ -694,7 +705,13 @@ const WalletBackupRequestInfo = props => {
       choice
       onClaim={skipBackupAndClaimSpendableKey}
       onBackup={async () => {
-        if (activeAccountMatchesRequest || await openLogin()) setBackupChoiceMade(true);
+        if (activeAccountMatchesRequest) {
+          setBackupChoiceMade(true);
+          return;
+        }
+        setWalletBackupChoice('backup');
+        if (await openLogin()) setBackupChoiceMade(true);
+        else setWalletBackupChoice(undefined);
       }}
       requestIsTestnet={requestIsTestnet}
       spendableKeyDetail={spendableKeyDetail}
