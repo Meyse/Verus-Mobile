@@ -7,12 +7,12 @@ without repeating the entire investigation.
 ## Current position
 
 - Scoped follow-up: **ID-3.NIGHT3-B** on `claude/night3-batch-b` from
-  `ff2e63e0`: **Ready for verification**. Modify review names the VerusID,
-  explains the resulting signing policy and marks added/removed values once.
-  Registration checks known source balances against the full two-payment quote.
-  Compact keyboard forms pin the price and clip scroll content above the footer.
-  The upstream consent rule and transaction engines stay unchanged. Device QA
-  remains open. See the scoped checklist and evidence below.
+  `ff2e63e0`: **Done** (device QA passed 2026-11-05, merged into `redesign`).
+  Modify review names the VerusID, explains the resulting signing policy and
+  marks added/removed values once. Registration checks known source balances
+  against the full two-payment quote. Keyboard-open forms pin the price and clip
+  scroll content above the footer. The upstream consent rule and transaction
+  engines stay unchanged. See the scoped checklist and evidence below.
 
 - Scoped follow-up: **TX-1.HIDDEN-BALANCES** on
   `claude/hidden-balances-tx-persist` from `bd00f503`: **Ready for verification**.
@@ -71,7 +71,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-05 (Night run 3 Batch B VerusID safety fixes; device QA remains open).
+- Last updated: 2026-11-05 (Night run 3 Batch B VerusID safety fixes; device QA passed).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -3153,8 +3153,9 @@ were not forced on a device; the retry boundary is checked in code only.
 Contract: operate mode. Use the current Transfer identity heading, management
 review rows/panels and V3 registration form. Reuse Warning, DetailRow,
 CheckOption, AppStatusBadge, SafeBottomActionStack, VerusIdFormField and the
-shared fade. Use existing theme/type roles and page insets. Only compact
-keyboard-open registration pins a compact exact total and hides Save for later.
+shared fade. Use existing theme/type roles and page insets. Keyboard-open
+registration pins a compact exact total and hides Save for later on every
+screen size (QA showed the normal-size form cut the price on Pro and Pixel 9).
 No new consent cases, engine edits, dependency changes or Jest tests.
 
 - [x] Name the VerusID and network on Modify review. Explain the resulting
@@ -3176,10 +3177,18 @@ No new consent cases, engine edits, dependency changes or Jest tests.
   Keep the irreversible-action sentence bold and Transfer logic unchanged.
 - [x] Run design, changed-file safe-area, Babel, focused ESLint, temporary
   component/pure-logic checks, and iOS/Android production bundles to /tmp.
-- [ ] Device QA: light/dark; Pro/SE/Android normal/360x640; keyboard open/closed;
-  enough/not enough/unknown balances, multi-currency quote and funding changes;
-  Modify add-second-address 1-of-2, remove address, change recovery/private,
-  M>1; full Transfer warning above the footer; Back, reload and both holds.
+- [x] Device QA: light/dark; Pro/SE/Android normal/360x640; keyboard open/closed;
+  enough and not enough funds; Modify add-second-address 1-of-2, 2-of-2,
+  1-of-3, remove address, change recovery; full Transfer warning above the
+  footer; Modify Back on Android. Review screens only, no holds.
+- [x] Pin the keyboard-open price and funds badge on every screen size
+  (`1fb71284`), after QA showed the Pro price cut in half and the badge hidden.
+- [ ] Follow-ups for Batch C: Android New VerusID pans the whole window over the
+  status bar when a bottom More options field gets focus (also on `ff2e63e0`);
+  "Available" and nearby rows sit in the keyboard-open fade on compact screens;
+  Added/Removed labels are quiet; 2-of-2 shows two near-duplicate warnings
+  (upstream wording); unknown balance, multi-currency quote, Back/reload on
+  create and Transfer, both real holds, screen readers and text scaling.
 
 Evidence: the temporary create-screen check fails on ff2e63e0 because 39 does
 not block a 100.0001 first hold, and passes on the candidate. A temporary scroll
@@ -3191,3 +3200,11 @@ release JS bundles pass. Standard ESLint cannot load the existing import plugin
 (ERR_PACKAGE_PATH_NOT_EXPORTED); focused core/React rules pass. Candidate
 native geometry, Android execution, screen readers, text scaling and real
 wallet operations remain open. See verusid-batch-b.local.md for the full matrix.
+
+Device QA evidence (2026-11-05, Sonnet testers): iOS Pro B1–B7 and SE S1–S5
+pass on `c36c1fd1` via Metro; Android normal and 360x640 pass on a native build
+of `c36c1fd1`, including the funded path (about 104 VRSCTEST, Hold on, no
+badge). After `1fb71284`, iOS R1/R2 and Android R3/R4 pass (price, app-data
+line and funds badge above Hold while typing). The Android window pan
+reproduces on `ff2e63e0`, so it predates this batch. Run folder and HTML
+report: `docs/qa/matrix/runs/2026-11-05-batchB/` (local, not in Git).
