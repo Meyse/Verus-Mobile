@@ -25,6 +25,7 @@ import SkeletonLoader, {
   SkeletonText,
 } from '../../../components/SkeletonLoader';
 import StatusBadge, {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
+import PrivacyBlurredText from '../../../components/PrivacyBlurredText';
 import {
   API_ABORTED,
   API_GET_FIATPRICE,
@@ -135,6 +136,7 @@ export const FocusedTransactionRow = ({
   incoming,
   onPress,
   pending,
+  showBalance,
   statusLabel = "Pending",
   ticker,
   timestamp,
@@ -149,7 +151,7 @@ export const FocusedTransactionRow = ({
 
   return (
     <TouchableOpacity
-      accessibilityLabel={`${accessibilityDirection} ${amountSign}${amount} ${ticker}. ${counterparty}${counterpartySuffix}. ${accessibilityStatus}.`}
+      accessibilityLabel={`${accessibilityDirection} ${showBalance ? `${amountSign}${amount} ${ticker}` : 'Balance hidden'}. ${counterparty}${counterpartySuffix}. ${accessibilityStatus}.`}
       accessibilityRole="button"
       activeOpacity={0.72}
       onPress={onPress}
@@ -197,18 +199,14 @@ export const FocusedTransactionRow = ({
       </View>
 
       <View style={transactionStyles.amountColumn}>
-        <NativeText
+        <PrivacyBlurredText
+          blurRadius={7}
+          color={incoming ? theme.colors.success : theme.colors.textPrimary}
+          hidden={!showBalance}
           numberOfLines={1}
-          style={[
-            transactionStyles.amount,
-            {
-              color: incoming
-                ? theme.colors.success
-                : theme.colors.textPrimary,
-            },
-          ]}>
-          {amountSign}{amount}
-        </NativeText>
+          style={transactionStyles.amount}>
+          {`${amountSign}${amount}`}
+        </PrivacyBlurredText>
         <NativeText
           numberOfLines={1}
           style={[
@@ -217,14 +215,14 @@ export const FocusedTransactionRow = ({
           ]}>
           {ticker}
         </NativeText>
-        <NativeText
+        <PrivacyBlurredText
+          blurRadius={5}
+          color={theme.colors.textSubtle}
+          hidden={!showBalance && fiatValue != null}
           numberOfLines={1}
-          style={[
-            transactionStyles.fiatValue,
-            {color: theme.colors.textSubtle},
-          ]}>
+          style={transactionStyles.fiatValue}>
           {fiatValue == null ? "—" : `≈ ${fiatValue}`}
-        </NativeText>
+        </PrivacyBlurredText>
       </View>
 
       <ChevronRight
@@ -857,6 +855,7 @@ class Overview extends Component {
         fiatValue={fiatValue}
         incoming={incoming}
         pending={pending}
+        showBalance={this.props.showBalance}
         ticker={ticker}
         timestamp={formatTransactionTimestamp(item.timestamp)}
         onPress={() => {
@@ -943,6 +942,7 @@ class Overview extends Component {
           paddingBottom: TRANSACTION_LIST_BOTTOM_PADDING,
         }}
         data={this.parseTransactionLists()}
+        extraData={this.props.showBalance}
         scrollEnabled={this.props.sheetOpen !== false}
         ListEmptyComponent={
           this.props.transactions?.errors != null ? (
@@ -987,7 +987,6 @@ class Overview extends Component {
         onScroll={this.handleTransactionScroll}
         renderItem={this.renderTransactionItem}
         scrollEventThrottle={16}
-        //extraData={this.props.balances}
       />
     );
   };
@@ -1005,6 +1004,7 @@ class Overview extends Component {
         ]}>
         <TransactionDetailsSheet
           details={this.state.txDetails}
+          showBalance={this.props.showBalance}
           onClose={() => this.setState({txDetailsVisible: false})}
           onClosed={() => this.setState({txDetails: null})}
           visible={this.state.txDetailsVisible}
@@ -1025,6 +1025,7 @@ const mapStateToProps = (state) => {
   return {
     activeCoin,
     activeSubWallet,
+    showBalance: state.coins.showBalance,
     transactions: selectTransactions(state),
     activeAccount: state.authentication.activeAccount,
     activeCoinsForUser: state.coins.activeCoinsForUser,

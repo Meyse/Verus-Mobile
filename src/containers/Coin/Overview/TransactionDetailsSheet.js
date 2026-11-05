@@ -46,7 +46,7 @@ export const decodeTxid = txid => {
 // Opened from a Coin Overview history row. It follows the Sent step: the
 // amount as a transfer node, then one row per fact. The explorer row shows
 // only when the coin has an explorer.
-const TransactionDetailsSheet = ({details, onClose, onClosed, visible}) => {
+const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visible}) => {
   const theme = useOnboardingTheme();
   const addresses = details?.address
     ? String(details.address).split(' & ')
@@ -73,6 +73,7 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, visible}) => {
               amount={details.amount}
               coinId={details.coinId}
               fiat={details.fiat}
+              hideAmounts={!showBalance}
               label={details.label}
               ticker={details.ticker}
             />
@@ -87,7 +88,11 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, visible}) => {
               />
             ) : null}
             {details.fee != null ? (
-              <InfoSheetRow label="Network fee" value={details.fee} />
+              <InfoSheetRow
+                label="Network fee"
+                value={details.fee}
+                valueHidden={!showBalance}
+              />
             ) : null}
             {details.memo ? (
               <InfoSheetRow copy label="Message" value={details.memo} />

@@ -17,7 +17,8 @@ import {
   fetchActiveCoins,
   requestSeedData,
   initNotifications,
-  initInstanceKey
+  initInstanceKey,
+  setBalanceVisibility
 } from './actions/actionCreators';
 import {
   initCache,
@@ -49,6 +50,7 @@ import WalletUnlockCoordinator from "./components/WalletUnlockCoordinator";
 import {useOnboardingTheme} from './theme/onboarding';
 import {createNavigationTheme} from './theme/app/navigationTheme';
 import { recoverPasswordMigration } from "./utils/asyncStore/authDataStorage";
+import { readBalanceVisibility } from "./utils/asyncStore/balancePrivacyStorage";
 
 const ThemedNavigationContainer = ({children}) => {
   const theme = useOnboardingTheme();
@@ -137,6 +139,10 @@ export class VerusMobile extends React.Component {
       // Initialize app settings
       const settingsAction = await initSettings();
       this.props.dispatch(settingsAction);
+
+      // RootStack stays on LoadingStack until initialization finishes, so the
+      // saved privacy choice reaches Redux before signed-in balances mount.
+      this.props.dispatch(setBalanceVisibility(await readBalanceVisibility()));
 
       this.props.dispatch(initInstanceKey(await initInstance()));
 

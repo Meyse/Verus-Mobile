@@ -130,6 +130,7 @@ const PrelaunchAssetPanel = ({coin, prelaunch, showBalance}) => {
               incoming={false}
               onPress={() => openTransaction(item)}
               pending
+              showBalance={showBalance}
               statusLabel={item.pending ? 'Pending' : 'Waiting for launch'}
               ticker={tickerOf(item.currencyId, facts.names)}
               timestamp={formatTransactionDate(item.timestamp)}
@@ -145,6 +146,7 @@ const PrelaunchAssetPanel = ({coin, prelaunch, showBalance}) => {
       />
       <TransactionDetailsSheet
         details={transaction}
+        showBalance={showBalance}
         onClose={() => setTransactionOpen(false)}
         onClosed={() => setTransaction(null)}
         visible={transactionOpen}

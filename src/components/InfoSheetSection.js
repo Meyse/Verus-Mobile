@@ -1,7 +1,8 @@
 import React, {useMemo} from 'react';
-import {View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CopyAction from './CopyAction';
+import PrivacyBlurredText from './PrivacyBlurredText';
 import {createInfoSheetStyles, deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 
@@ -20,7 +21,8 @@ export const InfoSheetTopic = ({title, children}) => {
 // `copy` adds the shared copy button beside the row. It copies `copyValue`
 // when the shown value differs from the text to copy. `accessory` is a node at
 // the right of the row, for example a status badge. It comes before the copy
-// button when the row has both.
+// button when the row has both. `valueHidden` blurs a money value and replaces
+// its spoken value with "Balance hidden".
 export const InfoSheetRow = ({
   accessory,
   copy = false,
@@ -31,6 +33,7 @@ export const InfoSheetRow = ({
   numberOfLines,
   selectable = true,
   value,
+  valueHidden = false,
   valueStyle,
 }) => {
   const theme = useOnboardingTheme();
@@ -44,13 +47,25 @@ export const InfoSheetRow = ({
   const text = (
     <>
       <Text style={[styles.requestInfoLabel, labelStyle]}>{label}</Text>
-      <Text
-        ellipsizeMode={ellipsizeMode}
-        numberOfLines={numberOfLines}
-        selectable={selectable}
-        style={[styles.requestInfoValue, valueStyle]}>
-        {value}
-      </Text>
+      {valueHidden ? (
+        <View accessible accessibilityLabel="Balance hidden">
+          <PrivacyBlurredText
+            blurRadius={7}
+            color={StyleSheet.flatten([styles.requestInfoValue, valueStyle]).color}
+            hidden
+            style={[styles.requestInfoValue, valueStyle]}>
+            {value}
+          </PrivacyBlurredText>
+        </View>
+      ) : (
+        <Text
+          ellipsizeMode={ellipsizeMode}
+          numberOfLines={numberOfLines}
+          selectable={selectable}
+          style={[styles.requestInfoValue, valueStyle]}>
+          {value}
+        </Text>
+      )}
     </>
   );
 

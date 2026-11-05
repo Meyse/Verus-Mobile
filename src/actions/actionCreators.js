@@ -33,6 +33,7 @@ import {
   SET_USER_COINS,
   SET_BALANCES,
   SET_BALANCE_SHOW,
+  SET_BALANCE_VISIBILITY,
   SET_ONE_BALANCE,
   SET_TRANSACTIONS,
   //SET_INTERVAL_ID,
@@ -280,6 +281,12 @@ export const setBalanceShow = () => {
     type: SET_BALANCE_SHOW
   }
 }
+
+// Apply the phone's saved choice without toggling or writing it back.
+export const setBalanceVisibility = (showBalance) => ({
+  type: SET_BALANCE_VISIBILITY,
+  showBalance,
+});
 
 //Reducer name: ledger
 export const setOneBalance = (coinId, balance) => {
