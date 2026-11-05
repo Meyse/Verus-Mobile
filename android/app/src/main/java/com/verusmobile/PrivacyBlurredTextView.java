@@ -2,24 +2,20 @@ package com.verusmobile;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
+import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.os.Build;
-import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.RenderScript;
-import android.renderscript.ScriptIntrinsicBlur;
 import android.text.TextPaint;
 import android.view.View;
 
 public class PrivacyBlurredTextView extends View {
-  private static final float RENDER_EFFECT_SIGMA_SCALE = 0.57735f;
-  private static final float RENDER_EFFECT_SIGMA_OFFSET = 0.5f;
+  private static final float BLUR_SIGMA_SCALE = 0.57735f;
+  private static final float BLUR_SIGMA_OFFSET = 0.5f;
 
   private final TextPaint paint = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
+  private final Paint placeholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private String text = "";
   private String fontFamily;
   private String fontWeight = "normal";
@@ -29,10 +25,13 @@ public class PrivacyBlurredTextView extends View {
   private float letterSpacing = 0;
   private float blurRadius = 5;
   private Bitmap blurredBitmap;
+  private int bitmapPadding;
+  private boolean blurUnavailable;
 
   public PrivacyBlurredTextView(Context context) {
     super(context);
     paint.setColor(Color.BLACK);
+    placeholderPaint.setColor(Color.BLACK);
     setWillNotDraw(false);
   }
 
@@ -43,6 +42,7 @@ public class PrivacyBlurredTextView extends View {
 
   public void setTextColor(int value) {
     paint.setColor(value);
+    placeholderPaint.setColor(value | 0xff000000);
     invalidateBlur();
   }
 
@@ -81,7 +81,6 @@ public class PrivacyBlurredTextView extends View {
 
   public void setBlurRadius(float value) {
     blurRadius = value;
-    updateRenderEffect();
     invalidateBlur();
   }
 
@@ -109,22 +108,12 @@ public class PrivacyBlurredTextView extends View {
     }
   }
 
-  private void updateRenderEffect() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      float targetSigma = toPixels(blurRadius);
-      float radius =
-          Math.max(
-              (targetSigma - RENDER_EFFECT_SIGMA_OFFSET) / RENDER_EFFECT_SIGMA_SCALE,
-              0.1f);
-      setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.DECAL));
-    }
-  }
-
   private void invalidateBlur() {
     if (blurredBitmap != null) {
       blurredBitmap.recycle();
       blurredBitmap = null;
     }
+    blurUnavailable = false;
     invalidate();
   }
 
@@ -142,15 +131,20 @@ public class PrivacyBlurredTextView extends View {
       return;
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      drawText(canvas);
-      return;
+    if (blurredBitmap == null && !blurUnavailable) {
+      try {
+        blurredBitmap = renderSoftwareBlur();
+      } catch (RuntimeException | OutOfMemoryError ignored) {
+        // Privacy must not depend on the device being able to allocate or blur a bitmap.
+        blurUnavailable = true;
+      }
     }
-
-    if (blurredBitmap == null) {
-      blurredBitmap = renderSoftwareBlur();
+    if (blurredBitmap != null) {
+      canvas.drawBitmap(blurredBitmap, -bitmapPadding, -bitmapPadding, null);
+    } else {
+      float radius = Math.min(toPixels(4), getHeight() / 2f);
+      canvas.drawRoundRect(0, 0, getWidth(), getHeight(), radius, radius, placeholderPaint);
     }
-    canvas.drawBitmap(blurredBitmap, 0, 0, null);
   }
 
   private void drawText(Canvas canvas) {
@@ -183,25 +177,30 @@ public class PrivacyBlurredTextView extends View {
     return 0;
   }
 
-  @SuppressWarnings("deprecation")
   private Bitmap renderSoftwareBlur() {
-    Bitmap source = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
-    drawText(new Canvas(source));
-    Bitmap output = Bitmap.createBitmap(source);
-    RenderScript renderScript = RenderScript.create(getContext());
-    Allocation input = Allocation.createFromBitmap(renderScript, source);
-    Allocation result = Allocation.createFromBitmap(renderScript, output);
-    ScriptIntrinsicBlur blur =
-        ScriptIntrinsicBlur.create(renderScript, Element.U8_4(renderScript));
-    blur.setRadius(Math.min(Math.max(toPixels(blurRadius), 0.1f), 25f));
-    blur.setInput(input);
-    blur.forEach(result);
-    result.copyTo(output);
-    blur.destroy();
-    input.destroy();
-    result.destroy();
-    renderScript.destroy();
-    source.recycle();
-    return output;
+    // RN's BaseViewManager clears a View's RenderEffect after every prop update.
+    // Blur into a software bitmap instead; never draw clear text to the display canvas.
+    float sigma = toPixels(blurRadius);
+    if (!(sigma > 0) || Float.isInfinite(sigma)) {
+      throw new IllegalArgumentException("A privacy blur needs a finite, positive radius");
+    }
+    float radius = Math.max((sigma - BLUR_SIGMA_OFFSET) / BLUR_SIGMA_SCALE, 0.1f);
+    bitmapPadding = (int) Math.ceil(sigma * 3);
+    Bitmap bitmap = Bitmap.createBitmap(
+        getWidth() + bitmapPadding * 2,
+        getHeight() + bitmapPadding * 2,
+        Bitmap.Config.ARGB_8888);
+    try {
+      Canvas bitmapCanvas = new Canvas(bitmap);
+      bitmapCanvas.translate(bitmapPadding, bitmapPadding);
+      paint.setMaskFilter(new BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL));
+      drawText(bitmapCanvas);
+      return bitmap;
+    } catch (RuntimeException | OutOfMemoryError error) {
+      bitmap.recycle();
+      throw error;
+    } finally {
+      paint.setMaskFilter(null);
+    }
   }
 }
