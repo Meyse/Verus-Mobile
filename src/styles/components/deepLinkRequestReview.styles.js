@@ -72,7 +72,7 @@ const createDeepLinkRequestReviewStyles = theme =>
       marginTop: theme.spacing.md,
     },
     requestInfoSectionTitle: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 13,
       lineHeight: 18,
       letterSpacing: 0,
@@ -98,7 +98,7 @@ const createDeepLinkRequestReviewStyles = theme =>
       marginRight: 8,
     },
     requestInfoLabel: {
-      color: theme.colors.textSubtle,
+      color: theme.colors.textSecondary,
       fontSize: 12,
       lineHeight: 17,
       letterSpacing: 0,
