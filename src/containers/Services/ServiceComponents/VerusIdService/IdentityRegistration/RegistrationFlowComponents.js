@@ -50,7 +50,7 @@ export const RegistrationChoice = ({title, subtitle, selected, disabled, onPress
   </View>;
 };
 
-export const RegistrationFunds = ({data, source, coin, coins, balances, reads, showBalance, funding, referralOnly, onRetry}) => {
+export const RegistrationFunds = ({data, source, coin, coins, balances, reads, showBalance, funding, referralOnly, onRetry, compact = false}) => {
   const styles = useRegistrationStyles();
   if (!data?.quote) return null;
   const {quote, referralQuote, currencyNames} = data;
@@ -65,7 +65,8 @@ export const RegistrationFunds = ({data, source, coin, coins, balances, reads, s
     <View style={styles.row}><Text style={styles.label}>Price</Text><Text style={styles.amount}>{formatRegistrationAmount(price)} {currencyLabel(priceId, currencyNames)}</Text></View>
     {!!referralQuote && <Text style={[styles.muted, {textAlign: 'right'}]}>{formatRegistrationAmount(referralQuote.totalOperationRequired[priceId])} {currencyLabel(priceId, currencyNames)} with a referral</Text>}
     {two && <View style={styles.row}><Text style={styles.label}>Network fees</Text><Text style={styles.amount}>{formatRegistrationAmount(quote.totalOperationRequired[quote.systemID])} {currencyLabel(quote.systemID, currencyNames)}</Text></View>}
-    <View style={styles.divider} />
+    {!compact && <View style={styles.divider} />}
+    {!compact && <>
     <View style={[styles.row, {alignItems: 'flex-start', flexWrap: 'wrap'}]}>
       <Text style={styles.label}>You have</Text>
       <View style={{alignItems: 'flex-end'}}>{[priceId, ...(two ? [quote.systemID] : [])].map(id => {
@@ -75,8 +76,11 @@ export const RegistrationFunds = ({data, source, coin, coins, balances, reads, s
       {!two && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
     </View>
     {two && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
-    {referralOnly && enough && <RegistrationText muted>You choose a referral in the next step.</RegistrationText>}
-    {funding?.status === 'short' && <RegistrationText muted>Add {label} to this wallet to continue.</RegistrationText>}
+    </>}
+    {compact && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
+    {compact && funding?.status === 'checking' && <RegistrationText muted>Checking funds…</RegistrationText>}
+    {!compact && referralOnly && enough && <RegistrationText muted>You choose a referral in the next step.</RegistrationText>}
+    {!compact && funding?.status === 'short' && <RegistrationText muted>Add {label} to this wallet to continue.</RegistrationText>}
     {funding?.status === 'error' && <><RegistrationText style={styles.errorText}>Payer balances could not be checked.</RegistrationText><TextAction onPress={onRetry}>Try again</TextAction></>}
   </View>;
 };

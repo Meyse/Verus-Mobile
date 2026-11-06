@@ -215,7 +215,7 @@ export default function NewRegistrationFlow({navigation, route}) {
     const id = quote?.feePricingCurrencyID || quote?.issuerID;
     return `${formatRegistrationAmount(quote?.totalOperationRequired[id] || '0')} ${currencyLabel(id, data?.currencyNames)}${funding.status === 'short' ? `. Not enough ${currencyLabel(funding.currencyId, data?.currencyNames)}.` : ''}`;
   };
-  const funds = <RegistrationFunds data={data} coin={coin} coins={coins} balances={balances} reads={sourceReads.reads}
+  const funds = compact => <RegistrationFunds compact={compact} data={data} coin={coin} coins={coins} balances={balances} reads={sourceReads.reads}
     source={defaultSource} showBalance={showBalance} funding={nameFunding} referralOnly={!fullEnough || !!referralRequired} onRetry={sourceReads.retry} />;
   const summary = shown && <RegistrationSummary name={ownName} referral={referralsAllowed ? referralID : null}
     payer={payer} recovery={preview?.request.recoveryAuthority ? identityLabel(preview.request.recoveryAuthority, preview.identityNames) : ownName}
@@ -229,7 +229,7 @@ export default function NewRegistrationFlow({navigation, route}) {
     stepCount={steps.length}
     info={<RegistrationInfo create name={ownName}><RegistrationPreviewDetails preview={preview} /></RegistrationInfo>}
     footer={({compactKeyboard}) => <>
-      {compactKeyboard && (step === 'name' ? funds : data && <RegistrationFunds data={{...data, quote: activeQuote, referralQuote: null}} source={payer}
+      {compactKeyboard && (step === 'name' ? funds(true) : data && <RegistrationFunds compact data={{...data, quote: activeQuote, referralQuote: null}} source={payer}
         coin={coin} coins={coins} balances={balances} reads={sourceReads.reads} showBalance={showBalance} funding={payerState(payer)} onRetry={sourceReads.retry} />)}
       <ActionButton disabled={!ready} busy={busy} hold={step === 'check'} onPress={step === 'check' ? start : step === 'recovery' ? () => go('check') : continueStep}>
         {step === 'check' ? 'Hold to start' : step === 'recovery' ? 'Done' : 'Continue'}
@@ -239,7 +239,7 @@ export default function NewRegistrationFlow({navigation, route}) {
       {step === 'name' && <>
         <NameField name={name} setName={setName} namespace={namespace} onNamespace={() => {Keyboard.dismiss(); setNamespaceVisible(true);}}
           busy={busy} availability={availability} previewError={nameError} onRetry={retry} />
-        {!compactKeyboard && funds}
+        {!compactKeyboard && funds(false)}
         {!coin && <RegistrationText muted>Add a network wallet to continue.</RegistrationText>}
         {availability === 'checking' && <RegistrationSkeleton label="Checking name and price" />}
         {wallets.length > 1 && <SelectionField label="Network" value={`${coin?.display_ticker}${coin?.testnet ? ' · Testnet' : ''}`} disabled={busy}
