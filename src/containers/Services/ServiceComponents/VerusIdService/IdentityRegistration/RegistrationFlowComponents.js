@@ -31,7 +31,7 @@ export const RegistrationInfo = ({name = 'your VerusID', payer, children, create
   {children}
 </>;
 
-export const RegistrationChoice = ({title, subtitle, selected, disabled, onPress, children, identifier}) => {
+export const RegistrationChoice = ({title, subtitle, selected, disabled, onPress, children, identifier, identifierIsAddress = false}) => {
   const theme = useAppTheme();
   const styles = useRegistrationStyles();
   return <View style={[styles.choice, {backgroundColor: selected ? theme.colors.successBackground : theme.colors.surfaceMuted,
@@ -41,7 +41,7 @@ export const RegistrationChoice = ({title, subtitle, selected, disabled, onPress
       style={[styles.choiceHead, disabled && {opacity: 0.6}]}>
       <View style={styles.flexible}>
         <RegistrationText style={theme.typography.titleRow}>{title}</RegistrationText>
-        {!!identifier && <Text style={styles.identifier}>{identifier}</Text>}
+        {!!identifier && <Text style={identifierIsAddress ? styles.identifier : styles.muted}>{identifier}</Text>}
         {!!subtitle && <RegistrationText muted>{subtitle}</RegistrationText>}
       </View>
       {selected && <Check size={20} color={theme.colors.successText} />}
@@ -67,13 +67,15 @@ export const RegistrationFunds = ({data, source, coin, coins, balances, reads, s
     {two && <View style={styles.row}><Text style={styles.label}>Network fees</Text><Text style={styles.amount}>{formatRegistrationAmount(quote.totalOperationRequired[quote.systemID])} {currencyLabel(quote.systemID, currencyNames)}</Text></View>}
     {!compact && <View style={styles.divider} />}
     {!compact && <>
-    <View style={[styles.row, {alignItems: 'flex-start', flexWrap: 'wrap'}]}>
-      <Text style={styles.label}>You have</Text>
-      <View style={{alignItems: 'flex-end'}}>{[priceId, ...(two ? [quote.systemID] : [])].map(id => {
+    <View style={[styles.row, {alignItems: 'flex-start'}]}>
+      <Text style={[styles.label, styles.fundsLabel]}>You have</Text>
+      <View style={styles.fundsValues}>
+      <View style={styles.fundsAmounts}>{[priceId, ...(two ? [quote.systemID] : [])].map(id => {
         const balance = registrationCurrencyBalance(id, source, coin, coins, balances, reads);
         return <Text key={id} style={styles.amount}>{!showBalance ? 'Balance hidden' : balance == null ? 'Checking…' : `${balance} ${currencyLabel(id, currencyNames)}`}</Text>;
       })}</View>
       {!two && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
+      </View>
     </View>
     {two && badge && <AppStatusBadge style={{alignSelf: 'flex-start'}} label={badge} tone={enough ? 'success' : 'danger'} />}
     </>}

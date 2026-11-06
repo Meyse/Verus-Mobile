@@ -63,7 +63,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   // While the keyboard is open, every screen size pins the exact price and any
   // funds warning above Hold: QA showed both cut off or hidden on Pro and Pixel 9.
   const compactKeyboard = keyboard;
-  const formScroll = useVerusIdFormScroll(keyboard);
+  const formScroll = useVerusIdFormScroll(keyboard, true);
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true));
     const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false));
@@ -315,6 +315,9 @@ export const RegistrationDetails = ({review, children}) => {
   return <>
     <TextAction onPress={() => setVisible(true)}>Transaction details</TextAction>
     <InfoSheet visible={visible} onClose={dismissal.close} onClosed={dismissal.onClosed} title="Transaction details">
+      <InfoSheetSection title="Transactions" rows={[
+        ['Commitment transaction', review.commitmentTxid], ['Registration transaction', review.registrationTxid],
+      ].filter(([, value]) => value).map(([label, value]) => ({label, value, copy: true, valueStyle: styles.identifier}))} />
       <InfoSheetSection title="VerusID details" rows={[
         {label: 'Controlled by', value: 'This wallet'},
         {label: 'Private address', value: review.identity?.privateaddress, copy: true, valueStyle: styles.identifier},
@@ -329,9 +332,8 @@ export const RegistrationDetails = ({review, children}) => {
       <InfoSheetSection title="Fees" rows={registrationCostRows(review.quote).map(row => ({
         label: row.label, value: `${formatRegistrationAmount(row.amount)} ${currencyLabel(row.currencyID, review.currencyNames)}${row.recipient ? ` · To ${identityLabel(row.recipient, names)}` : ''}`,
       }))} />
-      <InfoSheetSection title="Addresses and transactions" rows={[
+      <InfoSheetSection title="Addresses" rows={[
         ['VerusID address', review.identityAddress], ['Payment address', review.fundingAddress], ['Control address', review.signingAddress],
-        ['Commitment transaction', review.commitmentTxid], ['Registration transaction', review.registrationTxid],
       ].filter(([, value]) => value).map(([label, value]) => ({label, value, copy: true, valueStyle: styles.identifier}))} />
       {typeof children === 'function' ? children(dismissal.dismiss) : children}
     </InfoSheet>
