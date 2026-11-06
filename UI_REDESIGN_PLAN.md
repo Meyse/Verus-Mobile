@@ -3366,3 +3366,36 @@ keyboard measurements, accessibility and live funds arrivals remain device
 checks. No simulator, emulator, native/dependency/lockfile edit, engine edit,
 merge or push ran. The other worktree and its Metro session were left untouched.
 Artifacts and exact commands are in new-verusid-flow-fixes.local.md (local).
+
+### ID-3.REG-R11-QA3 — Second-payment funds and Recovery warnings (2026-11-06)
+
+Contract: operate mode. Limit changes to progress funds checks and Recovery.
+Reuse RegistrationPage, RegistrationStatusPill, RegistrationTimeline,
+AppTextInput, VerusIdFormField, the existing notice style and safe footer.
+Keep Home, Name keyboard behavior, native shortage wording and payment consent.
+
+- [x] Treat FUNDING_SPENT and STALE_CHAIN_CONTEXT during second-payment
+  preparation or approval as screen-local Checking funds. Show the approved
+  confirmation copy under Registration. Keep Hold to create off and Done for
+  now. Leave saved Home metadata and signed-payment errors unchanged.
+- [x] Recheck every 20 seconds and on foreground with the existing focus,
+  app-state, operation and prompt guards. Recheck after same-stage re-entry.
+  Recover to shortage or Ready; payment still needs a new hold.
+- [x] Put each authority warning under its own helper inside that field's
+  measured group. Put matching-authority warnings under Recovery only.
+- [x] Run design, safe-area, focused lint, existing suites, Android dev bundle,
+  controlled components, scroll geometry and source-derived visual review.
+- [ ] Device owner: repeat the wallet-Send race and both Recovery focus paths
+  on Android 360x640 and 412x923, light/dark. Verify confirmation, no automatic
+  payment, foreground/blur, pull refresh, Back/re-entry and warning visibility.
+
+Evidence: 38 temporary non-Jest component cases pass; 14 fail on 994c774d.
+Nine worked scroll-geometry cases pass with substituted measurements. Twenty
+source-derived renders were inspected in both themes and sizes. These are not
+native keyboard, accessibility or on-chain evidence. Design and safe-area pass;
+focused core/React/hooks lint has zero errors on base and candidate. Standard
+ESLint retains its import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED blocker.
+Existing suites retain 395 passes, four assertion failures and two native-mock
+load errors. The Android dev bundle passes with 52 assets. No tests were added.
+Exact commands, temporary harness configuration and device steps are in the
+untracked new-verusid-flow-fixes3.local.md report.
