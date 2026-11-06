@@ -59,7 +59,6 @@ export default function NewRegistrationFlow({navigation, route}) {
   const [referralName, setReferralName] = useState('');
   const [recovery, setRecovery] = useState('');
   const [revocation, setRevocation] = useState('');
-  const recoveryScrollGroup = useRef(null);
   const [payerAddress, setPayerAddress] = useState(null);
   const [nameResult, setNameResult] = useState(null);
   const [availability, setAvailability] = useState(null);
@@ -215,9 +214,14 @@ export default function NewRegistrationFlow({navigation, route}) {
     });
   };
   const save = () => { if (ready) run(() => prepareCommitment({request}, context), exit); };
-  const field = (label, value, setValue, placeholder, helper, id) => <VerusIdFormField scrollGroupRef={step === 'recovery' ? recoveryScrollGroup : undefined}>{focusProps => <>
+  const authorityWarning = (id, value) => authorityValue(value)
+    ? preview?.request[id] ? identityLabel(preview.request[id], preview.identityNames) : value.trim() : null;
+  const recoveryWarning = authorityWarning('recoveryAuthority', recovery);
+  const revocationWarning = authorityWarning('revocationAuthority', revocation);
+  const field = (label, value, setValue, placeholder, helper, id, warning) => <VerusIdFormField>{focusProps => <>
     <AppTextInput {...focusProps} label={label} value={value} editable={!busy} onChangeText={setValue}
       placeholder={placeholder} helperText={helper} invalid={fieldsError?.field === id} />
+    {warning && <View style={styles.notice}><Text style={styles.warningText}>{warning} can take control of {ownName}.</Text></View>}
     {fieldsError?.field === id && <View style={[styles.row, {gap: 6, alignItems: 'flex-start'}]} accessibilityRole="alert">
       <CircleAlert size={14} color={styles.errorText.color} /><Text style={[styles.errorText, {flex: 1}]}>{fieldsError.message}</Text>
     </View>}
@@ -291,11 +295,9 @@ export default function NewRegistrationFlow({navigation, route}) {
         <RegistrationTimeline check review={{status: 'commitment_prepared', ...preview}} />
         {summary}
       </> : <RegistrationSkeleton label="Checking registration details" />)}
-      {step === 'recovery' && <View ref={recoveryScrollGroup} collapsable={false} style={{gap: 24}}>
-        {field('Recovery VerusID (optional)', recovery, setRecovery, ownName, 'Can restore your VerusID if it is revoked.', 'recoveryAuthority')}
-        {field('Revocation VerusID (optional)', revocation, setRevocation, ownName, `Can revoke your VerusID. Leave both empty to use ${ownName} for both.`, 'revocationAuthority')}
-        {[...new Set([['recoveryAuthority', recovery], ['revocationAuthority', revocation]].filter(([, value]) => authorityValue(value))
-          .map(([id, value]) => preview?.request[id] ? identityLabel(preview.request[id], preview.identityNames) : value.trim()))].map(value => <View key={value} style={styles.notice}><Text style={styles.warningText}>{value} can take control of {ownName}.</Text></View>)}
+      {step === 'recovery' && <View style={{gap: 24}}>
+        {field('Recovery VerusID (optional)', recovery, setRecovery, ownName, 'Can restore your VerusID if it is revoked.', 'recoveryAuthority', recoveryWarning)}
+        {field('Revocation VerusID (optional)', revocation, setRevocation, ownName, `Can revoke your VerusID. Leave both empty to use ${ownName} for both.`, 'revocationAuthority', revocationWarning !== recoveryWarning ? revocationWarning : null)}
         {fieldsError?.retryable && <TextAction onPress={retry}>Try again</TextAction>}
       </View>}
       <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces} selectedId={namespace?.id || coin?.system_id}
