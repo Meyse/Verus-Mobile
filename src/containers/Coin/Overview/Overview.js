@@ -686,6 +686,7 @@ class Overview extends Component {
     const activeCardRefresh = refreshWalletChannels(
       this.props.activeCoin.id, [this.props.activeSubWallet],
       [API_GET_BALANCES, API_GET_TRANSACTIONS],
+      {force: showRefreshIndicator},
     );
     if (this.state.loading) {
       if (showRefreshIndicator && !this.state.refreshing) {

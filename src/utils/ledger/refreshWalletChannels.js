@@ -8,7 +8,8 @@ const lastReads = new Map();
 
 // Visible surfaces can request fresh data without expiring every card. Share
 // the 30-second limit across history, the address sheet and the VerusID list.
-export const refreshWalletChannels = (chainTicker, cards, updateIds) => {
+// A pull by the user (`force`) skips the time limit, never the busy check.
+export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = false} = {}) => {
   const state = Store.getState();
   const accountHash = state.authentication.activeAccount?.accountHash;
   if (!accountHash) return Promise.resolve(updateIds.map(() => API_ABORTED));
@@ -30,7 +31,7 @@ export const refreshWalletChannels = (chainTicker, cards, updateIds) => {
         if (!visible || !channel || !tracker?.channels?.includes(channel) || tracker.busy?.[channel] ||
             !state[`channelStore_${channel.split('.')[0]}`]?.openCoinChannels[chainTicker]) return false;
         const key = `${chainTicker}:${updateId}:${channel}`;
-        if (lastReads.has(key) && now - lastReads.get(key) < VISIBLE_WALLET_REFRESH_INTERVAL) return false;
+        if (!force && lastReads.has(key) && now - lastReads.get(key) < VISIBLE_WALLET_REFRESH_INTERVAL) return false;
         lastReads.set(key, now);
         return true;
       });
