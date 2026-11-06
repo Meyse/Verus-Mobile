@@ -20,6 +20,7 @@ const ProgressHeader = ({
   closeLabel,
   showBack = true,
   showProgress = true,
+  stepCount,
   onBack,
   onClose,
   progress = 0.25,
@@ -135,9 +136,17 @@ const ProgressHeader = ({
           }}
           style={[
             headerStyles.progressTrack,
-            {backgroundColor: theme.colors.surfaceMuted},
+            {backgroundColor: stepCount ? 'transparent' : theme.colors.surfaceMuted},
+            stepCount && {flexDirection: 'row', gap: 4},
           ]}>
-          <Animated.View
+          {stepCount ? Array.from({length: stepCount}, (_, index) => <View key={index}
+            style={{flex: 1, height: '100%', borderRadius: 99, overflow: 'hidden', backgroundColor: theme.colors.surfaceMuted}}>
+            <Animated.View style={[headerStyles.progressFill, {
+              width: animatedProgress.interpolate({inputRange: [index / stepCount, (index + 1) / stepCount],
+                outputRange: ['0%', '100%'], extrapolate: 'clamp'}),
+              backgroundColor: theme.colors.primary,
+            }]} />
+          </View>) : <Animated.View
             style={[
               headerStyles.progressFill,
               {
@@ -145,7 +154,7 @@ const ProgressHeader = ({
                 backgroundColor: theme.colors.primary,
               },
             ]}
-          />
+          />}
         </View>
       ) : null}
     </View>

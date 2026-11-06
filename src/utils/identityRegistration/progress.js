@@ -2,8 +2,8 @@ export const COMMITMENT_SLOW_AFTER_MS = 3 * 60 * 1000;
 
 export const registrationCommitmentWaitMessage = (broadcastAt, now = Date.now()) =>
   Number.isFinite(broadcastAt) && now - broadcastAt >= COMMITMENT_SLOW_AFTER_MS
-    ? 'This is taking longer than usual. The network has not added the next block yet. You can close this screen.'
-    : 'Usually ready in about 1 minute. You can close this screen.';
+    ? 'Sent. Still waiting for 1 block confirmation. This can take a while.'
+    : 'Sent. Needs 1 block confirmation.';
 
 // The SDK keeps the server's refusal inside an uncertain-broadcast error.
 // Translate known reasons; never persist or display raw server text.

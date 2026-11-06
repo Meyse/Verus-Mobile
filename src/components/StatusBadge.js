@@ -9,6 +9,7 @@ export const STATUS_BADGE_TONE = {
   SUCCESS: 'success',
   WARNING: 'warning',
   NEUTRAL: 'neutral',
+  INFO: 'info',
   DANGER: 'danger',
 };
 
@@ -22,6 +23,9 @@ const CARD_NEUTRAL = {
 };
 
 const getToneColors = (tone, colors) => {
+  if (tone === STATUS_BADGE_TONE.INFO) {
+    return {backgroundColor: colors.primaryBackground, color: colors.link};
+  }
   if (tone === STATUS_BADGE_TONE.SUCCESS) {
     return {backgroundColor: colors.successBackground, color: colors.successText};
   }

@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {verusIdCopy} from '../../../../../utils/verusid/verusIdCopy';
-import {Keyboard, Pressable, RefreshControl, Text, View, useWindowDimensions} from 'react-native';
+import {BackHandler, Keyboard, Pressable, RefreshControl, Text, View, useWindowDimensions} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {ChevronDown, ChevronRight, ChevronUp, Info, Trash2} from 'lucide-react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../../components/AppButton';
@@ -27,6 +28,7 @@ import {useRegistrationFiat} from './useRegistrationPrices';
 import {VerusIdFormField, VerusIdFormScrollContext, useVerusIdFormScroll} from '../VerusIdFormScroll';
 import {VerusIdName, wrapVerusIdNames} from '../VerusIdCard';
 import {isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
+import {useRegistrationExit} from './registrationNavigation';
 
 export {currencyLabel};
 export const identityLabel = (...args) => verusIdCopy(upstreamIdentityLabel(...args));
@@ -48,12 +50,15 @@ export const RegistrationSkeleton = ({label = 'Loading costs'}) => {
 };
 
 export const RegistrationPage = ({children, error, refreshing = false, onRefresh, footer,
-  navigation, title = 'New VerusID', busy = false, busyRef, info, showHeader = true, onRetry}) => {
+  navigation, title = 'New VerusID', busy = false, busyRef, info, showHeader = true, onRetry,
+  onBack, onClose, progress, stepCount}) => {
   const theme = useAppTheme();
   const styles = useRegistrationStyles();
   const insets = useSafeAreaInsets();
+  const exit = useRegistrationExit(navigation);
   const {height} = useWindowDimensions();
   const [infoVisible, setInfoVisible] = useState(false);
+  const infoDismissal = useSheetDismissal({visible: infoVisible, onClose: () => setInfoVisible(false)});
   const [keyboard, setKeyboard] = useState(false);
   // While the keyboard is open, every screen size pins the exact price and any
   // funds warning above Hold: QA showed both cut off or hidden on Pro and Pixel 9.
@@ -67,7 +72,15 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   useEffect(() => navigation?.addListener('beforeRemove', event => {
     if (busyRef ? busyRef.current : busy) event.preventDefault();
   }), [navigation, busy, busyRef]);
-  const close = () => { if (!busy && !busyRef?.current) navigation?.getParent()?.goBack(); };
+  const close = () => { if (!busy && !busyRef?.current) (onClose || exit)(); };
+  useFocusEffect(React.useCallback(() => {
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (infoVisible) { setInfoVisible(false); return true; }
+      if (!busy && !busyRef?.current) (onBack || close)();
+      return true;
+    });
+    return () => listener.remove();
+  }, [onBack, onClose, busy, infoVisible]));
   // The left action is absent in this combined task. Info and Close share the
   // header's right action slot. Existing ProgressHeader consumers are unchanged.
   const rightAction = <View style={{flexDirection: 'row', width: info ? 88 : 44, alignSelf: 'flex-end', justifyContent: 'flex-end'}}>
@@ -78,7 +91,8 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
     <HeaderCloseButton onPress={close} disabled={busy} />
   </View>;
   return <View style={styles.page}>
-    {showHeader && <ProgressHeader showBack={false} showProgress={false} title={title} rightAction={rightAction} />}
+    {showHeader && <ProgressHeader showBack={!!onBack} onBack={onBack} backDisabled={busy}
+      showProgress={progress != null} progress={progress} stepCount={stepCount} title={title} rightAction={rightAction} />}
     {/* The header is inside this page, so the form's own frame already starts below it (offset 0, as ManagementPage). */}
     <KeyboardAvoidingForm style={styles.page}>
       <VerusIdFormScrollContext.Provider value={formScroll.context}>
@@ -103,8 +117,8 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
         {typeof footer === 'function' ? footer({compactKeyboard}) : footer}
       </SafeBottomActionStack></View>}
     </KeyboardAvoidingForm>
-    <InfoSheet visible={infoVisible} onClose={() => setInfoVisible(false)} title="About this registration">
-      {info}
+    <InfoSheet visible={infoVisible} onClose={infoDismissal.close} onClosed={infoDismissal.onClosed} title="About this registration">
+      {typeof info === 'function' ? info(infoDismissal.dismiss) : info}
     </InfoSheet>
   </View>;
 };
@@ -253,7 +267,7 @@ export const CostReview = ({quote, currencyNames, stage = 'commitment', prices =
     </Text>)}
     {fiat && <Text style={styles.muted}>≈ {fiat}</Text>}
     {missing.map(id => <Text key={id} style={styles.muted}>No market price for {currencyLabel(id, currencyNames)}</Text>)}
-    {stage === 'commitment' && <Text style={styles.muted}>First {formatRegistrationAmount(quote.commitmentFee)} {currencyLabel(quote.systemID, currencyNames)}, then {later} about 1 minute later.</Text>}
+    {stage === 'commitment' && <Text style={styles.muted}>First {formatRegistrationAmount(quote.commitmentFee)} {currencyLabel(quote.systemID, currencyNames)}, then {later} after 1 block.</Text>}
   </View>;
 };
 
@@ -273,7 +287,7 @@ export const RegistrationPreviewDetails = ({preview}) => {
   const {request, policy, quote} = preview;
   const names = {...preview.currencyNames, ...preview.identityNames};
   const own = policy.resolvedName.identityID;
-  const authority = id => !id || id === own ? 'This VerusID' : identityLabel(id, names);
+  const authority = id => !id || id === own ? identityLabel(own, names) : identityLabel(id, names);
   return <>
     <InfoSheetSection title="Addresses and control" rows={[
       {label: 'VerusID address', value: own, copy: true, valueStyle: styles.identifier},
@@ -297,7 +311,7 @@ export const RegistrationDetails = ({review, children}) => {
   const [visible, setVisible] = useState(false);
   const dismissal = useSheetDismissal({visible, onClose: () => setVisible(false)});
   const names = {...review.currencyNames, ...review.identityNames, [review.identityAddress]: review.displayName};
-  const authority = address => address === review.identityAddress ? 'This VerusID' : identityLabel(address, names);
+  const authority = address => !address || address === review.identityAddress ? review.displayName : identityLabel(address, names);
   return <>
     <TextAction onPress={() => setVisible(true)}>Transaction details</TextAction>
     <InfoSheet visible={visible} onClose={dismissal.close} onClosed={dismissal.onClosed} title="Transaction details">

@@ -7,6 +7,7 @@ import {resolveAppTheme, useAppTheme} from '../theme/app';
 const TextAction = ({
   children,
   disabled = false,
+  destructive = false,
   Icon,
   size = 'default',
   variant,
@@ -32,7 +33,7 @@ const TextAction = ({
     : hitSlop || {};
   // A compact context slot can extend upward instead of into content below it.
   const verticalCovered = (edges.top || 0) + (edges.bottom || 0) >= vertical;
-  const color = disabled ? theme.colors.disabledText : theme.colors.link;
+  const color = disabled ? theme.colors.disabledText : destructive ? theme.colors.dangerText : theme.colors.link;
 
   return (
     <Pressable

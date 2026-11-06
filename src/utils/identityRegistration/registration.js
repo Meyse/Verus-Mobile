@@ -155,6 +155,9 @@ export const registrationReview = job => {
     displayName: job.displayName,
     identityAddress: job.identityAddress,
     identity: copy(job.identity),
+    parentName: job.request.parentName || null,
+    initialQuote: copy(job.commitment.prepared.quote),
+    registrationProblem: job.registrationProblem || null,
     quote: copy(job[stage].prepared.quote),
     commitmentTxid: job.commitment.txid,
     commitmentFee: registrationCommitmentFee(job),
@@ -311,9 +314,15 @@ const normalizeIdentityChoices = async (request, context) => {
 
     const expectedAddress = toIAddress(value, request.rootSystemName);
     const client = VrpcProvider.getVerusIdInterface(request.systemId);
-    const result = registrationRpcResult(await guarded(context,
-      () => client.interface.getIdentity(value)), 'Find identity');
-    responseIdentityName(request, expectedAddress, result);
+    let result;
+    try {
+      result = registrationRpcResult(await guarded(context,
+        () => client.interface.getIdentity(value)), 'Find identity');
+      responseIdentityName(request, expectedAddress, result);
+    } catch (error) {
+      error.field = field;
+      throw error;
+    }
     request[field] = expectedAddress;
   }
   return request;
@@ -432,13 +441,17 @@ const checkIdentityAuthorities = async (request, identityAddress, context, respo
   const rpc = VrpcProvider.getVerusIdInterface(request.systemId).interface;
   for (const id of new Set([request.recoveryAuthority, request.revocationAuthority].filter(Boolean))) {
     if (id === identityAddress) continue;
-    const response = responses[id] || registrationRpcResult(
-      await guarded(context, () => rpc.getIdentity(id)), 'Get identity authority',
-    );
+    const field = request.recoveryAuthority === id ? 'recoveryAuthority' : 'revocationAuthority';
+    let response;
+    try {
+      response = responses[id] || registrationRpcResult(
+        await guarded(context, () => rpc.getIdentity(id)), 'Get identity authority',
+      );
+    } catch (error) { error.field = field; throw error; }
     responses[id] = response;
     const identity = response?.identity;
     if (identity?.identityaddress !== id || (identity.flags & 0x8000)) {
-      throw new Error('Recovery and revocation authorities must be existing, unrevoked identity i-addresses.');
+      throw Object.assign(new Error('Recovery and revocation authorities must be existing, unrevoked identity i-addresses.'), {field, code: 'INVALID_AUTHORITY'});
     }
   }
 };
@@ -642,6 +655,16 @@ export const getRegistrationReview = async (jobId, requestContext) => {
     quote: job[stageFor(job)].prepared.quote,
   }, context);
   return registrationReview({...job, identityNames});
+};
+
+// Read-only second-payment price, including when this fixed payer cannot fund
+// a transaction yet. It creates no plan, approval, signature, or payment.
+export const getRegistrationEstimate = async (jobId, requestContext) => {
+  const context = createRegistrationContext(requestContext);
+  const job = await readJob(jobId, context);
+  const resolved = await resolveRegistration(job.request, context);
+  return {...registrationReview(job), quote: copy(resolved.quote),
+    currencyNames: resolved.currencyNames, identityNames: resolved.identityNames};
 };
 
 const buildRegistration = async (job, identity, approvedCosts, context) => {

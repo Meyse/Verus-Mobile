@@ -118,6 +118,9 @@ export const summarizeRegistrationJob = job => ({
   updatedAt: publicTimestamp(job.updatedAt),
   commitmentTxid: publicString(job.commitment?.txid),
   registrationTxid: publicString(job.registration?.txid),
+  registrationProblem: ['insufficient_funds', 'name_taken'].includes(job.registrationProblem) ? job.registrationProblem : undefined,
+  readyCelebrated: job.readyCelebrated === true,
+  readyDismissed: job.readyDismissed === true,
 });
 
 const publishCollection = (jobs, context) => {
@@ -343,6 +346,17 @@ export const updateRegistrationJob = (jobId, update, requestContext) =>
   writeRegistrationJob(jobId, previous =>
     typeof update === 'function' ? update(previous) : {...previous, ...update},
   requestContext, false);
+
+// Presentation metadata contains no approval or payment state. Keep it in the
+// encrypted job so Home and the tab survive reload without publishing errors.
+export const updateRegistrationUiState = (jobId, patch, requestContext) =>
+  updateRegistrationJob(jobId, previous => ({...previous,
+    ...(Object.prototype.hasOwnProperty.call(patch, 'registrationProblem') ? {
+      registrationProblem: ['insufficient_funds', 'name_taken'].includes(patch.registrationProblem) ? patch.registrationProblem : null,
+    } : {}),
+    ...(patch.readyCelebrated === true ? {readyCelebrated: true} : {}),
+    ...(patch.readyDismissed === true ? {readyDismissed: true} : {}),
+  }), requestContext);
 
 // Recovery for an unreadable collection must not decode its receipts. Remove
 // only registration data through the same queue used by all service writers.
