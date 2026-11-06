@@ -284,7 +284,8 @@ export const loadIdentityForUpdate = async ({chain, identityAddress}, requestCon
   }
 
   const coin = {...found};
-  const signingAddress = state.authentication.activeAccount.keys?.[coin.id]?.vrpc?.addresses?.[0];
+  const walletAddresses = [...(state.authentication.activeAccount.keys?.[coin.id]?.vrpc?.addresses || [])];
+  const signingAddress = walletAddresses[0];
   if (versionOf(signingAddress) !== R_ADDR_VERSION) {
     throw new Error('This network needs an active transparent wallet to update identities.');
   }
@@ -325,7 +326,7 @@ export const loadIdentityForUpdate = async ({chain, identityAddress}, requestCon
     locked: subject.identity.isLocked() || subject.identity.unlockAfter.toNumber() > height,
   });
 
-  models.set(model, {scope: {...context.sessionScope}, coin, subject, signingAddress, fundingSources});
+  models.set(model, {scope: {...context.sessionScope}, coin, subject, signingAddress, walletAddresses, fundingSources});
   return model;
 };
 
@@ -362,7 +363,8 @@ const fundSnapshot = (coin, subject, context) => readIdentityFunds({
   call: task => guarded(context, task),
 });
 
-const transferControls = async (identity, recipient, readOnce) => {
+const transferControls = async (identity, recipient, readOnce, walletAddresses) => {
+  validateTransferRecipient(recipient, walletAddresses);
   if (versionOf(recipient) === R_ADDR_VERSION) return {
     updated: buildTransferredIdentity(identity, {address: recipient}),
     recipientName: recipient,
@@ -376,6 +378,7 @@ const transferControls = async (identity, recipient, readOnce) => {
       throw fail('RECIPIENT_NOT_FOUND', 'VerusID not found. Check the name or address.');
     throw error;
   }
+  validateTransferRecipient(recipient, walletAddresses, target.identity.primaryAddresses.map(address => address.toAddress()));
   return {
     updated: buildTransferredIdentity(identity, {targetIdentity: target.identity}),
     recipientName: target.name,
@@ -400,11 +403,11 @@ export const validateIdentityTransfer = async (model, recipient, {returnFunds = 
   const context = captureIdentityUpdateContext(requestContext);
   const loaded = models.get(model);
   assertOwner(loaded, context);
-  const entered = validateTransferRecipient(recipient);
-  const {coin, subject, signingAddress} = loaded;
+  const {coin, subject, signingAddress, walletAddresses} = loaded;
+  const entered = validateTransferRecipient(recipient, walletAddresses);
   await assertSnapshotCurrent(coin, subject, context);
   const readOnce = address => address === subject.address ? subject : readIdentity(coin, address, context);
-  const {updated} = await transferControls(subject.identity, entered, readOnce);
+  const {updated} = await transferControls(subject.identity, entered, readOnce, walletAddresses);
   await assertChangedAuthorities(model.fields, getIdentityEditFields(updated), signingAddress, readOnce);
   const funds = await fundSnapshot(coin, subject, context);
   if (returnFunds && [...funds.balances.values()].some(amount => amount.gt(0)) &&
@@ -611,7 +614,7 @@ export const prepareIdentityUpdate = async (model, options, requestContext) => {
   const loaded = models.get(model);
   assertOwner(loaded, context);
 
-  const {coin, subject, signingAddress, fundingSources} = loaded;
+  const {coin, subject, signingAddress, walletAddresses, fundingSources} = loaded;
   const {
     mode,
     changes,
@@ -624,7 +627,7 @@ export const prepareIdentityUpdate = async (model, options, requestContext) => {
   if (!['modify', 'transfer'].includes(mode))
     throw new Error('Choose whether to modify or transfer this identity.');
 
-  const enteredRecipient = mode === 'transfer' ? validateTransferRecipient(recipient) : '';
+  const enteredRecipient = mode === 'transfer' ? validateTransferRecipient(recipient, walletAddresses) : '';
 
   const source = fundingSources.find(item => item.address === fundingAddress);
   if (!source) throw new Error('Select a payment source belonging to this wallet.');
@@ -653,7 +656,7 @@ export const prepareIdentityUpdate = async (model, options, requestContext) => {
   let usesRecipientPrivateAddress = false;
 
   if (mode === 'transfer') {
-    ({updated, recipientName, usesRecipientPrivateAddress} = await transferControls(subject.identity, enteredRecipient, readOnce));
+    ({updated, recipientName, usesRecipientPrivateAddress} = await transferControls(subject.identity, enteredRecipient, readOnce, walletAddresses));
   } else {
     const resolved = {...changes};
 

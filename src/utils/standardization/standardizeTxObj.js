@@ -94,6 +94,7 @@ export const standardizeEthTxObj = (transactions, address, decimals = ETHERS, to
           BigInt(transactions[i].confirmations) > BigInt(0)
             ? true
             : false,
+        confirmations: transactions[i].confirmations,
       };
       
       _txs.push(_txObj);
@@ -139,6 +140,9 @@ const toAddressList = addresses =>
     : typeof addresses === 'string'
       ? [addresses]
       : [];
+
+// Network fees stay far below this. Registration prices start above it.
+const MIN_REGISTRATION_COST = BigNumber('0.01');
 
 export const standardizeVrpcTxObj = (transaction, coinObj, currHeight, systemId) => {
   const {amount, txid, height, address, blocktime, sent, mempool, timestamp} = transaction;
@@ -192,12 +196,45 @@ export const standardizeVrpcTxObj = (transaction, coinObj, currHeight, systemId)
   })
   if (addresses.length === 0 && typeof address === 'string') addresses = [address];
 
+  // Verbose address deltas already carry decoded output functions. An
+  // identity update/transfer has `identity` alone, so only a reservation or
+  // commitment identifies registration work. No transaction lookup is needed.
+  const functions = Array.isArray(sent?.outputfunctions) ? sent.outputfunctions : [];
+  const reservation = functions.find(output => output?.identityregistration)?.identityregistration;
+  const commitment = functions.some(output => output?.identitycommitment != null);
+  let identityRegistration = reservation && typeof reservation === 'object'
+    ? {kind: 'registration', name: reservation.name, systemId}
+    : commitment ? {kind: 'commitment', systemId} : null;
+
+  // Some servers send no output functions. A new identity output is a zero
+  // value output to an i-address. With a cost well above a network fee, the
+  // spend is a registration, not an identity update.
+  if (!identityRegistration && sent && type !== 'received' && coinObj.currency_id === systemId) {
+    const createsIdentity = (sent.outputs || []).some(out => {
+      const outAddresses = toAddressList(out.addresses);
+      return outAddresses.length > 0 &&
+        outAddresses.every(x => typeof x === 'string' && x.startsWith('i') && x !== address) &&
+        BigNumber(out.amounts?.[systemId] || 0).isZero();
+    });
+    const cost = type === 'self' ? amountBn.abs() : BigNumber(fee || 0);
+    if (createsIdentity && cost.isGreaterThanOrEqualTo(MIN_REGISTRATION_COST)) {
+      identityRegistration = {kind: 'registration', systemId};
+    }
+  }
+
+  const blockConfirmations = !mempool && Number.isSafeInteger(Number(currHeight)) &&
+    Number.isSafeInteger(Number(height)) && Number(currHeight) >= Number(height)
+    ? Number(currHeight) - Number(height) + 1
+    : undefined;
+
   return {
     address: addresses.length === 0 ? null : addresses.join(' & '),
     amount: amountBn.abs().toString(),
     fee,
     type,
     confirmed: mempool ? false : true,
+    confirmations: transaction.confirmations ?? blockConfirmations,
+    identityRegistration,
     height,
     timestamp: blocktime || timestamp || timeEstimate,
     txid,

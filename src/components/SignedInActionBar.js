@@ -47,14 +47,11 @@ export const SignedInActionButtons = ({
   style,
   fixedHeight = false,
 }) => {
-  const {fontScale} = useWindowDimensions();
-  const stacked = fontScale >= 1.3;
-  const buttonStyle = [styles.button, stacked && styles.stackedButton];
   const disabledHint = action =>
     `${action} is unavailable because there is no compatible Asset and Card.`;
 
   return (
-    <View style={[styles.buttons, stacked && styles.stackedRow, style]}>
+    <View style={[styles.buttons, style]}>
       <AppButton
         accessibilityHint={
           receiveDisabled ? disabledHint(signedInCopy.actions.receive) : undefined
@@ -67,7 +64,7 @@ export const SignedInActionButtons = ({
         icon={ACTION_ICONS.receive}
         labelStyle={styles.label}
         onPress={onReceive}
-        style={buttonStyle}
+        style={styles.button}
         variant="secondary">
         {signedInCopy.actions.receive}
       </AppButton>
@@ -83,7 +80,7 @@ export const SignedInActionButtons = ({
         icon={ACTION_ICONS.send}
         labelStyle={styles.label}
         onPress={onSend}
-        style={buttonStyle}
+        style={styles.button}
         variant="secondary">
         {signedInCopy.actions.send}
       </AppButton>
@@ -101,7 +98,7 @@ export const SignedInActionButtons = ({
         icon={ACTION_ICONS.convert}
         labelStyle={styles.label}
         onPress={onConvert}
-        style={buttonStyle}
+        style={styles.button}
         variant="secondary">
         {signedInCopy.actions.convert}
       </AppButton>
@@ -213,17 +210,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   barPaddingCompact: {paddingTop: 6},
-  stackedRow: {
-    flexDirection: 'column',
-  },
   button: {
     flex: 1,
     maxWidth: 176,
-  },
-  stackedButton: {
-    flex: 0,
-    maxWidth: '100%',
-    width: '100%',
   },
   label: {
     fontSize: 15,

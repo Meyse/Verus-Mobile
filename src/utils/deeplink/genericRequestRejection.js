@@ -75,6 +75,14 @@ export const getGenericRequestRejection = (error, context = {}) => {
     case GENERIC_REQUEST_REJECTION_CODES.NETWORK_MISMATCH: {
       const network = networkName(requestIsTestnet);
 
+      if (error?.networksConflict === true) {
+        return {
+          canRetry: false,
+          message: `This request mixes testnet and mainnet. ${NEW_REQUEST}`,
+          title: 'Wrong network',
+        };
+      }
+
       return {
         canRetry: false,
         message: `This request is for ${network}. Switch to a ${network} wallet, then open the request again.`,
@@ -131,8 +139,8 @@ export const getGenericRequestRejection = (error, context = {}) => {
     case GENERIC_REQUEST_REJECTION_CODES.LINK_TOO_LONG:
       return {
         canRetry: false,
-        message: `This request link is too long to open. ${NEW_REQUEST}`,
-        title: 'Cannot open request',
+        message: 'This link is too long to be a Verus request. Ask the requester for a new one.',
+        title: 'Request not valid',
       };
   }
 

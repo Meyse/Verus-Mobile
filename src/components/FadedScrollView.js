@@ -5,6 +5,7 @@ import ScrollEdgeFade from './ScrollEdgeFade';
 const FadedScrollView = forwardRef(function FadedScrollView(
   {
     children,
+    contentContainerStyle,
     containerStyle,
     fadeBackgroundColor,
     fadeLength = 36,
@@ -24,6 +25,12 @@ const FadedScrollView = forwardRef(function FadedScrollView(
     layoutLength: 0,
     offset: 0,
   });
+  const contentStyle = StyleSheet.flatten(contentContainerStyle) || {};
+  const endPadding = horizontal ? 0 :
+    contentStyle.paddingBottom ?? contentStyle.paddingVertical ?? contentStyle.padding ?? 0;
+  // Clearance is not unseen content. Hide the fade as soon as the last real
+  // row is visible, including after the viewport or content shrinks.
+  const contentEnd = metrics.contentLength - endPadding;
   const canOverflow = metrics.contentLength > metrics.layoutLength + 1;
   const startFadeEnabled =
     showStartFade == null ? horizontal : showStartFade;
@@ -32,12 +39,13 @@ const FadedScrollView = forwardRef(function FadedScrollView(
   const endFadeVisible =
     showEndFade &&
     canOverflow &&
-    metrics.offset + metrics.layoutLength < metrics.contentLength - 2;
+    metrics.offset + metrics.layoutLength < contentEnd - 2;
 
   return (
     <View style={[styles.container, containerStyle]}>
       <ScrollView
         {...scrollViewProps}
+        contentContainerStyle={contentContainerStyle}
         horizontal={horizontal}
         onContentSizeChange={(contentWidth, contentHeight) => {
           setMetrics(current => ({

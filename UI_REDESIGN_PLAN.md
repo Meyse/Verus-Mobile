@@ -71,7 +71,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-05 (Night run 3 Batch B VerusID safety fixes; device QA passed).
+- Last updated: 2026-11-06 (Night run 4 fixes A/B/C + round 2; Android QA on both phones passed).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -3208,3 +3208,75 @@ badge). After `1fb71284`, iOS R1/R2 and Android R3/R4 pass (price, app-data
 line and funds badge above Hold while typing). The Android window pan
 reproduces on `ff2e63e0`, so it predates this batch. Run folder and HTML
 report: `docs/qa/matrix/runs/2026-11-05-batchB/` (local, not in Git).
+
+### ID-3.NIGHT4-A — VerusID and request findings (2026-11-06)
+
+Contract: operate mode. Keep the current VerusID page, Transfer form, request
+completion sheets, registration progress, and revocation/recovery review.
+Reuse their theme roles, CopyAction, AppStatusBadge, AppButton, shared review
+spacing, and safe footers. Keep POST delivery automatic after broadcast and
+redirect delivery under Complete. Leave registration prices and gift claims
+outside this batch. Device QA runs separately.
+
+- [x] Read accumulated VerusID content for the count and content sheet (item 1).
+- [x] Deliver POST identity-update replies after broadcast. Keep delivery retry
+  separate from broadcast and preserve redirect consent (item 2).
+- [x] Align uncertain registration notices with Check delivery. Retain plain
+  server-refusal guidance until the transaction is found (item 3).
+- [x] Refuse this wallet's addresses and wholly owned VerusIDs in Transfer form
+  checks and preparation. Keep external i-address recipients valid (item 4).
+- [x] Restore the revocation review gap. Check recovery's existing gap. Failed
+  submissions offer Review again and clear stale consent and errors (items 5–6).
+- [x] Give long links a plain refusal without a debug error overlay. Use Wrong
+  network for a request whose flag and signed system disagree (items 7–8).
+- [x] Name shared credentials and their count after confirmed delivery. Use
+  Nothing was sent without a repeated body for an empty response (items 9–10).
+- [x] Disable Save for later for a known funding shortfall. Add a durable first
+  broadcast time and switch commitment guidance after 3 minutes (items 11–12).
+- [x] Ask for a name when a namespace is chosen. Show the exact number of other
+  primary addresses on the VerusID page (items 13–14).
+- [ ] Later device QA: normal/compact Android, light/dark, Back/reopen, sheet
+  dismissal, real POST/redirect delivery, spent inputs and slow confirmations.
+
+Evidence: controlled JavaScript checks cover immediate POST, deferred redirect,
+response-only retry, one broadcast, consent/error reset, accumulated content,
+network refusals, registration copy and timing. Seventeen public transfer-engine
+checks use real identity scripts and transaction parsing with simulated network
+reads. Both named QA identities have zero latest content keys and one accumulated
+content key in the live VRSCTEST daemon. Design and safe-area checks pass. Focused
+lint has no new errors. Standard ESLint stops before linting on the existing
+import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED error. Android and iOS release JS
+bundles pass with one worker, after stopping the initial parallel runs under
+memory pressure. Babel parses all 21 changed JavaScript files. Protected price
+functions match the base; the create footer changes only its disabled condition.
+No Jest tests, devices, native changes, dependency changes, signing, broadcasts,
+merge or push in this task.
+
+### ID-3.NIGHT4-QA — Android device QA of the night 4 fixes (2026-11-06)
+
+Branch `claude/night4-fixes` (A/B/C on `2e4c6e77`, then round 2 `7b089908`).
+Android only, by owner instruction: Game PC normal (412x923 dp, light) and small
+(360x640 dp, dark), installed APK `ff2e63e0`, JS from Mac Metro. No iOS run.
+
+Round 1 failed six items: old registration rows still "Network fee", no
+Confirmations row, slow Pending-to-date (87–108 s), a false "Name commitment is
+not confirmed on the current active chain." during the wait, the long-link sheet
+needing two taps, and "Response sent" closing in under 1 s. Round 2 (`7b089908`)
+fixes them: a zero-value i-address output with a cost of 0.01 or more marks an
+older registration, confirmations come from the block height, history refreshes
+every 15 s (10 s read limit), a tip/height mismatch keeps waiting (a script
+mismatch still stops), a refused link shows one sheet and the link listener is
+removed on unmount, "Response sent" stays open until Done, content counts values,
+and a mixed-network request says "This request mixes testnet and mainnet."
+
+Round 2 passes on both phones: registration labels (3 rows each), Response sent +
+Done + Back with the reply received first, content count 4 = 4, one long-link
+sheet with one tap (logcat: one delivery), mixed-network wording, sign-in
+regression, and on normal a full `aaa` wait with no false commitment error.
+Open P3: the Confirmations number is as of the last history read (1–3 blocks
+behind, it does not rise while no row is pending); Pending-to-date took 30–45 s
+after the first block on normal; the commitment screen can flap Ready → waiting →
+Ready once when public servers disagree. Old commitment rows stay "Network fee"
+(the server sends no output functions). Not run: redirect delivery, refresh timing
+on small (daemon funding), iOS. Run folder: `docs/qa/matrix/runs/2026-11-06-fixes4/`
+(local, not in Git).

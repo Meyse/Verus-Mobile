@@ -68,7 +68,9 @@ const SendWizardRecipient = () => {
   const allSubWallets = useObjectSelector(
     stateValue => stateValue.coinMenus.allSubWallets,
   );
-  const [input, setInput] = useState(state.recipientAddress || '');
+  // The visible draft also survives header Back, system Back and a remount.
+  const input = state.recipientAddress || '';
+  const setInput = setRecipient;
   const [error, setError] = useState(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [addressBookOpen, setAddressBookOpen] = useState(false);

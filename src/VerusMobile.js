@@ -208,7 +208,7 @@ export class VerusMobile extends React.Component {
     this.initializeStorage(secureStorageInitialization);
 
     // Handle deeplinks
-    Linking.addEventListener("url", async ({ url }) => {
+    this.linkingSubscription = Linking.addEventListener("url", async ({ url }) => {
       try {
         await secureStorageInitialization;
       } catch (e) {
@@ -235,6 +235,12 @@ export class VerusMobile extends React.Component {
     if (ENABLE_VERUS_IDENTITIES) {
       this.props.dispatch(requestSeedData());
     }
+  }
+
+  componentWillUnmount() {
+    // A remount (for example a development reload) must not add a second
+    // link listener, or each link opens twice.
+    this.linkingSubscription?.remove();
   }
 
   render() {    

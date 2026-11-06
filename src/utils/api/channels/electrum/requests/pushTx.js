@@ -1,3 +1,4 @@
+import {transparentDustError} from '../../../../transactions/transparentDust';
 import {
   ELECTRUM_AMBIGUOUS_BROADCAST_CODE,
   postElectrum,
@@ -485,6 +486,9 @@ export const txPreflight = (
               .minus(defaultFee)
               .toNumber();
           }
+
+          const dustError = transparentDustError(coinObj, 'electrum', satsToCoins(BigNumber(outputs[0].value)));
+          if (dustError) throw new Error(dustError);
 
           let _change = 0;
 

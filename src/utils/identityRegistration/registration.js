@@ -40,6 +40,7 @@ import {identityOutputAmounts} from '../identityManagement/identityFunds';
 import {validatePrivateAddress} from '../identityManagement/identityDefinition';
 import {convertFqnToDisplayFormat} from '../fullyqualifiedname';
 import {withRegistrationChainContextRetry} from './chainContext';
+import {registrationBroadcastRefusal} from './progress';
 
 const inFlight = new Map();
 const verifiedReceipts = new Map();
@@ -159,6 +160,7 @@ export const registrationReview = job => {
     commitmentFee: registrationCommitmentFee(job),
     registrationTxid: job.registration?.txid,
     commitmentHeight: job.commitment.height,
+    commitmentBroadcastAt: job.commitment.broadcastAt || (job.status === 'commitment_broadcast' ? job.updatedAt : null),
     lastError: job.lastError || null,
     createdAt: job.createdAt,
   };
@@ -1091,14 +1093,18 @@ const reconcileJob = async (job, context) => {
       }, context);
     }
 
+    if (unspent.scriptPubKey?.hex !== job.commitment.prepared.outputPlan[job.commitment.vout].scriptHex) {
+      throw new Error('Name commitment is not confirmed on the current active chain.');
+    }
+    // A new block can arrive between the tip read and the output read, and a
+    // server index can lag one block. Keep waiting; the next check reads again.
     if (
       unspent.bestblock !== tip.hash ||
       !Number.isSafeInteger(unspent.confirmations) ||
       unspent.confirmations < 1 ||
-      tip.height - unspent.confirmations + 1 !== commitment.height ||
-      unspent.scriptPubKey?.hex !== job.commitment.prepared.outputPlan[job.commitment.vout].scriptHex
+      tip.height - unspent.confirmations + 1 !== commitment.height
     ) {
-      throw new Error('Name commitment is not confirmed on the current active chain.');
+      return job;
     }
     const status = job.registration?.signedHex
       ? (job.status === 'registration_expired' ? 'registration_expired' : 'registration_signed')
@@ -1111,7 +1117,7 @@ const reconcileJob = async (job, context) => {
         height: commitment.height,
         blockHash: commitment.blockHash,
       },
-      lastError: status === 'registration_expired' ? job.lastError : null,
+      lastError: job.registration?.signedHex ? job.lastError : null,
     }, context);
   }
 
@@ -1123,7 +1129,7 @@ const reconcileJob = async (job, context) => {
     commitment: {...job.commitment, height: undefined, blockHash: undefined},
     lastError: expired
       ? 'The commitment transaction expired before confirmation. Its saved recovery data has been retained.'
-      : null,
+      : commitment?.found ? null : job.lastError,
   }, context);
 };
 
@@ -1257,6 +1263,10 @@ const broadcastSaved = async (job, stage, context) => {
   assertRegistrationContext(context);
   verifyRegistrationFundingSource(transaction.prepared, job, transaction.signedHex);
 
+  // Persist the first send time before contacting the network. Retries keep it.
+  const broadcastAt = transaction.broadcastAt || Date.now();
+  job = await patchJob(job, {[stage]: {...transaction, broadcastAt}}, context);
+
   try {
     const response = await guarded(context, () => client.sendIdentityRegistrationTransaction(transaction.prepared, transaction.signedHex, job.fundingAddress));
     const txid = registrationRpcResult(response, 'Send registration transaction');
@@ -1275,9 +1285,10 @@ const broadcastSaved = async (job, stage, context) => {
     // retries; never regenerate the salt or sign a replacement on this path.
     // The locally persisted txid is authoritative even if error details differ.
     assertRegistrationContext(context);
-    const lastError = 'Broadcast could not be confirmed. Check status, then retry the same saved transaction if needed.';
+    const lastError = registrationBroadcastRefusal(error) ||
+      'Broadcast could not be confirmed. Check status, then retry the same saved transaction if needed.';
     job = await patchJob(job, {
-      [stage]: {...transaction, broadcastStatus: 'unknown'},
+      [stage]: {...transaction, broadcastAt, broadcastStatus: 'unknown'},
       lastError,
     }, context);
 
