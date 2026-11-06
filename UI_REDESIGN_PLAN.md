@@ -3315,3 +3315,54 @@ Twenty-six source-derived light/dark renders were inspected at normal and
 compact sizes. Native controls, scroll measurements, keyboard geometry and
 platform accessibility are substituted in those renders. They are not device
 or on-chain evidence. No runtime server remains running.
+
+
+### ID-3.REG-R11-QA — Android New VerusID fixes (2026-11-06)
+
+Contract: operate mode. Keep the approved New VerusID spec, R11 funds board,
+RegistrationPage, outline fields, status badges, safe footer, information sheets
+and existing typography roles. Inspect all named Android finding screenshots.
+Change only the eight reported findings. Device runs are excluded by the owner.
+
+- [x] Keep You have at its natural width. Wrap the amount and badge in their
+  own column. Preserve the two-currency balance and badge layout (finding 1).
+- [x] Keep the focused Name input below the header when its whole field group
+  cannot fit above the compact keyboard footer (finding 2).
+- [x] Default to Someone else when No referral is unaffordable. Never select
+  a disabled referral card. Keep No referral when affordable (finding 3).
+- [x] Remove the compact funds footer from Recovery. Measure both authority
+  fields and the warning together. Reveal the warning while the focused input
+  can stay visible. Preserve each field's own focus and blur (finding 4).
+- [x] Use normal text for Linked VerusID. Keep only the shortened payment
+  address in monospace (finding 5).
+- [x] Use identityLabel and the resolved referral for Check details, as the
+  split legend does (finding 6).
+- [x] Remove the shortage footer's extra Try again. Reuse prepareSecond every
+  20 seconds and on foreground while focused and short. Check every currency
+  on the fixed payer. Keep both payment approvals behind holds (finding 7).
+- [x] Put copyable commitment/registration transaction rows before VerusID
+  details on Progress and Result (finding 8).
+- [x] Run design, changed-file safe-area, focused ESLint, existing registration
+  suites, Android dev bundle and temporary non-Jest behavior checks.
+- [ ] Separate device re-test: normal/360×640 Android, light/dark; Name keyboard,
+  Recovery focus/warnings, one/two currencies, referral defaults, Back/reopen,
+  transaction copies, fixed-payer top-up, foreground and blur. No automatic
+  signing or broadcast may occur after a top-up.
+
+Evidence: code commits 8bbde040 and 008ef42e. Design passes for 39
+canonical sources and 17 materials. Safe-area passes for all six changed JS
+files. Focused core/React/hooks ESLint reports zero errors on base and candidate.
+Standard ESLint still stops before file analysis on the existing import-plugin
+ERR_PACKAGE_PATH_NOT_EXPORTED error. The existing registration/notification run
+is unchanged from d0d614b2 and the prior report: 395 pass, four assertion failures
+and two native-mock suite-load errors. No test source or expectation changed.
+The Android development bundle passes with 52 assets.
+
+Twenty-two controlled component checks and six scroll geometry cases pass.
+The base reproduces all eight findings in temporary non-Jest checks. Twenty
+source-derived renders were inspected at 360×640 and 412×923, in both themes,
+with the bundled Inter fonts. They verify presentation only. Native controls,
+keyboard measurements, accessibility and live funds arrivals remain device
+checks. No simulator, emulator, native/dependency/lockfile edit, engine edit,
+merge or push ran. The other worktree and its Metro session were left untouched.
+Artifacts and exact commands are in new-verusid-flow-fixes.local.md (local).
