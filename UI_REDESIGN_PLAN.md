@@ -3208,3 +3208,46 @@ badge). After `1fb71284`, iOS R1/R2 and Android R3/R4 pass (price, app-data
 line and funds badge above Hold while typing). The Android window pan
 reproduces on `ff2e63e0`, so it predates this batch. Run folder and HTML
 report: `docs/qa/matrix/runs/2026-11-05-batchB/` (local, not in Git).
+
+### ID-3.NIGHT4-A — VerusID and request findings (2026-11-06)
+
+Contract: operate mode. Keep the current VerusID page, Transfer form, request
+completion sheets, registration progress, and revocation/recovery review.
+Reuse their theme roles, CopyAction, AppStatusBadge, AppButton, shared review
+spacing, and safe footers. Keep POST delivery automatic after broadcast and
+redirect delivery under Complete. Leave registration prices and gift claims
+outside this batch. Device QA runs separately.
+
+- [x] Read accumulated VerusID content for the count and content sheet (item 1).
+- [x] Deliver POST identity-update replies after broadcast. Keep delivery retry
+  separate from broadcast and preserve redirect consent (item 2).
+- [x] Align uncertain registration notices with Check delivery. Retain plain
+  server-refusal guidance until the transaction is found (item 3).
+- [x] Refuse this wallet's addresses and wholly owned VerusIDs in Transfer form
+  checks and preparation. Keep external i-address recipients valid (item 4).
+- [x] Restore the revocation review gap. Check recovery's existing gap. Failed
+  submissions offer Review again and clear stale consent and errors (items 5–6).
+- [x] Give long links a plain refusal without a debug error overlay. Use Wrong
+  network for a request whose flag and signed system disagree (items 7–8).
+- [x] Name shared credentials and their count after confirmed delivery. Use
+  Nothing was sent without a repeated body for an empty response (items 9–10).
+- [x] Disable Save for later for a known funding shortfall. Add a durable first
+  broadcast time and switch commitment guidance after 3 minutes (items 11–12).
+- [x] Ask for a name when a namespace is chosen. Show the exact number of other
+  primary addresses on the VerusID page (items 13–14).
+- [ ] Later device QA: normal/compact Android, light/dark, Back/reopen, sheet
+  dismissal, real POST/redirect delivery, spent inputs and slow confirmations.
+
+Evidence: controlled JavaScript checks cover immediate POST, deferred redirect,
+response-only retry, one broadcast, consent/error reset, accumulated content,
+network refusals, registration copy and timing. Seventeen public transfer-engine
+checks use real identity scripts and transaction parsing with simulated network
+reads. Both named QA identities have zero latest content keys and one accumulated
+content key in the live VRSCTEST daemon. Design and safe-area checks pass. Focused
+lint has no new errors. Standard ESLint stops before linting on the existing
+import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED error. Android and iOS release JS
+bundles pass with one worker, after stopping the initial parallel runs under
+memory pressure. Babel parses all 21 changed JavaScript files. Protected price
+functions match the base; the create footer changes only its disabled condition.
+No Jest tests, devices, native changes, dependency changes, signing, broadcasts,
+merge or push in this task.

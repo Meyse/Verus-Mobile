@@ -13,7 +13,6 @@ import {
   RecoveryValue,
   identityName,
 } from '../../../../containers/RevokeRecover/RecoveryValues';
-import {useAppTheme} from '../../../../theme/app';
 
 export const RevokeIdentityConfirmRender = ({
   acknowledged,
@@ -28,7 +27,6 @@ export const RevokeIdentityConfirmRender = ({
   submitError,
   targetId,
 }) => {
-  const theme = useAppTheme();
   if (loading)
     return (
       <RevokeRecoverFlowScaffold
@@ -46,7 +44,11 @@ export const RevokeIdentityConfirmRender = ({
       headerTitle="Review revocation"
       onBack={goBack}
       progress={0.85}
-      actions={
+      actions={submitError ? (
+        <AppButton onPress={goBack} testID="revokeRecover.reviewAgain">
+          Review again
+        </AppButton>
+      ) : (
         <>
           <RevokeRecoverAcknowledgement
             label="I understand this VerusID will be disabled until it is recovered."
@@ -61,7 +63,7 @@ export const RevokeIdentityConfirmRender = ({
             Submit revocation
           </AppButton>
         </>
-      }>
+      )}>
       <IdentityContext
         name={identityName(targetId)}
         networkName={networkName}
@@ -78,6 +80,7 @@ export const RevokeIdentityConfirmRender = ({
         value={targetId?.identity?.identityaddress}
         technical
       />
+      <RevokeRecoverStepCopy />
       <RecoveryValue label="Network fee" value={`${fee} ${feeCurrency}`} />
       {submitError ? (
         <RevokeRecoverNotice tone="danger">{submitError}</RevokeRecoverNotice>

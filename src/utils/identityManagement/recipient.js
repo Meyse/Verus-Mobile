@@ -10,13 +10,19 @@ const isRecipient = recipient => {
   return recipient.length <= 256 && /^[^@:/?#\u0000-\u001f\u007f]+@$/u.test(recipient);
 };
 
-export const validateTransferRecipient = value => {
+export const validateTransferRecipient = (value, walletAddresses = [], primaryAddresses = []) => {
   const recipient = typeof value === 'string' ? value.trim() : '';
   let address = false;
   try { address = [R_ADDR_VERSION, I_ADDR_VERSION].includes(fromBase58Check(recipient).version); }
   catch (_) {}
   if (!address && !/^[^@]+@$/.test(recipient))
     throw Object.assign(new Error('Enter an R-address, an i-address, or a VerusID ending in @.'), {code: 'INVALID_RECIPIENT'});
+  if (walletAddresses.includes(recipient) ||
+      (primaryAddresses.length > 0 && primaryAddresses.every(address => walletAddresses.includes(address)))) {
+    throw Object.assign(new Error(
+      'This address is in this wallet. Enter the new owner’s address or VerusID.',
+    ), {code: 'RECIPIENT_IN_WALLET'});
+  }
   return recipient;
 };
 

@@ -131,8 +131,8 @@ export const getGenericRequestRejection = (error, context = {}) => {
     case GENERIC_REQUEST_REJECTION_CODES.LINK_TOO_LONG:
       return {
         canRetry: false,
-        message: `This request link is too long to open. ${NEW_REQUEST}`,
-        title: 'Cannot open request',
+        message: 'This link is too long to be a Verus request. Ask the requester for a new one.',
+        title: 'Request not valid',
       };
   }
 

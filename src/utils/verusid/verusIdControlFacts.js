@@ -27,7 +27,9 @@ export const getControlFacts = ({friendlyNames, identity, ownedAddress, stateInf
   } else {
     let value = 'Other addresses';
 
-    if (ownedAddress) value = primaryCount > 1 ? 'You and others' : 'Only you';
+    if (ownedAddress) value = primaryCount > 1
+      ? `You and ${primaryCount - 1} ${primaryCount === 2 ? 'other' : 'others'}`
+      : 'Only you';
 
     facts.push({
       key: 'spend',

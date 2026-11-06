@@ -87,8 +87,9 @@ export const validateGenericRequest = async (request) => {
 
     if (!!coinObj.testnet !== request.isTestnet()) {
       throw createGenericRequestRejectionError(
-        GENERIC_REQUEST_REJECTION_CODES.INVALID,
+        GENERIC_REQUEST_REJECTION_CODES.NETWORK_MISMATCH,
         `Cannot validate request made for ${request.isTestnet() ? "testnet" : "mainnet"} on ${coinObj.testnet ? "testnet" : "mainnet"}`,
+        {requestIsTestnet: request.isTestnet()},
       )
     }
 

@@ -1,5 +1,7 @@
 import React, {useState, useCallback, useRef} from 'react';
 import {useSelector} from 'react-redux';
+import {useFocusEffect} from '@react-navigation/native';
+import {revokeRecoverSubmissionError} from '../../../../containers/RevokeRecover/submissionError';
 import {
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
   SEND_MODAL_FORM_STEP_FORM,
@@ -32,6 +34,11 @@ const RecoverIdentityConfirm = props => {
   const [submitError, setSubmitError] = useState(null);
   const instanceKey = useSelector(state => state.authentication.instanceKey);
 
+  useFocusEffect(useCallback(() => {
+    setAcknowledged(false);
+    setSubmitError(null);
+  }, [recoveryResult, updateContext]));
+
   const sendModal = useObjectSelector(state => state.sendModal);
   const encryptedIdentitySeed =
     sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
@@ -43,6 +50,8 @@ const RecoverIdentityConfirm = props => {
   } catch (_) {}
 
   const goBack = useCallback(() => {
+    setSubmitError(null);
+    setAcknowledged(false);
     props.navigation.navigate(SEND_MODAL_FORM_STEP_FORM);
   }, [props]);
 
@@ -58,13 +67,12 @@ const RecoverIdentityConfirm = props => {
   }, [encryptedIdentitySeed, instanceKey, systemId]);
 
   const submitData = useCallback(async () => {
-    if (!acknowledged || props.loading || submitting.current || completed.current) return;
+    if (submitError || !acknowledged || props.loading || submitting.current || completed.current) return;
     submitting.current = true;
 
     setSubmitError(null);
     await props.setLoading(true);
     await props.setPreventExit(true);
-    const {data} = sendModal;
 
     try {
       const result = await submitReviewedIdentityUpdate({
@@ -101,9 +109,8 @@ const RecoverIdentityConfirm = props => {
         });
         return;
       }
-      setSubmitError(
-        'The recovery transaction could not be submitted. Review the addresses and connection, then try again.',
-      );
+      setAcknowledged(false);
+      setSubmitError(revokeRecoverSubmissionError(e, 'recovery'));
     }
     finally {
       submitting.current = false;
@@ -112,7 +119,7 @@ const RecoverIdentityConfirm = props => {
         props.setLoading(false);
       }
     }
-  }, [targetId, sendModal, acknowledged, props, updateContext, getSpendingKey, recoveryResult]);
+  }, [targetId, sendModal, acknowledged, submitError, props, updateContext, getSpendingKey, recoveryResult]);
 
   return RecoverIdentityConfirmRender({
     fee: props.route.params.fee,

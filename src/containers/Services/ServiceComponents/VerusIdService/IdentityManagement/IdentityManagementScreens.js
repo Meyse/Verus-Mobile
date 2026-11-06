@@ -343,7 +343,7 @@ function IdentityTransferForm({navigation, route}) {
     ownerCheck?.returnFunds === returnFunds && ownerCheck?.valid === true;
   const ownerError = ownerCheck?.model === model && ownerCheck?.recipient === recipient &&
     ownerCheck?.returnFunds === returnFunds ? ownerCheck.error : null;
-  const ownerInputError = ['INVALID_RECIPIENT', 'RECIPIENT_NOT_FOUND'].includes(ownerError?.code);
+  const ownerInputError = ['INVALID_RECIPIENT', 'RECIPIENT_NOT_FOUND', 'RECIPIENT_IN_WALLET'].includes(ownerError?.code);
   const needsReload = error?.code === 'REVIEW_CHANGED' || ownerError?.code === 'REVIEW_CHANGED';
   const changeRecipient = value => {
     if (running.current) return;

@@ -182,7 +182,7 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
       </View> : <>
         {['available', 'taken', 'saved'].includes(availability)
           ? <AppStatusBadge tone={availability === 'taken' ? 'danger' : availability === 'saved' ? 'neutral' : 'success'} label={availability === 'taken' ? 'Taken' : availability === 'saved' ? 'Saved registration' : 'Available'} />
-          : <Text style={styles.muted}>{availability === 'checking' ? 'Checking name…' : 'Tap @ to choose a namespace.'}</Text>}
+          : <Text style={styles.muted}>{availability === 'checking' ? 'Checking name…' : namespace && !name ? 'Type a name.' : 'Tap @ to choose a namespace.'}</Text>}
         {availability === 'taken' && <Text style={styles.muted}>Try another name or namespace.</Text>}
       </>}
     </View>
