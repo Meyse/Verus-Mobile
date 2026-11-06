@@ -269,16 +269,15 @@ const SignedInVerusIdDetails = () => {
       // VerusID. Without it the page still loads; only that case is unknown.
       const [response, contentResponse, infoResponse] = await Promise.all([
         getIdentity(systemId, iAddress),
-        getIdentityContent(systemId, iAddress),
+        // Content from all updates. A server without this call still shows
+        // the page, with the latest update's content only.
+        getIdentityContent(systemId, iAddress).catch(() => null),
         getInfo(systemId).catch(() => null),
       ]);
 
       if (!isRequestCurrent()) return;
       if (response.error) throw new Error(response.error.message);
 
-      if (contentResponse.error || !contentResponse.result?.identity) {
-        throw new Error('Unable to read VerusID content.');
-      }
       const loadedIdentity = response.result;
       const loadedFriendlyNames = await getFriendlyNameMap(
         systemId,
@@ -289,7 +288,11 @@ const SignedInVerusIdDetails = () => {
       if (!isRequestCurrent()) return;
 
       setIdentity(loadedIdentity);
-      setIdentityContent(contentResponse.result.identity);
+      setIdentityContent(
+        contentResponse?.error || !contentResponse?.result?.identity
+          ? loadedIdentity.identity
+          : contentResponse.result.identity,
+      );
       setFriendlyNames(loadedFriendlyNames);
       setChainInfo(infoResponse?.result || null);
     } catch (e) {
