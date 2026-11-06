@@ -423,7 +423,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
 
     // Check the final payment after fee subtraction. Invoice and request
     // payments also use this builder, without the Amount screen.
-    if (!convertto && !address.isETHAccount() && output.burn !== true && !output.mintnew) {
+    if (isNativeSend && !convertto && !address.isETHAccount() && output.burn !== true && !output.mintnew) {
       const dustError = transparentDustError(coinObj, channelId, satsToCoins(BigNumber(output.satoshis)));
       if (dustError) throw new Error(dustError);
     }
