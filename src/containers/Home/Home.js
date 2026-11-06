@@ -719,6 +719,9 @@ const Home = () => {
     return (
       <SignedInWalletHome
         assets={signedInAssets}
+        hiddenAssetCount={uniqueAssets(activeCoinsForUser).filter(coin =>
+          Boolean(coin.testnet) === isTestnetAccount(activeAccount) &&
+          !isAssetShown(coin, assetManagement.preferences)).length}
         assetsReady={assetManagement.ready}
         assetsLoadError={assetManagement.loadError}
         homeNotice={homeNotice}

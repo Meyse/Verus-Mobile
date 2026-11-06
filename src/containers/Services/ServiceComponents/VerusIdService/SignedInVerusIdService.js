@@ -11,6 +11,7 @@ import {AtSign, CircleAlert, Info} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
+import {useFocusEffect} from '@react-navigation/native';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import EmptyState from '../../../../components/EmptyState';
 import AppButton from '../../../../components/AppButton';
@@ -34,6 +35,7 @@ import {getIdentity} from '../../../../utils/api/channels/verusid/callCreators';
 import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
 import {API_GET_BALANCES} from '../../../../utils/constants/intervalConstants';
 import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
+import {refreshWalletChannels} from '../../../../utils/ledger/refreshWalletChannels';
 import {extractDisplaySubWallets} from '../../../../utils/subwallet/extractSubWallets';
 import {
   describeVerusIdState,
@@ -42,6 +44,7 @@ import {
 import {
   formatAssetCount,
   getVerusIdFunds,
+  getVerusIdCardAddress,
 } from '../../../../utils/verusid/getVerusIdFunds';
 import {VerusIdName} from './VerusIdCard';
 import {
@@ -374,6 +377,16 @@ const SignedInVerusIdService = ({controller}) => {
     ? `${selectedPending.chain}:${selectedPending.iAddress}`
     : null;
   const linkedKey = linked.map(item => `${item.chain}:${item.iAddress}`).join('|');
+  useFocusEffect(useCallback(() => {
+    if (!linkedKey) return;
+    const addresses = new Set(linkedKey.split('|').map(key => key.split(':')[1]));
+    activeCoinsForUser.forEach(coin => {
+      const cards = (cardsByCoin[coin.id] || []).filter(card =>
+        addresses.has(getVerusIdCardAddress(card)));
+      if (cards.length) refreshWalletChannels(coin.id, cards, [API_GET_BALANCES])
+        .catch(() => console.warn('Unable to refresh VerusID balances'));
+    });
+  }, [activeCoinsForUser, cardsByCoin, linkedKey]));
   useEffect(() => {
     if (!linkedKey) return undefined;
 

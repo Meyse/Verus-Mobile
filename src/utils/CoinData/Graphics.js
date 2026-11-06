@@ -1,6 +1,6 @@
 import React from "react";
 import { Card } from "react-native-paper";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useOnboardingTheme } from "../../theme/onboarding";
 import { getCoinLogo } from "./CoinData";
 import { CoinDirectory } from "./CoinDirectory";
@@ -155,6 +155,16 @@ export const AssetCoinLogo = ({
           <Text style={[theme.typography.titleSheet, {color: theme.colors.textSecondary}]}>?</Text>
         </View>
       )}
+      {theme.isDark ? (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFillObject, {
+            borderRadius: size / 2,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.colors.border,
+          }]}
+        />
+      ) : null}
       {BadgeLogo ? (
         <View
           style={{
