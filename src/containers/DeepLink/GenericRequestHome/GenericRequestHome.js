@@ -194,7 +194,7 @@ const getAutoDeliverySheetTitle = ({
   if (isError) return 'Response not sent';
   if (isSuccess) {
     if (isPost) return successTitle || 'Response sent';
-    return isRedirect ? 'Browser opened' : 'Request complete';
+    return isRedirect ? 'Browser opened' : 'Nothing was sent';
   }
   if (isPreparing) return 'Preparing response';
   if (isRedirect) return `Returning to ${destination}`;
@@ -211,6 +211,7 @@ const getAutoDeliverySheetMessage = ({
   isRedirect,
   isSuccess,
   responseIdentityName,
+  successMessage,
 }) => {
   if (isError) {
     if (error?.isResponsePostError) {
@@ -226,11 +227,11 @@ const getAutoDeliverySheetMessage = ({
 
   if (isSuccess) {
     if (isPost) {
-      return responseIdentityName ? `Responded as ${responseIdentityName}.` : null;
+      return successMessage || (responseIdentityName ? `Responded as ${responseIdentityName}.` : null);
     }
     return isRedirect
       ? 'The response was handed to your browser. Delivery is not confirmed here.'
-      : 'No response was sent to the requester.';
+      : null;
   }
 
   if (isPost) {
@@ -253,6 +254,7 @@ const AutoDeliverySheetContent = ({
   phase,
   onDone,
   approvalResultTitle,
+  approvalResultMessage,
   responseIdentityName,
 }) => {
   const theme = useOnboardingTheme();
@@ -282,6 +284,7 @@ const AutoDeliverySheetContent = ({
     isRedirect,
     isSuccess,
     responseIdentityName: isApprovalResult ? responseIdentityName : null,
+    successMessage: approvalResultMessage,
   });
   const summary = (
     <>
@@ -366,6 +369,7 @@ const AutoDeliverySheet = ({
   phase,
   onDone,
   approvalResultTitle,
+  approvalResultMessage,
   responseIdentityName,
 }) => {
   const visible = status !== AUTO_DELIVERY_STATUS.IDLE;
@@ -397,6 +401,7 @@ const AutoDeliverySheet = ({
         onRetry={onRetry}
         status={status}
         approvalResultTitle={approvalResultTitle}
+        approvalResultMessage={approvalResultMessage}
         responseIdentityName={responseIdentityName}
       />
     </BottomSheetModal>
@@ -473,7 +478,13 @@ const GenericRequestSession = props => {
     detail =>
       detail.getIAddressKey() === AUTHENTICATION_RESPONSE_VDXF_KEY.vdxfid,
   );
-  const approvalResultTitle = hasAuthenticationResponse
+  const sharedCredentialCount = approvalResult?.sharedCredentialCount || 0;
+  const approvalResultMessage = sharedCredentialCount > 0
+    ? `Shared ${sharedCredentialCount} ${sharedCredentialCount === 1 ? 'credential' : 'credentials'} with ${approvalResult?.requesterLabel || 'the requester'}.`
+    : null;
+  const approvalResultTitle = sharedCredentialCount > 0
+    ? 'Credentials shared'
+    : hasAuthenticationResponse
     ? `Signed in to ${approvalResult?.requesterLabel || 'the requester'}`
     : !approvalResult || !response.details?.length
     ? null
@@ -745,14 +756,15 @@ const GenericRequestSession = props => {
    * @param {GenericResponse} updatedResponse
    * @param {Array<number>} handledIndices
    * @param {{autoDeliverOnComplete?: boolean, responseIdentityName?: string,
-   *  dataPacketSigned?: boolean}} options
+   *  dataPacketSigned?: boolean, sharedCredentialCount?: number}} options
    */
   const next = async (updatedResponse, handledIndices, options = {}) => {
     if (!active.current) return;
-    if (options.responseIdentityName) {
+    if (options.responseIdentityName || options.sharedCredentialCount != null) {
       setApprovalResult(previous => ({
-        identityName: options.responseIdentityName,
-        requesterLabel: displayProps.signerFqn || 'the requester',
+        identityName: options.responseIdentityName || previous?.identityName,
+        requesterLabel: displayProps.signerFqn || previous?.requesterLabel || 'the requester',
+        sharedCredentialCount: (previous?.sharedCredentialCount || 0) + (options.sharedCredentialCount || 0),
         // Encrypted app-encryption replies also use DataResponse, so retain
         // the completed data-signing screen's result across later details.
         dataPacketSigned:
@@ -1157,6 +1169,7 @@ const GenericRequestSession = props => {
         onRetry={runAutoDelivery}
         status={autoDeliveryState.status}
         approvalResultTitle={approvalResultTitle}
+        approvalResultMessage={approvalResultMessage}
         responseIdentityName={approvalResult?.identityName}
       />
       {verusIdSheet != null && (

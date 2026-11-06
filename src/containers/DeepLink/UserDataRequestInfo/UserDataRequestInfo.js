@@ -166,7 +166,11 @@ const UserDataRequestInfoContent = props => {
         if (currentContext.current !== context)
           throw new Error('Review changed');
       }, identity.sessionScope).assertCurrent();
-      await next(updatedResponse, [detailIndex], {autoDeliverOnComplete: true});
+      await next(updatedResponse, [detailIndex], {
+        autoDeliverOnComplete: true,
+        responseIdentityName: identity.selectedIdentity.friendlyName,
+        sharedCredentialCount: credentials.length,
+      });
     } catch (_) {
       inFlight.current = false;
       setProcessing(false);

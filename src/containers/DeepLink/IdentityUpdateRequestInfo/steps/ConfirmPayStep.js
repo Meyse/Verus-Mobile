@@ -213,6 +213,7 @@ const ConfirmPayStep = ({
   const activeCrypto = useRef(null);
   const preparationController = useRef(null);
   const sending = useRef(null);
+  const delivering = useRef(false);
   const completedReview = useRef(null);
   const [calculating, setCalculating] = useState(false);
   const [completionSheetStage, setCompletionSheetStage] = useState(
@@ -480,6 +481,57 @@ const ConfirmPayStep = ({
     }
   }, [details, subjectIdTxHex, subjectIdentity, requestIsTestnet, hasEncryptedKeys, coinObj, requestedCurrency, signerIdentityAddress, reviewInputs]);
 
+  const deliverPendingResponse = useCallback(async (responseToDeliver = pendingResponse) => {
+    if (!responseToDeliver || !next || delivering.current) return;
+    delivering.current = true;
+
+    setCompletionError(null);
+    setBroadcastError(null);
+    setCompletionDeliveryInfo(identityUpdateDeliveryInfo || null);
+    setCompletionSheetStage(COMPLETION_SHEET_STAGE.DELIVERING);
+
+    try {
+      if (typeof deliverIdentityUpdateResponse === 'function') {
+        const deliveryResult = await deliverIdentityUpdateResponse(
+          responseToDeliver,
+          [detailIndex],
+        );
+
+        if (deliveryResult?.skippedInlineDelivery) {
+          setPendingResponse(null);
+          setBroadcastTxid(null);
+          setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
+          return;
+        }
+
+        setCompletionDeliveryInfo(deliveryResult || identityUpdateDeliveryInfo);
+
+        if (deliveryResult?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+          setCompletionSheetStage(COMPLETION_SHEET_STAGE.SUCCESS);
+        }
+
+        return;
+      }
+
+      setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
+      await next(responseToDeliver, [detailIndex], {
+        autoDeliverOnComplete: true,
+      });
+    } catch (e) {
+      setCompletionDeliveryInfo(e?.deliveryInfo || identityUpdateDeliveryInfo);
+      setCompletionError(e);
+      setCompletionSheetStage(COMPLETION_SHEET_STAGE.ERROR);
+    } finally {
+      delivering.current = false;
+    }
+  }, [
+    deliverIdentityUpdateResponse,
+    detailIndex,
+    identityUpdateDeliveryInfo,
+    next,
+    pendingResponse,
+  ]);
+
   const handleUpdate = useCallback(async () => {
     if (completedReview.current === reviewInputs || sending.current || !preparedUpdate || !hasFee) return;
     sending.current = preparedUpdate;
@@ -541,7 +593,11 @@ const ConfirmPayStep = ({
       if (next) {
         setBroadcastTxid(resultTxid);
         setPendingResponse(baseResponse);
-        setCompletionSheetStage(COMPLETION_SHEET_STAGE.READY);
+        if (identityUpdateDeliveryInfo?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
+          await deliverPendingResponse(baseResponse);
+        } else {
+          setCompletionSheetStage(COMPLETION_SHEET_STAGE.READY);
+        }
       } else {
         cancel();
       }
@@ -557,7 +613,7 @@ const ConfirmPayStep = ({
     } finally {
       if (sending.current === preparedUpdate) sending.current = null;
     }
-  }, [selectedSource, preparedUpdate, hasFee, details, responseBufferString, coinObj, signerIdentityAddress, next, detailIndex, cancel, onBroadcastingChange, reviewInputs]);
+  }, [selectedSource, preparedUpdate, hasFee, details, responseBufferString, coinObj, signerIdentityAddress, next, detailIndex, cancel, onBroadcastingChange, reviewInputs, identityUpdateDeliveryInfo, deliverPendingResponse]);
 
   // Back to the confirm step, as after the earlier error alert.
   const closeBroadcastError = useCallback(() => {
@@ -570,54 +626,6 @@ const ConfirmPayStep = ({
     }
     setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
   }, [onBroadcastingChange, cancel, reviewInputs]);
-
-  const deliverPendingResponse = useCallback(async () => {
-    if (!pendingResponse || !next) return;
-
-    setCompletionError(null);
-    setBroadcastError(null);
-    setCompletionDeliveryInfo(identityUpdateDeliveryInfo || null);
-    setCompletionSheetStage(COMPLETION_SHEET_STAGE.DELIVERING);
-
-    try {
-      if (typeof deliverIdentityUpdateResponse === 'function') {
-        const deliveryResult = await deliverIdentityUpdateResponse(
-          pendingResponse,
-          [detailIndex],
-        );
-
-        if (deliveryResult?.skippedInlineDelivery) {
-          setPendingResponse(null);
-          setBroadcastTxid(null);
-          setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
-          return;
-        }
-
-        setCompletionDeliveryInfo(deliveryResult || identityUpdateDeliveryInfo);
-
-        if (deliveryResult?.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
-          setCompletionSheetStage(COMPLETION_SHEET_STAGE.SUCCESS);
-        }
-
-        return;
-      }
-
-      setCompletionSheetStage(COMPLETION_SHEET_STAGE.IDLE);
-      await next(pendingResponse, [detailIndex], {
-        autoDeliverOnComplete: true,
-      });
-    } catch (e) {
-      setCompletionDeliveryInfo(e?.deliveryInfo || identityUpdateDeliveryInfo);
-      setCompletionError(e);
-      setCompletionSheetStage(COMPLETION_SHEET_STAGE.ERROR);
-    }
-  }, [
-    deliverIdentityUpdateResponse,
-    detailIndex,
-    identityUpdateDeliveryInfo,
-    next,
-    pendingResponse,
-  ]);
 
   const handleCompleteUpdate = useCallback(() => {
     deliverPendingResponse();

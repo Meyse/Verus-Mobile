@@ -50,6 +50,7 @@ import {
   getIdentity,
 } from '../../../../utils/api/channels/verusid/callCreators';
 import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
+import {getIdentityContent} from '../../../../utils/api/channels/verusid/requests/getIdentityContent';
 import {API_GET_BALANCES, VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
@@ -212,6 +213,7 @@ const SignedInVerusIdDetails = () => {
   );
   const showBalance = useObjectSelector(state => state.coins.showBalance);
   const [identity, setIdentity] = useState(null);
+  const [identityContent, setIdentityContent] = useState(null);
   const [friendlyNames, setFriendlyNames] = useState(null);
   const [chainInfo, setChainInfo] = useState(null);
   const [error, setError] = useState(null);
@@ -265,8 +267,11 @@ const SignedInVerusIdDetails = () => {
       const systemId = CoinDirectory.getBasicCoinObj(chain).system_id;
       // The chain tip decides whether an unlock height still locks the
       // VerusID. Without it the page still loads; only that case is unknown.
-      const [response, infoResponse] = await Promise.all([
+      const [response, contentResponse, infoResponse] = await Promise.all([
         getIdentity(systemId, iAddress),
+        // Content from all updates. A server without this call still shows
+        // the page, with the latest update's content only.
+        getIdentityContent(systemId, iAddress).catch(() => null),
         getInfo(systemId).catch(() => null),
       ]);
 
@@ -283,6 +288,11 @@ const SignedInVerusIdDetails = () => {
       if (!isRequestCurrent()) return;
 
       setIdentity(loadedIdentity);
+      setIdentityContent(
+        contentResponse?.error || !contentResponse?.result?.identity
+          ? loadedIdentity.identity
+          : contentResponse.result.identity,
+      );
       setFriendlyNames(loadedFriendlyNames);
       setChainInfo(infoResponse?.result || null);
     } catch (e) {
@@ -367,8 +377,8 @@ const SignedInVerusIdDetails = () => {
   );
 
   const contentCount = useMemo(
-    () => (identity ? countIdentityContentEntries(identity.identity) : 0),
-    [identity],
+    () => (identityContent ? countIdentityContentEntries(identityContent) : 0),
+    [identityContent],
   );
 
   const {funds, loaded: fundsLoaded} = useMemo(
@@ -913,7 +923,7 @@ const SignedInVerusIdDetails = () => {
       />
 
       <VerusIdContentSheet
-        identity={identity?.identity || null}
+        identity={identityContent}
         onClose={() => setContentVisible(false)}
         visible={contentVisible}
       />

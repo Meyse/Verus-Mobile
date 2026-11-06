@@ -43,6 +43,7 @@ import {
   RegistrationPreviewDetails,
 } from './RegistrationDesign';
 import {registrationState} from './presentation';
+import {COMMITMENT_SLOW_AFTER_MS, registrationCommitmentWaitMessage} from '../../../../../utils/identityRegistration/progress';
 import {
   preferredRegistrationFundingSource,
   registrationFundingBalance,
@@ -515,7 +516,7 @@ export function IdentityRegistrationCreate({navigation, route}) {
     footer={({compactKeyboard}) => <>
       {compactKeyboard && cost(true)}
       <ActionButton hold={!preview?.savedReview} disabled={!ready || insufficientFunds} busy={busy} onPress={start}>{preview?.savedReview ? 'Continue registration' : 'Hold to start'}</ActionButton>
-      {!compactKeyboard && <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>}
+      {!compactKeyboard && <ActionButton secondary disabled={!ready || insufficientFunds} onPress={save}>Save for later</ActionButton>}
     </>}>{({compactKeyboard}) => <>
     <NameField name={name} setName={value => { if (!running.current) setName(value); }} namespace={namespace}
       availability={availability} busy={busy} onNamespace={() => setNamespaceVisible(true)} previewError={previewError}
@@ -769,6 +770,16 @@ export function IdentityRegistrationProgress({navigation, route}) {
   );
 
   const status = review?.status;
+  const [waitTime, setWaitTime] = useState(Date.now);
+  const commitmentBroadcastAt = review?.commitmentBroadcastAt;
+  useEffect(() => {
+    setWaitTime(Date.now());
+    if (status !== 'commitment_broadcast' || !Number.isFinite(commitmentBroadcastAt)) return undefined;
+    const remaining = commitmentBroadcastAt + COMMITMENT_SLOW_AFTER_MS - Date.now();
+    if (remaining <= 0) return undefined;
+    const timer = setTimeout(() => setWaitTime(Date.now()), remaining);
+    return () => clearTimeout(timer);
+  }, [status, commitmentBroadcastAt]);
   const state = registrationState(status);
   const canContinue = ['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(status);
   const canRetry = [
@@ -863,7 +874,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     onRetry={refresh}
     footer={locked ? <ActionButton disabled>Check status</ActionButton> : review ? <>
       {state.kind === 'waiting' && <Text style={[styles.muted, {textAlign: 'center'}]}>
-        {status === 'commitment_broadcast' ? 'Ready in about 1 minute. You can close this screen.' : 'You can leave this screen. Follow progress from your home screen.'}
+        {status === 'commitment_broadcast' ? registrationCommitmentWaitMessage(commitmentBroadcastAt, waitTime) : 'You can leave this screen. Follow progress from your home screen.'}
       </Text>}
       {state.kind === 'waiting' ? status === 'commitment_broadcast' ? <ActionButton hold disabled>Hold to create</ActionButton>
         : <ActionButton disabled>Waiting for confirmation</ActionButton>

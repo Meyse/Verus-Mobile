@@ -16,11 +16,11 @@ export const registrationNotifications = (jobs, accountHash) =>
         'registration_expired',
       ].includes(job.status);
       const needsLink = job.status === 'registered';
-      const registrationPending = [
-        'registration_signed',
-        'registration_broadcast',
-        'registration_broadcast_unknown',
+      const needsCheck = [
+        'commitment_signed', 'commitment_broadcast_unknown',
+        'registration_signed', 'registration_broadcast_unknown',
       ].includes(job.status);
+      const registrationPending = job.status === 'registration_broadcast';
       const needsAttention = ['commitment_expired', 'commitment_spent'].includes(job.status);
       const identityName = job.displayName || job.name || 'Identity registration';
 
@@ -28,7 +28,9 @@ export const registrationNotifications = (jobs, accountHash) =>
         ? 'Identity registered. Ready to link.'
         : ready
           ? 'Name committed. Ready to register.'
-          : registrationPending
+          : needsCheck
+            ? 'Registration needs a check'
+            : registrationPending
             ? 'Registration awaiting confirmation'
             : needsAttention
               ? 'Registration needs your attention'
