@@ -42,6 +42,7 @@ export const RevokeIdentityConfirmRender = ({
   return (
     <RevokeRecoverFlowScaffold
       headerTitle="Review revocation"
+      error={submitError}
       onBack={goBack}
       progress={0.85}
       actions={submitError ? (

@@ -114,14 +114,6 @@ const PaymentRequestSlip = ({isSmall, qrRef, snapshot}) => {
         {snapshot.fiatEstimate ? (
           <Text style={styles.estimate}>{snapshot.fiatEstimate}</Text>
         ) : null}
-        {snapshot.subject ? (
-          <Text
-            ellipsizeMode="tail"
-            numberOfLines={compactWindow ? 2 : undefined}
-            style={styles.note}>
-            {snapshot.subject}
-          </Text>
-        ) : null}
       </View>
       <View style={[styles.stub, compactWindow && styles.stubCompact]}>
         <View style={styles.qrTile}>

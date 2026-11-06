@@ -158,6 +158,7 @@ const SendWizardConfirm = () => {
   const submissionInFlight = useRef(false);
   const submitted = useRef(Boolean(state.txResult));
   const broadcastUnknown = useRef(Boolean(state.broadcastError));
+  const connectionRef = useRef(null);
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
@@ -206,6 +207,7 @@ const SendWizardConfirm = () => {
   useEffect(
     () =>
       NetInfo.addEventListener(connection => {
+        connectionRef.current = connection;
         if (connection.isConnected) {
           setError(current =>
             current === OFFLINE_NOTHING_SENT_MESSAGE ? null : current,
@@ -529,7 +531,9 @@ const SendWizardConfirm = () => {
     try {
       // Offline, a broadcast can wait a long time and still fail. Nothing has
       // left the wallet yet, so say so at once.
-      const connection = await NetInfo.fetch().catch(() => null);
+      // Use the subscribed state immediately. NetInfo.fetch can wait several
+      // seconds offline. A reconnect updates the same ref before the next hold.
+      const connection = connectionRef.current || await NetInfo.fetch().catch(() => null);
       if (connection?.isConnected === false) {
         setError(OFFLINE_NOTHING_SENT_MESSAGE);
         return;
@@ -608,7 +612,8 @@ const SendWizardConfirm = () => {
       dispatch(expireCoinData(sourceCoin.id, API_GET_TRANSACTIONS));
       dispatch(expireCoinData(sourceCoin.id, API_GET_FIATPRICE));
       submissionInFlight.current = false;
-      setSending(false);
+      // Keep the busy label through the result screen's navigation animation.
+      if (!submitted.current) setSending(false);
     }
   };
 
@@ -1007,7 +1012,7 @@ const SendWizardConfirm = () => {
         holdHint={target?.isConversion ? 'Hold the button to convert.' : 'Hold the button to send.'}
         loading={sending || preflighting || networkFee.loading}
         holdingText="Hold to confirm..."
-        loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending..."}
+        loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending…"}
         onPress={needsFeeRetry ? retryNetworkFee : submit}>
         {state.broadcastError ? 'Status unknown' : needsFeeRetry ? 'Try again' : 'Hold to confirm & send'}
       </WizardFooter>

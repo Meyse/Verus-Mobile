@@ -66,6 +66,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
   const [state, setState] = useState(() => ({
     ...initialWizardState,
     ...(initialState || {}),
+    amountInput: initialState?.amountInput ?? initialState?.amount ?? '',
   }));
   // The private card spends only confirmed funds, as its preflight does.
   // Funds that still confirm show apart on Amount.
@@ -82,35 +83,53 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
   );
 
   const setSource = useCallback((source, target = null, route = null) => {
-    setState(current => ({
-      ...initialWizardState,
-      ...getScanRequestFields(current.scanRequest),
-      invoice: current.invoice,
-      sourceIdentity: current.sourceIdentity,
-      presetTargetId: current.presetTargetId,
-      ...source,
-      target,
-      route,
-      txResult: current.txResult,
-      broadcastError: current.broadcastError,
-    }));
+    setState(current => {
+      const sameAsset = current.sourceCoin?.id === source.sourceCoin?.id;
+      return {
+        ...initialWizardState,
+        ...getScanRequestFields(current.scanRequest),
+        ...(sameAsset ? {
+          amount: current.amount,
+          amountInput: current.amountInput,
+          amountSats: current.amountSats,
+          fiatMode: current.fiatMode,
+          recipientAddress: current.recipientAddress,
+          memo: current.memo,
+        } : {}),
+        invoice: current.invoice,
+        sourceIdentity: current.sourceIdentity,
+        presetTargetId: current.presetTargetId,
+        ...source,
+        // Respect an explicit route, including a new invoice basket. A
+        // conversion's target picker can reselect its previous target.
+        target: target || (sameAsset ? current.target : null),
+        route: route || (sameAsset ? current.route : null),
+        txResult: current.txResult,
+        broadcastError: current.broadcastError,
+      };
+    });
   }, []);
 
   const setTarget = useCallback((target, route) => {
-    setState(current => ({
-      ...current,
-      target,
-      route,
-      amount: '',
-      amountInput: '',
-      amountSats: null,
-      fiatMode: false,
-      estimate: null,
-      marketPrice: null,
-      recipientAddress: '',
-      memo: '',
-      preflightResult: null,
-    }));
+    setState(current => {
+      const sameTarget = current.target?.id === target?.id;
+      return {
+        ...current,
+        target,
+        route,
+        ...(sameTarget ? {} : {
+          amount: '',
+          amountInput: '',
+          amountSats: null,
+          fiatMode: false,
+          recipientAddress: '',
+          memo: '',
+        }),
+        estimate: null,
+        marketPrice: null,
+        preflightResult: null,
+      };
+    });
   }, []);
 
   const setRoute = useCallback((route, target = null) => {
@@ -144,6 +163,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       fiatMode,
       preflightResult: null,
     }));
+  }, []);
+
+  const setAmountDraft = useCallback(draft => {
+    setState(current => ({...current, ...draft, preflightResult: null}));
   }, []);
 
   const setEstimate = useCallback(estimate => {
@@ -189,6 +212,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setSource,
       setTarget,
       setAmount,
+      setAmountDraft,
       setEstimate,
       setMarketPrice,
       setRecipient,
@@ -203,6 +227,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       mode,
       reset,
       setAmount,
+      setAmountDraft,
       setEstimate,
       setMarketPrice,
       setPreflight,
