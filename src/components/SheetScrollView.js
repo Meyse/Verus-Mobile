@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {FlatList, ScrollView, View} from 'react-native';
+import {FlatList, ScrollView, StyleSheet, View} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {deepLinkRequestReviewStyles} from '../styles';
@@ -79,11 +79,14 @@ const SheetScrollView = ({
   const showNativeIndicator =
     scrollViewProps?.showsVerticalScrollIndicator ||
     metrics.layoutHeight < MIN_FADE_VIEWPORT_HEIGHT;
+  const contentStyle = StyleSheet.flatten([styles.requestSheetContent, contentContainerStyle]) || {};
+  const bottomPadding = contentStyle.paddingBottom ?? contentStyle.paddingVertical ?? contentStyle.padding ?? 0;
+  const contentEnd = metrics.contentHeight - bottomPadding;
   const showCue =
     !showNativeIndicator &&
     metrics.contentHeight > metrics.layoutHeight + SCROLL_END_THRESHOLD &&
     metrics.offsetY + metrics.layoutHeight <
-      metrics.contentHeight - SCROLL_END_THRESHOLD;
+      contentEnd - SCROLL_END_THRESHOLD;
 
   return (
     <View style={[styles.requestSheetScrollFrame, fill && {flexGrow: 1}, style]}>

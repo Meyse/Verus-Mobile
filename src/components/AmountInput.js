@@ -96,14 +96,14 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
               stacked ? theme.typography.labelMd : theme.typography.titleSheet,
               styles.unit,
               {color: theme.colors.textSecondary},
-            ]}>{unit}</Text>
+            ]} numberOfLines={1}>{unit}</Text>
             <MaterialCommunityIcons name="chevron-down" size={18} color={theme.colors.textSecondary} />
           </Pressable>
         ) : <Text style={[
           stacked ? theme.typography.labelMd : theme.typography.titleSheet,
           styles.unit,
           {color: theme.colors.textSecondary},
-        ]}>{unit}</Text>}
+        ]} numberOfLines={1}>{unit}</Text>}
       </View>
     </View>
   );
@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
   row: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
   stacked: {flexDirection: 'column', gap: 0},
   input: {padding: 0, textAlign: 'center'},
-  unit: {flexShrink: 1},
-  unitAction: {minWidth: 44, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2},
+  unit: {flexShrink: 0},
+  unitAction: {flexShrink: 0, minWidth: 44, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2},
 });
 
 export default AmountInput;

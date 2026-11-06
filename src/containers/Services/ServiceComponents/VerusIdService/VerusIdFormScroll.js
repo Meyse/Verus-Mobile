@@ -21,10 +21,10 @@ export function useVerusIdFormScroll(keyboardVisible) {
       if (!field || !content || viewportHeight.current <= 0) return;
       field.group.measureLayout(content, (_x, y, _width, height) => {
         if (focusedField.current !== field) return;
-        // Reveal the whole group when it fits. For a taller group, keep its
-        // label at the top and let the user scroll to the supporting text.
+        // Reserve the shared sheet cue (46 points) and its gap. The status
+        // at the end of a field group must clear the fade after it changes.
         scrollRef.current?.scrollTo({
-          y: Math.max(0, Math.min(y, y + height + 12 - viewportHeight.current)),
+          y: Math.max(0, y + height + 58 - viewportHeight.current),
           animated: false,
         });
       }, () => {});
@@ -63,6 +63,9 @@ export function VerusIdFormField({children, ...props}) {
   const fieldRef = useRef(null);
   const inputRef = useRef(null);
   const blur = context?.blur;
+  // A status can change without changing the group's height (for example
+  // Checking name to Taken). Reveal again after the new line renders.
+  useEffect(() => { context?.reveal(); });
   useEffect(() => {
     const field = fieldRef.current;
     return () => blur?.(field);

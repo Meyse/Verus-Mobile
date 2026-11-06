@@ -22,16 +22,20 @@ export const editAmountInput = (
   if (key !== 'decimal' && !/^\d$/.test(inserted)) return unchanged;
   const remaining = value.slice(0, start) + value.slice(end);
   if (key === 'decimal' && /[.,]/.test(remaining)) return unchanged;
-  const next = value.slice(0, start) + inserted + value.slice(end);
+  const prefix = value.slice(0, start);
+  const suffix = value.slice(end);
+  let next = prefix + inserted + suffix;
+  let cursor = start + inserted.length;
+  const normalized = next.replace(/^0+(?=\d)/, '');
+  cursor = Math.max(0, cursor - (next.length - normalized.length));
+  next = normalized;
+  if (/^[.,]/.test(next)) {
+    next = `0${next}`;
+    cursor++;
+  }
   if (next.length > maxLength) return unchanged;
-  const cursor = start + inserted.length;
   return {value: next, selection: {start: cursor, end: cursor}};
 };
 
-export const getAmountDecimalSeparator = () => {
-  try {
-    return new Intl.NumberFormat().format(1.1).includes(',') ? ',' : '.';
-  } catch (_) {
-    return '.';
-  }
-};
+// Amount reviews and available balances use a dot throughout the wallet.
+export const getAmountDecimalSeparator = () => '.';
