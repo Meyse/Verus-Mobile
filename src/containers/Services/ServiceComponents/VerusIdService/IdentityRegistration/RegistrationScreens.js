@@ -112,6 +112,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const currentReview = useRef(null);
   const lockRetry = useRef(null);
   const preparedOnce = useRef(null);
+  const recheckShortage = useRef(null);
   const {context, busy, error, run, running, setError} = useRegistrationAction();
   const coins = useSelector(state => state.coins.activeCoinsForUser || []);
   const updateReview = useCallback(value => {
@@ -200,12 +201,16 @@ export function IdentityRegistrationProgress({navigation, route}) {
     if (['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(value.status)) return prepareSecond(requestContext);
     return value;
   });
+  recheckShortage.current = () => runForeground(prepareSecond);
   useFocusEffect(useCallback(() => {
     focused.current = true; preparedOnce.current = null;
     const version = ++resultVersion.current;
     (async () => { await background.current?.promise; if (focused.current && version === resultVersion.current) refreshBackground(true); })();
     const poll = () => {
-      if (AppState.currentState === 'active' && !lockRetry.current && ['commitment_signed', 'commitment_broadcast', 'commitment_broadcast_unknown', 'registration_signed', 'registration_broadcast', 'registration_broadcast_unknown'].includes(currentReview.current?.status)) refreshBackground();
+      if (!focused.current || AppState.currentState !== 'active' || lockRetry.current || running.current || promptOpen.current || background.current) return;
+      const saved = currentReview.current;
+      if (saved?.registrationProblem === 'insufficient_funds' && ['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status)) recheckShortage.current();
+      else if (['commitment_signed', 'commitment_broadcast', 'commitment_broadcast_unknown', 'registration_signed', 'registration_broadcast', 'registration_broadcast_unknown'].includes(saved?.status)) refreshBackground();
     };
     const timer = setInterval(poll, 20000);
     const listener = AppState.addEventListener('change', state => { if (state === 'active') poll(); });
@@ -311,7 +316,6 @@ export function IdentityRegistrationProgress({navigation, route}) {
                 : status === 'commitment_spent' ? <ActionButton disabled={busy || locked} onPress={refresh}>Check status</ActionButton>
               : status !== 'registration_broadcast' && <ActionButton hold disabled={busy || locked || !ready} busy={busy} onPress={approveSecond}>Hold to create</ActionButton>}
       {taken && deleteAction ? deleteAction : <ActionButton secondary disabled={busy} onPress={close}>Done for now</ActionButton>}
-      {shortage && <TextAction disabled={busy} onPress={refresh}>Try again</TextAction>}
     </>}>
     {!review && loading && <RegistrationSkeleton label="Loading registration" />}
     {review && <>
