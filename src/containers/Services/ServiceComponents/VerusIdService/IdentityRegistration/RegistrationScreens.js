@@ -60,7 +60,8 @@ export function IdentityCommitmentReview({navigation, route}) {
   useFocusEffect(useCallback(() => {
     run(requestContext => getRegistrationReview(jobId, requestContext), setReview);
   }, [jobId, run]));
-  const ready = review?.status === 'commitment_prepared' && registrationFundingState(review?.quote, sources[0], coin, coins, balances, funds.reads).status === 'enough';
+  const fundingState = registrationFundingState(review?.quote, sources[0], coin, coins, balances, funds.reads);
+  const ready = review?.status === 'commitment_prepared' && fundingState.status === 'enough';
   const approve = () => {
     if (!ready || busy) return;
     run(requestContext => approveCommitment(jobId, review.approvalToken, requestContext), result => {
@@ -82,7 +83,8 @@ export function IdentityCommitmentReview({navigation, route}) {
         payer={sources[0]} recovery={identityLabel(review.identity?.recoveryauthority, {...review.identityNames, [review.identityAddress]: review.displayName})}
         revocation={identityLabel(review.identity?.revocationauthority, {...review.identityNames, [review.identityAddress]: review.displayName})} />
       <RegistrationDetails review={review} />
-      {!ready && <RegistrationText muted>{funds.reads[review.fundingAddress]?.status === 'error' ? 'Payer balances could not be checked.' : 'Checking funds. Add funds to this payment address if needed.'}</RegistrationText>}
+      {!ready && <RegistrationText muted>{fundingState.status === 'error' ? 'Payer balances could not be checked.'
+        : fundingState.status === 'short' ? `Not enough ${currencyLabel(fundingState.currencyId, review.currencyNames)}. Add funds to this payment address to continue.` : 'Checking funds…'}</RegistrationText>}
       {!ready && <TextAction onPress={funds.retry}>Try again</TextAction>}
       <RegistrationDeleteSheet review={review} visible={deleting} onClose={() => setDeleting(false)} onDelete={() => run(requestContext => deleteRegistration(jobId, review.deletionKind, requestContext), close)} />
     </>}
