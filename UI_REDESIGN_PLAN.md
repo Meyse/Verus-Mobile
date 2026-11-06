@@ -2268,6 +2268,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-06 | ID-3.REG-R11: New VerusID | `claude/new-verusid-flow` from `7b089908` | R8–R11 stepped create, all-currency payer reads, in-place second hold, durable problem notices, grouped tab rows, shared one-tap Link sheet, and own-name control facts. Android dev bundle, design, safe-area, Babel and focused ESLint pass. Existing suites: 395 pass / 4 baseline assertions fail; 2 baseline native-mock suite-load errors. Full command output and spec map: `new-verusid-flow.local.md`. | No simulator, emulator, signing, broadcast, push or merge. Device tester owns native keyboard/Back/reload, all live payment states, light/dark normal/compact, accessibility, and real linking. |
 | 2026-11-05 | ID-3.NIGHT3-B: VerusID safety | `claude/night3-batch-b` from `ff2e63e0` | Modify identity/control summary and Added/Removed rows; clipped VerusID form scrolls, label-first reveal, compact pinned price and hidden Save; known decimal source balances checked against every full-quote currency; approved app-data and Transfer words. Design, safe-area, Babel, focused ESLint, temporary non-Jest behavior checks and both release JS bundles pass. Normal ESLint retains its existing import-plugin package-export failure. Exact commands and proof limits: `verusid-batch-b.local.md`. | Render the candidate in both themes on Pro/SE and Android normal/360x640. Cover keyboard/funds/control-change states, Back/reload and both payment approvals. No native rebuild required by these JS changes. No push or merge. |
 | 2026-11-05 | TX-1.HIDDEN-BALANCES | `claude/hidden-balances-tx-persist` from `bd00f503` | Overview and pre-launch history rows blur signed amounts and fiat. Transaction details blur amount, fiat and fee. Hidden accessibility values use "Balance hidden". One phone-level AsyncStorage read starts at module load with a 400 ms fallback; startup applies an explicit visibility action before accounts load. Toggle writes are serialized. Frozen install, design/card-color checks, Babel parse (11 JS files), whitespace and temporary non-Jest checks pass. Two baseline checks fail before the fix and pass after it. Storage/Redux checks cover restarts, rapid taps, failed/stalled/late reads, save failure and account changes. Twelve controlled component scenarios cover both themes, live toggles and readable identifiers. | Opus: review the commit and run iOS normal/SE and Android normal/360x640 QA, both themes, including native blur, accessibility speech, restart and account changes. No device, native build, Metro, push or merge ran. |
 | 2026-11-04 | HOME.NOTICE-A | `claude/home-notice-a` from `bc6602db` | Approved smaller notice sizes and Private sync state. Design, changed-file safe-area, iOS bundle and 20 controlled selection cases pass. Native component fixtures cover light/dark on normal iPhone and SE. The notification Jest suite fails before and after edits at the same vector-icons native-module import. | iOS and Android device QA passed on 2026-11-04 (dismissal/reopen, thresholds, SE and small phone 32-point buttons). VoiceOver/TalkBack speech remains open. Merged into `redesign`; not pushed. |
@@ -3251,3 +3252,66 @@ memory pressure. Babel parses all 21 changed JavaScript files. Protected price
 functions match the base; the create footer changes only its disabled condition.
 No Jest tests, devices, native changes, dependency changes, signing, broadcasts,
 merge or push in this task.
+
+
+### ID-3.REG-R11 — Approved New VerusID flow (2026-11-06)
+
+Contract: operate mode. SPEC.md and the approved R8–R11 boards are the visual
+sources. Use RegistrationPage, the shared header and type roles, AppTextInput,
+NamespaceSheet, TextAction, CopyAction, status badges, safe footers,
+SkeletonLoader, TransactionResult and VerusIdReadyCard. Keep the payment engine's
+approval tokens and saved-transaction retries. The owner excludes device runs
+from this implementation task.
+
+- [x] Read the full spec, design contract, typography and VerusID plan. Inspect
+  the named board images before building their surfaces.
+- [x] Create `claude/new-verusid-flow` from local `claude/night4-fixes` at
+  `7b089908`. Keep this JS-only. Add no dependency, native or lockfile changes.
+- [x] Build Name, Referral, conditional Pay from, Check details for a new
+  registration, and Recovery.
+  Keep the growing namespace field, conditional network picker, two-currency
+  prices, field-local lookup errors, external-control warnings and compact
+  keyboard price/funds state. Keep saved jobs resumable.
+- [x] Keep both payment holds bound to their shown quote. Reconcile and prepare
+  the second payment in place. Check every currency for the fixed payer before
+  enabling or approving it. Retain changed-price consent and exact-byte retry.
+- [x] Build waiting, slow, ready, changed, shortfall, delivery, unconfirmed,
+  name-taken and connection states. Keep engine deletion classifications and
+  use the app confirmation sheet. Remove the separate Registrations and
+  registration-payment review routes. Keep the unpaid Check details route.
+- [x] Build Home stage cards, ready-card celebration/dismissal, tab groups with
+  counts and 32-point actions, and the shared created/provisioned Link sheet.
+  Preserve the + > Link VerusID list. Close returns to the originating tab.
+- [x] Use the actual VerusID name in registration authority facts and the
+  VerusID page's self-authority facts.
+- [x] Run the required checks. Keep payment-safety assertions intact. Update
+  only the approved copy, grouping and navigation expectations.
+- [x] Owner decision, 2026-11-06: saved unpaid jobs keep their stored intent.
+  Their Check details summary has no Change actions. Keep Delete registration
+  in the info sheet, with the unpaid confirmation. A changed quote shows its
+  new price and requires a new hold. Add no draft-update engine mutation.
+- [ ] Separate device QA: iOS normal/SE and Android normal/360×640, both
+  themes, keyboard open/closed, Back, reload, interruption and accessibility.
+- [ ] Separate live VRSCTEST QA: both holds, changed quote, every-currency
+  shortfall/top-up, saved restart, delivery retry, unconfirmed replacement,
+  name taken, all permitted deletion kinds, created/provisioned Link and
+  celebration persistence.
+
+Evidence: code commits `7f5cf2a5`, `228d7477`, `610b7b49`, `c689e635`,
+`5d9b90ef`, `e45dd3ac`.
+Design passes for 39 canonical sources and 17 card materials. The changed-file
+safe-area check passes for 27 files; the final explicit check passes for all
+28 changed JS files. Babel and focused core/React/hook lint pass for those 28
+files. Standard ESLint stops on the existing import-plugin
+`ERR_PACKAGE_PATH_NOT_EXPORTED` before file checks. The Android development JS
+bundle compiles to `/tmp/new-verusid-bundle/a.js` with 52 assets.
+
+The existing registration/notification run has 395 passing tests, four baseline
+assertion failures and two baseline native-mock load errors. No payment-safety
+assertion was changed. Five protected engine source spans match the base byte
+for byte. Temporary non-Jest checks cover 13 public-component
+flows, 11 public-read checks, eight funding checks and three Link-sheet flows.
+Twenty-six source-derived light/dark renders were inspected at normal and
+compact sizes. Native controls, scroll measurements, keyboard geometry and
+platform accessibility are substituted in those renders. They are not device
+or on-chain evidence. No runtime server remains running.
