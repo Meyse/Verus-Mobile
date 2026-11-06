@@ -75,9 +75,9 @@ export const RegistrationFunds = ({data, source, coin, coins, balances, reads, s
       })}</View>
       {!two && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
     </View>
-    {two && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
+    {two && badge && <AppStatusBadge style={{alignSelf: 'flex-start'}} label={badge} tone={enough ? 'success' : 'danger'} />}
     </>}
-    {compact && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
+    {compact && badge && <AppStatusBadge style={{alignSelf: 'flex-start'}} label={badge} tone={enough ? 'success' : 'danger'} />}
     {compact && funding?.status === 'checking' && <RegistrationText muted>Checking funds…</RegistrationText>}
     {!compact && referralOnly && enough && <RegistrationText muted>You choose a referral in the next step.</RegistrationText>}
     {!compact && funding?.status === 'short' && <RegistrationText muted>Add {label} to this wallet to continue.</RegistrationText>}
