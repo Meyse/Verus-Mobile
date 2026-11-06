@@ -22,6 +22,7 @@ import useHomeChartPreference from '../../utils/portfolioHistory/useHomeChartPre
 import HomeValueChart, {homeValueChartHistoryPropType} from './components/HomeValueChart';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
+import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -240,6 +241,7 @@ PortfolioBalance.propTypes = {
 
 const SignedInWalletHome = ({
   assets,
+  hiddenAssetCount = 0,
   assetsReady = true,
   assetsLoadError = false,
   homeNotice = null,
@@ -518,6 +520,13 @@ const SignedInWalletHome = ({
             <SkeletonLoader accessibilityLabel="Loading your assets" style={{padding: 20}}>
               {[0, 1, 2].map(row => <SkeletonBlock key={row} height={48} style={{marginBottom: 20}} />)}
             </SkeletonLoader>
+          ) : !assetsLoadError && hiddenAssetCount > 0 ? (
+            <EmptyState
+              actionLabel="Manage assets"
+              message="Your funds stay in your wallet."
+              onAction={onManageAssets}
+              title={`${hiddenAssetCount} ${hiddenAssetCount === 1 ? 'asset is' : 'assets are'} hidden from Home`}
+            />
           ) : (
             <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary, padding: 20}]}>
               {assetsLoadError ? 'Your saved assets are temporarily unavailable.' : 'No assets on Home'}

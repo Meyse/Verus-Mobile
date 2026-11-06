@@ -7,6 +7,7 @@
 import React, { Component } from "react";
 import {
   AccessibilityInfo,
+  AppState,
   View,
   FlatList,
   Platform,
@@ -17,7 +18,7 @@ import {
 import { connect } from 'react-redux';
 import { expireCoinData, expireServiceData, setActiveOverviewFilter } from '../../../actions/actionCreators';
 import Styles from '../../../styles/index'
-import { conditionallyUpdateService, conditionallyUpdateWallet, conditionallyUpdateWallets } from "../../../actions/actionDispatchers";
+import { conditionallyUpdateService, conditionallyUpdateWallets } from "../../../actions/actionDispatchers";
 import store from "../../../store";
 import TransactionDetailsSheet, {decodeTxid} from './TransactionDetailsSheet';
 import SkeletonLoader, {
@@ -28,6 +29,7 @@ import StatusBadge, {STATUS_BADGE_TONE} from '../../../components/StatusBadge';
 import PrivacyBlurredText from '../../../components/PrivacyBlurredText';
 import {
   API_ABORTED,
+  API_SUCCESS,
   API_GET_FIATPRICE,
   API_GET_BALANCES,
   API_GET_INFO,
@@ -44,6 +46,12 @@ import {
   VRPC
 } from "../../../utils/constants/intervalConstants";
 import { selectTransactions } from '../../../selectors/transactions';
+import {selectRegistrationTransactions} from '../../../selectors/registrationTransactions';
+import {
+  refreshWalletChannels,
+  VISIBLE_WALLET_REFRESH_INTERVAL,
+} from '../../../utils/ledger/refreshWalletChannels';
+import {WALLET_APP_OVERVIEW} from '../../../utils/constants/apps';
 import { VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
 import { getTestnetBridgeDelegator } from "../../../utils/testnetEnvironment";
 import BigNumber from "bignumber.js";
@@ -72,7 +80,7 @@ const TRANSACTION_LIST_BOTTOM_PADDING = 40;
 const TRANSACTION_SKELETON_DELAY = 250;
 const TRANSACTION_SKELETON_ROWS = 3;
 
-// A receipt names the address of the card it arrived on, in the card's own terms.
+// The destination belongs in details. A receipt's history title is "Received".
 const OWN_ADDRESS_LABELS = {
   Private: "My private address",
   Transparent: "My transparent address",
@@ -132,6 +140,8 @@ export const FocusedTransactionRow = ({
   counterparty,
   counterpartyIsAddress,
   counterpartySuffix = "",
+  description,
+  wrapTitle = false,
   fiatValue,
   incoming,
   onPress,
@@ -151,11 +161,11 @@ export const FocusedTransactionRow = ({
 
   return (
     <TouchableOpacity
-      accessibilityLabel={`${accessibilityDirection} ${showBalance ? `${amountSign}${amount} ${ticker}` : 'Balance hidden'}. ${counterparty}${counterpartySuffix}. ${accessibilityStatus}.`}
+      accessibilityLabel={`${accessibilityDirection} ${showBalance ? `${amountSign}${amount} ${ticker}` : 'Balance hidden'}. ${counterparty}${counterpartySuffix}. ${description ? `${description}. ` : ''}${accessibilityStatus}.`}
       accessibilityRole="button"
       activeOpacity={0.72}
       onPress={onPress}
-      style={transactionStyles.row}>
+      style={[transactionStyles.row, wrapTitle && transactionStyles.registrationRow]}>
       <View
         style={[
           transactionStyles.directionMark,
@@ -170,7 +180,7 @@ export const FocusedTransactionRow = ({
 
       <View style={transactionStyles.descriptionColumn}>
         <NativeText
-          numberOfLines={1}
+          numberOfLines={wrapTitle ? 2 : 1}
           style={[
             transactionStyles.counterparty,
             counterpartyIsAddress && transactionStyles.addressCounterparty,
@@ -178,6 +188,13 @@ export const FocusedTransactionRow = ({
           ]}>
           {displayCounterparty}
         </NativeText>
+        {description ? (
+          <NativeText
+            numberOfLines={1}
+            style={[theme.typography.caption, {color: theme.colors.textSecondary}]}>
+            {description}
+          </NativeText>
+        ) : null}
         {pending ? (
           <StatusBadge
             label={statusLabel}
@@ -282,6 +299,7 @@ const transactionStyles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
   },
+  registrationRow: {paddingVertical: 8},
   directionMark: {
     width: 32,
     height: 32,
@@ -417,6 +435,8 @@ class Overview extends Component {
     this.transactionRequestChannel = null;
     this.transactionSkeletonTimer = null;
     this._isMounted = false;
+    this.appActive = AppState.currentState !== 'background' && AppState.currentState !== 'inactive';
+    this.historyNeedsRefresh = false;
     this.transactionListRef = React.createRef();
     //this.updateProps = this.updateProps.bind(this);
     this.refresh = this.refresh.bind(this);
@@ -437,14 +457,43 @@ class Overview extends Component {
     this.syncTransactionLoadingState();
     this.ensureTransactionsForActiveCard();
     this.refresh();
+    this.syncVisibleRefreshTimer();
     this._unsubscribeFocus = this.props.navigation.addListener('focus', () => {
       this.syncTransactionLoadingState();
       this.ensureTransactionsForActiveCard();
       this.refresh();
+      this.syncVisibleRefreshTimer();
+    });
+    this._unsubscribeBlur = this.props.navigation.addListener('blur', this.stopVisibleRefreshTimer);
+    this._appStateSubscription = AppState.addEventListener('change', nextState => {
+      this.appActive = nextState === 'active';
+      this.syncVisibleRefreshTimer();
+      if (this.appActive && this.isHistoryFocused()) this.refresh();
     });
   }
 
   componentDidUpdate(prevProps) {
+    if (!prevProps.coinMenuFocused && this.props.coinMenuFocused) {
+      this.ensureTransactionsForActiveCard();
+      this.refresh();
+    }
+    if (prevProps.balanceKey !== this.props.balanceKey) {
+      this.historyNeedsRefresh = true;
+      this.refreshVisibleTransactions();
+    }
+    this.syncVisibleRefreshTimer();
+    if (prevProps.transactions?.results !== this.props.transactions?.results && this.state.txDetails) {
+      const tx = (this.props.transactions?.results || []).flat().find(
+        item => decodeTxid(item.txid) === this.state.txDetails.txid,
+      );
+      if (tx) this.setState({txDetails: {
+        ...this.state.txDetails,
+        confirmed: tx.confirmed === true,
+        pending: !tx.confirmed || tx.status === 'pending',
+        confirmations: tx.confirmations,
+        timestamp: tx.timestamp,
+      }});
+    }
     if (this.props.sheetOpen === false && prevProps.sheetOpen === true) {
       this.transactionListRef.current?.scrollToOffset({offset: 0, animated: false});
     }
@@ -479,7 +528,62 @@ class Overview extends Component {
     this.clearTransactionSkeletonTimer();
     this._reduceMotionSubscription?.remove();
     this._unsubscribeFocus?.();
+    this._unsubscribeBlur?.();
+    this._appStateSubscription?.remove();
+    this.stopVisibleRefreshTimer();
   }
+
+  isHistoryFocused = () => {
+    const {coins} = store.getState();
+    return this._isMounted && this.appActive &&
+      this.props.navigation.isFocused() && coins.coinMenuFocused &&
+      coins.activeCoin?.id === this.props.activeCoin.id &&
+      coins.activeSection?.key === WALLET_APP_OVERVIEW;
+  };
+
+  stopVisibleRefreshTimer = () => {
+    clearInterval(this.visibleRefreshTimer);
+    this.visibleRefreshTimer = null;
+  };
+
+  syncVisibleRefreshTimer = () => {
+    if (!this.isHistoryFocused()) {
+      this.stopVisibleRefreshTimer();
+    } else if (this.visibleRefreshTimer == null) {
+      this.visibleRefreshTimer = setInterval(() => {
+        if (!this.isHistoryFocused()) return this.stopVisibleRefreshTimer();
+        // Balance polling discovers new receipts. Only pending or changed
+        // balances need a history read between the ordinary interval ticks.
+        this.refreshVisibleTransactions(true);
+      }, VISIBLE_WALLET_REFRESH_INTERVAL);
+    }
+  };
+
+  refreshVisibleTransactions = async (includeBalance = false) => {
+    if (!this.isHistoryFocused()) return;
+    const pending = (this.props.transactions?.results || []).some(row => {
+      const tx = Array.isArray(row) ? row[0] : row;
+      return !tx.confirmed || tx.status === 'pending';
+    });
+    const needsHistory = pending || this.historyNeedsRefresh || this.props.transactions?.isUnresolved;
+    const updateIds = [
+      ...(needsHistory ? [API_GET_TRANSACTIONS] : []),
+      ...(includeBalance ? [API_GET_BALANCES] : []),
+    ];
+    if (!updateIds.length) return;
+    const balanceKey = this.props.balanceKey;
+    try {
+      const [result] = await refreshWalletChannels(
+        this.props.activeCoin.id, [this.props.activeSubWallet], updateIds,
+      );
+      if (needsHistory && result === API_SUCCESS && balanceKey === this.props.balanceKey) {
+        this.historyNeedsRefresh = false;
+      }
+    } catch (error) {
+      // Keep the changed-balance flag for the next focused tick or pull.
+      console.warn('Unable to refresh the active card');
+    }
+  };
 
   clearTransactionSkeletonTimer = () => {
     if (this.transactionSkeletonTimer != null) {
@@ -530,6 +634,7 @@ class Overview extends Component {
   };
 
   ensureTransactionsForActiveCard = async () => {
+    if (!this.isHistoryFocused()) return;
     const transactions = selectTransactions(store.getState());
     const channel = transactions?.channel;
 
@@ -543,17 +648,10 @@ class Overview extends Component {
     }
 
     this.transactionRequestChannel = channel;
-    this.props.dispatch(
-      expireCoinData(this.props.activeCoin.id, API_GET_TRANSACTIONS),
-    );
-
     let result = API_ABORTED;
     try {
-      result = await conditionallyUpdateWallet(
-        store.getState(),
-        this.props.dispatch,
-        this.props.activeCoin.id,
-        API_GET_TRANSACTIONS,
+      [result] = await refreshWalletChannels(
+        this.props.activeCoin.id, [this.props.activeSubWallet], [API_GET_TRANSACTIONS],
       );
     } catch (error) {
       console.warn("Error updating transactions for the selected Card");
@@ -570,6 +668,7 @@ class Overview extends Component {
     if (
       latestTransactions.channel === channel &&
       result === API_ABORTED &&
+      !store.getState().updates.coinUpdateTracker[this.props.activeCoin.id]?.[API_GET_TRANSACTIONS]?.channels?.includes(channel) &&
       latestTransactions.isUnresolved &&
       !latestTransactions.isLoading
     ) {
@@ -582,11 +681,17 @@ class Overview extends Component {
   };
 
   refresh = (showRefreshIndicator = false) => {
+    if (!this.isHistoryFocused()) return;
+    // A service refresh must not swallow a later pull of wallet data.
+    const activeCardRefresh = refreshWalletChannels(
+      this.props.activeCoin.id, [this.props.activeSubWallet],
+      [API_GET_BALANCES, API_GET_TRANSACTIONS],
+    );
     if (this.state.loading) {
       if (showRefreshIndicator && !this.state.refreshing) {
         this.setState({refreshing: true});
       }
-      return;
+      return activeCardRefresh;
     }
 
     this.setState(
@@ -602,9 +707,7 @@ class Overview extends Component {
 
         const coinUpdates = [
           API_GET_FIATPRICE,
-          API_GET_BALANCES,
           API_GET_INFO,
-          API_GET_TRANSACTIONS,
         ];
 
         const coinId = this.props.activeCoin.id;
@@ -619,6 +722,7 @@ class Overview extends Component {
             update: () => conditionallyUpdateService(store.getState(), this.props.dispatch, key),
           }]),
           [{label: 'wallet refresh', update: () => walletRefresh}],
+          [{label: 'active card refresh', update: () => activeCardRefresh}],
         ]);
 
         if (this._isMounted) {
@@ -631,9 +735,7 @@ class Overview extends Component {
   forceUpdate = () => {
     const coinObj = this.props.activeCoin;
     this.props.dispatch(expireCoinData(coinObj.id, API_GET_FIATPRICE));
-    this.props.dispatch(expireCoinData(coinObj.id, API_GET_BALANCES));
     this.props.dispatch(expireCoinData(coinObj.id, API_GET_INFO));
-    this.props.dispatch(expireCoinData(coinObj.id, API_GET_TRANSACTIONS));
     this.props.dispatch(expireServiceData(API_GET_SERVICE_ACCOUNT));
     this.props.dispatch(expireServiceData(API_GET_SERVICE_PAYMENT_METHODS));
     this.props.dispatch(expireServiceData(API_GET_SERVICE_TRANSFERS));
@@ -723,6 +825,7 @@ class Overview extends Component {
     let counterpartyIsAddress = false;
     let counterpartySuffix = "";
     let incoming = false;
+    let destinationLabel = null;
     const gasFees = item.feeCurr === ETH.toUpperCase()
 
     if (Array.isArray(item)) {
@@ -758,6 +861,7 @@ class Overview extends Component {
         address: toAddresses.join(' & '),
         amount,
         confirmed,
+        confirmations: txArray[0].confirmations,
         fee: txArray[0].fee,
         from: txArray[0].from,
         status: txArray[0].status,
@@ -771,7 +875,8 @@ class Overview extends Component {
 
       if (item.type === "received") {
         detailLabel = "You received";
-        subtitle =
+        subtitle = 'Received';
+        destinationLabel =
           OWN_ADDRESS_LABELS[getSubWalletCardType(this.props.activeSubWallet)] ||
           "My address";
         incoming = true;
@@ -810,11 +915,24 @@ class Overview extends Component {
       }
     }
 
+    const savedRegistration = this.props.registrationTransactions?.[decodeTxid(item.txid)];
+    const registration = savedRegistration || item.identityRegistration;
+    const registrationMatches = registration && item.type !== 'received' &&
+      registration.systemId === this.props.activeSubWallet?.api_channels?.[API_GET_TRANSACTIONS]?.split('.')[2];
+    if (registrationMatches) {
+      subtitle = registration.kind === 'registration'
+        ? 'VerusID registration' : 'VerusID name commitment';
+      detailLabel = registration.kind === 'registration' ? 'Registration price' : subtitle;
+      counterpartyIsAddress = false;
+      counterpartySuffix = '';
+      incoming = false;
+    }
+
     let displayAmount = null
 
     // Handle possible int overflows
     try { 
-      if (!gasFees && item.fee && item.type !== "unknown") {
+      if (!registrationMatches && !gasFees && item.fee && item.type !== "unknown") {
         displayAmount = amount.minus(item.fee).abs()
       } else displayAmount = amount
     }
@@ -852,6 +970,8 @@ class Overview extends Component {
         counterparty={subtitle || "Unknown destination"}
         counterpartyIsAddress={counterpartyIsAddress}
         counterpartySuffix={counterpartySuffix}
+        description={registrationMatches ? registration.name : null}
+        wrapTitle={Boolean(registrationMatches)}
         fiatValue={fiatValue}
         incoming={incoming}
         pending={pending}
@@ -868,7 +988,10 @@ class Overview extends Component {
                 ? this.props.activeCoin.id
                 : item.feeCurr,
               confirmed: item.confirmed === true,
-              fee: item.fee != null && item.type !== "self"
+              confirmations: item.confirmations,
+              destinationLabel,
+              registrationName: registrationMatches ? registration.name : null,
+              fee: !registrationMatches && item.fee != null && item.type !== "self"
                 ? scientificToDecimal(String(item.fee))
                 : null,
               feeTicker: item.feeCurr || this.props.activeCoin.display_ticker,
@@ -943,7 +1066,7 @@ class Overview extends Component {
           paddingBottom: TRANSACTION_LIST_BOTTOM_PADDING,
         }}
         data={this.parseTransactionLists()}
-        extraData={this.props.showBalance}
+        extraData={[this.props.showBalance, this.props.registrationTransactions]}
         scrollEnabled={this.props.sheetOpen !== false}
         ListEmptyComponent={
           this.props.transactions?.errors != null ? (
@@ -1022,10 +1145,15 @@ const mapStateToProps = (state) => {
   const displayCurrency =
     state.settings.generalWalletSettings.displayCurrency || USD;
   const fiatChannel = activeSubWallet?.api_channels?.[API_GET_FIATPRICE];
+  const balanceChannel = activeSubWallet?.api_channels?.[API_GET_BALANCES];
+  const balance = state.ledger.balances?.[balanceChannel]?.[activeCoin.id];
 
   return {
     activeCoin,
     activeSubWallet,
+    coinMenuFocused: state.coins.coinMenuFocused,
+    balanceKey: [balance?.confirmed, balance?.pending, balance?.total].join(':'),
+    registrationTransactions: selectRegistrationTransactions(state),
     showBalance: state.coins.showBalance,
     transactions: selectTransactions(state),
     activeAccount: state.authentication.activeAccount,

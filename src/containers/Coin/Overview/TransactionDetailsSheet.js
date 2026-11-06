@@ -51,6 +51,10 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
   const addresses = details?.address
     ? String(details.address).split(' & ')
     : [];
+  const confirmationCount = details?.confirmations;
+  const hasConfirmationCount = (typeof confirmationCount === 'number' || typeof confirmationCount === 'string') &&
+    String(confirmationCount).trim() !== '' &&
+    Number.isSafeInteger(Number(confirmationCount)) && Number(confirmationCount) >= 0;
 
   return (
     <InfoSheet
@@ -79,13 +83,19 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
             />
           </View>
           <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-            {addresses.length ? (
+            {details.registrationName ? (
+              <InfoSheetRow label="VerusID" value={details.registrationName} />
+            ) : null}
+            {addresses.length || details.destinationLabel ? (
               <InfoSheetRow
                 copy={addresses.length === 1}
-                label="To"
-                value={addresses.join('\n')}
-                valueStyle={styles.identifier}
+                label={addresses.length && details.destinationLabel ? `To ${details.destinationLabel}` : 'To'}
+                value={addresses.length ? addresses.join('\n') : details.destinationLabel}
+                valueStyle={addresses.length ? styles.identifier : undefined}
               />
+            ) : null}
+            {hasConfirmationCount ? (
+              <InfoSheetRow label="Confirmations" value={String(confirmationCount)} />
             ) : null}
             {details.fee != null ? (
               <InfoSheetRow
