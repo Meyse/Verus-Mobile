@@ -27,6 +27,10 @@ const choiceError = (failure, value, field) => {
   if (failure.code === 'UNSUPPORTED_REFERRAL_POLICY') return 'This namespace does not allow this referral.';
   if (failure.code === 'REFERRAL_REQUIRED') return 'Enter a referral VerusID.';
   if (failure.code === 'INVALID_AUTHORITY') return 'Use an existing VerusID that is not revoked.';
+  if (failure.code === 'REVOKED_IDENTITY') return 'This VerusID is revoked. Choose another.';
+  if (['INVALID_REFERRAL_HISTORY', 'REFERRAL_HISTORY_UNAVAILABLE', 'UNSUPPORTED_REFERRAL_HISTORY', 'LOOKUP_MISMATCH'].includes(failure.code))
+    return 'This VerusID could not be verified. Try again.';
+  if (failure.code === 'INVALID_REFERRAL_POLICY') return 'This namespace does not allow this referral.';
   return verusIdErrorMessage(failure, `${field} could not be checked.`);
 };
 
@@ -146,7 +150,8 @@ export default function NewRegistrationFlow({navigation, route}) {
       if (!active || failure.code === 'SESSION_CHANGED') return;
       const field = failure.field || (String(failure.code).includes('REFERRAL') || referralID ? 'referralID' : 'form');
       const value = field === 'recoveryAuthority' ? recovery : field === 'revocationAuthority' ? revocation : referralID;
-      setFieldsError({field, message: choiceError(failure, value, field), retryable: isVerusIdTransportError(failure)});
+      setFieldsError({field, message: choiceError(failure, value, field), retryable: isVerusIdTransportError(failure) ||
+        ['REFERRAL_HISTORY_UNAVAILABLE', 'INVALID_REFERRAL_HISTORY', 'LOOKUP_MISMATCH'].includes(failure.code)});
       if (failure.code === 'IDENTITY_EXISTS') {setAvailability('taken'); setNameResult(null); setStep('name');}
     }), 450);
     return () => { active = false; clearTimeout(timer); };

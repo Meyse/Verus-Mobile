@@ -20,7 +20,7 @@ export default function IdentityRegistrationNavigator({navigation, route}) {
     }}>
     <Stack.Navigator key={sessionKey} screenOptions={{headerShown: false, gestureEnabled: false}}>
       <Stack.Screen name="IdentityRegistrationCreate" component={IdentityRegistrationCreate} options={{title: 'New VerusID'}} />
-      <Stack.Screen name="IdentityCommitmentReview" component={IdentityCommitmentReview} getId={({params}) => params?.jobId} options={{title: 'Commit name'}} />
+      <Stack.Screen name="IdentityCommitmentReview" component={IdentityCommitmentReview} getId={({params}) => params?.jobId} options={{title: 'Check details'}} />
       <Stack.Screen name="IdentityRegistrationProgress" component={IdentityRegistrationProgress} getId={({params}) => params?.jobId} options={{title: 'Progress'}} />
     </Stack.Navigator>
     </RegistrationExitContext.Provider>
