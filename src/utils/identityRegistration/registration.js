@@ -1093,14 +1093,18 @@ const reconcileJob = async (job, context) => {
       }, context);
     }
 
+    if (unspent.scriptPubKey?.hex !== job.commitment.prepared.outputPlan[job.commitment.vout].scriptHex) {
+      throw new Error('Name commitment is not confirmed on the current active chain.');
+    }
+    // A new block can arrive between the tip read and the output read, and a
+    // server index can lag one block. Keep waiting; the next check reads again.
     if (
       unspent.bestblock !== tip.hash ||
       !Number.isSafeInteger(unspent.confirmations) ||
       unspent.confirmations < 1 ||
-      tip.height - unspent.confirmations + 1 !== commitment.height ||
-      unspent.scriptPubKey?.hex !== job.commitment.prepared.outputPlan[job.commitment.vout].scriptHex
+      tip.height - unspent.confirmations + 1 !== commitment.height
     ) {
-      throw new Error('Name commitment is not confirmed on the current active chain.');
+      return job;
     }
     const status = job.registration?.signedHex
       ? (job.status === 'registration_expired' ? 'registration_expired' : 'registration_signed')

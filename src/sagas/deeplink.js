@@ -28,6 +28,9 @@ import {
   getRequestLinkRejection,
 } from '../utils/deeplink/genericRequestRejection';
 
+const REPEATED_REFUSAL_WINDOW_MS = 5000;
+let lastRefusedLink = {url: null, at: 0};
+
 const parserIsCurrent = (state, source) =>
   state.deeplink.requestId === source.requestId &&
   sessionScopeIsCurrent(state, source.sessionScope);
@@ -173,6 +176,14 @@ function* handleDeeplinkUrl(action) {
       }
     } catch (e) {
       if (!(yield select(parserIsCurrent, source))) return;
+      // The same link can arrive twice (link event and launch link). Show
+      // one sheet for it, not one sheet per delivery.
+      const now = Date.now();
+      if (lastRefusedLink.url === urlstring && now - lastRefusedLink.at < REPEATED_REFUSAL_WINDOW_MS) {
+        console.warn('Request link refused again; sheet already shown', e?.code || 'unreadable');
+        return;
+      }
+      lastRefusedLink = {url: urlstring, at: now};
       console.warn('Request link refused', e?.code || 'unreadable');
       const rejection = getRequestLinkRejection(e);
       yield call(createAlert, rejection.title, rejection.message);

@@ -852,13 +852,8 @@ const GenericRequestSession = props => {
     if (!active.current) throw new Error('Request closed');
     await markSavedPendingRequestComplete();
 
-    if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
-      autoDeliverySuccessTimeoutRef.current = setTimeout(() => {
-        autoDeliverySuccessTimeoutRef.current = null;
-        completeRequest();
-      }, POST_SUCCESS_DELAY_MS);
-      return result;
-    }
+    // The update step keeps "Response sent" and the txid open until Done.
+    if (result.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) return result;
 
     completeRequest();
     return result;

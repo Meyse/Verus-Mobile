@@ -991,6 +991,16 @@ const ConfirmPayStep = ({
               </AppButton>
             </>
           )}
+          {completionIsSuccess && (
+            <AppButton
+              height={52}
+              onPress={handleLeaveWithoutSending}
+              style={localStyles.completeButton}
+              themeMode={theme.mode}
+              variant="primary">
+              Done
+            </AppButton>
+          )}
           {completionIsBroadcastError && (
             <View style={localStyles.deliveryActions}>
               {!broadcastTxid && (

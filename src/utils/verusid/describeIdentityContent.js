@@ -279,5 +279,6 @@ export const describeIdentityContent = identity => {
   return entries;
 };
 
+// One key can hold several values. Count what the content page lists.
 export const countIdentityContentEntries = identity =>
-  describeIdentityContent(identity).length;
+  describeIdentityContent(identity).reduce((count, entry) => count + entry.rows.length, 0);

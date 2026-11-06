@@ -89,7 +89,9 @@ export const validateGenericRequest = async (request) => {
       throw createGenericRequestRejectionError(
         GENERIC_REQUEST_REJECTION_CODES.NETWORK_MISMATCH,
         `Cannot validate request made for ${request.isTestnet() ? "testnet" : "mainnet"} on ${coinObj.testnet ? "testnet" : "mainnet"}`,
-        {requestIsTestnet: request.isTestnet()},
+        // The signer's network and the request's own flag disagree. A wallet
+        // switch cannot fix that, so the sheet asks for a new request.
+        {requestIsTestnet: request.isTestnet(), networksConflict: true},
       )
     }
 

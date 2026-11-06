@@ -2,12 +2,15 @@ import Store from '../../store';
 import {conditionallyUpdateWallets} from '../../actions/actionDispatchers';
 import {API_ABORTED} from '../constants/intervalConstants';
 
-export const VISIBLE_WALLET_REFRESH_INTERVAL = 30000;
+export const VISIBLE_WALLET_REFRESH_INTERVAL = 15000;
+// Shorter than the timer, so a read that a balance change starts between two
+// ticks does not make the next tick skip its read.
+const VISIBLE_WALLET_READ_LIMIT = 10000;
 let currentSession;
 const lastReads = new Map();
 
 // Visible surfaces can request fresh data without expiring every card. Share
-// the 30-second limit across history, the address sheet and the VerusID list.
+// the 10-second limit across history, the address sheet and the VerusID list.
 // A pull by the user (`force`) skips the time limit, never the busy check.
 export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = false} = {}) => {
   const state = Store.getState();
@@ -31,7 +34,7 @@ export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = fa
         if (!visible || !channel || !tracker?.channels?.includes(channel) || tracker.busy?.[channel] ||
             !state[`channelStore_${channel.split('.')[0]}`]?.openCoinChannels[chainTicker]) return false;
         const key = `${chainTicker}:${updateId}:${channel}`;
-        if (!force && lastReads.has(key) && now - lastReads.get(key) < VISIBLE_WALLET_REFRESH_INTERVAL) return false;
+        if (!force && lastReads.has(key) && now - lastReads.get(key) < VISIBLE_WALLET_READ_LIMIT) return false;
         lastReads.set(key, now);
         return true;
       });
