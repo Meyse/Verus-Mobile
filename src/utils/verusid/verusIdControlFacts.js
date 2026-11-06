@@ -1,11 +1,14 @@
+import {convertFqnToDisplayFormat} from '../fullyqualifiedname';
 import {VERUSID_STATE} from './describeVerusIdState';
 
 // Who can act on the VerusID, in plain words. Each fact shows once.
 export const getControlFacts = ({friendlyNames, identity, ownedAddress, stateInfo}) => {
   const details = identity?.identity || {};
   const self = details.identityaddress;
+  const ownName = convertFqnToDisplayFormat(identity?.fullyqualifiedname || details.fullyqualifiedname) ||
+    friendlyNames?.[self] || (details.name ? convertFqnToDisplayFormat(details.name) : self);
   const nameFor = address =>
-    address === self ? 'This VerusID' : friendlyNames?.[address] || address;
+    address === self ? ownName : friendlyNames?.[address] || address;
   const primaryCount = Array.isArray(details.primaryaddresses)
     ? details.primaryaddresses.length
     : 0;

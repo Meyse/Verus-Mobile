@@ -9,7 +9,7 @@ const Stack = createStackNavigator();
 // A modal would reuse SendModal's short payment flow, but commit/reveal must
 // survive dismissal and block confirmation. A dedicated stack adds navigation
 // structure while making each approval and resumable entry explicit.
-// Routes contain public IDs only. Future deeplinks can open Start with coinId,
+// Routes contain public IDs only. Future deeplinks can open Create with coinId,
 // or Progress with jobId, and must still pass both separate payment approvals.
 export default function IdentityRegistrationNavigator({navigation, route}) {
   const sessionKey = useSelector(state => `${state.authentication.activeAccount?.accountHash}:${state.authentication.sessionEpoch || 0}`);

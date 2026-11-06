@@ -176,6 +176,7 @@ export default function NewRegistrationFlow({navigation, route}) {
   const enoughSelected = payerState(payer).status === 'enough';
   const ready = !busy && (step === 'name' ? !!data && (data.savedReview || nameFunding.status === 'enough')
     : step === 'referral' ? !!preview && enoughSelected && !fieldsError
+      : step === 'recovery' ? !!preview && !fieldsError
       : step === 'payer' ? enoughSelected : !!shown && enoughSelected && !fieldsError);
   const start = () => {
     if (!ready || step !== 'check' || !shown) return;
