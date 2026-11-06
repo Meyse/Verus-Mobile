@@ -112,7 +112,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const currentReview = useRef(null);
   const lockRetry = useRef(null);
   const preparedOnce = useRef(null);
-  const recheckShortage = useRef(null);
+  const recheckFunds = useRef(null);
   const {context, busy, error, run, running, setError} = useRegistrationAction();
   const coins = useSelector(state => state.coins.activeCoinsForUser || []);
   const updateReview = useCallback(value => {
@@ -167,6 +167,19 @@ export function IdentityRegistrationProgress({navigation, route}) {
     const reads = {[source.address]: await readRegistrationBalances(coin, source, requestContext, true)};
     return registrationFundingState(value.quote, source, coin, coins, {}, reads, true);
   };
+  const handleChangedFunds = async (failure, requestContext) => {
+    if (!['FUNDING_SPENT', 'STALE_CHAIN_CONTEXT'].includes(failure.code)) throw failure;
+    const saved = await getRegistrationReview(jobId, requestContext);
+    if (!['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status)) throw failure;
+    setFunding({status: 'checking'});
+    // This transient state belongs to this screen, not the saved Home notice.
+    // A later check only rebuilds the review; payment still needs a new hold.
+    return {...saved, registrationProblem: 'funds_changing'};
+  };
+  const approveSecondPayment = async (token, requestContext) => {
+    try { return await approveRegistration(jobId, token, requestContext); }
+    catch (failure) { return handleChangedFunds(failure, requestContext); }
+  };
   const prepareSecond = async requestContext => {
     let saved = await getRegistrationReview(jobId, requestContext);
     try {
@@ -185,6 +198,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       await updateRegistrationUiState(jobId, {registrationProblem}, requestContext);
       return {...prepared, registrationProblem};
     } catch (failure) {
+      if (['FUNDING_SPENT', 'STALE_CHAIN_CONTEXT'].includes(failure.code)) return handleChangedFunds(failure, requestContext);
       if (failure.code === 'IDENTITY_EXISTS') {
         await updateRegistrationUiState(jobId, {registrationProblem: 'name_taken'}, requestContext);
         return {...saved, registrationProblem: 'name_taken'};
@@ -201,7 +215,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     if (['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(value.status)) return prepareSecond(requestContext);
     return value;
   });
-  recheckShortage.current = () => runForeground(prepareSecond);
+  recheckFunds.current = () => runForeground(prepareSecond);
   useFocusEffect(useCallback(() => {
     focused.current = true; preparedOnce.current = null;
     const version = ++resultVersion.current;
@@ -209,7 +223,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     const poll = () => {
       if (!focused.current || AppState.currentState !== 'active' || lockRetry.current || running.current || promptOpen.current || background.current) return;
       const saved = currentReview.current;
-      if (saved?.registrationProblem === 'insufficient_funds' && ['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status)) recheckShortage.current();
+      if (['insufficient_funds', 'funds_changing'].includes(saved?.registrationProblem) && ['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status)) recheckFunds.current();
       else if (['commitment_signed', 'commitment_broadcast', 'commitment_broadcast_unknown', 'registration_signed', 'registration_broadcast', 'registration_broadcast_unknown'].includes(saved?.status)) refreshBackground();
     };
     const timer = setInterval(poll, 20000);
@@ -224,7 +238,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     if (!focused.current || locked || busy || loadError || error || preparedOnce.current || !['commitment_confirmed', 'registration_prepared'].includes(status)) return;
     preparedOnce.current = true;
     runForeground(prepareSecond);
-  }, [status, locked, busy, loadError, error]);
+  }, [review, status, locked, busy, loadError, error]);
   const [waitTime, setWaitTime] = useState(Date.now);
   useEffect(() => {
     setWaitTime(Date.now());
@@ -244,6 +258,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const state = registrationState(status);
   const problem = review?.registrationProblem;
   const shortage = problem === 'insufficient_funds';
+  const fundsChanging = problem === 'funds_changing';
   const taken = problem === 'name_taken';
   const delivery = ['commitment_signed', 'commitment_broadcast_unknown', 'registration_signed', 'registration_broadcast_unknown'].includes(status);
   const ready = status === 'registration_prepared' && funding.status === 'enough' && !problem;
@@ -259,24 +274,25 @@ export function IdentityRegistrationProgress({navigation, route}) {
         await updateRegistrationUiState(jobId, {registrationProblem: 'insufficient_funds'}, requestContext);
         return {...review, registrationProblem: 'insufficient_funds'};
       }
-      return approveRegistration(jobId, shownToken, requestContext);
+      return approveSecondPayment(shownToken, requestContext);
     });
   };
   const replacePayment = () => runForeground(async requestContext => {
     const next = firstFailed ? await refreshRegistrationReview(jobId, requestContext) : await prepareSecond(requestContext);
     if (!registrationQuotesEqual(review.quote, next.quote) || next.registrationProblem) return next;
-    return firstFailed ? approveCommitment(jobId, next.approvalToken, requestContext) : approveRegistration(jobId, next.approvalToken, requestContext);
+    return firstFailed ? approveCommitment(jobId, next.approvalToken, requestContext) : approveSecondPayment(next.approvalToken, requestContext);
   });
   const approveFirst = () => {
     if (busy || locked || status !== 'commitment_prepared') return;
     runForeground(requestContext => approveCommitment(jobId, review.approvalToken, requestContext));
   };
   const attentionLabel = shortage ? `Not enough ${review?.quote?.branch !== 'native' && funding.currencyId ? currencyLabel(funding.currencyId, review.currencyNames) : 'funds'}` : taken ? 'Name taken' : null;
-  const pill = attentionLabel || state.title;
+  const pill = fundsChanging ? 'Checking funds' : attentionLabel || state.title;
   const firstText = firstFailed ? 'The network did not confirm it in time. You did not pay it.'
     : status?.startsWith('commitment_') && delivery ? 'Sent, but the network has not seen it yet.'
       : status === 'commitment_broadcast' ? registrationCommitmentWaitMessage(review?.commitmentBroadcastAt, waitTime) : state.step > 0 ? 'Confirmed.' : state.commitment;
-  const secondText = taken ? `Someone else registered ${review.displayName} first. You did not pay this.`
+  const secondText = fundsChanging ? 'The funds for this payment changed. This updates after 1 block confirmation.'
+    : taken ? `Someone else registered ${review.displayName} first. You did not pay this.`
     : secondFailed ? 'The network did not confirm it in time. You did not pay it.'
       : status?.startsWith('registration_') && delivery ? 'Sent, but the network has not seen it yet.'
         : status === 'registration_broadcast' ? 'Sent. Needs 1 block confirmation.' : 'Not paid yet.';
@@ -311,7 +327,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
         : taken ? <ActionButton disabled={busy} onPress={() => navigation.replace('IdentityRegistrationCreate', {coinId: review.chainTicker,
           namespace: {id: review.identity.parent, parentName: review.parentName, suffix: review.identity.parent === review.systemId ? '@' : `.${review.parentName?.replace(/@$/, '')}@`}})}>Choose another name</ActionButton>
           : delivery ? <ActionButton disabled={busy || locked} busy={busy} onPress={() => runForeground(requestContext => retryBroadcast(jobId, requestContext))}>Retry sending</ActionButton>
-            : firstFailed || secondFailed ? <ActionButton hold disabled={busy || locked} busy={busy} onPress={replacePayment}>{firstFailed ? 'Hold to start' : 'Hold to create'}</ActionButton>
+            : firstFailed || secondFailed ? <ActionButton hold disabled={busy || locked || fundsChanging} busy={busy} onPress={replacePayment}>{firstFailed ? 'Hold to start' : 'Hold to create'}</ActionButton>
               : status === 'commitment_prepared' ? <ActionButton hold disabled={busy || locked} busy={busy} onPress={approveFirst}>Hold to start</ActionButton>
                 : status === 'commitment_spent' ? <ActionButton disabled={busy || locked} onPress={refresh}>Check status</ActionButton>
               : status !== 'registration_broadcast' && <ActionButton hold disabled={busy || locked || !ready} busy={busy} onPress={approveSecond}>Hold to create</ActionButton>}
@@ -319,7 +335,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     </>}>
     {!review && loading && <RegistrationSkeleton label="Loading registration" />}
     {review && <>
-      <RegistrationStatusPill label={pill} waiting={state.kind === 'waiting'} tone={attentionLabel || firstFailed || secondFailed ? 'danger' : delivery || state.kind === 'attention' ? 'warning' : ready ? 'success' : 'neutral'} />
+      <RegistrationStatusPill label={pill} waiting={fundsChanging || state.kind === 'waiting'} tone={attentionLabel || firstFailed || secondFailed ? 'danger' : delivery || state.kind === 'attention' ? 'warning' : ready ? 'success' : 'neutral'} />
       <RegistrationName name={review.displayName} />
       <RegistrationTimeline review={review} commitmentText={firstText} registrationText={secondText} changed={changed}
         oldPrice={changed ? registrationAmounts(oldQuote, review.currencyNames, true) : null} shortage={shortageText} />
