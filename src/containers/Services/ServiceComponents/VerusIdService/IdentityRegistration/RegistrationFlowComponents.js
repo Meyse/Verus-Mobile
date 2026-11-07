@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React from 'react';
 import {Text, View} from 'react-native';
 import BigNumber from 'bignumber.js';
 import {Check, CircleAlert, Clock, X} from 'lucide-react-native';
@@ -8,7 +8,6 @@ import TextAction from '../../../../../components/TextAction';
 import CopyAction from '../../../../../components/CopyAction';
 import SelectionSheet, {SelectionRow} from '../../../../../components/SelectionSheet';
 import useSheetDismissal from '../../../../../components/useSheetDismissal';
-import {createSelectionSheetStyles} from '../../../../../styles';
 import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import {formatRegistrationAmount} from '../../../../../utils/identityRegistration/costs';
 import {VerusIdName} from '../VerusIdCard';
@@ -36,13 +35,9 @@ export const RegistrationInfo = ({name = 'your VerusID', payer, children, create
 
 export const RegistrationPayerSheet = ({visible, onClose, onSelect, sources, selectedAddress,
   quote, currencyNames, coin, coins, balances, reads, showBalance, onRetry}) => {
-  const theme = useAppTheme();
-  const styles = useRegistrationStyles();
-  const rowStyles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const dismissal = useSheetDismissal({visible, onClose});
   const priceId = quote?.feePricingCurrencyID || quote?.issuerID;
-  const currencyIds = Object.keys(quote?.totalOperationRequired || {})
-    .sort((a, b) => Number(b === priceId) - Number(a === priceId));
+  const valueLabel = currencyLabel(priceId, currencyNames);
   return <SelectionSheet title="Choose an address" visible={visible}
     onClose={dismissal.close} onClosed={dismissal.onClosed}>
     {sources.map(source => {
@@ -50,23 +45,16 @@ export const RegistrationPayerSheet = ({visible, onClose, onSelect, sources, sel
       const subtitle = funding.status === 'short' ? `Not enough ${currencyLabel(funding.currencyId, currencyNames)}`
         : funding.status === 'error' ? 'Payer balances could not be checked.'
           : !source.isIdentity ? shortRegistrationAddress(source.address) : undefined;
-      const values = currencyIds.map(id => {
-        const balance = registrationCurrencyBalance(id, source, coin, coins, balances, reads);
-        return {id, value: !showBalance ? '***' : balance == null ? 'Checking…' : balance,
-          label: currencyLabel(id, currencyNames)};
-      });
+      const balance = registrationCurrencyBalance(priceId, source, coin, coins, balances, reads);
+      const value = !showBalance ? '***' : balance == null ? 'Checking…' : balance;
       return <SelectionRow key={source.address} title={registrationPayerName(source)}
         titleNumberOfLines={source.isIdentity ? 1 : undefined}
         subtitle={subtitle} subtitleMonospace={!source.isIdentity && !['short', 'error'].includes(funding.status)}
         selected={source.address === selectedAddress} disabled={funding.status !== 'enough'}
         accessibilityRole="radio" showChevron={false}
         accessibilityLabel={[registrationPayerName(source), subtitle,
-          showBalance ? values.map(item => `${item.value} ${item.label}`).join(', ') : 'Balance hidden'].filter(Boolean).join(', ')}
-        value={values[0]?.value} valueLabel={values[0]?.label}
-        valueContent={values.length > 1 ? <View style={styles.payerBalances}>{values.map(item =>
-          <View key={item.id} style={styles.payerBalanceRow}>
-            <Text style={rowStyles.valueText}>{item.value}</Text><Text style={rowStyles.valueLabel}>{item.label}</Text>
-          </View>)}</View> : undefined}
+          showBalance ? `${value} ${valueLabel}` : 'Balance hidden'].filter(Boolean).join(', ')}
+        value={value} valueLabel={valueLabel}
         onPress={() => dismissal.dismiss(() => onSelect(source.address))} />;
     })}
     {sources.some(source => reads[source.address]?.status === 'error') && <TextAction onPress={onRetry}>Try again</TextAction>}

@@ -2268,6 +2268,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-07 | ID-3.REG-R11-QA5 | `claude/new-verusid-flow-fixes5` from `9bdb2f8f` | One price-currency payer balance through SelectionRow; namespace referral policy stabilizes the initial progress count; cancellable funds polling stays nonbusy until a funded review rebuild. Design, safe-area (5 files), Babel and focused core/React/hooks lint pass. Seventeen controlled checks pass; nine fail on the base. Inspected 12 source-derived payer states in both themes and Android widths. | Orchestrator review, then Android QA. Hero gap has no identified source cause and is unchanged. Native wrapping, navigation during a slow poll, top-up/re-entry, fresh hold and accessibility remain device checks. Standard ESLint retains its import-plugin load error. |
 | 2026-11-07 | ID-3.REG-R11-QA4 | `claude/new-verusid-flow-fixes4`, `59fbfecc` | Shared continuous progress, canonical referral rows, Check details address sheet with Send balance styles, and read-only fixed-payer funds refresh for Home/tab notices. Design, safe-area (10 files), Babel, Android dev bundle (52 assets), 12 component checks, 15 refresh checks and 37 progress regression checks pass. Inspected 40 source-derived light/dark states at both Android sizes. | Android QA pending. Verify keyboard, Back, sheet dismissal, one/two currencies, hidden balances, fixed-payer top-up, Home/tab refresh and no automatic payment. Native controls, accessibility and live chain reads remain unverified. |
 | 2026-11-06 | ID-3.REG-R11: New VerusID | `claude/new-verusid-flow` from `7b089908` | R8–R11 stepped create, all-currency payer reads, in-place second hold, durable problem notices, grouped tab rows, shared one-tap Link sheet, and own-name control facts. Android dev bundle, design, safe-area, Babel and focused ESLint pass. Existing suites: 395 pass / 4 baseline assertions fail; 2 baseline native-mock suite-load errors. Full command output and spec map: `new-verusid-flow.local.md`. | No simulator, emulator, signing, broadcast, push or merge. Device tester owns native keyboard/Back/reload, all live payment states, light/dark normal/compact, accessibility, and real linking. |
 | 2026-11-05 | ID-3.NIGHT3-B: VerusID safety | `claude/night3-batch-b` from `ff2e63e0` | Modify identity/control summary and Added/Removed rows; clipped VerusID form scrolls, label-first reveal, compact pinned price and hidden Save; known decimal source balances checked against every full-quote currency; approved app-data and Transfer words. Design, safe-area, Babel, focused ESLint, temporary non-Jest behavior checks and both release JS bundles pass. Normal ESLint retains its existing import-plugin package-export failure. Exact commands and proof limits: `verusid-batch-b.local.md`. | Render the candidate in both themes on Pro/SE and Android normal/360x640. Cover keyboard/funds/control-change states, Back/reload and both payment approvals. No native rebuild required by these JS changes. No push or merge. |
@@ -3400,3 +3401,35 @@ Existing suites retain 395 passes, four assertion failures and two native-mock
 load errors. The Android dev bundle passes with 52 assets. No tests were added.
 Exact commands, temporary harness configuration and device steps are in the
 untracked new-verusid-flow-fixes3.local.md report.
+
+### ID-3.REG-R11-QA5 — Compact payer rows and passive funds poll (2026-11-07)
+
+Contract: operate mode. Limit changes to registration payer values, initial
+progress count and the second-payment funds poll. Reuse Send's SourceCardSheet
+value/valueLabel layout, SelectionRow, RegistrationPage and the existing
+background AbortController/version/foreground-wait guards. Keep all payment
+approval gates. Android QA follows orchestrator review.
+
+- [x] Show only the price-currency payer balance. Preserve hidden/checking/error
+  states, retry, every-currency funding checks and accessible shortfall copy.
+- [x] Count Referral before the name result unless the selected namespace has
+  a known no-referral policy. Use the name result when it arrives.
+- [x] Run passive funds reads without busy. Cancel and await them before a
+  foreground action. Rebuild a funded review in the normal busy state, then
+  require a fresh hold. Preserve funds_changing and the existing poll triggers.
+- [x] Inspect RegistrationHero and its styles. No fixed/minimum text height,
+  font-size adjustment or compact-window rule explains the reported gap.
+  Leave the hero unchanged, as requested when no source cause is found.
+- [x] Run design, safe-area, Babel, focused lint and controlled component checks.
+  Inspect source-derived payer rows against Send in light/dark at 360/412 dp.
+- [ ] Orchestrator: review this candidate, then run normal/small Android QA.
+  Check payer wrapping and accessibility, stable Name progress, slow-poll
+  navigation/refresh, top-up/re-entry and a new hold. Reinspect the dark 360 dp
+  hero gap. Source-derived renders do not prove native text measurement.
+
+Evidence: 17 temporary non-Jest checks pass; nine fail on 9bdb2f8f. Babel and
+focused core/React/hooks lint pass for five changed JS files. Design and
+safe-area checks pass. Standard ESLint cannot load its existing import plugin
+(ERR_PACKAGE_PATH_NOT_EXPORTED). Twelve source-derived payer states were
+inspected. No device, live-chain operation, dependency change, push or merge
+ran. Exact commands and gaps are in new-verusid-flow-fixes5.local.md (local).

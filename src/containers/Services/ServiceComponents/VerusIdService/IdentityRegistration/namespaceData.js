@@ -72,6 +72,7 @@ export const loadRegistrationNamespaces = async (coin, signingAddress, nativeUsd
         baskets, nativeUsd, {native: coin.system_id})?.toString() : null,
       permission: policy.IDRequiresPermission(),
       referralRequired: policy.IDReferralRequired(),
+      referralsAllowed: policy.getIDReferralLevels() > 0 || policy.IDReferralRequired(),
       reason,
     });
   }

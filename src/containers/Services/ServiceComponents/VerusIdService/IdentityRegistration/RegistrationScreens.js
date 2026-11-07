@@ -121,22 +121,24 @@ export function IdentityRegistrationProgress({navigation, route}) {
     setReview(value); setLoadError(null); setLocked(false);
     clearTimeout(lockRetry.current); lockRetry.current = null;
   }, []);
-  const refreshBackground = useCallback((readSaved = false) => {
+  const refreshBackground = useCallback((readSaved = false, operation) => {
     if (!focused.current || running.current || promptOpen.current || background.current) return;
     const version = resultVersion.current;
     const controller = new AbortController();
     const task = {controller};
     background.current = task;
+    const isCurrent = () => focused.current && !controller.signal.aborted && version === resultVersion.current;
+    const requestContext = {...context, registrationBackground: true, signal: controller.signal};
     task.promise = (async () => {
       try {
         if (readSaved || !currentReview.current) {
-          const saved = await getRegistrationReview(jobId, {...context, signal: controller.signal});
-          if (focused.current && !controller.signal.aborted && version === resultVersion.current) updateReview(saved);
+          const saved = await getRegistrationReview(jobId, requestContext);
+          if (isCurrent()) updateReview(saved);
         }
-        const result = await reconcileRegistration(jobId, {...context, registrationBackground: true, signal: controller.signal});
-        if (focused.current && !controller.signal.aborted && version === resultVersion.current) updateReview(result);
+        const result = operation ? await operation(requestContext, isCurrent) : await reconcileRegistration(jobId, requestContext);
+        if (isCurrent() && result) updateReview(result);
       } catch (failure) {
-        if (focused.current && !controller.signal.aborted && version === resultVersion.current && failure.code !== 'SESSION_CHANGED') {
+        if (isCurrent() && failure.code !== 'SESSION_CHANGED') {
           if (failure.code === 'REGISTRATION_BUSY') {
             setLocked(true);
             clearTimeout(lockRetry.current);
@@ -210,7 +212,33 @@ export function IdentityRegistrationProgress({navigation, route}) {
     if (['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(value.status)) return prepareSecond(requestContext);
     return value;
   });
-  recheckFunds.current = () => runForeground(prepareSecond);
+  recheckFunds.current = async () => {
+    const version = resultVersion.current;
+    let enough = false;
+    await refreshBackground(false, async (requestContext, isCurrent) => {
+      const saved = await getRegistrationReview(jobId, requestContext);
+      if (!['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status) ||
+          saved.registrationProblem === 'name_taken') return saved;
+      try {
+        const estimate = await getRegistrationEstimate(jobId, requestContext);
+        const funds = await checkFunds(estimate, requestContext);
+        if (!isCurrent()) return;
+        setFunding(funds);
+        if (funds.status === 'enough') { enough = true; return; }
+        await updateRegistrationUiState(jobId, {registrationProblem: 'insufficient_funds'}, requestContext);
+        return {...estimate, registrationProblem: 'insufficient_funds'};
+      } catch (failure) {
+        if (failure.code !== 'IDENTITY_EXISTS') throw failure;
+        if (!isCurrent()) return;
+        await updateRegistrationUiState(jobId, {registrationProblem: 'name_taken'}, requestContext);
+        return {...saved, registrationProblem: 'name_taken'};
+      }
+    });
+    // Only rebuilding the payable review blocks navigation. The passive read
+    // shares the reconcile task's cancellation and foreground wait guards.
+    if (enough && focused.current && version === resultVersion.current && AppState.currentState === 'active' &&
+        !lockRetry.current && !running.current && !promptOpen.current && !background.current) runForeground(prepareSecond);
+  };
   useFocusEffect(useCallback(() => {
     focused.current = true; preparedOnce.current = null;
     const version = ++resultVersion.current;

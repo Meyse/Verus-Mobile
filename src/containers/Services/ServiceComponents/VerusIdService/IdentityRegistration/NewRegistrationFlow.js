@@ -82,7 +82,7 @@ export default function NewRegistrationFlow({navigation, route}) {
     data?.referralRequired ? data.referralQuote : data?.quote, coins, sourceReads.reads);
   const payer = sources.find(source => source.address === payerAddress) || defaultSource;
   const referralRequired = data?.referralRequired || namespace?.referralRequired;
-  const referralsAllowed = data?.referralsAllowed || referralRequired;
+  const referralsAllowed = data?.referralsAllowed ?? (referralRequired || namespace?.referralsAllowed !== false);
   const referralID = referralRequired || referral === 'other' ? referralName.trim() : referral === 'foundation' ? 'Verus Coin Foundation@' : '';
   const authorityValue = value => {
     const trimmed = value.trim();

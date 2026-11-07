@@ -32,8 +32,6 @@ export const createIdentityRegistrationStyles = theme => StyleSheet.create({
   namespaceText: {...theme.typography.inputValue, color: theme.colors.textSecondary, flexShrink: 1},
   job: {backgroundColor: theme.colors.surfaceMuted, borderRadius: 18, padding: 16, gap: 8},
   jobPill: {backgroundColor: theme.colors.surface, borderRadius: 18, paddingHorizontal: 12, height: 36, minHeight: 36, minWidth: 74, alignSelf: 'center', alignItems: 'center', justifyContent: 'center'},
-  payerBalances: {alignItems: 'flex-end', gap: 3},
-  payerBalanceRow: {flexDirection: 'row', alignItems: 'baseline', gap: 4},
   summaryRow: {minHeight: 52, paddingVertical: 4, flexDirection: 'row', gap: 12, alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border},
   summaryLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary, width: 76},
   splitBar: {height: 8, borderRadius: 4, overflow: 'hidden', flexDirection: 'row'},
