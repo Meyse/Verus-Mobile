@@ -51,7 +51,7 @@ export const RegistrationSkeleton = ({label = 'Loading costs'}) => {
 
 export const RegistrationPage = ({children, error, refreshing = false, onRefresh, footer,
   navigation, title = 'New VerusID', busy = false, busyRef, info, showHeader = true, onRetry,
-  onBack, onClose, progress, stepCount}) => {
+  onBack, onClose, progress}) => {
   const theme = useAppTheme();
   const styles = useRegistrationStyles();
   const insets = useSafeAreaInsets();
@@ -92,7 +92,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   </View>;
   return <View style={styles.page}>
     {showHeader && <ProgressHeader showBack={!!onBack} onBack={onBack} backDisabled={busy}
-      showProgress={progress != null} progress={progress} stepCount={stepCount} title={title} rightAction={rightAction} />}
+      showProgress={progress != null} progress={progress} title={title} rightAction={rightAction} />}
     {/* The header is inside this page, so the form's own frame already starts below it (offset 0, as ManagementPage). */}
     <KeyboardAvoidingForm style={styles.page}>
       <VerusIdFormScrollContext.Provider value={formScroll.context}>

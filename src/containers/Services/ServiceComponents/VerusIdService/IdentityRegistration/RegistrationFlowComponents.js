@@ -1,17 +1,20 @@
-import React from 'react';
-import {Pressable, Text, View} from 'react-native';
+import React, {useMemo} from 'react';
+import {Text, View} from 'react-native';
 import BigNumber from 'bignumber.js';
 import {Check, CircleAlert, Clock, X} from 'lucide-react-native';
 import {useAppTheme} from '../../../../../theme/app';
 import AppStatusBadge from '../../../../../components/StatusBadge';
 import TextAction from '../../../../../components/TextAction';
 import CopyAction from '../../../../../components/CopyAction';
+import SelectionSheet, {SelectionRow} from '../../../../../components/SelectionSheet';
+import useSheetDismissal from '../../../../../components/useSheetDismissal';
+import {createSelectionSheetStyles} from '../../../../../styles';
 import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import {formatRegistrationAmount} from '../../../../../utils/identityRegistration/costs';
 import {VerusIdName} from '../VerusIdCard';
 import {currencyLabel, identityLabel, RegistrationText, useRegistrationStyles} from './RegistrationDesign';
 import {useRegistrationFiat} from './useRegistrationPrices';
-import {registrationCurrencyBalance} from './fundingSources';
+import {registrationCurrencyBalance, registrationFundingState} from './fundingSources';
 
 export const shortRegistrationAddress = address => address ? `${address.slice(0, 5)}…${address.slice(-4)}` : '';
 export const registrationPayerName = source => source?.isIdentity ? identityLabel(source.address, {[source.address]: source.fundingName}) : 'Transparent';
@@ -31,23 +34,43 @@ export const RegistrationInfo = ({name = 'your VerusID', payer, children, create
   {children}
 </>;
 
-export const RegistrationChoice = ({title, subtitle, selected, disabled, onPress, children, identifier, identifierIsAddress = false}) => {
+export const RegistrationPayerSheet = ({visible, onClose, onSelect, sources, selectedAddress,
+  quote, currencyNames, coin, coins, balances, reads, showBalance, onRetry}) => {
   const theme = useAppTheme();
   const styles = useRegistrationStyles();
-  return <View style={[styles.choice, {backgroundColor: selected ? theme.colors.successBackground : theme.colors.surfaceMuted,
-    borderColor: selected ? theme.colors.successText : 'transparent'}]}>
-    <Pressable accessibilityRole="radio" accessibilityLabel={[title, identifier, subtitle].filter(Boolean).join('. ')}
-      accessibilityState={{checked: selected, disabled: !!disabled}} disabled={disabled} onPress={onPress}
-      style={[styles.choiceHead, disabled && {opacity: 0.6}]}>
-      <View style={styles.flexible}>
-        <RegistrationText style={theme.typography.titleRow}>{title}</RegistrationText>
-        {!!identifier && <Text style={identifierIsAddress ? styles.identifier : styles.muted}>{identifier}</Text>}
-        {!!subtitle && <RegistrationText muted>{subtitle}</RegistrationText>}
-      </View>
-      {selected && <Check size={20} color={theme.colors.successText} />}
-    </Pressable>
-    {!!children && <View style={styles.choiceBody}>{children}</View>}
-  </View>;
+  const rowStyles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
+  const dismissal = useSheetDismissal({visible, onClose});
+  const priceId = quote?.feePricingCurrencyID || quote?.issuerID;
+  const currencyIds = Object.keys(quote?.totalOperationRequired || {})
+    .sort((a, b) => Number(b === priceId) - Number(a === priceId));
+  return <SelectionSheet title="Choose an address" visible={visible}
+    onClose={dismissal.close} onClosed={dismissal.onClosed}>
+    {sources.map(source => {
+      const funding = registrationFundingState(quote, source, coin, coins, balances, reads);
+      const subtitle = funding.status === 'short' ? `Not enough ${currencyLabel(funding.currencyId, currencyNames)}`
+        : funding.status === 'error' ? 'Payer balances could not be checked.'
+          : !source.isIdentity ? shortRegistrationAddress(source.address) : undefined;
+      const values = currencyIds.map(id => {
+        const balance = registrationCurrencyBalance(id, source, coin, coins, balances, reads);
+        return {id, value: !showBalance ? '***' : balance == null ? 'Checking…' : balance,
+          label: currencyLabel(id, currencyNames)};
+      });
+      return <SelectionRow key={source.address} title={registrationPayerName(source)}
+        titleNumberOfLines={source.isIdentity ? 1 : undefined}
+        subtitle={subtitle} subtitleMonospace={!source.isIdentity && !['short', 'error'].includes(funding.status)}
+        selected={source.address === selectedAddress} disabled={funding.status !== 'enough'}
+        accessibilityRole="radio" showChevron={false}
+        accessibilityLabel={[registrationPayerName(source), subtitle,
+          showBalance ? values.map(item => `${item.value} ${item.label}`).join(', ') : 'Balance hidden'].filter(Boolean).join(', ')}
+        value={values[0]?.value} valueLabel={values[0]?.label}
+        valueContent={values.length > 1 ? <View style={styles.payerBalances}>{values.map(item =>
+          <View key={item.id} style={styles.payerBalanceRow}>
+            <Text style={rowStyles.valueText}>{item.value}</Text><Text style={rowStyles.valueLabel}>{item.label}</Text>
+          </View>)}</View> : undefined}
+        onPress={() => dismissal.dismiss(() => onSelect(source.address))} />;
+    })}
+    {sources.some(source => reads[source.address]?.status === 'error') && <TextAction onPress={onRetry}>Try again</TextAction>}
+  </SelectionSheet>;
 };
 
 export const RegistrationFunds = ({data, source, coin, coins, balances, reads, showBalance, funding, referralOnly, onRetry, compact = false}) => {

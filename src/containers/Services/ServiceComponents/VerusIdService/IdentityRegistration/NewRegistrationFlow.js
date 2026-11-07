@@ -6,13 +6,14 @@ import {approveCommitment, findExistingRegistration, prepareCommitment, registra
 import {formatRegistrationAmount} from '../../../../../utils/identityRegistration/costs';
 import AppTextInput from '../../../../../components/AppTextInput';
 import TextAction from '../../../../../components/TextAction';
+import {SelectionRow} from '../../../../../components/SelectionSheet';
 import {CircleAlert} from 'lucide-react-native';
 import {toIAddress} from 'verus-typescript-primitives';
 import {VerusIdFormField} from '../VerusIdFormScroll';
 import {registrationNameError, registrationNameCheckError, isVerusIdTransportError, verusIdErrorMessage} from '../verusIdErrors';
 import {ActionButton, currencyLabel, identityLabel, NameField, NamespaceSheet, RegistrationPage, RegistrationPreviewDetails, RegistrationSkeleton, RegistrationText, SelectionField, useRegistrationStyles} from './RegistrationDesign';
-import {RegistrationChoice, RegistrationFunds, RegistrationHero, RegistrationInfo, RegistrationSummary, RegistrationTimeline, registrationPayerName, shortRegistrationAddress} from './RegistrationFlowComponents';
-import {preferredRegistrationFundingSource, registrationCurrencyBalance, registrationFundingSources, registrationFundingState} from './fundingSources';
+import {RegistrationPayerSheet, RegistrationFunds, RegistrationHero, RegistrationInfo, RegistrationSummary, RegistrationTimeline, registrationPayerName} from './RegistrationFlowComponents';
+import {preferredRegistrationFundingSource, registrationFundingSources, registrationFundingState} from './fundingSources';
 import {readRegistrationName, useRegistrationBalances} from './registrationReads';
 import {loadRegistrationNamespaces} from './namespaceData';
 import useRegistrationPrices from './useRegistrationPrices';
@@ -60,6 +61,7 @@ export default function NewRegistrationFlow({navigation, route}) {
   const [recovery, setRecovery] = useState('');
   const [revocation, setRevocation] = useState('');
   const [payerAddress, setPayerAddress] = useState(null);
+  const [payerVisible, setPayerVisible] = useState(false);
   const [nameResult, setNameResult] = useState(null);
   const [availability, setAvailability] = useState(null);
   const [nameError, setNameError] = useState(null);
@@ -101,7 +103,7 @@ export default function NewRegistrationFlow({navigation, route}) {
   const prices = useRegistrationPrices(coin, preview?.quote || data?.quote);
   const ownName = (preview?.policy ? identityLabel(preview.policy.resolvedName.identityID, preview.identityNames)
     : `${name.trim()}${namespace?.suffix || '@'}`);
-  const steps = ['name', ...(referralsAllowed ? ['referral'] : []), ...(sources.length > 1 ? ['payer'] : []), 'check'];
+  const steps = ['name', ...(referralsAllowed ? ['referral'] : []), 'check'];
   const fullState = source => registrationFundingState(data?.quote, source, coin, coins, balances, sourceReads.reads);
   const refState = source => registrationFundingState(data?.referralQuote, source, coin, coins, balances, sourceReads.reads);
   const fullEnough = sources.some(source => fullState(source).status === 'enough');
@@ -190,7 +192,7 @@ export default function NewRegistrationFlow({navigation, route}) {
   const ready = !busy && (step === 'name' ? !!data && (data.savedReview || nameFunding.status === 'enough')
     : step === 'referral' ? !!preview && enoughSelected && !fieldsError
       : step === 'recovery' ? !!preview && !fieldsError
-      : step === 'payer' ? enoughSelected : !!shown && enoughSelected && !fieldsError);
+      : !!shown && enoughSelected && !fieldsError);
   const start = () => {
     if (!ready || step !== 'check' || !shown) return;
     const heldKey = requestKey;
@@ -228,10 +230,12 @@ export default function NewRegistrationFlow({navigation, route}) {
   </>}</VerusIdFormField>;
   const referralField = field('Referral VerusID', referralName, setReferralName,
     namespace?.suffix && namespace.suffix !== '@' ? `name${namespace.suffix}` : 'friend@', undefined, 'referralID');
-  const priceLine = (quote, source = defaultSource) => {
-    const funding = registrationFundingState(quote, source, coin, coins, balances, sourceReads.reads);
+  const referralRowProps = quote => {
+    const funding = registrationFundingState(quote, defaultSource, coin, coins, balances, sourceReads.reads);
     const id = quote?.feePricingCurrencyID || quote?.issuerID;
-    return `${formatRegistrationAmount(quote?.totalOperationRequired[id] || '0')} ${currencyLabel(id, data?.currencyNames)}${funding.status === 'short' ? `. Not enough ${currencyLabel(funding.currencyId, data?.currencyNames)}.` : ''}`;
+    return {value: formatRegistrationAmount(quote?.totalOperationRequired[id] || '0'),
+      valueLabel: currencyLabel(id, data?.currencyNames), accessibilityRole: 'radio', showChevron: false,
+      subtitle: funding.status === 'short' ? `Not enough ${currencyLabel(funding.currencyId, data?.currencyNames)}` : undefined};
   };
   const funds = compact => <RegistrationFunds compact={compact} data={data} coin={coin} coins={coins} balances={balances} reads={sourceReads.reads}
     source={defaultSource} showBalance={showBalance} funding={nameFunding} referralOnly={!fullEnough || !!referralRequired} onRetry={sourceReads.retry} />;
@@ -240,12 +244,11 @@ export default function NewRegistrationFlow({navigation, route}) {
     payer={payer} recovery={preview?.request.recoveryAuthority ? identityLabel(preview.request.recoveryAuthority, preview.identityNames) : ownName}
     revocation={preview?.request.revocationAuthority ? identityLabel(preview.request.revocationAuthority, preview.identityNames) : ownName}
     disabled={busy} onName={() => go('name')}
-    onReferral={() => go('referral')} onPayer={sources.length > 1 ? () => go('payer') : undefined} onRecovery={() => go('recovery')} />;
+    onReferral={() => go('referral')} onPayer={sources.length > 1 ? () => setPayerVisible(true) : undefined} onRecovery={() => go('recovery')} />;
   const pageError = fieldsError?.field === 'form' ? fieldsError : error;
-  return <RegistrationPage navigation={navigation} title={{name: 'New VerusID', referral: 'Referral', payer: 'Pay from', check: 'Check details', recovery: 'Recovery'}[step]}
+  return <RegistrationPage navigation={navigation} title={{name: 'New VerusID', referral: 'Referral', check: 'Check details', recovery: 'Recovery'}[step]}
     busy={busy} busyRef={running} error={pageError} onRetry={retry} onBack={step !== 'name' ? back : undefined}
     progress={step === 'recovery' ? undefined : (steps.indexOf(step) + 1) / steps.length}
-    stepCount={steps.length}
     info={<RegistrationInfo create name={ownName}><RegistrationPreviewDetails preview={preview} /></RegistrationInfo>}
     footer={({compactKeyboard}) => <>
       {compactKeyboard && step !== 'recovery' && (step === 'name' ? funds(true) : data && <RegistrationFunds compact data={{...data, quote: activeQuote, referralQuote: null}} source={payer}
@@ -268,28 +271,21 @@ export default function NewRegistrationFlow({navigation, route}) {
       {step === 'referral' && <>
         <RegistrationText muted>{referralRequired ? `Names in ${namespace?.suffix?.slice(1) || 'this namespace'} need a referral from a ${namespace?.suffix?.slice(1) || 'matching'} VerusID.`
           : namespace?.id && namespace.id !== coin.system_id ? `A ${namespace.suffix.slice(1)} referral lowers the price.` : 'A referral lowers the price.'}</RegistrationText>
-        {referralRequired ? referralField : <View style={styles.section}>
-          {!coin?.testnet && coin?.id === 'VRSC' && (!namespace || namespace.id === coin.system_id) && <RegistrationChoice title="Verus Coin Foundation@"
-            subtitle={priceLine(data?.referralQuote)} selected={referral === 'foundation' && referralAffordable} disabled={!referralAffordable} onPress={() => setReferral('foundation')} />}
-          <RegistrationChoice title="Someone else" subtitle={priceLine(data?.referralQuote)} selected={referral === 'other' && referralAffordable}
-            disabled={!referralAffordable} onPress={() => setReferral('other')}>{referral === 'other' && referralField}</RegistrationChoice>
-          <RegistrationChoice title="No referral" subtitle={priceLine(data?.quote)} selected={referral === 'none' && fullAffordable}
-            disabled={!fullAffordable} onPress={() => setReferral('none')} />
-        </View>}
+        {referralRequired ? referralField : <>
+          <View>
+            {!coin?.testnet && coin?.id === 'VRSC' && (!namespace || namespace.id === coin.system_id) && <SelectionRow title="Verus Coin Foundation@"
+              {...referralRowProps(data?.referralQuote)} selected={referral === 'foundation' && referralAffordable}
+              disabled={!referralAffordable} onPress={() => setReferral('foundation')} />}
+            <SelectionRow title="Someone else" {...referralRowProps(data?.referralQuote)} selected={referral === 'other' && referralAffordable}
+              disabled={!referralAffordable} onPress={() => setReferral('other')} />
+            <SelectionRow title="No referral" {...referralRowProps(data?.quote)} selected={referral === 'none' && fullAffordable}
+              disabled={!fullAffordable} onPress={() => setReferral('none')} />
+          </View>
+          {referral === 'other' && referralField}
+        </>}
         {fieldsError?.retryable && <TextAction onPress={retry}>Try again</TextAction>}
         {data?.quote?.branch !== 'native' && <RegistrationText muted>You also pay a small network fee in {currencyLabel(coin.system_id, data.currencyNames)}.</RegistrationText>}
       </>}
-      {step === 'payer' && <View style={styles.section}>{sources.map(source => {
-        const state = payerState(source);
-        const priceId = activeQuote?.feePricingCurrencyID || activeQuote?.issuerID;
-        const values = Object.keys(activeQuote?.totalOperationRequired || {}).sort((a, b) => Number(b === priceId) - Number(a === priceId)).map(id => {
-          const balance = registrationCurrencyBalance(id, source, coin, coins, balances, sourceReads.reads);
-          return balance == null ? 'Checking…' : `${balance} ${currencyLabel(id, data?.currencyNames)}`;
-        }).join(' · ');
-        return <RegistrationChoice key={source.address} title={registrationPayerName(source)} identifier={source.isIdentity ? 'Linked VerusID' : shortRegistrationAddress(source.address)} identifierIsAddress={!source.isIdentity}
-          subtitle={`${showBalance ? values : 'Balance hidden'}${Object.keys(activeQuote?.totalOperationRequired || {}).length === 1 && showBalance ? ' confirmed' : ''}${state.status === 'short' ? `. Not enough ${currencyLabel(state.currencyId, data?.currencyNames)}.` : ''}`}
-          selected={payer?.address === source.address} disabled={state.status !== 'enough'} onPress={() => setPayerAddress(source.address)} />;
-      })}{sources.some(source => sourceReads.reads[source.address]?.status === 'error') && <TextAction onPress={sourceReads.retry}>Try again</TextAction>}</View>}
       {step === 'check' && (shown ? <>
         <RegistrationHero quote={shown.quote} currencyNames={shown.currencyNames} prices={prices} />
         <RegistrationTimeline check review={{status: 'commitment_prepared', ...preview}} />
@@ -300,6 +296,10 @@ export default function NewRegistrationFlow({navigation, route}) {
         {field('Revocation VerusID (optional)', revocation, setRevocation, ownName, `Can revoke your VerusID. Leave both empty to use ${ownName} for both.`, 'revocationAuthority', revocationWarning !== recoveryWarning ? revocationWarning : null)}
         {fieldsError?.retryable && <TextAction onPress={retry}>Try again</TextAction>}
       </View>}
+      <RegistrationPayerSheet visible={payerVisible} onClose={() => setPayerVisible(false)}
+        onSelect={address => {if (!running.current) setPayerAddress(address);}} sources={sources} selectedAddress={payer?.address}
+        quote={activeQuote} currencyNames={preview?.currencyNames || data?.currencyNames} coin={coin} coins={coins}
+        balances={balances} reads={sourceReads.reads} showBalance={showBalance} onRetry={sourceReads.retry} />
       <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces} selectedId={namespace?.id || coin?.system_id}
         onSelect={item => {setNamespace(item); setReferral('none'); setReferralName('');}} loading={namespaceLoading} error={namespaceError} onRetry={() => setNamespaceAttempt(value => value + 1)} />
     </>}

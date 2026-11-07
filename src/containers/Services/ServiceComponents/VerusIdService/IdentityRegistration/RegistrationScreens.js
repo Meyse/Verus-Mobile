@@ -21,7 +21,8 @@ import {isVerusIdTransportError, verusIdErrorMessage, verusIdUiError} from '../v
 import {ActionButton, AmountRows, currencyLabel, identityLabel, RegistrationDetails, RegistrationPage, RegistrationSkeleton, RegistrationText, useRegistrationStyles} from './RegistrationDesign';
 import {RegistrationHero, RegistrationInfo, RegistrationName, RegistrationStatusPill, RegistrationSummary, RegistrationTimeline, registrationAmounts, shortRegistrationAddress} from './RegistrationFlowComponents';
 import {registrationFundingState} from './fundingSources';
-import {readRegistrationBalances, useRegistrationBalances} from './registrationReads';
+import {useRegistrationBalances} from './registrationReads';
+import {checkRegistrationFunds} from '../../../../../utils/identityRegistration/funding';
 import {registrationState} from './presentation';
 import useRegistrationAction from './useRegistrationAction';
 import useRegistrationPrices from './useRegistrationPrices';
@@ -160,13 +161,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       finally { if (focused.current && version === resultVersion.current) setLoading(false); }
     }, result => { if (focused.current && version === resultVersion.current) onSuccess(result); });
   }, [run, running, updateReview]);
-  const checkFunds = async (value, requestContext) => {
-    const coin = coins.find(item => item.id === value.chainTicker);
-    if (!coin) throw new Error('Add this network wallet to check its payment address.');
-    const source = payerFor(value);
-    const reads = {[source.address]: await readRegistrationBalances(coin, source, requestContext, true)};
-    return registrationFundingState(value.quote, source, coin, coins, {}, reads, true);
-  };
+  const checkFunds = (value, requestContext) => checkRegistrationFunds(value, coins, requestContext);
   const handleChangedFunds = async (failure, requestContext) => {
     if (!['FUNDING_SPENT', 'STALE_CHAIN_CONTEXT'].includes(failure.code)) throw failure;
     const saved = await getRegistrationReview(jobId, requestContext);

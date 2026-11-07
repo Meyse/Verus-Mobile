@@ -1,9 +1,8 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import BigNumber from 'bignumber.js';
 import {CurrencyIdentityRegistration, resolveIdentityRegistrationName} from 'verus-typescript-primitives';
 import {assertIdentityRegistrationAvailable, quoteIdentityRegistration} from 'verusid-ts-client/lib/identity/registrationPolicy';
+import {readRegistrationBalances} from '../../../../../utils/identityRegistration/funding';
 import VrpcProvider from '../../../../../utils/vrpc/vrpcInterface';
-import {getAddressBalances} from '../../../../../utils/api/channels/vrpc/requests/getAddressBalances';
 import {registrationRpcResult} from '../../../../../utils/api/channels/verusid/requests/registerIdentity';
 import {assertRegistrationContext, normalizeRegistrationRequest} from '../../../../../utils/identityRegistration/registration';
 
@@ -36,37 +35,6 @@ export const readRegistrationName = async (request, context) => {
   return {request: normalized, policy, quote, referralQuote, referralsAllowed,
     referralRequired: parent.IDReferralRequired(),
     currencyNames: {[request.systemId]: nativeDefinition.name, [resolvedName.parent]: parentDefinition.name}};
-};
-
-const balanceReads = new Map();
-export const readRegistrationBalances = async (coin, source, context, fresh = false) => {
-  assertRegistrationContext(context);
-  const endpoint = VrpcProvider.getEndpoint(coin.system_id);
-  const key = `${context.sessionScope.accountHash}:${context.sessionScope.sessionEpoch}:${endpoint.endpoint}:${coin.system_id}:${source.address}`;
-  const old = balanceReads.get(key);
-  if (!fresh && old && Date.now() < old.until) return old.promise;
-  const entry = {until: Infinity};
-  entry.promise = (async () => {
-    const result = registrationRpcResult(await getAddressBalances(coin.system_id, [source.address], false, fresh), 'Get payer balance');
-    assertRegistrationContext(context);
-    const native = new BigNumber(result?.balance);
-    const currencies = result?.currencybalance || {};
-    if (result?.balance == null || !native.isFinite() || !native.isInteger() || native.isNegative() ||
-        typeof currencies !== 'object' || Array.isArray(currencies))
-      throw new Error('Payer balances could not be checked.');
-    const amounts = {};
-    for (const [id, value] of Object.entries(currencies)) {
-      const amount = new BigNumber(value);
-      if (value == null || !amount.isFinite() || amount.isNegative()) throw new Error('Payer balances could not be checked.');
-      amounts[id] = amount.toFixed();
-    }
-    amounts[coin.system_id] = native.div('100000000').toFixed();
-    entry.until = Date.now() + 5000;
-    return {status: 'ready', amounts};
-  })().catch(error => { if (balanceReads.get(key) === entry) balanceReads.delete(key); throw error; });
-  balanceReads.set(key, entry);
-  if (balanceReads.size > 64) balanceReads.delete(balanceReads.keys().next().value);
-  return entry.promise;
 };
 
 export const useRegistrationBalances = (coin, sources, context, version = '') => {
