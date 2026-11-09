@@ -1099,6 +1099,29 @@ Recorded for later (found in the tap screen QA; existing behavior):
 card opens the claim flow on a physical iPhone, and the funds arrive. Cancel
 and wrong-card cases show no technical text. Devices without NFC show no entry.
 
+### NFC gift choice C — Add-on (2026-11-09)
+
+Scope: replace C1 only when a wallet on the request's network exists on this
+phone. Exemplar: approved `r1-c-add-on.dc.html` and its checked/unchecked
+captures at 390×844. Reuse the shared V2 box, selection-row styles, onboarding
+title/compact roles, semantic theme colors, and `SafeBottomActionStack`.
+The checkbox starts the row and keeps success fill when checked. The step list
+uses 32-point circles and 18-point Lucide glyphs with 1.8 stroke. Normal gap is
+40 points; compact gap is 32. Claim, write, password and overwrite mechanics stay.
+
+- [x] Replace the two choices with the optional backup checkbox, dependent
+  unlock/switch, backup and claim steps, and the two primary action labels.
+- [x] Keep selection in request passthrough through remount and cancelled unlock.
+  Keep it separate from the resume flag. New scans reset both.
+- [x] Return header Back and Android Back from gift backup options to the
+  checked choice. Preserve Close, Cancel, no-wallet and Settings backup Back.
+- [x] Run Babel, design, safe-area, whitespace and controlled component checks.
+  Inspect source-derived light/dark normal/compact fixtures.
+- [ ] Orchestrator Android QA: both phone sizes, light/dark, loading, checkbox,
+  unlock cancel/success, switch wallet, matching wallet, busy actions, Back,
+  fresh scan and the unchanged password prompt. Native text, focus, TalkBack
+  and NFC hardware remain outside this implementation's evidence.
+
 ## SH-1 — Consistent sheet presentation and dismissal
 
 **Finding:** Many transfer and VerusID sheets use the shared shell but explicitly
@@ -2268,6 +2291,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-09 | NFC gift choice C: optional backup | `claude/gift-nfc-choice-c`; UI `88043a05`, behavior `8fcffe7e`, redesign merge `5e6e8f83` | Approved option C checkbox and state-dependent steps; separate passthrough selection/resume flags; cancelled unlock and both Back routes return to the checked choice. Three baseline navigation checks fail before the behavior fix and pass after it. Ten container checks, 40 entry theme/size/state cases and both busy action paths pass in temporary component fixtures. Babel with project config passes all 188 changed JS files across the gift-base/redesign diff union. Design, two-screen safe-area and whitespace checks pass. Source-derived renders cover light/dark at 390×844 and 360×640, with native controls/layout substituted. | Orchestrator owns Android device QA and native accessibility. No devices, Metro, NFC write, claim transaction, push or merge into redesign ran. See the scoped checklist. |
 | 2026-11-09 | ID-3.REG-R11-APPENC: app-encryption and private-address review fixes | `aac3f80e`, `c00d9079`, `fc8f1bc1` on `claude/appenc-review-fixes`, merged into local `redesign` | P2 current Z address shown (Current / After update), Removed/Replaced/Added, details sheet says each fact once, chosen VerusID kept after approve (batched `next()`), nested VerusID and key number on the main review, short addresses in the acknowledgement sheet. Android large light + small dark: 11 of 11 links pass, 0 of 123 frames show the loader, simulator verified signers; acknowledgement re-check 4 of 4. Design and safe-area checks pass. | Not pushed. iPhone and TalkBack not run. |
 | 2026-11-09 | ID-3.REG-R11-UPSTREAM: hero fix, full Android run, merge | `b301373c` on `claude/new-verusid-flow-upstream`, merged into local `redesign` | Hero gap cause: Android measured "80 USD" as two lines (72 dp) and drew one. The amount now uses the Send one-line pattern; small phone after the fix: 36 dp, fee line 8 dp below. Root-name Check details unchanged on both phones. Full Android run: `nvfpixg1109@` (normal) and `nvfsmlg1109@` (small) paid with the default Foundation referral (20 VRSCTEST each on chain) and linked. Design and safe-area checks pass on `redesign` after the merge. | Not pushed. Device check of app-encryption requests and the private-address removal warning remains. Four P3s left as is (see the section). |
 | 2026-11-09 | New VerusID upstream sync | `claude/new-verusid-flow-upstream`, upstream `64166d35` | Five upstream commits merged; encryption scope/session/security port, shared lifecycle/cache/claim/NFC helpers, private-address removal risk, VRSC/VRSCTEST Foundation default. Redesign startup refresh, optional drawer close, scoped signer guards and app alerts retained. Install/pins, design, safe areas, 11-case completion check and both release bundles pass. Requested Jest: 386 pass / 21 fail plus seven suite-load errors; exact names and baseline comparison in local report. | No push or merge into redesign. Component fixtures only; native light/dark/compact, signing/delivery, registration and physical NFC QA remain. |
