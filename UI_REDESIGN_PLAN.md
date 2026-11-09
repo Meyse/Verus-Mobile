@@ -2268,6 +2268,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-09 | ID-3.REG-R11-UPSTREAM: hero fix, full Android run, merge | `b301373c` on `claude/new-verusid-flow-upstream`, merged into local `redesign` | Hero gap cause: Android measured "80 USD" as two lines (72 dp) and drew one. The amount now uses the Send one-line pattern; small phone after the fix: 36 dp, fee line 8 dp below. Root-name Check details unchanged on both phones. Full Android run: `nvfpixg1109@` (normal) and `nvfsmlg1109@` (small) paid with the default Foundation referral (20 VRSCTEST each on chain) and linked. Design and safe-area checks pass on `redesign` after the merge. | Not pushed. Device check of app-encryption requests and the private-address removal warning remains. Four P3s left as is (see the section). |
 | 2026-11-09 | New VerusID upstream sync | `claude/new-verusid-flow-upstream`, upstream `64166d35` | Five upstream commits merged; encryption scope/session/security port, shared lifecycle/cache/claim/NFC helpers, private-address removal risk, VRSC/VRSCTEST Foundation default. Redesign startup refresh, optional drawer close, scoped signer guards and app alerts retained. Install/pins, design, safe areas, 11-case completion check and both release bundles pass. Requested Jest: 386 pass / 21 fail plus seven suite-load errors; exact names and baseline comparison in local report. | No push or merge into redesign. Component fixtures only; native light/dark/compact, signing/delivery, registration and physical NFC QA remain. |
 | 2026-11-07 | ID-3.REG-R11-QA5 | `claude/new-verusid-flow-fixes5` from `9bdb2f8f` | One price-currency payer balance through SelectionRow; namespace referral policy stabilizes the initial progress count; cancellable funds polling stays nonbusy until a funded review rebuild. Design, safe-area (5 files), Babel and focused core/React/hooks lint pass. Seventeen controlled checks pass; nine fail on the base. Inspected 12 source-derived payer states in both themes and Android widths. | Orchestrator review, then Android QA. Hero gap has no identified source cause and is unchanged. Native wrapping, navigation during a slow poll, top-up/re-entry, fresh hold and accessibility remain device checks. Standard ESLint retains its import-plugin load error. |
 | 2026-11-07 | ID-3.REG-R11-QA4 | `claude/new-verusid-flow-fixes4`, `59fbfecc` | Shared continuous progress, canonical referral rows, Check details address sheet with Send balance styles, and read-only fixed-payer funds refresh for Home/tab notices. Design, safe-area (10 files), Babel, Android dev bundle (52 assets), 12 component checks, 15 refresh checks and 37 progress regression checks pass. Inspected 40 source-derived light/dark states at both Android sizes. | Android QA pending. Verify keyboard, Back, sheet dismissal, one/two currencies, hidden balances, fixed-payer top-up, Home/tab refresh and no automatic payment. Native controls, accessibility and live chain reads remain unverified. |
@@ -3423,10 +3424,12 @@ approval gates. Android QA follows orchestrator review.
   Leave the hero unchanged, as requested when no source cause is found.
 - [x] Run design, safe-area, Babel, focused lint and controlled component checks.
   Inspect source-derived payer rows against Send in light/dark at 360/412 dp.
-- [ ] Orchestrator: review this candidate, then run normal/small Android QA.
+- [x] Orchestrator: review this candidate, then run normal/small Android QA.
   Check payer wrapping and accessibility, stable Name progress, slow-poll
   navigation/refresh, top-up/re-entry and a new hold. Reinspect the dark 360 dp
   hero gap. Source-derived renders do not prove native text measurement.
+  Done 2026-11-07 (Android round 5: 17 of 18 fixes verified). The hero gap
+  is fixed in ID-3.REG-R11-UPSTREAM. Accessibility was not run on a device.
 
 Evidence: 17 temporary non-Jest checks pass; nine fail on 9bdb2f8f. Babel and
 focused core/React/hooks lint pass for five changed JS files. Design and
@@ -3434,6 +3437,39 @@ safe-area checks pass. Standard ESLint cannot load its existing import plugin
 (ERR_PACKAGE_PATH_NOT_EXPORTED). Twelve source-derived payer states were
 inspected. No device, live-chain operation, dependency change, push or merge
 ran. Exact commands and gaps are in new-verusid-flow-fixes5.local.md (local).
+
+### ID-3.REG-R11-UPSTREAM — Upstream sync, hero fix and full Android run (2026-11-09)
+
+Contract: operate mode. The engine and backend follow upstream
+`identity-registration` `64166d35`. The redesigned screens stay and show the new
+upstream facts. The hero amount reuses the Send amount pattern: one line that
+shrinks to fit.
+
+- [x] Merge redesign `0f10dad8` and the five upstream commits after `0a99f88a`
+  (`ecaa7107`, `30df713e`). Show the Foundation default referral as the first
+  Referral row for VRSC and VRSCTEST root names.
+- [x] Find the cause of the dark 360 dp hero gap. A view dump showed the
+  "80 USD" view at 72 dp (two lines) while it drew one line. The root-name
+  amount measured 36 dp.
+- [x] Set `adjustsFontSizeToFit`, `minimumFontScale={0.6}` and
+  `numberOfLines={1}` on the hero amount (`b301373c`). Small phone after the
+  fix: amount 36 dp, fee line 8 dp below it, text about 3% smaller.
+- [x] Run one full creation on each Android phone: `nvfpixg1109@` (normal,
+  light) and `nvfsmlg1109@` (small, dark). Both paid 20 VRSCTEST to the
+  Foundation referral on chain and linked the new VerusID.
+- [x] Merge into local `redesign`. Not pushed.
+- [ ] Device-check app-encryption requests and the private-address removal
+  warning. The request simulator still uses older Verus libraries.
+
+Evidence: Android, Game PC, JS from Mac Metro 8241. Full run 2 min 34 s (normal)
+and 3 min 23 s (small) from the first hold to "VerusID created". Design and
+safe-area checks pass on `redesign` after the merge. Open P3s, left as is: the
+testnet Foundation name shows ".VRSCTEST" outside the Referral row, the result
+page behind the linked sheet still says "It is not in this wallet yet.", the
+small-phone Foundation row wraps, and the first tap after the keyboard closes
+was lost once per phone. After the fix, the root-name Check details matches the screens from before the fix on both phones: amount 36 dp, same text size, same 24 dp gap to Commitment. Run folders:
+`docs/qa/matrix/runs/2026-11-06-newflow/` (local, not in Git).
+
 ### ID-3.NIGHT4-QA — Android device QA of the night 4 fixes (2026-11-06)
 
 Branch `claude/night4-fixes` (A/B/C on `2e4c6e77`, then round 2 `7b089908`).
