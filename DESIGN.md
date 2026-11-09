@@ -1432,11 +1432,19 @@ and `identityRegistration.styles.js`. This applies to registration only.
   the growing namespace segment. The divider uses the outline's current color.
   Focus wraps both. Taken uses a danger outline
   and the status badge. No fill. V3 replaces the earlier filled R/NS fields.
-- Use `ProgressHeader` without the progress track for the combined "New
-  VerusID" task. Its right action contains the 44-point Info and Close targets.
-  The content keeps the signed-in 20/24/28-point insets. Use the Send hold
-  button and `SafeBottomActionStack`. First hold commits; a separate second
-  hold registers after one confirmation. Preserve all upstream recovery paths.
+- Use the shared continuous `ProgressHeader` track for Name, Referral when
+  allowed, and Check details. Its right action keeps the 44-point Info and Close
+  targets. Referral uses single-choice `SelectionRow`s: success fill and check,
+  no outline. Check details opens "Choose an address" from Pay from. Its rows
+  show balances as Send does, without "confirmed". The content keeps the signed-in
+  20/24/28-point insets. Use the Send hold button and `SafeBottomActionStack`.
+  First hold commits; a separate second hold registers after one confirmation.
+  Preserve all upstream recovery paths.
+- Root registrations on VRSC and VRSCTEST show "Verus Coin Foundation@" only
+  when the namespace allows referrals. Select it by default when its quoted
+  price is affordable. Keep "Someone else" and "No referral". Namespace changes
+  reset the default; Back and Continue keep an explicit choice. The row prices
+  and Check details split explain the discount and referral payment.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
   seven items, success fill/check for selection and no unselected chevron.
   Hide unavailable namespaces and list the chain's own namespace first, then A–Z.

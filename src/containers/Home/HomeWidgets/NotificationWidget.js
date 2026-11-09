@@ -1,6 +1,7 @@
 import {registrationNotifications} from '../../../utils/identityRegistration/notifications';
 import {verusIdCopy} from '../../../utils/verusid/verusIdCopy';
-import React, {useMemo} from 'react';
+import React, {useMemo, useState} from 'react';
+import {CircleAlert} from 'lucide-react-native';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
@@ -22,6 +23,9 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {fontStyle} from '../../../globals/fonts';
 import {BasicNotification, LoadingNotification, VerusIdProvisioningNotification} from '../../../utils/notification';
 import VerusIdReadyCard from './VerusIdReadyCard';
+import LinkVerusIdSheet from '../../Services/ServiceComponents/VerusIdService/LinkVerusIdSheet';
+import {createRegistrationContext} from '../../../utils/identityRegistration';
+import {updateRegistrationUiState} from '../../../actions/actions/services/dispatchers/verusid/registration';
 
 // Preserve the existing failed-provisioning wording for old saved notices.
 const getNotificationCopy = notification => {
@@ -57,6 +61,7 @@ const NotificationWidget = ({followsHomeNotice = false}) => {
   const accountHash = activeAccount?.accountHash ?? null;
   const jobs = useObjectSelector(state => state.channelStore_verusid.registrationJobs || {});
   const registrationNotices = registrationNotifications(jobs, accountHash);
+  const [linkTarget, setLinkTarget] = useState(null);
 
   const actionableNotifications = useMemo(() => {
     if (!notifications?.directory || !accountHash) return [];
@@ -73,8 +78,8 @@ const NotificationWidget = ({followsHomeNotice = false}) => {
           ? LoadingNotification.fromJson(value)
           : VerusIdProvisioningNotification.fromJson(
               value,
-              ({navigation: targetNavigation}, _identityAddress, chain) =>
-                targetNavigation.navigate('IdentityTab', {screen: 'LinkIdentities', params: {chain}}),
+              (_props, identityAddress, chain) => setLinkTarget({identityAddress, chain,
+                name: getNotificationCopy(value).highlight, notificationUid: uid}),
             );
         notification.uid = uid;
         notification.iconType = value.icon ?? NOTIFICATION_ICON_VERUSID;
@@ -92,11 +97,20 @@ const NotificationWidget = ({followsHomeNotice = false}) => {
     }
   };
 
-  if (actionableNotifications.length === 0 && registrationNotices.length === 0) return null;
+  const updateReady = (jobId, patch) => updateRegistrationUiState(jobId, patch, createRegistrationContext()).catch(() => {
+    // Keep the card recoverable when this optional presentation write fails.
+  });
+  if (actionableNotifications.length === 0 && registrationNotices.length === 0 && !linkTarget) return null;
 
   return (
     <View style={[styles.container, followsHomeNotice && styles.followingContainer]}>
-      {registrationNotices.map((notice, index) => (
+      <LinkVerusIdSheet target={linkTarget} onClose={() => setLinkTarget(null)} />
+      {registrationNotices.map((notice, index) => notice.ready ? <View key={notice.uid} style={styles.cardSpacing}>
+        <VerusIdReadyCard active={isFocused} celebrate={!notice.celebrated} highlight={notice.identityName} remainder="is ready"
+          label="Link VerusID" theme={theme} onAction={() => setLinkTarget({jobId: notice.jobId, name: notice.identityName})}
+          onCelebrated={() => updateReady(notice.jobId, {readyCelebrated: true})}
+          onDismiss={() => updateReady(notice.jobId, {readyDismissed: true})} />
+      </View> : (
         <View key={notice.uid} style={[styles.card, styles.cardWithoutDismiss,
           (index < registrationNotices.length - 1 || actionableNotifications.length > 0) && styles.cardSpacing,
           {backgroundColor: theme.colors.surfaceMuted}]}>
@@ -105,9 +119,12 @@ const NotificationWidget = ({followsHomeNotice = false}) => {
           <Text style={[theme.typography.bodySm, styles.title, styles.columnTitle, styles.highlight, {color: theme.colors.textPrimary}]}>
             {notice.identityName}
           </Text>
-          <Text style={[theme.typography.caption, styles.noticeStatus, {color: theme.colors.textSecondary}]}>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+          {!!notice.tone && <CircleAlert size={14} color={theme.colors[`${notice.tone}Text`]} />}
+          <Text style={[theme.typography.caption, styles.noticeStatus, {flexShrink: 1, color: notice.tone ? theme.colors[`${notice.tone}Text`] : theme.colors.textSecondary}]}>
             {verusIdCopy(notice.statusText)}
           </Text>
+          </View>
           <AppButton compact height={32} preserveHeightOnSmallWindow variant="secondary" themeMode={theme.mode}
             buttonColor={theme.colors.surface} labelStyle={[theme.typography.labelSm, styles.actionLabel]} style={styles.action}
             onPress={() => notice.onAction({navigation, dispatch})}>

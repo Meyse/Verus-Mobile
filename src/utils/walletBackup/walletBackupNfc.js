@@ -427,7 +427,8 @@ const shouldHoldAndroidNfcRelease = ({completed, error, requestStarted}) => {
   if (!requestStarted || error == null) return false;
 
   // A timeout or cancel means no card was at the phone.
-  return error.code !== NFC_TIMEOUT && error.code !== NFC_CANCELLED;
+  return error.code !== NFC_TIMEOUT && error.code !== NFC_CANCELLED &&
+    !/cancelled|canceled|timed out/i.test(String(error.message || ''));
 };
 
 const getAndroidNfcReleaseDelay = ({completed, error, requestStarted}) => {
@@ -553,16 +554,11 @@ const showIosSheetText = async ({text, failed = false}) => {
   } catch (_) {}
 };
 
-const releaseNfcRequest = async ({sessionPreRegistered, releaseDelayMs}) => {
-  if (sessionPreRegistered) {
-    await endWalletBackupNfcSession({releaseDelayMs});
-  } else if (Platform.OS === 'android') {
-    await NfcManager.cancelTechnologyRequest({
-      delayMsAndroid: releaseDelayMs,
-    }).catch(() => {});
-  } else {
-    await NfcManager.cancelTechnologyRequest().catch(() => {});
-  }
+// Return the native cleanup promise without an extra async delegation step.
+const releaseNfcRequest = ({sessionPreRegistered, releaseDelayMs}) => {
+  if (sessionPreRegistered) return endWalletBackupNfcSession({releaseDelayMs});
+  if (Platform.OS === 'android') return NfcManager.cancelTechnologyRequest({delayMsAndroid: releaseDelayMs}).catch(() => {});
+  return NfcManager.cancelTechnologyRequest().catch(() => {});
 };
 
 let nfcSessionActive = false;
@@ -584,22 +580,27 @@ const assertNfcAvailable = async () => {
 // The promise settles after the session is released.
 const runNfcSession = async ({
   onPhase,
+  onStatus,
+  messages,
   timeoutMs,
   sessionPreRegistered = false,
   requestTechnology,
   operate,
   doneSheetText,
   failedSheetText,
+  availabilityChecked = false,
 }) => {
-  await assertNfcAvailable();
+  if (!availabilityChecked) await assertNfcAvailable();
 
   let completed = false;
   let requestStarted = false;
   let nfcError = null;
 
+  onStatus && onStatus('Preparing NFC writer...');
   await NfcManager.start();
 
   try {
+    onStatus && onStatus(messages.hold);
     onPhase && onPhase(NFC_PHASE.WAITING);
     requestStarted = true;
     nfcSessionActive = true;
@@ -607,12 +608,14 @@ const runNfcSession = async ({
 
     onPhase && onPhase(NFC_PHASE.ACTIVE);
     await showIosSheetText({text: IOS_SHEET_TEXT.active});
+    onStatus && onStatus('Checking NFC card...');
 
     const result = await operate(connectedTech);
     completed = true;
 
     await showIosSheetText({text: doneSheetText});
     onPhase && onPhase(NFC_PHASE.DONE);
+    onStatus && onStatus(messages.complete);
 
     return result;
   } catch (e) {
@@ -635,6 +638,7 @@ const runNfcSession = async ({
 
     if (!completed && releaseDelayMs > 0) {
       onPhase && onPhase(NFC_PHASE.RELEASE);
+      onStatus && onStatus('Move the NFC card away from the device.');
     }
 
     try {
@@ -671,7 +675,7 @@ export const cancelWalletBackupNfcRequest = async () => {
   }
 };
 
-const inspectAndWriteNdef = async ({connectedTech, bytes, beforeWrite}) => {
+const inspectAndWriteNdef = async ({connectedTech, bytes, beforeWrite, onStatus, messages}) => {
   if (connectedTech === NfcTech.Ndef) {
     await assertWritableStatus(bytes);
 
@@ -687,69 +691,42 @@ const inspectAndWriteNdef = async ({connectedTech, bytes, beforeWrite}) => {
 
     await assertNfcTagCanBeOverwritten(existingTag);
 
+    onStatus && onStatus(messages.write);
     beforeWrite && beforeWrite();
     await NfcManager.ndefHandler.writeNdefMessage(bytes, {
       reconnectAfterWrite: true,
     });
   } else if (connectedTech === NfcTech.NdefFormatable) {
+    onStatus && onStatus(messages.format);
     beforeWrite && beforeWrite();
     await NfcManager.ndefFormatableHandlerAndroid.formatNdef(bytes);
   }
 };
 
-export const writeWalletBackupToNfc = async (
-  walletBackupOrdinal,
-  {
-    onPhase,
-    timeoutMs = NFC_REQUEST_TIMEOUT_MS,
-    sessionPreRegistered = false,
-    // Synchronous guard after NFC awaits, immediately before writing the card.
-    beforeWrite,
-  } = {},
-) => {
-  const backupBytes = createWalletBackupNdefBytes(walletBackupOrdinal);
-
+// Share both writers while retaining the redesigned phase and session contract.
+const createNdefWriter = ({createBytes, doneSheetText, messages, backup = false}) => async (value, {
+  onPhase, onStatus, timeoutMs = NFC_REQUEST_TIMEOUT_MS, sessionPreRegistered = false, beforeWrite,
+} = {}) => {
+  await assertNfcAvailable();
+  const bytes = createBytes(value);
   return runNfcSession({
-    onPhase,
-    timeoutMs,
-    sessionPreRegistered,
-    requestTechnology: requestNdefTechnology,
-    doneSheetText: 'Backup written.',
-    failedSheetText: 'Card not written.',
+    availabilityChecked: true, onPhase, onStatus, messages, timeoutMs, sessionPreRegistered: backup && sessionPreRegistered, requestTechnology: requestNdefTechnology,
+    doneSheetText, failedSheetText: 'Card not written.',
     operate: async connectedTech => {
-      await inspectAndWriteNdef({
-        connectedTech,
-        bytes: backupBytes,
-        beforeWrite,
-      });
-
+      await inspectAndWriteNdef({connectedTech, bytes, beforeWrite: backup ? beforeWrite : undefined, onStatus, messages});
       return {written: true};
     },
   });
 };
 
-export const writeDeeplinkUriToNfc = async (
-  uri,
-  {
-    onPhase,
-    timeoutMs = NFC_REQUEST_TIMEOUT_MS,
-  } = {},
-) => {
-  const deeplinkBytes = createDeeplinkUriNdefBytes(uri);
-
-  return runNfcSession({
-    onPhase,
-    timeoutMs,
-    requestTechnology: requestNdefTechnology,
-    doneSheetText: 'Gift card written.',
-    failedSheetText: 'Card not written.',
-    operate: async connectedTech => {
-      await inspectAndWriteNdef({connectedTech, bytes: deeplinkBytes});
-
-      return {written: true};
-    },
-  });
-};
+export const writeWalletBackupToNfc = createNdefWriter({
+  createBytes: createWalletBackupNdefBytes, doneSheetText: 'Backup written.', backup: true,
+  messages: {hold: 'Hold your NFC wallet backup request card against the device.', write: 'Writing wallet backup...', format: 'Formatting and writing wallet backup...', complete: 'Backup written. Move the card away from the device.'},
+});
+export const writeDeeplinkUriToNfc = createNdefWriter({
+  createBytes: createDeeplinkUriNdefBytes, doneSheetText: 'Gift card written.',
+  messages: {hold: 'Hold the NFC card against the device.', write: 'Writing gift card...', format: 'Formatting and writing gift card...', complete: 'Gift card written. Move the card away from the device.'},
+});
 
 export const readWalletBackupFromNfc = async (
   {

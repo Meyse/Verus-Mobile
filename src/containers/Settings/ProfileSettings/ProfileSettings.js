@@ -8,7 +8,7 @@
 
 import {INCORRECT_PASSWORD_MESSAGE} from '../../../utils/constants/errors';
 import React, { Component } from "react";
-import { CommonActions } from '@react-navigation/native';
+import {resetToScreen} from "../../../utils/navigation/resetToScreen";
 import {ActivityIndicator, Portal} from 'react-native-paper';
 import { connect } from 'react-redux';
 import {
@@ -198,27 +198,7 @@ class ProfileSettings extends Component {
   };
 
   resetToScreen = (route, title, data, fullReset) => {
-    let resetAction
-
-    if (fullReset) {
-      resetAction = CommonActions.reset({
-        index: 0, // <-- currect active route from actions array
-        routes: [
-          { name: route, params: { data: data } },
-        ],
-      })
-    } else {
-      resetAction = CommonActions.reset({
-        index: 1, // <-- currect active route from actions array
-        routes: [
-          { name: "Home" },
-          { name: route, params: { title: title, data: data } },
-        ],
-      })
-    }
-
-    if (this.props.navigation.closeDrawer) this.props.navigation.closeDrawer();
-    this.props.navigation.dispatch(resetAction)
+    resetToScreen(this.props.navigation, route, title, data, fullReset);
   }
 
   toggleBiometry = async (passwordCheck) => {

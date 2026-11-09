@@ -1,35 +1,29 @@
-import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, PROVISION_IDENTITY_DETAILS_VDXF_KEY, 
+import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, PROVISION_IDENTITY_DETAILS_VDXF_KEY,
   VERUSPAY_INVOICE_DETAILS_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject, APP_ENCRYPTION_REQUEST_VDXF_KEY, CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY, SPENDABLE_KEY_DETAILS_VDXF_KEY, SpendableKeyDetailsOrdinalVDXFObject,
   USER_DATA_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY,
   CreateWalletBackupDetailsOrdinalVDXFObject} from "verus-typescript-primitives"
-import { getInfo, verifyGenericRequest } from "../../api/channels/vrpc/callCreators"
-import { getIdentity } from "../../api/channels/verusid/callCreators";
 import { validateAuthenticationRequestVDXFObject } from "./authenticationRequestValidator";
 import { validateIdentityUpdateRequestVDXFObject } from "./identityUpdateRequestValidator";
 import { validateProvisionIdentityDetailsVDXFObject } from "./provisionIdentityDetailsValidator";
 import { validateVerusPayInvoiceVDXFObject } from "./verusPayInvoiceDetailsValidator";
 import { validateAppEncryptionRequestVDXFObject } from "./appEncryptionRequestValidator";
+import { assertSignedRequestAuthorization } from "./appEncryptionAuthorization";
 import { validateCreateWalletBackupDetailsVDXFObject } from "./createWalletBackupDetailsValidator";
 import { validateSpendableKeyDetailsVDXFObject } from "./spendableKeyDetailsValidator";
 import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
 import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
-import { CoinDirectory } from "../../CoinData/CoinDirectory";
-import VrpcProvider from '../../vrpc/vrpcInterface';
-import store from "../../../store";
-import { coinsList } from "../../CoinData/CoinsList";
-import { VRPC } from "../../constants/intervalConstants";
-import { VerusIdInterface } from "verusid-ts-client";
-import { createDelegatedSignerAccountError } from "../delegatedSignerGate";
 import {
   createGenericRequestRejectionError,
   GENERIC_REQUEST_REJECTION_CODES,
-} from "../genericRequestRejection";
+} from '../genericRequestRejection';
+import {createDelegatedSignerAccountError} from '../delegatedSignerGate';
+import { VerusIdInterface } from "verusid-ts-client";
 
 /**
  * Checks if a generic envelope has anything in its details that requires
  * a signature. Checks if entire details array contains only signature-optional
  * request types
- * @param {GenericRequest} request 
+ * @param {GenericRequest} request
  */
 export const isRequestRequiredSignature = (request) => {
   const details = request.details;
@@ -59,92 +53,58 @@ export const getValidatorForDetail = (detailKey) => {
   } else {
     throw createGenericRequestRejectionError(
       GENERIC_REQUEST_REJECTION_CODES.DETAIL_UNSUPPORTED,
-      "No validator function found for key " + detailKey,
+      'No validator function found for key ' + detailKey,
     )
   }
 }
 
 /**
- * Validates a generic request and all its details, 
+ * Validates a generic request and all its details,
  * throws on invalid and returns nothing.
  * @param {any} coinObj
- * @param {GenericRequest} request 
+ * @param {GenericRequest} request
  */
 export const validateGenericRequest = async (request) => {
-  // The SDK's signature verifier also checks structure and returns false for
-  // either failure. Check structure first so only real signature failures get
-  // the signer error (app encryption, for example, requires authentication).
-  if (!VerusIdInterface.validateUnsignedGenericRequest(request)) {
+  if (!request.isSigned() && (isRequestRequiredSignature(request) || request.hasAppOrDelegatorID())) {
     throw createGenericRequestRejectionError(
       GENERIC_REQUEST_REJECTION_CODES.INVALID,
-      "Invalid request structure",
+      'This type of request requires a signature',
     )
   }
 
-  if (request.isSigned()) {
-    const coinObj = CoinDirectory.getBasicCoinObj(request.signature.systemID.toIAddress())
-    VrpcProvider.initEndpoint(coinObj.system_id, coinObj.vrpc_endpoints[0])
-
-    if (!!coinObj.testnet !== request.isTestnet()) {
-      throw createGenericRequestRejectionError(
-        GENERIC_REQUEST_REJECTION_CODES.NETWORK_MISMATCH,
-        `Cannot validate request made for ${request.isTestnet() ? "testnet" : "mainnet"} on ${coinObj.testnet ? "testnet" : "mainnet"}`,
-        // The signer's network and the request's own flag disagree. A wallet
-        // switch cannot fix that, so the sheet asks for a new request.
-        {requestIsTestnet: request.isTestnet(), networksConflict: true},
-      )
-    }
-
-    const signedBy = await getIdentity(coinObj.system_id, request.signature.identityID.toIAddress())
-    if (signedBy.error) throw new Error(signedBy.error.message)
-
-    if (!await verifyGenericRequest(coinObj, request, signedBy.result, false)) {
-      throw createGenericRequestRejectionError(
-        GENERIC_REQUEST_REJECTION_CODES.SIGNATURE_INVALID,
-        "Failed to verify request signature",
-      )
-    }
-
-    if (request.hasAppOrDelegatedID()) {
-      if (request.appOrDelegatedID.toAddress() !== request.signature.identityID.toAddress()) {
-        const state = store.getState();
-        const activeAccount = state.authentication.activeAccount;
-
-        if (activeAccount == null) {
-          throw createDelegatedSignerAccountError(
-            "Active account required to validate delegated request signer"
-          );
-        }
-
-        const vrscSystem = request.isTestnet() ? coinsList.VRSCTEST : coinsList.VRSC;
-        const userVrscAddresses =
-          activeAccount.keys[vrscSystem.id]?.[VRPC]?.addresses || [];
-
-        const signerIdentity = signedBy.result.identity;
-        const signerPrimaryAddresses = signerIdentity.primaryaddresses || [];
-        const signerMinSigs = signerIdentity.minimumsignatures;
-
-        const signerMatchesUser =
-          signerMinSigs === 1 &&
-          signerPrimaryAddresses.some((address) => userVrscAddresses.includes(address));
-
-        if (!signerMatchesUser) {
-          throw createDelegatedSignerAccountError();
-        }
-      }
-    }
-  } else if (isRequestRequiredSignature(request) || request.hasAppOrDelegatedID()) {
-    throw createGenericRequestRejectionError(
-      GENERIC_REQUEST_REJECTION_CODES.INVALID,
-      "This type of request requires a signature",
-    )
-  }
-
+  // Reject missing or malformed fields before ownership checks open signing keys.
   for (let i = 0; i < request.details.length; i++) {
     const detail = request.getDetails(i);
     const detailKey = detail.getIAddressKey();
     const validator = getValidatorForDetail(detailKey);
 
     await validator(request, i);
+  }
+
+  if (request.isSigned()) {
+    try {
+      await assertSignedRequestAuthorization(request);
+    } catch (error) {
+      // Keep the redesign's wallet-switch and rejection UI. Authorization stays
+      // wholly upstream; only its error is translated after it refuses access.
+      if (request.hasAppOrDelegatorID() && (
+        error.message === 'The active profile must fully control the identity signing threshold. Delegate authorization is unsupported.' ||
+        error.message === 'The active profile must fully control every signing authority at the request signing height.' ||
+        error.message === 'The active profile cannot use the required identity signing keys.'
+      )) throw createDelegatedSignerAccountError(error.message);
+      if (error.message === 'Failed to verify request signature') {
+        throw createGenericRequestRejectionError(GENERIC_REQUEST_REJECTION_CODES.SIGNATURE_INVALID, error.message);
+      }
+      if (error.message === 'The request is on a different network.') {
+        throw createGenericRequestRejectionError(GENERIC_REQUEST_REJECTION_CODES.NETWORK_MISMATCH, error.message,
+          {requestIsTestnet: request.isTestnet(), networksConflict: true});
+      }
+      throw error;
+    }
+  } else if (!VerusIdInterface.validateUnsignedGenericRequest(request)) {
+    throw createGenericRequestRejectionError(
+      GENERIC_REQUEST_REJECTION_CODES.INVALID,
+      'Invalid request structure',
+    )
   }
 }
