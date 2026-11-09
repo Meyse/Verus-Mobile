@@ -71,7 +71,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-05 (Night run 3 Batch B VerusID safety fixes; device QA passed).
+- Last updated: 2026-11-06 (Night run 4 fixes A/B/C + round 2; Android QA on both phones passed).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -3433,3 +3433,31 @@ safe-area checks pass. Standard ESLint cannot load its existing import plugin
 (ERR_PACKAGE_PATH_NOT_EXPORTED). Twelve source-derived payer states were
 inspected. No device, live-chain operation, dependency change, push or merge
 ran. Exact commands and gaps are in new-verusid-flow-fixes5.local.md (local).
+### ID-3.NIGHT4-QA — Android device QA of the night 4 fixes (2026-11-06)
+
+Branch `claude/night4-fixes` (A/B/C on `2e4c6e77`, then round 2 `7b089908`).
+Android only, by owner instruction: Game PC normal (412x923 dp, light) and small
+(360x640 dp, dark), installed APK `ff2e63e0`, JS from Mac Metro. No iOS run.
+
+Round 1 failed six items: old registration rows still "Network fee", no
+Confirmations row, slow Pending-to-date (87–108 s), a false "Name commitment is
+not confirmed on the current active chain." during the wait, the long-link sheet
+needing two taps, and "Response sent" closing in under 1 s. Round 2 (`7b089908`)
+fixes them: a zero-value i-address output with a cost of 0.01 or more marks an
+older registration, confirmations come from the block height, history refreshes
+every 15 s (10 s read limit), a tip/height mismatch keeps waiting (a script
+mismatch still stops), a refused link shows one sheet and the link listener is
+removed on unmount, "Response sent" stays open until Done, content counts values,
+and a mixed-network request says "This request mixes testnet and mainnet."
+
+Round 2 passes on both phones: registration labels (3 rows each), Response sent +
+Done + Back with the reply received first, content count 4 = 4, one long-link
+sheet with one tap (logcat: one delivery), mixed-network wording, sign-in
+regression, and on normal a full `aaa` wait with no false commitment error.
+Open P3: the Confirmations number is as of the last history read (1–3 blocks
+behind, it does not rise while no row is pending); Pending-to-date took 30–45 s
+after the first block on normal; the commitment screen can flap Ready → waiting →
+Ready once when public servers disagree. Old commitment rows stay "Network fee"
+(the server sends no output functions). Not run: redirect delivery, refresh timing
+on small (daemon funding), iOS. Run folder: `docs/qa/matrix/runs/2026-11-06-fixes4/`
+(local, not in Git).
