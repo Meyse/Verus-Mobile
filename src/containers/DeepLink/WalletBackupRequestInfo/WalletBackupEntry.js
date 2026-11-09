@@ -68,9 +68,11 @@ const useGiftTitle = (detail, requestIsTestnet) => {
 export default function WalletBackupEntry({
   activeAccountMatchesRequest,
   activeWalletName,
+  backupSelected = false,
   cancel,
   choice = false,
   onBackup,
+  onBackupSelectedChange,
   onClaim,
   onCreate,
   requestIsTestnet,
@@ -83,7 +85,6 @@ export default function WalletBackupEntry({
   const selectionStyles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const preview = useGiftTitle(spendableKeyDetail, requestIsTestnet);
-  const [backupSelected, setBackupSelected] = useState(false);
   const [busy, setBusy] = useState(false);
   const title = spendableKeyDetail
     ? `This card holds ${preview.amount || 'a gift'}`
@@ -143,7 +144,7 @@ export default function WalletBackupEntry({
                 accessibilityState={{checked: backupSelected, disabled: busy}}
                 activeOpacity={0.74}
                 disabled={busy}
-                onPress={() => setBackupSelected(value => !value)}
+                onPress={() => onBackupSelectedChange(!backupSelected)}
                 style={[
                   selectionStyles.row,
                   styles.backupChoice,

@@ -193,6 +193,7 @@ const WalletBackupRequestInfo = props => {
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const passthrough = useObjectSelector(state => state.deeplink?.passthrough);
+  const requestId = useSelector(state => state.deeplink.requestId);
   const sessionEpoch = useSelector(state => state.authentication.sessionEpoch);
   const spendableKeyDetail = useMemo(() => request?.details?.find(
     detail => detail?.getIAddressKey?.() === SPENDABLE_KEY_DETAILS_VDXF_KEY.vdxfid,
@@ -243,11 +244,12 @@ const WalletBackupRequestInfo = props => {
   const [backupResult, setBackupResult] = useState(null);
   const [finishing, setFinishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  // Unlocking can open this screen again; the saved choice skips the choice.
-  const [backupChoiceMade, setBackupChoiceMade] = useState(
+  // Keep the add-on separate from the flag that resumes after unlock. Both
+  // survive a remount; a new scan starts with a new request's passthrough.
+  const backupSelected = passthrough?.walletBackupSelected === true;
+  const backupChoiceMade =
     !showSpendableKeyBackupChoice ||
-      passthrough?.walletBackupChoice === 'backup',
-  );
+      passthrough?.walletBackupChoice === 'backup';
   const walletBackupCacheRef = useRef(null);
   const writingBackupRef = useRef(false);
   const finishingRef = useRef(false);
@@ -290,13 +292,6 @@ const WalletBackupRequestInfo = props => {
   ]);
 
   useEffect(() => {
-    setBackupChoiceMade(
-      !showSpendableKeyBackupChoice ||
-        store.getState().deeplink?.passthrough?.walletBackupChoice === 'backup',
-    );
-  }, [showSpendableKeyBackupChoice]);
-
-  useEffect(() => {
     const showEvent =
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent =
@@ -314,10 +309,16 @@ const WalletBackupRequestInfo = props => {
     };
   }, []);
 
-  const setWalletBackupChoice = walletBackupChoice => {
-    const current = store.getState().deeplink?.passthrough;
-    store.dispatch(setDeeplinkPassthroughData({...current, walletBackupChoice}));
+  const updateWalletBackupChoice = data => {
+    const current = store.getState().deeplink;
+    if (current.requestId !== requestId) return;
+    store.dispatch(setDeeplinkPassthroughData({...current.passthrough, ...data}));
   };
+
+  const returnToGiftChoice = () => updateWalletBackupChoice({
+    walletBackupChoice: undefined,
+    walletBackupSelected: true,
+  });
 
   const openLogin = async () => {
     if (matchingAccounts.length === 0) {
@@ -617,6 +618,7 @@ const WalletBackupRequestInfo = props => {
     else if (backupResult) finishBackup();
     else if (nfcTap?.phase === NFC_TAP_PHASE.WAITING) cancelWalletBackupNfcRequest();
     else if (nfcTap) setNfcTap(null);
+    else if (showSpendableKeyBackupChoice && backupChoiceMade && activeAccountMatchesRequest) returnToGiftChoice();
     else cancel();
   }, finishing || [NFC_TAP_PHASE.PREPARING, NFC_TAP_PHASE.ACTIVE, NFC_TAP_PHASE.RELEASE].includes(nfcTap?.phase));
 
@@ -628,7 +630,8 @@ const WalletBackupRequestInfo = props => {
     const signedRequestReview = requestReview && !profileBackup && request?.isSigned?.() === true;
     const content = (
       <SafeAreaView edges={profileBackup || backupStep ? ['left', 'right'] : safeAreaEdges} style={styles.container}>
-        {backupStep && <ProgressHeader title="Back up wallet" progress={1} onBack={cancel} onClose={cancel} />}
+        {backupStep && <ProgressHeader title="Back up wallet" progress={1}
+          onBack={showSpendableKeyBackupChoice ? returnToGiftChoice : cancel} onClose={cancel} />}
         <DeepLinkReviewScrollView
           showScrollCue={requestReview && !profileBackup}
           requestCard={signedRequestReview}
@@ -703,17 +706,16 @@ const WalletBackupRequestInfo = props => {
     return <WalletBackupEntry
       activeAccountMatchesRequest={activeAccountMatchesRequest}
       activeWalletName={activeAccount?.id}
+      backupSelected={backupSelected}
       cancel={cancel}
       choice
       onClaim={skipBackupAndClaimSpendableKey}
+      onBackupSelectedChange={checked => updateWalletBackupChoice({walletBackupSelected: checked})}
       onBackup={async () => {
-        if (activeAccountMatchesRequest) {
-          setBackupChoiceMade(true);
-          return;
+        updateWalletBackupChoice({walletBackupChoice: 'backup', walletBackupSelected: true});
+        if (!activeAccountMatchesRequest && !(await openLogin())) {
+          updateWalletBackupChoice({walletBackupChoice: undefined});
         }
-        setWalletBackupChoice('backup');
-        if (await openLogin()) setBackupChoiceMade(true);
-        else setWalletBackupChoice(undefined);
       }}
       requestIsTestnet={requestIsTestnet}
       signedIn={signedIn}
