@@ -16,6 +16,7 @@ import InfoSheet from '../../../../components/InfoSheet';
 import {InfoSheetRow} from '../../../../components/InfoSheetSection';
 import {buildContentReview} from '../../../../utils/identityUpdate/contentReview';
 import {useRequestBackHandler} from '../../useRequestNavigation';
+import PrivateAddressChangeValues from '../components/PrivateAddressChangeValues';
 import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
@@ -156,7 +157,9 @@ const PrivateInfoRow = ({darkMode, divider, item, showTitle}) => {
           {item.title}
         </Text>
       )}
-      {valueText && item.copyValue ? (
+      {item.highRiskType === 'private-address' ? (
+        <PrivateAddressChangeValues change={item} />
+      ) : valueText && item.copyValue ? (
         <View style={privateInfoRowStyles.valueRow}>
           {valueText}
           <CopyAction
@@ -397,6 +400,7 @@ const ContentStep = ({
     return Object.entries(privateUpdates)
       .filter(([, entry]) => Boolean(entry))
       .map(([key, entry]) => ({
+        ...entry,
         key,
         title: getPrivateInfoTitle(key),
         description: entry.data,

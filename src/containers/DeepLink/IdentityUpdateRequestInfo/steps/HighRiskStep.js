@@ -17,6 +17,7 @@ import {
 } from '../../../../styles';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {withNameBreaks} from '../../../../utils/fullyqualifiedname';
+import PrivateAddressChangeValues from '../components/PrivateAddressChangeValues';
 
 const PRIMARY_REVIEW_KEY = 'primary-control';
 
@@ -368,6 +369,25 @@ const buildAuthorityReviewItem = (change, type, currentAuthorities) => {
 };
 
 const buildFallbackReviewItem = (change, primaryInfo) => {
+  if (change.highRiskType === 'private-address') {
+    return {
+      key: change.key,
+      kind: 'fallback',
+      highRiskType: change.highRiskType,
+      beforeAddress: change.beforeAddress,
+      afterAddress: change.afterAddress,
+      kicker: change.title,
+      value: !change.afterAddress
+        ? 'Removed'
+        : change.beforeAddress ? 'Replaced' : 'Added',
+      caption: change.warning,
+      detailTitle: change.title,
+      detailCopy: change.warning,
+      ackTitle: change.title,
+      ackCopy: change.warning,
+      risk: null,
+    };
+  }
   const value = change.rawData || change.data;
   const isContentClear = change.highRiskType === 'content-clear';
   // Say each fact once: the threshold is the row value, its use is the
@@ -832,7 +852,9 @@ const HighRiskStep = ({
                 {activeDetailItem.detailCopy}
               </Text>
               <View style={localStyles.detailRows}>
-                {activeDetailItem.rows.map(([label, value]) => (
+                {activeDetailItem.highRiskType === 'private-address' ? (
+                  <PrivateAddressChangeValues change={activeDetailItem} />
+                ) : activeDetailItem.rows.map(([label, value]) => (
                   <View key={label} style={localStyles.detailRow}>
                     <Text style={localStyles.detailLabel}>{label}</Text>
                     <Text selectable style={localStyles.detailValue}>
@@ -875,7 +897,9 @@ const HighRiskStep = ({
                 <View key={item.key} style={localStyles.sheetRow}>
                   <Text style={localStyles.sheetRowTitle}>{item.ackTitle}</Text>
                   <Text style={localStyles.sheetRowCopy}>{item.ackCopy}</Text>
-                  {Array.isArray(item.ackRows) && item.ackRows.length > 0 ? (
+                  {item.highRiskType === 'private-address' ? (
+                    <PrivateAddressChangeValues change={item} />
+                  ) : Array.isArray(item.ackRows) && item.ackRows.length > 0 ? (
                     <View style={localStyles.sheetAckRows}>
                       {item.ackRows.map(([label, value]) => (
                         <View key={label} style={localStyles.sheetAckRow}>

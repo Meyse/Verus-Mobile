@@ -98,6 +98,8 @@ export const classifyChanges = displayUpdates => {
           title: label.title,
           warning: label.warning,
           highRiskType: entry.highRiskType,
+          beforeAddress: entry.beforeAddress,
+          afterAddress: entry.afterAddress,
         });
       } else {
         contentChanges.push({
