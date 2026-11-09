@@ -11,7 +11,7 @@ import {
 import { Text, Button, Portal } from 'react-native-paper'
 import { createAlert } from "../../../../../actions/actions/alert/dispatchers/alert";
 import ServiceLogos from '../../../../../images/servicelogo/index'
-import { CommonActions } from '@react-navigation/native';
+import {resetToScreen} from "../../../../../utils/navigation/resetToScreen";
 import { requestSeeds } from "../../../../../utils/auth/authBox";
 import { ELECTRUM, WYRE_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { isSeedPhrase } from "../../../../../utils/keys";
@@ -80,27 +80,7 @@ class WyreServiceIntroSlider extends Component {
   }
 
   resetToScreen = (route, title, data, fullReset) => {
-    let resetAction
-
-    if (fullReset) {
-      resetAction = CommonActions.reset({
-        index: 0, // <-- currect active route from actions array
-        routes: [
-          { name: route, params: { data: data } },
-        ],
-      })
-    } else {
-      resetAction = CommonActions.reset({
-        index: 1, // <-- currect active route from actions array
-        routes: [
-          { name: "Home" },
-          { name: route, params: { title: title, data: data } },
-        ],
-      })
-    }
-
-    if (this.props.navigation.closeDrawer) this.props.navigation.closeDrawer();
-    this.props.navigation.dispatch(resetAction)
+    resetToScreen(this.props.navigation, route, title, data, fullReset);
   }
 
   linkWyre = (seed, channel) => {

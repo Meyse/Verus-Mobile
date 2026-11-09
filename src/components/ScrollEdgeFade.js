@@ -20,6 +20,8 @@ const ScrollEdgeFade = ({
   return (
     <View
       pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={[
         styles.fade,
         styles[edge],

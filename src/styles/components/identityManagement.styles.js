@@ -2,6 +2,7 @@ import {Platform, StyleSheet} from 'react-native';
 
 export const identityManagementStyles = StyleSheet.create({
   screen: {flex: 1},
+  scroll: {flex: 1, minHeight: 0, overflow: 'hidden'},
   content: {flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 28},
   footer: {paddingTop: 16},
   footerCompact: {paddingTop: 8},
@@ -18,6 +19,7 @@ export const identityManagementStyles = StyleSheet.create({
   returnAddress: {paddingLeft: 34, gap: 4},
   feeSource: {borderTopWidth: StyleSheet.hairlineWidth},
   warning: {marginTop: 16, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 8},
+  transferError: {marginTop: 12},
   changePanel: {borderRadius: 18, padding: 16, gap: 8, marginTop: 8},
   changeLabel: {marginTop: 4},
   skeleton: {gap: 12},

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {KeyboardAvoidingView, Platform, Text, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import FadedScrollView from '../../components/FadedScrollView';
@@ -47,11 +47,16 @@ const RevokeRecoverFlowScaffold = ({
   overlay,
   overlayVisible = false,
   progress,
+  error,
   showProgress = true,
   showBack = true,
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    if (error) scrollRef.current?.scrollToEnd({animated: false});
+  }, [error]);
   const Wrapper = keyboardAvoiding ? KeyboardAvoidingView : View;
   const wrapperProps = keyboardAvoiding
     ? {behavior: Platform.OS === 'ios' ? 'padding' : undefined}
@@ -76,6 +81,10 @@ const RevokeRecoverFlowScaffold = ({
         />
         <Wrapper {...wrapperProps} style={styles.content}>
           <FadedScrollView
+            ref={scrollRef}
+            onContentSizeChange={() => {
+              if (error) scrollRef.current?.scrollToEnd({animated: false});
+            }}
             bounces={false}
             containerStyle={styles.scrollViewport}
             contentContainerStyle={[

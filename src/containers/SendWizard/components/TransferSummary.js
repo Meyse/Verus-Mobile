@@ -1,6 +1,7 @@
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
+import PrivacyBlurredText from '../../../components/PrivacyBlurredText';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
@@ -13,17 +14,20 @@ const LOGO_SIZE = 40;
 // wraps to a second line instead of running into the amount. `loading` holds
 // the amount's place with a skeleton while the wallet still works it out.
 // Without an amount (a pre-conversion before its launch), the ticker takes the
-// amount's place.
+// amount's place. History details opt into `hideAmounts`; active payment
+// reviews and results keep their existing readable amounts.
 export const TransferNode = ({
   amount,
   coinId,
   fiat,
+  hideAmounts = false,
   label,
   loading = false,
   ticker,
 }) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
+  const AmountText = hideAmounts ? PrivacyBlurredText : Text;
 
   return (
     <View style={styles.node}>
@@ -35,7 +39,10 @@ export const TransferNode = ({
           {label}
         </Text>
       </View>
-      <View style={styles.value}>
+      <View
+        accessible={hideAmounts || undefined}
+        accessibilityLabel={hideAmounts ? 'Balance hidden' : undefined}
+        style={styles.value}>
         {loading ? (
           <SkeletonLoader style={styles.valueSkeleton}>
             <SkeletonBlock height={22} radius={6} width={112} />
@@ -49,7 +56,8 @@ export const TransferNode = ({
         ) : (
           <>
             <View style={styles.amountRow}>
-              <Text
+              <AmountText
+                {...(hideAmounts ? {hidden: true, blurRadius: 7, color: colors.textPrimary} : {})}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
                 numberOfLines={1}
@@ -59,7 +67,7 @@ export const TransferNode = ({
                   {color: colors.textPrimary},
                 ]}>
                 {amount}
-              </Text>
+              </AmountText>
               <Text
                 numberOfLines={1}
                 style={[styles.ticker, {color: colors.textSecondary}]}>
@@ -68,9 +76,11 @@ export const TransferNode = ({
               </Text>
             </View>
             {fiat ? (
-              <Text style={[theme.typography.caption, {color: colors.textSecondary}]}>
-                ≈ {fiat}
-              </Text>
+              <AmountText
+                {...(hideAmounts ? {hidden: true, blurRadius: 5, color: colors.textSecondary} : {})}
+                style={[theme.typography.caption, {color: colors.textSecondary}]}>
+                {`≈ ${fiat}`}
+              </AmountText>
             ) : null}
           </>
         )}

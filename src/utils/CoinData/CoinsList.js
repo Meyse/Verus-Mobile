@@ -27,6 +27,15 @@ import {
   WALLET_APP_SEND,
 } from '../constants/apps';
 import Colors from "../../globals/colors";
+import { VRPC_API_KEYS } from '../../../env/index';
+import { getUrlKey } from '../url';
+
+const V2_TESTNET_RPC_ENDPOINT = 'https://v2api.verustest.net';
+const v2TestnetKey = VRPC_API_KEYS?.[getUrlKey(V2_TESTNET_RPC_ENDPOINT)];
+const hasV2TestnetKey =
+  typeof v2TestnetKey === 'string' &&
+  v2TestnetKey.length > 0 &&
+  v2TestnetKey !== 'V2API_API_KEY';
 
 export const VERUS_APPS = {
   wallet: {
@@ -76,8 +85,7 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsc,
-    // The v2api servers accept only requests signed with a Verus app key, which
-    // our builds do not have. Use the v1 servers until we get one.
+    // Mainnet stays on V1: builds have no mainnet V2 signing key.
     vrpc_endpoints: ['https://api.verus.services'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
@@ -104,8 +112,8 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsctest,
-    // v1 server: see the note on VRSC.
-    vrpc_endpoints: ['https://api.verustest.net'],
+    // V2 requires a signing key. Keep builds with no key or the placeholder on V1.
+    vrpc_endpoints: [hasV2TestnetKey ? V2_TESTNET_RPC_ENDPOINT : 'https://api.verustest.net'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',
@@ -294,6 +302,7 @@ export const coinsList = {
     compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: "vrsc",
+    // Mainnet stays on V1: see the note on VRSC.
     vrpc_endpoints: ["https://api.verus.services"],
     decimals: 8,
     seconds_per_block: 60,

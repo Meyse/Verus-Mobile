@@ -9,6 +9,7 @@ export const HOME_NOTICE_OFFLINE = 'offline';
 export const HOME_NOTICE_UNREACHABLE = 'unreachable';
 export const HOME_NOTICE_EMPTY = 'empty';
 export const HOME_NOTICE_FOUND = 'found';
+export const HOME_NOTICE_SYNC = 'sync';
 
 // One card at a time under the Home balance: the first sentence in semibold
 // says the state, the second what to do, and the button does it.
@@ -40,13 +41,19 @@ const getCopy = ({kind, count}, handlers) => {
         // Review or close: either one ends the card for these currencies.
         onDismiss: handlers.onDismiss,
       };
+    case HOME_NOTICE_SYNC:
+      return {
+        highlight: 'Your Private card is syncing.',
+        text: 'Balances may be incomplete.',
+        onDismiss: handlers.onDismiss,
+      };
     default:
       return null;
   }
 };
 
 // Card A from the Home notifications. The found-assets card keeps card A's
-// close icon; the others go away by themselves when their state ends.
+// close icon, as does sync; the others go away when their state ends.
 const HomeNotice = ({notice, loading, onDismiss, onRetry, onReceive, onReview}) => {
   const theme = useOnboardingTheme();
   const copy = notice
@@ -58,16 +65,16 @@ const HomeNotice = ({notice, loading, onDismiss, onRetry, onReceive, onReview}) 
   return (
     <View style={styles.container}>
       <View
-        accessibilityLiveRegion="polite"
+        accessibilityLiveRegion={notice.kind === HOME_NOTICE_SYNC ? 'none' : 'polite'}
         style={[
           styles.card,
-          !copy.onDismiss && localStyles.card,
+          !copy.onDismiss && styles.cardWithoutDismiss,
           {backgroundColor: theme.colors.surfaceMuted},
         ]}>
         {/* The title flexes in a row, as in card A; in the column it would
             collapse to no height. */}
         <View style={styles.topRow}>
-          <Text style={[styles.title, {color: theme.colors.textPrimary}]}>
+          <Text style={[theme.typography.bodySm, styles.title, {color: theme.colors.textPrimary}]}>
             <Text style={styles.highlight}>{copy.highlight}</Text>
             {` ${copy.text}`}
           </Text>
@@ -80,17 +87,36 @@ const HomeNotice = ({notice, loading, onDismiss, onRetry, onReceive, onReview}) 
               <MaterialCommunityIcons
                 color={theme.colors.textSubtle}
                 name="close"
-                size={20}
+                size={18}
               />
             </TouchableOpacity>
           ) : null}
         </View>
+        {notice.kind === HOME_NOTICE_SYNC ? (
+          <View style={localStyles.progressRow}>
+            <View
+              accessible
+              accessibilityLabel="Private card sync"
+              accessibilityRole="progressbar"
+              accessibilityValue={{min: 0, max: 100, now: notice.percent}}
+              style={[localStyles.progressTrack, {backgroundColor: theme.colors.borderStrong}]}>
+              <View style={[localStyles.progressFill, {
+                backgroundColor: theme.colors.primary,
+                width: `${notice.percent}%`,
+              }]} />
+            </View>
+            <Text style={[theme.typography.caption, localStyles.percent, {color: theme.colors.textSecondary}]}>
+              {`${notice.percent}%`}
+            </Text>
+          </View>
+        ) : null}
         {copy.action ? (
           <AppButton
             buttonColor={theme.colors.surface}
             compact
-            height={36}
-            labelStyle={styles.actionLabel}
+            height={32}
+            preserveHeightOnSmallWindow
+            labelStyle={[theme.typography.labelSm, styles.actionLabel]}
             loading={notice.kind === HOME_NOTICE_UNREACHABLE && loading}
             onPress={copy.onAction}
             style={styles.action}
@@ -104,7 +130,11 @@ const HomeNotice = ({notice, loading, onDismiss, onRetry, onReceive, onReview}) 
   );
 };
 
-// Without the close icon the text keeps the card's 16-point inset on the right.
-const localStyles = StyleSheet.create({card: {paddingRight: 16}});
+const localStyles = StyleSheet.create({
+  progressRow: {flexDirection: 'row', alignItems: 'center', marginTop: 10, marginRight: 14},
+  progressTrack: {flex: 1, height: 4, borderRadius: 2, overflow: 'hidden'},
+  progressFill: {height: '100%', borderRadius: 2},
+  percent: {marginLeft: 10, fontVariant: ['tabular-nums']},
+});
 
 export default HomeNotice;

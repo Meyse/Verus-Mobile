@@ -7,6 +7,7 @@ import {
   LOG_NEW_CHANNELS,
   SET_USER_COINS,
   SET_USER_COINS_COMPLETE,
+  SET_BALANCE_SHOW,
 } from '../utils/constants/storeType';
 import { getDefaultSubWallets } from '../utils/defaultSubWallets';
 import { getVerusIdCurrency } from '../utils/CoinData/CoinData';
@@ -15,9 +16,18 @@ import { coinsList } from '../utils/CoinData/CoinsList';
 import {sessionActionIsCurrent} from '../actions/actions/updates/sessionRequests';
 import {ensureIdentityColorSlots} from '../utils/subwallet/identityColorSettings';
 import {convertFqnToDisplayFormat} from '../utils/fullyqualifiedname';
+import {saveBalanceVisibility} from '../utils/asyncStore/balancePrivacyStorage';
 
 export default function* setUserCoinsSaga() {
-  yield all([takeEvery(SET_USER_COINS, handleFinishSetUserCoins)]);
+  yield all([
+    takeEvery(SET_USER_COINS, handleFinishSetUserCoins),
+    takeEvery(SET_BALANCE_SHOW, persistBalanceVisibility),
+  ]);
+}
+
+function* persistBalanceVisibility() {
+  const showBalance = yield select(state => state.coins.showBalance);
+  yield call(saveBalanceVisibility, showBalance);
 }
 
 function* handleFinishSetUserCoins(action) {

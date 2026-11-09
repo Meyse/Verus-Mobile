@@ -67,6 +67,7 @@ export const DisplayCurrencySheet = ({
     <SelectionSheet
       title="Currencies"
       visible={visible}
+      showClose
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}
       // Android native modals resize; iOS needs avoidance around the sheet.
@@ -101,6 +102,14 @@ export const DisplayCurrencySheet = ({
           // Measure all 33 rows before scrolling, including wrapped/scaled names.
           initialNumToRender: currencies.length,
           keyExtractor: currency => currency,
+          // Rows can still be unmeasured on the first layout (seen on small
+          // Android). Without this handler, scrollToIndex throws.
+          onScrollToIndexFailed: ({index, averageItemLength}) => {
+            listRef.current?.scrollToOffset({
+              offset: index * averageItemLength,
+              animated: false,
+            });
+          },
           renderItem: ({item}) => (
             <SelectionRow
               title={item}

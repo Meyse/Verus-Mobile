@@ -412,6 +412,32 @@ const IdentityUpdateRequestInfoContent = props => {
 
   // --- Display updates ---
   const getDisplayUpdates = () => {
+    // subjectIdentity.identity is the chain identity used to prepare the update.
+    // An explicit empty vector removes its address but is omitted from JSON.
+    const removesPrivateAddress =
+      details.identity?.containsPrivateAddresses() &&
+      !details.identity.privateAddresses?.length;
+    const beforeAddress = identity.privateaddress || null;
+    const afterAddress = removesPrivateAddress
+      ? null
+      : identityUpdates.privateaddress || null;
+    const privateAddressChange =
+      beforeAddress !== afterAddress && (removesPrivateAddress || !!afterAddress)
+        ? {
+            data: afterAddress || 'No private address',
+            rawData: afterAddress,
+            beforeAddress,
+            afterAddress,
+            highRisk: true,
+            highRiskType: 'private-address',
+            highRiskTitle: !afterAddress
+              ? 'Remove private (Z) address'
+              : 'Change private address',
+            highRiskWarning: !afterAddress
+              ? 'This identity will no longer have a private receiving address.'
+              : 'Private payments sent to this identity can be directed to the private address.',
+          }
+        : null;
     const signDataMap = details.signDataMap || new KvMap();
     const getSignDataForKey = lookupKey => {
       if (signDataMap.hasAddress(lookupKey)) {
@@ -458,16 +484,7 @@ const IdentityUpdateRequestInfoContent = props => {
             : null,
       },
       [VERUSID_PRIVATE_INFO.key]: {
-        [VERUSID_PRIVATE_ADDRESS.key]:
-          identityUpdates.privateaddress &&
-          identityUpdates.privateaddress !== identity.privateaddress
-            ? {
-                data: displayIdentityAddress(identityUpdates.privateaddress),
-                rawData: identityUpdates.privateaddress,
-                // The content step row copies it with CopyAction.
-                copyValue: identityUpdates.privateaddress,
-              }
-            : null,
+        [VERUSID_PRIVATE_ADDRESS.key]: privateAddressChange,
       },
       [VERUSID_BASE_INFO.key]: {},
       [VERUSID_CMM_INFO.key]: {},

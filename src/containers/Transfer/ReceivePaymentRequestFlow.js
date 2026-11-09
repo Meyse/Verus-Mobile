@@ -542,6 +542,16 @@ const ReceivePaymentRequestFlow = ({
       return (
         <>
           <PaymentRequestSlip isSmall={isSmall} qrRef={qrRef} snapshot={snapshot} />
+          {snapshot.subject ? (
+            <View style={{marginTop: 20}}>
+              <Text style={[theme.typography.labelMd, {color: theme.colors.textSecondary}]}>
+                Note · Shared message only, not in the QR code
+              </Text>
+              <Text style={[theme.typography.bodySm, {color: theme.colors.textPrimary, marginTop: 4}]}>
+                {snapshot.subject}
+              </Text>
+            </View>
+          ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </>
       );

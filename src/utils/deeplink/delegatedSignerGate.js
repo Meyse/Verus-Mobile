@@ -15,11 +15,9 @@ export const DELEGATED_SIGNER_SELECTION_MODES = {
   SINGLE_PROFILE: 'single-profile',
 };
 
+// Every explicit app scope needs proof of control, including signer equality.
 export const isDelegatedSignerRequest = request =>
-  request.isSigned() &&
-  request.hasAppOrDelegatedID() &&
-  request.appOrDelegatedID.toAddress() !==
-    request.signature.identityID.toAddress();
+  request.isSigned() && request.hasAppOrDelegatorID();
 
 export const getDelegatedSignerUnlockPlan = (accounts, requestIsTestnet) => {
   const eligibleAccounts = (Array.isArray(accounts) ? accounts : []).filter(

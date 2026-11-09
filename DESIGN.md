@@ -311,6 +311,15 @@ a complete address choice readable on compact screens. Normal states remain at
 76%. Nested identity linking and the searchable Coin Card picker retain their
 specialized composition and behavior.
 
+Multi-select `SelectionRow`s use the checkbox role (owner-approved V2,
+2026-11-04). Each choosable row shows the `CheckOption` glyph:
+`checkbox-blank-outline` or `checkbox-marked` from MaterialCommunityIcons,
+24 points in `link`. Center it in the right indicator slot, 24 points wide
+with a 10-point left gap. Both states keep `surfaceMuted`, without an outline
+or success fill. Busy-disabled rows keep their current box, dimmed with the
+text. The row exposes its checked state; the glyph stays hidden from
+accessibility. Single-choice rows keep their success fill and check.
+
 The Send/Convert network sheet ("Choose a network") groups its rows with
 `SelectionGroup`. "Same network" holds the asset's own network and is always
 first; "Other networks" holds the rest in route order. Row titles are the plain
@@ -437,6 +446,10 @@ login screen and for requests (`WalletUnlockCoordinator`).
   animation. Do not clear visible content during `onClose`.
 - A simple sheet closes through outside tap or system back. Add explicit close
   chrome only when the task is blocking, destructive, or nested.
+- Owner exception, 2026-11-05: the display currency sheet ("Currencies") shows
+  `HeaderCloseButton` on the right of its title (`SelectionSheet showClose`).
+  It fills most of the screen and has a search field, so the dimmed area left
+  to tap is small, and iOS has no system Back. Other simple sheets keep no X.
 - Keep a loading or verification sheet's height stable while its internal state
   changes.
 
@@ -841,9 +854,9 @@ Lucide Plus icon and `link` in both themes. It opens the unfilled `GiftCardOptio
 add action and open that picker directly. Hide the action when neither remains.
 Adding a currency lists only currencies outside the gift, makes the choice the
 empty main amount, and moves the previous positive amount to the first extra.
-"Choose VerusIDs" is a multi-select `SelectionSheet`: success fill and check
-for selected rows, no chevron for unselected rows. Its bottom action counts
-only VerusIDs new to the gift: "Add 1 VerusID" or "Add 2 VerusIDs". It reads
+"Choose VerusIDs" follows the multi-select `SelectionRow` rule above.
+Its bottom action counts only VerusIDs new to the gift: "Add 1 VerusID" or
+"Add 2 VerusIDs". It reads
 "Done" when the draft adds nothing or removes a VerusID.
 Only that action applies the draft. Outside tap and Back discard it.
 
@@ -1197,6 +1210,9 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
   "My address" for other cards. Do not label a row as a conversion; the owner
   removed those labels on 2026-10-19.
 - Keep the chevron, the amount, ticker and fiat value column, and the skeleton rows.
+- Hidden balances also blur all transaction amounts and fiat values in history
+  rows and the Transaction sheet, including fees; accessibility says "Balance hidden".
+  The hidden/shown choice is per phone and survives account changes and app restarts.
 
 ## Transaction details
 
@@ -1416,8 +1432,9 @@ and Modify option B (MB1–MB4). The canonical sources are
 and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
 
 - Transfer is one flat form, then review. Modify first chooses sections with
-  multi-select `SelectionRow`s. Show only chosen sections, in Spend and sign,
-  Revoke and recover, Private address order, then review. Restore loaded values
+  multi-select `SelectionRow`s, following the checkbox rule above. Show only
+  chosen sections, in Spend and sign, Revoke and recover, Private address order,
+  then review. Restore loaded values
   when a section is deselected. Keep one fields state, one diff and one engine
   preparation. Progress is `(index + 1) / (max(chosen sections, 1) + 2)`, so the choose step
   starts at one third (MB1).
@@ -1429,12 +1446,16 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   hold button. Consent gates its handler as well as its disabled state. Modify
   before/after pairs use the approved soft-fill review panel. Results use
   `TransactionResult`; Retry unlink is primary and never sends again.
-- Link is a full page with `SelectionRow` multi-selection, search from 7 items,
-  skeleton loading, a counted Link action, failed rows first and still selected,
+- Link is a full page with the multi-select `SelectionRow` rule above,
+  search from 7 items, skeleton loading, a counted Link action,
+  failed rows first and still selected,
   and the existing manual-link fallback after discovery failure. The page header
   info action keeps the upstream linking explanation and wallet addresses in an
   `InfoSheet`. Do not invent
   a filtered-out count. Keep network choice when several networks are available.
+  An already-linked row has no box or subtitle. Show `Linked` with `quietValue`
+  at full opacity and dim only its name to 0.6. The row is read-only. Keep the
+  checkbox role, checked and disabled states, and `<name>. Already linked` label.
   Management and Link hide the tab bar while active.
 
 ### New VerusID registration
@@ -1448,11 +1469,19 @@ and `identityRegistration.styles.js`. This applies to registration only.
   the growing namespace segment. The divider uses the outline's current color.
   Focus wraps both. Taken uses a danger outline
   and the status badge. No fill. V3 replaces the earlier filled R/NS fields.
-- Use `ProgressHeader` without the progress track for the combined "New
-  VerusID" task. Its right action contains the 44-point Info and Close targets.
-  The content keeps the signed-in 20/24/28-point insets. Use the Send hold
-  button and `SafeBottomActionStack`. First hold commits; a separate second
-  hold registers after one confirmation. Preserve all upstream recovery paths.
+- Use the shared continuous `ProgressHeader` track for Name, Referral when
+  allowed, and Check details. Its right action keeps the 44-point Info and Close
+  targets. Referral uses single-choice `SelectionRow`s: success fill and check,
+  no outline. Check details opens "Choose an address" from Pay from. Its rows
+  show balances as Send does, without "confirmed". The content keeps the signed-in
+  20/24/28-point insets. Use the Send hold button and `SafeBottomActionStack`.
+  First hold commits; a separate second hold registers after one confirmation.
+  Preserve all upstream recovery paths.
+- Root registrations on VRSC and VRSCTEST show "Verus Coin Foundation@" only
+  when the namespace allows referrals. Select it by default when its quoted
+  price is affordable. Keep "Someone else" and "No referral". Namespace changes
+  reset the default; Back and Continue keep an explicit choice. The row prices
+  and Check details split explain the discount and referral payment.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
   seven items, success fill/check for selection and no unselected chevron.
   Hide unavailable namespaces and list the chain's own namespace first, then A–Z.
@@ -1467,18 +1496,45 @@ and `identityRegistration.styles.js`. This applies to registration only.
   Saved/pending jobs use the VerusID tab's filled-row rhythm and Continue pill.
   Results reuse `TransactionResult` and the existing `VerusIdCard`.
 
+## Home value chart
+
+Home starts with a closed 48-point value strip (44 on compact windows). Its
+44-point range label and down chevron open the chart. A strip tap also opens it;
+a horizontal scrub does not. Open keeps the 124-point chart (108 compact) and
+range row, with an up-chevron toggle at its end. The phone remembers open or
+closed across accounts and restarts, without an opening animation on load.
+Height changes take 240 ms with the V2 ease-out curve. Redraw the line without
+scaling it; Reduce Motion is instant. During a closed-strip scrub, the date
+replaces the hero pill and the eye and plus fade out. Keep the existing chart
+tokens, loading skeletons, hidden balances, and day-one behavior.
+
 ## Home notification card
 
-The owner chose card A on 2026-10-22 (gap 5 mockups). A VerusID request
+The owner chose card A on 2026-10-22 (gap 5 mockups). On 2026-11-04, the owner
+chose look A of the notice-size mockups: the same layout, scaled down.
+A VerusID request
 (`NotificationWidget.js`) shows one card under the Home balance.
 
-- `surfaceMuted` fill, 18-point corners, no border. The name in semibold and the
-  rest in regular, 16/22: "<name>@ is ready" or "<name>@ could not be created".
-- One small `AppButton` (`compact`, 36 points, 12-point corners) on the page
+- `surfaceMuted` fill, 16-point corners, no border. Padding is 12 points at the
+  top and bottom and 14 on the left. Right padding is 0 with a close target,
+  or 14 without it. The name is semibold and the rest regular in `bodySm`
+  (14/20): "<name>@ is ready" or "<name>@ could not be created".
+- A second body line uses `caption` (13/18), `textSecondary`, and a 14-point
+  right inset. Registration cards show the name alone in semibold `bodySm`,
+  then the status in `caption` and `textSecondary`, 2 points below it.
+- One small secondary `AppButton` (`compact`, 32 points, 10-point corners) on the page
   color, because the secondary tint disappears on the gray card. The label is
-  the request's action ("Link VerusID", "Use") or "Try again".
-- A close icon (20 points, `textSubtle`) in a 44-point target removes the card.
-  No "×" letter and no filled circle.
+  `labelSm` (13/18 semibold), with 12-point side margins. It sits 10 points below
+  the text. The label is the request's action ("Link VerusID", "Use") or "Try again".
+  Only notice buttons opt out of the small-window height rule. They stay 32
+  points on iPhone SE. `getButtonHitSlop` adds 8 points above and below for a
+  48-point touch target. Other action buttons keep the shared 44-point rule.
+- A close icon (18 points, `textSubtle`) in a 44-point target removes the card.
+  Center it on the first 20-point line. Its target is flush with the right
+  edge, so the glyph sits 13 points from it. No "×" letter and no filled circle.
+- Cards have an 8-point gap. Each container has 4-point top and 6-point bottom
+  padding. After a Home notice, the notification container uses 2-point top
+  padding, so the gap stays 8 points.
 
 ### Ready card celebration
 
@@ -1491,6 +1547,9 @@ failed request keeps the gray card.
   material like the gift card, not a theme token. No border, no traced outline.
   The close icon uses `textSecondary`, because `textSubtle` is too faint on the
   tint.
+- It uses the smaller look A sizes: 16-point corners, 12/0/12/14 padding,
+  14/20 name and rest, an 18-point close icon in its 44-point target, and the
+  32-point button with a 13/18 label. Confetti uses the measured card size.
 - The first time the card shows, it celebrates once (2.2 s): the tint blooms,
   the name rises into place, "is ready" fades up, and 12 confetti pieces fall
   behind the text. With Reduce Motion, the tint only fades in.
@@ -1504,9 +1563,12 @@ the Home balance, above the notification cards. The owner approved the
 connection card on 2026-10-26 (issue 4 of the first E2E night run) and the
 welcome card the same day (option D of the empty-Home mockups).
 
-- It uses the card A look and its styles: `surfaceMuted`, 18-point corners and
-  16/22 text with the first sentence in semibold. Only the found-assets card
-  has card A's close icon; the others go away by themselves when their state
+- It uses the smaller look A and its shared styles: `surfaceMuted`, 16-point
+  corners, 12-point top and bottom padding, and 14/20 `bodySm` text with the
+  first sentence in semibold. The left inset is 14 points. The right inset is
+  14 without a close target, or 0 with one. Actions keep the 32-point button,
+  including on iPhone SE. Found-assets and sync cards have the 18-point close
+  icon in a 44-point target; the others go away by themselves when their state
   ends.
 - The first state that applies wins:
   1. Offline: "**No internet connection.** Balances may be out of date." No
@@ -1523,7 +1585,19 @@ welcome card the same day (option D of the empty-Home mockups).
      not come back for them, also when the user adds nothing (owner,
      2026-10-26). They stay under "New assets found". A currency found later
      shows the card again, counting only the new one.
-  4. The wallet is empty: every transparent and VerusID card of every asset,
+  4. A Private card is syncing: "**Your Private card is syncing.** Balances may
+     be incomplete." Show it for a known percent below 99. Unknown (-1) shows
+     no card. Read `selectPrivateWalletInfo` and `getPrivateSyncPercent` for
+     the signed-in account's active coins that have a private card. With more
+     than one syncing coin, use the lowest percent, rounded down.
+     There is no button. A row sits 10 points below the text, with a 14-point
+     right inset. Its progress bar is 4 points high with 2-point corners:
+     `borderStrong` track, `primary` fill. The percent uses tabular `caption`
+     (13/18) in `textSecondary`, 10 points after the bar. The bar exposes the
+     progressbar role and its 0–100 value. The card has no live announcements
+     for percent changes. Close hides it until the wallet opens again. Keep
+     this dismissal in memory only.
+  5. The wallet is empty: every transparent and VerusID card of every asset,
      hidden ones too, is known to hold 0, pending funds included, and nothing
      was found or pre-converted: "**Your wallet is empty.** Receive coins to
      start." with "Receive", which opens the Receive list. A private card that

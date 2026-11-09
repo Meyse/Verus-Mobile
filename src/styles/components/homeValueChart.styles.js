@@ -2,13 +2,25 @@ import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
   block: { paddingBottom: 8 },
-  chart: { marginHorizontal: 20 },
-  ranges: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 8 },
+  plot: { marginHorizontal: 20 },
+  ranges: {
+    flexDirection: 'row', justifyContent: 'space-between', marginLeft: 8, overflow: 'hidden',
+  },
   range: { width: 44, alignItems: 'center', justifyContent: 'center' },
+  toggle: {
+    position: 'absolute',
+    right: 0,
+    width: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 2,
+  },
   selected: { fontWeight: '700' },
   tabular: { fontVariant: ['tabular-nums'] },
   day1: { marginTop: 4, marginHorizontal: 20, marginBottom: 14 },
-  skeleton: { marginHorizontal: 20, paddingTop: 28 },
+  skeleton: { paddingTop: 28 },
+  scrubDate: { paddingVertical: 3 },
   label: {
     position: 'absolute', top: 0, height: 22, maxWidth: '100%',
   },

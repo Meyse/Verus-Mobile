@@ -10,6 +10,7 @@ import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
+import AppStatusBadge from '../../../../../components/StatusBadge';
 import SelectionSheet, {SelectionRow} from '../../../../../components/SelectionSheet';
 import SkeletonLoader, {SkeletonBlock} from '../../../../../components/SkeletonLoader';
 import useSheetDismissal from '../../../../../components/useSheetDismissal';
@@ -55,6 +56,14 @@ export function useManagementKeyboard() {
   return keyboardOpen;
 }
 
+export function ManagementError({error, busy, onRetry}) {
+  if (!error) return null;
+  return <View accessibilityRole="alert" accessibilityLiveRegion="assertive">
+    <ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
+    {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
+  </View>;
+}
+
 export function ManagementPage({children, title, progress, onBack, busy, error, footer, info, infoTitle, infoHeight, onRetry}) {
   const theme = useOnboardingTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
@@ -68,20 +77,17 @@ export function ManagementPage({children, title, progress, onBack, busy, error, 
         disabled={busy} onPress={() => {Keyboard.dismiss(); setInfoOpen(true);}} /> : undefined} />
     <KeyboardAvoidingForm style={styles.screen}>
       <VerusIdFormScrollContext.Provider value={formScroll.context}>
-      <FadedScrollView key={title} containerStyle={styles.screen}
+      <FadedScrollView key={title} containerStyle={styles.scroll}
         ref={formScroll.scrollRef} onLayout={formScroll.onLayout} onContentSizeChange={formScroll.onContentSizeChange}
-        showEndFade={!keyboardOpen}
         contentContainerStyle={[styles.content, formScroll.keyboardPadding]}
         fadeBackgroundColor={theme.colors.background} keyboardShouldPersistTaps="handled">
         {children}
       </FadedScrollView>
       </VerusIdFormScrollContext.Provider>
-      <View onLayout={formScroll.onFooterLayout} style={{flexShrink: 0}}>
+      <View onLayout={formScroll.onFooterLayout} style={{flexShrink: 0, backgroundColor: theme.colors.background}}>
       <SafeBottomActionStack horizontalSpacing={20} bottomSpacing={keyboardOpen ? 12 : smallDevice ? 30 : 48}
         includeBottomInset={!keyboardOpen} gap={8} style={[styles.footer, smallDevice && styles.footerCompact]}>
-        {!!error && <View accessibilityRole="alert" accessibilityLiveRegion="assertive"><ErrorMessage>{verusIdErrorMessage(error)}</ErrorMessage>
-          {isVerusIdTransportError(error) && onRetry && <TextAction disabled={busy} onPress={onRetry}>Try again</TextAction>}
-        </View>}
+        <ManagementError error={error} busy={busy} onRetry={onRetry} />
         {footer}
       </SafeBottomActionStack>
       </View>
@@ -96,10 +102,11 @@ export function ManagementPage({children, title, progress, onBack, busy, error, 
 export const ActionButton = ({busy, disabled, children, secondary, ...props}) => <AppButton
   {...props} disabled={busy || disabled} loading={busy} variant={secondary ? 'secondary' : 'primary'}>{children}</AppButton>;
 
-export function DetailRow({label, children, technical = false}) {
+export function DetailRow({label, children, technical = false, status}) {
   const theme = useOnboardingTheme();
   return <View style={[technical ? styles.stackedFact : styles.fact, {borderColor: theme.colors.border}]}>
-    <Body muted style={technical ? undefined : styles.flexible}>{label}</Body>
+    {status ? <AppStatusBadge label={status} tone="neutral" />
+      : !!label && <Body muted style={technical ? undefined : styles.flexible}>{label}</Body>}
     <Text selectable={technical} style={[theme.typography.labelMd, {color: theme.colors.textPrimary},
       technical ? styles.identifier : styles.factValue]} accessibilityLabel={verusIdText(children)}>{wrapVerusIdNames(verusIdText(children))}</Text>
   </View>;

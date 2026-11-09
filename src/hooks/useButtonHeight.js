@@ -3,10 +3,10 @@ import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from './useOnboardingSmallDeviceLayo
 import {APP_BUTTON_HEIGHT, APP_BUTTON_SMALL_HEIGHT} from '../styles/components/appButton.styles';
 
 // Use the window, not the keyboard-contracted form, for the compact rule.
-export const useButtonHeight = (variant = 'primary', height = APP_BUTTON_HEIGHT) => {
+export const useButtonHeight = (variant = 'primary', height = APP_BUTTON_HEIGHT, preserveHeightOnSmallWindow = false) => {
   const {height: windowHeight} = useWindowDimensions();
   const action = ['primary', 'destructive', 'secondary', 'tonal'].includes(variant);
-  return action && windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT
+  return action && !preserveHeightOnSmallWindow && windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT
     ? APP_BUTTON_SMALL_HEIGHT
     : height;
 };

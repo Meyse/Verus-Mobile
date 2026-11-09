@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
+import {isCustomImportSeed} from '../../../../../utils/importSeed';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
 import {createSignedOutFlowStyles} from '../../../../../styles';
@@ -34,6 +35,7 @@ export default function ImportText({
     [theme],
   );
   const [showSeed, setShowSeed] = useState(false);
+  const customSeed = useMemo(() => isCustomImportSeed(importedSeed), [importedSeed]);
   const contentProgress = useRef(new Animated.Value(0)).current;
   const {keyboardVisible, smallDeviceKeyboardVisible} =
     useOnboardingSmallDeviceLayout();
@@ -129,6 +131,9 @@ export default function ImportText({
                 importantForAutofill="no"
                 inputStyle={styles.seedInputText}
                 label="Custom seed or private key"
+                helperText={customSeed
+                  ? 'This is not a private key or recovery phrase. It will be used as a custom seed.'
+                  : undefined}
                 multiline={showSeed && Platform.OS !== 'ios'}
                 onChangeText={setImportedSeed}
                 onRightPress={() => setShowSeed(value => !value)}

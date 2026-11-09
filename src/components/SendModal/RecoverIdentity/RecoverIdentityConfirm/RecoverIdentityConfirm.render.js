@@ -47,9 +47,14 @@ export const RecoverIdentityConfirmRender = ({
   return (
     <RevokeRecoverFlowScaffold
       headerTitle="Review recovery"
+      error={submitError}
       onBack={goBack}
       progress={0.85}
-      actions={
+      actions={submitError ? (
+        <AppButton onPress={goBack} testID="revokeRecover.reviewAgain">
+          Review again
+        </AppButton>
+      ) : (
         <>
           <RevokeRecoverAcknowledgement
             label="I checked these changes"
@@ -63,7 +68,7 @@ export const RecoverIdentityConfirmRender = ({
             Submit recovery
           </AppButton>
         </>
-      }>
+      )}>
       <IdentityContext
         name={identityName(targetId)}
         networkName={networkName}

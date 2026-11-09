@@ -1,3 +1,6 @@
+import {getAppEncryptionSessionKey} from '../../../utils/deeplink/appEncryptionSession';
+import VrpcProvider from '../../../utils/vrpc/vrpcInterface';
+import {appEncryptionIdentityMatchesConstraints, getAppEncryptionIdentityConstraints} from '../../../utils/deeplink/validator/appEncryptionIdentityConstraints';
 import {useRequestBackHandler} from '../useRequestNavigation';
 import React, {
   useCallback,
@@ -12,6 +15,7 @@ import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import StatusBadge from '../../../components/StatusBadge';
+import {InfoSheetRow} from '../../../components/InfoSheetSection';
 import {Info} from 'lucide-react-native';
 import {GenericResponse} from 'verus-typescript-primitives';
 import AppButton from '../../../components/AppButton';
@@ -72,6 +76,7 @@ import {
 } from '../../../utils/verusid/verusIdFlowGuards';
 import {
   appEncryptionRequestInfoStyles as createAppEncryptionRequestInfoStyles,
+  requestCardStyles as createRequestCardStyles,
 } from '../../../styles';
 import {
   OnboardingThemeProvider,
@@ -115,46 +120,16 @@ const getUriString = uri => {
   return String(uri);
 };
 
-const getRequestChainKey = (linkedIds, requestIdentityChainId) => {
-  const normalizedRequestChainId = String(requestIdentityChainId).toLowerCase();
-  return (
-    Object.keys(linkedIds || {}).find(
-      chainId => chainId.toLowerCase() === normalizedRequestChainId,
-    ) || requestIdentityChainId
-  );
-};
+const buildMatchingIdentities = (linkedIds, preferredChain) =>
+  [preferredChain, ...Object.keys(linkedIds || {}).filter(chain => chain !== preferredChain)]
+    .flatMap(chainId => Object.keys(linkedIds?.[chainId] || {})
+      .sort((a, b) => (linkedIds[chainId][a] || '').localeCompare(linkedIds[chainId][b] || ''))
+      .map(iAddress => ({chainId, iAddress, friendlyName: linkedIds[chainId][iAddress] || iAddress})));
 
-const buildMatchingIdentities = (linkedIds, requestIdentityChainId) => {
-  const linkedChainKey = getRequestChainKey(linkedIds, requestIdentityChainId);
-  const chainIds = linkedIds?.[linkedChainKey] || {};
-
-  return Object.keys(chainIds)
-    .sort((left, right) =>
-      (chainIds[left] || '').localeCompare(chainIds[right] || ''),
-    )
-    .map(iAddress => ({
-      chainId: requestIdentityChainId,
-      iAddress,
-      friendlyName: chainIds[iAddress] || iAddress,
-    }));
-};
-
-const buildPickerIdentityData = (linkedIds, requestIdentityChainId) => {
-  const linkedChainKey = getRequestChainKey(linkedIds, requestIdentityChainId);
-  const chainIds = linkedIds?.[linkedChainKey] || {};
-  const sortedAddresses = Object.keys(chainIds).sort((left, right) =>
-    (chainIds[left] || '').localeCompare(chainIds[right] || ''),
-  );
-
-  return {
-    linkedIds: {
-      [requestIdentityChainId]: chainIds,
-    },
-    sortedIds: {
-      [requestIdentityChainId]: sortedAddresses,
-    },
-  };
-};
+const buildPickerIdentityData = linkedIds => ({
+  linkedIds,
+  sortedIds: Object.fromEntries(Object.entries(linkedIds).map(([chain, ids]) => [chain, Object.keys(ids)])),
+});
 
 const findPreferredIdentity = ({
   linkedIds,
@@ -210,12 +185,15 @@ const AppEncryptionRequestInfoContent = props => {
     signerIdentityID,
     sigtime,
     derivationNumber,
+    secondaryDerivationNumber,
+    appScopeID,
+    appScopeFqn,
+    derivationIdentityID,
     derivationIdFqn,
     hasDerivationID,
     requestIdFqn,
     hasRequestID,
     encryptResponseToAddress,
-    hasEncryptResponseToAddress,
     returnESK,
     cancel,
     next,
@@ -223,6 +201,7 @@ const AppEncryptionRequestInfoContent = props => {
     request,
     detailIndex,
     navigation,
+    sessionKey,
   } = props;
 
   const theme = useOnboardingTheme();
@@ -230,6 +209,7 @@ const AppEncryptionRequestInfoContent = props => {
     () => createAppEncryptionRequestInfoStyles(theme),
     [theme],
   );
+  const reviewStyles = useMemo(() => createRequestCardStyles(theme), [theme]);
   const dispatch = useDispatch();
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
@@ -250,12 +230,14 @@ const AppEncryptionRequestInfoContent = props => {
     signedIn &&
     activeAccount != null &&
     accountIsTestnet(activeAccount) === requestIsTestnet;
+  const requestHex = request.toBuffer().toString('hex');
+  const linkedIdsVersion = JSON.stringify(encryptedIds);
   const requestIdentityChainId = requestIsTestnet
     ? ROOT_CHAIN_BY_NETWORK.testnet
     : ROOT_CHAIN_BY_NETWORK.mainnet;
   const requestCoinObj = useMemo(
-    () => CoinDirectory.findCoinObj(requestIdentityChainId),
-    [requestIdentityChainId],
+    () => CoinDirectory.findCoinObj(signerSystemID || requestIdentityChainId),
+    [signerSystemID, requestIdentityChainId],
   );
   const systemLabel =
     signerSystemName || getOfflineSystemName(signerSystemID) || signerSystemID;
@@ -269,8 +251,29 @@ const AppEncryptionRequestInfoContent = props => {
     () => getGenericRequestDeliveryInfo(request),
     [request],
   );
-  const [linkedIds, setLinkedIds] = useState({});
-  const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
+  const [linkedIdentityData, setLinkedIdentityData] = useState(null);
+  const [parentData, setParentData] = useState(null);
+  const linkedIdsLoaded = activeAccountMatchesRequest && linkedIdentityData?.source === encryptedIds;
+  const allLinkedIds = useMemo(() => linkedIdsLoaded ? linkedIdentityData.ids : {}, [linkedIdsLoaded, linkedIdentityData]);
+  const constraints = useMemo(() => {
+    try { return getAppEncryptionIdentityConstraints(request); }
+    catch (_) { return null; }
+  }, [request, requestHex]);
+  const parentScope = useMemo(() => ({allLinkedIds, constraints}), [allLinkedIds, constraints]);
+  const linkedIds = useMemo(() => {
+    const eligible = {};
+    if (!constraints || (constraints.parentIDs.size > 0 && parentData?.scope !== parentScope)) return eligible;
+    for (const [chain, ids] of Object.entries(allLinkedIds)) {
+      let coin;
+      try { coin = CoinDirectory.findCoinObj(chain); } catch (_) { continue; }
+      if (!coin || !!coin.testnet !== requestIsTestnet) continue;
+      eligible[chain] = Object.fromEntries(Object.entries(ids).filter(([identityID]) =>
+        appEncryptionIdentityMatchesConstraints(constraints, {
+          identityID, systemID: coin.system_id, parentID: parentData?.ids[`${chain}:${identityID}`],
+        })));
+    }
+    return eligible;
+  }, [allLinkedIds, constraints, parentData, parentScope, requestIsTestnet]);
   const [selectedIdentity, setSelectedIdentity] = useState(null);
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -307,43 +310,64 @@ const AppEncryptionRequestInfoContent = props => {
     () => buildPickerIdentityData(linkedIds, requestIdentityChainId),
     [linkedIds, requestIdentityChainId],
   );
-  const isRequestChainId = useCallback(
-    chainId =>
-      String(chainId).toLowerCase() ===
-      String(requestIdentityChainId).toLowerCase(),
-    [requestIdentityChainId],
-  );
   const isIdentityAllowed = useCallback(
-    chainId => isRequestChainId(chainId),
-    [isRequestChainId],
+    (chainId, identityID) => !!linkedIds[chainId]?.[identityID], [linkedIds],
   );
-  const isAutoLinkCandidateAllowed = useCallback(
-    candidate => {
-      const chainId = candidate?.chainId || requestIdentityChainId;
-      return Boolean(candidate?.identityAddress && isRequestChainId(chainId));
-    },
-    [isRequestChainId, requestIdentityChainId],
-  );
+  const isAutoLinkCandidateAllowed = useCallback(candidate => {
+    let coin;
+    try { coin = CoinDirectory.findCoinObj(candidate?.chainId || requestIdentityChainId); }
+    catch (_) { return false; }
+    return !!coin && !!coin.testnet === requestIsTestnet && !!constraints &&
+      appEncryptionIdentityMatchesConstraints(constraints, {
+        identityID: candidate?.identityAddress, systemID: coin.system_id,
+        parentID: candidate?.identity?.parent,
+      });
+  }, [constraints, requestIdentityChainId, requestIsTestnet]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const ids = {};
+      await Promise.all(Object.keys(allLinkedIds).map(async chain => {
+        let coin;
+        try { coin = CoinDirectory.findCoinObj(chain); } catch (_) { return; }
+        if (!coin?.vrpc_endpoints?.[0] || !!coin.testnet !== requestIsTestnet) return;
+        try { VrpcProvider.initEndpoint(coin.system_id, coin.vrpc_endpoints[0]); }
+        catch (_) { return; }
+        await Promise.all(Object.keys(allLinkedIds[chain]).map(async id => {
+          try {
+            const result = await getIdentity(coin.system_id, id);
+            if (!result.error) ids[`${chain}:${id}`] = result.result?.identity?.parent;
+          } catch (_) { /* Unverified parents stay ineligible. */ }
+        }));
+      }));
+      if (active && getAppEncryptionSessionKey(Store.getState()) === sessionKey) setParentData({scope: parentScope, ids});
+    };
+    if (linkedIdsLoaded && constraints?.parentIDs.size > 0) load();
+    return () => {active = false;};
+  }, [parentScope, linkedIdsLoaded, requestIsTestnet, sessionKey]);
 
   const loadLinkedIds = useCallback(async isCurrent => {
     const shouldApply = () =>
-      typeof isCurrent === 'function' ? isCurrent() : true;
+      getAppEncryptionSessionKey(Store.getState()) === sessionKey &&
+      (typeof isCurrent === 'function' ? isCurrent() : true);
 
     try {
       const verusIdServiceData = await requestServiceStoredData(
         VERUSID_SERVICE_ID,
       );
-      const nextLinkedIds = verusIdServiceData.linked_ids || {};
+      // Preserve legacy root-chain key casing. PBaaS identifiers stay exact.
+      const nextLinkedIds = Object.fromEntries(Object.entries(verusIdServiceData.linked_ids || {}).map(([chain, ids]) => [
+        Object.values(ROOT_CHAIN_BY_NETWORK).find(root => root.toLowerCase() === chain.toLowerCase()) || chain, ids,
+      ]));
 
-      if (shouldApply()) setLinkedIds(nextLinkedIds);
+      if (shouldApply()) setLinkedIdentityData({source: encryptedIds, ids: nextLinkedIds});
       return nextLinkedIds;
     } catch (e) {
-      if (shouldApply()) setLinkedIds({});
+      if (shouldApply()) setLinkedIdentityData({source: encryptedIds, ids: {}});
       return {};
-    } finally {
-      if (shouldApply()) setLinkedIdsLoaded(true);
     }
-  }, []);
+  }, [encryptedIds, sessionKey]);
 
   const loadLinkedIdsAndSelect = useCallback(
     async ({
@@ -353,9 +377,10 @@ const AppEncryptionRequestInfoContent = props => {
       isCurrent,
     }) => {
       const shouldApply = () =>
-        typeof isCurrent === 'function' ? isCurrent() : true;
+        getAppEncryptionSessionKey(Store.getState()) === sessionKey &&
+      (typeof isCurrent === 'function' ? isCurrent() : true);
 
-      if (shouldApply()) setLinkedIdsLoaded(false);
+      if (shouldApply()) setLinkedIdentityData(null);
 
       const nextLinkedIds = await loadLinkedIds(isCurrent);
       const nextIdentity = findPreferredIdentity({
@@ -383,20 +408,20 @@ const AppEncryptionRequestInfoContent = props => {
   );
 
   useEffect(() => {
+    let active = true;
     if (signedIn) {
-      setLinkedIdsLoaded(false);
-      loadLinkedIds();
+      loadLinkedIds(() => active);
     } else {
-      setLinkedIds({});
-      setLinkedIdsLoaded(false);
+      setLinkedIdentityData(null);
       setSelectedIdentity(null);
     }
+    return () => {active = false;};
   }, [encryptedIds, loadLinkedIds, signedIn]);
 
   useEffect(() => {
     if (!activeAccountMatchesRequest) return;
     if (!linkedIdsLoaded) return;
-    if (selectedIdentity) return;
+    if (selectedIdentity && isIdentityAllowed(selectedIdentity.chainId, selectedIdentity.iAddress)) return;
     if (matchingIdentities.length === 0) return;
 
     setSelectedIdentity(matchingIdentities[0]);
@@ -405,14 +430,15 @@ const AppEncryptionRequestInfoContent = props => {
     linkedIdsLoaded,
     matchingIdentities,
     selectedIdentity,
+    isIdentityAllowed,
   ]);
 
   useEffect(() => {
     if (!selectedIdentity) return;
-    if (selectedIdentity.chainId === requestIdentityChainId) return;
+    if (isIdentityAllowed(selectedIdentity.chainId, selectedIdentity.iAddress)) return;
 
     setSelectedIdentity(null);
-  }, [requestIdentityChainId, selectedIdentity]);
+  }, [isIdentityAllowed, selectedIdentity]);
 
   useEffect(() => {
     if (!openIdentityAfterUnlock) return;
@@ -423,25 +449,25 @@ const AppEncryptionRequestInfoContent = props => {
     setIdentitySheetVisible(true);
   }, [activeAccountMatchesRequest, linkedIdsLoaded, openIdentityAfterUnlock]);
 
-  const canOpenSignerDetails = signerSystemName && signerIdentityID;
+  const canOpenSignerDetails = signerSystemID && signerIdentityID;
 
   const loadSignerVerusId = useCallback(async () => {
     if (!canOpenSignerDetails) {
       throw new Error('Signer identity is not available');
     }
 
-    const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
+    const coinObj = CoinDirectory.getBasicCoinObj(signerSystemID);
     if (!coinObj) throw new Error('Signer network is not available');
 
     const res = await getIdentity(coinObj.system_id, signerIdentityID);
     if (res.error) throw new Error(res.error.message);
 
     return res.result;
-  }, [canOpenSignerDetails, signerIdentityID, signerSystemName]);
+  }, [canOpenSignerDetails, signerIdentityID, signerSystemID]);
   const loadSignerFriendlyNames = useCallback(
     async identityObj => {
       try {
-        const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
+        const coinObj = CoinDirectory.getBasicCoinObj(signerSystemID);
         if (!coinObj) throw new Error('Signer network is not available');
 
         return getFriendlyNameMap(coinObj.system_id, identityObj);
@@ -452,7 +478,7 @@ const AppEncryptionRequestInfoContent = props => {
         };
       }
     },
-    [signerSystemName],
+    [signerSystemID],
   );
 
   const handleWalletUnlock = async () => {
@@ -648,68 +674,78 @@ const AppEncryptionRequestInfoContent = props => {
     [linkIdentityCandidate],
   );
 
+  const mounted = useRef(true);
+  const activeApproval = useRef(null);
+  const review = useMemo(() => ({request, requestHex, detailIndex, selectedIdentity, linkedIds}),
+    [request, requestHex, detailIndex, selectedIdentity, linkedIds]);
+  const currentReview = useRef(review);
+  currentReview.current = review;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {mounted.current = false;};
+  }, []);
+  useEffect(() => {activeApproval.current = null; setProcessing(false);}, [review]);
+
   const handleSelectIdentity = (chainId, iAddress, friendlyName) => {
+    if (!isIdentityAllowed(chainId, iAddress)) return;
+    activeApproval.current = null;
     setSelectedIdentity({chainId, iAddress, friendlyName});
     setIdentitySheetVisible(false);
   };
 
   const buildResponseAndContinue = async () => {
-    if (!selectedIdentity) {
+    if (!mounted.current || currentReview.current !== review || activeApproval.current) return;
+    if (!selectedIdentity || !isIdentityAllowed(selectedIdentity.chainId, selectedIdentity.iAddress)) {
       setIdentitySheetVisible(true);
       return;
     }
-
+    const approval = {
+      isActive: () => {
+        try {
+          return mounted.current && currentReview.current === review && activeApproval.current === approval &&
+            getAppEncryptionSessionKey(Store.getState()) === sessionKey &&
+            JSON.stringify(Store.getState().services.stored[VERUSID_SERVICE_ID]) === linkedIdsVersion &&
+            request.toBuffer().toString('hex') === requestHex;
+        } catch (_) { return false; }
+      },
+      assertActive: () => {
+        if (!approval.isActive()) throw Object.assign(new Error('Encryption approval is no longer current.'), {code: SESSION_CHANGED});
+      },
+    };
+    activeApproval.current = approval;
     setProcessing(true);
-
+    let responseCommitted = false;
     try {
+      approval.assertActive();
       const updatedResponse = cloneGenericResponse(response);
       const coinObj = CoinDirectory.findCoinObj(selectedIdentity.chainId);
-
-      if (!coinObj) {
-        throw new Error('Unable to find selected identity network.');
-      }
-
-      ensureGenericResponseSigner({
-        response: updatedResponse,
-        systemID: coinObj.system_id,
-        identityID: selectedIdentity.iAddress,
-      });
-
+      if (!coinObj) throw new Error('Unsupported signing chain.');
+      ensureGenericResponseSigner({response: updatedResponse, systemID: coinObj.system_id, identityID: selectedIdentity.iAddress});
       const {responseDetail} = await processAppEncryptionRequest({
-        request,
-        detailIndex,
-        responseSignerID: selectedIdentity.iAddress,
+        request, detailIndex, responseSignerID: selectedIdentity.iAddress,
+        responseSignerSystemID: coinObj.system_id, assertActive: approval.assertActive,
       });
-
-      updatedResponse.details = updatedResponse.details || [];
-      updatedResponse.details = [...updatedResponse.details, responseDetail];
+      approval.assertActive();
+      updatedResponse.details = [...(updatedResponse.details || []), responseDetail];
       updatedResponse.setFlags();
-
       await next(updatedResponse, [detailIndex], {
-        autoDeliverOnComplete: true,
-        responseIdentityName: selectedIdentity.friendlyName,
+        autoDeliverOnComplete: true, responseIdentityName: selectedIdentity.friendlyName,
       });
+      responseCommitted = true;
     } catch (e) {
-      console.warn(e);
-      // The screen gate checks the loaded key of the root chain. The key read
-      // here can still fail, so this case keeps its own message.
-      const isZSeedMissing =
-        e?.message && e.message.includes('No Z recovery secret');
-
-      createAlert(
-        isZSeedMissing
-          ? 'Z recovery secret required'
-          : 'Cannot share encryption address',
-        isZSeedMissing
-          ? `Set up the Z recovery secret in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}, then open the request again.`
-          : 'The wallet could not create the encryption address. Try again.',
-      );
-
-      if (isZSeedMissing) {
-        cancel();
-      }
+      if (!approval.isActive() || e?.code === SESSION_CHANGED) return;
+      activeApproval.current = null;
+      const isZSeedMissing = e?.message?.includes('No Z recovery secret');
+      createAlert(isZSeedMissing ? 'Z recovery secret required' : 'Cannot share encryption address',
+        isZSeedMissing ? `Set up the Z recovery secret in Settings > ${PROFILE_SECURITY_SETTINGS_LABEL}, then open the request again.`
+          : 'The wallet could not create the encryption address. Try again.');
+      if (isZSeedMissing) cancel();
     } finally {
-      setProcessing(false);
+      // Delivery owns the result and Retry after next. Keep the review locked
+      // with its chosen identity until Done closes it.
+      if (!responseCommitted && mounted.current && currentReview.current === review) {
+        setProcessing(false);
+      }
     }
   };
 
@@ -799,17 +835,15 @@ const AppEncryptionRequestInfoContent = props => {
       })
       .filter(Boolean);
     const encryptionRows = [
-      {label: 'Key number', value: `#${derivationNumber}`},
-      {
-        label: 'Derive for',
-        value: hasDerivationID
-          ? derivationIdFqn || 'Specified identity'
-          : 'This app only',
-      },
-      hasRequestID ? {label: 'Request ID', value: requestIdFqn} : null,
-      hasEncryptResponseToAddress
-        ? {label: 'Reply encrypted to', value: encryptResponseToAddress}
-        : null,
+      {label: 'App scope', value: appScopeFqn || appScopeID, copy: true, valueStyle: !appScopeFqn || appScopeFqn === appScopeID ? reviewStyles.identifier : undefined},
+      appScopeFqn && appScopeFqn !== appScopeID ? {label: 'App scope ID', value: appScopeID, copy: true, valueStyle: reviewStyles.identifier} : null,
+      {label: 'Primary key number', value: `#${derivationNumber}`},
+      hasDerivationID ? {label: 'Nested identity', value: derivationIdFqn || derivationIdentityID, copy: true, valueStyle: !derivationIdFqn || derivationIdFqn === derivationIdentityID ? reviewStyles.identifier : undefined} : null,
+      hasDerivationID && derivationIdFqn && derivationIdFqn !== derivationIdentityID
+        ? {label: 'Nested identity ID', value: derivationIdentityID, copy: true, valueStyle: reviewStyles.identifier} : null,
+      hasDerivationID ? {label: 'Secondary key number', value: `#${secondaryDerivationNumber}`} : null,
+      hasRequestID ? {label: 'Request ID', value: requestIdFqn, copy: true} : null,
+      {label: 'Response encryption recipient', value: encryptResponseToAddress, copy: true, valueStyle: reviewStyles.identifier},
       {label: 'Spending key', value: returnESK ? 'Requested' : 'Not requested'},
     ].filter(Boolean);
     const walletRows = [
@@ -839,11 +873,15 @@ const AppEncryptionRequestInfoContent = props => {
     ].filter(section => section.rows.length > 0);
   }, [
     activeAccountMatchesRequest,
+    reviewStyles,
+    appScopeFqn,
+    appScopeID,
+    derivationIdentityID,
     derivationIdFqn,
     derivationNumber,
+    secondaryDerivationNumber,
     encryptResponseToAddress,
     hasDerivationID,
-    hasEncryptResponseToAddress,
     hasRequestID,
     noRequestNetworkWallet,
     requestIdFqn,
@@ -912,6 +950,21 @@ const AppEncryptionRequestInfoContent = props => {
             : `The wallet sends this app-specific address and its viewing keys to ${getResponseHostLabel(deliveryInfo.destinationHost)}.`}
         />
 
+        {hasDerivationID && (
+          <View>
+            <InfoSheetRow
+              label="Nested VerusID"
+              value={derivationIdFqn || derivationIdentityID}
+              valueStyle={!derivationIdFqn || derivationIdFqn === derivationIdentityID
+                ? reviewStyles.identifier : undefined}
+            />
+            <InfoSheetRow
+              label="Secondary key number"
+              value={`#${secondaryDerivationNumber}`}
+            />
+          </View>
+        )}
+
         {returnESK && (
           <View style={styles.warningCard}>
             <View style={styles.warningHeader}>
@@ -921,7 +974,9 @@ const AppEncryptionRequestInfoContent = props => {
               <StatusBadge label="High risk" tone="warning" />
             </View>
             <Text style={styles.warningText}>
-              With this key, the app can spend from this address.
+              {hasDerivationID
+                ? 'The app can decrypt data, spend funds, and derive more keys. The app-scope key stays private.'
+                : 'This key is for the app-scope channel. The app can decrypt data and spend funds. It can derive every nested channel for your selected identity, app scope, and primary key number.'}
             </Text>
             <Text style={styles.warningEmphasis}>
               Approve only if you fully trust this app.
@@ -985,10 +1040,11 @@ const AppEncryptionRequestInfoContent = props => {
   );
 };
 
-const AppEncryptionRequestInfo = props => (
-  <OnboardingThemeProvider>
-    <AppEncryptionRequestInfoContent {...props} />
-  </OnboardingThemeProvider>
-);
+const AppEncryptionRequestInfo = props => {
+  const sessionKey = useSelector(getAppEncryptionSessionKey);
+  return <OnboardingThemeProvider>
+    <AppEncryptionRequestInfoContent key={sessionKey} {...props} sessionKey={sessionKey} />
+  </OnboardingThemeProvider>;
+};
 
 export default AppEncryptionRequestInfo;

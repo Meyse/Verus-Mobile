@@ -11,6 +11,7 @@ import {AtSign, CircleAlert, Info} from 'lucide-react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch} from 'react-redux';
+import {useFocusEffect} from '@react-navigation/native';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import EmptyState from '../../../../components/EmptyState';
 import AppButton from '../../../../components/AppButton';
@@ -34,6 +35,7 @@ import {getIdentity} from '../../../../utils/api/channels/verusid/callCreators';
 import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
 import {API_GET_BALANCES} from '../../../../utils/constants/intervalConstants';
 import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
+import {refreshWalletChannels} from '../../../../utils/ledger/refreshWalletChannels';
 import {extractDisplaySubWallets} from '../../../../utils/subwallet/extractSubWallets';
 import {
   describeVerusIdState,
@@ -42,6 +44,7 @@ import {
 import {
   formatAssetCount,
   getVerusIdFunds,
+  getVerusIdCardAddress,
 } from '../../../../utils/verusid/getVerusIdFunds';
 import {VerusIdName} from './VerusIdCard';
 import {
@@ -77,7 +80,9 @@ import LinkExistingVerusIdSheet, {
 } from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import VerusIdOptionsSheet from './VerusIdOptionsSheet';
-import RegistrationTabRows from './IdentityRegistration/RegistrationTabRows';
+import RegistrationTabRows, {RegistrationGroupTitle} from './IdentityRegistration/RegistrationTabRows';
+import {registrationNoticeState} from '../../../../utils/identityRegistration/noticeState';
+import LinkVerusIdSheet from './LinkVerusIdSheet';
 
 const BOTTOM_FADE_HEIGHT = 48;
 const IDENTITY_SKELETON_WIDTHS = ['46%', '64%', '52%', '72%'];
@@ -346,6 +351,7 @@ const SignedInVerusIdService = ({controller}) => {
   const [pendingAction, setPendingAction] = useState(null);
   const [pendingError, setPendingError] = useState(null);
   const [scrolled, setScrolled] = useState(false);
+  const [registrationLink, setRegistrationLink] = useState(null);
   const scrollRef = useRef(false);
   const linkSheetBusyRef = useRef(false);
   const linkSheetSessionRef = useRef(0);
@@ -367,13 +373,23 @@ const SignedInVerusIdService = ({controller}) => {
     [identityNetwork, linkedIds, pendingIds],
   );
   const pendingCount = groups.ready.length + groups.attention.length + groups.progress.length;
-  const hasContent = linked.length > 0 || pendingCount > 0 || Object.keys(registrationJobs).length > 0;
+  const hasContent = linked.length > 0 || pendingCount > 0 || Object.values(registrationJobs).some(job => job.status !== 'complete');
   const bottomPadding = Math.max(insets.bottom, 20);
   const resolvedLinkNetwork = linkSheetNetwork || identityNetwork;
   const activePendingKey = selectedPending
     ? `${selectedPending.chain}:${selectedPending.iAddress}`
     : null;
   const linkedKey = linked.map(item => `${item.chain}:${item.iAddress}`).join('|');
+  useFocusEffect(useCallback(() => {
+    if (!linkedKey) return;
+    const addresses = new Set(linkedKey.split('|').map(key => key.split(':')[1]));
+    activeCoinsForUser.forEach(coin => {
+      const cards = (cardsByCoin[coin.id] || []).filter(card =>
+        addresses.has(getVerusIdCardAddress(card)));
+      if (cards.length) refreshWalletChannels(coin.id, cards, [API_GET_BALANCES])
+        .catch(() => console.warn('Unable to refresh VerusID balances'));
+    });
+  }, [activeCoinsForUser, cardsByCoin, linkedKey]));
   useEffect(() => {
     if (!linkedKey) return undefined;
 
@@ -891,6 +907,7 @@ const SignedInVerusIdService = ({controller}) => {
         </View>
       </View>
 
+      <LinkVerusIdSheet target={registrationLink} onClose={() => setRegistrationLink(null)} />
       {loading ? (
         <IdentityListSkeleton theme={theme} />
       ) : controller.state.loadError ? (
@@ -914,10 +931,16 @@ const SignedInVerusIdService = ({controller}) => {
           stickySectionHeadersEnabled={false}
           ListHeaderComponent={
             <View style={styles.listHeader}>
-              <RegistrationTabRows jobs={registrationJobs} navigation={controller.props.navigation} />
-              {renderPendingGroup('Ready to link', groups.ready, false)}
-              {renderPendingGroup('Needs attention', groups.attention)}
-              {renderPendingGroup('In progress', groups.progress)}
+              {['Needs attention', 'In progress', 'Ready to link'].map((title, index) => {
+                const pending = [groups.attention, groups.progress, groups.ready][index];
+                const count = pending.length + Object.values(registrationJobs).filter(job => job.status !== 'complete' && registrationNoticeState(job).group === title).length;
+                return count > 0 && <View key={title}>
+                  <RegistrationGroupTitle title={title} count={count} />
+                  <RegistrationTabRows group={title} showHeading={false} jobs={registrationJobs} navigation={controller.props.navigation} onLink={setRegistrationLink} />
+                  {renderPendingGroup(title, pending, false)}
+                </View>;
+              })}
+              <RegistrationGroupTitle title="Your VerusIDs" count={linked.length} />
             </View>
           }
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}

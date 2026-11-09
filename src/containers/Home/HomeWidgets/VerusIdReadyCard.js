@@ -24,7 +24,7 @@ import AppButton from '../../../components/AppButton';
 import {fontStyle} from '../../../globals/fonts';
 
 const TOTAL_MS = 2200;
-const CARD_RADIUS = 18;
+const CARD_RADIUS = 16;
 
 // The card's own material, approved in mockup C. It is not a theme token: like
 // the gift card material, it exists only on this card.
@@ -250,12 +250,12 @@ const VerusIdReadyCard = ({
       <View style={styles.topRow}>
         <View style={styles.title}>
           <Animated.Text
-            style={[styles.name, {color: theme.colors.textPrimary}, nameStyle]}>
+            style={[theme.typography.bodySm, styles.name, {color: theme.colors.textPrimary}, nameStyle]}>
             {highlight}
           </Animated.Text>
           {remainder.length > 0 ? (
             <Animated.Text
-              style={[styles.rest, {color: theme.colors.textPrimary}, restStyle]}>
+              style={[theme.typography.bodySm, {color: theme.colors.textPrimary}, restStyle]}>
               {` ${remainder}`}
             </Animated.Text>
           ) : null}
@@ -268,15 +268,16 @@ const VerusIdReadyCard = ({
           <MaterialCommunityIcons
             color={theme.colors.textSecondary}
             name="close"
-            size={20}
+            size={18}
           />
         </TouchableOpacity>
       </View>
       <AppButton
         buttonColor={theme.colors.surface}
         compact
-        height={36}
-        labelStyle={styles.actionLabel}
+        height={32}
+        preserveHeightOnSmallWindow
+        labelStyle={[theme.typography.labelSm, styles.actionLabel]}
         onPress={onAction}
         style={styles.action}
         themeMode={theme.mode}
@@ -292,10 +293,10 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     borderRadius: CARD_RADIUS,
-    paddingTop: 14,
-    paddingRight: 4,
-    paddingBottom: 16,
-    paddingLeft: 16,
+    paddingTop: 12,
+    paddingRight: 0,
+    paddingBottom: 12,
+    paddingLeft: 14,
   },
   confetti: {
     ...StyleSheet.absoluteFillObject,
@@ -323,25 +324,20 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingTop: 1,
   },
-  name: {fontSize: 16, lineHeight: 22, ...fontStyle('semiBold')},
-  rest: {fontSize: 16, lineHeight: 22, ...fontStyle('regular')},
+  name: {...fontStyle('semiBold')},
   dismissButton: {
     width: 44,
     height: 44,
-    marginTop: -11,
-    marginBottom: -11,
-    marginLeft: 4,
+    marginTop: -12,
+    marginBottom: -12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  action: {alignSelf: 'flex-start', marginTop: 12, borderRadius: 12},
+  action: {alignSelf: 'flex-start', marginTop: 10, borderRadius: 10},
   actionLabel: {
-    fontSize: 14,
-    lineHeight: 19,
     marginVertical: 0,
-    marginHorizontal: 14,
+    marginHorizontal: 12,
   },
 });
 

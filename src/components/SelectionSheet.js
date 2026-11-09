@@ -3,6 +3,7 @@ import {Text, TouchableOpacity, View} from 'react-native';
 import {Check, ChevronLeft} from 'lucide-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheetModal from './BottomSheetModal';
+import HeaderCloseButton from './HeaderCloseButton';
 import SheetScrollView from './SheetScrollView';
 import {
   createSignedOutSheetStyles,
@@ -32,10 +33,14 @@ export const SelectionRow = ({
   // A choice that exists but cannot be picked now, such as a private card
   // that still syncs. The subtitle says why.
   disabled = false,
+  // A completed choice keeps its value readable and has no selection control.
+  readOnly = false,
   preserveSubtitle = false,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
+  const isCheckbox = accessibilityRole === 'checkbox';
+  const rowDisabled = disabled || readOnly;
   return (
     <TouchableOpacity
       accessibilityRole={accessibilityRole}
@@ -46,17 +51,26 @@ export const SelectionRow = ({
           .join(', ')
       }
       accessibilityState={
-        accessibilityRole === 'checkbox'
-          ? {checked: Boolean(selected), disabled}
-          : selected == null && !disabled ? undefined : {selected: Boolean(selected), disabled}
+        isCheckbox
+          ? {checked: Boolean(selected), disabled: rowDisabled}
+          : selected == null && !rowDisabled ? undefined : {selected: Boolean(selected), disabled: rowDisabled}
       }
       activeOpacity={0.74}
-      disabled={disabled}
+      disabled={rowDisabled}
       hitSlop={dense ? {top: 2, bottom: 2, left: 0, right: 0} : undefined}
       onPress={onPress}
-      style={[styles.row, compact && styles.compactRow, dense && styles.denseRow, selected && styles.selectedRow]}>
+      style={[
+        styles.row,
+        compact && styles.compactRow,
+        dense && styles.denseRow,
+        selected && !isCheckbox && styles.selectedRow,
+      ]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
-      <View style={[styles.copy, preserveSubtitle && styles.preservedCopy, disabled && styles.disabledContent]}>
+      <View style={[
+        styles.copy,
+        preserveSubtitle && styles.preservedCopy,
+        readOnly ? styles.readOnlyContent : rowDisabled && styles.disabledContent,
+      ]}>
         <Text
           ellipsizeMode="tail"
           numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
@@ -78,7 +92,11 @@ export const SelectionRow = ({
       </View>
       {badge ? <View style={styles.badge}>{badge}</View> : null}
       {value != null || valueContent ? (
-        <View style={[styles.value, preserveSubtitle && styles.wrappingValue, disabled && styles.disabledContent]}>
+        <View style={[
+          styles.value,
+          preserveSubtitle && styles.wrappingValue,
+          rowDisabled && !readOnly && styles.disabledContent,
+        ]}>
           {valueContent || (
             <>
               <Text style={[styles.valueText, quietValue && styles.quietValueText, preserveSubtitle && styles.wrappingValueText]}>{value}</Text>
@@ -89,20 +107,34 @@ export const SelectionRow = ({
           )}
         </View>
       ) : null}
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={[styles.indicator, compact && styles.compactIndicator]}>
-        {disabled ? null : selected ? (
-          <Check color={theme.colors.successText} size={20} strokeWidth={2.4} />
-        ) : showChevron ? (
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={theme.colors.textSubtle}
-          />
-        ) : null}
-      </View>
+      {!readOnly && (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.indicator,
+            compact && styles.compactIndicator,
+            isCheckbox && styles.checkboxIndicator,
+            isCheckbox && rowDisabled && styles.disabledContent,
+          ]}>
+          {isCheckbox ? (
+            <MaterialCommunityIcons
+              name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+              size={24}
+              color={theme.colors.link}
+              accessible={false}
+            />
+          ) : rowDisabled ? null : selected ? (
+            <Check color={theme.colors.successText} size={20} strokeWidth={2.4} />
+          ) : showChevron ? (
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={theme.colors.textSubtle}
+            />
+          ) : null}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -149,6 +181,9 @@ const SelectionSheet = ({
   onClosed,
   onBack,
   backAccessibilityLabel = 'Back',
+  // Shows the shared close X on the right of the title. Only for a sheet
+  // that fills most of the screen and has a search field (DESIGN.md).
+  showClose = false,
   contentContainerStyle,
   avoidKeyboard = false,
   fillHeight = false,
@@ -175,7 +210,7 @@ const SelectionSheet = ({
           fillHeight && styles.fill,
         ]}
         onAccessibilityEscape={onClose}>
-        <View style={[styles.header, onBack && styles.nestedHeader]}>
+        <View style={[styles.header, (onBack || showClose) && styles.nestedHeader]}>
           {onBack ? (
             <TouchableOpacity
               accessibilityRole="button"
@@ -185,10 +220,24 @@ const SelectionSheet = ({
               <ChevronLeft size={22} color={theme.colors.textPrimary} />
             </TouchableOpacity>
           ) : null}
-          <Text accessibilityRole="header" style={styles.title}>
-            {title}
-          </Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {showClose ? (
+            <>
+              <View style={styles.headerTitleBlock}>
+                <Text accessibilityRole="header" style={styles.title}>
+                  {title}
+                </Text>
+                {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+              </View>
+              <HeaderCloseButton onPress={onClose} style={styles.closeButton} />
+            </>
+          ) : (
+            <>
+              <Text accessibilityRole="header" style={styles.title}>
+                {title}
+              </Text>
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            </>
+          )}
         </View>
         {header ? <View style={styles.headerContent}>{header}</View> : null}
         <SheetScrollView

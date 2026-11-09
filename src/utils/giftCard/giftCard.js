@@ -6,13 +6,9 @@ import {v4 as uuidv4} from 'uuid';
 import {
   CreateWalletBackupDetails,
   CreateWalletBackupDetailsOrdinalVDXFObject,
-  DEST_ID,
-  DEST_PKH,
   GenericRequest,
   SpendableKeyDetails,
   SpendableKeyDetailsOrdinalVDXFObject,
-  TransferDestination,
-  fromBase58Check,
 } from 'verus-typescript-primitives';
 import {ECPair, Transaction, networks, smarttxs} from '@bitgo/utxo-lib';
 import {VerusIdInterface} from 'verusid-ts-client';
@@ -35,7 +31,6 @@ import {
 } from '../spendableKey/spendableKey';
 import {coinsToSats, satsToCoins} from '../math';
 import {VRPC} from '../constants/intervalConstants';
-import {I_ADDRESS_VERSION, R_ADDRESS_VERSION} from '../constants/constants';
 import {
   fundRawTransaction,
   getBlock,
@@ -47,7 +42,7 @@ import {
   getSpendableUtxos,
   getTransaction,
 } from '../api/channels/vrpc/callCreators';
-import {getCurrency, getIdentity} from '../api/channels/verusid/callCreators';
+import {getIdentity} from '../api/channels/verusid/callCreators';
 import {
   createUpdateIdentityTxWithUtxos,
   createUpdateIdentityWithCurrencyTransferTx,
@@ -63,6 +58,13 @@ import {
   verifyPendingIdentityFunding,
   verifyPendingIdentityFundingAtActiveHeight,
 } from '../spendableKey/durableBroadcast';
+import {
+  getCurrencyDisplay,
+  getIdentityFromResult,
+  getIdentityPrimaryAddresses,
+  toCurrencyTransferOutputs,
+  toTransferDestination,
+} from '../spendableKey/claimHelpers';
 
 const {getFundedTxBuilder, validateFundedCurrencyTransfer} = smarttxs;
 
@@ -82,43 +84,7 @@ export const GIFT_CARD_REDEEMED_SHARE_MESSAGE =
   'Claimed gift cards cannot be shared.';
 
 const DEFAULT_LABEL = 'Gift Card';
-const IDENTITY_DEFINITION_FIELDS = [
-  'contentmap',
-  'contentMap',
-  'contentmultimap',
-  'contentMultiMap',
-  'flags',
-  'identityaddress',
-  'identityAddress',
-  'minimumsignatures',
-  'minimumSignatures',
-  'name',
-  'parent',
-  'primaryaddresses',
-  'primaryAddresses',
-  'privateaddress',
-  'privateAddress',
-  'recoveryauthority',
-  'recoveryAuthority',
-  'revocationauthority',
-  'revocationAuthority',
-  'systemid',
-  'systemId',
-  'timelock',
-  'txid',
-  'txout',
-  'version',
-  'vout',
-];
-
 const getUtxoKey = utxo => `${utxo.txid}:${utxo.outputIndex}`;
-
-const getTopLevelIdentityFields = result => {
-  return IDENTITY_DEFINITION_FIELDS.reduce((fields, field) => {
-    if (result?.[field] !== undefined) fields[field] = result[field];
-    return fields;
-  }, {});
-};
 
 const uniqueUtxos = utxos => {
   const seen = new Set();
@@ -238,60 +204,8 @@ const getUsedUtxos = (txHex, candidates) => {
   });
 };
 
-const toTransferDestination = address => {
-  const {hash, version} = fromBase58Check(address);
-  let type;
-
-  if (version === R_ADDRESS_VERSION) {
-    type = DEST_PKH;
-  } else if (version === I_ADDRESS_VERSION) {
-    type = DEST_ID;
-  } else {
-    throw new Error('Incompatible address type.');
-  }
-
-  return new TransferDestination({
-    destinationBytes: hash,
-    type,
-    addressVersion: version,
-  });
-};
-
 const getTransferDestinationKey = address => {
   return address.getAddressString();
-};
-
-const toCurrencyTransferOutputs = outputs => {
-  const outputIndexes = new Map();
-  const currencyTransferOutputs = [];
-
-  for (const {currency, satoshis, address, ...outputOptions} of outputs) {
-    const outputKey = JSON.stringify({
-      address: getTransferDestinationKey(address),
-      outputOptions,
-    });
-    let outputIndex = outputIndexes.get(outputKey);
-
-    if (outputIndex == null) {
-      outputIndex = currencyTransferOutputs.length;
-      outputIndexes.set(outputKey, outputIndex);
-      currencyTransferOutputs.push({
-        ...outputOptions,
-        currencies: {},
-        address,
-      });
-    }
-
-    const currencyOutput = currencyTransferOutputs[outputIndex];
-    const previousSatoshis = currencyOutput.currencies[currency];
-
-    currencyOutput.currencies[currency] =
-      previousSatoshis == null
-        ? satoshis
-        : BigNumber(previousSatoshis).plus(satoshis).toString();
-  }
-
-  return currencyTransferOutputs;
 };
 
 const getGiftCardId = requestBufferString => {
@@ -366,22 +280,6 @@ const getClaimedByAddresses = (delta, claimAddress) => {
   }
 
   return claimedByAddresses;
-};
-
-const getIdentityFromResult = result => {
-  if (!result || !result.identity) return result;
-
-  return {
-    ...result.identity,
-    ...getTopLevelIdentityFields(result),
-  };
-};
-
-const getIdentityPrimaryAddresses = identity => {
-  const primaryAddresses =
-    identity?.primaryaddresses || identity?.primaryAddresses || [];
-
-  return Array.isArray(primaryAddresses) ? primaryAddresses : [];
 };
 
 const normalizeChainTime = timestamp => {
@@ -1805,26 +1703,6 @@ export const getGiftCardFundingTopups = (
   }, {});
 };
 
-const getCurrencyDisplay = async (systemId, currencyId) => {
-  try {
-    const currencyRes = await getCurrency(systemId, currencyId);
-
-    if (currencyRes.error) throw new Error(currencyRes.error.message);
-
-    return {
-      currencyId,
-      name: currencyRes.result.fullyqualifiedname || currencyId,
-      definition: currencyRes.result,
-    };
-  } catch (_) {
-    return {
-      currencyId,
-      name: currencyId,
-      definition: null,
-    };
-  }
-};
-
 const addUtxoBalance = (balances, currencyId, satoshis) => {
   const sats = BigNumber(satoshis || 0);
 
@@ -2044,7 +1922,7 @@ const buildCurrencyFundingTransaction = async ({
   }));
   const unfundedTxHex = VerusIdInterface.createUnfundedCurrencyTransferTransaction(
     group.systemId,
-    toCurrencyTransferOutputs(outputs),
+    toCurrencyTransferOutputs(outputs, getTransferDestinationKey),
     Number(BigNumber(infoRes.result.longestchain).plus(100).toString()),
   );
   const fundingUtxos = await getFundingUtxos(
@@ -2235,7 +2113,7 @@ const buildIdentityFundingTransaction = async ({
         changeAaddr: inputPlan.changeAddress,
         rawIdTx: updatableIdentity.tx,
         idHeight: identityResult.blockheight,
-        currencyTransferOutputs: toCurrencyTransferOutputs(outputs),
+        currencyTransferOutputs: toCurrencyTransferOutputs(outputs, getTransferDestinationKey),
         utxos: inputPlan.utxos,
         maxFee: SPENDABLE_KEY_CLAIM_IDENTITY_SWEEP_FEE_COINS,
         expectedIdentityPrimaryAddress: cardAddress,

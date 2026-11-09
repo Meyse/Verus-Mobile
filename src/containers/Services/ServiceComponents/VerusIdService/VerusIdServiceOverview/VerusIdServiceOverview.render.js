@@ -37,7 +37,7 @@ export const VerusIdServiceOverviewRender = function () {
         descriptionNumberOfLines={3}
         left={props => <List.Icon {...props} icon="account-plus-outline" />}
         right={props => <List.Icon {...props} icon="chevron-right" />}
-        onPress={() => this.props.navigation.navigate('IdentityTab', {screen: 'IdentityRegistration', params: {screen: 'IdentityRegistrationStart'}})}
+        onPress={() => this.props.navigation.navigate('IdentityTab', {screen: 'IdentityRegistration', params: {originTab: 'ServicesHome', screen: 'IdentityRegistrationCreate'}})}
       />
       <Divider />
       <Portal>

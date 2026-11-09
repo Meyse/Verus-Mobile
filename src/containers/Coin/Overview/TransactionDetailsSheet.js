@@ -46,11 +46,15 @@ export const decodeTxid = txid => {
 // Opened from a Coin Overview history row. It follows the Sent step: the
 // amount as a transfer node, then one row per fact. The explorer row shows
 // only when the coin has an explorer.
-const TransactionDetailsSheet = ({details, onClose, onClosed, visible}) => {
+const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visible}) => {
   const theme = useOnboardingTheme();
   const addresses = details?.address
     ? String(details.address).split(' & ')
     : [];
+  const confirmationCount = details?.confirmations;
+  const hasConfirmationCount = (typeof confirmationCount === 'number' || typeof confirmationCount === 'string') &&
+    String(confirmationCount).trim() !== '' &&
+    Number.isSafeInteger(Number(confirmationCount)) && Number(confirmationCount) >= 0;
 
   return (
     <InfoSheet
@@ -73,21 +77,33 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, visible}) => {
               amount={details.amount}
               coinId={details.coinId}
               fiat={details.fiat}
+              hideAmounts={!showBalance}
               label={details.label}
               ticker={details.ticker}
             />
           </View>
           <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-            {addresses.length ? (
+            {details.registrationName ? (
+              <InfoSheetRow label="VerusID" value={details.registrationName} />
+            ) : null}
+            {addresses.length || details.destinationLabel ? (
               <InfoSheetRow
                 copy={addresses.length === 1}
-                label="To"
-                value={addresses.join('\n')}
-                valueStyle={styles.identifier}
+                label={addresses.length && details.destinationLabel ? `To ${details.destinationLabel}` : 'To'}
+                value={addresses.length ? addresses.join('\n') : details.destinationLabel}
+                valueStyle={addresses.length ? styles.identifier : undefined}
               />
             ) : null}
+            {hasConfirmationCount ? (
+              <InfoSheetRow label="Confirmations" value={String(confirmationCount)} />
+            ) : null}
             {details.fee != null ? (
-              <InfoSheetRow label="Network fee" value={details.fee} />
+              <InfoSheetRow
+                label="Network fee"
+                value={details.fee}
+                valueHidden={!showBalance}
+                valueUnit={details.feeTicker}
+              />
             ) : null}
             {details.memo ? (
               <InfoSheetRow copy label="Message" value={details.memo} />

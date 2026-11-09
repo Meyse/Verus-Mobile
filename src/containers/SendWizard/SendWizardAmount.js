@@ -18,6 +18,7 @@ import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AmountInput from '../../components/AmountInput';
+import {transparentDustError} from '../../utils/transactions/transparentDust';
 import TextAction from '../../components/TextAction';
 import AmountKeypad from '../../components/AmountKeypad';
 import {getAmountDecimalSeparator} from '../../utils/amountInput';
@@ -57,7 +58,7 @@ const SendWizardAmount = () => {
   const focused = useIsFocused();
   const theme = useOnboardingTheme();
   const {smallDevice} = useOnboardingSmallDeviceLayout();
-  const {mode, state, setAmount, setEstimate, setRecipient, setRoute} = useSendWizard();
+  const {mode, state, setAmount, setAmountDraft, setEstimate, setRecipient, setRoute} = useSendWizard();
   const {
     channel,
     sourceCoin,
@@ -67,8 +68,10 @@ const SendWizardAmount = () => {
     target,
     route,
   } = state;
-  const [input, setInput] = useState(state.amountInput || state.amount || '');
-  const [fiatMode, setFiatMode] = useState(Boolean(state.fiatMode));
+  const input = state.amountInput || '';
+  const fiatMode = Boolean(state.fiatMode);
+  const setInput = value => setAmountDraft({amountInput: value.replace(/,/g, '.')});
+  const setFiatMode = value => setAmountDraft({fiatMode: value});
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState(null);
   const [routeEstimates, setRouteEstimates] = useState({});
@@ -175,7 +178,11 @@ const SendWizardAmount = () => {
   const excessivePrecision =
     !fiatMode &&
     BigNumber(String(input || 0).replace(',', '.')).decimalPlaces() > decimals;
+  const dustError = !target?.isConversion && route?.addressType !== ADDRESS_TYPE.ETHEREUM &&
+    cryptoAmount.isGreaterThan(0)
+    ? transparentDustError(sourceCoin, channel, cryptoAmount) : null;
   const validAmount =
+    !dustError &&
     !excessivePrecision &&
     cryptoAmount.isFinite() &&
     cryptoAmount.isGreaterThan(0) &&
@@ -220,6 +227,8 @@ const SendWizardAmount = () => {
   let amountError = null;
   if (excessivePrecision) {
     amountError = `Use no more than ${decimals} decimal places.`;
+  } else if (dustError) {
+    amountError = dustError;
   } else if (input && !validAmount) {
     amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
       ? "The amount exceeds this address's spendable balance."
@@ -394,7 +403,7 @@ const SendWizardAmount = () => {
     const currentCrypto = cryptoAmount.isFinite() ? cryptoAmount : BigNumber(0);
     if (fiatMode) setInput(currentCrypto.toFixed());
     else setInput(currentCrypto.multipliedBy(rate).decimalPlaces(2).toFixed(2));
-    setFiatMode(current => !current);
+    setFiatMode(!fiatMode);
   };
 
   const continueToRecipient = () => {

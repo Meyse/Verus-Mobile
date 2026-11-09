@@ -17,7 +17,8 @@ import {
   fetchActiveCoins,
   requestSeedData,
   initNotifications,
-  initInstanceKey
+  initInstanceKey,
+  setBalanceVisibility
 } from './actions/actionCreators';
 import {
   initCache,
@@ -49,6 +50,7 @@ import WalletUnlockCoordinator from "./components/WalletUnlockCoordinator";
 import {useOnboardingTheme} from './theme/onboarding';
 import {createNavigationTheme} from './theme/app/navigationTheme';
 import { recoverPasswordMigration } from "./utils/asyncStore/authDataStorage";
+import { readBalanceVisibility } from "./utils/asyncStore/balancePrivacyStorage";
 
 const ThemedNavigationContainer = ({children}) => {
   const theme = useOnboardingTheme();
@@ -138,6 +140,10 @@ export class VerusMobile extends React.Component {
       const settingsAction = await initSettings();
       this.props.dispatch(settingsAction);
 
+      // RootStack stays on LoadingStack until initialization finishes, so the
+      // saved privacy choice reaches Redux before signed-in balances mount.
+      this.props.dispatch(setBalanceVisibility(await readBalanceVisibility()));
+
       this.props.dispatch(initInstanceKey(await initInstance()));
 
       CoinDirectory.setTestnetEnvironment(settingsAction.settings.generalWalletSettings ? settingsAction.settings.generalWalletSettings.testnetEnvironment : null);
@@ -202,7 +208,7 @@ export class VerusMobile extends React.Component {
     this.initializeStorage(secureStorageInitialization);
 
     // Handle deeplinks
-    Linking.addEventListener("url", async ({ url }) => {
+    this.linkingSubscription = Linking.addEventListener("url", async ({ url }) => {
       try {
         await secureStorageInitialization;
       } catch (e) {
@@ -229,6 +235,12 @@ export class VerusMobile extends React.Component {
     if (ENABLE_VERUS_IDENTITIES) {
       this.props.dispatch(requestSeedData());
     }
+  }
+
+  componentWillUnmount() {
+    // A remount (for example a development reload) must not add a second
+    // link listener, or each link opens twice.
+    this.linkingSubscription?.remove();
   }
 
   render() {    

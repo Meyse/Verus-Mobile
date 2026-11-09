@@ -32,6 +32,7 @@ import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmall
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CONNECTION_ERROR} from '../../utils/api/errors/errorMessages';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
+import {refreshWalletChannels} from '../../utils/ledger/refreshWalletChannels';
 import {
   extractErrorData,
   extractLedgerData,
@@ -142,6 +143,8 @@ const CoinCardPickerSheet = ({
 
   useEffect(() => {
     if (visible && !wasVisibleRef.current) {
+      if (chainTicker) refreshWalletChannels(chainTicker, subWallets, [API_GET_BALANCES])
+        .catch(() => console.warn('Unable to refresh address balances'));
       didInitialScrollRef.current = false;
       setFrozenSubWallets(sortSubWalletsByBalance(subWallets, balances));
       setQuery('');
@@ -153,7 +156,7 @@ const CoinCardPickerSheet = ({
     if (!visible) didInitialScrollRef.current = false;
 
     wasVisibleRef.current = visible;
-  }, [balances, subWallets, visible]);
+  }, [balances, chainTicker, subWallets, visible]);
 
   useEffect(() => {
     if (visible && frozenSubWallets.length === 0 && subWallets.length > 0) {

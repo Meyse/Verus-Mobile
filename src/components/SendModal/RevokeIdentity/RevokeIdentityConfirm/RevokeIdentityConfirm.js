@@ -1,5 +1,7 @@
 import React, {useState, useCallback, useRef} from 'react';
 import {useSelector} from 'react-redux';
+import {useFocusEffect} from '@react-navigation/native';
+import {revokeRecoverSubmissionError} from '../../../../containers/RevokeRecover/submissionError';
 import {
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
   SEND_MODAL_FORM_STEP_FORM,
@@ -27,6 +29,11 @@ const RevokeIdentityConfirm = props => {
   const [submitError, setSubmitError] = useState(null);
   const instanceKey = useSelector(state => state.authentication.instanceKey);
 
+  useFocusEffect(useCallback(() => {
+    setAcknowledged(false);
+    setSubmitError(null);
+  }, [revocationResult, updateContext]));
+
   const sendModal = useObjectSelector(state => state.sendModal);
   const encryptedIdentitySeed =
     sendModal.data[SEND_MODAL_ENCRYPTED_IDENTITY_SEED];
@@ -38,6 +45,8 @@ const RevokeIdentityConfirm = props => {
   } catch (_) {}
 
   const goBack = useCallback(() => {
+    setSubmitError(null);
+    setAcknowledged(false);
     props.navigation.navigate(SEND_MODAL_FORM_STEP_FORM);
   }, [props]);
 
@@ -53,13 +62,12 @@ const RevokeIdentityConfirm = props => {
   }, [encryptedIdentitySeed, instanceKey, systemId]);
 
   const submitData = useCallback(async () => {
-    if (!acknowledged || props.loading || submitting.current || completed.current) return;
+    if (submitError || !acknowledged || props.loading || submitting.current || completed.current) return;
     submitting.current = true;
 
     setSubmitError(null);
     await props.setLoading(true);
     await props.setPreventExit(true);
-    const {data} = sendModal;
 
     try {
       const result = await submitReviewedIdentityUpdate({
@@ -88,9 +96,8 @@ const RevokeIdentityConfirm = props => {
         });
         return;
       }
-      setSubmitError(
-        'The revocation transaction could not be submitted. Review the identity and connection, then try again.',
-      );
+      setAcknowledged(false);
+      setSubmitError(revokeRecoverSubmissionError(e, 'revocation'));
     }
     finally {
       submitting.current = false;
@@ -99,7 +106,7 @@ const RevokeIdentityConfirm = props => {
         props.setLoading(false);
       }
     }
-  }, [targetId, sendModal, acknowledged, props, updateContext, getSpendingKey, revocationResult]);
+  }, [targetId, sendModal, acknowledged, submitError, props, updateContext, getSpendingKey, revocationResult]);
 
   return RevokeIdentityConfirmRender({
     fee: props.route.params.fee,

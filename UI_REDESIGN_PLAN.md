@@ -6,6 +6,26 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **ID-3.NIGHT3-B** on `claude/night3-batch-b` from
+  `ff2e63e0`: **Done** (device QA passed 2026-11-05, merged into `redesign`).
+  Modify review names the VerusID, explains the resulting signing policy and
+  marks added/removed values once. Registration checks known source balances
+  against the full two-payment quote. Keyboard-open forms pin the price and clip
+  scroll content above the footer. The upstream consent rule and transaction
+  engines stay unchanged. See the scoped checklist and evidence below.
+
+- Scoped follow-up: **TX-1.HIDDEN-BALANCES** on
+  `claude/hidden-balances-tx-persist` from `bd00f503`: **Ready for verification**.
+  History and transaction-sheet amounts blur with hidden balances. The phone
+  remembers the choice. Static and controlled component/storage checks pass.
+  Opus owns review and device QA. See the scoped checklist below.
+
+- Scoped follow-up: **HOME.NOTICE-A** on `claude/home-notice-a` from
+  `bc6602db`. Owner chose smaller look A on 2026-11-04. Home and VerusID
+  notices use the smaller sizes. Private sync has one session-only notice.
+  Static checks, the iOS bundle and native component fixtures pass. Full-wallet,
+  Android and screen-reader QA remain open. See the scoped checklist below.
+
 - Scoped follow-up: **ID-3.K2** on `claude/idreg-k2` from `e8f39d04`.
   Name-check errors and their retry action now use the field status row.
   Static and controlled component checks pass. Device QA stays with the orchestrator.
@@ -51,7 +71,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-04 (phase 2b management implementation and checks; meeting fixes: wallet logos, gift Share, bridge names and fees, identity data upload; iOS device QA done; asset stack order: pins and last used, iOS device QA passed, Android open).
+- Last updated: 2026-11-06 (Night run 4 fixes A/B/C + round 2; Android QA on both phones passed).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -2248,6 +2268,15 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-09 | ID-3.REG-R11-APPENC: app-encryption and private-address review fixes | `aac3f80e`, `c00d9079`, `fc8f1bc1` on `claude/appenc-review-fixes`, merged into local `redesign` | P2 current Z address shown (Current / After update), Removed/Replaced/Added, details sheet says each fact once, chosen VerusID kept after approve (batched `next()`), nested VerusID and key number on the main review, short addresses in the acknowledgement sheet. Android large light + small dark: 11 of 11 links pass, 0 of 123 frames show the loader, simulator verified signers; acknowledgement re-check 4 of 4. Design and safe-area checks pass. | Not pushed. iPhone and TalkBack not run. |
+| 2026-11-09 | ID-3.REG-R11-UPSTREAM: hero fix, full Android run, merge | `b301373c` on `claude/new-verusid-flow-upstream`, merged into local `redesign` | Hero gap cause: Android measured "80 USD" as two lines (72 dp) and drew one. The amount now uses the Send one-line pattern; small phone after the fix: 36 dp, fee line 8 dp below. Root-name Check details unchanged on both phones. Full Android run: `nvfpixg1109@` (normal) and `nvfsmlg1109@` (small) paid with the default Foundation referral (20 VRSCTEST each on chain) and linked. Design and safe-area checks pass on `redesign` after the merge. | Not pushed. Device check of app-encryption requests and the private-address removal warning remains. Four P3s left as is (see the section). |
+| 2026-11-09 | New VerusID upstream sync | `claude/new-verusid-flow-upstream`, upstream `64166d35` | Five upstream commits merged; encryption scope/session/security port, shared lifecycle/cache/claim/NFC helpers, private-address removal risk, VRSC/VRSCTEST Foundation default. Redesign startup refresh, optional drawer close, scoped signer guards and app alerts retained. Install/pins, design, safe areas, 11-case completion check and both release bundles pass. Requested Jest: 386 pass / 21 fail plus seven suite-load errors; exact names and baseline comparison in local report. | No push or merge into redesign. Component fixtures only; native light/dark/compact, signing/delivery, registration and physical NFC QA remain. |
+| 2026-11-07 | ID-3.REG-R11-QA5 | `claude/new-verusid-flow-fixes5` from `9bdb2f8f` | One price-currency payer balance through SelectionRow; namespace referral policy stabilizes the initial progress count; cancellable funds polling stays nonbusy until a funded review rebuild. Design, safe-area (5 files), Babel and focused core/React/hooks lint pass. Seventeen controlled checks pass; nine fail on the base. Inspected 12 source-derived payer states in both themes and Android widths. | Orchestrator review, then Android QA. Hero gap has no identified source cause and is unchanged. Native wrapping, navigation during a slow poll, top-up/re-entry, fresh hold and accessibility remain device checks. Standard ESLint retains its import-plugin load error. |
+| 2026-11-07 | ID-3.REG-R11-QA4 | `claude/new-verusid-flow-fixes4`, `59fbfecc` | Shared continuous progress, canonical referral rows, Check details address sheet with Send balance styles, and read-only fixed-payer funds refresh for Home/tab notices. Design, safe-area (10 files), Babel, Android dev bundle (52 assets), 12 component checks, 15 refresh checks and 37 progress regression checks pass. Inspected 40 source-derived light/dark states at both Android sizes. | Android QA pending. Verify keyboard, Back, sheet dismissal, one/two currencies, hidden balances, fixed-payer top-up, Home/tab refresh and no automatic payment. Native controls, accessibility and live chain reads remain unverified. |
+| 2026-11-06 | ID-3.REG-R11: New VerusID | `claude/new-verusid-flow` from `7b089908` | R8–R11 stepped create, all-currency payer reads, in-place second hold, durable problem notices, grouped tab rows, shared one-tap Link sheet, and own-name control facts. Android dev bundle, design, safe-area, Babel and focused ESLint pass. Existing suites: 395 pass / 4 baseline assertions fail; 2 baseline native-mock suite-load errors. Full command output and spec map: `new-verusid-flow.local.md`. | No simulator, emulator, signing, broadcast, push or merge. Device tester owns native keyboard/Back/reload, all live payment states, light/dark normal/compact, accessibility, and real linking. |
+| 2026-11-05 | ID-3.NIGHT3-B: VerusID safety | `claude/night3-batch-b` from `ff2e63e0` | Modify identity/control summary and Added/Removed rows; clipped VerusID form scrolls, label-first reveal, compact pinned price and hidden Save; known decimal source balances checked against every full-quote currency; approved app-data and Transfer words. Design, safe-area, Babel, focused ESLint, temporary non-Jest behavior checks and both release JS bundles pass. Normal ESLint retains its existing import-plugin package-export failure. Exact commands and proof limits: `verusid-batch-b.local.md`. | Render the candidate in both themes on Pro/SE and Android normal/360x640. Cover keyboard/funds/control-change states, Back/reload and both payment approvals. No native rebuild required by these JS changes. No push or merge. |
+| 2026-11-05 | TX-1.HIDDEN-BALANCES | `claude/hidden-balances-tx-persist` from `bd00f503` | Overview and pre-launch history rows blur signed amounts and fiat. Transaction details blur amount, fiat and fee. Hidden accessibility values use "Balance hidden". One phone-level AsyncStorage read starts at module load with a 400 ms fallback; startup applies an explicit visibility action before accounts load. Toggle writes are serialized. Frozen install, design/card-color checks, Babel parse (11 JS files), whitespace and temporary non-Jest checks pass. Two baseline checks fail before the fix and pass after it. Storage/Redux checks cover restarts, rapid taps, failed/stalled/late reads, save failure and account changes. Twelve controlled component scenarios cover both themes, live toggles and readable identifiers. | Opus: review the commit and run iOS normal/SE and Android normal/360x640 QA, both themes, including native blur, accessibility speech, restart and account changes. No device, native build, Metro, push or merge ran. |
+| 2026-11-04 | HOME.NOTICE-A | `claude/home-notice-a` from `bc6602db` | Approved smaller notice sizes and Private sync state. Design, changed-file safe-area, iOS bundle and 20 controlled selection cases pass. Native component fixtures cover light/dark on normal iPhone and SE. The notification Jest suite fails before and after edits at the same vector-icons native-module import. | iOS and Android device QA passed on 2026-11-04 (dismissal/reopen, thresholds, SE and small phone 32-point buttons). VoiceOver/TalkBack speech remains open. Merged into `redesign`; not pushed. |
 | 2026-11-04 | NFC gift claim G1–G8, G6b, C1 and typed backup password | `claude/gift-nfc-claim` from `b5adf175`; JS-only implementation | Reuses onboarding, WalletSetup, phrase verification, SelectionRow and PasswordCheck. Session-bound typed-password flags, direct choice-to-unlock, root-chain amount preview, unsigned action titles and plain backup rows implemented. Babel parse, Android development bundle, design, safe-area and whitespace checks pass. 19 source-component checks pass. G1/C1/G6 source-derived fixtures inspected in light/dark at 402×874 and 360×640; native controls, fonts and measurements are substituted. The same 12 existing suites on baseline and candidate give 9 passing suites, 3 failing suites, 107 passing tests and 17 failing tests. Two suites fail to load on `Touchable.Mixin`; spendable-key failures include missing `getMempoolUnspentUtxos` mocks. No tests added or changed. | Implementation only. Device QA pending: real onboarding/replay, compact keyboard, Back/Cancel, failed-write retry, NFC hardware write/restore, phrase-to-claim and signed requester regression. No merge or push. |
 | 2026-11-04 | ID-3.POLISH-2: I1, N1/V1, repeated copy, Unlink, Android Back and display fiat | `claude/idreg-polish-fixes` from `ccbb4ed4` | Shared prose topic; hidden namespace filtering/search; quiet V1 numeric prices; result-only network suppression; unpaid-delete body; primary Unlink; manifest Back opt-out; display-currency fiat from cached ledger pairs. Design, 12-file safe-area/Babel, XML, whitespace and 60 temporary controlled checks pass. Base: 24 pass / 36 fail. Engine, SDK, storage, RPC readers and Jest sources stay unchanged. | Orchestrator owns native light/dark normal/compact QA and Android PC build/Back tests. See `idreg-polish-2.local.md`. No device, Metro, build, push or merge. |
 | 2026-11-04 | ID-3.MANAGEMENT-UI phase 2b | `claude/idreg-ui-mgmt` from `63289e4b` | Approved management options, Transfer, Modify option B, results and Link option A. Shared controls and theme roles; unchanged engines; sign-out clears active/available cards. Design, 13-file safe-area/parser, 59 synthetic checks and both production bundles pass. Requested Jest run: 316 pass / 20 fail, 3 native-fixture load errors; see scoped evidence below. | Orchestrator native normal/compact light/dark QA, consent/hold, unknown broadcast, Transfer + unlink, and Link failure/retry. No device, push or merge. |
@@ -2830,6 +2859,17 @@ No Metro server, simulator, device, signing or broadcast ran. Native rendering,
 keyboard, accessibility and live Transfer + unlink remain orchestrator gates.
 Detailed mapping, exact commands and hard-to-reach states: `idreg-ui-mgmt.local.md`.
 
+V2 decision, 2026-11-04: Max approved visible checkboxes for Link, gift-card
+VerusID choices and Modify sections. All use the shared multi-select rule in
+`DESIGN.md`. Busy rows keep their boxes. Linked rows show `Linked` once, at
+full opacity, with the name at 0.6. The five approved V2/M2/G2 mockups were
+inspected. Native normal/compact and light/dark QA remains with the orchestrator.
+V2 checks: design (39 sources, 17 materials), safe-area (3 JS files), Babel
+and 48 controlled React row scenarios pass. Single-choice output matches the
+base after resolving styles. Three existing Jest suites stop before tests run
+on native mock imports (`Mixin`, `Platform.OS`). ESLint stops on the existing
+`eslint-plugin-import` package-export error. No tests were added or changed.
+
 ### ID-3.REG — New VerusID, phase 2a (2026-11-04)
 
 Design contract: owner-approved R1–R9, V3a–V3d, V1c/e/f/g/h and NS1–NS8;
@@ -2974,3 +3014,526 @@ taken-only invalid state, outline-driven divider, retry callbacks and both
 footer buttons. Token contrast is 5.022:1 light and 7.841:1 dark. This is
 controlled evidence, not native layout or screen-reader proof. No device,
 Metro, engine, SDK, storage or RPC changes. Details: idreg-k2.local.md.
+
+### HOME.NOTICE-A — Smaller notices and Private sync (2026-11-04)
+
+Branch: `claude/home-notice-a`, from `bc6602db`. The owner chose look A of the
+notice-size mockups. Reuse the existing cards, theme roles and AppButton.
+
+- [x] Apply 16-point corners, 12/14-point padding, 14/20 text, 18-point close
+  glyphs and 8-point card gaps. Keep existing copy and notification behavior.
+- [x] Keep notice buttons at 32 points on SE, with 48-point effective targets.
+  Keep the ordinary small-window action rule unchanged.
+- [x] Add Private sync after assets found and before empty. Use the lowest
+  known active private-card percent below 99. Dismiss it in memory only.
+- [x] Update DESIGN.md and run scoped design, safe-area and bundle checks.
+  Compare the requested Jest failure with the clean base.
+- [x] Inspect native component fixtures in light/dark on normal iPhone and SE.
+- [x] Orchestrator: verify full-wallet dismissal/reopen and Android normal/small.
+  iOS (iPhone 17 Pro light/dark, SE light) and Android (normal light/dark, small
+  light) passed on 2026-11-04 with real wallets and Metro state fixtures. Close
+  hides sync across a tab switch and a new percent; it returns after lock and
+  unlock. Notice buttons stay 32 points on SE and the small phone.
+- [ ] VoiceOver/TalkBack progress speech. Native reports "Private card sync",
+  progress bar, 42 percent; spoken output and update silence are not checked.
+
+Evidence: native fixtures use this worktree's components and an isolated Metro
+server. They do not unlock or use a wallet. Measured normal-card heights:
+offline 64, unreachable/found/empty 86, sync 92 points. SE keeps 32-point
+buttons; unreachable wraps to 106 points. Controlled selection checks cover
+priority, minimum percent, unknown/complete values, inactive coins, network,
+private-card presence and dismissal. The existing Jest suite fails on both
+base and candidate before running tests: vector-icons native-module import.
+Full-wallet, Android and screen-reader results remain separate from fixtures.
+
+### TX-1.HIDDEN-BALANCES — Transaction amounts and phone preference (2026-11-05)
+
+Owner decisions: blur transaction money amounts and keep the hidden/shown
+choice after restart. Scope: history rows, transaction details and persistence.
+Exemplar: `SignedInAssetHeader` total/fiat. Primitive: `PrivacyBlurredText`.
+Keep the existing type, colors and layout. No deliberate design deviation.
+
+- [x] Cover Overview and pre-launch rows, including pending and waiting rows.
+- [x] Blur amount, fiat and fee in the transaction sheet. Replace hidden
+  accessibility amounts with "Balance hidden". Keep identifiers readable.
+- [x] Save the phone-level choice at `balancePrivacy:hidden:v1`. Apply it with
+  `SET_BALANCE_VISIBILITY` before signed-in navigation can mount. Preserve
+  `SET_BALANCE_SHOW` callers, ordered writes and account-change behavior.
+- [x] Run frozen install, design/card-color, 11-file parser and whitespace
+  checks. Reproduce the missing explicit setter and spoken row amount before
+  the fix. Check storage, Redux/saga and 12 component scenarios without Jest.
+- [ ] Opus: review and run native iOS normal/SE and Android normal/360x640
+  checks in both themes. Check shown/hidden incoming, outgoing, pending,
+  failed/in-progress and pre-conversion rows, sheet amount/fiat/fee, long-list
+  scrolling, live toggles, Back/reopen and VoiceOver/TalkBack speech.
+- [ ] Opus: restart after both choices and rapid taps. Check the first signed-in
+  frame, sign-out/account switch, and failed or unavailable storage fallback.
+
+Evidence: temporary non-Jest checks pass. Storage checks cover hidden/shown
+restart, missing/malformed/rejected/synchronous/stalled reads, late-read
+protection, ordered rapid writes and recovery after a failed write. Redux/saga
+checks keep the setting through account actions. Component checks use the
+actual blur, transfer-node and information-row components with native host
+stubs and theme tokens. They establish props and accessibility labels, not
+native blur quality, layout, speech or scrolling. No device or Metro ran.
+
+### ID-3.NIGHT3-A — Registration and Transfer bugs (2026-11-05)
+
+Contract: operate mode. Keep the V3 name field and TS transfer form, shared
+outline inputs, semantic error text, existing amber warning and safe footer.
+Use a name-only Inter derivative without contextual alternates. Keep glyphs,
+metrics and ordinary text unchanged. Device QA is outside this implementation.
+
+- [x] Use boolean getblock verbosity and string heights, including SDK reads.
+- [x] Validate typed names locally. Use plain errors, retry only failed checks,
+  and mark every name error with the danger outline.
+- [x] Add name fonts and shared name rendering for registration, management,
+  Link rows, manual Link, selection rows and information sheets.
+- [x] Debounce read-only owner checks. Disable blocked Transfer review, discard
+  stale results, and put errors below the warning in scroll content.
+- [x] Pass design, safe-area, parser, focused lint, controlled form/engine,
+  font-shaping and iOS/Android release-bundle checks. Standard ESLint cannot
+  load its existing import plugin (ERR_PACKAGE_PATH_NOT_EXPORTED).
+- [ ] Native rebuild and normal/compact iOS/Android light/dark QA: font loading,
+  name glyphs, field errors/retry, transfer warning/error layout, keyboard,
+  correction, Back/reload, and real request/registration/transfer flows.
+
+Evidence: 59 temporary controlled checks, 9 public transfer-engine checks with
+real identity primitives and simulated RPC, and 60 font checks pass. The base
+fails the name-error outline regression check. Live api.verustest.net rejects
+numeric verbosity with -32601 and returns the required fields for true.
+Both release bundles pass after the repository's existing postinstall patches.
+No Jest tests, devices, signing, broadcasts or mainnet wallet actions ran.
+
+### ID-3.NIGHT3-A — Batch A round 2 (2026-11-05)
+
+Contract: operate mode. Keep the V3 field and TS transfer form. Use
+AppAddressInput errorText for recipient input errors and helperText for identity
+blocks. Keep both inside VerusIdFormField for measured keyboard reveal. Preserve
+the amber warning, action-error position, safe footer and review gates.
+
+This supersedes round 1's name-only font solution and owner-check position.
+
+- [x] Patch all 18 bundled Inter variants in both platform asset folders.
+  Remove only the two adjacent-digit x substitution rules. Preserve every
+  other calt rule, font name, outline, metric and feature.
+- [x] Remove the VerusName assets, native registrations and component opt-ins.
+- [x] Put owner-check results under New owner. Use a red outline only for bad
+  recipient format or a missing recipient VerusID. Keep action errors below
+  the warning and dismiss the keyboard when Review transfer is pressed.
+- [x] Retry only unsigned registration SDK reads/builds for
+  INVALID_CHAIN_CONTEXT and STALE_CHAIN_CONTEXT, at most twice, after 1.5 s.
+  Map both codes to plain words at the shared UI boundary. Never retry a
+  signing, broadcast or saved-transaction resend step through this helper.
+- [x] Pass design, safe-area, Babel, focused ESLint, plist, both release
+  bundles, controlled behavior checks and the full font shaping comparison.
+- [x] Rebuild both native apps. Verify names and addresses app-wide, plus
+  normal/compact light/dark Transfer keyboard and registration retry states.
+- [ ] Follow-up (Batch B): with the keyboard open, the Transfer amber warning
+  scrolls behind the safe footer on Android (reachable by scrolling).
+
+Evidence: 20,520 HarfBuzz comparisons cover 228 strings, five feature settings
+and every Inter variant. Only digit-x-digit samples differ. All other font
+table bytes match, except GSUB and the required checksum. Every remaining GSUB
+rule matches. Fifty controlled component/helper checks, ten public transfer
+engine checks and 29 retry/boundary checks pass. The default V1 testnet server
+returns -5 for the missing test VerusID. Repository ESLint remains blocked by
+its existing import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED error.
+
+The owner supplied successful round-1 native iOS QA, including a real VRSCTEST
+registration. It is baseline evidence only. Round-2 native rendering, keyboard,
+screen-reader and end-to-end behavior remain unverified. The font sample is
+rendered with HarfBuzz; it does not prove native font loading. No Jest tests or
+dependency changes. The full report stays in verusid-batch-a-round2.local.md.
+
+Device QA 2026-11-05 (native Debug builds of 2b2753c6, Sonnet testers): iOS 17
+Pro and SE light/dark pass. Plain x in names everywhere; a second real root
+registration (qa7x71658.VRSCTEST@) on the default V1 server passed with no raw
+tip errors seen. Owner errors stay under the field above the keyboard. Android
+normal and 360x640 pass on V1: Available, all name errors, plain x, Transfer
+format/not-found errors (red) and the outside-recovery block (neutral, Review
+off). Open: the Android keyboard-open warning position above. Retry banners
+were not forced on a device; the retry boundary is checked in code only.
+
+### ID-3.NIGHT3-B — VerusID safety fixes (2026-11-05)
+
+Contract: operate mode. Use the current Transfer identity heading, management
+review rows/panels and V3 registration form. Reuse Warning, DetailRow,
+CheckOption, AppStatusBadge, SafeBottomActionStack, VerusIdFormField and the
+shared fade. Use existing theme/type roles and page insets. Keyboard-open
+registration pins a compact exact total and hides Save for later on every
+screen size (QA showed the normal-size form cut the price on Pro and Pixel 9).
+No new consent cases, engine edits, dependency changes or Jest tests.
+
+- [x] Name the VerusID and network on Modify review. Explain the resulting
+  signing policy from verified signing/VRPC wallet addresses. Mark added and
+  removed primary, recovery, revocation and private values. Keep unchanged
+  values once. Preserve every warning's meaning and the exact upstream
+  `needsAcknowledgement` expression and handler gate.
+- [x] Clip form content above non-shrinking opaque footers. Keep the shared
+  fade with the keyboard. Reveal the field label top and remove the duplicate
+  footer-height scroll reserve. Pin every quoted currency above the compact
+  first hold. Hide Save for later while the compact keyboard is open.
+- [x] Show Not enough funds and block the first hold and its handler for any
+  known short currency balance on the selected source and chain. Compare the
+  full atomic two-payment quote without rounding. Missing/loading balances
+  stay nonblocking. Use Transparent or the same VerusID name in Pay from and
+  the error. Preserve the engine guard and later saved-job resumption.
+- [x] Add the approved app-data caption once on the create form. Replace the
+  Transfer warning fragment and its information topic with the approved words.
+  Keep the irreversible-action sentence bold and Transfer logic unchanged.
+- [x] Run design, changed-file safe-area, Babel, focused ESLint, temporary
+  component/pure-logic checks, and iOS/Android production bundles to /tmp.
+- [x] Device QA: light/dark; Pro/SE/Android normal/360x640; keyboard open/closed;
+  enough and not enough funds; Modify add-second-address 1-of-2, 2-of-2,
+  1-of-3, remove address, change recovery; full Transfer warning above the
+  footer; Modify Back on Android. Review screens only, no holds.
+- [x] Pin the keyboard-open price and funds badge on every screen size
+  (`1fb71284`), after QA showed the Pro price cut in half and the badge hidden.
+- [ ] Follow-ups for Batch C: Android New VerusID pans the whole window over the
+  status bar when a bottom More options field gets focus (also on `ff2e63e0`);
+  "Available" and nearby rows sit in the keyboard-open fade on compact screens;
+  Added/Removed labels are quiet; 2-of-2 shows two near-duplicate warnings
+  (upstream wording); unknown balance, multi-currency quote, Back/reload on
+  create and Transfer, both real holds, screen readers and text scaling.
+
+Evidence: the temporary create-screen check fails on ff2e63e0 because 39 does
+not block a 100.0001 first hold, and passes on the candidate. A temporary scroll
+hook check fails on the base's field-only reveal and passes with label-first
+reveal. Controlled checks cover exact decimal boundaries, multi-currency and
+unknown balances, selected source/chain isolation, policy descriptions and
+value deltas. The consent expression matches the base byte for byte. Both
+release JS bundles pass. Standard ESLint cannot load the existing import plugin
+(ERR_PACKAGE_PATH_NOT_EXPORTED); focused core/React rules pass. Candidate
+native geometry, Android execution, screen readers, text scaling and real
+wallet operations remain open. See verusid-batch-b.local.md for the full matrix.
+
+Device QA evidence (2026-11-05, Sonnet testers): iOS Pro B1–B7 and SE S1–S5
+pass on `c36c1fd1` via Metro; Android normal and 360x640 pass on a native build
+of `c36c1fd1`, including the funded path (about 104 VRSCTEST, Hold on, no
+badge). After `1fb71284`, iOS R1/R2 and Android R3/R4 pass (price, app-data
+line and funds badge above Hold while typing). The Android window pan
+reproduces on `ff2e63e0`, so it predates this batch. Run folder and HTML
+report: `docs/qa/matrix/runs/2026-11-05-batchB/` (local, not in Git).
+
+### ID-3.NIGHT4-A — VerusID and request findings (2026-11-06)
+
+Contract: operate mode. Keep the current VerusID page, Transfer form, request
+completion sheets, registration progress, and revocation/recovery review.
+Reuse their theme roles, CopyAction, AppStatusBadge, AppButton, shared review
+spacing, and safe footers. Keep POST delivery automatic after broadcast and
+redirect delivery under Complete. Leave registration prices and gift claims
+outside this batch. Device QA runs separately.
+
+- [x] Read accumulated VerusID content for the count and content sheet (item 1).
+- [x] Deliver POST identity-update replies after broadcast. Keep delivery retry
+  separate from broadcast and preserve redirect consent (item 2).
+- [x] Align uncertain registration notices with Check delivery. Retain plain
+  server-refusal guidance until the transaction is found (item 3).
+- [x] Refuse this wallet's addresses and wholly owned VerusIDs in Transfer form
+  checks and preparation. Keep external i-address recipients valid (item 4).
+- [x] Restore the revocation review gap. Check recovery's existing gap. Failed
+  submissions offer Review again and clear stale consent and errors (items 5–6).
+- [x] Give long links a plain refusal without a debug error overlay. Use Wrong
+  network for a request whose flag and signed system disagree (items 7–8).
+- [x] Name shared credentials and their count after confirmed delivery. Use
+  Nothing was sent without a repeated body for an empty response (items 9–10).
+- [x] Disable Save for later for a known funding shortfall. Add a durable first
+  broadcast time and switch commitment guidance after 3 minutes (items 11–12).
+- [x] Ask for a name when a namespace is chosen. Show the exact number of other
+  primary addresses on the VerusID page (items 13–14).
+- [ ] Later device QA: normal/compact Android, light/dark, Back/reopen, sheet
+  dismissal, real POST/redirect delivery, spent inputs and slow confirmations.
+
+Evidence: controlled JavaScript checks cover immediate POST, deferred redirect,
+response-only retry, one broadcast, consent/error reset, accumulated content,
+network refusals, registration copy and timing. Seventeen public transfer-engine
+checks use real identity scripts and transaction parsing with simulated network
+reads. Both named QA identities have zero latest content keys and one accumulated
+content key in the live VRSCTEST daemon. Design and safe-area checks pass. Focused
+lint has no new errors. Standard ESLint stops before linting on the existing
+import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED error. Android and iOS release JS
+bundles pass with one worker, after stopping the initial parallel runs under
+memory pressure. Babel parses all 21 changed JavaScript files. Protected price
+functions match the base; the create footer changes only its disabled condition.
+No Jest tests, devices, native changes, dependency changes, signing, broadcasts,
+merge or push in this task.
+
+
+### ID-3.REG-R11 — Approved New VerusID flow (2026-11-06)
+
+Contract: operate mode. SPEC.md and the approved R8–R11 boards are the visual
+sources. Use RegistrationPage, the shared header and type roles, AppTextInput,
+NamespaceSheet, TextAction, CopyAction, status badges, safe footers,
+SkeletonLoader, TransactionResult and VerusIdReadyCard. Keep the payment engine's
+approval tokens and saved-transaction retries. The owner excludes device runs
+from this implementation task.
+
+- [x] Read the full spec, design contract, typography and VerusID plan. Inspect
+  the named board images before building their surfaces.
+- [x] Create `claude/new-verusid-flow` from local `claude/night4-fixes` at
+  `7b089908`. Keep this JS-only. Add no dependency, native or lockfile changes.
+- [x] Build Name, Referral, conditional Pay from, Check details for a new
+  registration, and Recovery.
+  Keep the growing namespace field, conditional network picker, two-currency
+  prices, field-local lookup errors, external-control warnings and compact
+  keyboard price/funds state. Keep saved jobs resumable.
+- [x] Keep both payment holds bound to their shown quote. Reconcile and prepare
+  the second payment in place. Check every currency for the fixed payer before
+  enabling or approving it. Retain changed-price consent and exact-byte retry.
+- [x] Build waiting, slow, ready, changed, shortfall, delivery, unconfirmed,
+  name-taken and connection states. Keep engine deletion classifications and
+  use the app confirmation sheet. Remove the separate Registrations and
+  registration-payment review routes. Keep the unpaid Check details route.
+- [x] Build Home stage cards, ready-card celebration/dismissal, tab groups with
+  counts and 32-point actions, and the shared created/provisioned Link sheet.
+  Preserve the + > Link VerusID list. Close returns to the originating tab.
+- [x] Use the actual VerusID name in registration authority facts and the
+  VerusID page's self-authority facts.
+- [x] Run the required checks. Keep payment-safety assertions intact. Update
+  only the approved copy, grouping and navigation expectations.
+- [x] Owner decision, 2026-11-06: saved unpaid jobs keep their stored intent.
+  Their Check details summary has no Change actions. Keep Delete registration
+  in the info sheet, with the unpaid confirmation. A changed quote shows its
+  new price and requires a new hold. Add no draft-update engine mutation.
+- [ ] Separate device QA: iOS normal/SE and Android normal/360×640, both
+  themes, keyboard open/closed, Back, reload, interruption and accessibility.
+- [ ] Separate live VRSCTEST QA: both holds, changed quote, every-currency
+  shortfall/top-up, saved restart, delivery retry, unconfirmed replacement,
+  name taken, all permitted deletion kinds, created/provisioned Link and
+  celebration persistence.
+
+Evidence: code commits `7f5cf2a5`, `228d7477`, `610b7b49`, `c689e635`,
+`5d9b90ef`, `e45dd3ac`.
+Design passes for 39 canonical sources and 17 card materials. The changed-file
+safe-area check passes for 27 files; the final explicit check passes for all
+28 changed JS files. Babel and focused core/React/hook lint pass for those 28
+files. Standard ESLint stops on the existing import-plugin
+`ERR_PACKAGE_PATH_NOT_EXPORTED` before file checks. The Android development JS
+bundle compiles to `/tmp/new-verusid-bundle/a.js` with 52 assets.
+
+The existing registration/notification run has 395 passing tests, four baseline
+assertion failures and two baseline native-mock load errors. No payment-safety
+assertion was changed. Five protected engine source spans match the base byte
+for byte. Temporary non-Jest checks cover 13 public-component
+flows, 11 public-read checks, eight funding checks and three Link-sheet flows.
+Twenty-six source-derived light/dark renders were inspected at normal and
+compact sizes. Native controls, scroll measurements, keyboard geometry and
+platform accessibility are substituted in those renders. They are not device
+or on-chain evidence. No runtime server remains running.
+
+
+### ID-3.REG-R11-QA — Android New VerusID fixes (2026-11-06)
+
+Contract: operate mode. Keep the approved New VerusID spec, R11 funds board,
+RegistrationPage, outline fields, status badges, safe footer, information sheets
+and existing typography roles. Inspect all named Android finding screenshots.
+Change only the eight reported findings. Device runs are excluded by the owner.
+
+- [x] Keep You have at its natural width. Wrap the amount and badge in their
+  own column. Preserve the two-currency balance and badge layout (finding 1).
+- [x] Keep the focused Name input below the header when its whole field group
+  cannot fit above the compact keyboard footer (finding 2).
+- [x] Default to Someone else when No referral is unaffordable. Never select
+  a disabled referral card. Keep No referral when affordable (finding 3).
+- [x] Remove the compact funds footer from Recovery. Measure both authority
+  fields and the warning together. Reveal the warning while the focused input
+  can stay visible. Preserve each field's own focus and blur (finding 4).
+- [x] Use normal text for Linked VerusID. Keep only the shortened payment
+  address in monospace (finding 5).
+- [x] Use identityLabel and the resolved referral for Check details, as the
+  split legend does (finding 6).
+- [x] Remove the shortage footer's extra Try again. Reuse prepareSecond every
+  20 seconds and on foreground while focused and short. Check every currency
+  on the fixed payer. Keep both payment approvals behind holds (finding 7).
+- [x] Put copyable commitment/registration transaction rows before VerusID
+  details on Progress and Result (finding 8).
+- [x] Run design, changed-file safe-area, focused ESLint, existing registration
+  suites, Android dev bundle and temporary non-Jest behavior checks.
+- [ ] Separate device re-test: normal/360×640 Android, light/dark; Name keyboard,
+  Recovery focus/warnings, one/two currencies, referral defaults, Back/reopen,
+  transaction copies, fixed-payer top-up, foreground and blur. No automatic
+  signing or broadcast may occur after a top-up.
+
+Evidence: code commits 8bbde040 and 008ef42e. Design passes for 39
+canonical sources and 17 materials. Safe-area passes for all six changed JS
+files. Focused core/React/hooks ESLint reports zero errors on base and candidate.
+Standard ESLint still stops before file analysis on the existing import-plugin
+ERR_PACKAGE_PATH_NOT_EXPORTED error. The existing registration/notification run
+is unchanged from d0d614b2 and the prior report: 395 pass, four assertion failures
+and two native-mock suite-load errors. No test source or expectation changed.
+The Android development bundle passes with 52 assets.
+
+Twenty-two controlled component checks and six scroll geometry cases pass.
+The base reproduces all eight findings in temporary non-Jest checks. Twenty
+source-derived renders were inspected at 360×640 and 412×923, in both themes,
+with the bundled Inter fonts. They verify presentation only. Native controls,
+keyboard measurements, accessibility and live funds arrivals remain device
+checks. No simulator, emulator, native/dependency/lockfile edit, engine edit,
+merge or push ran. The other worktree and its Metro session were left untouched.
+Artifacts and exact commands are in new-verusid-flow-fixes.local.md (local).
+
+### ID-3.REG-R11-QA3 — Second-payment funds and Recovery warnings (2026-11-06)
+
+Contract: operate mode. Limit changes to progress funds checks and Recovery.
+Reuse RegistrationPage, RegistrationStatusPill, RegistrationTimeline,
+AppTextInput, VerusIdFormField, the existing notice style and safe footer.
+Keep Home, Name keyboard behavior, native shortage wording and payment consent.
+
+- [x] Treat FUNDING_SPENT and STALE_CHAIN_CONTEXT during second-payment
+  preparation or approval as screen-local Checking funds. Show the approved
+  confirmation copy under Registration. Keep Hold to create off and Done for
+  now. Leave saved Home metadata and signed-payment errors unchanged.
+- [x] Recheck every 20 seconds and on foreground with the existing focus,
+  app-state, operation and prompt guards. Recheck after same-stage re-entry.
+  Recover to shortage or Ready; payment still needs a new hold.
+- [x] Put each authority warning under its own helper inside that field's
+  measured group. Put matching-authority warnings under Recovery only.
+- [x] Run design, safe-area, focused lint, existing suites, Android dev bundle,
+  controlled components, scroll geometry and source-derived visual review.
+- [ ] Device owner: repeat the wallet-Send race and both Recovery focus paths
+  on Android 360x640 and 412x923, light/dark. Verify confirmation, no automatic
+  payment, foreground/blur, pull refresh, Back/re-entry and warning visibility.
+
+Evidence: 38 temporary non-Jest component cases pass; 14 fail on 994c774d.
+Nine worked scroll-geometry cases pass with substituted measurements. Twenty
+source-derived renders were inspected in both themes and sizes. These are not
+native keyboard, accessibility or on-chain evidence. Design and safe-area pass;
+focused core/React/hooks lint has zero errors on base and candidate. Standard
+ESLint retains its import-plugin ERR_PACKAGE_PATH_NOT_EXPORTED blocker.
+Existing suites retain 395 passes, four assertion failures and two native-mock
+load errors. The Android dev bundle passes with 52 assets. No tests were added.
+Exact commands, temporary harness configuration and device steps are in the
+untracked new-verusid-flow-fixes3.local.md report.
+
+### ID-3.REG-R11-QA5 — Compact payer rows and passive funds poll (2026-11-07)
+
+Contract: operate mode. Limit changes to registration payer values, initial
+progress count and the second-payment funds poll. Reuse Send's SourceCardSheet
+value/valueLabel layout, SelectionRow, RegistrationPage and the existing
+background AbortController/version/foreground-wait guards. Keep all payment
+approval gates. Android QA follows orchestrator review.
+
+- [x] Show only the price-currency payer balance. Preserve hidden/checking/error
+  states, retry, every-currency funding checks and accessible shortfall copy.
+- [x] Count Referral before the name result unless the selected namespace has
+  a known no-referral policy. Use the name result when it arrives.
+- [x] Run passive funds reads without busy. Cancel and await them before a
+  foreground action. Rebuild a funded review in the normal busy state, then
+  require a fresh hold. Preserve funds_changing and the existing poll triggers.
+- [x] Inspect RegistrationHero and its styles. No fixed/minimum text height,
+  font-size adjustment or compact-window rule explains the reported gap.
+  Leave the hero unchanged, as requested when no source cause is found.
+- [x] Run design, safe-area, Babel, focused lint and controlled component checks.
+  Inspect source-derived payer rows against Send in light/dark at 360/412 dp.
+- [x] Orchestrator: review this candidate, then run normal/small Android QA.
+  Check payer wrapping and accessibility, stable Name progress, slow-poll
+  navigation/refresh, top-up/re-entry and a new hold. Reinspect the dark 360 dp
+  hero gap. Source-derived renders do not prove native text measurement.
+  Done 2026-11-07 (Android round 5: 17 of 18 fixes verified). The hero gap
+  is fixed in ID-3.REG-R11-UPSTREAM. Accessibility was not run on a device.
+
+Evidence: 17 temporary non-Jest checks pass; nine fail on 9bdb2f8f. Babel and
+focused core/React/hooks lint pass for five changed JS files. Design and
+safe-area checks pass. Standard ESLint cannot load its existing import plugin
+(ERR_PACKAGE_PATH_NOT_EXPORTED). Twelve source-derived payer states were
+inspected. No device, live-chain operation, dependency change, push or merge
+ran. Exact commands and gaps are in new-verusid-flow-fixes5.local.md (local).
+
+### ID-3.REG-R11-UPSTREAM — Upstream sync, hero fix and full Android run (2026-11-09)
+
+Contract: operate mode. The engine and backend follow upstream
+`identity-registration` `64166d35`. The redesigned screens stay and show the new
+upstream facts. The hero amount reuses the Send amount pattern: one line that
+shrinks to fit.
+
+- [x] Merge redesign `0f10dad8` and the five upstream commits after `0a99f88a`
+  (`ecaa7107`, `30df713e`). Show the Foundation default referral as the first
+  Referral row for VRSC and VRSCTEST root names.
+- [x] Find the cause of the dark 360 dp hero gap. A view dump showed the
+  "80 USD" view at 72 dp (two lines) while it drew one line. The root-name
+  amount measured 36 dp.
+- [x] Set `adjustsFontSizeToFit`, `minimumFontScale={0.6}` and
+  `numberOfLines={1}` on the hero amount (`b301373c`). Small phone after the
+  fix: amount 36 dp, fee line 8 dp below it, text about 3% smaller.
+- [x] Run one full creation on each Android phone: `nvfpixg1109@` (normal,
+  light) and `nvfsmlg1109@` (small, dark). Both paid 20 VRSCTEST to the
+  Foundation referral on chain and linked the new VerusID.
+- [x] Merge into local `redesign`. Not pushed.
+- [x] Device-check app-encryption requests and the private-address removal
+  warning (large Android, 2026-11-09). The request simulator now uses the app's
+  Verus library pins. Findings fixed in ID-3.REG-R11-APPENC.
+
+Evidence: Android, Game PC, JS from Mac Metro 8241. Full run 2 min 34 s (normal)
+and 3 min 23 s (small) from the first hold to "VerusID created". Design and
+safe-area checks pass on `redesign` after the merge. Open P3s, left as is: the
+testnet Foundation name shows ".VRSCTEST" outside the Referral row, the result
+page behind the linked sheet still says "It is not in this wallet yet.", the
+small-phone Foundation row wraps, and the first tap after the keyboard closes
+was lost once per phone. After the fix, the root-name Check details matches the screens from before the fix on both phones: amount 36 dp, same text size, same 24 dp gap to Commitment. Run folders:
+`docs/qa/matrix/runs/2026-11-06-newflow/` (local, not in Git).
+
+### ID-3.REG-R11-APPENC — App-encryption and private-address review fixes (2026-11-09)
+
+Contract: operate mode. Touched scope: the identity-update private-address
+content row, high-risk step, details sheet and acknowledgement sheet; the
+app-encryption review; the shared GenericRequest completion step. Exemplars:
+`IdentityStateChangeCard` (Current / After update) and `InfoSheetRow` with
+`CopyAction`. No new visual pattern.
+
+- [x] P2: show the current and the new private (Z) address. All three
+  surfaces show "Current" and "After update". Addresses use the identifier
+  style and CopyAction. "No private address" is body text. Removal, change and
+  add are typed as `highRiskType: 'private-address'` (`aac3f80e`).
+- [x] P3: the high-risk step says "Removed", "Replaced" or "Added". The details
+  sheet states the warning once, with no "Change" or "Value" row.
+- [x] P3: keep the chosen VerusID after approve. Cause: the legacy React Native
+  renderer does not batch state updates after an await, so `next()` published
+  the response and the completion count separately and the completion effect
+  processed the same detail again. `next()` now batches the updates. This also
+  covers sign-in, data and spending-key requests. Approval guards unchanged.
+- [x] P3: name the nested VerusID and secondary key number once on the main
+  app-encryption review, with or without the spending key.
+- [x] Small phone: the acknowledgement sheet shows each address as the first 10
+  characters, "…", and the last 8, with the full address as the copy value
+  (`fc8f1bc1`). Android ignores `ellipsizeMode` on selectable text
+  (`c00d9079` did not render).
+
+Evidence: Android, Game PC, JS from Mac Metro 8241 on
+`claude/appenc-review-fixes`. 11 of 11 links pass on large light and small dark
+phones; 0 of 123 recorded frames show the "Opening request" loader; the
+simulator verified that the chosen VerusID signed each reply. Acknowledgement
+re-check 4 of 4 after `fc8f1bc1`; copy returns the full 78-character address.
+Identity updates were not approved. Left as is: the "as …" VerusID wraps after
+the dot while its chevron shows, and "Transaction fee —" shows before a payment
+source. Not tested: iPhone, TalkBack, approving an identity update. Run folder:
+`docs/qa/matrix/runs/2026-11-09-appenc/` (local, not in Git).
+
+### ID-3.NIGHT4-QA — Android device QA of the night 4 fixes (2026-11-06)
+
+Branch `claude/night4-fixes` (A/B/C on `2e4c6e77`, then round 2 `7b089908`).
+Android only, by owner instruction: Game PC normal (412x923 dp, light) and small
+(360x640 dp, dark), installed APK `ff2e63e0`, JS from Mac Metro. No iOS run.
+
+Round 1 failed six items: old registration rows still "Network fee", no
+Confirmations row, slow Pending-to-date (87–108 s), a false "Name commitment is
+not confirmed on the current active chain." during the wait, the long-link sheet
+needing two taps, and "Response sent" closing in under 1 s. Round 2 (`7b089908`)
+fixes them: a zero-value i-address output with a cost of 0.01 or more marks an
+older registration, confirmations come from the block height, history refreshes
+every 15 s (10 s read limit), a tip/height mismatch keeps waiting (a script
+mismatch still stops), a refused link shows one sheet and the link listener is
+removed on unmount, "Response sent" stays open until Done, content counts values,
+and a mixed-network request says "This request mixes testnet and mainnet."
+
+Round 2 passes on both phones: registration labels (3 rows each), Response sent +
+Done + Back with the reply received first, content count 4 = 4, one long-link
+sheet with one tap (logcat: one delivery), mixed-network wording, sign-in
+regression, and on normal a full `aaa` wait with no false commitment error.
+Open P3: the Confirmations number is as of the last history read (1–3 blocks
+behind, it does not rise while no row is pending); Pending-to-date took 30–45 s
+after the first block on normal; the commitment screen can flap Ready → waiting →
+Ready once when public servers disagree. Old commitment rows stay "Network fee"
+(the server sends no output functions). Not run: redirect delivery, refresh timing
+on small (daemon funding), iOS. Run folder: `docs/qa/matrix/runs/2026-11-06-fixes4/`
+(local, not in Git).
