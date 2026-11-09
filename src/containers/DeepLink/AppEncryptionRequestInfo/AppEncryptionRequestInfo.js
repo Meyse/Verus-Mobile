@@ -15,6 +15,7 @@ import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import StatusBadge from '../../../components/StatusBadge';
+import {InfoSheetRow} from '../../../components/InfoSheetSection';
 import {Info} from 'lucide-react-native';
 import {GenericResponse} from 'verus-typescript-primitives';
 import AppButton from '../../../components/AppButton';
@@ -713,6 +714,7 @@ const AppEncryptionRequestInfoContent = props => {
     };
     activeApproval.current = approval;
     setProcessing(true);
+    let responseCommitted = false;
     try {
       approval.assertActive();
       const updatedResponse = cloneGenericResponse(response);
@@ -729,6 +731,7 @@ const AppEncryptionRequestInfoContent = props => {
       await next(updatedResponse, [detailIndex], {
         autoDeliverOnComplete: true, responseIdentityName: selectedIdentity.friendlyName,
       });
+      responseCommitted = true;
     } catch (e) {
       if (!approval.isActive() || e?.code === SESSION_CHANGED) return;
       activeApproval.current = null;
@@ -738,7 +741,11 @@ const AppEncryptionRequestInfoContent = props => {
           : 'The wallet could not create the encryption address. Try again.');
       if (isZSeedMissing) cancel();
     } finally {
-      if (mounted.current && currentReview.current === review) setProcessing(false);
+      // Delivery owns the result and Retry after next. Keep the review locked
+      // with its chosen identity until Done closes it.
+      if (!responseCommitted && mounted.current && currentReview.current === review) {
+        setProcessing(false);
+      }
     }
   };
 
@@ -943,6 +950,21 @@ const AppEncryptionRequestInfoContent = props => {
             : `The wallet sends this app-specific address and its viewing keys to ${getResponseHostLabel(deliveryInfo.destinationHost)}.`}
         />
 
+        {hasDerivationID && (
+          <View>
+            <InfoSheetRow
+              label="Nested VerusID"
+              value={derivationIdFqn || derivationIdentityID}
+              valueStyle={!derivationIdFqn || derivationIdFqn === derivationIdentityID
+                ? reviewStyles.identifier : undefined}
+            />
+            <InfoSheetRow
+              label="Secondary key number"
+              value={`#${secondaryDerivationNumber}`}
+            />
+          </View>
+        )}
+
         {returnESK && (
           <View style={styles.warningCard}>
             <View style={styles.warningHeader}>
@@ -953,7 +975,7 @@ const AppEncryptionRequestInfoContent = props => {
             </View>
             <Text style={styles.warningText}>
               {hasDerivationID
-                ? 'This key is for the final nested channel. The app can decrypt data, spend funds, and derive further keys from this channel. The app-scope key stays private.'
+                ? 'The app can decrypt data, spend funds, and derive more keys. The app-scope key stays private.'
                 : 'This key is for the app-scope channel. The app can decrypt data and spend funds. It can derive every nested channel for your selected identity, app scope, and primary key number.'}
             </Text>
             <Text style={styles.warningEmphasis}>

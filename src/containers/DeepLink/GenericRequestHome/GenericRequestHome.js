@@ -6,7 +6,7 @@ import {getAppEncryptionSessionKey} from '../../../utils/deeplink/appEncryptionS
     screen, and forwards completed responses through the request flow.
 */
 import React, {useMemo, useCallback, useEffect, useRef, useState} from 'react';
-import {Linking, StyleSheet, View} from 'react-native';
+import {Linking, StyleSheet, unstable_batchedUpdates, View} from 'react-native';
 import { Text } from 'react-native-paper';
 import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 import {CommonActions} from '@react-navigation/native';
@@ -766,22 +766,27 @@ const GenericRequestSession = props => {
    */
   const next = async (updatedResponse, handledIndices, options = {}) => {
     if (!isActive()) return;
-    if (options.responseIdentityName || options.sharedCredentialCount != null) {
-      setApprovalResult(previous => ({
-        identityName: options.responseIdentityName || previous?.identityName,
-        requesterLabel: displayProps.signerFqn || previous?.requesterLabel || 'the requester',
-        sharedCredentialCount: (previous?.sharedCredentialCount || 0) + (options.sharedCredentialCount || 0),
-        // Encrypted app-encryption replies also use DataResponse, so retain
-        // the completed data-signing screen's result across later details.
-        dataPacketSigned:
-          previous?.dataPacketSigned || !!options.dataPacketSigned,
-      }));
-    }
-    if (options.autoDeliverOnComplete) {
-      setAutoDeliveryRequested(true);
-    }
+    // Native promise continuations do not batch these updates. Publish the
+    // response and its completion count together so the effect cannot reopen
+    // the still-displayed detail between approval and delivery.
+    unstable_batchedUpdates(() => {
+      if (options.responseIdentityName || options.sharedCredentialCount != null) {
+        setApprovalResult(previous => ({
+          identityName: options.responseIdentityName || previous?.identityName,
+          requesterLabel: displayProps.signerFqn || previous?.requesterLabel || 'the requester',
+          sharedCredentialCount: (previous?.sharedCredentialCount || 0) + (options.sharedCredentialCount || 0),
+          // Encrypted app-encryption replies also use DataResponse, so retain
+          // the completed data-signing screen's result across later details.
+          dataPacketSigned:
+            previous?.dataPacketSigned || !!options.dataPacketSigned,
+        }));
+      }
+      if (options.autoDeliverOnComplete) {
+        setAutoDeliveryRequested(true);
+      }
 
-    commitResponseProgress(updatedResponse, handledIndices);
+      commitResponseProgress(updatedResponse, handledIndices);
+    });
   }
 
   /**
