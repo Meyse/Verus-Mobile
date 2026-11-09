@@ -14,7 +14,7 @@ import { resetPwd, signOut } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import { createAlert, resolveAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import { checkPinForUser } from "../../../../utils/asyncStore/asyncStore";
-import { CommonActions } from "@react-navigation/native";
+import {resetToScreen} from "../../../../utils/navigation/resetToScreen";
 import { removeBiometricPassword } from "../../../../utils/keychain/biometrics";
 import AppTextInput from '../../../../components/AppTextInput';
 import {
@@ -111,27 +111,7 @@ export class ResetPwd extends Component {
   }
 
   resetToScreen = (route, title, data, fullReset) => {
-    let resetAction
-
-    if (fullReset) {
-      resetAction = CommonActions.reset({
-        index: 0, // <-- currect active route from actions array
-        routes: [
-          { name: route, params: { data: data } },
-        ],
-      })
-    } else {
-      resetAction = CommonActions.reset({
-        index: 1, // <-- currect active route from actions array
-        routes: [
-          { name: "Home" },
-          { name: route, params: { title: title, data: data } },
-        ],
-      })
-    }
-
-    if (this.props.navigation.closeDrawer) this.props.navigation.closeDrawer();
-    this.props.navigation.dispatch(resetAction)
+    resetToScreen(this.props.navigation, route, title, data, fullReset);
   }
 
   handleLogout = () => {

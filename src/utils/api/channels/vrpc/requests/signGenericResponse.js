@@ -1,23 +1,63 @@
-import {primitives} from 'verusid-ts-client';
-import VrpcProvider from '../../../../vrpc/vrpcInterface';
-import {requestPrivKey} from '../../../../auth/authBox';
-import {VRPC} from '../../../../constants/intervalConstants';
+import { primitives } from "verusid-ts-client";
+import { Buffer } from "buffer";
+import { IdentitySignature, networks } from "@bitgo/utxo-lib";
+import { AppEncryptionRequestOrdinalVDXFObject, EHashTypes } from "verus-typescript-primitives";
+import VrpcProvider from "../../../../vrpc/vrpcInterface";
+import { requestPrivKey } from "../../../../auth/authBox";
+import { VRPC } from "../../../../constants/intervalConstants";
+import { withAppEncryptionSigningKeys } from "../../../../deeplink/validator/appEncryptionAuthorization";
 
-export const signGenericResponse = async (
-  coinObj,
-  response,
-  requestContext = {},
-) => {
+export const signGenericResponse = async (coinObj, response, context = {}) => {
   const genericResponse = new primitives.GenericResponse(response);
-  requestContext.assertCurrent?.();
-  const signer = VrpcProvider.getVerusIdInterface(coinObj.system_id);
+  context.assertCurrent?.();
+  context.assertActive?.();
+  const client = VrpcProvider.getVerusIdInterface(coinObj.system_id);
+
+  if (context.request?.details.some(detail => detail instanceof AppEncryptionRequestOrdinalVDXFObject)) {
+    const signature = genericResponse.signature;
+
+    if (
+      !signature || signature.systemID.toIAddress() !== coinObj.system_id ||
+      signature.hasBoundHashes() || signature.hasStatements() ||
+      signature.hasVdxfKeys() || signature.hasVdxfKeyNames()
+    ) {
+      throw new Error('Unsupported app encryption response signature.');
+    }
+
+    context.assertActive();
+    const height = await client.getCurrentHeight();
+    context.assertActive();
+    genericResponse.setSigned();
+    const hash = genericResponse.getDetailsIdentitySignatureHash(height);
+    const identityID = signature.identityID.toIAddress();
+    const combined = new IdentitySignature(
+      networks.verus, 2, EHashTypes.HASH_SHA256, height, [], coinObj.system_id, identityID,
+    );
+
+    // The SDK's single-WIF signer replaces existing signatures. Accumulate the
+    // fully controlled threshold over one response digest and block height.
+    const selectedIdentity = {identityID, systemID: coinObj.system_id};
+
+    await withAppEncryptionSigningKeys(context.request, selectedIdentity, context, key => {
+      context.assertActive();
+      combined.signHashOffline(hash, key);
+    });
+    context.assertActive();
+    // Supply the full size: the library's allocator omits additional prefixes
+    // for multisig (7-byte V2 header, then 1 + 65 bytes per compact signature).
+    const signatureBytes = Buffer.alloc(7 + 66 * combined.signatures.length);
+    combined.toBuffer(signatureBytes);
+    signature.signatureAsVch = signatureBytes;
+    return genericResponse;
+  }
+
   const [height, identityResult] = await Promise.all([
-    signer.getCurrentHeight(),
-    signer.interface.getIdentity(
+    client.getCurrentHeight(),
+    client.interface.getIdentity(
       genericResponse.signature.identityID.toIAddress(),
     ),
   ]);
-  requestContext.assertCurrent?.();
+  context.assertCurrent?.();
   if (
     identityResult?.error ||
     !identityResult?.result ||
@@ -26,12 +66,14 @@ export const signGenericResponse = async (
   ) {
     throw new Error('Unable to load the signing identity and block height.');
   }
-  const privateKey = await requestPrivKey(coinObj.id, VRPC, requestContext);
+  context.assertActive?.();
+  const privateKey = await requestPrivKey(coinObj.id, VRPC, context);
   // Supplying identity and height avoids the client's internal RPC awaits.
   // After this guard its path to the cryptographic signature is synchronous.
-  requestContext.assertCurrent?.();
+  context.assertCurrent?.();
 
-  return signer.signGenericResponse(
+  context.assertActive?.();
+  return client.signGenericResponse(
     genericResponse,
     privateKey,
     identityResult.result,

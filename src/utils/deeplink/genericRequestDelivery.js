@@ -3,6 +3,7 @@ import base64url from 'base64url';
 import {Linking} from 'react-native';
 import {URL} from 'react-native-url-polyfill';
 import {
+  APP_ENCRYPTION_REQUEST_VDXF_KEY,
   GENERIC_RESPONSE_DEEPLINK_VDXF_KEY,
   GenericRequest,
   GenericResponse,
@@ -10,13 +11,14 @@ import {
   VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID,
 } from 'verus-typescript-primitives';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
-import {getSystemNameFromSystemId} from '../CoinData/CoinData';
+import store from '../../store';
+import {getAppEncryptionSessionKey} from './appEncryptionSession';
 import {signGenericResponse} from '../api/channels/vrpc/callCreators';
 import {verifyGenericResponse} from '../api/channels/vrpc/requests/verifyGenericResponse';
 import {encryptGenericResponseDetails} from './genericResponse/encryptGenericResponseDetails';
 import {prepareGenericResponseForSigning} from './genericResponse/prepareGenericResponseForSigning';
 import {
-  assertNoPlaintextExtendedSpendingKey,
+  assertNoPlaintextAppEncryptionResponse,
   assertSecurePostResponseUri,
 } from './genericResponse/responseDeliverySecurity';
 import {
@@ -170,14 +172,16 @@ export const signAndVerifyGenericResponse = async (
   }
 
   const signerSystemID = response.signature.systemID.toIAddress();
-  const signerSystemName = getSystemNameFromSystemId(signerSystemID);
-  const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
-  const signedResponse = await signAfterAuthenticationExpiryCheck(request, () =>
-    signGenericResponse(coinObj, response, {
+  const coinObj = CoinDirectory.getBasicCoinObj(signerSystemID);
+  const signedResponse = await signAfterAuthenticationExpiryCheck(request, () => {
+    assertCurrent();
+    return signGenericResponse(coinObj, response, {
+      request,
       sessionScope: sessionGuard.sessionScope,
+      assertActive: assertCurrent,
       assertCurrent,
-    }),
-  );
+    });
+  });
   assertCurrent();
   const verification = await verifyGenericResponse(coinObj, signedResponse);
   assertCurrent();
@@ -208,7 +212,7 @@ export const deliverGenericResponse = async (request, signedResponse) => {
     };
   }
 
-  assertNoPlaintextExtendedSpendingKey(signedResponse);
+  assertNoPlaintextAppEncryptionResponse(signedResponse);
 
   if (deliveryInfo.type === GENERIC_REQUEST_DELIVERY_TYPES.POST) {
     const responseBuffer = signedResponse.toBuffer();
@@ -275,6 +279,7 @@ export const deliverGenericResponse = async (request, signedResponse) => {
 export const createGenericResponseDelivery = () => {
   let prepared = null;
   let attempt = null;
+  let appEncryptionSessionKey;
   return async ({
     requestBufferString,
     responseBufferString,
@@ -294,7 +299,20 @@ export const createGenericResponseDelivery = () => {
         sessionGuard: createRequestSessionGuard(assertCurrent),
       };
     }
-    const {sessionGuard} = attempt;
+    if (appEncryptionSessionKey === undefined) {
+      const request = parseGenericRequestBuffer(requestBufferString);
+      appEncryptionSessionKey = request?.details.some(detail =>
+        detail.getIAddressKey() === APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid,
+      ) ? getAppEncryptionSessionKey(store.getState()) : null;
+    }
+    const assertActive = () => {
+      assertCurrent();
+      if (appEncryptionSessionKey != null &&
+          appEncryptionSessionKey !== getAppEncryptionSessionKey(store.getState())) {
+        throw Object.assign(new Error('Encryption approval is no longer current.'), {code: 'SESSION_CHANGED'});
+      }
+    };
+    const sessionGuard = createRequestSessionGuard(assertActive, attempt.sessionGuard.sessionScope);
     sessionGuard.assertCurrent();
 
     if (!prepared) {

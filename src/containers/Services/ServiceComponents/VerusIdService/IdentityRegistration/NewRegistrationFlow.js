@@ -56,7 +56,7 @@ export default function NewRegistrationFlow({navigation, route}) {
   const [namespaceError, setNamespaceError] = useState(null);
   const [namespaceAttempt, setNamespaceAttempt] = useState(0);
   const [step, setStep] = useState('name');
-  const [referral, setReferral] = useState('none');
+  const [referralChoice, setReferral] = useState(null);
   const [referralName, setReferralName] = useState('');
   const [recovery, setRecovery] = useState('');
   const [revocation, setRevocation] = useState('');
@@ -83,6 +83,12 @@ export default function NewRegistrationFlow({navigation, route}) {
   const payer = sources.find(source => source.address === payerAddress) || defaultSource;
   const referralRequired = data?.referralRequired || namespace?.referralRequired;
   const referralsAllowed = data?.referralsAllowed ?? (referralRequired || namespace?.referralsAllowed !== false);
+  const foundationReferralAvailable = ['VRSC', 'VRSCTEST'].includes(coin?.id) &&
+    (!namespace || namespace.id === coin.system_id) && referralsAllowed;
+  const referralAffordable = registrationFundingState(data?.referralQuote, defaultSource, coin, coins, balances, sourceReads.reads).status === 'enough';
+  const fullAffordable = registrationFundingState(data?.quote, defaultSource, coin, coins, balances, sourceReads.reads).status === 'enough';
+  const referral = referralChoice ?? (foundationReferralAvailable && referralAffordable ? 'foundation'
+    : !fullAffordable && referralAffordable ? 'other' : 'none');
   const referralID = referralRequired || referral === 'other' ? referralName.trim() : referral === 'foundation' ? 'Verus Coin Foundation@' : '';
   const authorityValue = value => {
     const trimmed = value.trim();
@@ -117,14 +123,6 @@ export default function NewRegistrationFlow({navigation, route}) {
         : (referralRequired || data?.referralQuote ? refState(defaultSource) : fullState(defaultSource));
   const activeQuote = preview?.quote || ((referralID || referralRequired) ? data?.referralQuote : data?.quote);
   const payerState = source => registrationFundingState(activeQuote, source, coin, coins, balances, sourceReads.reads);
-  const fullAffordable = fullState(defaultSource).status === 'enough';
-  const referralAffordable = refState(defaultSource).status === 'enough';
-
-  useEffect(() => {
-    if (!data || data.savedReview || referralRequired) return;
-    setReferral(current => current === 'none' && !fullAffordable && referralAffordable ? 'other'
-      : current !== 'none' && !referralAffordable && fullAffordable ? 'none' : current);
-  }, [data, referralRequired, fullAffordable, referralAffordable]);
 
   useEffect(() => {
     if (!wallets.some(item => item.id === coinId) && wallets.length) setCoinId(wallets[0].id);
@@ -266,14 +264,14 @@ export default function NewRegistrationFlow({navigation, route}) {
         {availability === 'checking' && <RegistrationSkeleton label="Checking name and price" />}
         {wallets.length > 1 && <SelectionField label="Network" value={`${coin?.display_ticker}${coin?.testnet ? ' · Testnet' : ''}`} disabled={busy}
           options={wallets.map(item => ({value: item.id, label: `${item.display_ticker}${item.testnet ? ' · Testnet' : ''}`, selected: item.id === coinId}))}
-          onSelect={id => {setNamespace(null); setPayerAddress(null); setReferral('none'); setReferralName(''); setCoinId(id);}} />}
+          onSelect={id => {setNamespace(null); setPayerAddress(null); setReferral(null); setReferralName(''); setCoinId(id);}} />}
       </>}
       {step === 'referral' && <>
         <RegistrationText muted>{referralRequired ? `Names in ${namespace?.suffix?.slice(1) || 'this namespace'} need a referral from a ${namespace?.suffix?.slice(1) || 'matching'} VerusID.`
           : namespace?.id && namespace.id !== coin.system_id ? `A ${namespace.suffix.slice(1)} referral lowers the price.` : 'A referral lowers the price.'}</RegistrationText>
         {referralRequired ? referralField : <>
           <View>
-            {!coin?.testnet && coin?.id === 'VRSC' && (!namespace || namespace.id === coin.system_id) && <SelectionRow title="Verus Coin Foundation@"
+            {foundationReferralAvailable && <SelectionRow title="Verus Coin Foundation@"
               {...referralRowProps(data?.referralQuote)} selected={referral === 'foundation' && referralAffordable}
               disabled={!referralAffordable} onPress={() => setReferral('foundation')} />}
             <SelectionRow title="Someone else" {...referralRowProps(data?.referralQuote)} selected={referral === 'other' && referralAffordable}
@@ -284,7 +282,7 @@ export default function NewRegistrationFlow({navigation, route}) {
           {referral === 'other' && referralField}
         </>}
         {fieldsError?.retryable && <TextAction onPress={retry}>Try again</TextAction>}
-        {data?.quote?.branch !== 'native' && <RegistrationText muted>You also pay a small network fee in {currencyLabel(coin.system_id, data.currencyNames)}.</RegistrationText>}
+        {data?.quote && data.quote.branch !== 'native' && <RegistrationText muted>You also pay a small network fee in {currencyLabel(coin.system_id, data.currencyNames)}.</RegistrationText>}
       </>}
       {step === 'check' && (shown ? <>
         <RegistrationHero quote={shown.quote} currencyNames={shown.currencyNames} prices={prices} />
@@ -301,7 +299,7 @@ export default function NewRegistrationFlow({navigation, route}) {
         quote={activeQuote} currencyNames={preview?.currencyNames || data?.currencyNames} coin={coin} coins={coins}
         balances={balances} reads={sourceReads.reads} showBalance={showBalance} onRetry={sourceReads.retry} />
       <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces} selectedId={namespace?.id || coin?.system_id}
-        onSelect={item => {setNamespace(item); setReferral('none'); setReferralName('');}} loading={namespaceLoading} error={namespaceError} onRetry={() => setNamespaceAttempt(value => value + 1)} />
+        onSelect={item => {setNamespace(item); setReferral(null); setReferralName('');}} loading={namespaceLoading} error={namespaceError} onRetry={() => setNamespaceAttempt(value => value + 1)} />
     </>}
   </RegistrationPage>;
 }

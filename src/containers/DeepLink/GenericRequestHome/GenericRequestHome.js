@@ -1,9 +1,11 @@
+import store from '../../../store';
+import {getAppEncryptionSessionKey} from '../../../utils/deeplink/appEncryptionSession';
 /*
   GenericRequestHome 
   - Coordinates generic request detail handlers, chooses the matching deeplink
     screen, and forwards completed responses through the request flow.
 */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useMemo, useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, StyleSheet, View} from 'react-native';
 import { Text } from 'react-native-paper';
 import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
@@ -410,6 +412,10 @@ const AutoDeliverySheet = ({
 
 const GenericRequestSession = props => {
   const active = useRef(true);
+  const isActive = () => active.current && (
+    props.appEncryptionSessionKey == null ||
+    props.appEncryptionSessionKey === getAppEncryptionSessionKey(store.getState())
+  );
   useEffect(() => () => {active.current = false;}, []);
   const {
     deeplinkData
@@ -468,7 +474,7 @@ const GenericRequestSession = props => {
    */
   const [processedDetailIndices, setProcessedDetailIndices] = useState([]);
   const cancelRequest = useCallback(() => {
-    if (!active.current) return;
+    if (!isActive()) return;
     active.current = false;
     processGenerationRef.current += 1;
     props.cancel();
@@ -557,7 +563,7 @@ const GenericRequestSession = props => {
           try {
             const res = await processDetailAtIndex(i);
 
-            if (processGenerationRef.current !== processGeneration) return;
+            if (!isActive() || processGenerationRef.current !== processGeneration) return;
 
             const newIndices = [...processedDetailIndices];
 
@@ -588,7 +594,7 @@ const GenericRequestSession = props => {
 
             return;
           } catch (e) {
-            if (processGenerationRef.current !== processGeneration) return;
+            if (!isActive() || processGenerationRef.current !== processGeneration) return;
 
             console.warn(e)
             // Stop here: later details must not run past a failed one.
@@ -638,7 +644,7 @@ const GenericRequestSession = props => {
   }, [passthrough]);
 
   const runAutoDelivery = useCallback(async () => {
-    if (request == null) return;
+    if (!isActive() || request == null) return;
     if (autoDeliveryState.status === AUTO_DELIVERY_STATUS.LOADING) return;
     const generation = processGenerationRef.current;
 
@@ -665,11 +671,11 @@ const GenericRequestSession = props => {
         responseBufferString,
         onPhase: phase => setAutoDeliveryState(current => ({...current, phase})),
         assertCurrent: () => {
-          if (generation !== processGenerationRef.current) throw new Error('Request closed');
+          if (!isActive() || generation !== processGenerationRef.current) throw new Error('Request closed');
         },
       });
 
-      if (generation !== processGenerationRef.current) return;
+      if (!isActive() || generation !== processGenerationRef.current) return;
       await markSavedPendingRequestComplete();
 
       setAutoDeliveryState({
@@ -690,7 +696,7 @@ const GenericRequestSession = props => {
       }
 
     } catch (e) {
-      if (generation !== processGenerationRef.current) return;
+      if (!isActive() || generation !== processGenerationRef.current) return;
       autoDeliverySingleFlightRef.current.clear();
       setAutoDeliveryState({
         status: AUTO_DELIVERY_STATUS.ERROR,
@@ -711,7 +717,7 @@ const GenericRequestSession = props => {
     const generation = processGenerationRef.current;
 
     await markSavedPendingRequestComplete();
-    if (generation !== processGenerationRef.current) return;
+    if (!isActive() || generation !== processGenerationRef.current) return;
     completeRequest();
   }, [completeRequest, markSavedPendingRequestComplete]);
 
@@ -759,7 +765,7 @@ const GenericRequestSession = props => {
    *  dataPacketSigned?: boolean, sharedCredentialCount?: number}} options
    */
   const next = async (updatedResponse, handledIndices, options = {}) => {
-    if (!active.current) return;
+    if (!isActive()) return;
     if (options.responseIdentityName || options.sharedCredentialCount != null) {
       setApprovalResult(previous => ({
         identityName: options.responseIdentityName || previous?.identityName,
@@ -806,10 +812,10 @@ const GenericRequestSession = props => {
           ? currentResponse.toBuffer().toString('hex')
           : '',
         assertCurrent: () => {
-          if (generation !== processGenerationRef.current) throw new Error('Request closed');
+          if (!isActive() || generation !== processGenerationRef.current) throw new Error('Request closed');
         },
       });
-      if (generation !== processGenerationRef.current) throw new Error('Request closed');
+      if (!isActive() || generation !== processGenerationRef.current) throw new Error('Request closed');
       await markSavedPendingRequestComplete();
       return result;
     })();
@@ -824,7 +830,7 @@ const GenericRequestSession = props => {
   };
 
   const deliverIdentityUpdateResponse = async (updatedResponse, handledIndices) => {
-    if (!active.current) throw new Error('Request closed');
+    if (!isActive()) throw new Error('Request closed');
     setInlineDeliveryInProgress(true);
 
     const newDetailsProcessed = commitResponseProgress(
@@ -846,10 +852,10 @@ const GenericRequestSession = props => {
     const result = await completeGenericResponseDelivery({
       requestBufferString,
       responseBufferString,
-      assertCurrent: () => {if (!active.current) throw new Error('Request closed');},
+      assertCurrent: () => {if (!isActive()) throw new Error('Request closed');},
     });
 
-    if (!active.current) throw new Error('Request closed');
+    if (!isActive()) throw new Error('Request closed');
     await markSavedPendingRequestComplete();
 
     // The update step keeps "Response sent" and the txid open until Done.
@@ -1183,5 +1189,21 @@ const GenericRequestSession = props => {
   );
 };
 
-const GenericRequestHome = props => <GenericRequestSession key={props.deeplinkData} {...props} />;
+const GenericRequestHome = props => {
+  const hasAppEncryption = useMemo(() => {
+    const request = new primitives.GenericRequest();
+    request.fromBuffer(Buffer.from(props.deeplinkData, 'hex'));
+    return request.details.some(detail =>
+      detail.getIAddressKey() === APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid,
+    );
+  }, [props.deeplinkData]);
+  const appEncryptionSessionKey = useSelector(state =>
+    hasAppEncryption ? getAppEncryptionSessionKey(state) : null,
+  );
+  return <GenericRequestSession
+    key={`${props.deeplinkData}:${appEncryptionSessionKey || ''}`}
+    {...props}
+    appEncryptionSessionKey={appEncryptionSessionKey}
+  />;
+};
 export default GenericRequestHome;
