@@ -246,10 +246,11 @@ const WalletBackupRequestInfo = props => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   // Keep the add-on separate from the flag that resumes after unlock. Both
   // survive a remount; a new scan starts with a new request's passthrough.
+  // The choice stays behind the unlock sheet until a matching wallet is open.
   const backupSelected = passthrough?.walletBackupSelected === true;
   const backupChoiceMade =
     !showSpendableKeyBackupChoice ||
-      passthrough?.walletBackupChoice === 'backup';
+      (passthrough?.walletBackupChoice === 'backup' && activeAccountMatchesRequest);
   const walletBackupCacheRef = useRef(null);
   const writingBackupRef = useRef(false);
   const finishingRef = useRef(false);
