@@ -146,7 +146,11 @@ export const RegistrationHero = ({quote, currencyNames, prices}) => {
   const id = quote.feePricingCurrencyID || quote.issuerID;
   return <View style={styles.section}>
     <RegistrationText muted>You pay</RegistrationText>
-    <Text style={styles.heroAmount}>{formatRegistrationAmount(quote.totalOperationRequired[id])} {currencyLabel(id, currencyNames)}</Text>
+    {/* Android measured "80 USD" as two lines but drew one, leaving a 36 dp gap
+        on 360 dp phones. One line, as in the Send amount, keeps the box exact. */}
+    <Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.heroAmount}>
+      {formatRegistrationAmount(quote.totalOperationRequired[id])} {currencyLabel(id, currencyNames)}
+    </Text>
     {id !== quote.systemID ? <RegistrationText muted>+ {formatRegistrationAmount(quote.totalOperationRequired[quote.systemID])} {currencyLabel(quote.systemID, currencyNames)} in network fees</RegistrationText>
       : fiat && <RegistrationText muted>≈ {fiat}</RegistrationText>}
   </View>;
