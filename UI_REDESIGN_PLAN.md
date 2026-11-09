@@ -2268,6 +2268,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-09 | ID-3.REG-R11-APPENC: app-encryption and private-address review fixes | `aac3f80e`, `c00d9079`, `fc8f1bc1` on `claude/appenc-review-fixes`, merged into local `redesign` | P2 current Z address shown (Current / After update), Removed/Replaced/Added, details sheet says each fact once, chosen VerusID kept after approve (batched `next()`), nested VerusID and key number on the main review, short addresses in the acknowledgement sheet. Android large light + small dark: 11 of 11 links pass, 0 of 123 frames show the loader, simulator verified signers; acknowledgement re-check 4 of 4. Design and safe-area checks pass. | Not pushed. iPhone and TalkBack not run. |
 | 2026-11-09 | ID-3.REG-R11-UPSTREAM: hero fix, full Android run, merge | `b301373c` on `claude/new-verusid-flow-upstream`, merged into local `redesign` | Hero gap cause: Android measured "80 USD" as two lines (72 dp) and drew one. The amount now uses the Send one-line pattern; small phone after the fix: 36 dp, fee line 8 dp below. Root-name Check details unchanged on both phones. Full Android run: `nvfpixg1109@` (normal) and `nvfsmlg1109@` (small) paid with the default Foundation referral (20 VRSCTEST each on chain) and linked. Design and safe-area checks pass on `redesign` after the merge. | Not pushed. Device check of app-encryption requests and the private-address removal warning remains. Four P3s left as is (see the section). |
 | 2026-11-09 | New VerusID upstream sync | `claude/new-verusid-flow-upstream`, upstream `64166d35` | Five upstream commits merged; encryption scope/session/security port, shared lifecycle/cache/claim/NFC helpers, private-address removal risk, VRSC/VRSCTEST Foundation default. Redesign startup refresh, optional drawer close, scoped signer guards and app alerts retained. Install/pins, design, safe areas, 11-case completion check and both release bundles pass. Requested Jest: 386 pass / 21 fail plus seven suite-load errors; exact names and baseline comparison in local report. | No push or merge into redesign. Component fixtures only; native light/dark/compact, signing/delivery, registration and physical NFC QA remain. |
 | 2026-11-07 | ID-3.REG-R11-QA5 | `claude/new-verusid-flow-fixes5` from `9bdb2f8f` | One price-currency payer balance through SelectionRow; namespace referral policy stabilizes the initial progress count; cancellable funds polling stays nonbusy until a funded review rebuild. Design, safe-area (5 files), Babel and focused core/React/hooks lint pass. Seventeen controlled checks pass; nine fail on the base. Inspected 12 source-derived payer states in both themes and Android widths. | Orchestrator review, then Android QA. Hero gap has no identified source cause and is unchanged. Native wrapping, navigation during a slow poll, top-up/re-entry, fresh hold and accessibility remain device checks. Standard ESLint retains its import-plugin load error. |
@@ -3458,8 +3459,9 @@ shrinks to fit.
   light) and `nvfsmlg1109@` (small, dark). Both paid 20 VRSCTEST to the
   Foundation referral on chain and linked the new VerusID.
 - [x] Merge into local `redesign`. Not pushed.
-- [ ] Device-check app-encryption requests and the private-address removal
-  warning. The request simulator still uses older Verus libraries.
+- [x] Device-check app-encryption requests and the private-address removal
+  warning (large Android, 2026-11-09). The request simulator now uses the app's
+  Verus library pins. Findings fixed in ID-3.REG-R11-APPENC.
 
 Evidence: Android, Game PC, JS from Mac Metro 8241. Full run 2 min 34 s (normal)
 and 3 min 23 s (small) from the first hold to "VerusID created". Design and
@@ -3469,6 +3471,42 @@ page behind the linked sheet still says "It is not in this wallet yet.", the
 small-phone Foundation row wraps, and the first tap after the keyboard closes
 was lost once per phone. After the fix, the root-name Check details matches the screens from before the fix on both phones: amount 36 dp, same text size, same 24 dp gap to Commitment. Run folders:
 `docs/qa/matrix/runs/2026-11-06-newflow/` (local, not in Git).
+
+### ID-3.REG-R11-APPENC — App-encryption and private-address review fixes (2026-11-09)
+
+Contract: operate mode. Touched scope: the identity-update private-address
+content row, high-risk step, details sheet and acknowledgement sheet; the
+app-encryption review; the shared GenericRequest completion step. Exemplars:
+`IdentityStateChangeCard` (Current / After update) and `InfoSheetRow` with
+`CopyAction`. No new visual pattern.
+
+- [x] P2: show the current and the new private (Z) address. All three
+  surfaces show "Current" and "After update". Addresses use the identifier
+  style and CopyAction. "No private address" is body text. Removal, change and
+  add are typed as `highRiskType: 'private-address'` (`aac3f80e`).
+- [x] P3: the high-risk step says "Removed", "Replaced" or "Added". The details
+  sheet states the warning once, with no "Change" or "Value" row.
+- [x] P3: keep the chosen VerusID after approve. Cause: the legacy React Native
+  renderer does not batch state updates after an await, so `next()` published
+  the response and the completion count separately and the completion effect
+  processed the same detail again. `next()` now batches the updates. This also
+  covers sign-in, data and spending-key requests. Approval guards unchanged.
+- [x] P3: name the nested VerusID and secondary key number once on the main
+  app-encryption review, with or without the spending key.
+- [x] Small phone: the acknowledgement sheet shows each address as the first 10
+  characters, "…", and the last 8, with the full address as the copy value
+  (`fc8f1bc1`). Android ignores `ellipsizeMode` on selectable text
+  (`c00d9079` did not render).
+
+Evidence: Android, Game PC, JS from Mac Metro 8241 on
+`claude/appenc-review-fixes`. 11 of 11 links pass on large light and small dark
+phones; 0 of 123 recorded frames show the "Opening request" loader; the
+simulator verified that the chosen VerusID signed each reply. Acknowledgement
+re-check 4 of 4 after `fc8f1bc1`; copy returns the full 78-character address.
+Identity updates were not approved. Left as is: the "as …" VerusID wraps after
+the dot while its chevron shows, and "Transaction fee —" shows before a payment
+source. Not tested: iPhone, TalkBack, approving an identity update. Run folder:
+`docs/qa/matrix/runs/2026-11-09-appenc/` (local, not in Git).
 
 ### ID-3.NIGHT4-QA — Android device QA of the night 4 fixes (2026-11-06)
 
