@@ -701,6 +701,8 @@ const WalletBackupRequestInfo = props => {
 
   if (!backupChoiceMade) {
     return <WalletBackupEntry
+      activeAccountMatchesRequest={activeAccountMatchesRequest}
+      activeWalletName={activeAccount?.id}
       cancel={cancel}
       choice
       onClaim={skipBackupAndClaimSpendableKey}
@@ -714,6 +716,7 @@ const WalletBackupRequestInfo = props => {
         else setWalletBackupChoice(undefined);
       }}
       requestIsTestnet={requestIsTestnet}
+      signedIn={signedIn}
       spendableKeyDetail={spendableKeyDetail}
     />;
   }
