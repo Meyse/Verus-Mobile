@@ -898,7 +898,7 @@ const HighRiskStep = ({
                   <Text style={localStyles.sheetRowTitle}>{item.ackTitle}</Text>
                   <Text style={localStyles.sheetRowCopy}>{item.ackCopy}</Text>
                   {item.highRiskType === 'private-address' ? (
-                    <PrivateAddressChangeValues change={item} />
+                    <PrivateAddressChangeValues change={item} compact />
                   ) : Array.isArray(item.ackRows) && item.ackRows.length > 0 ? (
                     <View style={localStyles.sheetAckRows}>
                       {item.ackRows.map(([label, value]) => (
