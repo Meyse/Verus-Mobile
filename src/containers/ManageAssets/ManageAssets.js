@@ -6,18 +6,21 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AppButton from '../../components/AppButton';
 import TextAction from '../../components/TextAction';
+import InfoSheet from '../../components/InfoSheet';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {
   assetKey, assetNetworkKey, getManagedAssetBalance,
-  isAssetShown, isMainAsset, isTestnetAccount,
+  isAssetShown, isMainAsset, isTestnetAccount, removalKey,
 } from '../../utils/assets/assetIdentity';
 import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
   addManagedAsset, assetContextIsCurrent, captureAssetContext,
   getNewAssetHoldings, loadAssetManagement, removeManagedAsset, setAssetHomeVisibility,
+  restoreManagedAsset,
 } from '../../utils/assets/assetManagementService';
+import {getRemovedAssets} from '../../utils/assets/removedAssets';
 import AssetDetailsSheet from './AssetDetailsSheet';
 import {buildAssetManagerData} from './assetManagerData';
 import {
@@ -37,12 +40,13 @@ const useAssetData = () => {
   const balances = useObjectSelector(state => state.ledger.balances);
   const showBalance = useObjectSelector(state => state.coins.showBalance);
   const discoveries = useObjectSelector(getNewAssetHoldings);
+  const removedAssets = useObjectSelector(getRemovedAssets);
   const data = useMemo(() => buildAssetManagerData({activeAccount, activeCoins,
     testAccount: isTestnetAccount(activeAccount)}), [activeAccount, activeCoins]);
   useEffect(() => {
     loadAssetManagement().catch(() => {});
   }, []);
-  return {...data, activeAccount, cards, balances, management, discoveries, showBalance};
+  return {...data, activeAccount, cards, balances, management, discoveries, removedAssets, showBalance};
 };
 
 const useAssetAction = () => {
@@ -60,7 +64,7 @@ const useAssetAction = () => {
     try {
       await task(context);
     } catch (_) {
-      if (mounted.current && assetContextIsCurrent(context)) setError(failure);
+      if (mounted.current && assetContextIsCurrent(context)) setError({message: failure, key: assetKey(coin), action});
     } finally {
       pendingRef.current = false;
       if (mounted.current && assetContextIsCurrent(context)) setPending(null);
@@ -71,7 +75,9 @@ const useAssetAction = () => {
     : run(coin, 'home', context => setAssetHomeVisibility(coin, shown, context), 'Couldn’t save the Home setting. Try again.'), [run]);
   const remove = useCallback(coin => run(coin, 'remove', context => removeManagedAsset({coin, context}),
     'Couldn’t remove this asset. Try again.'), [run]);
-  return {pending, error, perform, remove};
+  const restore = useCallback(entry => run(entry.coin, 'restore', context => restoreManagedAsset({entry, context}),
+    'Could not add this asset. Try again.'), [run]);
+  return {pending, error, perform, remove, restore};
 };
 
 const formatAmount = ({total, complete}, showBalance, ticker) => !showBalance ? 'Balance hidden'
@@ -79,10 +85,10 @@ const formatAmount = ({total, complete}, showBalance, ticker) => !showBalance ? 
 
 const removalMessage = ({total, complete}, showBalance, ticker) => {
   if (showBalance && complete && total?.isGreaterThan(0)) {
-    return `Your balance of ${total.toFormat()} ${ticker} stays on the blockchain. The wallet stops showing it until you add this asset again.`;
+    return `Your balance of ${total.toFormat()} ${ticker} stays on the blockchain. The wallet stops showing it until you add it back from Removed assets.`;
   }
-  if (showBalance && complete && total?.isZero()) return 'The wallet stops showing this asset until you add it again.';
-  return 'Any funds stay on the blockchain. The wallet stops showing this asset until you add it again.';
+  if (showBalance && complete && total?.isZero()) return 'The wallet stops showing it until you add it back from Removed assets.';
+  return 'Any funds stay on the blockchain. The wallet stops showing it until you add it back from Removed assets.';
 };
 
 const SectionHeader = ({title, detail, styles}) => (
@@ -103,7 +109,7 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
     <AssetLogo presentation={presentation} styles={styles} />
     <View style={styles.rowCopy}>
       <Text numberOfLines={2} style={styles.rowName}>{presentation.name}</Text>
-      <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text>
+      {description ? <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text> : null}
     </View>
   </>;
   return (
@@ -118,11 +124,32 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
   );
 };
 
+const RemovedAssetRows = ({entries, pending, error, onAddBack, styles}) => entries.map(entry => {
+  const presentation = getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId});
+  const description = [presentation.ticker, presentation.networkLabel, presentation.identifier]
+    .find(value => value?.trim() && value.trim().toLowerCase() !== presentation.name.trim().toLowerCase());
+  const key = assetKey(entry.coin);
+  const adding = pending?.key === key && pending.action === 'restore';
+  return <View key={entry.key}>
+    <AssetRow coin={entry.coin} presentation={presentation} description={description} styles={styles}
+      action={<TextAction accessibilityLabel={`Add back ${presentation.name} (${presentation.networkLabel})`}
+        accessibilityState={{busy: adding}} disabled={pending != null}
+        onPress={() => onAddBack(entry)} style={styles.restoreAction} testID={`asset-add-back-${entry.coin.id}`}>
+        {adding ? 'Adding…' : 'Add back'}
+      </TextAction>} />
+    {error?.action === 'restore' && error.key === key ?
+      <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.restoreError}>
+        <Text style={styles.errorText}>{error.message}</Text>
+      </View> : null}
+  </View>;
+});
+
 const Manager = ({navigation}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
   const data = useAssetData();
-  const {pending, error, perform, remove} = useAssetAction();
+  const {pending, error, perform, remove, restore} = useAssetAction();
+  const [removedVisible, setRemovedVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   // The selected asset outlives both sheets, so their content stays in place
@@ -151,7 +178,13 @@ const Manager = ({navigation}) => {
   // selected tab and the search text, so they do not disappear while the user
   // uses them. Without them, the list shows every asset. When they hide, the
   // query and the tab go back to their defaults, so they return unchanged.
-  const searchable = data.activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
+  // Activation publishes the coin before the saved removed mark is cleared.
+  // That mark owns list membership until restoration succeeds. Keep an ongoing
+  // removal visible so its existing “Removing…” feedback does not change.
+  const activeAssets = data.activeAssets.filter(coin =>
+    !data.management.removed[removalKey(coin)] ||
+    (pending?.action === 'remove' && pending.key === assetKey(coin)));
+  const searchable = activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
   const activeQuery = searchable ? query : '';
   const activeFilter = searchable ? filter : 'all';
   useEffect(() => {
@@ -160,7 +193,10 @@ const Manager = ({navigation}) => {
       setFilter('all');
     }
   }, [searchable]);
-  const assets = data.activeAssets.map(coin => ({coin,
+  useEffect(() => {
+    if (data.removedAssets.length === 0) setRemovedVisible(false);
+  }, [data.removedAssets.length]);
+  const assets = activeAssets.map(coin => ({coin,
     presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
   })).filter(({coin, presentation}) => {
     const shown = isAssetShown(coin, data.management.preferences);
@@ -171,6 +207,8 @@ const Manager = ({navigation}) => {
     presentation: getAssetPresentation(resolvedAssetCoin(holding.result), {systemId: holding.systemId}),
   })).filter(holding => matchesQuery(activeQuery, [...holding.presentation.searchTerms,
     holding.result.currencyDefinition.fullyqualifiedname])) : [];
+  const removedAssets = activeFilter === 'hidden' ? data.removedAssets.filter(entry =>
+    matchesQuery(activeQuery, getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId}).searchTerms)) : [];
 
   return (
     <AssetScreen title="Manage assets" onBack={() => navigation.goBack()} testID="manage-assets-screen"
@@ -185,10 +223,10 @@ const Manager = ({navigation}) => {
         </View>
       </View> : null}
       footer={<AssetFooter styles={styles}><AppButton onPress={() => navigation.navigate('ManageAssetsDirectory')} testID="manage-assets-add-asset">Add asset</AppButton></AssetFooter>}>
-      <ErrorMessage styles={styles} error={error || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
+      <ErrorMessage styles={styles} error={(error?.action !== 'restore' ? error?.message : null) || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
       <AssetScrollView styles={styles} contentContainerStyle={!searchable && styles.listWithoutSearch} testID="manage-assets-list">
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
-          <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
+          {(activeFilter !== 'hidden' || assets.length > 0) ? <SectionHeader title="Your assets" detail="Show on Home" styles={styles} /> : null}
           {assets.map(({coin, presentation}) => {
             const removing = pending?.key === assetKey(coin) && pending.action === 'remove';
             const amount = removing ? 'Removing…' : formatAmount(holdingOf(coin), data.showBalance, presentation.ticker);
@@ -209,7 +247,7 @@ const Manager = ({navigation}) => {
                 /></View>
               </TouchableOpacity>} />;
           })}
-          {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
+          {assets.length === 0 && removedAssets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
           {discoveries.length > 0 ? <>
             <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
             {discoveries.map(holding => {
@@ -227,8 +265,22 @@ const Manager = ({navigation}) => {
               </View>;
             })}
           </> : null}
+          {removedAssets.length > 0 ? <>
+            <SectionHeader title="Removed assets" detail={String(removedAssets.length)} styles={styles} />
+            <RemovedAssetRows entries={removedAssets} pending={pending} error={error} onAddBack={restore} styles={styles} />
+          </> : null}
+          {!searchable && data.removedAssets.length > 0 ?
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Removed assets, ${data.removedAssets.length}`}
+              onPress={() => setRemovedVisible(true)} style={styles.removedEntry} testID="manage-assets-removed">
+              <Text style={styles.removedEntryLabel}>Removed assets</Text>
+              <Text style={styles.removedEntryCount}>{data.removedAssets.length}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.textSubtle} />
+            </TouchableOpacity> : null}
         </>}
       </AssetScrollView>
+      <InfoSheet title="Removed assets" visible={removedVisible} onClose={() => setRemovedVisible(false)}>
+        <RemovedAssetRows entries={data.removedAssets} pending={pending} error={error} onAddBack={restore} styles={styles} />
+      </InfoSheet>
       <AssetDetailsSheet
         amount={selected ? formatAmount(selectedHolding, data.showBalance, selectedPresentation.ticker) : null}
         coin={selected}
@@ -262,7 +314,7 @@ const Directory = ({navigation}) => {
   return (
     <AssetScreen title="Add asset" onBack={() => navigation.goBack()} testID="manage-assets-directory"
       header={<View style={styles.headerContent}><AppSearchField accessibilityLabel="Search catalogue or paste identifier" placeholder="Search catalogue or paste identifier" value={query} onChangeText={setQuery} testID="manage-assets-directory-search" /></View>}>
-      <ErrorMessage error={error} styles={styles} />
+      <ErrorMessage error={error?.message} styles={styles} />
       <AssetScrollView styles={styles} testID="manage-assets-directory-list">
         <TouchableOpacity accessibilityRole="button" style={styles.customEntry} testID="manage-assets-add-custom"
           onPress={() => navigation.navigate('AddAssetByIdentifier', {identifier: query.trim(), assetScope: captureAssetContext()})}>

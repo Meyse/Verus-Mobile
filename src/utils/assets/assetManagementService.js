@@ -20,6 +20,8 @@ import {requestServiceStoredData} from '../auth/authBox';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../constants/intervalConstants';
+import {removedAssetRecord} from './removedAssets';
+import {resolvedAssetCoin} from './assetPresentation';
 import {
   assetKey,
   assetNetworkKey,
@@ -146,9 +148,32 @@ export const setAssetHomeVisibility = async (
 const setAssetRemoved = async (key, removed, context) => {
   const saved = await updateStoredAssets(context, current => {
     const next = {...current.removed};
-    if (removed) next[key] = true;
+    if (removed) next[key] = removed;
     else delete next[key];
     return {...current, removed: next};
+  });
+  dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+    removed: saved.networks[context.networkKey].removed,
+  });
+};
+
+const restoreAssetPreferences = async (coin, removedKey, context) => {
+  const saved = await updateStoredAssets(context, current => {
+    const removed = {...current.removed};
+    delete removed[removedKey];
+    return {
+      ...current,
+      removed,
+      preferences: {
+        ...current.preferences,
+        [assetKey(coin)]: {hidden: false},
+      },
+    };
+  });
+  // Publish only after storage succeeds. A failed write keeps the asset under
+  // Removed assets, even if activation succeeded; Add back can retry it there.
+  dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
+    preferences: saved.networks[context.networkKey].preferences,
   });
   dispatchForContext(context, ASSET_REMOVALS_SAVED, {
     removed: saved.networks[context.networkKey].removed,
@@ -210,12 +235,11 @@ export const addManagedAsset = ({
   const operation = additionQueue.catch(() => {}).then(async () => {
     await loadAssetManagement(context);
     assertCurrent(context);
-    const removedKey = coin ? removalKey(coin)
-      : result.kind === 'pbaas' ? result.currencyDefinition.currencyid : null;
-    if (store.getState().assetManagement.removed[removedKey]) {
+    const removedKey = removalKey(coin || resolvedAssetCoin(result));
+    const wasRemoved = Boolean(store.getState().assetManagement.removed[removedKey]);
+    if (wasRemoved) {
       // Only the user brings a removed asset back.
       if (automatic) return null;
-      await setAssetRemoved(removedKey, false, context);
     }
     let state = store.getState();
     const existing = (state.coins.activeCoinsForUser || []).find(item =>
@@ -227,7 +251,10 @@ export const addManagedAsset = ({
         : item.proto === 'erc20' && ethereumNetwork(item) === result.network &&
           item.currency_id?.toLowerCase() === result.canonicalAddress.toLowerCase());
     if (existing) {
-      if (!automatic) await setAssetHomeVisibility(existing, true, context);
+      if (!automatic) {
+        if (wasRemoved) await restoreAssetPreferences(existing, removedKey, context);
+        else await setAssetHomeVisibility(existing, true, context);
+      }
       return existing;
     }
     const resolved = result || {
@@ -248,7 +275,10 @@ export const addManagedAsset = ({
       result: resolved,
     });
     assertCurrent(context);
-    if (!automatic) await setAssetHomeVisibility(added, true, context);
+    if (!automatic) {
+      if (wasRemoved) await restoreAssetPreferences(added, removedKey, context);
+      else await setAssetHomeVisibility(added, true, context);
+    }
     return added;
   });
   additionQueue = operation.catch(() => {});
@@ -266,7 +296,7 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
     }
     // Mark it first, so a balance update during teardown cannot add it back.
     const key = removalKey(coin);
-    if (key) await setAssetRemoved(key, true, context);
+    await setAssetRemoved(key, removedAssetRecord(coin), context);
     const nextCoins = await removeExistingCoin(
       coin.id,
       activeAccount.id,
@@ -286,7 +316,39 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
 // Keeps a found currency out of "New assets found" without adding it.
 export const ignoreAssetHolding = async (holding, context = captureAssetContext()) => {
   await loadAssetManagement(context);
-  await setAssetRemoved(holding.currencyId, true, context);
+  await setAssetRemoved(holding.currencyId,
+    removedAssetRecord(resolvedAssetCoin(holding.result), holding.systemId), context);
+};
+
+export const restoreManagedAsset = async ({entry, context = captureAssetContext()}) => {
+  assertCurrent(context);
+  const {coin, lookupSystemId} = entry;
+  // Registered assets use the same add path as the catalogue.
+  if (CoinDirectory.coinExistsInDirectory(coin.id)) {
+    const registered = CoinDirectory.getBasicCoinObj(coin.id);
+    if (Boolean(registered.testnet) === Boolean(coin.testnet)) {
+      return addManagedAsset({coin: registered, context});
+    }
+  }
+  // Ignored discoveries already have a resolved currency definition. Reuse it
+  // on the same network and lookup system instead of repeating the RPC reads.
+  await loadAssetManagement(context);
+  assertCurrent(context);
+  const cached = Object.values(store.getState().assetManagement.resolved || {}).find(result =>
+    result.kind === 'pbaas' && coin.proto === 'vrsc' &&
+    Boolean(result.testnet) === Boolean(coin.testnet) &&
+    result.lookupSystemId === lookupSystemId &&
+    result.currencyDefinition?.currencyid === coin.currency_id);
+  if (cached) return addManagedAsset({result: cached, context});
+  const result = await resolveAssetIdentifier({
+    activeCoins: [],
+    identifier: coin.currency_id,
+    kind: coin.proto === 'erc20' ? 'erc20' : 'pbaas',
+    pbaasCoin: {system_id: lookupSystemId, testnet: coin.testnet},
+    ethereumCoin: {network: ethereumNetwork(coin)},
+  });
+  assertCurrent(context);
+  return addManagedAsset({result, context});
 };
 
 const persistDiscovery = async context => {
