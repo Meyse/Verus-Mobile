@@ -4,7 +4,6 @@ import {Text} from 'react-native-paper';
 import {Gift, LockOpen, Nfc, Plus, ShieldCheck, Wallet} from 'lucide-react-native';
 import Animated, {
   FadeIn,
-  FadeOut,
   LayoutAnimationConfig,
   LinearTransition,
 } from 'react-native-reanimated';
@@ -133,7 +132,6 @@ const useGiftPreview = (detail, requestIsTestnet) => {
 };
 
 const STEP_ENTERING = FadeIn.duration(180);
-const STEP_EXITING = FadeOut.duration(120);
 const STEP_LAYOUT = LinearTransition.duration(200);
 
 export default function WalletBackupEntry({
@@ -188,8 +186,10 @@ export default function WalletBackupEntry({
     {icon: ShieldCheck, text: 'Back it up to this card or with its Secret Recovery Phrase'},
     {icon: Wallet, text: 'Claim the gift into the new wallet'},
   ] : null;
-  // The backup box adds and removes a step. Fade it and move the rest, so
-  // the list does not jump. Steps already shown at mount do not animate.
+  // The backup box adds and removes a step. A new step fades in and the
+  // rest move, so the list does not jump. Steps already shown at mount do not
+  // animate. No exit animation: on Android, an exiting step left the window
+  // blank when this screen was replaced in the same request container.
   const stepList = steps && (
     <LayoutAnimationConfig skipEntering>
       <View style={[
@@ -200,7 +200,6 @@ export default function WalletBackupEntry({
         {steps.map(({icon: Icon, text}, index) => (
           <Animated.View
             entering={STEP_ENTERING}
-            exiting={STEP_EXITING}
             key={text}
             layout={STEP_LAYOUT}
             style={styles.step}>
