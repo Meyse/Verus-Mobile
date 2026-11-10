@@ -976,6 +976,15 @@ const SpendableKeyRequestInfoContent = props => {
     () => getSpendableKeyReviewModel(claimPlan),
     [claimPlan],
   );
+  // With one chain, the receiving address and fee continue the list above
+  // them. A gap there showed as an empty row between two lines.
+  const onlySystem = reviewModel.hasMultipleSystems ? null : reviewModel.systems[0];
+  const joinClaimDetails =
+    onlySystem != null &&
+    (reviewModel.identityCount > 0 ||
+      (!reviewModel.singleBalance && reviewModel.balanceCount > 0)) &&
+    (!!destinationBySystem[onlySystem.systemId] || hasClaimFee(onlySystem));
+  const joinBalancesToDetails = joinClaimDetails && reviewModel.identityCount === 0;
   const unsupportedIdentityCount = useMemo(
     () =>
       reviewModel.identities.filter(({identity}) => identity.unsupportedReason)
@@ -2136,13 +2145,15 @@ const SpendableKeyRequestInfoContent = props => {
             )}
 
             {!reviewModel.singleBalance && reviewModel.balanceCount > 0 && (
-              <View style={styles.itemSection}>
+              <View style={[styles.itemSection, joinBalancesToDetails && styles.joinedSection]}>
                 <Text style={styles.sectionTitle}>Balances</Text>
                 {reviewModel.systems.map(system => {
                   if (system.currencies.length === 0) return null;
 
                   return (
-                    <View style={styles.systemGroup} key={system.systemId}>
+                    <View
+                      style={[styles.systemGroup, joinBalancesToDetails && styles.joinedSection]}
+                      key={system.systemId}>
                       {reviewModel.hasMultipleSystems && (
                         <Text style={styles.systemGroupLabel}>
                           {getSystemLabel(system)}
@@ -2172,7 +2183,7 @@ const SpendableKeyRequestInfoContent = props => {
             )}
 
             {reviewModel.identityCount > 0 && (
-              <View style={styles.itemSection}>
+              <View style={[styles.itemSection, joinClaimDetails && styles.joinedSection]}>
                 <Text style={styles.sectionTitle}>
                   {reviewModel.identityCount === 1 ? 'VerusID' : 'VerusIDs'}
                 </Text>
@@ -2180,7 +2191,9 @@ const SpendableKeyRequestInfoContent = props => {
                   if (system.identities.length === 0) return null;
 
                   return (
-                    <View style={styles.systemGroup} key={system.systemId}>
+                    <View
+                      style={[styles.systemGroup, joinClaimDetails && styles.joinedSection]}
+                      key={system.systemId}>
                       {reviewModel.hasMultipleSystems && (
                         <Text style={styles.systemGroupLabel}>
                           {getSystemLabel(system)}
@@ -2277,7 +2290,7 @@ const SpendableKeyRequestInfoContent = props => {
                       {getSystemLabel(system)}
                     </Text>
                   )}
-                  <View style={styles.flatRows}>
+                  <View style={[styles.flatRows, joinClaimDetails && styles.joinedRows]}>
                     {destination && (
                       <View style={styles.claimDetailRow}>
                         <View style={styles.claimDetailHeader}>

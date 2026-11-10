@@ -1131,8 +1131,11 @@ uses 32-point circles and 18-point Lucide glyphs with 1.8 stroke. Normal gap is
   no claim and no unspent output titles the card "No funds found on this card".
 - [x] Owner follow-up 2026-11-10 (phone test): a card with several assets
   names a count in the title and lists each currency and VerusID below it.
-  The backup step fades in and out, and the other steps move, instead of
-  jumping.
+  When the box adds the backup step, the other steps move first, then the
+  step fades in. Unchecking removes it at once (an exit fade blanked Android).
+- [x] Owner follow-up 2026-11-10: on the claim review with one chain, the
+  receiving address and fee continue the balance or VerusID list. The empty
+  row between two lines is gone.
 
 ## SH-1 — Consistent sheet presentation and dismissal
 
