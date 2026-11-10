@@ -85,10 +85,10 @@ const formatAmount = ({total, complete}, showBalance, ticker) => !showBalance ? 
 
 const removalMessage = ({total, complete}, showBalance, ticker) => {
   if (showBalance && complete && total?.isGreaterThan(0)) {
-    return `Your balance of ${total.toFormat()} ${ticker} stays on the blockchain. The wallet stops showing it until you add this asset again.`;
+    return `Your balance of ${total.toFormat()} ${ticker} stays on the blockchain. The wallet stops showing it until you add it back from Removed assets.`;
   }
-  if (showBalance && complete && total?.isZero()) return 'The wallet stops showing this asset until you add it again.';
-  return 'Any funds stay on the blockchain. The wallet stops showing this asset until you add it again.';
+  if (showBalance && complete && total?.isZero()) return 'The wallet stops showing it until you add it back from Removed assets.';
+  return 'Any funds stay on the blockchain. The wallet stops showing it until you add it back from Removed assets.';
 };
 
 const SectionHeader = ({title, detail, styles}) => (
