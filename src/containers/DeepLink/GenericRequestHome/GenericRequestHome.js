@@ -629,10 +629,16 @@ const GenericRequestSession = props => {
     autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE ? 0 : 3,
   );
 
+  // Read the passthrough when the request completes. A dependency on it would
+  // re-run the completion effect below, which re-opens the current detail,
+  // each time a screen saves a choice there (the NFC gift backup box).
+  const passthroughRef = useRef(passthrough);
+  passthroughRef.current = passthrough;
+
   const markSavedPendingRequestComplete = useCallback(async () => {
     const pendingRequestId =
-      passthrough?.pendingDeeplinkId ||
-      passthrough?.pendingProvisioningDeeplinkId;
+      passthroughRef.current?.pendingDeeplinkId ||
+      passthroughRef.current?.pendingProvisioningDeeplinkId;
 
     if (pendingRequestId) {
       try {
@@ -641,7 +647,7 @@ const GenericRequestSession = props => {
         console.warn('Unable to mark pending deeplink complete', e);
       }
     }
-  }, [passthrough]);
+  }, []);
 
   const runAutoDelivery = useCallback(async () => {
     if (!isActive() || request == null) return;

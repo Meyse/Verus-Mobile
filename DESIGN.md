@@ -1300,9 +1300,14 @@ Without a wallet for the request's network, lead with the Gift `StepGlyph` and
 This card holds followed by the discovered amount. Use `SkeletonLoader` while
 reading. A protected key, failed scan or several assets uses This card holds
 a gift. The preview uses the existing root-chain discovery with no wallet.
-When the root chain has no claim and no unspent output, scan every known
-chain. Only a complete scan with the same result uses "No funds found on this
-card" (owner-approved 2026-11-10), with or without a wallet on the phone.
+The preview scans the root chain, then every known chain. If another chain
+fails, keep the root chain result. Only a complete scan with no claim and no
+unspent output uses "No funds found on this card" (owner-approved
+2026-11-10), with or without a wallet on the phone. One named currency stays
+in the title. Several currencies, VerusIDs or an unnamed currency use a count
+title, such as "This card holds 2 currencies" or "1 currency and 1 VerusID".
+Below it, list each one with the claim review's flat rows: name left, amount
+right, hairline dividers, and the title margin below the list.
 Below the no-wallet title, show the option C step list right after the title
 margin: Plus "Create a wallet on this phone", ShieldCheck "Back it up to this
 card or with its Secret Recovery Phrase", Wallet "Claim the gift into the new
@@ -1328,6 +1333,9 @@ are exceptions to the standard multi-select row. Busy disables the row and
 buttons. The row exposes its checkbox role, label and checked state.
 
 Place the plain-text steps 40 points below the row (32 on compact windows).
+When the box adds or removes a step, that step fades (180 ms in, 120 ms out)
+and the other steps move in 200 ms. Steps shown at mount do not animate, and
+the system reduced-motion setting turns the motion off.
 Each step has a 32-point `surfaceMuted` circle, an 18-point Lucide glyph with
 1.8 stroke, and `bodyMd` text. Join circles with a 1.5-point `border` line.
 Signed out starts with LockOpen and "Unlock your wallet on this phone".
