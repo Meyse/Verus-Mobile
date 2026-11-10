@@ -157,6 +157,29 @@ const setAssetRemoved = async (key, removed, context) => {
   });
 };
 
+const restoreAssetPreferences = async (coin, removedKey, context) => {
+  const saved = await updateStoredAssets(context, current => {
+    const removed = {...current.removed};
+    delete removed[removedKey];
+    return {
+      ...current,
+      removed,
+      preferences: {
+        ...current.preferences,
+        [assetKey(coin)]: {hidden: false},
+      },
+    };
+  });
+  // Publish only after storage succeeds. A failed write keeps the asset under
+  // Removed assets, even if activation succeeded; Add back can retry it there.
+  dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
+    preferences: saved.networks[context.networkKey].preferences,
+  });
+  dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+    removed: saved.networks[context.networkKey].removed,
+  });
+};
+
 // Home stops asking about these found currencies once the user reviews or
 // dismisses them; they stay under "New assets found" in Manage assets.
 export const markFoundAssetsReviewed = async (
@@ -228,8 +251,10 @@ export const addManagedAsset = ({
         : item.proto === 'erc20' && ethereumNetwork(item) === result.network &&
           item.currency_id?.toLowerCase() === result.canonicalAddress.toLowerCase());
     if (existing) {
-      if (!automatic) await setAssetHomeVisibility(existing, true, context);
-      if (!automatic && wasRemoved) await setAssetRemoved(removedKey, false, context);
+      if (!automatic) {
+        if (wasRemoved) await restoreAssetPreferences(existing, removedKey, context);
+        else await setAssetHomeVisibility(existing, true, context);
+      }
       return existing;
     }
     const resolved = result || {
@@ -250,8 +275,10 @@ export const addManagedAsset = ({
       result: resolved,
     });
     assertCurrent(context);
-    if (!automatic) await setAssetHomeVisibility(added, true, context);
-    if (!automatic && wasRemoved) await setAssetRemoved(removedKey, false, context);
+    if (!automatic) {
+      if (wasRemoved) await restoreAssetPreferences(added, removedKey, context);
+      else await setAssetHomeVisibility(added, true, context);
+    }
     return added;
   });
   additionQueue = operation.catch(() => {});
