@@ -1300,7 +1300,13 @@ Without a wallet for the request's network, lead with the Gift `StepGlyph` and
 This card holds followed by the discovered amount. Use `SkeletonLoader` while
 reading. A protected key, failed scan or several assets uses This card holds
 a gift. The preview uses the existing root-chain discovery with no wallet.
-Reuse Personalize wallet, Create password, biometrics and `WalletSetup`.
+When the root chain has no claim and no unspent output, scan every known
+chain. Only a complete scan with the same result uses "No funds found on this
+card" (owner-approved 2026-11-10), with or without a wallet on the phone.
+Below the no-wallet title, show the option C step list right after the title
+margin: Plus "Create a wallet on this phone", ShieldCheck "Back it up to this
+card or with its Secret Recovery Phrase", Wallet "Claim the gift into the new
+wallet". A backup-only request keeps its one body line. Reuse Personalize wallet, Create password, biometrics and `WalletSetup`.
 Keep the wallet name empty. Create on the request's network with the primary
 phrase also used for the shielded seed. Resume at Back up wallet.
 

@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import {Gift, LockOpen, Nfc, Wallet} from 'lucide-react-native';
+import {Gift, LockOpen, Nfc, Plus, ShieldCheck, Wallet} from 'lucide-react-native';
 import BigNumber from 'bignumber.js';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
@@ -19,13 +19,23 @@ import {
   spendableKeyDetailsRequiresPassword,
 } from '../../../utils/spendableKey/spendableKey';
 
-// This preview uses only the root chain. The claim screen still performs its
-// full discovery after unlock. Do not retain the mnemonic or private scan data.
+// A system is empty only when it has no claim and no unspent output at all.
+// An unspent output that is not spendable yet does not make the card empty.
+const isEmptyScan = result => result.systems.every(system =>
+  system.currencies.length === 0 &&
+  system.identities.length === 0 &&
+  (system.observedUtxos || []).length === 0,
+);
+
+// This preview uses the root chain for the amount. Only an empty root chain
+// scans every known chain, so a gift on another chain never reads as empty.
+// The claim screen still performs its full discovery after unlock. Do not
+// retain the mnemonic or private scan data.
 const useGiftTitle = (detail, requestIsTestnet) => {
-  const [preview, setPreview] = useState({loading: !!detail, amount: null});
+  const [preview, setPreview] = useState({loading: !!detail, amount: null, empty: false});
   useEffect(() => {
     let active = true;
-    setPreview({loading: !!detail, amount: null});
+    setPreview({loading: !!detail, amount: null, empty: false});
     if (!detail) return undefined;
     const discover = async () => {
       try {
@@ -36,6 +46,19 @@ const useGiftTitle = (detail, requestIsTestnet) => {
           requestIsTestnet,
           activeCoinsForUser: [],
         });
+        if (isEmptyScan(result)) {
+          const full = await discoverSpendableKeyClaims({
+            mnemonic,
+            requestIsTestnet,
+            activeCoinsForUser: [],
+            cachedSystems: result.systems,
+            includeKnownSystems: true,
+          });
+          if (full.scanUniverseComplete && isEmptyScan(full) && active) {
+            setPreview({loading: false, amount: null, empty: true});
+          }
+          return;
+        }
         const currencies = result.systems.flatMap(system => system.currencies);
         const identities = result.systems.flatMap(system => system.identities);
         if (currencies.length !== 1 || identities.length !== 0) return;
@@ -86,22 +109,52 @@ export default function WalletBackupEntry({
   const {smallDevice} = useOnboardingSmallDeviceLayout();
   const preview = useGiftTitle(spendableKeyDetail, requestIsTestnet);
   const [busy, setBusy] = useState(false);
-  const title = spendableKeyDetail
-    ? `This card holds ${preview.amount || 'a gift'}`
-    : 'Create a wallet';
+  const title = !spendableKeyDetail
+    ? 'Create a wallet'
+    : preview.empty
+      ? 'No funds found on this card'
+      : `This card holds ${preview.amount || 'a gift'}`;
   const unlockStep = activeAccountMatchesRequest ? null : {
     icon: LockOpen,
     text: signedIn
       ? `Switch to your ${requestIsTestnet ? 'testnet' : 'mainnet'} wallet`
       : 'Unlock your wallet on this phone',
   };
-  const steps = [
+  const steps = choice ? [
     unlockStep,
     backupSelected && {icon: Nfc, text: 'Write the backup. It replaces the gift on the card.'},
     {icon: Wallet, text: unlockStep
       ? 'Claim the gift into that wallet'
       : `Claim the gift into ${activeWalletName}`},
-  ].filter(Boolean);
+  ].filter(Boolean) : spendableKeyDetail ? [
+    {icon: Plus, text: 'Create a wallet on this phone'},
+    {icon: ShieldCheck, text: 'Back it up to this card or with its Secret Recovery Phrase'},
+    {icon: Wallet, text: 'Claim the gift into the new wallet'},
+  ] : null;
+  const stepList = steps && (
+    <View style={[
+      styles.steps,
+      choice && smallDevice && styles.stepsSmallDevice,
+      !choice && styles.introSteps,
+    ]}>
+      {steps.map(({icon: Icon, text}, index) => (
+        <View key={text} style={styles.step}>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.stepTrack}>
+            <View style={styles.stepCircle}>
+              <Icon color={theme.colors.textPrimary} size={18} strokeWidth={1.8} />
+            </View>
+            {index < steps.length - 1 && <View style={styles.stepConnector} />}
+          </View>
+          <Text style={[styles.stepText, index < steps.length - 1 && styles.stepTextSpacing]}>
+            {text}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
   const continueFlow = async () => {
     if (busy) return;
     setBusy(true);
@@ -164,30 +217,11 @@ export default function WalletBackupEntry({
                   Also back up my wallet to this card
                 </Text>
               </TouchableOpacity>
-              <View style={[styles.steps, smallDevice && styles.stepsSmallDevice]}>
-                {steps.map(({icon: Icon, text}, index) => (
-                  <View key={text} style={styles.step}>
-                    <View
-                      accessibilityElementsHidden
-                      importantForAccessibility="no-hide-descendants"
-                      style={styles.stepTrack}>
-                      <View style={styles.stepCircle}>
-                        <Icon color={theme.colors.textPrimary} size={18} strokeWidth={1.8} />
-                      </View>
-                      {index < steps.length - 1 && <View style={styles.stepConnector} />}
-                    </View>
-                    <Text style={[styles.stepText, index < steps.length - 1 && styles.stepTextSpacing]}>
-                      {text}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+              {stepList}
             </>
-          ) : (
+          ) : stepList || (
             <Text style={flow.body}>
-              {spendableKeyDetail
-                ? 'Create a wallet to receive it. The card then holds a backup of that wallet.'
-                : 'Create a wallet, then write its backup to an NFC card.'}
+              Create a wallet, then write its backup to an NFC card.
             </Text>
           )}
         </View>
@@ -212,6 +246,8 @@ const createStyles = theme => StyleSheet.create({
   backupChoice: {marginVertical: 0},
   steps: {marginTop: 40},
   stepsSmallDevice: {marginTop: 32},
+  // On the no-wallet screen the steps follow the title's own bottom margin.
+  introSteps: {marginTop: 0},
   step: {flexDirection: 'row', gap: 12},
   stepTrack: {width: 32, alignItems: 'center'},
   stepCircle: {

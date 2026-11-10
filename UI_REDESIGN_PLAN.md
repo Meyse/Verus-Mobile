@@ -1121,6 +1121,12 @@ uses 32-point circles and 18-point Lucide glyphs with 1.8 stroke. Normal gap is
   unlock cancel/success, switch wallet, matching wallet, busy actions, Back,
   fresh scan and the unchanged password prompt. Native text, focus, TalkBack
   and NFC hardware remain outside this implementation's evidence.
+  Large Android phone passed 2026-11-09 on `22db722c` (owner scope: large phone
+  only): light/dark, checkbox, unlock cancel/success, Back, backup and claim,
+  claim only and fresh scan. Small phone, switch wallet and TalkBack not run.
+- [x] Owner follow-up 2026-11-10: the no-wallet first screen shows the same
+  step list (create, back up to card or phrase, claim). A complete scan with
+  no claim and no unspent output titles the card "No funds found on this card".
 
 ## SH-1 — Consistent sheet presentation and dismissal
 
