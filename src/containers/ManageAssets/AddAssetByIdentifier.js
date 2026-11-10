@@ -248,7 +248,7 @@ const CustomAsset = ({navigation, route}) => {
           <ReviewRow label={pbaas ? 'Launch system' : 'Decimals'} value={pbaas ? (result.launchSystem?.fullyqualifiedname || systemLabel(result.currencyDefinition.launchsystemid || result.currencyDefinition.systemid)) : result.decimals} styles={styles} />
           <Text style={styles.reviewCopy}>{pbaas ? 'Check that the currency ID matches the asset you want to add.' : 'Check the contract address against the asset issuer’s source.'}</Text>
           <Text style={styles.reviewHomeCopy}>This asset will appear on Home.</Text>
-          {found ? <Text style={styles.reviewHomeCopy}>Ignored assets move to Removed assets. Add them back there.</Text> : null}
+          {found ? <Text style={styles.reviewHomeCopy}>{'Ignored assets move to Removed assets. Add them back\u00a0there.'}</Text> : null}
           {error ? <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.lookupError}><Text style={styles.formHelper}>{error.message}</Text></View> : null}
         </> : null}
       </AssetScrollView>
