@@ -220,7 +220,7 @@ const Manager = ({navigation}) => {
       <ErrorMessage styles={styles} error={(error?.action !== 'restore' ? error?.message : null) || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
       <AssetScrollView styles={styles} contentContainerStyle={!searchable && styles.listWithoutSearch} testID="manage-assets-list">
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
-          <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
+          {(activeFilter !== 'hidden' || assets.length > 0) ? <SectionHeader title="Your assets" detail="Show on Home" styles={styles} /> : null}
           {assets.map(({coin, presentation}) => {
             const removing = pending?.key === assetKey(coin) && pending.action === 'remove';
             const amount = removing ? 'Removing…' : formatAmount(holdingOf(coin), data.showBalance, presentation.ticker);
