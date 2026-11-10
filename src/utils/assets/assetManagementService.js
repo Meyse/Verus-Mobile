@@ -20,6 +20,8 @@ import {requestServiceStoredData} from '../auth/authBox';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../constants/intervalConstants';
+import {removedAssetRecord} from './removedAssets';
+import {resolvedAssetCoin} from './assetPresentation';
 import {
   assetKey,
   assetNetworkKey,
@@ -146,7 +148,7 @@ export const setAssetHomeVisibility = async (
 const setAssetRemoved = async (key, removed, context) => {
   const saved = await updateStoredAssets(context, current => {
     const next = {...current.removed};
-    if (removed) next[key] = true;
+    if (removed) next[key] = removed;
     else delete next[key];
     return {...current, removed: next};
   });
@@ -210,12 +212,10 @@ export const addManagedAsset = ({
   const operation = additionQueue.catch(() => {}).then(async () => {
     await loadAssetManagement(context);
     assertCurrent(context);
-    const removedKey = coin ? removalKey(coin)
-      : result.kind === 'pbaas' ? result.currencyDefinition.currencyid : null;
+    const removedKey = removalKey(coin || resolvedAssetCoin(result));
     if (store.getState().assetManagement.removed[removedKey]) {
       // Only the user brings a removed asset back.
       if (automatic) return null;
-      await setAssetRemoved(removedKey, false, context);
     }
     let state = store.getState();
     const existing = (state.coins.activeCoinsForUser || []).find(item =>
@@ -228,6 +228,7 @@ export const addManagedAsset = ({
           item.currency_id?.toLowerCase() === result.canonicalAddress.toLowerCase());
     if (existing) {
       if (!automatic) await setAssetHomeVisibility(existing, true, context);
+      if (!automatic) await setAssetRemoved(removedKey, false, context);
       return existing;
     }
     const resolved = result || {
@@ -249,6 +250,7 @@ export const addManagedAsset = ({
     });
     assertCurrent(context);
     if (!automatic) await setAssetHomeVisibility(added, true, context);
+    if (!automatic) await setAssetRemoved(removedKey, false, context);
     return added;
   });
   additionQueue = operation.catch(() => {});
@@ -266,7 +268,7 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
     }
     // Mark it first, so a balance update during teardown cannot add it back.
     const key = removalKey(coin);
-    if (key) await setAssetRemoved(key, true, context);
+    await setAssetRemoved(key, removedAssetRecord(coin), context);
     const nextCoins = await removeExistingCoin(
       coin.id,
       activeAccount.id,
@@ -286,7 +288,30 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
 // Keeps a found currency out of "New assets found" without adding it.
 export const ignoreAssetHolding = async (holding, context = captureAssetContext()) => {
   await loadAssetManagement(context);
-  await setAssetRemoved(holding.currencyId, true, context);
+  await setAssetRemoved(holding.currencyId,
+    removedAssetRecord(resolvedAssetCoin(holding.result), holding.systemId), context);
+};
+
+export const restoreManagedAsset = async ({entry, context = captureAssetContext()}) => {
+  assertCurrent(context);
+  const {coin, lookupSystemId} = entry;
+  // Registered assets use the same add path as the catalogue. A custom asset
+  // absent from the directory needs fresh metadata before it can be added.
+  if (CoinDirectory.coinExistsInDirectory(coin.id)) {
+    const registered = CoinDirectory.getBasicCoinObj(coin.id);
+    if (Boolean(registered.testnet) === Boolean(coin.testnet)) {
+      return addManagedAsset({coin: registered, context});
+    }
+  }
+  const result = await resolveAssetIdentifier({
+    activeCoins: [],
+    identifier: coin.currency_id,
+    kind: coin.proto === 'erc20' ? 'erc20' : 'pbaas',
+    pbaasCoin: {system_id: lookupSystemId, testnet: coin.testnet},
+    ethereumCoin: {network: ethereumNetwork(coin)},
+  });
+  assertCurrent(context);
+  return addManagedAsset({result, context});
 };
 
 const persistDiscovery = async context => {

@@ -52,10 +52,9 @@ export const isAssetShown = (coin, preferences) =>
 export const isMainAsset = (coin, account) =>
   coin.id === (isTestnetAccount(account) ? account.testnetOverrides.VRSC : 'VRSC');
 
-// A removed Verus currency stays out on every system until the user adds it
-// again. Nothing adds the other asset types back automatically.
+// Verus removals apply on every system. Other protocols keep their full identity.
 export const removalKey = coin =>
-  coin?.proto === 'vrsc' && coin.currency_id ? coin.currency_id : null;
+  coin?.proto === 'vrsc' && coin.currency_id ? coin.currency_id : assetKey(coin);
 
 export const matchesVrpcHolding = (coin, holding) =>
   coin.proto === 'vrsc' &&
