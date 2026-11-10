@@ -109,7 +109,7 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
     <AssetLogo presentation={presentation} styles={styles} />
     <View style={styles.rowCopy}>
       <Text numberOfLines={2} style={styles.rowName}>{presentation.name}</Text>
-      <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text>
+      {description ? <Text numberOfLines={2} style={styles.rowDescription}>{description}</Text> : null}
     </View>
   </>;
   return (
@@ -126,8 +126,8 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
 
 const RemovedAssetRows = ({entries, pending, error, onAddBack, styles}) => entries.map(entry => {
   const presentation = getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId});
-  const description = presentation.name === presentation.identifier && presentation.ticker === presentation.identifier
-    ? presentation.networkLabel : presentation.ticker;
+  const description = [presentation.ticker, presentation.networkLabel, presentation.identifier]
+    .find(value => value?.trim() && value.trim().toLowerCase() !== presentation.name.trim().toLowerCase());
   const key = assetKey(entry.coin);
   const adding = pending?.key === key && pending.action === 'restore';
   return <View key={entry.key}>
