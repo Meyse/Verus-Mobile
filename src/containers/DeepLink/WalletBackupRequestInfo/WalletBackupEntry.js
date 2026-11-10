@@ -131,8 +131,10 @@ const useGiftPreview = (detail, requestIsTestnet) => {
   return preview;
 };
 
-const STEP_ENTERING = FadeIn.duration(180);
-const STEP_LAYOUT = LinearTransition.duration(200);
+const STEP_LAYOUT_MS = 200;
+// Wait for the other steps to make room, so the new text never covers them.
+const STEP_ENTERING = FadeIn.delay(STEP_LAYOUT_MS).duration(180);
+const STEP_LAYOUT = LinearTransition.duration(STEP_LAYOUT_MS);
 
 export default function WalletBackupEntry({
   activeAccountMatchesRequest,
@@ -186,8 +188,8 @@ export default function WalletBackupEntry({
     {icon: ShieldCheck, text: 'Back it up to this card or with its Secret Recovery Phrase'},
     {icon: Wallet, text: 'Claim the gift into the new wallet'},
   ] : null;
-  // The backup box adds and removes a step. A new step fades in and the
-  // rest move, so the list does not jump. Steps already shown at mount do not
+  // The backup box adds and removes a step. The rest move first, then the
+  // new step fades in, so the list does not jump. Steps already shown at mount do not
   // animate. No exit animation: on Android, an exiting step left the window
   // blank when this screen was replaced in the same request container.
   const stepList = steps && (
