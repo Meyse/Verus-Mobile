@@ -296,14 +296,23 @@ export const ignoreAssetHolding = async (holding, context = captureAssetContext(
 export const restoreManagedAsset = async ({entry, context = captureAssetContext()}) => {
   assertCurrent(context);
   const {coin, lookupSystemId} = entry;
-  // Registered assets use the same add path as the catalogue. A custom asset
-  // absent from the directory needs fresh metadata before it can be added.
+  // Registered assets use the same add path as the catalogue.
   if (CoinDirectory.coinExistsInDirectory(coin.id)) {
     const registered = CoinDirectory.getBasicCoinObj(coin.id);
     if (Boolean(registered.testnet) === Boolean(coin.testnet)) {
       return addManagedAsset({coin: registered, context});
     }
   }
+  // Ignored discoveries already have a resolved currency definition. Reuse it
+  // on the same network and lookup system instead of repeating the RPC reads.
+  await loadAssetManagement(context);
+  assertCurrent(context);
+  const cached = Object.values(store.getState().assetManagement.resolved || {}).find(result =>
+    result.kind === 'pbaas' && coin.proto === 'vrsc' &&
+    Boolean(result.testnet) === Boolean(coin.testnet) &&
+    result.lookupSystemId === lookupSystemId &&
+    result.currencyDefinition?.currencyid === coin.currency_id);
+  if (cached) return addManagedAsset({result: cached, context});
   const result = await resolveAssetIdentifier({
     activeCoins: [],
     identifier: coin.currency_id,
