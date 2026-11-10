@@ -1,8 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-const pluralize = (count, singular, plural = `${singular}s`) =>
-  `${count} ${count === 1 ? singular : plural}`;
-
 export const getSpendableKeyReviewModel = claimPlan => {
   const systems = (claimPlan?.systems || [])
     .map(system => ({
@@ -67,19 +64,6 @@ export const getSpendableKeyReviewSubtitle = model => {
   }
 
   return 'No transparent funds or VerusIDs were found.';
-};
-
-export const getSpendableKeySummaryLabel = model => {
-  const labels = [];
-
-  if (model.balanceCount > 0) {
-    labels.push(pluralize(model.balanceCount, 'balance'));
-  }
-  if (model.identityCount > 0) {
-    labels.push(pluralize(model.identityCount, 'VerusID'));
-  }
-
-  return labels.join(' · ');
 };
 
 export const getSpendableKeyClaimLabel = model => {

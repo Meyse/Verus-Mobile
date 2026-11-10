@@ -55,7 +55,6 @@ import {
   getSpendableKeyClaimLabel,
   getSpendableKeyReviewModel,
   getSpendableKeyReviewSubtitle,
-  getSpendableKeySummaryLabel,
   getSpendableKeyWalletGate,
 } from '../../../utils/spendableKey/spendableKeyReview';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
@@ -985,6 +984,9 @@ const SpendableKeyRequestInfoContent = props => {
       (!reviewModel.singleBalance && reviewModel.balanceCount > 0)) &&
     (!!destinationBySystem[onlySystem.systemId] || hasClaimFee(onlySystem));
   const joinBalancesToDetails = joinClaimDetails && reviewModel.identityCount === 0;
+  // The subtitle already names what the key holds. Label the lists only when
+  // balances and VerusIDs both show.
+  const showSectionTitles = reviewModel.balanceCount > 0 && reviewModel.identityCount > 0;
   const unsupportedIdentityCount = useMemo(
     () =>
       reviewModel.identities.filter(({identity}) => identity.unsupportedReason)
@@ -2113,7 +2115,9 @@ const SpendableKeyRequestInfoContent = props => {
 
         {claimPlan && claimResult == null && reviewModel.itemCount > 0 && (
           <>
-            {reviewModel.singleBalance ? (
+            {/* One balance shows its amount large. Several balances or
+                VerusIDs show only their list: no chain or count line. */}
+            {reviewModel.singleBalance && (
               <View style={styles.amountHero}>
                 <View style={styles.amountHeroRow}>
                   <Text
@@ -2131,22 +2135,11 @@ const SpendableKeyRequestInfoContent = props => {
                   </Text>
                 </View>
               </View>
-            ) : (
-              <View style={styles.countHero}>
-                <Text style={styles.chainLabel}>
-                  {reviewModel.hasMultipleSystems
-                    ? `Across ${reviewModel.systems.length} chains`
-                    : getSystemLabel(reviewModel.systems[0])}
-                </Text>
-                <Text style={styles.countHeroValue}>
-                  {getSpendableKeySummaryLabel(reviewModel)}
-                </Text>
-              </View>
             )}
 
             {!reviewModel.singleBalance && reviewModel.balanceCount > 0 && (
               <View style={[styles.itemSection, joinBalancesToDetails && styles.joinedSection]}>
-                <Text style={styles.sectionTitle}>Balances</Text>
+                {showSectionTitles && <Text style={styles.sectionTitle}>Balances</Text>}
                 {reviewModel.systems.map(system => {
                   if (system.currencies.length === 0) return null;
 
@@ -2184,9 +2177,11 @@ const SpendableKeyRequestInfoContent = props => {
 
             {reviewModel.identityCount > 0 && (
               <View style={[styles.itemSection, joinClaimDetails && styles.joinedSection]}>
-                <Text style={styles.sectionTitle}>
-                  {reviewModel.identityCount === 1 ? 'VerusID' : 'VerusIDs'}
-                </Text>
+                {showSectionTitles && (
+                  <Text style={styles.sectionTitle}>
+                    {reviewModel.identityCount === 1 ? 'VerusID' : 'VerusIDs'}
+                  </Text>
+                )}
                 {reviewModel.systems.map(system => {
                   if (system.identities.length === 0) return null;
 

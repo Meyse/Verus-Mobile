@@ -1136,6 +1136,10 @@ uses 32-point circles and 18-point Lucide glyphs with 1.8 stroke. Normal gap is
 - [x] Owner follow-up 2026-11-10: on the claim review with one chain, the
   receiving address and fee continue the balance or VerusID list. The empty
   row between two lines is gone.
+- [x] Owner follow-up 2026-11-10: the claim review drops the chain label and
+  the count line ("2 balances") above several balances or VerusIDs; the list
+  follows the subtitle. List labels show only when balances and VerusIDs both
+  show. One balance keeps its large amount.
 
 ## SH-1 — Consistent sheet presentation and dismissal
 
