@@ -45,6 +45,7 @@ const PasswordCheck = props => {
     errorMessage,
     networkLabel,
     onInputChange,
+    onClosed,
     preferBiometry = false,
     redesigned = false,
     returnSecrets = false,
@@ -280,7 +281,10 @@ const PasswordCheck = props => {
             : '86%'
         }
         onClose={cancel}
-        onClosed={() => setKeyboardFrame(null)}
+        onClosed={() => {
+          setKeyboardFrame(null);
+          onClosed?.();
+        }}
         visible={visible}>
         <View style={styles.sheetLayout}>
           <Text accessibilityRole="header" style={styles.title}>

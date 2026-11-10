@@ -407,6 +407,16 @@ For a signed-in password sheet, the title names the action. The body says only
 why the password is needed, or is left out. The primary button names the action.
 Show no wallet row when the user is already inside that wallet.
 
+For NFC backup, the wallet password must be typed in the current flow before
+it can encrypt a card (owner, 2026-11-04). Settings disables biometrics for
+this action only. Pass a session flag to the backup screen, never the password.
+Request unlocks can use biometrics, but Write to NFC card then asks for the
+typed password in `PasswordCheck`, with biometrics off. A password typed during
+new-wallet setup counts in that session. The result says that the card keeps
+this password if the wallet password changes later. NFC import labels its
+field Password, since either a wallet password or a separate backup password
+can open a card.
+
 `src/containers/Login/components/UnlockWalletSheet.js` unlocks a wallet on the
 login screen and for requests (`WalletUnlockCoordinator`).
 
@@ -1282,6 +1292,64 @@ only and does not permit cards on other pages.
   badges, or dots on a tile.
 - A new service adds one tile: an icon, a name, a count rule, and a purpose
   line. It needs no new artwork.
+
+## Claim a gift from an NFC card
+
+Owner-approved 2026-11-04: G1–G8, G6b and C1 in the gift NFC claim mockup.
+Without a wallet for the request's network, lead with the Gift `StepGlyph` and
+This card holds followed by the discovered amount. Use `SkeletonLoader` while
+reading. A protected key, failed scan or several assets uses This card holds
+a gift. The preview uses the existing root-chain discovery with no wallet.
+When the root chain has no claim and no unspent output, scan every known
+chain. Only a complete scan with the same result uses "No funds found on this
+card" (owner-approved 2026-11-10), with or without a wallet on the phone.
+Below the no-wallet title, show the option C step list right after the title
+margin: Plus "Create a wallet on this phone", ShieldCheck "Back it up to this
+card or with its Secret Recovery Phrase", Wallet "Claim the gift into the new
+wallet". A backup-only request keeps its one body line. Reuse Personalize wallet, Create password, biometrics and `WalletSetup`.
+Keep the wallet name empty. Create on the request's network with the primary
+phrase also used for the shielded seed. Resume at Back up wallet.
+
+The backup step uses `ProgressHeader`, the wallet summary and plain
+`SettingsRow`s: 62-point minimum, `titleRow`, full-width dividers and no icons.
+Keep the Settings backup layout and icons. State the overwrite once: Writing
+the backup replaces the gift on this card. The gift stays on this phone until
+you claim it. A newly created wallet offers Use the Secret Recovery Phrase
+instead. Reuse the onboarding phrase pages and check, then skip the backup
+detail without writing the card. Backup written offers Continue to claim.
+
+When this phone has a wallet on the request's network, option C (Add-on,
+owner-approved 2026-11-09) replaces C1's two choices. Keep the gift title and
+its loading skeleton. Show one unchecked row: "Also back up my wallet to this
+card". Reuse the V2 `SelectionCheckbox` at the start, the `SelectionRow`
+56-point minimum height and 18-point radius, and `surfaceMuted`. Checked uses
+`successBackground`, with no outline. This start-aligned box and checked fill
+are exceptions to the standard multi-select row. Busy disables the row and
+buttons. The row exposes its checkbox role, label and checked state.
+
+Place the plain-text steps 40 points below the row (32 on compact windows).
+Each step has a 32-point `surfaceMuted` circle, an 18-point Lucide glyph with
+1.8 stroke, and `bodyMd` text. Join circles with a 1.5-point `border` line.
+Signed out starts with LockOpen and "Unlock your wallet on this phone".
+Signed in on the other network starts with LockOpen and "Switch to your
+testnet wallet" or "Switch to your mainnet wallet". A matching active wallet
+omits this step. Checked adds Nfc and "Write the backup. It replaces the gift
+on the card." The final Wallet step reads "Claim the gift into that wallet"
+after unlock or switch, or "Claim the gift into <wallet name>" otherwise.
+
+The safe footer shows "Claim gift" unchecked, "Back up and claim" checked,
+then Cancel. Keep the existing claim and backup paths. Store the checkbox in
+request passthrough separately from `walletBackupChoice`, which resumes backup
+after unlock. A cancelled unlock clears only that resume flag. On the backup
+options step in this gift-choice path, header Back and Android Back return to
+the choice with the box checked. Close and Cancel keep their existing exit.
+A new scan starts unchecked and shows the choice. No-wallet and Settings
+backup Back behavior stays unchanged.
+
+Unsigned backup and claim screens use plain action titles; signed requests
+keep their requester card. Keep the saved-request overwrite guard and claim
+engine. A backup-only request without a wallet uses the same onboarding and
+setup, with copy about creating and backing up a wallet.
 
 ## Gift card detail
 

@@ -1717,7 +1717,7 @@ const SpendableKeyRequestInfoContent = props => {
               )}
               <DeepLinkReviewScrollView
                 ref={passwordScrollRef}
-                requestCard={!isReplayedPendingDeeplink}
+                requestCard={!isReplayedPendingDeeplink && request?.isSigned?.() === true}
                 onLayout={revealPassword}
                 onContentSizeChange={revealPassword}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -1729,11 +1729,18 @@ const SpendableKeyRequestInfoContent = props => {
                     styles.passwordScrollContentWithBack,
                 ]}>
                 <View style={styles.passwordContent}>
-                  <RequestCard
-                    action="wants you to claim funds"
-                    requester={props}
-                    caption="This key is encrypted. Enter the claim password to see what it holds."
-                  />
+                  {request?.isSigned?.() === true ? (
+                    <RequestCard
+                      action="wants you to claim funds"
+                      requester={props}
+                      caption="This key is encrypted. Enter the claim password to see what it holds."
+                    />
+                  ) : (
+                    <View style={styles.header}>
+                      <RequestTitle>Unlock gift</RequestTitle>
+                      <Text style={styles.subtitle}>Enter the claim password to see what this gift holds.</Text>
+                    </View>
+                  )}
                   <View pointerEvents={isDecrypting ? 'none' : 'auto'}>
                     <AppTextInput
                       ref={passwordInputRef}
@@ -1976,8 +1983,8 @@ const SpendableKeyRequestInfoContent = props => {
     <SafeAreaView
       edges={['top', 'left', 'right']}
       style={styles.container}>
-      <DeepLinkReviewScrollView requestCard={status === 'review'} contentContainerStyle={status === 'review' ? styles.reviewScrollContent : styles.scrollContent}>
-        {status === 'review' ? (
+      <DeepLinkReviewScrollView requestCard={status === 'review' && request?.isSigned?.() === true} contentContainerStyle={status === 'review' ? styles.reviewScrollContent : styles.scrollContent}>
+        {status === 'review' && request?.isSigned?.() === true ? (
           <RequestCard
             action="wants you to claim funds"
             requester={props}

@@ -11,6 +11,19 @@ import {
 } from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 
+// The approved V2 box, shared by selection rows and start-aligned add-ons.
+export const SelectionCheckbox = ({checked}) => {
+  const theme = useOnboardingTheme();
+  return (
+    <MaterialCommunityIcons
+      name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'}
+      size={24}
+      color={theme.colors.link}
+      accessible={false}
+    />
+  );
+};
+
 export const SelectionRow = ({
   title,
   titleNumberOfLines,
@@ -118,12 +131,7 @@ export const SelectionRow = ({
             isCheckbox && rowDisabled && styles.disabledContent,
           ]}>
           {isCheckbox ? (
-            <MaterialCommunityIcons
-              name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}
-              size={24}
-              color={theme.colors.link}
-              accessible={false}
-            />
+            <SelectionCheckbox checked={selected} />
           ) : rowDisabled ? null : selected ? (
             <Check color={theme.colors.successText} size={20} strokeWidth={2.4} />
           ) : showChevron ? (

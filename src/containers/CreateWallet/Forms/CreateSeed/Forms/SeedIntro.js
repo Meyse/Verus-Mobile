@@ -34,6 +34,7 @@ export default function SeedIntro({
   onNext,
   onBack,
   showHeader = true,
+  verifyText,
 }) {
   const theme = useOnboardingTheme();
   const signedOutFlowStyles = useMemo(
@@ -179,7 +180,9 @@ export default function SeedIntro({
         ]}>
         <View style={signedOutFlowStyles.form}>
           <View style={styles.guidanceList}>
-            {GUIDANCE.map(item => (
+            {GUIDANCE.map(item =>
+              verifyText && item.key === 'verify' ? {...item, text: verifyText} : item,
+            ).map(item => (
               <View key={item.key} style={styles.guidanceRow}>
                 <item.IconComponent
                   color={theme.colors.textSubtle}
