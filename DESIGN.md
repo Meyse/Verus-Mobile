@@ -1333,8 +1333,8 @@ are exceptions to the standard multi-select row. Busy disables the row and
 buttons. The row exposes its checkbox role, label and checked state.
 
 Place the plain-text steps 40 points below the row (32 on compact windows).
-When the box adds a step, that step fades in (180 ms) and the other steps
-move in 200 ms. A removed step leaves at once and the others move up. Do not
+When the box adds a step, the other steps move in 200 ms to make room, then
+the new step fades in (180 ms). Its text never covers another step. A removed step leaves at once and the others move up. Do not
 add an exit animation: on Android it left the window blank when the request
 container replaced this screen. Steps shown at mount do not animate, and the
 system reduced-motion setting turns the motion off.
