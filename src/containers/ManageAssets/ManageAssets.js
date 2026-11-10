@@ -6,6 +6,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import AcknowledgeSheet from '../../components/AcknowledgeSheet';
 import AppButton from '../../components/AppButton';
 import TextAction from '../../components/TextAction';
+import InfoSheet from '../../components/InfoSheet';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
@@ -17,7 +18,9 @@ import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetP
 import {
   addManagedAsset, assetContextIsCurrent, captureAssetContext,
   getNewAssetHoldings, loadAssetManagement, removeManagedAsset, setAssetHomeVisibility,
+  restoreManagedAsset,
 } from '../../utils/assets/assetManagementService';
+import {getRemovedAssets} from '../../utils/assets/removedAssets';
 import AssetDetailsSheet from './AssetDetailsSheet';
 import {buildAssetManagerData} from './assetManagerData';
 import {
@@ -37,12 +40,13 @@ const useAssetData = () => {
   const balances = useObjectSelector(state => state.ledger.balances);
   const showBalance = useObjectSelector(state => state.coins.showBalance);
   const discoveries = useObjectSelector(getNewAssetHoldings);
+  const removedAssets = useObjectSelector(getRemovedAssets);
   const data = useMemo(() => buildAssetManagerData({activeAccount, activeCoins,
     testAccount: isTestnetAccount(activeAccount)}), [activeAccount, activeCoins]);
   useEffect(() => {
     loadAssetManagement().catch(() => {});
   }, []);
-  return {...data, activeAccount, cards, balances, management, discoveries, showBalance};
+  return {...data, activeAccount, cards, balances, management, discoveries, removedAssets, showBalance};
 };
 
 const useAssetAction = () => {
@@ -60,7 +64,7 @@ const useAssetAction = () => {
     try {
       await task(context);
     } catch (_) {
-      if (mounted.current && assetContextIsCurrent(context)) setError(failure);
+      if (mounted.current && assetContextIsCurrent(context)) setError({message: failure, key: assetKey(coin), action});
     } finally {
       pendingRef.current = false;
       if (mounted.current && assetContextIsCurrent(context)) setPending(null);
@@ -71,7 +75,9 @@ const useAssetAction = () => {
     : run(coin, 'home', context => setAssetHomeVisibility(coin, shown, context), 'Couldn’t save the Home setting. Try again.'), [run]);
   const remove = useCallback(coin => run(coin, 'remove', context => removeManagedAsset({coin, context}),
     'Couldn’t remove this asset. Try again.'), [run]);
-  return {pending, error, perform, remove};
+  const restore = useCallback(entry => run(entry.coin, 'restore', context => restoreManagedAsset({entry, context}),
+    'Could not add this asset. Try again.'), [run]);
+  return {pending, error, perform, remove, restore};
 };
 
 const formatAmount = ({total, complete}, showBalance, ticker) => !showBalance ? 'Balance hidden'
@@ -118,11 +124,30 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
   );
 };
 
+const RemovedAssetRows = ({entries, pending, error, onAddBack, styles}) => entries.map(entry => {
+  const presentation = getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId});
+  const key = assetKey(entry.coin);
+  const adding = pending?.key === key && pending.action === 'restore';
+  return <View key={entry.key}>
+    <AssetRow coin={entry.coin} presentation={presentation} description={presentation.ticker} styles={styles}
+      action={<TextAction accessibilityLabel={`Add back ${presentation.name} (${presentation.networkLabel})`}
+        accessibilityState={{busy: adding}} disabled={pending != null}
+        onPress={() => onAddBack(entry)} style={styles.restoreAction} testID={`asset-add-back-${entry.coin.id}`}>
+        {adding ? 'Adding…' : 'Add back'}
+      </TextAction>} />
+    {error?.action === 'restore' && error.key === key ?
+      <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.restoreError}>
+        <Text style={styles.errorText}>{error.message}</Text>
+      </View> : null}
+  </View>;
+});
+
 const Manager = ({navigation}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createManageAssetsStyles(theme), [theme]);
   const data = useAssetData();
-  const {pending, error, perform, remove} = useAssetAction();
+  const {pending, error, perform, remove, restore} = useAssetAction();
+  const [removedVisible, setRemovedVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   // The selected asset outlives both sheets, so their content stays in place
@@ -160,6 +185,9 @@ const Manager = ({navigation}) => {
       setFilter('all');
     }
   }, [searchable]);
+  useEffect(() => {
+    if (data.removedAssets.length === 0) setRemovedVisible(false);
+  }, [data.removedAssets.length]);
   const assets = data.activeAssets.map(coin => ({coin,
     presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
   })).filter(({coin, presentation}) => {
@@ -185,7 +213,7 @@ const Manager = ({navigation}) => {
         </View>
       </View> : null}
       footer={<AssetFooter styles={styles}><AppButton onPress={() => navigation.navigate('ManageAssetsDirectory')} testID="manage-assets-add-asset">Add asset</AppButton></AssetFooter>}>
-      <ErrorMessage styles={styles} error={error || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
+      <ErrorMessage styles={styles} error={(error?.action !== 'restore' ? error?.message : null) || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
       <AssetScrollView styles={styles} contentContainerStyle={!searchable && styles.listWithoutSearch} testID="manage-assets-list">
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
           <SectionHeader title="Your assets" detail="Show on Home" styles={styles} />
@@ -227,8 +255,18 @@ const Manager = ({navigation}) => {
               </View>;
             })}
           </> : null}
+          {!searchable && data.removedAssets.length > 0 ?
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Removed assets, ${data.removedAssets.length}`}
+              onPress={() => setRemovedVisible(true)} style={styles.removedEntry} testID="manage-assets-removed">
+              <Text style={styles.removedEntryLabel}>Removed assets</Text>
+              <Text style={styles.removedEntryCount}>{data.removedAssets.length}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.textSubtle} />
+            </TouchableOpacity> : null}
         </>}
       </AssetScrollView>
+      <InfoSheet title="Removed assets" visible={removedVisible} onClose={() => setRemovedVisible(false)}>
+        <RemovedAssetRows entries={data.removedAssets} pending={pending} error={error} onAddBack={restore} styles={styles} />
+      </InfoSheet>
       <AssetDetailsSheet
         amount={selected ? formatAmount(selectedHolding, data.showBalance, selectedPresentation.ticker) : null}
         coin={selected}
@@ -262,7 +300,7 @@ const Directory = ({navigation}) => {
   return (
     <AssetScreen title="Add asset" onBack={() => navigation.goBack()} testID="manage-assets-directory"
       header={<View style={styles.headerContent}><AppSearchField accessibilityLabel="Search catalogue or paste identifier" placeholder="Search catalogue or paste identifier" value={query} onChangeText={setQuery} testID="manage-assets-directory-search" /></View>}>
-      <ErrorMessage error={error} styles={styles} />
+      <ErrorMessage error={error?.message} styles={styles} />
       <AssetScrollView styles={styles} testID="manage-assets-directory-list">
         <TouchableOpacity accessibilityRole="button" style={styles.customEntry} testID="manage-assets-add-custom"
           onPress={() => navigation.navigate('AddAssetByIdentifier', {identifier: query.trim(), assetScope: captureAssetContext()})}>
