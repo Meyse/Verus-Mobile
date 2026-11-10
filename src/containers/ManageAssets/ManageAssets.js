@@ -12,7 +12,7 @@ import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {
   assetKey, assetNetworkKey, getManagedAssetBalance,
-  isAssetShown, isMainAsset, isTestnetAccount,
+  isAssetShown, isMainAsset, isTestnetAccount, removalKey,
 } from '../../utils/assets/assetIdentity';
 import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
@@ -178,7 +178,13 @@ const Manager = ({navigation}) => {
   // selected tab and the search text, so they do not disappear while the user
   // uses them. Without them, the list shows every asset. When they hide, the
   // query and the tab go back to their defaults, so they return unchanged.
-  const searchable = data.activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
+  // Activation publishes the coin before the saved removed mark is cleared.
+  // That mark owns list membership until restoration succeeds. Keep an ongoing
+  // removal visible so its existing “Removing…” feedback does not change.
+  const activeAssets = data.activeAssets.filter(coin =>
+    !data.management.removed[removalKey(coin)] ||
+    (pending?.action === 'remove' && pending.key === assetKey(coin)));
+  const searchable = activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
   const activeQuery = searchable ? query : '';
   const activeFilter = searchable ? filter : 'all';
   useEffect(() => {
@@ -190,7 +196,7 @@ const Manager = ({navigation}) => {
   useEffect(() => {
     if (data.removedAssets.length === 0) setRemovedVisible(false);
   }, [data.removedAssets.length]);
-  const assets = data.activeAssets.map(coin => ({coin,
+  const assets = activeAssets.map(coin => ({coin,
     presentation: getAssetPresentation(coin, {cards: data.cards[coin.id]}),
   })).filter(({coin, presentation}) => {
     const shown = isAssetShown(coin, data.management.preferences);
