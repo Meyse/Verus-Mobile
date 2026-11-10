@@ -2,6 +2,12 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {Gift, LockOpen, Nfc, Plus, ShieldCheck, Wallet} from 'lucide-react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LayoutAnimationConfig,
+  LinearTransition,
+} from 'react-native-reanimated';
 import BigNumber from 'bignumber.js';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AppButton from '../../../components/AppButton';
@@ -9,10 +15,16 @@ import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {SelectionCheckbox} from '../../../components/SelectionSheet';
 import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
 import StepGlyph from '../../../components/StepGlyph';
-import {createSelectionSheetStyles, createSignedOutFlowStyles} from '../../../styles';
+import {
+  createSelectionSheetStyles,
+  createSignedOutFlowStyles,
+  spendableKeyRequestInfoStyles as createSpendableKeyRequestInfoStyles,
+} from '../../../styles';
 import {useOnboardingSmallDeviceLayout} from '../../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {getAssetPresentation} from '../../../utils/assets/assetPresentation';
+import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
+import {getSpendableKeyReviewModel} from '../../../utils/spendableKey/spendableKeyReview';
 import {
   discoverSpendableKeyClaims,
   spendableKeyDetailsOrdinalToMnemonic,
@@ -27,54 +39,86 @@ const isEmptyScan = result => result.systems.every(system =>
   (system.observedUtxos || []).length === 0,
 );
 
-// This preview uses the root chain for the amount. Only an empty root chain
-// scans every known chain, so a gift on another chain never reads as empty.
-// The claim screen still performs its full discovery after unlock. Do not
-// retain the mnemonic or private scan data.
-const useGiftTitle = (detail, requestIsTestnet) => {
-  const [preview, setPreview] = useState({loading: !!detail, amount: null, empty: false});
+const pluralize = (count, one, many) => `${count}\u00a0${count === 1 ? one : many}`;
+
+// One entry per asset the card holds. The review model adds the claim fee
+// back to each system currency, so the amounts match the claim review.
+const getHoldings = result => {
+  const model = getSpendableKeyReviewModel(result);
+  return {
+    currencies: model.balances.map(({currency, system}) => {
+      const name = currency.currencyId === system.systemId
+        ? getAssetPresentation(system.coinObj).ticker
+        : currency.display?.name;
+      return {
+        key: `${system.systemId}:${currency.currencyId}`,
+        name: name || currency.currencyId,
+        named: !!name && name !== currency.currencyId,
+        amount: BigNumber(currency.balanceAmount).toFormat(),
+      };
+    }),
+    identities: model.identities.map(({identity, system}) => ({
+      key: `${system.systemId}:${identity.identityAddress}`,
+      name: identity.fullyQualifiedName
+        ? convertFqnToDisplayFormat(identity.fullyQualifiedName)
+        : identity.identityAddress,
+    })),
+  };
+};
+
+// One named currency is the title itself. Anything else is counted in the
+// title and listed below it.
+const getSingleHolding = ({currencies, identities}) =>
+  currencies.length === 1 && identities.length === 0 && currencies[0].named
+    ? currencies[0]
+    : null;
+
+const getHoldingsCount = ({currencies, identities}) => [
+  currencies.length > 0 && pluralize(currencies.length, 'currency', 'currencies'),
+  identities.length > 0 && pluralize(identities.length, 'VerusID', 'VerusIDs'),
+].filter(Boolean).join(' and ');
+
+// The preview scans the root chain, then every known chain. A failure on
+// another chain keeps the root chain result, but never reads as empty. The
+// claim screen still performs its full discovery after unlock. Do not retain
+// the mnemonic or private scan data.
+const useGiftPreview = (detail, requestIsTestnet) => {
+  const [preview, setPreview] = useState({loading: !!detail, empty: false, holdings: null});
   useEffect(() => {
     let active = true;
-    setPreview({loading: !!detail, amount: null, empty: false});
+    setPreview({loading: !!detail, empty: false, holdings: null});
     if (!detail) return undefined;
     const discover = async () => {
       try {
         if (spendableKeyDetailsRequiresPassword(detail)) return;
         const mnemonic = spendableKeyDetailsOrdinalToMnemonic({spendableKeyOrdinal: detail});
-        const result = await discoverSpendableKeyClaims({
+        const root = await discoverSpendableKeyClaims({
           mnemonic,
           requestIsTestnet,
           activeCoinsForUser: [],
         });
-        if (isEmptyScan(result)) {
-          const full = await discoverSpendableKeyClaims({
+        let full = null;
+        try {
+          full = await discoverSpendableKeyClaims({
             mnemonic,
             requestIsTestnet,
             activeCoinsForUser: [],
-            cachedSystems: result.systems,
+            cachedSystems: root.systems,
             includeKnownSystems: true,
           });
-          if (full.scanUniverseComplete && isEmptyScan(full) && active) {
-            setPreview({loading: false, amount: null, empty: true});
-          }
+        } catch {
+          // Another chain did not answer. The root chain result still counts.
+        }
+        const complete = full?.scanUniverseComplete === true;
+        const result = complete ? full : root;
+        if (!active) return;
+        if (isEmptyScan(result)) {
+          if (complete) setPreview({loading: false, empty: true, holdings: null});
           return;
         }
-        const currencies = result.systems.flatMap(system => system.currencies);
-        const identities = result.systems.flatMap(system => system.identities);
-        if (currencies.length !== 1 || identities.length !== 0) return;
-        const currency = currencies[0];
-        const system = result.systems.find(item => item.currencies.includes(currency));
-        const isSystemCurrency = currency.currencyId === system.systemId;
-        const name = isSystemCurrency
-          ? getAssetPresentation(system.coinObj).ticker
-          : currency.display?.name;
-        // Discovery takes the claim fee off the system currency. The title
-        // states what the card holds, as the claim review does.
-        const amount = BigNumber(currency.amount).plus(
-          isSystemCurrency ? system.feeAmount || 0 : 0,
-        );
-        if (name && name !== currency.currencyId && active) {
-          setPreview({loading: false, amount: `${amount.toFormat()}\u00a0${name}`});
+        const holdings = getHoldings(result);
+        if (holdings.currencies.length + holdings.identities.length > 0) {
+          setPreview({loading: false, empty: false, holdings});
         }
       } catch {
         // A title must never block setup or expose a network error.
@@ -87,6 +131,10 @@ const useGiftTitle = (detail, requestIsTestnet) => {
   }, [detail, requestIsTestnet]);
   return preview;
 };
+
+const STEP_ENTERING = FadeIn.duration(180);
+const STEP_EXITING = FadeOut.duration(120);
+const STEP_LAYOUT = LinearTransition.duration(200);
 
 export default function WalletBackupEntry({
   activeAccountMatchesRequest,
@@ -106,14 +154,23 @@ export default function WalletBackupEntry({
   const flow = useMemo(() => createSignedOutFlowStyles(theme), [theme]);
   const styles = useMemo(() => createStyles(theme), [theme]);
   const selectionStyles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
+  const reviewStyles = useMemo(() => createSpendableKeyRequestInfoStyles(theme), [theme]);
   const {smallDevice} = useOnboardingSmallDeviceLayout();
-  const preview = useGiftTitle(spendableKeyDetail, requestIsTestnet);
+  const preview = useGiftPreview(spendableKeyDetail, requestIsTestnet);
   const [busy, setBusy] = useState(false);
+  const single = preview.holdings && getSingleHolding(preview.holdings);
+  const listedHoldings = preview.holdings && !single
+    ? [...preview.holdings.currencies, ...preview.holdings.identities]
+    : null;
   const title = !spendableKeyDetail
     ? 'Create a wallet'
     : preview.empty
       ? 'No funds found on this card'
-      : `This card holds ${preview.amount || 'a gift'}`;
+      : single
+        ? `This card holds ${single.amount} ${single.name}`
+        : preview.holdings
+          ? `This card holds ${getHoldingsCount(preview.holdings)}`
+          : 'This card holds a gift';
   const unlockStep = activeAccountMatchesRequest ? null : {
     icon: LockOpen,
     text: signedIn
@@ -131,26 +188,52 @@ export default function WalletBackupEntry({
     {icon: ShieldCheck, text: 'Back it up to this card or with its Secret Recovery Phrase'},
     {icon: Wallet, text: 'Claim the gift into the new wallet'},
   ] : null;
+  // The backup box adds and removes a step. Fade it and move the rest, so
+  // the list does not jump. Steps already shown at mount do not animate.
   const stepList = steps && (
-    <View style={[
-      styles.steps,
-      choice && smallDevice && styles.stepsSmallDevice,
-      !choice && styles.introSteps,
-    ]}>
-      {steps.map(({icon: Icon, text}, index) => (
-        <View key={text} style={styles.step}>
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.stepTrack}>
-            <View style={styles.stepCircle}>
-              <Icon color={theme.colors.textPrimary} size={18} strokeWidth={1.8} />
+    <LayoutAnimationConfig skipEntering>
+      <View style={[
+        styles.steps,
+        choice && smallDevice && styles.stepsSmallDevice,
+        !choice && styles.introSteps,
+      ]}>
+        {steps.map(({icon: Icon, text}, index) => (
+          <Animated.View
+            entering={STEP_ENTERING}
+            exiting={STEP_EXITING}
+            key={text}
+            layout={STEP_LAYOUT}
+            style={styles.step}>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={styles.stepTrack}>
+              <View style={styles.stepCircle}>
+                <Icon color={theme.colors.textPrimary} size={18} strokeWidth={1.8} />
+              </View>
+              {index < steps.length - 1 && <View style={styles.stepConnector} />}
             </View>
-            {index < steps.length - 1 && <View style={styles.stepConnector} />}
-          </View>
-          <Text style={[styles.stepText, index < steps.length - 1 && styles.stepTextSpacing]}>
-            {text}
-          </Text>
+            <Text style={[styles.stepText, index < steps.length - 1 && styles.stepTextSpacing]}>
+              {text}
+            </Text>
+          </Animated.View>
+        ))}
+      </View>
+    </LayoutAnimationConfig>
+  );
+  // Several assets: the claim review's flat rows, name left and amount right.
+  const holdingsList = listedHoldings && (
+    <View style={[
+      reviewStyles.flatRows,
+      styles.holdings,
+      smallDevice && styles.holdingsSmallDevice,
+    ]}>
+      {listedHoldings.map((item, index) => (
+        <View key={item.key} style={[reviewStyles.flatRow, index > 0 && reviewStyles.flatRowBorder]}>
+          <Text numberOfLines={2} style={reviewStyles.rowTitle}>{item.name}</Text>
+          {item.amount != null && (
+            <Text numberOfLines={2} style={reviewStyles.rowAmount}>{item.amount}</Text>
+          )}
         </View>
       ))}
     </View>
@@ -189,6 +272,7 @@ export default function WalletBackupEntry({
               {title}
             </Text>
           )}
+          {holdingsList}
           {choice ? (
             <>
               <TouchableOpacity
@@ -248,6 +332,9 @@ const createStyles = theme => StyleSheet.create({
   stepsSmallDevice: {marginTop: 32},
   // On the no-wallet screen the steps follow the title's own bottom margin.
   introSteps: {marginTop: 0},
+  // The asset list repeats the title's own bottom margin below it.
+  holdings: {marginBottom: theme.spacing.stepTitleMargin},
+  holdingsSmallDevice: {marginBottom: theme.spacing.stepTitleMarginSmallDevice},
   step: {flexDirection: 'row', gap: 12},
   stepTrack: {width: 32, alignItems: 'center'},
   stepCircle: {

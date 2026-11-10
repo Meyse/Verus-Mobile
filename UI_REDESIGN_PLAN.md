@@ -1127,6 +1127,10 @@ uses 32-point circles and 18-point Lucide glyphs with 1.8 stroke. Normal gap is
 - [x] Owner follow-up 2026-11-10: the no-wallet first screen shows the same
   step list (create, back up to card or phrase, claim). A complete scan with
   no claim and no unspent output titles the card "No funds found on this card".
+- [x] Owner follow-up 2026-11-10 (phone test): a card with several assets
+  names a count in the title and lists each currency and VerusID below it.
+  The backup step fades in and out, and the other steps move, instead of
+  jumping.
 
 ## SH-1 — Consistent sheet presentation and dismissal
 
