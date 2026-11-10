@@ -260,7 +260,7 @@ const Manager = ({navigation}) => {
             })}
           </> : null}
           {removedAssets.length > 0 ? <>
-            <SectionHeader title="Removed" detail={String(removedAssets.length)} styles={styles} />
+            <SectionHeader title="Removed assets" detail={String(removedAssets.length)} styles={styles} />
             <RemovedAssetRows entries={removedAssets} pending={pending} error={error} onAddBack={restore} styles={styles} />
           </> : null}
           {!searchable && data.removedAssets.length > 0 ?

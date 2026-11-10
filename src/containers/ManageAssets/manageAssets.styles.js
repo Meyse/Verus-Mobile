@@ -29,7 +29,7 @@ export const createManageAssetsStyles = theme => StyleSheet.create({
   restoreAction: {minWidth: 66, minHeight: 44, flexShrink: 0, justifyContent: 'center', alignItems: 'flex-end'},
   restoreError: {paddingVertical: 12},
   removedEntry: {minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border},
-  removedEntryLabel: {...theme.typography.bodySm, color: theme.colors.textPrimary, flex: 1},
+  removedEntryLabel: {...theme.typography.titleRow, color: theme.colors.textPrimary, flex: 1},
   removedEntryCount: {...theme.typography.bodySm, color: theme.colors.textSecondary},
   // The slot grows with the native switch: 51 points wide on every iOS version
   // (src/utils/applyNativeSwitchSize.js).
