@@ -183,6 +183,9 @@ const createSpendableKeyRequestInfoStyles = theme =>
       borderTopColor: theme.colors.border,
       borderTopWidth: StyleSheet.hairlineWidth,
     },
+    // One chain: the claim details continue the list above them.
+    joinedSection: {marginBottom: 0},
+    joinedRows: {borderTopWidth: 0},
     rowTitle: {
       color: theme.colors.textPrimary,
       flex: 1,
