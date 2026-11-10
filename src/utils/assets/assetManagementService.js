@@ -213,7 +213,8 @@ export const addManagedAsset = ({
     await loadAssetManagement(context);
     assertCurrent(context);
     const removedKey = removalKey(coin || resolvedAssetCoin(result));
-    if (store.getState().assetManagement.removed[removedKey]) {
+    const wasRemoved = Boolean(store.getState().assetManagement.removed[removedKey]);
+    if (wasRemoved) {
       // Only the user brings a removed asset back.
       if (automatic) return null;
     }
@@ -228,7 +229,7 @@ export const addManagedAsset = ({
           item.currency_id?.toLowerCase() === result.canonicalAddress.toLowerCase());
     if (existing) {
       if (!automatic) await setAssetHomeVisibility(existing, true, context);
-      if (!automatic) await setAssetRemoved(removedKey, false, context);
+      if (!automatic && wasRemoved) await setAssetRemoved(removedKey, false, context);
       return existing;
     }
     const resolved = result || {
@@ -250,7 +251,7 @@ export const addManagedAsset = ({
     });
     assertCurrent(context);
     if (!automatic) await setAssetHomeVisibility(added, true, context);
-    if (!automatic) await setAssetRemoved(removedKey, false, context);
+    if (!automatic && wasRemoved) await setAssetRemoved(removedKey, false, context);
     return added;
   });
   additionQueue = operation.catch(() => {});
