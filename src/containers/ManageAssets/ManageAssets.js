@@ -126,10 +126,12 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
 
 const RemovedAssetRows = ({entries, pending, error, onAddBack, styles}) => entries.map(entry => {
   const presentation = getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId});
+  const description = presentation.name === presentation.identifier && presentation.ticker === presentation.identifier
+    ? presentation.networkLabel : presentation.ticker;
   const key = assetKey(entry.coin);
   const adding = pending?.key === key && pending.action === 'restore';
   return <View key={entry.key}>
-    <AssetRow coin={entry.coin} presentation={presentation} description={presentation.ticker} styles={styles}
+    <AssetRow coin={entry.coin} presentation={presentation} description={description} styles={styles}
       action={<TextAction accessibilityLabel={`Add back ${presentation.name} (${presentation.networkLabel})`}
         accessibilityState={{busy: adding}} disabled={pending != null}
         onPress={() => onAddBack(entry)} style={styles.restoreAction} testID={`asset-add-back-${entry.coin.id}`}>
