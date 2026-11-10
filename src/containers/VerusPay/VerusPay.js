@@ -549,7 +549,7 @@ const VerusPay = (props) => {
     activeAlert == null &&
     !sendModal.visible;
   const scanActions = showNfcClaim
-    ? [{label: 'Claim from NFC card', onPress: () => readDeeplinkFromNfc()}]
+    ? [{label: 'Scan NFC card', onPress: () => readDeeplinkFromNfc()}]
     : [];
 
   return (

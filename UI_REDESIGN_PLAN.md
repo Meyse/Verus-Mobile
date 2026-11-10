@@ -962,7 +962,9 @@ step. A gift-card QR scanned there becomes the new wallet's seed.
 
 **Decisions (user, 2026-10-11):**
 
-- Use the label “Claim from NFC card” in all three places.
+- Use the label “Claim from NFC card” in all three places. Changed
+  2026-11-10 (user): the Home → Scan button reads “Scan NFC card”. Only that
+  button changes; the other two entries keep “Claim from NFC card”.
 - Signed out, no wallets: a row in the “Get started” sheet.
 - Signed out, with wallets: a row in Login → Other options.
 - Signed in: a button on Home → Scan.
