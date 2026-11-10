@@ -199,6 +199,8 @@ const Manager = ({navigation}) => {
     presentation: getAssetPresentation(resolvedAssetCoin(holding.result), {systemId: holding.systemId}),
   })).filter(holding => matchesQuery(activeQuery, [...holding.presentation.searchTerms,
     holding.result.currencyDefinition.fullyqualifiedname])) : [];
+  const removedAssets = activeFilter === 'hidden' ? data.removedAssets.filter(entry =>
+    matchesQuery(activeQuery, getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId}).searchTerms)) : [];
 
   return (
     <AssetScreen title="Manage assets" onBack={() => navigation.goBack()} testID="manage-assets-screen"
@@ -237,7 +239,7 @@ const Manager = ({navigation}) => {
                 /></View>
               </TouchableOpacity>} />;
           })}
-          {assets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
+          {assets.length === 0 && removedAssets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
           {discoveries.length > 0 ? <>
             <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
             {discoveries.map(holding => {
@@ -254,6 +256,10 @@ const Manager = ({navigation}) => {
                 </TextAction>
               </View>;
             })}
+          </> : null}
+          {removedAssets.length > 0 ? <>
+            <SectionHeader title="Removed" detail={String(removedAssets.length)} styles={styles} />
+            <RemovedAssetRows entries={removedAssets} pending={pending} error={error} onAddBack={restore} styles={styles} />
           </> : null}
           {!searchable && data.removedAssets.length > 0 ?
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Removed assets, ${data.removedAssets.length}`}
