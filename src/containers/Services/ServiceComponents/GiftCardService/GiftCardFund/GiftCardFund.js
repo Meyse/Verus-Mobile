@@ -2471,7 +2471,7 @@ const GiftCardFund = props => {
           includeBottomInset={!keyboardVisible}
           safeAreaSpacing={0}>
           {preflightPlan ? (
-            <SlideToConfirm disabled={busy} loading={busy} loadingText={operationText}
+            <SlideToConfirm disabled={busy} loading={busy} loadingText={operationText || (createMode ? 'Creating and funding…' : 'Funding…')}
               onPress={broadcast} label={createMode ? 'Slide to create and fund' : 'Slide to fund'} />
           ) : (
             <AppButton
