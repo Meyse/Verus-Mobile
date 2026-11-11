@@ -38,6 +38,9 @@ export default function SlideToConfirm({
   const travel = Math.max(0, width - height);
   const actionHint = hintProp ?? `${label.replace(/^Slide to /, 'Slide all the way to ')}.`;
   const isFocused = useCallback(() => navigation.isFocused(), [navigation]);
+  // Android ignores the View hitSlop for RNGH, so the gesture host itself is
+  // 48 points high. Negative margins keep the layout at the track height.
+  const touchInset = getButtonHitSlop(height).top;
 
   const clearHint = useCallback(() => {
     clearTimeout(hintTimer.current);
@@ -61,8 +64,18 @@ export default function SlideToConfirm({
     });
     // beforeRemove also covers Back/X before blur has been delivered. Parent
     // listeners cover closing the entire wizard. Old gesture epochs stay dead.
+    // A prevented removal keeps this screen focused without a new focus event,
+    // so allow a fresh gesture again on the next tick when it is still here.
+    const onBeforeRemove = () => {
+      invalidate();
+      setTimeout(() => {
+        if (mounted.current && isFocused() && AppState.currentState === 'active') {
+          allowed.current = true;
+        }
+      }, 0);
+    };
     const removals = [navigation, navigation.getParent?.()].filter(Boolean)
-      .map(nav => nav.addListener('beforeRemove', invalidate));
+      .map(nav => nav.addListener('beforeRemove', onBeforeRemove));
     const blur = navigation.addListener('blur', invalidate);
     const app = AppState.addEventListener('change', state => {
       if (state !== 'active') invalidate();
@@ -123,9 +136,10 @@ export default function SlideToConfirm({
       epoch.value += 1;
       dragging.value = false;
       latched.current = false;
+      allowed.current = isFocused() && AppState.currentState === 'active';
       x.value = withSpring(0, SPRING);
     });
-  }, [canAct, clearHint, dragging, epoch, travel, x]);
+  }, [canAct, clearHint, dragging, epoch, isFocused, travel, x]);
 
   const gesture = useMemo(() => Gesture.Pan()
     .enabled(!disabled && !loading && travel > 0)
@@ -176,6 +190,7 @@ export default function SlideToConfirm({
 
   return (
     <GestureDetector gesture={gesture}>
+      <View style={{paddingVertical: touchInset, marginVertical: -touchInset}}>
       <View
         accessible
         accessibilityRole="button"
@@ -187,7 +202,6 @@ export default function SlideToConfirm({
           if (event.nativeEvent.actionName === 'activate') complete(epoch.value);
         }}
         onAccessibilityTap={() => complete(epoch.value)}
-        hitSlop={getButtonHitSlop(height)}
         onLayout={event => {
           setWidth(event.nativeEvent.layout.width);
         }}
@@ -212,6 +226,7 @@ export default function SlideToConfirm({
           {width: thumbSize, height: thumbSize}, thumbStyle]}>
           <ArrowRight size={24} strokeWidth={1.8} color={theme.colors.primary} />
         </Animated.View>}
+      </View>
       </View>
     </GestureDetector>
   );
