@@ -121,20 +121,13 @@ const loadStoredChoices = context => queueAssetChoicesWrite(
   async () => {
     assertCurrent(context);
     const {accountHash, sessionEpoch} = context.sessionScope;
-    let saved;
-    let plainError;
-    try {
-      saved = await loadAssetChoices(accountHash);
-    } catch (error) {
-      // A future version must never be replaced by an older record.
-      if (error.code === 'ASSET_CHOICES_VERSION') throw error;
-      plainError = error;
-    }
+    // Only an absent plain record starts a migration. A read error, an
+    // unreadable record or a future version fails hydration and keeps both
+    // records: the plain record can be newer than the old encrypted entry.
+    let saved = await loadAssetChoices(accountHash);
     assertCurrent(context);
     const fallback = sessionFallback(context);
     if (!saved || fallback) {
-      const hasLegacy = store.getState().services.stored[STORAGE_ID] != null;
-      if (plainError && !hasLegacy && !fallback) throw plainError;
       const legacy = fallback || await requestServiceStoredData(STORAGE_ID);
       assertCurrent(context);
       validateAssetChoices(legacy, true);
