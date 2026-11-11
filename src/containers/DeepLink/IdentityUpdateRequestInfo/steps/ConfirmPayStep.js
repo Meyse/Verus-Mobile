@@ -841,9 +841,8 @@ const ConfirmPayStep = ({
           </View>
         )}
         {selectedSource ? (
-          <SlideToConfirm disabled={primaryActionDisabled || calculating}
-            loading={calculating} loadingText="Preparing…" label="Slide to update"
-            onPress={handlePrimaryAction} />
+          <SlideToConfirm disabled={primaryActionDisabled}
+            label="Slide to update" onPress={handlePrimaryAction} />
         ) : (
           <AppButton
             disabled={primaryActionDisabled}
