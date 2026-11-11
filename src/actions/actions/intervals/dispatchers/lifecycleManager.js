@@ -20,6 +20,11 @@ import { DEFAULT_COIN_UPDATE_PARAMS } from '../../../../utils/constants/defaultU
 import { coinsList } from '../../../../utils/CoinData/CoinsList';
 import { IS_PBAAS_CHAIN } from '../../../../utils/constants/currencies';
 
+const isPbaasChain = coin =>
+  coin.tags.includes(IS_PBAAS) &&
+  coin.system_options != null &&
+  (coin.system_options & IS_PBAAS_CHAIN) === IS_PBAAS_CHAIN;
+
 const getAllSeenSystemsForCoin = (coinObj, activeCoinsForUser) => {
   const allSeenSystems = [
     coinObj.testnet ? coinsList.VRSCTEST.currency_id : coinsList.VRSC.currency_id,
@@ -28,10 +33,8 @@ const getAllSeenSystemsForCoin = (coinObj, activeCoinsForUser) => {
   if (coinObj.tags.includes(IS_PBAAS) && activeCoinsForUser != null) {
     for (const coin of activeCoinsForUser) {
       if (
-        coin.tags.includes(IS_PBAAS) &&
+        isPbaasChain(coin) &&
         !allSeenSystems.includes(coin.system_id) &&
-        coin.system_options != null &&
-        (coin.system_options & IS_PBAAS_CHAIN) === IS_PBAAS_CHAIN &&
         !!coin.testnet === !!coinObj.testnet
       ) {
         allSeenSystems.push(coin.system_id);
@@ -57,6 +60,23 @@ export const refreshActiveChainLifecycles = (activeCoinsForUser) => {
     }
   });
 }
+
+// The list is the post-change list. Removed coins have already been cleared.
+export const refreshLifecyclesAfterAssetChange = (changedCoin, activeCoinsForUser) => {
+  const activeCoin = activeCoinsForUser.find(coin => coin.id === changedCoin.id);
+  const otherCoins = activeCoinsForUser.filter(coin => coin.id !== changedCoin.id);
+  const changesSeenSystems = isPbaasChain(changedCoin) && otherCoins.some(coin =>
+    coin.tags.includes(IS_PBAAS) &&
+    !!coin.testnet === !!changedCoin.testnet &&
+    !getAllSeenSystemsForCoin(coin, otherCoins).includes(changedCoin.system_id),
+  );
+
+  if (changesSeenSystems) {
+    refreshActiveChainLifecycles(activeCoinsForUser);
+  } else if (activeCoin) {
+    unstable_batchedUpdates(() => activateChainLifecycle(activeCoin, activeCoinsForUser));
+  }
+};
 
 export const captureLifecycleTimers = state =>
   captureLifecycleIntervalIds(state);

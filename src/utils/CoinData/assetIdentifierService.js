@@ -3,7 +3,7 @@ import {
   addKeypairs,
   setUserCoins,
 } from '../../actions/actionCreators';
-import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {refreshLifecyclesAfterAssetChange} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {scopeSessionAction, sessionScopeIsCurrent} from '../../actions/actions/updates/sessionRequests';
 import store from '../../store';
 import {sameAsset, ethereumNetwork} from '../assets/assetIdentity';
@@ -478,7 +478,8 @@ export const addResolvedAsset = async ({
     activeAccount.id,
   );
   dispatch(scopeSessionAction(setUserCoinsAction, sessionScope));
-  refreshActiveChainLifecycles(
+  refreshLifecyclesAfterAssetChange(
+    fullCoinData,
     setUserCoinsAction.payload.activeCoinsForUser,
   );
 

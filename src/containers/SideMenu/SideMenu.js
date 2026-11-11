@@ -21,6 +21,7 @@ import {resetToScreen} from '../../utils/navigation/resetToScreen';
 import { renderSideMenu } from "./SideMenu.render";
 import { createAlert, resolveAlert } from "../../actions/actions/alert/dispatchers/alert";
 import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
+import {refreshLifecyclesAfterAssetChange} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
 
 class SideMenu extends Component {
   constructor(props) {
@@ -91,7 +92,7 @@ class SideMenu extends Component {
         message: "Removing " + coinObj.display_ticker + " from user " + this.props.activeAccount.id + ", please do not close Verus Mobile.",
         input: [coinObj.id, answer === this.REMOVE_DELETE],
         route: "Home",
-        dispatchResult: true
+        dispatchResult: false
       }
 
       if (answer === this.REMOVE_DELETE || answer === this.REMOVE) {
@@ -104,6 +105,7 @@ class SideMenu extends Component {
 
   _removeUserFromCoin = (coinID, deleteWallet) => {
     const activeAccount = this.props.activeAccount;
+    const removedCoin = this.props.activeCoinsForUser.find(coin => coin.id === coinID);
     const sessionScope = {
       sessionScoped: true,
       accountHash: activeAccount.accountHash,
@@ -118,12 +120,16 @@ class SideMenu extends Component {
         {sessionScope, ownerAccountHash: activeAccount.accountHash},
       )
         .then((res) => {
-          resolve(
-            scopeSessionAction(
-              setUserCoins(res, activeAccount.id),
-              sessionScope,
-            )
-          );
+          const setUserCoinsAction = setUserCoins(res, activeAccount.id);
+          const action = scopeSessionAction(setUserCoinsAction, sessionScope);
+          this.props.dispatch(action);
+          if (removedCoin) {
+            refreshLifecyclesAfterAssetChange(
+              removedCoin,
+              setUserCoinsAction.payload.activeCoinsForUser,
+            );
+          }
+          resolve(action);
         })
         .catch((err) => {
           console.warn(err);

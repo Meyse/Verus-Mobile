@@ -18,7 +18,7 @@ import { Button, Text } from "react-native-paper"
 import SemiModal from "../SemiModal";
 import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
 import { addCoin, addKeypairs, removeExistingCoin, setUserCoins } from "../../actions/actionCreators";
-import { refreshActiveChainLifecycles } from "../../actions/actions/intervals/dispatchers/lifecycleManager";
+import { refreshLifecyclesAfterAssetChange } from "../../actions/actions/intervals/dispatchers/lifecycleManager";
 import { connect } from 'react-redux';
 import { CommonActions } from '@react-navigation/native';
 import { openUrl } from "../../utils/linking";
@@ -71,11 +71,16 @@ class CoinDetailsModal extends Component {
           {sessionScope, ownerAccountHash: activeAccount.accountHash},
         )
           .then((res) => {
+            const setUserCoinsAction = setUserCoins(res, activeAccount.id);
             this.props.dispatch(
               scopeSessionAction(
-                setUserCoins(res, activeAccount.id),
+                setUserCoinsAction,
                 sessionScope,
               )
+            );
+            refreshLifecyclesAfterAssetChange(
+              this.props.data,
+              setUserCoinsAction.payload.activeCoinsForUser,
             );
             this.resetToScreen("AddCoin", "Add Coin")
             resolve();
@@ -140,7 +145,7 @@ class CoinDetailsModal extends Component {
           scopeSessionAction(setUserCoinsAction, sessionScope),
         );
 
-        refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser)
+        refreshLifecyclesAfterAssetChange(this.props.data, setUserCoinsAction.payload.activeCoinsForUser)
 
         this.setState({ loading: false });
         this.props.cancel()

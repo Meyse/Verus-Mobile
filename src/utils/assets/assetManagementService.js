@@ -9,7 +9,7 @@ import {
   ASSET_REVIEWS_SAVED,
 } from '../../reducers/assetManagement';
 import {removeExistingCoin, setUserCoins} from '../../actions/actionCreators';
-import {refreshActiveChainLifecycles} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {refreshLifecyclesAfterAssetChange} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {
   captureSessionScope,
   scopeSessionAction,
@@ -307,7 +307,7 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
     assertCurrent(context);
     const setUserCoinsAction = setUserCoins(nextCoins, activeAccount.id);
     store.dispatch(scopeSessionAction(setUserCoinsAction, context.sessionScope));
-    refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser);
+    refreshLifecyclesAfterAssetChange(coin, setUserCoinsAction.payload.activeCoinsForUser);
   });
   additionQueue = operation.catch(() => {});
   return operation;
