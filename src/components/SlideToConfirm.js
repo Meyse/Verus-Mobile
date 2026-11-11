@@ -129,10 +129,7 @@ export default function SlideToConfirm({
     setCommitting(true);
     x.value = withTiming(travel, {duration: 120 + 180 * (1 - progress)});
     Vibration.vibrate(Platform.OS === 'ios' ? [0, 50] : 50);
-    let result;
-    try { result = latest.current.onPress?.(); }
-    catch (_) { result = undefined; }
-    Promise.resolve(result).catch(() => {}).finally(() => {
+    const release = () => {
       if (!mounted.current) return;
       // Each commit handler returns its full operation. A new gesture is
       // allowed only after that operation and its failure handling settle.
@@ -142,7 +139,24 @@ export default function SlideToConfirm({
       setCommitting(false);
       allowed.current = isFocused() && AppState.currentState === 'active';
       x.value = withSpring(0, SPRING);
-    });
+    };
+    const run = () => {
+      // The latch stays set while we wait. Check again that the screen is
+      // still here and the action is still allowed before it commits.
+      if (!mounted.current) return;
+      if (!allowed.current || !isFocused() || AppState.currentState !== 'active' ||
+          latest.current.disabled || latest.current.loading) {
+        release();
+        return;
+      }
+      let result;
+      try { result = latest.current.onPress?.(); }
+      catch (_) { result = undefined; }
+      Promise.resolve(result).catch(() => {}).finally(release);
+    };
+    // The first part of a commit handler can block the JS thread (building
+    // and signing). Let the busy label paint first, then commit.
+    requestAnimationFrame(() => requestAnimationFrame(run));
   }, [canAct, clearHint, dragging, epoch, isFocused, travel, x]);
 
   const gesture = useMemo(() => Gesture.Pan()
