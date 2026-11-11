@@ -1,3 +1,4 @@
+import {unstable_batchedUpdates} from 'react-native';
 import store from '../../store';
 import {
   ASSETS_HYDRATED,
@@ -206,11 +207,14 @@ const restoreAssetPreferences = async (coin, removedKey, context) => {
   });
   // Publish only after storage succeeds. A failed write keeps the asset under
   // Removed assets, even if activation succeeded; Add back can retry it there.
-  dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
-    preferences: saved.networks[context.networkKey].preferences,
-  });
-  dispatchForContext(context, ASSET_REMOVALS_SAVED, {
-    removed: saved.networks[context.networkKey].removed,
+  // Both changes come from one write, so the screens draw them once.
+  unstable_batchedUpdates(() => {
+    dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
+      preferences: saved.networks[context.networkKey].preferences,
+    });
+    dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+      removed: saved.networks[context.networkKey].removed,
+    });
   });
 };
 
