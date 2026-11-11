@@ -23,9 +23,14 @@ import {API_GET_BALANCES} from '../constants/intervalConstants';
 import {removedAssetRecord} from './removedAssets';
 import {resolvedAssetCoin} from './assetPresentation';
 import {
+  loadAssetDiscoveryCache,
+  saveAssetDiscoveryCache,
+} from './assetDiscoveryCache';
+import {
   assetKey,
   assetNetworkKey,
   getPositiveVrpcHoldings,
+  isAssetShown,
   isMainAsset,
   isTestnetAccount,
   matchesVrpcHolding,
@@ -73,6 +78,24 @@ const dispatchForContext = (context, type, payload) => {
   store.dispatch(scopeSessionAction({type, payload}, context.sessionScope));
 };
 
+// The saved record holds the user's choices only. Each write encrypts the
+// whole record again, so the discovery cache has its own storage.
+const choicesOnly = ({snapshots, resolved, ...choices}) => choices;
+
+// Older builds kept the discovery cache inside the choices record. Copy it
+// out before the next choices write drops it there.
+const moveSavedDiscovery = async (saved, accountHash) => {
+  try {
+    for (const [networkKey, network] of Object.entries(saved.networks || {})) {
+      if (network?.snapshots == null && network?.resolved == null) continue;
+      if (await loadAssetDiscoveryCache(accountHash, networkKey)) continue;
+      await saveAssetDiscoveryCache(accountHash, networkKey, network);
+    }
+  } catch (_) {
+    // It is a cache. Discovery builds it again from the next balance updates.
+  }
+};
+
 export const loadAssetManagement = async (context = captureAssetContext()) => {
   assertCurrent(context);
   const current = store.getState().assetManagement;
@@ -86,8 +109,15 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
       if (saved.version != null && saved.version !== 1) {
         throw new Error('Asset preferences version unavailable');
       }
+      const {accountHash} = context.sessionScope;
+      const network = saved.networks?.[context.networkKey] || {};
+      await moveSavedDiscovery(saved, accountHash);
+      const discovery =
+        (await loadAssetDiscoveryCache(accountHash, context.networkKey)) || network;
       dispatchForContext(context, ASSETS_HYDRATED, {
-        ...(saved.networks?.[context.networkKey] || {}),
+        ...choicesOnly(network),
+        snapshots: discovery.snapshots,
+        resolved: discovery.resolved,
         networkKey: context.networkKey,
       });
     } catch (error) {
@@ -111,13 +141,15 @@ const updateStoredAssets = (context, update) => {
       if (saved.version != null && saved.version !== 1) {
         throw new Error('Asset preferences version unavailable');
       }
+      const networks = {
+        ...saved.networks,
+        [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
+      };
       return {
         ...saved,
         version: 1,
-        networks: {
-          ...saved.networks,
-          [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
-        },
+        networks: Object.fromEntries(Object.entries(networks)
+          .map(([networkKey, network]) => [networkKey, choicesOnly(network)])),
       };
     },
     STORAGE_ID,
@@ -133,6 +165,8 @@ export const setAssetHomeVisibility = async (
 ) => {
   await loadAssetManagement(context);
   assertCurrent(context);
+  // The saved choice already says this, so there is nothing to write.
+  if (isAssetShown(coin, store.getState().assetManagement.preferences) === shown) return;
   const saved = await updateStoredAssets(context, current => ({
     ...current,
     preferences: {
@@ -355,7 +389,11 @@ const persistDiscovery = async context => {
   assertCurrent(context);
   const {revision, persistedRevision, snapshots, resolved} = store.getState().assetManagement;
   if (revision === persistedRevision) return;
-  await updateStoredAssets(context, saved => ({...saved, snapshots, resolved}));
+  await saveAssetDiscoveryCache(
+    context.sessionScope.accountHash,
+    context.networkKey,
+    {snapshots, resolved},
+  );
   dispatchForContext(context, ASSET_DISCOVERY_SAVED, {revision});
 };
 
