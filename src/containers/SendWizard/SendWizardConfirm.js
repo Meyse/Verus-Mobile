@@ -1009,7 +1009,7 @@ const SendWizardConfirm = () => {
         }
         slideToConfirm={!needsFeeRetry && !state.broadcastError}
         loading={sending || preflighting || networkFee.loading}
-        loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending…"}
+        loadingText={preflighting || networkFee.loading ? "Preparing…" : target?.isConversion ? "Converting…" : "Sending…"}
         onPress={needsFeeRetry ? retryNetworkFee : submit}>
         {state.broadcastError ? 'Status unknown' : needsFeeRetry ? 'Try again' : target?.isConversion ? 'Slide to convert' : 'Slide to send'}
       </WizardFooter>

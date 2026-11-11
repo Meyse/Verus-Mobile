@@ -25,6 +25,8 @@ export default function SlideToConfirm({
   const thumbSize = height - 8;
   const [width, setWidth] = useState(0);
   const [hint, setHint] = useState(false);
+  // Shows the loading text from the release until the parent sets loading.
+  const [committing, setCommitting] = useState(false);
   const hintTimer = useRef(null);
   const mounted = useRef(true);
   const allowed = useRef(true);
@@ -124,6 +126,7 @@ export default function SlideToConfirm({
     // release or accessibility activation cannot enter the payment handler.
     latched.current = true;
     clearHint();
+    setCommitting(true);
     x.value = withTiming(travel, {duration: 120 + 180 * (1 - progress)});
     Vibration.vibrate(Platform.OS === 'ios' ? [0, 50] : 50);
     let result;
@@ -136,6 +139,7 @@ export default function SlideToConfirm({
       epoch.value += 1;
       dragging.value = false;
       latched.current = false;
+      setCommitting(false);
       allowed.current = isFocused() && AppState.currentState === 'active';
       x.value = withSpring(0, SPRING);
     });
@@ -185,7 +189,8 @@ export default function SlideToConfirm({
       runOnJS(incomplete)(dragEpoch.value, false);
     }), [begin, complete, disabled, dragEpoch, dragging, epoch, height, incomplete, loading, travel, x]);
   const thumbStyle = useAnimatedStyle(() => ({transform: [{translateX: x.value}]}));
-  const blocked = Boolean(disabled || loading);
+  const busy = Boolean(loading || committing);
+  const blocked = Boolean(disabled || busy);
   // Keep this style attached in every state. Detaching it while blocked left
   // the native opacity at 0 from the finished slide, so "Sending…" and the
   // label after a failed commit were invisible on Android.
@@ -201,7 +206,7 @@ export default function SlideToConfirm({
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint={actionHint}
-        accessibilityState={{disabled: blocked, busy: Boolean(loading)}}
+        accessibilityState={{disabled: blocked, busy}}
         accessibilityActions={[{name: 'activate', label}]}
         onAccessibilityAction={event => {
           if (event.nativeEvent.actionName === 'activate') complete(epoch.value);
@@ -211,7 +216,9 @@ export default function SlideToConfirm({
           setWidth(event.nativeEvent.layout.width);
         }}
         style={[styles.track, {height, backgroundColor: theme.colors.primary,
-          borderColor: theme.colors.primary, opacity: blocked ? 0.5 : 1}]}>
+          // Busy keeps full strength so the loading text stays readable.
+          // Only an unavailable slide dims.
+          borderColor: theme.colors.primary, opacity: blocked && !busy ? 0.5 : 1}]}>
         <Animated.View
           pointerEvents="none"
           style={[
@@ -224,7 +231,7 @@ export default function SlideToConfirm({
             adjustsFontSizeToFit
             minimumFontScale={0.65}
             style={gradientButtonStyles.gradientButtonLabel}>
-            {loading ? loadingText : hint ? actionHint : label}
+            {busy ? loadingText || label : hint ? actionHint : label}
           </Text>
         </Animated.View>
         {!blocked && <Animated.View pointerEvents="none" style={[styles.thumb,
