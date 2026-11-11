@@ -1,3 +1,4 @@
+import { unstable_batchedUpdates } from 'react-native';
 import { refreshCoinIntervals } from '../../../actionDispatchers'
 import {
   PRE_DATA,
@@ -48,11 +49,13 @@ export const activateChainLifecycle = (coinObj, activeCoinsForUser) => {
 }
 
 export const refreshActiveChainLifecycles = (activeCoinsForUser) => {
-  for (let i = 0; i < activeCoinsForUser.length; i++) {
-    const coinObj = activeCoinsForUser[i];
+  unstable_batchedUpdates(() => {
+    for (let i = 0; i < activeCoinsForUser.length; i++) {
+      const coinObj = activeCoinsForUser[i];
 
-    activateChainLifecycle(coinObj, activeCoinsForUser);
-  }
+      activateChainLifecycle(coinObj, activeCoinsForUser);
+    }
+  });
 }
 
 export const captureLifecycleTimers = state =>
