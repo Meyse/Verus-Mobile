@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Found-asset snapshots and resolved currency data are a cache of chain reads.
-// They stay out of the password-protected asset choices, so a choice write
+// They stay out of the asset choices, so a choice write
 // stays small. The VRPC response cache keeps the same address balances and
 // currency definitions in AsyncStorage.
 const KEY_PREFIX = 'assetDiscoveryCache:v1:';

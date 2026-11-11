@@ -16,7 +16,7 @@ import {
   scopeSessionAction,
   sessionScopeIsCurrent,
 } from '../../actions/actions/updates/sessionRequests';
-import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
+import {removeServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
 import {requestServiceStoredData} from '../auth/authBox';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
@@ -27,6 +27,12 @@ import {
   loadAssetDiscoveryCache,
   saveAssetDiscoveryCache,
 } from './assetDiscoveryCache';
+import {
+  loadAssetChoices,
+  queueAssetChoicesWrite,
+  saveAssetChoices,
+  validateAssetChoices,
+} from './assetChoicesStorage';
 import {
   assetKey,
   assetNetworkKey,
@@ -45,6 +51,9 @@ const RETRY_DELAY = 60000;
 const MAX_LOOKUPS_PER_PASS = 12;
 const hydrations = new Map();
 const discoveryJobs = new Map();
+// Retain legacy choices if migration cannot write/verify them. A later choice
+// write uses this complete record, never a failed or partial migration copy.
+const migrationFallbacks = new Map();
 let additionQueue = Promise.resolve();
 
 export const captureAssetContext = () => {
@@ -79,9 +88,14 @@ const dispatchForContext = (context, type, payload) => {
   store.dispatch(scopeSessionAction({type, payload}, context.sessionScope));
 };
 
-// The saved record holds the user's choices only. Each write encrypts the
-// whole record again, so the discovery cache has its own storage.
+// Choices and the discovery cache have separate plain storage records.
 const choicesOnly = ({snapshots, resolved, ...choices}) => choices;
+const choicesRecord = saved => ({
+  ...saved,
+  version: 1,
+  networks: Object.fromEntries(Object.entries(saved.networks || {})
+    .map(([networkKey, network]) => [networkKey, choicesOnly(network)])),
+});
 
 // Older builds kept the discovery cache inside the choices record. Copy it
 // out before the next choices write drops it there.
@@ -97,6 +111,65 @@ const moveSavedDiscovery = async (saved, accountHash) => {
   }
 };
 
+const sessionFallback = context => {
+  const fallback = migrationFallbacks.get(context.sessionScope.accountHash);
+  return fallback?.sessionEpoch === context.sessionScope.sessionEpoch ? fallback.saved : null;
+};
+
+const loadStoredChoices = context => queueAssetChoicesWrite(
+  context.sessionScope.accountHash,
+  async () => {
+    assertCurrent(context);
+    const {accountHash, sessionEpoch} = context.sessionScope;
+    let saved;
+    let plainError;
+    try {
+      saved = await loadAssetChoices(accountHash);
+    } catch (error) {
+      // A future version must never be replaced by an older record.
+      if (error.code === 'ASSET_CHOICES_VERSION') throw error;
+      plainError = error;
+    }
+    assertCurrent(context);
+    const fallback = sessionFallback(context);
+    if (!saved || fallback) {
+      const hasLegacy = store.getState().services.stored[STORAGE_ID] != null;
+      if (plainError && !hasLegacy && !fallback) throw plainError;
+      const legacy = fallback || await requestServiceStoredData(STORAGE_ID);
+      assertCurrent(context);
+      validateAssetChoices(legacy, true);
+      await moveSavedDiscovery(legacy, accountHash);
+      assertCurrent(context);
+      saved = choicesRecord(legacy);
+      migrationFallbacks.set(accountHash, {sessionEpoch, saved});
+      try {
+        await saveAssetChoices(accountHash, saved);
+        assertCurrent(context);
+        const verified = await loadAssetChoices(accountHash);
+        assertCurrent(context);
+        if (JSON.stringify(verified) !== JSON.stringify(saved)) {
+          throw new Error('Asset preferences verification failed');
+        }
+        migrationFallbacks.delete(accountHash);
+      } catch (_) {
+        assertCurrent(context);
+        // Keep the encrypted entry and use the complete legacy data this
+        // session. Retry migration on the next hydration or choice write.
+        return saved;
+      }
+    }
+    if (store.getState().services.stored[STORAGE_ID] != null) {
+      try {
+        await removeServiceStoredDataForUser(STORAGE_ID, accountHash, context);
+      } catch (_) {
+        // A verified plain record wins even if encrypted cleanup fails.
+      }
+      assertCurrent(context);
+    }
+    return saved;
+  },
+);
+
 export const loadAssetManagement = async (context = captureAssetContext()) => {
   assertCurrent(context);
   const current = store.getState().assetManagement;
@@ -105,7 +178,7 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
   if (hydrations.has(key)) return hydrations.get(key);
   const loading = (async () => {
     try {
-      const saved = await requestServiceStoredData(STORAGE_ID);
+      const saved = await loadStoredChoices(context);
       assertCurrent(context);
       if (saved.version != null && saved.version !== 1) {
         throw new Error('Asset preferences version unavailable');
@@ -136,27 +209,22 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
 
 const updateStoredAssets = (context, update) => {
   assertCurrent(context);
-  return modifyServiceStoredDataForUser(
-    saved => {
-      assertCurrent(context);
-      if (saved.version != null && saved.version !== 1) {
-        throw new Error('Asset preferences version unavailable');
-      }
-      const networks = {
-        ...saved.networks,
-        [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
-      };
-      return {
-        ...saved,
-        version: 1,
-        networks: Object.fromEntries(Object.entries(networks)
-          .map(([networkKey, network]) => [networkKey, choicesOnly(network)])),
-      };
-    },
-    STORAGE_ID,
-    context.sessionScope.accountHash,
-    context,
-  );
+  return queueAssetChoicesWrite(context.sessionScope.accountHash, async () => {
+    assertCurrent(context);
+    const {accountHash} = context.sessionScope;
+    const saved = sessionFallback(context) || await loadAssetChoices(accountHash);
+    assertCurrent(context);
+    validateAssetChoices(saved);
+    const networks = {
+      ...saved.networks,
+      [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
+    };
+    const next = choicesRecord({...saved, version: 1, networks});
+    await saveAssetChoices(accountHash, next);
+    migrationFallbacks.delete(accountHash);
+    assertCurrent(context);
+    return next;
+  });
 };
 
 export const setAssetHomeVisibility = async (

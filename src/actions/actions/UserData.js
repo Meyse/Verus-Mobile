@@ -1,5 +1,6 @@
 import {deleteBalanceRecord} from '../../utils/portfolioHistory/balanceRecord';
 import {deleteAssetDiscoveryCache} from '../../utils/assets/assetDiscoveryCache';
+import {deleteAssetChoices} from '../../utils/assets/assetChoicesStorage';
 import {
   setAccounts,
   signOut,
@@ -352,6 +353,11 @@ export const deleteProfile = async (account, dispatch) => {
         await deleteAssetDiscoveryCache(account.accountHash);
       } catch (error) {
         console.warn('Could not delete the found-assets cache.', error);
+      }
+      try {
+        await deleteAssetChoices(account.accountHash);
+      } catch (error) {
+        console.warn('Could not delete the local asset choices.', error);
       }
 
       try {
