@@ -23,6 +23,7 @@ import {useDispatch} from 'react-redux';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import {modifyServiceStoredDataForUser} from '../../../../../actions/actions/services/dispatchers/services';
 import AppButton from '../../../../../components/AppButton';
+import SlideToConfirm from '../../../../../components/SlideToConfirm';
 import TextAction from '../../../../../components/TextAction';
 import AmountInput from '../../../../../components/AmountInput';
 import AmountKeypad from '../../../../../components/AmountKeypad';
@@ -489,6 +490,7 @@ const GiftCardFund = props => {
   const [pendingFundingBroadcast, setPendingFundingBroadcast] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const broadcastInFlight = useRef(false);
   const [operationText, setOperationText] = useState('');
   const [loadError, setLoadError] = useState(null);
   const [result, setResult] = useState(null);
@@ -1605,7 +1607,8 @@ const GiftCardFund = props => {
   };
 
   const broadcast = async () => {
-    if (!card || (!preflightPlan && !pendingFunding)) return;
+    if (broadcastInFlight.current || !card || (!preflightPlan && !pendingFunding)) return;
+    broadcastInFlight.current = true;
 
     let cardSaved = false;
     let fundingCard = card;
@@ -1709,6 +1712,7 @@ const GiftCardFund = props => {
 
       setStep(STEP_RESULT);
     } finally {
+      broadcastInFlight.current = false;
       setBusy(false);
       setOperationText('');
     }
@@ -2467,11 +2471,8 @@ const GiftCardFund = props => {
           includeBottomInset={!keyboardVisible}
           safeAreaSpacing={0}>
           {preflightPlan ? (
-            <AppButton
-              disabled={busy}
-              onPress={broadcast}>
-              {createMode ? 'Create and fund' : 'Fund gift card'}
-            </AppButton>
+            <SlideToConfirm disabled={busy} loading={busy} loadingText={operationText}
+              onPress={broadcast} label={createMode ? 'Slide to create and fund' : 'Slide to fund'} />
           ) : (
             <AppButton
               accessibilityLabel={busy ? operationText : undefined}

@@ -1214,6 +1214,13 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 ## TX-1 — Current Send and Convert wizard
 
+- [x] **SLIDE-1** Replace irreversible commit controls with `SlideToConfirm` in
+  Send/Convert, invoice payment, gift card funding, high-risk app encryption,
+  external VerusID updates, and VerusID registration and management.
+- [ ] **SLIDE-1.QA** Check native light/dark, normal/compact, cancellation,
+  accessibility activation, retry, and gift card funding with the keyboard open.
+  Device QA belongs to the later machine round.
+
 - [x] **TX-1.ADDRESS-CHOOSER** Use "Choose an address" with no instructional
   subtitle in Send, Convert, Receive, invoice payment, and the asset-screen
   selector. Align related search, empty-state and accessibility copy. Label
@@ -2310,6 +2317,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-11 | SLIDE-1 | `claude/slide-to-confirm` from `552a2ee9` | Shared 44/56-point slide, 90% release threshold, three-second action hint, promise latch and cancellation guards. Six approved paths use it. Gift funding adds a synchronous broadcast guard; wrappers return commit promises. Invoice native modal gets a gesture root; the track uses View to avoid Pressable pan capture. Design/card-color, changed-file safe-area, 15-file Babel transform, 35 existing presentation tests and 33 controlled component checks pass. CoreText at Inter Semibold 17 pt measures the longest labels at 192.11 and 177.86 pt; both fit the 320-point screen calculation. pnpm required verify-deps-before-run=warn with reused modules; no install. | No device, native gesture, native font, gift keyboard, broadcast, VoiceOver or TalkBack proof. No success motion changes, push or merge. |
 | 2026-11-09 | NFC gift choice C: optional backup | `claude/gift-nfc-choice-c`; UI `88043a05`, behavior `8fcffe7e`, redesign merge `5e6e8f83` | Approved option C checkbox and state-dependent steps; separate passthrough selection/resume flags; cancelled unlock and both Back routes return to the checked choice. Three baseline navigation checks fail before the behavior fix and pass after it. Ten container checks, 40 entry theme/size/state cases and both busy action paths pass in temporary component fixtures. Babel with project config passes all 188 changed JS files across the gift-base/redesign diff union. Design, two-screen safe-area and whitespace checks pass. Source-derived renders cover light/dark at 390×844 and 360×640, with native controls/layout substituted. | Orchestrator owns Android device QA and native accessibility. No devices, Metro, NFC write, claim transaction, push or merge into redesign ran. See the scoped checklist. |
 | 2026-11-09 | ID-3.REG-R11-APPENC: app-encryption and private-address review fixes | `aac3f80e`, `c00d9079`, `fc8f1bc1` on `claude/appenc-review-fixes`, merged into local `redesign` | P2 current Z address shown (Current / After update), Removed/Replaced/Added, details sheet says each fact once, chosen VerusID kept after approve (batched `next()`), nested VerusID and key number on the main review, short addresses in the acknowledgement sheet. Android large light + small dark: 11 of 11 links pass, 0 of 123 frames show the loader, simulator verified signers; acknowledgement re-check 4 of 4. Design and safe-area checks pass. | Not pushed. iPhone and TalkBack not run. |
 | 2026-11-09 | ID-3.REG-R11-UPSTREAM: hero fix, full Android run, merge | `b301373c` on `claude/new-verusid-flow-upstream`, merged into local `redesign` | Hero gap cause: Android measured "80 USD" as two lines (72 dp) and drew one. The amount now uses the Send one-line pattern; small phone after the fix: 36 dp, fee line 8 dp below. Root-name Check details unchanged on both phones. Full Android run: `nvfpixg1109@` (normal) and `nvfsmlg1109@` (small) paid with the default Foundation referral (20 VRSCTEST each on chain) and linked. Design and safe-area checks pass on `redesign` after the merge. | Not pushed. Device check of app-encryption requests and the private-address removal warning remains. Four P3s left as is (see the section). |

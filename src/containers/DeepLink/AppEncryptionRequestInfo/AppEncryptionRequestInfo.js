@@ -19,6 +19,7 @@ import {InfoSheetRow} from '../../../components/InfoSheetSection';
 import {Info} from 'lucide-react-native';
 import {GenericResponse} from 'verus-typescript-primitives';
 import AppButton from '../../../components/AppButton';
+import SlideToConfirm from '../../../components/SlideToConfirm';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {
   requestWalletUnlock,
@@ -804,7 +805,7 @@ const AppEncryptionRequestInfoContent = props => {
     ? 'Loading VerusIDs'
     : selectedIdentity
     ? returnESK
-      ? 'Approve high-risk request'
+      ? 'Slide to approve'
       : 'Share encryption address'
     : 'Choose VerusID';
   const primaryActionDisabled =
@@ -914,7 +915,7 @@ const AppEncryptionRequestInfoContent = props => {
       return;
     }
 
-    buildResponseAndContinue();
+    return buildResponseAndContinue();
   };
 
   return (
@@ -1019,14 +1020,20 @@ const AppEncryptionRequestInfoContent = props => {
             </Text>
           </View>
         )}
-        <AppButton
-          disabled={primaryActionDisabled}
-          height={56}
-          onPress={handlePrimaryAction}
-          themeMode={theme.mode}
-          variant="primary">
-          {primaryActionLabel}
-        </AppButton>
+        {returnESK && activeAccountMatchesRequest && selectedIdentity && linkedIdsLoaded &&
+        !shieldedSetupNeedsProfile && !shieldedSetupNeedsRestart ? (
+          <SlideToConfirm disabled={primaryActionDisabled} loading={processing}
+            loadingText="Preparing response" label="Slide to approve" onPress={handlePrimaryAction} />
+        ) : (
+          <AppButton
+            disabled={primaryActionDisabled}
+            height={56}
+            onPress={handlePrimaryAction}
+            themeMode={theme.mode}
+            variant="primary">
+            {primaryActionLabel}
+          </AppButton>
+        )}
         <AppButton
           disabled={processing}
           height={56}

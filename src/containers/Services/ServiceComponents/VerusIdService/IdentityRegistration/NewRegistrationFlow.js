@@ -251,8 +251,8 @@ export default function NewRegistrationFlow({navigation, route}) {
     footer={({compactKeyboard}) => <>
       {compactKeyboard && step !== 'recovery' && (step === 'name' ? funds(true) : data && <RegistrationFunds compact data={{...data, quote: activeQuote, referralQuote: null}} source={payer}
         coin={coin} coins={coins} balances={balances} reads={sourceReads.reads} showBalance={showBalance} funding={payerState(payer)} onRetry={sourceReads.retry} />)}
-      <ActionButton disabled={!ready} busy={busy} hold={step === 'check'} onPress={step === 'check' ? start : step === 'recovery' ? () => go('check') : continueStep}>
-        {step === 'check' ? 'Hold to start' : step === 'recovery' ? 'Done' : 'Continue'}
+      <ActionButton disabled={!ready} busy={busy} slide={step === 'check'} onPress={step === 'check' ? start : step === 'recovery' ? () => go('check') : continueStep}>
+        {step === 'check' ? 'Slide to start' : step === 'recovery' ? 'Done' : 'Continue'}
       </ActionButton>
       {step === 'check' && !compactKeyboard && <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>}
     </>}>{({compactKeyboard}) => <>

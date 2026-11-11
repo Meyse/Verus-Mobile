@@ -7,7 +7,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AppButton from '../../../../../components/AppButton';
 import AppTextInput from '../../../../../components/AppTextInput';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../../../../components/AppSearchField';
-import GradientButton from '../../../../../components/GradientButton';
+import SlideToConfirm from '../../../../../components/SlideToConfirm';
 import HeaderCloseButton from '../../../../../components/HeaderCloseButton';
 import ProgressHeader from '../../../../../components/ProgressHeader';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
@@ -61,7 +61,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   const infoDismissal = useSheetDismissal({visible: infoVisible, onClose: () => setInfoVisible(false)});
   const [keyboard, setKeyboard] = useState(false);
   // While the keyboard is open, every screen size pins the exact price and any
-  // funds warning above Hold: QA showed both cut off or hidden on Pro and Pixel 9.
+  // funds warning above the slide: QA showed both cut off or hidden on Pro and Pixel 9.
   const compactKeyboard = keyboard;
   const formScroll = useVerusIdFormScroll(keyboard, true);
   useEffect(() => {
@@ -123,13 +123,9 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   </View>;
 };
 
-export const ActionButton = ({children, onPress, disabled, busy, secondary = false, accessibilityLabel, hold = false}) => {
-  const theme = useAppTheme();
-  return hold ? <GradientButton holdToConfirm disabled={disabled || busy} onPress={onPress}
-    holdHint={children === 'Hold to start' ? 'Hold the button to start registration.' : 'Hold the button to create your VerusID.'}
-    topColor={theme.colors.primary} bottomColor={theme.colors.primary}>
-    {busy ? 'Preparing…' : children}
-  </GradientButton> : <AppButton accessibilityLabel={accessibilityLabel || children} disabled={disabled || busy}
+export const ActionButton = ({children, onPress, disabled, busy, secondary = false, accessibilityLabel, slide = false}) => {
+  return slide ? <SlideToConfirm disabled={disabled || busy} onPress={onPress}
+    label={children} loading={busy} loadingText="Preparing…" /> : <AppButton accessibilityLabel={accessibilityLabel || children} disabled={disabled || busy}
     loading={busy} onPress={onPress} variant={secondary ? 'secondary' : 'primary'}>{children}</AppButton>;
 };
 
@@ -279,7 +275,7 @@ export const IdentitySummary = ({review}) => {
 };
 
 // Read-only facts from the same resolved policy and normalized request that
-// feed prepareCommitment. Keep the first hold's control and fee details
+// feed prepareCommitment. Keep the first slide's control and fee details
 // inspectable before any job or payment exists.
 export const RegistrationPreviewDetails = ({preview}) => {
   const styles = useRegistrationStyles();

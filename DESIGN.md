@@ -194,6 +194,16 @@ A short release on a hold button shows its action-specific hint in the same
 label slot for three seconds, and announces it for screen readers. A new hold
 clears the hint. A completed hold shows no hint. The footer does not move.
 
+## Slide to confirm
+
+Use `src/components/SlideToConfirm.js` when money or keys leave the wallet and
+the user cannot undo it. The six places are Send/Convert Confirm, invoice
+payment, gift card funding, high-risk app encryption approval, external VerusID
+update approval, and VerusID registration and management. Keep selection,
+review, decryption, retry, and unknown-status actions as normal buttons.
+The slide stays locked until its handler's promise settles. Cancelled gestures
+never commit. Each handler must return its operation or set a synchronous guard.
+
 ## Imagery
 
 The owner chose one picture system on 2026-10-24 (option A of the imagery
@@ -648,19 +658,24 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   in the existing small monospace address style, in full. Never resolve a name
   again for display.
 - Confirm does not show the "centrally controlled currency" notice (owner decision).
-- Confirm shows its warnings and errors above "Hold to confirm & send", outside the
-  scroll area (`above` slot of `WizardFooter`). The fact list scrolls and shows the
+- Confirm shows its warnings and errors above "Slide to send" ("Slide to convert"
+  for a conversion), outside the scroll area (`above` slot of `WizardFooter`).
+  The fact list scrolls and shows the
   bottom fade (`FadedScrollView`) while rows remain below.
-- A send to the card's own address shows one light notice above Hold: "This is
+- A send to the card's own address shows one light notice above the slide: "This is
   your own address. Only the network fee leaves your wallet." It does not block
   (owner, 2026-10-26).
 - Fees are paid on top of the amount. Exports never block because fees reach
   the amount. A local conversion whose fees in the paid currency exceed its
-  prepared amount shows one non-blocking light notice above Hold: "The fees
+  prepared amount shows one non-blocking light notice above the slide: "The fees
   are higher than the amount you convert." Keep balance and preflight blocks.
   VRPC exports show separate Bridge fee, Network fee and Total rows from the
   validated preflight that is signed. Total adds the prepared amount and all
   fees by currency ID, listing each paid currency once (owner, 2026-11-03).
+- Confirm uses the approved B · Launch slide: 44/56-point primary height,
+  white inset thumb, and a 90% release threshold. A short slide shows its hint
+  in the label slot for three seconds. Accessibility activation sends once.
+  Fee retry keeps the normal "Try again" button.
 - After "Status unknown", Confirm shows only Close: the back arrow goes, and
   Android Back and the iOS swipe close the whole wizard, as Close does (owner,
   2026-10-26). A step back would lead to a Confirm that stays locked.
@@ -736,7 +751,7 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   when 1% or more, then the "x.x% less" badge; it opens "Price and route"), "Fees ›", "Arrives", and "More
   details ›", which opens the "Transaction details" `InfoSheet` (To, Destination
   network, Route when a basket is used, From, Balance after). Fees and addresses wrap and never truncate. The footer stays
-  Hold to confirm.
+  Slide to send, or Slide to convert for a conversion.
 - **Sent.** The header has no title and no back. The small animated check sits
   beside the 28/36 title. Then the same nodes ("You paid", "<recipient>
   receives"), flat rows ("To" when needed, "Destination" for a bridge,
@@ -765,7 +780,7 @@ screen did for the private (z) card.
   Funds that still confirm add one caption under Available: "<amount> <ticker>
   can be sent in about 10 minutes."
 - From the private card to a transparent address, Confirm shows one notice
-  above Hold: "This address is transparent. The amount and the recipient will
+  above the slide: "This address is transparent. The amount and the recipient will
   be public on the blockchain."
 
 ### Pre-conversions
@@ -790,7 +805,7 @@ All launch types use these screens.
   launch, "Needed to launch" when the currency sets a minimum, Fees, and
   "Arrives" ("At launch, 25 Oct 2028"). "Needed to launch" shows the minimum
   only, because the wallet cannot read the total so far. There is no Price
-  impact row. One notice shows above Hold: "This can’t be cancelled. If
+  impact row. One notice shows above the slide: "This can’t be cancelled. If
   <currency> does not launch, the <paid asset> comes back minus fees."
 - Sent reads "Pre-conversion sent" with the same nodes, an "Arrives" row and the
   Transaction ID, and no caption. The "Arrives" row is a deliberate exception
@@ -1483,8 +1498,8 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   44-point info action: Lucide `Info`, 23 points, stroke 2.2, `textSubtle`.
   The choose step has no info action. Transfer has no progress track. Long
   upstream explanations live in `InfoSheet`; About this transfer uses 86%.
-- Reuse the outline fields and normal-flow safe footer. Review uses the Send
-  hold button. Consent gates its handler as well as its disabled state. Modify
+- Reuse the outline fields and normal-flow safe footer. Review uses
+  `SlideToConfirm`. Consent gates its handler as well as its disabled state. Modify
   before/after pairs use the approved soft-fill review panel. Results use
   `TransactionResult`; Retry unlink is primary and never sends again.
 - Link is a full page with the multi-select `SelectionRow` rule above,
@@ -1501,7 +1516,7 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
 
 ### New VerusID registration
 
-Owner approved 2026-11-04: V3 name field, two-hold registration screen, and
+Owner approved 2026-11-04: V3 name field, two-payment registration screen, and
 namespace sheet. Canonical source: `IdentityRegistration/RegistrationDesign.js`
 and `identityRegistration.styles.js`. This applies to registration only.
 
@@ -1515,8 +1530,8 @@ and `identityRegistration.styles.js`. This applies to registration only.
   targets. Referral uses single-choice `SelectionRow`s: success fill and check,
   no outline. Check details opens "Choose an address" from Pay from. Its rows
   show balances as Send does, without "confirmed". The content keeps the signed-in
-  20/24/28-point insets. Use the Send hold button and `SafeBottomActionStack`.
-  First hold commits; a separate second hold registers after one confirmation.
+  20/24/28-point insets. Use `SlideToConfirm` and `SafeBottomActionStack`.
+  The first slide commits. A separate second slide registers after one confirmation.
   Preserve all upstream recovery paths.
 - Root registrations on VRSC and VRSCTEST show "Verus Coin Foundation@" only
   when the namespace allows referrals. Select it by default when its quoted
@@ -1788,7 +1803,8 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
 ## Scanned payments and VerusPay invoices
 
 The owner approved this on 2026-10-21 (mockup rounds on the Scan tab and
-invoices). Every payment ends on the same Send Confirm, with Hold to confirm,
+invoices). Every payment ends on the same Send Confirm, with Slide to send or
+Slide to convert,
 and the same Sent screen. Each path skips the steps that the QR code already
 answers. The Scan tab (`src/containers/VerusPay/VerusPay.js`) opens Send with a
 `scan` request; the recipient is fixed, so Recipient is skipped.
@@ -1800,7 +1816,7 @@ answers. The Scan tab (`src/containers/VerusPay/VerusPay.js`) opens Send with a
   or i-address fits Verus assets only.
 - The context band shows "to <short address>" on Amount and "To <address>" on
   Select asset, because Recipient is skipped.
-- A request that names another network warns above Hold to confirm. An asset
+- A request that names another network warns above the slide. An asset
   that is not in the wallet opens `AcknowledgeSheet` ("Add <name>?", "Not now");
   the payment then continues. A request for the other network type (mainnet or
   testnet) is never added. Codes the wallet cannot pay show "Can’t use this QR
@@ -1845,7 +1861,7 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   currency-transfer path. Tagged invoices are not supported yet, so the payment
   carries no invoice tag. It refuses a payment that the fee would shrink.
 - When this device already paid the invoice, Confirm shows one notice above
-  Hold ("You paid this invoice on <date>. Paying again sends a second
+  the slide ("You paid this invoice on <date>. Paying again sends a second
   payment.") and an "Earlier payment" row with the short transaction ID. After a
   "Status unknown" payment it reads "This invoice may have been paid on <date>.
   Check your transaction history before you pay again." Paying again stays
@@ -1857,7 +1873,7 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   Done closes the invoice or continues its request.
 - Errors: "No way to pay this invoice" on Pay with; conversion options that do
   not load show an error with "Try again" while direct payment still works; the
-  shortfall shows above a disabled Hold; expired, unreadable and wrong-network
+  shortfall shows above a disabled slide; expired, unreadable and wrong-network
   invoices end on a sheet with "Close". Burn invoices keep their old screens.
 
 ## Camera scanner

@@ -5,6 +5,8 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {DeepLinkReviewScrollView} from '../components/RequestReview';
 import BigNumber from 'bignumber.js';
 import AppButton from '../../../components/AppButton';
+import SlideToConfirm from '../../../components/SlideToConfirm';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import ProgressHeader from '../../../components/ProgressHeader';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {satsToCoins} from '../../../utils/math';
@@ -167,10 +169,15 @@ const InvoicePaymentReview = ({
           ? 'The payment may have been sent. Check your transaction history before starting another payment.'
           : 'Payments cannot be reversed.'}</Text>
         <InvoiceErrorLine>{sendError}</InvoiceErrorLine>
-        <AppButton onPress={onSend} loading={submitting} disabled={submitting || broadcastStatusUnknown}>{broadcastStatusUnknown ? 'Status unknown' : `${burn ? 'Burn' : 'Send'} ${amount(
-          output.satoshis,
-          output.currency,
-        )}`}</AppButton>
+        {broadcastStatusUnknown ? (
+          <AppButton disabled>Status unknown</AppButton>
+        ) : (
+          <GestureHandlerRootView style={{alignSelf: 'stretch'}}>
+            <SlideToConfirm onPress={onSend} loading={submitting}
+              disabled={submitting} loadingText="Sending…"
+              label={burn ? 'Slide to burn' : 'Slide to pay'} />
+          </GestureHandlerRootView>
+        )}
       </SafeBottomActionStack>
       <DeepLinkRequestSheetScaffold
         title="Payment details"
