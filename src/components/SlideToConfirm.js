@@ -185,8 +185,13 @@ export default function SlideToConfirm({
       runOnJS(incomplete)(dragEpoch.value, false);
     }), [begin, complete, disabled, dragEpoch, dragging, epoch, height, incomplete, loading, travel, x]);
   const thumbStyle = useAnimatedStyle(() => ({transform: [{translateX: x.value}]}));
-  const labelStyle = useAnimatedStyle(() => ({opacity: 1 - Math.min(1, x.value / Math.max(1, travel) * 1.8)}));
   const blocked = Boolean(disabled || loading);
+  // Keep this style attached in every state. Detaching it while blocked left
+  // the native opacity at 0 from the finished slide, so "Sending…" and the
+  // label after a failed commit were invisible on Android.
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: blocked ? 1 : 1 - Math.min(1, x.value / Math.max(1, travel) * 1.8),
+  }), [blocked, travel]);
 
   return (
     <GestureDetector gesture={gesture}>
@@ -212,7 +217,7 @@ export default function SlideToConfirm({
           style={[
             styles.label,
             !blocked && {paddingLeft: height + 4, paddingRight: 8},
-            !blocked && labelStyle,
+            labelStyle,
           ]}>
           <Text
             numberOfLines={1}
