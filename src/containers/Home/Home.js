@@ -9,7 +9,7 @@
 */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {AppState} from 'react-native';
+import {AppState, InteractionManager} from 'react-native';
 import {
   setActiveCoin,
   setActiveApp,
@@ -284,7 +284,11 @@ const Home = () => {
 
   useFocusEffect(
     useCallback(() => {
-      refresh(false);
+      // Start the data refresh after the Back animation ends, so Home shows
+      // at once instead of after a long JS block.
+      const refreshTask = InteractionManager.runAfterInteractions(() => {
+        refresh(false);
+      });
       const resumeRegistrations = () => {
         if (!store.getState().authentication.activeAccount) return;
         // A suspended app may miss polling intervals. Reconcile protected jobs
@@ -295,7 +299,10 @@ const Home = () => {
       const subscription = AppState.addEventListener('change', state => {
         if (state === 'active') resumeRegistrations();
       });
-      return () => subscription.remove();
+      return () => {
+        refreshTask.cancel();
+        subscription.remove();
+      };
     }, []),
   );
 
