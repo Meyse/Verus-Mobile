@@ -71,16 +71,11 @@ class CoinDetailsModal extends Component {
           {sessionScope, ownerAccountHash: activeAccount.accountHash},
         )
           .then((res) => {
-            const setUserCoinsAction = setUserCoins(res, activeAccount.id);
             this.props.dispatch(
               scopeSessionAction(
-                setUserCoinsAction,
+                setUserCoins(res, activeAccount.id),
                 sessionScope,
               )
-            );
-            refreshLifecyclesAfterAssetChange(
-              this.props.data,
-              setUserCoinsAction.payload.activeCoinsForUser,
             );
             this.resetToScreen("AddCoin", "Add Coin")
             resolve();
