@@ -882,6 +882,29 @@ this scope.
   screenshots kept beside the initial captures. All task-owned runtimes are
   stopped. No commit, merge or push.
 
+### GR-4.IDU-PARITY-FOLLOWUPS (2026-11-12)
+
+Display-only follow-ups on `claude/idu-parity-followups-1112`, from local
+`redesign` `da0bb81f`. Preserve transaction construction, funding, signing,
+broadcast and response bytes. Each item has a separate commit.
+
+- [x] Show the full key below named and unnamed titles for non-clear operations.
+- [ ] Use one field-count helper for singular and plural content previews.
+- [ ] State the high-risk acknowledgement instruction once; preserve its gate.
+- [ ] Group each decoded value's warnings and fields under one heading.
+- [ ] Remove only the redundant Included data chip; keep Public and the notice.
+
+Design contract: operate mode; existing GR-4 content cards and the canonical
+information-sheet hierarchy. Reuse `InfoSheetRow`, `InfoSheet`, `CopyAction`
+and the current card. Value headings use `theme.typography.titleRow` and
+`textPrimary`; warnings keep `bodySm` and `warningText`. Use whitespace,
+without a new card, color, dot or left-edge bar. Show one heading for each
+value in a multi-value group. Remove the repeated root prefix from field
+labels; keep nested paths. A single value needs no Value 1 of 1 heading.
+Required rendered states: ordinary and upload content, multiple and single
+values, warnings, long nested paths, raw-data and upload sheets, light/dark,
+normal/compact. This task permits static checks only; device QA is pending.
+
 ### GR-4.IDENTITY-UPLOAD — identity update data (2026-11-03)
 
 Status: **Ready for verification**. Scope: upload data in identity update

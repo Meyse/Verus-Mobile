@@ -47,7 +47,7 @@ export const getFullContentChangeKey = (item, updateEntry) => {
   if (!key) return undefined;
   const ui = updateEntry?.removalUi;
   const notes = [ui?.detailBody, ui?.effectNote, ui?.emptyStateNote, ui?.metadataNote, ui?.historyNote];
-  return (isUnnamedKeyTitle(item) && item.keyId === key) || item.title === key ||
+  return (item.removeMeta?.action !== 4 && item.keyId === key) || item.title === key ||
     notes.some(note => typeof note === 'string' && note.includes(key))
     ? key : undefined;
 };
@@ -582,7 +582,7 @@ const VerusIdContentChangeCard = ({
             ]}>
             {unnamedKey ? 'Unnamed key' : item.title}
           </Text>
-          {unnamedKey && (
+          {item.keyId && item.removeMeta?.action !== 4 && (
             <Text
               selectable
               style={[
