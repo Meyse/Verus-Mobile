@@ -378,6 +378,8 @@ const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Up
           label={field.path ? `${field.path} › ${field.label}` : field.label}
           value={field.value}
           copy={copy}
+          copyValue={field.copyValue}
+          selectable={!field.escaped}
           valueStyle={field.kind === 'encoded' ? [contentStyles.cmmCardKeyId, theme.isDark && contentStyles.cmmCardKeyIdDark] : undefined}
         />
       ))}

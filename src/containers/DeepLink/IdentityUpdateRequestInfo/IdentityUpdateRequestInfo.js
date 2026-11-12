@@ -146,6 +146,7 @@ const RawDataSheet = ({
     () => (rawData != null ? formatRawData(rawData) : ''),
     [rawData],
   );
+  const displayText = escapeContentReviewText(rawText);
 
   return (
     <BottomSheetModal
@@ -169,8 +170,8 @@ const RawDataSheet = ({
         <ScrollView
           style={styles.rawDataSheetScroll}
           contentContainerStyle={styles.rawDataSheetScrollContent}>
-          <Text selectable style={styles.rawDataSheetValue}>
-            {escapeContentReviewText(rawText)}
+          <Text selectable={displayText === rawText} style={styles.rawDataSheetValue}>
+            {displayText}
           </Text>
         </ScrollView>
         <AppButton
