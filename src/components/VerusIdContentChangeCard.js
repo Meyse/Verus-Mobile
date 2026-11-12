@@ -118,6 +118,7 @@ export const isContentMultiMapRemove = rawData => {
 
 export const getCmmChangeType = (hasExisting, updateEntry) => {
   if (!updateEntry) return null;
+  if (updateEntry.unrecognizedRemoval) return 'included';
   if (updateEntry.removeMeta) return 'removed';
   if (!hasExisting) return 'added';
   return 'appended';
@@ -127,7 +128,7 @@ const getUpdateKeyTarget = updateKey => {
   const prefix = `${VERUSID_CMM_DATA.key}:`;
   if (!updateKey.startsWith(prefix)) return updateKey;
 
-  return updateKey.slice(prefix.length).split(':upload')[0].split(':remove:')[0];
+  return updateKey.slice(prefix.length).split(':upload')[0].split(':remove:')[0].split(':unrecognized')[0];
 };
 
 const getSameRequestRemoveTargets = cmmUpdates => {
@@ -414,6 +415,7 @@ const getRemoveActionDescription = removeMeta => {
 };
 
 const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
+  if (item.changeType === 'included') return null;
   const neutralToneColor = darkMode ? '#7E8EA6' : '#6B7280';
   const updatedPreview = item.isEncrypted && !updateEntry?.signData
     ? 'Encrypted upload (tap to view)'
@@ -591,6 +593,14 @@ const VerusIdContentChangeCard = ({
       </View>
 
       {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
+      {updateEntry?.unrecognizedRemoval && (
+        <>
+          <StatusBadge label="Included data" tone="neutral" />
+          <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+            This data uses the removal key but is not a recognized removal instruction. It will still be recorded in the update transaction.
+          </Text>
+        </>
+      )}
       {renderCmmChangeDescription(item, updateEntry, darkMode)}
       {children}
 

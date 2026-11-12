@@ -545,6 +545,23 @@ const IdentityUpdateRequestInfoContent = props => {
       }
       const {removeEntries, nonRemoveUpdates} = splitContentMultiMapUpdates(key, updates);
 
+      // These values have no removal effect, but their bytes are still recorded.
+      if (key === ContentMultiMapRemoveKey.vdxfid) {
+        const recognizedIndexes = new Set(removeEntries.map(entry => entry.index));
+        const values = Array.isArray(updates) ? updates : updates == null ? [] : [updates];
+        const unrecognized = values.filter((_, index) => !recognizedIndexes.has(index));
+        if (unrecognized.length > 0) {
+          displayUpdates[VERUSID_CMM_INFO.key][`${VERUSID_CMM_DATA.key}:${key}:unrecognized`] = {
+            data: 'Unrecognized removal data',
+            displayTitle: 'Unrecognized removal data',
+            contentKey: key,
+            rawData: unrecognized,
+            unrecognizedRemoval: true,
+            onPress: () => openRawDataSheet(unrecognized, 'Unrecognized removal data'),
+          };
+        }
+      }
+
       if (removeEntries.length > 0) {
         removeEntries.forEach(({update, removeMeta, index}) => {
           const removeUi = buildContentMultiMapRemoveUi({

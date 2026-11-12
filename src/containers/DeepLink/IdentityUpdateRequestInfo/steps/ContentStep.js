@@ -409,14 +409,14 @@ const ContentStep = ({
   }, [displayUpdates]);
   const totalContentCount = cmmItems.length + privateInfoItems.length;
   const addCount =
-    cmmItems.filter(item => item.changeType !== 'removed').length +
+    cmmItems.filter(item => item.changeType === 'added' || item.changeType === 'appended').length +
     privateInfoItems.length;
   const removeCount = cmmItems.filter(
     item => item.changeType === 'removed',
   ).length;
   // Private address changes are not content values a removal can affect.
   const hasMixedCmmChanges =
-    removeCount > 0 && cmmItems.some(item => item.changeType !== 'removed');
+    removeCount > 0 && cmmItems.some(item => item.changeType === 'added' || item.changeType === 'appended');
   const privateCount =
     cmmItems.filter(item => contentChangeMatchesFilter(item, 'protect'))
       .length + privateInfoItems.length;
