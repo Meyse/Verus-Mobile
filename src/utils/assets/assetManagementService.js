@@ -31,6 +31,7 @@ import {
   loadAssetChoices,
   queueAssetChoicesWrite,
   saveAssetChoices,
+  takeNewAssetChoices,
   validateAssetChoices,
 } from './assetChoicesStorage';
 import {
@@ -111,6 +112,9 @@ const moveSavedDiscovery = async (saved, accountHash) => {
   }
 };
 
+// The old encrypted entry, or none. A wallet made in this session has none.
+const hasLegacyChoices = () => store.getState().services.stored[STORAGE_ID] != null;
+
 const sessionFallback = context => {
   const fallback = migrationFallbacks.get(context.sessionScope.accountHash);
   return fallback?.sessionEpoch === context.sessionScope.sessionEpoch ? fallback.saved : null;
@@ -171,16 +175,21 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
   if (hydrations.has(key)) return hydrations.get(key);
   const loading = (async () => {
     try {
-      const saved = await loadStoredChoices(context);
+      // A wallet made in this session has no saved choices or found assets.
+      // Its first hydration reads no storage: during wallet setup each read
+      // waits seconds, and Home's rows must be drawn when the coins fly in.
+      const fresh = takeNewAssetChoices(context.sessionScope.accountHash) &&
+        !hasLegacyChoices();
+      const saved = fresh ? choicesRecord({}) : await loadStoredChoices(context);
       assertCurrent(context);
       if (saved.version != null && saved.version !== 1) {
         throw new Error('Asset preferences version unavailable');
       }
       const {accountHash} = context.sessionScope;
       const network = saved.networks?.[context.networkKey] || {};
-      await moveSavedDiscovery(saved, accountHash);
-      const discovery =
-        (await loadAssetDiscoveryCache(accountHash, context.networkKey)) || network;
+      if (!fresh) await moveSavedDiscovery(saved, accountHash);
+      const discovery = (!fresh &&
+        await loadAssetDiscoveryCache(accountHash, context.networkKey)) || network;
       dispatchForContext(context, ASSETS_HYDRATED, {
         ...choicesOnly(network),
         snapshots: discovery.snapshots,
@@ -205,7 +214,9 @@ const updateStoredAssets = (context, update) => {
   return queueAssetChoicesWrite(context.sessionScope.accountHash, async () => {
     assertCurrent(context);
     const {accountHash} = context.sessionScope;
-    const saved = sessionFallback(context) || await loadAssetChoices(accountHash);
+    const saved = sessionFallback(context) ||
+      await loadAssetChoices(accountHash) ||
+      (hasLegacyChoices() ? null : choicesRecord({}));
     assertCurrent(context);
     validateAssetChoices(saved);
     const networks = {

@@ -8,6 +8,7 @@ import {hashAccountId} from '../crypto/hash';
 import {deriveKeyPair} from '../keys';
 import {arrayToObject} from '../objectManip';
 import {storeBiometricPassword} from '../keychain/biometrics';
+import {markNewAssetChoices} from '../assets/assetChoicesStorage';
 
 export const buildProfileSeeds = (seed, includeDlightSeed = false) => {
   const seeds = {[ELECTRUM]: seed};
@@ -143,6 +144,7 @@ export const createProfileFromSeed = async ({
     await onStep({type: 'biometrics'});
   }
 
+  markNewAssetChoices(accountHash);
   await initializeAccountData(newAccount, password);
   await onStep({type: 'opened'});
 
