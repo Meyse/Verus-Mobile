@@ -1,4 +1,5 @@
 import React, {useMemo} from 'react';
+import {useSelector} from 'react-redux';
 import {Text} from 'react-native';
 import SelectionSheet, {
   SelectionGroup,
@@ -8,7 +9,11 @@ import useSheetDismissal from '../../components/useSheetDismissal';
 import {createSelectionSheetStyles} from '../../styles';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
-import {getSubWalletCardType} from '../../utils/subwallet/cardPresentation';
+import {
+  getSubWalletCardType,
+  getSubWalletDisplayIdentifier,
+  truncateMiddle,
+} from '../../utils/subwallet/cardPresentation';
 
 const getNetworkDetails = wallet => {
   const networkId =
@@ -34,6 +39,7 @@ const ReceiveSubwalletSheet = ({
   subWallets = [],
   visible,
 }) => {
+  const activeAccount = useSelector(state => state.authentication.activeAccount);
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
@@ -66,7 +72,19 @@ const ReceiveSubwalletSheet = ({
           const rows = group.wallets.map(wallet => {
             const cardType = getSubWalletCardType(wallet);
             const title = cardType === 'VerusID' ? wallet.name : cardType;
-            const subtitle = cardType === 'Transparent' ? wallet.name : undefined;
+            const privateAddress = cardType === 'Private'
+              ? getSubWalletDisplayIdentifier(
+                  wallet,
+                  activeAccount,
+                  coinObj.id,
+                  false,
+                )
+              : null;
+            const subtitle = cardType === 'Transparent'
+              ? wallet.name
+              : privateAddress && privateAddress !== '-'
+              ? truncateMiddle(privateAddress, 5, 5, '...')
+              : undefined;
             const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
             return (
               <SelectionRow

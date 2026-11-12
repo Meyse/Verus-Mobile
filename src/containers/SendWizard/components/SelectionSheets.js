@@ -1,4 +1,5 @@
 import React, {useMemo} from 'react';
+import {useSelector} from 'react-redux';
 import SelectionSheet, {
   SelectionGroup,
   SelectionRow,
@@ -7,7 +8,9 @@ import useSheetDismissal from '../../../components/useSheetDismissal';
 import {RenderPlainCoinLogo} from '../../../utils/CoinData/Graphics';
 import {
   getSubWalletCardType,
+  getSubWalletDisplayIdentifier,
   getSubWalletNetworkLabel,
+  truncateMiddle,
 } from '../../../utils/subwallet/cardPresentation';
 import {truncateDecimal} from '../../../utils/math';
 import {formatSyncStatus} from '../../../utils/subwallet/privateWallet';
@@ -20,6 +23,7 @@ export const SourceCardSheet = ({
   selectedId,
   visible,
 }) => {
+  const activeAccount = useSelector(state => state.authentication.activeAccount);
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
   const groups = useMemo(() => {
     const map = new Map();
@@ -40,10 +44,21 @@ export const SourceCardSheet = ({
       {groups.map(([network, sources]) => {
         const rows = sources.map(source => {
           // Name sources as Receive's address chooser does: the type, with a
-          // transparent card's short address below, or the VerusID name.
+          // transparent or private card's short address below, or the VerusID name.
           // A private card that still syncs shows, but cannot be picked.
           const cardType = getSubWalletCardType(source.card);
           const syncing = source.syncPercent != null;
+          const privateAddress = cardType === 'Private'
+            ? getSubWalletDisplayIdentifier(
+                source.card,
+                activeAccount,
+                source.coin.id,
+                false,
+              )
+            : null;
+          const privateSubtitle = privateAddress && privateAddress !== '-'
+            ? truncateMiddle(privateAddress, 5, 5, '...')
+            : undefined;
           return (
             <SelectionRow
               key={source.card.id}
@@ -55,7 +70,7 @@ export const SourceCardSheet = ({
                   ? formatSyncStatus(source.syncPercent)
                   : cardType === 'Transparent'
                   ? source.card.name
-                  : undefined
+                  : privateSubtitle
               }
               subtitleMonospace={!syncing}
               selected={source.card.id === selectedId}
