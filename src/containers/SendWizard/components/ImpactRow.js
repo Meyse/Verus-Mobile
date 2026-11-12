@@ -2,7 +2,7 @@ import React from 'react';
 import {StyleSheet, Text} from 'react-native';
 import StatusBadge from '../../../components/StatusBadge';
 import {useOnboardingTheme} from '../../../theme/onboarding';
-import {IMPACT_LEVEL} from '../priceImpact';
+import {formatImpact, IMPACT_LEVEL} from '../priceImpact';
 import {getImpactBadgeLabel, getImpactTone} from './impactFormat';
 import {FlatRow} from './WizardUI';
 
@@ -16,7 +16,16 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
 
   return (
-    <FlatRow copyValue={impact?.toFixed()} label="Price impact" onPress={onPress}>
+    <FlatRow
+      copyValue={
+        impact == null
+          ? undefined
+          : impact.isLessThanOrEqualTo(0)
+          ? '0'
+          : formatImpact(impact)
+      }
+      label="Price impact"
+      onPress={onPress}>
       {showLoss ? (
         <Text
           style={[
