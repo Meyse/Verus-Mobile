@@ -19,6 +19,7 @@ import AnimatedSuccessCheckmark from '../../../../components/AnimatedSuccessChec
 import AppButton from '../../../../components/AppButton';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import CopyAction from '../../../../components/CopyAction';
+import InfoSheetSection from '../../../../components/InfoSheetSection';
 import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import { useOnboardingTheme } from '../../../../theme/onboarding';
@@ -259,6 +260,9 @@ const ConfirmPayStep = ({
   const currentReviewInputs = useRef(reviewInputs);
   currentReviewInputs.current = reviewInputs;
   const hasFee = fee != null && preparedUpdate?.reviewInputs === reviewInputs && !calculating;
+  const preparedIdentity = useMemo(() => hasFee
+    ? identityToDisplayJson(preparedUpdate.built.identity) : null,
+  [hasFee, preparedUpdate]);
   useEffect(() => {
     setSelectedSource(null);
     setFee(null);
@@ -731,6 +735,19 @@ const ConfirmPayStep = ({
         {requestCard}
 
         <IdentityStateChangeCard change={preparedStateChange || identityStateChange} detailed />
+
+        {preparedIdentity?.primaryaddresses && (
+          <InfoSheetSection
+            title="Resulting identity"
+            rows={[
+              {label: 'Identity address', value: preparedIdentity.identityaddress || preparedIdentity.name},
+              {label: 'Required signatures', value: String(preparedIdentity.minimumsignatures)},
+              {label: 'Primary addresses', value: preparedIdentity.primaryaddresses.join('\n')},
+              {label: 'Revocation authority', value: friendlyNames[preparedIdentity.revocationauthority] || preparedIdentity.revocationauthority},
+              {label: 'Recovery authority', value: friendlyNames[preparedIdentity.recoveryauthority] || preparedIdentity.recoveryauthority},
+            ]}
+          />
+        )}
 
         {/* Fee */}
         <View style={localStyles.feeCard}>
