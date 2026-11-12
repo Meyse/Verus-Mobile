@@ -20,6 +20,8 @@ import {createLocalIdentityUploadCrypto} from '../../identityUpdate/localUploadC
 import {identityToDisplayJson} from '../../identityUpdate/identityDisplay';
 import {cloneIdentityUpdateRequest} from '../../identityUpdate/cloneRequest';
 import {assertIdentityUpdateRequestConstraints} from '../validator/identityUpdateRequestValidator';
+import {dropEmptyIdentityContent, validatePartialIdentityDefinition} from 'verusid-ts-client/lib/identity/identityValidation';
+import {validateLocalIdentityUploadRequest} from 'verusid-ts-client/lib/identity/localUpdateData';
 
 const identityUpdateRefusal = message => createGenericRequestRejectionError(
   GENERIC_REQUEST_REJECTION_CODES.IDENTITY_UPDATE_REFUSED, message,
@@ -64,6 +66,16 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
   const requestDetails = cloneIdentityUpdateRequest(details.data, rootSystem);
   // Redesign: refuse unsupported upload options with their own message before any lookup.
   assertIdentityUpdateRequestSupported(requestDetails);
+  // Match the SDK's local preflight on a separate copy. Empty-key cleanup must
+  // not change the request passed to the builder or returned in display props.
+  const validationRequest = cloneIdentityUpdateRequest(requestDetails, rootSystem);
+  dropEmptyIdentityContent(validationRequest.identity);
+  try {
+    validatePartialIdentityDefinition(validationRequest.identity);
+    validateLocalIdentityUploadRequest(validationRequest, request.isTestnet());
+  } catch (error) {
+    throw identityUpdateRefusal(error.message);
+  }
   const requestSystem = requestDetails.containsSystem()
     ? requestDetails.systemID.toAddress()
     : rootSystem;
