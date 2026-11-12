@@ -1,12 +1,14 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import Video from 'react-native-video';
+import {useIsFocused} from '@react-navigation/native';
 import {useOnboardingTheme} from '../theme/onboarding';
 
 const welcomeWavesBackground = require('../../assets/videos/verus-waves-blur-slower-smooth.mp4');
 
-const WelcomeBackgroundVideo = () => {
+const WelcomeBackgroundVideo = ({paused = false}) => {
   const theme = useOnboardingTheme();
+  const isFocused = useIsFocused();
 
   return (
     <View
@@ -21,7 +23,7 @@ const WelcomeBackgroundVideo = () => {
         resizeMode="cover"
         repeat
         muted
-        paused={false}
+        paused={paused || !isFocused}
         playInBackground={false}
         playWhenInactive={false}
         ignoreSilentSwitch="obey"
