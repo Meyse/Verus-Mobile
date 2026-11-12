@@ -1,7 +1,9 @@
 import React, {useMemo} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CopyAction from './CopyAction';
+import CopyFeedback from './CopyFeedback';
+import useCopyFeedback from '../hooks/useCopyFeedback';
 import PrivacyBlurredText from './PrivacyBlurredText';
 import {createInfoSheetStyles, deepLinkRequestReviewStyles as createDeepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
@@ -24,6 +26,7 @@ export const InfoSheetTopic = ({title, children}) => {
 // button when the row has both. `valueHidden` blurs a money value and replaces
 // its spoken value with "Balance hidden". `valueUnit`, for example a ticker,
 // follows the value and stays readable while the value is hidden.
+// `longPressCopy` opts into fact-row feedback without adding a visible button.
 export const InfoSheetRow = ({
   accessory,
   copy = false,
@@ -31,6 +34,7 @@ export const InfoSheetRow = ({
   ellipsizeMode,
   label,
   labelStyle,
+  longPressCopy = false,
   numberOfLines,
   selectable = true,
   value,
@@ -43,9 +47,23 @@ export const InfoSheetRow = ({
     () => createDeepLinkRequestReviewStyles(theme),
     [theme],
   );
+  const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {
+    disabled: !longPressCopy || valueHidden,
+    haptic: true,
+  });
+  const Container = canCopy ? Pressable : View;
 
   if (value == null) return null;
 
+  const visibleValue = (
+    <Text
+      ellipsizeMode={ellipsizeMode}
+      numberOfLines={numberOfLines}
+      selectable={canCopy ? false : selectable}
+      style={[styles.requestInfoValue, valueStyle]}>
+      {valueUnit ? `${value} ${valueUnit}` : value}
+    </Text>
+  );
   const text = (
     <>
       <Text style={[styles.requestInfoLabel, labelStyle]}>{label}</Text>
@@ -67,25 +85,21 @@ export const InfoSheetRow = ({
             </Text>
           ) : null}
         </View>
-      ) : (
-        <Text
-          ellipsizeMode={ellipsizeMode}
-          numberOfLines={numberOfLines}
-          selectable={selectable}
-          style={[styles.requestInfoValue, valueStyle]}>
-          {valueUnit ? `${value} ${valueUnit}` : value}
-        </Text>
-      )}
+      ) : longPressCopy ? (
+        <CopyFeedback copied={copied}>
+          {visibleValue}
+        </CopyFeedback>
+      ) : visibleValue}
     </>
   );
 
   if (!copy && !accessory) {
-    return <View style={styles.requestInfoRow}>{text}</View>;
+    return <Container accessible={canCopy || undefined} {...copyProps} style={styles.requestInfoRow}>{text}</Container>;
   }
 
   return (
     <View style={[styles.requestInfoRow, styles.requestInfoRowWithAction]}>
-      <View style={styles.requestInfoRowText}>{text}</View>
+      <Container accessible={canCopy || undefined} {...copyProps} style={styles.requestInfoRowText}>{text}</Container>
       {accessory}
       {copy ? (
         <CopyAction

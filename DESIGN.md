@@ -1216,6 +1216,11 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
 
 ## Transaction details
 
+Confirm, Sent and transaction-detail fact rows with `copyValue` copy the exact
+value on long press or the accessibility Copy action. Use `useCopyFeedback`
+and `CopyFeedback` for the light haptic and stable 1.4-second check/"Copied"
+feedback; `CopyAction` shares the hook and keeps its visible control.
+
 A tap on a history row opens `TransactionDetailsSheet` in
 `src/containers/Coin/Overview/TransactionDetailsSheet.js`. It replaced the legacy
 `TxDetailsModal` on 2026-10-21 (gap 1 of the redesign gap audit) and follows the
