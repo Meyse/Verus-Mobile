@@ -18,7 +18,7 @@ export const SelectionCheckbox = ({checked}) => {
     <MaterialCommunityIcons
       name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'}
       size={24}
-      color={theme.colors.link}
+      color={!checked && theme.isDark ? theme.colors.textPrimary : theme.colors.link}
       accessible={false}
     />
   );

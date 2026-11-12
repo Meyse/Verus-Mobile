@@ -158,6 +158,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   actionSlot: {
+    marginRight: -8,
     width: 44,
     height: 44,
     alignItems: 'center',

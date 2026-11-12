@@ -894,7 +894,7 @@ const SignedInVerusIdService = ({controller}) => {
             hitSlop={10}
             onPress={() => setInfoVisible(true)}
             style={styles.headerIcon}>
-            <Info size={23} strokeWidth={2.2} color={theme.colors.textSecondary} />
+            <Info size={23} strokeWidth={2.2} color={theme.colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Add VerusID"
@@ -902,7 +902,7 @@ const SignedInVerusIdService = ({controller}) => {
             hitSlop={10}
             onPress={() => setAddVisible(true)}
             style={styles.headerIcon}>
-            <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSecondary} />
+            <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>

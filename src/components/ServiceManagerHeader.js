@@ -64,6 +64,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   titleRow: {
+    // 20-point content inset + 4 - 8 button offset = 16-point target inset.
+    marginHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -79,6 +81,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     marginLeft: 'auto',
+    marginRight: -8,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,

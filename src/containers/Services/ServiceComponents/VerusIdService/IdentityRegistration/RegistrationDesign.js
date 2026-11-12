@@ -86,7 +86,7 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   const rightAction = <View style={{flexDirection: 'row', width: info ? 88 : 44, alignSelf: 'flex-end', justifyContent: 'flex-end'}}>
     {info && <Pressable accessibilityRole="button" accessibilityLabel="About this registration" disabled={busy}
       onPress={() => setInfoVisible(true)} style={styles.iconButton}>
-      <Info size={23} strokeWidth={2.2} color={theme.colors.textSubtle} />
+      <Info size={23} strokeWidth={2.2} color={theme.colors.textPrimary} />
     </Pressable>}
     <HeaderCloseButton onPress={close} disabled={busy} />
   </View>;

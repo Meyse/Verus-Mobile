@@ -93,7 +93,7 @@ export function PasswordInfoButton({onPress}) {
         onPress();
       }}
       style={infoButtonStyles.button}>
-      <Info color={theme.colors.textSubtle} size={23} strokeWidth={2.2} />
+      <Info color={theme.colors.textPrimary} size={23} strokeWidth={2.2} />
     </TouchableOpacity>
   );
 }

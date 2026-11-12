@@ -467,7 +467,7 @@ const SignedInWalletHome = ({
               <MaterialCommunityIcons
                 name={showBalance ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
-                color={theme.colors.textSubtle}
+                color={theme.colors.textPrimary}
               />
             </TouchableOpacity>
             <TouchableOpacity
@@ -478,7 +478,7 @@ const SignedInWalletHome = ({
               onPress={onManageAssets}
               style={styles.iconButton}
             >
-              <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSubtle} />
+              <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textPrimary} />
             </TouchableOpacity>
           </Animated.View>
         </View>

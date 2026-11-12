@@ -42,7 +42,7 @@ export function ManagementInfoButton({label, disabled, onPress}) {
   const theme = useOnboardingTheme();
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled}
     onPress={onPress} style={styles.infoButton}>
-    <Info size={23} strokeWidth={2.2} color={theme.colors.textSubtle} />
+    <Info size={23} strokeWidth={2.2} color={theme.colors.textPrimary} />
   </Pressable>;
 }
 
@@ -148,7 +148,7 @@ export function CheckOption({label, accessibilityLabel = label, checked, disable
   const theme = useOnboardingTheme();
   return <Pressable accessibilityRole="checkbox" accessibilityLabel={accessibilityLabel}
     accessibilityState={{checked, disabled: !!disabled}} disabled={disabled} onPress={onPress} style={styles.checkbox}>
-    <Icon name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} color={theme.colors.link} accessible={false} />
+    <Icon name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} color={!checked && theme.isDark ? theme.colors.textPrimary : theme.colors.link} accessible={false} />
     <Body style={styles.flexible}>{label}</Body>
   </Pressable>;
 }

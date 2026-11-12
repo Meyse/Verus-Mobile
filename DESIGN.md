@@ -325,7 +325,8 @@ specialized composition and behavior.
 Multi-select `SelectionRow`s use the checkbox role (owner-approved V2,
 2026-11-04). Each choosable row shows the `CheckOption` glyph:
 `checkbox-blank-outline` or `checkbox-marked` from MaterialCommunityIcons,
-24 points in `link`. Center it in the right indicator slot, 24 points wide
+24 points in `link`. In dark mode only, the unchecked outline uses
+`textPrimary`; the checked box stays in `link`. Center it in the right indicator slot, 24 points wide
 with a 10-point left gap. Both states keep `surfaceMuted`, without an outline
 or success fill. Busy-disabled rows keep their current box, dimmed with the
 text. The row exposes its checked state; the glyph stays hidden from
