@@ -3661,3 +3661,19 @@ The transaction builder, funding, signing, broadcast and response bytes are
 unchanged. Preserve zero-delta token support, mempool-aware funding,
 delegated-signer wallet switching, and early upload refusal. The review follow-up
 only deduplicates the empty-target P3 copy. Full named-key display stays out of scope.
+
+### IDU removal-card polish (2026-11-12)
+
+- [x] Separate removal notes with `theme.spacing.sm`. Keep existing body type.
+- [x] Hide decoded removal hash/key rows only when the exact value is already
+  shown on the card. Keep action, version, unknown fields and unmatched keys.
+- [x] Keep Public and Included data badges at intrinsic width with
+  `theme.spacing.xs` between them. Included data repeats the title/notice;
+  retain it under the task's explicit instruction.
+- [x] Design and changed-file safe-area checks pass. Production iOS bundle
+  passes in `/tmp/idu-polish-bundle.fYUmNy`. Temporary non-Jest row checks pass
+  for matching/different values, missing full keys, retained action/version,
+  unknown/nested fields and unchanged input data.
+- [ ] Recheck rendered normal/compact light/dark states. No simulator or Metro
+  was used under the task instruction. Supplied case 1, 3 and 4 screenshots
+  establish the defects before this polish; they do not verify the new layout.

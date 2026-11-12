@@ -41,6 +41,17 @@ const isUnnamedKeyTitle = item =>
   item.keyId.length > 8 &&
   item.title === abbreviateKeyId(item.keyId);
 
+// Only suppress a decoded key when the card already displays that exact key.
+export const getFullContentChangeKey = (item, updateEntry) => {
+  const key = item.removeMeta?.entryKey;
+  if (!key) return undefined;
+  const ui = updateEntry?.removalUi;
+  const notes = [ui?.detailBody, ui?.effectNote, ui?.emptyStateNote, ui?.metadataNote, ui?.historyNote];
+  return (isUnnamedKeyTitle(item) && item.keyId === key) || item.title === key ||
+    notes.some(note => typeof note === 'string' && note.includes(key))
+    ? key : undefined;
+};
+
 export const getCmmDataPreview = (
   data,
   maxItems = 3,
@@ -603,10 +614,14 @@ const VerusIdContentChangeCard = ({
         )}
       </View>
 
-      {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
+      {(visibilityLabel || updateEntry?.unrecognizedRemoval) && (
+        <View style={{alignItems: 'flex-start', gap: theme.spacing.xs, marginBottom: theme.spacing.xs}}>
+          {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
+          {updateEntry?.unrecognizedRemoval && <StatusBadge label="Included data" tone="neutral" />}
+        </View>
+      )}
       {updateEntry?.unrecognizedRemoval && (
         <>
-          <StatusBadge label="Included data" tone="neutral" />
           <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
             This data uses the removal key but is not a recognized removal instruction. It will still be recorded in the update transaction.
           </Text>
@@ -614,7 +629,7 @@ const VerusIdContentChangeCard = ({
       )}
       {renderCmmChangeDescription(item, updateEntry, darkMode, children != null)}
       {removalUi && item.showOperationDetails !== false && (
-        <View>
+        <View style={{gap: theme.spacing.sm}}>
           {[
             removalUi.detailBody,
             removalEffectNote,

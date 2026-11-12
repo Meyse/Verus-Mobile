@@ -11,6 +11,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import {ContentMultiMapRemoveKey} from 'verus-typescript-primitives';
 import CopyAction from '../../../../components/CopyAction';
 import InfoSheet from '../../../../components/InfoSheet';
 import {InfoSheetRow} from '../../../../components/InfoSheetSection';
@@ -21,6 +22,7 @@ import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
   getCmmDataKeyLabel,
+  getFullContentChangeKey,
   normalizeCmmDisplayUpdates,
 } from '../../../../components/VerusIdContentChangeCard';
 import {verusIdObjectDataStyles as contentStyles} from '../../../../styles';
@@ -308,7 +310,13 @@ const VerusIdContentChanges = ({
             {item.showOperationDetails === false ? null : updateEntry?.signData ? (
               <UploadContentReview upload={updateEntry.signData} />
             ) : item.removeMeta && updateEntry?.rawData != null ? (
-              <UploadContentReview upload={updateEntry.rawData} isUpload={false} label="Removal data" />
+              <UploadContentReview
+                upload={updateEntry.rawData}
+                isUpload={false}
+                label="Removal data"
+                shownRemovalHash={updateEntry.removalUi ? item.removeMeta.valueHash : undefined}
+                shownRemovalKey={getFullContentChangeKey(item, updateEntry)}
+              />
             ) : updateEntry?.rawData != null ? (
               <ContentValuesReview value={updateEntry.rawData} />
             ) : null}
@@ -362,7 +370,7 @@ const ContentValuesReview = ({value}) => {
 
 // Read the original content. Keep every field and warning visible, including
 // exact encoded bytes. The sheet adds shared copy actions without changing data.
-const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Upload content'}) => {
+const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Upload content', shownRemovalHash, shownRemovalKey}) => {
   const theme = useOnboardingTheme();
   const review = useMemo(() => buildContentReview(upload, {isUpload, label}), [upload, isUpload, label]);
   return (
@@ -372,7 +380,14 @@ const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Up
           {warning}
         </Text>
       ))}
-      {review.fields.map(field => (
+      {review.fields.filter(field => {
+        // Match the removal object's own fields, never unrelated nested data.
+        if (shownRemovalHash && field.id.endsWith(`${ContentMultiMapRemoveKey.vdxfid}:valuehash`) &&
+            field.copyValue === shownRemovalHash) return false;
+        if (shownRemovalKey && field.id.endsWith(`${ContentMultiMapRemoveKey.vdxfid}:entrykey`) &&
+            field.copyValue === shownRemovalKey) return false;
+        return true;
+      }).map(field => (
         <InfoSheetRow
           key={field.id}
           label={field.path ? `${field.path} › ${field.label}` : field.label}
