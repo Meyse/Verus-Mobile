@@ -14,6 +14,9 @@ import {
 } from 'verus-typescript-primitives';
 import {getVDXFKeyLabel} from '../vdxf/vdxfTypeLabels';
 
+export const formatContentFieldCount = count =>
+  `${count} ${count === 1 ? 'field' : 'fields'}`;
+
 const LABELS = {
   message: 'Message', messagehex: 'Message (hex)', messagebase64: 'Message (base64)',
   serializedhex: 'Encoded data (hex)', serializedbase64: 'Encoded data (base64)',
@@ -114,7 +117,7 @@ export const escapeContentReviewText = (text, onEscape) => String(text).replace(
 );
 
 /** Display only. Never use this model to construct or sign an identity update. */
-export const buildContentReview = (value, {label = 'Content', isUpload = false} = {}) => {
+export const buildContentReview = (value, {label = 'Content', isUpload = false, omitRootLabel = false} = {}) => {
   const fields = [], warnings = new Set(), ancestors = new Set();
   const warn = warning => warnings.add(warning);
   const normalize = input => {
@@ -165,7 +168,7 @@ export const buildContentReview = (value, {label = 'Content', isUpload = false} 
     const displayValue = visibleText(text);
     fields.push({
       id: `${fields.length}:${path.join('.')}:${key}`, label: visibleText(fieldLabel(key)),
-      path: path.map(part => visibleText(fieldLabel(part))).join(' › '),
+      path: (omitRootLabel ? path.slice(1) : path).map(part => visibleText(fieldLabel(part))).join(' › '),
       value: displayValue, copyValue: String(copyValue), escaped: displayValue !== String(text), kind,
     });
   };

@@ -11,7 +11,7 @@ import {useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
 import {capitalizeString} from '../utils/stringUtils';
 import {getVDXFKeyLabel} from '../utils/vdxf/vdxfTypeLabels';
-import {escapeContentReviewText} from '../utils/identityUpdate/contentReview';
+import {escapeContentReviewText, formatContentFieldCount} from '../utils/identityUpdate/contentReview';
 
 const abbreviateKeyId = iAddr =>
   `${iAddr.substring(0, 4)}...${iAddr.substring(iAddr.length - 4)}`;
@@ -47,7 +47,7 @@ export const getFullContentChangeKey = (item, updateEntry) => {
   if (!key) return undefined;
   const ui = updateEntry?.removalUi;
   const notes = [ui?.detailBody, ui?.effectNote, ui?.emptyStateNote, ui?.metadataNote, ui?.historyNote];
-  return (isUnnamedKeyTitle(item) && item.keyId === key) || item.title === key ||
+  return ((isUnnamedKeyTitle(item) || item.removeMeta?.action !== 4) && item.keyId === key) || item.title === key ||
     notes.some(note => typeof note === 'string' && note.includes(key))
     ? key : undefined;
 };
@@ -79,7 +79,7 @@ export const getCmmDataPreview = (
 
     if (typeof value === 'object' && value != null) {
       const keys = Object.keys(value);
-      if (depth >= maxDepth) return `${keys.length} fields`;
+      if (depth >= maxDepth) return formatContentFieldCount(keys.length);
 
       if (keys.length === 1) {
         const key = keys[0];
@@ -87,7 +87,7 @@ export const getCmmDataPreview = (
         return `${label}: ${formatValue(value[key], depth + 1)}`;
       }
 
-      return `${keys.length} fields`;
+      return formatContentFieldCount(keys.length);
     }
 
     return trim(value);
@@ -582,7 +582,7 @@ const VerusIdContentChangeCard = ({
             ]}>
             {unnamedKey ? 'Unnamed key' : item.title}
           </Text>
-          {unnamedKey && (
+          {item.keyId && (unnamedKey || item.removeMeta?.action !== 4) && (
             <Text
               selectable
               style={[
@@ -614,10 +614,9 @@ const VerusIdContentChangeCard = ({
         )}
       </View>
 
-      {(visibilityLabel || updateEntry?.unrecognizedRemoval) && (
+      {visibilityLabel && (
         <View style={{alignItems: 'flex-start', gap: theme.spacing.xs, marginBottom: theme.spacing.xs}}>
-          {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
-          {updateEntry?.unrecognizedRemoval && <StatusBadge label="Included data" tone="neutral" />}
+          <StatusBadge label={visibilityLabel} tone="neutral" />
         </View>
       )}
       {updateEntry?.unrecognizedRemoval && (

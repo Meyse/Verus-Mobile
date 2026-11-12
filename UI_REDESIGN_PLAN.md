@@ -882,6 +882,31 @@ this scope.
   screenshots kept beside the initial captures. All task-owned runtimes are
   stopped. No commit, merge or push.
 
+### GR-4.IDU-PARITY-FOLLOWUPS (2026-11-12)
+
+Display-only follow-ups on `claude/idu-parity-followups-1112`, from local
+`redesign` `da0bb81f`. Preserve transaction construction, funding, signing,
+broadcast and response bytes. Each item has a separate commit.
+
+- [x] Show the full key below named and unnamed titles for non-clear operations.
+- [x] Use one field-count helper for singular and plural content previews.
+- [x] State the high-risk acknowledgement instruction once; preserve its gate.
+- [x] Group each decoded value's warnings and fields under one heading.
+- [x] Remove only the redundant Included data chip; keep Public and the notice.
+- [x] Review fix `e791e694`: unnamed clear-all removal cards keep their full key.
+- [x] Device QA: iOS 17 Pro + SE and Android `normal` + `small`, light/dark.
+
+Design contract: operate mode; existing GR-4 content cards and the canonical
+information-sheet hierarchy. Reuse `InfoSheetRow`, `InfoSheet`, `CopyAction`
+and the current card. Value headings use `theme.typography.titleRow` and
+`textPrimary`; warnings keep `bodySm` and `warningText`. Use whitespace,
+without a new card, color, dot or left-edge bar. Show one heading for each
+value in a multi-value group. Remove the repeated root prefix from field
+labels; keep nested paths. A single value needs no Value 1 of 1 heading.
+Required rendered states: ordinary and upload content, multiple and single
+values, warnings, long nested paths, raw-data and upload sheets, light/dark,
+normal/compact. This task permits static checks only; device QA is pending.
+
 ### GR-4.IDENTITY-UPLOAD — identity update data (2026-11-03)
 
 Status: **Ready for verification**. Scope: upload data in identity update
@@ -2324,6 +2349,8 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-12 | GR-4.IDU-PARITY-FOLLOWUPS | `claude/idu-parity-followups-1112` from `da0bb81f`; five separate item commits | Static only. Each focused Node fixture fails before its fix and passes afterward with native component stubs. Grouping checks cover both theme modes, warning ownership, nested paths, scalar/single values, upload-sheet open/copy/close, unchanged original data and upload bytes; path-only changes preserve field values, copy values, warnings and raw text. Design: 39 canonical sources pass; 17 card materials pass, minimum 5.014:1. Safe-area: `--changed` passes; explicit five-source check passes. iOS and Android release bundles pass in `/tmp/idu-followups-1112.nMlO4w/`, with 41 and 47 assets. Requested six Jest suites: 50 tests pass before and after, with the same two suite-load failures (`Touchable.Mixin`, `Platform.OS`). Existing upload/model suites add 34 passing tests. No new Jest tests. `identityContentReviewScreen.unit.test.js:143,167` still assert the intentionally removed Included data chip; the suite fails to load before reaching them, and its tests are unchanged. | Device rendering, normal/compact light/dark, native copy and accessibility remain pending. No simulator, emulator, Metro server, transaction, push or merge. |
+| 2026-11-12 | GR-4.IDU-PARITY-FOLLOWUPS device QA | `claude/idu-parity-followups-1112` `e791e694` | Astra (gpt-6-astra high): one P2 (unnamed clear-all key hidden) fixed in `e791e694`, re-check no open P1/P2; build/fund/sign/broadcast/response files byte-identical. iOS + Android release bundles and safe-area (5 files) pass. iOS 26.5 iPhone 17 Pro + SE: before shots on `da0bb81f`, after shots on `e791e694`, all five items pass, high-risk gate still blocks Continue, bidi copy keeps U+202E/U+2066; smoke on `da0bb81f` (unlock, add/fly/remove, hidden after relaunch, no block-list row, send Confirm long-press + fee sheet + Back, convert Price impact copies `0`) passes. Android 16 `normal` + `small` on `e791e694`: A1-A5, round-1 cases 1-6, bidi copy, smoke D1-D6 pass; add-asset fly not captured. Report https://claude.ai/artifact/QoCnQ2tYquAjCvTAJgXjNe | Open: `normal` cold unlock up to about 246 s (dev build, seen before); lone wrapped characters in long keys; dark "Will remove" pill contrast; `small` Convert "You receive" wraps. Untested: Price impact `<0.1`/`0.2`, iOS normal-dark/SE-light for items 1/2/3/5, wrong network (fixture), case 8 on the identity path, accessibility. |
 | 2026-11-12 | GR-4.IDU-PARITY-P2 | `claude/idu-parity-fixes-1112` from `b7f7e630`; `84eaee26`, `95d6aa2c`, `3d3aaf91`, `406c5cd0`, `ce776b82`, `4195873a` | Compared each gap with upstream `f32e7fb95`. Design: 39 sources pass; card colors: 17 materials, minimum 5.014:1. Safe-area: requested `--changed` passes for 0 files after commits; explicit 10-file check passes. Babel parser: 10 files pass. iOS production bundle: passes, 41 assets in `/tmp`. Existing regression group: 52 tests pass; the same two suite-load failures occur before and after. Handler/removal regression: 30 tests pass. Temporary component/model checks pass; seven preparation, broadcast, signing and delivery functions are byte-for-byte unchanged. | Device rendering, normal/compact light/dark, accessibility and live request entry remain open. QA links are local only. No devices, Metro server, identity transaction, push or merge. |
 | 2026-11-12 | GR-4.IDU-PARITY-P2 review corrections | `claude/idu-parity-fixes-1112` over `4aa642bb`; removal `a4e40912`, refusal `74f6de1e`, copy follow-up in this commit | Temporary component fixtures reproduce the removal and escaped-copy defects before correction and pass afterward in both theme modes. Clear-all keeps the original lookup key and inspector; notes and decoded removal data render once per operation. Empty-target copy states the add-content fact once. Handler fixtures use real SDK partial/upload validators with mocked network/builder boundaries: local threshold refusal keeps its reason without retry; RPC, daemon, transport and builder failures remain retryable, including identical error text. Accepted builder input and original request bytes remain unchanged. Design: 39 canonical sources and 17 card materials pass. Safe-area: all 5 changed source files pass. Babel parser: 5 files pass. Production iOS bundle: passes, 41 assets in a temporary directory. Same 8 existing Jest suites before/after: 6 pass, 2 fail to load, 82 tests pass; no new failure. | Static fixtures use native component stubs. Device rendering, native clipboard and accessibility remain unverified. No simulator, Metro server, transaction, push or merge. |
 | 2026-11-12 | GR-4.IDU-PARITY-P2 envelope refusal | `claude/idu-parity-fixes-1112`; `4ff19f1a` | Second review found flag bit 32 still fell to "Cannot open request" with retry. The handler now runs the SDK's four envelope checks on the validation copy. Review (gpt-6-astra, offline execution): flags 0-31 and 12 boundary cases pass, flag 32 gives `IDENTITY_UPDATE_REFUSED` with its reason and no retry, zero external calls; no open P1/P2. Design, safe-area (10 files) and iOS production bundle pass. | Device rendering and live request entry remain open. |
