@@ -98,7 +98,7 @@ const RedesignedHeaderRight = ({color}) => {
       accessibilityRole="button"
       accessibilityLabel={showBalance ? 'Hide balances' : 'Show balances'}
       onPress={() => dispatch({type: 'SET_BALANCE_SHOW'})}
-      style={{paddingHorizontal: 16, minHeight: 44, justifyContent: 'center'}}>
+      style={{width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'}}>
       <MaterialCommunityIcons
         name={showBalance ? 'eye-off-outline' : 'eye-outline'}
         size={24}
@@ -130,6 +130,7 @@ export const createRedesignedHeaderOptions = theme => ({
   headerLeftContainerStyle: {
     paddingLeft: 16,
   },
+  headerRightContainerStyle: {paddingRight: 16},
   headerRight: () => <RedesignedHeaderRight color={theme.colors.textPrimary} />,
 });
 

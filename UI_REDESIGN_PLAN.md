@@ -3721,3 +3721,25 @@ only deduplicates the empty-target P3 copy. Full named-key display stays out of 
 - [ ] Recheck rendered normal/compact light/dark states. No simulator or Metro
   was used under the task instruction. Supplied case 1, 3 and 4 screenshots
   establish the defects before this polish; they do not verify the new layout.
+
+
+### Header actions and dark checkbox contrast (2026-11-12)
+
+- [x] Use textPrimary for the named top-right header actions. Keep glyphs,
+  sizes, busy guards and opacity behavior. Audit other header actions.
+- [x] Share the 16-point stack action inset. Replace the default eye's internal
+  padding with a centered 44-point target to avoid doubled padding.
+- [x] Mirror ProgressHeader action and Back offsets. Registration's 88-point
+  info/close group stays end-aligned inside the action slot.
+- [x] Align ServiceManagerHeader action-row targets at 16 points on both sides.
+  Keep its children at their existing 20-point content inset.
+- [x] Use the onboarding theme's isDark flag in both checkbox glyphs. Only
+  unchecked dark outlines change to textPrimary. Update the design contract.
+- [x] Run design, changed-file safe-area, parser and whitespace checks.
+- [ ] Separate tester: verify iOS/Android normal/compact, light/dark headers,
+  registration with/without info, and checked/unchecked/busy selection rows.
+
+Evidence: source geometry and static checks only. Custom stack Back replaces
+React Navigation's platform-specific default Back margins. Insets are relative
+to the safe screen edge. Actual glyph ink bounds and registration title fit
+need device QA. No simulator, Metro server, merge or push ran.
