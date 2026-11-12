@@ -22,10 +22,39 @@ import {cloneIdentityUpdateRequest} from '../../identityUpdate/cloneRequest';
 import {assertIdentityUpdateRequestConstraints} from '../validator/identityUpdateRequestValidator';
 import {dropEmptyIdentityContent, validatePartialIdentityDefinition} from 'verusid-ts-client/lib/identity/identityValidation';
 import {validateLocalIdentityUploadRequest} from 'verusid-ts-client/lib/identity/localUpdateData';
+import {validAddress} from 'verusid-ts-client/lib/identity/fundingPrimitives';
+import {IdentityID} from 'verus-typescript-primitives';
+import BN from 'bn.js';
 
 const identityUpdateRefusal = message => createGenericRequestRejectionError(
   GENERIC_REQUEST_REJECTION_CODES.IDENTITY_UPDATE_REFUSED, message,
 );
+
+// Same envelope checks, in the same order, as the SDK's
+// prepareIdentityUpdateTransaction preflight. They fail the same way on every
+// try, so the screen shows the reason and no retry.
+const validateRequestEnvelope = details => {
+  if (!BN.isBN(details.flags) || details.flags.isNeg() || details.flags.gtn(31)) {
+    throw new Error('Unsupported identity update request flags.');
+  }
+  if (details.expires() || details.expiryHeight !== undefined) {
+    if (!BN.isBN(details.expiryHeight) ||
+        details.expiryHeight.isNeg() ||
+        details.expiryHeight.bitLength() > 32) {
+      throw new Error('Invalid identity update request expiry height.');
+    }
+  }
+  if (details.containsSystem() || details.systemID !== undefined) {
+    if (!(details.systemID instanceof IdentityID)) {
+      throw new Error('Invalid identity update request system.');
+    }
+    validAddress(details.systemID.toAddress(), true);
+  }
+  if ((details.containsTxid() || details.txid !== undefined) &&
+      (!Buffer.isBuffer(details.txid) || details.txid.length !== 32)) {
+    throw new Error('Invalid identity update request txid.');
+  }
+};
 
 /**
  * @param {GenericRequest} request
@@ -71,6 +100,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
   const validationRequest = cloneIdentityUpdateRequest(requestDetails, rootSystem);
   dropEmptyIdentityContent(validationRequest.identity);
   try {
+    validateRequestEnvelope(validationRequest);
     validatePartialIdentityDefinition(validationRequest.identity);
     validateLocalIdentityUploadRequest(validationRequest, request.isTestnet());
   } catch (error) {
