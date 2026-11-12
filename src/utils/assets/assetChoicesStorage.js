@@ -40,5 +40,11 @@ export const loadAssetChoices = async accountHash => {
 export const saveAssetChoices = (accountHash, saved) =>
   AsyncStorage.setItem(choicesKey(accountHash), JSON.stringify(validateAssetChoices(saved)));
 
+// Profiles created in this session. The first hydration of one skips the
+// storage reads; later ones read storage as usual.
+const newProfiles = new Set();
+export const markNewAssetChoices = accountHash => newProfiles.add(accountHash);
+export const takeNewAssetChoices = accountHash => newProfiles.delete(accountHash);
+
 export const deleteAssetChoices = accountHash =>
   queueAssetChoicesWrite(accountHash, () => AsyncStorage.removeItem(choicesKey(accountHash)));
