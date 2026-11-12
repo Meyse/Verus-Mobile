@@ -65,7 +65,7 @@ export function IdentityCommitmentReview({navigation, route}) {
   const ready = review?.status === 'commitment_prepared' && fundingState.status === 'enough';
   const approve = () => {
     if (!ready || busy) return;
-    run(requestContext => approveCommitment(jobId, review.approvalToken, requestContext), result => {
+    return run(requestContext => approveCommitment(jobId, review.approvalToken, requestContext), result => {
       if (result.status === 'commitment_prepared') setReview(result);
       else navigation.replace('IdentityRegistrationProgress', {jobId});
     });
@@ -76,7 +76,7 @@ export function IdentityCommitmentReview({navigation, route}) {
   return <RegistrationPage navigation={navigation} title="Check details" progress={1} busy={busy} busyRef={running} error={error}
     onBack={close} onRetry={() => {funds.retry(); run(requestContext => getRegistrationReview(jobId, requestContext), setReview);}}
     info={dismiss => <RegistrationInfo create name={review?.displayName}>{review?.deletionKind && <TextAction destructive onPress={() => dismiss(() => setDeleting(true))}>Delete registration</TextAction>}</RegistrationInfo>}
-    footer={<><ActionButton hold disabled={busy || !ready} busy={busy} onPress={approve}>Hold to start</ActionButton><ActionButton secondary disabled={busy} onPress={close}>Save for later</ActionButton></>}>
+    footer={<><ActionButton slide disabled={busy || !ready} busy={busy} onPress={approve}>Slide to start</ActionButton><ActionButton secondary disabled={busy} onPress={close}>Save for later</ActionButton></>}>
     {!review ? <RegistrationSkeleton /> : <>
       <RegistrationHero {...review} prices={prices} />
       <RegistrationTimeline review={review} check />
@@ -170,7 +170,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
     if (!['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status)) throw failure;
     setFunding({status: 'checking'});
     // This transient state belongs to this screen, not the saved Home notice.
-    // A later check only rebuilds the review; payment still needs a new hold.
+    // A later check only rebuilds the review; payment still needs a new slide.
     return {...saved, registrationProblem: 'funds_changing'};
   };
   const approveSecondPayment = async (token, requestContext) => {
@@ -201,7 +201,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
         return {...saved, registrationProblem: 'name_taken'};
       }
       // A changed review was persisted by the engine. Show it before another
-      // hold; the failed hold is never treated as approval of that new plan.
+      // slide; the failed slide is never treated as approval of that new plan.
       if (failure.code === 'REVIEW_CHANGED') saved = await getRegistrationReview(jobId, requestContext);
       updateReview(saved);
       throw failure;
@@ -290,7 +290,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const approveSecond = () => {
     if (!ready || busy || locked || error || loadError) return;
     const shownToken = review.approvalToken;
-    runForeground(async requestContext => {
+    return runForeground(async requestContext => {
       const funds = await checkFunds(review, requestContext);
       setFunding(funds);
       if (funds.status !== 'enough') {
@@ -307,7 +307,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
   });
   const approveFirst = () => {
     if (busy || locked || status !== 'commitment_prepared') return;
-    runForeground(requestContext => approveCommitment(jobId, review.approvalToken, requestContext));
+    return runForeground(requestContext => approveCommitment(jobId, review.approvalToken, requestContext));
   };
   const attentionLabel = shortage ? `Not enough ${review?.quote?.branch !== 'native' && funding.currencyId ? currencyLabel(funding.currencyId, review.currencyNames) : 'funds'}` : taken ? 'Name taken' : null;
   const pill = fundsChanging ? 'Checking funds' : attentionLabel || state.title;
@@ -350,10 +350,10 @@ export function IdentityRegistrationProgress({navigation, route}) {
         : taken ? <ActionButton disabled={busy} onPress={() => navigation.replace('IdentityRegistrationCreate', {coinId: review.chainTicker,
           namespace: {id: review.identity.parent, parentName: review.parentName, suffix: review.identity.parent === review.systemId ? '@' : `.${review.parentName?.replace(/@$/, '')}@`}})}>Choose another name</ActionButton>
           : delivery ? <ActionButton disabled={busy || locked} busy={busy} onPress={() => runForeground(requestContext => retryBroadcast(jobId, requestContext))}>Retry sending</ActionButton>
-            : firstFailed || secondFailed ? <ActionButton hold disabled={busy || locked || fundsChanging} busy={busy} onPress={replacePayment}>{firstFailed ? 'Hold to start' : 'Hold to create'}</ActionButton>
-              : status === 'commitment_prepared' ? <ActionButton hold disabled={busy || locked} busy={busy} onPress={approveFirst}>Hold to start</ActionButton>
+            : firstFailed || secondFailed ? <ActionButton slide disabled={busy || locked || fundsChanging} busy={busy} onPress={replacePayment}>{firstFailed ? 'Slide to start' : 'Slide to create'}</ActionButton>
+              : status === 'commitment_prepared' ? <ActionButton slide disabled={busy || locked} busy={busy} onPress={approveFirst}>Slide to start</ActionButton>
                 : status === 'commitment_spent' ? <ActionButton disabled={busy || locked} onPress={refresh}>Check status</ActionButton>
-              : status !== 'registration_broadcast' && <ActionButton hold disabled={busy || locked || !ready} busy={busy} onPress={approveSecond}>Hold to create</ActionButton>}
+              : status !== 'registration_broadcast' && <ActionButton slide disabled={busy || locked || !ready} busy={busy} onPress={approveSecond}>Slide to create</ActionButton>}
       {taken && deleteAction ? deleteAction : <ActionButton secondary disabled={busy} onPress={close}>Done for now</ActionButton>}
     </>}>
     {!review && loading && <RegistrationSkeleton label="Loading registration" />}

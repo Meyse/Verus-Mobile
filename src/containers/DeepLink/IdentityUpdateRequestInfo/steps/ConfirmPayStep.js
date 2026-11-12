@@ -17,6 +17,7 @@ import { Check } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import AnimatedSuccessCheckmark from '../../../../components/AnimatedSuccessCheckmark';
 import AppButton from '../../../../components/AppButton';
+import SlideToConfirm from '../../../../components/SlideToConfirm';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import CopyAction from '../../../../components/CopyAction';
 import InfoSheetSection from '../../../../components/InfoSheetSection';
@@ -662,12 +663,12 @@ const ConfirmPayStep = ({
     }
 
     if (hasFee && !calculating) {
-      handleUpdate();
+      return handleUpdate();
     }
   }, [calculating, handleUpdate, hasFee, selectedSource]);
 
   const primaryActionLabel = selectedSource
-    ? 'Update'
+    ? 'Slide to update'
     : 'Select payment source';
   const primaryActionDisabled = !!selectedSource && !hasFee;
   const recapRows = [
@@ -863,14 +864,21 @@ const ConfirmPayStep = ({
             </TouchableOpacity>
           </View>
         )}
-        <AppButton
-          disabled={primaryActionDisabled}
-          height={56}
-          onPress={handlePrimaryAction}
-          themeMode={theme.mode}
-          variant="primary">
-          {primaryActionLabel}
-        </AppButton>
+        {selectedSource ? (
+          <SlideToConfirm disabled={primaryActionDisabled}
+            loading={completionIsBroadcasting || completionIsDelivering}
+            loadingText="Updating…"
+            label="Slide to update" onPress={handlePrimaryAction} />
+        ) : (
+          <AppButton
+            disabled={primaryActionDisabled}
+            height={56}
+            onPress={handlePrimaryAction}
+            themeMode={theme.mode}
+            variant="primary">
+            {primaryActionLabel}
+          </AppButton>
+        )}
       </SafeBottomActionStack>
 
       <BottomSheetModal

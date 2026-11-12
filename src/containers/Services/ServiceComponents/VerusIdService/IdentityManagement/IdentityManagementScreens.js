@@ -5,7 +5,7 @@ import {Plus} from 'lucide-react-native';
 import AppAddressInput from '../../../../../components/AppAddressInput';
 import AppTextInput from '../../../../../components/AppTextInput';
 import ScannerScreen from '../../../../../components/BarcodeReader/ScannerScreen';
-import GradientButton from '../../../../../components/GradientButton';
+import SlideToConfirm from '../../../../../components/SlideToConfirm';
 import TextAction from '../../../../../components/TextAction';
 import TransactionResult from '../../../../../components/TransactionResult';
 import {SelectionRow} from '../../../../../components/SelectionSheet';
@@ -522,12 +522,10 @@ export function IdentityUpdateReview({navigation}) {
         onPress={() => setAcknowledgedPlan(value => value === plan ? null : plan)} />}
       {stale ? <ActionButton onPress={() => {
         setPlan(null); setReloadVersion(version => version + 1); navigation.goBack();
-      }}>Reload VerusID</ActionButton> : <GradientButton holdToConfirm holdDuration={2500}
+      }}>Reload VerusID</ActionButton> : <SlideToConfirm
         disabled={busy || (needsAcknowledgement && !acknowledged)}
-        holdHint={transfer ? 'Hold the button to transfer this VerusID.' : 'Hold the button to save changes.'}
-        topColor={theme.colors.primary} bottomColor={theme.colors.primary} onPress={send}>
-        {busy ? 'Sending…' : transfer ? 'Hold to pay & transfer VerusID' : 'Hold to pay & save changes'}
-      </GradientButton>}
+        loading={busy} loadingText="Sending…" onPress={send}
+        label={transfer ? 'Slide to pay & transfer' : 'Slide to pay & save'} />}
     </>}>
     <IdentityHeading model={review} />
     {!!policy && <View style={[styles.section, {marginBottom: 24}]}>

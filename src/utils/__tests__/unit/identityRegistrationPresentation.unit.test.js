@@ -155,8 +155,8 @@ describe('registration names and next actions', () => {
     ['commitment_confirmed', 'In progress', 'Continue', 1],
     ['registration_prepared', 'In progress', 'Continue', 1],
     ['registration_broadcast', 'In progress', 'View progress', 1],
-    ['commitment_expired', 'Needs attention', 'Hold to start', 0],
-    ['registration_expired', 'Needs attention', 'Hold to create', 1],
+    ['commitment_expired', 'Needs attention', 'Slide to start', 0],
+    ['registration_expired', 'Needs attention', 'Slide to create', 1],
     ['registered', 'Ready to link', 'Link VerusID', 2],
     ['complete', 'Completed', 'View details', 1],
   ])('%s has a distinct stage and next action', (status, group, action, step) => {

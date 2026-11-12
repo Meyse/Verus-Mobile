@@ -434,7 +434,7 @@ const SendWizardConfirm = () => {
             const slippage = earlier.minus(latest).dividedBy(earlier).multipliedBy(100);
             if (slippage.isGreaterThan(2)) {
               nextWarnings.push(
-                `The latest estimated output is ${slippage.decimalPlaces(1).toString()}% lower. Verify the new amount before holding to confirm.`,
+                `The latest estimated output is ${slippage.decimalPlaces(1).toString()}% lower. Verify the new amount before sliding to confirm.`,
               );
             }
           }
@@ -532,7 +532,7 @@ const SendWizardConfirm = () => {
       // Offline, a broadcast can wait a long time and still fail. Nothing has
       // left the wallet yet, so say so at once.
       // Use the subscribed state immediately. NetInfo.fetch can wait several
-      // seconds offline. A reconnect updates the same ref before the next hold.
+      // seconds offline. A reconnect updates the same ref before the next slide.
       const connection = connectionRef.current || await NetInfo.fetch().catch(() => null);
       if (connection?.isConnected === false) {
         setError(OFFLINE_NOTHING_SENT_MESSAGE);
@@ -571,7 +571,7 @@ const SendWizardConfirm = () => {
         throw rejection;
       }
 
-      // Block stale hold callbacks before context and navigation update.
+      // Block stale slide callbacks before context and navigation update.
       submitted.current = true;
       invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
       invoiceFlow?.onPaymentBroadcast?.();
@@ -803,12 +803,11 @@ const SendWizardConfirm = () => {
         />
         <WizardFooter
           disabled
-          holdToConfirm
-          holdHint={target?.isConversion ? 'Hold the button to convert.' : 'Hold the button to send.'}
+          slideToConfirm
           loading
           loadingText="Preparing…"
           onPress={() => {}}>
-          Hold to confirm & send
+          {target?.isConversion ? 'Slide to convert' : 'Slide to send'}
         </WizardFooter>
       </WizardScreen>
     );
@@ -858,8 +857,8 @@ const SendWizardConfirm = () => {
     ? [`1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
     : [];
   const showImpact = showReceive && (impact != null || Boolean(route?.via));
-  // Notices and errors stay above Hold to confirm. On a short screen they would
-  // otherwise sit below the fold, out of sight when the user holds.
+  // Notices and errors stay above the slide. On a short screen they would
+  // otherwise sit below the fold, out of sight when the user slides.
   // Fees are paid on top. A local conversion can cost more than it converts;
   // tell the user without blocking an otherwise valid prepared transaction.
   const conversionFeeNotice =
@@ -867,7 +866,7 @@ const SendWizardConfirm = () => {
       ? 'The fees are higher than the amount you convert.'
       : null;
   const pinnedMessage = state.broadcastError || error || invoiceShortfall;
-  // A scanned request that names another network warns here, above the hold.
+  // A scanned request that names another network warns here, above the slide.
   // From the private card, a transparent address makes the amount public.
   const publicNotice =
     simpleSend && privateSource && recipientAddress && !isPrivateRecipient(recipientAddress)
@@ -1023,13 +1022,11 @@ const SendWizardConfirm = () => {
           Boolean(state.broadcastError) ||
           Boolean(invoiceShortfall)
         }
-        holdToConfirm={!needsFeeRetry}
-        holdHint={target?.isConversion ? 'Hold the button to convert.' : 'Hold the button to send.'}
+        slideToConfirm={!needsFeeRetry && !state.broadcastError}
         loading={sending || preflighting || networkFee.loading}
-        holdingText="Hold to confirm..."
-        loadingText={preflighting || networkFee.loading ? "Preparing…" : "Sending…"}
+        loadingText={preflighting || networkFee.loading ? "Preparing…" : target?.isConversion ? "Converting…" : "Sending…"}
         onPress={needsFeeRetry ? retryNetworkFee : submit}>
-        {state.broadcastError ? 'Status unknown' : needsFeeRetry ? 'Try again' : 'Hold to confirm & send'}
+        {state.broadcastError ? 'Status unknown' : needsFeeRetry ? 'Try again' : target?.isConversion ? 'Slide to convert' : 'Slide to send'}
       </WizardFooter>
       {feeKind ? (
         <NetworkFeeSheet

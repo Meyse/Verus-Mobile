@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 import {useHeaderHeight} from '@react-navigation/elements';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import GradientButton from '../../../components/GradientButton';
 import KeyboardAvoidingForm from '../../../components/KeyboardAvoidingForm';
 import AppButton from '../../../components/AppButton';
+import SlideToConfirm from '../../../components/SlideToConfirm';
 import CopyFeedback from '../../../components/CopyFeedback';
 import useCopyFeedback from '../../../hooks/useCopyFeedback';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
@@ -416,9 +416,7 @@ export const WizardFooter = ({
   children = 'Continue',
   disabled,
   bottomSpacing = 24,
-  holdToConfirm = false,
-  holdHint,
-  holdingText = 'Hold to confirm...',
+  slideToConfirm = false,
   horizontalSpacing = 16,
   includeBottomInset = true,
   loading,
@@ -437,18 +435,14 @@ export const WizardFooter = ({
       safeAreaSpacing={safeAreaSpacing}
       style={[styles.footer, smallDevice && styles.footerCompact]}>
       {above}
-      {holdToConfirm ? (
-        <GradientButton
-          disabled={disabled || loading}
-          holdDuration={2500}
-          holdToConfirm
-          holdHint={holdHint}
-          holdingText={holdingText}
+      {slideToConfirm ? (
+        <SlideToConfirm
+          disabled={disabled}
+          loading={loading}
+          loadingText={loadingText}
+          label={children}
           onPress={onPress}
-          topColor={theme.colors.primary}
-          bottomColor={theme.colors.primary}>
-          {buttonLabel}
-        </GradientButton>
+        />
       ) : (
         <AppButton disabled={disabled || loading} onPress={onPress}>
           {buttonLabel}

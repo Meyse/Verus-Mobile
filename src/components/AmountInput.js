@@ -35,7 +35,15 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
   }, [value]);
 
   useImperativeHandle(ref, () => ({
-    focus: () => nativeRef.current?.focus(),
+    focus: () => {
+      // Android can put the cursor at the start when the field gets focus
+      // again (Back from a later step). Keypad keys then type in front of
+      // the old text, so always start at the end.
+      const end = valueRef.current.length;
+      selectionRef.current = {start: end, end};
+      setSelection({start: end, end});
+      nativeRef.current?.focus();
+    },
     edit: key => {
       if (disabled) return;
       const next = editAmountInput(valueRef.current, selectionRef.current, key, decimalSeparator, maxLength);
