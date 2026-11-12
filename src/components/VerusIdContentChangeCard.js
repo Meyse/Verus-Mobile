@@ -7,7 +7,7 @@ import Colors from '../globals/colors';
 import StatusBadge from './StatusBadge';
 import {InfoSheetRow} from './InfoSheetSection';
 import {verusIdObjectDataStyles as LocalStyles} from '../styles';
-import {useOnboardingTheme} from '../theme/onboarding';
+import {ONBOARDING_THEMES, useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
 import {capitalizeString} from '../utils/stringUtils';
 import {getVDXFKeyLabel} from '../utils/vdxf/vdxfTypeLabels';
@@ -317,7 +317,11 @@ export const contentChangeMatchesFilter = (item, filter) => {
   return true;
 };
 
-const getChangeBadgeConfig = changeType => {
+// Badge colours that keep readable contrast on the dark card panels.
+const DARK_INFO_COLOR = '#8FB1FF';
+const DARK_REMOVE_COLOR = ONBOARDING_THEMES.dark.colors.dangerText;
+
+const getChangeBadgeConfig = (changeType, darkMode = false) => {
   switch (changeType) {
     case 'added':
       return {
@@ -335,16 +339,16 @@ const getChangeBadgeConfig = changeType => {
       return {
         icon: 'minus-circle-outline',
         label: 'Will remove',
-        color: Colors.warningButtonColor,
+        color: darkMode ? DARK_REMOVE_COLOR : Colors.warningButtonColor,
       };
     default:
       return null;
   }
 };
 
-export const getContentChangeBadges = item => {
+export const getContentChangeBadges = (item, darkMode = false) => {
   const badges = [];
-  const baseBadge = getChangeBadgeConfig(item.changeType);
+  const baseBadge = getChangeBadgeConfig(item.changeType, darkMode);
 
   if (baseBadge) {
     badges.push(
@@ -361,7 +365,7 @@ export const getContentChangeBadges = item => {
     badges.push({
       icon: 'shield-lock-outline',
       label: 'Will encrypt',
-      color: Colors.primaryColor,
+      color: darkMode ? DARK_INFO_COLOR : Colors.primaryColor,
     });
   }
 
@@ -548,9 +552,11 @@ const VerusIdContentChangeCard = ({
 }) => {
   const theme = useOnboardingTheme();
   const darkMode = darkModeProp ?? theme.isDark;
-  const encryptedInfoColor = darkMode ? '#8FB1FF' : Colors.primaryColor;
-  const badges = getContentChangeBadges(item);
+  const encryptedInfoColor = darkMode ? DARK_INFO_COLOR : Colors.primaryColor;
+  const badges = getContentChangeBadges(item, darkMode);
   const unnamedKey = isUnnamedKeyTitle(item);
+  const showKeyId =
+    Boolean(item.keyId) && (unnamedKey || item.removeMeta?.action !== 4);
   const onPress = onPressProp || (
     updateEntry && updateEntry.onPress ? updateEntry.onPress : item.onPress);
   const removalUi = updateEntry?.removalUi;
@@ -573,7 +579,11 @@ const VerusIdContentChangeCard = ({
         panelTone && getTonePanelStyle(item, darkMode),
         style,
       ]}>
-      <View style={LocalStyles.cmmCardHeader}>
+      <View
+        style={[
+          LocalStyles.cmmCardHeader,
+          showKeyId && LocalStyles.cmmCardHeaderWithKey,
+        ]}>
         <View style={LocalStyles.cmmCardTitleBlock}>
           <Text
             style={[
@@ -582,16 +592,6 @@ const VerusIdContentChangeCard = ({
             ]}>
             {unnamedKey ? 'Unnamed key' : item.title}
           </Text>
-          {item.keyId && (unnamedKey || item.removeMeta?.action !== 4) && (
-            <Text
-              selectable
-              style={[
-                LocalStyles.cmmCardKeyId,
-                darkMode && LocalStyles.cmmCardKeyIdDark,
-              ]}>
-              {item.keyId}
-            </Text>
-          )}
         </View>
         {badges.length > 0 && (
           <View style={LocalStyles.cmmCardBadgeRow}>
@@ -613,6 +613,19 @@ const VerusIdContentChangeCard = ({
           </View>
         )}
       </View>
+      {/* The key has its own full-width line, so a 34-character key does
+          not wrap beside the badge. */}
+      {showKeyId && (
+        <Text
+          selectable
+          style={[
+            LocalStyles.cmmCardKeyId,
+            LocalStyles.cmmCardKeyIdLine,
+            darkMode && LocalStyles.cmmCardKeyIdDark,
+          ]}>
+          {item.keyId}
+        </Text>
+      )}
 
       {visibilityLabel && (
         <View style={{alignItems: 'flex-start', gap: theme.spacing.xs, marginBottom: theme.spacing.xs}}>
