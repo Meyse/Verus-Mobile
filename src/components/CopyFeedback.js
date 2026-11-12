@@ -30,11 +30,15 @@ const CopyFeedback = ({children, contentStyle, copied, style}) => {
 
 // Each VerusID line owns its exact value and accessibility Copy action. Native
 // Text press handling yields to the parent scroll view when the finger moves.
+// iOS RCTTextView has no onAccessibilityAction, so the action sits on a View.
 export const CopyableText = ({children, copyValue, ...props}) => {
-  const {copied, copyProps} = useCopyFeedback(copyValue, {haptic: true});
+  const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {haptic: true});
+  const {onLongPress, ...accessibilityProps} = copyProps;
   return (
     <CopyFeedback copied={copied}>
-      <Text {...props} {...copyProps}>{children}</Text>
+      <View accessible={canCopy || undefined} {...accessibilityProps}>
+        <Text {...props} onLongPress={onLongPress}>{children}</Text>
+      </View>
     </CopyFeedback>
   );
 };
