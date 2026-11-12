@@ -62,32 +62,35 @@ const ReceiveSubwalletSheet = ({
           No receiving address is available for this asset.
         </Text>
       ) : (
-        groups.map(group => (
-          <SelectionGroup key={group.id} title={group.name}>
-            {group.wallets.map(wallet => {
-              const cardType = getSubWalletCardType(wallet);
-              const title = cardType === 'VerusID' ? wallet.name : cardType;
-              const subtitle = cardType === 'Transparent' ? wallet.name : undefined;
-              const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
-              return (
-                <SelectionRow
-                  key={wallet.id}
-                  title={title}
-                  titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
-                  subtitle={subtitle}
-                  subtitleMonospace
-                  accessibilityLabel={`Receive with ${title}${subtitle ? `, ${subtitle}` : ''}, ${balance} ${coinObj.display_ticker}`}
-                  selected={
-                    selectedId == null ? undefined : wallet.id === selectedId
-                  }
-                  value={balance}
-                  valueLabel={coinObj.display_ticker}
-                  onPress={() => dismissal.dismiss(() => onSelect(wallet))}
-                />
-              );
-            })}
-          </SelectionGroup>
-        ))
+        groups.map(group => {
+          const rows = group.wallets.map(wallet => {
+            const cardType = getSubWalletCardType(wallet);
+            const title = cardType === 'VerusID' ? wallet.name : cardType;
+            const subtitle = cardType === 'Transparent' ? wallet.name : undefined;
+            const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
+            return (
+              <SelectionRow
+                key={wallet.id}
+                title={title}
+                titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
+                subtitle={subtitle}
+                subtitleMonospace
+                accessibilityLabel={`Receive with ${title}${subtitle ? `, ${subtitle}` : ''}, ${balance} ${coinObj.display_ticker}`}
+                selected={
+                  selectedId == null ? undefined : wallet.id === selectedId
+                }
+                value={balance}
+                valueLabel={coinObj.display_ticker}
+                onPress={() => dismissal.dismiss(() => onSelect(wallet))}
+              />
+            );
+          });
+          return groups.length === 1 ? rows : (
+            <SelectionGroup key={group.id} title={group.name}>
+              {rows}
+            </SelectionGroup>
+          );
+        })
       )}
     </SelectionSheet>
   );

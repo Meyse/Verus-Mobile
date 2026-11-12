@@ -288,7 +288,7 @@ const SendWizardSelectSource = () => {
                   </Text>
                 </View>
                 <Text style={[theme.typography.bodySm, styles.cryptoValue, {color: theme.colors.textSecondary}]}>
-                  {cryptoDisplay}{item.cards.length > 1 ? ` · ${item.cards.length} sources` : ''}
+                  {cryptoDisplay}
                 </Text>
               </View>
             </Pressable>
