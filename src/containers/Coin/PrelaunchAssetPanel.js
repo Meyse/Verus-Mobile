@@ -79,6 +79,7 @@ const PrelaunchAssetPanel = ({coin, prelaunch, showBalance}) => {
     setTransaction({
       address: item.destination,
       amount: BigNumber(item.amount).decimalPlaces(8, BigNumber.ROUND_DOWN).toFixed(),
+      copyAmount: BigNumber(item.amount).toFixed(),
       coinId: getCurrencyDisplay(item.currencyId).coinId,
       confirmed: !item.pending,
       label: 'You pre-converted',

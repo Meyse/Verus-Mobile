@@ -677,9 +677,15 @@ const SendWizardConfirm = () => {
   const feeSummary = feeItems.length
     ? feeItems.map(item => `${item.amount} ${item.currency}`).join(' + ')
     : 'Calculated by wallet';
+  const feesCopyValue = feeItems.map(item => item.amount).join('\n');
   const hasExportFees = Boolean(route?.isCrossChain && channel?.split('.')[0] === 'vrpc');
   const exportFees = hasExportFees && reviewResult?.feeDetails
     ? {
+        bridgeCopyValue: Object.values(reviewResult.feeDetails.bridge)
+          .map(satoshis => satsToCoins(BigNumber(satoshis)).toFixed()).join('\n'),
+        networkCopyValue: Object.values(reviewResult.feeDetails.network)
+          .filter(satoshis => BigNumber(satoshis).isGreaterThan(0))
+          .map(satoshis => satsToCoins(BigNumber(satoshis)).toFixed()).join('\n'),
         bridge: Object.entries(reviewResult.feeDetails.bridge)
           .map(([currencyId, satoshis]) => `${satsToCoins(BigNumber(satoshis)).toFixed()} ${
             getCurrencyDisplay(currencyId, reviewResult.names?.get?.(currencyId)).ticker
@@ -705,6 +711,8 @@ const SendWizardConfirm = () => {
   });
   const exportTotal = [...totalPaid.values()]
     .map(item => `${item.amount.toFixed()} ${item.currency}`).join(' + ');
+  const totalCopyValue = [...totalPaid.values()]
+    .map(item => item.amount.toFixed()).join('\n');
   const destinationNetwork = getDestinationNetwork(
     route,
     sourceCoin?.display_name,
@@ -721,6 +729,7 @@ const SendWizardConfirm = () => {
   const feeSpeed = networkFee.quote?.tiers || networkFee.choice.id === 'custom'
     ? (networkFee.choice.id === 'custom' ? 'Custom fee' : FEE_TIERS.find(tier => tier.id === networkFee.choice.id)?.title) : null;
   const networkFeeRow = feeKind ? {
+    copyValue: hasNetworkFee ? BigNumber(likelyFee).toFixed() : null,
     amount: hasNetworkFee
       ? formatFeeAmount(likelyFee, feeTicker, feeKind === 'eth')
       : feeKind === 'btc' && !networkFee.fee ? 'Fee rates unavailable' : 'Fee unavailable',
@@ -761,6 +770,7 @@ const SendWizardConfirm = () => {
   const launchRows = preconvert && launchFacts?.minimums.length
     ? [{
         label: 'Needed to launch',
+        copyValue: launchFacts.minimums.map(item => BigNumber(item.amount).toFixed()).join('\n'),
         value: launchFacts.minimums
           .map(item => `${BigNumber(item.amount).toFormat()} ${
             getCurrencyDisplay(item.currencyId, launchFacts.names[item.currencyId]).ticker
@@ -895,6 +905,7 @@ const SendWizardConfirm = () => {
         fadeBackgroundColor={theme.colors.background}>
         <TransferNode
           amount={truncateDecimal(displayAmount, 8)}
+          copyValue={displayAmount.toFixed()}
           coinId={sourceCoin?.id}
           fiat={formatFiat(displayAmount, sourceCoin?.id)}
           label={showReceive || preconvert ? 'You pay' : 'You send'}
@@ -918,6 +929,7 @@ const SendWizardConfirm = () => {
             ) : null}
             <TransferNode
               amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
+              copyValue={BigNumber(estimatedReceive).toFixed()}
               coinId={target.coinId || target.id}
               fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
               label={
@@ -936,8 +948,10 @@ const SendWizardConfirm = () => {
           arrives={estimatedTime}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
+          feesCopyValue={feesCopyValue}
           exportFees={exportFees}
           total={hasExportFees ? exportTotal : null}
+          totalCopyValue={hasExportFees ? totalCopyValue : null}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={
@@ -965,20 +979,21 @@ const SendWizardConfirm = () => {
                     ? {
                         label: 'Request from',
                         value: invoice.signer,
+                        copyValue: invoice.signer,
                         onPress: invoiceFlow?.onOpenRequester,
                       }
                     : null,
-                  state.payFromLabel ? {label: 'From', value: state.payFromLabel} : null,
+                  state.payFromLabel ? {label: 'From', value: state.payFromLabel, copyValue: state.payFromLabel} : null,
                   paidBefore?.txid
-                    ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid)}
+                    ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid), copyValue: paidBefore.txid}
                     : null,
                 ].filter(Boolean)
-              : fromLabel ? [{label: 'From', value: fromLabel, numberOfLines: 0}] : []
+              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: fromLabel, numberOfLines: 0}] : []
           }
           trailingRows={
             invoice
               ? [
-                  invoice.expiry ? {label: 'Expires', value: `In about ${invoice.expiry}`} : null,
+                  invoice.expiry ? {label: 'Expires', value: `In about ${invoice.expiry}`, copyValue: `In about ${invoice.expiry}`} : null,
                   {label: 'Invoice details', onPress: invoiceFlow?.onOpenDetails},
                 ].filter(Boolean)
               : []

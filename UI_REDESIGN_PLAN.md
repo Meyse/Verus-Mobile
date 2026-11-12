@@ -6,6 +6,12 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **GR-4.IDU-PARITY-P2** on
+  `claude/idu-parity-fixes-1112` from `b7f7e630`: **Ready for verification**.
+  Six source-confirmed P2 gaps now show upstream information in the existing
+  review components. Static checks pass. Device proof stays open. See the
+  scoped checklist and evidence below.
+
 - Scoped follow-up: **ID-3.NIGHT3-B** on `claude/night3-batch-b` from
   `ff2e63e0`: **Done** (device QA passed 2026-11-05, merged into `redesign`).
   Modify review names the VerusID, explains the resulting signing policy and
@@ -71,7 +77,7 @@ without repeating the entire investigation.
   Android remains open. See the scoped checklist below.
 
 - Created: 2026-09-10.
-- Last updated: 2026-11-06 (Night run 4 fixes A/B/C + round 2; Android QA on both phones passed).
+- Last updated: 2026-11-12 (GR-4.IDU-PARITY-P2 built, reviewed, iOS + Android device QA; awaiting owner review, not merged).
 - Scoped content-card correction: **GR-4.NO-LEFT-BAR** on
   `claude/no-left-bar` from `700fb18d`. Value blocks have no left bar or
   indent. Existing vertical spacing, tone panels, badges, labels and removed
@@ -876,6 +882,31 @@ this scope.
   screenshots kept beside the initial captures. All task-owned runtimes are
   stopped. No commit, merge or push.
 
+### GR-4.IDU-PARITY-FOLLOWUPS (2026-11-12)
+
+Display-only follow-ups on `claude/idu-parity-followups-1112`, from local
+`redesign` `da0bb81f`. Preserve transaction construction, funding, signing,
+broadcast and response bytes. Each item has a separate commit.
+
+- [x] Show the full key below named and unnamed titles for non-clear operations.
+- [x] Use one field-count helper for singular and plural content previews.
+- [x] State the high-risk acknowledgement instruction once; preserve its gate.
+- [x] Group each decoded value's warnings and fields under one heading.
+- [x] Remove only the redundant Included data chip; keep Public and the notice.
+- [x] Review fix `e791e694`: unnamed clear-all removal cards keep their full key.
+- [x] Device QA: iOS 17 Pro + SE and Android `normal` + `small`, light/dark.
+
+Design contract: operate mode; existing GR-4 content cards and the canonical
+information-sheet hierarchy. Reuse `InfoSheetRow`, `InfoSheet`, `CopyAction`
+and the current card. Value headings use `theme.typography.titleRow` and
+`textPrimary`; warnings keep `bodySm` and `warningText`. Use whitespace,
+without a new card, color, dot or left-edge bar. Show one heading for each
+value in a multi-value group. Remove the repeated root prefix from field
+labels; keep nested paths. A single value needs no Value 1 of 1 heading.
+Required rendered states: ordinary and upload content, multiple and single
+values, warnings, long nested paths, raw-data and upload sheets, light/dark,
+normal/compact. This task permits static checks only; device QA is pending.
+
 ### GR-4.IDENTITY-UPLOAD — identity update data (2026-11-03)
 
 Status: **Ready for verification**. Scope: upload data in identity update
@@ -1220,6 +1251,13 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 - [ ] **SLIDE-1.QA** Check native light/dark, normal/compact, cancellation,
   accessibility activation, retry, and gift card funding with the keyboard open.
   Device QA belongs to the later machine round.
+- [x] **TX-1.LONG-PRESS-COPY** Add exact-value long-press copy to Confirm,
+  Sent and history details through `useCopyFeedback`. Keep existing copy icons,
+  tap actions, hidden balances and row geometry. No new Confirm icons.
+- [ ] **TX-1.LONG-PRESS-COPY-QA** Device owners: check all four flows in both
+  themes and sizes, including full precision, both VerusID lines, fees, invoice
+  rows, repeated copy, scroll cancellation, fee tap, Back and sheet reopen.
+  Implementation checks are recorded in the 2026-11-12 evidence row.
 
 - [x] **TX-1.ADDRESS-CHOOSER** Use "Choose an address" with no instructional
   subtitle in Send, Convert, Receive, invoice payment, and the asset-screen
@@ -2317,7 +2355,15 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-12 | SLIDE-1.REDESIGN-MERGE | `claude/slide-to-confirm-1112`, parents `d49fb338` and `70f81518` | Both import sets, both checkbox sets and all evidence rows retained. Read merged WizardUI, ConfirmPayStep, SendWizardConfirm and DESIGN. Copy primitives and 12 copy/review files match redesign; payment/preparation function ASTs match. Frozen install, design (39 sources), card colors (17 materials), changed-file safe areas (49 files), iOS and Android production bundles pass. Row copy is inside the scroll content; the slide is a sibling footer, so no simultaneousHandlers/waitFor link is needed. Cancelled and short slides, busy text, two-frame defer and duplicate activation pass a temporary component fixture. | Fixture found that prevented Back between the deferred frames can rearm an old commit; fix follows in a separate commit. Native gestures, rendered light/dark and normal/compact, clipboard and accessibility remain unverified. No devices, wallet actions or push. |
 | 2026-11-11 | SLIDE-1 | `claude/slide-to-confirm` from `552a2ee9` | Shared 44/56-point slide, 90% release threshold, three-second action hint, promise latch and cancellation guards. Six approved paths use it. Gift funding adds a synchronous broadcast guard; wrappers return commit promises. Invoice native modal gets a gesture root; the track uses View to avoid Pressable pan capture. Design/card-color, changed-file safe-area, 15-file Babel transform, 35 existing presentation tests and 33 controlled component checks pass. CoreText at Inter Semibold 17 pt measures the longest labels at 192.11 and 177.86 pt; both fit the 320-point screen calculation. pnpm required verify-deps-before-run=warn with reused modules; no install. | No device, native gesture, native font, gift keyboard, broadcast, VoiceOver or TalkBack proof. No success motion changes, push or merge. |
+| 2026-11-12 | GR-4.IDU-PARITY-FOLLOWUPS | `claude/idu-parity-followups-1112` from `da0bb81f`; five separate item commits | Static only. Each focused Node fixture fails before its fix and passes afterward with native component stubs. Grouping checks cover both theme modes, warning ownership, nested paths, scalar/single values, upload-sheet open/copy/close, unchanged original data and upload bytes; path-only changes preserve field values, copy values, warnings and raw text. Design: 39 canonical sources pass; 17 card materials pass, minimum 5.014:1. Safe-area: `--changed` passes; explicit five-source check passes. iOS and Android release bundles pass in `/tmp/idu-followups-1112.nMlO4w/`, with 41 and 47 assets. Requested six Jest suites: 50 tests pass before and after, with the same two suite-load failures (`Touchable.Mixin`, `Platform.OS`). Existing upload/model suites add 34 passing tests. No new Jest tests. `identityContentReviewScreen.unit.test.js:143,167` still assert the intentionally removed Included data chip; the suite fails to load before reaching them, and its tests are unchanged. | Device rendering, normal/compact light/dark, native copy and accessibility remain pending. No simulator, emulator, Metro server, transaction, push or merge. |
+| 2026-11-12 | GR-4.IDU-PARITY-FOLLOWUPS device QA | `claude/idu-parity-followups-1112` `e791e694` | Astra (gpt-6-astra high): one P2 (unnamed clear-all key hidden) fixed in `e791e694`, re-check no open P1/P2; build/fund/sign/broadcast/response files byte-identical. iOS + Android release bundles and safe-area (5 files) pass. iOS 26.5 iPhone 17 Pro + SE: before shots on `da0bb81f`, after shots on `e791e694`, all five items pass, high-risk gate still blocks Continue, bidi copy keeps U+202E/U+2066; smoke on `da0bb81f` (unlock, add/fly/remove, hidden after relaunch, no block-list row, send Confirm long-press + fee sheet + Back, convert Price impact copies `0`) passes. Android 16 `normal` + `small` on `e791e694`: A1-A5, round-1 cases 1-6, bidi copy, smoke D1-D6 pass; add-asset fly not captured. Report https://claude.ai/artifact/QoCnQ2tYquAjCvTAJgXjNe | Open: `normal` cold unlock up to about 246 s (dev build, seen before); lone wrapped characters in long keys; dark "Will remove" pill contrast; `small` Convert "You receive" wraps. Untested: Price impact `<0.1`/`0.2`, iOS normal-dark/SE-light for items 1/2/3/5, wrong network (fixture), case 8 on the identity path, accessibility. |
+| 2026-11-12 | GR-4.IDU-PARITY-P2 | `claude/idu-parity-fixes-1112` from `b7f7e630`; `84eaee26`, `95d6aa2c`, `3d3aaf91`, `406c5cd0`, `ce776b82`, `4195873a` | Compared each gap with upstream `f32e7fb95`. Design: 39 sources pass; card colors: 17 materials, minimum 5.014:1. Safe-area: requested `--changed` passes for 0 files after commits; explicit 10-file check passes. Babel parser: 10 files pass. iOS production bundle: passes, 41 assets in `/tmp`. Existing regression group: 52 tests pass; the same two suite-load failures occur before and after. Handler/removal regression: 30 tests pass. Temporary component/model checks pass; seven preparation, broadcast, signing and delivery functions are byte-for-byte unchanged. | Device rendering, normal/compact light/dark, accessibility and live request entry remain open. QA links are local only. No devices, Metro server, identity transaction, push or merge. |
+| 2026-11-12 | GR-4.IDU-PARITY-P2 review corrections | `claude/idu-parity-fixes-1112` over `4aa642bb`; removal `a4e40912`, refusal `74f6de1e`, copy follow-up in this commit | Temporary component fixtures reproduce the removal and escaped-copy defects before correction and pass afterward in both theme modes. Clear-all keeps the original lookup key and inspector; notes and decoded removal data render once per operation. Empty-target copy states the add-content fact once. Handler fixtures use real SDK partial/upload validators with mocked network/builder boundaries: local threshold refusal keeps its reason without retry; RPC, daemon, transport and builder failures remain retryable, including identical error text. Accepted builder input and original request bytes remain unchanged. Design: 39 canonical sources and 17 card materials pass. Safe-area: all 5 changed source files pass. Babel parser: 5 files pass. Production iOS bundle: passes, 41 assets in a temporary directory. Same 8 existing Jest suites before/after: 6 pass, 2 fail to load, 82 tests pass; no new failure. | Static fixtures use native component stubs. Device rendering, native clipboard and accessibility remain unverified. No simulator, Metro server, transaction, push or merge. |
+| 2026-11-12 | GR-4.IDU-PARITY-P2 envelope refusal | `claude/idu-parity-fixes-1112`; `4ff19f1a` | Second review found flag bit 32 still fell to "Cannot open request" with retry. The handler now runs the SDK's four envelope checks on the validation copy. Review (gpt-6-astra, offline execution): flags 0-31 and 12 boundary cases pass, flag 32 gives `IDENTITY_UPDATE_REFUSED` with its reason and no retry, zero external calls; no open P1/P2. Design, safe-area (10 files) and iOS production bundle pass. | Device rendering and live request entry remain open. |
+| 2026-11-12 | GR-4.IDU-PARITY-P2 device QA | `claude/idu-parity-fixes-1112` `68117896` (redesign 96787c81 merged) and polish `452f6b87` | iOS 26.5 iPhone 17 Pro + iPhone SE, light/dark, before (96787c81) and after, 8 signed VRSCTEST requests for TestBob.antafri@: all six gaps pass; wrong network via debugger fixture; refused URL via `ftp://` sign-in request. Polish re-check (cases 1, 3, 4) passes. Android Pixel 6a API 35 light/dark + 360x640 dp: cases 1-6 pass; case 7 shows expiry (same cause). Update never pressed. Report https://claude.ai/artifact/QoCnQ2tYquAjCvTAJgXjNe | Owner review of the new review-screen UI before merge. Accessibility, Android clipboard/case 8/polish, real broadcast untested. |
+| 2026-11-12 | TX-1.LONG-PRESS-COPY | `claude/confirm-long-press-copy-1112` from `b7f7e630` | Shared copy hook and stable feedback on Confirm, Sent and history detail facts. Exact amounts, validated fees, prepared addresses and full txids; separate VerusID lines; original icons and tap actions retained. Install, design/card colors, safe areas (15 JS files), Babel (15 JS files), 56 component/hook, 6 exact-value and 4 React Native Pressability fixture checks pass. iOS release (41 assets) and Android debug (52 assets) bundles pass with one worker and temporary cache-only config overrides after default-cache read failures; project resolver and transformer unchanged. | Device owners retain light/dark normal/compact rendering, actual scroll dispatch, VoiceOver/TalkBack, Back/reopen and all four wallet-flow checks. No devices, transactions, push or merge. |
 | 2026-11-09 | NFC gift choice C: optional backup | `claude/gift-nfc-choice-c`; UI `88043a05`, behavior `8fcffe7e`, redesign merge `5e6e8f83` | Approved option C checkbox and state-dependent steps; separate passthrough selection/resume flags; cancelled unlock and both Back routes return to the checked choice. Three baseline navigation checks fail before the behavior fix and pass after it. Ten container checks, 40 entry theme/size/state cases and both busy action paths pass in temporary component fixtures. Babel with project config passes all 188 changed JS files across the gift-base/redesign diff union. Design, two-screen safe-area and whitespace checks pass. Source-derived renders cover light/dark at 390×844 and 360×640, with native controls/layout substituted. | Orchestrator owns Android device QA and native accessibility. No devices, Metro, NFC write, claim transaction, push or merge into redesign ran. See the scoped checklist. |
 | 2026-11-09 | ID-3.REG-R11-APPENC: app-encryption and private-address review fixes | `aac3f80e`, `c00d9079`, `fc8f1bc1` on `claude/appenc-review-fixes`, merged into local `redesign` | P2 current Z address shown (Current / After update), Removed/Replaced/Added, details sheet says each fact once, chosen VerusID kept after approve (batched `next()`), nested VerusID and key number on the main review, short addresses in the acknowledgement sheet. Android large light + small dark: 11 of 11 links pass, 0 of 123 frames show the loader, simulator verified signers; acknowledgement re-check 4 of 4. Design and safe-area checks pass. | Not pushed. iPhone and TalkBack not run. |
 | 2026-11-09 | ID-3.REG-R11-UPSTREAM: hero fix, full Android run, merge | `b301373c` on `claude/new-verusid-flow-upstream`, merged into local `redesign` | Hero gap cause: Android measured "80 USD" as two lines (72 dp) and drew one. The amount now uses the Send one-line pattern; small phone after the fix: 36 dp, fee line 8 dp below. Root-name Check details unchanged on both phones. Full Android run: `nvfpixg1109@` (normal) and `nvfsmlg1109@` (small) paid with the default Foundation referral (20 VRSCTEST each on chain) and linked. Design and safe-area checks pass on `redesign` after the merge. | Not pushed. Device check of app-encryption requests and the private-address removal warning remains. Four P3s left as is (see the section). |
@@ -3588,3 +3634,84 @@ Ready once when public servers disagree. Old commitment rows stay "Network fee"
 (the server sends no output functions). Not run: redirect delivery, refresh timing
 on small (daemon funding), iOS. Run folder: `docs/qa/matrix/runs/2026-11-06-fixes4/`
 (local, not in Git).
+
+
+### GR-4.IDU-PARITY-P2 — Identity update review parity (2026-11-12)
+
+Status: **Ready for verification**. Branch `claude/idu-parity-fixes-1112`,
+base `b7f7e630`. Behavioral reference: upstream `dev-asf-parent` `f32e7fb95`.
+
+Design contract: operate mode. Scope is content review, the prepared-identity
+recap, and refusal messages. Canonical exemplars are the existing GenericRequest
+content cards, Confirm step, information-sheet rows, and completion sheets.
+Reuse `InfoSheetSection`, `InfoSheetRow`, `CopyAction`, and theme typography.
+Keep the request card, filters, step order, footer, and inline/sheet errors.
+Required states are unrecognized data, full ordinary content, opaque/encrypted
+warnings, removal with current/empty keys, prepared identity, permanent refusal,
+and recoverable transport failure. No new visual pattern. Device rendering is
+deferred by the task instruction.
+
+- [x] **P2-A** Show unrecognized removal-key data, its recorded-bytes notice,
+  and reachable raw data. Do not count it as an addition or removal.
+- [x] **P2-B** Show each ordinary value through the same complete review used
+  for uploads, with `isUpload=false`. Retain all fields and warnings. Escape
+  control/bidi characters in previews and raw-sheet text. Copy keeps original data.
+- [x] **P2-C** Show identity address, required signatures, primary addresses,
+  revocation authority, and recovery authority from `preparedUpdate.built.identity`.
+  Show this recap only while its fee preparation is current.
+- [x] **P2-D** Code expired/wrong-network and authored permanent refusals.
+  Show their reason without retry. A network height that cannot be read remains
+  retryable and now has a specific message. Keep transport failures retryable.
+- [x] **P2-E** Keep `removalUi` on removal entries. Show its detail, effect,
+  empty-state, metadata, and history notes. Show full matching hashes with copy.
+- [x] **P2-F** Show the local response-URL refusal message without Try again.
+  Transport failures with a cause retain their recovery path.
+- [x] Run static design, safe-area, parser, iOS bundle and existing regression
+  checks. Separate the two baseline suite-load failures from product changes.
+- [x] Prepare disposable VRSCTEST QA links locally. Check request roundtrips,
+  signatures and the ordinary-content review model. Do not open the links.
+- [x] Review corrections: retain clear-all entry lookup and inspector; show notes
+  and decoded removal data once per operation. Deduplicate empty-target copy.
+- [x] Classify synchronous SDK partial/upload validation refusals at the handler
+  boundary. Validate a separate copy; keep network and builder failures retryable.
+- [x] Mirror the SDK request-envelope checks (flags, expiry height, system, txid)
+  in the same preflight, so an unsupported flag shows its reason without retry.
+- [x] Keep original field copy values. Disable native selection for escaped
+  review and raw-inspector text; keep displayed Unicode escapes.
+- [x] Run device QA at normal/compact sizes in light/dark. Check long fields,
+  copy/raw sheets, Back, source reselection/loading and refusal actions.
+  Accessibility (VoiceOver, TalkBack) stays open.
+- [x] Confirm wrong-network entry through the intended handler path with a
+  controlled chain response (debugger fixture). A signed VRSC-detail link shows
+  "Request expired" (mainnet height), the same order of checks as upstream.
+- [x] Check local URL refusal without broadcasting: shared sheet with an `ftp://`
+  sign-in request. The identity-update completion path itself stays untested.
+
+Evidence is static only. Existing regression group: 4 suites pass, 2 fail to load,
+52 tests pass on both base and candidate. Failures: `identityContentReviewScreen`
+(SVG `Touchable.Mixin` mock) and `genericRequestDelivery` (`constants.js:160`,
+missing React Native mock). Handler/removal group: 2 suites and 30 tests pass.
+Temporary component/model checks cover complete ordinary values and warnings,
+escaping, included data, removal actions 1-3 with present/empty keys, full hashes,
+expiry/network/refusal retry policy, and both delivery message helpers.
+
+The transaction builder, funding, signing, broadcast and response bytes are
+unchanged. Preserve zero-delta token support, mempool-aware funding,
+delegated-signer wallet switching, and early upload refusal. The review follow-up
+only deduplicates the empty-target P3 copy. Full named-key display stays out of scope.
+
+### IDU removal-card polish (2026-11-12)
+
+- [x] Separate removal notes with `theme.spacing.sm`. Keep existing body type.
+- [x] Hide decoded removal hash/key rows only when the exact value is already
+  shown on the card. Keep action, version, unknown fields and unmatched keys.
+- [x] Keep Public and Included data badges at intrinsic width with
+  `theme.spacing.xs` between them. Included data repeats the title/notice;
+  retain it under the task's explicit instruction.
+- [x] Design and changed-file safe-area checks pass. Production iOS bundle
+  passes in `/tmp/idu-polish-bundle.fYUmNy`. Temporary non-Jest row checks pass
+  for matching/different values, missing full keys, retained action/version,
+  unknown/nested fields and unchanged input data.
+- [ ] Recheck rendered normal/compact light/dark states. No simulator or Metro
+  was used under the task instruction. Supplied case 1, 3 and 4 screenshots
+  establish the defects before this polish; they do not verify the new layout.

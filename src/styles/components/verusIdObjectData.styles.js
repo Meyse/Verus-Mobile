@@ -89,6 +89,9 @@ export default StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
+  cmmCardHeaderWithKey: {
+    marginBottom: 0,
+  },
   cmmCardTitleBlock: {
     flex: 1,
     minWidth: 0,
@@ -99,6 +102,9 @@ export default StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: '#6B7280',
+  },
+  cmmCardKeyIdLine: {
+    marginBottom: 12,
   },
   cmmCardKeyIdDark: {
     color: '#A9B6CA',

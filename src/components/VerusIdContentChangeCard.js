@@ -5,11 +5,13 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {ContentMultiMapRemoveKey} from 'verus-typescript-primitives';
 import Colors from '../globals/colors';
 import StatusBadge from './StatusBadge';
+import {InfoSheetRow} from './InfoSheetSection';
 import {verusIdObjectDataStyles as LocalStyles} from '../styles';
-import {useOnboardingTheme} from '../theme/onboarding';
+import {ONBOARDING_THEMES, useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
 import {capitalizeString} from '../utils/stringUtils';
 import {getVDXFKeyLabel} from '../utils/vdxf/vdxfTypeLabels';
+import {escapeContentReviewText, formatContentFieldCount} from '../utils/identityUpdate/contentReview';
 
 const abbreviateKeyId = iAddr =>
   `${iAddr.substring(0, 4)}...${iAddr.substring(iAddr.length - 4)}`;
@@ -39,6 +41,17 @@ const isUnnamedKeyTitle = item =>
   item.keyId.length > 8 &&
   item.title === abbreviateKeyId(item.keyId);
 
+// Only suppress a decoded key when the card already displays that exact key.
+export const getFullContentChangeKey = (item, updateEntry) => {
+  const key = item.removeMeta?.entryKey;
+  if (!key) return undefined;
+  const ui = updateEntry?.removalUi;
+  const notes = [ui?.detailBody, ui?.effectNote, ui?.emptyStateNote, ui?.metadataNote, ui?.historyNote];
+  return ((isUnnamedKeyTitle(item) || item.removeMeta?.action !== 4) && item.keyId === key) || item.title === key ||
+    notes.some(note => typeof note === 'string' && note.includes(key))
+    ? key : undefined;
+};
+
 export const getCmmDataPreview = (
   data,
   maxItems = 3,
@@ -66,7 +79,7 @@ export const getCmmDataPreview = (
 
     if (typeof value === 'object' && value != null) {
       const keys = Object.keys(value);
-      if (depth >= maxDepth) return `${keys.length} fields`;
+      if (depth >= maxDepth) return formatContentFieldCount(keys.length);
 
       if (keys.length === 1) {
         const key = keys[0];
@@ -74,13 +87,13 @@ export const getCmmDataPreview = (
         return `${label}: ${formatValue(value[key], depth + 1)}`;
       }
 
-      return `${keys.length} fields`;
+      return formatContentFieldCount(keys.length);
     }
 
     return trim(value);
   };
 
-  return formatValue(data);
+  return escapeContentReviewText(formatValue(data));
 };
 
 export const normalizeCmmDisplayUpdates = cmmUpdates => {
@@ -118,6 +131,7 @@ export const isContentMultiMapRemove = rawData => {
 
 export const getCmmChangeType = (hasExisting, updateEntry) => {
   if (!updateEntry) return null;
+  if (updateEntry.unrecognizedRemoval) return 'included';
   if (updateEntry.removeMeta) return 'removed';
   if (!hasExisting) return 'added';
   return 'appended';
@@ -127,7 +141,7 @@ const getUpdateKeyTarget = updateKey => {
   const prefix = `${VERUSID_CMM_DATA.key}:`;
   if (!updateKey.startsWith(prefix)) return updateKey;
 
-  return updateKey.slice(prefix.length).split(':upload')[0].split(':remove:')[0];
+  return updateKey.slice(prefix.length).split(':upload')[0].split(':remove:')[0].split(':unrecognized')[0];
 };
 
 const getSameRequestRemoveTargets = cmmUpdates => {
@@ -170,11 +184,13 @@ export const buildVerusIdContentChangeItems = ({
         currentContentMultiMap &&
         Object.keys(currentContentMultiMap).length > 0
       ) {
-        return Object.keys(currentContentMultiMap).map(iAddrKey => {
+        return Object.keys(currentContentMultiMap).map((iAddrKey, index) => {
           const entryLabel = getCmmDataKey(iAddrKey);
 
           return {
             key: `${key}:active:${iAddrKey}`,
+            updateKey: key,
+            showOperationDetails: index === 0,
             keyId: iAddrKey,
             title: entryLabel,
             data: getCmmDataPreview(currentContentMultiMap[iAddrKey]),
@@ -301,7 +317,11 @@ export const contentChangeMatchesFilter = (item, filter) => {
   return true;
 };
 
-const getChangeBadgeConfig = changeType => {
+// Badge colours that keep readable contrast on the dark card panels.
+const DARK_INFO_COLOR = '#8FB1FF';
+const DARK_REMOVE_COLOR = ONBOARDING_THEMES.dark.colors.dangerText;
+
+const getChangeBadgeConfig = (changeType, darkMode = false) => {
   switch (changeType) {
     case 'added':
       return {
@@ -319,16 +339,16 @@ const getChangeBadgeConfig = changeType => {
       return {
         icon: 'minus-circle-outline',
         label: 'Will remove',
-        color: Colors.warningButtonColor,
+        color: darkMode ? DARK_REMOVE_COLOR : Colors.warningButtonColor,
       };
     default:
       return null;
   }
 };
 
-export const getContentChangeBadges = item => {
+export const getContentChangeBadges = (item, darkMode = false) => {
   const badges = [];
-  const baseBadge = getChangeBadgeConfig(item.changeType);
+  const baseBadge = getChangeBadgeConfig(item.changeType, darkMode);
 
   if (baseBadge) {
     badges.push(
@@ -345,7 +365,7 @@ export const getContentChangeBadges = item => {
     badges.push({
       icon: 'shield-lock-outline',
       label: 'Will encrypt',
-      color: Colors.primaryColor,
+      color: darkMode ? DARK_INFO_COLOR : Colors.primaryColor,
     });
   }
 
@@ -413,13 +433,15 @@ const getRemoveActionDescription = removeMeta => {
   return 'Selected content';
 };
 
-const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
+const renderCmmChangeDescription = (item, updateEntry, darkMode = false, hasContentReview = false) => {
+  if (item.changeType === 'included') return null;
   const neutralToneColor = darkMode ? '#7E8EA6' : '#6B7280';
   const updatedPreview = item.isEncrypted && !updateEntry?.signData
     ? 'Encrypted upload (tap to view)'
     : item.updatedData ?? updateEntry?.data ?? item.data;
 
   if (item.changeType === 'added') {
+    if (hasContentReview) return null;
     return renderCmmDescBlock(
       null,
       updatedPreview || 'New value',
@@ -446,7 +468,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
               removesDisplayedActive,
               darkMode,
             )}
-          {renderCmmDescBlock(
+          {!updateEntry?.removalUi && renderCmmDescBlock(
             null,
             removeActionDescription || 'Selected content',
             Colors.warningButtonColor,
@@ -477,7 +499,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
             false,
             darkMode,
           )}
-        {renderCmmDescBlock(
+        {!hasContentReview && renderCmmDescBlock(
           'Add value',
           updatedPreview || 'New value',
           Colors.verusGreenColor,
@@ -530,11 +552,19 @@ const VerusIdContentChangeCard = ({
 }) => {
   const theme = useOnboardingTheme();
   const darkMode = darkModeProp ?? theme.isDark;
-  const encryptedInfoColor = darkMode ? '#8FB1FF' : Colors.primaryColor;
-  const badges = getContentChangeBadges(item);
+  const encryptedInfoColor = darkMode ? DARK_INFO_COLOR : Colors.primaryColor;
+  const badges = getContentChangeBadges(item, darkMode);
   const unnamedKey = isUnnamedKeyTitle(item);
+  const showKeyId =
+    Boolean(item.keyId) && (unnamedKey || item.removeMeta?.action !== 4);
   const onPress = onPressProp || (
     updateEntry && updateEntry.onPress ? updateEntry.onPress : item.onPress);
+  const removalUi = updateEntry?.removalUi;
+  // The empty-state note already says this request can add content. Retain
+  // the matching-value effects, but show that shared fact only once.
+  const removalEffectNote = removalUi?.emptyStateNote
+    ? removalUi.effectNote?.replace(/This request may also add[^.]*\./, '').trim()
+    : removalUi?.effectNote;
 
   return (
     <TouchableOpacity
@@ -549,7 +579,11 @@ const VerusIdContentChangeCard = ({
         panelTone && getTonePanelStyle(item, darkMode),
         style,
       ]}>
-      <View style={LocalStyles.cmmCardHeader}>
+      <View
+        style={[
+          LocalStyles.cmmCardHeader,
+          showKeyId && LocalStyles.cmmCardHeaderWithKey,
+        ]}>
         <View style={LocalStyles.cmmCardTitleBlock}>
           <Text
             style={[
@@ -558,16 +592,6 @@ const VerusIdContentChangeCard = ({
             ]}>
             {unnamedKey ? 'Unnamed key' : item.title}
           </Text>
-          {unnamedKey && (
-            <Text
-              selectable
-              style={[
-                LocalStyles.cmmCardKeyId,
-                darkMode && LocalStyles.cmmCardKeyIdDark,
-              ]}>
-              {item.keyId}
-            </Text>
-          )}
         </View>
         {badges.length > 0 && (
           <View style={LocalStyles.cmmCardBadgeRow}>
@@ -589,9 +613,56 @@ const VerusIdContentChangeCard = ({
           </View>
         )}
       </View>
+      {/* The key has its own full-width line, so a 34-character key does
+          not wrap beside the badge. */}
+      {showKeyId && (
+        <Text
+          selectable
+          style={[
+            LocalStyles.cmmCardKeyId,
+            LocalStyles.cmmCardKeyIdLine,
+            darkMode && LocalStyles.cmmCardKeyIdDark,
+          ]}>
+          {item.keyId}
+        </Text>
+      )}
 
-      {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
-      {renderCmmChangeDescription(item, updateEntry, darkMode)}
+      {visibilityLabel && (
+        <View style={{alignItems: 'flex-start', gap: theme.spacing.xs, marginBottom: theme.spacing.xs}}>
+          <StatusBadge label={visibilityLabel} tone="neutral" />
+        </View>
+      )}
+      {updateEntry?.unrecognizedRemoval && (
+        <>
+          <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+            This data uses the removal key but is not a recognized removal instruction. It will still be recorded in the update transaction.
+          </Text>
+        </>
+      )}
+      {renderCmmChangeDescription(item, updateEntry, darkMode, children != null)}
+      {removalUi && item.showOperationDetails !== false && (
+        <View style={{gap: theme.spacing.sm}}>
+          {[
+            removalUi.detailBody,
+            removalEffectNote,
+            removalUi.emptyStateNote,
+            removalUi.metadataNote,
+            removalUi.historyNote,
+          ].filter(Boolean).map(note => (
+            <Text key={note} selectable style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+              {note}
+            </Text>
+          ))}
+          {item.removeMeta?.valueHash && (
+            <InfoSheetRow
+              label="Matching value hash"
+              value={item.removeMeta.valueHash}
+              valueStyle={[LocalStyles.cmmCardKeyId, darkMode && LocalStyles.cmmCardKeyIdDark]}
+              copy
+            />
+          )}
+        </View>
+      )}
       {children}
 
       {item.isEncryptedKey && (

@@ -1,6 +1,7 @@
 /** @format */
 import 'react-native-gesture-handler';
 import { AppRegistry, LogBox } from 'react-native';
+import {enableFreeze} from 'react-native-screens';
 
 const IGNORED_LOGS = [
   'Warning: componentWillMount is deprecated',
@@ -23,5 +24,10 @@ import './shims/crypto.js';
 import './shims/buffer.js';
 import App from './App';
 import {name as appName} from './app.json';
+
+// Keep mounted inactive screens from redrawing on each wallet update.
+// Screens delays freezing until after the first render, preserving tab preload.
+// The root wallet-setup overlay is outside these screen boundaries.
+enableFreeze(true);
 
 AppRegistry.registerComponent(appName, () => App);

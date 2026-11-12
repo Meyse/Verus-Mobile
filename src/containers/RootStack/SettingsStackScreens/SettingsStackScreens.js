@@ -6,7 +6,6 @@ import NetworkAndStorageSettings from '../../Settings/NetworkAndStorageSettings/
 import Appearance from '../../Settings/Appearance/Appearance';
 import AppInfo from '../../Settings/AppInfo/AppInfo';
 import GeneralWalletSettings from '../../Settings/WalletSettings/GeneralWalletSettings/GeneralWalletSettings';
-import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
 import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
 import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSettings';
 import {createSettingsHeaderOptions} from '../../../utils/navigation/header';
@@ -51,11 +50,6 @@ const SettingsStackScreens = () => {
         name="GeneralWalletSettings"
         component={GeneralWalletSettings}
         options={{title: signedInCopy.settings.general}}
-      />
-      <SettingsStack.Screen
-        name="AddressBlocklist"
-        component={AddressBlocklist}
-        options={{title: 'Blocked addresses'}}
       />
       <SettingsStack.Screen
         name="VrpcOverrides"

@@ -19,7 +19,6 @@ import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSetting
 import DeleteProfile from '../../Settings/ProfileSettings/DeleteProfile/DeleteProfile'
 import SecureLoading from '../../SecureLoading/SecureLoading'
 import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
-import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
 import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
 import NfcBackup from '../../Settings/WalletSettings/NfcBackup/NfcBackup';
 import ProfileSettings from '../../Settings/ProfileSettings/ProfileSettings';
@@ -258,14 +257,6 @@ const MainStackScreens = props => {
             options={{
               ...settingsHeaderOptions,
               title: "General",
-            }}
-          />
-          <MainStack.Screen
-            name="AddressBlocklist"
-            component={AddressBlocklist}
-            options={{
-              ...settingsHeaderOptions,
-              title: "Blocked addresses",
             }}
           />
           <MainStack.Screen

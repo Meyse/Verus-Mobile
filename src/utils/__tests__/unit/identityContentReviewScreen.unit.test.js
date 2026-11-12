@@ -140,7 +140,7 @@ test('shows unrecognized removal-key data without claiming it adds or removes cu
   })});
   const text = textContent(view.root);
 
-  expect(text).toContain('Included data');
+  expect(text).not.toContain('Included data');
   expect(text).toContain('Unrecognized removal data');
   expect(text).toContain('This data uses the removal key but is not a recognized removal instruction. It will still be recorded in the update transaction.');
   expect(text).toContain('This statement will still be recorded.');
@@ -164,7 +164,7 @@ test('does not describe ignored removal-key data as additions in a removal-only 
 
   expect(text).toContain('Remove earlier values');
   expect(text).toContain('Recorded data');
-  expect(text).toContain('Included data');
+  expect(text).not.toContain('Included data');
   expect(text).not.toContain('This request adds and removes content.');
   expect(view.root.findAllByProps({testID: 'identity-content-change'})).toHaveLength(2);
 });

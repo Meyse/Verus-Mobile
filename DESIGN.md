@@ -190,10 +190,6 @@ Bottom spacing stays the same. `AppButton` and `GradientButton` resolve this rul
 centrally through `useButtonHeight`, including explicit action heights. Text
 buttons keep their size.
 
-A short release on a hold button shows its action-specific hint in the same
-label slot for three seconds, and announces it for screen readers. A new hold
-clears the hint. A completed hold shows no hint. The footer does not move.
-
 ## Slide to confirm
 
 Use `src/components/SlideToConfirm.js` when money or keys leave the wallet and
@@ -203,6 +199,9 @@ update approval, and VerusID registration and management. Keep selection,
 review, decryption, retry, and unknown-status actions as normal buttons.
 The slide stays locked until its handler's promise settles. Cancelled gestures
 never commit. Each handler must return its operation or set a synchronous guard.
+A short slide shows its action-specific hint in the label slot for three seconds
+and announces it for screen readers. A new slide clears the hint. A completed
+slide shows no hint. The footer does not move.
 
 ## Imagery
 
@@ -1230,6 +1229,11 @@ on the Coin Overview, drawn by `FocusedTransactionRow` in
   The hidden/shown choice is per phone and survives account changes and app restarts.
 
 ## Transaction details
+
+Confirm, Sent and transaction-detail fact rows with `copyValue` copy the exact
+value on long press or the accessibility Copy action. Use `useCopyFeedback`
+and `CopyFeedback` for the light haptic and stable 1.4-second check/"Copied"
+feedback; `CopyAction` shares the hook and keeps its visible control.
 
 A tap on a history row opens `TransactionDetailsSheet` in
 `src/containers/Coin/Overview/TransactionDetailsSheet.js`. It replaced the legacy

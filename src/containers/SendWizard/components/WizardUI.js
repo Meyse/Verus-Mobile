@@ -13,6 +13,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import KeyboardAvoidingForm from '../../../components/KeyboardAvoidingForm';
 import AppButton from '../../../components/AppButton';
 import SlideToConfirm from '../../../components/SlideToConfirm';
+import CopyFeedback from '../../../components/CopyFeedback';
+import useCopyFeedback from '../../../hooks/useCopyFeedback';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
 import {SheetScrollCue} from '../../../components/SheetScrollView';
 import {deepLinkRequestReviewStyles} from '../../../styles';
@@ -317,9 +319,10 @@ export const DetailRow = ({label, value}) => {
 // hairline; each row draws its own bottom one. Pass `onPress` for a row that
 // opens a sheet, and `children` for a value that is not plain text. Pass
 // `numberOfLines={0}` where the whole value must stay readable, as for
-// addresses and fees.
+// addresses and fees. `copyValue` enables long-press copy of the exact value.
 export const FlatRow = ({
   children,
+  copyValue,
   label,
   numberOfLines = 2,
   onPress,
@@ -328,28 +331,33 @@ export const FlatRow = ({
   valueStyle,
 }) => {
   const theme = useOnboardingTheme();
+  const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {haptic: true});
   const content = (
     <>
       <Text style={[styles.flatLabel, {color: theme.colors.textSecondary}]}>
         {label}
       </Text>
       <View style={styles.flatValueWrap}>
-        {children || (
-          <Text
-            numberOfLines={numberOfLines}
-            style={[
-              styles.flatValue,
-              {
-                color: quiet
-                  ? theme.colors.textSecondary
-                  : theme.colors.textPrimary,
-              },
-              quiet && styles.flatValueQuiet,
-              valueStyle,
-            ]}>
-            {value}
-          </Text>
-        )}
+        <CopyFeedback copied={copied} style={styles.flatCopyValue}>
+          <View style={styles.flatValueContent}>
+            {children || (
+              <Text
+                numberOfLines={numberOfLines}
+                style={[
+                  styles.flatValue,
+                  {
+                    color: quiet
+                      ? theme.colors.textSecondary
+                      : theme.colors.textPrimary,
+                  },
+                  quiet && styles.flatValueQuiet,
+                  valueStyle,
+                ]}>
+                {value}
+              </Text>
+            )}
+          </View>
+        </CopyFeedback>
         {onPress ? (
           <MaterialCommunityIcons
             name="chevron-right"
@@ -363,7 +371,16 @@ export const FlatRow = ({
   );
   const rowStyle = [styles.flatRow, {borderBottomColor: theme.colors.border}];
 
-  return onPress ? (
+  return canCopy ? (
+    <Pressable
+      accessible
+      accessibilityRole={onPress ? 'button' : undefined}
+      {...copyProps}
+      onPress={onPress}
+      style={({pressed}) => [rowStyle, onPress && pressed && {opacity: 0.74}]}>
+      {content}
+    </Pressable>
+  ) : onPress ? (
     <TouchableOpacity
       accessibilityRole="button"
       activeOpacity={0.74}
@@ -528,6 +545,8 @@ const styles = StyleSheet.create({
   },
   flatLabel: {fontSize: 14, lineHeight: 19, marginRight: 16, ...fontStyle('regular')},
   flatValueWrap: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
+  flatCopyValue: {flex: 1, minWidth: 0},
+  flatValueContent: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
   flatValue: {flexShrink: 1, textAlign: 'right', fontSize: 14, lineHeight: 19, ...fontStyle('semiBold')},
   flatValueQuiet: {...fontStyle('regular')},
   flatChevron: {marginLeft: 2},

@@ -20,6 +20,7 @@ import AppButton from '../../../../components/AppButton';
 import SlideToConfirm from '../../../../components/SlideToConfirm';
 import BottomSheetModal from '../../../../components/BottomSheetModal';
 import CopyAction from '../../../../components/CopyAction';
+import InfoSheetSection from '../../../../components/InfoSheetSection';
 import SkeletonLoader, {SkeletonBlock} from '../../../../components/SkeletonLoader';
 import SafeBottomActionStack from '../../../../components/SafeBottomActionStack';
 import { useOnboardingTheme } from '../../../../theme/onboarding';
@@ -39,7 +40,11 @@ import {
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { satsToCoins, truncateDecimal } from '../../../../utils/math';
 import { API_GET_BALANCES, API_SEND, GENERAL, WYRE_SERVICE, USD } from '../../../../utils/constants/intervalConstants';
-import { GENERIC_REQUEST_DELIVERY_TYPES } from '../../../../utils/deeplink/genericRequestDelivery';
+import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericResponseDeliveryFailure,
+  isLocalResponsePostRejection,
+} from '../../../../utils/deeplink/genericRequestDelivery';
 import BigNumber from 'bignumber.js';
 import {
   GenericResponse,
@@ -168,6 +173,9 @@ const getBroadcastError = (error, txid) => {
 };
 
 const getDeliveryErrorMessage = (error, deliveryInfo) => {
+  if (isLocalResponsePostRejection(error)) {
+    return getGenericResponseDeliveryFailure(error).message;
+  }
   // The title says that the response was not sent. Say what to check.
   if (error?.isResponsePostError) {
     return `Check that ${
@@ -260,6 +268,9 @@ const ConfirmPayStep = ({
   const currentReviewInputs = useRef(reviewInputs);
   currentReviewInputs.current = reviewInputs;
   const hasFee = fee != null && preparedUpdate?.reviewInputs === reviewInputs && !calculating;
+  const preparedIdentity = useMemo(() => hasFee
+    ? identityToDisplayJson(preparedUpdate.built.identity) : null,
+  [hasFee, preparedUpdate]);
   useEffect(() => {
     setSelectedSource(null);
     setFee(null);
@@ -733,6 +744,19 @@ const ConfirmPayStep = ({
 
         <IdentityStateChangeCard change={preparedStateChange || identityStateChange} detailed />
 
+        {preparedIdentity?.primaryaddresses && (
+          <InfoSheetSection
+            title="Resulting identity"
+            rows={[
+              {label: 'Identity address', value: preparedIdentity.identityaddress || preparedIdentity.name},
+              {label: 'Required signatures', value: String(preparedIdentity.minimumsignatures)},
+              {label: 'Primary addresses', value: preparedIdentity.primaryaddresses.join('\n')},
+              {label: 'Revocation authority', value: friendlyNames[preparedIdentity.revocationauthority] || preparedIdentity.revocationauthority},
+              {label: 'Recovery authority', value: friendlyNames[preparedIdentity.recoveryauthority] || preparedIdentity.recoveryauthority},
+            ]}
+          />
+        )}
+
         {/* Fee */}
         <View style={localStyles.feeCard}>
           <Text style={localStyles.feeLabel}>Transaction fee</Text>
@@ -1031,20 +1055,20 @@ const ConfirmPayStep = ({
           )}
           {completionIsError && !completionIsBroadcastError && (
             <View style={localStyles.deliveryActions}>
-              <AppButton
+              {getGenericResponseDeliveryFailure(completionError).canRetry && <AppButton
                 height={52}
                 onPress={handleRetryDelivery}
                 style={localStyles.deliveryActionButton}
                 themeMode={theme.mode}
                 variant="primary">
                 Try again
-              </AppButton>
+              </AppButton>}
               <AppButton
                 height={52}
                 onPress={handleLeaveWithoutSending}
                 style={localStyles.deliveryActionButton}
                 themeMode={theme.mode}
-                variant="secondary">
+                variant={getGenericResponseDeliveryFailure(completionError).canRetry ? 'secondary' : 'primary'}>
                 Leave without sending
               </AppButton>
             </View>

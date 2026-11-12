@@ -1,3 +1,4 @@
+import {unstable_batchedUpdates} from 'react-native';
 import store from '../../store';
 import {
   ASSETS_HYDRATED,
@@ -15,7 +16,7 @@ import {
   scopeSessionAction,
   sessionScopeIsCurrent,
 } from '../../actions/actions/updates/sessionRequests';
-import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
+import {removeServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
 import {requestServiceStoredData} from '../auth/authBox';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
@@ -23,9 +24,21 @@ import {API_GET_BALANCES} from '../constants/intervalConstants';
 import {removedAssetRecord} from './removedAssets';
 import {resolvedAssetCoin} from './assetPresentation';
 import {
+  loadAssetDiscoveryCache,
+  saveAssetDiscoveryCache,
+} from './assetDiscoveryCache';
+import {
+  loadAssetChoices,
+  queueAssetChoicesWrite,
+  saveAssetChoices,
+  takeNewAssetChoices,
+  validateAssetChoices,
+} from './assetChoicesStorage';
+import {
   assetKey,
   assetNetworkKey,
   getPositiveVrpcHoldings,
+  isAssetShown,
   isMainAsset,
   isTestnetAccount,
   matchesVrpcHolding,
@@ -39,6 +52,9 @@ const RETRY_DELAY = 60000;
 const MAX_LOOKUPS_PER_PASS = 12;
 const hydrations = new Map();
 const discoveryJobs = new Map();
+// Retain legacy choices if migration cannot write/verify them. A later choice
+// write uses this complete record, never a failed or partial migration copy.
+const migrationFallbacks = new Map();
 let additionQueue = Promise.resolve();
 
 export const captureAssetContext = () => {
@@ -73,6 +89,84 @@ const dispatchForContext = (context, type, payload) => {
   store.dispatch(scopeSessionAction({type, payload}, context.sessionScope));
 };
 
+// Choices and the discovery cache have separate plain storage records.
+const choicesOnly = ({snapshots, resolved, ...choices}) => choices;
+const choicesRecord = saved => ({
+  ...saved,
+  version: 1,
+  networks: Object.fromEntries(Object.entries(saved.networks || {})
+    .map(([networkKey, network]) => [networkKey, choicesOnly(network)])),
+});
+
+// Older builds kept the discovery cache inside the choices record. Copy it
+// out before the next choices write drops it there.
+const moveSavedDiscovery = async (saved, accountHash) => {
+  try {
+    for (const [networkKey, network] of Object.entries(saved.networks || {})) {
+      if (network?.snapshots == null && network?.resolved == null) continue;
+      if (await loadAssetDiscoveryCache(accountHash, networkKey)) continue;
+      await saveAssetDiscoveryCache(accountHash, networkKey, network);
+    }
+  } catch (_) {
+    // It is a cache. Discovery builds it again from the next balance updates.
+  }
+};
+
+// The old encrypted entry, or none. A wallet made in this session has none.
+const hasLegacyChoices = () => store.getState().services.stored[STORAGE_ID] != null;
+
+const sessionFallback = context => {
+  const fallback = migrationFallbacks.get(context.sessionScope.accountHash);
+  return fallback?.sessionEpoch === context.sessionScope.sessionEpoch ? fallback.saved : null;
+};
+
+const loadStoredChoices = context => queueAssetChoicesWrite(
+  context.sessionScope.accountHash,
+  async () => {
+    assertCurrent(context);
+    const {accountHash, sessionEpoch} = context.sessionScope;
+    // Only an absent plain record starts a migration. A read error, an
+    // unreadable record or a future version fails hydration and keeps both
+    // records: the plain record can be newer than the old encrypted entry.
+    let saved = await loadAssetChoices(accountHash);
+    assertCurrent(context);
+    const fallback = sessionFallback(context);
+    if (!saved || fallback) {
+      const legacy = fallback || await requestServiceStoredData(STORAGE_ID);
+      assertCurrent(context);
+      validateAssetChoices(legacy, true);
+      await moveSavedDiscovery(legacy, accountHash);
+      assertCurrent(context);
+      saved = choicesRecord(legacy);
+      migrationFallbacks.set(accountHash, {sessionEpoch, saved});
+      try {
+        await saveAssetChoices(accountHash, saved);
+        assertCurrent(context);
+        const verified = await loadAssetChoices(accountHash);
+        assertCurrent(context);
+        if (JSON.stringify(verified) !== JSON.stringify(saved)) {
+          throw new Error('Asset preferences verification failed');
+        }
+        migrationFallbacks.delete(accountHash);
+      } catch (_) {
+        assertCurrent(context);
+        // Keep the encrypted entry and use the complete legacy data this
+        // session. Retry migration on the next hydration or choice write.
+        return saved;
+      }
+    }
+    if (store.getState().services.stored[STORAGE_ID] != null) {
+      try {
+        await removeServiceStoredDataForUser(STORAGE_ID, accountHash, context);
+      } catch (_) {
+        // A verified plain record wins even if encrypted cleanup fails.
+      }
+      assertCurrent(context);
+    }
+    return saved;
+  },
+);
+
 export const loadAssetManagement = async (context = captureAssetContext()) => {
   assertCurrent(context);
   const current = store.getState().assetManagement;
@@ -81,13 +175,25 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
   if (hydrations.has(key)) return hydrations.get(key);
   const loading = (async () => {
     try {
-      const saved = await requestServiceStoredData(STORAGE_ID);
+      // A wallet made in this session has no saved choices or found assets.
+      // Its first hydration reads no storage: during wallet setup each read
+      // waits seconds, and Home's rows must be drawn when the coins fly in.
+      const fresh = takeNewAssetChoices(context.sessionScope.accountHash) &&
+        !hasLegacyChoices();
+      const saved = fresh ? choicesRecord({}) : await loadStoredChoices(context);
       assertCurrent(context);
       if (saved.version != null && saved.version !== 1) {
         throw new Error('Asset preferences version unavailable');
       }
+      const {accountHash} = context.sessionScope;
+      const network = saved.networks?.[context.networkKey] || {};
+      if (!fresh) await moveSavedDiscovery(saved, accountHash);
+      const discovery = (!fresh &&
+        await loadAssetDiscoveryCache(accountHash, context.networkKey)) || network;
       dispatchForContext(context, ASSETS_HYDRATED, {
-        ...(saved.networks?.[context.networkKey] || {}),
+        ...choicesOnly(network),
+        snapshots: discovery.snapshots,
+        resolved: discovery.resolved,
         networkKey: context.networkKey,
       });
     } catch (error) {
@@ -95,35 +201,38 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
         dispatchForContext(context, ASSETS_HYDRATION_FAILED);
       }
       throw error;
-    } finally {
-      hydrations.delete(key);
     }
   })();
+  // A fresh hydration can settle before this line runs, so clear the entry
+  // after it is set, not in the loader.
   hydrations.set(key, loading);
+  const clear = () => {
+    if (hydrations.get(key) === loading) hydrations.delete(key);
+  };
+  loading.then(clear, clear);
   return loading;
 };
 
 const updateStoredAssets = (context, update) => {
   assertCurrent(context);
-  return modifyServiceStoredDataForUser(
-    saved => {
-      assertCurrent(context);
-      if (saved.version != null && saved.version !== 1) {
-        throw new Error('Asset preferences version unavailable');
-      }
-      return {
-        ...saved,
-        version: 1,
-        networks: {
-          ...saved.networks,
-          [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
-        },
-      };
-    },
-    STORAGE_ID,
-    context.sessionScope.accountHash,
-    context,
-  );
+  return queueAssetChoicesWrite(context.sessionScope.accountHash, async () => {
+    assertCurrent(context);
+    const {accountHash} = context.sessionScope;
+    const saved = sessionFallback(context) ||
+      await loadAssetChoices(accountHash) ||
+      (hasLegacyChoices() ? null : choicesRecord({}));
+    assertCurrent(context);
+    validateAssetChoices(saved);
+    const networks = {
+      ...saved.networks,
+      [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
+    };
+    const next = choicesRecord({...saved, version: 1, networks});
+    await saveAssetChoices(accountHash, next);
+    migrationFallbacks.delete(accountHash);
+    assertCurrent(context);
+    return next;
+  });
 };
 
 export const setAssetHomeVisibility = async (
@@ -133,6 +242,8 @@ export const setAssetHomeVisibility = async (
 ) => {
   await loadAssetManagement(context);
   assertCurrent(context);
+  // The saved choice already says this, so there is nothing to write.
+  if (isAssetShown(coin, store.getState().assetManagement.preferences) === shown) return;
   const saved = await updateStoredAssets(context, current => ({
     ...current,
     preferences: {
@@ -172,11 +283,14 @@ const restoreAssetPreferences = async (coin, removedKey, context) => {
   });
   // Publish only after storage succeeds. A failed write keeps the asset under
   // Removed assets, even if activation succeeded; Add back can retry it there.
-  dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
-    preferences: saved.networks[context.networkKey].preferences,
-  });
-  dispatchForContext(context, ASSET_REMOVALS_SAVED, {
-    removed: saved.networks[context.networkKey].removed,
+  // Both changes come from one write, so the screens draw them once.
+  unstable_batchedUpdates(() => {
+    dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
+      preferences: saved.networks[context.networkKey].preferences,
+    });
+    dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+      removed: saved.networks[context.networkKey].removed,
+    });
   });
 };
 
@@ -355,7 +469,11 @@ const persistDiscovery = async context => {
   assertCurrent(context);
   const {revision, persistedRevision, snapshots, resolved} = store.getState().assetManagement;
   if (revision === persistedRevision) return;
-  await updateStoredAssets(context, saved => ({...saved, snapshots, resolved}));
+  await saveAssetDiscoveryCache(
+    context.sessionScope.accountHash,
+    context.networkKey,
+    {snapshots, resolved},
+  );
   dispatchForContext(context, ASSET_DISCOVERY_SAVED, {revision});
 };
 

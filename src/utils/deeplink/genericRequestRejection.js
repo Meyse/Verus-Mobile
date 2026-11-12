@@ -9,6 +9,8 @@ export const GENERIC_REQUEST_REJECTION_CODES = {
   EXPIRED: 'REQUEST_EXPIRED',
   INVALID: 'REQUEST_INVALID',
   IDENTITY_DATA_UPLOAD_UNSUPPORTED: 'IDENTITY_DATA_UPLOAD_UNSUPPORTED',
+  IDENTITY_UPDATE_REFUSED: 'IDENTITY_UPDATE_REFUSED',
+  NETWORK_HEIGHT_UNAVAILABLE: 'NETWORK_HEIGHT_UNAVAILABLE',
   LINK_TOO_LONG: 'REQUEST_LINK_TOO_LONG',
   NETWORK_MISMATCH: 'REQUEST_NETWORK_MISMATCH',
   SIGNATURE_INVALID: 'REQUEST_SIGNATURE_INVALID',
@@ -75,6 +77,10 @@ export const getGenericRequestRejection = (error, context = {}) => {
     case GENERIC_REQUEST_REJECTION_CODES.NETWORK_MISMATCH: {
       const network = networkName(requestIsTestnet);
 
+      if (error?.rejectionMessage) {
+        return {canRetry: false, message: error.rejectionMessage, title: 'Wrong network'};
+      }
+
       if (error?.networksConflict === true) {
         return {
           canRetry: false,
@@ -114,7 +120,16 @@ export const getGenericRequestRejection = (error, context = {}) => {
       };
     case AUTHENTICATION_REQUEST_EXPIRED:
     case GENERIC_REQUEST_REJECTION_CODES.EXPIRED:
-      return {canRetry: false, message: NEW_REQUEST, title: 'Request expired'};
+      return {canRetry: false, message: error?.rejectionMessage || NEW_REQUEST, title: 'Request expired'};
+    case GENERIC_REQUEST_REJECTION_CODES.IDENTITY_UPDATE_REFUSED:
+      // Only local, authored refusal messages use this code. RPC errors do not.
+      return {canRetry: false, message: error.message, title: 'Cannot update identity'};
+    case GENERIC_REQUEST_REJECTION_CODES.NETWORK_HEIGHT_UNAVAILABLE:
+      return {
+        canRetry: true,
+        message: 'Unable to verify the current network height. Try again.',
+        title: 'Network unavailable',
+      };
     case GENERIC_REQUEST_REJECTION_CODES.SIGNATURE_INVALID:
       return {
         canRetry: false,

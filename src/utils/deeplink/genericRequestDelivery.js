@@ -34,7 +34,13 @@ export const GENERIC_REQUEST_DELIVERY_TYPES = {
   REDIRECT: 'redirect',
 };
 
+// Security checks reject locally before POST. Transport failures retain a cause.
+export const isLocalResponsePostRejection = error =>
+  error?.isResponsePostError === true && error.cause == null;
+
 export const getGenericResponseDeliveryFailure = error => {
+  if (isLocalResponsePostRejection(error))
+    return {canRetry: false, message: error.message};
   if (error?.code === 'AUTHENTICATION_REQUEST_EXPIRED')
     return {
       canRetry: false,
