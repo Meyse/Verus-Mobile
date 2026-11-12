@@ -11,7 +11,7 @@ import {useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
 import {capitalizeString} from '../utils/stringUtils';
 import {getVDXFKeyLabel} from '../utils/vdxf/vdxfTypeLabels';
-import {escapeContentReviewText} from '../utils/identityUpdate/contentReview';
+import {escapeContentReviewText, formatContentFieldCount} from '../utils/identityUpdate/contentReview';
 
 const abbreviateKeyId = iAddr =>
   `${iAddr.substring(0, 4)}...${iAddr.substring(iAddr.length - 4)}`;
@@ -79,7 +79,7 @@ export const getCmmDataPreview = (
 
     if (typeof value === 'object' && value != null) {
       const keys = Object.keys(value);
-      if (depth >= maxDepth) return `${keys.length} fields`;
+      if (depth >= maxDepth) return formatContentFieldCount(keys.length);
 
       if (keys.length === 1) {
         const key = keys[0];
@@ -87,7 +87,7 @@ export const getCmmDataPreview = (
         return `${label}: ${formatValue(value[key], depth + 1)}`;
       }
 
-      return `${keys.length} fields`;
+      return formatContentFieldCount(keys.length);
     }
 
     return trim(value);

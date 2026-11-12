@@ -7,6 +7,7 @@ import {
 } from 'verus-typescript-primitives';
 import {capitalizeString} from '../stringUtils';
 import {getVDXFKeyLabel} from '../vdxf/vdxfTypeLabels';
+import {formatContentFieldCount} from '../identityUpdate/contentReview';
 
 // Content v1: a read-only description of the on-chain content of a VerusID,
 // for the Content sheet on the VerusID page. Encrypted values are never
@@ -74,7 +75,7 @@ const describeStructured = value => ({
   kind: KIND.DATA,
   value: Array.isArray(value)
     ? plural(value.length, 'item', 'items')
-    : plural(Object.keys(value).length, 'field', 'fields'),
+    : formatContentFieldCount(Object.keys(value).length),
 });
 
 // JSON text with an object or array at the top describes as structured data.

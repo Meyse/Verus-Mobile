@@ -14,6 +14,9 @@ import {
 } from 'verus-typescript-primitives';
 import {getVDXFKeyLabel} from '../vdxf/vdxfTypeLabels';
 
+export const formatContentFieldCount = count =>
+  `${count} ${count === 1 ? 'field' : 'fields'}`;
+
 const LABELS = {
   message: 'Message', messagehex: 'Message (hex)', messagebase64: 'Message (base64)',
   serializedhex: 'Encoded data (hex)', serializedbase64: 'Encoded data (base64)',
