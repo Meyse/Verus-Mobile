@@ -201,11 +201,15 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
         dispatchForContext(context, ASSETS_HYDRATION_FAILED);
       }
       throw error;
-    } finally {
-      hydrations.delete(key);
     }
   })();
+  // A fresh hydration can settle before this line runs, so clear the entry
+  // after it is set, not in the loader.
   hydrations.set(key, loading);
+  const clear = () => {
+    if (hydrations.get(key) === loading) hydrations.delete(key);
+  };
+  loading.then(clear, clear);
   return loading;
 };
 
