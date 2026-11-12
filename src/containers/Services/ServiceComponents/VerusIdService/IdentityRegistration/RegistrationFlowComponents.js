@@ -6,6 +6,7 @@ import {useAppTheme} from '../../../../../theme/app';
 import AppStatusBadge from '../../../../../components/StatusBadge';
 import TextAction from '../../../../../components/TextAction';
 import CopyAction from '../../../../../components/CopyAction';
+import SkeletonLoader, {SkeletonBlock} from '../../../../../components/SkeletonLoader';
 import SelectionSheet, {SelectionRow} from '../../../../../components/SelectionSheet';
 import useSheetDismissal from '../../../../../components/useSheetDismissal';
 import {InfoSheetTopic} from '../../../../../components/InfoSheetSection';
@@ -61,40 +62,86 @@ export const RegistrationPayerSheet = ({visible, onClose, onSelect, sources, sel
   </SelectionSheet>;
 };
 
-export const RegistrationFunds = ({data, source, coin, coins, balances, reads, showBalance, funding, referralOnly, onRetry, compact = false}) => {
+// Display quotes use atomic amounts; balances from the ledger/read API use coins.
+export const RegistrationFunds = ({data, source, coin, coins, balances, reads, showBalance, funding,
+  referralOnly, onRetry, prices = {}, namespace, smallDevice = false, compact = false}) => {
   const styles = useRegistrationStyles();
-  if (!data?.quote) return null;
-  const {quote, referralQuote, currencyNames} = data;
-  const priceId = quote.feePricingCurrencyID || quote.issuerID;
-  const two = priceId !== quote.systemID;
-  const price = quote.totalOperationRequired[priceId];
-  const label = currencyLabel(funding?.currencyId || priceId, currencyNames);
+  const theme = useAppTheme();
+  const fiat = useRegistrationFiat();
   const enough = funding?.status === 'enough';
-  const badge = enough ? referralOnly ? 'Enough with a referral' : 'Enough funds'
-    : funding?.status === 'short' ? two ? `Not enough ${label}` : 'Not enough funds' : null;
-  return <View style={styles.section}>
-    <View style={styles.row}><Text style={styles.label}>Price</Text><Text style={styles.amount}>{formatRegistrationAmount(price)} {currencyLabel(priceId, currencyNames)}</Text></View>
-    {!!referralQuote && <Text style={[styles.muted, {textAlign: 'right'}]}>{formatRegistrationAmount(referralQuote.totalOperationRequired[priceId])} {currencyLabel(priceId, currencyNames)} with a referral</Text>}
-    {two && <View style={styles.row}><Text style={styles.label}>Network fees</Text><Text style={styles.amount}>{formatRegistrationAmount(quote.totalOperationRequired[quote.systemID])} {currencyLabel(quote.systemID, currencyNames)}</Text></View>}
-    {!compact && <View style={styles.divider} />}
-    {!compact && <>
-    <View style={[styles.row, {alignItems: 'flex-start'}]}>
-      <Text style={[styles.label, styles.fundsLabel]}>You have</Text>
-      <View style={styles.fundsValues}>
-      <View style={styles.fundsAmounts}>{[priceId, ...(two ? [quote.systemID] : [])].map(id => {
-        const balance = registrationCurrencyBalance(id, source, coin, coins, balances, reads);
-        return <Text key={id} style={styles.amount}>{!showBalance ? 'Balance hidden' : balance == null ? 'Checking…' : `${balance} ${currencyLabel(id, currencyNames)}`}</Text>;
-      })}</View>
-      {!two && badge && <AppStatusBadge label={badge} tone={enough ? 'success' : 'danger'} />}
+  // A referral-only payer sees the amount they can actually pay. The Referral
+  // step still resolves the real recipient before the engine prepares anything.
+  const quote = referralOnly && enough && data?.referralQuote ? data.referralQuote : data?.quote;
+  const priceId = quote?.feePricingCurrencyID || quote?.issuerID || namespace?.id || coin?.system_id;
+  const systemId = quote?.systemID || coin?.system_id;
+  const ids = [priceId, ...(priceId !== systemId ? [systemId] : [])];
+  const rows = ids.map((id, index) => ({id, label: index === 0 ? 'Price' : 'Network fees',
+    amount: quote?.totalOperationRequired[id], currency: currencyLabel(id, data?.currencyNames)}));
+  const problem = funding?.status === 'error' && <>
+    <RegistrationText style={styles.errorText}>Payer balances could not be checked.</RegistrationText>
+    <TextAction onPress={onRetry}>Try again</TextAction>
+  </>;
+  if (compact) {
+    if (!quote) return null;
+    const label = currencyLabel(funding?.currencyId || priceId, data?.currencyNames);
+    const badge = enough ? referralOnly ? 'Enough with a referral' : 'Enough funds'
+      : funding?.status === 'short' ? ids.length > 1 ? `Not enough ${label}` : 'Not enough funds' : null;
+    return <View style={styles.section}>
+      {rows.map(row => <View key={row.id} style={styles.row}>
+        <Text style={styles.label}>{row.label}</Text>
+        <Text style={styles.amount}>{formatRegistrationAmount(row.amount)} {row.currency}</Text>
+      </View>)}
+      {badge && <AppStatusBadge style={{alignSelf: 'flex-start'}} label={badge} tone={enough ? 'success' : 'danger'} />}
+      {funding?.status === 'checking' && <RegistrationText muted>Checking funds…</RegistrationText>}
+      {problem}
+    </View>;
+  }
+  if (!coin || !source) return null;
+  const cardStyle = [styles.fundsCard, smallDevice && styles.fundsCardSmall];
+  const meterStyle = [styles.fundsMeter, smallDevice && styles.fundsMeterSmall];
+  const balanceStyle = [styles.fundsBalance, smallDevice && styles.fundsBalanceSmall];
+  const cardsStyle = [styles.fundsCards, smallDevice && styles.fundsCardsSmall];
+  if (!quote) return <SkeletonLoader accessibilityLabel="Loading price and funds">
+    <View style={cardsStyle}>{rows.map(row => <View key={row.id} style={cardStyle}>
+      <View style={[styles.fundsTop, {alignItems: 'center'}]}>
+        <Text style={styles.label}>{row.label}</Text>
+        <SkeletonBlock color={theme.colors.border} height={smallDevice ? 22 : 26} width="48%" />
       </View>
-    </View>
-    {two && badge && <AppStatusBadge style={{alignSelf: 'flex-start'}} label={badge} tone={enough ? 'success' : 'danger'} />}
-    </>}
-    {compact && badge && <AppStatusBadge style={{alignSelf: 'flex-start'}} label={badge} tone={enough ? 'success' : 'danger'} />}
-    {compact && funding?.status === 'checking' && <RegistrationText muted>Checking funds…</RegistrationText>}
-    {!compact && referralOnly && enough && <RegistrationText muted>You choose a referral in the next step.</RegistrationText>}
-    {!compact && funding?.status === 'short' && <RegistrationText muted>Add {label} to this wallet to continue.</RegistrationText>}
-    {funding?.status === 'error' && <><RegistrationText style={styles.errorText}>Payer balances could not be checked.</RegistrationText><TextAction onPress={onRetry}>Try again</TextAction></>}
+      {!!fiat({[row.id]: '100000000'}, prices) && <SkeletonBlock color={theme.colors.border}
+        height={smallDevice ? 18 : 20} width="24%" style={[styles.fundsFiat, smallDevice && styles.fundsFiatSmall, {alignSelf: 'flex-end'}]} />}
+      <SkeletonBlock color={theme.colors.border} style={meterStyle} height={smallDevice ? 6 : 8} />
+      <SkeletonBlock color={theme.colors.border} height={smallDevice ? 18 : 20} width="64%" style={balanceStyle} />
+    </View>)}</View>
+  </SkeletonLoader>;
+  return <View style={cardsStyle}>
+    {rows.map(row => {
+      const value = registrationCurrencyBalance(row.id, source, coin, coins, balances, reads);
+      const balance = new BigNumber(value);
+      const known = value != null && balance.isFinite() && !balance.isNegative() && funding?.status !== 'error';
+      const required = new BigNumber(row.amount);
+      const atomicBalance = balance.times('100000000');
+      const short = known && atomicBalance.lt(required);
+      const fraction = known ? required.isZero() ? 1 : BigNumber.minimum(atomicBalance.div(required), 1).toNumber() : 0;
+      const amount = formatRegistrationAmount(row.amount);
+      const fiatValue = fiat({[row.id]: row.amount}, prices);
+      const balanceText = !showBalance ? 'Balance hidden' : !known ? 'Checking…' : `You have ${value} ${row.currency}`;
+      const meterText = !showBalance ? 'Balance hidden' : !known ? 'Checking…' : `${value} of ${amount} ${row.currency}`;
+      return <View key={row.id} style={cardStyle}>
+        <View style={styles.fundsTop}>
+          <Text style={styles.label}>{row.label}</Text>
+          <Text style={[styles.fundsAmount, smallDevice && styles.fundsAmountSmall]}>{amount} {row.currency}</Text>
+        </View>
+        {!!fiatValue && <Text style={[styles.fundsFiat, smallDevice && styles.fundsFiatSmall]}>{fiatValue}</Text>}
+        <View style={meterStyle} accessible accessibilityRole="progressbar" accessibilityLabel={row.label}
+          accessibilityValue={{text: meterText}}>
+          {showBalance && known && <View style={[styles.fundsMeterFill, {width: `${fraction * 100}%`,
+            backgroundColor: short ? theme.colors.danger : theme.colors.success}]} />}
+        </View>
+        <Text style={[balanceStyle, showBalance && short && (smallDevice ? styles.fundsBalanceShortSmall : styles.fundsBalanceShort)]}>{balanceText}</Text>
+      </View>;
+    })}
+    {referralOnly && enough && <RegistrationText muted>You choose a referral in the next step.</RegistrationText>}
+    {problem}
   </View>;
 };
 

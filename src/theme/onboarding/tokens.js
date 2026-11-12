@@ -71,6 +71,7 @@ const shared = {
       lineHeight: 22,
       ...fontStyle('semiBold'),
     },
+    registrationAmountCompact: {fontSize: 17, lineHeight: 22, ...fontStyle('semiBold')},
     titleRowCompact: {
       fontSize: 15,
       lineHeight: 19,

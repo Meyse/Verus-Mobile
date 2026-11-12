@@ -1445,8 +1445,9 @@ page itself shows no mark.
   Under it, the asset count in `caption` ("2 assets", "No assets"). A
   `StatusBadge` shows only for Locked (warning) or Revoked (danger); Active is
   silent. A chevron ends the row. The title has no count pill.
-- No linked VerusID: `EmptyState` with `AtSign`, "No VerusID linked", one line
-  and "Link VerusID". The list header's ⓘ ("About VerusID") opens the
+- No linked VerusID: `EmptyState` with `AtSign`, "No VerusID yet", the create
+  or link explanation, and "Add VerusID". The action opens the same options
+  sheet as the header +, with New VerusID and Link VerusID. The list header's ⓘ ("About VerusID") opens the
   explainer; the empty state has no second link to it.
 - Header: the arrow back button, and ⋯ on the right. After the card scrolls
   away, the header shows the first part of the name. ⋯ opens three action rows:
@@ -1527,6 +1528,23 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
 Owner approved 2026-11-04: V3 name field, two-payment registration screen, and
 namespace sheet. Canonical source: `IdentityRegistration/RegistrationDesign.js`
 and `identityRegistration.styles.js`. This applies to registration only.
+
+Owner-approved 2026-11-13: R15 meter cards and R13 Add VerusID empty state.
+Name shows one Price card, plus Network fees for a two-currency namespace.
+These cards are an approved exception to flat pages. Use `surfaceRaised` in
+dark mode and `surfaceMuted` in light mode, without borders. Cards use 18-point
+corners, 18/20-point padding and a 12-point gap. At the existing 667-point
+window cutoff, use 16-point corners, 12/16-point padding and an 8-point gap.
+Amounts use `titleSheet`, or `registrationAmountCompact` (17/22). Fiat appears
+only with a display-currency price. Use a rounded 8-point balance meter (6
+compact), then You have. Short balances use danger text and semibold weight.
+Do not add badges, icons or shortage instructions to these cards. Hidden
+balances also hide the meter fill and its accessible balance. Referral-only
+funding shows the affordable referral quote and the next-step note.
+Retain the last display quote while checking another name in the same funding
+context. Continue still requires a fresh name result. Before a quote arrives,
+use `SkeletonLoader` with the same card shapes and expected currency count.
+The keyboard footer keeps compact amount rows without a referral price line.
 
 - Reuse `AppTextInput` with the namespace in `endAccessory`: one 48-point
   outline, 12-point radius, and a 1-point divider between the editable name and
