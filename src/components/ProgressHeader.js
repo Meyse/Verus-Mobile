@@ -154,6 +154,8 @@ const ProgressHeader = ({
 
 const styles = StyleSheet.create({
   actionPlaceholder: {
+    // Mirrors actionSlot's -8 offset so a title without Back stays centered.
+    marginLeft: -8,
     width: 44,
     height: 44,
   },
