@@ -72,6 +72,7 @@ import {
   GENERIC_REQUEST_DELIVERY_TYPES,
   getGenericRequestDeliveryInfo,
   getGenericResponseDeliveryFailure,
+  isLocalResponsePostRejection,
 } from '../../../utils/deeplink/genericRequestDelivery';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {
@@ -216,6 +217,9 @@ const getAutoDeliverySheetMessage = ({
   successMessage,
 }) => {
   if (isError) {
+    if (isLocalResponsePostRejection(error)) {
+      return getGenericResponseDeliveryFailure(error).message;
+    }
     if (error?.isResponsePostError) {
       // The title says that the response was not sent. Say what to check.
       // A host goes on its own line. A URL otherwise breaks after the scheme
@@ -348,7 +352,7 @@ const AutoDeliverySheetContent = ({
           <AppButton
             height={52}
             onPress={onLeaveWithoutSending}
-            variant="secondary">
+            variant={getGenericResponseDeliveryFailure(error).canRetry ? 'secondary' : 'primary'}>
             Leave without sending
           </AppButton>
         </View>

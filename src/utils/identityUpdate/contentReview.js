@@ -104,6 +104,15 @@ const descriptorView = descriptor => ({
   ivk: descriptor.ivk?.toString('hex'), ssk: descriptor.ssk?.toString('hex'),
 });
 
+// Escape display text only. Callers keep the original value for copying or signing.
+export const escapeContentReviewText = (text, onEscape) => String(text).replace(
+  /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g,
+  char => {
+    onEscape?.();
+    return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
+  },
+);
+
 /** Display only. Never use this model to construct or sign an identity update. */
 export const buildContentReview = (value, {label = 'Content', isUpload = false} = {}) => {
   const fields = [], warnings = new Set(), ancestors = new Set();
@@ -149,14 +158,17 @@ export const buildContentReview = (value, {label = 'Content', isUpload = false} 
   };
 
   const normalized = normalize(value);
-  const visibleText = text => String(text).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, char => {
+  const visibleText = text => escapeContentReviewText(text, () => {
     warn('Some text contains invisible control characters. They are shown as Unicode escapes so you can review them.');
-    return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
   });
-  const add = (key, path, text, kind = 'text') => fields.push({
-    id: `${fields.length}:${path.join('.')}:${key}`, label: visibleText(fieldLabel(key)),
-    path: path.map(part => visibleText(fieldLabel(part))).join(' › '), value: visibleText(text), kind,
-  });
+  const add = (key, path, text, kind = 'text', copyValue = text) => {
+    const displayValue = visibleText(text);
+    fields.push({
+      id: `${fields.length}:${path.join('.')}:${key}`, label: visibleText(fieldLabel(key)),
+      path: path.map(part => visibleText(fieldLabel(part))).join(' › '),
+      value: displayValue, copyValue: String(copyValue), escaped: displayValue !== String(text), kind,
+    });
+  };
 
   const decodeBytes = (bytes, key, path, encrypted, encodedText) => {
     let readable = false;
@@ -176,11 +188,11 @@ export const buildContentReview = (value, {label = 'Content', isUpload = false} 
       }
       if (!readable) {
         const text = readableUtf8(bytes);
-        if (text != null) { add('Decoded text', path.concat(key), formatText(text)); readable = true; }
+        if (text != null) { add('Decoded text', path.concat(key), formatText(text), 'text', text); readable = true; }
       }
     }
     if (!readable && bytes.length && !encrypted) warn('Some content is binary or uses an unsupported format. Its exact encoded data is included, but its meaning cannot be fully displayed.');
-    add(key, path, encodedText === '' ? 'Empty data (0 bytes)' : encodedText, 'encoded');
+    add(key, path, encodedText === '' ? 'Empty data (0 bytes)' : encodedText, 'encoded', encodedText);
   };
 
   const visit = (input, key, path, encrypted = false) => {
@@ -221,7 +233,7 @@ export const buildContentReview = (value, {label = 'Content', isUpload = false} 
       warn('Some encoded data could not be decoded. Its supplied value is shown unchanged.');
     }
     add(key, path, typeof input === 'boolean' ? (input ? 'Yes (true)' : 'No (false)') :
-      input === '' ? 'Empty text' : formatText(String(input)), METADATA.has(key) ? 'metadata' : 'text');
+      input === '' ? 'Empty text' : formatText(String(input)), METADATA.has(key) ? 'metadata' : 'text', String(input));
   };
 
   visit(normalized, label, []);

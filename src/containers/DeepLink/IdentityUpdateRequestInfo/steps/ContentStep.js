@@ -11,6 +11,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import {ContentMultiMapRemoveKey} from 'verus-typescript-primitives';
 import CopyAction from '../../../../components/CopyAction';
 import InfoSheet from '../../../../components/InfoSheet';
 import {InfoSheetRow} from '../../../../components/InfoSheetSection';
@@ -21,6 +22,7 @@ import VerusIdContentChangeCard, {
   buildVerusIdContentChangeItems,
   contentChangeMatchesFilter,
   getCmmDataKeyLabel,
+  getFullContentChangeKey,
   normalizeCmmDisplayUpdates,
 } from '../../../../components/VerusIdContentChangeCard';
 import {verusIdObjectDataStyles as contentStyles} from '../../../../styles';
@@ -291,23 +293,36 @@ const VerusIdContentChanges = ({
         </View>
       )}
 
-      {visibleItems.map(item => (
-        <VerusIdContentChangeCard
-          key={item.key}
-          item={item}
-          darkMode={darkMode}
-          panelTone={true}
-          updateEntry={cmmUpdates[item.key]}
-          visibilityLabel={item.changeType === 'removed' ? null :
-            item.isEncrypted ? 'Encrypted upload' : item.isEncryptedKey ? 'Encrypted credential' : 'Public'}
-          onPress={cmmUpdates[item.key]?.signData
-            ? () => setUploadReview({title: item.title, upload: cmmUpdates[item.key].signData})
-            : undefined}>
-          {cmmUpdates[item.key]?.signData && (
-            <UploadContentReview upload={cmmUpdates[item.key].signData} />
-          )}
-        </VerusIdContentChangeCard>
-      ))}
+      {visibleItems.map(item => {
+        const updateEntry = cmmUpdates[item.updateKey ?? item.key];
+        return (
+          <VerusIdContentChangeCard
+            key={item.key}
+            item={item}
+            darkMode={darkMode}
+            panelTone={true}
+            updateEntry={updateEntry}
+            visibilityLabel={item.changeType === 'removed' ? null :
+              item.isEncrypted ? 'Encrypted upload' : item.isEncryptedKey ? 'Encrypted credential' : 'Public'}
+            onPress={updateEntry?.signData
+              ? () => setUploadReview({title: item.title, upload: updateEntry.signData})
+              : undefined}>
+            {item.showOperationDetails === false ? null : updateEntry?.signData ? (
+              <UploadContentReview upload={updateEntry.signData} />
+            ) : item.removeMeta && updateEntry?.rawData != null ? (
+              <UploadContentReview
+                upload={updateEntry.rawData}
+                isUpload={false}
+                label="Removal data"
+                shownRemovalHash={updateEntry.removalUi ? item.removeMeta.valueHash : undefined}
+                shownRemovalKey={getFullContentChangeKey(item, updateEntry)}
+              />
+            ) : updateEntry?.rawData != null ? (
+              <ContentValuesReview value={updateEntry.rawData} />
+            ) : null}
+          </VerusIdContentChangeCard>
+        );
+      })}
 
       <InfoSheet
         visible={uploadReview != null && uploadReview.visible !== false}
@@ -341,11 +356,23 @@ const VerusIdContentChanges = ({
   );
 };
 
-// Read the original typed upload. Keep every field and warning visible, including
+const ContentValuesReview = ({value}) => {
+  const values = Array.isArray(value) ? value : [value];
+  return values.map((entry, index) => (
+    <UploadContentReview
+      key={index}
+      upload={entry}
+      isUpload={false}
+      label={values.length > 1 ? `Value ${index + 1} of ${values.length}` : 'Content to add'}
+    />
+  ));
+};
+
+// Read the original content. Keep every field and warning visible, including
 // exact encoded bytes. The sheet adds shared copy actions without changing data.
-const UploadContentReview = ({upload, copy = false}) => {
+const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Upload content', shownRemovalHash, shownRemovalKey}) => {
   const theme = useOnboardingTheme();
-  const review = useMemo(() => buildContentReview(upload, {isUpload: true, label: 'Upload content'}), [upload]);
+  const review = useMemo(() => buildContentReview(upload, {isUpload, label}), [upload, isUpload, label]);
   return (
     <View>
       {review.warnings.map(warning => (
@@ -353,12 +380,21 @@ const UploadContentReview = ({upload, copy = false}) => {
           {warning}
         </Text>
       ))}
-      {review.fields.map(field => (
+      {review.fields.filter(field => {
+        // Match the removal object's own fields, never unrelated nested data.
+        if (shownRemovalHash && field.id.endsWith(`${ContentMultiMapRemoveKey.vdxfid}:valuehash`) &&
+            field.copyValue === shownRemovalHash) return false;
+        if (shownRemovalKey && field.id.endsWith(`${ContentMultiMapRemoveKey.vdxfid}:entrykey`) &&
+            field.copyValue === shownRemovalKey) return false;
+        return true;
+      }).map(field => (
         <InfoSheetRow
           key={field.id}
           label={field.path ? `${field.path} › ${field.label}` : field.label}
           value={field.value}
           copy={copy}
+          copyValue={field.copyValue}
+          selectable={!field.escaped}
           valueStyle={field.kind === 'encoded' ? [contentStyles.cmmCardKeyId, theme.isDark && contentStyles.cmmCardKeyIdDark] : undefined}
         />
       ))}
@@ -409,14 +445,14 @@ const ContentStep = ({
   }, [displayUpdates]);
   const totalContentCount = cmmItems.length + privateInfoItems.length;
   const addCount =
-    cmmItems.filter(item => item.changeType !== 'removed').length +
+    cmmItems.filter(item => item.changeType === 'added' || item.changeType === 'appended').length +
     privateInfoItems.length;
   const removeCount = cmmItems.filter(
     item => item.changeType === 'removed',
   ).length;
   // Private address changes are not content values a removal can affect.
   const hasMixedCmmChanges =
-    removeCount > 0 && cmmItems.some(item => item.changeType !== 'removed');
+    removeCount > 0 && cmmItems.some(item => item.changeType === 'added' || item.changeType === 'appended');
   const privateCount =
     cmmItems.filter(item => contentChangeMatchesFilter(item, 'protect'))
       .length + privateInfoItems.length;

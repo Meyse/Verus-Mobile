@@ -1,5 +1,6 @@
 import {identityUploadToDisplayJson} from '../../../utils/identityUpdate/uploadDisplay';
 import {identityToDisplayJson} from '../../../utils/identityUpdate/identityDisplay';
+import {escapeContentReviewText} from '../../../utils/identityUpdate/contentReview';
 import {useRequestBackHandler} from '../useRequestNavigation';
 /*
   IdentityUpdateRequestInfo
@@ -145,6 +146,7 @@ const RawDataSheet = ({
     () => (rawData != null ? formatRawData(rawData) : ''),
     [rawData],
   );
+  const displayText = escapeContentReviewText(rawText);
 
   return (
     <BottomSheetModal
@@ -168,8 +170,8 @@ const RawDataSheet = ({
         <ScrollView
           style={styles.rawDataSheetScroll}
           contentContainerStyle={styles.rawDataSheetScrollContent}>
-          <Text selectable style={styles.rawDataSheetValue}>
-            {rawText}
+          <Text selectable={displayText === rawText} style={styles.rawDataSheetValue}>
+            {displayText}
           </Text>
         </ScrollView>
         <AppButton
@@ -545,6 +547,23 @@ const IdentityUpdateRequestInfoContent = props => {
       }
       const {removeEntries, nonRemoveUpdates} = splitContentMultiMapUpdates(key, updates);
 
+      // These values have no removal effect, but their bytes are still recorded.
+      if (key === ContentMultiMapRemoveKey.vdxfid) {
+        const recognizedIndexes = new Set(removeEntries.map(entry => entry.index));
+        const values = Array.isArray(updates) ? updates : updates == null ? [] : [updates];
+        const unrecognized = values.filter((_, index) => !recognizedIndexes.has(index));
+        if (unrecognized.length > 0) {
+          displayUpdates[VERUSID_CMM_INFO.key][`${VERUSID_CMM_DATA.key}:${key}:unrecognized`] = {
+            data: 'Unrecognized removal data',
+            displayTitle: 'Unrecognized removal data',
+            contentKey: key,
+            rawData: unrecognized,
+            unrecognizedRemoval: true,
+            onPress: () => openRawDataSheet(unrecognized, 'Unrecognized removal data'),
+          };
+        }
+      }
+
       if (removeEntries.length > 0) {
         removeEntries.forEach(({update, removeMeta, index}) => {
           const removeUi = buildContentMultiMapRemoveUi({
@@ -565,6 +584,7 @@ const IdentityUpdateRequestInfoContent = props => {
           // derive remove-action copy from the current identity state, not from chain permanence.
           displayUpdates[VERUSID_CMM_INFO.key][updateKey] = {
             data: removeUi.summary,
+            removalUi: removeUi,
             rawData: [update],
             removeMeta: {
               ...removeMeta,
