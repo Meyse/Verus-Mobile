@@ -307,7 +307,7 @@ const Login = props => {
         backgroundColor="transparent"
         translucent
       />
-      <WelcomeBackgroundVideo />
+      <WelcomeBackgroundVideo paused={unlockAccount != null} />
       <View
         style={[
           styles.logoContainer,
