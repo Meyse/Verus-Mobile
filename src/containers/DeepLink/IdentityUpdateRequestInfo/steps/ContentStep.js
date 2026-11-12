@@ -303,9 +303,11 @@ const VerusIdContentChanges = ({
           onPress={cmmUpdates[item.key]?.signData
             ? () => setUploadReview({title: item.title, upload: cmmUpdates[item.key].signData})
             : undefined}>
-          {cmmUpdates[item.key]?.signData && (
+          {cmmUpdates[item.key]?.signData ? (
             <UploadContentReview upload={cmmUpdates[item.key].signData} />
-          )}
+          ) : !item.removeMeta && cmmUpdates[item.key]?.rawData != null ? (
+            <ContentValuesReview value={cmmUpdates[item.key].rawData} />
+          ) : null}
         </VerusIdContentChangeCard>
       ))}
 
@@ -341,11 +343,23 @@ const VerusIdContentChanges = ({
   );
 };
 
-// Read the original typed upload. Keep every field and warning visible, including
+const ContentValuesReview = ({value}) => {
+  const values = Array.isArray(value) ? value : [value];
+  return values.map((entry, index) => (
+    <UploadContentReview
+      key={index}
+      upload={entry}
+      isUpload={false}
+      label={values.length > 1 ? `Value ${index + 1} of ${values.length}` : 'Content to add'}
+    />
+  ));
+};
+
+// Read the original content. Keep every field and warning visible, including
 // exact encoded bytes. The sheet adds shared copy actions without changing data.
-const UploadContentReview = ({upload, copy = false}) => {
+const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Upload content'}) => {
   const theme = useOnboardingTheme();
-  const review = useMemo(() => buildContentReview(upload, {isUpload: true, label: 'Upload content'}), [upload]);
+  const review = useMemo(() => buildContentReview(upload, {isUpload, label}), [upload, isUpload, label]);
   return (
     <View>
       {review.warnings.map(warning => (

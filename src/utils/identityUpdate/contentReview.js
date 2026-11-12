@@ -104,6 +104,15 @@ const descriptorView = descriptor => ({
   ivk: descriptor.ivk?.toString('hex'), ssk: descriptor.ssk?.toString('hex'),
 });
 
+// Escape display text only. Callers keep the original value for copying or signing.
+export const escapeContentReviewText = (text, onEscape) => String(text).replace(
+  /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g,
+  char => {
+    onEscape?.();
+    return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
+  },
+);
+
 /** Display only. Never use this model to construct or sign an identity update. */
 export const buildContentReview = (value, {label = 'Content', isUpload = false} = {}) => {
   const fields = [], warnings = new Set(), ancestors = new Set();
@@ -149,9 +158,8 @@ export const buildContentReview = (value, {label = 'Content', isUpload = false} 
   };
 
   const normalized = normalize(value);
-  const visibleText = text => String(text).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, char => {
+  const visibleText = text => escapeContentReviewText(text, () => {
     warn('Some text contains invisible control characters. They are shown as Unicode escapes so you can review them.');
-    return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
   });
   const add = (key, path, text, kind = 'text') => fields.push({
     id: `${fields.length}:${path.join('.')}:${key}`, label: visibleText(fieldLabel(key)),

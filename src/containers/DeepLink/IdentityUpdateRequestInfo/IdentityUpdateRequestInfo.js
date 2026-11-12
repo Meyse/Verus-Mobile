@@ -1,5 +1,6 @@
 import {identityUploadToDisplayJson} from '../../../utils/identityUpdate/uploadDisplay';
 import {identityToDisplayJson} from '../../../utils/identityUpdate/identityDisplay';
+import {escapeContentReviewText} from '../../../utils/identityUpdate/contentReview';
 import {useRequestBackHandler} from '../useRequestNavigation';
 /*
   IdentityUpdateRequestInfo
@@ -169,7 +170,7 @@ const RawDataSheet = ({
           style={styles.rawDataSheetScroll}
           contentContainerStyle={styles.rawDataSheetScrollContent}>
           <Text selectable style={styles.rawDataSheetValue}>
-            {rawText}
+            {escapeContentReviewText(rawText)}
           </Text>
         </ScrollView>
         <AppButton

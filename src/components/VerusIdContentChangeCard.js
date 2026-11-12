@@ -10,6 +10,7 @@ import {useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
 import {capitalizeString} from '../utils/stringUtils';
 import {getVDXFKeyLabel} from '../utils/vdxf/vdxfTypeLabels';
+import {escapeContentReviewText} from '../utils/identityUpdate/contentReview';
 
 const abbreviateKeyId = iAddr =>
   `${iAddr.substring(0, 4)}...${iAddr.substring(iAddr.length - 4)}`;
@@ -80,7 +81,7 @@ export const getCmmDataPreview = (
     return trim(value);
   };
 
-  return formatValue(data);
+  return escapeContentReviewText(formatValue(data));
 };
 
 export const normalizeCmmDisplayUpdates = cmmUpdates => {
@@ -414,7 +415,7 @@ const getRemoveActionDescription = removeMeta => {
   return 'Selected content';
 };
 
-const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
+const renderCmmChangeDescription = (item, updateEntry, darkMode = false, hasContentReview = false) => {
   if (item.changeType === 'included') return null;
   const neutralToneColor = darkMode ? '#7E8EA6' : '#6B7280';
   const updatedPreview = item.isEncrypted && !updateEntry?.signData
@@ -422,6 +423,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
     : item.updatedData ?? updateEntry?.data ?? item.data;
 
   if (item.changeType === 'added') {
+    if (hasContentReview) return null;
     return renderCmmDescBlock(
       null,
       updatedPreview || 'New value',
@@ -479,7 +481,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false) => {
             false,
             darkMode,
           )}
-        {renderCmmDescBlock(
+        {!hasContentReview && renderCmmDescBlock(
           'Add value',
           updatedPreview || 'New value',
           Colors.verusGreenColor,
@@ -601,7 +603,7 @@ const VerusIdContentChangeCard = ({
           </Text>
         </>
       )}
-      {renderCmmChangeDescription(item, updateEntry, darkMode)}
+      {renderCmmChangeDescription(item, updateEntry, darkMode, children != null)}
       {children}
 
       {item.isEncryptedKey && (
