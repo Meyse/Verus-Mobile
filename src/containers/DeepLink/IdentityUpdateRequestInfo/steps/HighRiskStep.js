@@ -723,10 +723,6 @@ const HighRiskStep = ({
 
   const screenCopy = buildScreenCopy(reviewItems);
   const activeDetailItem = reviewItems.find(item => item.key === activeDetailKey);
-  const ackCopy =
-    reviewItems.length === 1
-      ? 'Before you continue, confirm you understand this high-risk change.'
-      : 'Before you continue, confirm you understand each high-risk change.';
 
   return (
     <View style={localStyles.root}>
@@ -891,7 +887,6 @@ const HighRiskStep = ({
             contentContainerStyle={localStyles.sheetScrollContent}
             showsVerticalScrollIndicator={false}>
             <Text style={localStyles.sheetTitle}>Understand high-risk changes</Text>
-            <Text style={localStyles.sheetCopy}>{ackCopy}</Text>
             <View style={localStyles.sheetRows}>
               {reviewItems.map(item => (
                 <View key={item.key} style={localStyles.sheetRow}>

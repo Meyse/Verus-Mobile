@@ -890,7 +890,7 @@ broadcast and response bytes. Each item has a separate commit.
 
 - [x] Show the full key below named and unnamed titles for non-clear operations.
 - [x] Use one field-count helper for singular and plural content previews.
-- [ ] State the high-risk acknowledgement instruction once; preserve its gate.
+- [x] State the high-risk acknowledgement instruction once; preserve its gate.
 - [ ] Group each decoded value's warnings and fields under one heading.
 - [ ] Remove only the redundant Included data chip; keep Public and the notice.
 
