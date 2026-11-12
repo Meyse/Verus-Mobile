@@ -173,11 +173,13 @@ export const buildVerusIdContentChangeItems = ({
         currentContentMultiMap &&
         Object.keys(currentContentMultiMap).length > 0
       ) {
-        return Object.keys(currentContentMultiMap).map(iAddrKey => {
+        return Object.keys(currentContentMultiMap).map((iAddrKey, index) => {
           const entryLabel = getCmmDataKey(iAddrKey);
 
           return {
             key: `${key}:active:${iAddrKey}`,
+            updateKey: key,
+            showOperationDetails: index === 0,
             keyId: iAddrKey,
             title: entryLabel,
             data: getCmmDataPreview(currentContentMultiMap[iAddrKey]),
@@ -540,6 +542,12 @@ const VerusIdContentChangeCard = ({
   const unnamedKey = isUnnamedKeyTitle(item);
   const onPress = onPressProp || (
     updateEntry && updateEntry.onPress ? updateEntry.onPress : item.onPress);
+  const removalUi = updateEntry?.removalUi;
+  // The empty-state note already says this request can add content. Retain
+  // the matching-value effects, but show that shared fact only once.
+  const removalEffectNote = removalUi?.emptyStateNote
+    ? removalUi.effectNote?.replace(/This request may also add[^.]*\./, '').trim()
+    : removalUi?.effectNote;
 
   return (
     <TouchableOpacity
@@ -605,14 +613,14 @@ const VerusIdContentChangeCard = ({
         </>
       )}
       {renderCmmChangeDescription(item, updateEntry, darkMode, children != null)}
-      {updateEntry?.removalUi && (
+      {removalUi && item.showOperationDetails !== false && (
         <View>
           {[
-            updateEntry.removalUi.detailBody,
-            updateEntry.removalUi.effectNote,
-            updateEntry.removalUi.emptyStateNote,
-            updateEntry.removalUi.metadataNote,
-            updateEntry.removalUi.historyNote,
+            removalUi.detailBody,
+            removalEffectNote,
+            removalUi.emptyStateNote,
+            removalUi.metadataNote,
+            removalUi.historyNote,
           ].filter(Boolean).map(note => (
             <Text key={note} selectable style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
               {note}

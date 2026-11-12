@@ -291,25 +291,30 @@ const VerusIdContentChanges = ({
         </View>
       )}
 
-      {visibleItems.map(item => (
-        <VerusIdContentChangeCard
-          key={item.key}
-          item={item}
-          darkMode={darkMode}
-          panelTone={true}
-          updateEntry={cmmUpdates[item.key]}
-          visibilityLabel={item.changeType === 'removed' ? null :
-            item.isEncrypted ? 'Encrypted upload' : item.isEncryptedKey ? 'Encrypted credential' : 'Public'}
-          onPress={cmmUpdates[item.key]?.signData
-            ? () => setUploadReview({title: item.title, upload: cmmUpdates[item.key].signData})
-            : undefined}>
-          {cmmUpdates[item.key]?.signData ? (
-            <UploadContentReview upload={cmmUpdates[item.key].signData} />
-          ) : !item.removeMeta && cmmUpdates[item.key]?.rawData != null ? (
-            <ContentValuesReview value={cmmUpdates[item.key].rawData} />
-          ) : null}
-        </VerusIdContentChangeCard>
-      ))}
+      {visibleItems.map(item => {
+        const updateEntry = cmmUpdates[item.updateKey ?? item.key];
+        return (
+          <VerusIdContentChangeCard
+            key={item.key}
+            item={item}
+            darkMode={darkMode}
+            panelTone={true}
+            updateEntry={updateEntry}
+            visibilityLabel={item.changeType === 'removed' ? null :
+              item.isEncrypted ? 'Encrypted upload' : item.isEncryptedKey ? 'Encrypted credential' : 'Public'}
+            onPress={updateEntry?.signData
+              ? () => setUploadReview({title: item.title, upload: updateEntry.signData})
+              : undefined}>
+            {item.showOperationDetails === false ? null : updateEntry?.signData ? (
+              <UploadContentReview upload={updateEntry.signData} />
+            ) : item.removeMeta && updateEntry?.rawData != null ? (
+              <UploadContentReview upload={updateEntry.rawData} isUpload={false} label="Removal data" />
+            ) : updateEntry?.rawData != null ? (
+              <ContentValuesReview value={updateEntry.rawData} />
+            ) : null}
+          </VerusIdContentChangeCard>
+        );
+      })}
 
       <InfoSheet
         visible={uploadReview != null && uploadReview.visible !== false}
