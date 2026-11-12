@@ -144,7 +144,7 @@ export default function SlideToConfirm({
       // The latch stays set while we wait. Check again that the screen is
       // still here and the action is still allowed before it commits.
       if (!mounted.current) return;
-      if (!allowed.current || !isFocused() || AppState.currentState !== 'active' ||
+      if (token !== epoch.value || !allowed.current || !isFocused() || AppState.currentState !== 'active' ||
           latest.current.disabled || latest.current.loading) {
         release();
         return;
