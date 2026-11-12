@@ -39,7 +39,11 @@ import {
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { satsToCoins, truncateDecimal } from '../../../../utils/math';
 import { API_GET_BALANCES, API_SEND, GENERAL, WYRE_SERVICE, USD } from '../../../../utils/constants/intervalConstants';
-import { GENERIC_REQUEST_DELIVERY_TYPES } from '../../../../utils/deeplink/genericRequestDelivery';
+import {
+  GENERIC_REQUEST_DELIVERY_TYPES,
+  getGenericResponseDeliveryFailure,
+  isLocalResponsePostRejection,
+} from '../../../../utils/deeplink/genericRequestDelivery';
 import BigNumber from 'bignumber.js';
 import {
   GenericResponse,
@@ -168,6 +172,9 @@ const getBroadcastError = (error, txid) => {
 };
 
 const getDeliveryErrorMessage = (error, deliveryInfo) => {
+  if (isLocalResponsePostRejection(error)) {
+    return getGenericResponseDeliveryFailure(error).message;
+  }
   // The title says that the response was not sent. Say what to check.
   if (error?.isResponsePostError) {
     return `Check that ${
@@ -1042,20 +1049,20 @@ const ConfirmPayStep = ({
           )}
           {completionIsError && !completionIsBroadcastError && (
             <View style={localStyles.deliveryActions}>
-              <AppButton
+              {getGenericResponseDeliveryFailure(completionError).canRetry && <AppButton
                 height={52}
                 onPress={handleRetryDelivery}
                 style={localStyles.deliveryActionButton}
                 themeMode={theme.mode}
                 variant="primary">
                 Try again
-              </AppButton>
+              </AppButton>}
               <AppButton
                 height={52}
                 onPress={handleLeaveWithoutSending}
                 style={localStyles.deliveryActionButton}
                 themeMode={theme.mode}
-                variant="secondary">
+                variant={getGenericResponseDeliveryFailure(completionError).canRetry ? 'secondary' : 'primary'}>
                 Leave without sending
               </AppButton>
             </View>
