@@ -1,10 +1,12 @@
 import React from 'react';
-import {Platform, StyleSheet, Text, View} from 'react-native';
+import {Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ExternalLink} from 'lucide-react-native';
 import AnimatedSuccessCheckmark from './AnimatedSuccessCheckmark';
 import AppButton from './AppButton';
 import CopyAction from './CopyAction';
+import CopyFeedback from './CopyFeedback';
+import useCopyFeedback from '../hooks/useCopyFeedback';
 import FadedScrollView from './FadedScrollView';
 import SafeBottomActionStack from './SafeBottomActionStack';
 import SignedOutActionRow from './SignedOutActionRow';
@@ -12,6 +14,30 @@ import {fontStyle} from '../globals/fonts';
 import {useOnboardingSmallDeviceLayout} from '../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../theme/onboarding';
 import {openUrl} from '../utils/linking';
+
+const TransactionIdRow = ({bordered, txid}) => {
+  const theme = useOnboardingTheme();
+  const {copied, copyProps} = useCopyFeedback(txid, {haptic: true});
+  return (
+    <View style={[styles.txRow, bordered && styles.txRowBordered, {borderColor: theme.colors.border}]}>
+      <Pressable accessible {...copyProps} style={styles.txCopy}>
+        <Text style={[styles.txLabel, {color: theme.colors.textSecondary}]}>
+          Transaction ID
+        </Text>
+        <CopyFeedback copied={copied}>
+          <Text ellipsizeMode="middle" numberOfLines={1} style={[styles.txid, {color: theme.colors.textPrimary}]}>
+            {txid}
+          </Text>
+        </CopyFeedback>
+      </Pressable>
+      <CopyAction
+        accessibilityLabel="Copy transaction ID"
+        copiedAccessibilityLabel="Transaction ID copied"
+        value={txid}
+      />
+    </View>
+  );
+};
 
 // The screen after the wallet sends one or more transactions: Send, Convert,
 // pre-conversions, invoice payments, gift card funding and card claims. It
@@ -64,33 +90,10 @@ const TransactionResult = ({
   const captions = (Array.isArray(caption) ? caption : [caption]).filter(
     Boolean,
   );
-  const hairline = {borderColor: theme.colors.border};
 
   const renderTransaction = (item, bordered) => (
     <>
-      <View
-        style={[
-          styles.txRow,
-          bordered && styles.txRowBordered,
-          hairline,
-        ]}>
-        <View style={styles.txCopy}>
-          <Text style={[styles.txLabel, {color: theme.colors.textSecondary}]}>
-            Transaction ID
-          </Text>
-          <Text
-            ellipsizeMode="middle"
-            numberOfLines={1}
-            style={[styles.txid, {color: theme.colors.textPrimary}]}>
-            {item.txid}
-          </Text>
-        </View>
-        <CopyAction
-          accessibilityLabel="Copy transaction ID"
-          copiedAccessibilityLabel="Transaction ID copied"
-          value={item.txid}
-        />
-      </View>
+      <TransactionIdRow bordered={bordered} txid={item.txid} />
       {item.explorerUrl ? (
         <SignedOutActionRow
           IconComponent={ExternalLink}
