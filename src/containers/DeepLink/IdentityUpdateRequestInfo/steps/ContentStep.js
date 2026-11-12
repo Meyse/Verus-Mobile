@@ -357,24 +357,39 @@ const VerusIdContentChanges = ({
 };
 
 const ContentValuesReview = ({value}) => {
+  const theme = useOnboardingTheme();
   const values = Array.isArray(value) ? value : [value];
-  return values.map((entry, index) => (
-    <UploadContentReview
-      key={index}
-      upload={entry}
-      isUpload={false}
-      label={values.length > 1 ? `Value ${index + 1} of ${values.length}` : 'Content to add'}
-    />
-  ));
+  return (
+    <View style={{gap: theme.spacing.lg}}>
+      {values.map((entry, index) => (
+        <UploadContentReview
+          key={index}
+          upload={entry}
+          isUpload={false}
+          showTitle={values.length > 1}
+          label={values.length > 1 ? `Value ${index + 1} of ${values.length}` : 'Content to add'}
+        />
+      ))}
+    </View>
+  );
 };
 
 // Read the original content. Keep every field and warning visible, including
 // exact encoded bytes. The sheet adds shared copy actions without changing data.
-const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Upload content', shownRemovalHash, shownRemovalKey}) => {
+const UploadContentReview = ({upload, copy = false, isUpload = true, label = 'Upload content', showTitle = false, shownRemovalHash, shownRemovalKey}) => {
   const theme = useOnboardingTheme();
-  const review = useMemo(() => buildContentReview(upload, {isUpload, label}), [upload, isUpload, label]);
+  // The heading owns the value number. Rows keep only their nested field path.
+  const reviewLabel = showTitle ? 'Content' : label;
+  const review = useMemo(() => buildContentReview(upload, {
+    isUpload, label: reviewLabel, omitRootLabel: true,
+  }), [upload, isUpload, reviewLabel]);
   return (
-    <View>
+    <View style={{gap: theme.spacing.sm}}>
+      {showTitle && (
+        <Text accessibilityRole="header" style={[theme.typography.titleRow, {color: theme.colors.textPrimary}]}>
+          {label}
+        </Text>
+      )}
       {review.warnings.map(warning => (
         <Text key={warning} style={[theme.typography.bodySm, {color: theme.colors.warningText}]}>
           {warning}
