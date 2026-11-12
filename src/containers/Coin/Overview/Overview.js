@@ -985,6 +985,7 @@ class Overview extends Component {
             txDetails: {
               address: item.address,
               amount: formattedAmount,
+              copyAmount: visibleAmount?.toFixed(),
               coinId: ticker === this.props.activeCoin.display_ticker
                 ? this.props.activeCoin.id
                 : item.feeCurr,
@@ -995,6 +996,7 @@ class Overview extends Component {
               fee: !registrationMatches && item.fee != null && item.type !== "self"
                 ? scientificToDecimal(String(item.fee))
                 : null,
+              copyFee: item.fee != null ? BigNumber(item.fee).toFixed() : null,
               feeTicker: item.feeCurr || this.props.activeCoin.display_ticker,
               fiat: fiatValue,
               label: detailLabel,

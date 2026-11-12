@@ -76,6 +76,7 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
             <TransferNode
               amount={details.amount}
               coinId={details.coinId}
+              copyValue={details.copyAmount}
               fiat={details.fiat}
               hideAmounts={!showBalance}
               label={details.label}
@@ -84,10 +85,12 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
           </View>
           <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
             {details.registrationName ? (
-              <InfoSheetRow label="VerusID" value={details.registrationName} />
+              <InfoSheetRow longPressCopy copyValue={details.registrationName} label="VerusID" value={details.registrationName} />
             ) : null}
             {addresses.length || details.destinationLabel ? (
               <InfoSheetRow
+                longPressCopy
+                copyValue={addresses.length ? addresses.join('\n') : details.destinationLabel}
                 copy={addresses.length === 1}
                 label={addresses.length && details.destinationLabel ? `To ${details.destinationLabel}` : 'To'}
                 value={addresses.length ? addresses.join('\n') : details.destinationLabel}
@@ -95,10 +98,12 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
               />
             ) : null}
             {hasConfirmationCount ? (
-              <InfoSheetRow label="Confirmations" value={String(confirmationCount)} />
+              <InfoSheetRow longPressCopy copyValue={String(confirmationCount)} label="Confirmations" value={String(confirmationCount)} />
             ) : null}
             {details.fee != null ? (
               <InfoSheetRow
+                longPressCopy
+                copyValue={details.copyFee}
                 label="Network fee"
                 value={details.fee}
                 valueHidden={!showBalance}
@@ -106,10 +111,12 @@ const TransactionDetailsSheet = ({details, onClose, onClosed, showBalance, visib
               />
             ) : null}
             {details.memo ? (
-              <InfoSheetRow copy label="Message" value={details.memo} />
+              <InfoSheetRow longPressCopy copyValue={details.memo} copy label="Message" value={details.memo} />
             ) : null}
             {details.txid ? (
               <InfoSheetRow
+                longPressCopy
+                copyValue={details.txid}
                 copy
                 ellipsizeMode="middle"
                 label="Transaction ID"

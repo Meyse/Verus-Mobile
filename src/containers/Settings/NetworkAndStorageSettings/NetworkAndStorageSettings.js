@@ -9,7 +9,6 @@ import {
   SettingsSection,
 } from '../components/SettingsScaffold';
 
-const ADDRESS_BLOCKLIST = 'AddressBlocklist';
 const COIN_SETTINGS = 'CoinSettings';
 const VRPC_OVERRIDES = 'VrpcOverrides';
 const ASSET_LEADING_STYLE = {marginRight: 18};
@@ -32,11 +31,6 @@ const NetworkAndStorageSettings = ({activeCoinsForUser, navigation}) => {
   return (
     <SettingsScreen testID="settings.networkAndStorage">
       <SettingsSection title="Network">
-        <SettingsRow
-          icon="block-helper"
-          onPress={() => openSettings(ADDRESS_BLOCKLIST)}
-          title="Blocked addresses"
-        />
         <SettingsRow
           icon="server"
           last

@@ -900,7 +900,7 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
       showFormError(destinationErrorField, "Required Field", "Enter an address or VerusID.");
       return true;
     } else if (addressIsBlocked(toAddress, addressBlocklist)) {
-      showFormError(destinationErrorField, "Blocked Address", "This address is on your address blocklist.");
+      showFormError(destinationErrorField, "Blocked Address", "Sending to this address is blocked.");
       return true;
     }
 

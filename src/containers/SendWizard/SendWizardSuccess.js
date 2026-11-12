@@ -130,6 +130,7 @@ const SendWizardSuccess = () => {
         <>
           <TransferNode
             amount={truncateDecimal(displayAmount, 8)}
+            copyValue={displayAmount.toFixed()}
             coinId={sourceCoin?.id}
             fiat={formatFiat(displayAmount, sourceCoin?.id)}
             label={showReceive || invoiceFlow || preconvert ? 'You paid' : 'You sent'}
@@ -153,6 +154,7 @@ const SendWizardSuccess = () => {
               ) : null}
               <TransferNode
                 amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
+                copyValue={BigNumber(estimatedReceive).toFixed()}
                 coinId={target.coinId || target.id}
                 fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
                 label={
@@ -181,10 +183,10 @@ const SendWizardSuccess = () => {
         isBridge || preconvert ? (
           <>
             {isBridge ? (
-              <FlatRow label="Destination" value={getDestinationNetwork(route)} />
+              <FlatRow copyValue={getDestinationNetwork(route)} label="Destination" value={getDestinationNetwork(route)} />
             ) : null}
             {preconvert ? (
-              <FlatRow label="Arrives" value={formatArrivesAtLaunch(launchFacts)} />
+              <FlatRow copyValue={formatArrivesAtLaunch(launchFacts)} label="Arrives" value={formatArrivesAtLaunch(launchFacts)} />
             ) : null}
           </>
         ) : null

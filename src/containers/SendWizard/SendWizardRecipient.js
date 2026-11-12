@@ -143,7 +143,7 @@ const SendWizardRecipient = () => {
     const address = input.trim();
     if (!address) return {valid: false, message: null};
     if (addressIsBlocked(address, blocklist)) {
-      return {valid: false, message: 'This destination is in your blocked-address list.'};
+      return {valid: false, message: 'Sending to this address is blocked.'};
     }
     // A private address, or "alice@:private", takes funds from the private
     // card only.
