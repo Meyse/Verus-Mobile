@@ -1,13 +1,9 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Clipboard, TouchableOpacity} from 'react-native';
+import React from 'react';
+import {TouchableOpacity} from 'react-native';
 import {Check, Copy} from 'lucide-react-native';
 import {copyActionStyles as styles} from '../styles';
 import {useAppTheme} from '../theme/app';
-
-const getCopyText = value => {
-  if (value == null) return '';
-  return typeof value === 'string' ? value : String(value);
-};
+import useCopyFeedback from '../hooks/useCopyFeedback';
 
 const CopyAction = ({
   accessibilityLabel = 'Copy',
@@ -24,46 +20,11 @@ const CopyAction = ({
   value,
 }) => {
   const theme = useAppTheme();
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef(null);
-  const copyText = getCopyText(value);
-  const isDisabled = disabled || copyText.length === 0;
+  const {copied, copy: handlePress, canCopy} = useCopyFeedback(value, {
+    disabled, onCopied, timeoutMs,
+  });
+  const isDisabled = !canCopy;
   const Icon = copied ? Check : Copy;
-
-  useEffect(() => {
-    setCopied(false);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, [copyText]);
-
-  useEffect(
-    () => () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    },
-    [],
-  );
-
-  const handlePress = useCallback(() => {
-    if (isDisabled) return;
-
-    Clipboard.setString(copyText);
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    setCopied(true);
-    if (typeof onCopied === 'function') onCopied(copyText);
-
-    timeoutRef.current = setTimeout(() => {
-      setCopied(false);
-      timeoutRef.current = null;
-    }, timeoutMs);
-  }, [copyText, isDisabled, onCopied, timeoutMs]);
 
   return (
     <TouchableOpacity

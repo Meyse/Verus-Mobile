@@ -7,6 +7,7 @@ import ImpactRow from './ImpactRow';
 import SkeletonLoader, {SkeletonBlock} from '../../../components/SkeletonLoader';
 import {FeeValue} from './NetworkFeeSheet';
 import {FlatRow} from './WizardUI';
+import {CopyableText} from '../../../components/CopyFeedback';
 
 // The flat fact list under the pay and receive nodes on Confirm. The recipient
 // shows here once, in full; the nodes carry only the amounts. The caller decides
@@ -15,8 +16,10 @@ const ConfirmFacts = ({
   arrives,
   destinationNetwork,
   fees,
+  feesCopyValue,
   exportFees,
   total,
+  totalCopyValue,
   impact,
   onOpenFees,
   networkFee,
@@ -35,16 +38,16 @@ const ConfirmFacts = ({
   return (
     <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
       {leadingRows.map(row => (
-        <FlatRow key={row.label} label={row.label} numberOfLines={row.numberOfLines} onPress={row.onPress} value={row.value} />
+        <FlatRow key={row.label} {...row} />
       ))}
       <RecipientRow caption={recipientCaption} recipient={recipient} resolvedAddress={resolvedRecipient} />
-      {memo ? <FlatRow label="Memo" numberOfLines={0} value={memo} /> : null}
-      {note ? <FlatRow label="Note" numberOfLines={0} value={note} /> : null}
+      {memo ? <FlatRow copyValue={memo} label="Memo" numberOfLines={0} value={memo} /> : null}
+      {note ? <FlatRow copyValue={note} label="Note" numberOfLines={0} value={note} /> : null}
       {destinationNetwork ? (
-        <FlatRow label="Destination network" value={destinationNetwork} />
+        <FlatRow copyValue={destinationNetwork} label="Destination network" value={destinationNetwork} />
       ) : null}
       {routeRows.map(row => (
-        <FlatRow key={row.label} label={row.label} numberOfLines={0} value={row.value} />
+        <FlatRow key={row.label} numberOfLines={0} {...row} />
       ))}
       {impact ? (
         <ImpactRow
@@ -57,20 +60,20 @@ const ConfirmFacts = ({
       ) : null}
       {exportFees ? (
         <>
-          <FlatRow label="Bridge fee" numberOfLines={0} value={exportFees.bridge} />
-          <FlatRow label="Network fee" numberOfLines={0} value={exportFees.network} />
-          <FlatRow label="Total" numberOfLines={0} value={total} />
+          <FlatRow copyValue={exportFees.bridgeCopyValue} label="Bridge fee" numberOfLines={0} value={exportFees.bridge} />
+          <FlatRow copyValue={exportFees.networkCopyValue} label="Network fee" numberOfLines={0} value={exportFees.network} />
+          <FlatRow copyValue={totalCopyValue} label="Total" numberOfLines={0} value={total} />
         </>
       ) : networkFee ? (
-        <FlatRow label="Network fee" onPress={onOpenFees}>
+        <FlatRow copyValue={feeLoading ? null : networkFee.copyValue} label="Network fee" onPress={onOpenFees}>
           {feeLoading ? <FeeSkeleton /> : <FeeValue amount={networkFee.amount} caption={networkFee.caption} />}
         </FlatRow>
-      ) : <FlatRow label="Fees" numberOfLines={0} onPress={onOpenFees} value={fees} />}
-      <FlatRow label="Arrives" value={arrives}>
+      ) : <FlatRow copyValue={feesCopyValue} label="Fees" numberOfLines={0} onPress={onOpenFees} value={fees} />}
+      <FlatRow copyValue={feeLoading || arrives === '—' ? null : arrives} label="Arrives" value={arrives}>
         {feeLoading ? <FeeSkeleton /> : null}
       </FlatRow>
       {trailingRows.map(row => (
-        <FlatRow key={row.label} label={row.label} onPress={row.onPress} value={row.value} />
+        <FlatRow key={row.label} {...row} />
       ))}
     </View>
   );
@@ -84,15 +87,15 @@ export const RecipientRow = ({caption, recipient, resolvedAddress, resolvingAddr
 
   if (!caption && !resolvedAddress && !resolvingAddress) {
     return (
-      <FlatRow label="To" numberOfLines={0} value={recipient} valueStyle={addressStyle} />
+      <FlatRow copyValue={recipient} label="To" numberOfLines={0} value={recipient} valueStyle={addressStyle} />
     );
   }
   return (
     <FlatRow label="To">
       <View style={styles.recipientValue}>
-        <Text style={[styles.recipient, {color: theme.colors.textPrimary}, addressStyle]}>
+        <CopyableText copyValue={recipient} style={[styles.recipient, {color: theme.colors.textPrimary}, addressStyle]}>
           {recipient}
-        </Text>
+        </CopyableText>
         {resolvingAddress ? (
           <View style={styles.addressSkeleton}>
             <SkeletonLoader accessibilityLabel="Resolving recipient">
@@ -100,9 +103,9 @@ export const RecipientRow = ({caption, recipient, resolvedAddress, resolvingAddr
             </SkeletonLoader>
           </View>
         ) : resolvedAddress ? (
-          <Text style={[styles.recipientCaption, styles.address, {color: theme.colors.textSecondary}]}>
+          <CopyableText copyValue={resolvedAddress} style={[styles.recipientCaption, styles.address, {color: theme.colors.textSecondary}]}>
             {resolvedAddress}
-          </Text>
+          </CopyableText>
         ) : null}
         {caption ? (
           <Text style={[theme.typography.caption, styles.recipientCaption, {color: theme.colors.textSecondary}]}>

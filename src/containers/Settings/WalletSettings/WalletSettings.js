@@ -19,7 +19,6 @@ import {
 const GENERAL_WALLET_SETTINGS = "GeneralWalletSettings"
 const COIN_SETTINGS = "CoinSettings"
 const VRPC_OVERRIDES = "VrpcOverrides"
-const ADDRESS_BLOCKLIST = "AddressBlocklist"
 
 const WalletSettings = ({ navigation, activeCoinsForUser }) => {
   const openSettings = useCallback((screen, data, header) => {
@@ -41,11 +40,6 @@ const WalletSettings = ({ navigation, activeCoinsForUser }) => {
           icon="tune"
           onPress={() => openSettings(GENERAL_WALLET_SETTINGS)}
           title="General settings"
-        />
-        <SettingsRow
-          icon="block-helper"
-          onPress={() => openSettings(ADDRESS_BLOCKLIST)}
-          title="Address blocklist"
         />
         <SettingsRow
           icon="server"

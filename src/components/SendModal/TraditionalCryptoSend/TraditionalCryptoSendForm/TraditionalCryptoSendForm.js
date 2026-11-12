@@ -149,7 +149,7 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
       createAlert("Required Field", "Address is a required field.");
       return true;
     } else if (addressIsBlocked(toAddress, addressBlocklist)) {
-      createAlert("Blocked Address", "The address you are trying to send to is included in your address blocklist.");
+      createAlert("Blocked Address", "Sending to this address is blocked.");
       return true;
     }
 
