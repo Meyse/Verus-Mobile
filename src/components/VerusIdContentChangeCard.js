@@ -614,10 +614,9 @@ const VerusIdContentChangeCard = ({
         )}
       </View>
 
-      {(visibilityLabel || updateEntry?.unrecognizedRemoval) && (
+      {visibilityLabel && (
         <View style={{alignItems: 'flex-start', gap: theme.spacing.xs, marginBottom: theme.spacing.xs}}>
-          {visibilityLabel && <StatusBadge label={visibilityLabel} tone="neutral" />}
-          {updateEntry?.unrecognizedRemoval && <StatusBadge label="Included data" tone="neutral" />}
+          <StatusBadge label={visibilityLabel} tone="neutral" />
         </View>
       )}
       {updateEntry?.unrecognizedRemoval && (
