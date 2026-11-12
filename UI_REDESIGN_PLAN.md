@@ -1263,8 +1263,11 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 - [x] **TX-1.ADDRESS-CHOOSER** Use "Choose an address" with no instructional
   subtitle in Send, Convert, Receive, invoice payment, and the asset-screen
-  selector. Align related search, empty-state and accessibility copy. Label
-  subwallet counts as sources; retain gift-card and NFC-card terminology.
+  selector. Align related search, empty-state and accessibility copy. Show
+  no source counts in lists (owner, 2026-11-12); retain gift-card and NFC-card
+  terminology. Single-network choosers have no group title; multiple networks
+  keep titled groups. Design, safe-area and Babel parse checks pass (2026-11-12).
+  ESLint is blocked by its import plugin; visual QA belongs to the orchestrator.
 - [x] **TX-1.ADDRESS-CHOOSER-QA** Check the production chooser components in
   light/dark, normal/compact iOS component fixtures, including selection,
   dismissal/reopen, unavailable private sources, search and empty states.

@@ -37,39 +37,42 @@ export const SourceCardSheet = ({
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
-      {groups.map(([network, sources]) => (
-        <SelectionGroup
-          key={network}
-          title={getSubWalletNetworkLabel(sources[0].card, sources[0].coin)}>
-          {sources.map(source => {
-            // Name sources as Receive's address chooser does: the type, with a
-            // transparent card's short address below, or the VerusID name.
-            // A private card that still syncs shows, but cannot be picked.
-            const cardType = getSubWalletCardType(source.card);
-            const syncing = source.syncPercent != null;
-            return (
-              <SelectionRow
-                key={source.card.id}
-                disabled={syncing}
-                title={cardType === 'VerusID' ? source.card.name : cardType}
-                titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
-                subtitle={
-                  syncing
-                    ? formatSyncStatus(source.syncPercent)
-                    : cardType === 'Transparent'
-                    ? source.card.name
-                    : undefined
-                }
-                subtitleMonospace={!syncing}
-                selected={source.card.id === selectedId}
-                value={truncateDecimal(source.balance, 4)}
-                valueLabel={source.coin.display_ticker}
-                onPress={() => dismissal.dismiss(() => onSelect(source))}
-              />
-            );
-          })}
-        </SelectionGroup>
-      ))}
+      {groups.map(([network, sources]) => {
+        const rows = sources.map(source => {
+          // Name sources as Receive's address chooser does: the type, with a
+          // transparent card's short address below, or the VerusID name.
+          // A private card that still syncs shows, but cannot be picked.
+          const cardType = getSubWalletCardType(source.card);
+          const syncing = source.syncPercent != null;
+          return (
+            <SelectionRow
+              key={source.card.id}
+              disabled={syncing}
+              title={cardType === 'VerusID' ? source.card.name : cardType}
+              titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
+              subtitle={
+                syncing
+                  ? formatSyncStatus(source.syncPercent)
+                  : cardType === 'Transparent'
+                  ? source.card.name
+                  : undefined
+              }
+              subtitleMonospace={!syncing}
+              selected={source.card.id === selectedId}
+              value={truncateDecimal(source.balance, 4)}
+              valueLabel={source.coin.display_ticker}
+              onPress={() => dismissal.dismiss(() => onSelect(source))}
+            />
+          );
+        });
+        return groups.length === 1 ? rows : (
+          <SelectionGroup
+            key={network}
+            title={getSubWalletNetworkLabel(sources[0].card, sources[0].coin)}>
+            {rows}
+          </SelectionGroup>
+        );
+      })}
     </SelectionSheet>
   );
 };

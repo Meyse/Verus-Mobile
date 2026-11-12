@@ -297,14 +297,16 @@ precedent. It is a stale, unused style file rather than the running selector.
 Owner wording, 2026-10-30: address selectors use "Choose an address" with no
 instructional subtitle. This includes Send, Convert, Receive, invoice payment,
 and the asset-screen selector. Related search, empty-state, and accessibility
-copy uses "address". Counts of subwallet choices use "sources", because a
-subwallet can expose more than one address. Gift cards and NFC cards keep their
-names. The internal Card/subwallet model and all selection behavior stay the same.
+copy uses "address". Lists do not show a count of sources (owner, 2026-11-12).
+A source is a subwallet, which can expose more than one address. Gift cards and
+NFC cards keep their names. The internal Card/subwallet model and all selection behavior stay the same.
 
 Every address chooser names a source as Receive does: its type ("Transparent",
 "Private") with a transparent card's short address as a monospace subtitle, or
 its VerusID name. A VerusID row title keeps one line with a tail ellipsis; its
-accessibility label keeps the full name. Group titles name the network.
+accessibility label keeps the full name. Group titles name the network only
+when choices span two or more networks. A single-network chooser shows no group
+title (owner, 2026-11-12).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
@@ -1856,9 +1858,9 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   its cost, cheapest first ("Best price", "x% more"), then Market price, Your
   price and Difference; a choice changes the row. A basket that is the requested
   or the paying currency itself counts as "Direct". There is no "Use … instead"
-  suggestion. A currency on several cards shows "<n> sources" and opens
-  "Choose an address". The step is skipped when the invoice allows no conversion
-  and one card can pay.
+  suggestion. A currency on several cards shows no source count and opens
+  "Choose an address" (owner, 2026-11-12). The step is skipped when the invoice
+  allows no conversion and one card can pay.
 - Confirm adds "Request from" (signed invoices only), "From" (only after a card
   choice), "Expires" and "Invoice details". Its Price impact reads "x.x% more", and
   the money is what the user pays on top of the market price. It always pays through the

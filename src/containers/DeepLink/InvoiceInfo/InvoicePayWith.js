@@ -331,9 +331,9 @@ const InvoicePayWith = () => {
     );
     const from =
       route.cards.length > 1
-        ? `${route.cards.length} sources`
+        ? null
         : getPayFromLabel(route.cards[0].option.wallet);
-    const detail = [from, `Balance\u00a0${truncateDecimal(balance, 4)}\u00a0${ticker}`].join(
+    const detail = [from, `Balance\u00a0${truncateDecimal(balance, 4)}\u00a0${ticker}`].filter(Boolean).join(
       ' · ',
     );
     // As on Send's Amount step: a chip when the impact is at least 0.1% or
