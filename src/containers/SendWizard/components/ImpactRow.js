@@ -16,7 +16,7 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
 
   return (
-    <FlatRow label="Price impact" onPress={onPress}>
+    <FlatRow copyValue={impact?.toFixed()} label="Price impact" onPress={onPress}>
       {showLoss ? (
         <Text
           style={[

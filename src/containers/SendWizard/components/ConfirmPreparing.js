@@ -43,6 +43,7 @@ const ConfirmPreparing = ({
       scrollEnabled={false}>
       <TransferNode
         amount={truncateDecimal(amount, 8)}
+        copyValue={amount.toFixed()}
         coinId={sourceCoin?.id}
         label={isConversion ? 'You pay' : 'You send'}
         ticker={sourceCoin?.display_ticker || ''}
@@ -69,13 +70,13 @@ const ConfirmPreparing = ({
         </>
       ) : null}
       <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
-        {fromLabel ? <FlatRow label="From" numberOfLines={0} value={fromLabel} /> : null}
+        {fromLabel ? <FlatRow copyValue={fromLabel} label="From" numberOfLines={0} value={fromLabel} /> : null}
         <RecipientRow caption={recipientCaption} recipient={recipient} resolvingAddress={recipient.includes('@')} />
         {destinationNetwork ? (
-          <FlatRow label="Destination network" value={destinationNetwork} />
+          <FlatRow copyValue={destinationNetwork} label="Destination network" value={destinationNetwork} />
         ) : null}
         {routeRows.map(row => (
-          <FlatRow key={row.label} label={row.label} numberOfLines={0} value={row.value} />
+          <FlatRow key={row.label} numberOfLines={0} {...row} />
         ))}
         {showPriceImpact ? (
           <FlatRow label="Price impact">
@@ -92,7 +93,7 @@ const ConfirmPreparing = ({
           <FlatRow label="Total"><ValueSkeleton /></FlatRow>
         ) : null}
         {arrives ? (
-          <FlatRow label="Arrives" value={arrives} />
+          <FlatRow copyValue={arrives} label="Arrives" value={arrives} />
         ) : (
           <FlatRow label="Arrives">
             <ValueSkeleton width={72} />
