@@ -583,6 +583,7 @@ const IdentityUpdateRequestInfoContent = props => {
           // derive remove-action copy from the current identity state, not from chain permanence.
           displayUpdates[VERUSID_CMM_INFO.key][updateKey] = {
             data: removeUi.summary,
+            removalUi: removeUi,
             rawData: [update],
             removeMeta: {
               ...removeMeta,

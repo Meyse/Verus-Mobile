@@ -5,6 +5,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {ContentMultiMapRemoveKey} from 'verus-typescript-primitives';
 import Colors from '../globals/colors';
 import StatusBadge from './StatusBadge';
+import {InfoSheetRow} from './InfoSheetSection';
 import {verusIdObjectDataStyles as LocalStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 import {VERUSID_CMM_DATA} from '../utils/constants/verusidObjectData';
@@ -450,7 +451,7 @@ const renderCmmChangeDescription = (item, updateEntry, darkMode = false, hasCont
               removesDisplayedActive,
               darkMode,
             )}
-          {renderCmmDescBlock(
+          {!updateEntry?.removalUi && renderCmmDescBlock(
             null,
             removeActionDescription || 'Selected content',
             Colors.warningButtonColor,
@@ -604,6 +605,29 @@ const VerusIdContentChangeCard = ({
         </>
       )}
       {renderCmmChangeDescription(item, updateEntry, darkMode, children != null)}
+      {updateEntry?.removalUi && (
+        <View>
+          {[
+            updateEntry.removalUi.detailBody,
+            updateEntry.removalUi.effectNote,
+            updateEntry.removalUi.emptyStateNote,
+            updateEntry.removalUi.metadataNote,
+            updateEntry.removalUi.historyNote,
+          ].filter(Boolean).map(note => (
+            <Text key={note} selectable style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
+              {note}
+            </Text>
+          ))}
+          {item.removeMeta?.valueHash && (
+            <InfoSheetRow
+              label="Matching value hash"
+              value={item.removeMeta.valueHash}
+              valueStyle={[LocalStyles.cmmCardKeyId, darkMode && LocalStyles.cmmCardKeyIdDark]}
+              copy
+            />
+          )}
+        </View>
+      )}
       {children}
 
       {item.isEncryptedKey && (
