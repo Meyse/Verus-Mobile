@@ -36,8 +36,12 @@ export const CopyableText = ({children, copyValue, ...props}) => {
   const {onLongPress, ...accessibilityProps} = copyProps;
   return (
     <CopyFeedback copied={copied}>
-      <View accessible={canCopy || undefined} {...accessibilityProps}>
-        <Text {...props} onLongPress={onLongPress}>{children}</Text>
+      <View
+        accessible={canCopy || undefined}
+        accessibilityLabel={canCopy && typeof children === 'string' ? children : undefined}
+        {...accessibilityProps}>
+        {/* A focusable child Text would drop out of Android's label for the wrapper. */}
+        <Text {...props} accessible={canCopy ? false : props.accessible} onLongPress={onLongPress}>{children}</Text>
       </View>
     </CopyFeedback>
   );
