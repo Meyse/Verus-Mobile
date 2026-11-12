@@ -1,4 +1,8 @@
-import {assertIdentityUpdateRequestSupported} from '../genericRequestRejection';
+import {
+  assertIdentityUpdateRequestSupported,
+  createGenericRequestRejectionError,
+  GENERIC_REQUEST_REJECTION_CODES,
+} from '../genericRequestRejection';
 import { DefinedKey, IdentityUpdateRequestOrdinalVDXFObject, GenericRequest, GenericResponse, DATA_TYPE_DEFINEDKEY, IDENTITY_CREDENTIAL, fqnToAddress, toIAddress, getDataKey } from "verus-typescript-primitives";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
@@ -16,6 +20,10 @@ import {createLocalIdentityUploadCrypto} from '../../identityUpdate/localUploadC
 import {identityToDisplayJson} from '../../identityUpdate/identityDisplay';
 import {cloneIdentityUpdateRequest} from '../../identityUpdate/cloneRequest';
 import {assertIdentityUpdateRequestConstraints} from '../validator/identityUpdateRequestValidator';
+
+const identityUpdateRefusal = message => createGenericRequestRejectionError(
+  GENERIC_REQUEST_REJECTION_CODES.IDENTITY_UPDATE_REFUSED, message,
+);
 
 /**
  * @param {GenericRequest} request
@@ -49,8 +57,8 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
    */
   const details = request.getDetails(detailIndex);
 
-  if (details == null) throw new Error("Invalid index for request details");
-  if (!(details instanceof IdentityUpdateRequestOrdinalVDXFObject)) throw new Error("Identity update request details not found at specified index");
+  if (details == null) throw identityUpdateRefusal("Invalid index for request details");
+  if (!(details instanceof IdentityUpdateRequestOrdinalVDXFObject)) throw identityUpdateRefusal("Identity update request details not found at specified index");
 
   const rootSystem = request.isTestnet() ? 'VRSCTEST' : 'VRSC';
   const requestDetails = cloneIdentityUpdateRequest(details.data, rootSystem);
@@ -87,11 +95,11 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
 
   if (requestDetails.identity.containsFlags && requestDetails.identity.containsFlags()) {
     if (subjectIdClass.hasActiveCurrency() !== requestDetails.identity.hasActiveCurrency()) {
-      throw new Error("Cannot change active currency status.");
+      throw identityUpdateRefusal("Cannot change active currency status.");
     }
 
     if (subjectIdClass.hasTokenizedIdControl() !== requestDetails.identity.hasTokenizedIdControl()) {
-      throw new Error("Cannot change tokenized id control status.");
+      throw identityUpdateRefusal("Cannot change tokenized id control status.");
     }
   }
 
@@ -179,7 +187,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
         if (knownVDXFKey != null) continue;
 
         if (fqnNamespace !== reqSigner) {
-          throw new Error(`Cannot update with key not in signer namespace (key namespace is ${fqnSplit[0]}@)`);
+          throw identityUpdateRefusal(`Cannot update with key not in signer namespace (key namespace is ${fqnSplit[0]}@)`);
         }
 
         cmmDataKeys[dataKey] = {
@@ -191,7 +199,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
         const knownKeyName = getKnownVDXFKeyName(key);
 
         if (!knownKeyName) {
-          throw new Error("Cannot update with unknown key " + key);
+          throw identityUpdateRefusal("Cannot update with unknown key " + key);
         }
       }
     }
@@ -207,7 +215,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
   // Credential encryption via signDataMap is not supported on mobile
   if (requestDetails.containsSignData()) {
     if (requestDetails.signDataMap.hasAddress(IDENTITY_CREDENTIAL.vdxfid)) {
-      throw new Error('Encrypted credentials in signDataMap are not supported on mobile');
+      throw identityUpdateRefusal('Encrypted credentials in signDataMap are not supported on mobile');
     }
   }
 
@@ -261,7 +269,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
     );
     if (contentRes.error) throw new Error(contentRes.error.message);
     if (contentRes.result.identity.identityaddress !== identityAddress) {
-      throw new Error('Identity content does not match the identity being updated');
+      throw identityUpdateRefusal('Identity content does not match the identity being updated');
     }
     displaySubjectIdentity = {
       ...subjectIdentity,
