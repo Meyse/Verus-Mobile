@@ -866,6 +866,8 @@ const ConfirmPayStep = ({
         )}
         {selectedSource ? (
           <SlideToConfirm disabled={primaryActionDisabled}
+            loading={completionIsBroadcasting || completionIsDelivering}
+            loadingText="Updating…"
             label="Slide to update" onPress={handlePrimaryAction} />
         ) : (
           <AppButton
