@@ -302,9 +302,10 @@ A source is a subwallet, which can expose more than one address. Gift cards and
 NFC cards keep their names. The internal Card/subwallet model and all selection behavior stay the same.
 
 Every address chooser names a source as Receive does: its type ("Transparent",
-"Private") with a transparent card's short address as a monospace subtitle, or
-its VerusID name. A VerusID row title keeps one line with a tail ellipsis; its
-accessibility label keeps the full name. Group titles name the network only
+"Private") with a transparent card's short R-address or a private card's short
+z-address as a monospace subtitle. A VerusID row shows its name only, with no
+i-address (owner, 2026-11-12). A VerusID row title keeps one line with a tail
+ellipsis; its accessibility label keeps the full name. Group titles name the network only
 when choices span two or more networks. A single-network chooser shows no group
 title (owner, 2026-11-12).
 
