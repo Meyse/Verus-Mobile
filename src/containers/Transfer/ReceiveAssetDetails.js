@@ -350,9 +350,6 @@ const ReceiveAssetDetails = ({navigation, route}) => {
     return (
       <ReceivePaymentRequestFlow
         address={address}
-        allowSlippageSetting={
-          generalSettings.allowSettingVerusPaySlippage === true
-        }
         card={selectedCard}
         coinObj={coinObj}
         contextKey={requestContextKey}

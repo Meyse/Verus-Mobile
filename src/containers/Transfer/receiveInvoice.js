@@ -6,7 +6,7 @@ import {I_ADDRESS_VERSION, R_ADDRESS_VERSION} from '../../utils/constants/consta
 import {coinsToSats, isNumber} from '../../utils/math';
 import VerusPayParser from '../../utils/verusPay';
 
-const DEFAULT_SLIPPAGE_PERCENT = '0.5';
+export const DEFAULT_SLIPPAGE_PERCENT = '0.5';
 
 export const sanitizeNumericInput = value =>
   value == null ? '' : String(value).replace(/,/g, '.');

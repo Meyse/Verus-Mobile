@@ -31,6 +31,7 @@ import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmall
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {truncateDecimal} from '../../utils/math';
 import {
+  DEFAULT_SLIPPAGE_PERCENT,
   generateReceiveInvoice,
   sanitizeNumericInput,
   validateAmountInput,
@@ -42,7 +43,6 @@ import PaymentRequestSlip from './PaymentRequestSlip';
 import ReceiveNoteSheet from './ReceiveNoteSheet';
 import ReceiveConversionsSheet from './ReceiveConversionsSheet';
 
-const DEFAULT_SLIPPAGE = '0.5';
 const KEYBOARD_FOOTER_SPACING = 8;
 
 const STEP_AMOUNT = 'amount';
@@ -93,7 +93,6 @@ export const getRequestErrorMessage = error => {
 
 const ReceivePaymentRequestFlow = ({
   address,
-  allowSlippageSetting,
   card,
   coinObj,
   contextKey,
@@ -117,7 +116,7 @@ const ReceivePaymentRequestFlow = ({
   const [amountFiat, setAmountFiat] = useState(false);
   const [subject, setSubject] = useState('');
   const [allowConversion, setAllowConversion] = useState(true);
-  const [maxSlippage, setMaxSlippage] = useState(DEFAULT_SLIPPAGE);
+  const [maxSlippage, setMaxSlippage] = useState(DEFAULT_SLIPPAGE_PERCENT);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [snapshot, setSnapshot] = useState(null);
@@ -166,7 +165,7 @@ const ReceivePaymentRequestFlow = ({
     setAmountFiat(false);
     setSubject('');
     setAllowConversion(true);
-    setMaxSlippage(DEFAULT_SLIPPAGE);
+    setMaxSlippage(DEFAULT_SLIPPAGE_PERCENT);
     setError(null);
     setLoading(false);
     setSnapshot(null);
@@ -242,7 +241,7 @@ const ReceivePaymentRequestFlow = ({
 
     const amountError = getAmountInputError(amount);
     const slippageError =
-      conversionEligible && allowConversion && allowSlippageSetting
+      conversionEligible && allowConversion
         ? validateSlippageInput(sanitizeNumericInput(maxSlippage))
         : null;
 
@@ -313,7 +312,6 @@ const ReceivePaymentRequestFlow = ({
     address,
     advanceRun,
     allowConversion,
-    allowSlippageSetting,
     amount,
     amountFiat,
     card,
@@ -530,7 +528,7 @@ const ReceivePaymentRequestFlow = ({
             Keyboard.dismiss();
             setConversionsVisible(true);
           }} value={allowConversion
-            ? `Allowed${allowSlippageSetting ? `, max ${maxSlippage}%` : ''}`
+            ? `Allowed, max ${maxSlippage}%`
             : 'Not allowed'} />
         </View>
       ) : null}
@@ -678,7 +676,6 @@ const ReceivePaymentRequestFlow = ({
           />
           <ReceiveConversionsSheet
             allowConversion={allowConversion}
-            allowSlippageSetting={allowSlippageSetting}
             maxSlippage={maxSlippage}
             onApply={values => {
               if (!mountedRef.current || contextRef.current !== contextKey) return;
