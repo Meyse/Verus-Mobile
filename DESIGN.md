@@ -597,7 +597,11 @@ and fee-reserve rules in `SendWizardAmount`.
   context slot takes no height and the entry starts 8 points down. A shown
   context (the network route or Change network) is a 20-point line with the
   entry directly below it. The fiat-mode slot is 36 points and the Available /
-  MAX row 44. Hit slop keeps every target at 44 points or more (MAX 48). Do not
+  MAX row 44. Hit slop keeps the fiat-mode and MAX targets at 44 points or
+  more (MAX 48). The tappable context line (Change network on Send) keeps a
+  20-point touch band on these windows only, because the top area is the
+  scroll view's edge and a taller line would hide Available / MAX on a Send to
+  Ethereum (owner, 2026-11-13). Do not
   shrink the receive estimate or the keypad. An amount error may still make the
   top area scroll on the smallest phones.
 - Place one Continue action above `AmountKeypad` through `WizardFooter` and
