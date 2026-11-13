@@ -64,7 +64,7 @@ export const RegistrationPayerSheet = ({visible, onClose, onSelect, sources, sel
 
 // Display quotes use atomic amounts; balances from the ledger/read API use coins.
 export const RegistrationFunds = ({data, source, coin, coins, balances, reads, showBalance, funding,
-  referralOnly, onRetry, prices = {}, namespace, smallDevice = false, compact = false}) => {
+  referralOnly, onRetry, prices = {}, namespace, smallDevice = false, loading = false, compact = false}) => {
   const styles = useRegistrationStyles();
   const theme = useAppTheme();
   const fiat = useRegistrationFiat();
@@ -101,6 +101,8 @@ export const RegistrationFunds = ({data, source, coin, coins, balances, reads, s
   const meterStyle = [styles.fundsMeter, smallDevice && styles.fundsMeterSmall];
   const balanceStyle = [styles.fundsBalance, smallDevice && styles.fundsBalanceSmall];
   const cardsStyle = [styles.fundsCards, smallDevice && styles.fundsCardsSmall];
+  // The price loads with the first name check; nothing is loading before a name.
+  if (!quote && !loading) return null;
   if (!quote) return <SkeletonLoader accessibilityLabel="Loading price and funds">
     <View style={cardsStyle}>{rows.map(row => <View key={row.id} style={cardStyle}>
       <View style={[styles.fundsTop, {alignItems: 'center'}]}>

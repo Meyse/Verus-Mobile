@@ -257,7 +257,7 @@ export default function NewRegistrationFlow({navigation, route}) {
     ? preferredRegistrationFundingSource(sources, coin, balances, fundsData?.referralQuote, coins, sourceReads.reads) : defaultSource;
   const funds = compact => <RegistrationFunds compact={compact} data={fundsData} coin={coin} coins={coins} balances={balances} reads={sourceReads.reads}
     source={fundsSource} showBalance={showBalance} funding={nameFunding} referralOnly={referralOnly} onRetry={sourceReads.retry}
-    prices={prices} namespace={namespace} smallDevice={smallDevice} />;
+    prices={prices} namespace={namespace} smallDevice={smallDevice} loading={availability === 'checking'} />;
   const summary = shown && <RegistrationSummary name={ownName} referral={referralsAllowed
     ? preview?.request.referralID ? identityLabel(preview.request.referralID, {...preview.currencyNames, ...preview.identityNames}) : '' : null}
     payer={payer} recovery={preview?.request.recoveryAuthority ? identityLabel(preview.request.recoveryAuthority, preview.identityNames) : ownName}
