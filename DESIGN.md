@@ -703,7 +703,8 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   it become the largest number on the screen: a `titleRow` label and the node
   amount size, with the money value before it. Several paid currencies keep
   the row text. Preparing shows its skeleton in the same place.
-- Bridge fee, Network fee and Total show the money value before the coin value
+- Bridge fee, Network fee, Total and a plain send's Fees row (owner,
+  2026-11-13) show the money value before the coin value
   ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the
   ledger holds a price for every currency in that row. A positive value under
   one cent reads "< €0,01", never a zero.
