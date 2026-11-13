@@ -112,6 +112,7 @@ const getAssetBadgeTicker = coinObj => {
 export const AssetCoinLogo = ({
   coinId,
   badgeTicker,
+  badgeRingColor,
   showBadge = true,
   size = 40,
   style = {},
@@ -132,7 +133,9 @@ export const AssetCoinLogo = ({
     }
   }
 
-  const badgeSize = size * 0.55;
+  const ring = size >= 32 ? 2 : 1;
+  const innerSize = Math.max(Math.round(size * 0.44), 8);
+  const badgeSize = innerSize + 2 * ring;
   const overflowOffset = badgeSize * 0.3;
 
   return (
@@ -173,14 +176,14 @@ export const AssetCoinLogo = ({
             bottom: -overflowOffset,
             width: badgeSize,
             height: badgeSize,
-            padding: 2,
+            padding: ring,
             borderRadius: badgeSize / 2,
-            backgroundColor: theme.colors.background,
+            backgroundColor: badgeRingColor === undefined ? theme.colors.background : badgeRingColor,
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 2,
           }}>
-          <BadgeLogo width={badgeSize - 4} height={badgeSize - 4} />
+          <BadgeLogo width={innerSize} height={innerSize} />
         </View>
       ) : null}
     </View>

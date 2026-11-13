@@ -956,8 +956,7 @@ const createStyles = theme =>
     },
     groupHeader: {justifyContent: 'flex-end', paddingBottom: 8},
     groupTitle: {
-      ...theme.typography.labelSm,
-      letterSpacing: 0.5,
+      ...theme.typography.labelCaps,
       color: theme.colors.textSecondary,
     },
     pinNotice: {

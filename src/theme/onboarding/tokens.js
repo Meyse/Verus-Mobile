@@ -107,6 +107,12 @@ const shared = {
       lineHeight: 18,
       ...fontStyle('semiBold'),
     },
+    labelCaps: {
+      fontSize: 11,
+      lineHeight: 14,
+      letterSpacing: 0.6,
+      ...fontStyle('semiBold'),
+    },
     caption: {
       fontSize: 13,
       lineHeight: 18,

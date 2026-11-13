@@ -41,6 +41,9 @@ shared role instead of adding another local combination.
 ## Shared label roles
 
 - `labelMd`: 14/19 semibold labels.
+- `labelCaps`: 11/14 semibold, 0.6 tracking, in `textSecondary` for caps group
+  titles in asset lists and pickers. The owner asked for these titles to be
+  much smaller on 2026-11-13.
 - `labelSm`: 13/18 semibold labels for compact one-line surfaces, such as the
   Send/Convert context band. Pair it with `caption` for the quieter words.
 - `TextAction` uses `labelMd` by default. Its small context role uses `caption`

@@ -120,12 +120,9 @@ export const createReceiveSheetStyles = theme =>
       overflow: 'visible',
     },
     groupTitle: {
-      color: theme.colors.textSubtle,
-      fontSize: 13,
-      lineHeight: 18,
-      letterSpacing: 0.5,
+      ...theme.typography.labelCaps,
+      color: theme.colors.textSecondary,
       textTransform: 'uppercase',
-      ...fontStyle('bold'),
     },
     card: {
       flexDirection: 'row',
