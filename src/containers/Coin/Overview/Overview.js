@@ -123,6 +123,8 @@ const formatTransactionTimestamp = (timestamp) => {
     : date.toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
+        // Show the year only for dates outside the current year.
+        ...(date.getFullYear() !== now.getFullYear() && {year: "numeric"}),
       });
   const time = date.toLocaleTimeString(undefined, {
     hour: "2-digit",
