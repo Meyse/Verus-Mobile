@@ -1,4 +1,4 @@
-import { CommonActions, useFocusEffect } from '@react-navigation/native';
+import { CommonActions, StackActions, useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -66,19 +66,30 @@ import {getRequestBackState, RequestNavigationContext} from './useRequestNavigat
 const USER_BACK_ACTIONS = ['GO_BACK', 'POP', 'POP_TO_TOP'];
 
 // Leaves the request flow: Home when signed in, else the signed-out start.
-const getRequestExitAction = (signedIn, hasAccounts) =>
-  CommonActions.reset({
-    index: 0,
-    routes: [
-      {
-        name: signedIn
-          ? 'SignedInStack'
-          : hasAccounts
-          ? 'SignedOutStack'
-          : 'SignedOutNoKeyStack',
-      },
-    ],
-  });
+// When that stack is still open below the request (a link that arrives in an
+// open wallet), the request closes over it, so Home stays mounted and shows at
+// once. A reset mounts the stack again, with an empty Home until its widgets
+// and tabs load. It stays only for a request with no such stack below it: a
+// cold link that signed in, or a scan that replaced the stack.
+const exitRequest = (navigation, signedIn, hasAccounts) => {
+  const name = signedIn
+    ? 'SignedInStack'
+    : hasAccounts
+    ? 'SignedOutStack'
+    : 'SignedOutNoKeyStack';
+  // The request screen's navigator sits in the DeepLink route of the root.
+  const rootNavigation = navigation.getParent?.();
+  const rootState = rootNavigation?.getState?.();
+  const exitIndex =
+    rootState?.routes?.findIndex(route => route.name === name) ?? -1;
+
+  if (exitIndex >= 0 && exitIndex < rootState.index) {
+    rootNavigation.dispatch(StackActions.pop(rootState.index - exitIndex));
+    return;
+  }
+
+  navigation.dispatch(CommonActions.reset({index: 0, routes: [{name}]}));
+};
 
 const DeepLinkSession = (props) => {
   const requestId = useSelector(state => state.deeplink.requestId);
@@ -158,7 +169,7 @@ const DeepLinkSession = (props) => {
       }
     }
 
-    props.navigation.dispatch(getRequestExitAction(signedIn, accounts.length > 0));
+    exitRequest(props.navigation, signedIn, accounts.length > 0);
   })
 
   const backRef = useRef(null)
@@ -617,7 +628,7 @@ const DeepLinkEnded = ({navigation}) => {
 
   useFocusEffect(
     useCallback(() => {
-      navigation.dispatch(getRequestExitAction(signedIn, hasAccounts));
+      exitRequest(navigation, signedIn, hasAccounts);
     }, [hasAccounts, navigation, signedIn]),
   );
 
