@@ -51,7 +51,7 @@ export const RegistrationSkeleton = ({label = 'Loading costs'}) => {
 
 export const RegistrationPage = ({children, error, refreshing = false, onRefresh, footer,
   navigation, title = 'New VerusID', busy = false, busyRef, info, showHeader = true, onRetry,
-  onBack, onClose, progress}) => {
+  onBack, onClose, progress, keepKeyboardOnScroll = false}) => {
   const theme = useAppTheme();
   const styles = useRegistrationStyles();
   const insets = useSafeAreaInsets();
@@ -60,8 +60,8 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
   const [infoVisible, setInfoVisible] = useState(false);
   const infoDismissal = useSheetDismissal({visible: infoVisible, onClose: () => setInfoVisible(false)});
   const [keyboard, setKeyboard] = useState(false);
-  // While the keyboard is open, every screen size pins the exact price and any
-  // funds warning above the slide: QA showed both cut off or hidden on Pro and Pixel 9.
+  // Keyboard footers use compact content on every screen size. The Name step
+  // keeps its meter cards in the scroll content instead.
   const compactKeyboard = keyboard;
   const formScroll = useVerusIdFormScroll(keyboard, true);
   useEffect(() => {
@@ -96,11 +96,13 @@ export const RegistrationPage = ({children, error, refreshing = false, onRefresh
     {/* The header is inside this page, so the form's own frame already starts below it (offset 0, as ManagementPage). */}
     <KeyboardAvoidingForm style={styles.page}>
       <VerusIdFormScrollContext.Provider value={formScroll.context}>
-      <SheetScrollView fill style={styles.scroll} scrollViewProps={{
+      <SheetScrollView fill style={styles.scroll} fadeBackgroundColor={theme.colors.background}
+        showScrollChevron={!keyboard} scrollViewProps={{
         ref: formScroll.scrollRef,
         onLayout: formScroll.onLayout,
         onContentSizeChange: formScroll.onContentSizeChange,
         keyboardShouldPersistTaps: 'handled',
+        keyboardDismissMode: keepKeyboardOnScroll ? 'none' : 'on-drag',
         refreshControl: onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={() => onRefresh(true)}
           tintColor={theme.colors.primary} colors={[theme.colors.primary]} /> : undefined,
       }} contentContainerStyle={[styles.content, !showHeader && {paddingTop: insets.top + 40}, formScroll.keyboardPadding]}>
