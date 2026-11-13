@@ -534,7 +534,8 @@ For a signed-in task wizard:
   `SendWizardHeader` for back, close, the title, and progress below that row.
 - 20-point horizontal content inset, 24-point top inset, and 28-point bottom
   inset. Send/Convert retains its existing 16-point horizontal inset and uses
-  the 24-point top inset on normal and compact devices.
+  the 24-point top inset on normal and compact devices. Confirm alone uses a
+  16-point top inset on compact windows.
 - No eyebrow. Keep helper copy only when it adds information.
 - One primary bottom action through `SafeBottomActionStack`; back navigation
   stays in the header.
@@ -605,9 +606,11 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   gives way with a single-line middle ellipsis on both platforms, preserving
   its ending. Accessibility retains the full name.
 - Group estimated amounts with thousands separators in display only. Under
-  the estimate, show money only when the ledger has a finite positive price
-  for the received currency in the user's display currency. Do not derive a
-  money price from `usePriceImpact`'s small-trade crypto ratio.
+  the estimate, show money only when there is a finite positive price for
+  the received currency in the user's display currency: the ledger's, or the
+  ledger's price source for a target outside the wallet (`useReceivedPrice`;
+  owner, 2026-11-13). Do not derive a money price from the paid asset or from
+  `usePriceImpact`'s small-trade crypto ratio.
 - Empty conversions show the asset row with "—", no money and no impact row.
   Loading uses one `SkeletonLoader` shaped like the final block. Pre-conversions
   show "Price set at launch", with no money or impact row. Keep the fiat/crypto
@@ -673,12 +676,31 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   your own address. Only the network fee leaves your wallet." It does not block
   (owner, 2026-10-26).
 - Fees are paid on top of the amount. Exports never block because fees reach
-  the amount. A local conversion whose fees in the paid currency exceed its
-  prepared amount shows one non-blocking light notice above the slide: "The fees
-  are higher than the amount you convert." Keep balance and preflight blocks.
-  VRPC exports show separate Bridge fee, Network fee and Total rows from the
-  validated preflight that is signed. Total adds the prepared amount and all
-  fees by currency ID, listing each paid currency once (owner, 2026-11-03).
+  the amount. A conversion or an export whose fees in the paid currency exceed
+  its prepared amount shows one non-blocking light notice above the slide: "The
+  fees are higher than the amount." (owner, 2026-11-13). Keep balance and
+  preflight blocks. VRPC exports show separate Bridge fee and Network fee rows
+  from the validated preflight that is signed.
+- Owner approval, 2026-11-13 (T1 of the Confirm total mockups): an export's
+  Total is not a list row. `ConfirmTotal` pins it directly above the slide on
+  every window size, after the notices, in one group under a hairline, as
+  Amount pins its receive block. Total adds the prepared amount and all fees by
+  currency ID, listing each paid currency once (owner, 2026-11-03). On a normal
+  payment it is a quiet row at list-row size. Only with the notice above does
+  it become the largest number on the screen: a `titleRow` label and the node
+  amount size, with the money value before it. Several paid currencies keep
+  the row text. Preparing shows its skeleton in the same place.
+- Bridge fee, Network fee and Total show the money value before the coin value
+  ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the
+  ledger holds a price for every currency in that row. A positive value under
+  one cent reads "< €0,01", never a zero.
+- The receive node's money uses the received currency's own price
+  (`useReceivedPrice`): the ledger's, or the ledger's price source for a
+  target that is not a wallet asset yet. Amount uses the same hook.
+- On windows of 667 points or less, Confirm uses compact nodes (owner,
+  2026-11-13): 32-point logos, 17/24 amounts, 44-point nodes, a 24-point
+  connector that keeps the unit price, a 16-point top inset and 16 points above
+  the rows.
 - Confirm uses the approved B · Launch slide: 44/56-point primary height,
   white inset thumb, and a 90% release threshold. A short slide shows its hint
   in the label slot for three seconds. Accessibility activation sends once.
@@ -752,7 +774,8 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
 - **Confirm.** A pay node ("You pay", or "You send" for a plain send), a vertical
   connector with the price, and a receive node ("<recipient> receives")
   for conversions. Nodes use a 40-point logo, a 14-point label and a bold 20-point
-  amount; fiat captions appear only when the ledger holds a price. Then a flat
+  amount (compact nodes on small windows, see above); fiat captions appear only
+  when a price is known. Then a flat
   list: "To" (full address in monospace) unless a short name is already in the
   receive node, "Destination network" for cross-chain, "Price impact ›" (the money
   when 1% or more, then the percent badge; it opens "Price and route"), "Fees ›", "Arrives", and "More

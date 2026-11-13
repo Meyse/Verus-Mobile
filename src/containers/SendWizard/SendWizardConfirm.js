@@ -38,7 +38,7 @@ import {
   TransferConnector,
   TransferNode,
 } from './components/TransferSummary';
-import ConfirmFacts, {ConfirmNotice} from './components/ConfirmFacts';
+import ConfirmFacts, {ConfirmNotice, ConfirmTotal} from './components/ConfirmFacts';
 import ConfirmPreparing from './components/ConfirmPreparing';
 import {
   formatEstimatedAmount,
@@ -48,6 +48,7 @@ import {
 import FadedScrollView from '../../components/FadedScrollView';
 import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
+import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {expireCoinData} from '../../actions/actionCreators';
 import {getIdentity} from '../../utils/api/routers/getIdentity';
@@ -86,6 +87,8 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import {useWizardFiat} from './useWizardFiat';
+import {useReceivedPrice} from './useReceivedPrice';
+import {formatApproxMoney, formatMoney, sumMoney} from './confirmMoney';
 import {
   getCurrencyDisplay,
   getDestinationNetwork,
@@ -169,6 +172,13 @@ const SendWizardConfirm = () => {
   const generalWalletSettings = useObjectSelector(value => value.settings.generalWalletSettings);
   const {displayCurrency, format: formatFiat, getRate} = useWizardFiat(
     sourceSubWallet,
+  );
+  // Small windows use smaller pay and receive nodes and tighter spacing.
+  const {smallDevice: compact} = useOnboardingSmallDeviceLayout();
+  const activeCoins = useObjectSelector(value => value.coins.activeCoinsForUser);
+  const receivedPrice = useReceivedPrice(
+    target?.isConversion ? target.coinId || target.id : null,
+    sourceSubWallet?.api_channels?.[API_GET_FIATPRICE],
   );
 
   // After "Status unknown" only Close leaves (owner, 2026-10-26): a step back
@@ -679,8 +689,33 @@ const SendWizardConfirm = () => {
     : 'Calculated by wallet';
   const feesCopyValue = feeItems.map(item => item.amount).join('\n');
   const hasExportFees = Boolean(route?.isCrossChain && channel?.split('.')[0] === 'vrpc');
+  // The ledger's price of a currency this payment uses, by currency ID. A
+  // currency without a price gives null, and its money value stays absent.
+  const getCurrencyRate = currencyId => {
+    if ([sourceCoin?.id, sourceCoin?.currency_id].includes(currencyId)) {
+      return getRate(sourceCoin?.id);
+    }
+    const coin = (activeCoins || []).find(
+      candidate => candidate.currency_id === currencyId || candidate.id === currencyId,
+    );
+    return coin ? getRate(coin.id) : null;
+  };
+  const feeMoneyOf = fees => formatApproxMoney(
+    sumMoney(
+      Object.entries(fees)
+        .filter(([, satoshis]) => BigNumber(satoshis).isGreaterThan(0))
+        .map(([currencyId, satoshis]) => ({
+          currencyId,
+          amount: satsToCoins(BigNumber(satoshis)),
+        })),
+      getCurrencyRate,
+    ),
+    displayCurrency,
+  );
   const exportFees = hasExportFees && reviewResult?.feeDetails
     ? {
+        bridgeMoney: feeMoneyOf(reviewResult.feeDetails.bridge),
+        networkMoney: feeMoneyOf(reviewResult.feeDetails.network),
         bridgeCopyValue: Object.values(reviewResult.feeDetails.bridge)
           .map(satoshis => satsToCoins(BigNumber(satoshis)).toFixed()).join('\n'),
         networkCopyValue: Object.values(reviewResult.feeDetails.network)
@@ -709,8 +744,12 @@ const SendWizardConfirm = () => {
       currency: previous?.currency || item.currency,
     });
   });
-  const exportTotal = [...totalPaid.values()]
-    .map(item => `${item.amount.toFixed()} ${item.currency}`).join(' + ');
+  const totalItems = [...totalPaid.entries()].map(([currencyId, item]) => ({
+    currencyId,
+    amount: item.amount.toFixed(),
+    currency: item.currency,
+  }));
+  const totalMoney = formatApproxMoney(sumMoney(totalItems, getCurrencyRate), displayCurrency);
   const totalCopyValue = [...totalPaid.values()]
     .map(item => item.amount.toFixed()).join('\n');
   const destinationNetwork = getDestinationNetwork(
@@ -789,6 +828,7 @@ const SendWizardConfirm = () => {
           amount={displayAmount}
           arrives={preconvert ? estimatedTime : null}
           atLaunch={preconvert}
+          compact={compact}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           isConversion={preparingReceive}
           fromLabel={fromLabel}
@@ -802,6 +842,13 @@ const SendWizardConfirm = () => {
           target={target}
         />
         <WizardFooter
+          above={
+            hasExportFees ? (
+              <View style={[styles.pinnedTotal, {borderTopColor: theme.colors.border}]}>
+                <ConfirmTotal loading />
+              </View>
+            ) : null
+          }
           disabled
           slideToConfirm
           loading
@@ -859,12 +906,15 @@ const SendWizardConfirm = () => {
   const showImpact = showReceive && (impact != null || Boolean(route?.via));
   // Notices and errors stay above the slide. On a short screen they would
   // otherwise sit below the fold, out of sight when the user slides.
-  // Fees are paid on top. A local conversion can cost more than it converts;
-  // tell the user without blocking an otherwise valid prepared transaction.
-  const conversionFeeNotice =
-    target?.isConversion && !route?.isCrossChain && !invoice && reviewResult && sourceFees.isGreaterThan(displayAmount)
-      ? 'The fees are higher than the amount you convert.'
-      : null;
+  // Fees are paid on top. A conversion or an export can cost more than it
+  // moves; tell the user without blocking an otherwise valid prepared
+  // transaction. On an export this also makes the total above the slide loud.
+  const feesExceedAmount = Boolean(
+    (target?.isConversion || hasExportFees) && !invoice && reviewResult && sourceFees.isGreaterThan(displayAmount),
+  );
+  const conversionFeeNotice = feesExceedAmount
+    ? 'The fees are higher than the amount.'
+    : null;
   const pinnedMessage = state.broadcastError || error || invoiceShortfall;
   // A scanned request that names another network warns here, above the slide.
   // From the private card, a transparent address makes the amount public.
@@ -897,14 +947,25 @@ const SendWizardConfirm = () => {
   ].filter(Boolean);
   const needsFeeRetry = Boolean(feeKind && networkFee.error && !networkFee.fee &&
     !state.broadcastError && !state.txResult);
+  const pinnedNotices = pinnedMessage || notices.length ? (
+    <View style={styles.pinnedNotices}>
+      {notices.map(message => (
+        <ConfirmNotice key={message}>{message}</ConfirmNotice>
+      ))}
+      <ErrorMessage style={styles.pinnedError}>
+        {pinnedMessage}
+      </ErrorMessage>
+    </View>
+  ) : null;
   return (
     <WizardScreen scroll={false}>
       <FadedScrollView
         containerStyle={styles.scrollViewport}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, compact && styles.contentCompact]}
         fadeBackgroundColor={theme.colors.background}>
         <TransferNode
           amount={truncateDecimal(displayAmount, 8)}
+          compact={compact}
           copyValue={displayAmount.toFixed()}
           coinId={sourceCoin?.id}
           fiat={formatFiat(displayAmount, sourceCoin?.id)}
@@ -913,9 +974,10 @@ const SendWizardConfirm = () => {
         />
         {preconvert ? (
           <>
-            <TransferConnector>Price set at launch</TransferConnector>
+            <TransferConnector compact={compact}>Price set at launch</TransferConnector>
             <TransferNode
               amount={null}
+              compact={compact}
               coinId={target.coinId || target.id}
               label="You receive"
               ticker={target.ticker}
@@ -925,13 +987,17 @@ const SendWizardConfirm = () => {
         {showReceive ? (
           <>
             {connectorLines.length ? (
-              <TransferConnector>{connectorLines}</TransferConnector>
+              <TransferConnector compact={compact}>{connectorLines}</TransferConnector>
             ) : null}
             <TransferNode
               amount={`≈ ${formatEstimatedAmount(estimatedReceive)}`}
+              compact={compact}
               copyValue={BigNumber(estimatedReceive).toFixed()}
               coinId={target.coinId || target.id}
-              fiat={formatFiat(estimatedReceive, target.coinId || target.id)}
+              fiat={formatMoney(
+                sumMoney([{amount: estimatedReceive}], () => receivedPrice),
+                displayCurrency,
+              )}
               label={
                 invoice ? `${shortAddress(recipientAddress, 4)} receives` : 'You receive'
               }
@@ -946,12 +1012,11 @@ const SendWizardConfirm = () => {
         ) : null}
         <ConfirmFacts
           arrives={estimatedTime}
+          compact={compact}
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
           feesCopyValue={feesCopyValue}
           exportFees={exportFees}
-          total={hasExportFees ? exportTotal : null}
-          totalCopyValue={hasExportFees ? totalCopyValue : null}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={
@@ -1002,16 +1067,17 @@ const SendWizardConfirm = () => {
       </FadedScrollView>
       <WizardFooter
         above={
-          pinnedMessage || notices.length ? (
-            <View style={styles.pinnedNotices}>
-              {notices.map(message => (
-                <ConfirmNotice key={message}>{message}</ConfirmNotice>
-              ))}
-              <ErrorMessage style={styles.pinnedError}>
-                {pinnedMessage}
-              </ErrorMessage>
+          hasExportFees ? (
+            <View style={[styles.pinnedTotal, {borderTopColor: theme.colors.border}]}>
+              {pinnedNotices ? <View style={styles.pinnedTotalNotices}>{pinnedNotices}</View> : null}
+              <ConfirmTotal
+                copyValue={totalCopyValue}
+                items={totalItems}
+                loud={feesExceedAmount}
+                money={totalMoney}
+              />
             </View>
-          ) : null
+          ) : pinnedNotices
         }
         disabled={
           (!needsFeeRetry && (!preflightResult || preparedParams.current !== simpleSendParams)) ||
@@ -1068,8 +1134,15 @@ const SendWizardConfirm = () => {
 const styles = StyleSheet.create({
   scrollViewport: {flex: 1},
   content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
+  contentCompact: {paddingTop: 16, paddingBottom: 8},
   adjustment: {marginTop: 8},
   pinnedNotices: {marginBottom: 4},
+  // An export's total with its notices, pinned above the slide. The hairline
+  // belongs to this group, as on Amount's pinned receive block.
+  pinnedTotal: {borderTopWidth: StyleSheet.hairlineWidth},
+  // The Total row brings its own 10-point padding, so the last notice's
+  // 12-point bottom space is taken back.
+  pinnedTotalNotices: {marginTop: 8, marginBottom: -12},
   pinnedError: {marginHorizontal: 0, marginVertical: 0, marginBottom: 8},
   centeredState: {flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center'},
   stateTitle: {fontSize: 20, lineHeight: 26, textAlign: 'center', marginTop: 18, ...fontStyle('bold')},
