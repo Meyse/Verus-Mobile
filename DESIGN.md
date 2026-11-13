@@ -609,8 +609,11 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   the estimate, show money only when there is a finite positive price for
   the received currency in the user's display currency: the ledger's, or the
   ledger's price source for a target outside the wallet (`useReceivedPrice`;
-  owner, 2026-11-13). Do not derive a money price from the paid asset or from
-  `usePriceImpact`'s small-trade crypto ratio.
+  owner, 2026-11-13). A target outside the coin directory gets the same
+  on-chain price from its currency id and system id: any basket or reserve
+  currency with a native or anchor route has a money value. Do not derive a
+  money price from the paid asset or from `usePriceImpact`'s small-trade crypto
+  ratio.
 - Empty conversions show the asset row with "—", no money and no impact row.
   Loading uses one `SkeletonLoader` shaped like the final block. Pre-conversions
   show "Price set at launch", with no money or impact row. Keep the fiat/crypto
@@ -696,7 +699,8 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   one cent reads "< €0,01", never a zero.
 - The receive node's money uses the received currency's own price
   (`useReceivedPrice`): the ledger's, or the ledger's price source for a
-  target that is not a wallet asset yet. Amount uses the same hook.
+  target that is not a wallet asset yet, also outside the coin directory.
+  Amount uses the same hook.
 - On windows of 667 points or less, Confirm uses compact nodes (owner,
   2026-11-13): 32-point logos, 17/24 amounts, 44-point nodes, a 24-point
   connector that keeps the unit price, a 16-point top inset and 16 points above
