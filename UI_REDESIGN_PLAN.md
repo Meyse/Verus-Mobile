@@ -1253,6 +1253,12 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   long names and large amounts, real/missing received-asset prices, compact
   keypad fit with the fiat toggle, sheet Back/reopen, presets/custom validation,
   conversions off, and generated invoice amounts. No device ran in this task.
+- [x] **TX-1.CONFIRM-TOTAL** Owner-approved 2026-11-13 (T1): an export's Total
+  sits above the slide on every window size, quiet on a normal payment and
+  large with the notice "The fees are higher than the amount." when the fees
+  exceed the amount. Bridge fee, Network fee and Total show money values. The
+  receive node gets a money value for a target outside the wallet. Small
+  windows use compact pay and receive nodes.
 
 - [x] **SLIDE-1** Replace irreversible commit controls with `SlideToConfirm` in
   Send/Convert, invoice payment, gift card funding, high-risk app encryption,

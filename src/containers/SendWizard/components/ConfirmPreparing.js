@@ -18,10 +18,12 @@ const ValueSkeleton = ({width = 96}) => (
 // still working out (the receive amount, the price, fees and timing) is a
 // skeleton. The review then fills in without the page changing shape.
 // A pre-conversion (`atLaunch`) already knows its price line and launch facts.
+// An export's total skeleton sits above the slide, where `ConfirmTotal` shows.
 const ConfirmPreparing = ({
   amount,
   atLaunch = false,
   arrives,
+  compact = false,
   destinationNetwork,
   isConversion,
   fromLabel,
@@ -39,10 +41,11 @@ const ConfirmPreparing = ({
   return (
     <ScrollView
       accessibilityLabel="Preparing transaction"
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, compact && styles.contentCompact]}
       scrollEnabled={false}>
       <TransferNode
         amount={truncateDecimal(amount, 8)}
+        compact={compact}
         copyValue={amount.toFixed()}
         coinId={sourceCoin?.id}
         label={isConversion ? 'You pay' : 'You send'}
@@ -50,9 +53,10 @@ const ConfirmPreparing = ({
       />
       {atLaunch ? (
         <>
-          <TransferConnector>Price set at launch</TransferConnector>
+          <TransferConnector compact={compact}>Price set at launch</TransferConnector>
           <TransferNode
             amount={null}
+            compact={compact}
             coinId={target.coinId || target.id}
             label="You receive"
             ticker={target.ticker}
@@ -60,16 +64,17 @@ const ConfirmPreparing = ({
         </>
       ) : isConversion ? (
         <>
-          <TransferConnector loading />
+          <TransferConnector compact={compact} loading />
           <TransferNode
             coinId={target.coinId || target.id}
+            compact={compact}
             label="You receive"
             loading
             ticker={target.ticker}
           />
         </>
       ) : null}
-      <View style={[styles.rows, {borderTopColor: theme.colors.border}]}>
+      <View style={[styles.rows, compact && styles.rowsCompact, {borderTopColor: theme.colors.border}]}>
         {fromLabel ? <FlatRow copyValue={fromLabel} label="From" numberOfLines={0} value={fromLabel} /> : null}
         <RecipientRow caption={recipientCaption} recipient={recipient} resolvingAddress={recipient.includes('@')} />
         {destinationNetwork ? (
@@ -89,9 +94,6 @@ const ConfirmPreparing = ({
         <FlatRow label={networkFee || exportFees ? "Network fee" : "Fees"}>
           <ValueSkeleton />
         </FlatRow>
-        {exportFees ? (
-          <FlatRow label="Total"><ValueSkeleton /></FlatRow>
-        ) : null}
         {arrives ? (
           <FlatRow copyValue={arrives} label="Arrives" value={arrives} />
         ) : (
@@ -110,11 +112,13 @@ const styles = StyleSheet.create({
     paddingTop: WIZARD_CONTENT_TOP_INSET,
     paddingBottom: 20,
   },
+  contentCompact: {paddingTop: 16, paddingBottom: 8},
   rows: {
     marginTop: 24,
     marginBottom: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  rowsCompact: {marginTop: 16, marginBottom: 0},
   valueSkeleton: {alignSelf: 'flex-end'},
 });
 

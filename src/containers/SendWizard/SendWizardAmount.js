@@ -35,6 +35,7 @@ import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {compareRoutes, IMPACT_LEVEL} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
+import {useReceivedPrice} from './useReceivedPrice';
 import {
   ErrorMessage,
   WizardFooter,
@@ -484,10 +485,10 @@ const SendWizardAmount = () => {
   const receiveAmount = validAmount
     ? target.isConversion ? estimatedOutput : cryptoAmountValue
     : null;
-  // Rates are keyed by API channel, coin ID, then the user's display currency.
-  // This is the received asset's cached price, never the paid asset's price or
-  // the small-trade crypto ratio from usePriceImpact. Missing prices stay absent.
-  const receiveRate = rates?.[fiatChannel]?.[target.coinId || target.id]?.[displayCurrency];
+  // The received asset's own price: the ledger's, or the same price source for
+  // a target that is not in the wallet. Never the paid asset's price or the
+  // small-trade crypto ratio from usePriceImpact. Missing prices stay absent.
+  const receiveRate = useReceivedPrice(target.coinId || target.id, fiatChannel);
   const receiveMoneyValue = receiveAmount != null &&
     BigNumber(receiveAmount).isFinite() && BigNumber(receiveRate).isFinite() &&
     BigNumber(receiveRate).isGreaterThan(0)

@@ -320,14 +320,18 @@ export const DetailRow = ({label, value}) => {
 // opens a sheet, and `children` for a value that is not plain text. Pass
 // `numberOfLines={0}` where the whole value must stay readable, as for
 // addresses and fees. `copyValue` enables long-press copy of the exact value.
+// A row pinned above the footer action passes `divider={false}`; `strong`
+// gives its label the row-title weight.
 export const FlatRow = ({
   accessibilityLabel,
   children,
   copyValue,
+  divider = true,
   label,
   numberOfLines = 2,
   onPress,
   quiet = false,
+  strong = false,
   value,
   valueStyle,
 }) => {
@@ -335,7 +339,12 @@ export const FlatRow = ({
   const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {haptic: true});
   const content = (
     <>
-      <Text style={[styles.flatLabel, {color: theme.colors.textSecondary}]}>
+      <Text
+        style={
+          strong
+            ? [theme.typography.titleRow, styles.flatLabelStrong, {color: theme.colors.textPrimary}]
+            : [styles.flatLabel, {color: theme.colors.textSecondary}]
+        }>
         {label}
       </Text>
       <View style={styles.flatValueWrap}>
@@ -370,7 +379,11 @@ export const FlatRow = ({
       </View>
     </>
   );
-  const rowStyle = [styles.flatRow, {borderBottomColor: theme.colors.border}];
+  const rowStyle = [
+    styles.flatRow,
+    {borderBottomColor: theme.colors.border},
+    !divider && styles.flatRowNoDivider,
+  ];
 
   return canCopy ? (
     <Pressable
@@ -542,7 +555,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  flatRowNoDivider: {borderBottomWidth: 0},
   flatLabel: {fontSize: 14, lineHeight: 19, marginRight: 16, ...fontStyle('regular')},
+  flatLabelStrong: {marginRight: 16},
   flatValueWrap: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
   flatCopyValue: {flex: 1, minWidth: 0},
   flatValueContent: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
