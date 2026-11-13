@@ -574,8 +574,8 @@ and fee-reserve rules in `SendWizardAmount`.
 
 - The 44-point context slot shows Change network only when an alternative is
   available. It shows source network to destination network for a cross-chain
-  route, or To and the target ticker for a same-chain conversion. A simple Send
-  omits the default network name. The slot keeps its height in every case.
+  route. A same-chain conversion shows no To line because the receive block
+  names the target. A simple Send omits the default network name. The slot keeps its height in every case.
 - Put the amount and its current unit on one line. Keep 40-to-20-point amount
   sizing. A long amount can put its unit below it. The entry starts 48 points
   below the context on normal windows, or 8 points on compact windows.
@@ -595,25 +595,28 @@ and fee-reserve rules in `SendWizardAmount`.
   padding. Amount's insufficient-balance text is "The amount exceeds this
   address's spendable balance." Keep validation and recovery actions intact.
 
-Send/Convert Amount pins one receive line above Continue. The owner approved
-option A2 on 2026-10-19: a receive amount and a percent chip that opens
-"Price and route".
+Send/Convert Amount pins the received asset above Continue. Owner approval,
+2026-11-13: option B replaces the earlier A2 receive line.
 
-- Amount keeps `AmountEstimate` and `WizardFooter` outside its ScrollView.
-  The receive line uses at least 49 points when present. Empty slots occupy
-  no space. Top-anchored entry keeps the amount still during network changes. `AmountEstimate` shows only "You receive",
-  the chip when it applies, and "≈ <amount> <ticker>". Loading uses one skeleton
-  line. Empty and invalid amounts show no receive content. There is no Market price, money, suggestion,
-  unit price, Via, or Ethereum fee row on Amount.
-- For a conversion or Ethereum export, show the chip when impact is at least
-  0.1%, more than one basket is available, or an Ethereum network fee needs a
-  quote or has a result. The label is "x.x% less", "<0.1% less" below 0.1%, or
-  "Details" when impact is unknown. Use a neutral `StatusBadge` below 1%,
-  warning from 1%, and danger from 5%, with a small chevron in a button.
-- When the chip shows, omit the receive logo. The amount shrinks to fit on one
-  line. The chip can wrap below the label when space is too tight, including
-  long amounts at 360dp. Compact top spacing and the fiat-price unit-chip rule
-  stay in place. The amount, unit chip, and "Available / MAX" remain scrollable.
+- Keep `AmountEstimate` and `WizardFooter` outside the ScrollView. The flat
+  asset row has a top hairline, a 32-point `AssetCoinLogo`, the currency name in
+  `titleRow` above "You receive" in `caption`, and the right-aligned estimate.
+  Keep the estimate at 17-point bold. It never shrinks or truncates. The name
+  gives way with a single-line middle ellipsis on both platforms, preserving
+  its ending. Accessibility retains the full name.
+- Group estimated amounts with thousands separators in display only. Under
+  the estimate, show money only when the ledger has a finite positive price
+  for the received currency in the user's display currency. Do not derive a
+  money price from `usePriceImpact`'s small-trade crypto ratio.
+- Empty conversions show the asset row with "—", no money and no impact row.
+  Loading uses one `SkeletonLoader` shaped like the final block. Pre-conversions
+  show "Price set at launch", with no money or impact row. Keep the fiat/crypto
+  toggle under the input and the existing compact keypad layout.
+- Below the asset, a pressable `FlatRow` reads "Price impact", with a
+  `StatusBadge` and chevron. Keep the existing doorway rule: impact at least
+  0.1%, more than one basket, or an Ethereum export. Show it only with a receive
+  estimate. The badge is percent only, neutral below 1%, warning from 1%, and
+  danger from 5%. Unknown or below 0.1% reads "Details" in neutral.
 - "Price and route" uses `BottomSheetModal` directly with the shared
   information-sheet styles in `src/styles/components/infoSheet.styles.js` and
   `titleSheetCompact` (18/24). The shell keeps its 24-point radius and 78% maximum height.
@@ -628,10 +631,10 @@ option A2 on 2026-10-19: a receive amount and a percent chip that opens
   deviation from the canonical 56-point minimum. Titles use `titleRowDense`
   (14/18), estimates use `captionDense` (12/16), and badge labels use
   `labelDense` (12/16). Show the basket name, estimated receive
-  amount or "Estimate unavailable.", a success "Best price" or neutral
-  "x% less" pill, and the selected green check or unselected chevron.
+  amount or "Estimate unavailable.", a success "Best price" pill only on the
+  best basket, and the selected green check or unselected chevron.
 - Follow the baskets with single-line, non-tappable fact rows: Market price,
-  Your price, and Difference. Labels sit left and values right, with hairline
+  Your price, and Price impact. Labels sit left and values right, with hairline
   dividers. Their 32-point height and 13/18 `caption` text are an owner-approved
   deviation from stacked information rows. Emphasized values use `labelSm`. Hide absent data. With one basket, omit the basket list
   and show "Route" after the price facts only when the route has a `via`.
@@ -714,29 +717,29 @@ The owner approved these on 2026-10-18 (round 2 of the HTML mockups: Amount
 option C "say it in money", Recipient option A, Confirm and Sent option B).
 They stay flat: hairline rows, no cards, no capital-letter labels.
 
-- **Amount, conversions and Ethereum exports.** Follow the A2 pinned receive
-  line and "Price and route" sheet rules above. They replace the earlier flat
-  estimate, Market price, money, suggestion, and Via rows on Amount. The system
-  still picks the basket with the most output. Name a basket by what it holds
+- **Amount, conversions and Ethereum exports.** Follow the option B pinned
+  receive block and "Price and route" sheet rules above. They replace the earlier
+  A2 receive line. Market price, suggestion and Via stay in Price and route. The
+  system still picks the basket with the most output. Name a basket by what it holds
   (for example "VRSC-KMD-GOLD").
 - **Price impact** is how far this conversion's price is below the market price.
   The market price is the output per unit of a small sample trade (worth about
   one display-currency unit) on the same route, fetched once per route. Levels:
   under 0.1% adds no chip by itself; 0.1% to 1% uses neutral, 1% to 5%
   warning, and 5% and up danger. For zero or negative impact (the user's price
-  is equal to or better than market), Difference reads "None", with no percent
+  is equal to or better than market), Price impact reads "None", with no percent
   or money. The same rule applies to invoice pay mode (owner, 2026-10-27).
   This case adds no chip. A chip shown for another reason reads "Details".
   For positive impact, the chip says the percent. The sheet shows the money
-  and percent in Difference, with danger text from 5%, primary text from 1%,
-  and secondary text below 1%. For 0 < impact < 0.1%, Difference shows
-  "<0.1% less" ("<0.1% more" for an invoice). From 1% impact, a verified
-  "Use <N> <SRC> instead | x.x% less" action appears in the sheet while a warning
+  and percent in Price impact, with danger text from 5%, primary text from 1%,
+  and secondary text below 1%. For 0 < impact < 0.1%, Price impact shows
+  "<0.1%" in both send and invoice modes (owner, 2026-11-13). From 1% impact, a verified
+  "Use <N> <SRC> instead | Price impact x.x%" action appears in the sheet while a warning
   or danger suggestion exists. Show the measured impact, never the one the
   suggestion formula aimed for. Say the money in what
   the user receives: the display currency when the ledger holds a
-  price for the asset the user pays with ("$204.44 less"), otherwise the
-  received asset ("0.0681 ETH less"). Never use a minus sign and never count
+  price for the asset the user pays with ("$204.44"), otherwise the
+  received asset ("0.0681 ETH"). Never use a minus sign and never count
   the loss in the asset the user pays when there is no price.
 - **Recipient.** The address field is followed by flat 62-point rows ("Saved
   addresses | N ›", "Send to self | N ›") with hairlines. No cards, no icons and
@@ -752,7 +755,7 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   amount; fiat captions appear only when the ledger holds a price. Then a flat
   list: "To" (full address in monospace) unless a short name is already in the
   receive node, "Destination network" for cross-chain, "Price impact ›" (the money
-  when 1% or more, then the "x.x% less" badge; it opens "Price and route"), "Fees ›", "Arrives", and "More
+  when 1% or more, then the percent badge; it opens "Price and route"), "Fees ›", "Arrives", and "More
   details ›", which opens the "Transaction details" `InfoSheet` (To, Destination
   network, Route when a basket is used, From, Balance after). Fees and addresses wrap and never truncate. The footer stays
   Slide to send, or Slide to convert for a conversion.
@@ -1807,6 +1810,14 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   have the Receive close button on the right of the header: Close leaves
   Receive in one tap, and Done on Request ready still returns to the address
   (owner, 2026-10-26).
+- Owner-approved 2026-11-13, Conversions option A: when conversions are on,
+  always show Max slippage with equal 0.5%, 1%, 2%, Custom segments. Default
+  is 0.5%. Segments are at least 44 points high; selected uses `primaryBackground`
+  with a full `link` outline and an accessible selected state. Custom reveals
+  one `AppTextInput` with a percent suffix and inline validation. Below it,
+  `caption` explains: "You accept up to this much less than the market price
+  when a payment converts." The Request row reads "Allowed, max <value>%" or
+  "Not allowed". Ignore the old Settings gate. Keep invoice encoding unchanged.
 - Request ready uses `PaymentRequestSlip` at the full content width. The fixed
   `#F6F3EC` paper, light text colors, notched SVG outline (`ticketOutline`,
   shared with the gift card), dotted perforation,
@@ -1873,17 +1884,17 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
 - Under the slip, every way to pay with its cost: "Pay directly", then "Pay with
   conversion", one row per currency (owner, 2026-10-22). The wallet picks the
   cheapest basket; rows do not say "via". A conversion row shows Send's price
-  impact chip (`ImpactChip`) with the same rule and tones as on Amount, but it
-  reads "x.x% more", because the invoice fixes the amount and the user pays the
-  difference. The chip opens `PriceRouteSheet` in pay mode: every basket with
-  its cost, cheapest first ("Best price", "x% more"), then Market price, Your
-  price and Difference; a choice changes the row. A basket that is the requested
+  impact chip (`ImpactChip`) with the same doorway rule and tones as on Amount.
+  It reads the percent only (owner, 2026-11-13). The chip opens `PriceRouteSheet`
+  in pay mode: every basket with
+  its cost, cheapest first (only the best gets "Best price"), then Market price, Your
+  price and Price impact; a choice changes the row. A basket that is the requested
   or the paying currency itself counts as "Direct". There is no "Use … instead"
   suggestion. A currency on several cards shows no source count and opens
   "Choose an address" (owner, 2026-11-12). The step is skipped when the invoice
   allows no conversion and one card can pay.
 - Confirm adds "Request from" (signed invoices only), "From" (only after a card
-  choice), "Expires" and "Invoice details". Its Price impact reads "x.x% more", and
+  choice), "Expires" and "Invoice details". Its Price impact badge reads the percent only, and
   the money is what the user pays on top of the market price. It always pays through the
   currency-transfer path. Tagged invoices are not supported yet, so the payment
   carries no invoice tag. It refuses a payment that the fee would shrink.

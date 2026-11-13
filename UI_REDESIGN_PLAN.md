@@ -1245,6 +1245,15 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 ## TX-1 — Current Send and Convert wizard
 
+- [x] **TX-1.RECEIVE-IMPACT-ROW** Owner-approved 2026-11-13: percent-only Price
+  impact wording, option B pinned received-asset block, and option A invoice
+  slippage presets. Preserve the fiat toggle, route rules and invoice encoding.
+- [ ] **TX-1.RECEIVE-IMPACT-ROW-QA** Separate device task: iOS normal/SE and
+  Android normal/360dp, both themes. Check empty/loading/estimate/pre-launch,
+  long names and large amounts, real/missing received-asset prices, compact
+  keypad fit with the fiat toggle, sheet Back/reopen, presets/custom validation,
+  conversions off, and generated invoice amounts. No device ran in this task.
+
 - [x] **SLIDE-1** Replace irreversible commit controls with `SlideToConfirm` in
   Send/Convert, invoice payment, gift card funding, high-risk app encryption,
   external VerusID updates, and VerusID registration and management.
@@ -2360,6 +2369,7 @@ plan into a repository-wide migration test project.
 
 | Date | Scope | Candidate / commit | Evidence and result | Remaining / next action |
 | --- | --- | --- | --- | --- |
+| 2026-11-13 | TX-1.RECEIVE-IMPACT-ROW | `claude/price-impact-receive-row` from `9724ada3`; implementation `01e9e8c3`, `4df07ed5`, `e503f1e3` | Inspected all four approved PNG boards. Price impact labels are percent only; basket badges only Best price. Amount pins the logo/name/estimate/money and impact doorway; one-line middle ellipsis works with Android's constraint. Money uses the received coin ID in the existing ledger price channel and display currency; no crypto-ratio fallback. Invoice presets/custom share the existing validator and encoder. Temporary non-Jest fixtures pass selection, errors, decimal commas, deferred apply, off and cancel/reopen. Real invoice classes round-trip 0.5/1/2/3 percent to 500000/1000000/2000000/3000000, byte-identical to the base text-field path. | No simulator/device runs, push or merge. Native light/dark, normal/compact, text wrapping, assistive technology and live rates remain for the separate QA task. Static check results recorded in the follow-up below. |
 | 2026-11-12 | SLIDE-1.DEFERRED-CANCEL | Follow-up to merge `eae7c336` on `claude/slide-to-confirm-1112` | A temporary non-Jest component fixture fails before the fix: a successful release, first animation frame, prevented Back and rearm timer let the second frame invoke the old handler. The deferred handler now checks its captured gesture epoch. The fixture passes after the fix, including a fresh slide after Back, cancelled release beyond 90%, short release, busy label before commit, two-frame defer and duplicate accessibility activation. Design (39 sources), card colors (17 materials), changed-file safe areas (1 file), iOS and Android production bundles pass again. Fifteen function AST comparisons, 12 byte-identical copy/review files and both original checkbox/evidence sets pass against redesign / the original branch. | Source and controlled fixture evidence only. Native gestures, rendered states, clipboard and accessibility remain open. Existing AmountInput cursor-at-end polish, promise returns and gift duplicate-submit guard are retained; transaction construction/funding/signing/broadcast inputs match redesign. No Jest tests added, devices, wallet actions or push. |
 | 2026-11-12 | SLIDE-1.REDESIGN-MERGE | `claude/slide-to-confirm-1112`, parents `d49fb338` and `70f81518` | Both import sets, both checkbox sets and all evidence rows retained. Read merged WizardUI, ConfirmPayStep, SendWizardConfirm and DESIGN. Copy primitives and 12 copy/review files match redesign; payment/preparation function ASTs match. Frozen install, design (39 sources), card colors (17 materials), changed-file safe areas (49 files), iOS and Android production bundles pass. Row copy is inside the scroll content; the slide is a sibling footer, so no simultaneousHandlers/waitFor link is needed. Cancelled and short slides, busy text, two-frame defer and duplicate activation pass a temporary component fixture. | Fixture found that prevented Back between the deferred frames can rearm an old commit; fix follows in a separate commit. Native gestures, rendered light/dark and normal/compact, clipboard and accessibility remain unverified. No devices, wallet actions or push. |
 | 2026-11-11 | SLIDE-1 | `claude/slide-to-confirm` from `552a2ee9` | Shared 44/56-point slide, 90% release threshold, three-second action hint, promise latch and cancellation guards. Six approved paths use it. Gift funding adds a synchronous broadcast guard; wrappers return commit promises. Invoice native modal gets a gesture root; the track uses View to avoid Pressable pan capture. Design/card-color, changed-file safe-area, 15-file Babel transform, 35 existing presentation tests and 33 controlled component checks pass. CoreText at Inter Semibold 17 pt measures the longest labels at 192.11 and 177.86 pt; both fit the 320-point screen calculation. pnpm required verify-deps-before-run=warn with reused modules; no install. | No device, native gesture, native font, gift keyboard, broadcast, VoiceOver or TalkBack proof. No success motion changes, push or merge. |
@@ -3797,3 +3807,36 @@ Evidence: source inspection only for native keyboard geometry. No simulator
 runs in this implementation task. Design, changed-file safe-area, Babel parsing and whitespace checks pass.
 The safe-area command used --config.verifyDepsBeforeRun=false after pnpm
 automatic postinstall failed on the existing navigation patch.
+
+
+### TX-1.RECEIVE-IMPACT-ROW — Receive block and invoice presets (2026-11-13)
+
+- Scope: percent-only Price impact across the current wizard and invoice pay,
+  option B Amount receive block, and option A request slippage presets.
+  Legacy `SendModal/ConvertOrCrossChainSend` stays unchanged.
+- Money source: `state.ledger.rates[fiatChannel][target.coinId || target.id]`
+  in the selected display currency. `fiatChannel` comes from the source card's
+  `API_GET_FIATPRICE` (the general channel for these VRPC conversions). The
+  on-chain price pipeline converts its USD anchor with cached fiat exchange
+  rates before writing the ledger. No source-price or small-trade-ratio fallback.
+- Name handling: one line with `ellipsizeMode="middle"` so Android supports the
+  middle ellipsis. The amount does not shrink. The accessible name stays full.
+- Static compact geometry: the typical 375x667 iPhone SE state totals about
+  647 points including its 20-point top safe area, fiat toggle and keypad.
+  This is a source calculation, not a native measurement. Large text, long
+  amounts, errors and private pending captions still need device QA.
+- Validation: `corepack pnpm check:design` passes 39 canonical sources and 17
+  card materials (minimum contrast 5.014:1). `corepack pnpm check:safe-areas
+  --changed` passes (0 files after the implementation commits). An explicit
+  check of all 14 changed JavaScript files passes. Babel parses all 14 files.
+  `git diff --check` passes. The percent less/more grep finds only the allowed
+  re-quote warning and one old formatter comment; no other visible label remains.
+- Temporary Node component fixtures pass empty/estimate/loading/pre-launch
+  receive states in light and dark themes, intact displayed amounts, full
+  accessible names, neutral Details, and no absent money line. Sheet fixtures
+  pass preset selection, invalid custom values, decimal comma, deferred apply,
+  conversions off, and cancel/reopen. Invoice 0.5/1/2/3 percent round-trips with
+  real invoice classes to 500000/1000000/2000000/3000000, with bytes equal to
+  the base generator. Default is 0.5%; conversions off omits slippage.
+- No Jest tests added. No simulator, device, native visual review, live-rate
+  request, signing, broadcast, merge or push. No temporary runtime remains.
