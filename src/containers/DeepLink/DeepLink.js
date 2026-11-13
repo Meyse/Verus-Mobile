@@ -65,6 +65,21 @@ import {getRequestBackState, RequestNavigationContext} from './useRequestNavigat
 
 const USER_BACK_ACTIONS = ['GO_BACK', 'POP', 'POP_TO_TOP'];
 
+// Leaves the request flow: Home when signed in, else the signed-out start.
+const getRequestExitAction = (signedIn, hasAccounts) =>
+  CommonActions.reset({
+    index: 0,
+    routes: [
+      {
+        name: signedIn
+          ? 'SignedInStack'
+          : hasAccounts
+          ? 'SignedOutStack'
+          : 'SignedOutNoKeyStack',
+      },
+    ],
+  });
+
 const DeepLinkSession = (props) => {
   const requestId = useSelector(state => state.deeplink.requestId);
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -143,25 +158,7 @@ const DeepLinkSession = (props) => {
       }
     }
 
-    let resetAction
-
-    if (signedIn) {
-      resetAction = CommonActions.reset({
-        index: 0,
-        routes: [{name: 'SignedInStack'}],
-      });
-    } else if (accounts.length === 0) {
-      resetAction = CommonActions.reset({
-        index: 0,
-        routes: [{name: 'SignedOutNoKeyStack'}],
-      });
-    } else {
-      resetAction = CommonActions.reset({
-        index: 0,
-        routes: [{name: 'SignedOutStack'}],
-      });
-    }
-    props.navigation.dispatch(resetAction);
+    props.navigation.dispatch(getRequestExitAction(signedIn, accounts.length > 0));
   })
 
   const backRef = useRef(null)
@@ -608,8 +605,29 @@ const styles = StyleSheet.create({
   },
 });
 
+// The route without a request: the card that slides out after a request ends,
+// or a route that stayed after its request ended. It processes nothing, so it
+// never shows "Unsupported request". A route that stays focused leaves.
+const DeepLinkEnded = ({navigation}) => {
+  const signedIn = useSelector(state => state.authentication.signedIn);
+  const hasAccounts = useSelector(
+    state => state.authentication.accounts.length > 0,
+  );
+  const theme = useOnboardingTheme();
+
+  useFocusEffect(
+    useCallback(() => {
+      navigation.dispatch(getRequestExitAction(signedIn, hasAccounts));
+    }, [hasAccounts, navigation, signedIn]),
+  );
+
+  return <View style={[styles.root, {backgroundColor: theme.colors.background}]} />;
+};
+
 const DeepLink = props => {
   const requestId = useSelector(state => state.deeplink.requestId);
+  const hasRequest = useSelector(state => state.deeplink.id != null);
+  if (!hasRequest) return <DeepLinkEnded navigation={props.navigation} />;
   return <DeepLinkSession key={requestId} {...props} />;
 };
 export default DeepLink;
