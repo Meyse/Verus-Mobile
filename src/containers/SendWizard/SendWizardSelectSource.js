@@ -81,9 +81,23 @@ const SendWizardSelectSource = () => {
   const [networkChoice, setNetworkChoice] = useState(null);
   const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
   const networkRequest = useRef(0);
-  useEffect(() => () => {
-    networkRequest.current += 1;
-  }, []);
+  // Leaving the screen drops a load that is still running, so its sheet
+  // never opens over the next screen. Android applies Back late while the
+  // routes load.
+  useEffect(() => {
+    const cancelNetworkLookup = () => {
+      networkRequest.current += 1;
+      setNetworkLoadingId(null);
+      setNetworkSheetVisible(false);
+    };
+    const removeBlur = navigation.addListener('blur', cancelNetworkLookup);
+    const removeBeforeRemove = navigation.addListener('beforeRemove', cancelNetworkLookup);
+    return () => {
+      removeBlur();
+      removeBeforeRemove();
+      networkRequest.current += 1;
+    };
+  }, [navigation]);
   // A Send from the VerusID page: only that VerusID's cards are sources.
   // Its card channel is "vrpc.<iAddress>.<systemId>".
   const identityChannelPrefix = state.sourceIdentity?.iAddress
@@ -252,7 +266,7 @@ const SendWizardSelectSource = () => {
         // Amount starts on the same network and says other networks are
         // unavailable.
       }
-      if (request !== networkRequest.current) return;
+      if (request !== networkRequest.current || !navigation.isFocused()) return;
       setNetworkLoadingId(null);
 
       const networks = (sendNetworks?.networkOptions || []).filter(
@@ -348,7 +362,7 @@ const SendWizardSelectSource = () => {
           const networkBusy = networkLoadingId === item.coin.id;
           return (
             <Pressable
-              accessibilityState={{busy: networkBusy, disabled: networkLoadingId != null}}
+              accessibilityState={{disabled: networkLoadingId != null}}
               disabled={networkLoadingId != null}
               onPress={() => chooseAsset(item)}
               style={({pressed}) => [styles.assetRow, pressed && styles.pressed]}>
