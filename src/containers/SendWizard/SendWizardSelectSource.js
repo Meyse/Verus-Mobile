@@ -312,6 +312,7 @@ const SendWizardSelectSource = () => {
       ) : null}
       <FlatList
         data={filteredAssets}
+        extraData={networkLoadingId}
         keyExtractor={item => item.coin.id}
         ListEmptyComponent={
           <View style={styles.empty}>
