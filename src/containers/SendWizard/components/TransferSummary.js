@@ -19,16 +19,21 @@ const COMPACT_LOGO_SIZE = 32;
 // Without an amount (a pre-conversion before its launch), the ticker takes the
 // amount's place. History details opt into `hideAmounts`; active payment
 // reviews and results keep their existing readable amounts. `compact` is the
-// smaller node that Confirm uses on small windows.
+// smaller node that Confirm uses on small windows. When the wallet lowered the
+// amount to pay the fees, `enteredAmount` ("0.0134422 ETH") shows struck
+// through above the amount and `note` ("Lowered for fees") under the label
+// (owner, 2026-11-13, option B of the reduced-amount mockups).
 export const TransferNode = ({
   amount,
   coinId,
   compact = false,
   copyValue,
+  enteredAmount,
   fiat,
   hideAmounts = false,
   label,
   loading = false,
+  note,
   ticker,
 }) => {
   const theme = useOnboardingTheme();
@@ -52,6 +57,11 @@ export const TransferNode = ({
           style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
           {label}
         </Text>
+        {note ? (
+          <Text style={[theme.typography.caption, styles.note, {color: colors.warningText}]}>
+            {note}
+          </Text>
+        ) : null}
       </View>
       <View
         accessible={hideAmounts || undefined}
@@ -70,6 +80,14 @@ export const TransferNode = ({
             </Text>
           ) : (
             <>
+              {enteredAmount ? (
+                <Text
+                  accessibilityLabel={`Entered ${enteredAmount}`}
+                  numberOfLines={1}
+                  style={[theme.typography.caption, styles.entered, {color: colors.textSecondary}]}>
+                  {enteredAmount}
+                </Text>
+              ) : null}
               <View style={styles.amountRow}>
                 <AmountText
                   {...(hideAmounts ? {hidden: true, blurRadius: 7, color: colors.textPrimary} : {})}
@@ -142,6 +160,8 @@ const styles = StyleSheet.create({
   valueContent: {alignItems: 'flex-end'},
   valueSkeleton: {alignSelf: 'flex-end'},
   amountRow: {flexDirection: 'row', alignItems: 'baseline', flexShrink: 1},
+  note: {...fontStyle('semiBold')},
+  entered: {textDecorationLine: 'line-through'},
   connectorSkeleton: {alignSelf: 'flex-start'},
   amount: {fontSize: 20, lineHeight: 26, ...fontStyle('bold')},
   amountLong: {fontSize: 17, lineHeight: 24},

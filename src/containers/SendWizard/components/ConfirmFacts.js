@@ -19,6 +19,7 @@ const ConfirmFacts = ({
   destinationNetwork,
   fees,
   feesCopyValue,
+  feesMoney,
   exportFees,
   impact,
   onOpenFees,
@@ -63,7 +64,7 @@ const ConfirmFacts = ({
           <FlatRow copyValue={exportFees.bridgeCopyValue} label="Bridge fee">
             <MoneyValue money={exportFees.bridgeMoney} value={exportFees.bridge} />
           </FlatRow>
-          <FlatRow copyValue={exportFees.networkCopyValue} label="Network fee">
+          <FlatRow copyValue={exportFees.networkCopyValue} label="Network fee" onPress={exportFees.onOpenNetwork}>
             <MoneyValue money={exportFees.networkMoney} value={exportFees.network} />
           </FlatRow>
         </>
@@ -71,7 +72,11 @@ const ConfirmFacts = ({
         <FlatRow copyValue={feeLoading ? null : networkFee.copyValue} label="Network fee" onPress={onOpenFees}>
           {feeLoading ? <FeeSkeleton /> : <FeeValue amount={networkFee.amount} caption={networkFee.caption} />}
         </FlatRow>
-      ) : <FlatRow copyValue={feesCopyValue} label="Fees" numberOfLines={0} onPress={onOpenFees} value={fees} />}
+      ) : (
+        <FlatRow copyValue={feesCopyValue} label="Fees" onPress={onOpenFees}>
+          <MoneyValue money={feesMoney} value={fees} />
+        </FlatRow>
+      )}
       <FlatRow copyValue={feeLoading || arrives === '—' ? null : arrives} label="Arrives" value={arrives}>
         {feeLoading ? <FeeSkeleton /> : null}
       </FlatRow>

@@ -19,6 +19,7 @@ import {
 import {formatEstimatedAmount} from './components/impactFormat';
 import {FlatRow} from './components/WizardUI';
 import {useWizardFiat} from './useWizardFiat';
+import {getLoweredFrom, loweredNodeProps} from './loweredAmount';
 import {
   getDestinationNetwork,
   getPreparedConversionEstimate,
@@ -76,6 +77,8 @@ const SendWizardSuccess = () => {
       : preflightResult?.submittedsats && preflightResult?.output?.satoshis
       ? satsToCoins(BigNumber(preflightResult.output.satoshis))
       : BigNumber(amount || 0);
+  // Sent keeps Confirm's lowered amount, so the reason stays with the result.
+  const loweredFrom = getLoweredFrom(preflightResult, amount, displayAmount);
   const title = invoiceFlow
     ? 'Payment sent'
     : preconvert
@@ -135,6 +138,7 @@ const SendWizardSuccess = () => {
             fiat={formatFiat(displayAmount, sourceCoin?.id)}
             label={showReceive || invoiceFlow || preconvert ? 'You paid' : 'You sent'}
             ticker={sourceCoin?.display_ticker || ''}
+            {...loweredNodeProps(loweredFrom, sourceCoin?.display_ticker)}
           />
           {preconvert ? (
             <>
