@@ -32,7 +32,7 @@ import {
   WizardScreen,
 } from '../../SendWizard/components/WizardUI';
 import {useInvoiceFlow} from '../../SendWizard/invoiceFlow';
-import {formatLessPercent, IMPACT_LEVEL} from '../../SendWizard/priceImpact';
+import {IMPACT_LEVEL} from '../../SendWizard/priceImpact';
 import {getSampleAmount} from '../../SendWizard/usePriceImpact';
 import {ADDRESS_TYPE, buildSendTarget} from '../../SendWizard/wizardUtils';
 import InvoiceSlip from './InvoiceSlip';
@@ -178,7 +178,7 @@ const InvoicePayWith = () => {
     });
   }, [converted, invoice.anyAmount, invoice.currencyId, rateOf, routeOf]);
 
-  // What the chosen basket costs against the market price ("x% more").
+  // What the chosen basket costs against the market price.
   const priceOf = group => {
     const route = routeOf(group);
     const market = markets[marketKey(group, route)];
@@ -411,7 +411,6 @@ const InvoicePayWith = () => {
     const group = groups.find(item => item.key === priceGroup.key) || priceGroup;
     const {route, market, impact, level, loss} = priceOf(group);
     const ticker = group.coin.display_ticker;
-    const best = BigNumber(group.routes[0]?.amount || 0);
     const toSheetRoute = item => ({
       key: item.key,
       via: item.via,
@@ -421,18 +420,10 @@ const InvoicePayWith = () => {
       group,
       props: {
         baskets: group.routes.map((item, index) => {
-          const extra = best.isGreaterThan(0)
-            ? BigNumber(item.amount || 0).minus(best).dividedBy(best).multipliedBy(100)
-            : null;
           return {
             route: toSheetRoute(item),
             subtitle: `≈ ${formatEstimatedAmount(item.amount || 0)} ${ticker}`,
-            badgeLabel:
-              index === 0
-                ? 'Best price'
-                : extra != null
-                ? `${formatLessPercent(extra)}% more`
-                : null,
+            badgeLabel: index === 0 ? 'Best price' : null,
             isBest: index === 0,
           };
         }),

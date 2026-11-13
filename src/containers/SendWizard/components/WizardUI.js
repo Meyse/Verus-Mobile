@@ -321,6 +321,7 @@ export const DetailRow = ({label, value}) => {
 // `numberOfLines={0}` where the whole value must stay readable, as for
 // addresses and fees. `copyValue` enables long-press copy of the exact value.
 export const FlatRow = ({
+  accessibilityLabel,
   children,
   copyValue,
   label,
@@ -374,6 +375,7 @@ export const FlatRow = ({
   return canCopy ? (
     <Pressable
       accessible
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole={onPress ? 'button' : undefined}
       {...copyProps}
       onPress={onPress}
@@ -382,6 +384,7 @@ export const FlatRow = ({
     </Pressable>
   ) : onPress ? (
     <TouchableOpacity
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       activeOpacity={0.74}
       onPress={onPress}

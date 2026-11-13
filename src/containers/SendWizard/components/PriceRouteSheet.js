@@ -23,7 +23,6 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {truncateDecimal} from '../../../utils/math';
 import {
   compareRoutes,
-  formatLessPercent,
   getTargetShortfall,
   getUnitPrice,
   IMPACT_LEVEL,
@@ -44,7 +43,7 @@ const SHEET_HEIGHT_SHARE = 0.78;
 // Send's Amount step opens it with every basket and the estimate for each. Confirm
 // opens it with no baskets: then it shows the price facts and the route. With
 // `pay` (a VerusPay invoice), the amount received is fixed: `baskets` comes
-// prepared with what each basket costs, and the difference reads "more".
+// prepared with what each basket costs.
 const PriceRouteSheet = ({
   baskets,
   cryptoAmount,
@@ -80,16 +79,12 @@ const PriceRouteSheet = ({
   );
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
   const rows = baskets || compareRoutes(target.routes || [], estimates).map(
-    ({route: item, output, isBest, lessPercent}) => ({
+    ({route: item, output, isBest}) => ({
       route: item,
       subtitle: output
         ? `≈ ${formatEstimatedAmount(output)} ${target.ticker}`
         : 'Estimate unavailable.',
-      badgeLabel: isBest
-        ? 'Best price'
-        : lessPercent != null
-        ? `${formatLessPercent(lessPercent)}% less`
-        : null,
+      badgeLabel: isBest ? 'Best price' : null,
       isBest,
     }),
   );
@@ -132,7 +127,7 @@ const PriceRouteSheet = ({
         : null,
     },
     {
-      label: 'Difference',
+      label: 'Price impact',
       value: difference
         ? lossText && level !== IMPACT_LEVEL.NONE
           ? `${lossText} (${difference})`
@@ -206,14 +201,12 @@ const PriceRouteSheet = ({
                     badgeLabel,
                     item.key === route.key ? 'selected' : null,
                   ].filter(Boolean).join(', ')}
-                  badge={badgeLabel ? (
+                  badge={isBest ? (
                     <StatusBadge
-                      label={badgeLabel}
+                      label="Best price"
                       labelStyle={theme.typography.labelDense}
                       style={styles.badge}
-                      tone={isBest
-                        ? STATUS_BADGE_TONE.SUCCESS
-                        : STATUS_BADGE_TONE.NEUTRAL}
+                      tone={STATUS_BADGE_TONE.SUCCESS}
                     />
                   ) : null}
                   selected={item.key === route.key}
@@ -269,7 +262,7 @@ const PriceRouteSheet = ({
           ) : null}
           {showSuggestion ? (
             <Pressable
-              accessibilityLabel={`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead, ${getImpactBadgeLabel(suggestion.impact)}`}
+              accessibilityLabel={`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead. Price impact ${getImpactBadgeLabel(suggestion.impact)}`}
               accessibilityRole="button"
               onPress={() => dismissal.dismiss(() => onUseSuggestion(suggestion.amount))}
               style={({pressed}) => [
@@ -291,7 +284,7 @@ const PriceRouteSheet = ({
                   styles.suggestionImpact,
                   {color: theme.colors.textSecondary},
                 ]}>
-                  {getImpactBadgeLabel(suggestion.impact)}
+                  Price impact {getImpactBadgeLabel(suggestion.impact)}
                 </Text>
               </View>
               <MaterialCommunityIcons
