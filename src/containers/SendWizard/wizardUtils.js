@@ -314,10 +314,8 @@ const getRouteNetwork = (sourceCoin, sourceNetworkId, route) => {
 
   return {
     networkKey,
-    networkName:
-      networkKey === '.eth'
-        ? 'Ethereum'
-        : route.exportToFqn || networkDisplay.name,
+    // The wallet's name for a known chain ("Verus Testnet"), as on Home.
+    networkName: networkKey === '.eth' ? 'Ethereum' : networkDisplay.name,
     networkIcon: networkKey === '.eth' ? 'ETH' : networkDisplay.coinId,
     isSameNetwork: networkKey === sourceNetwork,
   };
