@@ -3743,3 +3743,40 @@ Evidence: source geometry and static checks only. Custom stack Back replaces
 React Navigation's platform-specific default Back margins. Insets are relative
 to the safe screen edge. Actual glyph ink bounds and registration title fit
 need device QA. No simulator, Metro server, merge or push ran.
+
+### ID-3.REG-FUNDS — Name meter cards and Add VerusID (2026-11-13)
+
+Contract: operate mode. The approved R15 normal/SE/small-Android boards and
+R13 Add empty state control this scope. Reuse RegistrationPage, theme type
+roles, SkeletonLoader, EmptyState and VerusIdOptionsSheet. Keep payment and
+name-availability gates. Do not run devices, push or merge in this task.
+
+- [x] Replace Name funds with one meter card per paid currency. Keep fiat only
+  when its display rate exists, hidden/checking balances and balance retry.
+- [x] Remove the Name referral-price line. For referral-only funding, show the
+  affordable referral quote and a payer that covers every currency. Keep the
+  next-step note. Keep compact keyboard amount rows without the referral line.
+- [x] Reuse the registration flow's window-height cutoff of 667 for compact
+  cards and the smaller gap above them. Keep both themes on semantic colors.
+- [x] Confirm namespace-policy pricing in registrationReads and the pinned
+  SDK's quoteIdentityRegistration. Retain display-only quotes across name
+  edits in the same network/namespace/source/session context. Keep Continue
+  bound to the fresh name result. Replace only Name's generic loading bars
+  with matching card skeletons. Other RegistrationSkeleton users stay intact.
+- [x] Change the empty state to No VerusID yet and Add VerusID. Open the same
+  options sheet as the header +. Leave the sheet and header lines unchanged.
+- [x] Run design, changed-file safe-area, Babel and controlled component checks.
+  Inspect source-derived card renders at 390x844, 375x667 and 360x640 in both
+  themes, including loaded, short, partial, loading, hidden and error states.
+- [ ] Separate device QA: check native layout, keyboard footer, screen reader,
+  Back/retry, both themes and all three sizes. No device ran in this task.
+
+Evidence: design and safe-area checks pass. Babel parses all five changed JS
+files. Sixteen temporary non-Jest checks pass: ten card/fiat cases, five name
+flow cases and the empty-state action. All 36 source-derived renders have no
+horizontal overflow. Loaded and skeleton card heights match at all sizes in
+both themes. Native views, layout and network reads are substituted in these
+checks. Source-derived renders do not establish native or live-chain behavior.
+The shared dependencies match this checkout's lockfile. pnpm's pre-run install
+check is disabled for validation to preserve that dependency folder. Temporary
+scripts and artifacts are in /tmp/verusid-funds-cards-0df73768.

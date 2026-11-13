@@ -58,3 +58,6 @@ and selection roles retain their current values.
 `amountInput` is 40/48 bold, with the Amount field's existing 20-point sizing
 floor. `amountKey` is 28/34 regular. `amountKeyCompact` is 26/32 regular for the
 smaller visible iOS keys. These roles apply to numeric entry, not page titles.
+
+New VerusID meter cards use `titleSheet` for amounts. On windows of 667 points
+or less, use `registrationAmountCompact` (17/22 semibold), approved in R15.

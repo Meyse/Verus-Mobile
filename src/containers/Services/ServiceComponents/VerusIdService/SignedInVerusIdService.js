@@ -958,11 +958,11 @@ const SignedInVerusIdService = ({controller}) => {
         />
       ) : (
         <EmptyState
-          actionLabel="Link VerusID"
+          actionLabel="Add VerusID"
           icon={AtSign}
-          message="Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands."
-          onAction={() => openLinkSheet()}
-          title="No VerusID linked"
+          message="Create or link a VerusID to manage funds, authenticate across apps, and keep your data in your hands."
+          onAction={() => setAddVisible(true)}
+          title="No VerusID yet"
         />
       )}
 

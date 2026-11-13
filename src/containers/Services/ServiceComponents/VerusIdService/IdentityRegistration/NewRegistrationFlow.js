@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {Keyboard, Text, View} from 'react-native';
+import {Keyboard, Text, View, useWindowDimensions} from 'react-native';
 import {useSelector} from 'react-redux';
 import {DLIGHT_PRIVATE, VRPC} from '../../../../../utils/constants/intervalConstants';
 import {approveCommitment, findExistingRegistration, prepareCommitment, registrationQuotesEqual, resolveRegistration} from '../../../../../utils/identityRegistration';
@@ -38,6 +38,8 @@ const choiceError = (failure, value, field) => {
 export default function NewRegistrationFlow({navigation, route}) {
   const exit = useRegistrationExit(navigation);
   const styles = useRegistrationStyles();
+  const {height} = useWindowDimensions();
+  const smallDevice = height <= 667;
   const coins = useSelector(state => state.coins.activeCoinsForUser || []);
   const account = useSelector(state => state.authentication.activeAccount);
   const linked = useSelector(state => state.channelStore_verusid.watchedVerusIds || {});
@@ -63,6 +65,7 @@ export default function NewRegistrationFlow({navigation, route}) {
   const [payerAddress, setPayerAddress] = useState(null);
   const [payerVisible, setPayerVisible] = useState(false);
   const [nameResult, setNameResult] = useState(null);
+  const [fundsResult, setFundsResult] = useState(null);
   const [availability, setAvailability] = useState(null);
   const [nameError, setNameError] = useState(null);
   const [previewResult, setPreviewResult] = useState(null);
@@ -77,9 +80,14 @@ export default function NewRegistrationFlow({navigation, route}) {
   } : null, [coin, sources, name, namespace, account]);
   const nameKey = JSON.stringify(baseRequest);
   const data = nameResult?.key === nameKey ? nameResult.value : null;
+  // Keep only display prices across name edits. Name availability and engine
+  // previews remain bound to their complete request keys below.
+  const fundsKey = JSON.stringify([context.sessionScope, coin?.id, coin?.system_id,
+    namespace?.id, namespace?.parentName, sources.map(source => [source.address, source.signingAddress])]);
+  const fundsData = data?.quote ? data : fundsResult?.key === fundsKey ? fundsResult.value : null;
   const sourceReads = useRegistrationBalances(coin, sources, context);
   const defaultSource = preferredRegistrationFundingSource(sources, coin, balances,
-    data?.referralRequired ? data.referralQuote : data?.quote, coins, sourceReads.reads);
+    fundsData?.referralRequired ? fundsData.referralQuote : fundsData?.quote, coins, sourceReads.reads);
   const payer = sources.find(source => source.address === payerAddress) || defaultSource;
   const referralRequired = data?.referralRequired || namespace?.referralRequired;
   const referralsAllowed = data?.referralsAllowed ?? (referralRequired || namespace?.referralsAllowed !== false);
@@ -106,21 +114,23 @@ export default function NewRegistrationFlow({navigation, route}) {
   const currentKey = useRef(requestKey);
   currentKey.current = requestKey;
   const preview = previewResult?.key === requestKey ? previewResult.value : null;
-  const prices = useRegistrationPrices(coin, preview?.quote || data?.quote);
+  const prices = useRegistrationPrices(coin, preview?.quote || fundsData?.quote || {
+    totalOperationRequired: {[namespace?.id || coin?.system_id]: '0', [coin?.system_id]: '0'},
+  });
   const ownName = (preview?.policy ? identityLabel(preview.policy.resolvedName.identityID, preview.identityNames)
     : `${name.trim()}${namespace?.suffix || '@'}`);
   const steps = ['name', ...(referralsAllowed ? ['referral'] : []), 'check'];
-  const fullState = source => registrationFundingState(data?.quote, source, coin, coins, balances, sourceReads.reads);
-  const refState = source => registrationFundingState(data?.referralQuote, source, coin, coins, balances, sourceReads.reads);
+  const fullState = source => registrationFundingState(fundsData?.quote, source, coin, coins, balances, sourceReads.reads);
+  const refState = source => registrationFundingState(fundsData?.referralQuote, source, coin, coins, balances, sourceReads.reads);
   const fullEnough = sources.some(source => fullState(source).status === 'enough');
-  const referralEnough = !!data?.referralQuote && sources.some(source => refState(source).status === 'enough');
+  const referralEnough = !!fundsData?.referralQuote && sources.some(source => refState(source).status === 'enough');
   const nameCandidates = sources.flatMap(source => [
-    ...(!referralRequired ? [fullState(source)] : []), ...(data?.referralQuote ? [refState(source)] : []),
+    ...(!referralRequired ? [fullState(source)] : []), ...(fundsData?.referralQuote ? [refState(source)] : []),
   ]);
   const nameFunding = fullEnough && !referralRequired ? {status: 'enough'} : referralEnough ? {status: 'enough'}
     : nameCandidates.some(value => value.status === 'checking') ? {status: 'checking'}
       : nameCandidates.some(value => value.status === 'error') ? {status: 'error'}
-        : (referralRequired || data?.referralQuote ? refState(defaultSource) : fullState(defaultSource));
+        : (referralRequired || fundsData?.referralQuote ? refState(defaultSource) : fullState(defaultSource));
   const activeQuote = preview?.quote || ((referralID || referralRequired) ? data?.referralQuote : data?.quote);
   const payerState = source => registrationFundingState(activeQuote, source, coin, coins, balances, sourceReads.reads);
 
@@ -138,7 +148,14 @@ export default function NewRegistrationFlow({navigation, route}) {
       try {
         const saved = await findExistingRegistration(baseRequest, context);
         const value = saved ? {savedReview: saved} : await readRegistrationName(baseRequest, context);
-        if (active) { setNameResult({key: nameKey, value}); setAvailability(saved ? 'saved' : 'available'); }
+        if (active) {
+          setNameResult({key: nameKey, value});
+          if (value.quote) setFundsResult({key: fundsKey, value: {
+            quote: value.quote, referralQuote: value.referralQuote,
+            currencyNames: value.currencyNames, referralRequired: value.referralRequired,
+          }});
+          setAvailability(saved ? 'saved' : 'available');
+        }
       } catch (failure) {
         if (!active || failure.code === 'SESSION_CHANGED') return;
         setAvailability(failure.code === 'IDENTITY_EXISTS' ? 'taken' : null);
@@ -146,7 +163,7 @@ export default function NewRegistrationFlow({navigation, route}) {
       }
     }, 650);
     return () => { active = false; clearTimeout(timer); };
-  }, [nameKey, context, attempt]);
+  }, [nameKey, fundsKey, context, attempt]);
 
   useEffect(() => {
     setPreviewResult(null); setFieldsError(null); setError(null);
@@ -235,8 +252,12 @@ export default function NewRegistrationFlow({navigation, route}) {
       valueLabel: currencyLabel(id, data?.currencyNames), accessibilityRole: 'radio', showChevron: false,
       subtitle: funding.status === 'short' ? `Not enough ${currencyLabel(funding.currencyId, data?.currencyNames)}` : undefined};
   };
-  const funds = compact => <RegistrationFunds compact={compact} data={data} coin={coin} coins={coins} balances={balances} reads={sourceReads.reads}
-    source={defaultSource} showBalance={showBalance} funding={nameFunding} referralOnly={!fullEnough || !!referralRequired} onRetry={sourceReads.retry} />;
+  const referralOnly = !fullEnough || !!(fundsData?.referralRequired || namespace?.referralRequired);
+  const fundsSource = referralOnly && referralEnough
+    ? preferredRegistrationFundingSource(sources, coin, balances, fundsData?.referralQuote, coins, sourceReads.reads) : defaultSource;
+  const funds = compact => <RegistrationFunds compact={compact} data={fundsData} coin={coin} coins={coins} balances={balances} reads={sourceReads.reads}
+    source={fundsSource} showBalance={showBalance} funding={nameFunding} referralOnly={referralOnly} onRetry={sourceReads.retry}
+    prices={prices} namespace={namespace} smallDevice={smallDevice} loading={availability === 'checking'} />;
   const summary = shown && <RegistrationSummary name={ownName} referral={referralsAllowed
     ? preview?.request.referralID ? identityLabel(preview.request.referralID, {...preview.currencyNames, ...preview.identityNames}) : '' : null}
     payer={payer} recovery={preview?.request.recoveryAuthority ? identityLabel(preview.request.recoveryAuthority, preview.identityNames) : ownName}
@@ -257,11 +278,12 @@ export default function NewRegistrationFlow({navigation, route}) {
       {step === 'check' && !compactKeyboard && <ActionButton secondary disabled={!ready} onPress={save}>Save for later</ActionButton>}
     </>}>{({compactKeyboard}) => <>
       {step === 'name' && <>
-        <NameField name={name} setName={setName} namespace={namespace} onNamespace={() => {Keyboard.dismiss(); setNamespaceVisible(true);}}
-          busy={busy} availability={availability} previewError={nameError} onRetry={retry} />
-        {!compactKeyboard && funds(false)}
+        <View style={{gap: smallDevice ? 18 : 32}}>
+          <NameField name={name} setName={setName} namespace={namespace} onNamespace={() => {Keyboard.dismiss(); setNamespaceVisible(true);}}
+            busy={busy} availability={availability} previewError={nameError} onRetry={retry} />
+          {!compactKeyboard && funds(false)}
+        </View>
         {!coin && <RegistrationText muted>Add a network wallet to continue.</RegistrationText>}
-        {availability === 'checking' && <RegistrationSkeleton label="Checking name and price" />}
         {wallets.length > 1 && <SelectionField label="Network" value={`${coin?.display_ticker}${coin?.testnet ? ' · Testnet' : ''}`} disabled={busy}
           options={wallets.map(item => ({value: item.id, label: `${item.display_ticker}${item.testnet ? ' · Testnet' : ''}`, selected: item.id === coinId}))}
           onSelect={id => {setNamespace(null); setPayerAddress(null); setReferral(null); setReferralName(''); setCoinId(id);}} />}
