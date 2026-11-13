@@ -124,5 +124,9 @@ export const getConversionPriceSummary = ({
 // below that: the quote is approximate, so more digits only add noise.
 export const formatEstimatedAmount = value => {
   const amount = BigNumber(value);
-  return truncateDecimal(amount, amount.isGreaterThanOrEqualTo(1) ? 4 : 8);
+  const [whole, fraction] = truncateDecimal(
+    amount, amount.isGreaterThanOrEqualTo(1) ? 4 : 8,
+  ).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return fraction ? `${grouped}.${fraction}` : grouped;
 };

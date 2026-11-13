@@ -481,7 +481,20 @@ const SendWizardAmount = () => {
     (priceImpact.level !== IMPACT_LEVEL.NONE ||
       compareRoutes(target.routes || [], routeEstimates).length > 1 ||
       ethereumExport);
-  const receiveAmount = target.isConversion ? estimatedOutput : cryptoAmountValue;
+  const receiveAmount = validAmount
+    ? target.isConversion ? estimatedOutput : cryptoAmountValue
+    : null;
+  // Rates are keyed by API channel, coin ID, then the user's display currency.
+  // This is the received asset's cached price, never the paid asset's price or
+  // the small-trade crypto ratio from usePriceImpact. Missing prices stay absent.
+  const receiveRate = rates?.[fiatChannel]?.[target.coinId || target.id]?.[displayCurrency];
+  const receiveMoneyValue = receiveAmount != null &&
+    BigNumber(receiveAmount).isFinite() && BigNumber(receiveRate).isFinite() &&
+    BigNumber(receiveRate).isGreaterThan(0)
+    ? formatCurrency({
+        amount: BigNumber(receiveAmount).multipliedBy(receiveRate).decimalPlaces(2).toFixed(2),
+        code: displayCurrency,
+      })[0] : null;
   const enteredCryptoAmount = truncateDecimal(
     cryptoAmount.isFinite() ? cryptoAmount : 0,
     8,
@@ -497,8 +510,8 @@ const SendWizardAmount = () => {
   const canChangeNetwork = mode === SEND_WIZARD_MODE.SEND &&
     isConversionChannel(channel) && sendNetworkOptions.length > 1;
   const amountErrorMessage = (exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError;
-  const estimateVisible = validAmount && (target.isConversion || ethereumExport) &&
-    (preconvert || estimateLoading || receiveAmount != null || showPriceRouteChip);
+  const estimateVisible = target.isConversion || (validAmount && ethereumExport);
+  const emptyAmount = !input || (cryptoAmount.isFinite() && cryptoAmount.isZero());
 
   return (
     <WizardScreen scroll={false}>
@@ -519,12 +532,7 @@ const SendWizardAmount = () => {
               <Text numberOfLines={1} style={[theme.typography.labelMd, styles.contextText, {color: theme.colors.textPrimary}]}>{destinationNetwork}</Text>
               {canChangeNetwork ? <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.textSecondary} /> : null}
             </Pressable>
-          ) : target.isConversion ? (
-            <View style={styles.networkAction}>
-              <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>To</Text>
-              <Text numberOfLines={1} style={[theme.typography.labelMd, {color: theme.colors.textPrimary}]}>{target.ticker}</Text>
-            </View>
-          ) : canChangeNetwork || networkLoading || networkError ? (
+          ) : target.isConversion ? null : canChangeNetwork || networkLoading || networkError ? (
             <TextAction
               accessibilityRole="button"
               disabled={networkLoading || !canChangeNetwork}
@@ -578,11 +586,12 @@ const SendWizardAmount = () => {
         <View style={styles.estimateSlot}>
           <AmountEstimate
             atLaunch={preconvert}
-            estimateLoading={estimateLoading}
-            estimatedOutput={receiveAmount}
+            estimateLoading={validAmount && !emptyAmount && estimateLoading}
+            estimatedOutput={emptyAmount ? null : receiveAmount}
+            moneyValue={receiveMoneyValue}
             onOpenDetails={() => setRouteSheetOpen(true)}
             priceImpact={priceImpact}
-            showDetails={showPriceRouteChip}
+            showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}
           />
         </View>
