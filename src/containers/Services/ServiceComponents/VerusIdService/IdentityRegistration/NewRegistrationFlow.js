@@ -266,12 +266,12 @@ export default function NewRegistrationFlow({navigation, route}) {
     onReferral={() => go('referral')} onPayer={sources.length > 1 ? () => setPayerVisible(true) : undefined} onRecovery={() => go('recovery')} />;
   const pageError = fieldsError?.field === 'form' ? fieldsError : error;
   return <RegistrationPage navigation={navigation} title={{name: 'New VerusID', referral: 'Referral', check: 'Check details', recovery: 'Recovery'}[step]}
-    busy={busy} busyRef={running} error={pageError} onRetry={retry} onBack={step !== 'name' ? back : undefined}
+    keepKeyboardOnScroll={step === 'name'} busy={busy} busyRef={running} error={pageError} onRetry={retry} onBack={step !== 'name' ? back : undefined}
     progress={step === 'recovery' ? undefined : (steps.indexOf(step) + 1) / steps.length}
     info={<RegistrationInfo create name={ownName}><RegistrationPreviewDetails preview={preview} /></RegistrationInfo>}
     footer={({compactKeyboard}) => <>
-      {compactKeyboard && step !== 'recovery' && (step === 'name' ? funds(true) : data && <RegistrationFunds compact data={{...data, quote: activeQuote, referralQuote: null}} source={payer}
-        coin={coin} coins={coins} balances={balances} reads={sourceReads.reads} showBalance={showBalance} funding={payerState(payer)} onRetry={sourceReads.retry} />)}
+      {compactKeyboard && step !== 'name' && step !== 'recovery' && data && <RegistrationFunds compact data={{...data, quote: activeQuote, referralQuote: null}} source={payer}
+        coin={coin} coins={coins} balances={balances} reads={sourceReads.reads} showBalance={showBalance} funding={payerState(payer)} onRetry={sourceReads.retry} />}
       <ActionButton disabled={!ready} busy={busy} slide={step === 'check'} onPress={step === 'check' ? start : step === 'recovery' ? () => go('check') : continueStep}>
         {step === 'check' ? 'Slide to start' : step === 'recovery' ? 'Done' : 'Continue'}
       </ActionButton>
@@ -281,7 +281,7 @@ export default function NewRegistrationFlow({navigation, route}) {
         <View style={{gap: smallDevice ? 18 : 32}}>
           <NameField name={name} setName={setName} namespace={namespace} onNamespace={() => {Keyboard.dismiss(); setNamespaceVisible(true);}}
             busy={busy} availability={availability} previewError={nameError} onRetry={retry} />
-          {!compactKeyboard && funds(false)}
+          {funds(false)}
         </View>
         {!coin && <RegistrationText muted>Add a network wallet to continue.</RegistrationText>}
         {wallets.length > 1 && <SelectionField label="Network" value={`${coin?.display_ticker}${coin?.testnet ? ' · Testnet' : ''}`} disabled={busy}

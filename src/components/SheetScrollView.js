@@ -2,6 +2,7 @@ import React, {useCallback, useMemo, useState} from 'react';
 import {FlatList, ScrollView, StyleSheet, View} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import ScrollEdgeFade from './ScrollEdgeFade';
 import {deepLinkRequestReviewStyles} from '../styles';
 import {useOnboardingTheme} from '../theme/onboarding';
 
@@ -54,6 +55,8 @@ const SheetScrollView = ({
   children,
   contentContainerStyle,
   fill = false,
+  fadeBackgroundColor,
+  showScrollChevron = true,
   listProps,
   scrollViewProps,
   style,
@@ -83,7 +86,7 @@ const SheetScrollView = ({
   const bottomPadding = contentStyle.paddingBottom ?? contentStyle.paddingVertical ?? contentStyle.padding ?? 0;
   const contentEnd = metrics.contentHeight - bottomPadding;
   const showCue =
-    !showNativeIndicator &&
+    (!showNativeIndicator || !showScrollChevron) &&
     metrics.contentHeight > metrics.layoutHeight + SCROLL_END_THRESHOLD &&
     metrics.offsetY + metrics.layoutHeight <
       contentEnd - SCROLL_END_THRESHOLD;
@@ -100,7 +103,7 @@ const SheetScrollView = ({
           styles.requestSheetContent,
           contentContainerStyle,
         ]}
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode={scrollViewProps?.keyboardDismissMode || 'on-drag'}
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={(contentWidth, contentHeight) => {
           update({contentHeight});
@@ -123,7 +126,9 @@ const SheetScrollView = ({
         showsVerticalScrollIndicator={showNativeIndicator}>
         {listProps ? undefined : children}
       </ScrollComponent>
-      {showCue ? <SheetScrollCue styles={styles} theme={theme} /> : null}
+      {showCue ? (showScrollChevron
+        ? <SheetScrollCue styles={styles} theme={theme} backgroundColor={fadeBackgroundColor} />
+        : <ScrollEdgeFade backgroundColor={fadeBackgroundColor} />) : null}
     </View>
   );
 };

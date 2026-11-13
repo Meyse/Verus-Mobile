@@ -3780,3 +3780,20 @@ checks. Source-derived renders do not establish native or live-chain behavior.
 The shared dependencies match this checkout's lockfile. pnpm's pre-run install
 check is disabled for validation to preserve that dependency folder. Temporary
 scripts and artifacts are in /tmp/verusid-funds-cards-0df73768.
+
+### ID-3.REG-KEYBOARD-CARDS — Keep Name cards while typing (2026-11-13)
+
+- [x] Keep Name meter cards in scroll content with the keyboard open. Remove
+  only Name's compact footer funds. Keep other steps' compact footer content.
+- [x] Reuse SheetScrollView measurements and ScrollEdgeFade from
+  FadedScrollView. Use the page background and omit the keyboard chevron.
+  Keep the normal measured sheet cue when the keyboard is closed.
+- [x] Preserve focus-group measurement, keyboard padding and footer spacing.
+  Keep the keyboard open during Name scrolling; other steps keep on-drag dismissal.
+- [ ] Separate device QA: normal/SE/small Android, both themes, keyboard open,
+  name/status visibility, card scrolling, end-of-content fade and footer bounds.
+
+Evidence: source inspection only for native keyboard geometry. No simulator
+runs in this implementation task. Design, changed-file safe-area, Babel parsing and whitespace checks pass.
+The safe-area command used --config.verifyDepsBeforeRun=false after pnpm
+automatic postinstall failed on the existing navigation patch.
