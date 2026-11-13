@@ -179,6 +179,7 @@ const SendWizardConfirm = () => {
   const receivedPrice = useReceivedPrice(
     target?.isConversion ? target.coinId || target.id : null,
     sourceSubWallet?.api_channels?.[API_GET_FIATPRICE],
+    {systemId: target?.systemId, testnet: sourceCoin?.testnet},
   );
 
   // After "Status unknown" only Close leaves (owner, 2026-10-26): a step back

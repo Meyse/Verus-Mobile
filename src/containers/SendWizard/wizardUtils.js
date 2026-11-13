@@ -519,14 +519,19 @@ const groupConversionOptions = (options, sourceCoin, sourceNetworkId) => {
       deduplicatedNetworks[0];
     const canonicalDisplay = getCanonicalAssetDisplay(canonicalKey);
 
+    const verusNetwork = deduplicatedNetworks.find(
+      option => !String(option.coinId || '').startsWith('0x'),
+    );
+    // The system of the option whose coin id the group uses. A price lookup
+    // needs both.
+    const priceNetwork = verusNetwork?.coinId ? verusNetwork : preferredDisplay;
+
     return {
       id: canonicalKey,
       name: canonicalDisplay.name,
       ticker: canonicalDisplay.ticker,
-      coinId:
-        deduplicatedNetworks.find(
-          option => !String(option.coinId || '').startsWith('0x'),
-        )?.coinId || preferredDisplay.coinId,
+      coinId: priceNetwork.coinId,
+      systemId: priceNetwork.systemId || null,
       isConversion: true,
       isGrouped: true,
       networkOptions: deduplicatedNetworks,
@@ -578,6 +583,9 @@ export const buildTargetOptions = (
           ? null
           : getDefinitionName(destination) || bouncebackCurrency,
         coinId: display.coinId,
+        // The destination's own system: the on-chain price of a currency that
+        // is not in the coin directory is read there.
+        systemId: destination.systemid || null,
         name: display.name,
         ticker: display.ticker,
         isConversion: true,
