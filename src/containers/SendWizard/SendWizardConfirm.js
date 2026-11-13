@@ -713,11 +713,9 @@ const SendWizardConfirm = () => {
     ),
     displayCurrency,
   );
-  // A plain send's Fees row shows money as the export fee rows do. A
-  // conversion's Fees row keeps the coin value only.
-  const feesMoney = target?.isConversion
-    ? null
-    : formatApproxMoney(sumMoney(feeItems, getCurrencyRate), displayCurrency);
+  // The Fees row (a send or a same-chain conversion) shows money as the
+  // export fee rows do.
+  const feesMoney = formatApproxMoney(sumMoney(feeItems, getCurrencyRate), displayCurrency);
   const exportFees = hasExportFees && reviewResult?.feeDetails
     ? {
         bridgeMoney: feeMoneyOf(reviewResult.feeDetails.bridge),
