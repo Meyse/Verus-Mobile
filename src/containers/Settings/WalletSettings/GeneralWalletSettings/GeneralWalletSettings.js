@@ -11,10 +11,6 @@ import {useDispatch} from 'react-redux';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
 import {switchTestnetEnvironment} from '../../../../actions/actions/testnetEnvironment';
 import { refreshTestnetPrices } from '../../../../actions/actions/wallet/dispatchers/general/updates';
-import {
-  createAlert,
-  resolveAlert,
-} from '../../../../actions/actions/alert/dispatchers/alert';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {MINIMUM_GAS_PRICE_GWEI} from '../../../../utils/constants/web3Constants';
@@ -186,29 +182,6 @@ const GeneralWalletSettings = () => {
     }
   };
 
-  const confirmSlippage = () =>
-    createAlert(
-      'Turn on invoice slippage?',
-      "Maximum slippage is how far a payer's conversion may fall below its estimate. " +
-        'It limits which currencies can pay, and a high value can leave you with less than the invoice amount.',
-      [
-        {text: 'Turn on', onPress: () => resolveAlert(true)},
-        {text: 'Not now', style: 'cancel', onPress: () => resolveAlert(false)},
-      ],
-    );
-
-  const toggleAllowSettingVerusPaySlippage = async value => {
-    if (value) {
-      const confirmed = await confirmSlippage();
-
-      if (!confirmed) return;
-    }
-
-    if (isMounted.current) {
-      persistSetting('allowSettingVerusPaySlippage', value);
-    }
-  };
-
   const openNumberSheet = key => {
     const currentValue =
       key === 'minGasPriceGwei' && displayedSetting(key) == null
@@ -279,16 +252,6 @@ const GeneralWalletSettings = () => {
               value={displayedSetting('homeCardDragDetection')}
             />
           )}
-          <SettingsSwitchRow
-            busy={isSaving('allowSettingVerusPaySlippage')}
-            description="Show maximum slippage when creating a converted VerusPay invoice"
-            icon="chart-bell-curve"
-            onValueChange={toggleAllowSettingVerusPaySlippage}
-            error={rowErrors.allowSettingVerusPaySlippage}
-            testID="settings.general.allowSettingVerusPaySlippage"
-            title="Edit max VerusPay invoice slippage"
-            value={displayedSetting('allowSettingVerusPaySlippage')}
-          />
           <SettingsSwitchRow
             busy={isSaving('enableExperimentalGenericRequests')}
             description="Allow deeplinks that include experimental features (identity update, app encryption, credentials, data packets, etc.)"

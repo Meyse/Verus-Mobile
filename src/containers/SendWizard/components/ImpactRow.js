@@ -17,6 +17,7 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
 
   return (
     <FlatRow
+      accessibilityLabel={`Price impact ${impact == null ? 'Details' : getImpactBadgeLabel(impact)}. Opens price and route`}
       copyValue={
         impact == null
           ? undefined

@@ -13,7 +13,6 @@ export const DEFAULT_GENERAL_WALLET_SETTINGS = {
   cardStackPreferencesByAccount: {},
   lastWalletNetwork: WALLET_NETWORKS.MAINNET,
   homeCardDragDetection: false,
-  allowSettingVerusPaySlippage: false,
   enableExperimentalGenericRequests: false,
   ackedCurrencyDisclaimer: false,
   addressBlocklistDefinition: {

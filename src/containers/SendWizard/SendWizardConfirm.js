@@ -434,7 +434,7 @@ const SendWizardConfirm = () => {
             const slippage = earlier.minus(latest).dividedBy(earlier).multipliedBy(100);
             if (slippage.isGreaterThan(2)) {
               nextWarnings.push(
-                `The latest estimated output is ${slippage.decimalPlaces(1).toString()}% lower. Verify the new amount before sliding to confirm.`,
+                `The price changed. You now get about ${slippage.decimalPlaces(1).toString()}% less. Check the new amount before you slide to confirm.`,
               );
             }
           }

@@ -26,6 +26,8 @@ const ReceiveRequestSheet = ({children, onApply, onClose, title, visible}) => {
   const {height} = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const preserveKeyboardLayout = useRef(false);
+  const scrollRef = useRef(null);
+  const contentHeight = useRef(0);
   const [keyboard, setKeyboard] = useState(EMPTY_KEYBOARD);
   const dismissal = useSheetDismissal({visible, onClose});
 
@@ -85,10 +87,18 @@ const ReceiveRequestSheet = ({children, onApply, onClose, title, visible}) => {
         </Text>
         <View style={styles.scrollFrame}>
           <ScrollView
+            ref={scrollRef}
             bounces={false}
             contentContainerStyle={styles.form}
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled"
+            // Content that grows under an open keyboard (an inline error, a
+            // longer note) would sit behind Done on a small phone: follow it.
+            onContentSizeChange={(_, nextHeight) => {
+              const grew = nextHeight > contentHeight.current;
+              contentHeight.current = nextHeight;
+              if (grew && keyboard.visible) scrollRef.current?.scrollToEnd({animated: true});
+            }}
             showsVerticalScrollIndicator={keyboard.visible}>
             {children}
           </ScrollView>
