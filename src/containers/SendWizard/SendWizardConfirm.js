@@ -748,6 +748,8 @@ const SendWizardConfirm = () => {
     }
     try {
       const fee = feeItems[0];
+      // Sepolia's ETH is gETH, as the paid asset shows it.
+      const ticker = sourceCoin?.network === 'sepolia' ? 'gETH' : fee.currency;
       // An ETH transfer's value also carries the amount; a token's does not.
       const sentWei = reviewResult.approvalparams == null
         ? BigInt(BigNumber(reviewResult.output?.satoshis).toFixed(0)) * BigInt('10000000000')
@@ -760,10 +762,10 @@ const SendWizardConfirm = () => {
         displayCurrency,
       );
       return {
-        bridge: `${bridge.toFixed()} ${fee.currency}`,
+        bridge: `${bridge.toFixed()} ${ticker}`,
         bridgeCopyValue: bridge.toFixed(),
         bridgeMoney: moneyOf(bridge),
-        network: `${network.toFixed()} ${fee.currency}`,
+        network: `${network.toFixed()} ${ticker}`,
         networkCopyValue: network.toFixed(),
         networkMoney: moneyOf(network),
         onOpenNetwork: () => setFeeSheetOpen(true),
@@ -1146,7 +1148,6 @@ const SendWizardConfirm = () => {
         <BridgeNetworkFeeSheet
           fee={bridgeFees.network}
           lowered={Boolean(loweredFrom)}
-          money={bridgeFees.networkMoney}
           onClose={() => setFeeSheetOpen(false)}
           ticker={sourceCoin?.display_ticker}
           visible={feeSheetOpen}

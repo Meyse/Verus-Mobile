@@ -24,12 +24,12 @@ const FeeBreakdownSheet = ({feeItems, onClose, visible}) => (
 // limit at the highest gas price the transfer accepts. Ethereum charges only
 // the gas used, so the real fee is lower. A transfer of the whole balance also
 // keeps some ETH back (owner, 2026-11-13: keep upstream's amounts, explain them).
-export const BridgeNetworkFeeSheet = ({fee, lowered, money, onClose, ticker = 'ETH', visible}) => (
+export const BridgeNetworkFeeSheet = ({fee, lowered, onClose, ticker = 'ETH', visible}) => (
   <InfoSheet
     title="Network fee"
     visible={visible}
     onClose={onClose}>
-    <InfoSheetRow label="Most it can cost" value={money ? `${money}  ${fee}` : fee} />
+    <InfoSheetRow label="Most it can cost" value={fee} />
     <InfoSheetTopic title="You pay for the gas used">
       The Ethereum network charges only for the gas the transfer uses. The wallet sets a higher limit so that the transfer goes through. What the transfer does not use stays in your wallet.
     </InfoSheetTopic>
