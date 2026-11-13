@@ -29,7 +29,8 @@ import {
   fromBase58Check,
   toLowerCaseCLocale,
 } from 'verus-typescript-primitives';
-import FeeBreakdownSheet from './components/FeeBreakdownSheet';
+import FeeBreakdownSheet, {BridgeNetworkFeeSheet} from './components/FeeBreakdownSheet';
+import {getLoweredFrom, loweredNodeProps} from './loweredAmount';
 import NetworkFeeSheet from './components/NetworkFeeSheet';
 import PriceRouteSheet from './components/PriceRouteSheet';
 import useNetworkFee from './useNetworkFee';
@@ -736,6 +737,43 @@ const SendWizardConfirm = () => {
           }`).join(' + '),
       }
     : null;
+  // An Ethereum-to-Verus bridge transfer pays one ETH fee in two parts: the
+  // bridge contract's fee, carried in the transfer's ETH value, and the gas.
+  // Split them from the prepared transfer without changing its preflight. The
+  // gas part is a maximum; its sheet says so.
+  const bridgeFees = (() => {
+    const transferOptions = reviewResult?.transferparams?.[1];
+    if (exportFees || !route?.isCrossChain || transferOptions?.value == null || feeItems.length !== 1) {
+      return null;
+    }
+    try {
+      const fee = feeItems[0];
+      // Sepolia's ETH is gETH, as the paid asset shows it.
+      const ticker = sourceCoin?.network === 'sepolia' ? 'gETH' : fee.currency;
+      // An ETH transfer's value also carries the amount; a token's does not.
+      const sentWei = reviewResult.approvalparams == null
+        ? BigInt(BigNumber(reviewResult.output?.satoshis).toFixed(0)) * BigInt('10000000000')
+        : BigInt(0);
+      const bridge = BigNumber((BigInt(transferOptions.value.toString()) - sentWei).toString()).shiftedBy(-18);
+      const network = BigNumber(fee.amount).minus(bridge);
+      if (!bridge.isGreaterThan(0) || !network.isGreaterThan(0)) return null;
+      const moneyOf = value => formatApproxMoney(
+        sumMoney([{currencyId: fee.currencyId, amount: value}], getCurrencyRate),
+        displayCurrency,
+      );
+      return {
+        bridge: `${bridge.toFixed()} ${ticker}`,
+        bridgeCopyValue: bridge.toFixed(),
+        bridgeMoney: moneyOf(bridge),
+        network: `${network.toFixed()} ${ticker}`,
+        networkCopyValue: network.toFixed(),
+        networkMoney: moneyOf(network),
+        onOpenNetwork: () => setFeeSheetOpen(true),
+      };
+    } catch (e) {
+      return null;
+    }
+  })();
   // Sum by currency ID, not ticker: each currency the user pays appears once.
   const totalPaid = new Map([[
     sourceCoin?.currency_id || sourceCoin?.id,
@@ -801,12 +839,9 @@ const SendWizardConfirm = () => {
   const balanceAfter = BigNumber(sourceBalance || 0)
     .minus(isSelfSend ? 0 : displayAmount)
     .minus(sourceFees);
-  const submittedAmount = reviewResult?.submittedsats != null
-    ? satsToCoins(BigNumber(reviewResult.submittedsats))
-    : BigNumber(reviewResult?.amountSubmitted ?? amount ?? 0);
-  const amountAdjustment = !invoice && submittedAmount.isGreaterThan(displayAmount)
-    ? `Reduced from ${truncateDecimal(submittedAmount, 8)} ${sourceCoin?.display_ticker || ''} to cover transaction fees.`
-    : null;
+  // The pay node shows the entered amount struck through when the wallet
+  // took the fees from it (owner, 2026-11-13).
+  const loweredFrom = getLoweredFrom(reviewResult, amount, displayAmount);
   // The launch's minimum, in every currency that has one. Amounts above a
   // maximum come back after the launch; the wallet does not know how much is
   // pre-converted so far, so it does not warn about that.
@@ -837,7 +872,7 @@ const SendWizardConfirm = () => {
           isConversion={preparingReceive}
           fromLabel={fromLabel}
           networkFee={Boolean(feeKind)}
-          exportFees={hasExportFees}
+          exportFees={hasExportFees || Boolean(route?.isCrossChain && ['eth', 'erc20'].includes(sourceCoin?.proto))}
           recipient={recipientAddress}
           recipientCaption={refundCaption}
           routeRows={launchRows}
@@ -975,6 +1010,7 @@ const SendWizardConfirm = () => {
           fiat={formatFiat(displayAmount, sourceCoin?.id)}
           label={showReceive || preconvert ? 'You pay' : 'You send'}
           ticker={sourceCoin?.display_ticker || ''}
+          {...loweredNodeProps(loweredFrom, sourceCoin?.display_ticker)}
         />
         {preconvert ? (
           <>
@@ -1009,11 +1045,6 @@ const SendWizardConfirm = () => {
             />
           </>
         ) : null}
-        {amountAdjustment ? (
-          <Text style={[theme.typography.caption, styles.adjustment, {color: theme.colors.textSecondary}]}>
-            {amountAdjustment}
-          </Text>
-        ) : null}
         <ConfirmFacts
           arrives={estimatedTime}
           compact={compact}
@@ -1021,7 +1052,7 @@ const SendWizardConfirm = () => {
           fees={feeSummary}
           feesCopyValue={feesCopyValue}
           feesMoney={feesMoney}
-          exportFees={exportFees}
+          exportFees={exportFees || bridgeFees}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={
@@ -1113,6 +1144,14 @@ const SendWizardConfirm = () => {
           ticker={feeTicker}
           formatFiat={fee => formatFiat(fee, feeCurrencyId)}
         />
+      ) : bridgeFees ? (
+        <BridgeNetworkFeeSheet
+          fee={bridgeFees.network}
+          lowered={Boolean(loweredFrom)}
+          onClose={() => setFeeSheetOpen(false)}
+          ticker={sourceCoin?.display_ticker}
+          visible={feeSheetOpen}
+        />
       ) : <FeeBreakdownSheet feeItems={feeItems} onClose={() => setFeeSheetOpen(false)} visible={feeSheetOpen} />}
       {showImpact ? (
         <PriceRouteSheet
@@ -1140,7 +1179,6 @@ const styles = StyleSheet.create({
   scrollViewport: {flex: 1},
   content: {paddingHorizontal: 16, paddingTop: WIZARD_CONTENT_TOP_INSET, paddingBottom: 20},
   contentCompact: {paddingTop: 16, paddingBottom: 8},
-  adjustment: {marginTop: 8},
   pinnedNotices: {marginBottom: 4},
   // An export's total with its notices, pinned above the slide. The hairline
   // belongs to this group, as on Amount's pinned receive block.

@@ -64,7 +64,7 @@ const ConfirmFacts = ({
           <FlatRow copyValue={exportFees.bridgeCopyValue} label="Bridge fee">
             <MoneyValue money={exportFees.bridgeMoney} value={exportFees.bridge} />
           </FlatRow>
-          <FlatRow copyValue={exportFees.networkCopyValue} label="Network fee">
+          <FlatRow copyValue={exportFees.networkCopyValue} label="Network fee" onPress={exportFees.onOpenNetwork}>
             <MoneyValue money={exportFees.networkMoney} value={exportFees.network} />
           </FlatRow>
         </>

@@ -714,6 +714,17 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   it become the largest number on the screen: a `titleRow` label and the node
   amount size, with the money value before it. Several paid currencies keep
   the row text. Preparing shows its skeleton in the same place.
+- When the wallet takes the fees from the amount, the pay node shows it (owner,
+  2026-11-13, option B of the reduced-amount mockups): the entered amount struck
+  through in `caption` `textSecondary` above the sent amount, and "Lowered for
+  fees" in `caption` semibold `warningText` under the label. Sent keeps the same
+  node. There is no separate "Reduced from …" sentence. Invoices show it too.
+  The wallet's lowered amounts stay as upstream computes them.
+- An Ethereum-to-Verus bridge transfer splits its one ETH fee into Bridge fee
+  (the contract's fee in the transfer's value) and Network fee (the gas
+  maximum), from the prepared transfer. Network fee › opens the "Network fee"
+  `InfoSheet`: "Most it can cost", why only used gas is charged, and, when the
+  amount was lowered, why some ETH stays in the wallet (owner, 2026-11-13).
 - Bridge fee, Network fee, Total and the Fees row of a send or same-chain
   conversion (owner, 2026-11-13) show the money value before the coin value
   ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the
@@ -757,7 +768,8 @@ Address Book keyboard layout. Custom fees above twice Fast's effective gas price
 or sat/vB rate show a warning without blocking "Use this fee".
 Fee changes keep the review visible and skeleton
 its fee and arrival time until preflight completes. Bridge, conversion and Verus
-sends keep "Fees ›" and "Fee breakdown".
+sends keep "Fees ›" and "Fee breakdown", except an Ethereum-to-Verus bridge,
+which shows Bridge fee and Network fee ›.
 
 ### Send/Convert Amount, Recipient, Confirm and Sent
 
