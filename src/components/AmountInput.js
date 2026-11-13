@@ -6,7 +6,9 @@ import {editAmountInput} from '../utils/amountInput';
 
 // Keep a native editable field for selection, paste, hardware input and accessibility.
 // The custom keypad edits its text; it never parses or rounds the amount.
-const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeText, onUnitPress, unit, value}, ref) => {
+// `compact` (small windows) draws the amount at 80% of `amountInput` (32/40)
+// and the unit in `titleRow`. The 20-point floor and maxLength are unchanged.
+const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = false, onChangeText, onUnitPress, unit, value}, ref) => {
   const theme = useOnboardingTheme();
   const nativeRef = useRef(null);
   const valueRef = useRef(value);
@@ -14,10 +16,15 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
   const [selection, setSelection] = useState();
   const [width, setWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
-  const unitRoom = Math.max(48, unit.length * 12) + (onUnitPress ? 20 : 0);
+  const unitType = compact ? theme.typography.titleRow : theme.typography.titleSheet;
+  const maxFontSize = compact
+    ? Math.round(theme.typography.amountInput.fontSize * 0.8)
+    : theme.typography.amountInput.fontSize;
+  // About 0.6 em per unit character: 12 at 20 points, 9.6 at 16 points.
+  const unitRoom = Math.max(48, Math.ceil(unit.length * unitType.fontSize * 0.6)) + (onUnitPress ? 20 : 0);
   const fontSize = width > 0
-    ? Math.max(20, Math.min(40, Math.floor((width - unitRoom - 8) / (Math.max(value.length, 1) * 0.64))))
-    : 40;
+    ? Math.max(20, Math.min(maxFontSize, Math.floor((width - unitRoom - 8) / (Math.max(value.length, 1) * 0.64))))
+    : maxFontSize;
   const maxLength = width > 0 ? Math.floor(width * 0.9 / (20 * 0.64)) : 23;
   const measuredWidth = textWidth || Math.max(32, (value.length || 1) * fontSize * 0.64);
   const stacked = width > 0 && measuredWidth + unitRoom + 8 > width;
@@ -57,7 +64,7 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
 
   const amountType = [theme.typography.amountInput, {fontSize, lineHeight: fontSize + 8}];
   return (
-    <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={styles.container}>
+    <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={[styles.container, compact && styles.compact]}>
       <Text
         accessible={false}
         accessibilityElementsHidden
@@ -67,7 +74,7 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
         style={[amountType, styles.measure]}>
         {value || '0'}
       </Text>
-      <View style={[styles.row, stacked && styles.stacked]}>
+      <View style={[styles.row, compact && styles.compact, stacked && styles.stacked]}>
         <TextInput
           ref={nativeRef}
           accessibilityLabel={`Amount in ${unit}`}
@@ -101,14 +108,14 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
             onPress={onUnitPress}
             style={styles.unitAction}>
             <Text style={[
-              stacked ? theme.typography.labelMd : theme.typography.titleSheet,
+              stacked ? theme.typography.labelMd : unitType,
               styles.unit,
               {color: theme.colors.textSecondary},
             ]} numberOfLines={1}>{unit}</Text>
             <MaterialCommunityIcons name="chevron-down" size={18} color={theme.colors.textSecondary} />
           </Pressable>
         ) : <Text style={[
-          stacked ? theme.typography.labelMd : theme.typography.titleSheet,
+          stacked ? theme.typography.labelMd : unitType,
           styles.unit,
           {color: theme.colors.textSecondary},
         ]} numberOfLines={1}>{unit}</Text>}
@@ -120,6 +127,7 @@ const AmountInput = forwardRef(({decimalSeparator, disabled = false, onChangeTex
 const styles = StyleSheet.create({
   container: {width: '100%', minHeight: 48},
   measure: {position: 'absolute', width: 2000, opacity: 0},
+  compact: {minHeight: 40},
   row: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
   stacked: {flexDirection: 'column', gap: 0},
   input: {padding: 0, textAlign: 'center'},

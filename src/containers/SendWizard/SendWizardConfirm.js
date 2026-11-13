@@ -713,6 +713,9 @@ const SendWizardConfirm = () => {
     ),
     displayCurrency,
   );
+  // The Fees row (a send or a same-chain conversion) shows money as the
+  // export fee rows do.
+  const feesMoney = formatApproxMoney(sumMoney(feeItems, getCurrencyRate), displayCurrency);
   const exportFees = hasExportFees && reviewResult?.feeDetails
     ? {
         bridgeMoney: feeMoneyOf(reviewResult.feeDetails.bridge),
@@ -1017,6 +1020,7 @@ const SendWizardConfirm = () => {
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
           feesCopyValue={feesCopyValue}
+          feesMoney={feesMoney}
           exportFees={exportFees}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
