@@ -32,7 +32,7 @@ import {
   loadAddressBook,
   saveAddressBook,
 } from '../../utils/addressBook/addressBook';
-import {getIdentity} from '../../utils/api/channels/verusid/requests/getIdentity';
+import {getIdentity} from '../../utils/api/routers/getIdentity';
 import {timeout} from '../../utils/promises';
 import AddressBookEditSheet from '../Services/AddressBook/AddressBookEditSheet';
 import {useSendWizard} from './SendWizardContext';
@@ -203,11 +203,11 @@ const SendWizardRecipient = () => {
   const checkIdentity = useCallback(async value => {
     if (privateSource) return resolvePrivateCardDestination(sourceCoin, value);
 
-    // Match preflight: use the source system's existing endpoint.
-    const systemId = channel?.split('.')[2] || sourceCoin?.system_id;
+    // Match Confirm: the channel's own Verus system. An Ethereum card asks the
+    // Verus system of its bridge.
     let result;
     try {
-      result = await timeout(15000, getIdentity(systemId, value));
+      result = await timeout(15000, getIdentity(sourceCoin, activeAccount, channel, value));
     } catch (_) {
       throw new Error(IDENTITY_UNAVAILABLE);
     }
@@ -215,7 +215,7 @@ const SendWizardRecipient = () => {
       throw new Error(result?.error?.code === -5 ? IDENTITY_NOT_FOUND : IDENTITY_UNAVAILABLE);
     }
     return result.result.identity.identityaddress;
-  }, [channel, privateSource, sourceCoin]);
+  }, [activeAccount, channel, privateSource, sourceCoin]);
 
   useFocusEffect(useCallback(() => {
     cancelLookup();

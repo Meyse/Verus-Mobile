@@ -338,7 +338,14 @@ The Send/Convert network sheet ("Choose a network") groups its rows with
 first; "Other networks" holds the rest in route order. Row titles are the plain
 network name and subtitles read "Receive as <ticker>". Do not add a "Default"
 badge or repeat "network" in a row. The owner approved this on 2026-10-18.
-The ticker is the asset's name on that network (owner, 2026-11-03).
+The ticker is the asset's name on that network (owner, 2026-11-03): an
+Ethereum asset on Verus reads "Receive as vETH" or "Receive as DAI.vETH".
+Send asks for the network when the asset is picked, as Convert does for its
+target (owner, 2026-11-13). The picked row in Select asset shows a small
+spinner in place of its fiat value while the routes load, and the other rows
+ignore taps. The sheet opens only when two or more networks remain; it has no
+preselected row. Otherwise Amount opens on the same network. Amount reuses
+those routes and keeps Change network for a later change.
 
 ### Information
 

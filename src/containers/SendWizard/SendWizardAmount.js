@@ -78,7 +78,9 @@ const SendWizardAmount = () => {
   const [routeEstimates, setRouteEstimates] = useState({});
   const [preferredRouteKey, setPreferredRouteKey] = useState(null);
   const [routeSheetOpen, setRouteSheetOpen] = useState(false);
-  const [sendTarget, setSendTarget] = useState(target);
+  // Select asset loads the networks once; Amount loads them only without it.
+  const sendNetworks = state.sendNetworks;
+  const [sendTarget, setSendTarget] = useState(sendNetworks || target);
   const [networkLoading, setNetworkLoading] = useState(false);
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
@@ -105,9 +107,10 @@ const SendWizardAmount = () => {
       : rates?.[fiatChannel]?.[sourceCoin?.id]?.[displayCurrency];
 
   useEffect(() => {
-    setSendTarget(target);
+    setSendTarget(sendNetworks || target);
 
     if (
+      sendNetworks ||
       mode !== SEND_WIZARD_MODE.SEND ||
       !sourceCoin ||
       !channel ||
@@ -144,7 +147,7 @@ const SendWizardAmount = () => {
     return () => {
       active = false;
     };
-  }, [channel, mode, sourceCoin, target]);
+  }, [channel, mode, sendNetworks, sourceCoin, target]);
 
   const cryptoAmount = useMemo(() => {
     const entered = BigNumber(String(input || 0).replace(',', '.'));
