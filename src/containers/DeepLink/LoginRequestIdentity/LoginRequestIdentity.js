@@ -13,7 +13,7 @@ import { signLoginConsentResponse } from '../../../utils/api/channels/vrpc/reque
 import BigNumber from 'bignumber.js';
 import { VERUSID_NETWORK_DEFAULT } from "../../../../env/index";
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
-import { CommonActions } from '@react-navigation/native';
+import { exitRequestToStack } from '../exitRequest';
 import { SEND_MODAL_IDENTITY_TO_LINK_FIELD } from '../../../utils/constants/sendModal';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import {
@@ -143,22 +143,12 @@ const LoginRequestIdentity = props => {
     }
 
     if (idProvisionSuccess && !sendModal.visible) {
-      props.navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'SignedInStack',
-              params: {
-                screen: 'Home',
-                params: {
-                  screen: 'IdentityTab',
-                },
-              },
-            },
-          ],
-        }),
-      );
+      exitRequestToStack(props.navigation, 'SignedInStack', {
+        screen: 'Home',
+        params: {
+          screen: 'IdentityTab',
+        },
+      });
     }
   }, [idProvisionSuccess, sendModal.data?.success, sendModal.visible, props.navigation])
 

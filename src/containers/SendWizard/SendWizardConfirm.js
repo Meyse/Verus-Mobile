@@ -714,6 +714,9 @@ const SendWizardConfirm = () => {
     ),
     displayCurrency,
   );
+  // The Fees row (a send or a same-chain conversion) shows money as the
+  // export fee rows do.
+  const feesMoney = formatApproxMoney(sumMoney(feeItems, getCurrencyRate), displayCurrency);
   const exportFees = hasExportFees && reviewResult?.feeDetails
     ? {
         bridgeMoney: feeMoneyOf(reviewResult.feeDetails.bridge),
@@ -734,9 +737,6 @@ const SendWizardConfirm = () => {
           }`).join(' + '),
       }
     : null;
-  // The plain Fees row shows the money value before the coin value, as the
-  // export fee rows do.
-  const feesMoney = formatApproxMoney(sumMoney(feeItems, getCurrencyRate), displayCurrency);
   // An Ethereum-to-Verus bridge transfer pays one ETH fee in two parts: the
   // bridge contract's fee, carried in the transfer's ETH value, and the gas.
   // Split them from the prepared transfer without changing its preflight. The
@@ -1051,8 +1051,8 @@ const SendWizardConfirm = () => {
           destinationNetwork={route?.isCrossChain ? destinationNetwork : null}
           fees={feeSummary}
           feesCopyValue={feesCopyValue}
-          exportFees={exportFees || bridgeFees}
           feesMoney={feesMoney}
+          exportFees={exportFees || bridgeFees}
           networkFee={networkFeeRow}
           feeLoading={Boolean(feeKind && (preflighting || networkFee.loading))}
           impact={

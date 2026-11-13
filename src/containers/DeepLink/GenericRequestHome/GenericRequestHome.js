@@ -9,7 +9,6 @@ import React, {useMemo, useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, StyleSheet, unstable_batchedUpdates, View} from 'react-native';
 import { Text } from 'react-native-paper';
 import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
-import {CommonActions} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
 import {
   useSafeAreaInsets,
@@ -90,6 +89,7 @@ import {
 import {getGenericRequestRejection} from '../../../utils/deeplink/genericRequestRejection';
 
 import {useRequestBackHandler} from '../useRequestNavigation';
+import {exitRequest} from '../exitRequest';
 
 const AUTO_DELIVERY_STATUS = {
   IDLE: 'idle',
@@ -466,6 +466,9 @@ const GenericRequestSession = props => {
   const processGenerationRef = useRef(0);
   const passthrough = useSelector(state => state.deeplink.passthrough);
   const signedIn = useSelector(state => state.authentication.signedIn);
+  const hasAccounts = useSelector(
+    state => state.authentication.accounts.length > 0,
+  );
   const experimentalRequestsAllowed = useSelector(isExperimentalGenericRequestsEnabled);
 
   /**
@@ -616,13 +619,10 @@ const GenericRequestSession = props => {
 
   const completeRequest = useCallback(() => {
     processGenerationRef.current += 1;
-    const resetAction = CommonActions.reset({
-      index: 0,
-      routes: [{name: signedIn ? 'SignedInStack' : 'SignedOutStack'}],
-    });
-
-    props.finishRequest(() => props.navigation.dispatch(resetAction));
-  }, [props.finishRequest, props.navigation, signedIn]);
+    props.finishRequest(() =>
+      exitRequest(props.navigation, signedIn, hasAccounts),
+    );
+  }, [hasAccounts, props.finishRequest, props.navigation, signedIn]);
 
   useRequestBackHandler(
     autoDeliveryState.status === AUTO_DELIVERY_STATUS.IDLE

@@ -10,7 +10,7 @@ import React, {
   useState,
 } from 'react';
 import {TouchableOpacity, View} from 'react-native';
-import {CommonActions} from '@react-navigation/native';
+import {exitRequestToStack} from '../exitRequest';
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -770,17 +770,7 @@ const AppEncryptionRequestInfoContent = props => {
           },
         };
 
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'SignedInStack',
-            params: settingsRoute,
-          },
-        ],
-      }),
-    );
+    exitRequestToStack(navigation, 'SignedInStack', settingsRoute);
   }, [dispatch, navigation]);
 
   // No wallet on this device can answer the request. The wallet action is

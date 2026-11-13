@@ -1,4 +1,4 @@
-import { CommonActions, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -62,23 +62,9 @@ import {
 
 import {isBottomSheetActive} from '../../hooks/useBottomSheetActivity';
 import {getRequestBackState, RequestNavigationContext} from './useRequestNavigation';
+import {exitRequest} from './exitRequest';
 
 const USER_BACK_ACTIONS = ['GO_BACK', 'POP', 'POP_TO_TOP'];
-
-// Leaves the request flow: Home when signed in, else the signed-out start.
-const getRequestExitAction = (signedIn, hasAccounts) =>
-  CommonActions.reset({
-    index: 0,
-    routes: [
-      {
-        name: signedIn
-          ? 'SignedInStack'
-          : hasAccounts
-          ? 'SignedOutStack'
-          : 'SignedOutNoKeyStack',
-      },
-    ],
-  });
 
 const DeepLinkSession = (props) => {
   const requestId = useSelector(state => state.deeplink.requestId);
@@ -158,7 +144,7 @@ const DeepLinkSession = (props) => {
       }
     }
 
-    props.navigation.dispatch(getRequestExitAction(signedIn, accounts.length > 0));
+    exitRequest(props.navigation, signedIn, accounts.length > 0);
   })
 
   const backRef = useRef(null)
@@ -617,7 +603,7 @@ const DeepLinkEnded = ({navigation}) => {
 
   useFocusEffect(
     useCallback(() => {
-      navigation.dispatch(getRequestExitAction(signedIn, hasAccounts));
+      exitRequest(navigation, signedIn, hasAccounts);
     }, [hasAccounts, navigation, signedIn]),
   );
 

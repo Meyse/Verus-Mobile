@@ -583,13 +583,27 @@ and fee-reserve rules in `SendWizardAmount`.
 - The 44-point context slot shows Change network only when an alternative is
   available. It shows source network to destination network for a cross-chain
   route. A same-chain conversion shows no To line because the receive block
-  names the target. A simple Send omits the default network name. The slot keeps its height in every case.
+  names the target. A simple Send omits the default network name. On normal
+  windows the slot keeps its height in every case.
 - Put the amount and its current unit on one line. Keep 40-to-20-point amount
   sizing. A long amount can put its unit below it. The entry starts 48 points
   below the context on normal windows, or 8 points on compact windows.
 - Keep a 44-point fiat-mode action and a 48-point Available / MAX row. MAX uses
   `TextAction variant="chip"` in `link`. Missing
   fiat rates show no action or empty slot. Private pending funds retain their caption.
+- Owner approval, 2026-11-13 (R7 option A, "tight top"): on windows of 667
+  points or less, `AmountInput compact` draws the amount at 32/40 (80% of
+  `amountInput`, same 20-point floor) and the unit in `titleRow`. An empty
+  context slot takes no height and the entry starts 8 points down. A shown
+  context (the network route or Change network) is a 20-point line with the
+  entry directly below it. The fiat-mode slot is 36 points and the Available /
+  MAX row 44. Hit slop keeps the fiat-mode and MAX targets at 44 points or
+  more (MAX 48). The tappable context line (Change network on Send) keeps a
+  20-point touch band on these windows only, because the top area is the
+  scroll view's edge and a taller line would hide Available / MAX on a Send to
+  Ethereum (owner, 2026-11-13). Do not
+  shrink the receive estimate or the keypad. An amount error may still make the
+  top area scroll on the smallest phones.
 - Place one Continue action above `AmountKeypad` through `WizardFooter` and
   `SafeBottomActionStack`. The keypad owns the bottom safe area. Keys are 48
   points with 8-point gaps on normal windows. Compact iOS uses 44-point visible
@@ -711,8 +725,8 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   maximum), from the prepared transfer. Network fee › opens the "Network fee"
   `InfoSheet`: "Most it can cost", why only used gas is charged, and, when the
   amount was lowered, why some ETH stays in the wallet (owner, 2026-11-13).
-- The plain Fees row shows its money value before the coin value, as below.
-- Bridge fee, Network fee and Total show the money value before the coin value
+- Bridge fee, Network fee, Total and the Fees row of a send or same-chain
+  conversion (owner, 2026-11-13) show the money value before the coin value
   ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the
   ledger holds a price for every currency in that row. A positive value under
   one cent reads "< €0,01", never a zero.
