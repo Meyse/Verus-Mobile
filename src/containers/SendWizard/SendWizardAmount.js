@@ -518,6 +518,9 @@ const SendWizardAmount = () => {
   const amountErrorMessage = (exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError;
   const estimateVisible = target.isConversion || (validAmount && ethereumExport);
   const emptyAmount = !input || (cryptoAmount.isFinite() && cryptoAmount.isZero());
+  const showNetworkAction = !target.isConversion &&
+    (canChangeNetwork || networkLoading || Boolean(networkError));
+  const contextShown = route.isCrossChain || showNetworkAction;
 
   return (
     <WizardScreen scroll={false}>
@@ -525,45 +528,50 @@ const SendWizardAmount = () => {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={Boolean(amountErrorMessage)}>
-        <View style={styles.context}>
+        {/* Small windows: an empty context takes no height, and a shown one is a
+            20-point line whose 44-point target comes from hit slop. */}
+        <View style={[styles.context, smallDevice && (contextShown ? styles.contextCompact : styles.contextEmpty)]}>
           {route.isCrossChain ? (
             <Pressable
               accessibilityLabel={`From ${sourceNetwork} to ${destinationNetwork}${canChangeNetwork ? '. Change destination network' : ''}`}
               accessibilityRole={canChangeNetwork ? 'button' : undefined}
               disabled={!canChangeNetwork || networkLoading}
+              hitSlop={smallDevice ? COMPACT_LINE_HIT_SLOP : undefined}
               onPress={() => setNetworkSheetOpen(true)}
-              style={styles.networkAction}>
+              style={[styles.networkAction, smallDevice && styles.networkActionCompact]}>
               <Text numberOfLines={1} style={[theme.typography.bodySm, styles.contextText, {color: theme.colors.textSecondary}]}>{sourceNetwork}</Text>
               <MaterialCommunityIcons name="arrow-right" size={17} color={theme.colors.textSecondary} />
               <Text numberOfLines={1} style={[theme.typography.labelMd, styles.contextText, {color: theme.colors.textPrimary}]}>{destinationNetwork}</Text>
               {canChangeNetwork ? <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.textSecondary} /> : null}
             </Pressable>
-          ) : target.isConversion ? null : canChangeNetwork || networkLoading || networkError ? (
+          ) : showNetworkAction ? (
             <TextAction
               accessibilityRole="button"
               disabled={networkLoading || !canChangeNetwork}
               onPress={() => setNetworkSheetOpen(true)}
               size="small"
-              style={styles.networkAction}>
+              style={[styles.networkAction, smallDevice && styles.networkActionCompact]}>
               {networkLoading ? 'Checking networks…' : networkError || 'Change network'}
             </TextAction>
           ) : null}
         </View>
-        <View style={[styles.entry, smallDevice && styles.entryCompact]}>
+        <View style={[styles.entry, smallDevice && (contextShown ? styles.entryTight : styles.entryCompact)]}>
           <AmountInput
             ref={amountInputRef}
+            compact={smallDevice}
             decimalSeparator={decimalSeparator}
             onChangeText={setInput}
             unit={fiatMode ? displayCurrency : sourceCoin.display_ticker}
             value={input}
           />
-          <View style={rate != null ? styles.modeSlot : null}>
+          <View style={rate != null ? [styles.modeSlot, smallDevice && styles.modeSlotCompact] : null}>
             {rate != null ? (
               <Pressable
                 accessibilityLabel={`Switch amount between ${sourceCoin.display_ticker} and ${displayCurrency}`}
                 accessibilityRole="button"
+                hitSlop={smallDevice ? COMPACT_MODE_HIT_SLOP : undefined}
                 onPress={toggleInputMode}
-                style={styles.modeAction}>
+                style={[styles.modeAction, smallDevice && styles.modeActionCompact]}>
                 <View style={[styles.modeChip, {backgroundColor: theme.colors.surfaceMuted}]}>
                   <Text style={[theme.typography.bodySm, {color: theme.colors.textPrimary}]}>{modeText}</Text>
                   <MaterialCommunityIcons name="swap-vertical" size={16} color={theme.colors.textSecondary} />
@@ -572,7 +580,7 @@ const SendWizardAmount = () => {
             ) : null}
           </View>
           <ErrorMessage style={styles.error}>{amountErrorMessage}</ErrorMessage>
-          <View style={styles.balanceRow}>
+          <View style={[styles.balanceRow, smallDevice && styles.balanceRowCompact]}>
             <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>Available: {available}</Text>
             <TextAction
               accessibilityLabel="Use maximum available amount"
@@ -581,7 +589,7 @@ const SendWizardAmount = () => {
               disabled={maximumDisabled}
               onPress={useMaximum}
               variant="chip"
-              style={styles.maxButton}>
+              style={[styles.maxButton, smallDevice && styles.maxButtonCompact]}>
               MAX
             </TextAction>
           </View>
@@ -653,21 +661,34 @@ const SendWizardAmount = () => {
   );
 };
 
+// Small windows: a 20-point context line and a 36-point fiat chip slot keep
+// 44-point targets through hit slop. TextAction adds its own (MAX keeps 48).
+const COMPACT_LINE_HIT_SLOP = {top: 12, bottom: 12};
+const COMPACT_MODE_HIT_SLOP = {top: 4, bottom: 4};
+
 const styles = StyleSheet.create({
   content: {flexGrow: 1, paddingHorizontal: 16, paddingBottom: 8},
   fallbackContent: {paddingTop: WIZARD_CONTENT_TOP_INSET},
   fallbackError: {marginVertical: 0},
   context: {height: 44, alignItems: 'center', justifyContent: 'center'},
+  contextCompact: {height: 20},
+  contextEmpty: {height: 0},
   networkAction: {alignSelf: 'center', minHeight: 44, maxWidth: '100%', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center'},
+  networkActionCompact: {minHeight: 20},
   contextText: {flexShrink: 1},
   entry: {paddingTop: 48, alignItems: 'center'},
   entryCompact: {paddingTop: 8},
+  entryTight: {paddingTop: 0},
   modeSlot: {minHeight: 44, width: '100%', alignItems: 'center', justifyContent: 'center'},
+  modeSlotCompact: {minHeight: 36},
   modeAction: {minHeight: 44, justifyContent: 'center'},
+  modeActionCompact: {minHeight: 36},
   modeChip: {borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 6},
   error: {marginHorizontal: 0, marginVertical: 4, alignSelf: 'stretch'},
   balanceRow: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8},
+  balanceRowCompact: {minHeight: 44},
   maxButton: {minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center'},
+  maxButtonCompact: {minHeight: 44},
   confirming: {textAlign: 'center', marginBottom: 4},
   estimateSlot: {minHeight: 49, paddingHorizontal: 16},
 });
