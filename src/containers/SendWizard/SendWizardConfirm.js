@@ -1148,6 +1148,7 @@ const SendWizardConfirm = () => {
         <BridgeNetworkFeeSheet
           fee={bridgeFees.network}
           lowered={Boolean(loweredFrom)}
+          money={bridgeFees.networkMoney}
           onClose={() => setFeeSheetOpen(false)}
           ticker={sourceCoin?.display_ticker}
           visible={feeSheetOpen}

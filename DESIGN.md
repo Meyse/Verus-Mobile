@@ -723,8 +723,13 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - An Ethereum-to-Verus bridge transfer splits its one ETH fee into Bridge fee
   (the contract's fee in the transfer's value) and Network fee (the gas
   maximum), from the prepared transfer. Network fee › opens the "Network fee"
-  `InfoSheet`: "Most it can cost", why only used gas is charged, and, when the
-  amount was lowered, why some ETH stays in the wallet (owner, 2026-11-13).
+  `InfoSheet`: a `caption` "Most it can cost" over the `MoneyValue`, then
+  `bodySm` `textSecondary` text with no topic headings or dividers: the
+  estimate plus 25 % and only used gas is charged; when the amount was
+  lowered, a second paragraph on the ETH kept back (owner, 2026-11-13).
+- "Your addresses" (Send to self) keeps each row on one line: the address
+  shows its first and last six characters, under the VerusID name when there
+  is one; screen readers get the full address (owner, 2026-11-13).
 - Bridge fee, Network fee, Total and the Fees row of a send or same-chain
   conversion (owner, 2026-11-13) show the money value before the coin value
   ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the

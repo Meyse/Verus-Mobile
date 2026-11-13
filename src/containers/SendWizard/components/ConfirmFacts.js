@@ -90,11 +90,11 @@ const ConfirmFacts = ({
 // A coin value with its money value before it: "≈ €6,98  12.15552225 VRSC".
 // The money is quieter than the coin value it belongs to. Both wrap and never
 // truncate.
-export const MoneyValue = ({money, value}) => {
+export const MoneyValue = ({money, style, value}) => {
   const theme = useOnboardingTheme();
 
   return (
-    <Text style={[theme.typography.labelMd, styles.moneyValue, {color: theme.colors.textPrimary}]}>
+    <Text style={[theme.typography.labelMd, styles.moneyValue, {color: theme.colors.textPrimary}, style]}>
       {money ? (
         <Text style={[styles.money, {color: theme.colors.textSecondary}]}>{`${money}  `}</Text>
       ) : null}
