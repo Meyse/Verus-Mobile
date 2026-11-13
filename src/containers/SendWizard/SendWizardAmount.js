@@ -458,6 +458,15 @@ const SendWizardAmount = () => {
     setNetworkSheetOpen(false);
   };
 
+  // The received asset's own price: the ledger's, or the same price source for
+  // a target that is not in the wallet. Never the paid asset's price or the
+  // small-trade crypto ratio from usePriceImpact. Missing prices stay absent.
+  const receiveRate = useReceivedPrice(
+    target?.coinId || target?.id,
+    fiatChannel,
+    {systemId: target?.systemId, testnet: sourceCoin?.testnet},
+  );
+
   if (!sourceCoin || !target || !route) {
     return (
       <WizardScreen contentContainerStyle={styles.fallbackContent}>
@@ -488,10 +497,6 @@ const SendWizardAmount = () => {
   const receiveAmount = validAmount
     ? target.isConversion ? estimatedOutput : cryptoAmountValue
     : null;
-  // The received asset's own price: the ledger's, or the same price source for
-  // a target that is not in the wallet. Never the paid asset's price or the
-  // small-trade crypto ratio from usePriceImpact. Missing prices stay absent.
-  const receiveRate = useReceivedPrice(target.coinId || target.id, fiatChannel);
   const receiveMoneyValue = receiveAmount != null &&
     BigNumber(receiveAmount).isFinite() && BigNumber(receiveRate).isFinite() &&
     BigNumber(receiveRate).isGreaterThan(0)
