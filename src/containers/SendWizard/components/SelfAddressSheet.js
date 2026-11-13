@@ -1,7 +1,7 @@
 import React from 'react';
 import SelectionSheet, {SelectionRow} from '../../../components/SelectionSheet';
 import useSheetDismissal from '../../../components/useSheetDismissal';
-import {ADDRESS_TYPE} from '../wizardUtils';
+import {ADDRESS_TYPE, shortAddress} from '../wizardUtils';
 
 const SelfAddressSheet = ({
   addressType,
@@ -21,11 +21,14 @@ const SelfAddressSheet = ({
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
       {addresses.map(item => (
+        // Each address stays on one line: its first and last six characters
+        // (owner, 2026-11-13). Screen readers get the full address.
         <SelectionRow
           key={item.id || item.address}
-          title={item.verusIdName || item.address}
+          accessibilityLabel={[item.verusIdName, item.address].filter(Boolean).join(', ')}
+          title={item.verusIdName || shortAddress(item.address)}
           titleMonospace={!item.verusIdName}
-          subtitle={item.verusIdName ? item.address : undefined}
+          subtitle={item.verusIdName ? shortAddress(item.address) : undefined}
           subtitleMonospace
           onPress={() => dismissal.dismiss(() => onSelect(item))}
         />
