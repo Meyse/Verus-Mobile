@@ -239,7 +239,7 @@ export const WizardSearch = ({onChangeText, placeholder, value}) => {
 export const WizardSectionLabel = ({children}) => {
   const theme = useOnboardingTheme();
   return (
-    <Text style={[styles.sectionLabel, {color: theme.colors.textSecondary}]}>
+    <Text style={[theme.typography.labelCaps, styles.sectionLabel, {color: theme.colors.textSecondary}]}>
       {children}
     </Text>
   );
@@ -501,11 +501,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: WIZARD_CONTENT_INSET,
     marginTop: 18,
     marginBottom: 6,
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: 0.3,
     textTransform: 'uppercase',
-    ...fontStyle('semiBold'),
   },
   assetRow: {
     minHeight: 70,

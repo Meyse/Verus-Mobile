@@ -24,6 +24,7 @@ const Entity = ({coinId, iconId, label, showBadge = true, tone}) => {
             coinId={logoId}
             showBadge={showBadge}
             size={LOGO_SIZE}
+            badgeRingColor={theme.colors.surfaceMuted}
           />
         </View>
       ) : null}
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   logo: {
-    marginRight: 5,
+    marginRight: 6,
   },
   label: {
     flexShrink: 1,

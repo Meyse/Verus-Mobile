@@ -551,7 +551,8 @@ It reminds the user what moves and where, in one line, without a second title.
   `getWizardContextSummary` in `wizardUtils.js` decides what it shows.
 - Full-bleed `surfaceMuted` band, 32-point minimum height, 16-point inset. Asset
   names use `labelSm`, connector words and the chain name use `caption`. Logos are
-  `AssetCoinLogo` at 16 points.
+  `AssetCoinLogo` at 16 points. Badges use an 8-point mark and a 1-point ring
+  in the band color.
 - Left: the source asset and, for a conversion, an arrow and the target asset.
   Right: "on" and the chain, only for a conversion to another chain.
 - A Send or Convert from the VerusID page starts on Select asset with only that
@@ -935,9 +936,9 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
 - The second line 2 points under the name in `bodySm` and `textSecondary`: the
   amount, or "Launches in …" in Convert to.
 - Convert to groups its rows under titles in capital letters ("POPULAR
-  CONVERSIONS", "PRE-LAUNCH", "MORE CONVERSIONS"): `labelSm` in `textSecondary`
-  with 0.5 tracking. The owner kept the capitals and asked for this smaller
-  size on 2026-10-24.
+  CONVERSIONS", "PRE-LAUNCH", "MORE CONVERSIONS"): `labelCaps` (11/14 semibold)
+  in `textSecondary` with 0.6 tracking. The owner kept the capitals and asked
+  for much smaller titles on 2026-11-13.
 - These three lists, and Manage assets, show `AppSearchField` only when the
   whole list has 7 or more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24).
   Up to 6 rows fit on the smallest phones without scrolling. Count the list
@@ -1134,9 +1135,9 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   The picker groups live pins under "PINNED" in pin order and the rest under
   "OTHERS" in its frozen balance order. Hide empty groups. Without a
   visible PINNED group, show no group titles. Search and type
-  chips filter both groups. Titles use Convert to's `labelSm`, `textSecondary`
-  and 0.5 tracking. Every row except Main has a separate 44-point Lucide Pin
-  button: outline in `textSecondary`, filled in `link` when pinned. Pin edits
+  chips filter both groups. Titles use Convert to's `labelCaps` (11/14 semibold),
+  `textSecondary` and 0.6 tracking, per the 2026-11-13 owner request. Every row
+  except Main has a separate 44-point Lucide Pin button: outline in `textSecondary`, filled in `link` when pinned. Pin edits
   move rows immediately and save. At the limit, tapping an off pin shows one
   inline warning below PINNED: "You can pin 3 cards. Unpin a card first."
   Compact reads "You can pin 1 card. Unpin a card first." Clear it on unpin or
