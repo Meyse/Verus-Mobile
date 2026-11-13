@@ -285,7 +285,11 @@ const getAddressType = (sourceCoin, path) => {
     return ADDRESS_TYPE.ETHEREUM;
   }
 
-  if (!path?.exportto && ['eth', 'erc20'].includes(sourceCoin?.proto)) {
+  // Any other export goes to a Verus system, so it takes a Verus address or
+  // VerusID, also when the funds start on Ethereum.
+  if (path?.exportto) return ADDRESS_TYPE.VERUS;
+
+  if (['eth', 'erc20'].includes(sourceCoin?.proto)) {
     return ADDRESS_TYPE.ETHEREUM;
   }
 
@@ -310,10 +314,8 @@ const getRouteNetwork = (sourceCoin, sourceNetworkId, route) => {
 
   return {
     networkKey,
-    networkName:
-      networkKey === '.eth'
-        ? 'Ethereum'
-        : route.exportToFqn || networkDisplay.name,
+    // The wallet's name for a known chain ("Verus Testnet"), as on Home.
+    networkName: networkKey === '.eth' ? 'Ethereum' : networkDisplay.name,
     networkIcon: networkKey === '.eth' ? 'ETH' : networkDisplay.coinId,
     isSameNetwork: networkKey === sourceNetwork,
   };
@@ -389,8 +391,15 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
     ...getRouteNetwork(sourceCoin, sourceNetworkId, route),
     receiveTicker: route.addressType === ADDRESS_TYPE.ETHEREUM
       ? ethereumAssetName(path.destination, route, sourceCoin)
-      : null,
+      : verusMappedAssetName(sourceCoin, path, route),
   };
+};
+
+// An Ethereum asset that crosses to Verus arrives as the Verus currency it is
+// mapped to: ETH as vETH, DAI as DAI.vETH.
+const verusMappedAssetName = (sourceCoin, path, route) => {
+  if (!route.mapTo || !['eth', 'erc20'].includes(sourceCoin?.proto)) return null;
+  return lookupCoin(getDefinitionId(path?.destination))?.display_ticker || route.mapTo;
 };
 
 const getCanonicalAssetKey = option => {
@@ -433,13 +442,12 @@ export const buildNetworkOptions = (option, sourceCoin, sourceNetworkId) => {
 
   option.routes.forEach(route => {
     const verusTicker = lookupCoin(option.coinId)?.display_ticker || option.name;
-    const ticker = route.networkKey === '.eth'
-      ? route.receiveTicker || verusTicker
-      : verusTicker;
+    // The asset's name on that network (owner, 2026-11-03).
+    const ticker = route.receiveTicker || verusTicker;
     const network = networks.get(route.networkKey) || {
       ...option,
       ticker,
-      name: route.networkKey === '.eth' ? ticker : option.name,
+      name: route.networkKey === '.eth' || route.receiveTicker ? ticker : option.name,
       networkKey: route.networkKey,
       networkName: route.networkName,
       networkIcon: route.networkIcon,

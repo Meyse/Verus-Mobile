@@ -37,6 +37,8 @@ const initialWizardState = {
   // A currency to convert to, chosen before the wizard opened ("Pre-convert"
   // on a pre-launch asset). Convert to selects it once its routes load.
   presetTargetId: null,
+  // Send: the asset's networks, loaded once by Select asset ({networkOptions}).
+  sendNetworks: null,
   preflightResult: null,
   txResult: null,
   broadcastError: null,
