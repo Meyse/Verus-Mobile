@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import {Text} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
-import {CommonActions} from '@react-navigation/native';
+import {exitRequestToStack} from '../exitRequest';
 import LottieView from 'lottie-react-native';
 import {
   SafeAreaView,
@@ -1029,32 +1029,18 @@ const AuthenticationRequestInfoContent = props => {
         // link instead of that link's own request.
         dispatch(resetDeeplinkData());
 
-        props.navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [
-              {
-                name: 'SignedInStack',
-                params: {
-                  screen: 'Home',
-                  params: {
-                    screen: 'IdentityTab',
-                  },
-                },
-              },
-            ],
-          }),
-        );
+        // Close over the open wallet on the VerusID tab, so Home stays mounted.
+        exitRequestToStack(props.navigation, 'SignedInStack', {
+          screen: 'Home',
+          params: {
+            screen: 'IdentityTab',
+          },
+        });
       };
 
       finishSuccessfulModal().catch(e => {
         console.warn('Unable to finish successful authentication modal', e);
-        props.navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{name: 'SignedInStack'}],
-          }),
-        );
+        exitRequestToStack(props.navigation, 'SignedInStack');
       });
     }
   }, [

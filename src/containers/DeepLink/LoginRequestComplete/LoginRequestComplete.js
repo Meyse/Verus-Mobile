@@ -9,7 +9,7 @@ import {Button, Text} from 'react-native-paper';
 import {handleRedirect} from '../../../utils/deeplink/handleRedirect';
 import AnimatedSuccessCheckmark from '../../../components/AnimatedSuccessCheckmark';
 import {copyToClipboard} from '../../../utils/clipboard/clipboard';
-import {CommonActions} from '@react-navigation/native';
+import {exitRequestToStack} from '../exitRequest';
 import Colors from '../../../globals/colors';
 import {URL} from 'react-native-url-polyfill';
 import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
@@ -33,12 +33,7 @@ const LoginRequestComplete = props => {
 
   const cancel = () => {
     dispatch(resetDeeplinkData());
-    props.navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{name: 'SignedInStack'}],
-      }),
-    );
+    exitRequestToStack(props.navigation, 'SignedInStack');
   };
 
   let redirectsObj = {};
