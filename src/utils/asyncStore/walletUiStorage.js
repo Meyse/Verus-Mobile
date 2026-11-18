@@ -35,7 +35,9 @@ export const splitWalletUiSettings = (generalWalletSettings = {}) => {
 };
 
 let queue = Promise.resolve();
-let loaded = false;
+// 'unread' until the first read, 'read' after a good read, 'failed' after a
+// read error. Only after a good read does Redux hold the saved record.
+let readState = 'unread';
 let lastWritten = null;
 
 const serialize = operation => {
@@ -45,30 +47,51 @@ const serialize = operation => {
 };
 
 const readUnlocked = async () => {
-  loaded = true;
   try {
     const value = await SecureStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY);
     const parsed = value ? JSON.parse(value) : {};
     const walletUi = splitWalletUiSettings(isObject(parsed) ? parsed : {})
       .walletUi;
     lastWritten = JSON.stringify(walletUi);
+    readState = 'read';
     return walletUi;
   } catch (error) {
     // Card choices, card colors and sign-in order are not needed to open a
-    // wallet. An unreadable record starts empty; the next write replaces it.
+    // wallet. The session starts without them; the saved record stays as it is.
     console.warn('Could not read the saved wallet display choices.', error.message);
     lastWritten = null;
+    readState = 'failed';
     return {};
   }
 };
 
 export const loadWalletUi = () => serialize(readUnlocked);
 
+// Redux did not start from the saved record, so its maps can lack profiles
+// that are on disk. Keep every saved profile entry that Redux does not have.
+const mergeByAccount = (saved, live) => {
+  const merged = {...saved};
+  Object.entries(live).forEach(([field, byAccount]) => {
+    merged[field] = {...(saved[field] || {}), ...byAccount};
+  });
+  return merged;
+};
+
 /** Stores the wallet UI fields. Fields that are absent keep their saved value. */
 export const storeWalletUi = walletUi =>
   serialize(async () => {
-    const current = loaded ? JSON.parse(lastWritten || '{}') : await readUnlocked();
-    const next = {...current, ...splitWalletUiSettings(walletUi).walletUi};
+    const live = splitWalletUiSettings(walletUi).walletUi;
+    let next;
+    if (readState === 'read') {
+      next = {...JSON.parse(lastWritten || '{}'), ...live};
+    } else {
+      const saved = await readUnlocked();
+      if (readState !== 'read') {
+        // Never replace a record that could not be read with session data.
+        throw new Error('The saved wallet display choices could not be read.');
+      }
+      next = mergeByAccount(saved, live);
+    }
     const value = JSON.stringify(next);
     if (value === lastWritten) return;
     await SecureStorage.setItem(WALLET_UI_STORAGE_INTERNAL_KEY, value);

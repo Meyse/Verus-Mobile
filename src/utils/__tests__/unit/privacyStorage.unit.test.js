@@ -107,6 +107,34 @@ describe('portfolio price cache (R19)', () => {
     expect(restarted.savedSamples(['paprika:btc-bitcoin:daily'])).toEqual([[1000, 1], [5000, 2]]);
     expect(restarted.savedNote('route:VRSCTEST:iSystem:')).toEqual({fixed: true});
   });
+
+  it('waits for a slow route lookup of the same chart load before it writes', async () => {
+    const {AsyncStorage} = await loadModules();
+    const setItem = jest.spyOn(AsyncStorage, 'setItem');
+    const prices = require('../../portfolioHistory/priceCache');
+    const request = key => prices.cachedHistory({
+      key,
+      start: 1000,
+      end: 5000,
+      stamp: 1,
+      canFetch: () => true,
+      fetchSamples: async () => [[1000, 1], [5000, 2]],
+    });
+    const fastCoin = prices.trackPriceLoad(() => request('paprika:btc-bitcoin:daily'));
+    // An on-chain coin first looks up its price route, outside any request.
+    const slowCoin = prices.trackPriceLoad(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return request('chain:endpoint:iCoin:iBasket:basket::daily');
+    });
+
+    await Promise.all([fastCoin(), slowCoin()]);
+    await waitForWrite();
+
+    const {PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY} = require('../../keychain/secureStore');
+    expect(setItem.mock.calls.filter(([key]) => key === PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY))
+      .toHaveLength(1);
+    setItem.mockRestore();
+  });
 });
 
 describe('paid invoice markers (R21)', () => {
@@ -135,6 +163,14 @@ describe('paid invoice markers (R21)', () => {
 
     expect(await plainDump(AsyncStorage)).not.toContain(TXID);
     expect(await AsyncStorage.getItem('paid_invoice_markers')).toBeNull();
+
+    // As after a restart: the marker comes back from storage, not from Redux.
+    const {loadServiceStoredDataForUser} = require('../../asyncStore/serviceStoredDataStorage');
+    const stored = await loadServiceStoredDataForUser(ACCOUNT);
+    // The entry is also encrypted with the wallet password, inside the keychain layer.
+    expect(stored.paid_invoices).toEqual(expect.any(String));
+    expect(stored.paid_invoices).not.toContain(TXID);
+    mockState = {...mockState, services: {stored}};
     await expect(invoices.loadPaidInvoice(key)).resolves.toEqual(
       expect.objectContaining({txid: TXID}),
     );
@@ -184,6 +220,78 @@ describe('per-account wallet display choices (R22)', () => {
       generalWalletSettings: {appearance: 'light'},
     });
     expect(await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY)).toBeNull();
+  });
+
+  it('keeps the saved choices when they cannot be read, and does not block the settings save', async () => {
+    await loadModules();
+    await require('../../asyncStore/settingsStorage').storeSettings({
+      generalWalletSettings: {appearance: 'dark', ...walletUi},
+    });
+
+    const {AsyncStorage, SecureStorage} = await loadModules();
+    const {WALLET_UI_STORAGE_INTERNAL_KEY} = require('../../keychain/secureStore');
+    const savedCiphertext = await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY);
+    const getItem = SecureStorage.getItem.bind(SecureStorage);
+    const readError = jest.spyOn(SecureStorage, 'getItem').mockImplementation((key, ...rest) =>
+      (key === WALLET_UI_STORAGE_INTERNAL_KEY
+        ? Promise.reject(new Error('read failed'))
+        : getItem(key, ...rest)));
+    const settingsStorage = require('../../asyncStore/settingsStorage');
+
+    // Startup reads nothing, so this session's maps start empty.
+    const loaded = await settingsStorage.loadSettings();
+    expect(loaded.generalWalletSettings.cardStackPreferencesByAccount).toBeUndefined();
+    await settingsStorage.storeSettings({generalWalletSettings: {
+      appearance: 'light',
+      cardStackPreferencesByAccount: {},
+      identityColorSlotsByAccount: {},
+      lastOpenedAccountTimestamps: {[ACCOUNT]: 1800000000000},
+    }});
+    expect(await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY)).toBe(savedCiphertext);
+    expect(JSON.parse(await AsyncStorage.getItem('settings')).generalWalletSettings.appearance).toBe('light');
+
+    // The next read works: the write keeps every saved profile entry.
+    readError.mockRestore();
+    await settingsStorage.storeSettings({generalWalletSettings: {
+      appearance: 'light',
+      cardStackPreferencesByAccount: {},
+      identityColorSlotsByAccount: {},
+      lastOpenedAccountTimestamps: {[ACCOUNT]: 1800000000000},
+    }});
+    await loadModules();
+    const {generalWalletSettings} = await require('../../asyncStore/settingsStorage').loadSettings();
+    expect(generalWalletSettings.cardStackPreferencesByAccount).toEqual(walletUi.cardStackPreferencesByAccount);
+    expect(generalWalletSettings.identityColorSlotsByAccount).toEqual(walletUi.identityColorSlotsByAccount);
+    expect(generalWalletSettings.lastOpenedAccountTimestamps).toEqual({
+      [ACCOUNT]: 1800000000000,
+      [OTHER_ACCOUNT]: 1600000000000,
+    });
+  });
+
+  it('keeps a queued change of another profile when a profile is deleted', async () => {
+    await loadModules();
+    const {DEFAULT_SETTINGS} = require('../../settings/settingsDefaults');
+    mockState = {
+      settings: {
+        ...DEFAULT_SETTINGS,
+        generalWalletSettings: {...DEFAULT_SETTINGS.generalWalletSettings, ...walletUi},
+      },
+    };
+    const {
+      deleteAccountWalletUiSettings,
+      saveGeneralSettings,
+    } = require('../../../actions/actions/WalletSettings');
+    const {loadSettings} = require('../../asyncStore/settingsStorage');
+    const otherColors = {[OTHER_ACCOUNT]: {iOtherIdentity: 4}};
+
+    await Promise.all([
+      saveGeneralSettings({
+        identityColorSlotsByAccount: {...walletUi.identityColorSlotsByAccount, ...otherColors},
+      }),
+      deleteAccountWalletUiSettings(ACCOUNT),
+    ]);
+
+    expect((await loadSettings()).generalWalletSettings.identityColorSlotsByAccount).toEqual(otherColors);
   });
 
   it('removes a deleted profile from the saved choices and from Redux', async () => {

@@ -12,6 +12,7 @@ let queue = Promise.resolve();
 let generation = 0;
 let dirty = false;
 let writeTimer = null;
+let activeLoads = 0;
 const hourly = new Map();
 const pending = new Map();
 
@@ -48,13 +49,16 @@ const write = () => {
   return next;
 };
 
-// Waits until no request is in flight, so a chart load ends with one write.
+const busy = () => pending.size > 0 || activeLoads > 0;
+
+// Waits until no price load and no request is in flight, so a chart load ends
+// with one write.
 const scheduleWrite = () => {
   dirty = true;
   clearTimeout(writeTimer);
   writeTimer = setTimeout(() => {
     writeTimer = null;
-    if (pending.size > 0) return; // The last request to finish schedules the write again.
+    if (busy()) return; // The last load or request to finish schedules the write again.
     write().catch((error) => console.warn('Could not save the portfolio prices.', error.message));
   }, WRITE_DELAY_MS);
 };
@@ -93,10 +97,21 @@ export const cachedHistory = async ({
     return result.samples;
   })().finally(() => {
     if (pending.get(key) === promise) pending.delete(key);
-    if (dirty && pending.size === 0) scheduleWrite();
+    if (dirty && !busy()) scheduleWrite();
   });
   pending.set(key, promise);
   return promise;
+};
+
+// Wraps one price load (route lookup and its requests) so the write waits for all of it.
+export const trackPriceLoad = (load) => async (...args) => {
+  activeLoads += 1;
+  try {
+    return await load(...args);
+  } finally {
+    activeLoads -= 1;
+    if (dirty && !busy()) scheduleWrite();
+  }
 };
 
 // Saved data without a request. Both return undefined until the store is loaded.

@@ -99,14 +99,19 @@ export const saveBuySellSettings = (stateChanges, userID) => {
  * @param {Object} stateChanges Changes to be made to the general setting state,
  */
 export const saveGeneralSettings = (stateChanges) => {
-  const pendingStateChanges = {...stateChanges}
+  // A function gets the latest settings inside the queue and returns the changes.
+  let pendingStateChanges = typeof stateChanges === 'function' ? null : {...stateChanges}
   queuedGeneralSettingsSaveCount += 1
 
   const saveOperation = generalSettingsSaveQueue.then(async () => {
     const settingsState = store.getState().settings
-    const generalWalletSettings = normalizeGeneralWalletSettings({
+    const latest = {
       ...settingsState.generalWalletSettings,
       ...(queuedGeneralSettingsChanges || {}),
+    }
+    if (pendingStateChanges == null) pendingStateChanges = {...stateChanges(latest)}
+    const generalWalletSettings = normalizeGeneralWalletSettings({
+      ...latest,
       ...pendingStateChanges,
     })
 
@@ -146,10 +151,11 @@ export const deleteAccountWalletUiSettings = async (accountHash) => {
     return changes
   }
 
-  const changes = withoutAccount(store.getState().settings.generalWalletSettings)
-  if (Object.keys(changes).length === 0) return
+  if (Object.keys(withoutAccount(store.getState().settings.generalWalletSettings)).length === 0) return
 
-  await saveGeneralSettings(changes)
+  // The changes are made from the latest settings inside the save queue, so a
+  // queued change of another profile is not overwritten.
+  await saveGeneralSettings(withoutAccount)
   // The general-settings action keeps live card choices, so publish the full
   // settings without this profile.
   const settings = store.getState().settings

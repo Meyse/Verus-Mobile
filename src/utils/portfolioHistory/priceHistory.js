@@ -8,7 +8,7 @@ import { getNativeUsdPrice, getRouteUsdPrice } from '../api/channels/general/rat
 import { getCoinPaprikaId } from '../api/channels/general/ratesAPIs/coinPaprika';
 import { getCurrencyState } from '../api/channels/vrpc/requests/getCurrencyState';
 import {
-  cachedHistory, mergeSamples, savedNote, savedSamples, saveNote,
+  cachedHistory, mergeSamples, savedNote, savedSamples, saveNote, trackPriceLoad,
 } from './priceCache';
 import { DAY, HOUR, interpolate } from './chartMath';
 
@@ -164,7 +164,7 @@ const paprikaSeries = async (coin, start, now, canFetch, hourly) => {
 };
 
 // Without `hourly`, only the daily and weekly prices load. They are enough for 1M and longer.
-export const getUsdHistory = async (coin, start, now, canFetch = () => true, hourly = true) => {
+export const getUsdHistory = trackPriceLoad(async (coin, start, now, canFetch = () => true, hourly = true) => {
   // Also protect against a stale development price still present in a release ledger.
   if (coin.testnet && !__DEV__) return [];
   ensureFocused(canFetch);
@@ -177,7 +177,7 @@ export const getUsdHistory = async (coin, start, now, canFetch = () => true, hou
     return samples;
   }
   return paprikaSeries(coin, start, now, canFetch, hourly);
-};
+});
 
 // The saved daily and weekly prices of a coin, without a request. Null when the phone has none.
 export const getSavedUsdHistory = (coin, start, now) => {

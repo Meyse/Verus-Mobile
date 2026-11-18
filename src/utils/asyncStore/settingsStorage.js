@@ -28,7 +28,13 @@ export const storeSettings = (settings) => {
 
   return (async () => {
     if (hasWalletUiSettings(settings.generalWalletSettings)) {
-      await storeWalletUi(settings.generalWalletSettings);
+      try {
+        await storeWalletUi(settings.generalWalletSettings);
+      } catch (error) {
+        // Display choices must not block a settings save or a sign-in. Each
+        // later save reads the record again before it writes.
+        console.warn('Could not save the wallet display choices.', error.message);
+      }
     }
     await SecureStorage.setItem(
       SETTINGS_STORAGE_INTERNAL_KEY,
