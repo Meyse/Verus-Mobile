@@ -23,7 +23,7 @@ const plainSettings = settings => {
  * a promise that resolves to the input parameter if the save succeeded
  * @param {Object} settings The current state of the settings object in the redux store
  */
-export const storeSettings = (settings) => {
+export const storeSettings = (settings, {walletUiRequired = false} = {}) => {
   if (typeof settings !== 'object') throw new Error(`Wallet settings store function expected object, received ${typeof settings}`)
 
   return (async () => {
@@ -33,8 +33,15 @@ export const storeSettings = (settings) => {
       JSON.stringify(plainSettings(settings)),
     );
     if (hasWalletUiSettings(settings.generalWalletSettings)) {
-      // Rejects with code WALLET_UI_NOT_SAVED, so card and color savers retry.
-      await storeWalletUi(settings.generalWalletSettings);
+      try {
+        await storeWalletUi(settings.generalWalletSettings);
+      } catch (error) {
+        // A save that changes a display choice gets the error (code
+        // WALLET_UI_NOT_SAVED), so card and color savers retry. Other saves
+        // only carry the current choices along and must not fail for them.
+        if (walletUiRequired) throw error;
+        console.warn('Could not save the wallet display choices.', error.message);
+      }
     }
     return settings;
   })();
@@ -53,7 +60,12 @@ export const loadSettings = async () => {
     // Delete-only cleanup: builds before walletUi:v1 kept these fields in this
     // plain record. Drop them without copying them. Remove after one release.
     settings = plainSettings(settings);
-    await SecureStorage.setItem(SETTINGS_STORAGE_INTERNAL_KEY, JSON.stringify(settings));
+    try {
+      await SecureStorage.setItem(SETTINGS_STORAGE_INTERNAL_KEY, JSON.stringify(settings));
+    } catch (error) {
+      // Not a reason to stop startup. The next settings save or start drops them.
+      console.warn('Could not remove old fields from the plain settings.', error.message);
+    }
   }
 
   const walletUi = await loadWalletUi();

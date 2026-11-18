@@ -113,7 +113,9 @@ export const saveGeneralSettings = (stateChanges) => {
       ...pendingStateChanges,
     })
 
-    await storeSettings({...settingsState, generalWalletSettings})
+    await storeSettings({...settingsState, generalWalletSettings}, {
+      walletUiRequired: WALLET_UI_SETTINGS_FIELDS.some((field) => field in pendingStateChanges),
+    })
     queuedGeneralSettingsChanges = {
       ...(queuedGeneralSettingsChanges || {}),
       ...pendingStateChanges,

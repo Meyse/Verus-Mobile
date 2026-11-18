@@ -210,6 +210,31 @@ describe('paid invoice markers (R21)', () => {
     expect(JSON.parse(decryptkey('wallet-password', stored.paid_invoices)).markers['invoice-marker-key'])
       .toEqual(expect.objectContaining({txid: TXID}));
   });
+
+  it('keeps earlier markers when Redux holds an older copy of the service data', async () => {
+    await loadModules();
+    const {encryptkey, decryptkey} = require('../../seedCrypt');
+    const Keychain = require('react-native-keychain');
+    const sessionKey = 'session-key';
+    Keychain.getInternetCredentials.mockResolvedValue({
+      password: await encryptkey(sessionKey, 'wallet-password'),
+    });
+    mockState = {
+      authentication: {activeAccount: {accountHash: ACCOUNT}, sessionKey, sessionEpoch: 1},
+      services: {stored: {}},
+    };
+    const invoices = require('../../deeplink/paidInvoiceStorage');
+    await invoices.savePaidInvoice('first-invoice', TXID, ACCOUNT);
+    // A new sign-in read the service data before the first marker was stored.
+    mockState = {...mockState, services: {stored: {}}};
+
+    await invoices.savePaidInvoice('second-invoice', 'e'.repeat(64), ACCOUNT);
+
+    const {loadServiceStoredDataForUser} = require('../../asyncStore/serviceStoredDataStorage');
+    const stored = await loadServiceStoredDataForUser(ACCOUNT);
+    expect(Object.keys(JSON.parse(decryptkey('wallet-password', stored.paid_invoices)).markers).sort())
+      .toEqual(['first-invoice', 'second-invoice']);
+  });
 });
 
 describe('per-account wallet display choices (R22)', () => {
@@ -301,7 +326,7 @@ describe('per-account wallet display choices (R22)', () => {
       appearance: 'system',
       ...emptyMaps,
       lastOpenedAccountTimestamps: {[ACCOUNT]: 1800000000000},
-    }})).rejects.toMatchObject({code: WALLET_UI_NOT_SAVED});
+    }}, {walletUiRequired: true})).rejects.toMatchObject({code: WALLET_UI_NOT_SAVED});
 
     expect(await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY)).toBe(savedCiphertext);
     expect(JSON.parse(await AsyncStorage.getItem('settings')).generalWalletSettings.appearance).toBe('system');
@@ -360,6 +385,48 @@ describe('per-account wallet display choices (R22)', () => {
     expect(generalWalletSettings.lastOpenedAccountTimestamps).toEqual({
       [OTHER_ACCOUNT]: 1600000000000,
     });
+  });
+
+  it('saves a plain setting although the display choices cannot be saved', async () => {
+    await saveChoices();
+    const {AsyncStorage, SecureStorage} = await loadModules();
+    failWalletUiReads(SecureStorage);
+    const settingsStorage = require('../../asyncStore/settingsStorage');
+    const {DEFAULT_SETTINGS} = require('../../settings/settingsDefaults');
+    const {SET_GENERAL_WALLET_SETTINGS_STATE} = require('../../constants/storeType');
+    await settingsStorage.loadSettings();
+    // This session changed a card choice that could not be saved.
+    mockState = {
+      settings: {
+        ...DEFAULT_SETTINGS,
+        generalWalletSettings: {
+          ...DEFAULT_SETTINGS.generalWalletSettings,
+          cardStackPreferencesByAccount: {[ACCOUNT]: {VRSCTEST: {selectedId: 'card'}}},
+        },
+      },
+    };
+    const {saveGeneralSettings} = require('../../../actions/actions/WalletSettings');
+    const {WALLET_UI_NOT_SAVED} = require('../../asyncStore/walletUiStorage');
+
+    const action = await saveGeneralSettings({appearance: 'dark'});
+
+    expect(action.type).toBe(SET_GENERAL_WALLET_SETTINGS_STATE);
+    expect(JSON.parse(await AsyncStorage.getItem('settings')).generalWalletSettings.appearance).toBe('dark');
+    // A card choice save still reports the failure, so the card saver retries.
+    await expect(saveGeneralSettings({
+      cardStackPreferencesByAccount: {[ACCOUNT]: {VRSCTEST: {selectedId: 'other'}}},
+    })).rejects.toMatchObject({code: WALLET_UI_NOT_SAVED});
+  });
+
+  it('starts when the old plain fields cannot be removed', async () => {
+    const {AsyncStorage, SecureStorage} = await loadModules();
+    await AsyncStorage.setItem('settings', JSON.stringify({
+      generalWalletSettings: {appearance: 'light', ...walletUi},
+    }));
+    jest.spyOn(SecureStorage, 'setItem').mockRejectedValueOnce(new Error('write failed'));
+    const {loadSettings} = require('../../asyncStore/settingsStorage');
+
+    await expect(loadSettings()).resolves.toEqual({generalWalletSettings: {appearance: 'light'}});
   });
 });
 
