@@ -28,6 +28,11 @@ import {sha256} from '../crypto/hash';
 export const PASSWORD_MIGRATION_STORAGE_INTERNAL_KEY = `${USER_DATA_STORAGE_INTERNAL_KEY}:passwordMigration:v1`;
 // A new feature key: account-keyed JSON, with no legacy plaintext to migrate.
 export const PORTFOLIO_RECORD_STORAGE_INTERNAL_KEY = `${USER_DATA_STORAGE_INTERNAL_KEY}:portfolioRecord:v1`;
+// New feature keys with no plaintext to migrate. The price samples are public,
+// but their key names list the wallet's coins and display currency.
+export const PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY = `${USER_DATA_STORAGE_INTERNAL_KEY}:portfolioPriceCache:v1`;
+// Per-account card choices, VerusID card colors and last sign-in times.
+export const WALLET_UI_STORAGE_INTERNAL_KEY = `${USER_DATA_STORAGE_INTERNAL_KEY}:walletUi:v1`;
 export const SECURE_STORE_FLAG_KEY = 'secureStoreFlags';
 export const BIOMETRIC_VAULT_STORAGE_KEY = 'biometricVaultEnrollmentBoundV2';
 export const PRE_CURRENT_SET_BIOMETRIC_VAULT_STORAGE_KEY = 'biometricVault';
@@ -1272,6 +1277,8 @@ export const SecureStorage = new SecureStore(
     DEEPLINK_STORAGE_INTERNAL_KEY,
     NOTIFICATIONS_STORAGE_INTERNAL_KEY,
     PASSWORD_MIGRATION_STORAGE_INTERNAL_KEY,
-    PORTFOLIO_RECORD_STORAGE_INTERNAL_KEY
+    PORTFOLIO_RECORD_STORAGE_INTERNAL_KEY,
+    PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY,
+    WALLET_UI_STORAGE_INTERNAL_KEY,
   ]
 );

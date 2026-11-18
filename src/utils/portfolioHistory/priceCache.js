@@ -1,10 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  SecureStorage,
+  PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY as KEY,
+} from '../keychain/secureStore';
 
-const KEY = 'portfolioMarketHistory:v1';
+// Each write encrypts the whole cache in JavaScript. Requests of one chart load
+// finish close together, so one write follows the last of them.
+const WRITE_DELAY_MS = 1000;
 let stored;
 let load;
 let queue = Promise.resolve();
 let generation = 0;
+let dirty = false;
+let writeTimer = null;
 const hourly = new Map();
 const pending = new Map();
 
@@ -13,23 +20,47 @@ export const mergeSamples = (...lists) => [...new Map(lists.flat().map((p) => [p
 
 const read = async () => {
   if (!load) {
-    load = AsyncStorage.getItem(KEY).then((value) => {
+    load = SecureStorage.getItem(KEY).then((value) => {
       stored = value ? JSON.parse(value) : {};
       return stored;
     }).catch((error) => {
-      load = undefined;
-      throw error;
+      // It is a cache: an unreadable one is the same as none. The next write replaces it.
+      console.warn('Could not read the saved portfolio prices.', error.message);
+      stored = {};
+      return stored;
     });
   }
   return load;
 };
-const persist = () => {
-  const next = queue.then(() => AsyncStorage.setItem(KEY, JSON.stringify(stored)));
+
+const write = () => {
+  const next = queue.then(async () => {
+    if (!dirty) return;
+    dirty = false;
+    try {
+      await SecureStorage.setItem(KEY, JSON.stringify(stored));
+    } catch (error) {
+      dirty = true;
+      throw error;
+    }
+  });
   queue = next.catch(() => {});
   return next;
 };
 
+// Waits until no request is in flight, so a chart load ends with one write.
+const scheduleWrite = () => {
+  dirty = true;
+  clearTimeout(writeTimer);
+  writeTimer = setTimeout(() => {
+    writeTimer = null;
+    if (pending.size > 0) return; // The last request to finish schedules the write again.
+    write().catch((error) => console.warn('Could not save the portfolio prices.', error.message));
+  }, WRITE_DELAY_MS);
+};
+
 // Store only public samples. Balance amounts and account hashes never enter this cache.
+// The key names list the wallet's coins, so the cache is in encrypted storage.
 // A successful daily/hourly request is reused for its whole clock period.
 export const cachedHistory = async ({
   key, start, end, stamp, memory = false, oncePerPeriod = false, fetchSamples, canFetch,
@@ -56,11 +87,14 @@ export const cachedHistory = async ({
       if (memory) entries.set(key, result);
       else {
         entries[key] = result;
-        await persist();
+        dirty = true;
       }
     }
     return result.samples;
-  })().finally(() => { if (pending.get(key) === promise) pending.delete(key); });
+  })().finally(() => {
+    if (pending.get(key) === promise) pending.delete(key);
+    if (dirty && pending.size === 0) scheduleWrite();
+  });
   pending.set(key, promise);
   return promise;
 };
@@ -75,15 +109,18 @@ export const saveNote = async (key, note) => {
   const entries = await read();
   if (JSON.stringify(entries[key]) === JSON.stringify(note)) return;
   entries[key] = note;
-  await persist();
+  scheduleWrite();
 };
 
 export const clearPortfolioPriceCache = async () => {
   generation += 1;
   hourly.clear();
   pending.clear();
+  clearTimeout(writeTimer);
+  writeTimer = null;
+  dirty = false;
   await queue;
   stored = {};
   load = Promise.resolve(stored);
-  await AsyncStorage.removeItem(KEY);
+  await SecureStorage.removeItem(KEY);
 };
