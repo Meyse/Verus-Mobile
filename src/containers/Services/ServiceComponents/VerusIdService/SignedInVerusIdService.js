@@ -410,7 +410,8 @@ const SignedInVerusIdService = ({controller}) => {
   const testnetOverrides = controller.props.activeAccount?.testnetOverrides || {};
   const identityNetwork = testnetOverrides[VERUSID_NETWORK_DEFAULT] || VERUSID_NETWORK_DEFAULT;
   const linkedIds = controller.state.linkedIds;
-  const loading = controller.props.loading || linkedIds == null;
+  // The skeleton shows only before the first read. A refresh keeps the rows.
+  const loading = linkedIds == null;
   const {linked, groups} = useMemo(
     () => normalizeIdentityItems(linkedIds, pendingIds, identityNetwork),
     [identityNetwork, linkedIds, pendingIds],
