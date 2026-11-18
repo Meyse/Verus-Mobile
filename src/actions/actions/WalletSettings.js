@@ -13,6 +13,7 @@ import {
   normalizeSettings,
 } from '../../utils/settings/settingsDefaults';
 import store from '../../store/index'
+import {WALLET_UI_SETTINGS_FIELDS} from '../../utils/asyncStore/walletUiStorage'
 //TODO: Maybe dispatch from here instead of VerusMobile main file
 
 let generalSettingsSaveQueue = Promise.resolve()
@@ -127,4 +128,36 @@ export const saveGeneralSettings = (stateChanges) => {
       queuedGeneralSettingsChanges = null
     }
   })
+}
+
+/**
+ * Removes one profile from the per-account display choices (card stacks,
+ * VerusID card colors, last sign-in time) on disk and in Redux.
+ */
+export const deleteAccountWalletUiSettings = async (accountHash) => {
+  const withoutAccount = (generalWalletSettings) => {
+    const changes = {}
+    WALLET_UI_SETTINGS_FIELDS.forEach((field) => {
+      const byAccount = generalWalletSettings[field]
+      if (byAccount == null || !Object.prototype.hasOwnProperty.call(byAccount, accountHash)) return
+      const {[accountHash]: _removed, ...rest} = byAccount
+      changes[field] = rest
+    })
+    return changes
+  }
+
+  const changes = withoutAccount(store.getState().settings.generalWalletSettings)
+  if (Object.keys(changes).length === 0) return
+
+  await saveGeneralSettings(changes)
+  // The general-settings action keeps live card choices, so publish the full
+  // settings without this profile.
+  const settings = store.getState().settings
+  store.dispatch(setAllSettings(normalizeSettings({
+    ...settings,
+    generalWalletSettings: {
+      ...settings.generalWalletSettings,
+      ...withoutAccount(settings.generalWalletSettings),
+    },
+  })))
 }
