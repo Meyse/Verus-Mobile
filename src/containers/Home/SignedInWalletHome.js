@@ -480,7 +480,8 @@ const HomeHeader = React.memo(({
       </View>
       <View
         onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
-        style={compactHeader && noticeHeight > 0 ? {marginTop: 20} : undefined}
+        // A Home notice takes the gap in its first frame; the measure covers the other cards.
+        style={compactHeader && (homeNotice != null || noticeHeight > 0) ? {marginTop: 20} : undefined}
       >
         <HomeNotice
           loading={loading}
