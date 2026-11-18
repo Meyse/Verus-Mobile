@@ -590,14 +590,21 @@ const runNfcSession = async ({
   failedSheetText,
   availabilityChecked = false,
 }) => {
-  if (!availabilityChecked) await assertNfcAvailable();
+  // A pre-registered session passed the availability check when it began.
+  if (!availabilityChecked && !sessionPreRegistered) await assertNfcAvailable();
 
   let completed = false;
   let requestStarted = false;
   let nfcError = null;
 
   onStatus && onStatus('Preparing NFC writer...');
-  await NfcManager.start();
+  try {
+    await NfcManager.start();
+  } catch (e) {
+    // The read never starts, so release the registration made before it.
+    if (sessionPreRegistered) await endWalletBackupNfcSession();
+    throw e;
+  }
 
   try {
     onStatus && onStatus(messages.hold);
@@ -776,11 +783,13 @@ export const readDeeplinkUriFromNfc = async (
   {
     onPhase,
     timeoutMs = NFC_DEEPLINK_REQUEST_TIMEOUT_MS,
+    sessionPreRegistered = false,
   } = {},
 ) => {
   return runNfcSession({
     onPhase,
     timeoutMs,
+    sessionPreRegistered,
     requestTechnology: ms =>
       requestNdefReadTechnology(ms, NFC_NO_VERUS_LINK_MESSAGE, NFC_NO_VERUS_LINK),
     doneSheetText: 'Done.',

@@ -371,6 +371,7 @@ const DeepLinkSession = (props) => {
           isSigned: true,
           sigtime,
           signerFqn: convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname),
+          signerIdentityID: invoice.signing_id,
           signerSystemID: invoice.system_id,
           currencyDefinition: requestedCurrency.result,
           amountDisplay: invoice.details.acceptsAnyAmount() ? null : satsToCoins(BigNumber(invoice.details.amount)).toString(),

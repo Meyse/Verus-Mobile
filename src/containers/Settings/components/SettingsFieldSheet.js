@@ -35,6 +35,173 @@ const KEYBOARD_SHEET_BOTTOM_SPACING = 8;
 const KEYBOARD_SHEET_TOP_SPACING = 12;
 const EMPTY_KEYBOARD_METRICS = {height: 0, visible: false};
 
+// The text state lives in the body, which BottomSheetModal renders inside its
+// Portal. A text state held outside the Portal re-renders the input with the
+// old value first, and Android then moves a mid-text cursor.
+const SettingsFieldSheetBody = ({
+  busyText,
+  chips,
+  helperText,
+  initialValue,
+  keyboardType,
+  keyboardVisible,
+  label,
+  monospace,
+  onSave,
+  placeholder,
+  preserveKeyboardLayout,
+  resetKeyboardMetrics,
+  saveAccessibilityLabel,
+  saving,
+  setSaving,
+  title,
+  visible,
+  close,
+}) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
+  const [value, setValue] = useState('');
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    if (!visible) return;
+    setValue(initialValue == null ? '' : String(initialValue));
+    setError(null);
+  }, [initialValue, visible]);
+
+  const valid = value.trim().length > 0;
+
+  const changeValue = useCallback(nextValue => {
+    setValue(nextValue);
+    setError(null);
+  }, []);
+
+  const save = useCallback(async () => {
+    if (!valid || saving) return;
+    preserveKeyboardLayout.current = true;
+    Keyboard.dismiss();
+    setError(null);
+    setSaving(true);
+
+    let result;
+    try {
+      result = await onSave(value.trim());
+    } catch (saveError) {
+      console.warn(
+        `Failed to save ${title}: ${saveError?.message || saveError}`,
+      );
+      result = null;
+    }
+
+    if (result === true) return;
+
+    preserveKeyboardLayout.current = false;
+    resetKeyboardMetrics();
+    setSaving(false);
+    if (typeof result === 'string' && result.length > 0) {
+      setError(result);
+    }
+  }, [
+    onSave,
+    preserveKeyboardLayout,
+    resetKeyboardMetrics,
+    saving,
+    setSaving,
+    title,
+    valid,
+    value,
+  ]);
+
+  return (
+    <View style={styles.sheetLayout}>
+      <Text
+        accessibilityRole="header"
+        style={[sheetStyles.title, styles.title]}>
+        {title}
+      </Text>
+
+      <View style={styles.scrollFrame}>
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={styles.formContent}
+          keyboardDismissMode={
+            Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+          }
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={keyboardVisible}>
+          <AppTextInput
+            accessibilityValue={{text: value}}
+            editable={!saving}
+            errorText={error}
+            helperText={saving && busyText ? busyText : helperText}
+            inputStyle={monospace && styles.monospaceInput}
+            keyboardType={keyboardType}
+            label={label}
+            onChangeText={changeValue}
+            onSubmitEditing={Keyboard.dismiss}
+            placeholder={placeholder}
+            returnKeyType="done"
+            themeMode={theme.mode}
+            value={value}
+          />
+
+          {chips.length > 0 ? (
+            <View style={styles.actionsRow}>
+              {chips.map(chip => (
+                <TouchableOpacity
+                  accessibilityLabel={chip.accessibilityLabel || chip.label}
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  disabled={saving}
+                  key={chip.key}
+                  onPress={() => chip.onPress({setValue: changeValue})}
+                  style={styles.actionChip}>
+                  <MaterialCommunityIcons
+                    color={theme.colors.textSecondary}
+                    name={chip.icon}
+                    size={16}
+                  />
+                  <Text style={styles.actionChipText}>{chip.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+
+      <SafeBottomActionStack
+        bottomSpacing={keyboardVisible ? KEYBOARD_SHEET_BOTTOM_SPACING : 12}
+        gap={10}
+        horizontalSpacing={20}
+        includeBottomInset={false}
+        safeAreaSpacing={0}
+        style={styles.buttonStack}>
+        <AppButton
+          accessibilityLabel={saveAccessibilityLabel || 'Save'}
+          disabled={!valid || saving}
+          height={56}
+          onPress={save}
+          themeMode={theme.mode}>
+          {saving ? (
+            <ActivityIndicator color={theme.colors.onPrimary} size={18} />
+          ) : (
+            'Save'
+          )}
+        </AppButton>
+        <AppButton
+          accessibilityLabel="Cancel"
+          disabled={saving}
+          height={56}
+          onPress={close}
+          themeMode={theme.mode}
+          variant="secondary">
+          Cancel
+        </AppButton>
+      </SafeBottomActionStack>
+    </View>
+  );
+};
+
 const SettingsFieldSheet = ({
   busyText,
   chips = [],
@@ -51,24 +218,17 @@ const SettingsFieldSheet = ({
   title,
   visible,
 }) => {
-  const theme = useOnboardingTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
-  const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const preserveKeyboardLayout = useRef(false);
-  const [value, setValue] = useState('');
-  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [keyboardMetrics, setKeyboardMetrics] = useState(
     EMPTY_KEYBOARD_METRICS,
   );
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     preserveKeyboardLayout.current = false;
-    setValue(initialValue == null ? '' : String(initialValue));
-    setError(null);
     setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
     setSaving(false);
   }, [initialValue, visible]);
@@ -98,7 +258,6 @@ const SettingsFieldSheet = ({
     };
   }, [visible]);
 
-  const valid = value.trim().length > 0;
   const keyboardSheetHeight = Math.max(
     1,
     windowHeight -
@@ -108,10 +267,10 @@ const SettingsFieldSheet = ({
       KEYBOARD_SHEET_BOTTOM_SPACING,
   );
 
-  const changeValue = useCallback(nextValue => {
-    setValue(nextValue);
-    setError(null);
-  }, []);
+  const resetKeyboardMetrics = useCallback(
+    () => setKeyboardMetrics(EMPTY_KEYBOARD_METRICS),
+    [],
+  );
 
   const close = useCallback(() => {
     if (saving) return;
@@ -120,38 +279,10 @@ const SettingsFieldSheet = ({
     onClose();
   }, [onClose, saving]);
 
-  const save = useCallback(async () => {
-    if (!valid || saving) return;
-    preserveKeyboardLayout.current = true;
-    Keyboard.dismiss();
-    setError(null);
-    setSaving(true);
-
-    let result;
-    try {
-      result = await onSave(value.trim());
-    } catch (saveError) {
-      console.warn(
-        `Failed to save ${title}: ${saveError?.message || saveError}`,
-      );
-      result = null;
-    }
-
-    if (result === true) return;
-
-    preserveKeyboardLayout.current = false;
-    setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
-    setSaving(false);
-    if (typeof result === 'string' && result.length > 0) {
-      setError(result);
-    }
-  }, [onSave, saving, title, valid, value]);
-
   const handleClosed = useCallback(() => {
     preserveKeyboardLayout.current = false;
     setKeyboardMetrics(EMPTY_KEYBOARD_METRICS);
     setSaving(false);
-    setError(null);
     if (typeof onClosed === 'function') {
       onClosed();
     }
@@ -174,94 +305,26 @@ const SettingsFieldSheet = ({
       onClose={close}
       onClosed={handleClosed}
       visible={visible}>
-      <View style={styles.sheetLayout}>
-        <Text
-          accessibilityRole="header"
-          style={[sheetStyles.title, styles.title]}>
-          {title}
-        </Text>
-
-        <View style={styles.scrollFrame}>
-          <ScrollView
-            bounces={false}
-            contentContainerStyle={styles.formContent}
-            keyboardDismissMode={
-              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-            }
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={keyboardMetrics.visible}>
-            <AppTextInput
-              accessibilityValue={{text: value}}
-              editable={!saving}
-              errorText={error}
-              helperText={saving && busyText ? busyText : helperText}
-              inputStyle={monospace && styles.monospaceInput}
-              keyboardType={keyboardType}
-              label={label}
-              onChangeText={changeValue}
-              onSubmitEditing={Keyboard.dismiss}
-              placeholder={placeholder}
-              returnKeyType="done"
-              themeMode={theme.mode}
-              value={value}
-            />
-
-            {chips.length > 0 ? (
-              <View style={styles.actionsRow}>
-                {chips.map(chip => (
-                  <TouchableOpacity
-                    accessibilityLabel={chip.accessibilityLabel || chip.label}
-                    accessibilityRole="button"
-                    activeOpacity={0.7}
-                    disabled={saving}
-                    key={chip.key}
-                    onPress={() => chip.onPress({setValue: changeValue})}
-                    style={styles.actionChip}>
-                    <MaterialCommunityIcons
-                      color={theme.colors.textSecondary}
-                      name={chip.icon}
-                      size={16}
-                    />
-                    <Text style={styles.actionChipText}>{chip.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-          </ScrollView>
-        </View>
-
-        <SafeBottomActionStack
-          bottomSpacing={
-            keyboardMetrics.visible ? KEYBOARD_SHEET_BOTTOM_SPACING : 12
-          }
-          gap={10}
-          horizontalSpacing={20}
-          includeBottomInset={false}
-          safeAreaSpacing={0}
-          style={styles.buttonStack}>
-          <AppButton
-            accessibilityLabel={saveAccessibilityLabel || 'Save'}
-            disabled={!valid || saving}
-            height={56}
-            onPress={save}
-            themeMode={theme.mode}>
-            {saving ? (
-              <ActivityIndicator color={theme.colors.onPrimary} size={18} />
-            ) : (
-              'Save'
-            )}
-          </AppButton>
-          <AppButton
-            accessibilityLabel="Cancel"
-            disabled={saving}
-            height={56}
-            onPress={close}
-            themeMode={theme.mode}
-            variant="secondary">
-            Cancel
-          </AppButton>
-        </SafeBottomActionStack>
-      </View>
+      <SettingsFieldSheetBody
+        busyText={busyText}
+        chips={chips}
+        helperText={helperText}
+        initialValue={initialValue}
+        keyboardType={keyboardType}
+        keyboardVisible={keyboardMetrics.visible}
+        label={label}
+        monospace={monospace}
+        close={close}
+        onSave={onSave}
+        placeholder={placeholder}
+        preserveKeyboardLayout={preserveKeyboardLayout}
+        resetKeyboardMetrics={resetKeyboardMetrics}
+        saveAccessibilityLabel={saveAccessibilityLabel}
+        saving={saving}
+        setSaving={setSaving}
+        title={title}
+        visible={visible}
+      />
     </BottomSheetModal>
   );
 };

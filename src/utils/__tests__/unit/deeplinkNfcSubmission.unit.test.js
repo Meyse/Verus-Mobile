@@ -1,6 +1,8 @@
 const mockDispatch = jest.fn();
 const mockRead = jest.fn();
 const mockCancel = jest.fn();
+const mockBegin = jest.fn();
+const mockEnd = jest.fn();
 const mockShowTap = jest.fn();
 const mockCloseTap = jest.fn();
 
@@ -16,6 +18,8 @@ jest.mock('react-native-nfc-manager', () => ({NfcError: {}}));
 jest.mock('../../walletBackup/walletBackupNfc', () => ({
   readDeeplinkUriFromNfc: mockRead,
   cancelWalletBackupNfcRequest: mockCancel,
+  beginWalletBackupNfcSession: mockBegin,
+  endWalletBackupNfcSession: mockEnd,
   NFC_CANCELLED: 'NFC_CANCELLED',
   NFC_DEEPLINK_WALLET_BACKUP_DETECTED: 'NFC_DEEPLINK_WALLET_BACKUP_DETECTED',
   NFC_DISABLED: 'NFC_DISABLED',
@@ -51,6 +55,8 @@ const stepShown = phase => {
   return shown.promise;
 };
 
+const flush = () => new Promise(resolve => setImmediate(resolve));
+
 const pressAction = (step, label) =>
   step.actions.find(action => action.label === label).onPress();
 
@@ -60,6 +66,8 @@ describe('NFC deeplink submission', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockCancel.mockResolvedValue();
+    mockBegin.mockResolvedValue(false);
+    mockEnd.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -95,7 +103,7 @@ describe('NFC deeplink submission', () => {
     mockRead.mockReturnValueOnce(scan.promise);
     mockCancel.mockReturnValueOnce(cleanup.promise);
     const first = readDeeplinkFromNfc();
-    await Promise.resolve();
+    await flush();
     const cancel = mockShowTap.mock.calls[0][0].actions.find(action => action.cancel).onPress;
 
     cancel();
@@ -116,7 +124,7 @@ describe('NFC deeplink submission', () => {
     const retryScan = deferred();
     mockRead.mockReturnValueOnce(retryScan.promise);
     const retry = readDeeplinkFromNfc();
-    await Promise.resolve();
+    await flush();
     cancel();
     expect(mockCancel).toHaveBeenCalledTimes(1);
     expect(mockRead).toHaveBeenCalledTimes(2);
@@ -167,5 +175,44 @@ describe('NFC deeplink submission', () => {
     expect(duplicateContinue).not.toHaveBeenCalled();
     expect(mockCloseTap).toHaveBeenCalledTimes(1);
     expect(mockCancel).not.toHaveBeenCalled();
+  });
+
+  it('on Android turns reader mode on before the tap step and reads with the registration', async () => {
+    Platform.OS = 'android';
+    mockBegin.mockResolvedValue(true);
+    mockRead.mockResolvedValue('verus://fixture');
+
+    await readDeeplinkFromNfc();
+
+    expect(mockRead).toHaveBeenCalledWith(expect.objectContaining({sessionPreRegistered: true}));
+    const beginOrder = mockBegin.mock.invocationCallOrder[0];
+    const firstShowOrder = mockShowTap.mock.invocationCallOrder[0];
+    expect(beginOrder).toBeLessThan(firstShowOrder);
+    expect(beginOrder).toBeLessThan(mockRead.mock.invocationCallOrder[0]);
+    expect(mockShowTap.mock.calls[0][0].phase).toBe('waiting');
+  });
+
+  it('on Android shows the NFC failure and releases when reader mode cannot start', async () => {
+    Platform.OS = 'android';
+    const disabled = Object.assign(new Error('NFC is off'), {code: 'NFC_DISABLED'});
+    mockBegin.mockRejectedValueOnce(disabled);
+    const failedStep = stepShown('failed');
+
+    const scan = readDeeplinkFromNfc();
+    const step = await failedStep;
+
+    expect(mockRead).not.toHaveBeenCalled();
+    expect(mockEnd).toHaveBeenCalledTimes(1);
+    expect(mockShowTap).not.toHaveBeenCalledWith(expect.objectContaining({phase: 'waiting'}));
+    pressAction(step, 'Cancel');
+    await scan;
+  });
+
+  it('does not pre-register reader mode on iOS', async () => {
+    mockRead.mockResolvedValue('verus://fixture');
+
+    await readDeeplinkFromNfc();
+
+    expect(mockRead).toHaveBeenCalledWith(expect.objectContaining({sessionPreRegistered: false}));
   });
 });
