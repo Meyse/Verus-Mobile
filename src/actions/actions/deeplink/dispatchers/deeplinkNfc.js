@@ -2,7 +2,9 @@ import {Platform} from 'react-native';
 import store from '../../../../store';
 import {closeNfcTap, showNfcTap} from '../../nfcTap/dispatchers/nfcTap';
 import {
+  beginWalletBackupNfcSession,
   cancelWalletBackupNfcRequest,
+  endWalletBackupNfcSession,
   NFC_DEEPLINK_WALLET_BACKUP_DETECTED,
   NFC_PHASE,
   readDeeplinkUriFromNfc,
@@ -85,12 +87,26 @@ const performDeeplinkRead = async ({onWalletBackupDetected} = {}) => {
         );
       };
 
-      showPhase(NFC_PHASE.WAITING);
-
       let uri;
+      let sessionPreRegistered = false;
 
       try {
-        uri = await readDeeplinkUriFromNfc({onPhase: showPhase});
+        // Android: turn reader mode on before the card is asked for, as the
+        // backup write does. The read releases it. iOS has no such step.
+        if (Platform.OS === 'android') {
+          try {
+            sessionPreRegistered = await beginWalletBackupNfcSession();
+          } catch (beginError) {
+            await endWalletBackupNfcSession().catch(() => {});
+            throw beginError;
+          }
+        }
+
+        showPhase(NFC_PHASE.WAITING);
+        uri = await readDeeplinkUriFromNfc({
+          onPhase: showPhase,
+          sessionPreRegistered,
+        });
       } catch (e) {
         await cancellation;
         const failure = getNfcTapFailure(NFC_TAP_TASK.CLAIM, e);

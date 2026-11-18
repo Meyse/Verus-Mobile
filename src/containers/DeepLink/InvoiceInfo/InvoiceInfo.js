@@ -256,7 +256,17 @@ const InvoiceInfo = props => {
         : null,
   };
 
-  const requester = {request, signerFqn, signerIdentityID, signerSystemID, signerSystemName: signerChain, sigtime};
+  // isSigned is true only after DeepLink or validateGenericRequest verified
+  // the signature. A legacy invoice has no envelope, so pass the result on.
+  const requester = {
+    request,
+    signatureVerified: isSigned === true,
+    signerFqn,
+    signerIdentityID,
+    signerSystemID,
+    signerSystemName: signerChain,
+    sigtime,
+  };
   const requesterSections = [{title: 'Invoice', rows: [
     {label: 'Currency', value: currency},
     {label: 'Supported networks', value: [...networks.map(network => network.fullyqualifiedname), ...otherNetworks].join('\n') || null},
