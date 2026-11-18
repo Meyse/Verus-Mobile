@@ -73,6 +73,7 @@ import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { useLatestCallback } from '../../hooks/useLatestCallback';
 import {refreshRegistrationJobs} from '../../actions/actions/services/dispatchers/verusid/registration';
 import SignedInWalletHome from './SignedInWalletHome';
 import usePortfolioHistory from '../../utils/portfolioHistory/usePortfolioHistory';
@@ -666,6 +667,36 @@ const Home = () => {
   const sendAvailable = actionSources('wallet-send').length > 0;
   const convertAvailable = actionSources('wallet-convert').length > 0;
 
+  // Home renders again on each wallet update. Stable handlers and an unchanged
+  // notice object let the header and rows skip those renders.
+  const homeNoticeKey = homeNotice == null ? null : JSON.stringify(homeNotice);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the key stands for the notice values.
+  const stableHomeNotice = useMemo(() => homeNotice, [homeNoticeKey]);
+  const toggleBalance = useLatestCallback(() => dispatch({type: 'SET_BALANCE_SHOW'}));
+  const selectDisplayCurrency = useLatestCallback(setDisplayCurrencyFunc);
+  const refreshFromUser = useLatestCallback(forceUpdate);
+  const openAsset = useLatestCallback(openCoin);
+  const openReceive = useLatestCallback(() => (mainNavigation || navigation).navigate('ReceiveAssetsList'));
+  const openSend = useLatestCallback(() =>
+    (mainNavigation || navigation).navigate('SendWizard', {
+      mode: SEND_WIZARD_MODE.SEND,
+    }),
+  );
+  const openConvert = useLatestCallback(() =>
+    (mainNavigation || navigation).navigate('SendWizard', {
+      mode: SEND_WIZARD_MODE.CONVERT,
+    }),
+  );
+  const openManageAssets = useLatestCallback(() =>
+    (mainNavigation || navigation).navigate('ManageAssets'),
+  );
+  const reviewAndOpenFoundAssets = useLatestCallback(() => {
+    reviewFoundAssets();
+    (mainNavigation || navigation).navigate('ManageAssets');
+  });
+  const dismissFoundAssets = useLatestCallback(reviewFoundAssets);
+  const dismissSyncNotice = useLatestCallback(() => setSyncNoticeDismissed(true));
+
   return (
     <SignedInWalletHome
       assets={signedInAssets}
@@ -674,39 +705,26 @@ const Home = () => {
         !isAssetShown(coin, assetManagement.preferences)).length}
       assetsReady={assetManagement.ready}
       assetsLoadError={assetManagement.loadError}
-      homeNotice={homeNotice}
+      homeNotice={stableHomeNotice}
       displayCurrency={displayCurrency}
       loading={loading}
       showBalance={showBalance}
       totalFiatBalance={balanceAccountHash === accountHash ? totalFiatBalance : null}
       history={portfolioHistory}
-      onToggleBalance={() => dispatch({type: 'SET_BALANCE_SHOW'})}
-      onSelectDisplayCurrency={setDisplayCurrencyFunc}
-      onRefresh={forceUpdate}
-      onOpenAsset={openCoin}
+      onToggleBalance={toggleBalance}
+      onSelectDisplayCurrency={selectDisplayCurrency}
+      onRefresh={refreshFromUser}
+      onOpenAsset={openAsset}
       convertAvailable={convertAvailable}
       receiveAvailable={receiveAvailable}
       sendAvailable={sendAvailable}
-      onReceive={() => (mainNavigation || navigation).navigate('ReceiveAssetsList')}
-      onSend={() =>
-        (mainNavigation || navigation).navigate('SendWizard', {
-          mode: SEND_WIZARD_MODE.SEND,
-        })
-      }
-      onConvert={() =>
-        (mainNavigation || navigation).navigate('SendWizard', {
-          mode: SEND_WIZARD_MODE.CONVERT,
-        })
-      }
-      onManageAssets={() =>
-        (mainNavigation || navigation).navigate('ManageAssets')
-      }
-      onReviewFoundAssets={() => {
-        reviewFoundAssets();
-        (mainNavigation || navigation).navigate('ManageAssets');
-      }}
-      onDismissFoundAssets={reviewFoundAssets}
-      onDismissSyncNotice={() => setSyncNoticeDismissed(true)}
+      onReceive={openReceive}
+      onSend={openSend}
+      onConvert={openConvert}
+      onManageAssets={openManageAssets}
+      onReviewFoundAssets={reviewAndOpenFoundAssets}
+      onDismissFoundAssets={dismissFoundAssets}
+      onDismissSyncNotice={dismissSyncNotice}
     />
   );
 };

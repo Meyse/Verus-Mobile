@@ -108,6 +108,7 @@ const VerusPay = (props) => {
   );
   const activeAlert = useObjectSelector((state) => state.alert.active);
   const sendModal = useObjectSelector((state) => state.sendModal);
+  const nfcTapVisible = useSelector((state) => state.nfcTap.visible);
 
   const { containerStyle, acceptAddressOnly, channel, coinObj: propCoinObj, button, cameraDisabled } = props;
   const theme = useAppTheme();
@@ -547,7 +548,8 @@ const VerusPay = (props) => {
     !sheetVisible &&
     !subWalletSelectorOpen &&
     activeAlert == null &&
-    !sendModal.visible;
+    !sendModal.visible &&
+    !nfcTapVisible;
   const scanActions = showNfcClaim
     ? [{label: 'Scan NFC card', onPress: () => readDeeplinkFromNfc()}]
     : [];

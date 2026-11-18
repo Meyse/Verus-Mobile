@@ -17,8 +17,12 @@ class VerusIdService extends Component {
   }
 
   async getLinkedIds() {
+    // A re-read keeps the rows on screen. Only a load with no data shown
+    // (the first load, or Try again after it failed) shows the skeleton.
+    const hasRows = this.state.linkedIds != null && this.state.loadError == null;
+
     this.props.dispatch(setServiceLoading(true, VERUSID_SERVICE_ID));
-    this.setState({loadError: null});
+    if (!hasRows) this.setState({linkedIds: null, loadError: null});
 
     try {
       const verusIdServiceData = await requestServiceStoredData(
@@ -35,7 +39,10 @@ class VerusIdService extends Component {
         });
       }
     } catch (e) {
-      this.setState({linkedIds: {}, loadError: e.message || 'Failed to load VerusIDs'});
+      // A failed re-read keeps the rows that are already on screen.
+      if (!hasRows) {
+        this.setState({linkedIds: {}, loadError: e.message || 'Failed to load VerusIDs'});
+      }
     }
 
     this.props.dispatch(setServiceLoading(false, VERUSID_SERVICE_ID));

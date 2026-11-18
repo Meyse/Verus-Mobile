@@ -32,6 +32,7 @@ const mockNfcManager = {
   start: jest.fn(),
   requestTechnology: jest.fn(),
   cancelTechnologyRequest: jest.fn(),
+  registerTagEvent: jest.fn(),
   unregisterTagEvent: jest.fn(),
   ndefHandler: {
     getNdefStatus: jest.fn(),
@@ -790,5 +791,26 @@ describe('wallet backup NFC writer', () => {
       code: NFC_DEEPLINK_WALLET_BACKUP_DETECTED,
     });
     expect(mockNfcManager.cancelTechnologyRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases a preregistered Android deeplink read without a second availability check', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    mockNfcManager.requestTechnology.mockRejectedValueOnce(new Error('cancelled'));
+
+    await expect(readDeeplinkUriFromNfc({sessionPreRegistered: true})).rejects.toBeDefined();
+
+    expect(mockNfcManager.isSupported).not.toHaveBeenCalled();
+    expect(mockNfcManager.cancelTechnologyRequest).toHaveBeenCalledWith({delayMsAndroid: 0});
+    expect(mockNfcManager.unregisterTagEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the registration when a preregistered deeplink read never starts', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    mockNfcManager.start.mockRejectedValueOnce(new Error('start failed'));
+
+    await expect(readDeeplinkUriFromNfc({sessionPreRegistered: true})).rejects.toThrow('start failed');
+
+    expect(mockNfcManager.requestTechnology).not.toHaveBeenCalled();
+    expect(mockNfcManager.unregisterTagEvent).toHaveBeenCalledTimes(1);
   });
 });
