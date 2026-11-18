@@ -5,6 +5,8 @@ export const VERUSID_SERVICE_ID = 'verusid_service'
 export const PBAAS_PRECONVERT_SERVICE_ID = 'pbaas_preconvert'
 export const GIFT_CARD_SERVICE_ID = 'gift_card_service'
 export const ADDRESS_BOOK_SERVICE_ID = 'address_book_service'
+// Not a connected service: the invoices this account paid, kept in its encrypted service data.
+export const PAID_INVOICES_SERVICE_ID = 'paid_invoices'
 
 export const CONNECTED_SERVICE_DISPLAY_INFO = {
   [WYRE_SERVICE_ID]: {
