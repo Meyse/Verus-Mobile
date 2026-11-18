@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {FlatList, RefreshControl} from 'react-native-gesture-handler';
@@ -33,6 +34,8 @@ import NotificationWidget from './HomeWidgets/NotificationWidget';
 import HomeNotice, {HOME_NOTICE_SYNC} from './HomeWidgets/HomeNotice';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import WalletSetupLogoSlot from '../../components/WalletSetup/WalletSetupLogoSlot';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
+import {useLatestCallback} from '../../hooks/useLatestCallback';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
@@ -257,6 +260,31 @@ const PortfolioBalanceSkeleton = ({compactHeader}) => (
   </SkeletonLoader>
 );
 
+// The chart's space while its saved record loads: the same heights and plot
+// inset as the chart's own loading state, without its controls.
+const ChartStripSkeleton = ({expanded}) => {
+  const {height: windowHeight} = useWindowDimensions();
+  const compact = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const stripHeight = compact ? 44 : 48;
+  const openHeight = compact ? 108 : 124;
+  const rangeHeight = compact ? 40 : 44;
+  const height = expanded ? openHeight : stripHeight;
+  const top = expanded ? 28 : 8;
+
+  return (
+    <View style={chartStyles.block}>
+      <View style={[chartStyles.plot, expanded ? null : styles.closedStripPlot]}>
+        <SkeletonLoader
+          accessibilityLabel="Loading value history"
+          style={[chartStyles.skeleton, {height, paddingTop: top}]}>
+          <SkeletonBlock height={height - top - 8} />
+        </SkeletonLoader>
+        {expanded && <View style={{height: rangeHeight}} />}
+      </View>
+    </View>
+  );
+};
+
 // One asset row. It takes only display values, so a balance result draws
 // again only the row whose values changed.
 const HomeAssetRow = React.memo(({
@@ -474,6 +502,7 @@ const HomeHeader = React.memo(({
 });
 
 PortfolioBalanceSkeleton.displayName = 'PortfolioBalanceSkeleton';
+ChartStripSkeleton.displayName = 'ChartStripSkeleton';
 HomeAssetRow.displayName = 'HomeAssetRow';
 HomeHeader.displayName = 'HomeHeader';
 
@@ -568,25 +597,21 @@ const SignedInWalletHome = ({
   const stripScrubbing = scrubbing && !chartExpanded;
   const actionsOpacity = useBalanceRevealProgress(!stripScrubbing);
 
-  // The newest asset items and open handler, for the stable row callback.
+  // The newest asset items, for the stable row callback.
   const assetsById = useRef({});
   assetsById.current = {};
   assets.forEach(item => { assetsById.current[item.coin.id] = item; });
-  const openAssetHandler = useRef(onOpenAsset);
-  openAssetHandler.current = onOpenAsset;
-  const openAsset = useCallback(coinId => {
+  const openAsset = useLatestCallback(coinId => {
     const item = assetsById.current[coinId];
-    if (item) openAssetHandler.current(item.coin, item.preferredCard);
-  }, []);
+    if (item) onOpenAsset(item.coin, item.preferredCard);
+  });
   const openCurrencySheet = useCallback(() => setCurrencyOpen(true), []);
   const closeCurrencySheet = useCallback(() => setCurrencyOpen(false), []);
   const formatValue = useCallback(value => formatFiat(value, displayCurrency), [displayCurrency]);
   const toggleChart = useCallback(() => setExpanded(!chartExpanded), [chartExpanded, setExpanded]);
-  const refreshHandler = useRef(onRefresh);
-  refreshHandler.current = onRefresh;
-  const pullToRefresh = useCallback(() => {
-    if (!scrubRef.current) refreshHandler.current();
-  }, []);
+  const pullToRefresh = useLatestCallback(() => {
+    if (!scrubRef.current) onRefresh();
+  });
 
   const handleScroll = useCallback(event => {
     const next = (event?.nativeEvent?.contentOffset?.y || 0) > HEADER_DIVIDER_THRESHOLD;
@@ -620,19 +645,16 @@ const SignedInWalletHome = ({
     );
   }, [showBalance, displayCurrency, balanceRevealProgress, theme, openAsset]);
 
-  // Until the record is read, the chart strip shows its own loading state.
-  const placeholderHistory = useMemo(() => ({
-    ...history,
-    state: 'chart',
-    loading: true,
-    series: null,
-    record: {start: history.now},
-  }), [history]);
-  const chartReady = history.state === 'chart' && !history.loading;
-  const listHeader = useMemo(() => (
-    !hydrated && !history.hasPrice ? null : (
+  // Until the record is read, a plain skeleton keeps the closed or open chart's space.
+  const listHeader = useMemo(() => {
+    if (!hydrated) {
+      return history.hasPrice ? (
+        <ChartStripSkeleton expanded={preferenceHydrated && chartExpanded} />
+      ) : null;
+    }
+    return (
       <HomeValueChart
-        history={hydrated ? history : placeholderHistory}
+        history={history}
         panRef={panRef}
         showBalance={showBalance}
         formatValue={formatValue}
@@ -641,9 +663,10 @@ const SignedInWalletHome = ({
         preferenceHydrated={preferenceHydrated}
         onToggle={toggleChart}
       />
-    )
-  ), [hydrated, history, placeholderHistory, showBalance, formatValue, onScrub, chartExpanded,
+    );
+  }, [hydrated, history, showBalance, formatValue, onScrub, chartExpanded,
     preferenceHydrated, toggleChart]);
+  const chartReady = history.state === 'chart' && !history.loading;
 
   const listEmpty = useMemo(() => (
     !assetsReady && !assetsLoadError ? (
@@ -755,6 +778,8 @@ const styles = StyleSheet.create({
   headerDivider: {position: 'absolute', left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth},
   skeletonRow: {flexDirection: 'row', alignItems: 'flex-start'},
   heroAmountSkeleton: {marginVertical: 4},
+  // The closed strip leaves 54 points for the range label and chevron.
+  closedStripPlot: {paddingRight: 54},
   listContent: {paddingBottom: 16},
   assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row'},
   logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},

@@ -30,6 +30,12 @@ const usePortfolioHistory = ({
   const focusedRef = useRef(focused);
   focusedRef.current = focused;
   const accountHash = account?.accountHash;
+  const accountHashRef = useRef(accountHash);
+  accountHashRef.current = accountHash;
+  // The amounts last saved, and how many own saves are running (their record updates are not
+  // a replacement from elsewhere).
+  const appendedKey = useRef(null);
+  const savingRecord = useRef(0);
   const [saved, setSaved] = useState(null);
   const [range, setRange] = useState('1M');
   const [now, setNow] = useState(Date.now());
@@ -63,7 +69,10 @@ const usePortfolioHistory = ({
     if (!accountHash) return undefined;
     const timer = setTimeout(() => { if (active) setReadTimedOut(accountHash); }, 400);
     const unsubscribe = subscribeBalanceRecord((hash, value) => {
-      if (active && hash === accountHash) setSaved({ accountHash, record: value });
+      if (!active || hash !== accountHash) return;
+      // A replaced or deleted record may no longer hold the saved amounts: save them again.
+      if (savingRecord.current === 0) appendedKey.current = null;
+      setSaved({ accountHash, record: value });
     });
     readBalanceRecord(accountHash).then((value) => {
       if (active) setSaved({ accountHash, record: value });
@@ -76,24 +85,49 @@ const usePortfolioHistory = ({
 
   // Balance results of one refresh arrive one after the other. Save the record once, after
   // they stop changing, and not again for the same amounts. Each save reads and writes the
-  // whole encrypted record.
-  const appendedKey = useRef(null);
+  // whole encrypted record. A save that is still waiting runs at once when the wallet
+  // closes, the account changes or the total becomes unknown, so no change is lost.
+  const pendingSave = useRef(null);
+  const mounted = useRef(true);
+  const saveNow = useRef(null);
+  saveNow.current = (save) => {
+    appendedKey.current = save.key;
+    savingRecord.current += 1;
+    appendBalanceRecord(save.accountHash, save.balances).then((value) => {
+      if (mounted.current && save.accountHash === accountHashRef.current) {
+        setSaved({ accountHash: save.accountHash, record: value });
+      }
+    }).catch((error) => {
+      if (appendedKey.current === save.key) appendedKey.current = null;
+      console.warn('Could not save the local portfolio record.', error.message);
+    }).finally(() => { savingRecord.current -= 1; });
+  };
+  const flushPendingSave = () => {
+    const save = pendingSave.current;
+    pendingSave.current = null;
+    if (save) saveNow.current(save);
+  };
   useEffect(() => {
-    if (!accountHash || !ready || total == null || !Number.isFinite(total)) return undefined;
+    if (!accountHash || !ready || total == null || !Number.isFinite(total)) {
+      flushPendingSave();
+      return undefined;
+    }
+    if (pendingSave.current && pendingSave.current.accountHash !== accountHash) flushPendingSave();
     const key = `${accountHash}:${JSON.stringify(balances)}`;
-    if (key === appendedKey.current) return undefined;
-    let active = true;
-    const timer = setTimeout(() => {
-      appendedKey.current = key;
-      appendBalanceRecord(accountHash, balances).then((value) => {
-        if (active) setSaved({ accountHash, record: value });
-      }).catch((error) => {
-        if (appendedKey.current === key) appendedKey.current = null;
-        console.warn('Could not save the local portfolio record.', error.message);
-      });
-    }, RECORD_SAVE_DELAY_MS);
-    return () => { active = false; clearTimeout(timer); };
+    if (key === appendedKey.current) {
+      pendingSave.current = null;
+      return undefined;
+    }
+    pendingSave.current = { accountHash, balances, key };
+    const timer = setTimeout(flushPendingSave, RECORD_SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- flushPendingSave reads refs only.
   }, [accountHash, balances, total, ready]);
+  useEffect(() => () => {
+    mounted.current = false;
+    flushPendingSave();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on unmount.
+  }, []);
 
   useEffect(() => {
     if (!focused) return undefined;
