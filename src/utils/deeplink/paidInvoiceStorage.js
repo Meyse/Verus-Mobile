@@ -1,6 +1,8 @@
 import {sha256} from '../crypto/hash';
-import {requestServiceStoredData} from '../auth/authBox';
-import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
+import store from '../../store';
+import {requestPassword, requestServiceStoredData} from '../auth/authBox';
+import {encryptkey} from '../seedCrypt';
+import {storeEncryptedServiceEntryForUser} from '../../actions/actions/services/dispatchers/services';
 import {PAID_INVOICES_SERVICE_ID} from '../constants/services';
 
 // Invoices this account paid, so a second visit can say so. The markers hold
@@ -49,25 +51,34 @@ export const loadPaidInvoice = async key => {
   return markers[key] || null;
 };
 
+let saveQueue = Promise.resolve();
+
 /**
  * A null txid means the broadcast status is unknown: the invoice may be paid.
+ * The marker is encrypted at once, while the paying session is open. The slow
+ * device-level write then completes also if the account changes meanwhile.
  */
-export const savePaidInvoice = async (key, txid, accountHash) => {
-  if (!key || !accountHash) return;
+export const savePaidInvoice = (key, txid, accountHash) => {
+  if (!key || !accountHash) return Promise.resolve();
 
-  await modifyServiceStoredDataForUser(
-    current => {
-      const markers = {...markersOf(current)};
-      markers[key] = {txid: txid || null, paidAt: Date.now()};
+  const operation = saveQueue.then(async () => {
+    if (store.getState().authentication.activeAccount?.accountHash !== accountHash) {
+      throw new Error('The paying account is no longer signed in.');
+    }
+    const password = await requestPassword();
+    const markers = {
+      ...markersOf(await requestServiceStoredData(PAID_INVOICES_SERVICE_ID, password)),
+    };
+    markers[key] = {txid: txid || null, paidAt: Date.now()};
 
-      const oldestFirst = Object.keys(markers).sort(
-        (a, b) => (markers[a]?.paidAt || 0) - (markers[b]?.paidAt || 0),
-      );
-      while (oldestFirst.length > MAX_MARKERS) delete markers[oldestFirst.shift()];
+    const oldestFirst = Object.keys(markers).sort(
+      (a, b) => (markers[a]?.paidAt || 0) - (markers[b]?.paidAt || 0),
+    );
+    while (oldestFirst.length > MAX_MARKERS) delete markers[oldestFirst.shift()];
 
-      return {markers};
-    },
-    PAID_INVOICES_SERVICE_ID,
-    accountHash,
-  );
+    const encrypted = await encryptkey(password, JSON.stringify({markers}));
+    await storeEncryptedServiceEntryForUser(PAID_INVOICES_SERVICE_ID, encrypted, accountHash);
+  });
+  saveQueue = operation.catch(() => undefined);
+  return operation;
 };

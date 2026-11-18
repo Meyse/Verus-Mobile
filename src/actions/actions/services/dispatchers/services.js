@@ -133,6 +133,22 @@ export const modifyServiceStoredDataForUser = async (
   });
 };
 
+// Store one entry that the caller already encrypted with the account's
+// password. Only the device-level write waits in the queue, so it also
+// completes when the account signs out meanwhile. Redux gets the new data only
+// while the originating session is current.
+export const storeEncryptedServiceEntryForUser = (service, encryptedEntry, accountHash) => {
+  const sessionScope = captureSessionScope(store.getState(), accountHash);
+  return queueServiceStorageWrite(async () => {
+    const stored = {...(await loadServiceStoredDataForUser(accountHash))};
+    stored[service] = encryptedEntry;
+    await storeServiceStoredDataForUser(stored, accountHash);
+    if (sessionScopeIsCurrent(store.getState(), sessionScope)) {
+      store.dispatch(scopeSessionAction(setServiceStored(stored), sessionScope));
+    }
+  });
+};
+
 // Remove one migrated service entry without decrypting unrelated entries.
 // Use the existing service queue so concurrent service writes cannot restore it.
 export const removeServiceStoredDataForUser = (service, accountHash, requestContext) => {

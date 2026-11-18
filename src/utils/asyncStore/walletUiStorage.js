@@ -34,9 +34,20 @@ export const splitWalletUiSettings = (generalWalletSettings = {}) => {
   return {plain, walletUi};
 };
 
+// A failed save of these fields. The plain settings were saved; callers that
+// retry their own choices (card stacks, card colors) can try again.
+export const WALLET_UI_NOT_SAVED = 'WALLET_UI_NOT_SAVED';
+const notSaved = (message, cause) => {
+  const error = new Error(message);
+  error.code = WALLET_UI_NOT_SAVED;
+  if (cause != null) error.cause = cause;
+  return error;
+};
+
 let queue = Promise.resolve();
-// 'unread' until the first read, 'read' after a good read, 'failed' after a
-// read error. Only after a good read does Redux hold the saved record.
+// 'read' only after a good read. Then Redux was loaded from the saved record,
+// and its maps may replace it. Otherwise ('unread', 'failed') no write may
+// replace the saved record; the next good load (at sign-in) brings it back.
 let readState = 'unread';
 let lastWritten = null;
 
@@ -46,54 +57,66 @@ const serialize = operation => {
   return next;
 };
 
-const readUnlocked = async () => {
-  try {
-    const value = await SecureStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY);
-    const parsed = value ? JSON.parse(value) : {};
-    const walletUi = splitWalletUiSettings(isObject(parsed) ? parsed : {})
-      .walletUi;
-    lastWritten = JSON.stringify(walletUi);
-    readState = 'read';
-    return walletUi;
-  } catch (error) {
-    // Card choices, card colors and sign-in order are not needed to open a
-    // wallet. The session starts without them; the saved record stays as it is.
-    console.warn('Could not read the saved wallet display choices.', error.message);
-    lastWritten = null;
-    readState = 'failed';
-    return {};
-  }
+const parseRecord = value => {
+  const parsed = value ? JSON.parse(value) : {};
+  return splitWalletUiSettings(isObject(parsed) ? parsed : {}).walletUi;
 };
 
-export const loadWalletUi = () => serialize(readUnlocked);
-
-// Redux did not start from the saved record, so its maps can lack profiles
-// that are on disk. Keep every saved profile entry that Redux does not have.
-const mergeByAccount = (saved, live) => {
-  const merged = {...saved};
-  Object.entries(live).forEach(([field, byAccount]) => {
-    merged[field] = {...(saved[field] || {}), ...byAccount};
+export const loadWalletUi = () =>
+  serialize(async () => {
+    try {
+      const walletUi = parseRecord(
+        await SecureStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY),
+      );
+      lastWritten = JSON.stringify(walletUi);
+      readState = 'read';
+      return walletUi;
+    } catch (error) {
+      // Card choices, card colors and sign-in order are not needed to open a
+      // wallet. The session starts without them; the saved record stays as it is.
+      console.warn('Could not read the saved wallet display choices.', error.message);
+      lastWritten = null;
+      readState = 'failed';
+      return {};
+    }
   });
-  return merged;
-};
+
+const allEmpty = walletUi =>
+  Object.values(walletUi).every(byAccount => Object.keys(byAccount).length === 0);
 
 /** Stores the wallet UI fields. Fields that are absent keep their saved value. */
 export const storeWalletUi = walletUi =>
   serialize(async () => {
     const live = splitWalletUiSettings(walletUi).walletUi;
-    let next;
-    if (readState === 'read') {
-      next = {...JSON.parse(lastWritten || '{}'), ...live};
-    } else {
-      const saved = await readUnlocked();
-      if (readState !== 'read') {
-        // Never replace a record that could not be read with session data.
-        throw new Error('The saved wallet display choices could not be read.');
-      }
-      next = mergeByAccount(saved, live);
+    if (readState !== 'read') {
+      // Nothing new this session: keep the saved record untouched.
+      if (allEmpty(live)) return;
+      throw notSaved('The saved wallet display choices could not be read.');
     }
-    const value = JSON.stringify(next);
+    const value = JSON.stringify({...JSON.parse(lastWritten || '{}'), ...live});
     if (value === lastWritten) return;
-    await SecureStorage.setItem(WALLET_UI_STORAGE_INTERNAL_KEY, value);
+    try {
+      await SecureStorage.setItem(WALLET_UI_STORAGE_INTERNAL_KEY, value);
+    } catch (error) {
+      throw notSaved('Could not save the wallet display choices.', error);
+    }
     lastWritten = value;
+  });
+
+/** Removes one profile from the saved record, also when Redux does not hold it. */
+export const removeWalletUiAccount = accountHash =>
+  serialize(async () => {
+    const saved = parseRecord(
+      await SecureStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY),
+    );
+    let changed = false;
+    Object.values(saved).forEach(byAccount => {
+      if (!has(byAccount, accountHash)) return;
+      delete byAccount[accountHash];
+      changed = true;
+    });
+    if (!changed) return;
+    const value = JSON.stringify(saved);
+    await SecureStorage.setItem(WALLET_UI_STORAGE_INTERNAL_KEY, value);
+    if (readState === 'read') lastWritten = value;
   });

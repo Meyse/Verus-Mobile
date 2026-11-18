@@ -27,19 +27,15 @@ export const storeSettings = (settings) => {
   if (typeof settings !== 'object') throw new Error(`Wallet settings store function expected object, received ${typeof settings}`)
 
   return (async () => {
-    if (hasWalletUiSettings(settings.generalWalletSettings)) {
-      try {
-        await storeWalletUi(settings.generalWalletSettings);
-      } catch (error) {
-        // Display choices must not block a settings save or a sign-in. Each
-        // later save reads the record again before it writes.
-        console.warn('Could not save the wallet display choices.', error.message);
-      }
-    }
+    // Plain fields first: a failed display-choice save must not undo them.
     await SecureStorage.setItem(
       SETTINGS_STORAGE_INTERNAL_KEY,
       JSON.stringify(plainSettings(settings)),
     );
+    if (hasWalletUiSettings(settings.generalWalletSettings)) {
+      // Rejects with code WALLET_UI_NOT_SAVED, so card and color savers retry.
+      await storeWalletUi(settings.generalWalletSettings);
+    }
     return settings;
   })();
 };
