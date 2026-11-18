@@ -433,7 +433,10 @@ const SignedInVerusIdService = ({controller}) => {
         .catch(() => console.warn('Unable to refresh VerusID balances'));
     });
   }, [activeCoinsForUser, cardsByCoin, linkedKey]));
-  useEffect(() => {
+  // The list reads each linked VerusID's status on every focus, so a revoke,
+  // a lock change or an ended timelock shows when the user comes back. It also
+  // reads again when the linked VerusIDs or the account change.
+  useFocusEffect(useCallback(() => {
     if (!linkedKey) return undefined;
 
     let cancelled = false;
@@ -472,20 +475,26 @@ const SignedInVerusIdService = ({controller}) => {
         return;
       }
 
-      const next = {};
-      linked.forEach((item, index) => {
-        if (states[index]) next[`${item.chain}:${item.iAddress}`] = states[index];
+      // A failed read keeps the last known state, so a network error does not
+      // hide a Locked or Revoked badge. Unlinked VerusIDs drop out.
+      setIdentityStates(previous => {
+        const next = {};
+        linked.forEach((item, index) => {
+          const key = `${item.chain}:${item.iAddress}`;
+          const state = states[index] || previous[key];
+          if (state) next[key] = state;
+        });
+        return next;
       });
-      setIdentityStates(next);
     });
 
     return () => {
       cancelled = true;
     };
     // Pending-request updates rebuild `linked`; only a change in the linked
-    // VerusIDs themselves (linkedKey) reloads their states.
+    // VerusIDs themselves (linkedKey) or a new focus reloads their states.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkedKey, renderedAccountHash]);
+  }, [linkedKey, renderedAccountHash]));
   const getAssetCountLabel = useCallback(
     item => {
       const {funds, loaded} = getVerusIdFunds({
