@@ -1,5 +1,4 @@
 import BigNumber from "bignumber.js";
-import {transparentDustError} from '../../../../transactions/transparentDust';
 import { getAddressBalances } from "./getAddressBalances";
 import { coinsToSats, satsToCoins } from "../../../../math";
 import { DEST_ID, DEST_PKH, TransferDestination, fromBase58Check, toIAddress } from "verus-typescript-primitives";
@@ -410,7 +409,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     const txSatsBn = BigNumber(output.satoshis);
 
     if (isNativeSend && (txSatsBn.plus(nativeFeesPaid)).isGreaterThan(balanceBn)) {
-      output.satoshis = balanceBn.minus(nativeFeesPaid).toString();
+      output.satoshis = txSatsBn.minus(nativeFeesPaid).toString();
       const newTxSatsBn = BigNumber(output.satoshis);
 
       if (
@@ -419,13 +418,6 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       ) {
         throw new Error('Insufficient funds.');
       }
-    }
-
-    // Check the final payment after fee subtraction. Invoice and request
-    // payments also use this builder, without the Amount screen.
-    if (isNativeSend && !convertto && !address.isETHAccount() && output.burn !== true && !output.mintnew) {
-      const dustError = transparentDustError(coinObj, channelId, satsToCoins(BigNumber(output.satoshis)));
-      if (dustError) throw new Error(dustError);
     }
 
     const infoRes = await getInfo(systemId);
