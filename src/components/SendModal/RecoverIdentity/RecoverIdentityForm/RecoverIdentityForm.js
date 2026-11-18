@@ -235,6 +235,8 @@ const RecoverIdentityForm = props => {
 
     const {candidates, status} = identityDiscovery;
 
+    // Only a complete result selects its single target. A partial result
+    // opens the sheet, so the user can retry or enter the target manually.
     if (status === 'ready' && candidates.length === 1) {
       chooseCandidate(candidates[0]);
       return;
@@ -242,6 +244,7 @@ const RecoverIdentityForm = props => {
 
     if (
       (status === 'ready' && candidates.length > 1) ||
+      status === 'partial' ||
       status === 'error' ||
       status === 'unsupported'
     ) {
