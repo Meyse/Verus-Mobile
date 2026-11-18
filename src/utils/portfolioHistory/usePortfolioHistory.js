@@ -15,6 +15,11 @@ import {
   availableRanges, buildSeries, HOUR, visibility,
 } from './chartMath';
 
+// Long enough for the results of one refresh, also on a slow Android phone.
+export const RECORD_SAVE_DELAY_MS = 3000;
+
+const DEFAULT_RANGES = ['1D', '1W', '1M', '1Y'];
+
 const usePortfolioHistory = ({
   account, activeCoins, balances, total, rates, currency, ready, refreshing,
   testnetPrices,
@@ -69,13 +74,25 @@ const usePortfolioHistory = ({
     return () => { active = false; clearTimeout(timer); unsubscribe(); };
   }, [accountHash]);
 
+  // Balance results of one refresh arrive one after the other. Save the record once, after
+  // they stop changing, and not again for the same amounts. Each save reads and writes the
+  // whole encrypted record.
+  const appendedKey = useRef(null);
   useEffect(() => {
     if (!accountHash || !ready || total == null || !Number.isFinite(total)) return undefined;
+    const key = `${accountHash}:${JSON.stringify(balances)}`;
+    if (key === appendedKey.current) return undefined;
     let active = true;
-    appendBalanceRecord(accountHash, balances).then((value) => {
-      if (active) setSaved({ accountHash, record: value });
-    }).catch((error) => console.warn('Could not save the local portfolio record.', error.message));
-    return () => { active = false; };
+    const timer = setTimeout(() => {
+      appendedKey.current = key;
+      appendBalanceRecord(accountHash, balances).then((value) => {
+        if (active) setSaved({ accountHash, record: value });
+      }).catch((error) => {
+        if (appendedKey.current === key) appendedKey.current = null;
+        console.warn('Could not save the local portfolio record.', error.message);
+      });
+    }, RECORD_SAVE_DELAY_MS);
+    return () => { active = false; clearTimeout(timer); };
   }, [accountHash, balances, total, ready]);
 
   useEffect(() => {
@@ -142,7 +159,8 @@ const usePortfolioHistory = ({
     return () => { active = false; };
   }, [focused, state, refreshing, marketKey, start, currency, hourBucket]);
 
-  const ranges = record ? availableRanges(record.start, now) : ['1D', '1W', '1M', '1Y'];
+  const ranges = useMemo(() => (record ? availableRanges(record.start, now) : DEFAULT_RANGES),
+    [record, now]);
   const selectedRange = ranges.includes(range) ? range : '1M';
   const requested = market?.key === marketKey ? market : null;
   const data = requested && !requested.loading ? requested : savedMarket || requested;
@@ -160,8 +178,13 @@ const usePortfolioHistory = ({
     now,
   }) : null),
   [state, record, coins, data, fxFallback, total, selectedRange, now]);
-  return {
+  const loading = state === 'chart' && (total == null || !data || data.loading);
+  // Before the record is read, Home can still tell whether a chart can show at all.
+  const hasPrice = coins.length > 0;
+  // One object per change, so the header and chart draw again only when the history changes.
+  return useMemo(() => ({
     hydrated,
+    hasPrice,
     focused,
     state,
     record,
@@ -170,8 +193,8 @@ const usePortfolioHistory = ({
     ranges,
     setRange,
     now,
-    loading: state === 'chart' && (total == null || !data || data.loading),
-  };
+    loading,
+  }), [hydrated, hasPrice, focused, state, record, series, selectedRange, ranges, now, loading]);
 };
 
 export default usePortfolioHistory;

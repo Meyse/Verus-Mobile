@@ -8,7 +8,6 @@ import DeepLinkStackScreens from './DeepLinkStackScreens/DeepLinkStackScreens';
 import LoginRequestInfo from '../DeepLink/LoginRequestInfo/LoginRequestInfo';
 import InvoiceInfo from '../DeepLink/InvoiceInfo/InvoiceInfo';
 import Colors from '../../globals/colors';
-import { SafeAreaView } from 'react-native';
 
 const RootStack = createStackNavigator();
 
@@ -23,7 +22,15 @@ const RootStackScreens = props => {
         <RootStack.Screen name="LoadingStack" component={LoadingStackScreens} />
       ) : props.hasAccount ? (
         props.signedIn ? (
-          <RootStack.Screen name="SignedInStack" component={SignedInStackScreens} />
+          <RootStack.Screen
+            name="SignedInStack"
+            component={SignedInStackScreens}
+            // A request opens over the signed-in stack. A frozen Home shows
+            // only after one full catch-up render when the request closes,
+            // so the page stays blank. Screens inside the stack still freeze.
+            options={{freezeOnBlur: false}}
+          />
+
         ) : (
           <RootStack.Screen
             name="SignedOutStack"
