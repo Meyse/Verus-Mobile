@@ -19,6 +19,7 @@ import BarcodeReader from '../../../components/BarcodeReader/BarcodeReader';
 import OnboardingBackButton from '../../../components/OnboardingBackButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import useSheetEditSession from '../../../hooks/useSheetEditSession';
 import {fontStyle} from '../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -65,39 +66,52 @@ const validateAddress = address => {
 // The text state lives in the body, which BottomSheetModal renders inside its
 // Portal. A text state held outside the Portal re-renders the input with the
 // old value first, and Android then moves a mid-text cursor.
+//
+// BottomSheetModal unmounts the body while an app alert is open. The shell
+// keeps a draft of the edit, so the body comes back with the same text. The
+// draft starts again only when a new edit session opens.
 const AddressBookEditSheetBody = ({
   close,
+  draftRef,
   editing,
-  initialAddress,
-  initialLabel,
   keyboardVisible,
   onSave,
   preserveKeyboardLayout,
   resetKeyboardMetrics,
   saving,
   scannerOpen,
+  sessionKey,
   setSaving,
   setScannerOpen,
-  visible,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const {height: windowHeight} = useWindowDimensions();
   const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const addressInput = useRef(null);
-  const [address, setAddress] = useState('');
-  const [scanError, setScanError] = useState(null);
-  const [label, setLabel] = useState('');
-  const [saveFailed, setSaveFailed] = useState(false);
+  const [draft, setDraftState] = useState(() => draftRef.current);
+  const {address, label, saveFailed, scanError} = draft;
   const editMode = Boolean(editing?.id);
 
   useEffect(() => {
-    if (!visible) return;
-    setAddress(editing?.address || initialAddress);
-    setScanError(null);
-    setLabel(editing?.label || initialLabel);
-    setSaveFailed(false);
-  }, [editing, initialAddress, initialLabel, visible]);
+    setDraftState(draftRef.current);
+  }, [draftRef, sessionKey]);
+
+  const updateDraft = useCallback(
+    changes => {
+      draftRef.current = {...draftRef.current, ...changes};
+      setDraftState(draftRef.current);
+    },
+    [draftRef],
+  );
+  const setSaveFailed = useCallback(
+    value => updateDraft({saveFailed: value}),
+    [updateDraft],
+  );
+  const setScanError = useCallback(
+    value => updateDraft({scanError: value}),
+    [updateDraft],
+  );
 
   const validation = useMemo(() => validateAddress(address), [address]);
   const detectedType = useMemo(() => detectAddressType(address), [address]);
@@ -106,16 +120,15 @@ const AddressBookEditSheetBody = ({
   const sheetTitle = editMode ? 'Edit address' : 'Add address';
   const technicalAddress = detectedType && detectedType !== 'VerusID';
 
-  const changeLabel = useCallback(value => {
-    setLabel(value);
-    setSaveFailed(false);
-  }, []);
+  const changeLabel = useCallback(
+    value => updateDraft({label: value, saveFailed: false}),
+    [updateDraft],
+  );
 
-  const changeAddress = useCallback(value => {
-    setAddress(value);
-    setSaveFailed(false);
-    setScanError(null);
-  }, []);
+  const changeAddress = useCallback(
+    value => updateDraft({address: value, saveFailed: false, scanError: null}),
+    [updateDraft],
+  );
 
   const scanAddress = codes => {
     setScannerOpen(false);
@@ -157,6 +170,7 @@ const AddressBookEditSheetBody = ({
     preserveKeyboardLayout,
     resetKeyboardMetrics,
     saving,
+    setSaveFailed,
     setSaving,
     valid,
   ]);
@@ -302,6 +316,16 @@ const AddressBookEditSheet = ({
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
   const preserveKeyboardLayout = useRef(false);
+  const {draftRef, sessionKey} = useSheetEditSession(
+    visible,
+    [editing, initialAddress, initialLabel],
+    () => ({
+      address: editing?.address || initialAddress,
+      label: editing?.label || initialLabel,
+      saveFailed: false,
+      scanError: null,
+    }),
+  );
   const [scannerOpen, setScannerOpen] = useState(false);
   const [keyboardMetrics, setKeyboardMetrics] = useState(
     EMPTY_KEYBOARD_METRICS,
@@ -394,18 +418,17 @@ const AddressBookEditSheet = ({
       visible={visible}>
       <AddressBookEditSheetBody
         close={close}
+        draftRef={draftRef}
         editing={editing}
-        initialAddress={initialAddress}
-        initialLabel={initialLabel}
         keyboardVisible={keyboardMetrics.visible}
         onSave={onSave}
         preserveKeyboardLayout={preserveKeyboardLayout}
         resetKeyboardMetrics={resetKeyboardMetrics}
         saving={saving}
         scannerOpen={scannerOpen}
+        sessionKey={sessionKey}
         setSaving={setSaving}
         setScannerOpen={setScannerOpen}
-        visible={visible}
       />
     </BottomSheetModal>
   );

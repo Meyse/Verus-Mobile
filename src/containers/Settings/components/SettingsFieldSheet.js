@@ -26,6 +26,7 @@ import AppButton from '../../../components/AppButton';
 import AppTextInput from '../../../components/AppTextInput';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import SafeBottomActionStack from '../../../components/SafeBottomActionStack';
+import useSheetEditSession from '../../../hooks/useSheetEditSession';
 import {fontStyle} from '../../../globals/fonts';
 import {createSignedOutSheetStyles} from '../../../styles';
 import {useOnboardingTheme} from '../../../theme/onboarding';
@@ -38,11 +39,17 @@ const EMPTY_KEYBOARD_METRICS = {height: 0, visible: false};
 // The text state lives in the body, which BottomSheetModal renders inside its
 // Portal. A text state held outside the Portal re-renders the input with the
 // old value first, and Android then moves a mid-text cursor.
+//
+// BottomSheetModal unmounts the body while an app alert is open. The shell
+// keeps a draft of the edit, so the body comes back with the same text. The
+// draft starts again from initialValue only when a new edit session opens.
+const toText = value => (value == null ? '' : String(value));
+
 const SettingsFieldSheetBody = ({
   busyText,
   chips,
+  draftRef,
   helperText,
-  initialValue,
   keyboardType,
   keyboardVisible,
   label,
@@ -54,27 +61,38 @@ const SettingsFieldSheetBody = ({
   saveAccessibilityLabel,
   saving,
   setSaving,
+  sessionKey,
   title,
-  visible,
   close,
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const sheetStyles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
-  const [value, setValue] = useState('');
-  const [error, setError] = useState(null);
+  const [value, setValueState] = useState(() => draftRef.current.value);
+  const [error, setErrorState] = useState(() => draftRef.current.error);
   useEffect(() => {
-    if (!visible) return;
-    setValue(initialValue == null ? '' : String(initialValue));
-    setError(null);
-  }, [initialValue, visible]);
+    setValueState(draftRef.current.value);
+    setErrorState(draftRef.current.error);
+  }, [draftRef, sessionKey]);
+
+  const setError = useCallback(
+    nextError => {
+      draftRef.current.error = nextError;
+      setErrorState(nextError);
+    },
+    [draftRef],
+  );
 
   const valid = value.trim().length > 0;
 
-  const changeValue = useCallback(nextValue => {
-    setValue(nextValue);
-    setError(null);
-  }, []);
+  const changeValue = useCallback(
+    nextValue => {
+      draftRef.current.value = nextValue;
+      setValueState(nextValue);
+      setError(null);
+    },
+    [draftRef, setError],
+  );
 
   const save = useCallback(async () => {
     if (!valid || saving) return;
@@ -106,6 +124,7 @@ const SettingsFieldSheetBody = ({
     preserveKeyboardLayout,
     resetKeyboardMetrics,
     saving,
+    setError,
     setSaving,
     title,
     valid,
@@ -221,6 +240,14 @@ const SettingsFieldSheet = ({
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
   const preserveKeyboardLayout = useRef(false);
+  const {draftRef, sessionKey} = useSheetEditSession(
+    visible,
+    [initialValue],
+    () => ({
+      value: toText(initialValue),
+      error: null,
+    }),
+  );
   const [saving, setSaving] = useState(false);
   const [keyboardMetrics, setKeyboardMetrics] = useState(
     EMPTY_KEYBOARD_METRICS,
@@ -308,8 +335,8 @@ const SettingsFieldSheet = ({
       <SettingsFieldSheetBody
         busyText={busyText}
         chips={chips}
+        draftRef={draftRef}
         helperText={helperText}
-        initialValue={initialValue}
         keyboardType={keyboardType}
         keyboardVisible={keyboardMetrics.visible}
         label={label}
@@ -321,9 +348,9 @@ const SettingsFieldSheet = ({
         resetKeyboardMetrics={resetKeyboardMetrics}
         saveAccessibilityLabel={saveAccessibilityLabel}
         saving={saving}
+        sessionKey={sessionKey}
         setSaving={setSaving}
         title={title}
-        visible={visible}
       />
     </BottomSheetModal>
   );
