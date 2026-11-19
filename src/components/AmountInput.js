@@ -39,6 +39,10 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
   const inputWidth = Math.min((wide ? width : entryWidth) || 320, Math.max(40, Math.ceil(measuredWidth) + 8));
   const lineHeight = fontSize + 8;
   const showClear = value.length > 0 && !disabled;
+  // The clear slot is centered on the amount line, also when a stacked line
+  // is lower than the 48-point (compact 40) target.
+  const clearHeight = Math.max(compact ? 40 : 48, lineHeight);
+  const clearTop = stacked ? (lineHeight - clearHeight) / 2 : 0;
 
   useLayoutEffect(() => {
     if (valueRef.current === value) return;
@@ -165,7 +169,7 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
           onPress={clear}
           style={[
             styles.clear,
-            wide ? styles.clearBelow : {top: 0, height: Math.max(compact ? 40 : 48, lineHeight)},
+            wide ? styles.clearBelow : {top: clearTop, height: clearHeight},
           ]}>
           {({pressed}) => (
             <MaterialCommunityIcons
