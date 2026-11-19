@@ -27,15 +27,6 @@ import {
   WALLET_APP_SEND,
 } from '../constants/apps';
 import Colors from "../../globals/colors";
-import { VRPC_API_KEYS } from '../../../env/index';
-import { getUrlKey } from '../url';
-
-const V2_TESTNET_RPC_ENDPOINT = 'https://v2api.verustest.net';
-const v2TestnetKey = VRPC_API_KEYS?.[getUrlKey(V2_TESTNET_RPC_ENDPOINT)];
-const hasV2TestnetKey =
-  typeof v2TestnetKey === 'string' &&
-  v2TestnetKey.length > 0 &&
-  v2TestnetKey !== 'V2API_API_KEY';
 
 export const VERUS_APPS = {
   wallet: {
@@ -112,8 +103,7 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsctest,
-    // V2 requires a signing key. Keep builds with no key or the placeholder on V1.
-    vrpc_endpoints: [hasV2TestnetKey ? V2_TESTNET_RPC_ENDPOINT : 'https://api.verustest.net'],
+    vrpc_endpoints: ['https://v2api.verustest.net'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',

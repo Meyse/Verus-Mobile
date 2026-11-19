@@ -639,3 +639,70 @@ describe('SignedInVerusIdService list badges', () => {
     expect(hasText(renderer, 'Revoked')).toBe(true);
   });
 });
+
+// R6: a refresh with rows on screen must not replace them with the skeleton.
+describe('SignedInVerusIdService loading gate', () => {
+  const buildController = ({linkedIds, loading}) => ({
+    state: {linkedIds},
+    props: {
+      activeAccount: {
+        id: 'account-1',
+        accountHash: 'account-a',
+        testnetOverrides: {},
+      },
+      loading,
+      navigation: {...buildNavigation(), navigate: mockNavigate},
+    },
+    getLinkedIds: jest.fn(),
+  });
+
+  let mountedService = null;
+
+  afterEach(async () => {
+    if (!mountedService) return;
+    const renderer = mountedService;
+    mountedService = null;
+    await act(async () => {
+      renderer.unmount();
+    });
+  });
+
+  const renderService = async controller => {
+    let renderer;
+    await act(async () => {
+      renderer = create(<SignedInVerusIdService controller={controller} />);
+    });
+    await flush();
+    mountedService = renderer;
+    return renderer;
+  };
+
+  const findByLabel = (renderer, label) =>
+    renderer.root.findAll(node => node.props?.accessibilityLabel === label);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSession({sessionEpoch: 1});
+    mockState.channelStore_verusid = {pendingIds: {}};
+  });
+
+  it('keeps the linked rows while a refresh is running', async () => {
+    const renderer = await renderService(
+      buildController({
+        linkedIds: {VRSCTEST: {iAlice: 'alice.VRSCTEST@'}},
+        loading: true,
+      }),
+    );
+
+    expect(findByLabel(renderer, 'Loading VerusIDs')).toHaveLength(0);
+    expect(findByLabel(renderer, 'alice.VRSCTEST@').length).toBeGreaterThan(0);
+  });
+
+  it('shows the skeleton on the first load with no data', async () => {
+    const renderer = await renderService(
+      buildController({linkedIds: null, loading: true}),
+    );
+
+    expect(findByLabel(renderer, 'Loading VerusIDs').length).toBeGreaterThan(0);
+  });
+});

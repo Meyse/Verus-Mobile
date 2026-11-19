@@ -81,4 +81,41 @@ describe('generic response delivery security', () => {
       ),
     ).toThrow('must use HTTPS');
   });
+
+  describe('default from ALLOW_HTTP_GENERIC_RESPONSE_POSTS', () => {
+    const originalDev = global.__DEV__;
+
+    afterEach(() => {
+      global.__DEV__ = originalDev;
+      jest.resetModules();
+    });
+
+    const loadWithFlag = (flag, isDev) => {
+      global.__DEV__ = isDev;
+      let mod;
+      jest.isolateModules(() => {
+        jest.doMock('../../../../env/index', () => ({
+          ALLOW_HTTP_GENERIC_RESPONSE_POSTS: flag,
+        }));
+        mod = require('../../deeplink/genericResponse/responseDeliverySecurity');
+      });
+      return mod;
+    };
+
+    it('allows HTTP in a release build when the flag is on', () => {
+      const {assertSecurePostResponseUri: assertUri} = loadWithFlag(true, false);
+
+      expect(assertUri('http://requester.example/response')).toBe(
+        'http://requester.example/response',
+      );
+    });
+
+    it('requires HTTPS in a debug build when the flag is off', () => {
+      const {assertSecurePostResponseUri: assertUri} = loadWithFlag(false, true);
+
+      expect(() => assertUri('http://requester.example/response')).toThrow(
+        'must use HTTPS',
+      );
+    });
+  });
 });

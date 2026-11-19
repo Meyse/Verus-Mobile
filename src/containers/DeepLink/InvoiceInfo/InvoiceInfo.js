@@ -134,9 +134,11 @@ const InvoiceInfo = props => {
   }, [paidInvoiceKey]);
   const onPaymentSent = useCallback(
     txid => {
-      savePaidInvoice(paidInvoiceKey, txid).catch(error => console.warn(error));
+      savePaidInvoice(paidInvoiceKey, txid, accountHash).catch(error =>
+        console.warn(error),
+      );
     },
-    [paidInvoiceKey],
+    [paidInvoiceKey, accountHash],
   );
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const isTestAccount = useSelector(
@@ -256,7 +258,17 @@ const InvoiceInfo = props => {
         : null,
   };
 
-  const requester = {request, signerFqn, signerIdentityID, signerSystemID, signerSystemName: signerChain, sigtime};
+  // isSigned is true only after DeepLink or validateGenericRequest verified
+  // the signature. A legacy invoice has no envelope, so pass the result on.
+  const requester = {
+    request,
+    signatureVerified: isSigned === true,
+    signerFqn,
+    signerIdentityID,
+    signerSystemID,
+    signerSystemName: signerChain,
+    sigtime,
+  };
   const requesterSections = [{title: 'Invoice', rows: [
     {label: 'Currency', value: currency},
     {label: 'Supported networks', value: [...networks.map(network => network.fullyqualifiedname), ...otherNetworks].join('\n') || null},
