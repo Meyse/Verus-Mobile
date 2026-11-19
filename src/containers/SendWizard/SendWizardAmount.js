@@ -174,10 +174,13 @@ const SendWizardAmount = () => {
     ? cryptoAmount.toString()
     : '';
   const decimals = sourceCoin?.decimals ?? 8;
-  // Validate the entered asset amount before the existing rounding step.
-  const excessivePrecision =
-    !fiatMode &&
-    BigNumber(String(input || 0).replace(',', '.')).decimalPlaces() > decimals;
+  // Validate the entered amount before the existing rounding step. Money entry
+  // keeps 2 decimals; the keypad refuses more, and pasted text gets this error.
+  const enteredAmount = BigNumber(String(input || 0).replace(',', '.'));
+  const inputDecimals = fiatMode ? FIAT_DECIMALS : decimals;
+  const excessivePrecision = enteredAmount.decimalPlaces() > inputDecimals;
+  // A zero draft ("0", "0.0") is not finished yet, so it shows no error.
+  const zeroDraft = enteredAmount.isFinite() && enteredAmount.isZero();
   const dustError = !target?.isConversion && route?.addressType !== ADDRESS_TYPE.ETHEREUM &&
     cryptoAmount.isGreaterThan(0)
     ? transparentDustError(sourceCoin, channel, cryptoAmount) : null;
@@ -226,10 +229,10 @@ const SendWizardAmount = () => {
       : BigNumber(exportFee.amount).toFixed(2)} ${exportFeeTicker}` : '';
   let amountError = null;
   if (excessivePrecision) {
-    amountError = `Use no more than ${decimals} decimal places.`;
+    amountError = `Use no more than ${inputDecimals} decimal places.`;
   } else if (dustError) {
     amountError = dustError;
-  } else if (input && !validAmount) {
+  } else if (input && !zeroDraft && !validAmount) {
     amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
       ? "The amount exceeds this address's spendable balance."
       : cryptoAmount.isGreaterThan(sendLimit || 0)
@@ -402,11 +405,17 @@ const SendWizardAmount = () => {
     );
   };
 
+  // An empty or zero field stays empty in the other unit. A converted value is
+  // selected, so the first key replaces it (PR 266 review R14).
   const toggleInputMode = () => {
     if (rate == null) return;
-    const currentCrypto = cryptoAmount.isFinite() ? cryptoAmount : BigNumber(0);
-    if (fiatMode) setInput(currentCrypto.toFixed());
-    else setInput(currentCrypto.multipliedBy(rate).decimalPlaces(2).toFixed(2));
+    const converted = zeroDraft || !cryptoAmount.isFinite() || cryptoAmount.isZero()
+      ? ''
+      : fiatMode
+        ? cryptoAmount.toFixed()
+        : cryptoAmount.multipliedBy(rate).decimalPlaces(FIAT_DECIMALS).toFixed();
+    amountInputRef.current?.selectAll(converted);
+    setInput(converted);
     setFiatMode(!fiatMode);
   };
 
@@ -509,7 +518,7 @@ const SendWizardAmount = () => {
     8,
   );
   const modeText = fiatMode
-    ? `${enteredCryptoAmount} ${sourceCoin.display_ticker}`
+    ? `${input ? enteredCryptoAmount : '—'} ${sourceCoin.display_ticker}`
     : convertedFiat || `— ${displayCurrency}`;
 
   const sourceNetworkId = channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id;
@@ -563,6 +572,7 @@ const SendWizardAmount = () => {
             ref={amountInputRef}
             compact={smallDevice}
             decimalSeparator={decimalSeparator}
+            maxDecimals={fiatMode ? FIAT_DECIMALS : undefined}
             onChangeText={setInput}
             unit={fiatMode ? displayCurrency : sourceCoin.display_ticker}
             value={input}
@@ -663,6 +673,9 @@ const SendWizardAmount = () => {
     </WizardScreen>
   );
 };
+
+// Money entry keeps cents only.
+const FIAT_DECIMALS = 2;
 
 // Small windows: a 20-point context line and a 36-point fiat chip slot keep
 // 44-point targets through hit slop. TextAction adds its own (MAX keeps 48).

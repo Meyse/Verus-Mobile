@@ -588,6 +588,21 @@ and fee-reserve rules in `SendWizardAmount`.
 - Put the amount and its current unit on one line. Keep 40-to-20-point amount
   sizing. A long amount can put its unit below it. The entry starts 48 points
   below the context on normal windows, or 8 points on compact windows.
+- Owner approval, 2026-11-19 (PR 266 review R3, option B): a clear icon sits
+  at the right edge of the amount line: `close-circle-outline`, 22 points, in
+  `textSecondary`, in a 44-point slot ("Clear amount"). It shows only when the
+  field has text. One tap empties the field and keeps the unit and the focus.
+  The amount stays centered, so the slot's width stays free on both sides. A
+  value too long for that room uses the full width, and the icon moves down to
+  the unit line. `AmountInput` draws it for every user: Send, Convert, invoice
+  Amount and Build the gift.
+- Owner approval, 2026-11-19 (R14, option A): money entry starts empty, with
+  the "0" placeholder and no error; its chip reads "— <ticker>". Digits fill
+  the value from the left. The keypad refuses a third decimal
+  (`AmountInput maxDecimals`); pasted text with more decimals shows "Use no
+  more than 2 decimal places." A zero draft ("0", "0.0") shows no error, and
+  Continue stays off. The fiat switch keeps an empty or zero field empty. A
+  converted value is selected, so the first key replaces it.
 - Keep a 44-point fiat-mode action and a 48-point Available / MAX row. MAX uses
   `TextAction variant="chip"` in `link`. Missing
   fiat rates show no action or empty slot. Private pending funds retain their caption.
@@ -685,6 +700,11 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - The Sent step has no header: no progress bar, no close button, no divider. Done
   leaves. Sent shows the pay and receive amounts and the transaction ID. It shows no
   "To" row and no "Arrives" row; the user saw both on Confirm.
+- Sent adds "View in explorer" under the transaction ID when the source chain
+  has an explorer (owner, 2026-11-19, PR 266 review R4 option A). It opens the
+  transaction on that explorer, as the history sheet does (`getExplorerTxUrl`).
+  The private testnet has no explorer, so it shows no row. Confirm has no
+  link, because no transaction ID exists before the send.
 - Confirm shows the recipient once, in full, in the "To" row. The pay and receive nodes
   carry only the amounts ("You pay", "You receive"). Confirm has no "More details" row.
 - Send/Convert Confirm adds "From" only for a VerusID or Private source card. Under a
@@ -828,7 +848,8 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
 - **Sent.** The header has no title and no back. The small animated check sits
   beside the 28/36 title. Then the same nodes ("You paid", "<recipient>
   receives"), flat rows ("To" when needed, "Destination" for a bridge,
-  "Arrives", "Transaction ID" with `CopyAction`), one caption, and Done.
+  "Arrives", "Transaction ID" with `CopyAction`, "View in explorer" when the
+  chain has one), one caption, and Done.
 
 ### Private card sends
 

@@ -169,3 +169,94 @@ describe('Send Amount step in fiat mode', () => {
     expect(mockNavigation.navigate).not.toHaveBeenCalled();
   });
 });
+
+// R14 (PR 266 review 1117): fiat entry. Expected values come from the
+// approved option A: an empty field stays empty with no error, a zero draft
+// shows no error, and fiat entry keeps at most 2 decimals.
+describe('Send Amount step, fiat entry (R14)', () => {
+  let view;
+  let wizard;
+  const Capture = () => {
+    wizard = useSendWizard();
+    return null;
+  };
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST'};
+
+  const renderAmount = ({input, fiatMode}) => {
+    const card = {
+      id: 'MAIN',
+      api_channels: {get_fiatprice: 'fiat', get_balances: 'bal', send: 'dlight_private.x.y'},
+    };
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {fiat: {VRSCTEST: {USD: 0.5}}}, balances: {}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="send"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '100',
+            channel: card.api_channels.send,
+            target: {id: 'VRSCTEST', isConversion: false},
+            route: {key: 'direct', addressType: 'verus'},
+            amountInput: input,
+            fiatMode,
+          }}>
+          <SendWizardAmount />
+          <Capture />
+        </SendWizardProvider>,
+      );
+    });
+  };
+  const error = () => view.root.findByType('ErrorMessage').props.children;
+  const toggle = () => view.root.find(
+    node => typeof node.props.accessibilityLabel === 'string' &&
+      node.props.accessibilityLabel.startsWith('Switch amount') && node.props.onPress,
+  );
+
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+  });
+
+  it('keeps an empty field empty, with no error, when it switches to fiat', () => {
+    renderAmount({input: '', fiatMode: false});
+    act(() => toggle().props.onPress());
+    expect(wizard.state.fiatMode).toBe(true);
+    expect(wizard.state.amountInput).toBe('');
+    expect(error()).toBeFalsy();
+    expect(view.root.findByType('WizardFooter').props.disabled).toBe(true);
+  });
+
+  it('shows no error for a zero draft', () => {
+    renderAmount({input: '0.0', fiatMode: true});
+    expect(error()).toBeFalsy();
+    expect(view.root.findByType('WizardFooter').props.disabled).toBe(true);
+  });
+
+  it('gives fiat entry the 2-decimal limit', () => {
+    renderAmount({input: '', fiatMode: true});
+    expect(view.root.findByType('AmountInput').props.maxDecimals).toBe(2);
+  });
+});
+
+describe('editAmountInput decimal limit (R14)', () => {
+  const {editAmountInput} = require('../../amountInput');
+  const type = (value, key, maxDecimals) =>
+    editAmountInput(value, {start: value.length, end: value.length}, key, '.', Infinity, maxDecimals).value;
+
+  it('fills a money value from the left and stops at 2 decimals', () => {
+    expect(type('', '5', 2)).toBe('5');
+    expect(type('5', '0', 2)).toBe('50');
+    expect(type('12.', '5', 2)).toBe('12.5');
+    expect(type('12.5', '3', 2)).toBe('12.53');
+    expect(type('12.53', '4', 2)).toBe('12.53');
+  });
+
+  it('keeps asset entry without a limit when none is given', () => {
+    expect(type('0.12345678', '9')).toBe('0.123456789');
+  });
+});
