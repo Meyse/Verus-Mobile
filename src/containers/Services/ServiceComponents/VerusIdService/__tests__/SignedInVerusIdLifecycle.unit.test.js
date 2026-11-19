@@ -68,8 +68,28 @@ jest.mock('react-redux', () => ({
   useSelector: (extractor) => extractor(mockState),
 }));
 
+// Like the real hook on a focused screen: the callback runs on mount, again
+// when it changes, and again on each `focusScreen()`. Its cleanup runs before
+// the next run and on unmount.
+const mockFocusListeners = new Set();
+const focusScreen = async () => {
+  await act(async () => {
+    mockFocusListeners.forEach(listener => listener());
+  });
+};
+
 jest.mock('@react-navigation/native', () => ({
-  useFocusEffect: () => {},
+  useFocusEffect: callback => {
+    const ReactModule = require('react');
+    const [focusCount, setFocusCount] = ReactModule.useState(0);
+
+    ReactModule.useEffect(() => {
+      const listener = () => setFocusCount(count => count + 1);
+      mockFocusListeners.add(listener);
+      return () => mockFocusListeners.delete(listener);
+    }, []);
+    ReactModule.useEffect(() => callback(), [callback, focusCount]);
+  },
   useNavigation: () => buildNavigation(),
   useRoute: () => buildRoute(),
 }));
@@ -527,6 +547,123 @@ describe('SignedInVerusIdService READY row action', () => {
       chain: 'VRSCTEST',
     });
     expect(mockProcessVerusId).not.toHaveBeenCalled();
+  });
+});
+
+describe('SignedInVerusIdService list badges', () => {
+  // A linked VerusID read by getIdentity. Flag 0x8000 is revoked.
+  const identityResult = flags => ({
+    error: null,
+    result: {
+      fullyqualifiedname: 'alice.VRSCTEST@',
+      status: flags & 0x8000 ? 'revoked' : 'active',
+      identity: {
+        version: 3,
+        flags,
+        identityaddress: 'iAlice',
+        name: 'alice',
+        parent: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq',
+        systemid: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq',
+        primaryaddresses: ['RWalletAddress000000000000000000000000'],
+        minimumsignatures: 1,
+        revocationauthority: 'iAlice',
+        recoveryauthority: 'iAlice',
+        timelock: 0,
+      },
+    },
+  });
+  const buildController = () => ({
+    state: {linkedIds: {VRSCTEST: {iAlice: 'alice@'}}},
+    props: {
+      activeAccount: {id: 'account-1', accountHash: 'account-a', testnetOverrides: {}},
+      loading: false,
+      navigation: {...buildNavigation(), navigate: mockNavigate},
+    },
+    getLinkedIds: jest.fn(),
+  });
+  const hasText = (renderer, text) =>
+    renderer.root.findAll(
+      node =>
+        typeof node.type === 'string' &&
+        (node.props?.children === text ||
+          (Array.isArray(node.props?.children) && node.props.children.includes(text))),
+    ).length > 0;
+
+  let renderer = null;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setSession({sessionEpoch: 1});
+  });
+
+  // The rendered list keeps a timer; unmount it so it cannot fire in the next
+  // test file of the same Jest worker.
+  afterEach(async () => {
+    if (!renderer) return;
+    const mounted = renderer;
+    renderer = null;
+    await act(async () => mounted.unmount());
+  });
+
+  const renderList = async () => {
+    await act(async () => {
+      renderer = create(<SignedInVerusIdService controller={buildController()} />);
+    });
+    await flush();
+  };
+
+  it('shows Revoked after the VerusID is revoked and the tab gets focus again', async () => {
+    mockGetIdentity.mockResolvedValue(identityResult(0));
+    await renderList();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    expect(hasText(renderer, 'Revoked')).toBe(false);
+
+    mockGetIdentity.mockResolvedValue(identityResult(0x8000));
+    await focusScreen();
+    await flush();
+
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
+    expect(hasText(renderer, 'Revoked')).toBe(true);
+  });
+
+  it('keeps the Revoked badge when the read on focus fails', async () => {
+    mockGetIdentity.mockResolvedValue(identityResult(0x8000));
+    await renderList();
+    expect(hasText(renderer, 'Revoked')).toBe(true);
+
+    mockGetIdentity.mockResolvedValue({error: {code: -1, message: 'network timeout'}});
+    await focusScreen();
+    await flush();
+
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
+    expect(hasText(renderer, 'Revoked')).toBe(true);
+  });
+
+  it('forgets the badge of an unlinked VerusID when it is linked again', async () => {
+    mockGetIdentity.mockResolvedValue(identityResult(0x8000));
+    const controller = buildController();
+    await act(async () => {
+      renderer = create(<SignedInVerusIdService controller={controller} />);
+    });
+    await flush();
+    expect(hasText(renderer, 'Revoked')).toBe(true);
+
+    // Unlink the last VerusID.
+    await act(async () => {
+      renderer.update(
+        <SignedInVerusIdService controller={{...controller, state: {linkedIds: {}}}} />,
+      );
+    });
+    await flush();
+
+    // Link it again while its status read fails: no old badge comes back.
+    mockGetIdentity.mockResolvedValue({error: {code: -1, message: 'network timeout'}});
+    await act(async () => {
+      renderer.update(<SignedInVerusIdService controller={controller} />);
+    });
+    await flush();
+
+    expect(hasText(renderer, 'Revoked')).toBe(false);
   });
 });
 

@@ -29,6 +29,7 @@ const SHEET_ROW_HEIGHT = 64;
 const SHEET_SEARCH_HEIGHT = 80;
 const SHEET_STATUS_HEIGHT = 112;
 const SHEET_ACTION_HEIGHT = 62;
+const SHEET_PARTIAL_NOTICE_HEIGHT = 46;
 export const AUTHORITY_IDENTITY_SEARCH_THRESHOLD = 6;
 const SKELETON_WIDTHS = ['52%', '68%', '44%', '61%'];
 
@@ -36,6 +37,9 @@ const toSearchValue = candidate =>
   `${candidate.displayName || ''} ${
     candidate.identityAddress || ''
   }`.toLowerCase();
+
+const PARTIAL_DISCOVERY_MESSAGE =
+  'Some VerusIDs couldn’t be loaded. This list may be incomplete.';
 
 const getStatusMessage = (status, isRecovery) => {
   const action = isRecovery ? 'recover' : 'revoke';
@@ -71,9 +75,13 @@ const RevokeRecoverIdentityPickerSheet = ({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [searchQuery, setSearchQuery] = useState('');
   const loading = status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.LOADING;
+  // A partial result lists what was found, says that the list may be
+  // incomplete, and keeps the lookup-failed actions.
+  const partial = status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.PARTIAL;
   const showCandidates =
-    status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY &&
+    (status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY || partial) &&
     candidates.length > 0;
+  const showPartialNotice = partial && showCandidates;
   const showSearch =
     showCandidates && candidates.length > AUTHORITY_IDENTITY_SEARCH_THRESHOLD;
   const filteredCandidates = useMemo(() => {
@@ -86,10 +94,15 @@ const RevokeRecoverIdentityPickerSheet = ({
       toSearchValue(candidate).includes(query),
     );
   }, [candidates, searchQuery, showSearch]);
-  const showRetry = status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR;
+  const showRetry =
+    status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR || partial;
   const showManualEntry =
     status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR ||
-    status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.UNSUPPORTED;
+    status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.UNSUPPORTED ||
+    partial;
+  const actionHeight =
+    (showRetry ? SHEET_ACTION_HEIGHT : 0) +
+    (showManualEntry ? SHEET_ACTION_HEIGHT : 0);
   const candidateContentHeight = showCandidates
     ? Math.min(candidates.length, AUTHORITY_IDENTITY_SEARCH_THRESHOLD + 1) *
       SHEET_ROW_HEIGHT
@@ -99,11 +112,9 @@ const RevokeRecoverIdentityPickerSheet = ({
     : showCandidates
     ? SHEET_PADDING_HEIGHT +
       candidateContentHeight +
-      (showSearch ? SHEET_SEARCH_HEIGHT : 0)
-    : SHEET_PADDING_HEIGHT +
-      SHEET_STATUS_HEIGHT +
-      (showRetry ? SHEET_ACTION_HEIGHT : 0) +
-      (showManualEntry ? SHEET_ACTION_HEIGHT : 0);
+      (showSearch ? SHEET_SEARCH_HEIGHT : 0) +
+      (showPartialNotice ? SHEET_PARTIAL_NOTICE_HEIGHT + actionHeight : 0)
+    : SHEET_PADDING_HEIGHT + SHEET_STATUS_HEIGHT + actionHeight;
   const sheetHeight = Math.min(
     SHEET_MAX_HEIGHT,
     Math.floor(height * SHEET_MAX_HEIGHT_RATIO),
@@ -145,6 +156,14 @@ const RevokeRecoverIdentityPickerSheet = ({
 
           {showCandidates ? (
             <>
+              {showPartialNotice ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={[styles.statusText, styles.partialNotice]}
+                  testID="revokeRecover.identity.partialNotice">
+                  {PARTIAL_DISCOVERY_MESSAGE}
+                </Text>
+              ) : null}
               {showSearch ? (
                 <AppSearchField
                   accessibilityLabel="Search VerusIDs"
@@ -436,6 +455,13 @@ const createStyles = theme =>
     },
     searchContainer: {
       marginBottom: 10,
+    },
+    // The lookup-failed message text, as one line above the list, aligned
+    // with the row text.
+    partialNotice: {
+      marginBottom: 8,
+      paddingHorizontal: 16,
+      textAlign: 'left',
     },
     skeletonState: {
       flex: 1,
