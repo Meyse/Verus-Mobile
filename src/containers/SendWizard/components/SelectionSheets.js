@@ -78,7 +78,7 @@ export const SourceCardSheet = ({
               .join(', ')}
             disabled={syncing}
             titleContent={
-              <CardTitle title={cardTitle} style={styles.rowTitle} />
+              <CardTitle title={cardTitle} style={styles.rowTitle} wrap />
             }
             subtitle={subtitle}
             selected={source.card.id === selectedId}

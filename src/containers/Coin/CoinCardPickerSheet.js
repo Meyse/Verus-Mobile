@@ -599,7 +599,7 @@ const CoinCardPickerSheet = ({
               />
             </View>
             <View style={styles.identifierColumn}>
-              <CardTitle title={item.cardTitle} style={styles.identifier} />
+              <CardTitle title={item.cardTitle} style={styles.identifier} wrap />
             </View>
             <View style={styles.balanceColumn}>
               <PrivacyBlurredText

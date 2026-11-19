@@ -314,8 +314,11 @@ card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
 a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
 cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
 coins take their own ticker (KMD). The short address never shortens below
-6…6; in the rare case of too little room the network suffix takes a tail
-ellipsis. A VerusID name gives way with a middle ellipsis and keeps its @;
+6…6. In choosers and the card picker, where a balance sits beside the title,
+" · <network>" moves to a second line when the title does not fit (testnet
+on most phones); on the asset screen stack it stays on one line and, in the
+rare case of too little room, takes a tail ellipsis. The two parts align to
+the top on a shared line height, not to the baseline (Android). A VerusID name gives way with a middle ellipsis and keeps its @;
 then the network never shortens. No row has an address line; a private card
 that still syncs shows its sync status as the subtitle. Copy and the screen
 reader label keep the full address. Because each title names its network,

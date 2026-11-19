@@ -83,7 +83,7 @@ const ReceiveSubwalletSheet = ({
             <SelectionRow
               key={wallet.id}
               titleContent={
-                <CardTitle title={cardTitle} style={styles.rowTitle} />
+                <CardTitle title={cardTitle} style={styles.rowTitle} wrap />
               }
               accessibilityLabel={`Receive with ${cardTitle.text}, ${balance} ${coinObj.display_ticker}`}
               selected={
