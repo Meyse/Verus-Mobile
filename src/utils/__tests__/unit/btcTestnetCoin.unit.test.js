@@ -1,6 +1,9 @@
+import BigNumber from 'bignumber.js';
 import axios from 'axios';
-import {networks, Transaction} from 'bitgo-utxo-lib';
-import {buildSignedTx} from '../../crypto/buildTx';
+import {ECPair, ECSignature, networks, Transaction} from 'bitgo-utxo-lib';
+import {txPreflight} from '../../api/channels/electrum/requests/pushTx';
+import {getUnspentFormatted} from '../../api/channels/electrum/requests/getUnspent';
+import {requestPrivKey} from '../../auth/authBox';
 import {CoinDirectory} from '../../CoinData/CoinDirectory';
 import {coinsList} from '../../CoinData/CoinsList';
 import {explorers} from '../../CoinData/CoinData';
@@ -15,6 +18,10 @@ jest.mock('axios', () => {
   axiosMock.create = () => axiosMock;
   return {__esModule: true, default: axiosMock, ...axiosMock};
 });
+jest.mock('../../api/channels/electrum/requests/getUnspent', () => ({
+  getUnspentFormatted: jest.fn(),
+}));
+jest.mock('../../auth/authBox', () => ({requestPrivKey: jest.fn()}));
 jest.mock('../../../../env/index', () => ({
   CURRENCY_DEFINITION_STORAGE_INTERNAL_KEY: 'test-currency-definitions',
   KEY_DERIVATION_VERSION: 1,
@@ -25,6 +32,11 @@ jest.mock('../../../../env/index', () => ({
 const PRIVATE_KEY_ONE_WIF = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn';
 const MAINNET_ADDRESS = '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH';
 const TESTNET_ADDRESS = 'mrCDrCybB6J1vRfbwM5hemdJz73FwDBC8r';
+
+// Testnet P2PKH address of hash160 243f1394...ce924.
+const RECIPIENT = 'mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn';
+const P2PKH = hash160 => `76a914${hash160}88ac`;
+const OWN_HASH160 = '751e76e8199196d454941c45d1b3a323f1433bd6';
 
 const MEMPOOL_RATES = {data: {fastestFee: 9, halfHourFee: 5, hourFee: 2}};
 
@@ -47,17 +59,6 @@ describe('Bitcoin Testnet4 coin', () => {
 
     expect(testnet.addresses).toEqual([TESTNET_ADDRESS]);
     expect(btc.addresses).toEqual([MAINNET_ADDRESS]);
-
-    // The send signs with the network that pushTx picks by coin id.
-    const rawtx = buildSignedTx(
-      TESTNET_ADDRESS, TESTNET_ADDRESS, testnet.privKey, networks.testnet,
-      [{txid: 'a'.repeat(64), vout: 0, value: 100000}], 0, 90000,
-    );
-    const outputs = Transaction.fromHex(rawtx, networks.testnet).outs;
-    expect(outputs.map(output => output.script.toString('hex'))).toEqual([
-      '76a914751e76e8199196d454941c45d1b3a323f1433bd688ac',
-    ]);
-    expect(outputs[0].value).toBe(90000);
   });
 
   it('uses the testnet4 servers and explorer, and leaves BTC unchanged', () => {
@@ -117,5 +118,42 @@ describe('Bitcoin Testnet4 coin', () => {
     expect(networkFeeKind(true, 'electrum', coinsList.BTC)).toBe('btc');
     expect(networkFeeKind(true, 'electrum', coinsList.KMD)).toBeNull();
     expect(networkFeeKind(false, 'electrum', coinsList.TESTNET)).toBeNull();
+  });
+
+  it('signs a testnet4 send through the production preflight', async () => {
+    const coin = CoinDirectory.findCoinObj('TESTNET');
+    const keys = await deriveKeyPair(PRIVATE_KEY_ONE_WIF, coin, ELECTRUM);
+    requestPrivKey.mockResolvedValue(keys.privKey);
+    getUnspentFormatted.mockResolvedValue({
+      utxoList: [{
+        txid: 'a'.repeat(64), vout: 0, amountSats: 100000,
+        reportedValueSats: 100000, verifiedValueSats: 100000,
+        verifiedTxid: true, verifiedMerkle: true, interestSats: 0,
+      }],
+      unshieldedFunds: BigNumber(0),
+    });
+    const user = {id: 'profile', keys: {TESTNET: {electrum: keys}}};
+
+    // The same network lookup as the Send wizard Confirm screen.
+    const response = await txPreflight(coin, user, RECIPIENT, BigNumber('0.0005'), {
+      defaultFee: {feePerByte: 2}, network: networks[coin.id.toLowerCase()],
+    }, true);
+
+    // coinselect size: 10 + 147 per P2PKH input + 34 per output = 225 bytes.
+    expect(response.err).toBe(false);
+    expect(response.result.fee).toBe('0.0000045');
+    const tx = Transaction.fromHex(response.result.params.rawtx, networks.testnet);
+    expect(tx.outs.map(output => [output.script.toString('hex'), output.value])).toEqual([
+      [P2PKH('243f1394f44554f4ce3fd68649c19adc483ce924'), 50000],
+      [P2PKH(OWN_HASH160), 49550],
+    ]);
+
+    const [signature, publicKey] = [tx.ins[0].script.slice(1, 1 + tx.ins[0].script[0]),
+      tx.ins[0].script.slice(2 + tx.ins[0].script[0])];
+    const hash = tx.hashForSignature(0, Buffer.from(P2PKH(OWN_HASH160), 'hex'),
+      Transaction.SIGHASH_ALL);
+    const pair = ECPair.fromPublicKeyBuffer(publicKey, networks.testnet);
+    expect(pair.getAddress()).toBe(TESTNET_ADDRESS);
+    expect(pair.verify(hash, ECSignature.fromDER(signature.slice(0, -1)))).toBe(true);
   });
 });
