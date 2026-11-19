@@ -19,9 +19,10 @@ without repeating the entire investigation.
   - [x] R10 A tag notice, Confirm row, details rows; private source cannot pay
   - [x] Gift B "+ N more" and "Also included" list
   - [x] Related Jest, check:design, check:safe-areas, Android release bundle
-  - [ ] Codex review (gpt-6-astra high)
-  - [ ] iOS sim check, light and dark
-  - [ ] Android QA on `normal` and `small`
+  - [x] Codex review (gpt-6-astra high): 5 findings, all fixed (b274557b)
+  - [ ] iOS sim check, light and dark: only the light asset stack seen
+    (Mac overload stopped the run); testnet VerusID names are cut in strips
+  - [ ] Android QA on `normal` and `small`: Game PC offline
 
 - Scoped follow-up: **TX-1.BALANCES-AS-UPSTREAM** (PR 266 review R13) on
   `claude/pr266-ui-balances` from `6c8ca065`: **Verified** (awaits merge).
