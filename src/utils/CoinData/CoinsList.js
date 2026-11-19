@@ -492,6 +492,25 @@ export const coinsList = {
     proto: 'btc',
     decimals: DEFAULT_DECIMALS,
   },
+  // Bitcoin testnet4 for Testnet profiles, so the BTC send and fee code can be
+  // tested with free coins. The id must be TESTNET: the Electrum code looks up
+  // the address network and the server list by the lower-case coin id.
+  TESTNET: {
+    id: 'TESTNET',
+    currency_id: '',
+    system_id: '.btc',
+    bitgojs_network_key: 'testnet',
+    display_ticker: 'BTCTEST',
+    display_name: 'Bitcoin Testnet4',
+    alt_names: [],
+    theme_color: '#F7931B',
+    website: 'https://bitcoin.org/en/',
+    compatible_channels: [ELECTRUM, GENERAL],
+    tags: [],
+    proto: 'btc',
+    decimals: DEFAULT_DECIMALS,
+    testnet: true,
+  },
   ETH: {
     id: 'ETH',
     currency_id: '0x0000000000000000000000000000000000000000',
