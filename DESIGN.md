@@ -606,7 +606,9 @@ and fee-reserve rules in `SendWizardAmount`.
   converted value is selected, so the first key replaces it.
 - Keep a 44-point fiat-mode action and a 48-point Available / MAX row. MAX uses
   `TextAction variant="chip"` in `link`. Missing
-  fiat rates show no action or empty slot. Private pending funds retain their caption.
+  fiat rates show no action or empty slot. Available and MAX are the confirmed
+  balance on every card, and no pending line shows under them (owner,
+  2026-11-19, PR 266 review R13).
 - Owner approval, 2026-11-13 (R7 option A, "tight top"): on windows of 667
   points or less, `AmountInput compact` draws the amount at 32/40 (80% of
   `amountInput`, same 20-point floor) and the unit in `titleRow`. An empty
@@ -873,8 +875,8 @@ screen did for the private (z) card.
   (`variant="card"`) "Syncing x%" in place of the fiat line, Send is off, and
   "Choose an address" shows the card dimmed with "Syncing x%" and no chevron.
 - Amount uses the private card's confirmed balance, as its preflight does.
-  Funds that still confirm add one caption under Available: "<amount> <ticker>
-  can be sent in about 10 minutes."
+  Funds that still confirm do not show on Amount (owner, 2026-11-19); the
+  asset screen shows them as "+X pending".
 - From the private card to a transparent address, Confirm shows one notice
   above the slide: "This address is transparent. The amount and the recipient will
   be public on the blockchain."
@@ -1147,9 +1149,11 @@ request, 2026-10-22):
 
 ## Asset screen balances
 
-The owner revised the pending-balance rule on 2026-10-26. It applies
-to `SignedInAssetHeader` and the asset screen's "Choose an address" sheet
-(`CoinCardPickerSheet`).
+The owner set the balance rule on 2026-11-19 (PR 266 review R13). It
+replaces the 2026-10-26 rule that showed totals with funds that still confirm.
+It applies to `SignedInAssetHeader`, the card stack and the asset screen's
+"Choose an address" sheet (`CoinCardPickerSheet`); "Balances" below says where
+else it applies.
 
 Owner approval, 2026-11-03: Final (E-r4, variant 5) replaces the carousel
 with a card stack and a persistent transactions sheet. It applies to the asset
@@ -1277,16 +1281,34 @@ folds into a bar that names the selected card.
   Keep Overview's rows, details sheet, empty/error/loading states and channel
   refresh behavior.
 
-- Every card and the asset total show the card's total, the number Home adds
-  up: confirmed funds plus funds that still confirm. Read it with
-  `getLedgerTotal`; do not show the confirmed balance on these screens.
-- Do not show a separate pending amount under a card's amount or in "Choose a
-  card". The total already includes it; readers added the second amount again.
+- Every card and the asset total show the confirmed balance, the number Home
+  adds up. Read it with `getShownBalance` (`src/utils/ledger/shownBalance.js`).
+  A Verus balance is `getaddressbalance`, as upstream reads it, with no
+  mempool read; an unconfirmed Verus transaction shows only as a "Pending"
+  history row.
+- Funds that still confirm on an Electrum coin or the private card show as one
+  warning `StatusBadge` next to the confirmed number, in coin units with its
+  sign: "+0.5 pending" or "−0.0012 pending" (mockup B). On the front card it
+  follows the fiat line (`variant="card"`, 1/6-point padding). With one card,
+  the card has no amount line, so the mark sits under the asset name in the
+  top row. Strips, "Choose an address", a syncing card and hidden balances
+  show no mark. Verus coins and Ethereum have no pending value and no mark.
 - While the private card syncs, keep "Syncing x%" in place of its fiat line.
-- Send keeps its own rule: the private card sends only confirmed funds (see
-  Private card sends).
 - Home opens the card the user chose. Without an explicit choice, it opens a
   funded card. If no card holds funds, it keeps the existing default.
+
+## Balances
+
+Owner decision, 2026-11-19 (PR 266 review R13): every balance shows confirmed
+funds only, as upstream does. An unconfirmed payment must not look like money
+the user has.
+
+- Home (the total, every row, the chart record), the asset screen, Send and
+  Convert (Available, MAX, the source lists), Receive, Manage assets, the
+  VerusID funds and every picker read one value: `getShownBalance`.
+- Home shows no pending mark for any coin. Amount shows no pending line.
+- Only the asset screen shows a pending mark, and only for Electrum coins and
+  the private card (see [Asset screen balances](#asset-screen-balances)).
 
 ## Bridged asset line
 
@@ -1838,7 +1860,8 @@ welcome card the same day (option D of the empty-Home mockups).
      for percent changes. Close hides it until the wallet opens again. Keep
      this dismissal in memory only.
   5. The wallet is empty: every transparent and VerusID card of every asset,
-     hidden ones too, is known to hold 0, pending funds included, and nothing
+     hidden ones too, is known to hold 0, pending funds included where the
+     channel reports them (Electrum, the private card), and nothing
      was found or pre-converted: "**Your wallet is empty.** Receive coins to
      start." with "Receive", which opens the Receive list. A private card that
      has not synced does not block it.

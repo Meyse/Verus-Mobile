@@ -93,7 +93,7 @@ const setup = (builtOverrides = {}, props = {}) => {
   mockState = {
     coins: {activeCoinsForUser: [coinObj]},
     coinMenus: {allSubWallets: {VRSC: [wallet]}},
-    ledger: {balances: {vrpc: {VRSC: {total: '1'}}}, rates: {}},
+    ledger: {balances: {vrpc: {VRSC: {confirmed: '1', pending: '0', total: '1'}}}, rates: {}},
     settings: {generalWalletSettings: {displayCurrency: 'USD'}},
   };
   const subjectIdentity = {

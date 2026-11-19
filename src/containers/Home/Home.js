@@ -87,6 +87,7 @@ import {
   isTestnetAccount,
   uniqueAssets,
 } from '../../utils/assets/assetIdentity';
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {
   CONVERSION_DISABLED,
@@ -440,7 +441,7 @@ const Home = () => {
           .map(card => {
             const channel = card.api_channels?.[API_SEND];
             const hasBalance = BigNumber(
-              balances?.[coinObj.id]?.[card.id]?.total || 0,
+              getShownBalance(balances?.[coinObj.id]?.[card.id]) || 0,
             ).isGreaterThan(0);
             const compatible = card.compatible_apps.includes(sectionKey);
             const actionAvailable =
@@ -596,16 +597,17 @@ const Home = () => {
     if (prelaunchAssets.size > 0) return null;
 
     // Empty only when every transparent and VerusID card is known to hold 0,
-    // pending funds included, and hidden assets too. A private card that has
-    // not synced yet does not block it.
+    // pending funds included where the channel reports them (Electrum, the
+    // private card; a Verus balance has none), and hidden assets too. A
+    // private card that has not synced yet does not block it.
     const walletEmpty = uniqueAssets(activeCoinsForUser)
       .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount))
       .every(coin => {
         const cards = allSubWallets[coin.id] || [];
         const privateCards = cards.filter(card => card.id === 'PRIVATE_WALLET');
         const otherCards = cards.filter(card => card.id !== 'PRIVATE_WALLET');
-        const others = getManagedAssetBalance(coin, otherCards, ledgerBalances, assetManagement.snapshots);
-        const privateBalance = getManagedAssetBalance(coin, privateCards, ledgerBalances, assetManagement.snapshots);
+        const others = getManagedAssetBalance(coin, otherCards, ledgerBalances, assetManagement.snapshots, {withPending: true});
+        const privateBalance = getManagedAssetBalance(coin, privateCards, ledgerBalances, assetManagement.snapshots, {withPending: true});
 
         return (
           (otherCards.length === 0 || (others.complete && others.total.isZero())) &&

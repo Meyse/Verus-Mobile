@@ -20,6 +20,7 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {USD} from '../../utils/constants/currencies';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
 import ReceiveSubwalletSheet from './ReceiveSubwalletSheet';
 import {createReceiveListStyles} from './receive.styles';
@@ -79,7 +80,7 @@ const ReceiveAssetsList = ({navigation}) => {
           if (cards.length === 0) return null;
 
           const crypto = cards.reduce((total, card) => {
-            const amount = balances[coinObj.id]?.[card.id]?.total;
+            const amount = getShownBalance(balances[coinObj.id]?.[card.id]);
             return total.plus(amount == null ? 0 : amount);
           }, BigNumber(0));
           const cardRateChannel = cards[0]?.api_channels?.[API_GET_FIATPRICE];
@@ -161,7 +162,7 @@ const ReceiveAssetsList = ({navigation}) => {
   const pendingBalanceMap = useMemo(() => {
     if (!pendingCoin) return {};
     return pendingCards.reduce((result, card) => {
-      result[card.id] = balances[pendingCoin.id]?.[card.id]?.total || 0;
+      result[card.id] = getShownBalance(balances[pendingCoin.id]?.[card.id]) || 0;
       return result;
     }, {});
   }, [balances, pendingCards, pendingCoin]);

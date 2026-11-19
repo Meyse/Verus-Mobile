@@ -46,28 +46,24 @@ describe('a send repeated before the next block', () => {
   });
 });
 
-describe('amount a Verus card can send now', () => {
+// Available and MAX are the confirmed balance on every channel, as upstream
+// limits a send (owner, 2026-11-19, PR 266 review R13). This replaces the
+// earlier rule that counted the total on Electrum and min(total, confirmed)
+// on Verus cards.
+describe('amount a card can send now', () => {
   const VRPC = 'vrpc.RXw9eszq5f7mnU9X4cPYRFR4cSybJ7m6pz.iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
 
-  it('stops at the confirmed balance while an incoming payment confirms', () => {
-    expect(getSendLimit({confirmed: '10', pending: '5', total: '15'}, VRPC)).toBe('10');
-  });
-
-  it('is zero when the whole balance is still incoming', () => {
-    expect(getSendLimit({confirmed: '0', pending: '2', total: '2'}, VRPC)).toBe('0');
-  });
-
-  it('uses the total after an own send lowered it', () => {
-    // 10 confirmed, 3 sent with a 0.0001 fee, still in the mempool.
-    expect(getSendLimit({confirmed: '10', pending: '-3.0001', total: '6.9999'}, VRPC)).toBe('6.9999');
+  it('is the Verus balance, which holds confirmed funds only', () => {
+    expect(getSendLimit({confirmed: '10', pending: '0', total: '10'}, VRPC)).toBe('10');
   });
 
   it('uses the confirmed balance on the private card', () => {
     expect(getSendLimit({confirmed: '2', pending: '1', total: '3'}, 'dlight_private.zs1abc')).toBe('2');
   });
 
-  it('keeps the total on other channels', () => {
-    expect(getSendLimit({confirmed: '1', pending: '0.5', total: '1.5'}, 'electrum.RAddr.BTC')).toBe('1.5');
+  it('uses the confirmed balance on Electrum and Ethereum', () => {
+    expect(getSendLimit({confirmed: '1', pending: '0.5', total: '1.5'}, 'electrum.RAddr.BTC')).toBe('1');
+    expect(getSendLimit({confirmed: '1', pending: '-0.3', total: '0.7'}, 'electrum.RAddr.BTC')).toBe('1');
     expect(getSendLimit({confirmed: '1', pending: '0', total: '1'}, 'eth.0xabc.ETH')).toBe('1');
   });
 

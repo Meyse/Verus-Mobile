@@ -13,6 +13,7 @@ import { truncateDecimal } from "../../utils/math";
 import { setCoinSubWallet } from "../../actions/actionCreators";
 import { USD } from "../../utils/constants/currencies";
 import BigNumber from "bignumber.js";
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import Colors from "../../globals/colors";
 import { CoinDirectory } from "../../utils/CoinData/CoinDirectory";
 import { useObjectSelector } from "../../hooks/useObjectSelector";
@@ -46,7 +47,7 @@ const SubWalletSelectorModal = (props) => {
         setCryptoBalances((prevCryptoBalances) => ({
           ...prevCryptoBalances,
           [wallet.id]: BigNumber(
-            allBalances[wallet.api_channels[API_GET_BALANCES]][chainTicker].total
+            getShownBalance(allBalances[wallet.api_channels[API_GET_BALANCES]][chainTicker])
           ),
         }));
         newTotalBalance = newTotalBalance.plus(cryptoBalances[wallet.id]);

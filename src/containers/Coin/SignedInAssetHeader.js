@@ -3,6 +3,7 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {ChevronRight} from 'lucide-react-native';
 import OnboardingBackButton from '../../components/OnboardingBackButton';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
+import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {explorers} from '../../utils/CoinData/CoinData';
@@ -24,7 +25,7 @@ const lookupCoin = id => {
 // navigation header and the old ticker row. Pre-launch assets reuse it alone.
 const SignedInAssetHeader = ({asset, compact, onBack}) => {
   const theme = useOnboardingTheme();
-  const {coin, showBalance, total, totalFiat} = asset;
+  const {coin, showBalance, total, totalFiat, totalPendingText} = asset;
   const [bridgedVisible, setBridgedVisible] = useState(false);
   const origin = useMemo(
     () =>
@@ -33,9 +34,12 @@ const SignedInAssetHeader = ({asset, compact, onBack}) => {
   );
   const amount = total == null ? '—' : truncateDecimal(total, 4);
   const fiat = totalFiat ?? (coin.testnet ? '—' : null);
+  // With one card, its "+X pending" mark sits under the name (PR 266 review
+  // R13). A bridged asset is a Verus currency, which has no pending value.
+  const pendingText = showBalance && !origin ? totalPendingText : null;
   const label = !showBalance
     ? `${coin.display_ticker} total balance hidden`
-    : [amount, coin.display_ticker, totalFiat].filter(Boolean).join(', ');
+    : [amount, coin.display_ticker, totalFiat, pendingText].filter(Boolean).join(', ');
 
   return (
     <View
@@ -82,6 +86,13 @@ const SignedInAssetHeader = ({asset, compact, onBack}) => {
               strokeWidth={2}
             />
           </Pressable>
+        ) : pendingText ? (
+          <StatusBadge
+            accessibilityLabel={null}
+            label={pendingText}
+            style={styles.pending}
+            tone="warning"
+          />
         ) : null}
       </View>
       <View accessible accessibilityLabel={label} style={styles.total}>
@@ -131,6 +142,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bridgedText: {flexShrink: 1},
+  pending: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    paddingVertical: 1,
+    paddingHorizontal: 6,
+  },
   total: {maxWidth: '43%', marginLeft: 8, alignItems: 'flex-end'},
   balanceFrame: {maxWidth: '100%'},
   amount: {

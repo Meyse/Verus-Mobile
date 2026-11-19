@@ -52,6 +52,7 @@ import {
   getSubWalletNetworkLabel,
 } from '../../utils/subwallet/cardPresentation';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import ReceiveAddressSheet from './ReceiveAddressSheet';
 import ReceivePaymentRequestFlow from './ReceivePaymentRequestFlow';
 import ReceiveSubwalletSheet from './ReceiveSubwalletSheet';
@@ -211,7 +212,7 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const balanceMap = useMemo(
     () =>
       cards.reduce((result, card) => {
-        result[card.id] = balances[coinObj?.id]?.[card.id]?.total || 0;
+        result[card.id] = getShownBalance(balances[coinObj?.id]?.[card.id]) || 0;
         return result;
       }, {}),
     [balances, cards, coinObj?.id],

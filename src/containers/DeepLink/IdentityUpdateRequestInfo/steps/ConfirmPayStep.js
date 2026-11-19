@@ -62,6 +62,7 @@ import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../../utils/settings/settin
 import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
 import {EncryptedCredentialNote} from '../../../../components/VerusIdContentChangeCard';
 import {buildIdentityStateChange} from '../utils/buildIdentityStateChange';
+import {getShownBalance} from '../../../../utils/ledger/shownBalance';
 
 const IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT = 360;
 const COMPLETION_SHEET_STAGE = {
@@ -446,7 +447,8 @@ const ConfirmPayStep = ({
         // Get balance for this wallet
         const balanceChannel = wallet.api_channels?.[API_GET_BALANCES];
         const balanceData = balanceChannel && allBalances[balanceChannel]?.[chainTicker];
-        const balance = balanceData?.total != null ? BigNumber(balanceData.total) : BigNumber(0);
+        const shown = getShownBalance(balanceData);
+        const balance = shown != null ? BigNumber(shown) : BigNumber(0);
 
         if (balance.isGreaterThan(0)) {
           sources.push({
