@@ -33,6 +33,7 @@ import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
+import {getWizardCryptoAmount} from './wizardAmount';
 import {compareRoutes, IMPACT_LEVEL} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
 import {useReceivedPrice} from './useReceivedPrice';
@@ -153,29 +154,20 @@ const SendWizardAmount = () => {
     };
   }, [channel, mode, sendNetworks, sourceCoin, target]);
 
-  const cryptoAmount = useMemo(() => {
-    const entered = BigNumber(String(input || 0).replace(',', '.'));
-    if (!entered.isFinite() || entered.isNegative()) return BigNumber(NaN);
-    const nativePrecision =
-      ['eth', 'erc20'].includes(sourceCoin?.proto) &&
-      !target?.isConversion &&
-      !route?.isCrossChain;
-    let value = entered;
-    if (fiatMode) {
-      if (rate == null || BigNumber(rate).isLessThanOrEqualTo(0)) {
-        return BigNumber(NaN);
-      }
-      value = entered.dividedBy(rate);
-    }
-    return nativePrecision
-      ? value
-      : value.decimalPlaces(8, BigNumber.ROUND_DOWN);
-  }, [
+  // A fiat entry is cut down to the places the asset can hold.
+  const cryptoAmount = useMemo(() => getWizardCryptoAmount({
+    input,
+    fiatMode,
+    rate,
+    coin: sourceCoin,
+    isConversion: Boolean(target?.isConversion),
+    isCrossChain: Boolean(route?.isCrossChain),
+  }), [
     fiatMode,
     input,
     rate,
     route?.isCrossChain,
-    sourceCoin?.proto,
+    sourceCoin,
     target?.isConversion,
   ]);
   const cryptoAmountValue = cryptoAmount.isFinite()

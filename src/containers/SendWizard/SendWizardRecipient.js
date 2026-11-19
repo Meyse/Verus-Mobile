@@ -20,7 +20,7 @@ import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import QrScanner from '../../utils/QrScanner/QrScanner';
-import {addressIsBlocked} from '../../utils/addressBlocklist';
+import {addressIsBlocked, BLOCKED_ADDRESS_MESSAGE} from '../../utils/addressBlocklist';
 import {selectAddressBlocklist} from '../../selectors/settings';
 import {
   I_ADDRESS_VERSION,
@@ -143,7 +143,7 @@ const SendWizardRecipient = () => {
     const address = input.trim();
     if (!address) return {valid: false, message: null};
     if (addressIsBlocked(address, blocklist)) {
-      return {valid: false, message: 'Sending to this address is blocked.'};
+      return {valid: false, message: BLOCKED_ADDRESS_MESSAGE};
     }
     // A private address, or "alice@:private", takes funds from the private
     // card only.
