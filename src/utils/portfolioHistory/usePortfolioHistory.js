@@ -146,6 +146,8 @@ const usePortfolioHistory = ({
   const selectedRange = ranges.includes(range) ? range : '1M';
   const requested = market?.key === marketKey ? market : null;
   const data = requested && !requested.loading ? requested : savedMarket || requested;
+  // Without exchange-rate samples (a currency the ECB does not publish, or no
+  // saved rates yet) the history converts at today's rate.
   const ratioCoin = coins.find((coin) => Number(rates[GENERAL]?.[coin.id]?.[currency]) > 0);
   const currentRatio = ratioCoin ? Number(rates[GENERAL][ratioCoin.id][currency]) / Number(ratioCoin.usd) : 0;
   const fxFallback = currency === 'USD' ? 1 : currentRatio;
@@ -160,17 +162,20 @@ const usePortfolioHistory = ({
     now,
   }) : null),
   [state, record, coins, data, fxFallback, total, selectedRange, now]);
+  const loading = state === 'chart' && (total == null || !data || data.loading);
+  // The line needs two points with a real value. Missing prices are never filled in.
+  const shownState = state === 'chart' && !loading && series.points.length < 2 ? 'unavailable' : state;
   return {
     hydrated,
     focused,
-    state,
+    state: shownState,
     record,
     series,
     range: selectedRange,
     ranges,
     setRange,
     now,
-    loading: state === 'chart' && (total == null || !data || data.loading),
+    loading,
   };
 };
 

@@ -53,7 +53,7 @@ const HomeValueChart = ({
   const opacity = useRef(new Animated.Value(1)).current;
   const id = useId().replace(/:/g, '');
   const {
-    series, now, range, record, loading,
+    series, now, range, loading,
   } = history;
   const plotWidth = Math.max(0, width - (54 * (1 - progress)));
   const rangeWidth = history.ranges.length ? 44 + ((history.ranges.length - 1)
@@ -62,8 +62,9 @@ const HomeValueChart = ({
     ? geometry(series.points, plotWidth, height, series.axisStart, top, bottom) : null),
   [series, plotWidth, height, top, bottom]);
   const percent = series ? change(series.points) : null;
-  const span = series ? spanText(range, series.partial, record.start, now) : '';
-  const since = series && (series.partial || range === 'All') ? `Since ${dateText(record.start, now)}` : null;
+  // The line starts at its first priced point, which can be later than the record start.
+  const span = series ? spanText(range, series.partial, series.start, now) : '';
+  const since = series && (series.partial || range === 'All') ? `Since ${dateText(series.start, now)}` : null;
 
   useEffect(() => {
     let mounted = true;
@@ -135,10 +136,10 @@ const HomeValueChart = ({
   };
 
   if (history.state === 'none') return null;
-  if (history.state === 'day1') {
+  if (history.state === 'day1' || history.state === 'unavailable') {
     return (
       <Text style={[theme.typography.caption, styles.day1, { color: theme.colors.textSecondary }]}>
-        The chart appears after 24 hours.
+        {history.state === 'day1' ? 'The chart appears after 24 hours.' : 'Price history is not available right now.'}
       </Text>
     );
   }
@@ -350,7 +351,7 @@ const HomeValueChart = ({
 export const homeValueChartHistoryPropType = PropTypes.shape({
   hydrated: PropTypes.bool.isRequired,
   focused: PropTypes.bool,
-  state: PropTypes.oneOf(['none', 'day1', 'chart']).isRequired,
+  state: PropTypes.oneOf(['none', 'day1', 'chart', 'unavailable']).isRequired,
   loading: PropTypes.bool.isRequired,
   now: PropTypes.number.isRequired,
   range: PropTypes.string.isRequired,
@@ -365,6 +366,7 @@ export const homeValueChartHistoryPropType = PropTypes.shape({
     })).isRequired,
     axisStart: PropTypes.number.isRequired,
     partial: PropTypes.bool.isRequired,
+    start: PropTypes.number.isRequired,
   }),
 });
 HomeValueChart.propTypes = {
