@@ -79,26 +79,22 @@ export const recordedAmount = (points, t) => {
   return points[low][1];
 };
 
-// A price is known from one sample step before its first sample: the first
-// sample can be up to one step after the requested start. Older history has
-// weekly samples. Before that the price is not available (null), never the
-// first price held back.
-const priceStep = (t, now) => (t < now - (31 * DAY) ? 7 * DAY : DAY);
-export const priceAt = (samples, t, now) => {
-  if (!samples?.length || samples[0][0] - t >= priceStep(t, now)) return null;
+// Before its first sample a price is not available (null). The first price is
+// never held back to earlier days.
+export const priceAt = (samples, t) => {
+  if (!samples?.length || t < samples[0][0]) return null;
   return interpolate(samples, t);
 };
 
 // FX uses the last available ECB day, including weekends, without interpolation.
-// Before the first day, a rate is held back for less than a week (holidays);
-// earlier it is not available. Without samples it is the fallback.
+// Before the first day the rate is not available (null). Without samples it is
+// the fallback.
 export const rateOnDay = (samples, t, fallback = 1) => {
   if (!samples?.length) return fallback;
   const date = new Date(t);
   const day = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  if (samples[0][0] - day >= 7 * DAY) return null;
-  const value = recordedAmount(samples, day);
-  return Number(value) > 0 ? Number(value) : samples[0][1];
+  if (day < samples[0][0]) return null;
+  return Number(recordedAmount(samples, day));
 };
 
 export const visibility = (record, hasPrice, total, now) => {
@@ -123,7 +119,7 @@ export const buildSeries = ({
     for (let i = 0; i < coins.length; i++) {
       const amount = BigNumber(recordedAmount(record.coins[coins[i].id], t));
       if (!amount.isZero()) {
-        const price = priceAt(prices[coins[i].id], t, now);
+        const price = priceAt(prices[coins[i].id], t);
         const rate = rateOnDay(fx, t, fxFallback);
         if (price == null || rate == null) return null;
         sum = sum.plus(amount.times(price).times(rate));
@@ -134,7 +130,20 @@ export const buildSeries = ({
   const valued = points.map((p) => ({ ...p, v: p.kind === 'now' ? total : valueAt(p.t) }));
   // The line starts after the last point that is not available. Its first point
   // gives the "since" date and the change.
-  const shown = valued.slice(valued.map((p) => p.v == null).lastIndexOf(true) + 1);
+  const gap = valued.map((p) => p.v == null).lastIndexOf(true);
+  const shown = valued.slice(gap + 1);
+  if (gap >= 0) {
+    // Between that point and the next one, start at the first sample time that has
+    // a real value for every held coin, so the line starts at the first real price.
+    const from = valued[gap].t;
+    const to = shown[0].t;
+    const first = [...coins.map((coin) => prices[coin.id] || []), fx || []]
+      .flatMap((samples) => samples.map(([t]) => t))
+      .filter((t) => t > from && t < to)
+      .sort((a, b) => a - b)
+      .find((t) => valueAt(t) != null);
+    if (first != null) shown.unshift({ t: first, kind: 'day', v: valueAt(first) });
+  }
   return {
     points: shown, axisStart, partial: partial || shown[0].t > points[0].t, start: shown[0].t,
   };

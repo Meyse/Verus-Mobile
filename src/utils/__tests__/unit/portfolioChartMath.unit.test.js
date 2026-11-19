@@ -63,16 +63,17 @@ it('does not use an exchange rate from after the day it converts', () => {
   const fx = [[Date.UTC(2026, 10, 12), 0.9], [Date.UTC(2026, 10, 16), 0.8]];
   const result = series({prices: {BTC: fullBtc}, fx, fxFallback: 0.85});
 
-  // 5 Nov is 7 days before the first rate: not available. The rate is held back for less than 7 days.
-  expect(result.points[0].t).toBe(day(6));
+  // 1 to 11 Nov have no rate: not available. The line starts on 12 Nov at 10 USD x 0.9.
+  expect(result.points[0].t).toBe(day(12));
   expect(result.points[0].v).toBeCloseTo(9);
+  expect(result.start).toBe(day(12));
 });
 
 it('gives a single point no change', () => {
   expect(change([{t: NOW, v: 120, kind: 'now'}])).toBeNull();
 });
 
-it('keeps the day the record starts when the first price is less than one day later', () => {
+it('does not hold the first price back to an earlier record start', () => {
   const start = day(1) + (14 * 3600000); // record starts at 14:00
   const result = buildSeries({
     record: {start, coins: {BTC: [[start, '1']]}},
@@ -83,8 +84,35 @@ it('keeps the day the record starts when the first price is less than one day la
     now: NOW,
   });
 
-  expect(result.points[0]).toMatchObject({t: start, v: 10});
-  expect(DAY).toBe(86400000);
+  expect(result.points[0]).toMatchObject({t: day(2), v: 10});
+  expect(result.start).toBe(day(2));
+});
+
+it('measures the change from the first priced holding, not an earlier part of it', () => {
+  // Review example: 1 BTC from the record start, 1 ETH from 2 Nov, both priced
+  // at 10 from 2 Nov, total now 120. The change is +500 %, not +1100 %.
+  const start = day(1) + (14 * 3600000);
+  const flat = [[day(2), 10], [day(17), 10]];
+  const result = buildSeries({
+    record: {start, coins: {BTC: [[start, '1']], ETH: [[start, '0'], [day(2), '1']]}},
+    coins: [btc, eth],
+    prices: {BTC: flat, ETH: flat},
+    total: 120,
+    range: '1M',
+    now: NOW,
+  });
+
+  expect(result.points[0]).toMatchObject({t: day(2), v: 20});
+  expect(change(result.points)).toBeCloseTo(500);
+});
+
+it('starts at the first sample time when it falls between two days', () => {
+  const firstPrice = day(14) + (6 * 3600000); // 14 Nov 06:00
+  const result = series({prices: {BTC: [[firstPrice, 90], ...lateBtc]}});
+
+  expect(result.points[0]).toMatchObject({t: firstPrice, v: 90});
+  expect(result.points[1]).toMatchObject({t: day(15), v: 100});
+  expect(result.start).toBe(firstPrice);
 });
 
 it('has no line in another currency when no past exchange rates are known', () => {
