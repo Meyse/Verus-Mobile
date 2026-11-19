@@ -334,3 +334,64 @@ describe.each([
     expect(byTestId(renderer, 'revokeRecover.identity.single').length).toBeGreaterThan(0);
   });
 });
+
+// Owner pick of 2026-11-19 (PR 266 review I1, applied to IS-4): the lookup can
+// leave out a target, so manual entry stays in every state after the lookup.
+describe.each([
+  ['revoke', RevokeIdentityForm, constants.SEND_MODAL_IDENTITY_TO_REVOKE_FIELD, 0],
+  ['recover', RecoverIdentityForm, constants.SEND_MODAL_IDENTITY_TO_RECOVER_FIELD, REVOKED],
+])('%s picker with a complete or empty discovery result', (_mode, Form, targetField, flags) => {
+  let renderer;
+  const mountWith = async list => {
+    jest.clearAllMocks();
+    failing = new Set();
+    setupNetwork(flags);
+    mockGetIdentitiesWithRevocation.mockResolvedValue({result: list});
+    mockGetIdentitiesWithRecovery.mockResolvedValue({result: list});
+    mockState = {
+      authentication: {instanceKey: 'instance-key', signedIn: false, activeAccount: null},
+      settings: {generalWalletSettings: {}},
+      sendModal: {
+        requestId: 'modal-1',
+        data: {
+          [targetField]: '',
+          [constants.SEND_MODAL_SYSTEM_ID]: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq',
+          [constants.SEND_MODAL_ENCRYPTED_IDENTITY_SEED]: 'authority-seed',
+        },
+      },
+    };
+    await act(async () => {
+      renderer = create(<Form {...buildProps()} />);
+    });
+    await flush();
+  };
+
+  afterEach(async () => {
+    if (renderer) await act(async () => renderer.unmount());
+    renderer = null;
+  });
+
+  it('offers manual entry under a complete list', async () => {
+    await mountWith([target(I_ALPHA, 'alpha', flags), target(I_BETA, 'beta', flags)]);
+
+    expect(byTestId(renderer, `revokeRecover.identity.option.${I_BETA}`)).toHaveLength(1);
+    expect(byTestId(renderer, 'revokeRecover.identity.retry')).toHaveLength(0);
+    await press(renderer, 'revokeRecover.identity.manual');
+    expect(byTestId(renderer, 'revokeRecover.identity.input').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the list and manual entry reachable from a single selected target', async () => {
+    await mountWith([target(I_ALPHA, 'alpha', flags)]);
+
+    await press(renderer, 'revokeRecover.identity.single');
+    expect(byTestId(renderer, 'revokeRecover.identity.manual')).toHaveLength(1);
+  });
+
+  it('offers manual entry when the lookup finds no target', async () => {
+    await mountWith([]);
+
+    expect(byTestId(renderer, 'revokeRecover.identity.empty')).toHaveLength(1);
+    await press(renderer, 'revokeRecover.identity.manualInline');
+    expect(byTestId(renderer, 'revokeRecover.identity.input').length).toBeGreaterThan(0);
+  });
+});

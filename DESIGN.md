@@ -1043,9 +1043,7 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
 - The same rule applies to these sheets and screens (owner, 2026-10-24):
   "Choose an address" (its All / Addresses / VerusIDs chips and its chain chips
   hide with the field), Link VerusID (the list of VerusIDs found for the wallet
-  address; the field stays hidden while the lookup runs; "Enter VerusID
-  manually" shows only when the lookup fails or the network has no identity
-  index, as in the revoke and recover picker (owner, 2026-10-26)), Saved
+  address; the field stays hidden while the lookup runs), Saved
   addresses in Send (the recipient step passes in the count of addresses that
   fit the send, so the field does not pop in when the sheet finishes loading),
   "Choose a currency" and "Choose VerusIDs" in Build the gift, the Address book
@@ -1130,8 +1128,13 @@ the selected canonical setting pattern.
 Recovery secrets (`src/containers/DisplaySeed`) show QR codes again (owner
 request, 2026-10-22):
 
+- The derived keys are under "Private keys for other wallets", with one line:
+  "Verus Mobile restores your wallet from the recovery secrets above. Use a
+  private key here when another wallet app asks for one." (owner, 2026-11-19,
+  PR 266 review R24 option A). The Ethereum key does not come from the words
+  in the standard way, so another app can need the key itself.
 - A revealed recovery secret, and a revealed private or spending key under
-  Advanced private keys, has a QR action left of its `CopyAction`. It matches
+  Private keys for other wallets, has a QR action left of its `CopyAction`. It matches
   CopyAction: a 44-point target with the Lucide `QrCode` icon at 18 points in
   `textSubtle`. Values of 1,000 characters or more get no QR action.
 - The action opens `RecoverySecretQrSheet` on the acknowledgement sheet
@@ -1646,8 +1649,7 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   `TransactionResult`; Retry unlink is primary and never sends again.
 - Link is a full page with the multi-select `SelectionRow` rule above,
   search from 7 items, skeleton loading, a counted Link action,
-  failed rows first and still selected,
-  and the existing manual-link fallback after discovery failure. The page header
+  and failed rows first and still selected. The page header
   info action keeps the upstream linking explanation and wallet addresses in an
   `InfoSheet`. Do not invent
   a filtered-out count. Keep network choice when several networks are available.
@@ -1655,6 +1657,30 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   at full opacity and dim only its name to 0.6. The row is read-only. Keep the
   checkbox role, checked and disabled states, and `<name>. Already linked` label.
   Management and Link hide the tab bar while active.
+- Manual entry is always there (owner, 2026-11-19, PR 266 review I1 option A;
+  it replaces ID-1.MANUAL-ROW of 2026-10-26). The lookup lists only VerusIDs
+  this wallet can spend from alone, so it leaves out locked and revoked
+  VerusIDs and VerusIDs that need other signers. The Link footer shows "Enter
+  VerusID manually" as a secondary `AppButton` under the Link action, with the
+  `caption` line "For VerusIDs that need other signers, or any VerusID by name
+  or i-address." under it. It shows in every state except while the lookup
+  runs; while linking it is disabled. When the lookup found nothing, it is the
+  only and primary button, without the line, and the empty state reads "No
+  VerusIDs this wallet can spend from were found on this network. To link a
+  VerusID that needs other signers, enter it manually." A failed lookup keeps
+  Try again as the primary action. The link sheet (sign-in and app-encryption
+  pickers, and the VerusID tab) and the revoke and recover picker show their
+  "Enter VerusID manually" action row in every state except loading. On an
+  empty revoke or recover lookup, the field offers it under "Try automatic
+  lookup again", and a single found target stays tappable to open the list.
+- Manual entry checks what upstream checks: the VerusID exists and one of its
+  primary addresses is a wallet address. Signatures from other signers are not
+  needed to link. The wallet's own Link links any status: a revoked VerusID
+  shows the danger `StatusBadge` "Revoked" next to its name on the review step
+  and the line "This VerusID is revoked. Linking shows it in your wallet. It
+  does not recover it." Request pickers keep the active-only rule, because the
+  linked VerusID must sign the request. No text says that the wallet can spend
+  alone from a VerusID that needs other signers.
 
 ### New VerusID registration
 
@@ -1698,13 +1724,21 @@ The keyboard footer keeps compact amount rows without a referral price line.
   reset the default; Back and Continue keep an explicit choice. The row prices
   and Check details split explain the discount and referral payment.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
-  seven items, success fill/check for selection and no unselected chevron.
+  seven items, no unselected chevron, and the success fill with a 1-point
+  `success` outline and no check for the selected row (`SelectionRow
+  selectionMark="outline"`; owner, 2026-11-19, PR 266 review R5). This sheet
+  only: the check took width from the price. The row keeps its selected
+  accessibility state.
   Hide unavailable namespaces and list the chain's own namespace first, then A–Z.
   Search can explain a permanently unavailable match. A partial check failure
   keeps one muted context line and Try again. Owner-approved V1 keeps the
   canonical rows and uses `quietValue`: bodySm/textSecondary for the price,
-  caption/textSubtle for its fiat line. Token prices show only the number;
-  zero reads Free. The root keeps its ticker. Use exact SDK prices and engine
+  caption/textSubtle for its fiat line. Owner, 2026-11-19 (PR 266 review R5
+  option A): one right-aligned `caption` heading "Price" above the rows; every
+  price shows its currency ("100 kbc", "100 VRSCTEST"), and a price of 0 reads
+  "0 <currency>", never "Free". One `caption` footnote follows the rows:
+  "Every VerusID also needs a network fee of at least 0.0001 <native coin>."
+  Row labels for screen readers read "Price <amount> <currency>". Use exact SDK prices and engine
   quotes. Fiat uses the display currency and existing cached ledger exchange
   rates. Hide it when the exchange rate is unavailable; do not fall back to USD.
 - Explanations use `InfoSheetTopic` in `InfoSheet`; transaction details use `InfoSheetSection`.

@@ -6,6 +6,16 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **ID-1.PR266-VERUSID-PICKS** (PR 266 review R5, I1, R24;
+  owner picks of 2026-11-19) on `claude/pr266-ui-verusid` from `c2b8aeac`:
+  **Ready for verification**. Namespace prices name their currency (no
+  "Free"), with one Price heading, one network-fee footnote and an outline
+  selection without a check. Manual VerusID entry is always available on Link,
+  in the link sheet and in the revoke and recover picker; the wallet links a
+  revoked VerusID by hand, as upstream. Recovery secrets: "Private keys for
+  other wallets" with the new sentence. Related Jest, check:design,
+  check:safe-areas and the Android release bundle pass. See the ID-1 checklist.
+
 - Scoped follow-up: **TX-1.BALANCES-AS-UPSTREAM** (PR 266 review R13) on
   `claude/pr266-ui-balances` from `6c8ca065`: **Verified** (awaits merge).
   Every balance is the confirmed balance, read through
@@ -1950,6 +1960,18 @@ or native behavior of the six source-only shared consumers.
   copy feedback, and unlink cancellation. Verify security-sensitive mutations only
   in the authorized disposable Testnet setup.
 - [x] **ID-1.11** Complete relevant QA-1 checks and record delivery evidence.
+- [x] **ID-1.PR266-VERUSID-PICKS** Owner picks of 2026-11-19 (PR 266 review):
+  R5 A namespace prices (currency on every row, "0 <currency>" not "Free",
+  "Price" heading, network-fee footnote, outline selection without a check;
+  `RegistrationDesign.js`, `SelectionRow selectionMark`), I1 A permanent
+  manual entry (Link footer button and hint, empty-state text, link sheet row,
+  revoke and recover picker in every state; reverses ID-1.MANUAL-ROW) with
+  revoked VerusIDs linkable by hand in the wallet, R24 A recovery secrets
+  text (`DisplaySeed.js`). Branch `claude/pr266-ui-verusid`.
+- [ ] **ID-1.PR266-VERUSID-PICKS-QA** Codex review, Android `normal` and
+  `small` and one iOS simulator, light and dark: namespace sheet, Link with
+  rows, empty and failed lookup, manual link by name and by i-address, sign-in
+  picker entry, revoke and recover entry, recovery secrets text.
 
 **Implementation (verified and review-ready; committed as `33865cab` and
 locally integrated):** manual entry, validation, identity resolution, the
