@@ -26,7 +26,10 @@ without repeating the entire investigation.
     choosers (owner, 2026-11-19); old Pay with list unchanged (same as upstream)
   - [ ] iOS sim check, light and dark: only the light asset stack seen
     (Mac overload stopped the run); Android run is the device proof
-  - [ ] Android QA on `normal` and `small`: Game PC offline
+  - [x] Android QA on `normal` and `small` (s3, light and dark): titles,
+    copy, tag notice and rows, untagged invoice, one-item gift pass; chooser
+    layout fixed in 3f16fc75 and re-checked. Not reachable with one funded
+    card: card picker, Send source list, Pay with, multi-item gift
 
 - Scoped follow-up: **TX-1.BALANCES-AS-UPSTREAM** (PR 266 review R13) on
   `claude/pr266-ui-balances` from `6c8ca065`: **Verified** (awaits merge).
