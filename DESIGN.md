@@ -309,12 +309,18 @@ other address card shows its short address in monospace (the first 6
 characters, "…", the last 6), a VerusID card its name (no i-address), the
 private card "Private". Then " · " and the network's ticker follow on every
 card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
-"alice@ · VRSC", "Private · VRSCTEST". Bitcoin and Ethereum cards take their
-chain's ticker (BTC, BTCTEST, ETH, gETH). The name gives way with a middle
-ellipsis; the network never shortens. No row has an address line; a private
-card that still syncs shows its sync status as the subtitle. Copy and the
-screen reader label keep the full address. Because each title names its network, the
-choosers have no network group titles; rows keep the network order.
+"alice@ · VRSC", "Private · VRSCTEST". A VerusID name that already ends in
+".<network>@" carries its network and shows no suffix ("devphone.VRSCTEST@");
+a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
+cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
+coins take their own ticker (KMD). The short address never shortens below
+6…6; in the rare case of too little room the network suffix takes a tail
+ellipsis. A VerusID name gives way with a middle ellipsis and keeps its @;
+then the network never shortens. No row has an address line; a private card
+that still syncs shows its sync status as the subtitle. Copy and the screen
+reader label keep the full address. Group titles name the network only when
+choices span two or more networks. A single-network chooser shows no group
+title (owner, 2026-11-12; kept on 2026-11-19 until the owner decides).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
@@ -1212,7 +1218,8 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   and 20-point padding. The title is the card title of the Selection rule
   above (owner, 2026-11-19, PR 266 review R8): the short address, VerusID name
   or "Private", then " · <network>". The VerusID name keeps its final @ with a
-  middle ellipsis. Titles use `titleRow`; amounts are
+  middle ellipsis. Titles use `titleRow` (`titleRowCompact` on compact
+  screens, so the 6…6 address fits a 360-point phone); amounts are
   15-point bold tabular; fiat is 12-point medium at 86% white. On a strip the
   sync badge sits 10 points left of the amount on one line; on the front card
   it takes the fiat line under the amount. Keep the existing connection-error

@@ -58,6 +58,21 @@ describe('card title', () => {
     expect(title.isAddress).toBe(false);
   });
 
+  it('drops the network when the VerusID name already ends in it', () => {
+    const system = coinsList.VRSCTEST.system_id;
+    const wallet = {
+      id: `SUBWALLET_vrpc.iDevphone.${system}`,
+      channel: `vrpc.iDevphone.${system}`,
+      name: 'devphone.VRSCTEST@',
+      network: system,
+    };
+
+    const title = getSubWalletCardTitle(wallet, {coin: coinsList.VRSCTEST});
+
+    expect(title.text).toBe('devphone.VRSCTEST@');
+    expect(title.network).toBeNull();
+  });
+
   it('names the private card "Private" with its network', () => {
     const wallet = {
       id: 'PRIVATE_WALLET',

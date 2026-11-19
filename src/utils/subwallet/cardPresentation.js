@@ -130,7 +130,15 @@ export const getSubWalletCardTitle = (wallet, {address, coin} = {}) => {
       : isAddress
       ? shortenAddress(shownAddress)
       : type;
-  const network = getCardNetworkTicker(wallet, coin) || null;
+  const ticker = getCardNetworkTicker(wallet, coin) || null;
+  // A VerusID name such as "devphone.VRSCTEST@" already names its network,
+  // so it shows no suffix (owner, 2026-11-19). A root "alice@" keeps it.
+  const nameCarriesNetwork =
+    type === 'VerusID' &&
+    ticker != null &&
+    typeof name === 'string' &&
+    name.toLowerCase().endsWith(`.${ticker.toLowerCase()}@`);
+  const network = nameCarriesNetwork ? null : ticker;
 
   return {
     type,

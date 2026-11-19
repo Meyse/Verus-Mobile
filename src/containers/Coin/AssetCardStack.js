@@ -268,7 +268,12 @@ const StackCard = ({
                   styles.title,
                   front && !(single && card.syncStatus) && styles.frontTitle,
                 ]}
-                style={[theme.typography.titleRow, {color}]}
+                style={[
+                  compact
+                    ? theme.typography.titleRowCompact
+                    : theme.typography.titleRow,
+                  {color},
+                ]}
               />
             )}
             {front && single && card.syncStatus ? (
