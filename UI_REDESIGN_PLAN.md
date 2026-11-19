@@ -15,11 +15,11 @@ without repeating the entire investigation.
   show "+X pending" next to the confirmed number. Related Jest, check:design
   and the Android release bundle pass. iOS light/dark check passed on
   2026-11-19 (Home, coin screen, Amount; a 0.5 incoming payment counted only
-  after its block). Codex review and Android QA (gamemax) are open.
+  after its block). Codex review: no findings. Android QA (gamemax) is open.
   - [x] One helper for every reader; discovery snapshot holds confirmed values
   - [x] Value tests first (`confirmedBalances.unit.test.js`)
   - [x] iOS sim check, light and dark
-  - [ ] Codex review findings handled
+  - [x] Codex review: no findings (gpt-6-astra high)
   - [ ] Android QA cases a–e on `normal` and `small`
 
 - Scoped follow-up: **GR-4.IDU-PARITY-P2** on
