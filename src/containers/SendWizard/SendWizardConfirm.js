@@ -798,9 +798,10 @@ const SendWizardConfirm = () => {
     route,
     sourceCoin?.display_name,
   );
-  const feeCurrencyId = feeKind === 'btc' ? 'BTC'
+  // A BTC fee is paid in the source coin: BTC, or BTCTEST on testnet4.
+  const feeCurrencyId = feeKind === 'btc' ? sourceCoin?.id
     : sourceCoin?.network === 'sepolia' ? 'GETH' : 'ETH';
-  const feeTicker = feeKind === 'btc' ? 'BTC'
+  const feeTicker = feeKind === 'btc' ? sourceCoin?.display_ticker
     : sourceCoin?.network === 'sepolia' ? 'gETH' : 'ETH';
   const likelyFee = preflightResult
     ? (feeKind === 'eth' ? preflightResult.likelyFee : preflightResult.fee)

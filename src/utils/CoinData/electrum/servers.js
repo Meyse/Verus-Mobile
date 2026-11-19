@@ -7,9 +7,11 @@ let _electrumServers = {
   lumber: [
     'electrum1.lumberscout.io:10001:tcp'
   ],
+  // Bitcoin testnet4 (coin TESTNET). The Verus proxy reaches ElectrumX only.
   testnet: [
-    'tn.not.fyi:55002:ssl',
-    'testnet.hsmiths.com:53012:ssl',
+    '134.199.227.217:50002:ssl',
+    'bitcoin.stagemole.eu:5010:ssl',
+    'testnet4.qtornado.com:51012:ssl',
   ],
   dion: [
     'electrum1.cipig.net:10030:tcp',
