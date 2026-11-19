@@ -262,4 +262,23 @@ describe('asset choices storage (R17)', () => {
     expect(writes.count()).toBe(0);
     expect(await storedChoices()).toBeNull();
   });
+
+  it('keeps a choice that waits when a profile delete fails', async () => {
+    const {SecureStorage} = await restart();
+    const service = await signIn();
+    const choices = require('../../assets/assetChoicesStorage');
+    const writes = serviceWrites(SecureStorage);
+    writes.fail(true);
+    await service.setAssetHomeVisibility(COIN, false);
+    await writesDone();
+
+    // The delete starts, then fails, so the profile stays.
+    await choices.closeAssetChoices(ACCOUNT);
+    writes.fail(false);
+    choices.reopenAssetChoices(ACCOUNT);
+    await writesDone();
+
+    const stored = await storedChoices();
+    expect(stored.networks[NETWORK].preferences[COIN_KEY]).toEqual({hidden: true});
+  });
 });

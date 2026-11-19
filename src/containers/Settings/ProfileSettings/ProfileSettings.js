@@ -52,6 +52,7 @@ import {
   SettingsSwitchRow,
 } from '../components/SettingsScaffold';
 import KeychainEncryptionSettingRow from '../components/KeychainEncryptionSettingRow';
+import { waitBeforeSignOut } from '../../../utils/assets/assetChoicesStorage';
 
 const RESET_PWD = "ResetPwd"
 const REMOVE_PROFILE = "DeleteProfile"
@@ -295,11 +296,9 @@ class ProfileSettings extends Component {
           task: () => {
             // Hack to prevent crash on screens that require activeAccount not to be null
             // TODO: Find a more elegant solution
-            return new Promise((resolve, reject) => {
-              setTimeout(() => {
-                this.props.dispatch(signOut(sessionScope));
-                resolve();
-              }, 1000);
+            // Asset choice writes need the password, so they end first.
+            return waitBeforeSignOut(accountHash).then(() => {
+              this.props.dispatch(signOut(sessionScope));
             });
           },
           message: "Signing out",

@@ -212,20 +212,34 @@ export const finishAssetChoiceWrites = (accountHash, timeout = FINISH_TIMEOUT) =
   return withTimeout(writer.tail, timeout);
 };
 
-// Profile delete: drop the changes that wait and wait for a write that runs,
-// so no write can come after the delete.
+// For the "Signing out" screens: their usual 1 s wait, and the asset choice
+// writes of the profile in the same time.
+export const waitBeforeSignOut = (accountHash, delay = 1000) => Promise.all([
+  finishAssetChoiceWrites(accountHash),
+  new Promise(resolve => setTimeout(resolve, delay)),
+]);
+
+// Profile delete: no new write enters the service queue, and a write that
+// runs ends first. So no write can come after the delete. The changes that
+// wait stay until the delete succeeds (forgetAssetChoices).
 export const closeAssetChoices = (accountHash, timeout = FINISH_TIMEOUT) => {
   const writer = writers.get(accountHash);
   if (!writer) return Promise.resolve();
   writer.closed = true;
-  writer.changes = [];
-  writer.migration = null;
   return withTimeout(writer.tail, timeout);
 };
 
-// The delete failed and the profile stays: accept changes again.
+// The delete failed and the profile stays: write the changes that wait.
 export const reopenAssetChoices = accountHash => {
-  if (writers.get(accountHash)?.closed) writers.delete(accountHash);
+  const writer = writers.get(accountHash);
+  if (!writer?.closed) return;
+  writer.closed = false;
+  if (hasWork(writer)) scheduleFlush(accountHash, writer);
+};
+
+// The delete succeeded: drop the changes of the deleted profile.
+export const forgetAssetChoices = accountHash => {
+  writers.delete(accountHash);
 };
 
 // Profiles created in this session. The first hydration of one skips the

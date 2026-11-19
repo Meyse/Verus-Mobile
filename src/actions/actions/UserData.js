@@ -3,6 +3,7 @@ import {deleteAssetDiscoveryCache} from '../../utils/assets/assetDiscoveryCache'
 import {
   closeAssetChoices,
   deleteAssetChoices,
+  forgetAssetChoices,
   reopenAssetChoices,
 } from '../../utils/assets/assetChoicesStorage';
 import {deleteAccountWalletUiSettings} from './WalletSettings';
@@ -348,8 +349,8 @@ export const deleteProfile = async (account, dispatch) => {
     dlightSeed = null;
 
     if (!teardownError) {
-      // Wait for an asset choice write that runs and drop the others, so no
-      // write can bring back service data of the deleted profile.
+      // Stop asset choice writes and wait for one that runs, so no write can
+      // bring back service data of the deleted profile.
       await closeAssetChoices(account.accountHash);
       let remainingAccounts;
       try {
@@ -358,6 +359,7 @@ export const deleteProfile = async (account, dispatch) => {
         reopenAssetChoices(account.accountHash);
         throw error;
       }
+      forgetAssetChoices(account.accountHash);
       try {
         await deleteBalanceRecord(account.accountHash);
       } catch (error) {

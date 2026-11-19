@@ -3,7 +3,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {CommonActions} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {signOut} from '../../actions/actionCreators';
-import {finishAssetChoiceWrites} from '../../utils/assets/assetChoicesStorage';
+import {waitBeforeSignOut} from '../../utils/assets/assetChoicesStorage';
 import signedInCopy from '../../copy/signedIn';
 import {APP_VERSION} from '../../../env/index';
 import {
@@ -82,11 +82,8 @@ const SignedInSettingsHome = ({navigation}) => {
             data: {
               task: async () => {
                 // An asset choice write needs the password, so it ends
-                // before sign-out. It runs during the usual 1 s wait.
-                await Promise.all([
-                  finishAssetChoiceWrites(activeProfile?.accountHash),
-                  new Promise(resolve => setTimeout(resolve, 1000)),
-                ]);
+                // before sign-out.
+                await waitBeforeSignOut(activeProfile?.accountHash);
                 dispatch(signOut());
               },
               message: 'Signing out',
