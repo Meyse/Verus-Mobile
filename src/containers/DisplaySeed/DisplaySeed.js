@@ -494,10 +494,11 @@ const DisplaySeed = ({navigation, route}) => {
               />
             )}
             {data.showDerivedKeys && derivedKeyOptions.length > 0 ? (
-              <SettingsSection title="Advanced private keys">
+              <SettingsSection title="Private keys for other wallets">
                 <Text style={styles.advancedDescription}>
-                  Derived private keys are usually not needed for wallet
-                  recovery.
+                  Verus Mobile restores your wallet from the recovery secrets
+                  above. Use a private key here when another wallet app asks
+                  for one.
                 </Text>
                 {derivedKeyOptions.map(option => (
                   <DerivedKeyRow

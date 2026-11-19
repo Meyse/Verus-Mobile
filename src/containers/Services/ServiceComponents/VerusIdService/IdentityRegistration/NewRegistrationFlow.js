@@ -320,7 +320,7 @@ export default function NewRegistrationFlow({navigation, route}) {
         onSelect={address => {if (!running.current) setPayerAddress(address);}} sources={sources} selectedAddress={payer?.address}
         quote={activeQuote} currencyNames={preview?.currencyNames || data?.currencyNames} coin={coin} coins={coins}
         balances={balances} reads={sourceReads.reads} showBalance={showBalance} onRetry={sourceReads.retry} />
-      <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces} selectedId={namespace?.id || coin?.system_id}
+      <NamespaceSheet visible={namespaceVisible} onClose={() => setNamespaceVisible(false)} namespaces={namespaces} selectedId={namespace?.id || coin?.system_id} nativeCurrency={coin?.display_ticker}
         onSelect={item => {setNamespace(item); setReferral(null); setReferralName('');}} loading={namespaceLoading} error={namespaceError} onRetry={() => setNamespaceAttempt(value => value + 1)} />
     </>}
   </RegistrationPage>;

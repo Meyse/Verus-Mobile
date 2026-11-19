@@ -46,10 +46,10 @@ const LIST_CONTENT_VERTICAL_PADDING = 4;
 const TARGET_VISIBLE_ROWS = 6;
 const TARGET_VISIBLE_ROWS_WITH_KEYBOARD = 4;
 const MIN_VISIBLE_ROWS_WITH_KEYBOARD = 1;
-// `LinkExistingVerusIdSheet` renders the manual entry row only when the
-// automatic lookup fails. The row's shared `actionRow` style is 62 points tall.
-// While the row or the manual step shows, that room is sheet chrome and must be
-// reserved before the scrollable candidate viewport is sized.
+// `LinkExistingVerusIdSheet` renders the manual entry row whenever the
+// automatic lookup is not running. The row's shared `actionRow` style is 62
+// points tall. That room is sheet chrome and must be reserved before the
+// scrollable candidate viewport is sized.
 const MANUAL_LINK_ROW_HEIGHT = 62;
 
 const getLinkSheetMetrics = ({

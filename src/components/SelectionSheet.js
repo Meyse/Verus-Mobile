@@ -49,11 +49,16 @@ export const SelectionRow = ({
   // A completed choice keeps its value readable and has no selection control.
   readOnly = false,
   preserveSubtitle = false,
+  // 'outline' marks a single choice with the success fill and a full outline,
+  // without the check, so the value can use the indicator's width. The owner
+  // chose it for the namespace sheet only (PR 266 review R5, 2026-11-19).
+  selectionMark = 'check',
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const isCheckbox = accessibilityRole === 'checkbox';
   const rowDisabled = disabled || readOnly;
+  const outlineMark = selectionMark === 'outline' && !isCheckbox;
   return (
     <TouchableOpacity
       accessibilityRole={accessibilityRole}
@@ -76,7 +81,9 @@ export const SelectionRow = ({
         styles.row,
         compact && styles.compactRow,
         dense && styles.denseRow,
+        outlineMark && styles.outlineMarkRow,
         selected && !isCheckbox && styles.selectedRow,
+        selected && outlineMark && styles.outlineMarkSelectedRow,
       ]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={[
@@ -120,7 +127,7 @@ export const SelectionRow = ({
           )}
         </View>
       ) : null}
-      {!readOnly && (
+      {!readOnly && !outlineMark && (
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"

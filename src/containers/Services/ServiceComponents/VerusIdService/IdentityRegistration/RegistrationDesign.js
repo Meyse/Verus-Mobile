@@ -201,7 +201,7 @@ export const NameField = ({name, setName, namespace, onNamespace, busy, availabi
   </>}</VerusIdFormField>;
 };
 
-export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSelect, loading, error, onRetry}) => {
+export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSelect, loading, error, onRetry, nativeCurrency}) => {
   const [query, setQuery] = useState('');
   const styles = useRegistrationStyles();
   const formatFiat = useRegistrationFiat();
@@ -214,16 +214,24 @@ export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSele
   const hiddenMatches = search ? namespaces.filter(item => item.reason && !item.reason.includes('could not be checked') &&
     item.name.toLowerCase().includes(search)) : [];
   const hiddenMatch = hiddenMatches.find(item => item.name.toLowerCase() === search) || hiddenMatches[0];
+  // Every price names its currency, also a price of 0: each VerusID still
+  // pays the network fee in the footnote (PR 266 review R5).
   const row = item => {
-    const amount = formatRegistrationAmount(item.amount);
-    const unit = item.suffix === '@' ? ` ${item.currency}` : '';
+    const price = [formatRegistrationAmount(item.amount), item.currency].filter(Boolean).join(' ');
+    const subtitle = item.referralRequired ? 'Requires a referral signature.' : undefined;
+    const fiat = item.usd ? formatFiat({[item.id]: item.amount}, {[item.id]: item.usd}) : undefined;
     return <SelectionRow key={item.id} title={item.name} selected={item.id === selectedId} showChevron={false}
-      quietValue
-      subtitle={item.referralRequired ? 'Requires a referral signature.' : undefined}
-      value={amount === '0' ? 'Free' : `${amount}${unit}`}
-      valueLabel={item.usd ? formatFiat({[item.id]: item.amount}, {[item.id]: item.usd}) : undefined}
+      quietValue selectionMark="outline" subtitle={subtitle} value={price} valueLabel={fiat}
+      accessibilityLabel={[item.name, subtitle, `Price ${price}`, fiat].filter(Boolean).join(', ')}
       onPress={() => dismissal.dismiss(() => onSelect(item))} />;
   };
+  const rows = matches.length ? <>
+    <Text style={styles.namespacePriceHeading} accessible={false} importantForAccessibility="no">Price</Text>
+    {matches.map(row)}
+    {nativeCurrency ? <Text style={[styles.muted, styles.namespaceFeeNote]}>
+      {`Every VerusID also needs a network fee of at least 0.0001 ${nativeCurrency}.`}
+    </Text> : null}
+  </> : null;
   return <SelectionSheet title="Choose a namespace" visible={visible} onClose={dismissal.close} onClosed={dismissal.onClosed} avoidKeyboard
     footer={!loading && unchecked ? <View style={styles.section}>
       <Text style={styles.muted}>Some namespaces could not be checked.</Text>
@@ -234,7 +242,7 @@ export const NamespaceSheet = ({visible, onClose, namespaces, selectedId, onSele
     {loading ? <RegistrationSkeleton label="Loading namespaces" /> : error ? <View style={styles.section}>
       <Text style={styles.errorText}>{error}</Text><TextAction onPress={onRetry}>Try again</TextAction>
     </View> : !matches.length ? <Text style={styles.muted}>{hiddenMatch
-      ? `This app cannot register names under ${hiddenMatch.name} yet.` : 'No matching namespaces.'}</Text> : matches.map(row)}
+      ? `This app cannot register names under ${hiddenMatch.name} yet.` : 'No matching namespaces.'}</Text> : rows}
   </SelectionSheet>;
 };
 

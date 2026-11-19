@@ -47,6 +47,9 @@ export const createSelectionSheetStyles = theme =>
     denseTitle: {...theme.typography.titleRowDense},
     denseSubtitle: {...theme.typography.captionDense},
     selectedRow: {backgroundColor: theme.colors.successBackground},
+    // Every row keeps a clear 1-point border, so the outline does not move the text.
+    outlineMarkRow: {borderWidth: 1, borderColor: 'transparent'},
+    outlineMarkSelectedRow: {borderColor: theme.colors.success},
     leading: {marginRight: 12},
     copy: {flex: 1, minWidth: 0},
     disabledContent: {opacity: 0.5},
