@@ -109,8 +109,6 @@ jest.mock('../../api/channels/vrpc/callCreators', () => ({
   getAddressDeltas: mockGetAddressDeltas,
   getAddressUtxos: mockGetAddressUtxos,
   getInfo: mockGetInfo,
-  // The mempool recheck at funding time finds no pending spends.
-  getMempoolUnspentUtxos: jest.fn((systemId, addresses, utxos) => Promise.resolve(utxos)),
   getSpendableUtxos: mockGetSpendableUtxos,
   getTransaction: mockGetTransaction,
   sendRawTransaction: mockSendRawTransaction,
@@ -1020,6 +1018,48 @@ describe('gift card helpers', () => {
         feeSats: '10000',
       }),
     );
+  });
+
+  it('refuses funding while a spend from the wallet address is unconfirmed', async () => {
+    // Funding spends confirmed outputs only. The address index still lists
+    // the outputs that the unconfirmed send spends.
+    mockGetAddressMempool.mockResolvedValue({result: [{
+      address: 'RSourceAddress', txid: 'cd'.repeat(32), index: 0,
+      satoshis: -100000000, spending: true,
+    }]});
+    const card = await createGiftCard({
+      requestIsTestnet: false,
+      activeCoinsForUser: [mockRootCoin],
+    });
+
+    await expect(
+      preflightGiftCardFunding({
+        card,
+        selections: {
+          funds: [],
+          identities: [
+            {
+              key: 'root-system:i-funded-id',
+              chain: 'VRSC',
+              systemId: mockRootCoin.system_id,
+              identityAddress: 'i-funded-id',
+              fullyQualifiedName: 'funded@',
+            },
+          ],
+        },
+        identityFunding: [],
+        activeCoinsForUser: [mockRootCoin],
+        activeAccount: {
+          keys: {[mockRootCoin.id]: {vrpc: {addresses: ['RSourceAddress']}}},
+        },
+      }),
+    ).rejects.toThrow(
+      'Your previous transaction is not confirmed yet. Wait for the next block, then try again.',
+    );
+    expect(mockGetAddressMempool).toHaveBeenCalledWith(
+      mockRootCoin.system_id, ['RSourceAddress', 'i-funded-id'], false, 1, true,
+    );
+    expect(mockCreateUpdateIdentityTxWithUtxos).not.toHaveBeenCalled();
   });
 
   it('does not spend a VerusID fee UTXO that would leave no native claim fee', async () => {
