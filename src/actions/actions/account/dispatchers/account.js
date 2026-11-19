@@ -13,6 +13,7 @@ import { setServiceStored } from "../../services/creators/services";
 import { resetServices } from '../../services/dispatchers/services';
 import { fetchUsers, validateLogin } from "../../UserData";
 import { initSettings, saveGeneralSettings } from "../../WalletSettings";
+import { WALLET_UI_NOT_SAVED } from "../../../../utils/asyncStore/walletUiStorage";
 import { DISABLED_CHANNELS } from '../../../../../env/index'
 import store from "../../../../store";
 import { getAddressBlocklistFromServer } from "../../../../utils/api/channels/general/addressBlocklist/getAddressBlocklist";
@@ -339,10 +340,16 @@ export const initializeAccountData = async (
       [account.accountHash]: Date.now(),
     };
 
-    await saveGeneralSettings({
-      lastOpenedAccountTimestamps,
-      lastWalletNetwork: getAccountNetworkKey(account),
-    });
+    try {
+      await saveGeneralSettings({
+        lastOpenedAccountTimestamps,
+        lastWalletNetwork: getAccountNetworkKey(account),
+      });
+    } catch (error) {
+      // The sign-in time is a display choice; it must not block a sign-in.
+      if (error?.code !== WALLET_UI_NOT_SAVED) throw error;
+      console.warn('Could not save the sign-in time.', error.message);
+    }
     assertInitializationActive();
 
     const coinList = await fetchActiveCoins();

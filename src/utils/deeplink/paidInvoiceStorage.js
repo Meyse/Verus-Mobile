@@ -1,23 +1,18 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {sha256} from '../crypto/hash';
+import store from '../../store';
+import {requestPassword, requestServiceStoredData} from '../auth/authBox';
+import {modifyServiceEntryWithPasswordForUser} from '../../actions/actions/services/dispatchers/services';
+import {PAID_INVOICES_SERVICE_ID} from '../constants/services';
 
-// Invoices this device paid, so a second visit can say so. The record lives
-// on this device only; paying again stays possible.
-const STORAGE_KEY = 'paid_invoice_markers';
+// Invoices this account paid, so a second visit can say so. The markers hold
+// txids, so they live in the account's password-encrypted service data and go
+// with the profile. Paying again stays possible.
 const MAX_MARKERS = 200;
 
-const loadMarkers = async () => {
-  const stored = await AsyncStorage.getItem(STORAGE_KEY);
-
-  if (!stored) return {};
-
-  try {
-    const parsed = JSON.parse(stored);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch (_) {
-    return {};
-  }
-};
+const markersOf = data =>
+  data?.markers && typeof data.markers === 'object' && !Array.isArray(data.markers)
+    ? data.markers
+    : {};
 
 /**
  * One invoice as one account sees it. A GenericRequest has its own ID and
@@ -44,27 +39,47 @@ export const getPaidInvoiceKey = ({
   return sha256(Buffer.from(`${source}:${accountHash}`, 'utf8')).toString('hex');
 };
 
-/** @returns {Promise<{txid: string|null, paidAt: number}|null>} */
+/**
+ * Reads the signed-in account's service data, which is loaded at sign-in.
+ * @returns {Promise<{txid: string|null, paidAt: number}|null>}
+ */
 export const loadPaidInvoice = async key => {
   if (!key) return null;
 
-  const markers = await loadMarkers();
+  const markers = markersOf(await requestServiceStoredData(PAID_INVOICES_SERVICE_ID));
   return markers[key] || null;
 };
 
+const isActive = accountHash =>
+  store.getState().authentication.activeAccount?.accountHash === accountHash;
+
 /**
  * A null txid means the broadcast status is unknown: the invoice may be paid.
+ * The password is read at once, while the paying account is signed in. The
+ * slow write then merges with the stored markers and also completes if the
+ * account changes meanwhile.
  */
-export const savePaidInvoice = async (key, txid) => {
-  if (!key) return;
+export const savePaidInvoice = async (key, txid, accountHash) => {
+  if (!key || !accountHash) return;
 
-  const markers = await loadMarkers();
-  markers[key] = {txid: txid || null, paidAt: Date.now()};
+  if (!isActive(accountHash)) throw new Error('The paying account is no longer signed in.');
+  const password = await requestPassword();
+  if (!isActive(accountHash)) throw new Error('The paying account is no longer signed in.');
 
-  const oldestFirst = Object.keys(markers).sort(
-    (a, b) => (markers[a]?.paidAt || 0) - (markers[b]?.paidAt || 0),
+  await modifyServiceEntryWithPasswordForUser(
+    PAID_INVOICES_SERVICE_ID,
+    accountHash,
+    password,
+    current => {
+      const markers = {...markersOf(current)};
+      markers[key] = {txid: txid || null, paidAt: Date.now()};
+
+      const oldestFirst = Object.keys(markers).sort(
+        (a, b) => (markers[a]?.paidAt || 0) - (markers[b]?.paidAt || 0),
+      );
+      while (oldestFirst.length > MAX_MARKERS) delete markers[oldestFirst.shift()];
+
+      return {markers};
+    },
   );
-  while (oldestFirst.length > MAX_MARKERS) delete markers[oldestFirst.shift()];
-
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(markers));
 };

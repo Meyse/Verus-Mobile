@@ -89,7 +89,7 @@ const dispatchForContext = (context, type, payload) => {
   store.dispatch(scopeSessionAction({type, payload}, context.sessionScope));
 };
 
-// Choices and the discovery cache have separate plain storage records.
+// Choices are stored. The discovery cache stays in memory (assetDiscoveryCache.js).
 const choicesOnly = ({snapshots, resolved, ...choices}) => choices;
 const choicesRecord = saved => ({
   ...saved,

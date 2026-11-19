@@ -99,11 +99,29 @@ const legacyProps = isSigned => {
   };
 };
 
+let mounted = [];
+
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
+// Unmount inside act and run the pending animation timers, so no timer
+// fires after the test environment is torn down.
+afterEach(() => {
+  act(() => {
+    mounted.forEach(renderer => renderer.unmount());
+    jest.runOnlyPendingTimers();
+  });
+  mounted = [];
+  jest.useRealTimers();
+});
+
 const render = props => {
   let renderer;
   act(() => {
     renderer = create(<InvoiceInfo {...props} />);
   });
+  mounted.push(renderer);
   return renderer;
 };
 
@@ -131,7 +149,6 @@ describe('InvoiceInfo legacy VerusPay invoice header', () => {
 
     expect(labels(renderer)).toContain('Request from signer@, verified');
     expect(labels(renderer)).not.toContain('Unsigned request');
-    renderer.unmount();
   });
 
   it('shows an unsigned legacy invoice as unsigned', () => {
@@ -139,7 +156,6 @@ describe('InvoiceInfo legacy VerusPay invoice header', () => {
 
     expect(labels(renderer)).toContain('Unsigned request');
     expect(labels(renderer).some(label => label.startsWith('Request from'))).toBe(false);
-    renderer.unmount();
   });
 
   it('opens the signer from the verified header', () => {

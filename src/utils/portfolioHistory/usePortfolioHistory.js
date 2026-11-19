@@ -15,6 +15,11 @@ import {
   availableRanges, buildSeries, HOUR, visibility,
 } from './chartMath';
 
+// Long enough for the results of one refresh, also on a slow Android phone.
+export const RECORD_SAVE_DELAY_MS = 3000;
+
+const DEFAULT_RANGES = ['1D', '1W', '1M', '1Y'];
+
 const usePortfolioHistory = ({
   account, activeCoins, balances, total, rates, currency, ready, refreshing,
   testnetPrices,
@@ -25,6 +30,12 @@ const usePortfolioHistory = ({
   const focusedRef = useRef(focused);
   focusedRef.current = focused;
   const accountHash = account?.accountHash;
+  const accountHashRef = useRef(accountHash);
+  accountHashRef.current = accountHash;
+  // The amounts last saved, and how many own saves are running (their record updates are not
+  // a replacement from elsewhere).
+  const appendedKey = useRef(null);
+  const savingRecord = useRef(0);
   const [saved, setSaved] = useState(null);
   const [range, setRange] = useState('1M');
   const [now, setNow] = useState(Date.now());
@@ -58,7 +69,10 @@ const usePortfolioHistory = ({
     if (!accountHash) return undefined;
     const timer = setTimeout(() => { if (active) setReadTimedOut(accountHash); }, 400);
     const unsubscribe = subscribeBalanceRecord((hash, value) => {
-      if (active && hash === accountHash) setSaved({ accountHash, record: value });
+      if (!active || hash !== accountHash) return;
+      // A replaced or deleted record may no longer hold the saved amounts: save them again.
+      if (savingRecord.current === 0) appendedKey.current = null;
+      setSaved({ accountHash, record: value });
     });
     readBalanceRecord(accountHash).then((value) => {
       if (active) setSaved({ accountHash, record: value });
@@ -69,14 +83,51 @@ const usePortfolioHistory = ({
     return () => { active = false; clearTimeout(timer); unsubscribe(); };
   }, [accountHash]);
 
+  // Balance results of one refresh arrive one after the other. Save the record once, after
+  // they stop changing, and not again for the same amounts. Each save reads and writes the
+  // whole encrypted record. A save that is still waiting runs at once when the wallet
+  // closes, the account changes or the total becomes unknown, so no change is lost.
+  const pendingSave = useRef(null);
+  const mounted = useRef(true);
+  const saveNow = useRef(null);
+  saveNow.current = (save) => {
+    appendedKey.current = save.key;
+    savingRecord.current += 1;
+    appendBalanceRecord(save.accountHash, save.balances).then((value) => {
+      if (mounted.current && save.accountHash === accountHashRef.current) {
+        setSaved({ accountHash: save.accountHash, record: value });
+      }
+    }).catch((error) => {
+      if (appendedKey.current === save.key) appendedKey.current = null;
+      console.warn('Could not save the local portfolio record.', error.message);
+    }).finally(() => { savingRecord.current -= 1; });
+  };
+  const flushPendingSave = () => {
+    const save = pendingSave.current;
+    pendingSave.current = null;
+    if (save) saveNow.current(save);
+  };
   useEffect(() => {
-    if (!accountHash || !ready || total == null || !Number.isFinite(total)) return undefined;
-    let active = true;
-    appendBalanceRecord(accountHash, balances).then((value) => {
-      if (active) setSaved({ accountHash, record: value });
-    }).catch((error) => console.warn('Could not save the local portfolio record.', error.message));
-    return () => { active = false; };
+    if (!accountHash || !ready || total == null || !Number.isFinite(total)) {
+      flushPendingSave();
+      return undefined;
+    }
+    if (pendingSave.current && pendingSave.current.accountHash !== accountHash) flushPendingSave();
+    const key = `${accountHash}:${JSON.stringify(balances)}`;
+    if (key === appendedKey.current) {
+      pendingSave.current = null;
+      return undefined;
+    }
+    pendingSave.current = { accountHash, balances, key };
+    const timer = setTimeout(flushPendingSave, RECORD_SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- flushPendingSave reads refs only.
   }, [accountHash, balances, total, ready]);
+  useEffect(() => () => {
+    mounted.current = false;
+    flushPendingSave();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on unmount.
+  }, []);
 
   useEffect(() => {
     if (!focused) return undefined;
@@ -142,7 +193,8 @@ const usePortfolioHistory = ({
     return () => { active = false; };
   }, [focused, state, refreshing, marketKey, start, currency, hourBucket]);
 
-  const ranges = record ? availableRanges(record.start, now) : ['1D', '1W', '1M', '1Y'];
+  const ranges = useMemo(() => (record ? availableRanges(record.start, now) : DEFAULT_RANGES),
+    [record, now]);
   const selectedRange = ranges.includes(range) ? range : '1M';
   const requested = market?.key === marketKey ? market : null;
   const data = requested && !requested.loading ? requested : savedMarket || requested;
@@ -160,8 +212,13 @@ const usePortfolioHistory = ({
     now,
   }) : null),
   [state, record, coins, data, fxFallback, total, selectedRange, now]);
-  return {
+  const loading = state === 'chart' && (total == null || !data || data.loading);
+  // Before the record is read, Home can still tell whether a chart can show at all.
+  const hasPrice = coins.length > 0;
+  // One object per change, so the header and chart draw again only when the history changes.
+  return useMemo(() => ({
     hydrated,
+    hasPrice,
     focused,
     state,
     record,
@@ -170,8 +227,8 @@ const usePortfolioHistory = ({
     ranges,
     setRange,
     now,
-    loading: state === 'chart' && (total == null || !data || data.loading),
-  };
+    loading,
+  }), [hydrated, hasPrice, focused, state, record, series, selectedRange, ranges, now, loading]);
 };
 
 export default usePortfolioHistory;

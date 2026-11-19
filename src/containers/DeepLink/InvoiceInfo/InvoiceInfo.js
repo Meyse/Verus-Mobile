@@ -134,9 +134,11 @@ const InvoiceInfo = props => {
   }, [paidInvoiceKey]);
   const onPaymentSent = useCallback(
     txid => {
-      savePaidInvoice(paidInvoiceKey, txid).catch(error => console.warn(error));
+      savePaidInvoice(paidInvoiceKey, txid, accountHash).catch(error =>
+        console.warn(error),
+      );
     },
-    [paidInvoiceKey],
+    [paidInvoiceKey, accountHash],
   );
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const isTestAccount = useSelector(
