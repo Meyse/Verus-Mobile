@@ -112,6 +112,7 @@ import {
   isConnectionErrorMessage,
 } from '../../utils/network/connectionErrors';
 import {getBroadcastRejectionMessage} from './broadcastRejection';
+import {SPENT_INPUTS_NOT_SENT_MESSAGE} from '../../utils/transactions/unconfirmedSpend';
 
 
 const SendWizardConfirm = () => {
@@ -154,6 +155,10 @@ const SendWizardConfirm = () => {
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const preflightSequence = useRef(0);
+  // The node refused the prepared inputs as spent. The next slide prepares
+  // again from the current confirmed outputs instead of sending these bytes.
+  const refusedInputs = useRef(false);
+  const [prepareRound, setPrepareRound] = useState(0);
   const preparedParams = useRef(null);
   const lastReview = useRef(null);
   const generalWalletSettings = useObjectSelector(value => value.settings.generalWalletSettings);
@@ -474,6 +479,7 @@ const SendWizardConfirm = () => {
   }, [
     activeAccount,
     feeKind,
+    prepareRound,
     networkFee.loading,
     networkFee.error,
     reviewKey,
@@ -523,6 +529,11 @@ const SendWizardConfirm = () => {
       broadcastUnknown.current ||
       state.broadcastError
     ) return;
+    if (refusedInputs.current) {
+      refusedInputs.current = false;
+      setPrepareRound(round => round + 1);
+      return;
+    }
     submissionInFlight.current = true;
     setSending(true);
     setError(null);
@@ -597,13 +608,13 @@ const SendWizardConfirm = () => {
       } else {
         // Electrum preserves an explicit rejection on the thrown error.
         const message = sendError.message || 'Transaction failed.';
-        setError(
-          sendError.rejected || sendError.ambiguousBroadcast === false
-            ? getBroadcastRejectionMessage(message)
-            : isConnectionErrorMessage(message)
-              ? CONNECTION_FAILED_MESSAGE
-              : message,
-        );
+        const shown = sendError.rejected || sendError.ambiguousBroadcast === false
+          ? getBroadcastRejectionMessage(message)
+          : isConnectionErrorMessage(message)
+            ? CONNECTION_FAILED_MESSAGE
+            : message;
+        refusedInputs.current = shown === SPENT_INPUTS_NOT_SENT_MESSAGE;
+        setError(shown);
       }
     } finally {
       dispatch(expireCoinData(sourceCoin.id, API_GET_BALANCES));
