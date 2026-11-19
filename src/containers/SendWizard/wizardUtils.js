@@ -1,6 +1,7 @@
 import {Buffer} from 'buffer';
 import {ethers} from 'ethers';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import {explorers} from '../../utils/CoinData/CoinData';
 import {
   I_ADDRESS_VERSION,
   R_ADDRESS_VERSION,
@@ -9,6 +10,7 @@ import {DEST_ETH, fromBase58Check} from 'verus-typescript-primitives';
 import {getEthereumAssetName} from '../../utils/assets/ethereumAssetName';
 import {VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT} from '../../utils/constants/web3Constants';
 import {getTestnetBridgeDelegator} from '../../utils/testnetEnvironment';
+import {IS_PBAAS, IS_PBAAS_ROOT} from '../../utils/constants/intervalConstants';
 
 const lookupCoin = id => {
   if (!id) return null;
@@ -736,6 +738,29 @@ export const getTransactionId = result => {
     result?.transactionHash ||
     null
   );
+};
+
+// The explorer page of a sent transaction, or null when its chain has no
+// explorer. A PBaaS currency's transaction lives on its system chain, so it
+// uses that chain's explorer, as the history sheet does (Overview.js).
+const ETHEREUM_EXPLORER_IDS = {homestead: 'ETH', sepolia: 'GETH'};
+export const getExplorerTxUrl = (coin, txid) => {
+  if (!coin?.id || !txid) return null;
+  let explorerId = coin.id;
+  if (coin.proto === 'erc20') {
+    // A token uses its Ethereum network's explorer. Listed tokens have no
+    // `network` and are mainnet; imported ones name their network.
+    const network = coin.network || (coin.testnet ? 'sepolia' : 'homestead');
+    explorerId = ETHEREUM_EXPLORER_IDS[network];
+  } else if (coin.system_id && coin.tags?.includes(IS_PBAAS) && !coin.tags.includes(IS_PBAAS_ROOT)) {
+    try {
+      explorerId = CoinDirectory.findSystemCoinObj(coin.id).id;
+    } catch (error) {
+      return null;
+    }
+  }
+  const base = explorers[explorerId];
+  return base ? `${base.replace(/\/$/, '')}/tx/${txid}` : null;
 };
 
 // The network a cross-chain transfer arrives on, named as the Network sheet
