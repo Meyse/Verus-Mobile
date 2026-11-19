@@ -585,6 +585,22 @@ test('rejects unexpected non-native fees but permits explicit zero currency delt
   await expect(prepare()).rejects.toThrow('fee currency');
 });
 
+test.each(['18: txn-mempool-conflict', '18: bad-txns-inputs-spent', '-25: Missing inputs'])('a node refusal "%s" says nothing was sent and asks for a new review', async nodeError => {
+  // Funding uses confirmed outputs only. Before the next block the node
+  // refuses inputs that an unconfirmed transaction already spends.
+  const plan = await prepare();
+  const send = jest.spyOn(mockClient.interface, 'sendRawTransaction');
+  send.mockResolvedValueOnce({error: {code: -26, message: nodeError}});
+  const notSent = {
+    code: 'REVIEW_CHANGED',
+    message: 'Your previous transaction is not confirmed yet. Nothing was sent. Wait for the next block, then review the update again.',
+  };
+
+  await expect(sendIdentityUpdate(plan)).rejects.toMatchObject(notSent);
+  await expect(sendIdentityUpdate(plan)).rejects.toMatchObject(notSent);
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
 test.each(['timeout', 'null rejection', 'RPC error', 'wrong transaction ID', 'missing response', 'missing transaction ID', 'malformed transaction ID', 'synchronous error'])('a %s records handoff without acknowledging delivery or resending', async outcome => {
   const plan = await prepare();
   const send = jest.spyOn(mockClient.interface, 'sendRawTransaction');

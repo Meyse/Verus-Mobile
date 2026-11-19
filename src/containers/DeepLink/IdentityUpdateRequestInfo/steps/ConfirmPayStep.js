@@ -37,6 +37,7 @@ import {
   requireIdentityFundingApproval,
   validateIdentityUpdateContext,
   submitReviewedIdentityUpdate,
+  IDENTITY_UPDATE_INPUTS_SPENT,
 } from '../../../../utils/identityUpdate/verifiedSubmission';
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { satsToCoins, truncateDecimal } from '../../../../utils/math';
@@ -164,6 +165,10 @@ const getFeeErrorMessage = error => {
 // The update was not broadcast, or a step after the broadcast failed. A
 // broadcast update keeps its txid on the sheet.
 const getBroadcastError = (error, txid) => {
+  // The node refused the update because an input is already spent.
+  if (error?.code === IDENTITY_UPDATE_INPUTS_SPENT) {
+    return {title: 'Update not broadcast', message: error.message};
+  }
   if (error?.code === 'BROADCAST_UNKNOWN' || error?.submitted) {
     return {
       title: 'Delivery not confirmed',

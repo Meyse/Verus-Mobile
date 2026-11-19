@@ -6,7 +6,7 @@ import { Transaction, networks, smarttxs } from "@bitgo/utxo-lib";
 import { calculateCurrencyTransferFee } from "./calculateCurrencyTransferFee";
 import { getInfo } from "./getInfo";
 import { fundRawTransaction } from "./fundRawTransaction";
-import { getSpendableUtxosWithMempoolInfo } from "./getAddressUtxos";
+import { getAddressUtxos, getSpendableUtxos } from "./getAddressUtxos";
 import { getCurrency, getIdentity } from "../../verusid/callCreators";
 import { getSystemNameFromSystemId } from "../../../../CoinData/CoinData";
 import { estimateConversion } from "./estimateConversion";
@@ -235,7 +235,9 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
   const currencyDefs = new Map();
   let nativeFeesPaid = BigNumber(0);
   let _feeamount;
-  let hasUnconfirmedIncoming = false;
+  // The amount and the confirmed balance of the sent currency, kept for the
+  // error text. Funding spends confirmed outputs only.
+  let confirmedFunds = null;
   delete output.bridgeprelaunch
 
   try {
@@ -394,14 +396,15 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       nativeFeesPaid = nativeFeesPaid.plus(BigNumber(_feeamount));
     }
 
-    // Also identify incoming funds before the balance check can report a
-    // shortfall. Own pending change is already included in the funding list.
-    const fundingUtxos = await getSpendableUtxosWithMempoolInfo(systemId, currency, [source]);
-    const utxoList = fundingUtxos.utxos;
-    hasUnconfirmedIncoming = fundingUtxos.hasUnconfirmedIncoming;
-
     const balanceRes = await getAddressBalances(systemId, [source]);
     if (balanceRes.error) throw new Error(balanceRes.error.message);
+
+    const confirmedCurrency = balanceRes.result.currencybalance?.[currency];
+    confirmedFunds = {
+      currency,
+      requested: BigNumber(output.satoshis),
+      confirmed: confirmedCurrency ? coinsToSats(BigNumber(confirmedCurrency)) : BigNumber(0),
+    };
 
     const balanceBn = balanceRes.result.currencybalance[systemId]
       ? coinsToSats(BigNumber(balanceRes.result.currencybalance[systemId]))
@@ -525,6 +528,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
         );
       }
     }
+
+    const utxoList = await getSpendableUtxos(systemId, currency, [source]);
 
     const fundRes = await fundRawTransaction(
       systemId,
@@ -659,8 +664,20 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     let message = e.message;
 
     if (message != null && typeof message === 'string' && message.includes('Insufficient funds')) {
-      if (hasUnconfirmedIncoming) {
-        message = 'Part of your balance is still being confirmed. Wait for the next block, then try again.';
+      if (
+        confirmedFunds?.currency === systemId &&
+        confirmedFunds.requested.isGreaterThan(confirmedFunds.confirmed) &&
+        confirmedFunds.confirmed.isGreaterThan(nativeFeesPaid)
+      ) {
+        // A native amount above what confirmed outputs can fund, for example
+        // while an incoming payment still confirms. Up to the confirmed
+        // balance the fee is taken from the amount, so that amount works.
+        // Token sends keep the fee text: their fee needs native funds.
+        const currencyName = friendlyNames.get(confirmedFunds.currency) || confirmedFunds.currency;
+
+        message = `Insufficient funds. You can send up to ${
+          satsToCoins(confirmedFunds.confirmed).toString()
+        } ${currencyName} now. Funds that are not confirmed yet can be sent after the next block.`;
       } else {
         const systemName = friendlyNames.has(systemId)
           ? friendlyNames.get(systemId)

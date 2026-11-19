@@ -158,6 +158,7 @@ const mockFindCoinObj = jest.fn((key, _userName, useSystemId) => {
 const mockDeriveKeyPair = jest.fn();
 const mockGetAddressUtxos = jest.fn();
 const mockGetInfo = jest.fn();
+const mockGetAddressMempool = jest.fn();
 const mockGetTransaction = jest.fn();
 const mockSendRawTransaction = jest.fn();
 const mockGetCurrency = jest.fn();
@@ -235,8 +236,8 @@ jest.mock('../../keys', () => ({
 jest.mock('../../api/channels/vrpc/callCreators', () => ({
   getAddressUtxos: mockGetAddressUtxos,
   getInfo: mockGetInfo,
-  // The mempool recheck at funding time finds no pending spends.
-  getMempoolUnspentUtxos: jest.fn((systemId, addresses, utxos) => Promise.resolve(utxos)),
+  // The pending-spend check before a claim reads the address mempool.
+  getAddressMempool: mockGetAddressMempool,
   getTransaction: mockGetTransaction,
   sendRawTransaction: mockSendRawTransaction,
 }));
@@ -403,6 +404,7 @@ const pbaasUtxo = makeUtxo({
 describe('spendable key claim utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetAddressMempool.mockResolvedValue({result: []});
     Object.keys(mockEndpoints).forEach(key => delete mockEndpoints[key]);
     Object.keys(mockTxInputsByHex).forEach(key => delete mockTxInputsByHex[key]);
     Object.keys(mockTxOutputsByHex).forEach(key => delete mockTxOutputsByHex[key]);
@@ -958,6 +960,42 @@ describe('spendable key claim utilities', () => {
         },
       }),
     ).rejects.toThrow('no native funds');
+  });
+
+  it('refuses a claim while a spend from the claim address is unconfirmed', async () => {
+    // Claims fund from confirmed outputs only. The address index still lists
+    // the outputs that the unconfirmed claim spends.
+    mockGetAddressMempool.mockResolvedValue({result: [{
+      address: mockRootClaimAddress, txid: 'cd'.repeat(32), index: 0,
+      satoshis: -rootFeeUtxo.satoshis, spending: true,
+    }]});
+
+    await expect(
+      preflightSpendableKeyClaim({
+        claimPlan: {
+          requestIsTestnet: false,
+          systems: [
+            {
+              systemId: mockRootCoin.system_id,
+              coinObj: mockRootCoin,
+              claimAddress: mockRootClaimAddress,
+              claimWif: 'claim-wif',
+              utxos: [rootFeeUtxo],
+              identities: [],
+            },
+          ],
+        },
+        destinationBySystem: {
+          [mockRootCoin.system_id]: mockDestinationAddress,
+        },
+      }),
+    ).rejects.toThrow(
+      'Your previous transaction is not confirmed yet. Wait for the next block, then try again.',
+    );
+    expect(mockGetAddressMempool).toHaveBeenCalledWith(
+      mockRootCoin.system_id, [mockRootClaimAddress], false, 1, true,
+    );
+    expect(mockEndpoints[mockRootCoin.system_id].fundRawTransaction).not.toHaveBeenCalled();
   });
 
   it('uses the higher sweep fee when claiming non-native assets', async () => {

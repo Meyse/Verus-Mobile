@@ -26,6 +26,7 @@ import {
   signUpdateIdentityTx,
 } from '../api/channels/verusid/requests/updateIdentity';
 import {getSpendableUtxos} from '../api/channels/vrpc/requests/getAddressUtxos';
+import {isSpentInputsRefusal} from '../transactions/unconfirmedSpend';
 import {convertFqnToDisplayFormat} from '../fullyqualifiedname';
 import {identityToDisplayJson} from '../identityUpdate/identityDisplay';
 import {DLIGHT_PRIVATE} from '../constants/intervalConstants';
@@ -954,6 +955,14 @@ const unsignedHex = hex => {
   return transaction.toHex();
 };
 
+// The node answered and refused the bytes because an input is already spent,
+// for example by an earlier transaction that is not confirmed yet. Funding
+// uses confirmed outputs only, so a new review after the next block works.
+const inputsSpent = () => fail(
+  'REVIEW_CHANGED',
+  'Your previous transaction is not confirmed yet. Nothing was sent. Wait for the next block, then review the update again.',
+);
+
 const broadcastUnknown = txid => Object.assign(
   fail('BROADCAST_UNKNOWN', `Delivery of identity update ${txid} could not be confirmed. Check its status before starting a new review.`),
   {txid, submitted: true},
@@ -968,6 +977,7 @@ export const sendIdentityUpdate = async (plan, requestContext) => {
   const key = `${prepared.scope.accountHash}:${prepared.coin.system_id}:${prepared.subject.address}`;
   if (activeSends.has(key)) throw new Error('This identity update is already being sent.');
   if (prepared.sent) return {txid: prepared.txid};
+  if (prepared.refused) throw inputsSpent();
   if (prepared.attempted) throw broadcastUnknown(prepared.txid);
 
   activeSends.add(key);
@@ -1074,6 +1084,10 @@ export const sendIdentityUpdate = async (plan, requestContext) => {
       if (!prepared.attempted) throw error;
       if (error?.code === 'SESSION_CHANGED') {
         throw Object.assign(error, {txid: prepared.txid, submitted: true});
+      }
+      if (isSpentInputsRefusal(error?.message)) {
+        prepared.refused = true;
+        throw inputsSpent();
       }
 
       throw broadcastUnknown(prepared.txid);
