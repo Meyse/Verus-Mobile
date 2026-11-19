@@ -92,12 +92,15 @@ export const truncateMiddle = (
 // A short address: the first and last 6 characters (owner, 2026-11-19).
 export const shortenAddress = address => truncateMiddle(address, 6, 6, '…');
 
-// The ticker of the network a card lives on. Bitcoin and Ethereum cards have
-// no network of their own, so they take their coin's chain.
+// The ticker of the network a card lives on. Electrum (".btc", ".kmd", ...)
+// and Ethereum cards have no network of their own, so they take their coin's
+// chain.
 export const getCardNetworkTicker = (wallet, coin) => {
   const systemId = wallet?.network || coin?.system_id;
-  if (systemId === '.btc') return coin?.display_ticker || 'BTC';
   if (systemId === '.eth') return coin?.testnet ? 'gETH' : 'ETH';
+  if (typeof systemId === 'string' && systemId.startsWith('.')) {
+    return coin?.display_ticker || systemId.slice(1).toUpperCase();
+  }
 
   return getNetworkTicker(systemId);
 };
@@ -106,18 +109,26 @@ export const getCardNetworkTicker = (wallet, coin) => {
 // R8 option C with the owner's change): a transparent or other address card
 // shows its short address, a VerusID card its name, the private card
 // "Private". The network follows on every card: "RT7d8L…HcM3Wy · VRSC".
+const isShownAddress = value =>
+  typeof value === 'string' && value.length > 0 && value !== '-';
+
 export const getSubWalletCardTitle = (wallet, {address, coin} = {}) => {
   const type = getSubWalletCardType(wallet);
+  // A Verus card's channel ("vrpc.<address>.<system>") holds its address,
+  // so the title does not wait for the account's address list.
+  const channelAddress =
+    typeof wallet?.channel === 'string' && wallet.channel.startsWith('vrpc.')
+      ? wallet.channel.split('.')[1]
+      : null;
+  const shownAddress = isShownAddress(address) ? address : channelAddress;
   const isAddress =
     (type === 'Transparent' || type === 'Address') &&
-    typeof address === 'string' &&
-    address.length > 0 &&
-    address !== '-';
+    isShownAddress(shownAddress);
   const name =
     type === 'VerusID'
       ? wallet.name
       : isAddress
-      ? shortenAddress(address)
+      ? shortenAddress(shownAddress)
       : type;
   const network = getCardNetworkTicker(wallet, coin) || null;
 

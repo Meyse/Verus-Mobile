@@ -563,8 +563,14 @@ const CoinCardPickerSheet = ({
       const current = item.wallet.id === selectedSubWalletId;
       const pinned = pins.includes(item.wallet.id);
       const pinName = item.cardTitle.text;
+      // The screen reader hears the full address, as before the short title
+      // (PR 266 review R8): full identifier, card type, network, balance.
       const accessibilityLabel = [
-        item.cardTitle.text,
+        item.identifier && item.identifier !== '-'
+          ? item.identifier
+          : item.cardTitle.name,
+        item.type,
+        item.cardTitle.network,
         item.balanceAccessibilityLabel,
         current ? 'Current address' : null,
       ]

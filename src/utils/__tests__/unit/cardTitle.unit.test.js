@@ -25,6 +25,22 @@ describe('card title', () => {
     expect(title.isAddress).toBe(true);
   });
 
+  it('names a transparent card by its address before the address list loads', () => {
+    const wallet = {
+      id: `SUBWALLET_vrpc.${ADDRESS}.${VRSC_SYSTEM}`,
+      channel: `vrpc.${ADDRESS}.${VRSC_SYSTEM}`,
+      name: 'RT7d8...cM3Wy',
+      network: VRSC_SYSTEM,
+    };
+
+    const title = getSubWalletCardTitle(wallet, {
+      address: '-',
+      coin: coinsList.VRSC,
+    });
+
+    expect(title.text).toBe('RT7d8L…HcM3Wy · VRSC');
+  });
+
   it('names a VerusID card by its name and its network', () => {
     const wallet = {
       id: `SUBWALLET_vrpc.iAlice.${VRSC_SYSTEM}`,
@@ -67,6 +83,17 @@ describe('card title', () => {
     });
 
     expect(title.text).toBe('tb1qw5…xpjzsx · BTCTEST');
+  });
+
+  it('names a Komodo card by its coin ticker, not its system id', () => {
+    const wallet = {id: 'MAIN_WALLET', channel: 'electrum', name: 'Main'};
+
+    const title = getSubWalletCardTitle(wallet, {
+      address: 'RKomodoAddressxxxxxxxxxxxxxxQ3Zp7',
+      coin: coinsList.KMD,
+    });
+
+    expect(title.text).toBe('RKomod…xQ3Zp7 · KMD');
   });
 
   it('names the cards of an asset on two networks apart', () => {

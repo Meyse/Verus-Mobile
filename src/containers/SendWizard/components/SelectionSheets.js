@@ -11,9 +11,7 @@ import useSheetDismissal from '../../../components/useSheetDismissal';
 import {RenderPlainCoinLogo} from '../../../utils/CoinData/Graphics';
 import {
   getSubWalletCardTitle,
-  getSubWalletCardType,
   getSubWalletDisplayIdentifier,
-  truncateMiddle,
 } from '../../../utils/subwallet/cardPresentation';
 import {truncateDecimal} from '../../../utils/math';
 import {formatSyncStatus} from '../../../utils/subwallet/privateWallet';
@@ -49,10 +47,9 @@ export const SourceCardSheet = ({
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
       {sources.map(source => {
-        // Name sources as the asset screen does: the short address or VerusID
-        // name, or "Private" with its short address below, and the network.
+        // Name sources as the asset screen does: the short address, the
+        // VerusID name or "Private", then the network. No address line.
         // A private card that still syncs shows, but cannot be picked.
-        const cardType = getSubWalletCardType(source.card);
         const syncing = source.syncPercent != null;
         const address = getSubWalletDisplayIdentifier(
           source.card,
@@ -66,8 +63,6 @@ export const SourceCardSheet = ({
         });
         const subtitle = syncing
           ? formatSyncStatus(source.syncPercent)
-          : cardType === 'Private' && address && address !== '-'
-          ? truncateMiddle(address, 5, 5, '...')
           : undefined;
         const value = truncateDecimal(source.balance, 4);
         return (
@@ -86,7 +81,6 @@ export const SourceCardSheet = ({
               <CardTitle title={cardTitle} style={styles.rowTitle} />
             }
             subtitle={subtitle}
-            subtitleMonospace={!syncing}
             selected={source.card.id === selectedId}
             value={value}
             valueLabel={source.coin.display_ticker}

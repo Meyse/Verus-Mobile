@@ -311,8 +311,9 @@ private card "Private". Then " · " and the network's ticker follow on every
 card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
 "alice@ · VRSC", "Private · VRSCTEST". Bitcoin and Ethereum cards take their
 chain's ticker (BTC, BTCTEST, ETH, gETH). The name gives way with a middle
-ellipsis; the network never shortens. Only the private card keeps a subtitle,
-its short z-address in monospace. Because each title names its network, the
+ellipsis; the network never shortens. No row has an address line; a private
+card that still syncs shows its sync status as the subtitle. Copy and the
+screen reader label keep the full address. Because each title names its network, the
 choosers have no network group titles; rows keep the network order.
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,

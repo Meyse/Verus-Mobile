@@ -105,6 +105,7 @@ import {
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
 import {
   getSubWalletCardTitleForAccount,
+  getSubWalletDisplayIdentifier,
   isVerusIdWallet,
 } from '../../utils/subwallet/cardPresentation';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
@@ -277,6 +278,12 @@ const SendWizardConfirm = () => {
   const fromLabel = !invoice && (privateSource || isVerusIdWallet(sourceSubWallet))
     ? getSubWalletCardTitleForAccount(sourceSubWallet, activeAccount, sourceCoin).text
     : null;
+  // Copy gives the VerusID name or the full (private) address, not the title.
+  const fromCopyIdentifier = fromLabel
+    ? getSubWalletDisplayIdentifier(sourceSubWallet, activeAccount, sourceCoin?.id, false)
+    : null;
+  const fromCopyValue =
+    fromCopyIdentifier && fromCopyIdentifier !== '-' ? fromCopyIdentifier : fromLabel;
   // A memo travels inside a private output only. A scanned request's note
   // becomes the memo when it can travel there.
   const sendsMemo = simpleSend && memoApplies(channel, recipientAddress);
@@ -1140,7 +1147,7 @@ const SendWizardConfirm = () => {
                     ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid), copyValue: paidBefore.txid}
                     : null,
                 ].filter(Boolean)
-              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: sourceSubWallet?.name || fromLabel, numberOfLines: 0}] : []
+              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: fromCopyValue, numberOfLines: 0}] : []
           }
           trailingRows={
             invoice

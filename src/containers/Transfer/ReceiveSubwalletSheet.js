@@ -9,9 +9,7 @@ import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {
   getSubWalletCardTitle,
-  getSubWalletCardType,
   getSubWalletDisplayIdentifier,
-  truncateMiddle,
 } from '../../utils/subwallet/cardPresentation';
 
 const getNetworkDetails = wallet => {
@@ -70,7 +68,6 @@ const ReceiveSubwalletSheet = ({
         // Rows keep the network order. Each title names its network (PR 266
         // review R8), so the list has no network group titles.
         groups.flatMap(group => group.wallets).map(wallet => {
-          const cardType = getSubWalletCardType(wallet);
           const address = getSubWalletDisplayIdentifier(
             wallet,
             activeAccount,
@@ -81,10 +78,6 @@ const ReceiveSubwalletSheet = ({
             address,
             coin: coinObj,
           });
-          const subtitle =
-            cardType === 'Private' && address && address !== '-'
-              ? truncateMiddle(address, 5, 5, '...')
-              : undefined;
           const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
           return (
             <SelectionRow
@@ -92,9 +85,7 @@ const ReceiveSubwalletSheet = ({
               titleContent={
                 <CardTitle title={cardTitle} style={styles.rowTitle} />
               }
-              subtitle={subtitle}
-              subtitleMonospace
-              accessibilityLabel={`Receive with ${cardTitle.text}${subtitle ? `, ${subtitle}` : ''}, ${balance} ${coinObj.display_ticker}`}
+              accessibilityLabel={`Receive with ${cardTitle.text}, ${balance} ${coinObj.display_ticker}`}
               selected={
                 selectedId == null ? undefined : wallet.id === selectedId
               }
