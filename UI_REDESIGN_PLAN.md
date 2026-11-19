@@ -1972,6 +1972,17 @@ or native behavior of the six source-only shared consumers.
   `small` and one iOS simulator, light and dark: namespace sheet, Link with
   rows, empty and failed lookup, manual link by name and by i-address, sign-in
   picker entry, revoke and recover entry, recovery secrets text.
+  Evidence 2026-11-19: the Codex (Astra high) review found one P3 test gap,
+  fixed in `61e8dcc3`. Android slot s1 on `61e8dcc3`, both phones, light and
+  dark: the namespace sheet with its footnote, Link with rows, manual link of
+  a two-signature VerusID by name, a revoked VerusID by i-address (badge and
+  note), and the sign-in picker refusal all pass. The revoke and recover entry
+  passes on `normal` (list, single target with chevron, empty with manual
+  action). iOS 26.5: the namespace sheet and Link with rows and a failed lookup
+  pass, light and dark. Open: the Link empty state (no test wallet returns it),
+  the recovery secrets text on a device (source only), revoke and recover on
+  `small`. Back from the manual step opened on the Link page lands on the
+  sheet's list, as before this change (follow-up).
 
 **Implementation (verified and review-ready; committed as `33865cab` and
 locally integrated):** manual entry, validation, identity resolution, the
