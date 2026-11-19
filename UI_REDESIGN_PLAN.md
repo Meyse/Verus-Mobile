@@ -30,6 +30,20 @@ without repeating the entire investigation.
     copy, tag notice and rows, untagged invoice, one-item gift pass; chooser
     layout fixed in 3f16fc75 and re-checked. Not reachable with one funded
     card: card picker, Send source list, Pay with, multi-item gift
+  - [x] Android round 2 (s3) with a second funded card (test VerusID
+    grizlo.VRSCTEST@) and in-memory seeded cards for the picker: Send source
+    list, Confirm From, Pay with, card picker, multi-item gift (Pending, then
+    Ready) pass. Defect: a lone VerusID name cut to "gr…@" on `small`.
+    8de4c65e did not fix it (round 3). Cause: Android breaks a name with "@"
+    after "." while it measures, so the Text got the width of "grizlo.".
+    Fix: a lone name in a chooser fills its line (exact width)
+  - [ ] Android re-check of the fill fix (small light and dark, normal light)
+  - [x] Full unit Jest on 8de4c65e (live int/api suites left out): 2,846
+    pass, 3 fail, 2,849 total; the 3 failures are the known baseline ones
+    (1 giftCard, 2 identityRegistrationScreens)
+  - Follow-ups (not in this task): VerusID registration payer label still
+    says "Transparent"; Android middle ellipsis is "..." in chooser names;
+    intermittent "Can't open this invoice" race
 
 - Scoped follow-up: **ID-1.PR266-VERUSID-PICKS** (PR 266 review R5, I1, R24;
   owner picks of 2026-11-19) on `claude/pr266-ui-verusid` from `c2b8aeac`:

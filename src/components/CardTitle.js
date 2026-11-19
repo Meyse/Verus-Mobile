@@ -19,10 +19,14 @@ const MONOSPACE_FONT = Platform.select({ios: 'Menlo', default: 'monospace'});
 // wrongly (seen on Android 16, 2026-11-19).
 const CardTitle = ({title, style, containerStyle, wrap = false}) => {
   if (!title) return null;
-  // A lone name has nothing to move to a second line. In a wrapping row each
-  // part is bounded by the line width; flex shrinking there cut a fitting
-  // VerusID name to "gr…@" on a 360-point Android phone (2026-11-19).
+  // A lone name has nothing to move to a second line.
   const wraps = wrap && Boolean(title.network);
+  // A lone name in a chooser fills the line. Android's line breaker treats a
+  // name with "@" as an e-mail address and may break after ".", so a
+  // content-sized Text measures only "grizlo." and the middle ellipsis then
+  // shows "gr…@" (360-point Android phone, 2026-11-19). A filled Text gets
+  // the exact line width.
+  const fills = wrap && !title.network;
 
   return (
     <View
@@ -36,6 +40,7 @@ const CardTitle = ({title, style, containerStyle, wrap = false}) => {
           style,
           title.isAddress ? styles.address : styles.name,
           wraps && styles.wrapPart,
+          fills && styles.fill,
         ]}>
         {title.name}
       </Text>
@@ -60,6 +65,7 @@ const styles = StyleSheet.create({
   wrap: {flexWrap: 'wrap'},
   wrapPart: {flexShrink: 0, maxWidth: '100%'},
   name: {flexShrink: 1},
+  fill: {flex: 1, minWidth: 0},
   address: {flexShrink: 0, fontFamily: MONOSPACE_FONT},
   network: {flexShrink: 0},
 });
