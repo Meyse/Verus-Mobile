@@ -438,7 +438,14 @@ const SignedInVerusIdService = ({controller}) => {
   // a lock change or an ended timelock shows when the user comes back. It also
   // reads again when the linked VerusIDs or the account change.
   useFocusEffect(useCallback(() => {
-    if (!linkedKey) return undefined;
+    if (!linkedKey) {
+      // With no linked VerusIDs, forget every saved state, so a VerusID that is
+      // linked again cannot show an old badge after a failed read.
+      setIdentityStates(previous =>
+        Object.keys(previous).length ? {} : previous,
+      );
+      return undefined;
+    }
 
     let cancelled = false;
     const sessionScope = captureSessionScope(Store.getState(), renderedAccountHash);

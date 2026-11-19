@@ -638,6 +638,33 @@ describe('SignedInVerusIdService list badges', () => {
     expect(mockGetIdentity).toHaveBeenCalledTimes(2);
     expect(hasText(renderer, 'Revoked')).toBe(true);
   });
+
+  it('forgets the badge of an unlinked VerusID when it is linked again', async () => {
+    mockGetIdentity.mockResolvedValue(identityResult(0x8000));
+    const controller = buildController();
+    await act(async () => {
+      renderer = create(<SignedInVerusIdService controller={controller} />);
+    });
+    await flush();
+    expect(hasText(renderer, 'Revoked')).toBe(true);
+
+    // Unlink the last VerusID.
+    await act(async () => {
+      renderer.update(
+        <SignedInVerusIdService controller={{...controller, state: {linkedIds: {}}}} />,
+      );
+    });
+    await flush();
+
+    // Link it again while its status read fails: no old badge comes back.
+    mockGetIdentity.mockResolvedValue({error: {code: -1, message: 'network timeout'}});
+    await act(async () => {
+      renderer.update(<SignedInVerusIdService controller={controller} />);
+    });
+    await flush();
+
+    expect(hasText(renderer, 'Revoked')).toBe(false);
+  });
 });
 
 // R6: a refresh with rows on screen must not replace them with the skeleton.

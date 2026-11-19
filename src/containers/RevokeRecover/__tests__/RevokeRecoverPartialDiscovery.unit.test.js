@@ -300,6 +300,24 @@ describe.each([
     expect(byTestId(renderer, `revokeRecover.identity.option.${I_ALPHA}`)).toHaveLength(0);
   });
 
+  it('replaces a selected target that a complete retry no longer lists', async () => {
+    // Choose alpha from the partial list, then open the picker again.
+    await press(renderer, `revokeRecover.identity.option.${I_ALPHA}`);
+    expect(props.updateSendFormData).toHaveBeenLastCalledWith(targetField, I_ALPHA);
+    await press(renderer, 'revokeRecover.identity.choose');
+
+    // The retry succeeds, and the complete list holds only beta.
+    failing = new Set();
+    mockGetIdentitiesWithRevocation.mockResolvedValue({result: [target(I_BETA, 'beta', flags)]});
+    mockGetIdentitiesWithRecovery.mockResolvedValue({result: [target(I_BETA, 'beta', flags)]});
+    await press(renderer, 'revokeRecover.identity.retry');
+
+    // Alpha is no longer offered: beta replaces it, not a locked alpha field.
+    expect(props.updateSendFormData).toHaveBeenLastCalledWith(targetField, I_BETA);
+    expect(hasText(renderer, 'alpha@')).toBe(false);
+    expect(hasText(renderer, 'beta@')).toBe(true);
+  });
+
   it('still selects the only target automatically when the list is complete', async () => {
     await act(async () => renderer.unmount());
     jest.clearAllMocks();
