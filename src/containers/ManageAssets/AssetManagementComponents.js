@@ -1,5 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import {ScrollView, View, TouchableOpacity} from 'react-native';
+import Animated from 'react-native-reanimated';
 import {Text} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -55,7 +56,10 @@ export const AssetFooter = ({children, styles}) => {
   );
 };
 
-export const AssetScrollView = ({children, contentContainerStyle, onContentSizeChange, onLayout, scrollRef, styles, testID}) => {
+// Reanimated's scroll view, so a drag in "My order" can scroll it (AssetReorderList.js).
+export const AssetScrollView = ({
+  children, contentContainerStyle, onContentSizeChange, onLayout, scrollEnabled = true, scrollRef, styles, testID,
+}) => {
   const theme = useOnboardingTheme();
   const {keyboardVisible} = useOnboardingSmallDeviceLayout();
   const cueStyles = useMemo(() => deepLinkRequestReviewStyles(theme), [theme]);
@@ -68,8 +72,9 @@ export const AssetScrollView = ({children, contentContainerStyle, onContentSizeC
   const showCue = !keyboardVisible && overflow && metrics.offset + metrics.viewport < metrics.content - 8;
   return (
     <View style={styles.scrollFrame}>
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
+        scrollEnabled={scrollEnabled}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
@@ -87,7 +92,7 @@ export const AssetScrollView = ({children, contentContainerStyle, onContentSizeC
         style={styles.scroll}
         testID={testID}>
         {children}
-      </ScrollView>
+      </Animated.ScrollView>
       {showCue ? (
         <SheetScrollCue styles={cueStyles} theme={theme} backgroundColor={theme.colors.background} />
       ) : null}

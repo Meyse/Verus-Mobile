@@ -249,6 +249,31 @@ describe('asset choices storage (R17)', () => {
     expect(stored.networks[NETWORK].removed.iCoinB).toEqual(expect.any(Object));
   });
 
+  it('keeps "My order" and the Home sort in the encrypted entry (R2)', async () => {
+    const {AsyncStorage} = await restart();
+    const service = await signIn();
+    // A wallet from an older build: no saved order, and the default sort.
+    expect(mockState.assetManagement.order).toBeNull();
+    expect(mockState.assetManagement.sort).toBe('custom');
+
+    await service.setAssetOrder(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
+    await service.setHomeSort('name');
+    await writesDone();
+
+    const dump = await plainDump(AsyncStorage);
+    expect(dump).not.toContain('iCoinA');
+    expect(dump).not.toContain('iCoinB');
+    const stored = await storedChoices();
+    expect(stored.networks[NETWORK].order).toEqual(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
+    expect(stored.networks[NETWORK].sort).toBe('name');
+
+    // A restart, which also follows a sign-out, keeps both.
+    await restart();
+    await signIn();
+    expect(mockState.assetManagement.order).toEqual(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
+    expect(mockState.assetManagement.sort).toBe('name');
+  });
+
   it('writes nothing for a profile after its delete started', async () => {
     const {SecureStorage} = await restart();
     const service = await signIn();

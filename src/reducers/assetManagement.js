@@ -6,6 +6,7 @@ import {
   SIGN_OUT_COMPLETE,
   UPDATE_SESSION_KEY,
 } from '../utils/constants/storeType';
+import {HOME_SORT_CUSTOM, readAssetOrder, readHomeSort} from '../utils/assets/assetOrder';
 
 export const ASSETS_HYDRATED = 'ASSETS_HYDRATED';
 export const ASSETS_HYDRATION_FAILED = 'ASSETS_HYDRATION_FAILED';
@@ -14,6 +15,8 @@ export const ASSET_PREFERENCES_SAVED = 'ASSET_PREFERENCES_SAVED';
 export const ASSET_DISCOVERY_SAVED = 'ASSET_DISCOVERY_SAVED';
 export const ASSET_REMOVALS_SAVED = 'ASSET_REMOVALS_SAVED';
 export const ASSET_REVIEWS_SAVED = 'ASSET_REVIEWS_SAVED';
+export const ASSET_ORDER_SAVED = 'ASSET_ORDER_SAVED';
+export const ASSET_SORT_SAVED = 'ASSET_SORT_SAVED';
 
 const initialState = () => ({
   ready: false,
@@ -23,6 +26,11 @@ const initialState = () => ({
   removed: {},
   // Found currencies the user has reviewed or dismissed on Home.
   reviewed: {},
+  // "My order": asset keys in the user's order, or null before the first
+  // change (assetOrder.js gives the order then).
+  order: null,
+  // How Home sorts its rows: "My order", Balance or Name.
+  sort: HOME_SORT_CUSTOM,
   snapshots: {},
   resolved: {},
   revision: 0,
@@ -57,6 +65,8 @@ export const assetManagement = (state = initialState(), action) => {
         preferences: action.payload.preferences || {},
         removed: action.payload.removed || {},
         reviewed: action.payload.reviewed || {},
+        order: readAssetOrder(action.payload.order),
+        sort: readHomeSort(action.payload.sort),
         resolved: {...(action.payload.resolved || {}), ...state.resolved},
         snapshots: {...(action.payload.snapshots || {}), ...state.snapshots},
       };
@@ -74,6 +84,10 @@ export const assetManagement = (state = initialState(), action) => {
       return {...state, removed: action.payload.removed};
     case ASSET_REVIEWS_SAVED:
       return {...state, reviewed: action.payload.reviewed};
+    case ASSET_ORDER_SAVED:
+      return {...state, order: action.payload.order};
+    case ASSET_SORT_SAVED:
+      return {...state, sort: action.payload.sort};
     case ASSET_DISCOVERY_SAVED:
       return {...state, persistedRevision: action.payload.revision};
     default:

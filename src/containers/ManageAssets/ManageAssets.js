@@ -18,8 +18,10 @@ import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetP
 import {
   addManagedAsset, assetContextIsCurrent, captureAssetContext,
   getNewAssetHoldings, loadAssetManagement, removeManagedAsset, setAssetHomeVisibility,
-  restoreManagedAsset,
+  restoreManagedAsset, setAssetOrder,
 } from '../../utils/assets/assetManagementService';
+import {orderedAssetKeys} from '../../utils/assets/assetOrder';
+import AssetReorderList, {useReorderScroll} from './AssetReorderList';
 import {getRemovedAssets} from '../../utils/assets/removedAssets';
 import AssetDetailsSheet from './AssetDetailsSheet';
 import {buildAssetManagerData} from './assetManagerData';
@@ -43,10 +45,15 @@ const useAssetData = () => {
   const removedAssets = useObjectSelector(getRemovedAssets);
   const data = useMemo(() => buildAssetManagerData({activeAccount, activeCoins,
     testAccount: isTestnetAccount(activeAccount)}), [activeAccount, activeCoins]);
+  // "My order", the order of Home (R2). Without a saved order it is the order
+  // of the coin list, as on Home.
+  const orderKeys = useMemo(() => orderedAssetKeys(management.order, activeCoins
+    .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount))),
+  [activeAccount, activeCoins, management.order]);
   useEffect(() => {
     loadAssetManagement().catch(() => {});
   }, []);
-  return {...data, activeAccount, cards, balances, management, discoveries, removedAssets, showBalance};
+  return {...data, orderKeys, activeAccount, cards, balances, management, discoveries, removedAssets, showBalance};
 };
 
 const useAssetAction = () => {
@@ -104,7 +111,7 @@ const ErrorMessage = ({error, styles}) => error ? (
   </View>
 ) : null;
 
-const AssetRow = ({coin, presentation, description, action, disabled, onPress, styles}) => {
+const AssetRow = ({coin, presentation, description, action, disabled, handle, onPress, styles}) => {
   const content = <>
     <AssetLogo presentation={presentation} styles={styles} />
     <View style={styles.rowCopy}>
@@ -114,6 +121,7 @@ const AssetRow = ({coin, presentation, description, action, disabled, onPress, s
   </>;
   return (
     <View style={styles.assetRow} testID={`manage-asset-row-${coin.id}`}>
+      {handle}
       {onPress ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${presentation.name}, ${description}`}
         accessibilityHint="Shows details and Remove from wallet" accessibilityState={{disabled: Boolean(disabled)}}
         activeOpacity={0.74} disabled={disabled} onPress={onPress} style={styles.rowPress} testID={`manage-asset-open-${coin.id}`}>
@@ -181,9 +189,12 @@ const Manager = ({navigation}) => {
   // Activation publishes the coin before the saved removed mark is cleared.
   // That mark owns list membership until restoration succeeds. Keep an ongoing
   // removal visible so its existing “Removing…” feedback does not change.
+  const orderIndex = new Map(data.orderKeys.map((key, index) => [key, index]));
+  const place = coin => orderIndex.get(assetKey(coin)) ?? Number.MAX_SAFE_INTEGER;
   const activeAssets = data.activeAssets.filter(coin =>
     !data.management.removed[removalKey(coin)] ||
-    (pending?.action === 'remove' && pending.key === assetKey(coin)));
+    (pending?.action === 'remove' && pending.key === assetKey(coin)))
+    .sort((left, right) => place(left) - place(right));
   const searchable = activeAssets.length + data.discoveries.length >= APP_SEARCH_MIN_ITEMS;
   const activeQuery = searchable ? query : '';
   const activeFilter = searchable ? filter : 'all';
@@ -207,6 +218,13 @@ const Manager = ({navigation}) => {
     presentation: getAssetPresentation(resolvedAssetCoin(holding.result), {systemId: holding.systemId}),
   })).filter(holding => matchesQuery(activeQuery, [...holding.presentation.searchTerms,
     holding.result.currencyDefinition.fullyqualifiedname])) : [];
+  // Drag handles show while the list shows every asset: the All tab without a search.
+  const reorderable = activeFilter === 'all' && !activeQuery.trim() && assets.length >= 2;
+  const [scroll, scrollEnabled] = useReorderScroll();
+  const reorder = useCallback(keys => {
+    const shown = new Set(keys);
+    return setAssetOrder([...keys, ...data.orderKeys.filter(key => !shown.has(key))]);
+  }, [data.orderKeys]);
   const removedAssets = activeFilter === 'hidden' ? data.removedAssets.filter(entry =>
     matchesQuery(activeQuery, getAssetPresentation(entry.coin, {systemId: entry.lookupSystemId}).searchTerms)) : [];
 
@@ -224,13 +242,18 @@ const Manager = ({navigation}) => {
       </View> : null}
       footer={<AssetFooter styles={styles}><AppButton onPress={() => navigation.navigate('ManageAssetsDirectory')} testID="manage-assets-add-asset">Add asset</AppButton></AssetFooter>}>
       <ErrorMessage styles={styles} error={(error?.action !== 'restore' ? error?.message : null) || (data.management.loadError ? 'Couldn’t load your saved assets. Your Home settings are unchanged.' : null)} />
-      <AssetScrollView styles={styles} contentContainerStyle={!searchable && styles.listWithoutSearch} testID="manage-assets-list">
+      <AssetScrollView styles={styles} contentContainerStyle={!searchable && styles.listWithoutSearch} testID="manage-assets-list"
+        scrollRef={scroll.ref} scrollEnabled={scrollEnabled}
+        onLayout={event => { scroll.viewport.value = event.nativeEvent.layout.height; }}
+        onContentSizeChange={(_, height) => { scroll.content.value = height; }}>
         {!data.management.ready ? <AssetLoadingRows styles={styles} /> : <>
           {(activeFilter !== 'hidden' || assets.length > 0) ? <SectionHeader title="Your assets" detail="Show on Home" styles={styles} /> : null}
-          {assets.map(({coin, presentation}) => {
+          {(() => {
+            const renderAsset = ({coin, presentation}, handle) => {
             const removing = pending?.key === assetKey(coin) && pending.action === 'remove';
             const amount = removing ? 'Removing…' : formatAmount(holdingOf(coin), data.showBalance, presentation.ticker);
             return <AssetRow key={assetKey(coin)} coin={coin} presentation={presentation} description={amount} styles={styles}
+              handle={handle?.({label: presentation.name})}
               disabled={pending != null} onPress={isMainAsset(coin, data.activeAccount) ? null : () => openDetails(coin)}
               action={<TouchableOpacity style={styles.switchAction}
                 accessibilityRole="switch"
@@ -246,7 +269,13 @@ const Manager = ({navigation}) => {
                 value={isAssetShown(coin, data.management.preferences)}
                 /></View>
               </TouchableOpacity>} />;
-          })}
+            };
+            if (!reorderable) return assets.map(item => renderAsset(item));
+            const byKey = new Map(assets.map(item => [assetKey(item.coin), item]));
+            return <AssetReorderList keys={assets.map(item => assetKey(item.coin))} scroll={scroll}
+              enabled={pending == null} onReorder={reorder}
+              renderRow={(key, handle) => renderAsset(byKey.get(key), handle)} />;
+          })()}
           {assets.length === 0 && removedAssets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
           {discoveries.length > 0 ? <>
             <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />

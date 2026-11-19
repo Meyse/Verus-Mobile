@@ -56,7 +56,9 @@ import {
 import {
   getUnreviewedNewAssetHoldings,
   markFoundAssetsReviewed,
+  setHomeSort,
 } from '../../utils/assets/assetManagementService';
+import {orderedAssetKeys, sortHomeAssets} from '../../utils/assets/assetOrder';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import {getOpeningSubWallet} from '../../utils/subwallet/getOpeningSubWallet';
 import {
@@ -482,7 +484,7 @@ const Home = () => {
 
   const signedInAssets = useMemo(() => {
     if (!assetManagement.ready) return [];
-    return uniqueAssets(activeCoinsForUser)
+    const items = uniqueAssets(activeCoinsForUser)
       .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount) &&
         isAssetShown(coin, assetManagement.preferences))
       .map(coin => {
@@ -531,17 +533,11 @@ const Home = () => {
           preferredCard,
           statusDescription,
         };
-      })
-      .sort((a, b) => {
-        const fundedOrder = Number(b.balance?.isGreaterThan(0) || false) - Number(a.balance?.isGreaterThan(0) || false);
-        if (fundedOrder !== 0) return fundedOrder;
-        if (a.fiatValue != null && b.fiatValue != null && a.fiatValue !== b.fiatValue) {
-          return b.fiatValue - a.fiatValue;
-        }
-        if (a.fiatValue != null && b.fiatValue == null) return -1;
-        if (a.fiatValue == null && b.fiatValue != null) return 1;
-        return a.presentation.name.localeCompare(b.presentation.name);
       });
+    // "My order" is the default, so a row never moves by itself (R2).
+    const orderKeys = orderedAssetKeys(assetManagement.order, uniqueAssets(activeCoinsForUser)
+      .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount)));
+    return sortHomeAssets(items, assetManagement.sort, orderKeys);
   }, [
     activeCoinsForUser,
     activeSubWallets,
@@ -696,6 +692,9 @@ const Home = () => {
   });
   const dismissFoundAssets = useLatestCallback(reviewFoundAssets);
   const dismissSyncNotice = useLatestCallback(() => setSyncNoticeDismissed(true));
+  const selectSort = useLatestCallback(sort => {
+    setHomeSort(sort).catch(error => console.warn(error?.message));
+  });
 
   return (
     <SignedInWalletHome
@@ -725,6 +724,8 @@ const Home = () => {
       onReviewFoundAssets={reviewAndOpenFoundAssets}
       onDismissFoundAssets={dismissFoundAssets}
       onDismissSyncNotice={dismissSyncNotice}
+      sort={assetManagement.sort}
+      onSelectSort={selectSort}
     />
   );
 };
