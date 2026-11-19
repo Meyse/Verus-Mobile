@@ -31,6 +31,7 @@ jest.mock('../../../../env/index', () => ({
 
 // Private key 1, compressed (Bitcoin wiki and bitcoinjs test vectors).
 const PRIVATE_KEY_ONE_WIF = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn';
+const PRIVATE_KEY_ONE_UNCOMPRESSED_WIF = '5HpHagT65TZzG1PH3CSu63k8DbpvD8s5ip4nEB3kEsreAnchuDf';
 const MAINNET_ADDRESS = '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH';
 const TESTNET_ADDRESS = 'mrCDrCybB6J1vRfbwM5hemdJz73FwDBC8r';
 
@@ -161,12 +162,14 @@ describe('Bitcoin Testnet4 coin', () => {
   // The device refused 225 sat for a 226 vB send: "min relay fee not met".
   // A signed input with a compressed key and a low-S signature is at most
   // 148 bytes, so the fee must cover 10 + 148 per input + 34 per output.
+  // An uncompressed key (imported WIF) makes a 180-byte input.
   it.each([
-    ['TESTNET', 1, 226],
-    ['BTC', 2, 374],
-  ])('pays at least the signed size at 1 sat/vB (%s, %i inputs)', async (coinId, count, fee) => {
+    ['TESTNET', 1, 226, PRIVATE_KEY_ONE_WIF],
+    ['BTC', 2, 374, PRIVATE_KEY_ONE_WIF],
+    ['TESTNET', 1, 258, PRIVATE_KEY_ONE_UNCOMPRESSED_WIF],
+  ])('pays at least the signed size at 1 sat/vB (%s, %i inputs, %i sat)', async (coinId, count, fee, wif) => {
     const coin = CoinDirectory.findCoinObj(coinId);
-    const keys = await deriveKeyPair(PRIVATE_KEY_ONE_WIF, coin, ELECTRUM);
+    const keys = await deriveKeyPair(wif, coin, ELECTRUM);
     requestPrivKey.mockResolvedValue(keys.privKey);
     getUnspentFormatted.mockResolvedValue({
       utxoList: Array.from({length: count}, (_, vout) => ({
@@ -227,5 +230,38 @@ describe('Bitcoin Testnet4 coin', () => {
       .toMatchObject({coinTicker: 'BTC', address: MAINNET_ADDRESS});
     expect(QrScanner.processPaymentRequestURI(`bitcoin:${MAINNET_ADDRESS}`))
       .toMatchObject({coinTicker: 'BTC'});
+  });
+
+  it('moves change below dust to the fee and accepts the maximum custom rate', async () => {
+    const coin = CoinDirectory.findCoinObj('TESTNET');
+    const keys = await deriveKeyPair(PRIVATE_KEY_ONE_WIF, coin, ELECTRUM);
+    requestPrivKey.mockResolvedValue(keys.privKey);
+    const user = {id: 'profile', keys: {TESTNET: {electrum: keys}}};
+    const send = (inputSats, amountSats, feePerByte, vout = 0) => {
+      getUnspentFormatted.mockResolvedValue({
+        utxoList: [{
+          txid: 'a'.repeat(64), vout, amountSats: inputSats,
+          reportedValueSats: inputSats, verifiedValueSats: inputSats,
+          verifiedTxid: true, verifiedMerkle: true, interestSats: 0,
+        }],
+        unshieldedFunds: BigNumber(0),
+      });
+      return txPreflight(coin, user, RECIPIENT, BigNumber(amountSats).dividedBy(1e8), {
+        defaultFee: {feePerByte}, network: networks.testnet,
+      }, true);
+    };
+
+    // 100000 - 99229 - 226 = 545 sat change, below the 546 sat dust limit.
+    const dust = await send(100000, 99229, 1);
+    expect(dust.result.fee).toBe('0.00000771');
+    expect(Transaction.fromHex(dust.result.params.rawtx, networks.testnet).outs
+      .map(output => output.value)).toEqual([99229]);
+
+    // Planned 226 bytes x 2500 sat/vB. Input 1 signs into 225 bytes.
+    const maximum = await send(2000000, 100000, 2500, 1);
+    expect(Transaction.fromHex(maximum.result.params.rawtx, networks.testnet).byteLength())
+      .toBe(225);
+    expect(maximum.err).toBe(false);
+    expect(maximum.result.fee).toBe('0.00565');
   });
 });

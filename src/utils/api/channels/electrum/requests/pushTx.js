@@ -1,4 +1,7 @@
-import {transparentDustError} from '../../../../transactions/transparentDust';
+import {
+  MIN_TRANSPARENT_SEND,
+  transparentDustError,
+} from '../../../../transactions/transparentDust';
 import {
   ELECTRUM_AMBIGUOUS_BROADCAST_CODE,
   postElectrum,
@@ -20,12 +23,15 @@ import {
   assertFeeWithinLimits,
   assertSanePotentialTransactionFee,
   estimateLegacyTransactionByteSize,
+  legacyInputByteSize,
 } from '../transactionFee';
 import {
   getParsedTransactionId,
   parseAndVerifyRawTransaction,
   parseRawTransaction,
 } from '../transactionId';
+
+const TRANSPARENT_DUST_SATS = Number(coinsToSats(BigNumber(MIN_TRANSPARENT_SEND)));
 
 export const ELECTRUM_BROADCAST_REJECTED_CODE =
   "ELECTRUM_BROADCAST_REJECTED";
@@ -456,12 +462,15 @@ export const txPreflight = (
           targets[0].value = targets[0].value.toNumber();
 
           // coinselect sizes a P2PKH input as 147 bytes, but a signed input
-          // (compressed key, low-S signature) takes up to 148, as in
-          // estimateLegacyTransactionByteSize. Size inputs at 148, so the fee is
-          // never below size x rate (the minimum relay fee at 1 sat/vB).
+          // takes up to 148 (compressed key) or 180 (uncompressed key). Size
+          // inputs at the signed maximum, so the fee is never below size x rate
+          // (the minimum relay fee at 1 sat/vB).
+          const inputByteSize = legacyInputByteSize(
+            activeUser.keys[coinObj.id].electrum.pubKey,
+          );
           const sizedUtxos = utxoListFormatted.map(utxo => ({
             ...utxo,
-            script: {length: 107},
+            script: {length: inputByteSize - 41},
           }));
           const selectCoins = () => {
             const selection = coinSelect(sizedUtxos, targets, feePerByte);
@@ -506,6 +515,14 @@ export const txPreflight = (
 
           if (outputs && outputs.length === 2) {
             _change = outputs[1].value;
+          }
+
+          // coinselect keeps change down to 147 x rate. Nodes refuse a change
+          // output below the dust limit, so it goes to the fee instead.
+          if (btcFees && _change > 0 && _change < TRANSPARENT_DUST_SATS) {
+            fee += _change;
+            _change = 0;
+            outputs = outputs.slice(0, 1);
           }
 
           // check if any outputs are unverified
@@ -620,7 +637,12 @@ export const txPreflight = (
               const estimatedTransactionSize = estimateLegacyTransactionByteSize(
                 inputs.length,
                 _change > 0 ? 2 : 1,
+                inputByteSize,
               );
+              // The fee is planned for the largest signed size. A shorter
+              // signature can make the signed transaction up to 2 bytes per
+              // input smaller, so the rate is checked against the planned size.
+              const signedRateCeiling = Math.ceil(maxFeeRatePerByte * 1.02);
 
               assertFeeWithinLimits(calculatedFee, estimatedTransactionSize, {
                 maxAbsoluteFee,
@@ -638,7 +660,7 @@ export const txPreflight = (
                   inputs,
                   _change,
                   value.toNumber(),
-                  maxFeeRatePerByte
+                  signedRateCeiling
                 );
 
                 const signedTransaction = Transaction.fromHex(_rawtx, network);
@@ -656,7 +678,7 @@ export const txPreflight = (
                 );
                 assertFeeWithinLimits(
                   actualSignedFee,
-                  signedTransaction.byteLength(),
+                  Math.max(signedTransaction.byteLength(), estimatedTransactionSize),
                   {maxAbsoluteFee, maxFeeRatePerByte},
                 );
               }

@@ -191,9 +191,15 @@ export const assertSanePotentialTransactionFee = (
   return calculatedFee;
 };
 
+// A signed P2PKH input: 41 bytes plus the script (push, DER signature of up
+// to 71 bytes with low S, sighash byte, push, public key of 33 or 65 bytes).
+export const legacyInputByteSize = pubKeyHex =>
+  typeof pubKeyHex === 'string' && pubKeyHex.length === 130 ? 180 : 148;
+
 export const estimateLegacyTransactionByteSize = (
   inputCount,
   outputCount,
+  inputByteSize = 148,
 ) => {
   if (
     !Number.isSafeInteger(inputCount) ||
@@ -205,7 +211,7 @@ export const estimateLegacyTransactionByteSize = (
   }
 
   // Conservative byte-size estimate for the legacy P2PKH transaction path.
-  return 10 + (inputCount * 148) + (outputCount * 34);
+  return 10 + (inputCount * inputByteSize) + (outputCount * 34);
 };
 
 export const assertFeeWithinLimits = (
