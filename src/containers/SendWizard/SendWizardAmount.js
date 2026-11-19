@@ -33,6 +33,7 @@ import {API_GET_FIATPRICE} from '../../utils/constants/intervalConstants';
 import {coinsToSats, truncateDecimal} from '../../utils/math';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
+import {getWizardCryptoAmount} from './wizardAmount';
 import {compareRoutes, IMPACT_LEVEL} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
 import {useReceivedPrice} from './useReceivedPrice';
@@ -66,9 +67,13 @@ const SendWizardAmount = () => {
     sourceSubWallet,
     sourceBalance,
     sourcePending,
+    sourceSendLimit,
     target,
     route,
   } = state;
+  // What confirmed outputs can fund. It is below the shown balance while an
+  // incoming payment still confirms.
+  const sendLimit = sourceSendLimit ?? sourceBalance;
   const input = state.amountInput || '';
   const fiatMode = Boolean(state.fiatMode);
   const setInput = value => setAmountDraft({amountInput: value.replace(/,/g, '.')});
@@ -149,29 +154,20 @@ const SendWizardAmount = () => {
     };
   }, [channel, mode, sendNetworks, sourceCoin, target]);
 
-  const cryptoAmount = useMemo(() => {
-    const entered = BigNumber(String(input || 0).replace(',', '.'));
-    if (!entered.isFinite() || entered.isNegative()) return BigNumber(NaN);
-    const nativePrecision =
-      ['eth', 'erc20'].includes(sourceCoin?.proto) &&
-      !target?.isConversion &&
-      !route?.isCrossChain;
-    let value = entered;
-    if (fiatMode) {
-      if (rate == null || BigNumber(rate).isLessThanOrEqualTo(0)) {
-        return BigNumber(NaN);
-      }
-      value = entered.dividedBy(rate);
-    }
-    return nativePrecision
-      ? value
-      : value.decimalPlaces(8, BigNumber.ROUND_DOWN);
-  }, [
+  // A fiat entry is cut down to the places the asset can hold.
+  const cryptoAmount = useMemo(() => getWizardCryptoAmount({
+    input,
+    fiatMode,
+    rate,
+    coin: sourceCoin,
+    isConversion: Boolean(target?.isConversion),
+    isCrossChain: Boolean(route?.isCrossChain),
+  }), [
     fiatMode,
     input,
     rate,
     route?.isCrossChain,
-    sourceCoin?.proto,
+    sourceCoin,
     target?.isConversion,
   ]);
   const cryptoAmountValue = cryptoAmount.isFinite()
@@ -190,7 +186,7 @@ const SendWizardAmount = () => {
     !excessivePrecision &&
     cryptoAmount.isFinite() &&
     cryptoAmount.isGreaterThan(0) &&
-    cryptoAmount.isLessThanOrEqualTo(sourceBalance || 0);
+    cryptoAmount.isLessThanOrEqualTo(sendLimit || 0);
   const ethereumExport =
     channel?.split('.')[0] === 'vrpc' &&
     route?.isCrossChain &&
@@ -215,10 +211,10 @@ const SendWizardAmount = () => {
   const sourcePaysExportFee = Boolean(exportFee && exportFee.currencyId ===
     (sourceCoin?.currency_id || sourceCoin?.id));
   const exportFeeBlocksRoute = sourcePaysExportFee &&
-    BigNumber(sourceBalance || 0).isLessThanOrEqualTo(exportFee.amount);
+    BigNumber(sendLimit || 0).isLessThanOrEqualTo(exportFee.amount);
   const insufficientExportFunds = sourcePaysExportFee &&
     (exportFeeBlocksRoute || (cryptoAmount.isFinite() && cryptoAmount.isGreaterThan(0) &&
-      cryptoAmount.plus(exportFee.amount).isGreaterThan(sourceBalance || 0)));
+      cryptoAmount.plus(exportFee.amount).isGreaterThan(sendLimit || 0)));
   const maximumDisabled = exportFeeLoading || exportFeeBlocksRoute;
   const exportFeeTicker = exportFee
     ? sourcePaysExportFee ? sourceCoin.display_ticker
@@ -236,7 +232,11 @@ const SendWizardAmount = () => {
   } else if (input && !validAmount) {
     amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
       ? "The amount exceeds this address's spendable balance."
-      : 'Enter a valid amount.';
+      : cryptoAmount.isGreaterThan(sendLimit || 0)
+        ? BigNumber(sendLimit || 0).isGreaterThan(0)
+          ? `You can send up to ${truncateDecimal(BigNumber(sendLimit), 8)} ${sourceCoin.display_ticker} now. The rest is not confirmed yet.`
+          : 'This balance is not confirmed yet. Wait for the next block.'
+        : 'Enter a valid amount.';
   }
   const exportFeeError = insufficientExportFunds
     ? `Not enough ${sourceCoin.display_ticker} for the bridge fee (about ${exportFeeDisplay}).`
@@ -387,7 +387,7 @@ const SendWizardAmount = () => {
 
   const useMaximum = () => {
     if (maximumDisabled) return;
-    const maximum = BigNumber.maximum(0, BigNumber(sourceBalance || 0)
+    const maximum = BigNumber.maximum(0, BigNumber(sendLimit || 0)
       .minus(sourcePaysExportFee ? exportFee.amount : 0));
     if (sourcePaysExportFee) {
       // Keep MAX exact. Rounding a fiat value could spend the reserved fee.

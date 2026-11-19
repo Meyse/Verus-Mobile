@@ -139,7 +139,6 @@ const paprikaSeries = async (coin, start, now, canFetch, hourly) => {
     start: Math.max(start, now - (365 * DAY)),
     end: now,
     stamp: date(now),
-    oncePerPeriod: true,
     canFetch,
     fetchSamples: fetchSamples('1d'),
   });
@@ -152,7 +151,6 @@ const paprikaSeries = async (coin, start, now, canFetch, hourly) => {
       end: now,
       stamp: Math.floor(now / HOUR),
       memory: true,
-      oncePerPeriod: true,
       canFetch,
       fetchSamples: fetchSamples('1h'),
     });
@@ -231,7 +229,6 @@ export const getFiatHistory = async (currency, start, now, canFetch = () => true
     start,
     end: now,
     stamp: date(now),
-    oncePerPeriod: true,
     canFetch,
     fetchSamples: async (from) => {
       ensureFocused(canFetch);

@@ -595,7 +595,9 @@ export default function CreateProfileStackScreens(props) {
       return (
         <ImportSeed
           importedSeed={importedSeed}
-          onComplete={() => completeImportedSeed()}
+          // Import the phrase the editor hands back. The saved text keeps
+          // empty word slots, and the wallet keys depend on the exact text.
+          onComplete={seed => completeImportedSeed(seed)}
           onImportProgressChange={setImportSeedEntryProgress}
           onReviewModeChange={setImportSeedReviewing}
           setImportedSeed={setImportedSeed}

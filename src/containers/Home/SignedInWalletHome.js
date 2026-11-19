@@ -144,7 +144,7 @@ const PortfolioBalance = React.memo(React.forwardRef(({
   const hasAccessory = hasPill || stripScrub;
   const wrapped = hasAccessory && availableWidth > 0
     && amountWidth + symbolWidth + 4 + pillWidth + 8 > availableWidth;
-  const span = chart ? spanText(history.range, history.series.partial, history.record.start, history.now) : '';
+  const span = chart ? spanText(history.range, history.series.partial, history.series.start, history.now) : '';
 
   return (
     <View

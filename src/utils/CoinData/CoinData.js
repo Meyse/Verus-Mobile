@@ -125,6 +125,7 @@ export const explorers = {
   ZRX: 'https://etherscan.io',
   TST: 'https://ropsten.etherscan.io',
   BTC: 'https://www.blockchain.com/btc',
+  TESTNET: 'https://mempool.space/testnet4',
   DOGE: 'https://dogeblocks.com',
   ["iJ3WZocnjG9ufv7GKUA4LijQno5gTMb7tP"]: 'https://explorer.chips.cash/'
 }

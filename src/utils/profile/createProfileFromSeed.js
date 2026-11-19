@@ -21,7 +21,7 @@ export const buildProfileSeeds = (seed, includeDlightSeed = false) => {
 };
 
 // The coins a new wallet starts with, in key order: VRSC, BTC and ETH, or
-// VRSCTEST and GETH for a testnet wallet (BTC has no testnet coin).
+// VRSCTEST and GETH for a testnet wallet (Bitcoin Testnet4 is added by hand).
 export const getStartingCoinIds = (testProfile = false) =>
   START_COINS.filter(
     coinId => !testProfile || TEST_PROFILE_OVERRIDES[coinId] != null,

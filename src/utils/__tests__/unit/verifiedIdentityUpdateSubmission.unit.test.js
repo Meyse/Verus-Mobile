@@ -193,6 +193,24 @@ test.each(['timeout', 'missing', 'wrong txid', 'malformed txid', 'rpc error', 's
   },
 );
 
+test.each(['18: txn-mempool-conflict', '18: bad-txns-inputs-spent', '-25: Missing inputs'])(
+  'a node refusal "%s" says nothing was sent without retransmitting it', async nodeError => {
+    // Funding uses confirmed outputs only. Before the next block the node
+    // refuses inputs that an unconfirmed transaction already spends.
+    mockSend.mockResolvedValueOnce({error: {code: -26, message: nodeError}});
+    const notSent = {
+      code: 'INPUTS_SPENT',
+      message: 'Your previous transaction is not confirmed yet. Nothing was sent. Wait for the next block. Then close this request and open it again.',
+    };
+
+    const error = await submit().catch(value => value);
+    expect(error).toMatchObject(notSent);
+    expect(error.submitted).toBeUndefined();
+    await expect(submit()).rejects.toMatchObject(notSent);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  },
+);
+
 test('a pending RPC is already submitted but cannot be reported as acknowledged', async () => {
   let release;
   let started;

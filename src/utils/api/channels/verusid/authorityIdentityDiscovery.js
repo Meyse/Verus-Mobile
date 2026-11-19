@@ -11,6 +11,9 @@ export const AUTHORITY_IDENTITY_DISCOVERY_STATUS = {
   EMPTY: 'empty',
   ERROR: 'error',
   LOADING: 'loading',
+  // Some targets were found, but at least one identity lookup failed, so the
+  // list may be incomplete. The picker keeps retry and manual entry.
+  PARTIAL: 'partial',
   READY: 'ready',
   UNSUPPORTED: 'unsupported',
 };
@@ -207,14 +210,17 @@ export const discoverAuthorityIdentityTargets = async ({
       left.displayName.localeCompare(right.displayName),
     );
 
-    return {
-      candidates,
-      status: candidates.length
-        ? AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY
-        : hydrationFailed
-        ? AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR
-        : AUTHORITY_IDENTITY_DISCOVERY_STATUS.EMPTY,
-    };
+    let status = AUTHORITY_IDENTITY_DISCOVERY_STATUS.EMPTY;
+
+    if (candidates.length) {
+      status = hydrationFailed
+        ? AUTHORITY_IDENTITY_DISCOVERY_STATUS.PARTIAL
+        : AUTHORITY_IDENTITY_DISCOVERY_STATUS.READY;
+    } else if (hydrationFailed) {
+      status = AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR;
+    }
+
+    return {candidates, status};
   } catch (error) {
     return {
       candidates: [],

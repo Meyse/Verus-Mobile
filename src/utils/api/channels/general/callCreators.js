@@ -14,7 +14,8 @@ import { GENERAL_CONNECTION_ERROR } from '../../errors/errorCodes';
 
 export const getRecommendedBTCFees = async (testnet = false, maximum) => {
   const primary = await getMempoolSpaceBTCFees(maximum, testnet);
-  if (primary) return primary;
+  // blockchain.com has mainnet rates only. A testnet coin gets none instead.
+  if (primary || testnet) return primary;
   return await getBlockchainComBTCFees(maximum);
 };
 

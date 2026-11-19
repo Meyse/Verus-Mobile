@@ -37,12 +37,12 @@ import {
   getBlockHash,
   getAddressMempool,
   getAddressUtxos,
-  getMempoolUnspentUtxos,
   getInfo,
   getSpendableUtxos,
   getTransaction,
 } from '../api/channels/vrpc/callCreators';
 import {getIdentity} from '../api/channels/verusid/callCreators';
+import {assertNoPendingSpend} from '../transactions/pendingSpendCheck';
 import {
   createUpdateIdentityTxWithUtxos,
   createUpdateIdentityWithCurrencyTransferTx,
@@ -2052,15 +2052,9 @@ const getIdentityFundingInputPlan = async ({
     );
   }
 
-  const identityFunding = getIdentityFunding(identity, identityFundingByKey);
-  const identityUtxos = await getMempoolUnspentUtxos(
-    group.systemId,
-    [identity.identityAddress],
-    identityFunding.utxos || [],
-  );
   const identityFeeUtxos = getIdentityFeeUtxos(
     group.systemId,
-    {...identityFunding, utxos: identityUtxos},
+    getIdentityFunding(identity, identityFundingByKey),
     requiredFeeSats.plus(SPENDABLE_KEY_CLAIM_FEE_SATS),
     BigNumber(0),
     excludedUtxos,
@@ -2222,6 +2216,13 @@ export const preflightGiftCardFunding = async ({
     }
 
     const sourceAddress = getSourceAddress(sourceCoin, activeAccount);
+    // Funding spends confirmed outputs only, and the signed batch is saved
+    // before broadcast. Refuse while an earlier spend from these addresses
+    // is unconfirmed, so a refused batch cannot block this card.
+    await assertNoPendingSpend(group.systemId, [
+      sourceAddress,
+      ...group.identities.map(identity => identity.identityAddress),
+    ]);
     const destination = toTransferDestination(cardAddress);
     const fundOutputs = group.funds.map(fund => ({
       systemId: group.systemId,
