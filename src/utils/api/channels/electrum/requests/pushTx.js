@@ -455,11 +455,23 @@ export const txPreflight = (
 
           targets[0].value = targets[0].value.toNumber();
 
-          let { inputs, outputs, fee } = coinSelect(
-            utxoListFormatted,
-            targets,
-            feePerByte
-          );
+          // coinselect sizes a P2PKH input as 147 bytes, but a signed input
+          // (compressed key, low-S signature) takes up to 148, as in
+          // estimateLegacyTransactionByteSize. Size inputs at 148, so the fee is
+          // never below size x rate (the minimum relay fee at 1 sat/vB).
+          const sizedUtxos = utxoListFormatted.map(utxo => ({
+            ...utxo,
+            script: {length: 107},
+          }));
+          const selectCoins = () => {
+            const selection = coinSelect(sizedUtxos, targets, feePerByte);
+            return {
+              ...selection,
+              inputs: selection.inputs?.map(({script, ...input}) => input),
+            };
+          };
+
+          let { inputs, outputs, fee } = selectCoins();
 
           if (!outputs) {
             amountSubmitted = value;
@@ -467,7 +479,7 @@ export const txPreflight = (
             targets[0].value = value.toNumber();
             feeTakenFromAmount = true;
 
-            let secondRun = coinSelect(utxoListFormatted, targets, feePerByte);
+            let secondRun = selectCoins();
             inputs = secondRun.inputs;
             outputs = secondRun.outputs;
             fee = secondRun.fee;
