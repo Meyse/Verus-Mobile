@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js";
+import bs58check from "bs58check";
 import store from "../../store";
 import { coinExistsInWallet, findCurrencyByImportId, getCoinFromActiveCoins } from "../CoinData/CoinData";
 import { FORMAT_UNKNOWN, INCOMPATIBLE_COIN, INCOMPLETE_VERUS_QR, PARSE_ERROR } from "../constants/constants";
@@ -12,6 +13,20 @@ import { CoinDirectory } from "../CoinData/CoinDirectory";
 import { toLowerCaseCLocale } from "verus-typescript-primitives";
 
 export const ASSET_NOT_ACTIVE = 'ASSET_NOT_ACTIVE';
+
+// BIP 21 uses "bitcoin:" for every Bitcoin network. A testnet address
+// (m, n, 2 or tb1) is for the Bitcoin Testnet4 coin, not for BTC.
+const BITCOIN_TESTNET_VERSIONS = [0x6f, 0xc4];
+const bitcoinNetworkCoinId = (coinId, address) => {
+  if (coinId !== 'BTC') return coinId;
+  try {
+    return /^tb1/i.test(address) ||
+      BITCOIN_TESTNET_VERSIONS.includes(bs58check.decode(address)[0])
+      ? 'TESTNET' : coinId;
+  } catch (_) {
+    return coinId;
+  }
+};
 
 class QrScanner {
   constructor() {}
@@ -179,7 +194,7 @@ class QrScanner {
             coinObj.alt_names.some((name) => name === toLowerCaseCLocale(coinName))
           ) {
             return {
-              coinTicker: coinObj.id,
+              coinTicker: bitcoinNetworkCoinId(coinObj.id, address),
               address: address,
               ...(amount ? { amount: BigNumber(amount) } : {}),
             };
@@ -201,7 +216,7 @@ class QrScanner {
             coinObj.alt_names.some((name) => name === toLowerCaseCLocale(coinName))
           ) {
             return {
-              coinTicker: coinObj.id,
+              coinTicker: bitcoinNetworkCoinId(coinObj.id, address),
               address: address,
             };
           }

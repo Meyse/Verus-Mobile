@@ -12,6 +12,7 @@ import {getRecommendedBTCFees} from '../../api/channels/general/callCreators';
 import {deriveKeyPair} from '../../keys';
 import {ELECTRUM} from '../../constants/intervalConstants';
 import {networkFeeKind} from '../../../containers/SendWizard/networkFeeUtils';
+import QrScanner from '../../QrScanner/QrScanner';
 
 jest.mock('axios', () => {
   const axiosMock = {get: jest.fn(), post: jest.fn()};
@@ -217,5 +218,14 @@ describe('Bitcoin Testnet4 coin', () => {
 
     // 700 - 192 = 508 sat is below the 546 sat dust limit.
     await expect(maxSend(700)).rejects.toThrow('Send at least 0.00000546 BTCTEST');
+  });
+
+  it('reads a bitcoin: payment link by the address network', () => {
+    expect(QrScanner.processPaymentRequestURI(`bitcoin:${TESTNET_ADDRESS}?amount=0.001`))
+      .toMatchObject({coinTicker: 'TESTNET', address: TESTNET_ADDRESS});
+    expect(QrScanner.processPaymentRequestURI(`bitcoin:${MAINNET_ADDRESS}?amount=0.001`))
+      .toMatchObject({coinTicker: 'BTC', address: MAINNET_ADDRESS});
+    expect(QrScanner.processPaymentRequestURI(`bitcoin:${MAINNET_ADDRESS}`))
+      .toMatchObject({coinTicker: 'BTC'});
   });
 });
