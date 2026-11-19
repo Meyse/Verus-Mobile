@@ -1676,6 +1676,14 @@ once from the prices saved on the phone and replaces them when new prices
 arrive. Show the loading skeletons only when the phone has no saved prices for
 an asset on Home, or while the total is not known.
 
+A day without a price for an asset the wallet held then is not available. The
+chart never fills it with an earlier, later, or current price (PR 266 review
+PF3). The line starts at the first day that has a value, with the existing
+"Since <date>" label, and the change pill counts from that day. The range
+still starts at the wallet's record start, never before it. When fewer than
+two points have a value, the Day-1 caption slot says "Price history is not
+available right now." and the strip, pill, and range toggle do not show.
+
 ## Home notification card
 
 The owner chose card A on 2026-10-22 (gap 5 mockups). On 2026-11-04, the owner

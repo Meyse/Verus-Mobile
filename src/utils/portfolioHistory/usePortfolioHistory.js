@@ -198,9 +198,10 @@ const usePortfolioHistory = ({
   const selectedRange = ranges.includes(range) ? range : '1M';
   const requested = market?.key === marketKey ? market : null;
   const data = requested && !requested.loading ? requested : savedMarket || requested;
-  const ratioCoin = coins.find((coin) => Number(rates[GENERAL]?.[coin.id]?.[currency]) > 0);
-  const currentRatio = ratioCoin ? Number(rates[GENERAL][ratioCoin.id][currency]) / Number(ratioCoin.usd) : 0;
-  const fxFallback = currency === 'USD' ? 1 : currentRatio;
+  // Past values in another currency need past exchange rates. Without them (no saved
+  // rates yet, or a currency the ECB does not publish) the history is not available;
+  // today's rate is never used for past days.
+  const fxFallback = currency === 'USD' ? 1 : null;
   const series = useMemo(() => (state === 'chart' ? buildSeries({
     record,
     coins,
@@ -213,6 +214,8 @@ const usePortfolioHistory = ({
   }) : null),
   [state, record, coins, data, fxFallback, total, selectedRange, now]);
   const loading = state === 'chart' && (total == null || !data || data.loading);
+  // The line needs two points with a real value. Missing prices are never filled in.
+  const shownState = state === 'chart' && !loading && series.points.length < 2 ? 'unavailable' : state;
   // Before the record is read, Home can still tell whether a chart can show at all.
   const hasPrice = coins.length > 0;
   // One object per change, so the header and chart draw again only when the history changes.
@@ -220,7 +223,7 @@ const usePortfolioHistory = ({
     hydrated,
     hasPrice,
     focused,
-    state,
+    state: shownState,
     record,
     series,
     range: selectedRange,
@@ -228,7 +231,7 @@ const usePortfolioHistory = ({
     setRange,
     now,
     loading,
-  }), [hydrated, hasPrice, focused, state, record, series, selectedRange, ranges, now, loading]);
+  }), [hydrated, hasPrice, focused, shownState, record, series, selectedRange, ranges, now, loading]);
 };
 
 export default usePortfolioHistory;

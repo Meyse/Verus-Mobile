@@ -15,6 +15,11 @@ let writeTimer = null;
 let activeLoads = 0;
 const hourly = new Map();
 const pending = new Map();
+// A failed request is not tried again for a while, also for a wider range. The
+// chart load asks twice in a row and again on each refresh; the price APIs are
+// rate-limited.
+export const RETRY_AFTER_MS = 10 * 60 * 1000;
+const failures = new Map();
 
 export const mergeSamples = (...lists) => [...new Map(lists.flat().map((p) => [p[0], p])).values()]
   .sort((a, b) => a[0] - b[0]);
@@ -65,21 +70,38 @@ const scheduleWrite = () => {
 
 // Store only public samples. Balance amounts and account hashes never enter this cache.
 // The key names list the wallet's coins, so the cache is in encrypted storage.
-// A successful daily/hourly request is reused for its whole clock period.
+// All wallets share an entry, so it is reused for its clock period only when it
+// covers the requested start. Otherwise the request fetches from that start.
 export const cachedHistory = async ({
-  key, start, end, stamp, memory = false, oncePerPeriod = false, fetchSamples, canFetch,
+  key, start, end, stamp, memory = false, fetchSamples, canFetch,
 }) => {
   const entries = memory ? hourly : await read();
   const get = () => (memory ? entries.get(key) : entries[key]);
   const entry = get();
-  if (entry?.stamp === stamp && (oncePerPeriod || entry.from <= start)) return entry.samples;
+  if (entry?.stamp === stamp && entry.from <= start) return entry.samples;
+  const failure = failures.get(key);
+  // As after the failure itself, the caller then uses the saved samples, and the
+  // chart marks the days they do not cover.
+  if (failure && failure.start <= start && Date.now() - failure.at < RETRY_AFTER_MS) {
+    throw new Error('Price history failed recently.');
+  }
   if (!canFetch()) return entry?.samples || [];
   if (pending.has(key)) return pending.get(key);
   const version = generation;
   const promise = (async () => {
     const from = entry && entry.from <= start ? Math.max(start, entry.through) : start;
-    const samples = await fetchSamples(from, end);
-    if (!samples.length) throw new Error('Price history returned no usable samples.');
+    let samples;
+    try {
+      samples = await fetchSamples(from, end);
+      if (!samples.length) throw new Error('Price history returned no usable samples.');
+    } catch (error) {
+      // A request that stopped because Home lost focus did not fail.
+      if (version === generation && canFetch()) {
+        failures.set(key, {start, at: Date.now()});
+      }
+      throw error;
+    }
+    failures.delete(key);
     const merged = mergeSamples(entry?.samples || [], samples);
     const result = {
       samples: memory ? merged.filter((sample) => sample[0] >= start) : merged,
@@ -131,6 +153,7 @@ export const clearPortfolioPriceCache = async () => {
   generation += 1;
   hourly.clear();
   pending.clear();
+  failures.clear();
   clearTimeout(writeTimer);
   writeTimer = null;
   dirty = false;
