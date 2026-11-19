@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import {FlatList, RefreshControl} from 'react-native-gesture-handler';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {ArrowDownUp, ChevronDown} from 'lucide-react-native';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -29,7 +30,8 @@ import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
-import {DisplayCurrencySheet} from './components/SignedInWalletSheets';
+import {DisplayCurrencySheet, HomeSortSheet} from './components/SignedInWalletSheets';
+import {HOME_SORT_BALANCE, HOME_SORT_CUSTOM, HOME_SORT_NAME} from '../../utils/assets/assetOrder';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 import HomeNotice, {HOME_NOTICE_SYNC} from './HomeWidgets/HomeNotice';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
@@ -39,6 +41,7 @@ import {useLatestCallback} from '../../hooks/useLatestCallback';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
+const SORT_HIT_SLOP = {top: 6, bottom: 6, left: 8, right: 8};
 const REVEAL_BALANCE_DURATION = 220;
 const CONCEAL_BALANCE_DURATION = 160;
 
@@ -398,17 +401,82 @@ const HomeAssetRow = React.memo(({
   );
 });
 
-// The balance, its actions and the notices. It draws again only when one of
-// its own values changes, not on each asset balance result.
+// The Home notice and the notification cards (PF1 option A, owner pick
+// 2026-11-19). They are the first part of the list header, so they scroll away
+// with the assets, and the action bar and the assets stay reachable at any
+// count. They draw again only when their own values change.
+const HomeNotices = React.memo(({
+  compactHeader,
+  homeNotice,
+  loading,
+  onDismissFoundAssets,
+  onDismissSyncNotice,
+  onReceive,
+  onRefresh,
+  onReviewFoundAssets,
+}) => {
+  const [noticeHeight, setNoticeHeight] = useState(0);
+  const shown = homeNotice != null || noticeHeight > 0;
+
+  return (
+    <View
+      testID="home-notices"
+      onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
+      // A Home notice takes the gap in its first frame; the measure covers the
+      // other cards. The fixed header ends with 8 points, so 12 more keep the
+      // 20-point gap under the balance, and 8 stay above the chart.
+      style={[styles.notices, shown && (compactHeader ? styles.noticesUnderChartHeader : styles.noticesShown)]}
+    >
+      <HomeNotice
+        loading={loading}
+        notice={homeNotice}
+        onReceive={onReceive}
+        onDismiss={homeNotice?.kind === HOME_NOTICE_SYNC ? onDismissSyncNotice : onDismissFoundAssets}
+        onRetry={onRefresh}
+        onReview={onReviewFoundAssets}
+      />
+      <NotificationWidget followsHomeNotice={homeNotice != null} />
+    </View>
+  );
+});
+
+export const HOME_SORT_LABELS = {
+  [HOME_SORT_CUSTOM]: 'My order',
+  [HOME_SORT_BALANCE]: 'Balance',
+  [HOME_SORT_NAME]: 'Name',
+};
+
+// Opens "Sort assets". It names the current sort, as the chart's range label does.
+const HomeSortControl = React.memo(({sort, theme, onPress}) => {
+  const label = HOME_SORT_LABELS[sort] || HOME_SORT_LABELS[HOME_SORT_CUSTOM];
+  return (
+    <View style={styles.sortRow}>
+      <TouchableOpacity
+        activeOpacity={0.72}
+        accessibilityRole="button"
+        accessibilityLabel={`Sort assets, ${label}`}
+        hitSlop={SORT_HIT_SLOP}
+        onPress={onPress}
+        style={styles.sortControl}
+        testID="home-sort-control"
+      >
+        <ArrowDownUp size={16} strokeWidth={2} color={theme.colors.link} />
+        <Text style={[theme.typography.labelSm, styles.sortLabel, {color: theme.colors.link}]}>{label}</Text>
+        <ChevronDown size={16} strokeWidth={2} color={theme.colors.link} />
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+// The balance and its actions. It draws again only when one of its own values
+// changes, not on each asset balance result.
 const HomeHeader = React.memo(({
   amountRef,
   compactHeader,
   displayCurrency,
   dividerOpacity,
   history,
-  homeNotice,
   hydrated,
-  loading,
   chartExpanded,
   revealProgress,
   actionsOpacity,
@@ -416,17 +484,10 @@ const HomeHeader = React.memo(({
   stripScrubbing,
   theme,
   totalFiatBalance,
-  onDismissFoundAssets,
-  onDismissSyncNotice,
   onManageAssets,
-  onReceive,
-  onRefresh,
-  onReviewFoundAssets,
   onSelectCurrency,
   onToggleBalance,
 }) => {
-  const [noticeHeight, setNoticeHeight] = useState(0);
-
   return (
     <View style={[styles.header, {backgroundColor: theme.colors.background}]}>
       <View style={[styles.balanceRow, compactHeader && chartStyles.compactBalanceRow]}>
@@ -478,21 +539,6 @@ const HomeHeader = React.memo(({
           </TouchableOpacity>
         </Animated.View>
       </View>
-      <View
-        onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
-        // A Home notice takes the gap in its first frame; the measure covers the other cards.
-        style={compactHeader && (homeNotice != null || noticeHeight > 0) ? {marginTop: 20} : undefined}
-      >
-        <HomeNotice
-          loading={loading}
-          notice={homeNotice}
-          onReceive={onReceive}
-          onDismiss={homeNotice?.kind === HOME_NOTICE_SYNC ? onDismissSyncNotice : onDismissFoundAssets}
-          onRetry={onRefresh}
-          onReview={onReviewFoundAssets}
-        />
-        <NotificationWidget followsHomeNotice={homeNotice != null} />
-      </View>
       {/* The line shows once the list scrolls. It changes no layout and no React state. */}
       <Animated.View
         pointerEvents="none"
@@ -506,9 +552,12 @@ PortfolioBalanceSkeleton.displayName = 'PortfolioBalanceSkeleton';
 ChartStripSkeleton.displayName = 'ChartStripSkeleton';
 HomeAssetRow.displayName = 'HomeAssetRow';
 HomeHeader.displayName = 'HomeHeader';
+HomeNotices.displayName = 'HomeNotices';
+HomeSortControl.displayName = 'HomeSortControl';
 
 const MemoActionBar = React.memo(SignedInActionBar);
 const MemoDisplayCurrencySheet = React.memo(DisplayCurrencySheet);
+const MemoHomeSortSheet = React.memo(HomeSortSheet);
 
 const getAssetRowValues = (item, showBalance, displayCurrency) => {
   const presentation = item.presentation || getAssetPresentation(item.coin);
@@ -572,9 +621,12 @@ const SignedInWalletHome = ({
   onReviewFoundAssets,
   onDismissFoundAssets,
   onDismissSyncNotice,
+  sort = HOME_SORT_CUSTOM,
+  onSelectSort,
 }) => {
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const { expanded: chartExpanded, hydrated: preferenceHydrated, setExpanded } = useHomeChartPreference();
   const hydrated = history.hydrated && preferenceHydrated;
   const dividerRef = useRef(false);
@@ -608,6 +660,9 @@ const SignedInWalletHome = ({
   });
   const openCurrencySheet = useCallback(() => setCurrencyOpen(true), []);
   const closeCurrencySheet = useCallback(() => setCurrencyOpen(false), []);
+  const openSortSheet = useCallback(() => setSortOpen(true), []);
+  const closeSortSheet = useCallback(() => setSortOpen(false), []);
+  const selectSort = useLatestCallback(next => onSelectSort?.(next));
   const formatValue = useCallback(value => formatFiat(value, displayCurrency), [displayCurrency]);
   const toggleChart = useCallback(() => setExpanded(!chartExpanded), [chartExpanded, setExpanded]);
   const pullToRefresh = useLatestCallback(() => {
@@ -647,7 +702,7 @@ const SignedInWalletHome = ({
   }, [showBalance, displayCurrency, balanceRevealProgress, theme, openAsset]);
 
   // Until the record is read, a plain skeleton keeps the closed or open chart's space.
-  const listHeader = useMemo(() => {
+  const chart = useMemo(() => {
     if (!hydrated) {
       return history.hasPrice ? (
         <ChartStripSkeleton expanded={preferenceHydrated && chartExpanded} />
@@ -667,6 +722,26 @@ const SignedInWalletHome = ({
     );
   }, [hydrated, history, showBalance, formatValue, onScrub, chartExpanded,
     preferenceHydrated, toggleChart]);
+  // The sort control shows when there are two or more rows to sort.
+  const sortable = assets.length >= 2;
+  // Notices, then the chart, then the sort control. All three scroll with the rows.
+  const listHeader = useMemo(() => (
+    <>
+      <HomeNotices
+        compactHeader={compactHeader}
+        homeNotice={homeNotice}
+        loading={loading}
+        onDismissFoundAssets={onDismissFoundAssets}
+        onDismissSyncNotice={onDismissSyncNotice}
+        onReceive={onReceive}
+        onRefresh={onRefresh}
+        onReviewFoundAssets={onReviewFoundAssets}
+      />
+      {chart}
+      {sortable ? <HomeSortControl sort={sort} theme={theme} onPress={openSortSheet} /> : null}
+    </>
+  ), [compactHeader, homeNotice, loading, onDismissFoundAssets, onDismissSyncNotice, onReceive,
+    onRefresh, onReviewFoundAssets, chart, sortable, sort, theme, openSortSheet]);
   const chartReady = history.state === 'chart' && !history.loading;
 
   const listEmpty = useMemo(() => (
@@ -708,9 +783,7 @@ const SignedInWalletHome = ({
         displayCurrency={displayCurrency}
         dividerOpacity={dividerOpacity}
         history={history}
-        homeNotice={homeNotice}
         hydrated={hydrated}
-        loading={loading}
         chartExpanded={chartExpanded}
         revealProgress={balanceRevealProgress}
         actionsOpacity={actionsOpacity}
@@ -718,12 +791,7 @@ const SignedInWalletHome = ({
         stripScrubbing={stripScrubbing}
         theme={theme}
         totalFiatBalance={totalFiatBalance}
-        onDismissFoundAssets={onDismissFoundAssets}
-        onDismissSyncNotice={onDismissSyncNotice}
         onManageAssets={onManageAssets}
-        onReceive={onReceive}
-        onRefresh={onRefresh}
-        onReviewFoundAssets={onReviewFoundAssets}
         onSelectCurrency={openCurrencySheet}
         onToggleBalance={onToggleBalance}
       />
@@ -757,6 +825,12 @@ const SignedInWalletHome = ({
         onClose={closeCurrencySheet}
         onSelect={onSelectDisplayCurrency}
       />
+      <MemoHomeSortSheet
+        visible={sortOpen}
+        sort={sort}
+        onClose={closeSortSheet}
+        onSelect={selectSort}
+      />
     </SafeAreaView>
   );
 };
@@ -782,6 +856,13 @@ const styles = StyleSheet.create({
   // The closed strip leaves 54 points for the range label and chevron.
   closedStripPlot: {paddingRight: 54},
   listContent: {paddingBottom: 16},
+  notices: {paddingHorizontal: 20},
+  noticesShown: {marginBottom: 8},
+  noticesUnderChartHeader: {marginTop: 12, marginBottom: 8},
+  // A 32-point line under the chart; the hit slop keeps a 44-point target.
+  sortRow: {flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginBottom: 4},
+  sortControl: {height: 32, flexDirection: 'row', alignItems: 'center', gap: 4},
+  sortLabel: {marginLeft: 2},
   assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row'},
   logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},
   assetCopy: {flex: 1, minWidth: 0, justifyContent: 'center'},

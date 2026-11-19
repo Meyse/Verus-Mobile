@@ -19,6 +19,11 @@ jest.mock('../../services/WyreProvider', () => ({
 jest.mock('../../../actions/actions/intervals/dispatchers/lifecycleManager', () => ({
   refreshLifecyclesAfterAssetChange: jest.fn(),
 }));
+jest.mock('../../../actions/actionCreators', () => ({
+  ...jest.requireActual('../../../actions/actionCreators'),
+  removeExistingCoin: jest.fn(async () => []),
+  setUserCoins: coins => ({type: 'SET_USER_COINS', payload: {activeCoinsForUser: coins}}),
+}));
 jest.mock('../../CoinData/assetIdentifierService', () => ({
   addResolvedAsset: jest.fn(),
   resolveAssetIdentifier: jest.fn(),
@@ -247,6 +252,40 @@ describe('asset choices storage (R17)', () => {
     const stored = await storedChoices();
     expect(stored.networks[NETWORK].preferences[COIN_KEY]).toEqual({hidden: true});
     expect(stored.networks[NETWORK].removed.iCoinB).toEqual(expect.any(Object));
+  });
+
+  it('keeps "My order" and the Home sort in the encrypted entry (R2)', async () => {
+    const {AsyncStorage} = await restart();
+    const service = await signIn();
+    // A wallet from an older build: no saved order, and the default sort.
+    expect(mockState.assetManagement.order).toBeNull();
+    expect(mockState.assetManagement.sort).toBe('custom');
+
+    await service.setAssetOrder(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
+    await service.setHomeSort('name');
+    await writesDone();
+
+    const dump = await plainDump(AsyncStorage);
+    expect(dump).not.toContain('iCoinA');
+    expect(dump).not.toContain('iCoinB');
+    const stored = await storedChoices();
+    expect(stored.networks[NETWORK].order).toEqual(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
+    expect(stored.networks[NETWORK].sort).toBe('name');
+
+    // A restart, which also follows a sign-out, keeps both.
+    await restart();
+    await signIn();
+    expect(mockState.assetManagement.order).toEqual(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
+    expect(mockState.assetManagement.sort).toBe('name');
+  });
+
+  it('takes a removed asset out of "My order", so any later add puts it last (R2)', async () => {
+    await restart();
+    const service = await signIn();
+    await service.setAssetOrder([COIN_KEY, 'testnet:vrsc:iSystem:iCoinB']);
+    await service.removeManagedAsset({coin: COIN});
+    await writesDone();
+    expect((await storedChoices()).networks[NETWORK].order).toEqual(['testnet:vrsc:iSystem:iCoinB']);
   });
 
   it('writes nothing for a profile after its delete started', async () => {

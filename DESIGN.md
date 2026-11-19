@@ -1103,6 +1103,15 @@ of the mockup on 2026-10-21):
   currency on the wallet's addresses waits under "New assets found" (owner,
   2026-10-26). A conversion or pre-conversion the user makes still adds its
   target, and a scanned request still asks "Add <name>?".
+- "Your assets" is in "My order" (see [Home asset order](#home-asset-order)).
+  In the All tab without a search, each row starts with a drag handle: the
+  Lucide `GripVertical` at 20 points in `textSubtle`, in a 28-point slot that
+  is the row's full height. A drag lifts the row onto `surface`
+  (`surfaceRaised` in dark mode) with 16-point corners and an iOS shadow
+  (a hairline `borderStrong` outline on Android), and the other rows make
+  room. The list scrolls by itself near its edges. The new order saves on
+  release. Screen readers get "Move up" and "Move down" actions on the handle.
+  The On Home and Hidden tabs and a search show no handles.
 - Below 7 assets, the search field and the All / On Home / Hidden tabs are
   hidden, and "Your assets" starts 24 points under the header. The count
   includes "New assets found" and ignores the selected tab and the search text
@@ -1707,12 +1716,44 @@ still starts at the wallet's record start, never before it. When fewer than
 two points have a value, the Day-1 caption slot says "Price history is not
 available right now." and the strip, pill, and range toggle do not show.
 
+## Home asset order
+
+The owner chose option B on 2026-11-19 (PR 266 review R2). A wallet list must
+not move by itself.
+
+- Home sorts its rows in "My order" by default. A balance or price change
+  never moves a row.
+- The user sets "My order" with drag handles in Manage assets. Without a saved
+  order, it is the order in which the assets were added to the phone. A new or
+  added-back asset goes to the end. A removed asset leaves no gap. A hidden
+  asset keeps its place.
+- Under the chart strip, a 32-point right-aligned line names the current sort:
+  the Lucide `ArrowDownUp` icon, the sort name in `labelSm` and `ChevronDown`,
+  all 16 points and in `link`, with a 44-point target. It shows from two rows
+  on Home and scrolls with the rows.
+- It opens "Sort assets", a `SelectionSheet` with single-choice
+  `SelectionRow`s: "My order" ("Change it in Manage assets"), "Balance"
+  ("Rows move when balances change") and "Name". The current sort has the
+  success fill and check; other rows have no chevron. The choice applies after
+  the sheet closes.
+- Balance keeps the earlier rule: funded assets first, then the higher money
+  value, then assets with a price, then the name. Name ignores case. Ties keep
+  "My order".
+- The order and the sort are asset choices: they are stored with them in the
+  profile's encrypted service data, per network (PR 266 review R22).
+
 ## Home notification card
 
 The owner chose card A on 2026-10-22 (gap 5 mockups). On 2026-11-04, the owner
 chose look A of the notice-size mockups: the same layout, scaled down.
 A VerusID request
 (`NotificationWidget.js`) shows one card under the Home balance.
+
+Owner pick, 2026-11-19 (PR 266 review PF1, option A): the Home notice and the
+notification cards are the first part of the asset list header, above the
+chart strip. They scroll away with the assets, so the assets and the Receive,
+Send and Convert bar stay reachable at any count. Every card stays. The gap
+under the balance stays 20 points, with 8 points above the chart.
 
 - `surfaceMuted` fill, 16-point corners, no border. Padding is 12 points at the
   top and bottom and 14 on the left. Right padding is 0 with a close target,

@@ -8,6 +8,8 @@ import {
   ASSET_DISCOVERY_SAVED,
   ASSET_REMOVALS_SAVED,
   ASSET_REVIEWS_SAVED,
+  ASSET_ORDER_SAVED,
+  ASSET_SORT_SAVED,
 } from '../../reducers/assetManagement';
 import {removeExistingCoin, setUserCoins} from '../../actions/actionCreators';
 import {refreshLifecyclesAfterAssetChange} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
@@ -20,6 +22,7 @@ import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../constants/intervalConstants';
 import {removedAssetRecord} from './removedAssets';
+import {orderWithAddedAsset, readAssetOrder, readHomeSort} from './assetOrder';
 import {resolvedAssetCoin} from './assetPresentation';
 import {
   loadAssetDiscoveryCache,
@@ -154,8 +157,8 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
 // the background (assetChoicesStorage.js); the user never waits for it.
 const changeChoices = (context, update, publish) => {
   assertCurrent(context);
-  const {preferences, removed, reviewed} = store.getState().assetManagement;
-  publish(update({preferences, removed, reviewed}));
+  const {preferences, removed, reviewed, order, sort} = store.getState().assetManagement;
+  publish(update({preferences, removed, reviewed, order, sort}));
   queueAssetChoicesChange(context.sessionScope.accountHash, context.networkKey, update);
 };
 
@@ -234,6 +237,47 @@ export const markFoundAssetsReviewed = async (
   }));
 };
 
+// "My order" (PR 266 review R2). The full list of the wallet's asset keys,
+// hidden assets included, so a hidden asset keeps its place.
+export const setAssetOrder = async (keys, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  const order = readAssetOrder(keys) || [];
+  changeChoices(context, current => ({...current, order}),
+    next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
+};
+
+// How Home sorts its rows. The choice stays with the asset choices.
+export const setHomeSort = async (sort, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  const next = readHomeSort(sort);
+  if (store.getState().assetManagement.sort === next) return;
+  changeChoices(context, current => ({...current, sort: next}),
+    published => dispatchForContext(context, ASSET_SORT_SAVED, {sort: published.sort}));
+};
+
+// An asset that the wallet adds, or that the user adds back, goes to the end
+// of "My order".
+const appendToOrder = (coin, context) => {
+  const key = assetKey(coin);
+  const coins = (store.getState().coins.activeCoinsForUser || [])
+    .filter(item => Boolean(item.testnet) === Boolean(coin.testnet));
+  changeChoices(context, current => ({
+    ...current,
+    order: orderWithAddedAsset(current.order, [...coins, coin], key),
+  }), next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
+};
+
+// A removed asset leaves "My order". Every later add, by any path, then puts
+// it at the end. A hidden asset is not removed and keeps its place.
+const dropFromOrder = (coin, context) => {
+  const key = assetKey(coin);
+  if (!(store.getState().assetManagement.order || []).includes(key)) return;
+  changeChoices(context, current => ({
+    ...current,
+    order: (current.order || []).filter(item => item !== key),
+  }), next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
+};
+
 // Only consider channels still belonging to the current wallet's cards.
 export const currentAssetSnapshots = state => {
   const channels = new Set(Object.values(state.coinMenus.allSubWallets || {})
@@ -286,8 +330,10 @@ export const addManagedAsset = ({
           item.currency_id?.toLowerCase() === result.canonicalAddress.toLowerCase());
     if (existing) {
       if (!automatic) {
-        if (wasRemoved) restoreAssetPreferences(existing, removedKey, context);
-        else await setAssetHomeVisibility(existing, true, context);
+        if (wasRemoved) {
+          restoreAssetPreferences(existing, removedKey, context);
+          appendToOrder(existing, context);
+        } else await setAssetHomeVisibility(existing, true, context);
       }
       return existing;
     }
@@ -309,6 +355,7 @@ export const addManagedAsset = ({
       result: resolved,
     });
     assertCurrent(context);
+    appendToOrder(added, context);
     if (!automatic) {
       if (wasRemoved) restoreAssetPreferences(added, removedKey, context);
       else await setAssetHomeVisibility(added, true, context);
@@ -331,6 +378,7 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
     // Mark it first, so a balance update during teardown cannot add it back.
     const key = removalKey(coin);
     setAssetRemoved(key, removedAssetRecord(coin), context);
+    dropFromOrder(coin, context);
     const nextCoins = await removeExistingCoin(
       coin.id,
       activeAccount.id,
