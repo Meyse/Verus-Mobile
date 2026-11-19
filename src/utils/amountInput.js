@@ -1,10 +1,13 @@
 // Edit the displayed decimal text. Amount and fee arithmetic stays with callers.
+// `maxDecimals` refuses a digit past that many decimal places (money entry
+// keeps 2). Without it, the caller validates precision.
 export const editAmountInput = (
   value,
   selection,
   key,
   decimalSeparator = '.',
   maxLength = Infinity,
+  maxDecimals = Infinity,
 ) => {
   const start = Math.max(0, Math.min(selection?.start ?? value.length, value.length));
   const end = Math.max(start, Math.min(selection?.end ?? start, value.length));
@@ -34,6 +37,8 @@ export const editAmountInput = (
     cursor++;
   }
   if (next.length > maxLength) return unchanged;
+  const separator = next.search(/[.,]/);
+  if (separator >= 0 && next.length - separator - 1 > maxDecimals) return unchanged;
   return {value: next, selection: {start: cursor, end: cursor}};
 };
 
