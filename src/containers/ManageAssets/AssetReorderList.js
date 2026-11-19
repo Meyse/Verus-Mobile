@@ -3,6 +3,7 @@ import {Platform, StyleSheet, View} from 'react-native';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
+  runOnUI,
   scrollTo,
   useAnimatedRef,
   useAnimatedStyle,
@@ -65,6 +66,16 @@ const slotOffset = (keys, layouts, from, to) => {
   return sum;
 };
 
+// Every row reports its place. The merge runs on the UI thread: a merge on
+// the JS thread reads an old copy of the map, so the rows overwrite each
+// other and the drag finds no place to move to.
+const storeLayout = (layouts, id, y, h) => {
+  'worklet';
+  const current = layouts.value[id];
+  if (current?.y === y && current?.h === h) return;
+  layouts.value = {...layouts.value, [id]: {y, h}};
+};
+
 const ReorderRow = ({id, index, drag, children}) => {
   const theme = useOnboardingTheme();
   const {active, from, target, dragY, layouts} = drag;
@@ -87,9 +98,7 @@ const ReorderRow = ({id, index, drag, children}) => {
       style={style}
       onLayout={event => {
         const {y, height} = event.nativeEvent.layout;
-        const current = layouts.value[id];
-        if (current?.y === y && current?.h === height) return;
-        layouts.value = {...layouts.value, [id]: {y, h: height}};
+        runOnUI(storeLayout)(layouts, id, y, height);
       }}>
       <Animated.View
         pointerEvents="none"
