@@ -586,11 +586,14 @@ const SendWizardConfirm = () => {
 
       const sentTxid = getTransactionId(result?.result);
       // The node returned a transaction this app already sent: the same send
-      // was rebuilt before the next block. Nothing new left the wallet.
-      if (isRepeatedBroadcast(sentTxid)) {
+      // was rebuilt before the next block. Nothing new left the wallet. Only
+      // VRPC returns the txid of these exact bytes; the private bridge reads
+      // its latest history entry instead.
+      const vrpcSend = String(channel || '').split('.')[0] === 'vrpc';
+      if (vrpcSend && isRepeatedBroadcast(sentTxid)) {
         throw Object.assign(new Error('txn-already-known'), {rejected: true});
       }
-      rememberBroadcast(sentTxid);
+      if (vrpcSend) rememberBroadcast(sentTxid);
 
       // Block stale slide callbacks before context and navigation update.
       submitted.current = true;
