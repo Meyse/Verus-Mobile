@@ -743,10 +743,16 @@ export const getTransactionId = result => {
 // The explorer page of a sent transaction, or null when its chain has no
 // explorer. A PBaaS currency's transaction lives on its system chain, so it
 // uses that chain's explorer, as the history sheet does (Overview.js).
+const ETHEREUM_EXPLORER_IDS = {homestead: 'ETH', sepolia: 'GETH'};
 export const getExplorerTxUrl = (coin, txid) => {
   if (!coin?.id || !txid) return null;
   let explorerId = coin.id;
-  if (coin.system_id && coin.tags?.includes(IS_PBAAS) && !coin.tags.includes(IS_PBAAS_ROOT)) {
+  if (coin.proto === 'erc20') {
+    // A token uses its Ethereum network's explorer. Listed tokens have no
+    // `network` and are mainnet; imported ones name their network.
+    const network = coin.network || (coin.testnet ? 'sepolia' : 'homestead');
+    explorerId = ETHEREUM_EXPLORER_IDS[network];
+  } else if (coin.system_id && coin.tags?.includes(IS_PBAAS) && !coin.tags.includes(IS_PBAAS_ROOT)) {
     try {
       explorerId = CoinDirectory.findSystemCoinObj(coin.id).id;
     } catch (error) {

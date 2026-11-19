@@ -66,6 +66,29 @@ describe('Sent screen explorer link (R4)', () => {
     ]);
   });
 
+  // A token has no explorer of its own: its Ethereum network has one. Listed
+  // tokens (USDC) have no `network` and are mainnet; an imported token names
+  // its network.
+  it('links an ERC-20 send to the explorer of its Ethereum network', () => {
+    renderSent({id: 'USDC', display_ticker: 'USDC', proto: 'erc20', system_id: '.eth', tags: []});
+    expect(transactions()).toEqual([
+      {txid: TXID, explorerUrl: `https://etherscan.io/tx/${TXID}`},
+    ]);
+    act(() => view.unmount());
+    renderSent({
+      id: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+      display_ticker: 'USDC',
+      proto: 'erc20',
+      system_id: '.eth',
+      network: 'sepolia',
+      testnet: true,
+      tags: [],
+    });
+    expect(transactions()).toEqual([
+      {txid: TXID, explorerUrl: `https://sepolia.etherscan.io/tx/${TXID}`},
+    ]);
+  });
+
   it('adds no link for a chain without an explorer', () => {
     renderSent({id: 'NOEXPLORER', display_ticker: 'NOEX', tags: []});
     expect(transactions()).toEqual([{txid: TXID}]);

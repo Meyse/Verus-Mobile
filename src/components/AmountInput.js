@@ -145,17 +145,23 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
             ]} numberOfLines={1}>{unit}</Text>
             <MaterialCommunityIcons name="chevron-down" size={18} color={theme.colors.textSecondary} />
           </Pressable>
-        ) : <Text style={[
-          stacked ? theme.typography.labelMd : unitType,
-          styles.unit,
-          {color: theme.colors.textSecondary},
-        ]} numberOfLines={1}>{unit}</Text>}
+        ) : (
+          // A long value puts the clear icon on this line, so it gets the
+          // 44-point height of the unit button and the icon stays off the amount.
+          <View style={wide && showClear ? styles.unitLine : null}>
+            <Text style={[
+              stacked ? theme.typography.labelMd : unitType,
+              styles.unit,
+              {color: theme.colors.textSecondary},
+            ]} numberOfLines={1}>{unit}</Text>
+          </View>
+        )}
       </View>
       {showClear ? (
         <Pressable
           accessibilityLabel="Clear amount"
           accessibilityRole="button"
-          hitSlop={CLEAR_HIT_SLOP}
+          hitSlop={wide ? undefined : CLEAR_HIT_SLOP}
           onPress={clear}
           style={[
             styles.clear,
@@ -176,7 +182,8 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
 });
 
 // 44 points wide at the right edge; hit slop keeps a 44-point target on the
-// 40-point compact line and on the unit line.
+// 40-point compact line. On the unit line the target is 44 points high and
+// has no slop, so it never reaches the amount above it.
 const CLEAR_SLOT = 44;
 const CLEAR_HIT_SLOP = {top: 4, bottom: 4};
 
@@ -190,7 +197,8 @@ const styles = StyleSheet.create({
   unit: {flexShrink: 0},
   unitAction: {flexShrink: 0, minWidth: 44, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2},
   clear: {position: 'absolute', right: 0, width: CLEAR_SLOT, alignItems: 'center', justifyContent: 'center'},
-  clearBelow: {bottom: 0, height: 36},
+  clearBelow: {bottom: 0, height: 44},
+  unitLine: {minHeight: 44, justifyContent: 'center'},
   pressed: {opacity: 0.72},
 });
 
