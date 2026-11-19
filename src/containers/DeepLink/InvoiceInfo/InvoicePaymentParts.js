@@ -51,7 +51,7 @@ export const InvoiceRow = ({label, value, onPress}) => {
   );
 };
 
-export const InvoiceCopyRow = ({label, value}) => {
+export const InvoiceCopyRow = ({label, value, copy = true}) => {
   const {styles} = useInvoiceStyles();
   if (!value) return null;
   return (
@@ -61,11 +61,40 @@ export const InvoiceCopyRow = ({label, value}) => {
         <Text selectable style={styles.technicalValue}>
           {value}
         </Text>
-        <CopyAction
-          value={value}
-          accessibilityLabel={`Copy ${label.toLowerCase()}`}
-        />
+        {copy ? (
+          <CopyAction
+            value={value}
+            accessibilityLabel={`Copy ${label.toLowerCase()}`}
+          />
+        ) : null}
       </View>
+    </View>
+  );
+};
+
+// Owner-approved text, 2026-11-19 (PR 266 review R10, option A).
+export const TAGGED_INVOICE_TITLE = 'Tagged invoice';
+export const TAGGED_INVOICE_TEXT =
+  'This payment carries a public tag. Anyone with the invoice or the tag can find it and see which addresses paid. This lowers your privacy.';
+
+// The tag of a VerusPay invoice, or null when it has none: its name (only a
+// name tag has one) and the tag address that the payment carries.
+export const getInvoiceTag = details => {
+  if (!details?.isTagged?.() || !details.tag) return null;
+  return {
+    name: details.tag.isFQN?.() ? details.tag.address : null,
+    address: details.tag.toXAddress(),
+  };
+};
+
+// Shown on the request review and on Pay with for a tagged invoice. It needs
+// no tap: the payment cannot leave out the tag.
+export const InvoiceTagNotice = ({style}) => {
+  const {styles} = useInvoiceStyles();
+  return (
+    <View accessible style={[styles.notice, style]}>
+      <Text style={styles.noticeTitle}>{TAGGED_INVOICE_TITLE}</Text>
+      <Text style={styles.text}>{TAGGED_INVOICE_TEXT}</Text>
     </View>
   );
 };

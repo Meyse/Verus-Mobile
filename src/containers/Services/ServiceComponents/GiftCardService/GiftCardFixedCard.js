@@ -3,7 +3,10 @@ import {StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import StatusBadge from '../../../../components/StatusBadge';
 import {fontStyle} from '../../../../globals/fonts';
-import {getGiftCardContentText} from '../../../../utils/giftCard/giftCardPresentation';
+import {
+  getGiftCardContentText,
+  getGiftCardIncludedRows,
+} from '../../../../utils/giftCard/giftCardPresentation';
 import {getTicketOutline} from '../../../../utils/ticketOutline';
 
 const WALLET_CARD_WIDTH = 360;
@@ -15,8 +18,6 @@ export const GIFT_CARD_STROKE = 'rgba(255,255,255,0.2)';
 const CARD_FRONT = GIFT_CARD_FRONT;
 const CARD_TEXT = '#F4F1E9';
 const CARD_TEXT_MUTED = 'rgba(244,241,233,0.72)';
-// The muted text at the 0.55 opacity of a pending amount.
-const CARD_TEXT_PENDING = 'rgba(244,241,233,0.4)';
 const COMPACT_CARD_WIDTH = 330;
 
 // The gift card as one fixed face: name and status on top, contents at the
@@ -42,8 +43,10 @@ const GiftCardFixedCard = ({presentation, style}) => {
   } = presentation;
   const hasContent =
     primaryContent.type === 'currency' || primaryContent.type === 'identity';
-  const otherText = otherContents.map(getGiftCardContentText).join(', ');
   const pendingText = pendingExtras.map(getGiftCardContentText).join(', ');
+  // The other items are a count; the detail screen lists them under "Also
+  // included" (PR 266 review, gift card option B).
+  const moreCount = getGiftCardIncludedRows(presentation).length;
   const contentsText = [primaryContent, ...otherContents]
     .map(getGiftCardContentText)
     .join(', ');
@@ -104,16 +107,11 @@ const GiftCardFixedCard = ({presentation, style}) => {
             </Text>
           )}
           <View style={styles.moreLine}>
-            {otherText || pendingText ? (
+            {moreCount > 0 ? (
               <Text
                 numberOfLines={1}
                 style={[styles.moreText, contentsPending && styles.pending]}>
-                {`+ ${otherText}`}
-                {pendingText ? (
-                  <Text style={styles.pendingExtra}>
-                    {otherText ? `, ${pendingText}` : pendingText}
-                  </Text>
-                ) : null}
+                {`+ ${moreCount} more`}
               </Text>
             ) : null}
           </View>
@@ -205,9 +203,6 @@ const styles = StyleSheet.create({
   },
   pending: {
     opacity: 0.55,
-  },
-  pendingExtra: {
-    color: CARD_TEXT_PENDING,
   },
 });
 

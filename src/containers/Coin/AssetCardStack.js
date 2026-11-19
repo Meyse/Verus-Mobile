@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo} from 'react';
-import {Platform, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import Animated, {
   ReduceMotion,
   interpolate,
@@ -16,11 +16,16 @@ import {fontStyle} from '../../globals/fonts';
 import useReduceMotion from '../../hooks/useReduceMotion';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {buildOrderedAssetStack} from '../../utils/subwallet/assetStack';
-import {truncateMiddle} from '../../utils/subwallet/cardPresentation';
+import CardTitle from '../../components/CardTitle';
 
 const WHITE = '#FFFFFF';
 const QUIET = 'rgba(255,255,255,0.86)';
-const MONO = Platform.select({ios: 'Menlo', default: 'monospace'});
+// The title row carries the card's name and network (PR 266 review R8), so
+// the front card has no address line: the amount follows the title row.
+const FRONT_HEIGHT = 120;
+const FRONT_HEIGHT_COMPACT = 110;
+const HERO_TOP = 44;
+const HERO_TOP_COMPACT = 40;
 
 const CardBalance = ({
   card,
@@ -136,7 +141,12 @@ const StackCard = ({
   const front = index === count - 1;
   const slice = compact ? 48 : 52;
   const radius = compact ? 22 : 24;
-  const frontHeight = single ? (compact ? 70 : 74) : compact ? 126 : 140;
+  // One card is a single title row: the top row already shows the total.
+  const frontHeight = single
+    ? slice
+    : compact
+    ? FRONT_HEIGHT_COMPACT
+    : FRONT_HEIGHT;
   const y = useSharedValue(index * slice);
   const height = useSharedValue(front ? frontHeight : slice + radius);
   const fade = useSharedValue(1);
@@ -174,7 +184,7 @@ const StackCard = ({
   }));
   const neutral = Boolean(item.hidden);
   const card = neutral ? asset.summary(item.hidden) : item.card;
-  const title = neutral ? `${item.hidden.length} more` : card.title;
+  const title = neutral ? `${item.hidden.length} more` : card.cardTitle.text;
   const color = neutral ? theme.colors.textPrimary : WHITE;
   const label = `${title}${front ? ', selected' : ''}, ${card.balanceLabel}`;
 
@@ -245,17 +255,29 @@ const StackCard = ({
               {height: slice},
               pressed && styles.pressed,
             ]}>
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="middle"
-              style={[
-                theme.typography.titleRow,
-                styles.title,
-                front && styles.frontTitle,
-                {color},
-              ]}>
-              {title}
-            </Text>
+            {neutral ? (
+              <Text
+                numberOfLines={1}
+                style={[theme.typography.titleRow, styles.title, {color}]}>
+                {title}
+              </Text>
+            ) : (
+              <CardTitle
+                title={card.cardTitle}
+                containerStyle={[
+                  styles.title,
+                  front && !(single && card.syncStatus) && styles.frontTitle,
+                ]}
+                style={[theme.typography.titleRow, {color}]}
+              />
+            )}
+            {front && single && card.syncStatus ? (
+              <StatusBadge
+                label={card.syncStatus}
+                variant="card"
+                style={[styles.sync, styles.singleSync]}
+              />
+            ) : null}
             {!front ? (
               <CardBalance
                 card={card}
@@ -276,30 +298,18 @@ const StackCard = ({
             <>
               <View
                 accessible
-                accessibilityLabel={single ? title : label}
+                accessibilityLabel={
+                  single
+                    ? [title, card.syncStatus].filter(Boolean).join(', ')
+                    : label
+                }
                 style={styles.frontFacts}>
-                <View style={[styles.quietRow, {top: compact ? 36 : 38}]}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      theme.typography.captionDense,
-                      styles.quiet,
-                      card.type !== 'VerusID' && styles.address,
-                    ]}>
-                    {card.type === 'VerusID'
-                      ? 'VerusID'
-                      : truncateMiddle(card.identifier)}
-                  </Text>
-                  {card.network ? (
-                    <Text
-                      numberOfLines={1}
-                      style={[theme.typography.captionDense, styles.network]}>
-                      {card.network} network
-                    </Text>
-                  ) : null}
-                </View>
                 {!single ? (
-                  <View style={[styles.hero, {top: compact ? 56 : 60}]}>
+                  <View
+                    style={[
+                      styles.hero,
+                      {top: compact ? HERO_TOP_COMPACT : HERO_TOP},
+                    ]}>
                     <CardBalance
                       card={card}
                       compact={compact}
@@ -307,12 +317,6 @@ const StackCard = ({
                       showBalance={asset.showBalance}
                     />
                   </View>
-                ) : card.syncStatus ? (
-                  <StatusBadge
-                    label={card.syncStatus}
-                    variant="card"
-                    style={styles.singleSync}
-                  />
                 ) : null}
               </View>
               <CopyAction
@@ -350,16 +354,11 @@ const StackCard = ({
               }. Shows all cards.`}
               onPress={onCloseSheet}
               style={({pressed}) => [styles.bar, pressed && styles.pressed]}>
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="middle"
-                style={[
-                  theme.typography.titleRowCompact,
-                  styles.title,
-                  {color: WHITE},
-                ]}>
-                {title}
-              </Text>
+              <CardTitle
+                title={card.cardTitle}
+                containerStyle={styles.title}
+                style={[theme.typography.titleRowCompact, {color: WHITE}]}
+              />
               <CardBalance card={card} showBalance={asset.showBalance} bar />
               <ChevronDown size={18} color={WHITE} style={styles.moreChevron} />
             </Pressable>
@@ -386,7 +385,13 @@ const AssetCardStack = props => {
   const single = asset.cards.length === 1;
   const height =
     Math.max(0, items.length - 1) * (compact ? 48 : 52) +
-    (single ? (compact ? 70 : 74) : compact ? 126 : 140);
+    (single
+      ? compact
+        ? 48
+        : 52
+      : compact
+      ? FRONT_HEIGHT_COMPACT
+      : FRONT_HEIGHT);
   return (
     <View style={[styles.stack, {height}]}>
       {items.map((item, index) => (
@@ -440,21 +445,6 @@ const styles = StyleSheet.create({
   stripBalanceSync: {flexDirection: 'row', alignItems: 'center'},
   shrink: {flexShrink: 1},
   frontFacts: {...StyleSheet.absoluteFillObject},
-  quietRow: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quiet: {flexShrink: 1, color: QUIET},
-  address: {fontFamily: MONO},
-  network: {
-    marginLeft: 'auto',
-    flexShrink: 1,
-    color: QUIET,
-    textAlign: 'right',
-  },
   hero: {position: 'absolute', left: 20, right: 20},
   heroBalance: {alignItems: 'flex-start'},
   heroAmount: {
@@ -465,7 +455,8 @@ const styles = StyleSheet.create({
   },
   heroAmountCompact: {fontSize: 28, lineHeight: 34},
   copy: {position: 'absolute', right: 8},
-  singleSync: {position: 'absolute', right: 20, top: 38},
+  // On one card the sync badge sits in the title row, left of the copy action.
+  singleSync: {flexShrink: 0, marginRight: 36},
   bar: {
     height: 48,
     paddingHorizontal: 20,

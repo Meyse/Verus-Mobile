@@ -22,7 +22,7 @@ import {
 } from '../../utils/ledger/shownBalance';
 import {getCardColors} from '../../utils/subwallet/cardColors';
 import {
-  getNetworkTicker,
+  getSubWalletCardTitleForAccount,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
 } from '../../utils/subwallet/cardPresentation';
@@ -131,12 +131,10 @@ export default function useAssetCardData() {
         fiatText,
         pendingText,
         balanceLabel,
-        title: type === 'VerusID' ? wallet.name : type,
+        // The short address (or VerusID name, or "Private") and the network
+        // (PR 266 review R8 option C, owner's change).
+        cardTitle: getSubWalletCardTitleForAccount(wallet, account, coin),
         colors: getCardColors(wallet, slots),
-        network:
-          wallet.network && wallet.network !== coin.system_id
-            ? getNetworkTicker(wallet.network)
-            : null,
       };
     });
     const total = sumCardBalances(cards);

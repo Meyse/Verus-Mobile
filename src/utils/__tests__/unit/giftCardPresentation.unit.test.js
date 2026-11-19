@@ -4,6 +4,7 @@ const {
   GIFT_CARD_DISPLAY_STATUS_READY,
   GIFT_CARD_DISPLAY_STATUS_REDEEMED,
   GIFT_CARD_DISPLAY_STATUS_SHARED,
+  getGiftCardIncludedRows,
   getGiftCardPresentation,
 } = require('../../giftCard/giftCardPresentation');
 
@@ -56,6 +57,7 @@ describe('gift card presentation', () => {
       type: 'currency',
       value: '12.5',
       label: 'VRSC',
+      currencyId: 'VRSC',
     });
     expect(presentation.confirmedItemCount).toBe(3);
     expect(presentation.additionalConfirmedCount).toBe(2);
@@ -205,5 +207,75 @@ describe('gift card presentation', () => {
     expect(first.confirmedItemCount).toBe(8);
     expect(first.additionalConfirmedCount).toBe(7);
     expect(first.material).toEqual(second.material);
+  });
+
+  // PR 266 review, gift card option B (owner, 2026-11-19): the card counts the
+  // other items ("+ N more"); "Also included" lists them with pending marks.
+  describe('also included', () => {
+    const card = (currencies, identities = [], fundingHistory = []) =>
+      buildCard({
+        fundingHistory,
+        status: {
+          state: 'funded',
+          systems: [{systemId: 'VRSCTEST', currencies, identities}],
+        },
+      });
+
+    it('lists every item after the first, a pending one last', () => {
+      const presentation = getGiftCardPresentation(
+        card(
+          [currency('iVRSCTEST', '25', 'VRSCTEST'), currency('iUSD', '12.5', 'USD')],
+          [identity('iSam', 'sam@')],
+          [
+            {
+              status: 'pending',
+              transactions: [
+                {
+                  systemId: 'VRSCTEST',
+                  outputs: [{currencyId: 'iVRSCTEST', amount: '1'}],
+                },
+              ],
+            },
+          ],
+        ),
+        {activeCoinsForUser: []},
+      );
+
+      expect(getGiftCardIncludedRows(presentation)).toEqual([
+        {type: 'currency', value: '12.5', label: 'USD', currencyId: 'iUSD', pending: false},
+        {type: 'identity', value: 'sam@', label: 'VerusID', pending: false},
+        {type: 'currency', value: '1', label: 'VRSCTEST', currencyId: 'iVRSCTEST', pending: true},
+      ]);
+    });
+
+    it('lists 5 more for a card with 6 items', () => {
+      const presentation = getGiftCardPresentation(
+        card(
+          ['A', 'B', 'C', 'D'].map((name, index) => currency(`i${name}`, String(index + 1), name)),
+          [identity('iSam', 'sam@'), identity('iLea', 'lea@')],
+        ),
+      );
+
+      expect(getGiftCardIncludedRows(presentation)).toHaveLength(5);
+    });
+
+    it('lists nothing for one item, an empty card or a claimed card', () => {
+      const one = getGiftCardPresentation(card([currency('iA', '1', 'A')]));
+      const empty = getGiftCardPresentation(
+        buildCard({status: {state: 'empty', systems: []}}),
+      );
+      const claimed = getGiftCardPresentation(
+        buildCard({
+          status: {
+            state: 'redeemed',
+            systems: [{systemId: 'VRSC', currencies: [currency('iA', '1', 'A'), currency('iB', '2', 'B')]}],
+          },
+        }),
+      );
+
+      expect(getGiftCardIncludedRows(one)).toEqual([]);
+      expect(getGiftCardIncludedRows(empty)).toEqual([]);
+      expect(getGiftCardIncludedRows(claimed)).toEqual([]);
+    });
   });
 });

@@ -103,7 +103,10 @@ import {
   shortAddress,
 } from './wizardUtils';
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
-import {isVerusIdWallet} from '../../utils/subwallet/cardPresentation';
+import {
+  getSubWalletCardTitleForAccount,
+  isVerusIdWallet,
+} from '../../utils/subwallet/cardPresentation';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 import {closeWizard} from './wizardNavigation';
 import {formatTransactionDate} from '../Coin/Overview/TransactionDetailsSheet';
@@ -270,8 +273,10 @@ const SendWizardConfirm = () => {
       })
     : null;
   const privateSource = isPrivateChannel(channel);
+  // The card as the asset screen names it, with its network (PR 266 review R8).
   const fromLabel = !invoice && (privateSource || isVerusIdWallet(sourceSubWallet))
-    ? sourceSubWallet?.name : null;
+    ? getSubWalletCardTitleForAccount(sourceSubWallet, activeAccount, sourceCoin).text
+    : null;
   // A memo travels inside a private output only. A scanned request's note
   // becomes the memo when it can travel there.
   const sendsMemo = simpleSend && memoApplies(channel, recipientAddress);
@@ -897,6 +902,11 @@ const SendWizardConfirm = () => {
       }]
     : [];
   const refundCaption = preconvert ? 'Refunds also go here.' : null;
+  // A tagged invoice says so where the payment is confirmed (PR 266 review
+  // R10, option A). The tag itself is in "Invoice details".
+  const factRows = invoice?.tag
+    ? [...launchRows, {label: 'Tag', value: 'Public'}]
+    : launchRows;
 
   if (preflighting && (!feeKind || !reviewResult)) {
     const preparingReceive = Boolean(target?.isConversion);
@@ -915,7 +925,7 @@ const SendWizardConfirm = () => {
           exportFees={hasExportFees || Boolean(route?.isCrossChain && ['eth', 'erc20'].includes(sourceCoin?.proto))}
           recipient={recipientAddress}
           recipientCaption={refundCaption}
-          routeRows={launchRows}
+          routeRows={factRows}
           showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
           sourceCoin={sourceCoin}
           target={target}
@@ -1113,7 +1123,7 @@ const SendWizardConfirm = () => {
           recipient={recipientAddress}
           recipientCaption={refundCaption}
           resolvedRecipient={resolvedRecipient}
-          routeRows={launchRows}
+          routeRows={factRows}
           leadingRows={
             invoice
               ? [
@@ -1125,12 +1135,12 @@ const SendWizardConfirm = () => {
                         onPress: invoiceFlow?.onOpenRequester,
                       }
                     : null,
-                  state.payFromLabel ? {label: 'From', value: state.payFromLabel, copyValue: state.payFromLabel} : null,
+                  state.payFromLabel ? {label: 'From', value: state.payFromLabel, copyValue: state.payFromCopyValue || state.payFromLabel} : null,
                   paidBefore?.txid
                     ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid), copyValue: paidBefore.txid}
                     : null,
                 ].filter(Boolean)
-              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: fromLabel, numberOfLines: 0}] : []
+              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: sourceSubWallet?.name || fromLabel, numberOfLines: 0}] : []
           }
           trailingRows={
             invoice

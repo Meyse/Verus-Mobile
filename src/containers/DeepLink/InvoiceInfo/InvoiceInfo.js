@@ -45,6 +45,8 @@ import {
   InvoiceErrorLine,
   InvoiceRow,
   InvoiceSourceRow,
+  InvoiceTagNotice,
+  getInvoiceTag,
   useInvoiceStyles,
 } from './InvoicePaymentParts';
 
@@ -234,6 +236,7 @@ const InvoiceInfo = props => {
         .map(channel => rates?.[channel]?.[requestedCoin.id]?.[displayCurrency])
         .find(value => value != null)
     : null;
+  const invoiceTag = getInvoiceTag(details);
   const invoiceFacts = {
     details,
     amountDisplay: anyAmount ? null : amountDisplay,
@@ -248,7 +251,8 @@ const InvoiceInfo = props => {
     anyAmount,
     anyDestination: details.acceptsAnyDestination(),
     expiry,
-    tag: details.isTagged() ? details.tag.toXAddress() : null,
+    tag: invoiceTag?.address || null,
+    tagName: invoiceTag?.name || null,
     fiat:
       rate != null && !anyAmount
         ? formatCurrency({
@@ -274,7 +278,8 @@ const InvoiceInfo = props => {
     {label: 'Supported networks', value: [...networks.map(network => network.fullyqualifiedname), ...otherNetworks].join('\n') || null},
     {label: 'Conversion', value: details.acceptsConversion() && !isBurn ? 'Supported' : null},
     {label: isBurn ? 'Burn output address' : 'Destination', value: details.acceptsAnyDestination() ? null : details.destination.getAddressString(), copy: true},
-    {label: 'Tag', value: details.isTagged() ? details.tag.toXAddress() : null, copy: true},
+    {label: 'Tag', value: invoiceTag?.name || null},
+    {label: 'Tag address', value: invoiceTag?.address || null, copy: true},
     {label: 'Expires', value: expiry},
     {label: 'Amount', value: anyAmount ? 'You choose' : `${amountDisplay} ${currency}`},
     {label: 'Maximum estimated slippage', value: details.acceptsConversion() && !isBurn ? `${satsToCoins(BigNumber(details.maxestimatedslippage)).times(100).toString()}%` : null},
@@ -317,7 +322,12 @@ const InvoiceInfo = props => {
                   : null
               }
             />
-            {details.isTagged() && <InvoiceCopyRow label="Tag" value={details.tag.toXAddress()} />}
+            {invoiceTag?.name ? (
+              <InvoiceCopyRow copy={false} label="Tag" value={invoiceTag.name} />
+            ) : null}
+            {invoiceTag ? (
+              <InvoiceCopyRow label="Tag address" value={invoiceTag.address} />
+            ) : null}
             {isSigned && (
               <InvoiceRow label="Signed" value={unixToDate(sigtime)} />
             )}
@@ -378,6 +388,7 @@ const InvoiceInfo = props => {
         <Text selectable style={styles.amount}>
           {anyAmount ? `Amount in ${currency}` : `${amountDisplay} ${currency}`}
         </Text>
+        {invoiceTag ? <InvoiceTagNotice /> : null}
         {isBurn && (
           <View style={styles.notice}>
             <Text style={styles.text}>

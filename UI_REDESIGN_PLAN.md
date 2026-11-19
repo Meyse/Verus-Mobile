@@ -6,6 +6,23 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **TX-1.PR266-WALLET-PICKS** (PR 266 review R8 C, R10 A,
+  gift card B) on `claude/pr266-ui-wallet` from `c2b8aeac`: **In verification**.
+  Card titles are "short address · network", "name@ · network" or
+  "Private · network" everywhere a card is named (shared
+  `getSubWalletCardTitle` and `CardTitle`). Tagged invoices show the approved
+  notice on Review and Pay with, a "Tag | Public" row on Confirm, and the tag
+  name and address in Invoice details. The gift card says "+ N more" and the
+  detail screen lists "Also included". Related Jest, check:design,
+  check:safe-areas and the Android release bundle pass.
+  - [x] R8 C card titles in stack, picker, Send source, Receive, Pay with, Confirm
+  - [x] R10 A tag notice, Confirm row, details rows; private source cannot pay
+  - [x] Gift B "+ N more" and "Also included" list
+  - [x] Related Jest, check:design, check:safe-areas, Android release bundle
+  - [ ] Codex review (gpt-6-astra high)
+  - [ ] iOS sim check, light and dark
+  - [ ] Android QA on `normal` and `small`
+
 - Scoped follow-up: **TX-1.BALANCES-AS-UPSTREAM** (PR 266 review R13) on
   `claude/pr266-ui-balances` from `6c8ca065`: **Verified** (awaits merge).
   Every balance is the confirmed balance, read through
@@ -1262,6 +1279,14 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 ## TX-1 — Current Send and Convert wizard
 
+- [ ] **TX-1.PR266-WALLET-PICKS** Owner picks of 2026-11-19 (PR 266 review):
+  R8 C card titles (no "Transparent" label, short address 6…6 then the
+  network on every card, no separate address line, copy keeps the full
+  address) and R10 A tagged invoices (notice on Review and Pay with, "Tag |
+  Public" on Confirm, tag name and address in Invoice details). Branch
+  `claude/pr266-ui-wallet`. A tagged invoice cannot be paid from a private
+  card: invoices always preflight through `preflightConvertOrCrossChain`,
+  which has no private channel.
 - [x] **TX-1.PR266-SEND-PICKS** Owner picks of 2026-11-19 (PR 266 review):
   R3 B clear icon on the amount (`AmountInput`, all users), R4 A "View in
   explorer" on Sent (`SendWizardSuccess`, `getExplorerTxUrl`), R14 A money
@@ -2149,6 +2174,12 @@ confirmations, 39 errors stay.
 answer. Every alert looks like the acknowledgement sheet and names its action.
 
 ## SV-1 — Services tiles and the fixed gift card screen
+
+- [ ] **SV-1.GIFT-ALSO-INCLUDED** Owner pick B of 2026-11-19 (PR 266
+  review): the fixed card says "+ N more"; the detail screen lists each other
+  item under "Also included" (one facts row, "Pending" badge on pending
+  items). Empty and claimed cards show no list. Branch
+  `claude/pr266-ui-wallet`.
 
 **Authority:** [DESIGN.md](DESIGN.md) sections "Services home", "Gift card
 detail", "Confirmation", and the status badge rule. The user approved them on

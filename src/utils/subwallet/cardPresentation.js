@@ -89,6 +89,59 @@ export const truncateMiddle = (
   return `${value.slice(0, start)}${separator}${value.slice(-end)}`;
 };
 
+// A short address: the first and last 6 characters (owner, 2026-11-19).
+export const shortenAddress = address => truncateMiddle(address, 6, 6, '…');
+
+// The ticker of the network a card lives on. Bitcoin and Ethereum cards have
+// no network of their own, so they take their coin's chain.
+export const getCardNetworkTicker = (wallet, coin) => {
+  const systemId = wallet?.network || coin?.system_id;
+  if (systemId === '.btc') return coin?.display_ticker || 'BTC';
+  if (systemId === '.eth') return coin?.testnet ? 'gETH' : 'ETH';
+
+  return getNetworkTicker(systemId);
+};
+
+// The card's name wherever the app names it (owner, 2026-11-19, PR 266 review
+// R8 option C with the owner's change): a transparent or other address card
+// shows its short address, a VerusID card its name, the private card
+// "Private". The network follows on every card: "RT7d8L…HcM3Wy · VRSC".
+export const getSubWalletCardTitle = (wallet, {address, coin} = {}) => {
+  const type = getSubWalletCardType(wallet);
+  const isAddress =
+    (type === 'Transparent' || type === 'Address') &&
+    typeof address === 'string' &&
+    address.length > 0 &&
+    address !== '-';
+  const name =
+    type === 'VerusID'
+      ? wallet.name
+      : isAddress
+      ? shortenAddress(address)
+      : type;
+  const network = getCardNetworkTicker(wallet, coin) || null;
+
+  return {
+    type,
+    name,
+    isAddress,
+    network,
+    text: network ? `${name} · ${network}` : name,
+  };
+};
+
+// The same title, with the address read from the account's keys.
+export const getSubWalletCardTitleForAccount = (wallet, activeAccount, coin) =>
+  getSubWalletCardTitle(wallet, {
+    coin,
+    address: getSubWalletDisplayIdentifier(
+      wallet,
+      activeAccount,
+      coin?.id,
+      false,
+    ),
+  });
+
 export const sortSubWalletsByBalance = (subWallets = [], balances = {}) => {
   return subWallets
     .map((wallet, originalIndex) => {
