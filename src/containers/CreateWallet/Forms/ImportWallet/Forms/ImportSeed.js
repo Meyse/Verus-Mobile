@@ -42,10 +42,12 @@ const createEmptyWords = () => Array(SEED_WORD_COUNT).fill('');
 const cleanSeedWord = value =>
   value == null ? '' : value.toLowerCase().replace(/\s/g, '');
 
-const splitSeedText = value => {
+// Saved slot text keeps one word per slot, with empty slots, so a double
+// space marks an empty slot. Pasted text can have any spacing.
+const splitSeedText = (value, keepSlots) => {
   if (value == null || value.length === 0) return [];
 
-  if (value.includes('  ')) {
+  if (keepSlots && value.includes('  ')) {
     return value.split(' ').slice(0, SEED_WORD_COUNT);
   }
 
@@ -69,8 +71,8 @@ const resolveSeedWord = value => {
   );
 };
 
-const parseSeedText = value => {
-  const tokens = splitSeedText(value);
+const parseSeedText = (value, {keepSlots = false} = {}) => {
+  const tokens = splitSeedText(value, keepSlots);
   const words = createEmptyWords();
   const invalidIndexes = [];
   const tokenCount =
@@ -277,7 +279,7 @@ export default function ImportSeed({
   useEffect(() => {
     if (importedSeed != null && importedSeed === syncedSeedRef.current) return;
 
-    const parsedSeed = parseSeedText(importedSeed);
+    const parsedSeed = parseSeedText(importedSeed, {keepSlots: true});
     const nextIndex = getNextEditableIndex(
       parsedSeed.words,
       parsedSeed.invalidIndexes,

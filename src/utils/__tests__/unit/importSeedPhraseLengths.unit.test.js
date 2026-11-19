@@ -101,6 +101,18 @@ describe('ImportSeed phrase lengths', () => {
     expect(props.setImportedSeed).toHaveBeenLastCalledWith(phrase);
   });
 
+  it.each([12, 24])('imports a pasted %i-word phrase with extra spaces as single-spaced words', async count => {
+    const phrase = VECTORS.find(([length]) => length === count)[1];
+    // Leading, trailing and double spaces, a tab and a line break.
+    const messy = `  ${phrase.split(' ').join('  ').replace('  ', ' \t').replace('  ', '\n ')}  `;
+    await paste(messy);
+
+    expect(footer().props.testID).toBe('onboarding.importSeed.import');
+    expect(wordSlots()).toHaveLength(count);
+    act(() => footer().props.onPress());
+    expect(props.onComplete).toHaveBeenCalledWith(phrase);
+  });
+
   it('shows the checksum error for 12 valid words with a wrong checksum', async () => {
     await paste('abandon '.repeat(12).trim());
 
@@ -111,6 +123,16 @@ describe('ImportSeed phrase lengths', () => {
     expect(footer().props.disabled).toBe(true);
     act(() => footer().props.onPress());
     expect(props.onComplete).not.toHaveBeenCalled();
+  });
+
+  it('opens the wrong word of a pasted 12-word phrase for a fix', async () => {
+    const words = zeroVector(12, 'about').split(' ');
+    words[4] = 'qqqq';
+    await paste(words.join(' '));
+
+    expect(byTestID('onboarding.importSeed.import')).toHaveLength(0);
+    expect(texts()).toContain('Word 5 of 24');
+    expect(renderer.root.findByType('AppTextInput').props.value).toBe('qqqq');
   });
 
   it('stays in word entry and explains the lengths for a 13-word paste', async () => {
