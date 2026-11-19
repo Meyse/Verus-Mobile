@@ -3,6 +3,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {CommonActions} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {signOut} from '../../actions/actionCreators';
+import {finishAssetChoiceWrites} from '../../utils/assets/assetChoicesStorage';
 import signedInCopy from '../../copy/signedIn';
 import {APP_VERSION} from '../../../env/index';
 import {
@@ -79,13 +80,15 @@ const SignedInSettingsHome = ({navigation}) => {
           name: 'SecureLoading',
           params: {
             data: {
-              task: () =>
-                new Promise(resolve => {
-                  setTimeout(() => {
-                    dispatch(signOut());
-                    resolve();
-                  }, 1000);
-                }),
+              task: async () => {
+                // An asset choice write needs the password, so it ends
+                // before sign-out. It runs during the usual 1 s wait.
+                await Promise.all([
+                  finishAssetChoiceWrites(activeProfile?.accountHash),
+                  new Promise(resolve => setTimeout(resolve, 1000)),
+                ]);
+                dispatch(signOut());
+              },
               message: 'Signing out',
               route: 'Home',
               successMsg: 'Signed out',
@@ -97,7 +100,7 @@ const SignedInSettingsHome = ({navigation}) => {
     });
 
     navigation.dispatch(resetAction);
-  }, [dispatch, navigation]);
+  }, [activeProfile?.accountHash, dispatch, navigation]);
 
   const rowValue = key => {
     if (key === 'Appearance') return appearanceLabel;
