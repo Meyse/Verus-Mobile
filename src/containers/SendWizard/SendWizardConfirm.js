@@ -111,7 +111,11 @@ import {
   OFFLINE_NOTHING_SENT_MESSAGE,
   isConnectionErrorMessage,
 } from '../../utils/network/connectionErrors';
-import {getBroadcastRejectionMessage} from './broadcastRejection';
+import {
+  getBroadcastRejectionMessage,
+  isRepeatedBroadcast,
+  rememberBroadcast,
+} from './broadcastRejection';
 import {SPENT_INPUTS_NOT_SENT_MESSAGE} from '../../utils/transactions/unconfirmedSpend';
 
 
@@ -580,9 +584,17 @@ const SendWizardConfirm = () => {
         throw rejection;
       }
 
+      const sentTxid = getTransactionId(result?.result);
+      // The node returned a transaction this app already sent: the same send
+      // was rebuilt before the next block. Nothing new left the wallet.
+      if (isRepeatedBroadcast(sentTxid)) {
+        throw Object.assign(new Error('txn-already-known'), {rejected: true});
+      }
+      rememberBroadcast(sentTxid);
+
       // Block stale slide callbacks before context and navigation update.
       submitted.current = true;
-      invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
+      invoiceFlow?.onPaymentSent?.(sentTxid);
       invoiceFlow?.onPaymentBroadcast?.();
       void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);

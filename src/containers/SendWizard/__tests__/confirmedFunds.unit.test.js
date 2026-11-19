@@ -1,4 +1,8 @@
-import {getBroadcastRejectionMessage} from '../broadcastRejection';
+import {
+  getBroadcastRejectionMessage,
+  isRepeatedBroadcast,
+  rememberBroadcast,
+} from '../broadcastRejection';
 import {getSendLimit} from '../../../utils/subwallet/privateWallet';
 import {CONNECTION_FAILED_MESSAGE} from '../../../utils/network/connectionErrors';
 
@@ -28,6 +32,17 @@ describe('node refusal of a send that reuses spent outputs', () => {
 
   it('keeps the connection text for transport failures', () => {
     expect(getBroadcastRejectionMessage('Network Error')).toBe(CONNECTION_FAILED_MESSAGE);
+  });
+});
+
+describe('a send repeated before the next block', () => {
+  it('is recognized by the txid this app already broadcast', () => {
+    const first = 'AB'.repeat(32);
+    rememberBroadcast(first);
+
+    expect(isRepeatedBroadcast(first.toLowerCase())).toBe(true);
+    expect(isRepeatedBroadcast('cd'.repeat(32))).toBe(false);
+    expect(isRepeatedBroadcast(undefined)).toBe(false);
   });
 });
 

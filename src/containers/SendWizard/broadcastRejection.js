@@ -24,3 +24,16 @@ export const getBroadcastRejectionMessage = message =>
       : NODE_REJECTION_PATTERN.test(message)
         ? 'The network rejected this transaction. Nothing was sent.'
         : message;
+
+// verusd accepts a transaction it already holds in its mempool and returns
+// its txid. Funding uses confirmed outputs only, so the same send repeated
+// before the next block rebuilds the same bytes: nothing new is sent. Keep
+// the txids this app session broadcast to recognize that answer.
+const broadcastTxids = new Set();
+
+export const rememberBroadcast = txid => {
+  if (typeof txid === 'string' && txid.length > 0) broadcastTxids.add(txid.toLowerCase());
+};
+
+export const isRepeatedBroadcast = txid =>
+  typeof txid === 'string' && broadcastTxids.has(txid.toLowerCase());
