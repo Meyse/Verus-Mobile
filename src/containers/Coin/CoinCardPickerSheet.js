@@ -8,7 +8,6 @@ import React, {
 import {
   FlatList,
   Keyboard,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -48,13 +47,14 @@ import {
 } from '../../utils/subwallet/cardStackPreferences';
 import {
   getNetworkTicker,
+  getSubWalletCardTitle,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
   getSubWalletNetworkLabel,
   isVerusIdWallet,
   sortSubWalletsByBalance,
-  truncateMiddle,
 } from '../../utils/subwallet/cardPresentation';
+import CardTitle from '../../components/CardTitle';
 
 const TYPE_FILTERS = [
   {id: 'all', label: 'All'},
@@ -62,10 +62,8 @@ const TYPE_FILTERS = [
   {id: 'verusids', label: 'VerusIDs'},
 ];
 const ALL_CHAINS = 'all';
-// A row with its network line. When all cards share one network, rows drop
-// that line and use the shorter height.
-const ROW_HEIGHT = 72;
-const ROW_HEIGHT_ONE_NETWORK = 60;
+// One line per row: the card's title names its network (PR 266 review R8).
+const ROW_HEIGHT = 60;
 const ROW_GAP = 8;
 // Height of the sheet without the list and without the controls: the modal's
 // 10-point top padding, the body padding (8 and 18), the title (26) and the
@@ -80,11 +78,6 @@ const SHEET_TOP_CLEARANCE = 16;
 const SCROLL_CUE_HEIGHT = 42;
 const MIN_FADE_VIEWPORT_HEIGHT = 128;
 const SCROLL_END_THRESHOLD = 8;
-const MONOSPACE_FONT = Platform.select({
-  ios: 'Menlo',
-  android: 'monospace',
-  default: 'monospace',
-});
 
 const CoinCardPickerSheet = ({
   visible,
@@ -196,11 +189,9 @@ const CoinCardPickerSheet = ({
         return {
           wallet,
           identifier,
-          displayIdentifier: verusId
-            ? identifier
-            : identifier === '-'
-              ? 'Address unavailable'
-              : truncateMiddle(identifier, 6, 6, '…'),
+          // The card's title names its network too (PR 266 review R8), so
+          // rows have no network line.
+          cardTitle: getSubWalletCardTitle(wallet, {address: identifier, coin}),
           verusId,
           type,
           networkLabel,
@@ -268,10 +259,7 @@ const CoinCardPickerSheet = ({
       }),
     [activeChainFilter, activeTypeFilter, items, normalizedQuery],
   );
-  // Rows show their network only when the cards are on more than one
-  // network. Otherwise every row would repeat the same name.
-  const showNetwork = chainOptions.length > 1;
-  const rowHeight = showNetwork ? ROW_HEIGHT : ROW_HEIGHT_ONE_NETWORK;
+  const rowHeight = ROW_HEIGHT;
   const itemStride = rowHeight + ROW_GAP;
   // Headers and the notice are list entries, so initial scroll and the sheet's
   // height include them. The balance order stays frozen while pins move live.
@@ -574,15 +562,15 @@ const CoinCardPickerSheet = ({
       const {item} = entry;
       const current = item.wallet.id === selectedSubWalletId;
       const pinned = pins.includes(item.wallet.id);
-      const pinName = item.verusId
-        ? item.identifier
-        : item.wallet.name || item.type;
-      const fullIdentifier =
-        item.identifier === '-' ? item.displayIdentifier : item.identifier;
+      const pinName = item.cardTitle.text;
+      // The screen reader hears the full address, as before the short title
+      // (PR 266 review R8): full identifier, card type, network, balance.
       const accessibilityLabel = [
-        fullIdentifier,
+        item.identifier && item.identifier !== '-'
+          ? item.identifier
+          : item.cardTitle.name,
         item.type,
-        showNetwork ? item.networkLabel : null,
+        item.cardTitle.network,
         item.balanceAccessibilityLabel,
         current ? 'Current address' : null,
       ]
@@ -611,20 +599,7 @@ const CoinCardPickerSheet = ({
               />
             </View>
             <View style={styles.identifierColumn}>
-              <Text
-                ellipsizeMode="middle"
-                numberOfLines={1}
-                style={[
-                  styles.identifier,
-                  !item.verusId && styles.addressIdentifier,
-                ]}>
-                {item.displayIdentifier}
-              </Text>
-              {showNetwork ? (
-                <Text numberOfLines={1} style={styles.metadata}>
-                  {item.networkLabel || displayTicker}
-                </Text>
-              ) : null}
+              <CardTitle title={item.cardTitle} style={styles.identifier} wrap />
             </View>
             <View style={styles.balanceColumn}>
               <PrivacyBlurredText
@@ -678,7 +653,6 @@ const CoinCardPickerSheet = ({
       pins,
       selectedSubWalletId,
       showBalance,
-      showNetwork,
       styles,
       theme.colors.textPrimary,
       theme.colors.link,
@@ -985,16 +959,6 @@ const createStyles = theme =>
       fontSize: 15,
       lineHeight: 20,
       ...fontStyle('semiBold'),
-    },
-    addressIdentifier: {
-      fontFamily: MONOSPACE_FONT,
-    },
-    metadata: {
-      marginTop: 3,
-      color: theme.colors.textSubtle,
-      fontSize: 12,
-      lineHeight: 16,
-      ...fontStyle('regular'),
     },
     balanceColumn: {
       maxWidth: 108,

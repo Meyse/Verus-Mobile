@@ -15,6 +15,7 @@ import {useFocusEffect} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {
   ArrowDownToLine,
+  AtSign,
   CircleAlert,
   CirclePlus,
   Gift,
@@ -78,8 +79,10 @@ import {
   GIFT_CARD_DISPLAY_STATUS_SHARED,
   getGiftCardContentText,
   getGiftCardDisplayStatus,
+  getGiftCardIncludedRows,
   getGiftCardPresentation,
 } from '../../../../../utils/giftCard/giftCardPresentation';
+import {AssetCoinLogo} from '../../../../../utils/CoinData/Graphics';
 import GiftCardFixedCard from '../GiftCardFixedCard';
 import {
   GiftCardNfcProgressModal,
@@ -1106,6 +1109,7 @@ const GiftCardServiceOverview = ({
     const busy = busyCardId === card.id;
     const capabilities = getGiftCardCapabilities(card);
     const presentation = getGiftCardPresentation(card, {activeCoinsForUser});
+    const includedRows = getGiftCardIncludedRows(presentation);
     const status = presentation.status;
     const retryableFunding = getRetryableGiftCardFunding(card);
     const deleteEnabled = canDeleteGiftCard(card);
@@ -1354,6 +1358,86 @@ const GiftCardServiceOverview = ({
                     {tile.label}
                   </Text>
                 </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
+          {includedRows.length > 0 ? (
+            <View style={styles.included}>
+              <Text
+                accessibilityRole="header"
+                style={[
+                  theme.typography.labelSm,
+                  styles.includedTitle,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                Also included
+              </Text>
+              {includedRows.map((item, index) => (
+                <View
+                  accessible
+                  accessibilityLabel={[
+                    item.type === 'currency' ? item.label : item.value,
+                    item.type === 'currency' ? item.value : 'VerusID',
+                    item.pending ? 'Pending' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                  key={`${item.type}:${item.currencyId || item.value}:${index}`}
+                  style={[
+                    styles.includedRow,
+                    index > 0 && {
+                      borderTopColor: theme.colors.border,
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                    },
+                  ]}>
+                  {item.type === 'currency' ? (
+                    <AssetCoinLogo
+                      coinId={item.currencyId}
+                      showBadge={false}
+                      size={28}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.includedMark,
+                        {backgroundColor: theme.colors.surfaceMuted},
+                      ]}>
+                      <AtSign
+                        color={theme.colors.textSecondary}
+                        size={16}
+                        strokeWidth={1.8}
+                      />
+                    </View>
+                  )}
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      theme.typography.labelMd,
+                      styles.includedName,
+                      {color: theme.colors.textPrimary},
+                    ]}>
+                    {item.type === 'currency' ? item.label : item.value}
+                  </Text>
+                  {item.pending ? (
+                    <StatusBadge label="Pending" tone="warning" />
+                  ) : null}
+                  <Text
+                    style={[
+                      item.type === 'currency'
+                        ? theme.typography.bodyMd
+                        : theme.typography.bodySm,
+                      styles.includedValue,
+                      {
+                        color:
+                          item.type === 'currency'
+                            ? theme.colors.textPrimary
+                            : theme.colors.textSecondary,
+                      },
+                    ]}>
+                    {item.type === 'currency' ? item.value : 'VerusID'}
+                  </Text>
+                </View>
               ))}
             </View>
           ) : null}
@@ -1728,6 +1812,36 @@ const styles = StyleSheet.create({
   },
   pendingSection: {
     marginTop: 26,
+  },
+  // "Also included": one row per item after the first (PR 266 review, gift
+  // card option B). Rows match the fact rows below.
+  included: {
+    marginTop: 22,
+  },
+  includedTitle: {
+    marginBottom: 2,
+  },
+  includedRow: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  includedMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  includedName: {
+    minWidth: 0,
+    flex: 1,
+  },
+  includedValue: {
+    flexShrink: 0,
+    maxWidth: '45%',
+    textAlign: 'right',
   },
   transactionRow: {
     minHeight: 48,

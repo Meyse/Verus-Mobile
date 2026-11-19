@@ -26,6 +26,9 @@ export const SelectionCheckbox = ({checked}) => {
 
 export const SelectionRow = ({
   title,
+  // A drawn title in place of the text, such as a card's CardTitle. Pass an
+  // accessibilityLabel with it.
+  titleContent,
   titleNumberOfLines,
   subtitle,
   titleMonospace,
@@ -91,12 +94,14 @@ export const SelectionRow = ({
         preserveSubtitle && styles.preservedCopy,
         readOnly ? styles.readOnlyContent : rowDisabled && styles.disabledContent,
       ]}>
-        <Text
-          ellipsizeMode="tail"
-          numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
-          style={[styles.rowTitle, compact && styles.compactTitle, dense && styles.denseTitle, titleMonospace && styles.identifier]}>
-          {title}
-        </Text>
+        {titleContent || (
+          <Text
+            ellipsizeMode="tail"
+            numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
+            style={[styles.rowTitle, compact && styles.compactTitle, dense && styles.denseTitle, titleMonospace && styles.identifier]}>
+            {title}
+          </Text>
+        )}
         {subtitle ? (
           <Text
             numberOfLines={compact ? 1 : undefined}

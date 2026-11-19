@@ -34,6 +34,8 @@ const initialWizardState = {
   sourceIdentity: null,
   // The card a payment comes from, when the asset is on more than one.
   payFromLabel: null,
+  // What the From row copies: the full address or the VerusID name.
+  payFromCopyValue: null,
   // A currency to convert to, chosen before the wizard opened ("Pre-convert"
   // on a pre-launch asset). Convert to selects it once its routes load.
   presetTargetId: null,

@@ -4,13 +4,14 @@ import SelectionSheet, {
   SelectionGroup,
   SelectionRow,
 } from '../../../components/SelectionSheet';
+import CardTitle from '../../../components/CardTitle';
+import {createSelectionSheetStyles} from '../../../styles';
+import {useOnboardingTheme} from '../../../theme/onboarding';
 import useSheetDismissal from '../../../components/useSheetDismissal';
 import {RenderPlainCoinLogo} from '../../../utils/CoinData/Graphics';
 import {
-  getSubWalletCardType,
+  getSubWalletCardTitle,
   getSubWalletDisplayIdentifier,
-  getSubWalletNetworkLabel,
-  truncateMiddle,
 } from '../../../utils/subwallet/cardPresentation';
 import {truncateDecimal} from '../../../utils/math';
 import {formatSyncStatus} from '../../../utils/subwallet/privateWallet';
@@ -23,16 +24,20 @@ export const SourceCardSheet = ({
   selectedId,
   visible,
 }) => {
+  const theme = useOnboardingTheme();
+  const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const activeAccount = useSelector(state => state.authentication.activeAccount);
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
-  const groups = useMemo(() => {
+  // Rows keep the network order. Each title names its network (PR 266 review
+  // R8), so the list has no network group titles.
+  const sources = useMemo(() => {
     const map = new Map();
     cards.forEach(source => {
       const network = source.card.network || source.coin.system_id || 'Verus';
       if (!map.has(network)) map.set(network, []);
       map.get(network).push(source);
     });
-    return [...map.entries()];
+    return [...map.values()].flat();
   }, [cards]);
 
   return (
@@ -41,51 +46,46 @@ export const SourceCardSheet = ({
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
-      {groups.map(([network, sources]) => {
-        const rows = sources.map(source => {
-          // Name sources as Receive's address chooser does: the type, with a
-          // transparent or private card's short address below, or the VerusID name.
-          // A private card that still syncs shows, but cannot be picked.
-          const cardType = getSubWalletCardType(source.card);
-          const syncing = source.syncPercent != null;
-          const privateAddress = cardType === 'Private'
-            ? getSubWalletDisplayIdentifier(
-                source.card,
-                activeAccount,
-                source.coin.id,
-                false,
-              )
-            : null;
-          const privateSubtitle = privateAddress && privateAddress !== '-'
-            ? truncateMiddle(privateAddress, 5, 5, '...')
-            : undefined;
-          return (
-            <SelectionRow
-              key={source.card.id}
-              disabled={syncing}
-              title={cardType === 'VerusID' ? source.card.name : cardType}
-              titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
-              subtitle={
-                syncing
-                  ? formatSyncStatus(source.syncPercent)
-                  : cardType === 'Transparent'
-                  ? source.card.name
-                  : privateSubtitle
-              }
-              subtitleMonospace={!syncing}
-              selected={source.card.id === selectedId}
-              value={truncateDecimal(source.balance, 4)}
-              valueLabel={source.coin.display_ticker}
-              onPress={() => dismissal.dismiss(() => onSelect(source))}
-            />
-          );
+      {sources.map(source => {
+        // Name sources as the asset screen does: the short address, the
+        // VerusID name or "Private", then the network. No address line.
+        // A private card that still syncs shows, but cannot be picked.
+        const syncing = source.syncPercent != null;
+        const address = getSubWalletDisplayIdentifier(
+          source.card,
+          activeAccount,
+          source.coin.id,
+          false,
+        );
+        const cardTitle = getSubWalletCardTitle(source.card, {
+          address,
+          coin: source.coin,
         });
-        return groups.length === 1 ? rows : (
-          <SelectionGroup
-            key={network}
-            title={getSubWalletNetworkLabel(sources[0].card, sources[0].coin)}>
-            {rows}
-          </SelectionGroup>
+        const subtitle = syncing
+          ? formatSyncStatus(source.syncPercent)
+          : undefined;
+        const value = truncateDecimal(source.balance, 4);
+        return (
+          <SelectionRow
+            key={source.card.id}
+            accessibilityLabel={[
+              cardTitle.text,
+              subtitle,
+              value,
+              source.coin.display_ticker,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+            disabled={syncing}
+            titleContent={
+              <CardTitle title={cardTitle} style={styles.rowTitle} wrap />
+            }
+            subtitle={subtitle}
+            selected={source.card.id === selectedId}
+            value={value}
+            valueLabel={source.coin.display_ticker}
+            onPress={() => dismissal.dismiss(() => onSelect(source))}
+          />
         );
       })}
     </SelectionSheet>

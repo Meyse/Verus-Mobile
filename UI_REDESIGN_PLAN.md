@@ -6,6 +6,52 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **TX-1.PR266-WALLET-PICKS** (PR 266 review R8 C, R10 A,
+  gift card B) on `claude/pr266-ui-wallet` from `c2b8aeac`: **Ready to merge**.
+  Card titles are "short address · network", "name@ · network" or
+  "Private · network" everywhere a card is named (shared
+  `getSubWalletCardTitle` and `CardTitle`). Tagged invoices show the approved
+  notice on Review and Pay with, a "Tag | Public" row on Confirm, and the tag
+  name and address in Invoice details. The gift card says "+ N more" and the
+  detail screen lists "Also included". Related Jest, check:design,
+  check:safe-areas and the Android release bundle pass.
+  - [x] R8 C card titles in stack, picker, Send source, Receive, Pay with, Confirm
+  - [x] R10 A tag notice, Confirm row, details rows; private source cannot pay
+  - [x] Gift B "+ N more" and "Also included" list
+  - [x] Related Jest, check:design, check:safe-areas, Android release bundle
+  - [x] Codex review (gpt-6-astra high): 5 findings, all fixed (b274557b)
+  - [x] Orchestrator decisions 2026-11-19: no " · network" when a VerusID
+    name ends in ".<network>@"; the address never shortens below 6…6
+    (`titleRowCompact` on compact screens); no network group titles in the
+    choosers (owner, 2026-11-19); old Pay with list unchanged (same as upstream)
+  - [ ] iOS sim check, light and dark: only the light asset stack seen
+    (Mac overload stopped the run); Android run is the device proof
+  - [x] Android QA on `normal` and `small` (s3, light and dark): titles,
+    copy, tag notice and rows, untagged invoice, one-item gift pass; chooser
+    layout fixed in 3f16fc75 and re-checked. Not reachable with one funded
+    card: card picker, Send source list, Pay with, multi-item gift
+  - [x] Android round 2 (s3) with a second funded card (test VerusID
+    grizlo.VRSCTEST@) and in-memory seeded cards for the picker: Send source
+    list, Confirm From, Pay with, card picker, multi-item gift (Pending, then
+    Ready) pass. Defect: a lone VerusID name cut to "gr…@" on `small`.
+    8de4c65e did not fix it (round 3). Cause: Android breaks a name with "@"
+    after "." while it measures, so the Text got the width of "grizlo.".
+    Fix: a lone name in a chooser fills its line (exact width)
+  - [x] Android round 4 on 5e030cee (s3): Send "From" chooser (small light
+    and dark, normal light), Receive chooser (small and normal light) and
+    the card picker with seeded cards (small light) pass: a lone name shows
+    whole or with a middle ellipsis that fills the column. Seeded cards
+    removed
+  - [x] Full unit Jest on 8de4c65e and on 5e030cee (live int/api/integration
+    suites left out), same result each time: 2,846
+    pass, 3 fail, 2,849 total; the 3 failures are the known baseline ones
+    (1 giftCard, 2 identityRegistrationScreens)
+  - Follow-ups (not in this task): VerusID registration payer label still
+    says "Transparent"; Android middle ellipsis is "..." in chooser names;
+    on Android a VerusID name with a " · network" suffix that holds "." and
+    does not fit is shortened too much (seeded "longsubi...name@");
+    intermittent "Can't open this invoice" race
+
 - Scoped follow-up: **ID-1.PR266-VERUSID-PICKS** (PR 266 review R5, I1, R24;
   owner picks of 2026-11-19) on `claude/pr266-ui-verusid` from `c2b8aeac`:
   **Ready for verification**. Namespace prices name their currency (no
@@ -1272,6 +1318,14 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
 
 ## TX-1 — Current Send and Convert wizard
 
+- [ ] **TX-1.PR266-WALLET-PICKS** Owner picks of 2026-11-19 (PR 266 review):
+  R8 C card titles (no "Transparent" label, short address 6…6 then the
+  network on every card, no separate address line, copy keeps the full
+  address) and R10 A tagged invoices (notice on Review and Pay with, "Tag |
+  Public" on Confirm, tag name and address in Invoice details). Branch
+  `claude/pr266-ui-wallet`. A tagged invoice cannot be paid from a private
+  card: invoices always preflight through `preflightConvertOrCrossChain`,
+  which has no private channel.
 - [x] **TX-1.PR266-SEND-PICKS** Owner picks of 2026-11-19 (PR 266 review):
   R3 B clear icon on the amount (`AmountInput`, all users), R4 A "View in
   explorer" on Sent (`SendWizardSuccess`, `getExplorerTxUrl`), R14 A money
@@ -2182,6 +2236,12 @@ confirmations, 39 errors stay.
 answer. Every alert looks like the acknowledgement sheet and names its action.
 
 ## SV-1 — Services tiles and the fixed gift card screen
+
+- [ ] **SV-1.GIFT-ALSO-INCLUDED** Owner pick B of 2026-11-19 (PR 266
+  review): the fixed card says "+ N more"; the detail screen lists each other
+  item under "Also included" (one facts row, "Pending" badge on pending
+  items). Empty and claimed cards show no list. Branch
+  `claude/pr266-ui-wallet`.
 
 **Authority:** [DESIGN.md](DESIGN.md) sections "Services home", "Gift card
 detail", "Confirmation", and the status badge rule. The user approved them on

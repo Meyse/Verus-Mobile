@@ -15,7 +15,11 @@ import {API_GET_FIATPRICE, API_SEND} from '../../../utils/constants/intervalCons
 import {USD} from '../../../utils/constants/currencies';
 import {getVerusPayInvoicePaymentDestination} from '../../../utils/deeplink/verusPayBurnChangePrice';
 import {coinsToSats, truncateDecimal} from '../../../utils/math';
-import {getSubWalletCardType} from '../../../utils/subwallet/cardPresentation';
+import {
+  getSubWalletCardTitleForAccount,
+  getSubWalletCardType,
+  getSubWalletDisplayIdentifier,
+} from '../../../utils/subwallet/cardPresentation';
 import {useSendWizard} from '../../SendWizard/SendWizardContext';
 import ImpactChip from '../../SendWizard/components/ImpactChip';
 import PriceRouteSheet from '../../SendWizard/components/PriceRouteSheet';
@@ -36,13 +40,25 @@ import {IMPACT_LEVEL} from '../../SendWizard/priceImpact';
 import {getSampleAmount} from '../../SendWizard/usePriceImpact';
 import {ADDRESS_TYPE, buildSendTarget} from '../../SendWizard/wizardUtils';
 import InvoiceSlip from './InvoiceSlip';
+import {InvoiceTagNotice} from './InvoicePaymentParts';
 import RequestCard from '../components/RequestReview/RequestCard';
 import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 
-// A source as Receive's address chooser names it.
-export const getPayFromLabel = wallet => {
-  const cardType = getSubWalletCardType(wallet);
-  return cardType === 'VerusID' || cardType === 'Address' ? wallet.name : cardType;
+// A source as the asset screen names it: the short address or VerusID name,
+// and the network (PR 266 review R8).
+export const getPayFromLabel = (wallet, activeAccount, coin) =>
+  getSubWalletCardTitleForAccount(wallet, activeAccount, coin).text;
+
+// What the From row copies: the VerusID name or the full address.
+const getPayFromCopyValue = (wallet, activeAccount, coin) => {
+  if (getSubWalletCardType(wallet) === 'VerusID') return wallet.name;
+  const address = getSubWalletDisplayIdentifier(
+    wallet,
+    activeAccount,
+    coin?.id,
+    false,
+  );
+  return address && address !== '-' ? address : null;
 };
 
 const formatCost = (amount, ticker, conversion) =>
@@ -258,7 +274,12 @@ const InvoicePayWith = () => {
           sourceSubWallet: wallet,
           sourceBalance: String(card.balanceDisplay === '-' ? 0 : card.balanceDisplay),
           channel,
-          payFromLabel: severalCards ? getPayFromLabel(wallet) : null,
+          payFromLabel: severalCards
+            ? getPayFromLabel(wallet, activeAccount, coin)
+            : null,
+          payFromCopyValue: severalCards
+            ? getPayFromCopyValue(wallet, activeAccount, coin)
+            : null,
         },
         target,
         route,
@@ -332,7 +353,11 @@ const InvoicePayWith = () => {
     const from =
       route.cards.length > 1
         ? null
-        : getPayFromLabel(route.cards[0].option.wallet);
+        : getPayFromLabel(
+            route.cards[0].option.wallet,
+            activeAccount,
+            route.cards[0].option.coinObj,
+          );
     const detail = [from, `Balance\u00a0${truncateDecimal(balance, 4)}\u00a0${ticker}`].filter(Boolean).join(
       ' · ',
     );
@@ -473,6 +498,7 @@ const InvoicePayWith = () => {
             unit={invoice.amountDisplay == null ? '' : invoice.ticker}
           />
         </View>
+        {invoice.tag ? <InvoiceTagNotice style={styles.tagNotice} /> : null}
         {payError ? <ErrorMessage>{payError}</ErrorMessage> : null}
         {loading && groups.length === 0 ? (
           <SkeletonLoader accessibilityLabel="Finding ways to pay">
@@ -551,6 +577,7 @@ const styles = StyleSheet.create({
   otherAppAction: {marginRight: WIZARD_CONTENT_INSET},
   requestCard: {marginHorizontal: WIZARD_CONTENT_INSET},
   slip: {marginHorizontal: WIZARD_CONTENT_INSET, marginBottom: 8},
+  tagNotice: {marginHorizontal: WIZARD_CONTENT_INSET, marginTop: 8, marginBottom: 8},
   groupTitle: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     paddingTop: 16,

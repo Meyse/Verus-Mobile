@@ -301,13 +301,32 @@ copy uses "address". Lists do not show a count of sources (owner, 2026-11-12).
 A source is a subwallet, which can expose more than one address. Gift cards and
 NFC cards keep their names. The internal Card/subwallet model and all selection behavior stay the same.
 
-Every address chooser names a source as Receive does: its type ("Transparent",
-"Private") with a transparent card's short R-address or a private card's short
-z-address as a monospace subtitle. A VerusID row shows its name only, with no
-i-address (owner, 2026-11-12). A VerusID row title keeps one line with a tail
-ellipsis; its accessibility label keeps the full name. Group titles name the network only
-when choices span two or more networks. A single-network chooser shows no group
-title (owner, 2026-11-12).
+Every chooser names a card as the asset screen does (owner, 2026-11-19, PR
+266 review R8 option C with the owner's change; it replaces the type titles of
+2026-11-12). `getSubWalletCardTitle` in `src/utils/subwallet/cardPresentation.js`
+makes the title and `src/components/CardTitle.js` draws it: a transparent or
+other address card shows its short address in monospace (the first 6
+characters, "…", the last 6), a VerusID card its name (no i-address), the
+private card "Private". Then " · " and the network's ticker follow on every
+card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
+"alice@ · VRSC", "Private · VRSCTEST". A VerusID name that already ends in
+".<network>@" carries its network and shows no suffix ("devphone.VRSCTEST@");
+a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
+cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
+coins take their own ticker (KMD). The short address never shortens below
+6…6. In choosers and the card picker, where a balance sits beside the title,
+" · <network>" moves to a second line when the title does not fit (testnet
+on most phones); on the asset screen stack it stays on one line and, in the
+rare case of too little room, takes a tail ellipsis. A name without a
+network part (a VerusID that carries it) keeps one line and uses the full
+width. The two parts align to the top on a shared line height, not to the
+baseline (Android). A VerusID name gives way with a middle ellipsis and keeps its @;
+then the network never shortens. No row has an address line; a private card
+that still syncs shows its sync status as the subtitle. Copy and the screen
+reader label keep the full address. Because each title names its network,
+the choosers have no network group titles; rows keep the network order
+(owner, 2026-11-19: "Remove group titles"; this replaces the group-title rule
+of 2026-11-12).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
@@ -711,7 +730,8 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   link, because no transaction ID exists before the send.
 - Confirm shows the recipient once, in full, in the "To" row. The pay and receive nodes
   carry only the amounts ("You pay", "You receive"). Confirm has no "More details" row.
-- Send/Convert Confirm adds "From" only for a VerusID or Private source card. Under a
+- Send/Convert Confirm adds "From" only for a VerusID or Private source card,
+  with the card title ("alice@ · VRSC"); it copies the name. Under a
   recipient's VerusID name, show the prepared transaction's resolved address
   in the existing small monospace address style, in full. Never resolve a name
   again for display.
@@ -1064,8 +1084,9 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   2026-10-25). A row shows its network only when the list has more than one
   network, and never when the network repeats the row's own name (a native
   coin such as VRSCTEST, "Verus Testnet"). A gift currency row shows its amount
-  without the ticker, because the row title names it. A card row without the
-  network line has one line and is 60 points high (72 with it). Gift currency
+  without the ticker, because the row title names it. A card row in the asset
+  screen's "Choose an address" has one line and is 60 points high: its title
+  names the network (PR 266 review R8). Gift currency
   and VerusID choices use the canonical `SelectionRow` at 56 points minimum;
   their title and value styles stay on the shared theme roles.
 - Below 7 items the address sheet grows past 76% when it must, up to 16 points
@@ -1203,22 +1224,26 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   the picker retains all live pins. Its limit note stays through unpins until
   the count falls below the limit.
 - Strips expose 52 points (48 compact), with 24-point corners (22 compact)
-  and 20-point padding. Show the VerusID name, preserving its final @ with a
-  middle ellipsis, or the card type. Titles use `titleRow`; amounts are
+  and 20-point padding. The title is the card title of the Selection rule
+  above (owner, 2026-11-19, PR 266 review R8): the short address, VerusID name
+  or "Private", then " · <network>". The VerusID name keeps its final @ with a
+  middle ellipsis. Titles use `titleRow` (`titleRowCompact` on compact
+  screens, so the 6…6 address fits a 360-point phone); amounts are
   15-point bold tabular; fiat is 12-point medium at 86% white. On a strip the
   sync badge sits 10 points left of the amount on one line; on the front card
   it takes the fiat line under the amount. Keep the existing connection-error
   copy. Pressed strips
   get a 12% dark overlay. Selection moves cards with a 400 ms transform;
   Reduce Motion uses a short fade.
-- The front card is 140 points high (126 compact). Its quiet 12-point line
-  shows the address in monospace, truncated 8...8, or "VerusID". Its top-right
-  `CopyAction` keeps a 44-point target and copies the existing identifier.
-  The amount is 32-point bold tabular (28 compact), and fiat uses `labelSm`
-  at 86% white. One card uses 74 points (70 compact) and omits its amount and
-  fiat because the top row shows the total. Show "<ticker> network" at the
-  right of the quiet line only when the card's network differs from the coin's
-  own system. VRSC on VRSC shows no network line.
+- The front card is 120 points high (110 compact). It has no address or
+  network line, because its title carries both (owner, 2026-11-19, PR 266
+  review R8; this replaces the 8...8 quiet line and the rule "VRSC on VRSC
+  shows no network"). Its top-right `CopyAction` keeps a 44-point target and
+  copies the full address or the VerusID name. The amount starts 44 points
+  from the top (40 compact), is 32-point bold tabular (28 compact), and fiat
+  uses `labelSm` at 86% white. One card is a single 52-point title row (48
+  compact) and omits its amount and fiat because the top row shows the total;
+  its sync badge sits in that row, left of the copy action.
 - Materials are flat two-stop SVG gradients, top left to bottom right, in both
   themes. Transparent and other address types use #2B5CC2/#2350A6; Private uses
   #2C3544/#1C2330. VerusIDs use Jewel, in this hue order (mid, then deep):
@@ -1525,9 +1550,20 @@ The detail screen shows one fixed card and says each fact once.
   short windows) and the unit 20 points. The card does not flip. It has
   no swipe hint, no "VERUS GIFT CARD" label, and no issued date.
 - On the card: the card name (17-point semibold) and the status badge on the
-  top row. The first content item is large at the bottom ("25 VRSC"), and the
-  other items follow on one line ("+ sam@"). An empty card shows "No contents
-  yet". A claimed card shows "Empty". A pending amount is dimmed.
+  top row. The first content item is large at the bottom ("25 VRSC"), and a
+  count of the other items follows ("+ 2 more"; owner, 2026-11-19, PR 266
+  review gift card option B). An empty card shows "No contents yet". A
+  claimed card shows "Empty". A pending amount is dimmed.
+- Also included: under the share tiles, the other items of the card, one row
+  each, under the title "Also included" (`labelSm`, `textSecondary`). A row is
+  50 points minimum with hairline dividers, as the facts below: a 28-point
+  logo (`AssetCoinLogo`) or, for a VerusID, a 28-point `surfaceMuted` disc
+  with a 16-point `AtSign`; the name in `labelMd`; the amount in `bodyMd`, or
+  "VerusID" in `bodySm` `textSecondary`. A pending item adds a warning
+  `StatusBadge` "Pending" before its value. The list is flat: items carry no
+  system. A card with one item, an empty card and a claimed card show no
+  list. This deliberately repeats nothing the card shows, because the card
+  shows only the first item and the count.
 - Status: one badge on the card. Ready uses the success pair, Pending uses the
   warning pair, and Not funded, Shared, and Claimed use the neutral pair. The
   card material is dark, so the badge uses the dark-mode success and warning
@@ -1548,9 +1584,9 @@ The detail screen shows one fixed card and says each fact once.
   closed without a send. Opening the sheet therefore marks the card Shared,
   because the link may have left through Copy. Keep this (user decision,
   2026-10-15). On iOS a dismissed sheet leaves the card unshared.
-- Facts: label/value rows with hairline dividers under the card, only for facts
-  the card does not show: Shared, Claimed by, Claimed, Claim protection, and
-  Created. Copyable values use `CopyAction`.
+- Facts: label/value rows with hairline dividers under the card and the
+  contents list, only for facts neither shows: Shared, Claimed by, Claimed,
+  Claim protection, and Created. Copyable values use `CopyAction`.
 - Pending: one "Funding transaction" row with the transaction ID in monospace
   and `CopyAction`, and one line: "Sharing unlocks after it confirms."
 - Actions: a bottom primary action appears only when the card is not funded
@@ -1996,8 +2032,9 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   `close` icon in a 44-point target) leaves Receive in one tap: it also closes
   the "Receive assets" list when Receive opened from it (owner, 2026-10-26). A
   40-point asset logo sits beside `headlineMd`. Under the name, show only the
-  selected card type and its network. With several cards, that line opens
-  "Choose an address" and has a 44-point touch target.
+  selected card's title (the Selection rule above: "RT7d8L…HcM3Wy · VRSC").
+  With several cards, that line opens "Choose an address" and has a 44-point
+  touch target.
 - Center the QR and address group in the remaining space; scroll when needed.
   The QR tile stays white in both themes, with 16-point padding, a 20-point
   radius, and a 216-point QR (184 on small screens; on windows of 640 points
@@ -2009,9 +2046,8 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   middle ellipsis; `CopyAction` is the copy path.
 - Show no supported-chain claim or repeated card/address metadata. The safe
   footer has Share address, then Request amount as a secondary action.
-- "Choose an address" titles each card by type ("Transparent", "Private") or by
-  its VerusID name, with a transparent card's short address as a monospace
-  subtitle, so the chooser matches the context line.
+- "Choose an address" titles each card with the same card title, so the
+  chooser matches the context line.
 - Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
   and 1, the Send 40/48 amount field (it shrinks to 20 points to keep the
   amount and its unit on one line) and conversion chip, and `FlatRow` for
@@ -2105,10 +2141,20 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   "Choose an address" (owner, 2026-11-12). The step is skipped when the invoice
   allows no conversion and one card can pay.
 - Confirm adds "Request from" (signed invoices only), "From" (only after a card
-  choice), "Expires" and "Invoice details". Its Price impact badge reads the percent only, and
+  choice; the card title, copying the full address or VerusID name), "Expires" and "Invoice details". Its Price impact badge reads the percent only, and
   the money is what the user pays on top of the market price. It always pays through the
-  currency-transfer path. Tagged invoices are not supported yet, so the payment
-  carries no invoice tag. It refuses a payment that the fee would shrink.
+  currency-transfer path, so the payment carries the invoice tag. It refuses a payment that the fee would shrink.
+- A tagged invoice says so (owner, 2026-11-19, PR 266 review R10 option A).
+  The request review (under the amount) and Pay with (under the slip) show one
+  notice with no tap: "Tagged invoice" in `labelSm`, then "This payment
+  carries a public tag. Anyone with the invoice or the tag can find it and see
+  which addresses paid. This lowers your privacy." It uses the invoice notice
+  box (`warningBackground`, 12-point corners, 16-point padding). Confirm adds
+  a "Tag | Public" row after To. "Invoice details" and the requester sheet show
+  "Tag" (the tag name, for a name tag) and "Tag address" (the X-address, with
+  `CopyAction`). An untagged invoice shows none of these. The payment comes
+  from a transparent address or a VerusID: the currency-transfer preflight has
+  no private channel, so "see which addresses paid" holds.
 - When this device already paid the invoice, Confirm shows one notice above
   the slide ("You paid this invoice on <date>. Paying again sends a second
   payment.") and an "Earlier payment" row with the short transaction ID. After a
