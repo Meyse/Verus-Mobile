@@ -3,7 +3,7 @@ import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
 import {coinsToSats} from '../../utils/math';
-import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
+import {getSendLimit, isPrivateChannel} from '../../utils/subwallet/privateWallet';
 
 const initialWizardState = {
   sourceCoin: null,
@@ -78,6 +78,11 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     const entry = ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id];
     return (privateSource ? entry?.confirmed : entry?.total) ?? '0';
   });
+  // VRPC funding spends confirmed outputs only. The Amount limit and MAX stop
+  // at what those outputs can fund; "Available" keeps the balance above.
+  const sourceSendLimit = useSelector(ledgerState =>
+    getSendLimit(ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id], balanceChannel),
+  );
   const sourcePending = useSelector(ledgerState =>
     privateSource
       ? ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]?.pending ?? null
@@ -210,6 +215,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
         ...state,
         sourceBalance: String(sourceBalance),
         sourcePending: sourcePending == null ? null : String(sourcePending),
+        sourceSendLimit,
       },
       setSource,
       setTarget,
@@ -243,6 +249,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       state,
       sourceBalance,
       sourcePending,
+      sourceSendLimit,
     ],
   );
 

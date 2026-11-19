@@ -23,18 +23,10 @@ import {estimateConversion} from '../../api/channels/vrpc/requests/estimateConve
 import {getCurrency} from '../../api/channels/verusid/callCreators';
 
 jest.mock('../../api/channels/vrpc/requests/getAddressBalances', () => ({getAddressBalances: jest.fn()}));
-jest.mock('../../api/channels/vrpc/requests/getAddressUtxos', () => {
-  const getSpendableUtxos = jest.fn();
-  return {
-    getSpendableUtxos,
-    // Preflight reads the same spendable inputs with an empty mempool summary.
-    getSpendableUtxosWithMempoolInfo: jest.fn(async (...args) => ({
-      utxos: await getSpendableUtxos(...args),
-      mempoolSpentUtxoCount: 0,
-      hasUnconfirmedIncoming: false,
-    })),
-  };
-});
+jest.mock('../../api/channels/vrpc/requests/getAddressUtxos', () => ({
+  getAddressUtxos: jest.fn(),
+  getSpendableUtxos: jest.fn(),
+}));
 jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/fundRawTransaction', () => ({fundRawTransaction: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/getSendCurrencyTransaction', () => ({
@@ -394,6 +386,23 @@ describe('RPC native send balance rules', () => {
     expect(result.err).toBe(true);
     expect(result.result).toMatch(/^Insufficient funds\./);
     expect(fundRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('says how much confirmed funds can be sent when the amount is above them', async () => {
+    // 5 VRSC confirmed. The Amount screen may count an incoming payment that
+    // still confirms; funding spends confirmed outputs only.
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('600000000'));
+
+    expect(result.result).toBe(
+      `Insufficient funds. You can send up to 5 ${SYSTEM} now. Funds that are not confirmed yet can be sent after the next block.`,
+    );
+  });
+
+  it('keeps the fee text when the confirmed balance cannot pay the fee', async () => {
+    getAddressBalances.mockResolvedValue({result: {currencybalance: {[SYSTEM]: 0.00005}}});
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('600000000'));
+
+    expect(result.result).toMatch(/^Insufficient funds\. Ensure you have at least 0\.0001 /);
   });
 
   it('lowers a send of exactly the balance by the fee', async () => {

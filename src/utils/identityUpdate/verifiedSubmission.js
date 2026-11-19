@@ -15,8 +15,11 @@ import store from '../../store';
 import {captureSessionScope, sessionScopeIsCurrent} from '../../actions/actions/updates/sessionRequests';
 import VrpcProvider from '../vrpc/vrpcInterface';
 import {signUpdateIdentityTx} from '../api/channels/verusid/requests/updateIdentity';
+import {isSpentInputsRefusal} from '../transactions/unconfirmedSpend';
 
 const fail = (code, message) => Object.assign(new Error(message), {code});
+
+export const IDENTITY_UPDATE_INPUTS_SPENT = 'INPUTS_SPENT';
 
 // Guards last only as long as an open review. No request or signed bytes are saved.
 const inFlight = new Set();
@@ -383,6 +386,14 @@ export const validateIdentityUpdateContext = async (context, built) => {
   return finalContext.nextBlockHeight - 1;
 };
 
+// The node answered and refused the bytes because an input is already spent,
+// for example by an earlier transaction that is not confirmed yet. Nothing
+// was accepted. A new review after the next block picks new inputs.
+const inputsSpent = () => fail(
+  IDENTITY_UPDATE_INPUTS_SPENT,
+  'Your previous transaction is not confirmed yet. Nothing was sent. Wait for the next block. Then close this request and open it again.',
+);
+
 const unknownBroadcast = txid => Object.assign(fail(
   'BROADCAST_UNKNOWN',
   `Delivery of identity update ${txid} is not confirmed. Check its status before reviewing another update.`,
@@ -400,6 +411,7 @@ export const submitReviewedIdentityUpdate = async ({built, context, getKeys}) =>
 
   if (previousAttempt) {
     if (previousAttempt.acknowledged) return {txid: previousAttempt.txid};
+    if (previousAttempt.refused) throw inputsSpent();
     throw unknownBroadcast(previousAttempt.txid);
   }
 
@@ -461,6 +473,10 @@ export const submitReviewedIdentityUpdate = async ({built, context, getKeys}) =>
     if (!attempt) throw error;
     if (error?.code === 'SESSION_CHANGED') {
       throw Object.assign(error, {txid: attempt.txid, submitted: attempt.submitted});
+    }
+    if (!attempt.acknowledged && isSpentInputsRefusal(error?.message)) {
+      attempt.refused = true;
+      throw inputsSpent();
     }
     throw unknownBroadcast(attempt.txid);
   } finally {

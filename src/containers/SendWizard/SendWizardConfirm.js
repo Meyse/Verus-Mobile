@@ -111,22 +111,13 @@ import {
   OFFLINE_NOTHING_SENT_MESSAGE,
   isConnectionErrorMessage,
 } from '../../utils/network/connectionErrors';
+import {
+  getBroadcastRejectionMessage,
+  isRepeatedBroadcast,
+  rememberBroadcast,
+} from './broadcastRejection';
+import {SPENT_INPUTS_NOT_SENT_MESSAGE} from '../../utils/transactions/unconfirmedSpend';
 
-// A node rejection reads "<code>: <reason>" (for example
-// "16: bad-txns-failed-precheck") or names a bad-* rule.
-const NODE_REJECTION_PATTERN = /^-?\d+:\s|\bbad-[a-z-]+\b/i;
-
-// Apply only to explicit rejection responses, never transport/unknown outcomes.
-const getRejectionMessage = message =>
-  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known)\b/i.test(message)
-    ? 'The network already has this transaction. Check your transaction history before sending again.'
-    : /\b(txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
-      ? 'The available funds changed. Go back and review this transaction again.'
-      : isConnectionErrorMessage(message)
-        ? CONNECTION_FAILED_MESSAGE
-        : NODE_REJECTION_PATTERN.test(message)
-          ? 'The network rejected this transaction. Nothing was sent.'
-          : message;
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -168,6 +159,10 @@ const SendWizardConfirm = () => {
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const preflightSequence = useRef(0);
+  // The node refused the prepared inputs as spent. The next slide prepares
+  // again from the current confirmed outputs instead of sending these bytes.
+  const refusedInputs = useRef(false);
+  const [prepareRound, setPrepareRound] = useState(0);
   const preparedParams = useRef(null);
   const lastReview = useRef(null);
   const generalWalletSettings = useObjectSelector(value => value.settings.generalWalletSettings);
@@ -488,6 +483,7 @@ const SendWizardConfirm = () => {
   }, [
     activeAccount,
     feeKind,
+    prepareRound,
     networkFee.loading,
     networkFee.error,
     reviewKey,
@@ -537,6 +533,11 @@ const SendWizardConfirm = () => {
       broadcastUnknown.current ||
       state.broadcastError
     ) return;
+    if (refusedInputs.current) {
+      refusedInputs.current = false;
+      setPrepareRound(round => round + 1);
+      return;
+    }
     submissionInFlight.current = true;
     setSending(true);
     setError(null);
@@ -583,9 +584,20 @@ const SendWizardConfirm = () => {
         throw rejection;
       }
 
+      const sentTxid = getTransactionId(result?.result);
+      // The node returned a transaction this app already sent: the same send
+      // was rebuilt before the next block. Nothing new left the wallet. Only
+      // VRPC returns the txid of these exact bytes; the private bridge reads
+      // its latest history entry instead.
+      const vrpcSend = String(channel || '').split('.')[0] === 'vrpc';
+      if (vrpcSend && isRepeatedBroadcast(sentTxid)) {
+        throw Object.assign(new Error('txn-already-known'), {rejected: true});
+      }
+      if (vrpcSend) rememberBroadcast(sentTxid);
+
       // Block stale slide callbacks before context and navigation update.
       submitted.current = true;
-      invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
+      invoiceFlow?.onPaymentSent?.(sentTxid);
       invoiceFlow?.onPaymentBroadcast?.();
       void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
@@ -611,13 +623,13 @@ const SendWizardConfirm = () => {
       } else {
         // Electrum preserves an explicit rejection on the thrown error.
         const message = sendError.message || 'Transaction failed.';
-        setError(
-          sendError.rejected || sendError.ambiguousBroadcast === false
-            ? getRejectionMessage(message)
-            : isConnectionErrorMessage(message)
-              ? CONNECTION_FAILED_MESSAGE
-              : message,
-        );
+        const shown = sendError.rejected || sendError.ambiguousBroadcast === false
+          ? getBroadcastRejectionMessage(message)
+          : isConnectionErrorMessage(message)
+            ? CONNECTION_FAILED_MESSAGE
+            : message;
+        refusedInputs.current = shown === SPENT_INPUTS_NOT_SENT_MESSAGE;
+        setError(shown);
       }
     } finally {
       dispatch(expireCoinData(sourceCoin.id, API_GET_BALANCES));
