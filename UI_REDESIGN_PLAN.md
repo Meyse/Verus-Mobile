@@ -7,7 +7,7 @@ without repeating the entire investigation.
 ## Current position
 
 - Scoped follow-up: **TX-1.BALANCES-AS-UPSTREAM** (PR 266 review R13) on
-  `claude/pr266-ui-balances` from `6c8ca065`: **Ready for verification**.
+  `claude/pr266-ui-balances` from `6c8ca065`: **Verified** (awaits merge).
   Every balance is the confirmed balance, read through
   `src/utils/ledger/shownBalance.js`. Verus balances are `getaddressbalance`
   with no mempool read. Home, Available and MAX show no pending value. The
@@ -15,12 +15,12 @@ without repeating the entire investigation.
   show "+X pending" next to the confirmed number. Related Jest, check:design
   and the Android release bundle pass. iOS light/dark check passed on
   2026-11-19 (Home, coin screen, Amount; a 0.5 incoming payment counted only
-  after its block). Codex review: no findings. Android QA (gamemax) is open.
+  after its block). Codex review: no findings. Android QA cases a–e passed on both phones; the private-card mark was not seen (card stayed syncing).
   - [x] One helper for every reader; discovery snapshot holds confirmed values
   - [x] Value tests first (`confirmedBalances.unit.test.js`)
   - [x] iOS sim check, light and dark
   - [x] Codex review: no findings (gpt-6-astra high)
-  - [ ] Android QA cases a–e on `normal` and `small`
+  - [x] Android QA cases a–e on `normal` and `small` (gamemax s3, 2026-11-19)
 
 - Scoped follow-up: **GR-4.IDU-PARITY-P2** on
   `claude/idu-parity-fixes-1112` from `b7f7e630`: **Ready for verification**.
