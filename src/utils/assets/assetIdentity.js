@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import {API_GET_BALANCES, VRPC} from '../constants/intervalConstants';
+import {getShownBalance} from '../ledger/shownBalance';
 
 export const isTestnetAccount = account =>
   Object.keys(account?.testnetOverrides || {}).length > 0;
@@ -86,7 +87,11 @@ export const getPositiveVrpcHoldings = snapshots => {
   return Object.values(holdings);
 };
 
-export const getManagedAssetBalance = (coin, cards, ledger, snapshots = {}) => {
+// The shown (confirmed) balance of one asset over its cards. The VRPC discovery
+// snapshot is getaddressbalance, so it equals the ledger's `confirmed`.
+// `withPending` adds funds that still confirm (Electrum, private card); only
+// the "wallet is empty" check uses it.
+export const getManagedAssetBalance = (coin, cards, ledger, snapshots = {}, {withPending = false} = {}) => {
   const channels = [...new Set((cards || [])
     .map(card => card.api_channels?.[API_GET_BALANCES])
     .filter(Boolean))];
@@ -94,10 +99,11 @@ export const getManagedAssetBalance = (coin, cards, ledger, snapshots = {}) => {
   let available = 0;
   for (const channel of channels) {
     const snapshot = snapshots[channel];
+    const entry = ledger?.[channel]?.[coin.id];
     const value = channel.startsWith(`${VRPC}.`) && snapshot &&
       Boolean(snapshot.testnet) === Boolean(coin.testnet)
       ? snapshot.currencies[coin.currency_id] ?? '0'
-      : ledger?.[channel]?.[coin.id]?.total;
+      : withPending ? entry?.total : getShownBalance(entry);
     const balance = finiteBalance(value);
     if (balance != null) {
       total = total.plus(balance);

@@ -66,13 +66,11 @@ const SendWizardAmount = () => {
     sourceCoin,
     sourceSubWallet,
     sourceBalance,
-    sourcePending,
     sourceSendLimit,
     target,
     route,
   } = state;
-  // What confirmed outputs can fund. It is below the shown balance while an
-  // incoming payment still confirms.
+  // Available and MAX: the confirmed balance (PR 266 review R13).
   const sendLimit = sourceSendLimit ?? sourceBalance;
   const input = state.amountInput || '';
   const fiatMode = Boolean(state.fiatMode);
@@ -233,13 +231,9 @@ const SendWizardAmount = () => {
   } else if (dustError) {
     amountError = dustError;
   } else if (input && !zeroDraft && !validAmount) {
-    amountError = cryptoAmount.isGreaterThan(sourceBalance || 0)
+    amountError = cryptoAmount.isGreaterThan(sendLimit || 0)
       ? "The amount exceeds this address's spendable balance."
-      : cryptoAmount.isGreaterThan(sendLimit || 0)
-        ? BigNumber(sendLimit || 0).isGreaterThan(0)
-          ? `You can send up to ${truncateDecimal(BigNumber(sendLimit), 8)} ${sourceCoin.display_ticker} now. The rest is not confirmed yet.`
-          : 'This balance is not confirmed yet. Wait for the next block.'
-        : 'Enter a valid amount.';
+      : 'Enter a valid amount.';
   }
   const exportFeeError = insufficientExportFunds
     ? `Not enough ${sourceCoin.display_ticker} for the bridge fee (about ${exportFeeDisplay}).`
@@ -486,9 +480,6 @@ const SendWizardAmount = () => {
 
   const available = `${truncateDecimal(BigNumber(sourceBalance || 0), 8)} ${sourceCoin.display_ticker}`;
   // The private card spends confirmed funds only. Say when the rest is ready.
-  const confirming = BigNumber(sourcePending || 0).isGreaterThan(0)
-    ? `${truncateDecimal(BigNumber(sourcePending), 8)} ${sourceCoin.display_ticker} can be sent in about 10 minutes.`
-    : null;
   const convertedFiat =
     rate != null && cryptoAmount.isFinite()
       ? formatCurrency({
@@ -606,7 +597,6 @@ const SendWizardAmount = () => {
               MAX
             </TextAction>
           </View>
-          {confirming ? <Text style={[theme.typography.caption, styles.confirming, {color: theme.colors.textSecondary}]}>{confirming}</Text> : null}
         </View>
       </ScrollView>
       {estimateVisible ? (
@@ -705,7 +695,6 @@ const styles = StyleSheet.create({
   balanceRowCompact: {minHeight: 44},
   maxButton: {minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center'},
   maxButtonCompact: {minHeight: 44},
-  confirming: {textAlign: 'center', marginBottom: 4},
   estimateSlot: {minHeight: 49, paddingHorizontal: 16},
 });
 

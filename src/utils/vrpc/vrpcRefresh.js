@@ -24,7 +24,6 @@ const errorResponse = error => ({
 export const createVrpcRefresh = (jobs, {isCurrent = () => true} = {}) => {
   const systems = new Map();
   const balances = new Map();
-  const mempools = new Map();
   const transactions = new Map();
   let execution;
 
@@ -60,9 +59,6 @@ export const createVrpcRefresh = (jobs, {isCurrent = () => true} = {}) => {
         balances.set(channelId, prepare(new GetAddressBalanceRequest(systemId, {
           addresses: [address],
           friendlynames: undefined,
-        })));
-        mempools.set(channelId, prepare(new GetAddressMempoolRequest(systemId, {
-          addresses: [address], friendlynames: false, verbosity: 1,
         })));
       }
 
@@ -101,7 +97,6 @@ export const createVrpcRefresh = (jobs, {isCurrent = () => true} = {}) => {
 
   return {
     getBalance: channelId => balances.get(channelId),
-    getMempool: channelId => mempools.get(channelId),
     getTransactions: channelId => transactions.get(channelId),
     execute: () => {
       // Starting normal wallet updates before execute lets them retain their

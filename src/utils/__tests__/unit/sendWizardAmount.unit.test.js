@@ -122,7 +122,7 @@ describe('Send Amount step in fiat mode', () => {
       settings: {generalWalletSettings: {displayCurrency: 'USD'}},
       ledger: {
         rates: {fiat: {[coin.id]: {USD: rate}}},
-        balances: {bal: {[coin.id]: {total: balance}}},
+        balances: {bal: {[coin.id]: {confirmed: balance, pending: '0', total: balance}}},
       },
     };
     act(() => {

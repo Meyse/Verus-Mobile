@@ -3,7 +3,7 @@ import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
 import {coinsToSats} from '../../utils/math';
-import {getSendLimit, isPrivateChannel} from '../../utils/subwallet/privateWallet';
+import {getSendLimit} from '../../utils/subwallet/privateWallet';
 
 const initialWizardState = {
   sourceCoin: null,
@@ -70,24 +70,14 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     ...(initialState || {}),
     amountInput: initialState?.amountInput ?? initialState?.amount ?? '',
   }));
-  // The private card spends only confirmed funds, as its preflight does.
-  // Funds that still confirm show apart on Amount.
+  // Available, MAX and the Amount limit are the confirmed balance on every
+  // channel (PR 266 review R13), the number Home and the asset screen show.
+  // No pending funds show on Amount.
   const balanceChannel = state.sourceSubWallet?.api_channels?.[API_GET_BALANCES];
-  const privateSource = isPrivateChannel(balanceChannel);
-  const sourceBalance = useSelector(ledgerState => {
-    const entry = ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id];
-    return (privateSource ? entry?.confirmed : entry?.total) ?? '0';
-  });
-  // VRPC funding spends confirmed outputs only. The Amount limit and MAX stop
-  // at what those outputs can fund; "Available" keeps the balance above.
   const sourceSendLimit = useSelector(ledgerState =>
-    getSendLimit(ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id], balanceChannel),
+    getSendLimit(ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]),
   );
-  const sourcePending = useSelector(ledgerState =>
-    privateSource
-      ? ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]?.pending ?? null
-      : null,
-  );
+  const sourceBalance = sourceSendLimit;
 
   const setSource = useCallback((source, target = null, route = null) => {
     setState(current => {
@@ -214,7 +204,6 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       state: {
         ...state,
         sourceBalance: String(sourceBalance),
-        sourcePending: sourcePending == null ? null : String(sourcePending),
         sourceSendLimit,
       },
       setSource,
@@ -248,7 +237,6 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setBroadcastError,
       state,
       sourceBalance,
-      sourcePending,
       sourceSendLimit,
     ],
   );

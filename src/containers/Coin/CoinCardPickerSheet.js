@@ -38,6 +38,7 @@ import {
   extractLedgerData,
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import {getCardColors} from '../../utils/subwallet/cardColors';
 import {
   getCardStackMainId,
@@ -46,7 +47,6 @@ import {
   toggleCardStackPin,
 } from '../../utils/subwallet/cardStackPreferences';
 import {
-  getLedgerTotal,
   getNetworkTicker,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
@@ -176,7 +176,7 @@ const CoinCardPickerSheet = ({
         );
         const type = getSubWalletCardType(wallet);
         const networkLabel = getSubWalletNetworkLabel(wallet, coin);
-        const balance = getLedgerTotal(balances?.[wallet.id]);
+        const balance = getShownBalance(balances?.[wallet.id]);
         const hasBalanceError = Boolean(balanceErrors?.[wallet.id]);
         let amountText =
           balance == null ? '—' : truncateDecimal(balance, 8);

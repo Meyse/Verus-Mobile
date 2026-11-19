@@ -2,23 +2,7 @@ import BigNumber from 'bignumber.js';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {coinsList} from '../CoinData/CoinsList';
 import {API_GET_ADDRESSES} from '../constants/intervalConstants';
-
-export const getLedgerConfirmed = ledgerEntry => {
-  if (ledgerEntry == null) return null;
-
-  return BigNumber.isBigNumber(ledgerEntry)
-    ? ledgerEntry
-    : ledgerEntry.confirmed;
-};
-
-// A card shows its total, the same number Home adds up. Funds that still
-// confirm are part of it.
-export const getLedgerTotal = ledgerEntry => {
-  if (ledgerEntry == null) return null;
-  if (BigNumber.isBigNumber(ledgerEntry)) return ledgerEntry;
-
-  return ledgerEntry.total ?? ledgerEntry.confirmed;
-};
+import {getShownBalance} from '../ledger/shownBalance';
 
 export const isVerusIdWallet = wallet =>
   Boolean(wallet?.name?.endsWith('@'));
@@ -108,7 +92,7 @@ export const truncateMiddle = (
 export const sortSubWalletsByBalance = (subWallets = [], balances = {}) => {
   return subWallets
     .map((wallet, originalIndex) => {
-      const confirmed = getLedgerConfirmed(balances?.[wallet.id]);
+      const confirmed = getShownBalance(balances?.[wallet.id]);
 
       return {
         wallet,

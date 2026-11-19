@@ -47,6 +47,18 @@ const CardBalance = ({
       />
     ) : null;
   const inlineSync = !hero && syncBadge != null;
+  // Funds that still confirm (Electrum, private card): one "+X pending" mark
+  // after the fiat line of the front card (PR 266 review R13, mockup B).
+  // Strips, hidden balances and a syncing card show none.
+  const pendingBadge =
+    hero && showBalance && card.pendingText ? (
+      <StatusBadge
+        label={card.pendingText}
+        tone="warning"
+        variant="card"
+        style={styles.sync}
+      />
+    ) : null;
   return (
     <View
       accessible={false}
@@ -75,6 +87,21 @@ const CardBalance = ({
       </PrivacyBlurredText>
       {syncBadge != null ? (
         inlineSync ? null : syncBadge
+      ) : pendingBadge != null ? (
+        <View style={[styles.heroFacts, {marginTop: compact ? 4 : 5}]}>
+          {card.fiatText != null ? (
+            <PrivacyBlurredText
+              blurRadius={5}
+              color={quiet}
+              hidden={!showBalance}
+              numberOfLines={1}
+              containerStyle={styles.shrink}
+              style={[styles.stripFiat, theme.typography.labelSm]}>
+              {card.fiatText}
+            </PrivacyBlurredText>
+          ) : null}
+          {pendingBadge}
+        </View>
       ) : !bar && card.fiatText != null ? (
         <PrivacyBlurredText
           blurRadius={5}
@@ -408,6 +435,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   sync: {paddingVertical: 1, paddingHorizontal: 6},
+  heroFacts: {flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%'},
   stripSync: {marginRight: 10, flexShrink: 0},
   stripBalanceSync: {flexDirection: 'row', alignItems: 'center'},
   shrink: {flexShrink: 1},

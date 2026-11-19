@@ -85,7 +85,7 @@ Each area follows the same order: what the user sees now, why it changed, main f
 
 **Main files.** `src/containers/Home/SignedInWalletHome.js`, `components/HomeValueChart.js`, `components/SignedInWalletSheets.js`, `HomeWidgets/HomeNotice.js`, `HomeWidgets/VerusIdReadyCard.js`, `src/containers/ManageAssets/`, `src/utils/assets/`, `src/utils/portfolioHistory/`, `src/components/PrivacyBlurredText.js`.
 
-**Not changed underneath.** Balance, rate and info refresh still run through `Home.js` and the interval channels. Changed: VRPC pending balance and on-chain prices ([LOGIC_CHANGES.md](LOGIC_CHANGES.md#funds-and-fees), funds 3; network 2). Home total rule and chart price requests ([network 12, 13](LOGIC_CHANGES.md#network-and-refresh)). Asset choices are in plain storage (storage 1, open R17); the price cache is encrypted (storage 4).
+**Not changed underneath.** Balance, rate and info refresh still run through `Home.js` and the interval channels. Changed: balances show confirmed funds only, as upstream (R13), and on-chain prices ([LOGIC_CHANGES.md](LOGIC_CHANGES.md#funds-and-fees), funds 3; network 2). Home total rule and chart price requests ([network 12, 13](LOGIC_CHANGES.md#network-and-refresh)). Asset choices are in plain storage (storage 1, open R17); the price cache is encrypted (storage 4).
 
 **Try it.** Open Home on Testnet. Hide balances, restart, check the blur. Turn "Show on Home" off for one asset and check that the total equals the shown rows. Open the chart strip. Add an asset by identifier in Manage assets, then remove it.
 
@@ -99,7 +99,7 @@ Each area follows the same order: what the user sees now, why it changed, main f
 
 ### 2.3 Asset detail and transactions
 
-**Now.** The asset screen has one top row (back, logo, name, total), a stack of address cards (main, VerusID, private) with up to three pinned cards and the last used card, icon actions (Receive, Send, Convert), and a transactions sheet that stays open under the cards. Each row opens a transaction details sheet (amount, fee, recipient, status, copy). Card totals include unconfirmed funds; an unconfirmed transaction shows as a "Pending" row and badge. The separate pending line was removed on 2026-10-26 (`d7bc1531`). R13 (a label for pending balances) is open. Bridged assets show their origin. Pre-conversions show in their own panel.
+**Now.** The asset screen has one top row (back, logo, name, total), a stack of address cards (main, VerusID, private) with up to three pinned cards and the last used card, icon actions (Receive, Send, Convert), and a transactions sheet that stays open under the cards. Each row opens a transaction details sheet (amount, fee, recipient, status, copy). Cards and the total show confirmed funds only, as upstream (R13, 2026-11-19); an unconfirmed transaction shows as a "Pending" row and badge. Bitcoin-type coins and the private card add "+X pending" next to the confirmed number on the asset screen only. Bridged assets show their origin. Pre-conversions show in their own panel.
 
 **Why.** The design goal is to make address cards first-class: each card shows balance, status and network, and the history follows the selected card. Upstream showed a carousel and a separate details modal (`TxDetailsModal`, now replaced by `TransactionDetailsSheet`).
 
