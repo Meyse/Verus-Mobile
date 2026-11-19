@@ -88,11 +88,13 @@ const {
 } = require('../../../containers/SendWizard/SendWizardContext');
 const {InvoiceFlowContext} = require('../../../containers/SendWizard/invoiceFlow');
 
-// Blocklist entries, as the sign-in fetch stores them.
-const BLOCKED_R = 'RBLOCKEDxxxxxxxxxxxxxxxxxxxxxxxxxx';
-const BLOCKED_I = 'iBLOCKEDxxxxxxxxxxxxxxxxxxxxxxxxxx';
-const BLOCKED_ETH = '0x00000000000000000000000000000000000000bb';
-const ALLOWED_R = 'RALLOWEDxxxxxxxxxxxxxxxxxxxxxxxxxx';
+// Synthetic, valid addresses (20 bytes of 0xbb or 0xaa). Blocklist entries
+// are stored as the sign-in fetch stores them.
+const {toBase58Check} = require('verus-typescript-primitives');
+const BLOCKED_R = toBase58Check(Buffer.alloc(20, 0xbb), 60);
+const BLOCKED_I = toBase58Check(Buffer.alloc(20, 0xbb), 102);
+const BLOCKED_ETH = `0x${'bb'.repeat(20)}`;
+const ALLOWED_R = toBase58Check(Buffer.alloc(20, 0xaa), 60);
 const BLOCKED_TEXT = 'Sending to this address is blocked.';
 
 const VRSC = {id: 'VRSCTEST', currency_id: 'iVRSCTEST', system_id: 'iVRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST'};
@@ -126,6 +128,12 @@ const Route = ({steps = () => {}}) => {
   return ready ? <SendWizardConfirm /> : null;
 };
 
+// The shape useNetworkFee returns.
+const feeState = ({loading}) => ({
+  choice: {id: 'normal'}, choose: jest.fn(), quote: null, fee: null, retry: jest.fn(),
+  loading, error: null, canChoose: false,
+});
+
 let view;
 const render = async ({initialState, steps, invoiceFlow = null}) => {
   const tree = (
@@ -155,7 +163,7 @@ const pressGoBack = () => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockCanGoBack = true;
-  mockNetworkFee = {loading: false, fee: null, error: null, retry: jest.fn()};
+  mockNetworkFee = feeState({loading: false});
   mockState = {
     authentication: {activeAccount: {accountHash: 'alice', keys: {}}},
     settings: {
@@ -181,8 +189,7 @@ describe('Send Confirm blocks a blocklisted recipient on every route', () => {
     await render({initialState: {
       ...sourceOf(VRSC, vrpcCard),
       ...direct(VRSC),
-      // Case differs from the list entry: the match ignores case.
-      ...getScanRequestFields({address: BLOCKED_R.toLowerCase(), amount: '1', coinId: VRSC.id}),
+      ...getScanRequestFields({address: BLOCKED_R, amount: '1', coinId: VRSC.id}),
     }});
     noPreparation();
     expect(shownBlocked()).toBe(true);
@@ -211,12 +218,13 @@ describe('Send Confirm blocks a blocklisted recipient on every route', () => {
   });
 
   it('ETH scan: blocked before the network fee is ready, on the full step', async () => {
-    mockNetworkFee = {loading: true, fee: null, error: null, retry: jest.fn()};
+    mockNetworkFee = feeState({loading: true});
     await render({initialState: {
       ...sourceOf(ETH, ethCard),
       target: {id: ETH.id, isConversion: false},
       route: {key: 'direct', isCrossChain: false, addressType: 'ethereum'},
-      ...getScanRequestFields({address: BLOCKED_ETH, amount: '0.1', coinId: ETH.id}),
+      // Checksum case differs from the list entry: the match ignores case.
+      ...getScanRequestFields({address: BLOCKED_ETH.toUpperCase().replace('0X', '0x'), amount: '0.1', coinId: ETH.id}),
     }});
     noPreparation();
     expect(shownBlocked()).toBe(true);

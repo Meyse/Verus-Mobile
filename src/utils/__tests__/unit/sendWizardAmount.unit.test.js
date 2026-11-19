@@ -31,10 +31,10 @@ jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'Pr
 jest.mock('../../../containers/SendWizard/components/SelectionSheets', () => ({TargetNetworkSheet: 'TargetNetworkSheet'}));
 jest.mock('../../../containers/SendWizard/usePriceImpact', () => ({usePriceImpact: () => ({level: 'none'})}));
 jest.mock('../../../containers/SendWizard/useReceivedPrice', () => ({useReceivedPrice: () => null}));
-// Network boundaries. A direct ETH/ERC20 send calls none of them.
+// Network boundaries. Amount loads the other networks of an ETH card.
 jest.mock('../../api/channels/vrpc/requests/estimateConversion', () => ({estimateConversion: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/estimateEthereumExportFee', () => ({estimateEthereumExportFee: jest.fn()}));
-jest.mock('../../api/routers/getConversionPaths', () => ({getConversionPaths: jest.fn()}));
+jest.mock('../../api/routers/getConversionPaths', () => ({getConversionPaths: jest.fn(() => Promise.resolve({}))}));
 
 const React = require('react');
 const {act, create} = require('react-test-renderer');
