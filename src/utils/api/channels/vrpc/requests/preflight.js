@@ -664,9 +664,15 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     let message = e.message;
 
     if (message != null && typeof message === 'string' && message.includes('Insufficient funds')) {
-      if (confirmedFunds?.requested.isGreaterThan(confirmedFunds.confirmed)) {
-        // The amount is above what confirmed outputs can fund, for example
-        // while an incoming payment still confirms.
+      if (
+        confirmedFunds?.currency === systemId &&
+        confirmedFunds.requested.isGreaterThan(confirmedFunds.confirmed) &&
+        confirmedFunds.confirmed.isGreaterThan(nativeFeesPaid)
+      ) {
+        // A native amount above what confirmed outputs can fund, for example
+        // while an incoming payment still confirms. Up to the confirmed
+        // balance the fee is taken from the amount, so that amount works.
+        // Token sends keep the fee text: their fee needs native funds.
         const currencyName = friendlyNames.get(confirmedFunds.currency) || confirmedFunds.currency;
 
         message = `Insufficient funds. You can send up to ${

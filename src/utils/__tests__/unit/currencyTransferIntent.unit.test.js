@@ -398,6 +398,13 @@ describe('RPC native send balance rules', () => {
     );
   });
 
+  it('keeps the fee text when the confirmed balance cannot pay the fee', async () => {
+    getAddressBalances.mockResolvedValue({result: {currencybalance: {[SYSTEM]: 0.00005}}});
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('600000000'));
+
+    expect(result.result).toMatch(/^Insufficient funds\. Ensure you have at least 0\.0001 /);
+  });
+
   it('lowers a send of exactly the balance by the fee', async () => {
     const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('500000000'));
 
