@@ -25,9 +25,13 @@ jest.mock('../../../components/AppTextInput', () => {
 });
 jest.mock('../../../components/KeyboardAvoidingForm', () => 'KeyboardAvoidingForm');
 jest.mock('../../../components/SafeBottomActionStack', () => 'SafeBottomActionStack');
+let mockKeyboardVisible = false;
 jest.mock('../../../hooks/useOnboardingSmallDeviceLayout', () => ({
   ONBOARDING_KEYBOARD_FOOTER_SPACING: 8,
-  useOnboardingSmallDeviceLayout: () => ({keyboardVisible: false, smallDevice: false}),
+  useOnboardingSmallDeviceLayout: () => ({
+    keyboardVisible: mockKeyboardVisible,
+    smallDevice: false,
+  }),
 }));
 
 const React = require('react');
@@ -51,6 +55,7 @@ describe('ImportSeed phrase lengths', () => {
 
   beforeEach(() => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockKeyboardVisible = false;
     mockClipboard.getString.mockReset();
     props = {importedSeed: null, setImportedSeed: jest.fn(), onComplete: jest.fn()};
     act(() => {
@@ -188,6 +193,77 @@ describe('ImportSeed phrase lengths', () => {
     act(() => renderer.update(<ImportSeed {...props} importedSeed={phrase} />));
     expect(footer().props.testID).toBe('onboarding.importSeed.import');
     expect(wordSlots()).toHaveLength(12);
+  });
+
+  it('does not open Review for a paste of more than 24 words', async () => {
+    // 24 valid words and one more: the first 24 alone are a valid phrase.
+    await paste(`${zeroVector(24, 'art')} abandon`);
+
+    expect(byTestID('onboarding.importSeed.import')).toHaveLength(0);
+    expect(renderer.root.findByType('AppTextInput').props.helperText).toBe(
+      'Only the first 24 words were used.',
+    );
+  });
+
+  it('offers Review when the keyboard closes without a tap outside', () => {
+    mockKeyboardVisible = true;
+    act(() => renderer.update(<ImportSeed {...props} />));
+    zeroVector(12, 'about').split(' ').forEach(typeWord);
+    expect(byTestID('onboarding.importSeed.review')).toHaveLength(0);
+
+    // Android Back or an iOS swipe closes the keyboard.
+    mockKeyboardVisible = false;
+    act(() => renderer.update(<ImportSeed {...props} />));
+
+    expect(footer().props.testID).toBe('onboarding.importSeed.review');
+  });
+});
+
+// The parent passes the saved text back as importedSeed, as the onboarding
+// and import screens do.
+describe('ImportSeed with a parent that keeps the text', () => {
+  it('stays in Review after a 12-word paste and imports the phrase', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockKeyboardVisible = false;
+    const phrase = zeroVector(12, 'about');
+    const onComplete = jest.fn();
+    const saved = [];
+    const Parent = () => {
+      const [importedSeed, setImportedSeed] = React.useState(null);
+      const save = value => {
+        saved.push(value);
+        setImportedSeed(value);
+      };
+      return (
+        <ImportSeed
+          importedSeed={importedSeed}
+          onComplete={onComplete}
+          setImportedSeed={save}
+        />
+      );
+    };
+    let view;
+    act(() => {
+      view = create(<Parent />);
+    });
+    mockClipboard.getString.mockResolvedValue(phrase);
+    await act(async () => {
+      await view.root
+        .find(node => node.props.testID === 'onboarding.importSeed.paste' && typeof node.type === 'string')
+        .props.onPress();
+    });
+
+    // The parent got the slot text with 12 empty slots, and passed it back.
+    expect(saved[0]).toBe(`${phrase}${' '.repeat(12)}`);
+    const importButton = () => view.root.findAll(
+      node => node.props.testID === 'onboarding.importSeed.import' && typeof node.type === 'string',
+    );
+    expect(importButton()).toHaveLength(1);
+    act(() => importButton()[0].props.onPress());
+    expect(onComplete).toHaveBeenCalledWith(phrase);
+    expect(saved[saved.length - 1]).toBe(phrase);
+    act(() => view.unmount());
+    jest.restoreAllMocks();
   });
 });
 

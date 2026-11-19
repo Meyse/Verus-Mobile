@@ -113,10 +113,12 @@ const getPhraseWordCount = words => {
 
 // Pasted or given text opens Review when it is a whole phrase of a supported
 // length. Typing never opens Review on its own: the first 12 words of a
-// longer phrase can also be a valid phrase.
+// longer phrase can also be a valid phrase. Text with more than 24 words
+// stays in entry, so the user sees that words were left out.
 const isPhraseReadyForReview = parsedSeed =>
   getPhraseWordCount(parsedSeed.words) != null &&
-  parsedSeed.invalidIndexes.length === 0;
+  parsedSeed.invalidIndexes.length === 0 &&
+  parsedSeed.extraWordCount === 0;
 
 const getNextEditableIndex = (words, invalidIndexes) => {
   const firstInvalidIndex = invalidIndexes[0];
@@ -308,10 +310,20 @@ export default function ImportSeed({
     setCurrentWord(words[currentWordIndex] || '');
   }, [currentWordIndex, words]);
 
+  const keyboardWasVisibleRef = useRef(keyboardVisible);
+
   useEffect(() => {
     if (keyboardVisible && !reviewMode) {
       setEntryMode(true);
     }
+
+    // Android Back or a swipe closes the keyboard: end word entry, as a tap
+    // outside does, so the footer shows.
+    if (keyboardWasVisibleRef.current && !keyboardVisible && !reviewMode) {
+      setEntryMode(false);
+    }
+
+    keyboardWasVisibleRef.current = keyboardVisible;
   }, [keyboardVisible, reviewMode]);
 
   useEffect(() => {
