@@ -45,6 +45,7 @@ import { removeInactiveCurrencyDefinitions } from "./utils/asyncStore/currencyDe
 import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDefinitionStorage";
 import { initInstance } from "./utils/auth/authBox";
 import { SecureStorage } from "./utils/keychain/secureStore";
+import { removeLegacyPlainKeys } from "./utils/asyncStore/legacyPlainKeys";
 import StartupCover from "./components/StartupCover";
 import WalletUnlockCoordinator from "./components/WalletUnlockCoordinator";
 import {useOnboardingTheme} from './theme/onboarding';
@@ -135,6 +136,8 @@ export class VerusMobile extends React.Component {
       //versions. (The action that triggers it should indicate a server upgraded it's 
       //version)
       await clearCachedVersions();
+
+      await removeLegacyPlainKeys();
 
       // Initialize app settings
       const settingsAction = await initSettings();

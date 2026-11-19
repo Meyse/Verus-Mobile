@@ -4,16 +4,20 @@ import {getFriendlyNameMap, getIdentity} from '../../../../utils/api/channels/ve
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 
 // Review screens receive the envelope only after validateGenericRequest has
-// verified its signature. This hook reads that result; it does not verify it.
+// verified its signature. A legacy VerusPay invoice has no envelope; DeepLink
+// verifies its signature and the caller passes signatureVerified. This hook
+// reads those results; it does not verify a signature.
 export default function useRequestRequester({
   request,
+  signatureVerified,
   signerFqn,
   signerIdentityID,
   signerSystemID
 }) {
-  const verified = request?.isSigned?.() === true;
-  const address = signerIdentityID || (verified ? request.signature.identityID.toIAddress() : null);
-  const systemId = signerSystemID || (verified ? request.signature.systemID.toIAddress() : null);
+  const envelopeSigned = request?.isSigned?.() === true;
+  const verified = envelopeSigned || signatureVerified === true;
+  const address = signerIdentityID || (envelopeSigned ? request.signature.identityID.toIAddress() : null);
+  const systemId = signerSystemID || (envelopeSigned ? request.signature.systemID.toIAddress() : null);
   const [resolvedName, setResolvedName] = useState(null);
   const loadVerusId = useCallback(async () => {
     if (!address || !systemId) return null;
