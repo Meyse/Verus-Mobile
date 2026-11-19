@@ -669,10 +669,8 @@ const SignedInVerusIdService = ({controller}) => {
         throw new Error('Unable to link this VerusID.');
       }
 
-      if (candidate.status !== 'active') {
-        throw new Error('Only active VerusIDs can be linked.');
-      }
-
+      // Any status links by hand, as upstream: a revoked VerusID shows in the
+      // wallet with its badge (PR 266 review I1, owner, 2026-11-19).
       if (
         !candidate.primaryAddress ||
         !primaryAddresses.includes(candidate.primaryAddress)
@@ -1070,6 +1068,7 @@ const SignedInVerusIdService = ({controller}) => {
             coinObj={CoinDirectory.findCoinObj(resolvedLinkNetwork)}
             initialManualValue={linkSheetInitialManualValue}
             initialMode={linkSheetMode}
+            allowInactive
             isCandidateAllowed={isLinkCandidateAllowed}
             linkedIds={linkedIds}
             onBusyChange={handleLinkSheetBusyChange}

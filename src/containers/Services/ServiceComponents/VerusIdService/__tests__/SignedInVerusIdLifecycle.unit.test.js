@@ -21,6 +21,8 @@ let mockState;
 const mockGetIdentity = jest.fn();
 const mockGetFriendlyNameMap = jest.fn();
 const mockUnlinkVerusId = jest.fn();
+const mockLinkVerusId = jest.fn();
+let mockLinkSheetProps = null;
 const mockUpdateVerusIdWallet = jest.fn();
 const mockClearChainLifecycle = jest.fn();
 const mockRefreshActiveChainLifecycles = jest.fn();
@@ -141,7 +143,10 @@ jest.mock(
   '../../../../../containers/DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet',
   () => ({
     __esModule: true,
-    default: () => null,
+    default: props => {
+      mockLinkSheetProps = props;
+      return null;
+    },
     LINK_EXISTING_VERUSID_SHEET_MODES: {LIST: 'list', MANUAL: 'manual'},
   }),
 );
@@ -212,7 +217,7 @@ jest.mock(
   '../../../../../actions/actions/services/dispatchers/verusid/verusid',
   () => ({
     unlinkVerusId: (...args) => mockUnlinkVerusId(...args),
-    linkVerusId: jest.fn(),
+    linkVerusId: (...args) => mockLinkVerusId(...args),
     checkVerusIdNotificationsForUpdates: jest.fn(),
     deleteProvisionedIds: jest.fn(),
   }),
@@ -731,5 +736,55 @@ describe('SignedInVerusIdService loading gate', () => {
     );
 
     expect(findByLabel(renderer, 'Loading VerusIDs').length).toBeGreaterThan(0);
+  });
+});
+
+describe('SignedInVerusIdService manual link of a revoked VerusID', () => {
+  // PR 266 review I1 (owner pick A, 2026-11-19): the wallet's own Link
+  // links a revoked VerusID by hand, as upstream. The request pickers keep
+  // the active-only rule (covered in LinkExistingVerusIdManual).
+  it('hands the revoked VerusID to the wallet link store', async () => {
+    jest.clearAllMocks();
+    mockLinkSheetProps = null;
+    mockLinkVerusId.mockResolvedValue(undefined);
+    mockUpdateVerusIdWallet.mockResolvedValue(undefined);
+    setSession({sessionEpoch: 1});
+    const controller = {
+      state: {linkedIds: {}},
+      props: {
+        activeAccount: {id: 'account-1', accountHash: 'account-a', testnetOverrides: {}},
+        loading: false,
+        navigation: {...buildNavigation(), navigate: mockNavigate, setParams: jest.fn()},
+        route: {params: {manualLinkChain: 'VRSCTEST'}},
+      },
+      getLinkedIds: jest.fn(),
+    };
+    let renderer;
+    await act(async () => {
+      renderer = create(<SignedInVerusIdService controller={controller} />);
+    });
+    await flush();
+
+    expect(mockLinkSheetProps?.allowInactive).toBe(true);
+    await act(async () => {
+      await mockLinkSheetProps.onLinkCandidate({
+        chainId: 'VRSCTEST',
+        identityAddress: 'iRevoked',
+        fullyQualifiedName: 'revoked.VRSCTEST@',
+        displayName: 'revoked.VRSCTEST@',
+        primaryAddress: 'RWalletAddress000000000000000000000000',
+        identity: {primaryaddresses: ['RWalletAddress000000000000000000000000']},
+        status: 'revoked',
+      });
+    });
+    expect(mockLinkVerusId).toHaveBeenCalledTimes(1);
+    expect(mockLinkVerusId.mock.calls[0].slice(0, 3)).toEqual([
+      'iRevoked',
+      'revoked.VRSCTEST@',
+      'VRSCTEST',
+    ]);
+    await act(async () => {
+      renderer.unmount();
+    });
   });
 });

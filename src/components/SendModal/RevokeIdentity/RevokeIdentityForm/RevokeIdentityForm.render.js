@@ -80,6 +80,7 @@ export const RevokeIdentityFormRender = ({
         networkName={networkName}
         onChangeText={updateIdentity}
         onChoose={onOpenIdentitySheet}
+        onManualEntry={chooseManualEntry}
         onRetry={identityDiscovery.retry}
         onSubmitEditing={submitData}
         selectedCandidate={selectedCandidate}

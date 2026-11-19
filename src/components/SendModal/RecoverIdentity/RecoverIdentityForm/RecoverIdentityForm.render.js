@@ -169,6 +169,7 @@ export const RecoverIdentityFormRender = ({
         networkName={networkName}
         onChangeText={updateIdentity}
         onChoose={onOpenIdentitySheet}
+        onManualEntry={chooseManualEntry}
         onRetry={identityDiscovery.retry}
         selectedCandidate={selectedCandidate}
         value={sendModalData[SEND_MODAL_IDENTITY_TO_RECOVER_FIELD] || ''}

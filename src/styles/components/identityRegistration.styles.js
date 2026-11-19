@@ -13,6 +13,9 @@ export const createIdentityRegistrationStyles = theme => StyleSheet.create({
   subtitle: {...theme.typography.titleSheet, color: theme.colors.textPrimary},
   body: {...theme.typography.bodyMd, color: theme.colors.textPrimary},
   muted: {...theme.typography.caption, color: theme.colors.textSecondary},
+  // The namespace sheet's price column heading, right-aligned with the row values.
+  namespacePriceHeading: {...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'right', paddingRight: 17, marginBottom: 2},
+  namespaceFeeNote: {marginTop: 12},
   label: {...theme.typography.bodySm, color: theme.colors.textSecondary, flex: 1, minWidth: 0},
   fundsCards: {gap: 12, minWidth: 0},
   fundsCardsSmall: {gap: 8},

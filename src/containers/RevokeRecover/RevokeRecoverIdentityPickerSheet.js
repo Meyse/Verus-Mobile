@@ -96,10 +96,10 @@ const RevokeRecoverIdentityPickerSheet = ({
   }, [candidates, searchQuery, showSearch]);
   const showRetry =
     status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR || partial;
-  const showManualEntry =
-    status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.ERROR ||
-    status === AUTHORITY_IDENTITY_DISCOVERY_STATUS.UNSUPPORTED ||
-    partial;
+  // The lookup can leave out a target, for example one whose authority needs
+  // other signers, so manual entry shows in every state except loading
+  // (PR 266 review, IS-4 and I1, 2026-11-19).
+  const showManualEntry = !loading;
   const actionHeight =
     (showRetry ? SHEET_ACTION_HEIGHT : 0) +
     (showManualEntry ? SHEET_ACTION_HEIGHT : 0);
@@ -113,7 +113,8 @@ const RevokeRecoverIdentityPickerSheet = ({
     ? SHEET_PADDING_HEIGHT +
       candidateContentHeight +
       (showSearch ? SHEET_SEARCH_HEIGHT : 0) +
-      (showPartialNotice ? SHEET_PARTIAL_NOTICE_HEIGHT + actionHeight : 0)
+      (showPartialNotice ? SHEET_PARTIAL_NOTICE_HEIGHT : 0) +
+      actionHeight
     : SHEET_PADDING_HEIGHT + SHEET_STATUS_HEIGHT + actionHeight;
   const sheetHeight = Math.min(
     SHEET_MAX_HEIGHT,
@@ -288,6 +289,7 @@ export const RevokeRecoverIdentityField = ({
   manualEntry,
   onChangeText,
   onChoose,
+  onManualEntry,
   onRetry,
   onSubmitEditing,
   selectedCandidate,
@@ -375,6 +377,15 @@ export const RevokeRecoverIdentityField = ({
           testID="revokeRecover.identity.retryInline">
           Try automatic lookup again
         </TextAction>
+        {onManualEntry ? (
+          <TextAction
+            accessibilityRole="button"
+            onPress={onManualEntry}
+            style={styles.manualInline}
+            testID="revokeRecover.identity.manualInline">
+            Enter VerusID manually
+          </TextAction>
+        ) : null}
         {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
       </View>
     );
@@ -412,13 +423,24 @@ export const RevokeRecoverIdentityField = ({
       ) : contextLabel ? (
         <Text style={styles.selectionContextFallback}>{contextLabel}</Text>
       ) : null}
+      {/* A single complete result is chosen for the user. The field still opens
+          the list, where manual entry stays available. */}
       {singleCandidate ? (
-        <View
+        <TouchableOpacity
+          accessibilityHint="Opens the list and manual entry"
           accessibilityLabel={`${selectedCandidate?.displayName}, selected to ${action}`}
+          accessibilityRole="button"
+          activeOpacity={0.76}
+          onPress={onChoose}
           style={styles.selectionField}
           testID="revokeRecover.identity.single">
           {selectionCopy}
-        </View>
+          <MaterialCommunityIcons
+            color={theme.colors.textSubtle}
+            name="chevron-right"
+            size={23}
+          />
+        </TouchableOpacity>
       ) : (
         <TouchableOpacity
           accessibilityLabel={
@@ -577,6 +599,11 @@ const createFieldStyles = theme =>
       fontWeight: '500',
     },
     chooseAvailable: {
+      minHeight: 44,
+      alignSelf: 'flex-start',
+      justifyContent: 'center',
+    },
+    manualInline: {
       minHeight: 44,
       alignSelf: 'flex-start',
       justifyContent: 'center',
