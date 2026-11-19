@@ -21,6 +21,7 @@ import {resetToScreen} from '../../utils/navigation/resetToScreen';
 import { renderSideMenu } from "./SideMenu.render";
 import { createAlert, resolveAlert } from "../../actions/actions/alert/dispatchers/alert";
 import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
+import { waitBeforeSignOut } from '../../utils/assets/assetChoicesStorage';
 
 class SideMenu extends Component {
   constructor(props) {
@@ -193,11 +194,9 @@ class SideMenu extends Component {
       task: () => {
         // Hack to prevent crash on screens that require activeAccount not to be null
         // TODO: Find a more elegant solution
-        return new Promise((resolve, reject) => {
-          setTimeout(async () => {
-            this.props.dispatch(signOut(sessionScope))
-            resolve()
-          }, 1000)
+        // Asset choice writes need the password, so they end first.
+        return waitBeforeSignOut(sessionScope.accountHash).then(() => {
+          this.props.dispatch(signOut(sessionScope))
         })
       },
       message: "Signing out...",

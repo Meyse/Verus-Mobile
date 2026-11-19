@@ -23,6 +23,7 @@ import {
   SettingsScreen,
   SettingsSection,
 } from '../../components/SettingsScaffold';
+import { waitBeforeSignOut } from '../../../../utils/assets/assetChoicesStorage';
 
 const passwordAutofillProps = {
   autoComplete: "off",
@@ -124,11 +125,9 @@ export class ResetPwd extends Component {
       task: () => {
         // Hack to prevent crash on screens that require activeAccount not to be null
         // TODO: Find a more elegant solution
-        return new Promise((resolve, reject) => {
-          setTimeout(async () => {
-            this.props.dispatch(signOut(sessionScope))
-            resolve()
-          }, 1000)
+        // Asset choice writes need the password, so they end first.
+        return waitBeforeSignOut(sessionScope.accountHash).then(() => {
+          this.props.dispatch(signOut(sessionScope))
         })
       },
       message: "Signing out",
