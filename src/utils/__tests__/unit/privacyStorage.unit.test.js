@@ -175,6 +175,66 @@ describe('paid invoice markers (R21)', () => {
       expect.objectContaining({txid: TXID}),
     );
   });
+
+  it('keeps the marker when the account changes while the write waits', async () => {
+    await loadModules();
+    const {encryptkey, decryptkey} = require('../../seedCrypt');
+    const Keychain = require('react-native-keychain');
+    const sessionKey = 'session-key';
+    Keychain.getInternetCredentials.mockResolvedValue({
+      password: await encryptkey(sessionKey, 'wallet-password'),
+    });
+    mockState = {
+      authentication: {activeAccount: {accountHash: ACCOUNT}, sessionKey, sessionEpoch: 1},
+      services: {stored: {}},
+    };
+    const {queueServiceStorageWrite} = require('../../asyncStore/passwordProtectedStorageQueue');
+    const invoices = require('../../deeplink/paidInvoiceStorage');
+    // Another service write is slow (it encrypts all profiles' service data).
+    let releaseSlowWrite;
+    const slowWrite = queueServiceStorageWrite(() => new Promise(resolve => { releaseSlowWrite = resolve; }));
+
+    const saving = invoices.savePaidInvoice('invoice-marker-key', TXID, ACCOUNT);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    // The user signs in to another profile before the marker write starts.
+    mockState = {
+      authentication: {activeAccount: {accountHash: OTHER_ACCOUNT}, sessionKey: 'other', sessionEpoch: 2},
+      services: {stored: {}},
+    };
+    releaseSlowWrite();
+    await slowWrite;
+    await saving;
+
+    const {loadServiceStoredDataForUser} = require('../../asyncStore/serviceStoredDataStorage');
+    const stored = await loadServiceStoredDataForUser(ACCOUNT);
+    expect(JSON.parse(decryptkey('wallet-password', stored.paid_invoices)).markers['invoice-marker-key'])
+      .toEqual(expect.objectContaining({txid: TXID}));
+  });
+
+  it('keeps earlier markers when Redux holds an older copy of the service data', async () => {
+    await loadModules();
+    const {encryptkey, decryptkey} = require('../../seedCrypt');
+    const Keychain = require('react-native-keychain');
+    const sessionKey = 'session-key';
+    Keychain.getInternetCredentials.mockResolvedValue({
+      password: await encryptkey(sessionKey, 'wallet-password'),
+    });
+    mockState = {
+      authentication: {activeAccount: {accountHash: ACCOUNT}, sessionKey, sessionEpoch: 1},
+      services: {stored: {}},
+    };
+    const invoices = require('../../deeplink/paidInvoiceStorage');
+    await invoices.savePaidInvoice('first-invoice', TXID, ACCOUNT);
+    // A new sign-in read the service data before the first marker was stored.
+    mockState = {...mockState, services: {stored: {}}};
+
+    await invoices.savePaidInvoice('second-invoice', 'e'.repeat(64), ACCOUNT);
+
+    const {loadServiceStoredDataForUser} = require('../../asyncStore/serviceStoredDataStorage');
+    const stored = await loadServiceStoredDataForUser(ACCOUNT);
+    expect(Object.keys(JSON.parse(decryptkey('wallet-password', stored.paid_invoices)).markers).sort())
+      .toEqual(['first-invoice', 'second-invoice']);
+  });
 });
 
 describe('per-account wallet display choices (R22)', () => {
@@ -189,8 +249,10 @@ describe('per-account wallet display choices (R22)', () => {
 
   it('stores card choices, identity colors and sign-in times in the encrypted key only', async () => {
     const {AsyncStorage} = await loadModules();
-    const {storeSettings} = require('../../asyncStore/settingsStorage');
+    const {loadSettings, storeSettings} = require('../../asyncStore/settingsStorage');
 
+    // Startup loads the settings before any save.
+    await loadSettings();
     await storeSettings({generalWalletSettings: {appearance: 'dark', ...walletUi}});
 
     const plain = await AsyncStorage.getItem('settings');
@@ -222,79 +284,61 @@ describe('per-account wallet display choices (R22)', () => {
     expect(await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY)).toBeNull();
   });
 
-  it('keeps the saved choices when they cannot be read, and does not block the settings save', async () => {
+  const emptyMaps = {
+    cardStackPreferencesByAccount: {},
+    identityColorSlotsByAccount: {},
+    lastOpenedAccountTimestamps: {},
+  };
+  const saveChoices = async () => {
     await loadModules();
-    await require('../../asyncStore/settingsStorage').storeSettings({
+    const settingsStorage = require('../../asyncStore/settingsStorage');
+    await settingsStorage.loadSettings();
+    await settingsStorage.storeSettings({
       generalWalletSettings: {appearance: 'dark', ...walletUi},
     });
-
-    const {AsyncStorage, SecureStorage} = await loadModules();
+  };
+  const failWalletUiReads = SecureStorage => {
     const {WALLET_UI_STORAGE_INTERNAL_KEY} = require('../../keychain/secureStore');
-    const savedCiphertext = await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY);
     const getItem = SecureStorage.getItem.bind(SecureStorage);
-    const readError = jest.spyOn(SecureStorage, 'getItem').mockImplementation((key, ...rest) =>
+    return jest.spyOn(SecureStorage, 'getItem').mockImplementation((key, ...rest) =>
       (key === WALLET_UI_STORAGE_INTERNAL_KEY
         ? Promise.reject(new Error('read failed'))
         : getItem(key, ...rest)));
+  };
+
+  it('never replaces saved choices that could not be read, and saves the plain settings', async () => {
+    await saveChoices();
+    const {AsyncStorage, SecureStorage} = await loadModules();
+    const {WALLET_UI_STORAGE_INTERNAL_KEY} = require('../../keychain/secureStore');
+    const {WALLET_UI_NOT_SAVED} = require('../../asyncStore/walletUiStorage');
+    const savedCiphertext = await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY);
+    const readError = failWalletUiReads(SecureStorage);
     const settingsStorage = require('../../asyncStore/settingsStorage');
 
     // Startup reads nothing, so this session's maps start empty.
     const loaded = await settingsStorage.loadSettings();
     expect(loaded.generalWalletSettings.cardStackPreferencesByAccount).toBeUndefined();
-    await settingsStorage.storeSettings({generalWalletSettings: {
-      appearance: 'light',
-      cardStackPreferencesByAccount: {},
-      identityColorSlotsByAccount: {},
+    // Two saves of plain settings with the empty session maps.
+    await settingsStorage.storeSettings({generalWalletSettings: {appearance: 'light', ...emptyMaps}});
+    await settingsStorage.storeSettings({generalWalletSettings: {appearance: 'system', ...emptyMaps}});
+    // A new display choice in this session cannot be saved; the caller is told.
+    await expect(settingsStorage.storeSettings({generalWalletSettings: {
+      appearance: 'system',
+      ...emptyMaps,
       lastOpenedAccountTimestamps: {[ACCOUNT]: 1800000000000},
-    }});
+    }}, {walletUiRequired: true})).rejects.toMatchObject({code: WALLET_UI_NOT_SAVED});
+
     expect(await AsyncStorage.getItem(WALLET_UI_STORAGE_INTERNAL_KEY)).toBe(savedCiphertext);
-    expect(JSON.parse(await AsyncStorage.getItem('settings')).generalWalletSettings.appearance).toBe('light');
+    expect(JSON.parse(await AsyncStorage.getItem('settings')).generalWalletSettings.appearance).toBe('system');
 
-    // The next read works: the write keeps every saved profile entry.
+    // The next good load (at sign-in) brings the saved choices back.
     readError.mockRestore();
-    await settingsStorage.storeSettings({generalWalletSettings: {
-      appearance: 'light',
-      cardStackPreferencesByAccount: {},
-      identityColorSlotsByAccount: {},
-      lastOpenedAccountTimestamps: {[ACCOUNT]: 1800000000000},
-    }});
-    await loadModules();
-    const {generalWalletSettings} = await require('../../asyncStore/settingsStorage').loadSettings();
-    expect(generalWalletSettings.cardStackPreferencesByAccount).toEqual(walletUi.cardStackPreferencesByAccount);
-    expect(generalWalletSettings.identityColorSlotsByAccount).toEqual(walletUi.identityColorSlotsByAccount);
-    expect(generalWalletSettings.lastOpenedAccountTimestamps).toEqual({
-      [ACCOUNT]: 1800000000000,
-      [OTHER_ACCOUNT]: 1600000000000,
-    });
-  });
-
-  it('keeps a queued change of another profile when a profile is deleted', async () => {
-    await loadModules();
-    const {DEFAULT_SETTINGS} = require('../../settings/settingsDefaults');
-    mockState = {
-      settings: {
-        ...DEFAULT_SETTINGS,
-        generalWalletSettings: {...DEFAULT_SETTINGS.generalWalletSettings, ...walletUi},
-      },
-    };
-    const {
-      deleteAccountWalletUiSettings,
-      saveGeneralSettings,
-    } = require('../../../actions/actions/WalletSettings');
-    const {loadSettings} = require('../../asyncStore/settingsStorage');
-    const otherColors = {[OTHER_ACCOUNT]: {iOtherIdentity: 4}};
-
-    await Promise.all([
-      saveGeneralSettings({
-        identityColorSlotsByAccount: {...walletUi.identityColorSlotsByAccount, ...otherColors},
-      }),
-      deleteAccountWalletUiSettings(ACCOUNT),
-    ]);
-
-    expect((await loadSettings()).generalWalletSettings.identityColorSlotsByAccount).toEqual(otherColors);
+    const {generalWalletSettings} = await settingsStorage.loadSettings();
+    expect(generalWalletSettings).toEqual({appearance: 'system', ...walletUi});
   });
 
   it('removes a deleted profile from the saved choices and from Redux', async () => {
+    await saveChoices();
     await loadModules();
     const {SET_ALL_SETTINGS} = require('../../constants/storeType');
     const {DEFAULT_SETTINGS} = require('../../settings/settingsDefaults');
@@ -318,6 +362,71 @@ describe('per-account wallet display choices (R22)', () => {
       .find(action => action.type === SET_ALL_SETTINGS);
     expect(published.settings.generalWalletSettings).toEqual(expect.objectContaining(expected));
     expect((await loadSettings()).generalWalletSettings).toEqual(expect.objectContaining(expected));
+  });
+
+  it('removes a deleted profile from the saved choices also when Redux does not hold them', async () => {
+    await saveChoices();
+    const {SecureStorage} = await loadModules();
+    const readError = failWalletUiReads(SecureStorage);
+    const settingsStorage = require('../../asyncStore/settingsStorage');
+    await settingsStorage.loadSettings();
+    readError.mockRestore();
+    const {DEFAULT_SETTINGS} = require('../../settings/settingsDefaults');
+    mockState = {settings: DEFAULT_SETTINGS};
+    const {deleteAccountWalletUiSettings} = require('../../../actions/actions/WalletSettings');
+
+    await deleteAccountWalletUiSettings(ACCOUNT);
+
+    const {generalWalletSettings} = await settingsStorage.loadSettings();
+    expect(generalWalletSettings.cardStackPreferencesByAccount).toEqual({
+      [OTHER_ACCOUNT]: {VRSCTEST: {pins: []}},
+    });
+    expect(generalWalletSettings.identityColorSlotsByAccount).toEqual({});
+    expect(generalWalletSettings.lastOpenedAccountTimestamps).toEqual({
+      [OTHER_ACCOUNT]: 1600000000000,
+    });
+  });
+
+  it('saves a plain setting although the display choices cannot be saved', async () => {
+    await saveChoices();
+    const {AsyncStorage, SecureStorage} = await loadModules();
+    failWalletUiReads(SecureStorage);
+    const settingsStorage = require('../../asyncStore/settingsStorage');
+    const {DEFAULT_SETTINGS} = require('../../settings/settingsDefaults');
+    const {SET_GENERAL_WALLET_SETTINGS_STATE} = require('../../constants/storeType');
+    await settingsStorage.loadSettings();
+    // This session changed a card choice that could not be saved.
+    mockState = {
+      settings: {
+        ...DEFAULT_SETTINGS,
+        generalWalletSettings: {
+          ...DEFAULT_SETTINGS.generalWalletSettings,
+          cardStackPreferencesByAccount: {[ACCOUNT]: {VRSCTEST: {selectedId: 'card'}}},
+        },
+      },
+    };
+    const {saveGeneralSettings} = require('../../../actions/actions/WalletSettings');
+    const {WALLET_UI_NOT_SAVED} = require('../../asyncStore/walletUiStorage');
+
+    const action = await saveGeneralSettings({appearance: 'dark'});
+
+    expect(action.type).toBe(SET_GENERAL_WALLET_SETTINGS_STATE);
+    expect(JSON.parse(await AsyncStorage.getItem('settings')).generalWalletSettings.appearance).toBe('dark');
+    // A card choice save still reports the failure, so the card saver retries.
+    await expect(saveGeneralSettings({
+      cardStackPreferencesByAccount: {[ACCOUNT]: {VRSCTEST: {selectedId: 'other'}}},
+    })).rejects.toMatchObject({code: WALLET_UI_NOT_SAVED});
+  });
+
+  it('starts when the old plain fields cannot be removed', async () => {
+    const {AsyncStorage, SecureStorage} = await loadModules();
+    await AsyncStorage.setItem('settings', JSON.stringify({
+      generalWalletSettings: {appearance: 'light', ...walletUi},
+    }));
+    jest.spyOn(SecureStorage, 'setItem').mockRejectedValueOnce(new Error('write failed'));
+    const {loadSettings} = require('../../asyncStore/settingsStorage');
+
+    await expect(loadSettings()).resolves.toEqual({generalWalletSettings: {appearance: 'light'}});
   });
 });
 

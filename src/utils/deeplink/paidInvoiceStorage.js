@@ -1,6 +1,7 @@
 import {sha256} from '../crypto/hash';
-import {requestServiceStoredData} from '../auth/authBox';
-import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
+import store from '../../store';
+import {requestPassword, requestServiceStoredData} from '../auth/authBox';
+import {modifyServiceEntryWithPasswordForUser} from '../../actions/actions/services/dispatchers/services';
 import {PAID_INVOICES_SERVICE_ID} from '../constants/services';
 
 // Invoices this account paid, so a second visit can say so. The markers hold
@@ -49,13 +50,26 @@ export const loadPaidInvoice = async key => {
   return markers[key] || null;
 };
 
+const isActive = accountHash =>
+  store.getState().authentication.activeAccount?.accountHash === accountHash;
+
 /**
  * A null txid means the broadcast status is unknown: the invoice may be paid.
+ * The password is read at once, while the paying account is signed in. The
+ * slow write then merges with the stored markers and also completes if the
+ * account changes meanwhile.
  */
 export const savePaidInvoice = async (key, txid, accountHash) => {
   if (!key || !accountHash) return;
 
-  await modifyServiceStoredDataForUser(
+  if (!isActive(accountHash)) throw new Error('The paying account is no longer signed in.');
+  const password = await requestPassword();
+  if (!isActive(accountHash)) throw new Error('The paying account is no longer signed in.');
+
+  await modifyServiceEntryWithPasswordForUser(
+    PAID_INVOICES_SERVICE_ID,
+    accountHash,
+    password,
     current => {
       const markers = {...markersOf(current)};
       markers[key] = {txid: txid || null, paidAt: Date.now()};
@@ -67,7 +81,5 @@ export const savePaidInvoice = async (key, txid, accountHash) => {
 
       return {markers};
     },
-    PAID_INVOICES_SERVICE_ID,
-    accountHash,
   );
 };

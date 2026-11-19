@@ -1,6 +1,6 @@
 /* eslint no-use-before-define: ["error", {"functions": true, "classes": true, "variables": false}] -- Home keeps its shared styles below the component. */
 import PropTypes from 'prop-types';
-import React, {useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {FlatList, RefreshControl} from 'react-native-gesture-handler';
@@ -33,6 +34,8 @@ import NotificationWidget from './HomeWidgets/NotificationWidget';
 import HomeNotice, {HOME_NOTICE_SYNC} from './HomeWidgets/HomeNotice';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import WalletSetupLogoSlot from '../../components/WalletSetup/WalletSetupLogoSlot';
+import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
+import {useLatestCallback} from '../../hooks/useLatestCallback';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
@@ -115,7 +118,7 @@ const useBalanceRevealProgress = showBalance => {
   return progress;
 };
 
-const PortfolioBalance = React.forwardRef(({
+const PortfolioBalance = React.memo(React.forwardRef(({
   amount,
   currency,
   revealProgress,
@@ -227,8 +230,9 @@ const PortfolioBalance = React.forwardRef(({
       )}
     </View>
   );
-});
+}));
 
+PortfolioBalance.displayName = 'PortfolioBalance';
 PortfolioBalance.propTypes = {
   theme: PropTypes.shape({
     colors: PropTypes.shape({textPrimary: PropTypes.string, textSecondary: PropTypes.string}),
@@ -237,6 +241,310 @@ PortfolioBalance.propTypes = {
   history: homeValueChartHistoryPropType.isRequired,
   chartExpanded: PropTypes.bool.isRequired,
   onSelectCurrency: PropTypes.func.isRequired,
+};
+
+// While the saved chart record loads, the header keeps its loaded layout with
+// skeletons in place of the amount and the value badge.
+const PortfolioBalanceSkeleton = ({compactHeader}) => (
+  <SkeletonLoader
+    accessibilityLabel="Loading your balance"
+    style={[styles.heroValueRow, compactHeader && chartStyles.compactAmountRow]}>
+    <View style={styles.skeletonRow}>
+      <SkeletonBlock width={148} height={32} style={styles.heroAmountSkeleton} />
+      {compactHeader && (
+        <View style={chartStyles.pillSlot}>
+          <SkeletonBlock width={64} height={24} radius={12} />
+        </View>
+      )}
+    </View>
+  </SkeletonLoader>
+);
+
+// The chart's space while its saved record loads: the same heights and plot
+// inset as the chart's own loading state, without its controls.
+const ChartStripSkeleton = ({expanded}) => {
+  const {height: windowHeight} = useWindowDimensions();
+  const compact = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
+  const stripHeight = compact ? 44 : 48;
+  const openHeight = compact ? 108 : 124;
+  const rangeHeight = compact ? 40 : 44;
+  const height = expanded ? openHeight : stripHeight;
+  const top = expanded ? 28 : 8;
+
+  return (
+    <View style={chartStyles.block}>
+      <View style={[chartStyles.plot, expanded ? null : styles.closedStripPlot]}>
+        <SkeletonLoader
+          accessibilityLabel="Loading value history"
+          style={[chartStyles.skeleton, {height, paddingTop: top}]}>
+          <SkeletonBlock height={height - top - 8} />
+        </SkeletonLoader>
+        {expanded && <View style={{height: rangeHeight}} />}
+      </View>
+    </View>
+  );
+};
+
+// One asset row. It takes only display values, so a balance result draws
+// again only the row whose values changed.
+const HomeAssetRow = React.memo(({
+  coinId,
+  logoId,
+  badgeTicker,
+  name,
+  ticker,
+  accessibilityLabel,
+  cryptoAmountText,
+  fiatText,
+  rateText,
+  prelaunchBadge,
+  preconvertedText,
+  showBalance,
+  revealProgress,
+  theme,
+  onOpen,
+}) => {
+  const fiatUnavailable = fiatText === 'N/A';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.76}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={() => onOpen(coinId)}
+      style={styles.assetRow}>
+      <WalletSetupLogoSlot coinId={coinId} style={styles.logoWrap}>
+        <AssetCoinLogo coinId={logoId} badgeTicker={badgeTicker} size={38} />
+      </WalletSetupLogoSlot>
+      <View style={styles.assetCopy}>
+        <View style={styles.assetLine}>
+          <Text
+            numberOfLines={2}
+            style={[
+              theme.typography.titleRow,
+              styles.assetName,
+              {color: theme.colors.textPrimary},
+            ]}>
+            {name}
+          </Text>
+          {prelaunchBadge ? (
+            <StatusBadge label={prelaunchBadge} style={styles.prelaunchBadge} />
+          ) : fiatUnavailable ? (
+            <Text
+              numberOfLines={1}
+              style={[styles.fiatUnavailable, {color: theme.colors.textSubtle}]}>
+              {fiatText}
+            </Text>
+          ) : (
+            <PrivacyBlurredText
+              blurRadius={5}
+              color={theme.colors.textPrimary}
+              hidden={!showBalance}
+              numberOfLines={1}
+              revealProgress={revealProgress}
+              style={styles.fiatValue}>
+              {fiatText}
+            </PrivacyBlurredText>
+          )}
+        </View>
+        {preconvertedText ? (
+          <View style={[styles.assetLine, styles.assetSecondaryLine]}>
+            <PrivacyBlurredText
+              blurRadius={5}
+              color={theme.colors.textSecondary}
+              hidden={!showBalance}
+              numberOfLines={1}
+              revealProgress={revealProgress}
+              style={theme.typography.bodySm}>
+              {preconvertedText}
+            </PrivacyBlurredText>
+          </View>
+        ) : (
+          <View style={[styles.assetLine, styles.assetSecondaryLine]}>
+            <View style={styles.cryptoValue}>
+              <PrivacyBlurredText
+                blurRadius={5}
+                color={theme.colors.textSecondary}
+                hidden={!showBalance}
+                revealProgress={revealProgress}
+                style={theme.typography.bodySm}>
+                {cryptoAmountText}
+              </PrivacyBlurredText>
+              <Text
+                numberOfLines={1}
+                style={[
+                  theme.typography.bodySm,
+                  styles.cryptoTicker,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                {ticker}
+              </Text>
+            </View>
+            {rateText ? (
+              <Text
+                numberOfLines={1}
+                style={[
+                  theme.typography.bodySm,
+                  styles.fiatRate,
+                  {color: theme.colors.textSubtle},
+                ]}>
+                {rateText}
+              </Text>
+            ) : null}
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+// The balance, its actions and the notices. It draws again only when one of
+// its own values changes, not on each asset balance result.
+const HomeHeader = React.memo(({
+  amountRef,
+  compactHeader,
+  displayCurrency,
+  dividerOpacity,
+  history,
+  homeNotice,
+  hydrated,
+  loading,
+  chartExpanded,
+  revealProgress,
+  actionsOpacity,
+  showBalance,
+  stripScrubbing,
+  theme,
+  totalFiatBalance,
+  onDismissFoundAssets,
+  onDismissSyncNotice,
+  onManageAssets,
+  onReceive,
+  onRefresh,
+  onReviewFoundAssets,
+  onSelectCurrency,
+  onToggleBalance,
+}) => {
+  const [noticeHeight, setNoticeHeight] = useState(0);
+
+  return (
+    <View style={[styles.header, {backgroundColor: theme.colors.background}]}>
+      <View style={[styles.balanceRow, compactHeader && chartStyles.compactBalanceRow]}>
+        <View style={styles.balanceTouchable}>
+          {hydrated ? (
+            <PortfolioBalance
+              ref={amountRef}
+              amount={totalFiatBalance}
+              currency={displayCurrency}
+              revealProgress={revealProgress}
+              showBalance={showBalance}
+              theme={theme}
+              history={history}
+              chartExpanded={chartExpanded}
+              onSelectCurrency={onSelectCurrency}
+            />
+          ) : (
+            <PortfolioBalanceSkeleton compactHeader={compactHeader} />
+          )}
+        </View>
+        <Animated.View
+          pointerEvents={stripScrubbing ? 'none' : 'auto'}
+          accessibilityElementsHidden={stripScrubbing}
+          importantForAccessibility={stripScrubbing ? 'no-hide-descendants' : 'auto'}
+          style={[styles.balanceActions, { opacity: actionsOpacity }]}
+        >
+          <TouchableOpacity
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={showBalance ? 'Hide balances' : 'Show balances'}
+            hitSlop={ICON_HIT_SLOP}
+            onPress={onToggleBalance}
+            style={[styles.iconButton, styles.balanceToggle]}>
+            <MaterialCommunityIcons
+              name={showBalance ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={theme.colors.textPrimary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Manage assets"
+            hitSlop={ICON_HIT_SLOP}
+            onPress={onManageAssets}
+            style={styles.iconButton}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textPrimary} />
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+      <View
+        onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
+        // A Home notice takes the gap in its first frame; the measure covers the other cards.
+        style={compactHeader && (homeNotice != null || noticeHeight > 0) ? {marginTop: 20} : undefined}
+      >
+        <HomeNotice
+          loading={loading}
+          notice={homeNotice}
+          onReceive={onReceive}
+          onDismiss={homeNotice?.kind === HOME_NOTICE_SYNC ? onDismissSyncNotice : onDismissFoundAssets}
+          onRetry={onRefresh}
+          onReview={onReviewFoundAssets}
+        />
+        <NotificationWidget followsHomeNotice={homeNotice != null} />
+      </View>
+      {/* The line shows once the list scrolls. It changes no layout and no React state. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.headerDivider, {backgroundColor: theme.colors.border, opacity: dividerOpacity}]}
+      />
+    </View>
+  );
+});
+
+PortfolioBalanceSkeleton.displayName = 'PortfolioBalanceSkeleton';
+ChartStripSkeleton.displayName = 'ChartStripSkeleton';
+HomeAssetRow.displayName = 'HomeAssetRow';
+HomeHeader.displayName = 'HomeHeader';
+
+const MemoActionBar = React.memo(SignedInActionBar);
+const MemoDisplayCurrencySheet = React.memo(DisplayCurrencySheet);
+
+const getAssetRowValues = (item, showBalance, displayCurrency) => {
+  const presentation = item.presentation || getAssetPresentation(item.coin);
+  const crypto = BigNumber(item.balance || 0);
+  const cryptoAmountText = item.balance == null ? '—' : `${item.balanceComplete ? '' : '≥ '}${crypto
+    .decimalPlaces(4, BigNumber.ROUND_DOWN)
+    .toFixed(4)}`;
+  const cryptoText = showBalance
+    ? `${cryptoAmountText} ${presentation.ticker}`
+    : 'balance hidden';
+  const rateText = item.rate == null ? null : formatFiat(item.rate, displayCurrency);
+  const fiatText = item.fiatValue != null ? formatFiat(item.fiatValue, displayCurrency) : 'N/A';
+  // Before its launch an asset has no price. The row says when it launches
+  // and what this wallet pre-converted to it.
+  const prelaunch = item.prelaunch;
+  const accessibilityLabel = prelaunch
+    ? [
+        presentation.name,
+        prelaunch.preconverted
+          ? showBalance
+            ? `${prelaunch.preconverted} pre-converted`
+            : 'balance hidden'
+          : cryptoText,
+        prelaunch.badge,
+      ].join(', ')
+    : `${presentation.name}, ${cryptoText}`;
+
+  return {
+    presentation,
+    cryptoAmountText,
+    rateText,
+    fiatText,
+    accessibilityLabel,
+    prelaunchBadge: prelaunch?.badge || null,
+    preconvertedText: prelaunch?.preconverted ? `${prelaunch.preconverted} pre-converted` : null,
+  };
 };
 
 const SignedInWalletHome = ({
@@ -269,14 +577,15 @@ const SignedInWalletHome = ({
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const { expanded: chartExpanded, hydrated: preferenceHydrated, setExpanded } = useHomeChartPreference();
   const hydrated = history.hydrated && preferenceHydrated;
-  const [showHeaderDivider, setShowHeaderDivider] = useState(false);
   const dividerRef = useRef(false);
+  const dividerOpacity = useRef(new Animated.Value(0)).current;
   const panRef = useRef(null);
   const amountRef = useRef(null);
   const scrubRef = useRef(false);
   const [scrubbing, setScrubbing] = useState(false);
-  const [noticeHeight, setNoticeHeight] = useState(0);
-  const compactHeader = history?.state !== 'none';
+  // Before the saved record is read, keep the chart's space when the wallet
+  // can have a chart at all, so the header does not jump.
+  const compactHeader = hydrated ? history?.state !== 'none' : history.hasPrice === true;
   const onScrub = useCallback((point) => {
     amountRef.current?.setScrub(point);
     const active = point != null;
@@ -289,266 +598,152 @@ const SignedInWalletHome = ({
   const stripScrubbing = scrubbing && !chartExpanded;
   const actionsOpacity = useBalanceRevealProgress(!stripScrubbing);
 
-  const handleScroll = event => {
+  // The newest asset items, for the stable row callback.
+  const assetsById = useRef({});
+  assetsById.current = {};
+  assets.forEach(item => { assetsById.current[item.coin.id] = item; });
+  const openAsset = useLatestCallback(coinId => {
+    const item = assetsById.current[coinId];
+    if (item) onOpenAsset(item.coin, item.preferredCard);
+  });
+  const openCurrencySheet = useCallback(() => setCurrencyOpen(true), []);
+  const closeCurrencySheet = useCallback(() => setCurrencyOpen(false), []);
+  const formatValue = useCallback(value => formatFiat(value, displayCurrency), [displayCurrency]);
+  const toggleChart = useCallback(() => setExpanded(!chartExpanded), [chartExpanded, setExpanded]);
+  const pullToRefresh = useLatestCallback(() => {
+    if (!scrubRef.current) onRefresh();
+  });
+
+  const handleScroll = useCallback(event => {
     const next = (event?.nativeEvent?.contentOffset?.y || 0) > HEADER_DIVIDER_THRESHOLD;
     if (next !== dividerRef.current) {
       dividerRef.current = next;
-      setShowHeaderDivider(next);
+      dividerOpacity.setValue(next ? 1 : 0);
     }
-  };
+  }, [dividerOpacity]);
 
-  const renderAsset = ({item}) => {
-    const presentation = item.presentation || getAssetPresentation(item.coin);
-    const crypto = BigNumber(item.balance || 0);
-    const cryptoAmountText = item.balance == null ? '—' : `${item.balanceComplete ? '' : '≥ '}${crypto
-      .decimalPlaces(4, BigNumber.ROUND_DOWN)
-      .toFixed(4)}`;
-    const cryptoText = showBalance
-      ? `${cryptoAmountText} ${presentation.ticker}`
-      : 'balance hidden';
-    const rateText = item.rate == null ? null : formatFiat(item.rate, displayCurrency);
-    let fiatText;
-
-    if (item.fiatValue != null) {
-      fiatText = formatFiat(item.fiatValue, displayCurrency);
-    } else {
-      fiatText = 'N/A';
-    }
-
-    const fiatUnavailable = fiatText === 'N/A';
-    // Before its launch an asset has no price. The row says when it launches
-    // and what this wallet pre-converted to it.
-    const prelaunch = item.prelaunch;
-    const accessibilityLabel = prelaunch
-      ? [
-          presentation.name,
-          prelaunch.preconverted
-            ? showBalance
-              ? `${prelaunch.preconverted} pre-converted`
-              : 'balance hidden'
-            : cryptoText,
-          prelaunch.badge,
-        ].join(', ')
-      : `${presentation.name}, ${cryptoText}`;
+  const renderAsset = useCallback(({item}) => {
+    const values = getAssetRowValues(item, showBalance, displayCurrency);
 
     return (
-      <TouchableOpacity
-        activeOpacity={0.76}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        onPress={() => onOpenAsset(item.coin, item.preferredCard)}
-        style={styles.assetRow}>
-        <WalletSetupLogoSlot coinId={item.coin.id} style={styles.logoWrap}>
-          <AssetCoinLogo coinId={presentation.logoId} badgeTicker={presentation.badgeTicker} size={38} />
-        </WalletSetupLogoSlot>
-        <View style={styles.assetCopy}>
-          <View style={styles.assetLine}>
-            <Text
-              numberOfLines={2}
-              style={[
-                theme.typography.titleRow,
-                styles.assetName,
-                {color: theme.colors.textPrimary},
-              ]}>
-              {presentation.name}
-            </Text>
-            {prelaunch ? (
-              <StatusBadge label={prelaunch.badge} style={styles.prelaunchBadge} />
-            ) : fiatUnavailable ? (
-              <Text
-                numberOfLines={1}
-                style={[styles.fiatUnavailable, {color: theme.colors.textSubtle}]}>
-                {fiatText}
-              </Text>
-            ) : (
-              <PrivacyBlurredText
-                blurRadius={5}
-                color={theme.colors.textPrimary}
-                hidden={!showBalance}
-                numberOfLines={1}
-                revealProgress={balanceRevealProgress}
-                style={styles.fiatValue}>
-                {fiatText}
-              </PrivacyBlurredText>
-            )}
-          </View>
-          {prelaunch?.preconverted ? (
-            <View style={[styles.assetLine, styles.assetSecondaryLine]}>
-              <PrivacyBlurredText
-                blurRadius={5}
-                color={theme.colors.textSecondary}
-                hidden={!showBalance}
-                numberOfLines={1}
-                revealProgress={balanceRevealProgress}
-                style={theme.typography.bodySm}>
-                {`${prelaunch.preconverted} pre-converted`}
-              </PrivacyBlurredText>
-            </View>
-          ) : (
-            <View style={[styles.assetLine, styles.assetSecondaryLine]}>
-              <View style={styles.cryptoValue}>
-                <PrivacyBlurredText
-                  blurRadius={5}
-                  color={theme.colors.textSecondary}
-                  hidden={!showBalance}
-                  revealProgress={balanceRevealProgress}
-                  style={theme.typography.bodySm}>
-                  {cryptoAmountText}
-                </PrivacyBlurredText>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    theme.typography.bodySm,
-                    styles.cryptoTicker,
-                    {color: theme.colors.textSecondary},
-                  ]}>
-                  {presentation.ticker}
-                </Text>
-              </View>
-              {rateText ? (
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    theme.typography.bodySm,
-                    styles.fiatRate,
-                    {color: theme.colors.textSubtle},
-                  ]}>
-                  {rateText}
-                </Text>
-              ) : null}
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
+      <HomeAssetRow
+        coinId={item.coin.id}
+        logoId={values.presentation.logoId}
+        badgeTicker={values.presentation.badgeTicker}
+        name={values.presentation.name}
+        ticker={values.presentation.ticker}
+        accessibilityLabel={values.accessibilityLabel}
+        cryptoAmountText={values.cryptoAmountText}
+        fiatText={values.fiatText}
+        rateText={values.rateText}
+        prelaunchBadge={values.prelaunchBadge}
+        preconvertedText={values.preconvertedText}
+        showBalance={showBalance}
+        revealProgress={balanceRevealProgress}
+        theme={theme}
+        onOpen={openAsset}
+      />
     );
-  };
+  }, [showBalance, displayCurrency, balanceRevealProgress, theme, openAsset]);
+
+  // Until the record is read, a plain skeleton keeps the closed or open chart's space.
+  const listHeader = useMemo(() => {
+    if (!hydrated) {
+      return history.hasPrice ? (
+        <ChartStripSkeleton expanded={preferenceHydrated && chartExpanded} />
+      ) : null;
+    }
+    return (
+      <HomeValueChart
+        history={history}
+        panRef={panRef}
+        showBalance={showBalance}
+        formatValue={formatValue}
+        onScrub={onScrub}
+        expanded={chartExpanded}
+        preferenceHydrated={preferenceHydrated}
+        onToggle={toggleChart}
+      />
+    );
+  }, [hydrated, history, showBalance, formatValue, onScrub, chartExpanded,
+    preferenceHydrated, toggleChart]);
+  const chartReady = history.state === 'chart' && !history.loading;
+
+  const listEmpty = useMemo(() => (
+    !assetsReady && !assetsLoadError ? (
+      <SkeletonLoader accessibilityLabel="Loading your assets" style={{padding: 20}}>
+        {[0, 1, 2].map(row => <SkeletonBlock key={row} height={48} style={{marginBottom: 20}} />)}
+      </SkeletonLoader>
+    ) : !assetsLoadError && hiddenAssetCount > 0 ? (
+      <EmptyState
+        actionLabel="Manage assets"
+        message="Your funds stay in your wallet."
+        onAction={onManageAssets}
+        title={`${hiddenAssetCount} ${hiddenAssetCount === 1 ? 'asset is' : 'assets are'} hidden from Home`}
+      />
+    ) : (
+      <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary, padding: 20}]}>
+        {assetsLoadError ? 'Your saved assets are temporarily unavailable.' : 'No assets on Home'}
+      </Text>
+    )
+  ), [assetsReady, assetsLoadError, hiddenAssetCount, onManageAssets, theme]);
+
+  const refreshControl = useMemo(() => (
+    <RefreshControl
+      refreshing={loading}
+      enabled={!scrubbing}
+      waitFor={chartReady ? panRef : undefined}
+      onRefresh={pullToRefresh}
+    />
+  ), [loading, scrubbing, chartReady, pullToRefresh]);
 
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      pointerEvents={hydrated ? 'auto' : 'none'}
-      style={[styles.screen, {backgroundColor: theme.colors.background}, !hydrated && chartStyles.hidden]}
-      accessibilityElementsHidden={!hydrated}
-      importantForAccessibility={hydrated ? 'auto' : 'no-hide-descendants'}
+      style={[styles.screen, {backgroundColor: theme.colors.background}]}
     >
-      <View
-        style={[
-          styles.header,
-          {backgroundColor: theme.colors.background},
-          showHeaderDivider && {borderBottomColor: theme.colors.border, borderBottomWidth: StyleSheet.hairlineWidth},
-        ]}>
-        <View style={[styles.balanceRow, compactHeader && chartStyles.compactBalanceRow]}>
-          <View style={styles.balanceTouchable}>
-            <PortfolioBalance
-              ref={amountRef}
-              amount={totalFiatBalance}
-              currency={displayCurrency}
-              revealProgress={balanceRevealProgress}
-              showBalance={showBalance}
-              theme={theme}
-              history={history}
-              chartExpanded={chartExpanded}
-              onSelectCurrency={() => setCurrencyOpen(true)}
-            />
-          </View>
-          <Animated.View
-            pointerEvents={stripScrubbing ? 'none' : 'auto'}
-            accessibilityElementsHidden={stripScrubbing}
-            importantForAccessibility={stripScrubbing ? 'no-hide-descendants' : 'auto'}
-            style={[styles.balanceActions, { opacity: actionsOpacity }]}
-          >
-            <TouchableOpacity
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel={showBalance ? 'Hide balances' : 'Show balances'}
-              hitSlop={ICON_HIT_SLOP}
-              onPress={onToggleBalance}
-              style={[styles.iconButton, styles.balanceToggle]}>
-              <MaterialCommunityIcons
-                name={showBalance ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color={theme.colors.textPrimary}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Manage assets"
-              hitSlop={ICON_HIT_SLOP}
-              onPress={onManageAssets}
-              style={styles.iconButton}
-            >
-              <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-        <View
-          onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
-          style={compactHeader && noticeHeight > 0 ? {marginTop: 20} : undefined}
-        >
-          <HomeNotice
-            loading={loading}
-            notice={homeNotice}
-            onReceive={onReceive}
-            onDismiss={homeNotice?.kind === HOME_NOTICE_SYNC ? onDismissSyncNotice : onDismissFoundAssets}
-            onRetry={onRefresh}
-            onReview={onReviewFoundAssets}
-          />
-          <NotificationWidget followsHomeNotice={homeNotice != null} />
-        </View>
-      </View>
+      <HomeHeader
+        amountRef={amountRef}
+        compactHeader={compactHeader}
+        displayCurrency={displayCurrency}
+        dividerOpacity={dividerOpacity}
+        history={history}
+        homeNotice={homeNotice}
+        hydrated={hydrated}
+        loading={loading}
+        chartExpanded={chartExpanded}
+        revealProgress={balanceRevealProgress}
+        actionsOpacity={actionsOpacity}
+        showBalance={showBalance}
+        stripScrubbing={stripScrubbing}
+        theme={theme}
+        totalFiatBalance={totalFiatBalance}
+        onDismissFoundAssets={onDismissFoundAssets}
+        onDismissSyncNotice={onDismissSyncNotice}
+        onManageAssets={onManageAssets}
+        onReceive={onReceive}
+        onRefresh={onRefresh}
+        onReviewFoundAssets={onReviewFoundAssets}
+        onSelectCurrency={openCurrencySheet}
+        onToggleBalance={onToggleBalance}
+      />
 
       <FlatList
         data={assets}
-        waitFor={history.state === 'chart' && !history.loading ? panRef : undefined}
+        waitFor={chartReady ? panRef : undefined}
         scrollEnabled={!scrubbing}
         bounces={!scrubbing}
-        ListHeaderComponent={(
-          <HomeValueChart
-            history={history}
-            panRef={panRef}
-            showBalance={showBalance}
-            formatValue={(value) => formatFiat(value, displayCurrency)}
-            onScrub={onScrub}
-            expanded={chartExpanded}
-            preferenceHydrated={preferenceHydrated}
-            onToggle={() => setExpanded(!chartExpanded)}
-          />
-        )}
-        ListEmptyComponent={
-          !assetsReady && !assetsLoadError ? (
-            <SkeletonLoader accessibilityLabel="Loading your assets" style={{padding: 20}}>
-              {[0, 1, 2].map(row => <SkeletonBlock key={row} height={48} style={{marginBottom: 20}} />)}
-            </SkeletonLoader>
-          ) : !assetsLoadError && hiddenAssetCount > 0 ? (
-            <EmptyState
-              actionLabel="Manage assets"
-              message="Your funds stay in your wallet."
-              onAction={onManageAssets}
-              title={`${hiddenAssetCount} ${hiddenAssetCount === 1 ? 'asset is' : 'assets are'} hidden from Home`}
-            />
-          ) : (
-            <Text style={[theme.typography.bodyMd, {color: theme.colors.textSecondary, padding: 20}]}>
-              {assetsLoadError ? 'Your saved assets are temporarily unavailable.' : 'No assets on Home'}
-            </Text>
-          )
-        }
-        keyExtractor={item => item.coin.id}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        keyExtractor={assetKey}
         renderItem={renderAsset}
-        refreshControl={(
-          <RefreshControl
-            refreshing={loading}
-            enabled={!scrubbing}
-            waitFor={history.state === 'chart' && !history.loading ? panRef : undefined}
-            onRefresh={() => { if (!scrubRef.current) onRefresh(); }}
-          />
-        )}
+        refreshControl={refreshControl}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         contentContainerStyle={styles.listContent}
       />
 
-      <SignedInActionBar
+      <MemoActionBar
         convertDisabled={!convertAvailable}
         receiveDisabled={!receiveAvailable}
         sendDisabled={!sendAvailable}
@@ -556,15 +751,17 @@ const SignedInWalletHome = ({
         onReceive={onReceive}
         onSend={onSend}
       />
-      <DisplayCurrencySheet
+      <MemoDisplayCurrencySheet
         visible={currencyOpen}
         displayCurrency={displayCurrency}
-        onClose={() => setCurrencyOpen(false)}
+        onClose={closeCurrencySheet}
         onSelect={onSelectDisplayCurrency}
       />
     </SafeAreaView>
   );
 };
+
+const assetKey = item => item.coin.id;
 
 const styles = StyleSheet.create({
   screen: {flex: 1},
@@ -579,6 +776,11 @@ const styles = StyleSheet.create({
   heroSymbol: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 22},
   heroAmountFrame: {flexShrink: 1},
   heroAmount: {...fontStyle('bold'), fontSize: 34, lineHeight: 40, letterSpacing: -0.5, fontVariant: ['tabular-nums']},
+  headerDivider: {position: 'absolute', left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth},
+  skeletonRow: {flexDirection: 'row', alignItems: 'flex-start'},
+  heroAmountSkeleton: {marginVertical: 4},
+  // The closed strip leaves 54 points for the range label and chevron.
+  closedStripPlot: {paddingRight: 54},
   listContent: {paddingBottom: 16},
   assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row'},
   logoWrap: {width: 38, height: 38, marginRight: 16, justifyContent: 'center', alignItems: 'center'},
