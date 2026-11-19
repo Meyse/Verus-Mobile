@@ -80,8 +80,7 @@ const ReorderRow = ({id, index, drag, children}) => {
   const theme = useOnboardingTheme();
   const {active, from, target, dragY, layouts} = drag;
   const style = useAnimatedStyle(() => {
-    const held = active.value === id;
-    if (held) return {transform: [{translateY: dragY.value}], zIndex: 2};
+    if (active.value === id) return {transform: [{translateY: dragY.value}], zIndex: 2};
     if (active.value == null) return {transform: [{translateY: 0}], zIndex: 0};
     const a = from.value;
     const t = target.value;
@@ -119,7 +118,7 @@ const ReorderRow = ({id, index, drag, children}) => {
 // The drag handle. Screen readers get Move up and Move down instead of a drag.
 export const DragHandle = ({id, label, index, count, drag, enabled, onMoveBy}) => {
   const theme = useOnboardingTheme();
-  const {active, from, target, dragY, layouts, order, scroll, start, stop, commit} = drag;
+  const {active, held, from, target, dragY, layouts, order, scroll, start, stop, commit} = drag;
   const gesture = useMemo(() => Gesture.Pan()
     .enabled(enabled)
     .minDistance(2)
@@ -127,6 +126,7 @@ export const DragHandle = ({id, label, index, count, drag, enabled, onMoveBy}) =
     .onStart(() => {
       const keys = order.value;
       active.value = id;
+      held.value = true;
       from.value = keys.indexOf(id);
       target.value = keys.indexOf(id);
       drag.startOffset.value = scroll.offset.value;
@@ -144,16 +144,25 @@ export const DragHandle = ({id, label, index, count, drag, enabled, onMoveBy}) =
     })
     .onEnd(() => {
       if (active.value !== id) return;
+      // Auto-scroll stops here, on the UI thread. A scroll step after the
+      // release would cancel the drop animation, and the order would not save.
+      held.value = false;
       const a = from.value;
       const t = target.value;
       dragY.value = withTiming(slotOffset(order.value, layouts.value, a, t), DROP_TIMING, finished => {
-        if (finished) runOnJS(commit)(id, t);
+        if (finished) {
+          runOnJS(commit)(id, t);
+        } else if (active.value === id) {
+          active.value = null;
+          dragY.value = 0;
+        }
       });
     })
     .onFinalize(() => {
+      held.value = false;
       runOnJS(stop)();
       runOnJS(scroll.setEnabled)(true);
-    }), [active, commit, drag, dragY, enabled, from, id, layouts, order, scroll, start, stop, target]);
+    }), [active, commit, drag, dragY, enabled, from, held, id, layouts, order, scroll, start, stop, target]);
 
   const actions = [
     ...(index > 0 ? [{name: 'moveUp', label: 'Move up'}] : []),
@@ -185,6 +194,8 @@ export const DragHandle = ({id, label, index, count, drag, enabled, onMoveBy}) =
 // keys: the full "My order" of the rows shown. renderRow(key, handle) draws one row.
 const AssetReorderList = ({keys, scroll, onReorder, renderRow, enabled = true}) => {
   const active = useSharedValue(null);
+  // True while the finger holds the row; false from the release on.
+  const held = useSharedValue(false);
   const from = useSharedValue(-1);
   const target = useSharedValue(-1);
   const dragY = useSharedValue(0);
@@ -200,6 +211,7 @@ const AssetReorderList = ({keys, scroll, onReorder, renderRow, enabled = true}) 
   useLayoutEffect(() => {
     order.value = keys;
     active.value = null;
+    held.value = false;
     from.value = -1;
     target.value = -1;
     dragY.value = 0;
@@ -210,7 +222,7 @@ const AssetReorderList = ({keys, scroll, onReorder, renderRow, enabled = true}) 
   // a drag, so this position is the scroll view's position.
   const autoScroll = useFrameCallback(() => {
     const id = active.value;
-    if (id == null) return;
+    if (id == null || !held.value) return;
     const me = layouts.value[id];
     if (!me) return;
     const top = listY.value + me.y + dragY.value - scrollPos.value;
@@ -261,8 +273,8 @@ const AssetReorderList = ({keys, scroll, onReorder, renderRow, enabled = true}) 
   }, [keys, onReorder]);
 
   const drag = useMemo(() => ({
-    active, from, target, dragY, translation, startOffset, scrollPos, layouts, order, scroll, start, stop, commit,
-  }), [active, commit, dragY, from, layouts, order, scroll, scrollPos, start, startOffset, stop, target, translation]);
+    active, held, from, target, dragY, translation, startOffset, scrollPos, layouts, order, scroll, start, stop, commit,
+  }), [active, commit, held, dragY, from, layouts, order, scroll, scrollPos, start, startOffset, stop, target, translation]);
 
   return (
     <View onLayout={event => { listY.value = event.nativeEvent.layout.y; }}>

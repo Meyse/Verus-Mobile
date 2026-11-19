@@ -19,6 +19,11 @@ jest.mock('../../services/WyreProvider', () => ({
 jest.mock('../../../actions/actions/intervals/dispatchers/lifecycleManager', () => ({
   refreshLifecyclesAfterAssetChange: jest.fn(),
 }));
+jest.mock('../../../actions/actionCreators', () => ({
+  ...jest.requireActual('../../../actions/actionCreators'),
+  removeExistingCoin: jest.fn(async () => []),
+  setUserCoins: coins => ({type: 'SET_USER_COINS', payload: {activeCoinsForUser: coins}}),
+}));
 jest.mock('../../CoinData/assetIdentifierService', () => ({
   addResolvedAsset: jest.fn(),
   resolveAssetIdentifier: jest.fn(),
@@ -272,6 +277,15 @@ describe('asset choices storage (R17)', () => {
     await signIn();
     expect(mockState.assetManagement.order).toEqual(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
     expect(mockState.assetManagement.sort).toBe('name');
+  });
+
+  it('takes a removed asset out of "My order", so any later add puts it last (R2)', async () => {
+    await restart();
+    const service = await signIn();
+    await service.setAssetOrder([COIN_KEY, 'testnet:vrsc:iSystem:iCoinB']);
+    await service.removeManagedAsset({coin: COIN});
+    await writesDone();
+    expect((await storedChoices()).networks[NETWORK].order).toEqual(['testnet:vrsc:iSystem:iCoinB']);
   });
 
   it('writes nothing for a profile after its delete started', async () => {

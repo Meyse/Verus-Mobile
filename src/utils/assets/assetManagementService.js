@@ -267,6 +267,17 @@ const appendToOrder = (coin, context) => {
   }), next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
 };
 
+// A removed asset leaves "My order". Every later add, by any path, then puts
+// it at the end. A hidden asset is not removed and keeps its place.
+const dropFromOrder = (coin, context) => {
+  const key = assetKey(coin);
+  if (!(store.getState().assetManagement.order || []).includes(key)) return;
+  changeChoices(context, current => ({
+    ...current,
+    order: (current.order || []).filter(item => item !== key),
+  }), next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
+};
+
 // Only consider channels still belonging to the current wallet's cards.
 export const currentAssetSnapshots = state => {
   const channels = new Set(Object.values(state.coinMenus.allSubWallets || {})
@@ -367,6 +378,7 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
     // Mark it first, so a balance update during teardown cannot add it back.
     const key = removalKey(coin);
     setAssetRemoved(key, removedAssetRecord(coin), context);
+    dropFromOrder(coin, context);
     const nextCoins = await removeExistingCoin(
       coin.id,
       activeAccount.id,
