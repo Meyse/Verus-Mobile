@@ -318,9 +318,10 @@ coins take their own ticker (KMD). The short address never shortens below
 ellipsis. A VerusID name gives way with a middle ellipsis and keeps its @;
 then the network never shortens. No row has an address line; a private card
 that still syncs shows its sync status as the subtitle. Copy and the screen
-reader label keep the full address. Group titles name the network only when
-choices span two or more networks. A single-network chooser shows no group
-title (owner, 2026-11-12; kept on 2026-11-19 until the owner decides).
+reader label keep the full address. Because each title names its network,
+the choosers have no network group titles; rows keep the network order
+(owner, 2026-11-19: "Remove group titles"; this replaces the group-title rule
+of 2026-11-12).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and

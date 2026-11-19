@@ -22,8 +22,8 @@ without repeating the entire investigation.
   - [x] Codex review (gpt-6-astra high): 5 findings, all fixed (b274557b)
   - [x] Orchestrator decisions 2026-11-19: no " · network" when a VerusID
     name ends in ".<network>@"; the address never shortens below 6…6
-    (`titleRowCompact` on compact screens); network group titles kept until
-    the owner decides; old Pay with list unchanged (same as upstream)
+    (`titleRowCompact` on compact screens); no network group titles in the
+    choosers (owner, 2026-11-19); old Pay with list unchanged (same as upstream)
   - [ ] iOS sim check, light and dark: only the light asset stack seen
     (Mac overload stopped the run); Android run is the device proof
   - [ ] Android QA on `normal` and `small`: Game PC offline

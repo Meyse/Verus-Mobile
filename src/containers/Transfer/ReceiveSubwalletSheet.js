@@ -1,10 +1,7 @@
 import React, {useMemo} from 'react';
 import {useSelector} from 'react-redux';
 import {Text} from 'react-native';
-import SelectionSheet, {
-  SelectionGroup,
-  SelectionRow,
-} from '../../components/SelectionSheet';
+import SelectionSheet, {SelectionRow} from '../../components/SelectionSheet';
 import CardTitle from '../../components/CardTitle';
 import useSheetDismissal from '../../components/useSheetDismissal';
 import {createSelectionSheetStyles} from '../../styles';
@@ -68,8 +65,9 @@ const ReceiveSubwalletSheet = ({
           No receiving address is available for this asset.
         </Text>
       ) : (
-        groups.map(group => {
-          const rows = group.wallets.map(wallet => {
+        // Rows keep the network order. Each title names its network (PR 266
+        // review R8), so the list has no network group titles.
+        groups.flatMap(group => group.wallets).map(wallet => {
           const address = getSubWalletDisplayIdentifier(
             wallet,
             activeAccount,
@@ -95,12 +93,6 @@ const ReceiveSubwalletSheet = ({
               valueLabel={coinObj.display_ticker}
               onPress={() => dismissal.dismiss(() => onSelect(wallet))}
             />
-          );
-          });
-          return groups.length === 1 ? rows : (
-            <SelectionGroup key={group.id} title={group.name}>
-              {rows}
-            </SelectionGroup>
           );
         })
       )}
