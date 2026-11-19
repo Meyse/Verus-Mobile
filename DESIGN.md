@@ -594,7 +594,8 @@ and fee-reserve rules in `SendWizardAmount`.
   field has text. One tap empties the field and keeps the unit and the focus.
   The amount stays centered, so the slot's width stays free on both sides. A
   value too long for that room uses the full width, and the icon moves down to
-  the unit line. `AmountInput` draws it for every user: Send, Convert, invoice
+  the unit line; that line is then 44 points high, so the target never covers
+  the amount. `AmountInput` draws it for every user: Send, Convert, invoice
   Amount and Build the gift.
 - Owner approval, 2026-11-19 (R14, option A): money entry starts empty, with
   the "0" placeholder and no error; its chip reads "— <ticker>". Digits fill
@@ -703,7 +704,8 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - Sent adds "View in explorer" under the transaction ID when the source chain
   has an explorer (owner, 2026-11-19, PR 266 review R4 option A). It opens the
   transaction on that explorer, as the history sheet does (`getExplorerTxUrl`).
-  The private testnet has no explorer, so it shows no row. Confirm has no
+  An ERC-20 token uses the explorer of its Ethereum network (Etherscan or
+  Sepolia Etherscan). The private testnet has no explorer, so it shows no row. Confirm has no
   link, because no transaction ID exists before the send.
 - Confirm shows the recipient once, in full, in the "To" row. The pay and receive nodes
   carry only the amounts ("You pay", "You receive"). Confirm has no "More details" row.
