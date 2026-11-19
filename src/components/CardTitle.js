@@ -19,18 +19,23 @@ const MONOSPACE_FONT = Platform.select({ios: 'Menlo', default: 'monospace'});
 // wrongly (seen on Android 16, 2026-11-19).
 const CardTitle = ({title, style, containerStyle, wrap = false}) => {
   if (!title) return null;
+  // A lone name has nothing to move to a second line. In a wrapping row each
+  // part is bounded by the line width; flex shrinking there cut a fitting
+  // VerusID name to "gr…@" on a 360-point Android phone (2026-11-19).
+  const wraps = wrap && Boolean(title.network);
 
   return (
     <View
       accessible={false}
       importantForAccessibility="no-hide-descendants"
-      style={[styles.row, wrap && styles.wrap, containerStyle]}>
+      style={[styles.row, wraps && styles.wrap, containerStyle]}>
       <Text
         ellipsizeMode="middle"
         numberOfLines={1}
         style={[
           style,
           title.isAddress ? styles.address : styles.name,
+          wraps && styles.wrapPart,
         ]}>
         {title.name}
       </Text>
@@ -38,7 +43,11 @@ const CardTitle = ({title, style, containerStyle, wrap = false}) => {
         <Text
           ellipsizeMode="tail"
           numberOfLines={1}
-          style={[style, title.isAddress ? styles.name : styles.network]}>
+          style={[
+            style,
+            title.isAddress ? styles.name : styles.network,
+            wraps && styles.wrapPart,
+          ]}>
           {` · ${title.network}`}
         </Text>
       ) : null}
@@ -49,6 +58,7 @@ const CardTitle = ({title, style, containerStyle, wrap = false}) => {
 const styles = StyleSheet.create({
   row: {flexDirection: 'row', alignItems: 'flex-start', minWidth: 0},
   wrap: {flexWrap: 'wrap'},
+  wrapPart: {flexShrink: 0, maxWidth: '100%'},
   name: {flexShrink: 1},
   address: {flexShrink: 0, fontFamily: MONOSPACE_FONT},
   network: {flexShrink: 0},
