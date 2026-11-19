@@ -6,6 +6,22 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **TX-1.BALANCES-AS-UPSTREAM** (PR 266 review R13) on
+  `claude/pr266-ui-balances` from `6c8ca065`: **Ready for verification**.
+  Every balance is the confirmed balance, read through
+  `src/utils/ledger/shownBalance.js`. Verus balances are `getaddressbalance`
+  with no mempool read. Home, Available and MAX show no pending value. The
+  asset screen keeps the "Pending" history rows. Electrum and private cards
+  show "+X pending" next to the confirmed number. Related Jest, check:design
+  and the Android release bundle pass. iOS light/dark check passed on
+  2026-11-19 (Home, coin screen, Amount; a 0.5 incoming payment counted only
+  after its block). Codex review and Android QA (gamemax) are open.
+  - [x] One helper for every reader; discovery snapshot holds confirmed values
+  - [x] Value tests first (`confirmedBalances.unit.test.js`)
+  - [x] iOS sim check, light and dark
+  - [ ] Codex review findings handled
+  - [ ] Android QA cases a–e on `normal` and `small`
+
 - Scoped follow-up: **GR-4.IDU-PARITY-P2** on
   `claude/idu-parity-fixes-1112` from `b7f7e630`: **Ready for verification**.
   Six source-confirmed P2 gaps now show upstream information in the existing
