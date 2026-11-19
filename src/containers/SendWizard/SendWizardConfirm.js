@@ -53,6 +53,8 @@ import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDevi
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {expireCoinData} from '../../actions/actionCreators';
 import {getIdentity} from '../../utils/api/routers/getIdentity';
+import {addressIsBlocked, BLOCKED_ADDRESS_MESSAGE} from '../../utils/addressBlocklist';
+import {selectAddressBlocklist} from '../../selectors/settings';
 import {preflightConvertOrCrossChain} from '../../utils/api/routers/preflightConvertOrCrossChain';
 import {preflightSend} from '../../utils/api/routers/preflightSend';
 import {sendConvertOrCrossChain} from '../../utils/api/routers/sendConvertOrCrossChain';
@@ -157,6 +159,15 @@ const SendWizardConfirm = () => {
   const coinSettings = useObjectSelector(
     stateValue => stateValue.settings.coinSettings,
   );
+  // Every route to a payment passes this step: scanned requests and fixed
+  // invoices skip Recipient, so the blocklist is enforced here, before any
+  // preparation. A VerusID name is checked again once it resolves.
+  const addressBlocklist = useObjectSelector(selectAddressBlocklist);
+  const assertNotBlocked = useCallback(address => {
+    if (addressIsBlocked(address, addressBlocklist)) {
+      throw new Error(BLOCKED_ADDRESS_MESSAGE);
+    }
+  }, [addressBlocklist]);
   const [preflighting, setPreflighting] = useState(true);
   const [sending, setSending] = useState(false);
   const submissionInFlight = useRef(false);
@@ -315,6 +326,7 @@ const SendWizardConfirm = () => {
       }
       destination = identityResult?.result?.identity?.identityaddress;
       if (!destination) throw new Error('This VerusID has no compatible destination.');
+      assertNotBlocked(destination);
     }
 
     if (ethers.isAddress(destination)) {
@@ -333,7 +345,7 @@ const SendWizardConfirm = () => {
         : null;
     if (type == null) throw new Error('Incompatible destination address type.');
     return new TransferDestination({destinationBytes: hash, type});
-  }, [activeAccount, channel, recipientAddress, sourceCoin]);
+  }, [activeAccount, assertNotBlocked, channel, recipientAddress, sourceCoin]);
 
   const conversionOutput = useMemo(
     () => ({
@@ -382,6 +394,12 @@ const SendWizardConfirm = () => {
       setPreflight(null);
       return undefined;
     }
+    if (addressIsBlocked(recipientAddress, addressBlocklist)) {
+      setPreflighting(false);
+      setError(BLOCKED_ADDRESS_MESSAGE);
+      setPreflight(null);
+      return undefined;
+    }
 
     let active = true;
     setPreflighting(true);
@@ -397,13 +415,18 @@ const SendWizardConfirm = () => {
 
     const run = async () => {
       try {
+        let simpleDestination = null;
+        if (simpleSend) {
+          simpleDestination = privateSource
+            ? await resolvePrivateCardDestination(sourceCoin, recipientAddress)
+            : recipientAddress;
+          assertNotBlocked(simpleDestination);
+        }
         const result = simpleSend
           ? await preflightSend(
               sourceCoin,
               activeAccount,
-              privateSource
-                ? await resolvePrivateCardDestination(sourceCoin, recipientAddress)
-                : recipientAddress,
+              simpleDestination,
               BigNumber(amount),
               channel,
               simpleSendParams,
@@ -423,6 +446,8 @@ const SendWizardConfirm = () => {
           throw new Error(result.result || result.error?.message || 'Preflight failed.');
         }
         const preflight = result?.result;
+        // A VRPC send resolves a VerusID name inside its preflight.
+        assertNotBlocked(preflight?.resolvedToAddress);
         const nextWarnings = [];
 
         const preflightEstimate = preflight?.estimate;
@@ -487,6 +512,8 @@ const SendWizardConfirm = () => {
     };
   }, [
     activeAccount,
+    addressBlocklist,
+    assertNotBlocked,
     feeKind,
     networkFee.loading,
     networkFee.error,
@@ -899,7 +926,8 @@ const SendWizardConfirm = () => {
     );
   }
 
-  if (error && !preflightResult && !feeKind) {
+  // A blocked address is final, so it takes the whole step on every network.
+  if (error && !preflightResult && (!feeKind || error === BLOCKED_ADDRESS_MESSAGE)) {
     return (
       <WizardScreen scroll={false}>
         <View style={styles.centeredState}>

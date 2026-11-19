@@ -15,7 +15,7 @@ const FETCH_CONCURRENCY = 4;
 
 const lists = new Map();
 const heights = new Map();
-// Parsed transfers of confirmed transactions never change.
+// Decoded (unfiltered) transfers of confirmed transactions never change.
 const confirmedTransfers = new Map();
 const definitionHeights = new Map();
 
@@ -87,27 +87,28 @@ const paysReserveTransfer = delta =>
     [].concat(output?.addresses || []).includes(reserveTransferAddress),
   );
 
-// Pre-conversions inside one verbose transaction. Only transfers that pay one
-// of `addresses` count: the new currency, and any refund, go to that address.
-export const parsePreconversions = (transaction, {targetIds, addresses}) =>
+// Every pre-conversion inside one verbose transaction, unfiltered. This is a
+// fact of the transaction, so a confirmed one can be cached for any query.
+const decodePreconversions = transaction =>
   (transaction?.vout || []).flatMap((output, index) => {
     const transfer = output?.scriptPubKey?.reservetransfer;
     if (!transfer?.preconvert || transfer.refund) return [];
-    const targetId = transfer.destinationcurrencyid;
-    if (!targetIds.has(targetId) || !addresses.includes(transfer.destination?.address)) {
-      return [];
-    }
     return Object.entries(transfer.currencyvalues || {})
       .filter(([, amount]) => BigNumber(amount).isGreaterThan(0))
       .map(([currencyId, amount]) => ({
         txid: transaction.txid,
         vout: index,
-        targetId,
+        targetId: transfer.destinationcurrencyid,
         currencyId,
-        destination: transfer.destination.address,
+        destination: transfer.destination?.address,
         amount: BigNumber(amount).toFixed(),
       }));
   });
+
+// Only transfers that pay one of `addresses` count: the new currency, and any
+// refund, go to that address.
+const matchesQuery = ({targetIds, addresses}) => transfer =>
+  targetIds.has(transfer.targetId) && addresses.includes(transfer.destination);
 
 // The block of a currency's definition. No pre-conversion can be older.
 const getDefinitionHeight = async (systemId, entry) => {
@@ -131,15 +132,20 @@ const getDefinitionHeight = async (systemId, entry) => {
   return definitionHeights.get(key);
 };
 
+// The cache holds the unfiltered transfers per transaction. Each query applies
+// its own assets and addresses, so a query for other assets or addresses
+// never reuses another query's filtered result.
 const loadTransfers = async (systemId, txid, mempool, match) => {
   const key = `${systemId}:${txid}`;
-  if (!mempool && confirmedTransfers.has(key)) return confirmedTransfers.get(key);
-  const transaction = resultOf(await getTransaction(systemId, txid, 1, mempool));
-  const transfers = parsePreconversions(transaction, match);
-  if (!mempool && Number(transaction?.confirmations) > 0) {
-    confirmedTransfers.set(key, transfers);
+  let transfers = mempool ? null : confirmedTransfers.get(key);
+  if (!transfers) {
+    const transaction = resultOf(await getTransaction(systemId, txid, 1, mempool));
+    transfers = decodePreconversions(transaction);
+    if (!mempool && Number(transaction?.confirmations) > 0) {
+      confirmedTransfers.set(key, transfers);
+    }
   }
-  return transfers;
+  return transfers.filter(matchesQuery(match));
 };
 
 const mapLimited = async (items, limit, task) => {
