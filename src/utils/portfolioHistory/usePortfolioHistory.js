@@ -198,11 +198,10 @@ const usePortfolioHistory = ({
   const selectedRange = ranges.includes(range) ? range : '1M';
   const requested = market?.key === marketKey ? market : null;
   const data = requested && !requested.loading ? requested : savedMarket || requested;
-  // Without exchange-rate samples (a currency the ECB does not publish, or no
-  // saved rates yet) the history converts at today's rate.
-  const ratioCoin = coins.find((coin) => Number(rates[GENERAL]?.[coin.id]?.[currency]) > 0);
-  const currentRatio = ratioCoin ? Number(rates[GENERAL][ratioCoin.id][currency]) / Number(ratioCoin.usd) : 0;
-  const fxFallback = currency === 'USD' ? 1 : currentRatio;
+  // Past values in another currency need past exchange rates. Without them (no saved
+  // rates yet, or a currency the ECB does not publish) the history is not available;
+  // today's rate is never used for past days.
+  const fxFallback = currency === 'USD' ? 1 : null;
   const series = useMemo(() => (state === 'chart' ? buildSeries({
     record,
     coins,

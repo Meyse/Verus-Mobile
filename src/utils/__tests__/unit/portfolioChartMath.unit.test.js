@@ -86,3 +86,11 @@ it('keeps the day the record starts when the first price is less than one day la
   expect(result.points[0]).toMatchObject({t: start, v: 10});
   expect(DAY).toBe(86400000);
 });
+
+it('has no line in another currency when no past exchange rates are known', () => {
+  // usePortfolioHistory passes no fallback rate for a currency other than USD.
+  const result = series({prices: {BTC: [[day(1), 10], ...lateBtc]}, fx: [], fxFallback: null});
+
+  expect(result.points).toHaveLength(1);
+  expect(change(result.points)).toBeNull();
+});
