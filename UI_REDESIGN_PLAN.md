@@ -7,7 +7,7 @@ without repeating the entire investigation.
 ## Current position
 
 - Scoped follow-up: **TX-1.PR266-WALLET-PICKS** (PR 266 review R8 C, R10 A,
-  gift card B) on `claude/pr266-ui-wallet` from `c2b8aeac`: **In verification**.
+  gift card B) on `claude/pr266-ui-wallet` from `c2b8aeac`: **Ready to merge**.
   Card titles are "short address · network", "name@ · network" or
   "Private · network" everywhere a card is named (shared
   `getSubWalletCardTitle` and `CardTitle`). Tagged invoices show the approved
@@ -37,12 +37,19 @@ without repeating the entire investigation.
     8de4c65e did not fix it (round 3). Cause: Android breaks a name with "@"
     after "." while it measures, so the Text got the width of "grizlo.".
     Fix: a lone name in a chooser fills its line (exact width)
-  - [ ] Android re-check of the fill fix (small light and dark, normal light)
-  - [x] Full unit Jest on 8de4c65e (live int/api suites left out): 2,846
+  - [x] Android round 4 on 5e030cee (s3): Send "From" chooser (small light
+    and dark, normal light), Receive chooser (small and normal light) and
+    the card picker with seeded cards (small light) pass: a lone name shows
+    whole or with a middle ellipsis that fills the column. Seeded cards
+    removed
+  - [x] Full unit Jest on 8de4c65e and on 5e030cee (live int/api/integration
+    suites left out), same result each time: 2,846
     pass, 3 fail, 2,849 total; the 3 failures are the known baseline ones
     (1 giftCard, 2 identityRegistrationScreens)
   - Follow-ups (not in this task): VerusID registration payer label still
     says "Transparent"; Android middle ellipsis is "..." in chooser names;
+    on Android a VerusID name with a " · network" suffix that holds "." and
+    does not fit is shortened too much (seeded "longsubi...name@");
     intermittent "Can't open this invoice" race
 
 - Scoped follow-up: **ID-1.PR266-VERUSID-PICKS** (PR 266 review R5, I1, R24;
