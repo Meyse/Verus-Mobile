@@ -1252,10 +1252,14 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   entry (empty start, no zero-draft error, 2 decimals, converted value
   selected). Branch `claude/pr266-ui-send`. Available, MAX and balances stay
   unchanged (R13 owns them).
-- [ ] **TX-1.PR266-SEND-PICKS-QA** Android `normal` and `small` and one iOS
+- [x] **TX-1.PR266-SEND-PICKS-QA** Android `normal` and `small` and one iOS
   simulator, light and dark: clear icon in Send, Convert and Build the gift;
   fiat entry and the switch; a real VRSCTEST send to see the explorer row.
-  Results go to the evidence log.
+  Done 2026-11-19: iOS sim all states pass (fc35dc6b, long-amount states again
+  on f08ad3cd); Android s1 `pr266-ui-send-k7q2` on fc35dc6b passes on both
+  phones, fiat cases on `normal` only (`small` has no fiat price). Codex
+  review fixes: ERC-20 Sent link, long-amount clear target. Not run: a Sent
+  screen without an explorer on a device, a real ERC-20 send.
 
 - [x] **TX-1.RECEIVE-IMPACT-ROW** Owner-approved 2026-11-13: percent-only Price
   impact wording, option B pinned received-asset block, and option A invoice
