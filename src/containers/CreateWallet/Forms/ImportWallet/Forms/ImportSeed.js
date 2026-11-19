@@ -28,6 +28,9 @@ import {
 } from '../../../../../hooks/useOnboardingSmallDeviceLayout';
 
 const SEED_WORD_COUNT = 24;
+// BIP39 phrase lengths. Upstream accepted every valid length.
+const SUPPORTED_WORD_COUNTS = [12, 15, 18, 21, 24];
+const SUPPORTED_WORD_COUNTS_MESSAGE = 'A phrase has 12, 15, 18, 21 or 24 words.';
 const ENGLISH_WORDLIST = wordlists.EN;
 const SUGGESTION_LIMIT = 8;
 const INPUT_FOCUS_DELAY = 80;
@@ -93,6 +96,25 @@ const parseSeedText = value => {
     extraWordCount: Math.max(0, tokenCount - SEED_WORD_COUNT),
   };
 };
+
+// The word count when the first slots hold a phrase of a supported length and
+// every later slot is empty. Otherwise null.
+const getPhraseWordCount = words => {
+  const firstEmptyIndex = words.findIndex(word => word.length === 0);
+  const count = firstEmptyIndex < 0 ? words.length : firstEmptyIndex;
+
+  if (!SUPPORTED_WORD_COUNTS.includes(count)) return null;
+  if (words.slice(count).some(word => word.length > 0)) return null;
+
+  return count;
+};
+
+// Pasted or given text opens Review when it is a whole phrase of a supported
+// length. Typing never opens Review on its own: the first 12 words of a
+// longer phrase can also be a valid phrase.
+const isPhraseReadyForReview = parsedSeed =>
+  getPhraseWordCount(parsedSeed.words) != null &&
+  parsedSeed.invalidIndexes.length === 0;
 
 const getNextEditableIndex = (words, invalidIndexes) => {
   const firstInvalidIndex = invalidIndexes[0];
@@ -165,6 +187,9 @@ export default function ImportSeed({
   });
   const [words, setWords] = useState(createEmptyWords);
   const inputRef = useRef(null);
+  // The text this screen last gave to setImportedSeed. The parent passes it
+  // back as importedSeed; that echo must not change the screen again.
+  const syncedSeedRef = useRef(null);
   const pageProgress = useRef(new Animated.Value(0)).current;
   const {keyboardVisible, smallDevice} = useOnboardingSmallDeviceLayout();
 
@@ -179,10 +204,18 @@ export default function ImportSeed({
   const currentResolvedWord = resolveSeedWord(currentWordClean);
   const allWordsFilled =
     completedWordCount === SEED_WORD_COUNT && invalidWordIndexes.length === 0;
+  const phraseWordCount = getPhraseWordCount(words);
+  const phraseComplete =
+    phraseWordCount != null && invalidWordIndexes.length === 0;
   const compactPhrase = compactPhraseFromWords(words);
   const isValidMnemonic =
-    allWordsFilled && validateMnemonic(compactPhrase, ENGLISH_WORDLIST);
-  const checksumError = allWordsFilled && !isValidMnemonic;
+    phraseComplete && validateMnemonic(compactPhrase, ENGLISH_WORDLIST);
+  // A shorter valid phrase can be reviewed, but the user may still type more.
+  const shortPhraseValid =
+    isValidMnemonic && phraseWordCount < SEED_WORD_COUNT;
+  const reviewReady = allWordsFilled || shortPhraseValid;
+  const checksumError =
+    (reviewMode || allWordsFilled) && phraseComplete && !isValidMnemonic;
   const suggestions = useMemo(() => {
     if (currentWordClean.length < 3) return [];
 
@@ -207,12 +240,15 @@ export default function ImportSeed({
       return 'The words are valid, but the phrase checksum does not match.';
     }
 
-    if (allWordsFilled) {
+    if (phraseComplete) {
       return null;
     }
 
     return `${completedWordCount} of ${SEED_WORD_COUNT} words complete.`;
   })();
+  const entryContextMessage = shortPhraseValid
+    ? `${phraseWordCount} words is a complete phrase. Review it, or keep typing.`
+    : `${completedWordCount} of ${SEED_WORD_COUNT} words complete.`;
   const reviewCanScroll =
     reviewScroll.contentHeight > reviewScroll.layoutHeight + 1;
   const showReviewTopFade = reviewCanScroll && reviewScroll.y > 2;
@@ -239,19 +275,27 @@ export default function ImportSeed({
   };
 
   useEffect(() => {
+    if (importedSeed != null && importedSeed === syncedSeedRef.current) return;
+
     const parsedSeed = parseSeedText(importedSeed);
-    const firstEmptyIndex = parsedSeed.words.findIndex(word => word.length === 0);
     const nextIndex = getNextEditableIndex(
       parsedSeed.words,
       parsedSeed.invalidIndexes,
     );
 
+    // Slot text (with empty slots) is a phrase the user was typing, so only a
+    // full grid opens Review. Other text, such as a scan, is a whole phrase.
+    const isSlotText =
+      importedSeed != null &&
+      (importedSeed.includes('  ') || importedSeed !== importedSeed.trim());
+    const fullGrid =
+      parsedSeed.words.every(word => word.length > 0) &&
+      parsedSeed.invalidIndexes.length === 0;
+
     setWords(parsedSeed.words);
     setInvalidWordIndexes(parsedSeed.invalidIndexes);
     setCurrentWordIndex(nextIndex);
-    setReviewMode(
-      firstEmptyIndex < 0 && parsedSeed.invalidIndexes.length === 0,
-    );
+    setReviewMode(isSlotText ? fullGrid : isPhraseReadyForReview(parsedSeed));
 
     if (parsedSeed.extraWordCount > 0) {
       setEntryMessage('Only the first 24 words were used.');
@@ -270,9 +314,13 @@ export default function ImportSeed({
 
   useEffect(() => {
     if (onImportProgressChange) {
-      onImportProgressChange(completedWordCount / SEED_WORD_COUNT);
+      onImportProgressChange(
+        reviewMode && phraseComplete
+          ? 1
+          : completedWordCount / SEED_WORD_COUNT,
+      );
     }
-  }, [completedWordCount, onImportProgressChange]);
+  }, [completedWordCount, onImportProgressChange, phraseComplete, reviewMode]);
 
   // The header title says whether the user enters or reviews the phrase.
   useEffect(() => {
@@ -346,9 +394,12 @@ export default function ImportSeed({
       return indexes;
     }, []);
 
+    const slotPhrase = slotPhraseFromWords(nextWords);
+
     setWords(nextWords);
     setInvalidWordIndexes(nextInvalidIndexes);
-    setImportedSeed(slotPhraseFromWords(nextWords));
+    syncedSeedRef.current = slotPhrase;
+    setImportedSeed(slotPhrase);
 
     return nextInvalidIndexes;
   };
@@ -364,7 +415,7 @@ export default function ImportSeed({
 
   const applySeedText = value => {
     const parsedSeed = parseSeedText(value);
-    const firstEmptyIndex = parsedSeed.words.findIndex(word => word.length === 0);
+    const readyForReview = isPhraseReadyForReview(parsedSeed);
     const nextIndex = getNextEditableIndex(
       parsedSeed.words,
       parsedSeed.invalidIndexes,
@@ -372,16 +423,17 @@ export default function ImportSeed({
 
     syncWords(parsedSeed.words);
     setCurrentWordIndex(nextIndex);
-    setReviewMode(
-      firstEmptyIndex < 0 && parsedSeed.invalidIndexes.length === 0,
-    );
-    setEntryMessage(
-      parsedSeed.extraWordCount > 0
-        ? 'Only the first 24 words were used.'
-        : null,
-    );
+    setReviewMode(readyForReview);
 
-    if (firstEmptyIndex < 0 && parsedSeed.invalidIndexes.length === 0) {
+    if (parsedSeed.extraWordCount > 0) {
+      setEntryMessage('Only the first 24 words were used.');
+    } else if (getPhraseWordCount(parsedSeed.words) == null) {
+      setEntryMessage(SUPPORTED_WORD_COUNTS_MESSAGE);
+    } else {
+      setEntryMessage(null);
+    }
+
+    if (readyForReview) {
       setEntryMode(false);
       Keyboard.dismiss();
     } else {
@@ -459,6 +511,10 @@ export default function ImportSeed({
       return;
     }
 
+    // Import the phrase itself, never the slot text with empty slots: the
+    // wallet keys depend on the exact text.
+    syncedSeedRef.current = compactPhrase;
+    setImportedSeed(compactPhrase);
     onComplete(compactPhrase);
   };
 
@@ -549,19 +605,19 @@ export default function ImportSeed({
   const shouldShowFooter = !wordEntryActive || reviewMode;
   const getFooterLabel = () => {
     if (reviewMode) return 'Import wallet';
-    if (allWordsFilled) return 'Review phrase';
+    if (reviewReady) return 'Review phrase';
 
     return 'Paste all words';
   };
   const getFooterAction = () => {
     if (reviewMode) return handleImport;
-    if (allWordsFilled) return () => setReviewMode(true);
+    if (reviewReady) return () => setReviewMode(true);
 
     return handlePasteFromClipboard;
   };
   const getFooterTestID = () => {
     if (reviewMode) return 'onboarding.importSeed.import';
-    if (allWordsFilled) return 'onboarding.importSeed.review';
+    if (reviewReady) return 'onboarding.importSeed.review';
 
     return 'onboarding.importSeed.paste';
   };
@@ -577,7 +633,10 @@ export default function ImportSeed({
         reviewMode && styles.wordGridReview,
         !reviewMode && !showEntryContext && styles.wordGridFirst,
       ]}>
-      {words.map(renderWordSlot)}
+      {(reviewMode && phraseWordCount != null
+        ? words.slice(0, phraseWordCount)
+        : words
+      ).map(renderWordSlot)}
     </View>
   );
 
@@ -657,9 +716,7 @@ export default function ImportSeed({
                       (checksumError || invalidWordIndexes.length > 0) &&
                         styles.contextTextWarning,
                     ]}>
-                    {reviewMode
-                      ? reviewMessage
-                      : `${completedWordCount} of ${SEED_WORD_COUNT} words complete.`}
+                    {reviewMode ? reviewMessage : entryContextMessage}
                   </Text>
                 ) : null}
                 {renderWordGrid()}
