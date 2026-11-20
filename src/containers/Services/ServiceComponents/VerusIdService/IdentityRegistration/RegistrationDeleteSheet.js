@@ -3,6 +3,7 @@ import {StyleSheet, Text, View} from 'react-native';
 import AcknowledgeSheet from '../../../../../components/AcknowledgeSheet';
 import {formatRegistrationAmount} from '../../../../../utils/identityRegistration/costs';
 import {useOnboardingTheme} from '../../../../../theme/onboarding';
+import {shortenNameForTitle} from '../../../../../utils/identityRegistration/shortenName';
 import {currencyLabel} from './RegistrationComponents';
 
 // One confirmation for every saved registration (PR 266 review R7, A + 2).
@@ -75,7 +76,7 @@ export const RegistrationDeleteSheet = ({review, visible, onClose, onDelete}) =>
       </View>
     </>;
   }
-  return <AcknowledgeSheet visible={visible} title={`Delete ${review?.displayName || 'registration'}?`} message={message}
+  return <AcknowledgeSheet visible={visible} title={`Delete ${shortenNameForTitle(review?.displayName)}?`} message={message}
     destructive={state !== 'linkable'} confirmLabel={state === 'signed' ? 'Delete anyway' : 'Delete'} dismissLabel="Keep registration"
     onClose={onClose} onAcknowledged={onDelete}>{children}</AcknowledgeSheet>;
 };

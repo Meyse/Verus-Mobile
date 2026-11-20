@@ -20,6 +20,7 @@ import { getSendCurrencyTransaction, SEND_CURRENCY_PARENT_FEE } from "./getSendC
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
 import { createAlert } from "../../../../../actions/actions/alert/dispatchers/alert";
+import { lookupError, lookupErrorFields } from "../../../errors/lookupErrors";
 import { getCurrencyTransferIntentContext, validateCurrencyTransferTag } from "./currencyTransferIntent";
 import {
   BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE,
@@ -255,7 +256,12 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const currRes = await getCurrency(systemId, iaddrOrName);
 
-      if (currRes.error) throw new Error("Couldn't get currency " + iaddrOrName);
+      if (currRes.error) {
+        throw lookupError("Couldn't get currency " + iaddrOrName, currRes.error, {
+          currencyName: iaddrOrName,
+          appendReason: true,
+        });
+      }
       else {
         if (requestedCurrencyId && currRes.result.currencyid !== requestedCurrencyId) {
           throw new Error("Currency definition does not match the requested currency.");
@@ -271,7 +277,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const idRes = await getIdentity(systemId, iaddrOrName);
 
-      if (idRes.error) throw new Error("Couldn't get identity " + iaddrOrName);
+      if (idRes.error) throw lookupError("Couldn't get identity " + iaddrOrName, idRes.error, {appendReason: true});
       else {
         friendlyNames.set(
           idRes.result.identity.identityaddress,
@@ -440,7 +446,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
         if (VrpcProvider.isSystemIdActivated(exportto)) {
           const destIdRes = await getIdentity(exportto, iAddr);
 
-          if (destIdRes.error) throw new Error("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.");
+          // A lookup without an answer asks to check the connection instead.
+          if (destIdRes.error) throw lookupError("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.", destIdRes.error);
         } else {
           // A Confirm row would be better; that needs SendWizard changes.
           createAlert(
@@ -659,7 +666,9 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       },
     }
   } catch (e) {
-    console.error(e)
+    // An unknown currency name is the user's input, not a fault: logging it as
+    // an error raises a development overlay that covers the next screens.
+    if (e?.currencyNotFound == null) console.error(e)
 
     let message = e.message;
 
@@ -699,7 +708,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
 
     return {
       err: true,
-      result: message
+      result: message,
+      ...lookupErrorFields(e),
     };
   }
 }

@@ -33,12 +33,15 @@ import SendWizardAmount from './SendWizardAmount';
 import SendWizardRecipient from './SendWizardRecipient';
 import SendWizardConfirm from './SendWizardConfirm';
 import SendWizardSuccess from './SendWizardSuccess';
+import SendWizardAdvanced from './SendWizardAdvanced';
+import SendWizardAdvancedConfirm from './SendWizardAdvancedConfirm';
+import SendWizardAdvancedResult from './SendWizardAdvancedResult';
 import {closeWizard} from './wizardNavigation';
 import SendWizardHeader, {
   getSendWizardProgress,
 } from './components/SendWizardHeader';
 import {
-  buildSendTarget,
+  getSameNetworkSend,
   isConversionChannel,
   SEND_WIZARD_MODE,
   WIZARD_CONTEXT_STEP,
@@ -225,18 +228,10 @@ const SendWizardNavigator = () => {
         : {...scanFields, sourceIdentity, presetTargetId};
     }
 
-    const sourceNetworkId =
-      initialSource.channel?.split('.')[2] ||
-      initialSource.sourceCoin.system_id ||
-      initialSource.sourceCoin.id;
-    const target = buildSendTarget(
-      {},
+    const {target, route: directRoute} = getSameNetworkSend(
       initialSource.sourceCoin,
-      sourceNetworkId,
+      initialSource.channel,
     );
-    const directRoute =
-      target.routes.find(candidate => !candidate.isCrossChain && !candidate.via) ||
-      target.routes[0];
 
     return {
       ...initialSource,
@@ -318,6 +313,7 @@ const SendWizardNavigator = () => {
               }
               onClose={() => closeWizard(navigation)}
               progressAnimation={progressAnimation}
+              rightAccessory={options.wizardRightAccessory}
               recipientFixed={recipientFixed}
               routeName={headerRoute.name}
             />
@@ -351,6 +347,21 @@ const SendWizardNavigator = () => {
         <Stack.Screen
           name="SendWizardSuccess"
           component={SendWizardSuccess}
+          options={{gestureEnabled: false, headerShown: false}}
+        />
+        <Stack.Screen
+          name="SendWizardAdvanced"
+          component={SendWizardAdvanced}
+          options={{title: 'Advanced form'}}
+        />
+        <Stack.Screen
+          name="SendWizardAdvancedConfirm"
+          component={SendWizardAdvancedConfirm}
+          options={{title: 'Confirm'}}
+        />
+        <Stack.Screen
+          name="SendWizardAdvancedResult"
+          component={SendWizardAdvancedResult}
           options={{gestureEnabled: false, headerShown: false}}
         />
       </Stack.Navigator>

@@ -664,6 +664,20 @@ export const isPrelaunchTarget = target => {
   return routes.length > 0 && routes.every(route => route.preconvert);
 };
 
+// A Send starts on the card's own network with the direct route, from Home
+// and from a card alike (PR 266 pick P1). Other networks load only when the
+// user presses Change network on Amount, so no route request runs before.
+export const getSameNetworkSend = (sourceCoin, channel) => {
+  if (!sourceCoin) return {target: null, route: null};
+  const sourceNetworkId =
+    channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id;
+  const target = buildSendTarget({}, sourceCoin, sourceNetworkId);
+  const route =
+    target.routes.find(candidate => !candidate.isCrossChain && !candidate.via) ||
+    target.routes[0];
+  return {target, route};
+};
+
 // The launch definition carried by a pre-launch target's routes.
 export const getTargetLaunchDefinition = target =>
   targetRoutes(target).find(route => route.launchDefinition)?.launchDefinition || null;

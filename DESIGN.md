@@ -359,12 +359,13 @@ network name and subtitles read "Receive as <ticker>". Do not add a "Default"
 badge or repeat "network" in a row. The owner approved this on 2026-10-18.
 The ticker is the asset's name on that network (owner, 2026-11-03): an
 Ethereum asset on Verus reads "Receive as vETH" or "Receive as DAI.vETH".
-Send asks for the network when the asset is picked, as Convert does for its
-target (owner, 2026-11-13). The picked row in Select asset shows a small
-spinner in place of its fiat value while the routes load, and the other rows
-ignore taps. The sheet opens only when two or more networks remain; it has no
-preselected row. Otherwise Amount opens on the same network. Amount reuses
-those routes and keeps Change network for a later change.
+Send starts on the card's own network, from Home and from a card alike
+(owner, PR 266 pick P1, 2026-11-20; it replaces the network step at the asset
+pick of 2026-11-13). Select asset makes no route request and has no network
+step. The networks load only when the user presses Change network on Amount
+(PR 266 F5); the sheet then opens when two or more networks remain. A scanned
+address that the card's network cannot reach loads them when Amount opens,
+and starts on the one other network that can reach it.
 
 ### Information
 
@@ -599,8 +600,10 @@ The keypad edits decimal text through `editAmountInput`; it does not parse,
 round, or calculate funds. Keep the existing precision, quote, network, MAX,
 and fee-reserve rules in `SendWizardAmount`.
 
-- The 44-point context slot shows Change network only when an alternative is
-  available. It shows source network to destination network for a cross-chain
+- On a simple Send from a card that can convert (VRPC or Ethereum), the
+  44-point context slot always shows Change network. Pressing it loads the
+  networks; the line then reads "No other networks" when none remains. The
+  slot shows source network to destination network for a cross-chain
   route. A same-chain conversion shows no To line because the receive block
   names the target. A simple Send omits the default network name. On normal
   windows the slot keeps its height in every case.
@@ -954,6 +957,41 @@ All launch types use these screens.
   (`src/utils/preconversion/`): reserve transfers with `preconvert` from the
   wallet's addresses to a pre-launch currency, with a wallet address as the
   destination. They show on every device and after a restore.
+
+### Advanced form
+
+Owner pick, 2026-11-20 (PR 266 pick ADV, option A "Same page", with the
+owner's changes). The manual form for every value of a conversion, a
+pre-conversion, a cross-chain transfer or an off-chain send is a step of the
+Convert wizard (lead developer: every such value can be entered by hand).
+
+- Entry: "Advanced form", a `TextAction` (`small`) centered in a normal-flow
+  `SafeBottomActionStack` under the Convert to list, on the page color, with
+  no divider. The list scrolls under it and ends above it. It shows in every
+  state of the list: loading, no routes, failed routes, a search without
+  results.
+- The step: `SendWizardHeader` with "Advanced form", Back, Close and one
+  44-point Info action (Lucide `Info`, 23 points, `textSubtle`) for the old
+  form's Help. Then a read-only "Send from" block: the `labelMd` label, a
+  24-point `AssetCoinLogo` and the card title (`CardTitle`). Then labelled
+  outline fields: Address (`AppAddressInput`, with "Address book" and "Self"
+  as small `TextAction`s under it), Amount (the ticker and the MAX chip at its
+  end), Convert to ("Preconvert to" while preconvert is on), Via, Export to,
+  Receive as (Ethereum cards, without a Convert to), and the "Send as
+  preconvert" switch. Free text everywhere; no pickers and no Memo. Each
+  field keeps the condition of upstream's form. Errors show under their
+  field; other errors above Continue.
+- Keyboard: `KeyboardAvoidingForm` and the focused-field reveal of the
+  VerusID forms (`useVerusIdFormScroll`), so the focused field and Continue
+  stay in view on both platforms.
+- Confirm keeps the old Confirm's facts on the wizard's pay node, flat rows
+  and slide, because the wizard's own Confirm prepares its transaction from
+  a route: To, From, Convert to, Estimated to receive, From and To network,
+  Also sent, Fees, Conversion fee, Arrives, Balance after. The old form's
+  notes become notices above the slide, including the centralized-currency
+  warning (an exception to the wizard Confirm, which omits it). It sends the
+  prepared transaction once, without a second preflight. The result uses
+  `TransactionResult` with the To row.
 
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.

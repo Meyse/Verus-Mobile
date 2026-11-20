@@ -1052,7 +1052,8 @@ const SignedInVerusIdService = ({controller}) => {
                   {renderPendingGroup(title, pending, false)}
                 </View>;
               })}
-              <RegistrationGroupTitle title="Your VerusIDs" count={linked.length} />
+              {/* Pending-only wallets have no VerusID group to title. */}
+              {linked.length > 0 && <RegistrationGroupTitle title="Your VerusIDs" count={linked.length} />}
             </View>
           }
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}

@@ -55,6 +55,7 @@ import { BN } from "bn.js";
 import { getStandardEthBalance } from "../../eth/callCreator";
 import { ECPair, networks } from "@bitgo/utxo-lib";
 import { cleanEthersErrorMessage } from "../../../../errors";
+import { lookupError, lookupErrorFields } from "../../../errors/lookupErrors";
 import { I_ADDRESS_VERSION } from "../../../../constants/constants";
 import store from "../../../../../store";
 
@@ -210,7 +211,9 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
       // i-address
       const mappedCurrencyRes = await getCurrency(systemId, mapto);
 
-      if (mappedCurrencyRes.error) throw new Error(mappedCurrencyRes.error.message);
+      if (mappedCurrencyRes.error) {
+        throw lookupError(mappedCurrencyRes.error.message, mappedCurrencyRes.error, {currencyName: mapto});
+      }
       else {
         if (mappedCurrencyRes.result.currencyid !== currencyId(mapto)) {
           throw new Error("Currency definition does not match the requested mapping.");
@@ -307,7 +310,9 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
       // secondreserveid
       const convertToRes = await getCurrency(systemId, convertto);
 
-      if (convertToRes.error) throw new Error(convertToRes.error.message);
+      if (convertToRes.error) {
+        throw lookupError(convertToRes.error.message, convertToRes.error, {currencyName: convertto});
+      }
       else {
         const converterDefinition = convertToRes.result;
         const targetCurrency = converterDefinition.currencyid;
@@ -574,7 +579,8 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
   } catch(e) {
     return {
       err: true,
-      result: cleanEthersErrorMessage(e.message)
+      result: cleanEthersErrorMessage(e.message),
+      ...lookupErrorFields(e),
     }
   }
 }

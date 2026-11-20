@@ -24,6 +24,7 @@ import StatusBadge from '../../components/StatusBadge';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
+import {NO_PRICE_DATA_CAPTION} from '../../utils/assets/homeNoPriceCaption';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {DisplayCurrencySheet, HomeSortSheet} from './components/SignedInWalletSheets';
 import {HOME_SORT_BALANCE, HOME_SORT_CUSTOM, HOME_SORT_NAME} from '../../utils/assets/assetOrder';
@@ -121,6 +122,7 @@ const PortfolioBalance = React.memo(({
   revealProgress,
   showBalance,
   theme,
+  noPriceCaption = false,
   onSelectCurrency,
 }) => {
   const value = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
@@ -156,6 +158,13 @@ const PortfolioBalance = React.memo(({
             {value.value}
           </PrivacyBlurredText>
         </View>
+        {noPriceCaption ? (
+          <Text
+            style={[theme.typography.caption, styles.noPriceCaption, {color: theme.colors.textSecondary}]}
+            testID="home-no-price-caption">
+            {NO_PRICE_DATA_CAPTION}
+          </Text>
+        ) : null}
       </Pressable>
     </View>
   );
@@ -356,6 +365,7 @@ const HomeHeader = React.memo(({
   showBalance,
   theme,
   totalFiatBalance,
+  noPriceCaption,
   onManageAssets,
   onSelectCurrency,
   onToggleBalance,
@@ -367,6 +377,7 @@ const HomeHeader = React.memo(({
           <PortfolioBalance
             amount={totalFiatBalance}
             currency={displayCurrency}
+            noPriceCaption={noPriceCaption}
             revealProgress={revealProgress}
             showBalance={showBalance}
             theme={theme}
@@ -464,6 +475,7 @@ const SignedInWalletHome = ({
   loading,
   showBalance,
   totalFiatBalance,
+  noPriceCaption = false,
   onToggleBalance,
   onSelectDisplayCurrency,
   onRefresh,
@@ -592,6 +604,7 @@ const SignedInWalletHome = ({
         showBalance={showBalance}
         theme={theme}
         totalFiatBalance={totalFiatBalance}
+        noPriceCaption={noPriceCaption}
         onManageAssets={onManageAssets}
         onSelectCurrency={openCurrencySheet}
         onToggleBalance={onToggleBalance}
@@ -644,6 +657,7 @@ const styles = StyleSheet.create({
   balanceToggle: {marginRight: 6},
   iconButton: {padding: 6},
   heroValueRow: {flexDirection: 'row', alignItems: 'flex-start', marginVertical: 12},
+  noPriceCaption: {marginTop: 2},
   heroSymbolFrame: {marginRight: 4, marginTop: 2},
   heroSymbol: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 22},
   amountGroup: {flexDirection: 'row', alignItems: 'flex-start', flexShrink: 1, minWidth: 0},
