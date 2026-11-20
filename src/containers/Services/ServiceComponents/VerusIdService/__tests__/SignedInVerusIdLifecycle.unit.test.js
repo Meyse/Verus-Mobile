@@ -39,8 +39,15 @@ const mockDispatch = jest.fn();
 const mockGoBack = jest.fn();
 let mockHeaderRight = null;
 
+// Navigation 'focus' and 'blur' listeners, so a test can model a return.
+const mockNavigationListeners = {focus: new Set(), blur: new Set()};
 const buildNavigation = () => ({
-  addListener: () => () => {},
+  addListener: (event, listener) => {
+    const listeners = mockNavigationListeners[event];
+    if (!listeners) return () => {};
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
   goBack: mockGoBack,
   setOptions: options => {
     if (options && typeof options.headerRight === 'function') {
@@ -459,6 +466,61 @@ describe('SignedInVerusIdDetails unlink dismissal lifecycle', () => {
     });
 
     expect(mockGoBack).not.toHaveBeenCalled();
+  });
+});
+
+describe('SignedInVerusIdDetails reads on return', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Pages that earlier tests left mounted must not answer these returns.
+    mockNavigationListeners.focus.clear();
+    mockNavigationListeners.blur.clear();
+    mockChainHeight = 100;
+    setSession({sessionEpoch: 1});
+    mockGetIdentity.mockResolvedValue({
+      error: null,
+      result: {
+        fullyqualifiedname: 'alice.VRSCTEST@',
+        identity: {identityaddress: 'iAlice', name: 'alice', primaryaddresses: []},
+      },
+    });
+    mockGetFriendlyNameMap.mockResolvedValue({});
+  });
+
+  const returnToDetails = async () => {
+    await act(async () => {
+      mockNavigationListeners.blur.forEach(listener => listener());
+      mockNavigationListeners.focus.forEach(listener => listener());
+    });
+    await flush();
+  };
+
+  // PR 266 review F14: 5 returns in one block read the height 5 times and the
+  // VerusID never (before: 5 full page loads). The next block reads it again.
+  it('reads the VerusID again on return only after a new block or an own transaction', async () => {
+    let renderer;
+    await act(async () => {
+      renderer = create(<SignedInVerusIdDetails />);
+    });
+    await flush();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    mockGetInfo.mockClear();
+
+    for (let index = 0; index < 5; index++) await returnToDetails();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    expect(mockGetFriendlyNameMap).toHaveBeenCalledTimes(1);
+    expect(mockGetInfo).toHaveBeenCalledTimes(5);
+
+    mockChainHeight = 101;
+    await returnToDetails();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
+
+    // Back from Modify after its transaction, in the same block.
+    require('../../../../../utils/ledger/ownBroadcasts').noteOwnBroadcast('iVRSCTEST');
+    await returnToDetails();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(3);
+
+    await act(async () => renderer.unmount());
   });
 });
 

@@ -51,6 +51,11 @@ import {
 } from '../../../../utils/api/channels/verusid/callCreators';
 import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
 import {getIdentityContent} from '../../../../utils/api/channels/verusid/requests/getIdentityContent';
+import {
+  chainHeightOf,
+  createHeightReadGate,
+  ownBroadcastEpoch,
+} from '../../../../utils/ledger/heightReadGate';
 import {API_GET_BALANCES, VRPC} from '../../../../utils/constants/intervalConstants';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
@@ -258,7 +263,15 @@ const SignedInVerusIdDetails = () => {
     }
   }, [chain]);
 
-  const load = useCallback(async () => {
+  // The page reads the VerusID on open, on pull and after the user's own
+  // transaction. A return reads it again only when the block height rose
+  // (PR 266 review F14): its state and content change only with a block.
+  const readGateRef = useRef(null);
+  if (readGateRef.current == null) readGateRef.current = createHeightReadGate();
+  const readKey = `${chain}:${iAddress}`;
+
+  // `prefetchedInfo` is the getinfo response a return already read.
+  const load = useCallback(async prefetchedInfo => {
     const requestId = loadRequestIdRef.current + 1;
     loadRequestIdRef.current = requestId;
     const sessionScope = renderedSessionScopeRef.current;
@@ -269,6 +282,7 @@ const SignedInVerusIdDetails = () => {
 
     try {
       const systemId = CoinDirectory.getBasicCoinObj(chain).system_id;
+      const epoch = ownBroadcastEpoch(systemId);
       // The chain tip decides whether an unlock height still locks the
       // VerusID. Without it the page still loads; only that case is unknown.
       const [response, contentResponse, infoResponse] = await Promise.all([
@@ -276,7 +290,7 @@ const SignedInVerusIdDetails = () => {
         // Content from all updates. A server without this call still shows
         // the page, with the latest update's content only.
         getIdentityContent(systemId, iAddress).catch(() => null),
-        getInfo(systemId).catch(() => null),
+        prefetchedInfo || getInfo(systemId).catch(() => null),
       ]);
 
       if (!isRequestCurrent()) return;
@@ -299,6 +313,12 @@ const SignedInVerusIdDetails = () => {
       );
       setFriendlyNames(loadedFriendlyNames);
       setChainInfo(infoResponse?.result || null);
+      readGateRef.current.note(
+        `${chain}:${iAddress}`,
+        systemId,
+        chainHeightOf(infoResponse?.result),
+        epoch,
+      );
     } catch (e) {
       if (!isRequestCurrent()) return;
 
@@ -312,25 +332,43 @@ const SignedInVerusIdDetails = () => {
     load();
   }, [load]);
 
-  // Coming back from Modify or Transfer reads the VerusID again, so Control
-  // shows the confirmed values. Only a return after a blur reloads; the
-  // mount load above covers the first visit.
+  // Coming back from Modify or Transfer reads the VerusID again after their
+  // transaction, so Control shows the confirmed values. Any other return
+  // reads only the height, and the VerusID only when a block arrived. A load
+  // that failed reads again. Only a return after a blur counts; the mount load
+  // above covers the first visit.
   const leftScreenRef = useRef(false);
   useEffect(() => {
     const removeBlur = navigation.addListener('blur', () => {
       leftScreenRef.current = true;
     });
-    const removeFocus = navigation.addListener('focus', () => {
+    const removeFocus = navigation.addListener('focus', async () => {
       if (!leftScreenRef.current) return;
       leftScreenRef.current = false;
-      load();
+      let systemId;
+      try {
+        systemId = CoinDirectory.getBasicCoinObj(chain).system_id;
+      } catch (e) {
+        load();
+        return;
+      }
+      const gate = readGateRef.current;
+      if (gate.isDue(readKey, systemId, null)) {
+        load();
+        return;
+      }
+      const infoResponse = await getInfo(systemId).catch(() => null);
+      if (!screenMountedRef.current) return;
+      if (gate.isDue(readKey, systemId, chainHeightOf(infoResponse?.result))) {
+        load(infoResponse);
+      }
     });
 
     return () => {
       removeBlur();
       removeFocus();
     };
-  }, [navigation, load]);
+  }, [chain, navigation, load, readKey]);
 
   useEffect(() => {
     screenMountedRef.current = true;
