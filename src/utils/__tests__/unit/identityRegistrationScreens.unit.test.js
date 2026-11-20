@@ -1216,7 +1216,7 @@ it('deletes a saved registration from its row menu only after confirmation', asy
   expect(mockApi.getRegistrationReview).toHaveBeenCalledWith('saved', expect.any(Object));
   const sheet = view.root.findByType(AcknowledgeSheet);
   expect(sheet.props.visible).toBe(true);
-  expect(sheet.props.title).toBe('Delete saved@\u2060?');
+  expect(sheet.props.title).toBe('Delete saved@?');
   expect(textContent(sheet)).toContain('Already paid0.0001 VRSC');
   expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
   await press(view.root.findAllByType(AppButton).find(node => node.props.children === 'Delete'));
