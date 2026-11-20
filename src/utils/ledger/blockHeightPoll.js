@@ -66,7 +66,15 @@ export const createBlockHeightPoll = ({
         // An unreachable server ends this tick. The next tick asks again.
       }
       // The screen can be hidden or start its own read while getinfo runs.
-      if (stopped || !Number.isSafeInteger(height) || !canTick() || isBusy()) return;
+      if (stopped || !canTick() || isBusy()) return;
+
+      // A failed getinfo must not hold back the pending history read (deltas
+      // and mempool): mempool behaviour stays as before F3 (device QA
+      // 2026-11-20: the testnet gateway sometimes fails getinfo after 27 s).
+      if (!Number.isSafeInteger(height)) {
+        if (hasPending()) await update({balance: false, history: true});
+        return;
+      }
 
       const known = observedHeights.get(channelId);
       const heightRose = known != null && height > known;

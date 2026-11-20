@@ -196,6 +196,25 @@ test('a pending transaction reads history each tick and keeps the poll alive', a
   expect(mockGetInfo).toHaveBeenCalledTimes(14);
 });
 
+test('a failed getinfo still reads history for a pending transaction, and nothing else', async () => {
+  mount(pending);
+  mockRefreshCard.mockClear();
+  // Device QA 2026-11-20: the gateway answered getinfo with 401 after 27 s.
+  mockGetInfo.mockRejectedValueOnce(new Error('Request failed with status code 401'))
+    .mockResolvedValueOnce({error: {message: 'Unauthorized'}, result: null});
+
+  await minute();
+  await minute();
+  expect(reads()).toEqual([[API_GET_TRANSACTIONS], [API_GET_TRANSACTIONS]]);
+
+  // Without a pending transaction a failed getinfo reads nothing.
+  setProps({transactions: confirmed});
+  mockRefreshCard.mockClear();
+  mockGetInfo.mockRejectedValueOnce(new Error('Request failed with status code 401'));
+  await minute();
+  expect(mockRefreshCard).not.toHaveBeenCalled();
+});
+
 test('no tick while the screen is hidden, the app is in the background, or an update runs', async () => {
   let focused = true;
   mount(confirmed);
