@@ -1170,10 +1170,15 @@ const useConvertOrCrossChainForm = ({
         );
       } else if (/insufficient funds/i.test(e?.message || '')) {
         console.warn(e);
+        // The VRPC preflight writes its own text: what can be sent now, or
+        // the fee it needs. Other wordings (node, Ethereum) get the short one.
+        const appText = /^Insufficient funds\. \S/.test(e.message);
         showFormError(
           amountErrorField,
           "Insufficient Funds",
-          `Not enough ${coinObj.display_ticker} for this amount plus the network fee.`,
+          appText
+            ? e.message
+            : `Not enough ${coinObj.display_ticker} for this amount plus the network fee.`,
         );
       } else if (!showFundRawTransactionErrorAlert(e)) {
         console.warn(e);

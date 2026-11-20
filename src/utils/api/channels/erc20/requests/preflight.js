@@ -212,7 +212,7 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
       const mappedCurrencyRes = await getCurrency(systemId, mapto);
 
       if (mappedCurrencyRes.error) {
-        throw lookupError(mappedCurrencyRes.error.message, mappedCurrencyRes.error, mapto);
+        throw lookupError(mappedCurrencyRes.error.message, mappedCurrencyRes.error, {currencyName: mapto});
       }
       else {
         if (mappedCurrencyRes.result.currencyid !== currencyId(mapto)) {
@@ -311,7 +311,7 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
       const convertToRes = await getCurrency(systemId, convertto);
 
       if (convertToRes.error) {
-        throw lookupError(convertToRes.error.message, convertToRes.error, convertto);
+        throw lookupError(convertToRes.error.message, convertToRes.error, {currencyName: convertto});
       }
       else {
         const converterDefinition = convertToRes.result;

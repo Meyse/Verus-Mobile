@@ -3,9 +3,10 @@ import {
   isConnectionErrorMessage,
 } from '../../network/connectionErrors';
 
-// The lookup-binding check (verusid/requests/lookupBinding) reports a response
-// that does not match the request with this code. That is not "not found".
-const LOOKUP_BINDING_ERROR_CODE = -1;
+// Node answers that say nothing about the name: a miscellaneous error (also
+// the lookup-binding check's code, verusid/requests/lookupBinding), a node
+// still loading or syncing, a database error, or a malformed or unknown call.
+const NOT_ABOUT_THE_NAME_CODES = new Set([-1, -9, -10, -20, -28, -32600, -32601, -32700]);
 
 // A lookup that got no answer: no connection, a timeout or an HTTP error.
 export const isLookupConnectionError = error =>
@@ -18,17 +19,22 @@ export const isLookupConnectionError = error =>
 export const isCurrencyNotFoundError = error =>
   error != null &&
   !isLookupConnectionError(error) &&
-  error.code !== LOOKUP_BINDING_ERROR_CODE;
+  !NOT_ABOUT_THE_NAME_CODES.has(Number(error.code));
 
 // The preflight's error for a failed lookup, with `message` as before. It
 // carries `currencyNotFound` (the name as the form sent it) for an unknown
 // currency, or `connectionFailed` when the lookup got no answer, so the form
-// can name the field or the connection.
-export const lookupError = (message, error, currencyName = null) => {
-  const result = new Error(message);
-  if (isLookupConnectionError(error)) result.connectionFailed = true;
-  else if (currencyName != null && isCurrencyNotFoundError(error)) result.currencyNotFound = currencyName;
-  return result;
+// can name the field or the connection. `appendReason` adds the node's own
+// text to any other answer (for example a node that is still loading).
+export const lookupError = (message, error, {currencyName = null, appendReason = false} = {}) => {
+  if (isLookupConnectionError(error)) {
+    return Object.assign(new Error(message), {connectionFailed: true});
+  }
+  if (currencyName != null && isCurrencyNotFoundError(error)) {
+    return Object.assign(new Error(message), {currencyNotFound: currencyName});
+  }
+  const reason = typeof error?.message === 'string' ? error.message.trim() : '';
+  return new Error(appendReason && reason && !message.includes(reason) ? `${message}: ${reason}` : message);
 };
 
 // The tags of a preflight error, for its {err: true} result.

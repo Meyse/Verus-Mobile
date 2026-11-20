@@ -256,7 +256,12 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const currRes = await getCurrency(systemId, iaddrOrName);
 
-      if (currRes.error) throw lookupError("Couldn't get currency " + iaddrOrName, currRes.error, iaddrOrName);
+      if (currRes.error) {
+        throw lookupError("Couldn't get currency " + iaddrOrName, currRes.error, {
+          currencyName: iaddrOrName,
+          appendReason: true,
+        });
+      }
       else {
         if (requestedCurrencyId && currRes.result.currencyid !== requestedCurrencyId) {
           throw new Error("Currency definition does not match the requested currency.");
@@ -272,7 +277,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const idRes = await getIdentity(systemId, iaddrOrName);
 
-      if (idRes.error) throw lookupError("Couldn't get identity " + iaddrOrName, idRes.error);
+      if (idRes.error) throw lookupError("Couldn't get identity " + iaddrOrName, idRes.error, {appendReason: true});
       else {
         friendlyNames.set(
           idRes.result.identity.identityaddress,
@@ -441,7 +446,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
         if (VrpcProvider.isSystemIdActivated(exportto)) {
           const destIdRes = await getIdentity(exportto, iAddr);
 
-          if (destIdRes.error) throw new Error("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.");
+          // A lookup without an answer asks to check the connection instead.
+          if (destIdRes.error) throw lookupError("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.", destIdRes.error);
         } else {
           // A Confirm row would be better; that needs SendWizard changes.
           createAlert(
