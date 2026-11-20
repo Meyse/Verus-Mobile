@@ -359,12 +359,13 @@ network name and subtitles read "Receive as <ticker>". Do not add a "Default"
 badge or repeat "network" in a row. The owner approved this on 2026-10-18.
 The ticker is the asset's name on that network (owner, 2026-11-03): an
 Ethereum asset on Verus reads "Receive as vETH" or "Receive as DAI.vETH".
-Send asks for the network when the asset is picked, as Convert does for its
-target (owner, 2026-11-13). The picked row in Select asset shows a small
-spinner in place of its fiat value while the routes load, and the other rows
-ignore taps. The sheet opens only when two or more networks remain; it has no
-preselected row. Otherwise Amount opens on the same network. Amount reuses
-those routes and keeps Change network for a later change.
+Send starts on the card's own network, from Home and from a card alike
+(owner, PR 266 pick P1, 2026-11-20; it replaces the network step at the asset
+pick of 2026-11-13). Select asset makes no route request and has no network
+step. The networks load only when the user presses Change network on Amount
+(PR 266 F5); the sheet then opens when two or more networks remain. A scanned
+address that the card's network cannot reach loads them when Amount opens,
+and starts on the one other network that can reach it.
 
 ### Information
 

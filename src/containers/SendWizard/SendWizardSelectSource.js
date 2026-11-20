@@ -1,6 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -25,8 +24,6 @@ import {
   API_SEND,
 } from '../../utils/constants/intervalConstants';
 import {USD} from '../../utils/constants/currencies';
-import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
-import {timeout} from '../../utils/promises';
 import {truncateDecimal} from '../../utils/math';
 import {
   getPrivateSyncPercent,
@@ -40,19 +37,16 @@ import {
   WIZARD_CONTENT_TOP_INSET,
   WizardScreen,
 } from './components/WizardUI';
-import {SourceCardSheet, TargetNetworkSheet} from './components/SelectionSheets';
+import {SourceCardSheet} from './components/SelectionSheets';
 import {cardCanPay} from './privateSend';
 import {
   ADDRESS_TYPE,
-  buildSendTarget,
   getRecipientAddressType,
+  getSameNetworkSend,
   getSourceAddressType,
   isConversionChannel,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
-
-// The routes for an Ethereum asset take several requests to the bridge.
-const NETWORK_LOOKUP_TIMEOUT_MS = 20000;
 
 const SendWizardSelectSource = () => {
   const navigation = useNavigation();
@@ -67,37 +61,7 @@ const SendWizardSelectSource = () => {
   const scanAddressType = scanRequest?.address && !scanRequest.coinId
     ? getRecipientAddressType(scanRequest.address)
     : null;
-  // A scanned address can only be reached on networks of its own kind. A
-  // private address is on the Verus network itself.
-  const scannedType = scanRequest?.address
-    ? getRecipientAddressType(scanRequest.address)
-    : null;
-  const scanNetworkType =
-    scannedType === ADDRESS_TYPE.PRIVATE ? ADDRESS_TYPE.VERUS : scannedType;
   const autoOpenedCards = useRef(false);
-  // An asset on more than one network asks for the network before Amount
-  // (owner, 2026-11-13). The picked row shows a spinner while its routes load.
-  const [networkLoadingId, setNetworkLoadingId] = useState(null);
-  const [networkChoice, setNetworkChoice] = useState(null);
-  const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
-  const networkRequest = useRef(0);
-  // Leaving the screen drops a load that is still running, so its sheet
-  // never opens over the next screen. Android applies Back late while the
-  // routes load.
-  useEffect(() => {
-    const cancelNetworkLookup = () => {
-      networkRequest.current += 1;
-      setNetworkLoadingId(null);
-      setNetworkSheetVisible(false);
-    };
-    const removeBlur = navigation.addListener('blur', cancelNetworkLookup);
-    const removeBeforeRemove = navigation.addListener('beforeRemove', cancelNetworkLookup);
-    return () => {
-      removeBlur();
-      removeBeforeRemove();
-      networkRequest.current += 1;
-    };
-  }, [navigation]);
   // A Send from the VerusID page: only that VerusID's cards are sources.
   // Its card channel is "vrpc.<iAddress>.<systemId>".
   const identityChannelPrefix = state.sourceIdentity?.iAddress
@@ -219,14 +183,7 @@ const SendWizardSelectSource = () => {
     if (scanRequest?.amount) navigation.navigate('SendWizardConfirm');
   };
 
-  // The same choice as the network sheet on Amount: the direct route.
-  const startSendOnNetwork = (sourceState, network) => {
-    const route = network.routes.find(candidate => !candidate.via) ||
-      network.routes[0];
-    startSend(sourceState, network, route);
-  };
-
-  const chooseSource = async source => {
+  const chooseSource = source => {
     setPendingAsset(null);
     const sourceState = {
       sourceCoin: source.coin,
@@ -235,55 +192,11 @@ const SendWizardSelectSource = () => {
       channel: source.channel,
     };
 
+    // Send from Home starts as a Send from a card does: on the card's own
+    // network. Amount loads other networks on Change network (PR 266 P1).
     if (mode === SEND_WIZARD_MODE.SEND) {
-      const sourceNetworkId =
-        source.channel?.split('.')[2] ||
-        source.coin.system_id ||
-        source.coin.id;
-      const target = buildSendTarget({}, source.coin, sourceNetworkId);
-      const sameNetworkRoute =
-        target.routes.find(
-          candidate => !candidate.isCrossChain && !candidate.via,
-        ) || target.routes[0];
-
-      if (!isConversionChannel(source.channel)) {
-        startSend(sourceState, target, sameNetworkRoute);
-        return;
-      }
-
-      const request = ++networkRequest.current;
-      setNetworkLoadingId(source.coin.id);
-      let sendNetworks = null;
-      try {
-        const paths = await timeout(
-          NETWORK_LOOKUP_TIMEOUT_MS,
-          getConversionPaths(source.coin, source.channel, {
-            src: source.coin.currency_id || source.coin.id,
-          }),
-        );
-        sendNetworks = buildSendTarget(paths || {}, source.coin, sourceNetworkId);
-      } catch (_) {
-        // Amount starts on the same network and says other networks are
-        // unavailable.
-      }
-      if (request !== networkRequest.current || !navigation.isFocused()) return;
-      setNetworkLoadingId(null);
-
-      const networks = (sendNetworks?.networkOptions || []).filter(
-        option =>
-          !scanNetworkType ||
-          option.routes.some(candidate => candidate.addressType === scanNetworkType),
-      );
-      const sourceWithNetworks = {...sourceState, sendNetworks};
-      if (networks.length > 1) {
-        setNetworkChoice({sendNetworks, networks, sourceState: sourceWithNetworks});
-        setNetworkSheetVisible(true);
-      } else if (networks.length === 1 && !networks[0].isSameNetwork) {
-        // A scanned address that only one other network can reach.
-        startSendOnNetwork(sourceWithNetworks, networks[0]);
-      } else {
-        startSend(sourceWithNetworks, target, sameNetworkRoute);
-      }
+      const {target, route} = getSameNetworkSend(source.coin, source.channel);
+      startSend(sourceState, target, route);
       return;
     }
 
@@ -326,7 +239,6 @@ const SendWizardSelectSource = () => {
       ) : null}
       <FlatList
         data={filteredAssets}
-        extraData={networkLoadingId}
         keyExtractor={item => item.coin.id}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -359,11 +271,8 @@ const SendWizardSelectSource = () => {
           const cryptoDisplay = showBalance
             ? `${truncateDecimal(item.total, 8)} ${item.coin.display_ticker}`
             : `*** ${item.coin.display_ticker}`;
-          const networkBusy = networkLoadingId === item.coin.id;
           return (
             <Pressable
-              accessibilityState={{disabled: networkLoadingId != null}}
-              disabled={networkLoadingId != null}
               onPress={() => chooseAsset(item)}
               style={({pressed}) => [styles.assetRow, pressed && styles.pressed]}>
               <View style={styles.assetLogo}>
@@ -372,23 +281,14 @@ const SendWizardSelectSource = () => {
               <View style={styles.assetCopy}>
                 <View style={styles.titleRow}>
                   <Text numberOfLines={1} style={[theme.typography.titleRow, styles.assetName, {color: theme.colors.textPrimary}]}>{item.coin.display_name}</Text>
-                  {networkBusy ? (
-                    <ActivityIndicator
-                      accessibilityLabel="Checking networks"
-                      color={theme.colors.textSecondary}
-                      size="small"
-                      style={styles.rowSpinner}
-                    />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.fiatValue,
-                        showBalance && fiat == null && theme.typography.caption,
-                        {color: showBalance && fiat == null ? theme.colors.textSubtle : theme.colors.textPrimary},
-                      ]}>
-                      {fiatDisplay}
-                    </Text>
-                  )}
+                  <Text
+                    style={[
+                      styles.fiatValue,
+                      showBalance && fiat == null && theme.typography.caption,
+                      {color: showBalance && fiat == null ? theme.colors.textSubtle : theme.colors.textPrimary},
+                    ]}>
+                    {fiatDisplay}
+                  </Text>
                 </View>
                 <Text style={[theme.typography.bodySm, styles.cryptoValue, {color: theme.colors.textSecondary}]}>
                   {cryptoDisplay}
@@ -406,16 +306,6 @@ const SendWizardSelectSource = () => {
         onClose={() => setCardSheetVisible(false)}
         onClosed={() => setPendingAsset(null)}
         onSelect={chooseSource}
-      />
-      <TargetNetworkSheet
-        target={networkChoice?.sendNetworks}
-        options={networkChoice?.networks || []}
-        visible={networkSheetVisible}
-        onClose={() => setNetworkSheetVisible(false)}
-        onClosed={() => setNetworkChoice(null)}
-        onSelect={network =>
-          networkChoice && startSendOnNetwork(networkChoice.sourceState, network)
-        }
       />
     </WizardScreen>
   );
@@ -442,7 +332,6 @@ const styles = StyleSheet.create({
   titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   assetName: {flexShrink: 1},
   fiatValue: {fontSize: 16, lineHeight: 20, marginLeft: 12, ...fontStyle('semiBold')},
-  rowSpinner: {marginLeft: 12, height: 20},
   cryptoValue: {marginTop: 2},
   pressed: {opacity: 0.7},
   empty: {

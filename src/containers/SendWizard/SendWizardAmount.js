@@ -84,12 +84,11 @@ const SendWizardAmount = () => {
   const [routeEstimates, setRouteEstimates] = useState({});
   const [preferredRouteKey, setPreferredRouteKey] = useState(null);
   const [routeSheetOpen, setRouteSheetOpen] = useState(false);
-  // Select asset loads the networks when it asks for the network. Otherwise
-  // Amount loads them only when the user presses Change network.
-  const sendNetworks = state.sendNetworks;
+  // Amount loads other networks only when the user presses Change network,
+  // for a Send from Home and from a card alike (PR 266 F5 and P1).
   const [loadedNetworks, setLoadedNetworks] = useState(null);
-  const sendTarget = loadedNetworks || sendNetworks || target;
-  const networksLoaded = Boolean(loadedNetworks || sendNetworks);
+  const sendTarget = loadedNetworks || target;
+  const networksLoaded = Boolean(loadedNetworks);
   const [networkLoading, setNetworkLoading] = useState(false);
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
@@ -129,8 +128,7 @@ const SendWizardAmount = () => {
   );
 
   // Other networks load only when the user asks for them (PR 266 feedback
-  // F5). The card's own network is the default. Select asset already loaded
-  // them when it asked for the network.
+  // F5). The card's own network is the default.
   const networkRequest = useRef(0);
   useEffect(() => {
     networkRequest.current += 1;
@@ -162,7 +160,15 @@ const SendWizardAmount = () => {
       const loaded = buildSendTarget(paths || {}, sourceCoin, sourceNetworkId);
       setLoadedNetworks(loaded);
       setNetworkLoading(false);
-      if (networkOptionsFor(loaded).length > 1 && navigation.isFocused?.() !== false) {
+      const options = networkOptionsFor(loaded);
+      const onlyOther = options.length === 1 && !options[0].isSameNetwork
+        ? options[0]
+        : null;
+      if (onlyOther && scanNeedsNetwork) {
+        // A scanned address that only one other network can reach starts
+        // there, as Select asset did before (PR 266 P1).
+        chooseSendNetwork(onlyOther);
+      } else if (options.length > 1 && navigation.isFocused?.() !== false) {
         setNetworkSheetOpen(true);
       }
     } catch (_) {

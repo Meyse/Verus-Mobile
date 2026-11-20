@@ -38,7 +38,7 @@ import SendWizardHeader, {
   getSendWizardProgress,
 } from './components/SendWizardHeader';
 import {
-  buildSendTarget,
+  getSameNetworkSend,
   isConversionChannel,
   SEND_WIZARD_MODE,
   WIZARD_CONTEXT_STEP,
@@ -225,18 +225,10 @@ const SendWizardNavigator = () => {
         : {...scanFields, sourceIdentity, presetTargetId};
     }
 
-    const sourceNetworkId =
-      initialSource.channel?.split('.')[2] ||
-      initialSource.sourceCoin.system_id ||
-      initialSource.sourceCoin.id;
-    const target = buildSendTarget(
-      {},
+    const {target, route: directRoute} = getSameNetworkSend(
       initialSource.sourceCoin,
-      sourceNetworkId,
+      initialSource.channel,
     );
-    const directRoute =
-      target.routes.find(candidate => !candidate.isCrossChain && !candidate.via) ||
-      target.routes[0];
 
     return {
       ...initialSource,
