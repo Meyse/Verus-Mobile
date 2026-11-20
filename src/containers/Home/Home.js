@@ -140,7 +140,6 @@ const Home = () => {
   const showBalance = useSelector(state => state.coins.showBalance);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(null);
-  const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
   const [balanceAccountHash, setBalanceAccountHash] = useState(null);
   const [loading, setLoading] = useState(false);
   const refreshRun = useRef(0);
@@ -273,7 +272,6 @@ const Home = () => {
   useEffect(() => {
     const totalBalances = getTotalBalances();
     setTotalFiatBalance(totalBalances.fiat);
-    setTotalCryptoBalances(totalBalances.crypto);
     setBalanceAccountHash(accountHash);
   }, [
     balances, ledgerBalances, assetManagement.snapshots, assetManagement.preferences,
@@ -358,16 +356,15 @@ const Home = () => {
   const getTotalBalances = () => {
     let _totalFiatBalance = BigNumber(0);
     let fiatComplete = true;
-    let coinBalances = {};
 
     uniqueAssets(activeCoinsForUser).filter(coin =>
       Boolean(coin.testnet) === isTestnetAccount(activeAccount)).forEach((coinObj) => {
       const key = coinObj.id;
-      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
-      coinBalances[key] = balance.total;
 
       // The total counts only the assets on Home.
       if (!isAssetShown(coinObj, assetManagement.preferences)) return;
+
+      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
 
       const rate = getRate(key, displayCurrency);
 
@@ -381,7 +378,6 @@ const Home = () => {
     return {
       // The Show on Home choices are not known before the assets are ready.
       fiat: fiatComplete && assetManagement.ready ? _totalFiatBalance.toNumber() : null,
-      crypto: coinBalances,
     };
   };
 
@@ -545,7 +541,6 @@ const Home = () => {
     balances,
     displayCurrency,
     rates,
-    totalCryptoBalances,
     activeAccount,
     assetManagement,
     ledgerBalances,
