@@ -742,17 +742,19 @@ describe('durable identity registration storage', () => {
     });
   });
 
-  it.each(['current', 'historical'])('refuses to delete an unconfirmed %s signed registration', async source => {
+  // PR 266 review R7 option 2: the user may delete a signed registration
+  // after a warning that it can still confirm. Only the saved record goes.
+  it.each(['current', 'historical'])('deletes an unconfirmed %s signed registration after confirmation', async source => {
     const signedRegistration = job().commitment;
     const saved = await saveRegistrationJob({...job(), status: 'registration_prepared',
       registration: source === 'current' ? signedRegistration : {prepared: makePreparedRegistration()},
       previousRegistrations: source === 'historical' ? [signedRegistration] : [],
     }, context());
-    storeServiceStoredDataForUser.mockClear();
-    await expect(removeRegistrationJob(saved.id, saved.revision, context()))
-      .rejects.toMatchObject({code: 'REGISTRATION_NOT_DELETABLE'});
-    expect(storeServiceStoredDataForUser).not.toHaveBeenCalled();
-    expect(await getRegistrationJob(saved.id, context())).toEqual(saved);
+    await publishRegistrationJobs(context());
+    expect(lastSummary().payload.registrationJobs[saved.id].deletionKind).toBe('registration');
+    await removeRegistrationJob(saved.id, saved.revision, context());
+    expect(lastSummary().payload.registrationJobs[saved.id]).toBeUndefined();
+    await expect(getRegistrationJob(saved.id, context())).rejects.toThrow('not found');
   });
 
   it('rechecks the exact revision inside the queued deletion', async () => {
