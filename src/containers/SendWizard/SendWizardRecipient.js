@@ -311,7 +311,10 @@ const SendWizardRecipient = () => {
       setError(validation.message || 'Enter a recipient.');
       return;
     }
-    if (needsIdentityCheck) {
+    // The check while typing already found this name: Continue asks the
+    // node again only without that result (audit row 13). Confirm resolves
+    // the name again before it builds the transaction.
+    if (needsIdentityCheck && currentIdentityCheck?.status !== 'valid') {
       const generation = ++lookup.current.generation;
       lookup.current.pending = true;
       setResolving(true);
