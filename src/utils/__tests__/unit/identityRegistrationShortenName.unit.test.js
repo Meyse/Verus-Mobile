@@ -47,7 +47,8 @@ describe('shortenNameForTitle', () => {
     for (const name of names) {
       const out = shortenNameForTitle(name);
       expect(out.length).toBeLessThanOrEqual(NAME_TITLE_BUDGET);
-      expect(out).not.toMatch(/\.…|…\./);
+      // No "." directly beside the "…", nor one character away.
+      expect(out).not.toMatch(/\.[^.]?…|…[^.]?\./);
       expect(out.match(/…/g)).toHaveLength(1);
     }
   });

@@ -33,9 +33,12 @@ export const shortenNameForTitle = (name, fallback = 'registration', budget = NA
     name.slice(tailStart).includes('.') &&
     leadingRun(name.slice(tailStart)) < MIN_BESIDE_DOT
   ) tailStart -= 1;
-  // A name of one-letter parts may not allow two; the "…" still never
-  // stands directly before a ".".
-  if (name[tailStart] === '.') tailStart += 1;
+  // A name of one-letter parts may not allow two: the ending then drops its
+  // short parts and their dots, so no "." comes within two of the "…".
+  while (
+    name.slice(tailStart).includes('.') &&
+    leadingRun(name.slice(tailStart)) < MIN_BESIDE_DOT
+  ) tailStart += leadingRun(name.slice(tailStart)) + 1;
   const tail = name.slice(tailStart);
 
   // The start ends with at least two characters after its last ".".
