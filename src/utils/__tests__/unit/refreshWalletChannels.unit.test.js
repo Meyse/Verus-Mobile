@@ -73,6 +73,15 @@ test('an explicit expiry after the last read (a send) reads at once', async () =
   expect(await readChannels()).toEqual([CHANNEL]);
 });
 
+test('a failed read leaves the card expired, so the next visit reads again', async () => {
+  setTracker({needs_update: true, expired_at: 999000});
+  mockUpdateWallets.mockResolvedValueOnce(['error']);
+  expect(await readChannels()).toEqual([CHANNEL]);
+
+  jest.setSystemTime(1005000);
+  expect(await readChannels()).toEqual([CHANNEL]);
+});
+
 test('a pull reads fresh data, but never a busy channel', async () => {
   setTracker({needs_update: false});
   expect(await readChannels({force: true})).toEqual([CHANNEL]);

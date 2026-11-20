@@ -1,6 +1,6 @@
 import Store from '../../store';
 import {conditionallyUpdateWallets} from '../../actions/actionDispatchers';
-import {API_ABORTED} from '../constants/intervalConstants';
+import {API_ABORTED, API_SUCCESS} from '../constants/intervalConstants';
 
 const DEFAULT_EXPIRE_TIMEOUT = 60000;
 let currentSession;
@@ -50,5 +50,16 @@ export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = fa
     return {chainTicker, updateId, channels};
   });
 
-  return conditionallyUpdateWallets(state, Store.dispatch, updates);
+  // A failed or skipped read leaves the data expired, as upstream: the next
+  // navigation may try again at once.
+  return conditionallyUpdateWallets(state, Store.dispatch, updates).then(results => {
+    updates.forEach(({updateId, channels}, index) => {
+      if (results?.[index] === API_SUCCESS) return;
+      channels.forEach(channel => {
+        const key = `${chainTicker}:${updateId}:${channel}`;
+        if (lastReads.get(key) === now) lastReads.delete(key);
+      });
+    });
+    return results;
+  });
 };
