@@ -1290,6 +1290,19 @@ it('warns that the original paid commitment fee is lost forever before deleting 
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 
+// A first payment that is signed or sent but not confirmed is not "already
+// paid": the sheet says it can still be paid (Codex review of R7, finding 1).
+it('does not call an unconfirmed first payment already paid', async () => {
+  jest.useFakeTimers();
+  setSavedReview({...review, status: 'commitment_broadcast', deletionKind: 'commitment', commitmentFee: '10000', commitmentTxid: 'sent'});
+  const view = await mount(IdentityRegistrationProgress);
+  await openDelete(view);
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  expect(textContent(sheet)).toContain('Can still be paid0.0001 VRSC');
+  expect(textContent(sheet)).not.toContain('Already paid');
+  expect(sheet.props.message).toMatch(/^If it confirms, this payment does not come back\./);
+});
+
 // PR 266 review R7 option 2: a signed second payment can be deleted. The
 // sheet says that Delete does not stop it, with the amount and expiry block.
 it.each(['registration_broadcast', 'registration_signed'])('warns before deleting an unsettled signed registration (%s)', async status => {

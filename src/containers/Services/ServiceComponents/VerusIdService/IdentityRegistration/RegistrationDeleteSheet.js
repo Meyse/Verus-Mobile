@@ -9,12 +9,17 @@ import {currencyLabel} from './RegistrationComponents';
 // The state comes from the full saved review, never from a list summary:
 // - unpaid: nothing was paid (a draft, or a first payment that expired).
 // - paid: the first payment is spent; nothing more can leave the wallet.
+// - pending: the first payment is signed or sent but not confirmed yet.
 // - signed: the second payment is signed and can still confirm.
 // - linkable: the VerusID exists; only the saved record goes.
+const pendingCommitmentStates = ['commitment_signed', 'commitment_broadcast', 'commitment_broadcast_unknown'];
+
 export const registrationDeleteState = review => {
   switch (review?.deletionKind) {
     case 'draft': return 'unpaid';
-    case 'commitment': return ['commitment_prepared', 'commitment_expired'].includes(review.status) ? 'unpaid' : 'paid';
+    case 'commitment':
+      if (['commitment_prepared', 'commitment_expired'].includes(review.status)) return 'unpaid';
+      return pendingCommitmentStates.includes(review.status) ? 'pending' : 'paid';
     case 'registration': return review.registrationCanStillConfirm ? 'signed' : 'paid';
     case 'completed': return 'linkable';
     default: return null;
@@ -47,6 +52,10 @@ export const RegistrationDeleteSheet = ({review, visible, onClose, onDelete}) =>
   if (state === 'paid') {
     message = 'This payment does not come back. You cannot finish this registration after you delete it. Your recovery phrase cannot restore it.';
     children = paid.length ? <View style={styles.rows}><Row label="Already paid" values={paid} last theme={theme} /></View> : null;
+  } else if (state === 'pending') {
+    // Not confirmed yet: it can still be paid, so the fee is not "already paid".
+    message = 'If it confirms, this payment does not come back. You cannot finish this registration after you delete it. Your recovery phrase cannot restore it.';
+    children = paid.length ? <View style={styles.rows}><Row label="Can still be paid" values={paid} last theme={theme} /></View> : null;
   } else if (state === 'linkable') {
     message = 'This removes the saved registration. The VerusID stays on the blockchain. You can still add it with Link VerusID.';
   } else if (state === 'signed') {

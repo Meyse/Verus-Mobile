@@ -25,12 +25,13 @@ export const RegistrationGroupTitle = ({title, count}) => {
 
 const progressRoute = jobId => ['IdentityRegistration', {screen: 'IdentityRegistrationProgress', params: {jobId}}];
 
-export default function RegistrationTabRows({jobs, navigation, group, children, showHeading = true, onLink}) {
+// The row menu and its confirmation (PR 266 review R7, A + 2). The VerusID
+// tab owns one instance outside the grouped rows: a job that moves to another
+// group, or the last row that leaves, must not unmount an open sheet or the
+// Delete that runs after its closing animation. Delete reads the full saved
+// review first, so the confirmation shows the real amounts and expiry block.
+export function useRegistrationRowMenu(navigation) {
   const theme = useAppTheme();
-  const styles = useRegistrationStyles();
-  // PR 266 review R7 (A + 2): every saved registration row has a ⋯ menu with
-  // View progress and Delete registration. Delete reads the full saved review
-  // first, so the confirmation shows the real amounts and expiry block.
   const [menuJob, setMenuJob] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [deleteReview, setDeleteReview] = useState(null);
@@ -43,12 +44,6 @@ export default function RegistrationTabRows({jobs, navigation, group, children, 
     setError(null);
     createAlert(title, error.message);
   }, [error, setError]);
-  const rows = Object.values(jobs || {}).filter(job => job.status !== 'complete' && (!group || registrationNoticeState(job).group === group))
-    .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
-  const open = job => {
-    if (job.status === 'registered') { onLink({jobId: job.id, name: job.displayName}); return; }
-    navigation.navigate('IdentityRegistration', {screen: job.status === 'commitment_prepared' ? 'IdentityCommitmentReview' : 'IdentityRegistrationProgress', params: {jobId: job.id}});
-  };
   const openMenu = job => { setMenuJob(job); setMenuVisible(true); };
   const askDelete = job => {
     failedStep.current = 'read';
@@ -65,10 +60,32 @@ export default function RegistrationTabRows({jobs, navigation, group, children, 
     // that changed after this sheet opened is kept and reported.
     return run(context => deleteRegistration(review.jobId, review.deletionKind, context));
   };
-  const menuActions = menuJob ? [
+  const actions = menuJob ? [
     {key: 'progress', label: 'View progress', icon: 'format-list-checks', onPress: () => navigation.navigate(...progressRoute(menuJob.id))},
     ...(menuJob.deletionKind ? [{key: 'delete', label: 'Delete registration', icon: 'trash-can-outline', onPress: () => askDelete(menuJob)}] : []),
   ] : [];
+  const sheets = <>
+    <VerusIdOptionsSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={actions}
+      title={menuJob && <VerusIdName accessibilityRole="header" name={menuJob.displayName || menuJob.name} style={theme.typography.titleSheet}
+        leafColor={theme.colors.textPrimary} restColor={theme.colors.textSecondary} />} />
+    <RegistrationDeleteSheet review={deleteReview} visible={deleteVisible} onClose={() => setDeleteVisible(false)} onDelete={confirmDelete} />
+  </>;
+  return {openMenu, busy, sheets};
+}
+
+// `menu` comes from the tab's useRegistrationRowMenu. Without it, the rows own
+// one (a standalone list, as in tests).
+export default function RegistrationTabRows({jobs, navigation, group, children, showHeading = true, onLink, menu}) {
+  const theme = useAppTheme();
+  const styles = useRegistrationStyles();
+  const ownMenu = useRegistrationRowMenu(navigation);
+  const {openMenu, busy} = menu || ownMenu;
+  const rows = Object.values(jobs || {}).filter(job => job.status !== 'complete' && (!group || registrationNoticeState(job).group === group))
+    .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+  const open = job => {
+    if (job.status === 'registered') { onLink({jobId: job.id, name: job.displayName}); return; }
+    navigation.navigate('IdentityRegistration', {screen: job.status === 'commitment_prepared' ? 'IdentityCommitmentReview' : 'IdentityRegistrationProgress', params: {jobId: job.id}});
+  };
   if (!rows.length && !children) return null;
   return <View style={{gap: 8, marginBottom: 24}}>
     {!!rows.length && group && showHeading && <RegistrationGroupTitle title={group} count={rows.length} />}
@@ -93,9 +110,6 @@ export default function RegistrationTabRows({jobs, navigation, group, children, 
       </View></View>;
     })}
     {children}
-    <VerusIdOptionsSheet visible={menuVisible} onClose={() => setMenuVisible(false)} actions={menuActions}
-      title={menuJob && <VerusIdName accessibilityRole="header" name={menuJob.displayName || menuJob.name} style={theme.typography.titleSheet}
-        leafColor={theme.colors.textPrimary} restColor={theme.colors.textSecondary} />} />
-    <RegistrationDeleteSheet review={deleteReview} visible={deleteVisible} onClose={() => setDeleteVisible(false)} onDelete={confirmDelete} />
+    {!menu && ownMenu.sheets}
   </View>;
 }

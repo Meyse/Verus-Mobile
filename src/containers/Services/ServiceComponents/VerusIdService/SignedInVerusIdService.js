@@ -81,7 +81,7 @@ import LinkExistingVerusIdSheet, {
 } from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import VerusIdOptionsSheet from './VerusIdOptionsSheet';
-import RegistrationTabRows, {RegistrationGroupTitle} from './IdentityRegistration/RegistrationTabRows';
+import RegistrationTabRows, {RegistrationGroupTitle, useRegistrationRowMenu} from './IdentityRegistration/RegistrationTabRows';
 import RegistrationStorageNotice, {useRegistrationStorage} from './IdentityRegistration/RegistrationStorageNotice';
 import {registrationNoticeState} from '../../../../utils/identityRegistration/noticeState';
 import LinkVerusIdSheet from './LinkVerusIdSheet';
@@ -368,6 +368,8 @@ const SignedInVerusIdService = ({controller}) => {
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
   const registrationJobs = useObjectSelector(state => state.channelStore_verusid?.registrationJobs || {});
   const registrationStorage = useRegistrationStorage();
+  // One row menu for every registration group (PR 266 review R7).
+  const registrationMenu = useRegistrationRowMenu(controller.props.navigation);
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
@@ -976,6 +978,7 @@ const SignedInVerusIdService = ({controller}) => {
       </View>
 
       <LinkVerusIdSheet target={registrationLink} onClose={() => setRegistrationLink(null)} />
+      {registrationMenu.sheets}
       {loading ? (
         <IdentityListSkeleton theme={theme} />
       ) : controller.state.loadError ? (
@@ -1005,7 +1008,7 @@ const SignedInVerusIdService = ({controller}) => {
                 const count = pending.length + Object.values(registrationJobs).filter(job => job.status !== 'complete' && registrationNoticeState(job).group === title).length;
                 return count > 0 && <View key={title}>
                   <RegistrationGroupTitle title={title} count={count} />
-                  <RegistrationTabRows group={title} showHeading={false} jobs={registrationJobs} navigation={controller.props.navigation} onLink={setRegistrationLink} />
+                  <RegistrationTabRows group={title} showHeading={false} jobs={registrationJobs} navigation={controller.props.navigation} onLink={setRegistrationLink} menu={registrationMenu} />
                   {renderPendingGroup(title, pending, false)}
                 </View>;
               })}
