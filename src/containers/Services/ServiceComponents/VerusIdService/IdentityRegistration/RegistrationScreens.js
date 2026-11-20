@@ -22,6 +22,7 @@ import {RegistrationHero, RegistrationInfo, RegistrationName, RegistrationStatus
 import {registrationFundingState} from './fundingSources';
 import {useRegistrationBalances} from './registrationReads';
 import {checkRegistrationFunds} from '../../../../../utils/identityRegistration/funding';
+import {createHeightReadGate, ownBroadcastEpoch, readChainHeight} from '../../../../../utils/ledger/heightReadGate';
 import {registrationState} from './presentation';
 import useRegistrationAction from './useRegistrationAction';
 import useRegistrationPrices from './useRegistrationPrices';
@@ -115,6 +116,12 @@ export function IdentityRegistrationProgress({navigation, route}) {
   const lockRetry = useRef(null);
   const preparedOnce = useRef(null);
   const recheckFunds = useRef(null);
+  // The funds of a waiting payment change only with a block or an own
+  // transaction, so the 20-second poll reads the height and re-checks the
+  // funds (quote and payer balance) only after it rose (PR 266 review F14).
+  const fundsGate = useRef(null);
+  if (fundsGate.current == null) fundsGate.current = createHeightReadGate();
+  const heightReading = useRef(false);
   const {context, busy, error, run, running, setError} = useRegistrationAction();
   const coins = useSelector(state => state.coins.activeCoinsForUser || []);
   const updateReview = useCallback(value => {
@@ -178,13 +185,26 @@ export function IdentityRegistrationProgress({navigation, route}) {
     try { return await approveRegistration(jobId, token, requestContext); }
     catch (failure) { return handleChangedFunds(failure, requestContext); }
   };
+  // A funds check counts for the poll's gate at the height read before it.
+  // The height read runs beside the check and never delays it or a payment.
+  const startFundsCheck = saved => {
+    const systemId = saved?.systemId;
+    const epoch = ownBroadcastEpoch(systemId);
+    const heightRead = readChainHeight(systemId);
+    return (funds, status = saved.status) => {
+      if (!['short', 'enough'].includes(funds?.status)) return;
+      heightRead.then(({height}) => fundsGate.current.note(`${jobId}:${status}`, systemId, height, epoch));
+    };
+  };
   const prepareSecond = async requestContext => {
     let saved = await getRegistrationReview(jobId, requestContext);
+    const noteFundsCheck = startFundsCheck(saved);
     try {
       const estimate = await getRegistrationEstimate(jobId, requestContext);
       const funds = await checkFunds(estimate, requestContext);
       setFunding(funds);
       if (funds.status !== 'enough') {
+        noteFundsCheck(funds);
         await updateRegistrationUiState(jobId, {registrationProblem: 'insufficient_funds'}, requestContext);
         return {...estimate, registrationProblem: 'insufficient_funds'};
       }
@@ -192,6 +212,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
         ? await refreshRegistrationReview(jobId, requestContext) : await prepareRegistration({jobId}, requestContext);
       const exactFunds = await checkFunds(prepared, requestContext);
       setFunding(exactFunds);
+      noteFundsCheck(exactFunds, prepared.status);
       const registrationProblem = exactFunds.status === 'short' ? 'insufficient_funds' : null;
       await updateRegistrationUiState(jobId, {registrationProblem}, requestContext);
       return {...prepared, registrationProblem};
@@ -216,6 +237,21 @@ export function IdentityRegistrationProgress({navigation, route}) {
   recheckFunds.current = async () => {
     const version = resultVersion.current;
     let enough = false;
+    // Same block and no own transaction since the last funds check: nothing
+    // to read. One getinfo per poll.
+    if (heightReading.current) return;
+    const shown = currentReview.current;
+    const gateKey = `${jobId}:${shown?.status}`;
+    const epoch = ownBroadcastEpoch(shown?.systemId);
+    heightReading.current = true;
+    let height;
+    try {
+      ({height} = await readChainHeight(shown?.systemId));
+    } finally {
+      heightReading.current = false;
+    }
+    if (!focused.current || version !== resultVersion.current ||
+        !fundsGate.current.isDue(gateKey, shown?.systemId, height)) return;
     await refreshBackground(false, async (requestContext, isCurrent) => {
       const saved = await getRegistrationReview(jobId, requestContext);
       if (!['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(saved.status) ||
@@ -225,6 +261,9 @@ export function IdentityRegistrationProgress({navigation, route}) {
         const funds = await checkFunds(estimate, requestContext);
         if (!isCurrent()) return;
         setFunding(funds);
+        if (['short', 'enough'].includes(funds.status)) {
+          fundsGate.current.note(`${jobId}:${saved.status}`, saved.systemId, height, epoch);
+        }
         if (funds.status === 'enough') { enough = true; return; }
         await updateRegistrationUiState(jobId, {registrationProblem: 'insufficient_funds'}, requestContext);
         return {...estimate, registrationProblem: 'insufficient_funds'};
@@ -261,6 +300,17 @@ export function IdentityRegistrationProgress({navigation, route}) {
   useEffect(() => {
     if (!focused.current || locked || busy || loadError || error || preparedOnce.current || !['commitment_confirmed', 'registration_prepared'].includes(status)) return;
     preparedOnce.current = true;
+    // Back on this screen with short funds that it already checked: the
+    // poll's gate re-checks them only after a new block or an own
+    // transaction (PR 266 review F14). Enough funds always prepare again.
+    if (review?.registrationProblem === 'insufficient_funds' &&
+        !fundsGate.current.isDue(`${jobId}:${status}`, review.systemId, null)) {
+      // The focus's own status read is still running; check after it.
+      Promise.resolve(background.current?.promise).then(() => {
+        if (focused.current) recheckFunds.current();
+      });
+      return;
+    }
     runForeground(prepareSecond);
   }, [review, status, locked, busy, loadError, error]);
   const [waitTime, setWaitTime] = useState(Date.now);

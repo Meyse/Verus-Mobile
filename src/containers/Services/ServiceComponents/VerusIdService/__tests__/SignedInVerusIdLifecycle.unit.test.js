@@ -19,6 +19,9 @@ import {act, create} from 'react-test-renderer';
 let mockState;
 
 const mockGetIdentity = jest.fn();
+// The chain height getinfo reports. A test raises it to model a new block.
+let mockChainHeight = 100;
+const mockGetInfo = jest.fn(() => Promise.resolve({result: {longestchain: mockChainHeight}}));
 const mockGetFriendlyNameMap = jest.fn();
 const mockUnlinkVerusId = jest.fn();
 const mockLinkVerusId = jest.fn();
@@ -36,8 +39,15 @@ const mockDispatch = jest.fn();
 const mockGoBack = jest.fn();
 let mockHeaderRight = null;
 
+// Navigation 'focus' and 'blur' listeners, so a test can model a return.
+const mockNavigationListeners = {focus: new Set(), blur: new Set()};
 const buildNavigation = () => ({
-  addListener: () => () => {},
+  addListener: (event, listener) => {
+    const listeners = mockNavigationListeners[event];
+    if (!listeners) return () => {};
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
   goBack: mockGoBack,
   setOptions: options => {
     if (options && typeof options.headerRight === 'function') {
@@ -205,7 +215,7 @@ jest.mock('../../../../../utils/CoinData/CoinDirectory', () => ({
 }));
 
 jest.mock('../../../../../utils/api/channels/vrpc/requests/getInfo', () => ({
-  getInfo: () => Promise.resolve({result: {longestchain: 100}}),
+  getInfo: (...args) => mockGetInfo(...args),
 }));
 
 jest.mock('../../../../../utils/api/channels/verusid/callCreators', () => ({
@@ -459,6 +469,83 @@ describe('SignedInVerusIdDetails unlink dismissal lifecycle', () => {
   });
 });
 
+describe('SignedInVerusIdDetails reads on return', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Pages that earlier tests left mounted must not answer these returns.
+    mockNavigationListeners.focus.clear();
+    mockNavigationListeners.blur.clear();
+    mockChainHeight = 100;
+    setSession({sessionEpoch: 1});
+    mockGetIdentity.mockResolvedValue({
+      error: null,
+      result: {
+        fullyqualifiedname: 'alice.VRSCTEST@',
+        identity: {identityaddress: 'iAlice', name: 'alice', primaryaddresses: []},
+      },
+    });
+    mockGetFriendlyNameMap.mockResolvedValue({});
+  });
+
+  const returnToDetails = async () => {
+    await act(async () => {
+      mockNavigationListeners.blur.forEach(listener => listener());
+      mockNavigationListeners.focus.forEach(listener => listener());
+    });
+    await flush();
+  };
+
+  // PR 266 review F14: 5 returns in one block read the height 5 times and the
+  // VerusID never (before: 5 full page loads). The next block reads it again.
+  it('reads the VerusID again on return only after a new block or an own transaction', async () => {
+    let renderer;
+    await act(async () => {
+      renderer = create(<SignedInVerusIdDetails />);
+    });
+    await flush();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    mockGetInfo.mockClear();
+
+    for (let index = 0; index < 5; index++) await returnToDetails();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    expect(mockGetFriendlyNameMap).toHaveBeenCalledTimes(1);
+    expect(mockGetInfo).toHaveBeenCalledTimes(5);
+
+    mockChainHeight = 101;
+    await returnToDetails();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
+
+    // Back from Modify after its transaction, in the same block.
+    require('../../../../../utils/ledger/ownBroadcasts').noteOwnBroadcast('iVRSCTEST');
+    await returnToDetails();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(3);
+
+    await act(async () => renderer.unmount());
+  });
+
+  // Codex review: Try again passed its press event as the prefetched getinfo,
+  // so the retry skipped the height and lost a Locked state.
+  it('reads the height again when Try again is pressed', async () => {
+    mockGetIdentity.mockResolvedValueOnce({error: {code: -1, message: 'network timeout'}});
+    let renderer;
+    await act(async () => {
+      renderer = create(<SignedInVerusIdDetails />);
+    });
+    await flush();
+    mockGetInfo.mockClear();
+
+    const retry = renderer.root.findAll(
+      node => node.props?.accessibilityLabel === 'Try loading this VerusID again' && node.props.onPress,
+    )[0];
+    await act(async () => retry.props.onPress({nativeEvent: {}}));
+    await flush();
+
+    expect(mockGetInfo).toHaveBeenCalledTimes(1);
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
+    await act(async () => renderer.unmount());
+  });
+});
+
 describe('SignedInVerusIdService READY row action', () => {
   const buildController = () => ({
     state: {linkedIds: {}},
@@ -598,6 +685,7 @@ describe('SignedInVerusIdService list badges', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockChainHeight = 100;
     setSession({sessionEpoch: 1});
   });
 
@@ -617,18 +705,50 @@ describe('SignedInVerusIdService list badges', () => {
     await flush();
   };
 
-  it('shows Revoked after the VerusID is revoked and the tab gets focus again', async () => {
+  it('shows Revoked on the first focus after the next block', async () => {
     mockGetIdentity.mockResolvedValue(identityResult(0));
     await renderList();
     expect(mockGetIdentity).toHaveBeenCalledTimes(1);
     expect(hasText(renderer, 'Revoked')).toBe(false);
 
     mockGetIdentity.mockResolvedValue(identityResult(0x8000));
+    mockChainHeight = 101;
     await focusScreen();
     await flush();
 
     expect(mockGetIdentity).toHaveBeenCalledTimes(2);
     expect(hasText(renderer, 'Revoked')).toBe(true);
+  });
+
+  // PR 266 review F14: 10 tab switches in one block read the height 10 times
+  // and no VerusID (before: 10 getidentity + 10 getinfo).
+  it('reads no VerusID on 10 focuses in the same block', async () => {
+    mockGetIdentity.mockResolvedValue(identityResult(0));
+    await renderList();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    mockGetInfo.mockClear();
+
+    for (let index = 0; index < 10; index++) {
+      await focusScreen();
+      await flush();
+    }
+
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+    expect(mockGetInfo).toHaveBeenCalledTimes(10);
+  });
+
+  it('reads the VerusID again in the same block after an own transaction', async () => {
+    mockGetIdentity.mockResolvedValue(identityResult(0));
+    await renderList();
+    expect(mockGetIdentity).toHaveBeenCalledTimes(1);
+
+    require('../../../../../utils/ledger/ownBroadcasts').noteOwnBroadcast('iVRSCTEST');
+    await focusScreen();
+    await flush();
+    await focusScreen();
+    await flush();
+
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the Revoked badge when the read on focus fails', async () => {
@@ -637,6 +757,7 @@ describe('SignedInVerusIdService list badges', () => {
     expect(hasText(renderer, 'Revoked')).toBe(true);
 
     mockGetIdentity.mockResolvedValue({error: {code: -1, message: 'network timeout'}});
+    mockChainHeight = 101;
     await focusScreen();
     await flush();
 
