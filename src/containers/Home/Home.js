@@ -86,7 +86,11 @@ import {
   isTestnetAccount,
   uniqueAssets,
 } from '../../utils/assets/assetIdentity';
-import {shouldShowNoPriceCaption} from '../../utils/assets/homeNoPriceCaption';
+import {
+  getOpenPriceChannels,
+  isPriceSettled,
+  shouldShowNoPriceCaption,
+} from '../../utils/assets/homeNoPriceCaption';
 import {getShownBalance} from '../../utils/ledger/shownBalance';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {
@@ -151,6 +155,9 @@ const Home = () => {
   // A price request that found no price stores an error, not a rate (a
   // mainnet currency without a market). It still counts as an answer.
   const rateErrors = useObjectSelector((state) => state.errors[API_GET_FIATPRICE] || {});
+  // The channels each asset's price request asks. An asset with none never
+  // gets a rate or an error entry; it counts as having no price.
+  const priceChannels = useObjectSelector(getOpenPriceChannels);
   const {isConnected} = useNetInfo();
   // Verus currencies on the wallet's addresses that are not in the wallet yet
   // and that the user has not reviewed or dismissed on Home.
@@ -282,7 +289,7 @@ const Home = () => {
   }, [
     balances, ledgerBalances, assetManagement.snapshots, assetManagement.preferences,
     assetManagement.ready, displayCurrency, activeCoinsForUser, allSubWallets, rates, accountHash,
-    showBalance, rateErrors,
+    showBalance, rateErrors, priceChannels,
   ]);
 
   useEffect(() => {
@@ -378,10 +385,8 @@ const Home = () => {
 
       holdings.push({
         balance: balance.total,
-        complete: balance.complete,
         rate,
-        ratesLoaded: [WYRE_SERVICE, GENERAL].some(channel =>
-          rates[channel]?.[key] != null || rateErrors[channel]?.[key] != null),
+        priceSettled: isPriceSettled({coinId: key, priceChannels: priceChannels[key], rates, rateErrors}),
       });
 
       if (rate != null) {
@@ -391,10 +396,12 @@ const Home = () => {
       }
     });
 
+    // The Show on Home choices are not known before the assets are ready.
+    const totalFinal = fiatComplete && assetManagement.ready;
+
     return {
-      // The Show on Home choices are not known before the assets are ready.
-      fiat: fiatComplete && assetManagement.ready ? _totalFiatBalance.toNumber() : null,
-      noPriceData: shouldShowNoPriceCaption({ready: assetManagement.ready, showBalance, holdings}),
+      fiat: totalFinal ? _totalFiatBalance.toNumber() : null,
+      noPriceData: shouldShowNoPriceCaption({ready: assetManagement.ready, showBalance, totalFinal, holdings}),
     };
   };
 
