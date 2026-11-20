@@ -295,8 +295,13 @@ const SendWizardAmount = () => {
   // would only guess (the daemon quotes as if the launch were now).
   const preconvert = Boolean(route?.preconvert);
 
+  // The request of the estimates on screen. The same amount, target and
+  // routes ask the node nothing again, for example after a route pick in
+  // "Price and route" (audit row 14).
+  const shownEstimates = useRef(null);
   useEffect(() => {
     if (!target?.isConversion || !validAmount || preconvert) {
+      shownEstimates.current = null;
       setEstimate(null);
       setEstimateError(null);
       setEstimateLoading(false);
@@ -304,16 +309,26 @@ const SendWizardAmount = () => {
       return undefined;
     }
 
+    const routes = target.routes?.length
+      ? pickEstimateRoutes(target.routes, preferredRouteKey)
+      : [route];
+    const request = JSON.stringify([
+      channel,
+      sourceCoin.currency_id || sourceCoin.id,
+      target.transactionCurrency,
+      cryptoAmountValue,
+      routes.map(candidate => candidate?.key),
+    ]);
+    if (shownEstimates.current === request) return undefined;
+
     let active = true;
+    shownEstimates.current = null;
     setEstimate(null);
     setRouteEstimates({});
     setEstimateLoading(true);
     setEstimateError(null);
     const timeout = setTimeout(async () => {
       try {
-        const routes = target.routes?.length
-          ? pickEstimateRoutes(target.routes, preferredRouteKey)
-          : [route];
         const results = await Promise.all(
           routes.map(async candidate => {
             try {
@@ -368,6 +383,7 @@ const SendWizardAmount = () => {
         const selectedEstimate = nextEstimates[selectedRoute?.key] || null;
 
         setRouteEstimates(nextEstimates);
+        shownEstimates.current = request;
         if (selectedRoute && selectedRoute.key !== route?.key) {
           setRoute(selectedRoute);
         }

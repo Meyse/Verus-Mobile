@@ -456,3 +456,67 @@ describe('estimated slippage label (F6)', () => {
     expect(getImpactBadgeLabel(BigNumberLib(2.36))).toBe('2.4%');
   });
 });
+
+// Audit row 14 (2026-11-20): a route pick with the same amount, target and
+// routes asks for no new estimates.
+describe('Convert Amount step, no repeated estimates (audit row 14)', () => {
+  const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
+  const {buildTargetOptions} = require('../../../containers/SendWizard/wizardUtils');
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', currency_id: 'iSource', system_id: 'iSystem'};
+  const destination = {currencyid: 'iTarget', fullyqualifiedname: 'Target'};
+  let view;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    estimateConversion.mockImplementation((system, source, dest, amount, via) =>
+      Promise.resolve({result: {estimatedcurrencyout: via === 'b1' ? 2 : 1}}));
+  });
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+    jest.useRealTimers();
+  });
+
+  it('keeps the estimates when the user picks another route', async () => {
+    const paths = {iTarget: ['b1', 'b2', 'b3'].map(id => ({
+      destination, via: {currencyid: id, fullyqualifiedname: id, startblock: 10}, price: 1,
+    }))};
+    const target = buildTargetOptions(paths, VRSCTEST, false, 'iSystem')
+      .find(option => option.isConversion);
+    const card = {id: 'MAIN', api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iSystem'}};
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {bal: {VRSCTEST: {confirmed: '100', pending: '0', total: '100'}}}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="convert"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            channel: card.api_channels.send,
+            target,
+            route: target.routes[0],
+            amountInput: '1',
+          }}>
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(estimateConversion).toHaveBeenCalledTimes(3);
+    const sheet = () => view.root.findByType('PriceRouteSheet').props;
+    const other = target.routes.find(route => route.via === 'b3');
+    act(() => sheet().onSelect(other));
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(estimateConversion).toHaveBeenCalledTimes(3);
+    expect(sheet().route.key).toBe(other.key);
+    expect(sheet().estimatedOutput).toBe(1);
+  });
+});
