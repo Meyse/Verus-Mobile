@@ -20,8 +20,8 @@ jest.mock('../../../actions/actionCreators', () => ({
 }));
 jest.mock('../../ledger/refreshWalletChannels', () => ({
   refreshWalletChannels: (...args) => mockRefreshCard(...args),
-  VISIBLE_WALLET_REFRESH_INTERVAL: 15000,
 }));
+jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: jest.fn()}));
 jest.mock('../../../actions/actionDispatchers', () => ({
   conditionallyUpdateWallets: (...args) => mockUpdateWallets(...args),
   conditionallyUpdateService: (...args) => mockUpdateService(...args),

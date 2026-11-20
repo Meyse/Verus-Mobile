@@ -61,7 +61,6 @@ jest.mock('../../../containers/SendWizard/useWizardFiat', () => ({
 }));
 jest.mock('../../../containers/SendWizard/useReceivedPrice', () => ({useReceivedPrice: () => null}));
 jest.mock('../../preconversion/usePrelaunch', () => ({useChainHeight: () => null}));
-jest.mock('../../../containers/SendWizard/refreshSourceBalance', () => ({refreshSourceBalance: jest.fn()}));
 jest.mock('../../../containers/SendWizard/autoAddConversionAsset', () => ({autoAddConversionAsset: jest.fn()}));
 jest.mock('../../assets/assetManagementService', () => ({captureAssetContext: jest.fn()}));
 jest.mock('../../../actions/actionCreators', () => ({expireCoinData: jest.fn()}));

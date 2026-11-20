@@ -5,6 +5,8 @@ import {
   SYNCING,
   POST_SYNC,
   API_GET_INFO,
+  API_GET_BALANCES,
+  VRPC,
   DLIGHT_PRIVATE,
   IS_PBAAS
 } from "../../../../utils/constants/intervalConstants";
@@ -19,6 +21,7 @@ import {
 import { DEFAULT_COIN_UPDATE_PARAMS } from '../../../../utils/constants/defaultUpdateParams';
 import { coinsList } from '../../../../utils/CoinData/CoinsList';
 import { IS_PBAAS_CHAIN } from '../../../../utils/constants/currencies';
+import Store from '../../../../store';
 
 const isPbaasChain = coin =>
   coin.tags.includes(IS_PBAAS) &&
@@ -50,6 +53,21 @@ export const activateChainLifecycle = (coinObj, activeCoinsForUser) => {
 
   refreshCoinIntervals(coinObj, {[API_GET_INFO]: {update_expired_oncomplete: getInfoOnComplete}}, DEFAULT_COIN_UPDATE_PARAMS, allSeenSystems)
 }
+
+// The VRPC channel can finish after the sign-in loop activated the coin. A
+// second activation resets every tracker and reads all data again, so it runs
+// only when the trackers miss a channel of a watched VRPC address (PR 266
+// audit row 1). Upstream activates in the sign-in loop only.
+export const activateChainLifecycleForVrpcAddresses = (coinObj, activeCoinsForUser) => {
+  const state = Store.getState();
+  const tracker = state.updates.coinUpdateTracker[coinObj.id]?.[API_GET_BALANCES];
+  const addresses = Object.keys(state.channelStore_vrpc?.watchedAddresses?.[coinObj.id] || {});
+  const systems = getAllSeenSystemsForCoin(coinObj, activeCoinsForUser);
+  const missing = tracker == null || addresses.some(address => systems.some(system =>
+    !tracker.channels?.includes(`${VRPC}.${address}.${system}`)));
+
+  if (missing) activateChainLifecycle(coinObj, activeCoinsForUser);
+};
 
 export const refreshActiveChainLifecycles = (activeCoinsForUser) => {
   unstable_batchedUpdates(() => {

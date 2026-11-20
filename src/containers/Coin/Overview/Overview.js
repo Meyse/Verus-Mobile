@@ -47,10 +47,8 @@ import {
 } from "../../../utils/constants/intervalConstants";
 import { selectTransactions } from '../../../selectors/transactions';
 import {selectRegistrationTransactions} from '../../../selectors/registrationTransactions';
-import {
-  refreshWalletChannels,
-  VISIBLE_WALLET_REFRESH_INTERVAL,
-} from '../../../utils/ledger/refreshWalletChannels';
+import {refreshWalletChannels} from '../../../utils/ledger/refreshWalletChannels';
+import {createBlockHeightPoll} from '../../../utils/ledger/blockHeightPoll';
 import {WALLET_APP_OVERVIEW} from '../../../utils/constants/apps';
 import { VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
 import { getTestnetBridgeDelegator } from "../../../utils/testnetEnvironment";
@@ -79,6 +77,13 @@ const CONNECTION_ERROR = "Connection Error"
 const TRANSACTION_LIST_BOTTOM_PADDING = 40;
 const TRANSACTION_SKELETON_DELAY = 250;
 const TRANSACTION_SKELETON_ROWS = 3;
+
+// Which transactions show and which are pending. Confirmation counts are left
+// out: they change with every block, which is not new content.
+const transactionsKey = transactions => (transactions?.results || []).map(row => {
+  const tx = Array.isArray(row) ? row[0] : row;
+  return tx ? `${tx.txid}:${tx.confirmed === true && tx.status !== 'pending' ? 1 : 0}` : '';
+}).join(',');
 
 // The destination belongs in details. A receipt's history title is "Received".
 const OWN_ADDRESS_LABELS = {
@@ -438,7 +443,7 @@ class Overview extends Component {
     this.transactionSkeletonTimer = null;
     this._isMounted = false;
     this.appActive = AppState.currentState !== 'background' && AppState.currentState !== 'inactive';
-    this.historyNeedsRefresh = false;
+    this.heightPoll = null;
     this.transactionListRef = React.createRef();
     //this.updateProps = this.updateProps.bind(this);
     this.refresh = this.refresh.bind(this);
@@ -459,18 +464,20 @@ class Overview extends Component {
     this.syncTransactionLoadingState();
     this.ensureTransactionsForActiveCard();
     this.refresh();
-    this.syncVisibleRefreshTimer();
+    this.heightPoll = this.createHeightPoll();
+    this.heightPoll?.resume();
     this._unsubscribeFocus = this.props.navigation.addListener('focus', () => {
       this.syncTransactionLoadingState();
       this.ensureTransactionsForActiveCard();
       this.refresh();
-      this.syncVisibleRefreshTimer();
+      this.heightPoll?.resume();
     });
-    this._unsubscribeBlur = this.props.navigation.addListener('blur', this.stopVisibleRefreshTimer);
+    this._unsubscribeBlur = this.props.navigation.addListener('blur', () => this.heightPoll?.pause());
     this._appStateSubscription = AppState.addEventListener('change', nextState => {
       this.appActive = nextState === 'active';
-      this.syncVisibleRefreshTimer();
-      if (this.appActive && this.isHistoryFocused()) this.refresh();
+      if (!this.appActive) return this.heightPoll?.pause();
+      if (this.isHistoryFocused()) this.refresh();
+      this.heightPoll?.resume();
     });
   }
 
@@ -479,11 +486,14 @@ class Overview extends Component {
       this.ensureTransactionsForActiveCard();
       this.refresh();
     }
-    if (prevProps.balanceKey !== this.props.balanceKey) {
-      this.historyNeedsRefresh = true;
-      this.refreshVisibleTransactions();
+    // New content for the card starts the 5 poll minutes again (F3).
+    if (prevProps.balanceKey !== this.props.balanceKey ||
+        (prevProps.transactions?.results !== this.props.transactions?.results &&
+          transactionsKey(prevProps.transactions) !== transactionsKey(this.props.transactions))) {
+      this.heightPoll?.noteDataChange();
+    } else {
+      this.heightPoll?.resume();
     }
-    this.syncVisibleRefreshTimer();
     if (prevProps.transactions?.results !== this.props.transactions?.results && this.state.txDetails) {
       const tx = (this.props.transactions?.results || []).flat().find(
         item => decodeTxid(item.txid) === this.state.txDetails.txid,
@@ -532,7 +542,7 @@ class Overview extends Component {
     this._unsubscribeFocus?.();
     this._unsubscribeBlur?.();
     this._appStateSubscription?.remove();
-    this.stopVisibleRefreshTimer();
+    this.heightPoll?.stop();
   }
 
   isHistoryFocused = () => {
@@ -543,48 +553,38 @@ class Overview extends Component {
       coins.activeSection?.key === WALLET_APP_OVERVIEW;
   };
 
-  stopVisibleRefreshTimer = () => {
-    clearInterval(this.visibleRefreshTimer);
-    this.visibleRefreshTimer = null;
-  };
+  hasPendingRow = () => (this.props.transactions?.results || []).some(row => {
+    const tx = Array.isArray(row) ? row[0] : row;
+    return tx != null && (!tx.confirmed || tx.status === 'pending');
+  });
 
-  syncVisibleRefreshTimer = () => {
-    if (!this.isHistoryFocused()) {
-      this.stopVisibleRefreshTimer();
-    } else if (this.visibleRefreshTimer == null) {
-      this.visibleRefreshTimer = setInterval(() => {
-        if (!this.isHistoryFocused()) return this.stopVisibleRefreshTimer();
-        // Balance polling discovers new receipts. Only pending or changed
-        // balances need a history read between the ordinary interval ticks.
-        this.refreshVisibleTransactions(true);
-      }, VISIBLE_WALLET_REFRESH_INTERVAL);
-    }
-  };
+  // F3: one getinfo a minute for a VRPC card. Other card types keep upstream
+  // behaviour: no screen timer.
+  createHeightPoll = () => {
+    const card = this.props.activeSubWallet;
+    const coinId = this.props.activeCoin.id;
+    const balanceChannel = card?.api_channels?.[API_GET_BALANCES];
+    const historyChannel = card?.api_channels?.[API_GET_TRANSACTIONS];
+    const [channelType, , systemId] = (historyChannel || '').split('.');
+    if (channelType !== VRPC || !systemId) return null;
 
-  refreshVisibleTransactions = async (includeBalance = false) => {
-    if (!this.isHistoryFocused()) return;
-    const pending = (this.props.transactions?.results || []).some(row => {
-      const tx = Array.isArray(row) ? row[0] : row;
-      return !tx.confirmed || tx.status === 'pending';
+    return createBlockHeightPoll({
+      channelId: historyChannel,
+      systemId,
+      canTick: this.isHistoryFocused,
+      isBusy: () => {
+        const tracker = store.getState().updates?.coinUpdateTracker?.[coinId];
+        return Boolean(tracker?.[API_GET_BALANCES]?.busy?.[balanceChannel] ||
+          tracker?.[API_GET_TRANSACTIONS]?.busy?.[historyChannel]);
+      },
+      hasPending: this.hasPendingRow,
+      needsHistory: () => Boolean(this.props.transactions?.isUnresolved),
+      update: ({balance, history}) => refreshWalletChannels(
+        coinId, [card],
+        [...(balance ? [API_GET_BALANCES] : []), ...(history ? [API_GET_TRANSACTIONS] : [])],
+        {force: true},
+      ),
     });
-    const needsHistory = pending || this.historyNeedsRefresh || this.props.transactions?.isUnresolved;
-    const updateIds = [
-      ...(needsHistory ? [API_GET_TRANSACTIONS] : []),
-      ...(includeBalance ? [API_GET_BALANCES] : []),
-    ];
-    if (!updateIds.length) return;
-    const balanceKey = this.props.balanceKey;
-    try {
-      const [result] = await refreshWalletChannels(
-        this.props.activeCoin.id, [this.props.activeSubWallet], updateIds,
-      );
-      if (needsHistory && result === API_SUCCESS && balanceKey === this.props.balanceKey) {
-        this.historyNeedsRefresh = false;
-      }
-    } catch (error) {
-      // Keep the changed-balance flag for the next focused tick or pull.
-      console.warn('Unable to refresh the active card');
-    }
   };
 
   clearTransactionSkeletonTimer = () => {
@@ -652,8 +652,10 @@ class Overview extends Component {
     this.transactionRequestChannel = channel;
     let result = API_ABORTED;
     try {
+      // No history for this card yet: read it even before the coin's expiry.
       [result] = await refreshWalletChannels(
         this.props.activeCoin.id, [this.props.activeSubWallet], [API_GET_TRANSACTIONS],
+        {force: true},
       );
     } catch (error) {
       console.warn("Error updating transactions for the selected Card");
@@ -690,6 +692,13 @@ class Overview extends Component {
       [API_GET_BALANCES, API_GET_TRANSACTIONS],
       {force: showRefreshIndicator},
     );
+    // F3: a card read that navigation or a pull started is a data update, so
+    // a stopped poll starts again. A visit within the expiry reads nothing.
+    Promise.resolve(activeCardRefresh).then(results => {
+      if (this._isMounted && Array.isArray(results) && results.includes(API_SUCCESS)) {
+        this.heightPoll?.noteDataChange();
+      }
+    }).catch(() => {});
     if (this.state.loading) {
       if (showRefreshIndicator && !this.state.refreshing) {
         this.setState({refreshing: true});
