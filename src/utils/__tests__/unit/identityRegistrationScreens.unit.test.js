@@ -1192,6 +1192,38 @@ it.each([
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
 });
 
+// PR 266 review R7 option A: every saved row has a ⋯ menu with View progress
+// and Delete registration. Delete reads the full saved review first.
+it('deletes a saved registration from its row menu only after confirmation', async () => {
+  jest.useFakeTimers();
+  const navigation = makeNavigation();
+  const jobs = {saved: {id: 'saved', displayName: 'saved@', status: 'commitment_confirmed', deletionKind: 'commitment', createdAt: 1}};
+  setSavedReview({...review, jobId: 'saved', displayName: 'saved@', status: 'commitment_confirmed', deletionKind: 'commitment', commitmentFee: '10000'});
+  const view = await renderRows(jobs, navigation, 'In progress');
+  const openMenu = async () => {
+    await press(rowButton(view, 'More options for saved@'));
+    expect(textContent(view.root)).toContain('View progress');
+  };
+  await openMenu();
+  await press(rowButton(view, 'View progress'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(navigation.navigate).toHaveBeenLastCalledWith('IdentityRegistration', {
+    screen: 'IdentityRegistrationProgress', params: {jobId: 'saved'},
+  });
+  await openMenu();
+  await press(rowButton(view, 'Delete registration'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockApi.getRegistrationReview).toHaveBeenCalledWith('saved', expect.any(Object));
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  expect(sheet.props.visible).toBe(true);
+  expect(sheet.props.title).toBe('Delete saved@?');
+  expect(textContent(sheet)).toContain('Already paid0.0001 VRSC');
+  expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
+  await press(view.root.findAllByType(AppButton).find(node => node.props.children === 'Delete'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockApi.deleteRegistration).toHaveBeenCalledWith('saved', 'commitment', expect.any(Object));
+});
+
 it('returns from progress to saved registrations without creating or resubmitting a transaction', async () => {
   const goBack = jest.fn();
   const navigation = makeNavigation({getParent: () => ({goBack, reset: jest.fn()})});
@@ -1204,7 +1236,7 @@ it('returns from progress to saved registrations without creating or resubmittin
 });
 
 it.each([
-  ['draft', 'commitment_prepared', 'No payment has been sent.'],
+  ['draft', 'commitment_prepared', 'No payment was made.'],
 ])('deletes a %s from the home list only after confirmation', async (deletionKind, status, warning) => {
   jest.useFakeTimers();
   const goBack = jest.fn();
@@ -1247,25 +1279,41 @@ it('warns that the original paid commitment fee is lost forever before deleting 
   const view = await mount(IdentityRegistrationProgress, {navigation});
   await openDelete(view);
   expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
-  const message = view.root.findByType(AcknowledgeSheet).props.message;
-  expect(message).toContain('0.0002 VRSC commitment fee is lost');
-  expect(message).toContain('cannot finish this registration');
-  expect(message).not.toContain('0.0001');
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  expect(sheet.props.message).toContain('This payment does not come back.');
+  expect(sheet.props.message).toContain('cannot finish this registration');
+  expect(textContent(sheet)).toContain('Already paid0.0002 VRSC');
+  expect(textContent(sheet)).not.toContain('0.0001');
   await confirmDelete(view);
   expect(mockApi.deleteRegistration).toHaveBeenCalledWith('job', 'commitment', expect.any(Object));
   expect(goBack).toHaveBeenCalledTimes(1);
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 
-// Delete now lives only in the About sheet of the progress screen; saved
-// rows in the VerusID tab have no delete action.
-it.each(['registration_broadcast', 'registration_signed'])('never offers deletion for an unsettled signed registration (%s)', async status => {
+// PR 266 review R7 option 2: a signed second payment can be deleted. The
+// sheet says that Delete does not stop it, with the amount and expiry block.
+it.each(['registration_broadcast', 'registration_signed'])('warns before deleting an unsettled signed registration (%s)', async status => {
   jest.useFakeTimers();
-  setSavedReview({...review, status, deletionKind: null});
-  const progress = await mount(IdentityRegistrationProgress);
-  await press(progress.root.findAll(node => node.props.accessibilityLabel === 'About this registration' && node.props.onPress)[0]);
-  expect(progress.root.findAllByType(TextAction).filter(node => node.props.children === 'Delete registration')).toHaveLength(0);
-  expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
+  const goBack = jest.fn();
+  const navigation = makeNavigation({getParent: () => ({goBack, reset: jest.fn()})});
+  setSavedReview({...review, status, stage: 'registration', deletionKind: 'registration', commitmentFee: '10000',
+    registrationCanStillConfirm: true, registrationExpiryHeight: 1284536, chainTicker: 'VRSC',
+    quote: {...review.quote, totalRequired: {[review.systemId]: '10000000000'}}});
+  const view = await mount(IdentityRegistrationProgress, {navigation});
+  await openDelete(view);
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  const text = textContent(sheet);
+  expect(text).toContain('Delete does not stop the second payment');
+  expect(text).toContain('until block 1,284,536.');
+  expect(text).toContain('Already paid0.0001 VRSC');
+  expect(text).toContain('Can still be paid100 VRSC');
+  expect(sheet.props.message).toBe('If it confirms, the VerusID is created and 100 VRSC is spent. Add it with Link VerusID.');
+  expect(sheet.props.confirmLabel).toBe('Delete anyway');
+  expect(sheet.props.destructive).toBe(true);
+  await press(view.root.findAllByType(AppButton).find(node => node.props.children === 'Delete anyway'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockApi.deleteRegistration).toHaveBeenCalledWith('job', 'registration', expect.any(Object));
+  expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 
 it('passes the deletion kind the user confirmed and keeps a changed registration when deletion is rejected', async () => {

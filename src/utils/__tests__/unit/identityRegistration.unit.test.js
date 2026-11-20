@@ -1373,17 +1373,26 @@ test('a paid commitment requires the matching loss-warning classification before
   expect(mockJobs).toEqual({});
 });
 
-test('an unsigned registration after a paid commitment remains deletable but a signed reveal does not', async () => {
+// PR 266 review R7 option 2: a signed reveal is deletable after a warning.
+// A stale confirmation (the kind the user saw) is still refused.
+test('an unsigned registration after a paid commitment is a commitment deletion, and a signed reveal a registration deletion', async () => {
   const context = createRegistrationContext();
   let review = await build();
   await approveCommitment(review.jobId, review.approvalToken, context);
   confirm(mockCommitTxid);
   review = await prepareRegistration({jobId: review.jobId}, context);
   expect(review.deletionKind).toBe('commitment');
+  expect(review.registrationCanStillConfirm).toBe(false);
   review = await approveRegistration(review.jobId, review.approvalToken, context);
-  expect(review.deletionKind).toBeNull();
+  expect(review.deletionKind).toBe('registration');
+  expect(review.registrationCanStillConfirm).toBe(true);
+  expect(review.registrationExpiryHeight).toBe(mockJobs[review.jobId].registration.prepared.snapshot.expiryHeight);
+  expect(review.registrationExpiryHeight).toBeGreaterThan(0);
   await expect(deleteRegistration(review.jobId, 'commitment', context)).rejects.toMatchObject({code: 'REGISTRATION_CHANGED'});
   expect(mockRemoveJob).not.toHaveBeenCalled();
+  await deleteRegistration(review.jobId, 'registration', context);
+  expect(mockRemoveJob).toHaveBeenCalledTimes(1);
+  expect(mockJobs).toEqual({});
 });
 
 test('manual deletion of a confirmed unlinked receipt verifies confirmation without changing identities', async () => {

@@ -12,7 +12,6 @@ import {
 import {updateRegistrationUiState} from '../../../../../actions/actions/services/dispatchers/verusid/registration';
 import {COMMITMENT_SLOW_AFTER_MS, registrationCommitmentWaitMessage} from '../../../../../utils/identityRegistration/progress';
 import {formatRegistrationAmount} from '../../../../../utils/identityRegistration/costs';
-import AcknowledgeSheet from '../../../../../components/AcknowledgeSheet';
 import TextAction from '../../../../../components/TextAction';
 import TransactionResult from '../../../../../components/TransactionResult';
 import LinkVerusIdSheet from '../LinkVerusIdSheet';
@@ -27,6 +26,7 @@ import {registrationState} from './presentation';
 import useRegistrationAction from './useRegistrationAction';
 import useRegistrationPrices from './useRegistrationPrices';
 import NewRegistrationFlow from './NewRegistrationFlow';
+import RegistrationDeleteSheet from './RegistrationDeleteSheet';
 import {useRegistrationExit} from './registrationNavigation';
 
 export const IdentityRegistrationCreate = NewRegistrationFlow;
@@ -36,13 +36,6 @@ const payerFor = review => ({address: review?.fundingAddress, signingAddress: re
 const payerLabel = review => review?.fundingAddress === review?.signingAddress
   ? `Transparent ${shortRegistrationAddress(review?.fundingAddress)}` : identityLabel(review?.fundingAddress, review?.identityNames);
 
-const RegistrationDeleteSheet = ({review, visible, onClose, onDelete}) => {
-  let message = 'No payment has been sent.';
-  if (review?.deletionKind === 'commitment') message = `The ${formatRegistrationAmount(review.commitmentFee || review.quote.commitmentFee)} ${currencyLabel(review.systemId, review.currencyNames)} commitment fee is lost, and you cannot finish this registration. You cannot undo this.`;
-  else if (review?.deletionKind === 'completed') message = 'This removes the saved registration. Your VerusID stays on the blockchain.';
-  return <AcknowledgeSheet visible={visible} title={`Delete ${review?.displayName || 'registration'}?`} message={message}
-    destructive confirmLabel="Delete" dismissLabel="Keep registration" onClose={onClose} onAcknowledged={onDelete} />;
-};
 
 // A saved unpaid job opens Check details directly. Its stored intent stays
 // fixed; starting a different name keeps this job until explicitly deleted.
