@@ -108,6 +108,9 @@ export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate})
         ? '2-10 minutes'
         : '1-5 minutes',
     toNetwork: isExport ? name(exportto) : null,
+    // A transfer without a conversion can still name the converter it is
+    // imported through; with a conversion "Convert to" names it.
+    via: !isConversion && via != null && via.length > 0 ? name(via) : null,
     // Only an Ethereum card sends "Receive as" (the bridge's mapping).
     receiveAs: mapto != null && mapto.length > 0 ? name(mapto) : null,
     alsoSent: amounts(sent).filter(item => item.id !== currency),

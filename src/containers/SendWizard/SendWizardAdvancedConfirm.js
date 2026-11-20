@@ -204,6 +204,7 @@ const SendWizardAdvancedConfirm = () => {
       : null,
     facts.toNetwork && review.networkName ? {label: 'From network', value: review.networkName} : null,
     facts.toNetwork ? {label: 'To network', value: facts.toNetwork, copy: true} : null,
+    facts.via ? {label: 'Via', value: facts.via, copy: true} : null,
     facts.receiveAs ? {label: 'Receive as', value: facts.receiveAs, copy: true} : null,
     ...facts.alsoSent.map(item => ({
       label: 'Also sent',
