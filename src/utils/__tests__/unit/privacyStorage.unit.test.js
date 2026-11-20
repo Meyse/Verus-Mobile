@@ -67,76 +67,6 @@ describe('found-asset cache (R18)', () => {
   });
 });
 
-describe('portfolio price cache (R19)', () => {
-  const waitForWrite = () => new Promise(resolve => setTimeout(resolve, 1200));
-
-  it('writes the coin list once per chart load, encrypted, and reads it back after a restart', async () => {
-    const {AsyncStorage} = await loadModules();
-    const setItem = jest.spyOn(AsyncStorage, 'setItem');
-    const prices = require('../../portfolioHistory/priceCache');
-    const request = key => prices.cachedHistory({
-      key,
-      start: 1000,
-      end: 5000,
-      stamp: 1,
-      canFetch: () => true,
-      fetchSamples: async () => [[1000, 1], [5000, 2]],
-    });
-
-    // One chart load: several coins and a route note finish close together.
-    await Promise.all([
-      request('paprika:btc-bitcoin:daily'),
-      request('paprika:eth-ethereum:daily'),
-      request('ecb:EUR'),
-      prices.saveNote('route:VRSCTEST:iSystem:', {fixed: true}),
-    ]);
-    await waitForWrite();
-
-    const {PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY} = require('../../keychain/secureStore');
-    const writes = setItem.mock.calls.filter(([key]) => key === PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY);
-    expect(writes).toHaveLength(1);
-    const dump = await plainDump(AsyncStorage);
-    expect(dump).not.toContain('btc-bitcoin');
-    expect(dump).not.toContain('route:VRSCTEST');
-    expect(await AsyncStorage.getItem('portfolioMarketHistory:v1')).toBeNull();
-    setItem.mockRestore();
-
-    await loadModules();
-    const restarted = require('../../portfolioHistory/priceCache');
-    await restarted.loadPriceCache();
-    expect(restarted.savedSamples(['paprika:btc-bitcoin:daily'])).toEqual([[1000, 1], [5000, 2]]);
-    expect(restarted.savedNote('route:VRSCTEST:iSystem:')).toEqual({fixed: true});
-  });
-
-  it('waits for a slow route lookup of the same chart load before it writes', async () => {
-    const {AsyncStorage} = await loadModules();
-    const setItem = jest.spyOn(AsyncStorage, 'setItem');
-    const prices = require('../../portfolioHistory/priceCache');
-    const request = key => prices.cachedHistory({
-      key,
-      start: 1000,
-      end: 5000,
-      stamp: 1,
-      canFetch: () => true,
-      fetchSamples: async () => [[1000, 1], [5000, 2]],
-    });
-    const fastCoin = prices.trackPriceLoad(() => request('paprika:btc-bitcoin:daily'));
-    // An on-chain coin first looks up its price route, outside any request.
-    const slowCoin = prices.trackPriceLoad(async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      return request('chain:endpoint:iCoin:iBasket:basket::daily');
-    });
-
-    await Promise.all([fastCoin(), slowCoin()]);
-    await waitForWrite();
-
-    const {PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY} = require('../../keychain/secureStore');
-    expect(setItem.mock.calls.filter(([key]) => key === PORTFOLIO_PRICE_CACHE_STORAGE_INTERNAL_KEY))
-      .toHaveLength(1);
-    setItem.mockRestore();
-  });
-});
-
 describe('paid invoice markers (R21)', () => {
   it('keep the txid in the account service data, not in plain storage', async () => {
     const {AsyncStorage} = await loadModules();
@@ -433,12 +363,16 @@ describe('per-account wallet display choices (R22)', () => {
 describe('cleanup of old plain keys', () => {
   it('deletes old identifying keys and keeps the plain display switches', async () => {
     const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const {USER_DATA_STORAGE_INTERNAL_KEY} = require('../../../../env/index');
     await AsyncStorage.multiSet([
       [`assetDiscoveryCache:v1:${ACCOUNT}:testnet`, JSON.stringify({snapshots: {[ADDRESS]: {}}})],
       ['portfolioMarketHistory:v1', JSON.stringify({'paprika:btc-bitcoin:daily': {}})],
       ['paid_invoice_markers', JSON.stringify({marker: {txid: TXID}})],
       ['balancePrivacy:hidden:v1', 'true'],
       ['homeValueChart:open:v1', 'open'],
+      // The removed Home chart's encrypted records (F1).
+      [`${USER_DATA_STORAGE_INTERNAL_KEY}:portfolioRecord:v1`, 'encrypted'],
+      [`${USER_DATA_STORAGE_INTERNAL_KEY}:portfolioPriceCache:v1`, 'encrypted'],
     ]);
     const {removeLegacyPlainKeys} = require('../../asyncStore/legacyPlainKeys');
 
