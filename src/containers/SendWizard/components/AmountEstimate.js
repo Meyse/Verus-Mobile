@@ -26,6 +26,7 @@ const AmountEstimate = ({
   priceImpact,
   showDetails,
   target,
+  via = null,
 }) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
@@ -100,6 +101,22 @@ const AmountEstimate = ({
           ) : null}
         </>
       )}
+      {/* The basket the conversion goes through, on the step where the user
+          can change it (PR 266 feedback F8). It stays while the estimate loads. */}
+      {via ? (
+        <View
+          accessible
+          accessibilityLabel={`Via ${via}`}
+          style={[styles.viaRow, {borderTopColor: colors.border}]}>
+          <Text style={[theme.typography.caption, {color: colors.textSecondary}]}>Via</Text>
+          <Text
+            ellipsizeMode="middle"
+            numberOfLines={1}
+            style={[theme.typography.labelSm, styles.viaName, {color: colors.textPrimary}]}>
+            {via}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -112,6 +129,16 @@ const styles = StyleSheet.create({
   amountColumn: {flexShrink: 0, alignItems: 'flex-end', gap: 2},
   receiveAmount: {fontSize: 17, lineHeight: 22, ...fontStyle('bold'), textAlign: 'right'},
   skeletonName: {flex: 1, marginHorizontal: 10, gap: 4},
+  // The 32-point fact row of "Price and route".
+  viaRow: {
+    minHeight: 32,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  viaName: {flexShrink: 1, textAlign: 'right'},
   skeletonImpact: {
     minHeight: 44,
     borderTopWidth: StyleSheet.hairlineWidth,

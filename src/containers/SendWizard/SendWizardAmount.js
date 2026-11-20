@@ -52,6 +52,7 @@ import {
   ADDRESS_TYPE,
   getCurrencyDisplay,
   getRecipientAddressType,
+  getRouteName,
   isConversionChannel,
   pickEstimateRoutes,
   SEND_WIZARD_MODE,
@@ -636,6 +637,7 @@ const SendWizardAmount = () => {
             priceImpact={priceImpact}
             showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}
+            via={target.isConversion && route.via ? getRouteName(route) : null}
           />
         </View>
       ) : null}

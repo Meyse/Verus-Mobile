@@ -825,7 +825,10 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
 
 - **Amount, conversions and Ethereum exports.** Follow the option B pinned
   receive block and "Price and route" sheet rules above. They replace the earlier
-  A2 receive line. Market price, suggestion and Via stay in Price and route. The
+  A2 receive line. Market price and suggestion stay in Price and route. A route
+  through a basket also shows "Via <basket>" as a 32-point fact line (caption
+  label, `labelSm` value) at the end of the receive block, also while the
+  estimate loads (lead developer, PR 266 feedback F8, 2026-11-20). The
   system still picks the basket with the most output. Name a basket by what it holds
   (for example "VRSC-KMD-GOLD").
 - **Estimated slippage** is how far this conversion's price is below the market
