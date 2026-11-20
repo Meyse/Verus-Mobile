@@ -28,6 +28,8 @@ export const registrationDeleteState = review => {
 
 const amountsText = (amounts, currencyNames) => Object.entries(amounts || {})
   .map(([id, amount]) => `${formatRegistrationAmount(amount)} ${currencyLabel(id, currencyNames)}`);
+// Keeps the "?" on the line of a long name (Android QA, 2026-11-20).
+const WORD_JOINER = '\u2060';
 const blockText = height => String(height).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 const Row = ({label, values, danger, last, theme}) => (
@@ -75,7 +77,7 @@ export const RegistrationDeleteSheet = ({review, visible, onClose, onDelete}) =>
       </View>
     </>;
   }
-  return <AcknowledgeSheet visible={visible} title={`Delete ${review?.displayName || 'registration'}?`} message={message}
+  return <AcknowledgeSheet visible={visible} title={`Delete ${review?.displayName || 'registration'}${WORD_JOINER}?`} message={message}
     destructive={state !== 'linkable'} confirmLabel={state === 'signed' ? 'Delete anyway' : 'Delete'} dismissLabel="Keep registration"
     onClose={onClose} onAcknowledged={onDelete}>{children}</AcknowledgeSheet>;
 };
