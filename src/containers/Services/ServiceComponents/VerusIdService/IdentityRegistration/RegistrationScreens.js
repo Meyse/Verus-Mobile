@@ -185,15 +185,15 @@ export function IdentityRegistrationProgress({navigation, route}) {
     try { return await approveRegistration(jobId, token, requestContext); }
     catch (failure) { return handleChangedFunds(failure, requestContext); }
   };
-  // A funds check counts for the poll's gate at the height read with it.
+  // A funds check counts for the poll's gate at the height read before it.
+  // The height read runs beside the check and never delays it or a payment.
   const startFundsCheck = saved => {
     const systemId = saved?.systemId;
     const epoch = ownBroadcastEpoch(systemId);
     const heightRead = readChainHeight(systemId);
-    return async (funds, status = saved.status) => {
+    return (funds, status = saved.status) => {
       if (!['short', 'enough'].includes(funds?.status)) return;
-      const {height} = await heightRead;
-      fundsGate.current.note(`${jobId}:${status}`, systemId, height, epoch);
+      heightRead.then(({height}) => fundsGate.current.note(`${jobId}:${status}`, systemId, height, epoch));
     };
   };
   const prepareSecond = async requestContext => {
@@ -204,7 +204,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       const funds = await checkFunds(estimate, requestContext);
       setFunding(funds);
       if (funds.status !== 'enough') {
-        await noteFundsCheck(funds);
+        noteFundsCheck(funds);
         await updateRegistrationUiState(jobId, {registrationProblem: 'insufficient_funds'}, requestContext);
         return {...estimate, registrationProblem: 'insufficient_funds'};
       }
@@ -212,7 +212,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
         ? await refreshRegistrationReview(jobId, requestContext) : await prepareRegistration({jobId}, requestContext);
       const exactFunds = await checkFunds(prepared, requestContext);
       setFunding(exactFunds);
-      await noteFundsCheck(exactFunds, prepared.status);
+      noteFundsCheck(exactFunds, prepared.status);
       const registrationProblem = exactFunds.status === 'short' ? 'insufficient_funds' : null;
       await updateRegistrationUiState(jobId, {registrationProblem}, requestContext);
       return {...prepared, registrationProblem};
@@ -300,6 +300,17 @@ export function IdentityRegistrationProgress({navigation, route}) {
   useEffect(() => {
     if (!focused.current || locked || busy || loadError || error || preparedOnce.current || !['commitment_confirmed', 'registration_prepared'].includes(status)) return;
     preparedOnce.current = true;
+    // Back on this screen with short funds that it already checked: the
+    // poll's gate re-checks them only after a new block or an own
+    // transaction (PR 266 review F14). Enough funds always prepare again.
+    if (review?.registrationProblem === 'insufficient_funds' &&
+        !fundsGate.current.isDue(`${jobId}:${status}`, review.systemId, null)) {
+      // The focus's own status read is still running; check after it.
+      Promise.resolve(background.current?.promise).then(() => {
+        if (focused.current) recheckFunds.current();
+      });
+      return;
+    }
     runForeground(prepareSecond);
   }, [review, status, locked, busy, loadError, error]);
   const [waitTime, setWaitTime] = useState(Date.now);

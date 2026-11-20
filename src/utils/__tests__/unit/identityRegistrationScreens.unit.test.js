@@ -21,6 +21,7 @@ const mockGetRegistrationReferralInfo = jest.fn();
 const mockRegistrationReferralNamespace = jest.fn();
 const mockLoadRegistrationNamespaces = jest.fn();
 let mockChainHeight = 100;
+const mockFocusListeners = new Set();
 const mockGetInfo = jest.fn(async () => ({result: {longestchain: mockChainHeight}}));
 jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: (...args) => mockGetInfo(...args)}));
 jest.mock('../../identityRegistration', () => mockApi);
@@ -54,7 +55,17 @@ jest.mock('../../identityRegistration/funding', () => ({
 }));
 jest.mock('react-redux', () => require('../../../tests/helpers/mockReactRedux')({useSelector: selector => selector(mockState)}));
 jest.mock('@react-navigation/native', () => ({
-  useFocusEffect: callback => require('react').useEffect(callback, [callback]),
+  // Runs on mount and again on each `refocus()`, like a focused screen.
+  useFocusEffect: callback => {
+    const ReactModule = require('react');
+    const [focusCount, setFocusCount] = ReactModule.useState(0);
+    ReactModule.useEffect(() => {
+      const listener = () => setFocusCount(count => count + 1);
+      mockFocusListeners.add(listener);
+      return () => mockFocusListeners.delete(listener);
+    }, []);
+    ReactModule.useEffect(callback, [callback, focusCount]);
+  },
   useNavigation: () => ({isFocused: () => true, addListener: () => jest.fn(), getParent: () => undefined}),
 }));
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
@@ -571,6 +582,35 @@ it('re-checks short funds only after the block height rose', async () => {
   expect(mockGetInfo).toHaveBeenCalledTimes(15);
   expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(2);
   expect(mockCheckRegistrationFunds).toHaveBeenCalledTimes(2);
+});
+
+// Codex review: a return to the progress screen re-ran the funds check in
+// the same block.
+it('does not re-check short funds on a return in the same block', async () => {
+  jest.useFakeTimers();
+  setSavedReview({...review, status: 'commitment_confirmed'});
+  mockApi.reconcileRegistration.mockResolvedValue({...review, status: 'commitment_confirmed'});
+  mockCheckRegistrationFunds.mockResolvedValue({status: 'short', currencyId: 'chain', balance: '0.5', missing: '50010000'});
+  // Each storage read returns a new object, as the real one does.
+  mockUpdateRegistrationUiState.mockImplementation(async (jobId, patch) => {
+    const saved = {...review, status: 'commitment_confirmed', ...patch};
+    mockApi.getRegistrationReview.mockImplementation(async () => ({...saved}));
+    mockApi.reconcileRegistration.mockImplementation(async () => ({...saved}));
+  });
+  const view = await mount(IdentityRegistrationProgress);
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(1);
+
+  const refocus = async () => act(async () => mockFocusListeners.forEach(listener => listener()));
+  await refocus();
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(1);
+  expect(textContent(view.root)).toContain('Add 0.5001 VRSC to it to continue.');
+
+  mockChainHeight = 101;
+  await refocus();
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(2);
 });
 
 it('aborts a passive check before a foreground action and ignores its stale result', async () => {
