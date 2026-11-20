@@ -47,7 +47,6 @@ jest.mock('../../../../env/index', () => ({
   VRPC_API_KEYS: {},
 }));
 
-const AsyncStorage = require('@react-native-async-storage/async-storage');
 const {
   GetCurrencyRequest,
   GetInfoRequest,
@@ -58,10 +57,21 @@ const SYSTEM = 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
 const SERVER = 'https://lists.example.com';
 const MINUTE = 60 * 1000;
 
+// A fresh module registry with the stored data carried over, then the cache
+// load that the app runs at start (initCache).
+const restart = async () => {
+  const saved = await AsyncStorage().multiGet(await AsyncStorage().getAllKeys());
+  jest.resetModules();
+  if (saved.length > 0) await AsyncStorage().multiSet(saved);
+  await require('../../asyncStore/cache/savedVrpcResponses').initSavedVrpcResponses();
+  return require('../../vrpc/vrpcInterface').default;
+};
+const AsyncStorage = () => require('@react-native-async-storage/async-storage');
+
 describe('saved listcurrencies (F11)', () => {
   let vrpc;
 
-  // A new client has no memory of earlier requests, as after a restart.
+  // A new client has no memory of earlier requests.
   const newClient = () => {
     vrpc.deleteAllEndpoints();
     vrpc.saveChainEndpoint(SYSTEM, SERVER);
@@ -74,7 +84,8 @@ describe('saved listcurrencies (F11)', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-11-20T08:00:00Z'));
-    await AsyncStorage.clear();
+    jest.resetModules();
+    await AsyncStorage().clear();
     mockRpcRequest.mockReset().mockImplementation(req =>
       Promise.resolve({id: 1, error: null, result: [{at: Date.now(), params: req.prepare().params}]}),
     );
@@ -88,11 +99,12 @@ describe('saved listcurrencies (F11)', () => {
     jest.restoreAllMocks();
   });
 
-  it('serves the saved list for one hour, also to a new client, then asks once', async () => {
+  it('serves the saved list for one hour, also after a restart, then asks once', async () => {
     const first = await newClient().request(list({systemtype: 'local'}));
     expect(listCalls()).toHaveLength(1);
 
     jest.setSystemTime(Date.now() + 59 * MINUTE);
+    vrpc = await restart();
     await expect(newClient().request(list({systemtype: 'local'}))).resolves.toEqual(first);
     expect(listCalls()).toHaveLength(1);
 
@@ -145,7 +157,8 @@ describe('static currency definitions and display heights (F10)', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-11-20T08:00:00Z'));
-    await AsyncStorage.clear();
+    jest.resetModules();
+    await AsyncStorage().clear();
     height = 1000;
     mockRpcRequest.mockReset().mockImplementation(req => Promise.resolve(
       req.cmd === 'getinfo'
@@ -173,6 +186,7 @@ describe('static currency definitions and display heights (F10)', () => {
     expect(calls('getcurrency')).toHaveLength(1);
 
     jest.setSystemTime(Date.now() + 23 * 60 * MINUTE);
+    vrpc = await restart();
     const client = newClient();
     await expect(client.getCurrencyDefinition('iCurrency')).resolves.toEqual(saved);
     expect(calls('getcurrency')).toHaveLength(1);

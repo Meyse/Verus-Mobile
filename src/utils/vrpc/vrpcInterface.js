@@ -8,6 +8,8 @@ import {
 } from "../constants/storeType";
 import { hashAccountId } from '../crypto/hash';
 import {
+  SAVED_VRPC_DEFINITION,
+  SAVED_VRPC_LIST,
   getCachedVrpcResponse,
   getSavedVrpcResponse,
   getSavedVrpcResponseKey,
@@ -129,6 +131,7 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
   async getSavedResponse(req) {
     try {
       const saved = await getSavedVrpcResponse(
+        SAVED_VRPC_LIST,
         getSavedVrpcResponseKey(this.chain, this.endpoint, req),
       );
       return saved != null && shouldUseCachedVrpcResponse({
@@ -168,7 +171,11 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     if (SAVED_VRPC_REQUESTS.includes(req.cmd)) {
       if (response.error == null) {
         try {
-          await saveVrpcResponse(getSavedVrpcResponseKey(this.chain, this.endpoint, req), response);
+          await saveVrpcResponse(
+            SAVED_VRPC_LIST,
+            getSavedVrpcResponseKey(this.chain, this.endpoint, req),
+            response,
+          );
         } catch (error) {
           console.log('Failed to save request:', error.message);
         }
@@ -200,7 +207,7 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     let key = null;
     try {
       key = getSavedVrpcResponseKey(this.chain, 'currency-definition', req);
-      const saved = await getSavedVrpcResponse(key);
+      const saved = await getSavedVrpcResponse(SAVED_VRPC_DEFINITION, key);
       if (saved != null && shouldUseCachedVrpcResponse({
         command: req.cmd,
         lastNetworkResponseAt: saved.savedAt,
@@ -213,7 +220,7 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     const response = withoutCurrencyState(await this.request(req));
     if (key != null && response?.error == null && response?.result?.currencyid) {
       try {
-        await saveVrpcResponse(key, response);
+        await saveVrpcResponse(SAVED_VRPC_DEFINITION, key, response);
       } catch (error) {
         console.log('Failed to save currency definition:', error.message);
       }
