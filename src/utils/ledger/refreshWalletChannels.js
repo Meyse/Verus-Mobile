@@ -2,16 +2,18 @@ import Store from '../../store';
 import {conditionallyUpdateWallets} from '../../actions/actionDispatchers';
 import {API_ABORTED} from '../constants/intervalConstants';
 
-export const VISIBLE_WALLET_REFRESH_INTERVAL = 15000;
-// Shorter than the timer, so a read that a balance change starts between two
-// ticks does not make the next tick skip its read.
-const VISIBLE_WALLET_READ_LIMIT = 10000;
+const DEFAULT_EXPIRE_TIMEOUT = 60000;
 let currentSession;
 const lastReads = new Map();
 
-// Visible surfaces can request fresh data without expiring every card. Share
-// the 10-second limit across history, the address sheet and the VerusID list.
-// A pull by the user (`force`) skips the time limit, never the busy check.
+// Visible surfaces (coin screen, card picker, VerusID list) read only the cards
+// they show, without expiring every card. Like upstream's
+// conditionallyUpdateWallets, they read only expired data (PR 266 audit rows
+// 2, 5, 12): the coin's data must be expired, and this card must not have had
+// its own read since that expiry and within the expiry time (60 s for VRPC
+// balances and history). An explicit expiry, for example after a send, makes
+// the next read happen at once, as upstream. A pull by the user and the block
+// height poll (`force`) skip the expiry, never the busy check.
 export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = false} = {}) => {
   const state = Store.getState();
   const accountHash = state.authentication.activeAccount?.accountHash;
@@ -26,6 +28,10 @@ export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = fa
   const now = Date.now();
   const updates = updateIds.map(updateId => {
     const tracker = state.updates.coinUpdateTracker[chainTicker]?.[updateId];
+    const expireTimeout = state.updates.coinUpdateIntervals?.[chainTicker]?.[updateId]?.expire_timeout;
+    const readLimit = Number.isFinite(expireTimeout) && expireTimeout > 0
+      ? expireTimeout
+      : DEFAULT_EXPIRE_TIMEOUT;
     const {activeCoin, activeSection, coinMenuFocused} = state.coins;
     const visible = (!tracker?.coin_bound || (coinMenuFocused && activeCoin?.id === chainTicker)) &&
       (tracker?.update_locations == null || (coinMenuFocused && tracker.update_locations.includes(activeSection?.key)));
@@ -34,7 +40,10 @@ export const refreshWalletChannels = (chainTicker, cards, updateIds, {force = fa
         if (!visible || !channel || !tracker?.channels?.includes(channel) || tracker.busy?.[channel] ||
             !state[`channelStore_${channel.split('.')[0]}`]?.openCoinChannels[chainTicker]) return false;
         const key = `${chainTicker}:${updateId}:${channel}`;
-        if (!force && lastReads.has(key) && now - lastReads.get(key) < VISIBLE_WALLET_READ_LIMIT) return false;
+        const lastRead = lastReads.get(key);
+        const readSinceExpiry = lastRead != null && lastRead >= (tracker.expired_at || 0) &&
+          now - lastRead < readLimit;
+        if (!force && (!tracker.needs_update || readSinceExpiry)) return false;
         lastReads.set(key, now);
         return true;
       });

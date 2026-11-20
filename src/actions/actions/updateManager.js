@@ -120,7 +120,9 @@ export const expireCoinData = (chainTicker, dataType) => {
   return {
     type: EXPIRE_COIN_DATA,
     chainTicker,
-    dataType
+    dataType,
+    // Screens that read one card compare their last read with this time.
+    expiredAt: Date.now(),
   }
 }
 

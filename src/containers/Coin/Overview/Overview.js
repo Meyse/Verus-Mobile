@@ -652,8 +652,10 @@ class Overview extends Component {
     this.transactionRequestChannel = channel;
     let result = API_ABORTED;
     try {
+      // No history for this card yet: read it even before the coin's expiry.
       [result] = await refreshWalletChannels(
         this.props.activeCoin.id, [this.props.activeSubWallet], [API_GET_TRANSACTIONS],
+        {force: true},
       );
     } catch (error) {
       console.warn("Error updating transactions for the selected Card");

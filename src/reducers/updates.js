@@ -108,7 +108,8 @@ export const updates = (state = {
             ...state.coinUpdateTracker[action.chainTicker], 
             [action.dataType]: {
               ...state.coinUpdateTracker[action.chainTicker][action.dataType],
-              needs_update: true
+              needs_update: true,
+              expired_at: action.expiredAt,
             }}}
       }
     case RENEW_COIN_DATA: 
