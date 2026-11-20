@@ -2,7 +2,9 @@ import React, {useCallback} from 'react';
 import {connect} from 'react-redux';
 import {ELECTRUM} from '../../../utils/constants/intervalConstants';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
+import ClearBlockchainDataSettingRow from '../components/ClearBlockchainDataSettingRow';
 import ClearCacheSettingRow from '../components/ClearCacheSettingRow';
+import {getResyncablePrivateCoins} from '../../../actions/actions/cache/Cache';
 import {
   SettingsRow,
   SettingsScreen,
@@ -13,7 +15,7 @@ const COIN_SETTINGS = 'CoinSettings';
 const VRPC_OVERRIDES = 'VrpcOverrides';
 const ASSET_LEADING_STYLE = {marginRight: 18};
 
-const NetworkAndStorageSettings = ({activeCoinsForUser, navigation}) => {
+const NetworkAndStorageSettings = ({activeCoinsForUser, hasPrivateWallet, navigation}) => {
   const openSettings = useCallback(
     (screen, data, title) => {
       navigation.navigate(screen, {
@@ -39,7 +41,8 @@ const NetworkAndStorageSettings = ({activeCoinsForUser, navigation}) => {
         />
       </SettingsSection>
       <SettingsSection title="Storage">
-        <ClearCacheSettingRow last navigation={navigation} />
+        <ClearCacheSettingRow last={!hasPrivateWallet} navigation={navigation} />
+        <ClearBlockchainDataSettingRow last navigation={navigation} />
       </SettingsSection>
       {electrumCoins.length > 0 ? (
         <SettingsSection title="Coin settings">
@@ -64,6 +67,7 @@ const NetworkAndStorageSettings = ({activeCoinsForUser, navigation}) => {
 
 const mapStateToProps = state => ({
   activeCoinsForUser: state.coins.activeCoinsForUser,
+  hasPrivateWallet: getResyncablePrivateCoins(state).length > 0,
 });
 
 export default connect(mapStateToProps)(NetworkAndStorageSettings);

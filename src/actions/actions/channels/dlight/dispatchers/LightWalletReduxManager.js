@@ -60,6 +60,10 @@ const {
 const walletOperationKey = (accountHash, coinId) =>
   `${accountHash}:${coinId}`;
 
+// Wallets whose database "Clear blockchain data" deleted (F12). Their next
+// start creates the database again from the birthday.
+const erasedWalletDatabases = new Set();
+
 const beginWalletOperation = (accountHash, coinId, kind) => {
   const key = walletOperationKey(accountHash, coinId);
   const previous = walletOperationGenerations.get(key);
@@ -367,7 +371,13 @@ export const initDlightWallet = async (coinObj, requestContext = null) => {
 
     const extsk = isDlightSpendingKey(seed) ? seed : '';
     const mnemonicSeed = extsk ? '' : seed;
-    const startWallet = dlightSockets[id] === false ? openWallet : initializeWallet;
+    // After "Clear blockchain data" the wallet database is gone, so the start
+    // creates it again from the birthday, as at sign-in (F12). A retry after a
+    // failed start does the same.
+    const startWallet =
+      dlightSockets[id] === false && !erasedWalletDatabases.has(walletKey)
+        ? openWallet
+        : initializeWallet;
 
     // Track the real native promise, never the timed wait. A late start still
     // owns this alias until cleanup (or an explicit teardown) has finished.
@@ -392,6 +402,7 @@ export const initDlightWallet = async (coinObj, requestContext = null) => {
       DLIGHT_START_TIMEOUT_MS,
       makeTimeoutError,
     );
+    erasedWalletDatabases.delete(walletKey);
     if (!initializationMayContinue()) {
       await closeCapturedWalletIfSafe();
       return;
@@ -487,6 +498,29 @@ export const retryDlightWalletInitialization = async (coinObj, sessionScope) => 
       pendingWalletRecoveries.delete(walletKey);
     }
   }
+};
+
+// F12 (PR 266): "Clear blockchain data". Deletes the synced data of an open
+// private wallet and starts it again from its birthday, so it resyncs. Keys
+// and funds are not touched: the wallet rebuilds from the profile's seed.
+export const resyncDlightWallet = async (coinObj, sessionScope) => {
+  const state = Store.getState();
+  if (!sessionScopeIsCurrent(state, sessionScope)) return;
+  const result = await closeDlightWallet(coinObj, true, {
+    sessionScope,
+    ownerAccountHash: sessionScope.accountHash,
+    dlightSockets: {...state.channelStore_dlight_private.dlightSockets},
+    allowRetryPrompt: false,
+  });
+  if (result?.status === 'erased') {
+    erasedWalletDatabases.add(walletOperationKey(sessionScope.accountHash, coinObj.id));
+  }
+  if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+  // The start runs on after the caller returns: the loading screen must not
+  // wait for it. A failed start shows as an init error, and the info interval
+  // tries it again (retryDlightWalletInitialization).
+  initDlightWallet(coinObj, {sessionScope})
+    .catch(cause => console.warn(makeDlightInitError(coinObj.id, cause)));
 };
 
 // Closes and optionally deletes a dlightWallet

@@ -8,14 +8,16 @@ import {
 import {SettingsRow} from './SettingsScaffold';
 import {resetToSecureLoading} from './settingsTaskNavigation';
 
+// F12 (PR 266): the cache only. It never deletes the private wallet's synced
+// data and starts no resync; ClearBlockchainDataSettingRow does that.
 const ClearCacheSettingRow = ({last = false, navigation}) => {
   const dispatch = useDispatch();
 
   const canClearCache = useCallback(
     () =>
       createAlert(
-        'Clear the data cache?',
-        'The wallet resyncs and can be slow for a while. Wallets and recovery secrets are not deleted.',
+        'Clear the cache?',
+        'Saved server responses and currency lists are deleted. The wallet loads them again when it needs them.',
         [
           {
             text: 'Not now',
@@ -35,8 +37,8 @@ const ClearCacheSettingRow = ({last = false, navigation}) => {
           task: () => clearCacheData(dispatch),
           message: 'Clearing cache',
           route: 'Home',
-          successMsg: 'Cache cleared successfully',
-          errorMsg: 'Cache failed to clear',
+          successMsg: 'Cache cleared',
+          errorMsg: 'The cache was not cleared.',
         });
       }
     });
@@ -44,7 +46,7 @@ const ClearCacheSettingRow = ({last = false, navigation}) => {
 
   return (
     <SettingsRow
-      description="Wallet data will resync"
+      description="Saved server data, no resync"
       icon="database-refresh"
       last={last}
       onPress={clearCache}
