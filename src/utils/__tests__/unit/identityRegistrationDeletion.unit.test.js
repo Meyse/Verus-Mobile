@@ -1,4 +1,9 @@
-import {registrationCommitmentFee, registrationDeletionKind} from '../../identityRegistration/deletion';
+import {
+  registrationCanStillConfirm,
+  registrationCommitmentFee,
+  registrationDeletionKind,
+  registrationExpiryHeight,
+} from '../../identityRegistration/deletion';
 
 const commitment = {signedHex: 'signed-commitment', txid: 'commitment-txid'};
 const registration = {signedHex: 'signed-registration', txid: 'registration-txid'};
@@ -11,16 +16,31 @@ describe('registration deletion classification', () => {
     expect(registrationDeletionKind({status: 'commitment_prepared', commitment: {prepared: {}}, previousCommitments: [commitment]})).toBe('commitment');
   });
 
-  it.each(['registration_signed', 'registration_broadcast', 'registration_broadcast_unknown', 'registration_expired'])
-  ('retains a signed registration in state %s', status => {
-    expect(registrationDeletionKind({status, commitment, registration})).toBeNull();
+  // PR 266 review R7 option 2: a signed second payment can be deleted, with a
+  // warning while it can still confirm.
+  it.each([
+    ['registration_signed', true],
+    ['registration_broadcast', true],
+    ['registration_broadcast_unknown', true],
+    ['registration_expired', false],
+  ])('classifies a signed registration in state %s as deletable', (status, canConfirm) => {
+    const job = {status, commitment, registration: {...registration, prepared: {snapshot: {expiryHeight: 1284536}}}};
+    expect(registrationDeletionKind(job)).toBe('registration');
+    expect(registrationCanStillConfirm(job)).toBe(canConfirm);
+    expect(registrationExpiryHeight(job)).toBe(canConfirm ? 1284536 : undefined);
   });
 
-  it('retains any historical signed reveal and treats an unexplained transaction ID conservatively', () => {
-    expect(registrationDeletionKind({status: 'registration_prepared', commitment,
-      registration: {prepared: {}}, previousRegistrations: [registration]})).toBeNull();
-    expect(registrationDeletionKind({status: 'registration_prepared', commitment, registration: {txid: 'possibly-sent'}})).toBeNull();
-    expect(registrationDeletionKind({status: 'registration_broadcast_unknown', commitment})).toBeNull();
+  it('classifies archived and unexplained reveals as signed registrations', () => {
+    const archived = {status: 'registration_prepared', commitment,
+      registration: {prepared: {}}, previousRegistrations: [registration]};
+    expect(registrationDeletionKind(archived)).toBe('registration');
+    // Archived reveals expired before the engine replaced them.
+    expect(registrationCanStillConfirm(archived)).toBe(false);
+    const unexplained = {status: 'registration_prepared', commitment, registration: {txid: 'possibly-sent'}};
+    expect(registrationDeletionKind(unexplained)).toBe('registration');
+    expect(registrationCanStillConfirm(unexplained)).toBe(true);
+    expect(registrationExpiryHeight(unexplained)).toBeUndefined();
+    expect(registrationDeletionKind({status: 'registration_broadcast_unknown', commitment})).toBe('registration');
   });
 
   it.each(['registered', 'complete'])('allows confirmed %s receipts while keeping signed history intact until deletion', status => {
@@ -32,7 +52,8 @@ describe('registration deletion classification', () => {
     expect(registrationDeletionKind({...job, commitment: undefined})).toBeNull();
     expect(registrationDeletionKind({...job, commitment: {txid: commitment.txid}})).toBeNull();
     expect(registrationDeletionKind({...job, commitment: {signedHex: commitment.signedHex}})).toBeNull();
-    expect(registrationDeletionKind({...job, status: 'registration_broadcast'})).toBeNull();
+    expect(registrationDeletionKind({...job, status: 'registration_broadcast'})).toBe('registration');
+    expect(registrationCanStillConfirm(job)).toBe(false);
   });
 
   it('fails closed on invalid receipt histories or missing records', () => {

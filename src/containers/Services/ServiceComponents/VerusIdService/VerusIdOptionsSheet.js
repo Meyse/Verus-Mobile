@@ -3,6 +3,7 @@
   - The ⋯ options of the VerusID page, drawn with the gift card options rows
     (unfilled 62-point rows, dimmed icon, semibold label, chevron).
   - A tapped action runs after the sheet has finished closing.
+  - An optional title (a pending registration's name) sits above the rows.
 */
 import React, {useMemo, useRef} from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
@@ -36,8 +37,8 @@ const OptionRow = ({danger, icon, label, onPress, styles, theme}) => (
   </TouchableOpacity>
 );
 
-// actions: [{key, label, icon, danger, onPress}]
-const VerusIdOptionsSheet = ({actions = [], onClose, visible}) => {
+// actions: [{key, label, icon, danger, onPress}]; title: an optional node.
+const VerusIdOptionsSheet = ({actions = [], onClose, title = null, visible}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const pendingActionRef = useRef(null);
@@ -62,7 +63,8 @@ const VerusIdOptionsSheet = ({actions = [], onClose, visible}) => {
       onClose={onClose}
       onClosed={handleClosed}
       visible={visible}>
-      <View style={[styles.body, styles.bodyShort, localStyles.body]}>
+      <View style={[styles.body, styles.bodyShort, localStyles.body, title && localStyles.bodyWithTitle]}>
+        {title ? <View style={localStyles.title}>{title}</View> : null}
         {actions.map(action => (
           <OptionRow
             key={action.key}
@@ -81,6 +83,8 @@ const VerusIdOptionsSheet = ({actions = [], onClose, visible}) => {
 
 const localStyles = StyleSheet.create({
   body: {paddingTop: 4},
+  bodyWithTitle: {paddingTop: 16},
+  title: {marginBottom: 4},
 });
 
 export default VerusIdOptionsSheet;

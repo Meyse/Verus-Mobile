@@ -33,7 +33,12 @@ import {
 } from '../api/channels/verusid/requests/registerIdentity';
 import {validateRegistrationQuote} from './costs';
 import {registrationApprovalToken as approvalToken} from './approval';
-import {registrationCommitmentFee, registrationDeletionKind} from './deletion';
+import {
+  registrationCanStillConfirm,
+  registrationCommitmentFee,
+  registrationDeletionKind,
+  registrationExpiryHeight,
+} from './deletion';
 import {sha256} from '../crypto/hash';
 import {validateLookupBinding} from '../api/channels/verusid/requests/lookupBinding';
 import {identityOutputAmounts} from '../identityManagement/identityFunds';
@@ -162,6 +167,9 @@ export const registrationReview = job => {
     commitmentTxid: job.commitment.txid,
     commitmentFee: registrationCommitmentFee(job),
     registrationTxid: job.registration?.txid,
+    // The delete warning names the second payment that can still confirm.
+    registrationCanStillConfirm: registrationCanStillConfirm(job),
+    registrationExpiryHeight: registrationExpiryHeight(job),
     commitmentHeight: job.commitment.height,
     commitmentBroadcastAt: job.commitment.broadcastAt || (job.status === 'commitment_broadcast' ? job.updatedAt : null),
     lastError: job.lastError || null,
