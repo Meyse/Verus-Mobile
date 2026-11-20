@@ -31,13 +31,16 @@ export const getOpenPriceChannels = state => {
   return result;
 };
 
-// Whether the coin's price is known: a rate or an error arrived on one of its
-// price channels, or it has no price channel and no price comes.
+// Whether the coin's price is known: a rate arrived on one of its price
+// channels, every channel answered (a rate or an error), or it has no price
+// channel and no price comes. One channel's error does not settle a price
+// that another channel may still bring.
 export const isPriceSettled = ({coinId, priceChannels, rates, rateErrors}) => {
   if (!Array.isArray(priceChannels)) return false;
   if (priceChannels.length === 0) return true;
-  return priceChannels.some(channel =>
-    rates?.[channel]?.[coinId] != null || rateErrors?.[channel]?.[coinId] != null);
+  const hasRate = channel => rates?.[channel]?.[coinId] != null;
+  return priceChannels.some(hasRate) ||
+    priceChannels.every(channel => hasRate(channel) || rateErrors?.[channel]?.[coinId] != null);
 };
 
 // Whether the Home total shows the small "No price data" line under it.
@@ -46,10 +49,13 @@ export const isPriceSettled = ({coinId, priceChannels, rates, rateErrors}) => {
 // {balance, rate, priceSettled}: `balance` is the shown (confirmed) balance of
 // the cards that loaded, or null when none did. True when at least one asset
 // holds something, every price is known, and no held asset has a usable price.
-// A card that has not loaded does not block it; a price on its way does.
+// A card that has not loaded does not block it; a price on its way does,
+// unless its asset holds nothing (a loaded zero balance), as its price cannot
+// change the total.
 export const shouldShowNoPriceCaption = ({ready, showBalance, totalFinal, holdings}) => {
   if (!ready || !showBalance || !totalFinal || !Array.isArray(holdings)) return false;
-  if (!holdings.every(item => item.priceSettled)) return false;
+  const priceMatters = item => item.balance == null || hasBalance(item.balance);
+  if (!holdings.filter(priceMatters).every(item => item.priceSettled)) return false;
   const held = holdings.filter(item => hasBalance(item.balance));
   if (held.length === 0) return false;
 

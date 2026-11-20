@@ -57,6 +57,9 @@ describe('Home no-price caption', () => {
     expect(show([held(1, null), held(2, null, false)])).toBe(false);
     expect(show([held(1, null), held(null, null, false)])).toBe(false);
   });
+  test('a pending price of an asset that holds nothing does not block it', () => {
+    expect(show([held(1, null), held(0, null, false)])).toBe(true);
+  });
 });
 
 describe('Home price readiness', () => {
@@ -88,6 +91,18 @@ describe('Home price readiness', () => {
       .toBe(false);
     expect(isPriceSettled({coinId: 'VRSC', priceChannels: [GENERAL, WYRE_SERVICE], rates: {[GENERAL]: {}}, rateErrors: {}}))
       .toBe(false);
+  });
+
+  test('an error on one channel waits for the other channel', () => {
+    const errors = {[GENERAL]: {VRSC: 'No valid coin rates found'}};
+    expect(isPriceSettled({coinId: 'VRSC', priceChannels: [GENERAL, WYRE_SERVICE], rates: {}, rateErrors: errors}))
+      .toBe(false);
+    expect(isPriceSettled({
+      coinId: 'VRSC',
+      priceChannels: [GENERAL, WYRE_SERVICE],
+      rates: {},
+      rateErrors: {...errors, [WYRE_SERVICE]: {VRSC: 'error'}},
+    })).toBe(true);
   });
 
   test('a rate or an error on an open channel settles it', () => {
