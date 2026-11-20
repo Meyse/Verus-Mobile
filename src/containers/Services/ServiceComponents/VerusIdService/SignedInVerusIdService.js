@@ -33,6 +33,11 @@ import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {getIdentity} from '../../../../utils/api/channels/verusid/callCreators';
 import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
+import {
+  chainHeightOf,
+  createHeightReadGate,
+  ownBroadcastEpoch,
+} from '../../../../utils/ledger/heightReadGate';
 import {API_GET_BALANCES} from '../../../../utils/constants/intervalConstants';
 import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
 import {refreshWalletChannels} from '../../../../utils/ledger/refreshWalletChannels';
@@ -436,11 +441,23 @@ const SignedInVerusIdService = ({controller}) => {
         .catch(() => console.warn('Unable to refresh VerusID balances'));
     });
   }, [activeCoinsForUser, cardsByCoin, linkedKey]));
-  // The list reads each linked VerusID's status on every focus, so a revoke,
-  // a lock change or an ended timelock shows when the user comes back. It also
-  // reads again when the linked VerusIDs or the account change.
+  // The list reads a linked VerusID's status on the first focus, after the
+  // user's own transaction on its system, and on a focus after the system's
+  // block height rose (PR 266 review F14). A revoke, a lock change or an ended
+  // timelock only changes with a block, so a focus in the same block reads
+  // only the height (one getinfo per system). A change in the linked VerusIDs
+  // or the account reads the new ones.
+  const identityStateGate = useRef(null);
+  if (identityStateGate.current == null) identityStateGate.current = createHeightReadGate();
+  const identityStateGateAccount = useRef(renderedAccountHash);
   useFocusEffect(useCallback(() => {
+    const gate = identityStateGate.current;
+    if (identityStateGateAccount.current !== renderedAccountHash) {
+      identityStateGateAccount.current = renderedAccountHash;
+      gate.clear();
+    }
     if (!linkedKey) {
+      gate.clear();
       // With no linked VerusIDs, forget every saved state, so a VerusID that is
       // linked again cannot show an old badge after a failed read.
       setIdentityStates(previous =>
@@ -452,49 +469,72 @@ const SignedInVerusIdService = ({controller}) => {
     let cancelled = false;
     const sessionScope = captureSessionScope(Store.getState(), renderedAccountHash);
     const chainInfoBySystem = {};
+    const linkedKeys = new Set(linked.map(item => `${item.chain}:${item.iAddress}`));
+    // An unlinked VerusID that is linked again reads again.
+    gate.retain(key => linkedKeys.has(key));
 
+    // Returns {state, note} after a read, null after a failed read and
+    // undefined when the shown state is still current.
     const loadState = async item => {
       try {
+        const key = `${item.chain}:${item.iAddress}`;
         const coinObj = CoinDirectory.getBasicCoinObj(item.chain);
         const systemId = coinObj.system_id;
+        const epoch = ownBroadcastEpoch(systemId);
+        // Never read, or read before an own transaction: read with the height.
+        const identityRead = gate.isDue(key, systemId, null)
+          ? getIdentity(systemId, item.iAddress)
+          : null;
 
         if (!(systemId in chainInfoBySystem)) {
           chainInfoBySystem[systemId] = getInfo(systemId).catch(() => null);
         }
 
-        const [response, infoResponse] = await Promise.all([
-          getIdentity(systemId, item.iAddress),
-          chainInfoBySystem[systemId],
-        ]);
+        const infoResponse = await chainInfoBySystem[systemId];
+        const chainInfo = infoResponse?.result || null;
+        const height = chainHeightOf(chainInfo);
+        // Same block and no own transaction: keep the shown state.
+        if (!identityRead && !gate.isDue(key, systemId, height)) return undefined;
+
+        const response = await (identityRead || getIdentity(systemId, item.iAddress));
 
         if (response?.error || !response?.result) return null;
 
-        return describeVerusIdState(
-          response.result.identity,
-          infoResponse?.result || null,
-          coinObj.seconds_per_block,
-          response.result.status,
-        ).state;
+        return {
+          state: describeVerusIdState(
+            response.result.identity,
+            chainInfo,
+            coinObj.seconds_per_block,
+            response.result.status,
+          ).state,
+          note: () => gate.note(key, systemId, height, epoch),
+        };
       } catch (e) {
         return null;
       }
     };
 
-    Promise.all(linked.map(loadState)).then(states => {
+    Promise.all(linked.map(loadState)).then(results => {
       if (cancelled || !sessionScopeIsCurrent(Store.getState(), sessionScope)) {
         return;
       }
 
-      // A failed read keeps the last known state, so a network error does not
-      // hide a Locked or Revoked badge. Unlinked VerusIDs drop out.
+      // Only a shown result counts as read for the gate.
+      results.forEach(result => result?.note());
+      // A failed or skipped read keeps the last known state, so a network
+      // error does not hide a Locked or Revoked badge. Unlinked VerusIDs drop
+      // out.
       setIdentityStates(previous => {
         const next = {};
         linked.forEach((item, index) => {
           const key = `${item.chain}:${item.iAddress}`;
-          const state = states[index] || previous[key];
+          const state = results[index]?.state || previous[key];
           if (state) next[key] = state;
         });
-        return next;
+        const previousKeys = Object.keys(previous);
+        const unchanged = previousKeys.length === Object.keys(next).length &&
+          previousKeys.every(key => previous[key] === next[key]);
+        return unchanged ? previous : next;
       });
     });
 
