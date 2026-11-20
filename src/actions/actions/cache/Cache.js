@@ -26,8 +26,8 @@ export const getResyncablePrivateCoins = state =>
     state.channelStore_dlight_private?.dlightSockets?.[coin.id] === true,
   );
 
-// "Clear blockchain data" (F12): deletes the private wallets' synced data.
-// Each one resyncs from the start.
+// "Clear blockchain data" (F12): rewinds each open private wallet to its
+// birthday, so it scans the chain again from there.
 export const clearBlockchainData = async () => {
   const state = Store.getState();
   const sessionScope = captureSessionScope(state);

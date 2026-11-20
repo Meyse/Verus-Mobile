@@ -168,3 +168,12 @@ export const eraseWallet = (coinId, accountHash, coinProto) => {
      }
   });
 };
+
+/**
+ * Rewinds an open wallet to its birthday, so it scans the chain again from
+ * there. The wallet stays open and keeps its keys (PR 266 F12).
+ * @param {String} coinId The chainticker of the light wallet client
+ * @param {String} accountHash The account hash of the user account
+ */
+export const rescanWallet = (coinId, accountHash) =>
+  getSynchronizerInstance(accountHash, coinId).rescan();

@@ -4,6 +4,7 @@ const mockInitializeWallet = jest.fn();
 const mockOpenWallet = jest.fn();
 const mockCloseWallet = jest.fn();
 const mockEraseWallet = jest.fn();
+const mockRescanWallet = jest.fn();
 const mockGetAddresses = jest.fn();
 const mockRequestSeeds = jest.fn();
 const mockBlockchainQuitError = jest.fn();
@@ -25,6 +26,7 @@ jest.mock('../../api/channels/dlight/callCreators', () => ({
   getAddresses: mockGetAddresses,
   initializeWallet: mockInitializeWallet,
   openWallet: mockOpenWallet,
+  rescanWallet: mockRescanWallet,
 }));
 
 jest.mock('../../keys', () => ({
@@ -230,41 +232,31 @@ describe('account-scoped wallet initialization', () => {
     ).toBe(false);
   });
 
-  // PR 266 F12: "Clear blockchain data" deletes the database, so the next
-  // start must create it from the birthday (initializeWallet), never open
-  // the missing one (openWallet). A retry after a failed start does the same.
-  it('erases an open private wallet and creates it again, also on a retry', async () => {
+  // PR 266 F12: "Clear blockchain data" rewinds the open wallet to its
+  // birthday. It never closes or erases it: the native erase targets the
+  // mainnet database on Android and resolves early on iOS.
+  it('rescans an open private wallet of the current session, and nothing else', async () => {
     const scope = {sessionScoped: true, accountHash: 'account-a', sessionEpoch: 7};
     const open = accountState('account-a', 7);
     open.channelStore_dlight_private.dlightSockets = {VRSC: true};
-    const closed = {
-      ...open,
-      channelStore_dlight_private: {dlightSockets: {VRSC: false}, dlightSyncing: {}},
-    };
-    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
     mockGetState.mockReturnValue(open);
-    mockEraseWallet.mockImplementation(async () => {
-      mockGetState.mockReturnValue(closed);
-      return true;
-    });
-    mockGetAddresses.mockResolvedValue({result: 'zs-account-a'});
-    mockInitializeWallet.mockRejectedValueOnce(new Error('server busy'));
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRescanWallet.mockResolvedValue(undefined);
 
     await resyncDlightWallet(coinObj, scope);
-    await settle();
-    expect(mockEraseWallet).toHaveBeenCalledTimes(1);
-    expect(mockRequestSeeds).toHaveBeenCalledTimes(1);
-    expect(mockInitializeWallet).toHaveBeenCalledTimes(1);
+    expect(mockRescanWallet).toHaveBeenCalledWith('VRSC', 'account-a');
+    expect(mockEraseWallet).not.toHaveBeenCalled();
+    expect(mockCloseWallet).not.toHaveBeenCalled();
+    expect(mockInitializeWallet).not.toHaveBeenCalled();
 
-    await initDlightWallet(coinObj, {sessionScope: scope});
-    expect(mockInitializeWallet).toHaveBeenCalledTimes(2);
-    expect(mockOpenWallet).not.toHaveBeenCalled();
-
-    // After a successful start the database exists again: a later start opens it.
-    await initDlightWallet(coinObj, {sessionScope: scope});
-    expect(mockOpenWallet).toHaveBeenCalledTimes(1);
-    expect(mockInitializeWallet).toHaveBeenCalledTimes(2);
+    // A closed wallet, or a request from an earlier session, does nothing.
+    mockRescanWallet.mockClear();
+    await resyncDlightWallet(coinObj, {...scope, sessionEpoch: 6});
+    mockGetState.mockReturnValue({
+      ...open,
+      channelStore_dlight_private: {dlightSockets: {VRSC: false}, dlightSyncing: {}},
+    });
+    await resyncDlightWallet(coinObj, scope);
+    expect(mockRescanWallet).not.toHaveBeenCalled();
   });
 
   it('tags successful address and channel actions with the captured account session', async () => {
