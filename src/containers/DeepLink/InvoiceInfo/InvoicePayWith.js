@@ -28,6 +28,7 @@ import {
   formatEstimatedAmount,
   getConversionPriceSummary,
   getImpactBadgeLabel,
+  SLIPPAGE_LABEL,
 } from '../../SendWizard/components/impactFormat';
 import {
   ErrorMessage,
@@ -380,7 +381,7 @@ const InvoicePayWith = () => {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Pay with ${group.coin.display_name}, ${cost}, ${detail}${
-          showChip ? `, price impact ${chipLabel}` : ''
+          showChip ? `, ${SLIPPAGE_LABEL.toLowerCase()} ${chipLabel}` : ''
         }`}
         accessibilityActions={
           showChip ? [{name: 'priceRoute', label: 'Price and route'}] : undefined
@@ -415,7 +416,7 @@ const InvoicePayWith = () => {
             </Text>
             {showChip ? (
               <ImpactChip
-                accessibilityLabel={`Price impact ${chipLabel}. Opens price and route`}
+                accessibilityLabel={`${SLIPPAGE_LABEL} ${chipLabel}. Opens price and route`}
                 hitSlop={8}
                 label={chipLabel}
                 level={level}

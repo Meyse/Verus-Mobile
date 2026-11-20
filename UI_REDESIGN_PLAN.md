@@ -1429,6 +1429,9 @@ occurs during dismissal. Canonical consumers retain their existing behavior.
   and invoice mode. Stand-alone Amount and Pay with chips use "Details" for
   unknown or non-positive impact. Record the owner-approved rule in DESIGN.md
   (2026-10-27).
+  Superseded 2026-11-20 (PR 266 feedback F6, lead developer): the label is
+  "Estimated slippage" / "Est. slippage" and "None" is gone; below 0.1% reads
+  "<0.1%". See DESIGN.md.
 - [x] **TX-1.BATCH3-QA** Orchestrator: review the candidate and check iOS/Android,
   light/dark, normal and compact sizes. Check identity-update source selection,
   fee loading/error and Back without the subtitle shift; currency selection at

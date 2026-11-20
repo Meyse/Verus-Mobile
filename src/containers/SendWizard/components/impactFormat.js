@@ -20,11 +20,16 @@ export const getImpactTone = level =>
     ? STATUS_BADGE_TONE.WARNING
     : STATUS_BADGE_TONE.NEUTRAL;
 
-// One label for send and invoice mode. At or better than market has no impact.
-export const getImpactBadgeLabel = impact =>
-  impact.isLessThanOrEqualTo(0)
-    ? 'None'
-    : `${formatImpact(impact)}%`;
+// One label for send and invoice mode. Slippage is an estimate and never
+// "None": a quote at or better than the market sample shows the smallest
+// tier, "<0.1%" (PR 266 feedback F6).
+export const getImpactBadgeLabel = impact => `${formatImpact(impact)}%`;
+
+// Where the label goes (F6): the "Price and route" sheet, which explains the
+// price, and every screen-reader label use the long form. The one-line rows
+// on the steps (Amount, Confirm, invoice Pay with) use the short form.
+export const SLIPPAGE_LABEL = 'Estimated slippage';
+export const SLIPPAGE_LABEL_SHORT = 'Est. slippage';
 
 // What the impact costs the user. The display currency comes first when the
 // ledger holds a price for the asset the user pays with. Otherwise the amount

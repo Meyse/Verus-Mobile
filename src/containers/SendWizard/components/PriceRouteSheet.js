@@ -33,6 +33,7 @@ import {
   formatUnitPrice,
   getImpactBadgeLabel,
   getImpactLossText,
+  SLIPPAGE_LABEL,
 } from './impactFormat';
 
 const FACT_ROW_HEIGHT = 32;
@@ -127,7 +128,7 @@ const PriceRouteSheet = ({
         : null,
     },
     {
-      label: 'Price impact',
+      label: SLIPPAGE_LABEL,
       value: difference
         ? lossText && level !== IMPACT_LEVEL.NONE
           ? `${lossText} (${difference})`
@@ -262,7 +263,7 @@ const PriceRouteSheet = ({
           ) : null}
           {showSuggestion ? (
             <Pressable
-              accessibilityLabel={`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead. Price impact ${getImpactBadgeLabel(suggestion.impact)}`}
+              accessibilityLabel={`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead. ${SLIPPAGE_LABEL} ${getImpactBadgeLabel(suggestion.impact)}`}
               accessibilityRole="button"
               onPress={() => dismissal.dismiss(() => onUseSuggestion(suggestion.amount))}
               style={({pressed}) => [
@@ -284,7 +285,7 @@ const PriceRouteSheet = ({
                   styles.suggestionImpact,
                   {color: theme.colors.textSecondary},
                 ]}>
-                  Price impact {getImpactBadgeLabel(suggestion.impact)}
+                  {SLIPPAGE_LABEL} {getImpactBadgeLabel(suggestion.impact)}
                 </Text>
               </View>
               <MaterialCommunityIcons

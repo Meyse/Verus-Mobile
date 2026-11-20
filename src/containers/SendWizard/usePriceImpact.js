@@ -116,12 +116,22 @@ export const usePriceImpact = ({
   }, [amountKey, marketPrice, outputKey]);
   const impactKey = impact ? impact.toString() : '';
   const level = getImpactLevel(impact);
+  // The market price is part of the impact, so it needs no own rerun.
+  const marketRef = useRef(marketPrice);
+  marketRef.current = marketPrice;
+  // One suggestion quote per settled amount on a route (audit row 16). A new
+  // estimate for the same amount keeps the suggestion it already has.
+  const suggestedFor = useRef(null);
 
   useEffect(() => {
-    setSuggestion(null);
     if (level !== IMPACT_LEVEL.WARNING && level !== IMPACT_LEVEL.DANGER) {
+      suggestedFor.current = null;
+      setSuggestion(null);
       return undefined;
     }
+    const suggestionKey = `${routeKey}|${amountKey}`;
+    if (suggestedFor.current === suggestionKey) return undefined;
+    setSuggestion(null);
 
     const candidate = getSuggestedAmount({
       amount: amountKey,
@@ -133,7 +143,9 @@ export const usePriceImpact = ({
     if (!candidate) return undefined;
 
     let active = true;
+    let quoted = false;
     const timer = setTimeout(async () => {
+      suggestedFor.current = suggestionKey;
       const candidateOutput = await quoteOutput({
         channel,
         sourceCoin,
@@ -141,12 +153,14 @@ export const usePriceImpact = ({
         route,
         amount: candidate,
       });
-      if (!active || !candidateOutput) return;
+      if (!active) return;
+      quoted = true;
+      if (!candidateOutput) return;
       // Show the measured impact, never the one the formula aimed for.
       const measured = getPriceImpact({
         amount: candidate,
         output: candidateOutput,
-        marketPrice,
+        marketPrice: marketRef.current,
       });
       if (measured && measured.isLessThan(impactKey)) {
         setSuggestion({amount: candidate, impact: measured});
@@ -156,10 +170,14 @@ export const usePriceImpact = ({
     return () => {
       active = false;
       clearTimeout(timer);
+      // A quote stopped before its result may run again for this amount.
+      if (!quoted && suggestedFor.current === suggestionKey) {
+        suggestedFor.current = null;
+      }
     };
     // Quote inputs are the same ones that define the keys below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amountKey, impactKey, level, marketPrice, routeKey]);
+  }, [amountKey, impactKey, level, routeKey]);
 
   return {
     impact,
