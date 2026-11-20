@@ -227,6 +227,10 @@ export const SendModalRender = function () {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       backgroundColor: Colors.secondaryColor,
+                      // Close and Help keep off the screen edges in the
+                      // advanced form (PR 266 F7 QA).
+                      paddingHorizontal:
+                        LegacyTheme === React.Fragment ? 0 : 16,
                     }}>
                     <TextAction
                       style={{alignSelf: 'center', marginBottom: 16}}
