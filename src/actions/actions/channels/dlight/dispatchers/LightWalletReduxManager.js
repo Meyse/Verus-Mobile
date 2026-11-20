@@ -34,6 +34,8 @@ export const DLIGHT_TEARDOWN_TIMEOUT_MS = 30000;
 // Native start opens a local database; it does not wait for chain sync. Allow
 // slower devices 30 seconds. Keychain reads and address derivation get 10 each.
 export const DLIGHT_START_TIMEOUT_MS = 30000;
+// Shorter than the teardown limit: a close waits for a running rescan.
+export const DLIGHT_RESCAN_TIMEOUT_MS = 20000;
 export const DLIGHT_SEED_TIMEOUT_MS = 10000;
 export const DLIGHT_ADDRESS_TIMEOUT_MS = 10000;
 
@@ -507,7 +509,18 @@ const restartAfterFailedRescan = (coinObj, sessionScope) => {
     });
     if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
     await initDlightWallet(coinObj, {sessionScope});
-  })().catch(cause => console.warn(makeDlightInitError(coinObj.id, cause)));
+  })().catch(cause => {
+    const error = makeDlightInitError(coinObj.id, cause);
+    console.warn(error);
+    // The info interval retries a wallet with an init error
+    // (retryDlightWalletInitialization), also after a failed close.
+    if (sessionScopeIsCurrent(Store.getState(), sessionScope)) {
+      Store.dispatch(scopeSessionAction({
+        type: ERROR_DLIGHT_INIT,
+        payload: {chainTicker: coinObj.id, error},
+      }, sessionScope));
+    }
+  });
 };
 
 // F12 (PR 266): "Clear blockchain data". Rewinds an open private wallet to
@@ -534,8 +547,18 @@ export const resyncDlightWallet = async (coinObj, sessionScope) => {
       sessionScope.accountHash,
     );
   }
-  const rescan = Promise.resolve().then(() =>
-    rescanWallet(coinObj.id, sessionScope.accountHash),
+  // The iOS rescan promise never settles when its restart throws. A time
+  // limit keeps later closes and opens from waiting on it for ever.
+  const rescan = withTimeout(
+    Promise.resolve().then(() =>
+      rescanWallet(coinObj.id, sessionScope.accountHash),
+    ),
+    DLIGHT_RESCAN_TIMEOUT_MS,
+    () => makeDlightInitBlockedError(
+      'DLIGHT_RESCAN_TIMEOUT',
+      coinObj.id,
+      sessionScope.accountHash,
+    ),
   );
   pendingNativeRescans.set(walletKey, rescan);
   try {
