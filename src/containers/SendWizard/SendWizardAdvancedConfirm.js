@@ -200,7 +200,7 @@ const SendWizardAdvancedConfirm = () => {
       ? {label: facts.preconvert ? 'Preconvert to' : 'Convert to', value: facts.convertTo, copy: true}
       : null,
     facts.isConversion && !facts.preconvert
-      ? {label: 'Estimated to receive', value: facts.estimated || 'Estimate unavailable.'}
+      ? {label: 'Estimated to receive', value: facts.estimated || 'Estimate unavailable'}
       : null,
     facts.toNetwork && review.networkName ? {label: 'From network', value: review.networkName} : null,
     facts.toNetwork ? {label: 'To network', value: facts.toNetwork, copy: true} : null,

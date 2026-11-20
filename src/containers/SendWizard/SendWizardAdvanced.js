@@ -398,6 +398,19 @@ const SendWizardAdvanced = () => {
   );
 };
 
+// True when `title` is the address cut short ("RXw9e...7m6pz").
+const isShortenedAddress = (title, address) => {
+  const parts = String(title || '').split(/\.{3}|…/);
+  const full = String(address || '');
+  return (
+    parts.length === 2 &&
+    parts[0].length > 0 &&
+    parts[1].length > 0 &&
+    full.startsWith(parts[0]) &&
+    full.endsWith(parts[1])
+  );
+};
+
 // Self of the old form: the wallet's own addresses (upstream's list).
 const SelfAddressList = ({addresses, onClose, onSelect, visible}) => {
   const dismissal = useSheetDismissal({visible, onClose});
@@ -407,16 +420,22 @@ const SelfAddressList = ({addresses, onClose, onSelect, visible}) => {
       visible={visible}
       onClose={dismissal.close}
       onClosed={dismissal.onClosed}>
-      {addresses.map(item => (
-        <SelectionRow
-          key={item.key}
-          accessibilityLabel={`${item.title}, ${item.description}`}
-          title={item.title}
-          subtitle={shortAddress(item.description)}
-          subtitleMonospace
-          onPress={() => dismissal.dismiss(() => onSelect(item))}
-        />
-      ))}
+      {addresses.map(item => {
+        // A title that only shortens the address is not a name: show the
+        // address once. A real name (VerusID, label) keeps name + address.
+        const hasName = !isShortenedAddress(item.title, item.description);
+        return (
+          <SelectionRow
+            key={item.key}
+            accessibilityLabel={hasName ? `${item.title}, ${item.description}` : item.description}
+            title={hasName ? item.title : shortAddress(item.description)}
+            titleMonospace={!hasName}
+            subtitle={hasName ? shortAddress(item.description) : undefined}
+            subtitleMonospace
+            onPress={() => dismissal.dismiss(() => onSelect(item))}
+          />
+        );
+      })}
     </SelectionSheet>
   );
 };
