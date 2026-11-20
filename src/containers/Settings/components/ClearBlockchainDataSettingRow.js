@@ -11,8 +11,8 @@ import {
 import {SettingsRow} from './SettingsScaffold';
 import {resetToSecureLoading} from './settingsTaskNavigation';
 
-// F12 (PR 266): deletes the private wallet's synced data, separate from
-// "Clear cache". The Private card then resyncs from the start. It shows only
+// F12 (PR 266): rewinds the private wallet to its birthday, separate from
+// "Clear cache". The Private card then syncs again from there. It shows only
 // while a private wallet is open.
 const ClearBlockchainDataSettingRow = ({last = false, navigation}) => {
   const hasPrivateWallet = useSelector(
