@@ -477,7 +477,7 @@ const SendWizardAmount = () => {
   };
 
   const continueToRecipient = () => {
-    if (!validAmount || exportFeeLoading || insufficientExportFunds) return;
+    if (!validAmount || exportFeeLoading || insufficientExportFunds || scanNeedsNetwork) return;
     setAmount(
       cryptoAmount.toString(),
       coinsToSats(cryptoAmount).toString(),
@@ -671,7 +671,9 @@ const SendWizardAmount = () => {
       ) : null}
       <WizardFooter
         bottomSpacing={smallDevice ? 8 : 16}
-        disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds}
+        // A scanned address the chosen network cannot reach waits for a
+        // network that can (PR 266 review of P1).
+        disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds || scanNeedsNetwork}
         includeBottomInset={false}
         onPress={continueToRecipient}
         safeAreaSpacing={0}

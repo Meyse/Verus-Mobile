@@ -176,11 +176,22 @@ const SendWizardSelectSource = () => {
     );
   }, [query, searchable, sourcesByAsset]);
 
+  // A scanned address that the card's own network cannot reach. Amount then
+  // loads the networks at once and waits for one that reaches it.
+  const scannedType = scanRequest?.address
+    ? getRecipientAddressType(scanRequest.address)
+    : null;
+  const scanNetworkType =
+    scannedType === ADDRESS_TYPE.PRIVATE ? ADDRESS_TYPE.VERUS : scannedType;
+
   const startSend = (sourceState, target, route) => {
     setSource(sourceState, target, route);
     navigation.navigate('SendWizardAmount');
+    const needsNetwork = Boolean(scanNetworkType) &&
+      isConversionChannel(sourceState.channel) &&
+      route?.addressType !== scanNetworkType;
     // A request with an amount opens Confirm; Back still reaches Amount.
-    if (scanRequest?.amount) navigation.navigate('SendWizardConfirm');
+    if (scanRequest?.amount && !needsNetwork) navigation.navigate('SendWizardConfirm');
   };
 
   const chooseSource = source => {
