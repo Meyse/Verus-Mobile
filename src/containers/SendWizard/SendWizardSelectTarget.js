@@ -1,7 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -10,6 +9,7 @@ import {useNavigation} from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
+import FadedScrollView from '../../components/FadedScrollView';
 import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
 import TextAction from '../../components/TextAction';
@@ -253,8 +253,9 @@ const SendWizardSelectTarget = () => {
           </SkeletonLoader>
         </View>
       ) : (
-        <ScrollView
-          style={styles.listArea}
+        <FadedScrollView
+          containerStyle={styles.listArea}
+          fadeBackgroundColor={theme.colors.background}
           contentContainerStyle={[
             styles.content,
             !searchable && styles.contentWithoutSearch,
@@ -285,7 +286,7 @@ const SendWizardSelectTarget = () => {
                 : 'No conversion routes available.'}
             </Text>
           ) : null}
-        </ScrollView>
+        </FadedScrollView>
       )}
       {/* The unguided form for every value by hand (PR 266 feedback F7). It
           stays in a safe footer under the list in every state: loading,

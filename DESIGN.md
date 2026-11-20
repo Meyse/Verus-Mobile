@@ -967,7 +967,9 @@ Convert wizard (lead developer: every such value can be entered by hand).
 
 - Entry: "Advanced form", a `TextAction` (`small`) centered in a normal-flow
   `SafeBottomActionStack` under the Convert to list, on the page color, with
-  no divider. The list scrolls under it and ends above it. It shows in every
+  no divider. The list scrolls under it and ends above it, in a
+  `FadedScrollView` on the page color: the bottom fade shows only while more
+  rows remain below, with no chevron. It shows in every
   state of the list: loading, no routes, failed routes, a search without
   results.
 - The step: `SendWizardHeader` with "Advanced form", Back, Close and one
