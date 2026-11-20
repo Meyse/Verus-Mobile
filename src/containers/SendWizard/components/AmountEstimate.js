@@ -7,7 +7,13 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 import {IMPACT_LEVEL} from '../priceImpact';
 import {FlatRow} from './WizardUI';
-import {formatEstimatedAmount, getImpactBadgeLabel, getImpactTone} from './impactFormat';
+import {
+  formatEstimatedAmount,
+  getImpactBadgeLabel,
+  getImpactTone,
+  SLIPPAGE_LABEL,
+  SLIPPAGE_LABEL_SHORT,
+} from './impactFormat';
 
 // The receive block stays above Continue. Only the name gives way to the
 // amount. A single-line middle ellipsis preserves the suffix on Android too.
@@ -82,8 +88,8 @@ const AmountEstimate = ({
           {!atLaunch && estimatedOutput != null && showDetails ? (
             <View style={{borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth}}>
               <FlatRow
-                accessibilityLabel={`Price impact ${chipLabel}. Opens price and route`}
-                label="Price impact"
+                accessibilityLabel={`${SLIPPAGE_LABEL} ${chipLabel}. Opens price and route`}
+                label={SLIPPAGE_LABEL_SHORT}
                 onPress={onOpenDetails}>
                 <StatusBadge
                   label={chipLabel}

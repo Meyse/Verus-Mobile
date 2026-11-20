@@ -440,3 +440,19 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
     expect(estimatedVias()).not.toContain('b3');
   });
 });
+
+// F6 (PR 266 feedback 2026-11-20): slippage is an estimate, never "None".
+describe('estimated slippage label (F6)', () => {
+  const BigNumberLib = require('bignumber.js');
+  const {getImpactBadgeLabel} = require('../../../containers/SendWizard/components/impactFormat');
+
+  it('shows the smallest tier, not "None", for zero', () => {
+    expect(getImpactBadgeLabel(BigNumberLib(0))).toBe('<0.1%');
+    expect(getImpactBadgeLabel(BigNumberLib(0.04))).toBe('<0.1%');
+  });
+
+  it('shows the percent from 0.1%', () => {
+    expect(getImpactBadgeLabel(BigNumberLib(0.1))).toBe('0.1%');
+    expect(getImpactBadgeLabel(BigNumberLib(2.36))).toBe('2.4%');
+  });
+});
