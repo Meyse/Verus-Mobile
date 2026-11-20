@@ -26,6 +26,7 @@ import {getManyUtxoFundRawTransactionError} from './fundRawTransactionError';
 import VrpcRequestBatcher from './vrpcRequestBatcher';
 import {planVrpcRequests, vrpcErrorResponse} from './vrpcRequestMany';
 import {compatibleGetBlockRequest} from './getBlockRequest';
+import {noteOwnBroadcast} from '../ledger/ownBroadcasts';
 
 export const VRPC_REQUEST_TIMEOUT_MS = 30000;
 const VRPC_CLIENT_CONFIG = {timeout: VRPC_REQUEST_TIMEOUT_MS};
@@ -258,6 +259,8 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
       if (fundingError) throw fundingError;
       if (req.cmd === 'sendrawtransaction' && response.error == null) {
         VerusMobileVrpcInterface.expireAddressResponses(this.chain);
+        // VerusID screens read again after the user's own transaction.
+        noteOwnBroadcast(this.chain);
       }
       return await this.cacheResponse(req, cacheId, response, generation);
     } catch (error) {
