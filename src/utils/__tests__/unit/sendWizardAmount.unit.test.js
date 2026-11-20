@@ -31,7 +31,7 @@ jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'Pr
 jest.mock('../../../containers/SendWizard/components/SelectionSheets', () => ({TargetNetworkSheet: 'TargetNetworkSheet'}));
 jest.mock('../../../containers/SendWizard/usePriceImpact', () => ({usePriceImpact: () => ({level: 'none'})}));
 jest.mock('../../../containers/SendWizard/useReceivedPrice', () => ({useReceivedPrice: () => null}));
-// Network boundaries. Amount loads the other networks of an ETH card.
+// Network boundaries. Amount loads other networks only on Change network.
 jest.mock('../../api/channels/vrpc/requests/estimateConversion', () => ({estimateConversion: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/estimateEthereumExportFee', () => ({estimateEthereumExportFee: jest.fn()}));
 jest.mock('../../api/routers/getConversionPaths', () => ({getConversionPaths: jest.fn(() => Promise.resolve({}))}));
@@ -258,5 +258,90 @@ describe('editAmountInput decimal limit (R14)', () => {
 
   it('keeps asset entry without a limit when none is given', () => {
     expect(type('0.12345678', '9')).toBe('0.123456789');
+  });
+});
+
+// F5 (PR 266 feedback 2026-11-20): a Send from a card on the coin screen asks
+// for no route discovery until the user presses Change network.
+describe('Send Amount step, network change on request (F5)', () => {
+  const {getConversionPaths} = require('../../api/routers/getConversionPaths');
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', system_id: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq'};
+  let view;
+
+  const renderAmount = () => {
+    const card = {
+      id: 'MAIN',
+      api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq'},
+    };
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="send"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '10',
+            channel: card.api_channels.send,
+            target: {id: 'VRSCTEST', isConversion: false, routes: []},
+            route: {key: 'local:direct:live:send', addressType: 'verus', isCrossChain: false},
+          }}>
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+  };
+  const networkAction = () => view.root.find(
+    node => node.type === 'TextAction' && node.props.accessibilityRole === 'button' &&
+      typeof node.props.children === 'string' && /network/i.test(node.props.children),
+  );
+
+  beforeEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+  });
+
+  it('asks for no route discovery before the press', () => {
+    renderAmount();
+    expect(getConversionPaths).not.toHaveBeenCalled();
+    expect(networkAction().props.children).toBe('Change network');
+    expect(networkAction().props.disabled).toBe(false);
+  });
+
+  it('loads once on the press, with a loading state', async () => {
+    let resolvePaths;
+    getConversionPaths.mockImplementationOnce(() => new Promise(resolve => {
+      resolvePaths = resolve;
+    }));
+    renderAmount();
+    act(() => {
+      networkAction().props.onPress();
+    });
+    expect(getConversionPaths).toHaveBeenCalledTimes(1);
+    expect(networkAction().props.children).toBe('Checking networks…');
+    expect(networkAction().props.disabled).toBe(true);
+    await act(async () => resolvePaths({}));
+    // No route to another network: the control says so and stays off.
+    expect(networkAction().props.children).toBe('No other networks');
+    expect(networkAction().props.disabled).toBe(true);
+    expect(getConversionPaths).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an error and loads again on the next press', async () => {
+    getConversionPaths.mockImplementationOnce(() => Promise.reject(new Error('offline')));
+    renderAmount();
+    await act(async () => {
+      await networkAction().props.onPress();
+    });
+    expect(networkAction().props.children).toBe('Networks unavailable. Try again');
+    expect(networkAction().props.disabled).toBe(false);
+    await act(async () => {
+      await networkAction().props.onPress();
+    });
+    expect(getConversionPaths).toHaveBeenCalledTimes(2);
   });
 });
