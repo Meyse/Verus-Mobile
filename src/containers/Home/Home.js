@@ -703,7 +703,8 @@ const Home = () => {
       loading={loading}
       showBalance={showBalance}
       totalFiatBalance={balanceAccountHash === accountHash ? totalFiatBalance : null}
-      noPriceCaption={balanceAccountHash === accountHash && !loading && noPriceCaption}
+      // Offline, a failed price request says nothing about the price.
+      noPriceCaption={balanceAccountHash === accountHash && !loading && isConnected !== false && noPriceCaption}
       onToggleBalance={toggleBalance}
       onSelectDisplayCurrency={selectDisplayCurrency}
       onRefresh={refreshFromUser}
