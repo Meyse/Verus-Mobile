@@ -985,7 +985,9 @@ Convert wizard (lead developer: every such value can be entered by hand).
 - Confirm keeps the old Confirm's facts on the wizard's pay node, flat rows
   and slide, because the wizard's own Confirm prepares its transaction from
   a route: To, From, Convert to, Estimated to receive, From and To network,
-  Also sent, Fees, Conversion fee, Arrives, Balance after. It sends the
+  Also sent, Fees, Conversion fee, Arrives, Balance after. The old form's
+  notes become notices above the slide, including the centralized-currency
+  warning (an exception to the wizard Confirm, which omits it). It sends the
   prepared transaction once, without a second preflight. The result uses
   `TransactionResult` with the To row.
 
