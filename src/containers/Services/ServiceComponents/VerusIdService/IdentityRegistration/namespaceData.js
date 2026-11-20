@@ -3,8 +3,6 @@ import {formatCurrency} from 'react-native-format-currency';
 import {CurrencyIdentityRegistration} from 'verus-typescript-primitives';
 import {USD} from '../../../../../utils/constants/currencies';
 import VrpcProvider from '../../../../../utils/vrpc/vrpcInterface';
-import {getOnChainRate} from '../../../../../utils/api/channels/general/ratesAPIs/onChainPrice';
-import {getCurrencyUsdPrice} from '../../../../../utils/api/channels/general/ratesAPIs/onChainPriceMath';
 
 // Public display data only. Funding, eligibility and every payable amount are
 // checked again by the unchanged registration engine. Share in-flight reads.
@@ -33,20 +31,9 @@ const currencyRecords = coin => {
     resultOf(await endpoint.listCurrencies({systemtype: 'local'})));
 };
 
-export const registrationNativeUsd = async coin => {
-  try {
-    const {result} = await getOnChainRate(coin);
-    const value = new BigNumber(result?.rate);
-    return value.isFinite() && value.gt(0) ? value.toString() : null;
-  } catch (_) {
-    return null;
-  }
-};
-
 export const loadRegistrationNamespaces = async (coin, signingAddress, nativeUsd) => {
   const endpoint = VrpcProvider.getEndpoint(coin.system_id);
   const records = await currencyRecords(coin);
-  const baskets = records.map(record => ({...record.currencydefinition, bestcurrencystate: record.bestcurrencystate}));
   const namespaces = [];
   for (const record of records) {
     const definition = record.currencydefinition;
@@ -68,8 +55,8 @@ export const loadRegistrationNamespaces = async (coin, signingAddress, nativeUsd
       suffix: root ? '@' : `.${definition.fullyqualifiedname.replace(/@$/, '')}@`,
       amount: policy.IDFullRegistrationAmount().toString(),
       currency: root ? coin.display_ticker : definition.fullyqualifiedname.replace(/@$/, ''),
-      usd: nativeUsd ? getCurrencyUsdPrice(definition.currencyid, {...definition, bestcurrencystate: record.bestcurrencystate},
-        baskets, nativeUsd, {native: coin.system_id})?.toString() : null,
+      // Only the chain's own coin has a market price (from the ledger).
+      usd: root && nativeUsd ? nativeUsd : null,
       permission: policy.IDRequiresPermission(),
       referralRequired: policy.IDReferralRequired(),
       referralsAllowed: policy.getIDReferralLevels() > 0 || policy.IDReferralRequired(),
@@ -93,30 +80,13 @@ export const loadRegistrationNamespaces = async (coin, signingAddress, nativeUsd
     a.name.localeCompare(b.name));
 };
 
-export const registrationDisplayPrices = async (coin, currencyIds) => {
-  const nativeUsd = await registrationNativeUsd(coin);
-  if (!nativeUsd) return {};
-  const prices = {[coin.system_id]: nativeUsd};
-  if (!(currencyIds || []).some(id => id !== coin.system_id)) return prices;
-  try {
-    const records = await currencyRecords(coin);
-    const definitions = records.map(record => ({...record.currencydefinition, bestcurrencystate: record.bestcurrencystate}));
-    for (const id of currencyIds) {
-      if (id === coin.system_id) continue;
-      const price = getCurrencyUsdPrice(id, definitions.find(item => item.currencyid === id), definitions, nativeUsd, {native: coin.system_id});
-      if (price) prices[id] = price.toString();
-    }
-  } catch (_) { /* A missing display price never blocks registration. */ }
-  return prices;
-};
-
 export const registrationFiat = (amounts, prices, displayCurrency = USD, rates = {}) => {
   const entries = Object.entries(amounts || {}).filter(([, amount]) => new BigNumber(amount).gt(0));
   if (!entries.length || entries.some(([id]) => !prices?.[id])) return null;
   let total = entries.reduce((sum, [id, amount]) => sum.plus(new BigNumber(amount).div('100000000').times(prices[id])), new BigNumber(0));
   if (displayCurrency !== USD) {
     // Each GENERAL rate record shares one USD price and its fiat conversions.
-    // Their ratio is the cached exchange rate, as on the portfolio chart.
+    // Their ratio is the cached exchange rate.
     const pair = Object.values(rates || {}).find(record => [USD, displayCurrency].every(code => {
       const rate = new BigNumber(record?.[code]);
       return rate.isFinite() && rate.gt(0);

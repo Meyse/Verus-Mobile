@@ -78,7 +78,6 @@ import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { useLatestCallback } from '../../hooks/useLatestCallback';
 import {refreshRegistrationJobs} from '../../actions/actions/services/dispatchers/verusid/registration';
 import SignedInWalletHome from './SignedInWalletHome';
-import usePortfolioHistory from '../../utils/portfolioHistory/usePortfolioHistory';
 import {usePrelaunchAssets} from '../../utils/preconversion/usePrelaunch';
 import {getCurrencyDisplay} from '../SendWizard/wizardUtils';
 import {
@@ -139,10 +138,8 @@ const Home = () => {
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
   const showBalance = useSelector(state => state.coins.showBalance);
-  const testnetPrices = useSelector(state => state.settings.generalWalletSettings.testnetPrices === true);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(null);
-  const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
   const [balanceAccountHash, setBalanceAccountHash] = useState(null);
   const [loading, setLoading] = useState(false);
   const refreshRun = useRef(0);
@@ -275,7 +272,6 @@ const Home = () => {
   useEffect(() => {
     const totalBalances = getTotalBalances();
     setTotalFiatBalance(totalBalances.fiat);
-    setTotalCryptoBalances(totalBalances.crypto);
     setBalanceAccountHash(accountHash);
   }, [
     balances, ledgerBalances, assetManagement.snapshots, assetManagement.preferences,
@@ -360,17 +356,15 @@ const Home = () => {
   const getTotalBalances = () => {
     let _totalFiatBalance = BigNumber(0);
     let fiatComplete = true;
-    let coinBalances = {};
 
     uniqueAssets(activeCoinsForUser).filter(coin =>
       Boolean(coin.testnet) === isTestnetAccount(activeAccount)).forEach((coinObj) => {
       const key = coinObj.id;
-      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
-      coinBalances[key] = balance.total;
 
-      // The value record keeps the amount of a hidden asset. The total counts
-      // only the assets on Home.
+      // The total counts only the assets on Home.
       if (!isAssetShown(coinObj, assetManagement.preferences)) return;
+
+      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
 
       const rate = getRate(key, displayCurrency);
 
@@ -384,7 +378,6 @@ const Home = () => {
     return {
       // The Show on Home choices are not known before the assets are ready.
       fiat: fiatComplete && assetManagement.ready ? _totalFiatBalance.toNumber() : null,
-      crypto: coinBalances,
     };
   };
 
@@ -548,7 +541,6 @@ const Home = () => {
     balances,
     displayCurrency,
     rates,
-    totalCryptoBalances,
     activeAccount,
     assetManagement,
     ledgerBalances,
@@ -643,23 +635,6 @@ const Home = () => {
     }
   }, [isConnected]);
 
-  // The chart draws the Home total, so it uses the same assets.
-  const shownCoins = useMemo(
-    () => activeCoinsForUser.filter(coin => isAssetShown(coin, assetManagement.preferences)),
-    [activeCoinsForUser, assetManagement.preferences],
-  );
-  const portfolioHistory = usePortfolioHistory({
-    account: activeAccount,
-    activeCoins: shownCoins,
-    balances: totalCryptoBalances,
-    total: balanceAccountHash === accountHash ? totalFiatBalance : null,
-    rates,
-    currency: displayCurrency,
-    ready: assetManagement.ready && balanceAccountHash === accountHash,
-    refreshing: loading,
-    testnetPrices,
-  });
-
   const mainNavigation = navigation.getParent()?.getParent();
   const receiveAvailable = actionSources('wallet-receive').length > 0;
   const sendAvailable = actionSources('wallet-send').length > 0;
@@ -711,7 +686,6 @@ const Home = () => {
       loading={loading}
       showBalance={showBalance}
       totalFiatBalance={balanceAccountHash === accountHash ? totalFiatBalance : null}
-      history={portfolioHistory}
       onToggleBalance={toggleBalance}
       onSelectDisplayCurrency={selectDisplayCurrency}
       onRefresh={refreshFromUser}

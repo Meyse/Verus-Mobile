@@ -1,6 +1,6 @@
 /* eslint no-use-before-define: ["error", {"functions": true, "classes": true, "variables": false}] -- Home keeps its shared styles below the component. */
 import PropTypes from 'prop-types';
-import React, {useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import {FlatList, RefreshControl} from 'react-native-gesture-handler';
@@ -18,10 +17,6 @@ import {ArrowDownUp, ChevronDown} from 'lucide-react-native';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {homeValueChartStyles as chartStyles} from '../../styles';
-import {change, label, percentNumber, pillText, spanText} from '../../utils/portfolioHistory/chartMath';
-import useHomeChartPreference from '../../utils/portfolioHistory/useHomeChartPreference';
-import HomeValueChart, {homeValueChartHistoryPropType} from './components/HomeValueChart';
 import PrivacyBlurredText from '../../components/PrivacyBlurredText';
 import SignedInActionBar from '../../components/SignedInActionBar';
 import EmptyState from '../../components/EmptyState';
@@ -36,7 +31,6 @@ import NotificationWidget from './HomeWidgets/NotificationWidget';
 import HomeNotice, {HOME_NOTICE_SYNC} from './HomeWidgets/HomeNotice';
 import SkeletonLoader, {SkeletonBlock} from '../../components/SkeletonLoader';
 import WalletSetupLogoSlot from '../../components/WalletSetup/WalletSetupLogoSlot';
-import {ONBOARDING_SMALL_DEVICE_MAX_HEIGHT} from '../../hooks/useOnboardingSmallDeviceLayout';
 import {useLatestCallback} from '../../hooks/useLatestCallback';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
@@ -121,45 +115,24 @@ const useBalanceRevealProgress = showBalance => {
   return progress;
 };
 
-const PortfolioBalance = React.memo(React.forwardRef(({
+const PortfolioBalance = React.memo(({
   amount,
   currency,
   revealProgress,
   showBalance,
   theme,
-  history,
-  chartExpanded,
   onSelectCurrency,
-}, ref) => {
-  const [scrub, setScrub] = useState(null);
-  const [availableWidth, setAvailableWidth] = useState(0);
-  const [amountWidth, setAmountWidth] = useState(0);
-  const [symbolWidth, setSymbolWidth] = useState(0);
-  const [pillWidth, setPillWidth] = useState(0);
-  useImperativeHandle(ref, () => ({setScrub: point => setScrub(point)}), []);
-  const value = (scrub?.v ?? amount) == null ? {symbol: '', value: '—'} : getCurrencyParts(scrub?.v ?? amount, currency);
-  const restValue = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
-  const compactHeader = history?.state !== 'none';
-  const chart = history?.state === 'chart';
-  const stripScrub = scrub != null && !chartExpanded;
-  const percent = history?.series ? change(history.series.points) : null;
-  const hasPill = chart && (history.loading || percent != null);
-  const hasAccessory = hasPill || stripScrub;
-  const wrapped = hasAccessory && availableWidth > 0
-    && amountWidth + symbolWidth + 4 + pillWidth + 8 > availableWidth;
-  const span = chart ? spanText(history.range, history.series.partial, history.series.start, history.now) : '';
+}) => {
+  const value = amount == null ? {symbol: '', value: '—'} : getCurrencyParts(amount, currency);
 
   return (
-    <View
-      onLayout={event => setAvailableWidth(event.nativeEvent.layout.width)}
-      style={[styles.heroValueRow, compactHeader && chartStyles.compactAmountRow, wrapped && chartStyles.wrap]}>
+    <View style={styles.heroValueRow}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Change display currency"
         onPress={onSelectCurrency}
-        style={[styles.balanceTouchable, hasAccessory && chartStyles.amountWithPill,
-          wrapped && chartStyles.amountFullRow]}>
-        <View style={chartStyles.amountGroup}>
+        style={styles.balanceTouchable}>
+        <View style={styles.amountGroup}>
           <PrivacyBlurredText
             blurRadius={6}
             color={theme.colors.textPrimary}
@@ -184,108 +157,16 @@ const PortfolioBalance = React.memo(React.forwardRef(({
           </PrivacyBlurredText>
         </View>
       </Pressable>
-      {hasAccessory && (
-        <View
-          onLayout={(event) => setPillWidth(event.nativeEvent.layout.width)}
-          accessibilityElementsHidden={scrub != null && !stripScrub}
-          importantForAccessibility={scrub != null && !stripScrub ? 'no-hide-descendants' : 'auto'}
-          style={[chartStyles.pillSlot, wrapped && chartStyles.pillBelow,
-            scrub != null && !stripScrub && chartStyles.hidden]}
-        >
-          {stripScrub && (
-            <Text style={[theme.typography.labelSm, chartStyles.tabular, chartStyles.scrubDate,
-              { color: theme.colors.textSecondary }]}>
-              {label(scrub, history.now)}
-            </Text>
-          )}
-          {!stripScrub && (history.loading ? (
-            <SkeletonLoader accessibilityLabel="Loading value change">
-              <SkeletonBlock width={64} height={24} radius={12} />
-            </SkeletonLoader>
-          ) : (
-            <StatusBadge
-              label={pillText(percent)}
-              tone={percent >= 0 ? 'success' : 'danger'}
-              accessibilityLabel={`${percent >= 0 ? 'Up' : 'Down'} ${percentNumber(percent)} percent ${span}`}
-              style={chartStyles.pill}
-              labelStyle={[theme.typography.labelSm, chartStyles.tabular]}
-            />
-          ))}
-        </View>
-      )}
-      {hasAccessory && (
-        <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Text
-            numberOfLines={1}
-            style={[styles.heroAmount, chartStyles.measure]}
-            onTextLayout={(event) => setAmountWidth(event.nativeEvent.lines[0]?.width || 0)}
-          >
-            {restValue.value}
-          </Text>
-          <Text
-            numberOfLines={1}
-            style={[styles.heroSymbol, chartStyles.measure]}
-            onTextLayout={(event) => setSymbolWidth(event.nativeEvent.lines[0]?.width || 0)}
-          >
-            {restValue.symbol}
-          </Text>
-        </View>
-      )}
     </View>
   );
-}));
+});
 
 PortfolioBalance.displayName = 'PortfolioBalance';
 PortfolioBalance.propTypes = {
   theme: PropTypes.shape({
-    colors: PropTypes.shape({textPrimary: PropTypes.string, textSecondary: PropTypes.string}),
-    typography: PropTypes.shape({labelSm: PropTypes.shape({})}),
+    colors: PropTypes.shape({textPrimary: PropTypes.string}),
   }).isRequired,
-  history: homeValueChartHistoryPropType.isRequired,
-  chartExpanded: PropTypes.bool.isRequired,
   onSelectCurrency: PropTypes.func.isRequired,
-};
-
-// While the saved chart record loads, the header keeps its loaded layout with
-// skeletons in place of the amount and the value badge.
-const PortfolioBalanceSkeleton = ({compactHeader}) => (
-  <SkeletonLoader
-    accessibilityLabel="Loading your balance"
-    style={[styles.heroValueRow, compactHeader && chartStyles.compactAmountRow]}>
-    <View style={styles.skeletonRow}>
-      <SkeletonBlock width={148} height={32} style={styles.heroAmountSkeleton} />
-      {compactHeader && (
-        <View style={chartStyles.pillSlot}>
-          <SkeletonBlock width={64} height={24} radius={12} />
-        </View>
-      )}
-    </View>
-  </SkeletonLoader>
-);
-
-// The chart's space while its saved record loads: the same heights and plot
-// inset as the chart's own loading state, without its controls.
-const ChartStripSkeleton = ({expanded}) => {
-  const {height: windowHeight} = useWindowDimensions();
-  const compact = windowHeight <= ONBOARDING_SMALL_DEVICE_MAX_HEIGHT;
-  const stripHeight = compact ? 44 : 48;
-  const openHeight = compact ? 108 : 124;
-  const rangeHeight = compact ? 40 : 44;
-  const height = expanded ? openHeight : stripHeight;
-  const top = expanded ? 28 : 8;
-
-  return (
-    <View style={chartStyles.block}>
-      <View style={[chartStyles.plot, expanded ? null : styles.closedStripPlot]}>
-        <SkeletonLoader
-          accessibilityLabel="Loading value history"
-          style={[chartStyles.skeleton, {height, paddingTop: top}]}>
-          <SkeletonBlock height={height - top - 8} />
-        </SkeletonLoader>
-        {expanded && <View style={{height: rangeHeight}} />}
-      </View>
-    </View>
-  );
 };
 
 // One asset row. It takes only display values, so a balance result draws
@@ -406,7 +287,6 @@ const HomeAssetRow = React.memo(({
 // with the assets, and the action bar and the assets stay reachable at any
 // count. They draw again only when their own values change.
 const HomeNotices = React.memo(({
-  compactHeader,
   homeNotice,
   loading,
   onDismissFoundAssets,
@@ -423,9 +303,8 @@ const HomeNotices = React.memo(({
       testID="home-notices"
       onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}
       // A Home notice takes the gap in its first frame; the measure covers the
-      // other cards. The fixed header ends with 8 points, so 12 more keep the
-      // 20-point gap under the balance, and 8 stay above the chart.
-      style={[styles.notices, shown && (compactHeader ? styles.noticesUnderChartHeader : styles.noticesShown)]}
+      // other cards.
+      style={[styles.notices, shown && styles.noticesShown]}
     >
       <HomeNotice
         loading={loading}
@@ -446,7 +325,7 @@ export const HOME_SORT_LABELS = {
   [HOME_SORT_NAME]: 'Name',
 };
 
-// Opens "Sort assets". It names the current sort, as the chart's range label does.
+// Opens "Sort assets". It names the current sort.
 const HomeSortControl = React.memo(({sort, theme, onPress}) => {
   const label = HOME_SORT_LABELS[sort] || HOME_SORT_LABELS[HOME_SORT_CUSTOM];
   return (
@@ -471,17 +350,10 @@ const HomeSortControl = React.memo(({sort, theme, onPress}) => {
 // The balance and its actions. It draws again only when one of its own values
 // changes, not on each asset balance result.
 const HomeHeader = React.memo(({
-  amountRef,
-  compactHeader,
   displayCurrency,
   dividerOpacity,
-  history,
-  hydrated,
-  chartExpanded,
   revealProgress,
-  actionsOpacity,
   showBalance,
-  stripScrubbing,
   theme,
   totalFiatBalance,
   onManageAssets,
@@ -490,30 +362,18 @@ const HomeHeader = React.memo(({
 }) => {
   return (
     <View style={[styles.header, {backgroundColor: theme.colors.background}]}>
-      <View style={[styles.balanceRow, compactHeader && chartStyles.compactBalanceRow]}>
+      <View style={styles.balanceRow}>
         <View style={styles.balanceTouchable}>
-          {hydrated ? (
-            <PortfolioBalance
-              ref={amountRef}
-              amount={totalFiatBalance}
-              currency={displayCurrency}
-              revealProgress={revealProgress}
-              showBalance={showBalance}
-              theme={theme}
-              history={history}
-              chartExpanded={chartExpanded}
-              onSelectCurrency={onSelectCurrency}
-            />
-          ) : (
-            <PortfolioBalanceSkeleton compactHeader={compactHeader} />
-          )}
+          <PortfolioBalance
+            amount={totalFiatBalance}
+            currency={displayCurrency}
+            revealProgress={revealProgress}
+            showBalance={showBalance}
+            theme={theme}
+            onSelectCurrency={onSelectCurrency}
+          />
         </View>
-        <Animated.View
-          pointerEvents={stripScrubbing ? 'none' : 'auto'}
-          accessibilityElementsHidden={stripScrubbing}
-          importantForAccessibility={stripScrubbing ? 'no-hide-descendants' : 'auto'}
-          style={[styles.balanceActions, { opacity: actionsOpacity }]}
-        >
+        <View style={styles.balanceActions}>
           <TouchableOpacity
             activeOpacity={0.75}
             accessibilityRole="button"
@@ -537,7 +397,7 @@ const HomeHeader = React.memo(({
           >
             <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textPrimary} />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </View>
       {/* The line shows once the list scrolls. It changes no layout and no React state. */}
       <Animated.View
@@ -548,8 +408,6 @@ const HomeHeader = React.memo(({
   );
 });
 
-PortfolioBalanceSkeleton.displayName = 'PortfolioBalanceSkeleton';
-ChartStripSkeleton.displayName = 'ChartStripSkeleton';
 HomeAssetRow.displayName = 'HomeAssetRow';
 HomeHeader.displayName = 'HomeHeader';
 HomeNotices.displayName = 'HomeNotices';
@@ -606,7 +464,6 @@ const SignedInWalletHome = ({
   loading,
   showBalance,
   totalFiatBalance,
-  history,
   onToggleBalance,
   onSelectDisplayCurrency,
   onRefresh,
@@ -627,28 +484,9 @@ const SignedInWalletHome = ({
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const { expanded: chartExpanded, hydrated: preferenceHydrated, setExpanded } = useHomeChartPreference();
-  const hydrated = history.hydrated && preferenceHydrated;
   const dividerRef = useRef(false);
   const dividerOpacity = useRef(new Animated.Value(0)).current;
-  const panRef = useRef(null);
-  const amountRef = useRef(null);
-  const scrubRef = useRef(false);
-  const [scrubbing, setScrubbing] = useState(false);
-  // Before the saved record is read, keep the chart's space when the wallet
-  // can have a chart at all, so the header does not jump.
-  const compactHeader = hydrated ? history?.state !== 'none' : history.hasPrice === true;
-  const onScrub = useCallback((point) => {
-    amountRef.current?.setScrub(point);
-    const active = point != null;
-    if (active !== scrubRef.current) {
-      scrubRef.current = active;
-      setScrubbing(active);
-    }
-  }, []);
   const balanceRevealProgress = useBalanceRevealProgress(showBalance);
-  const stripScrubbing = scrubbing && !chartExpanded;
-  const actionsOpacity = useBalanceRevealProgress(!stripScrubbing);
 
   // The newest asset items, for the stable row callback.
   const assetsById = useRef({});
@@ -663,11 +501,7 @@ const SignedInWalletHome = ({
   const openSortSheet = useCallback(() => setSortOpen(true), []);
   const closeSortSheet = useCallback(() => setSortOpen(false), []);
   const selectSort = useLatestCallback(next => onSelectSort?.(next));
-  const formatValue = useCallback(value => formatFiat(value, displayCurrency), [displayCurrency]);
-  const toggleChart = useCallback(() => setExpanded(!chartExpanded), [chartExpanded, setExpanded]);
-  const pullToRefresh = useLatestCallback(() => {
-    if (!scrubRef.current) onRefresh();
-  });
+  const pullToRefresh = useLatestCallback(() => onRefresh());
 
   const handleScroll = useCallback(event => {
     const next = (event?.nativeEvent?.contentOffset?.y || 0) > HEADER_DIVIDER_THRESHOLD;
@@ -701,34 +535,12 @@ const SignedInWalletHome = ({
     );
   }, [showBalance, displayCurrency, balanceRevealProgress, theme, openAsset]);
 
-  // Until the record is read, a plain skeleton keeps the closed or open chart's space.
-  const chart = useMemo(() => {
-    if (!hydrated) {
-      return history.hasPrice ? (
-        <ChartStripSkeleton expanded={preferenceHydrated && chartExpanded} />
-      ) : null;
-    }
-    return (
-      <HomeValueChart
-        history={history}
-        panRef={panRef}
-        showBalance={showBalance}
-        formatValue={formatValue}
-        onScrub={onScrub}
-        expanded={chartExpanded}
-        preferenceHydrated={preferenceHydrated}
-        onToggle={toggleChart}
-      />
-    );
-  }, [hydrated, history, showBalance, formatValue, onScrub, chartExpanded,
-    preferenceHydrated, toggleChart]);
   // The sort control shows when there are two or more rows to sort.
   const sortable = assets.length >= 2;
-  // Notices, then the chart, then the sort control. All three scroll with the rows.
+  // Notices, then the sort control. Both scroll with the rows.
   const listHeader = useMemo(() => (
     <>
       <HomeNotices
-        compactHeader={compactHeader}
         homeNotice={homeNotice}
         loading={loading}
         onDismissFoundAssets={onDismissFoundAssets}
@@ -737,12 +549,10 @@ const SignedInWalletHome = ({
         onRefresh={onRefresh}
         onReviewFoundAssets={onReviewFoundAssets}
       />
-      {chart}
       {sortable ? <HomeSortControl sort={sort} theme={theme} onPress={openSortSheet} /> : null}
     </>
-  ), [compactHeader, homeNotice, loading, onDismissFoundAssets, onDismissSyncNotice, onReceive,
-    onRefresh, onReviewFoundAssets, chart, sortable, sort, theme, openSortSheet]);
-  const chartReady = history.state === 'chart' && !history.loading;
+  ), [homeNotice, loading, onDismissFoundAssets, onDismissSyncNotice, onReceive,
+    onRefresh, onReviewFoundAssets, sortable, sort, theme, openSortSheet]);
 
   const listEmpty = useMemo(() => (
     !assetsReady && !assetsLoadError ? (
@@ -766,11 +576,9 @@ const SignedInWalletHome = ({
   const refreshControl = useMemo(() => (
     <RefreshControl
       refreshing={loading}
-      enabled={!scrubbing}
-      waitFor={chartReady ? panRef : undefined}
       onRefresh={pullToRefresh}
     />
-  ), [loading, scrubbing, chartReady, pullToRefresh]);
+  ), [loading, pullToRefresh]);
 
   return (
     <SafeAreaView
@@ -778,17 +586,10 @@ const SignedInWalletHome = ({
       style={[styles.screen, {backgroundColor: theme.colors.background}]}
     >
       <HomeHeader
-        amountRef={amountRef}
-        compactHeader={compactHeader}
         displayCurrency={displayCurrency}
         dividerOpacity={dividerOpacity}
-        history={history}
-        hydrated={hydrated}
-        chartExpanded={chartExpanded}
         revealProgress={balanceRevealProgress}
-        actionsOpacity={actionsOpacity}
         showBalance={showBalance}
-        stripScrubbing={stripScrubbing}
         theme={theme}
         totalFiatBalance={totalFiatBalance}
         onManageAssets={onManageAssets}
@@ -798,9 +599,6 @@ const SignedInWalletHome = ({
 
       <FlatList
         data={assets}
-        waitFor={chartReady ? panRef : undefined}
-        scrollEnabled={!scrubbing}
-        bounces={!scrubbing}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={listEmpty}
         keyExtractor={assetKey}
@@ -848,18 +646,14 @@ const styles = StyleSheet.create({
   heroValueRow: {flexDirection: 'row', alignItems: 'flex-start', marginVertical: 12},
   heroSymbolFrame: {marginRight: 4, marginTop: 2},
   heroSymbol: {...fontStyle('semiBold'), fontSize: 17, lineHeight: 22},
+  amountGroup: {flexDirection: 'row', alignItems: 'flex-start', flexShrink: 1, minWidth: 0},
   heroAmountFrame: {flexShrink: 1},
   heroAmount: {...fontStyle('bold'), fontSize: 34, lineHeight: 40, letterSpacing: -0.5, fontVariant: ['tabular-nums']},
   headerDivider: {position: 'absolute', left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth},
-  skeletonRow: {flexDirection: 'row', alignItems: 'flex-start'},
-  heroAmountSkeleton: {marginVertical: 4},
-  // The closed strip leaves 54 points for the range label and chevron.
-  closedStripPlot: {paddingRight: 54},
   listContent: {paddingBottom: 16},
   notices: {paddingHorizontal: 20},
   noticesShown: {marginBottom: 8},
-  noticesUnderChartHeader: {marginTop: 12, marginBottom: 8},
-  // A 32-point line under the chart; the hit slop keeps a 44-point target.
+  // A 32-point line above the rows; the hit slop keeps a 44-point target.
   sortRow: {flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginBottom: 4},
   sortControl: {height: 32, flexDirection: 'row', alignItems: 'center', gap: 4},
   sortLabel: {marginLeft: 2},
@@ -876,7 +670,5 @@ const styles = StyleSheet.create({
   fiatRate: {textAlign: 'right'},
   prelaunchBadge: {flexShrink: 0},
 });
-
-SignedInWalletHome.propTypes = { history: homeValueChartHistoryPropType.isRequired };
 
 export default SignedInWalletHome;
