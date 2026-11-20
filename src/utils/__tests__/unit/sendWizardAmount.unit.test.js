@@ -345,3 +345,98 @@ describe('Send Amount step, network change on request (F5)', () => {
     expect(getConversionPaths).toHaveBeenCalledTimes(2);
   });
 });
+
+// F13 (PR 266 feedback 2026-11-20): with more than 30 converters, Amount asks
+// estimateconversion for the 30 oldest only. "Oldest" is the lowest launch
+// block (currencydefinition.startblock); the unknown one goes last.
+describe('Convert Amount step, 30 oldest converters (F13)', () => {
+  const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
+  const {buildTargetOptions} = require('../../../containers/SendWizard/wizardUtils');
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', currency_id: 'iSource', system_id: 'iSystem'};
+  // 33 baskets: b1 to b32 launched at block 1000 + 10 * (33 - n), so b32 is the
+  // oldest (block 1010) and b1 the youngest (block 1320). bX has no launch block.
+  const baskets = [
+    ...Array.from({length: 32}, (_, index) => ({
+      currencyid: `b${index + 1}`,
+      fullyqualifiedname: `Basket${index + 1}`,
+      startblock: 1000 + 10 * (32 - index),
+    })),
+    {currencyid: 'bX', fullyqualifiedname: 'BasketX'},
+  ];
+  const destination = {currencyid: 'iTarget', fullyqualifiedname: 'Target', startblock: 5};
+  let view;
+
+  const renderConvert = () => {
+    const paths = {iTarget: baskets.map(via => ({destination, via, price: 1}))};
+    const target = buildTargetOptions(paths, VRSCTEST, false, 'iSystem')
+      .find(option => option.isConversion);
+    const card = {id: 'MAIN', api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iSystem'}};
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {bal: {VRSCTEST: {confirmed: '100', pending: '0', total: '100'}}}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="convert"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '100',
+            channel: card.api_channels.send,
+            target,
+            route: target.routes[0],
+            amountInput: '1',
+          }}>
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+    return target;
+  };
+  const estimatedVias = () => estimateConversion.mock.calls.map(call => call[4]);
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    estimateConversion.mockImplementation(() =>
+      Promise.resolve({result: {estimatedcurrencyout: 1}}));
+  });
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+    jest.useRealTimers();
+  });
+
+  it('estimates the 30 oldest of 33 converters', async () => {
+    const target = renderConvert();
+    expect(target.routes).toHaveLength(33);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    // b3 to b32 are the 30 oldest; b1, b2 (youngest) and bX (unknown) wait.
+    expect(estimatedVias().sort()).toEqual(
+      Array.from({length: 30}, (_, index) => `b${index + 3}`).sort(),
+    );
+  });
+
+  it('keeps the estimate of a converter the user picks', async () => {
+    const target = renderConvert();
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    estimateConversion.mockClear();
+    const youngest = target.routes.find(route => route.via === 'b1');
+    act(() => {
+      view.root.findByType('PriceRouteSheet').props.onSelect(youngest);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias()).toContain('b1');
+    // The picked one takes the place of the youngest of the 30 (b3).
+    expect(estimatedVias()).not.toContain('b3');
+  });
+});

@@ -53,6 +53,7 @@ import {
   getCurrencyDisplay,
   getRecipientAddressType,
   isConversionChannel,
+  pickEstimateRoutes,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
 
@@ -309,7 +310,9 @@ const SendWizardAmount = () => {
     setEstimateError(null);
     const timeout = setTimeout(async () => {
       try {
-        const routes = target.routes?.length ? target.routes : [route];
+        const routes = target.routes?.length
+          ? pickEstimateRoutes(target.routes, preferredRouteKey)
+          : [route];
         const results = await Promise.all(
           routes.map(async candidate => {
             try {
