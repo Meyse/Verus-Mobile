@@ -1,4 +1,3 @@
-import {getInfo} from '../api/channels/vrpc/requests/getInfo';
 import {noteOwnBroadcast, ownBroadcastEpoch} from './ownBroadcasts';
 
 export {noteOwnBroadcast, ownBroadcastEpoch};
@@ -19,6 +18,9 @@ export const chainHeightOf = info => {
 // what it never read and what an own broadcast changed.
 export const readChainHeight = async systemId => {
   try {
+    // Loaded at call time: the VRPC interface imports the store, whose sagas
+    // import the registration dispatcher, which uses this module.
+    const {getInfo} = require('../api/channels/vrpc/requests/getInfo');
     const response = await getInfo(systemId);
     return {height: chainHeightOf(response?.result), info: response?.result || null};
   } catch (error) {
