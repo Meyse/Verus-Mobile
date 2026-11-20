@@ -18,6 +18,11 @@ import {SEND_MODAL_PRICE_ESTIMATE} from '../../utils/constants/sendModal';
 import {truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
 import {getAdvancedReview} from './advancedReview';
+import {getBroadcastRejectionMessage} from './broadcastRejection';
+import {
+  CONNECTION_FAILED_MESSAGE,
+  isConnectionErrorMessage,
+} from '../../utils/network/connectionErrors';
 import {loweredNodeProps} from './loweredAmount';
 import {closeWizard} from './wizardNavigation';
 import {ConfirmNotice} from './components/ConfirmFacts';
@@ -127,8 +132,9 @@ const SendWizardAdvancedConfirm = () => {
         preflight,
       );
       if (res.err) {
-        const error = new Error(res.result);
+        const error = new Error(res.result?.message || res.result || 'Transaction failed.');
         error.ambiguousBroadcast = res.ambiguousBroadcast === true;
+        error.rejected = true;
         throw error;
       }
       submitted.current = true;
@@ -148,7 +154,17 @@ const SendWizardAdvancedConfirm = () => {
     } catch (error) {
       console.warn(error);
       if (error.ambiguousBroadcast === true) setStatusUnknown(true);
-      else setSendError('Nothing was sent. Check your connection and try again.');
+      else {
+        // The wizard's Confirm maps send failures the same way: a node
+        // refusal (such as an input an unconfirmed send already spent) does
+        // not read as a connection problem.
+        const message = error.message || 'Transaction failed.';
+        setSendError(error.rejected
+          ? getBroadcastRejectionMessage(message)
+          : isConnectionErrorMessage(message)
+            ? CONNECTION_FAILED_MESSAGE
+            : message);
+      }
     } finally {
       dispatch(expireCoinData(coinObj.id, API_GET_FIATPRICE));
       dispatch(expireCoinData(coinObj.id, API_GET_TRANSACTIONS));
