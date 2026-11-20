@@ -885,6 +885,24 @@ const useConvertOrCrossChainForm = ({
     }
   }
 
+  // The problem with an address that is not a VerusID, or null. These are the
+  // checks of selectAddress in submitData, without its result.
+  const getAddressFormatProblem = addr => {
+    if (addr.endsWith("@")) return null;
+    try {
+      if (ethers.isAddress(addr)) return null;
+    } catch (e) {} // Not an Ethereum address; check it as a Verus address.
+    let decoded;
+    try {
+      decoded = fromBase58Check(addr);
+    } catch (e) {
+      return "Enter a valid address or VerusID.";
+    }
+    return decoded.version === R_ADDRESS_VERSION || decoded.version === I_ADDRESS_VERSION
+      ? null
+      : "This address type is not supported.";
+  };
+
   const formHasError = () => {
     const { subWallet, coinObj, data } = sendModal;
     const channel = subWallet.api_channels[API_SEND];
@@ -899,17 +917,24 @@ const useConvertOrCrossChainForm = ({
 
     const amount = getProcessedAmount()
 
+    // Each field's first problem, top to bottom. The inline form shows all of
+    // them at once; the old form alerts the first, as before.
+    const problems = [];
+
     if (!toAddress || toAddress.length < 1) {
-      showFormError(destinationErrorField, "Required Field", "Enter an address or VerusID.");
-      return true;
+      problems.push([destinationErrorField, "Required Field", "Enter an address or VerusID."]);
     } else if (addressIsBlocked(toAddress, addressBlocklist)) {
-      showFormError(destinationErrorField, "Blocked Address", "Sending to this address is blocked.");
-      return true;
+      problems.push([destinationErrorField, "Blocked Address", "Sending to this address is blocked."]);
+    } else if (inlineMessages) {
+      // The same local checks the preparation makes (selectAddress), made here
+      // so that this error shows together with the amount's. A VerusID still
+      // needs its lookup, so it is checked when the payment is prepared.
+      const formatProblem = getAddressFormatProblem(String(data[SEND_MODAL_TO_ADDRESS_FIELD]));
+      if (formatProblem) problems.push([destinationErrorField, "Invalid Address", formatProblem]);
     }
 
     if (amount == null) {
-      showFormError(amountErrorField, "Invalid Amount", "Enter a valid amount.");
-      return true;
+      problems.push([amountErrorField, "Invalid Amount", "Enter a valid amount."]);
     } else {
       if (spendableBalance == null || Number(amount) > Number(spendableBalance)) {
         const ticker = coinObj.display_ticker;
@@ -923,9 +948,22 @@ const useConvertOrCrossChainForm = ({
                 ? ' Private funds need 10 confirmations before they can be spent.'
                 : '');
 
-        showFormError(amountErrorField, "Insufficient Funds", message);
-        return true;
+        problems.push([amountErrorField, "Insufficient Funds", message]);
       }
+    }
+
+    if (problems.length > 0) {
+      if (inlineMessages) {
+        const errors = {};
+        for (const [field, , message] of problems) {
+          if (errors[field] == null) errors[field] = message;
+        }
+        setFormErrors(errors);
+      } else {
+        const [field, title, message] = problems[0];
+        showFormError(field, title, message);
+      }
+      return true;
     }
 
     return false;
