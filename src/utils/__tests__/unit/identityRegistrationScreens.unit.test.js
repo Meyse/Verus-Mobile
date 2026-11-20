@@ -20,6 +20,9 @@ const mockReadRegistrationName = jest.fn();
 const mockGetRegistrationReferralInfo = jest.fn();
 const mockRegistrationReferralNamespace = jest.fn();
 const mockLoadRegistrationNamespaces = jest.fn();
+let mockChainHeight = 100;
+const mockGetInfo = jest.fn(async () => ({result: {longestchain: mockChainHeight}}));
+jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: (...args) => mockGetInfo(...args)}));
 jest.mock('../../identityRegistration', () => mockApi);
 jest.mock('../../identityRegistration/referrals', () => ({
   getRegistrationReferralInfo: (...args) => mockGetRegistrationReferralInfo(...args),
@@ -188,6 +191,7 @@ const mount = async (Component, props = {}) => {
 };
 beforeEach(() => {
   jest.clearAllMocks();
+  mockChainHeight = 100;
   mockScrollTo.mockReset();
   mockPublishRegistrationJobs.mockReset().mockResolvedValue({});
   mockClearRegistrationJobs.mockReset().mockImplementation(async () => {
@@ -541,6 +545,32 @@ it('keeps passive status checks out of action loading and stops polling when rea
   await act(async () => { jest.advanceTimersByTime(60000); });
   expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(2);
   expect(view.root.findAllByType('ActivityIndicator')).toHaveLength(0);
+});
+
+// PR 266 review F14: a registration that waits for funds during 5 minutes
+// with one new block. Before: a quote and a fresh balance on each of the 15
+// polls. After: one getinfo per poll, and the funds check again only after the
+// block.
+it('re-checks short funds only after the block height rose', async () => {
+  jest.useFakeTimers();
+  mockChainHeight = 100;
+  setSavedReview({...review, status: 'commitment_confirmed'});
+  mockApi.reconcileRegistration.mockResolvedValue({...review, status: 'commitment_confirmed'});
+  mockCheckRegistrationFunds.mockResolvedValue({status: 'short', currencyId: 'chain', balance: '0.5', missing: '50010000'});
+  const view = await mount(IdentityRegistrationProgress);
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(1);
+  expect(textContent(view.root)).toContain('Add 0.5001 VRSC to it to continue.');
+  mockGetInfo.mockClear();
+
+  for (let poll = 1; poll <= 15; poll++) {
+    if (poll === 8) mockChainHeight = 101;
+    await advance(20000);
+  }
+
+  expect(mockGetInfo).toHaveBeenCalledTimes(15);
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(2);
+  expect(mockCheckRegistrationFunds).toHaveBeenCalledTimes(2);
 });
 
 it('aborts a passive check before a foreground action and ignores its stale result', async () => {
