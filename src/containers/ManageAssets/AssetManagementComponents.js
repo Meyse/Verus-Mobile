@@ -116,9 +116,9 @@ export const AssetLogo = ({coin, presentation = coin && getAssetPresentation(coi
   </View>
 );
 
-export const AssetLoadingRows = ({styles}) => (
-  <SkeletonLoader accessibilityLabel="Loading your assets">
-    {[0, 1, 2].map(row => (
+export const AssetLoadingRows = ({styles, count = 3, accessibilityLabel = 'Loading your assets'}) => (
+  <SkeletonLoader accessibilityLabel={accessibilityLabel}>
+    {Array.from({length: count}, (_, row) => row).map(row => (
       <View key={row} style={styles.skeletonRow}>
         <SkeletonBlock width={38} height={38} radius={19} />
         <View style={styles.rowCopy}><SkeletonBlock width="65%" height={16} /><SkeletonBlock width="80%" height={14} /></View>
