@@ -20,7 +20,7 @@ import { getSendCurrencyTransaction, SEND_CURRENCY_PARENT_FEE } from "./getSendC
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
 import { createAlert } from "../../../../../actions/actions/alert/dispatchers/alert";
-import { currencyNotFoundError, isCurrencyNotFoundError } from "../../../errors/currencyNotFound";
+import { lookupError, lookupErrorFields } from "../../../errors/lookupErrors";
 import { getCurrencyTransferIntentContext, validateCurrencyTransferTag } from "./currencyTransferIntent";
 import {
   BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE,
@@ -256,12 +256,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const currRes = await getCurrency(systemId, iaddrOrName);
 
-      if (currRes.error) {
-        const message = "Couldn't get currency " + iaddrOrName;
-        throw isCurrencyNotFoundError(currRes.error)
-          ? currencyNotFoundError(message, iaddrOrName)
-          : new Error(message);
-      }
+      if (currRes.error) throw lookupError("Couldn't get currency " + iaddrOrName, currRes.error, iaddrOrName);
       else {
         if (requestedCurrencyId && currRes.result.currencyid !== requestedCurrencyId) {
           throw new Error("Currency definition does not match the requested currency.");
@@ -277,7 +272,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const idRes = await getIdentity(systemId, iaddrOrName);
 
-      if (idRes.error) throw new Error("Couldn't get identity " + iaddrOrName);
+      if (idRes.error) throw lookupError("Couldn't get identity " + iaddrOrName, idRes.error);
       else {
         friendlyNames.set(
           idRes.result.identity.identityaddress,
@@ -708,7 +703,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     return {
       err: true,
       result: message,
-      ...(e?.currencyNotFound != null ? { notFoundCurrency: e.currencyNotFound } : {}),
+      ...lookupErrorFields(e),
     };
   }
 }

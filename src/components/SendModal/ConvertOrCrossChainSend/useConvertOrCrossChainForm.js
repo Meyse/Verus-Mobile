@@ -40,6 +40,7 @@ import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../utils/constants/c
 import { getWeb3ProviderForNetwork } from "../../../utils/web3/provider";
 import { useObjectSelector } from "../../../hooks/useObjectSelector";
 import {showFundRawTransactionErrorAlert} from '../../../utils/vrpc/fundRawTransactionError';
+import {isConnectionErrorMessage} from '../../../utils/network/connectionErrors';
 
 // A problem the user can fix on the form. Inline mode shows it on the screen.
 const fieldError = (field, title, message) => {
@@ -1111,6 +1112,7 @@ const useConvertOrCrossChainForm = ({
       if (res.err) {
         const error = new Error(res.result);
         if (res.notFoundCurrency != null) error.notFoundCurrency = res.notFoundCurrency;
+        if (res.connectionFailed === true) error.connectionFailed = true;
         throw error;
       }
 
@@ -1175,12 +1177,20 @@ const useConvertOrCrossChainForm = ({
         );
       } else if (!showFundRawTransactionErrorAlert(e)) {
         console.warn(e);
+        // A refusal with a reason (from this app's checks or the node) shows
+        // that reason, as upstream's form did. Only a request that got no
+        // answer, or an error without a reason, asks to check the connection.
+        const reason = typeof e?.message === "string" ? e.message.trim() : "";
+        const connectionProblem =
+          e?.connectionFailed === true || reason.length === 0 || isConnectionErrorMessage(reason);
         showFormError(
           "form",
           `Can’t prepare this ${isBurnChangePrice ? "burn" : "payment"}`,
-          `The ${
-            isBurnChangePrice ? "burn" : "payment"
-          } could not be prepared. Check your connection and try again.`,
+          connectionProblem
+            ? `The ${
+                isBurnChangePrice ? "burn" : "payment"
+              } could not be prepared. Check your connection and try again.`
+            : reason,
         );
       }
     }

@@ -55,7 +55,7 @@ import { BN } from "bn.js";
 import { getStandardEthBalance } from "../../eth/callCreator";
 import { ECPair, networks } from "@bitgo/utxo-lib";
 import { cleanEthersErrorMessage } from "../../../../errors";
-import { currencyNotFoundError, isCurrencyNotFoundError } from "../../../errors/currencyNotFound";
+import { lookupError, lookupErrorFields } from "../../../errors/lookupErrors";
 import { I_ADDRESS_VERSION } from "../../../../constants/constants";
 import store from "../../../../../store";
 
@@ -212,9 +212,7 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
       const mappedCurrencyRes = await getCurrency(systemId, mapto);
 
       if (mappedCurrencyRes.error) {
-        throw isCurrencyNotFoundError(mappedCurrencyRes.error)
-          ? currencyNotFoundError(mappedCurrencyRes.error.message, mapto)
-          : new Error(mappedCurrencyRes.error.message);
+        throw lookupError(mappedCurrencyRes.error.message, mappedCurrencyRes.error, mapto);
       }
       else {
         if (mappedCurrencyRes.result.currencyid !== currencyId(mapto)) {
@@ -313,9 +311,7 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
       const convertToRes = await getCurrency(systemId, convertto);
 
       if (convertToRes.error) {
-        throw isCurrencyNotFoundError(convertToRes.error)
-          ? currencyNotFoundError(convertToRes.error.message, convertto)
-          : new Error(convertToRes.error.message);
+        throw lookupError(convertToRes.error.message, convertToRes.error, convertto);
       }
       else {
         const converterDefinition = convertToRes.result;
@@ -584,7 +580,7 @@ export const preflightBridgeTransfer = async (coinObj, channelId, activeUser, ou
     return {
       err: true,
       result: cleanEthersErrorMessage(e.message),
-      ...(e?.currencyNotFound != null ? { notFoundCurrency: e.currencyNotFound } : {}),
+      ...lookupErrorFields(e),
     }
   }
 }
