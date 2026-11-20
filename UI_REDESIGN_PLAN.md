@@ -3954,6 +3954,7 @@ automatic postinstall failed on the existing navigation patch.
   `API_GET_FIATPRICE` (the general channel for these VRPC conversions). The
   on-chain price pipeline converts its USD anchor with cached fiat exchange
   rates before writing the ledger. No source-price or small-trade-ratio fallback.
+  Removed 2026-11-20 (PR 266 F2): the on-chain price pipeline; the ledger holds CoinPaprika prices as upstream.
 - Name handling: one line with `ellipsizeMode="middle"` so Android supports the
   middle ellipsis. The amount does not shrink. The accessible name stays full.
 - Static compact geometry: the typical 375x667 iPhone SE state totals about
@@ -3987,6 +3988,7 @@ automatic postinstall failed on the existing navigation patch.
   per coin (60-second cache). A direct call returned USD 1 for mainnet
   DAI.vETH from `api.verus.services`. Testnet targets have no price, so the
   device run could not show this line.
+  Removed 2026-11-20 (PR 266 F2): the `getCoinRates` call; `useReceivedPrice` reads the ledger only.
 - Notice rule: `sourceFees > displayAmount` in the paid currency, not for
   invoices. Text: "The fees are higher than the amount."
 - Validation: `check:design` and `check:safe-areas --changed` pass. Babel

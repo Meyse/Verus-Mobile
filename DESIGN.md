@@ -664,14 +664,12 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   gives way with a single-line middle ellipsis on both platforms, preserving
   its ending. Accessibility retains the full name.
 - Group estimated amounts with thousands separators in display only. Under
-  the estimate, show money only when there is a finite positive price for
-  the received currency in the user's display currency: the ledger's, or the
-  ledger's price source for a target outside the wallet (`useReceivedPrice`;
-  owner, 2026-11-13). A target outside the coin directory gets the same
-  on-chain price from its currency id and system id: any basket or reserve
-  currency with a native or anchor route has a money value. Do not derive a
-  money price from the paid asset or from `usePriceImpact`'s small-trade crypto
-  ratio.
+  the estimate, show money only when the ledger holds a finite positive price
+  for the received currency in the user's display currency
+  (`useReceivedPrice`; owner, 2026-11-13). Removed 2026-11-20 (PR 266 F2): the
+  on-chain price for a target outside the wallet; no request is made. Do not
+  derive a money price from the paid asset or from `usePriceImpact`'s
+  small-trade crypto ratio.
 - Empty conversions show the asset row with "—", no money and no impact row.
   Loading uses one `SkeletonLoader` shaped like the final block. Pre-conversions
   show "Price set at launch", with no money or impact row. Keep the fiat/crypto
@@ -779,10 +777,9 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the
   ledger holds a price for every currency in that row. A positive value under
   one cent reads "< €0,01", never a zero.
-- The receive node's money uses the received currency's own price
-  (`useReceivedPrice`): the ledger's, or the ledger's price source for a
-  target that is not a wallet asset yet, also outside the coin directory.
-  Amount uses the same hook.
+- The receive node's money uses the received currency's own ledger price
+  (`useReceivedPrice`). Amount uses the same hook. A target without a ledger
+  price shows no money (PR 266 F2).
 - On windows of 667 points or less, Confirm uses compact nodes (owner,
   2026-11-13): 32-point logos, 17/24 amounts, 44-point nodes, a 24-point
   connector that keeps the unit price, a 16-point top inset and 16 points above
@@ -1331,7 +1328,7 @@ Owner decision, 2026-11-19 (PR 266 review R13): every balance shows confirmed
 funds only, as upstream does. An unconfirmed payment must not look like money
 the user has.
 
-- Home (the total, every row, the chart record), the asset screen, Send and
+- Home (the total and every row), the asset screen, Send and
   Convert (Available, MAX, the source lists), Receive, Manage assets, the
   VerusID funds and every picker read one value: `getShownBalance`.
 - Home shows no pending mark for any coin. Amount shows no pending line.
@@ -1783,30 +1780,7 @@ The keyboard footer keeps compact amount rows without a referral price line.
 
 ## Home value chart
 
-Home starts with a closed 48-point value strip (44 on compact windows). Its
-44-point range label and down chevron open the chart. A strip tap also opens it;
-a horizontal scrub does not. Open keeps the 124-point chart (108 compact) and
-range row, with an up-chevron toggle at its end. The phone remembers open or
-closed across accounts and restarts, without an opening animation on load.
-Height changes take 240 ms with the V2 ease-out curve. Redraw the line without
-scaling it; Reduce Motion is instant. During a closed-strip scrub, the date
-replaces the hero pill and the eye and plus fade out. Keep the existing chart
-tokens, loading skeletons, hidden balances, and day-one behavior.
-
-The Home total and the chart count only the assets with "Show on Home" on
-(owner, 2026-11-16). The phone still records the amount of a hidden asset, so
-a hide or a show changes the whole line and makes no jump. The chart draws at
-once from the prices saved on the phone and replaces them when new prices
-arrive. Show the loading skeletons only when the phone has no saved prices for
-an asset on Home, or while the total is not known.
-
-A day without a price for an asset the wallet held then is not available. The
-chart never fills it with an earlier, later, or current price (PR 266 review
-PF3). The line starts at the first day that has a value, with the existing
-"Since <date>" label, and the change pill counts from that day. The range
-still starts at the wallet's record start, never before it. When fewer than
-two points have a value, the Day-1 caption slot says "Price history is not
-available right now." and the strip, pill, and range toggle do not show.
+Removed 2026-11-20 (PR 266 F1, lead developer): Home has no value chart, chart strip or price history.
 
 ## Home asset order
 
@@ -1819,7 +1793,7 @@ not move by itself.
   order, it is the order in which the assets were added to the phone. A new or
   added-back asset goes to the end. A removed asset leaves no gap. A hidden
   asset keeps its place.
-- Under the chart strip, a 32-point right-aligned line names the current sort:
+- Under the notices, a 32-point right-aligned line names the current sort:
   the Lucide `ArrowDownUp` icon, the sort name in `labelSm` and `ChevronDown`,
   all 16 points and in `link`, with a 44-point target. It shows from two rows
   on Home and scrolls with the rows.
@@ -1843,9 +1817,9 @@ A VerusID request
 
 Owner pick, 2026-11-19 (PR 266 review PF1, option A): the Home notice and the
 notification cards are the first part of the asset list header, above the
-chart strip. They scroll away with the assets, so the assets and the Receive,
+sort line. They scroll away with the assets, so the assets and the Receive,
 Send and Convert bar stay reachable at any count. Every card stays. The gap
-under the balance stays 20 points, with 8 points above the chart.
+under the balance stays 20 points, with 8 points below the cards.
 
 - `surfaceMuted` fill, 16-point corners, no border. Padding is 12 points at the
   top and bottom and 14 on the left. Right padding is 0 with a close target,

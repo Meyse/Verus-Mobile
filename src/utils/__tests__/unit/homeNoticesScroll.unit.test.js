@@ -1,15 +1,11 @@
 // PR 266 review PF1 (owner pick A, 2026-11-19): the Home notices are the first
-// part of the asset list header, above the chart, so they scroll away with the
-// rows. The action bar stays outside the list. R2: the sort line follows the chart.
+// part of the asset list header, so they scroll away with the rows. The action
+// bar stays outside the list. R2: the sort line follows the notices. F1
+// (2026-11-20): Home has no value chart.
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 jest.mock('react-native-gesture-handler', () => {
   const {FlatList, RefreshControl} = require('react-native');
   return {FlatList, RefreshControl};
-});
-jest.mock('../../../containers/Home/components/HomeValueChart', () => {
-  const Chart = () => require('react').createElement('HomeValueChart');
-  Chart.homeValueChartHistoryPropType = () => null;
-  return {__esModule: true, default: Chart, homeValueChartHistoryPropType: () => null};
 });
 jest.mock('../../../containers/Home/HomeWidgets/NotificationWidget', () => () =>
   require('react').createElement('NotificationWidget'));
@@ -27,9 +23,6 @@ jest.mock('../../../components/PrivacyBlurredText', () => ({children}) =>
   require('react').createElement('Text', null, children));
 jest.mock('../../CoinData/Graphics', () => ({AssetCoinLogo: () => null}));
 jest.mock('../../../components/WalletSetup/WalletSetupLogoSlot', () => ({children}) => children);
-jest.mock('../../portfolioHistory/useHomeChartPreference', () => () => ({
-  expanded: false, hydrated: true, setExpanded: () => {},
-}));
 
 const React = require('react');
 const {act, create} = require('react-test-renderer');
@@ -46,7 +39,6 @@ const asset = (id, name) => ({
   fiatValue: 1,
 });
 
-const history = {hydrated: true, state: 'chart', loading: false, hasPrice: true, series: {points: []}};
 const noop = () => {};
 const props = {
   assets: [asset('a', 'Alpha'), asset('b', 'Beta')],
@@ -55,14 +47,13 @@ const props = {
   loading: false,
   showBalance: true,
   totalFiatBalance: 2,
-  history,
   onToggleBalance: noop, onSelectDisplayCurrency: noop, onRefresh: noop, onOpenAsset: noop,
   onReceive: noop, onConvert: noop, onSend: noop, onManageAssets: noop,
   onReviewFoundAssets: noop, onDismissFoundAssets: noop, onDismissSyncNotice: noop,
   sort: 'custom', onSelectSort: jest.fn(),
 };
 
-const KINDS = ['HomeNotice', 'NotificationWidget', 'HomeValueChart'];
+const KINDS = ['HomeNotice', 'NotificationWidget'];
 const kindOf = node => (typeof node.type === 'string' ? node.type : node.props.testID);
 const marks = root => root.findAll(node => KINDS.includes(node.type) ||
   (node.props?.testID === 'home-sort-control' && node.props.onPress != null))
@@ -70,12 +61,12 @@ const marks = root => root.findAll(node => KINDS.includes(node.type) ||
   // A touchable and its host view both carry the test ID.
   .filter((kind, index, all) => kind !== all[index - 1]);
 
-test('notices scroll with the list, above the chart and the sort line', async () => {
+test('notices scroll with the list, above the sort line', async () => {
   let view;
   await act(async () => {view = create(<SignedInWalletHome {...props} />);});
   const list = view.root.findByType(FlatList);
   // In the list header, in this order.
-  expect(marks(list)).toEqual(['HomeNotice', 'NotificationWidget', 'HomeValueChart', 'home-sort-control']);
+  expect(marks(list)).toEqual(['HomeNotice', 'NotificationWidget', 'home-sort-control']);
   // Nothing of the notice block stays in the fixed part above the list.
   expect(marks(view.root)).toEqual(marks(list));
   // The action bar stays outside the list.
