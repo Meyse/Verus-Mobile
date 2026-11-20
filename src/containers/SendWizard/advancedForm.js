@@ -1,4 +1,3 @@
-import {openConvertOrCrossChainSendModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
   SEND_MODAL_ADVANCED_FORM,
   SEND_MODAL_AMOUNT_FIELD,
@@ -21,7 +20,8 @@ import {
 // The unguided form of the wallet before the redesign (PR 266 feedback F7):
 // the user enters every value of a conversion, a pre-conversion, a
 // cross-chain transfer or an off-chain send by hand. These are the fields of
-// upstream's "Advanced" choice on the Send tab (SendCoin.js).
+// upstream's "Advanced" choice on the Send tab (SendCoin.js). The wizard's
+// Advanced form step (SendWizardAdvanced, PR 266 pick ADV) starts from them.
 export const getAdvancedFormData = coin => ({
   [SEND_MODAL_TO_ADDRESS_FIELD]: '',
   [SEND_MODAL_AMOUNT_FIELD]: '',
@@ -41,5 +41,14 @@ export const getAdvancedFormData = coin => ({
   [SEND_MODAL_DISABLED_INPUTS]: {},
 });
 
-export const openAdvancedForm = (coin, subWallet) =>
-  openConvertOrCrossChainSendModal(coin, subWallet, getAdvancedFormData(coin));
+// The old form's Help, as two topics of the Advanced form's info sheet.
+export const ADVANCED_FORM_HELP = [
+  {
+    title: 'Conversions and transfers',
+    body: 'To convert funds to another currency, or to send them to another network, fill in the matching fields.',
+  },
+  {
+    title: 'Timing',
+    body: 'Conversions and cross-chain transfers can take a few minutes to complete, even after the funds show as sent.',
+  },
+];

@@ -40,6 +40,9 @@ const initialWizardState = {
   // on a pre-launch asset). Convert to selects it once its routes load.
   presetTargetId: null,
   preflightResult: null,
+  // The Advanced form (PR 266 pick ADV): its prepared transaction
+  // ({preflight, balances, sendModal}) and, once sent, its result.
+  advancedReview: null,
   txResult: null,
   broadcastError: null,
 };
@@ -196,6 +199,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     setState(current => ({...current, broadcastError}));
   }, []);
 
+  const setAdvancedReview = useCallback(advancedReview => {
+    setState(current => ({...current, advancedReview}));
+  }, []);
+
   const reset = useCallback(() => setState({...initialWizardState}), []);
 
   const value = useMemo(
@@ -218,6 +225,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setPreflight,
       setTxResult,
       setBroadcastError,
+      setAdvancedReview,
       reset,
     }),
     [
@@ -235,6 +243,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setTarget,
       setTxResult,
       setBroadcastError,
+      setAdvancedReview,
       state,
       sourceBalance,
       sourceSendLimit,

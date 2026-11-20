@@ -10,6 +10,7 @@ import {useNavigation} from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
+import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
 import TextAction from '../../components/TextAction';
 import {fontStyle} from '../../globals/fonts';
@@ -26,7 +27,6 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import {TargetNetworkSheet} from './components/SelectionSheets';
-import {openAdvancedForm} from './advancedForm';
 import {
   buildTargetOptions,
   getTargetLaunchDefinition,
@@ -39,6 +39,10 @@ const SendWizardSelectTarget = () => {
   const theme = useOnboardingTheme();
   const {state, setTarget} = useSendWizard();
   const {sourceCoin, sourceSubWallet, channel} = state;
+  const openAdvancedForm = () => {
+    setPendingTarget(null);
+    navigation.navigate('SendWizardAdvanced');
+  };
   const [paths, setPaths] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -239,13 +243,16 @@ const SendWizardSelectTarget = () => {
         />
       ) : null}
       {loading ? (
-        <SkeletonLoader accessibilityLabel="Loading transfer options" style={styles.skeleton}>
-          <SkeletonRow labelWidth="18%" valueWidth="78%" />
-          <SkeletonRow labelWidth="18%" valueWidth="66%" />
-          <SkeletonRow labelWidth="18%" valueWidth="72%" />
-        </SkeletonLoader>
+        <View style={styles.listArea}>
+          <SkeletonLoader accessibilityLabel="Loading transfer options" style={styles.skeleton}>
+            <SkeletonRow labelWidth="18%" valueWidth="78%" />
+            <SkeletonRow labelWidth="18%" valueWidth="66%" />
+            <SkeletonRow labelWidth="18%" valueWidth="72%" />
+          </SkeletonLoader>
+        </View>
       ) : (
         <ScrollView
+          style={styles.listArea}
           contentContainerStyle={[
             styles.content,
             !searchable && styles.contentWithoutSearch,
@@ -276,19 +283,26 @@ const SendWizardSelectTarget = () => {
                 : 'No conversion routes available.'}
             </Text>
           ) : null}
-          {/* The unguided form for every value by hand (PR 266 feedback F7).
-              It stays reachable when the routes fail to load. */}
-          {sourceSubWallet ? (
-            <TextAction
-              accessibilityHint="Opens a form where you enter every value of the transfer"
-              onPress={() => openAdvancedForm(sourceCoin, sourceSubWallet)}
-              size="small"
-              style={styles.advancedForm}>
-              Advanced form
-            </TextAction>
-          ) : null}
         </ScrollView>
       )}
+      {/* The unguided form for every value by hand (PR 266 feedback F7). It
+          stays in a safe footer under the list in every state: loading,
+          empty, failed routes and a search without results (pick ADV). */}
+      {sourceSubWallet ? (
+        <SafeBottomActionStack
+          bottomSpacing={8}
+          horizontalSpacing={WIZARD_CONTENT_INSET}
+          safeAreaSpacing={0}
+          style={[styles.footer, {backgroundColor: theme.colors.background}]}>
+          <TextAction
+            accessibilityHint="Opens a form where you enter every value of the transfer"
+            onPress={openAdvancedForm}
+            size="small"
+            style={styles.advancedForm}>
+            Advanced form
+          </TextAction>
+        </SafeBottomActionStack>
+      ) : null}
       <TargetNetworkSheet
         target={pendingTarget}
         options={pendingTarget?.networkOptions || []}
@@ -317,6 +331,9 @@ const styles = StyleSheet.create({
   },
   section: {marginBottom: 24},
   advancedForm: {alignSelf: 'center'},
+  // The list scrolls under the footer and ends above it.
+  listArea: {flex: 1},
+  footer: {flexShrink: 0, paddingTop: 4},
   sectionLabel: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 12,

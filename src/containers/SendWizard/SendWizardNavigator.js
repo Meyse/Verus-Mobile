@@ -33,6 +33,9 @@ import SendWizardAmount from './SendWizardAmount';
 import SendWizardRecipient from './SendWizardRecipient';
 import SendWizardConfirm from './SendWizardConfirm';
 import SendWizardSuccess from './SendWizardSuccess';
+import SendWizardAdvanced from './SendWizardAdvanced';
+import SendWizardAdvancedConfirm from './SendWizardAdvancedConfirm';
+import SendWizardAdvancedResult from './SendWizardAdvancedResult';
 import {closeWizard} from './wizardNavigation';
 import SendWizardHeader, {
   getSendWizardProgress,
@@ -310,6 +313,7 @@ const SendWizardNavigator = () => {
               }
               onClose={() => closeWizard(navigation)}
               progressAnimation={progressAnimation}
+              rightAccessory={options.wizardRightAccessory}
               recipientFixed={recipientFixed}
               routeName={headerRoute.name}
             />
@@ -343,6 +347,21 @@ const SendWizardNavigator = () => {
         <Stack.Screen
           name="SendWizardSuccess"
           component={SendWizardSuccess}
+          options={{gestureEnabled: false, headerShown: false}}
+        />
+        <Stack.Screen
+          name="SendWizardAdvanced"
+          component={SendWizardAdvanced}
+          options={{title: 'Advanced form'}}
+        />
+        <Stack.Screen
+          name="SendWizardAdvancedConfirm"
+          component={SendWizardAdvancedConfirm}
+          options={{title: 'Confirm'}}
+        />
+        <Stack.Screen
+          name="SendWizardAdvancedResult"
+          component={SendWizardAdvancedResult}
           options={{gestureEnabled: false, headerShown: false}}
         />
       </Stack.Navigator>

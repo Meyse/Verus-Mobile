@@ -956,6 +956,39 @@ All launch types use these screens.
   wallet's addresses to a pre-launch currency, with a wallet address as the
   destination. They show on every device and after a restore.
 
+### Advanced form
+
+Owner pick, 2026-11-20 (PR 266 pick ADV, option A "Same page", with the
+owner's changes). The manual form for every value of a conversion, a
+pre-conversion, a cross-chain transfer or an off-chain send is a step of the
+Convert wizard (lead developer: every such value can be entered by hand).
+
+- Entry: "Advanced form", a `TextAction` (`small`) centered in a normal-flow
+  `SafeBottomActionStack` under the Convert to list, on the page color, with
+  no divider. The list scrolls under it and ends above it. It shows in every
+  state of the list: loading, no routes, failed routes, a search without
+  results.
+- The step: `SendWizardHeader` with "Advanced form", Back, Close and one
+  44-point Info action (Lucide `Info`, 23 points, `textSubtle`) for the old
+  form's Help. Then a read-only "Send from" block: the `labelMd` label, a
+  24-point `AssetCoinLogo` and the card title (`CardTitle`). Then labelled
+  outline fields: Address (`AppAddressInput`, with "Address book" and "Self"
+  as small `TextAction`s under it), Amount (the ticker and the MAX chip at its
+  end), Convert to ("Preconvert to" while preconvert is on), Via, Export to,
+  Receive as (Ethereum cards, without a Convert to), and the "Send as
+  preconvert" switch. Free text everywhere; no pickers and no Memo. Each
+  field keeps the condition of upstream's form. Errors show under their
+  field; other errors above Continue.
+- Keyboard: `KeyboardAvoidingForm` and the focused-field reveal of the
+  VerusID forms (`useVerusIdFormScroll`), so the focused field and Continue
+  stay in view on both platforms.
+- Confirm keeps the old Confirm's facts on the wizard's pay node, flat rows
+  and slide, because the wizard's own Confirm prepares its transaction from
+  a route: To, From, Convert to, Estimated to receive, From and To network,
+  Also sent, Fees, Conversion fee, Arrives, Balance after. It sends the
+  prepared transaction once, without a second preflight. The result uses
+  `TransactionResult` with the To row.
+
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.
 
