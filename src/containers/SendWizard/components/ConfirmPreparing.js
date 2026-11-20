@@ -6,6 +6,7 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {RecipientRow} from './ConfirmFacts';
 import {TransferConnector, TransferNode} from './TransferSummary';
 import {FlatRow, WIZARD_CONTENT_TOP_INSET} from './WizardUI';
+import {SLIPPAGE_LABEL_SHORT} from './impactFormat';
 
 const ValueSkeleton = ({width = 96}) => (
   <SkeletonLoader style={styles.valueSkeleton}>
@@ -84,7 +85,7 @@ const ConfirmPreparing = ({
           <FlatRow key={row.label} numberOfLines={0} {...row} />
         ))}
         {showPriceImpact ? (
-          <FlatRow label="Price impact">
+          <FlatRow label={SLIPPAGE_LABEL_SHORT}>
             <ValueSkeleton width={120} />
           </FlatRow>
         ) : null}

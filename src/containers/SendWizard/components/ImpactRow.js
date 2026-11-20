@@ -3,10 +3,15 @@ import {StyleSheet, Text} from 'react-native';
 import StatusBadge from '../../../components/StatusBadge';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {formatImpact, IMPACT_LEVEL} from '../priceImpact';
-import {getImpactBadgeLabel, getImpactTone} from './impactFormat';
+import {
+  getImpactBadgeLabel,
+  getImpactTone,
+  SLIPPAGE_LABEL,
+  SLIPPAGE_LABEL_SHORT,
+} from './impactFormat';
 import {FlatRow} from './WizardUI';
 
-// The Confirm row for price impact: what it costs in money when it matters,
+// The Confirm row for the estimated slippage: what it costs in money when it matters,
 // then the badge. "Details" stands in for an unknown impact, as on Amount.
 // `onPress` opens "Price and route", where the route shows.
 const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
@@ -17,15 +22,9 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
 
   return (
     <FlatRow
-      accessibilityLabel={`Price impact ${impact == null ? 'Details' : getImpactBadgeLabel(impact)}. Opens price and route`}
-      copyValue={
-        impact == null
-          ? undefined
-          : impact.isLessThanOrEqualTo(0)
-          ? '0'
-          : formatImpact(impact)
-      }
-      label="Price impact"
+      accessibilityLabel={`${SLIPPAGE_LABEL} ${impact == null ? 'Details' : getImpactBadgeLabel(impact)}. Opens price and route`}
+      copyValue={impact == null ? undefined : formatImpact(impact)}
+      label={SLIPPAGE_LABEL_SHORT}
       onPress={onPress}>
       {showLoss ? (
         <Text

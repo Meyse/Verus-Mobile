@@ -348,6 +348,45 @@ const getLaunchDefinition = definition =>
       )
     : null;
 
+const getStartBlock = definition => {
+  const block = Number(definition?.startblock);
+  return Number.isFinite(block) ? block : null;
+};
+
+// The node estimates a conversion for at most this many converters (PR 266
+// feedback F13).
+export const MAX_ESTIMATED_CONVERTERS = 30;
+
+// With more converters than the limit, the oldest ones get an estimate: the
+// lowest launch block first, a tie keeps the list order, an unknown launch
+// block goes last. A route the user picked always keeps its estimate, in
+// place of the youngest one.
+export const pickEstimateRoutes = (
+  routes,
+  preferredKey = null,
+  limit = MAX_ESTIMATED_CONVERTERS,
+) => {
+  const list = routes || [];
+  if (list.length <= limit) return list;
+  const age = route => route?.converterStartBlock ?? Infinity;
+  const oldest = list
+    .map((route, index) => ({route, index}))
+    .sort((first, second) =>
+      age(first.route) === age(second.route)
+        ? first.index - second.index
+        : age(first.route) - age(second.route),
+    )
+    .slice(0, limit)
+    .map(entry => entry.route);
+  const preferred = preferredKey == null
+    ? null
+    : list.find(route => route.key === preferredKey);
+  if (preferred && !oldest.includes(preferred)) {
+    oldest[oldest.length - 1] = preferred;
+  }
+  return oldest;
+};
+
 const buildRoute = (sourceCoin, sourceNetworkId, path) => {
   const exportTo = getDefinitionId(path?.exportto);
   const exportToFqn = getDefinitionName(path?.exportto);
@@ -380,6 +419,9 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
     viaFqn,
     mapTo,
     price: path?.price == null ? null : path.price,
+    // The launch block of the basket that converts (the via basket, or the
+    // destination itself). It ranks converters by age (F13).
+    converterStartBlock: getStartBlock(path?.via || path?.destination),
     preconvert,
     // A pre-conversion has no price yet. Its facts come from the definition.
     launchDefinition: preconvert ? getLaunchDefinition(path.destination) : null,

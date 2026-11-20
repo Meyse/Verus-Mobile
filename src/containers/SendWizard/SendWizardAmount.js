@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  ActivityIndicator,
   InteractionManager,
   Keyboard,
   Pressable,
@@ -51,7 +52,9 @@ import {
   ADDRESS_TYPE,
   getCurrencyDisplay,
   getRecipientAddressType,
+  getRouteName,
   isConversionChannel,
+  pickEstimateRoutes,
   SEND_WIZARD_MODE,
 } from './wizardUtils';
 
@@ -81,9 +84,12 @@ const SendWizardAmount = () => {
   const [routeEstimates, setRouteEstimates] = useState({});
   const [preferredRouteKey, setPreferredRouteKey] = useState(null);
   const [routeSheetOpen, setRouteSheetOpen] = useState(false);
-  // Select asset loads the networks once; Amount loads them only without it.
+  // Select asset loads the networks when it asks for the network. Otherwise
+  // Amount loads them only when the user presses Change network.
   const sendNetworks = state.sendNetworks;
-  const [sendTarget, setSendTarget] = useState(sendNetworks || target);
+  const [loadedNetworks, setLoadedNetworks] = useState(null);
+  const sendTarget = loadedNetworks || sendNetworks || target;
+  const networksLoaded = Boolean(loadedNetworks || sendNetworks);
   const [networkLoading, setNetworkLoading] = useState(false);
   const [networkError, setNetworkError] = useState(null);
   const [networkSheetOpen, setNetworkSheetOpen] = useState(false);
@@ -109,48 +115,75 @@ const SendWizardAmount = () => {
       ? null
       : rates?.[fiatChannel]?.[sourceCoin?.id]?.[displayCurrency];
 
+  // A scanned address can only be reached on networks of its own kind. A
+  // private address is on the Verus network itself.
+  const scannedType = state.scanRequest?.address
+    ? getRecipientAddressType(state.scanRequest.address)
+    : null;
+  const scanAddressType =
+    scannedType === ADDRESS_TYPE.PRIVATE ? ADDRESS_TYPE.VERUS : scannedType;
+  const networkOptionsFor = targetValue => (targetValue?.networkOptions || []).filter(
+    option =>
+      !scanAddressType ||
+      option.routes.some(candidate => candidate.addressType === scanAddressType),
+  );
+
+  // Other networks load only when the user asks for them (PR 266 feedback
+  // F5). The card's own network is the default. Select asset already loaded
+  // them when it asked for the network.
+  const networkRequest = useRef(0);
   useEffect(() => {
-    setSendTarget(sendNetworks || target);
-
-    if (
-      sendNetworks ||
-      mode !== SEND_WIZARD_MODE.SEND ||
-      !sourceCoin ||
-      !channel ||
-      !isConversionChannel(channel)
-    ) {
-      setNetworkLoading(false);
-      setNetworkError(null);
-      return undefined;
+    networkRequest.current += 1;
+    setLoadedNetworks(null);
+    setNetworkLoading(false);
+    setNetworkError(null);
+  }, [channel, sourceCoin]);
+  useEffect(() => () => {
+    networkRequest.current += 1;
+  }, []);
+  const loadSendNetworks = async () => {
+    if (networksLoaded) {
+      setNetworkSheetOpen(true);
+      return;
     }
-
-    let active = true;
+    const request = ++networkRequest.current;
     const sourceNetworkId =
       channel.split('.')[2] || sourceCoin.system_id || sourceCoin.id;
-
     setNetworkLoading(true);
     setNetworkError(null);
-    getConversionPaths(sourceCoin, channel, {
-      src: sourceCoin.currency_id || sourceCoin.id,
-    })
-      .then(paths => {
-        if (active) {
-          setSendTarget(
-            buildSendTarget(paths || {}, sourceCoin, sourceNetworkId),
-          );
-        }
-      })
-      .catch(() => {
-        if (active) setNetworkError('Other networks unavailable.');
-      })
-      .finally(() => {
-        if (active) setNetworkLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [channel, mode, sendNetworks, sourceCoin, target]);
+    try {
+      const paths = await timeout(
+        NETWORK_LOOKUP_TIMEOUT_MS,
+        getConversionPaths(sourceCoin, channel, {
+          src: sourceCoin.currency_id || sourceCoin.id,
+        }),
+      );
+      if (request !== networkRequest.current) return;
+      const loaded = buildSendTarget(paths || {}, sourceCoin, sourceNetworkId);
+      setLoadedNetworks(loaded);
+      setNetworkLoading(false);
+      if (networkOptionsFor(loaded).length > 1 && navigation.isFocused?.() !== false) {
+        setNetworkSheetOpen(true);
+      }
+    } catch (_) {
+      if (request !== networkRequest.current) return;
+      setNetworkLoading(false);
+      setNetworkError('Networks unavailable. Try again');
+    }
+  };
+  // A scanned address that the card's own network cannot reach needs another
+  // network, so its networks load at once.
+  const scanNeedsNetwork = Boolean(scanAddressType) &&
+    mode === SEND_WIZARD_MODE.SEND &&
+    isConversionChannel(channel) &&
+    Boolean(route) && route.addressType !== scanAddressType;
+  const scanNetworkLoadStarted = useRef(false);
+  useEffect(() => {
+    if (!scanNeedsNetwork || networksLoaded || scanNetworkLoadStarted.current) return;
+    scanNetworkLoadStarted.current = true;
+    loadSendNetworks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [networksLoaded, scanNeedsNetwork]);
 
   // A fiat entry is cut down to the places the asset can hold.
   const cryptoAmount = useMemo(() => getWizardCryptoAmount({
@@ -262,8 +295,13 @@ const SendWizardAmount = () => {
   // would only guess (the daemon quotes as if the launch were now).
   const preconvert = Boolean(route?.preconvert);
 
+  // The request of the estimates on screen. The same amount, target and
+  // routes ask the node nothing again, for example after a route pick in
+  // "Price and route" (audit row 14).
+  const shownEstimates = useRef(null);
   useEffect(() => {
     if (!target?.isConversion || !validAmount || preconvert) {
+      shownEstimates.current = null;
       setEstimate(null);
       setEstimateError(null);
       setEstimateLoading(false);
@@ -271,14 +309,26 @@ const SendWizardAmount = () => {
       return undefined;
     }
 
+    const routes = target.routes?.length
+      ? pickEstimateRoutes(target.routes, preferredRouteKey)
+      : [route];
+    const request = JSON.stringify([
+      channel,
+      sourceCoin.currency_id || sourceCoin.id,
+      target.transactionCurrency,
+      cryptoAmountValue,
+      routes.map(candidate => candidate?.key),
+    ]);
+    if (shownEstimates.current === request) return undefined;
+
     let active = true;
+    shownEstimates.current = null;
     setEstimate(null);
     setRouteEstimates({});
     setEstimateLoading(true);
     setEstimateError(null);
     const timeout = setTimeout(async () => {
       try {
-        const routes = target.routes?.length ? target.routes : [route];
         const results = await Promise.all(
           routes.map(async candidate => {
             try {
@@ -333,6 +383,7 @@ const SendWizardAmount = () => {
         const selectedEstimate = nextEstimates[selectedRoute?.key] || null;
 
         setRouteEstimates(nextEstimates);
+        shownEstimates.current = request;
         if (selectedRoute && selectedRoute.key !== route?.key) {
           setRoute(selectedRoute);
         }
@@ -364,11 +415,17 @@ const SendWizardAmount = () => {
     validAmount,
   ]);
 
+  // The market sample also costs an estimate, so it runs only for a route
+  // that gets one: one of the 30 oldest converters (F13).
+  const sampledRoute = !target?.routes?.length ||
+    pickEstimateRoutes(target.routes, preferredRouteKey)
+      .some(candidate => candidate.key === route?.key)
+    ? route : null;
   const priceImpact = usePriceImpact({
     channel,
     sourceCoin,
     target,
-    route,
+    route: sampledRoute,
     amount: cryptoAmount,
     output: validAmount ? state.estimate?.estimatedcurrencyout : null,
     rate,
@@ -437,18 +494,7 @@ const SendWizardAmount = () => {
     );
   };
 
-  // A scanned address can only be reached on networks of its own kind. A
-  // private address is on the Verus network itself.
-  const scannedType = state.scanRequest?.address
-    ? getRecipientAddressType(state.scanRequest.address)
-    : null;
-  const scanAddressType =
-    scannedType === ADDRESS_TYPE.PRIVATE ? ADDRESS_TYPE.VERUS : scannedType;
-  const sendNetworkOptions = (sendTarget?.networkOptions || []).filter(
-    option =>
-      !scanAddressType ||
-      option.routes.some(candidate => candidate.addressType === scanAddressType),
-  );
+  const sendNetworkOptions = networkOptionsFor(sendTarget);
   const selectedNetwork =
     sendNetworkOptions.find(option =>
       option.routes.some(candidate => candidate.key === route?.key),
@@ -515,13 +561,13 @@ const SendWizardAmount = () => {
   const sourceNetwork = sendTarget?.networkOptions?.find(option => option.isSameNetwork)?.networkName ||
     getCurrencyDisplay(sourceNetworkId, sourceCoin.display_name).name;
   const destinationNetwork = selectedNetwork?.networkName || route.networkName || sourceNetwork;
-  const canChangeNetwork = mode === SEND_WIZARD_MODE.SEND &&
-    isConversionChannel(channel) && sendNetworkOptions.length > 1;
+  const networkChoice = mode === SEND_WIZARD_MODE.SEND && isConversionChannel(channel);
+  const canChangeNetwork = networkChoice && sendNetworkOptions.length > 1;
+  const noOtherNetwork = networkChoice && networksLoaded && !canChangeNetwork;
   const amountErrorMessage = (exportFeeBlocksRoute && exportFeeError) || amountError || exportFeeError || estimateError;
   const estimateVisible = target.isConversion || (validAmount && ethereumExport);
   const emptyAmount = !input || (cryptoAmount.isFinite() && cryptoAmount.isZero());
-  const showNetworkAction = !target.isConversion &&
-    (canChangeNetwork || networkLoading || Boolean(networkError));
+  const showNetworkAction = !target.isConversion && networkChoice;
   const contextShown = route.isCrossChain || showNetworkAction;
 
   return (
@@ -549,11 +595,15 @@ const SendWizardAmount = () => {
           ) : showNetworkAction ? (
             <TextAction
               accessibilityRole="button"
-              disabled={networkLoading || !canChangeNetwork}
-              onPress={() => setNetworkSheetOpen(true)}
+              disabled={networkLoading || noOtherNetwork}
+              hitSlop={smallDevice ? COMPACT_LINE_HIT_SLOP : undefined}
+              Icon={networkLoading ? NetworkSpinner : undefined}
+              onPress={loadSendNetworks}
               size="small"
               style={[styles.networkAction, smallDevice && styles.networkActionCompact]}>
-              {networkLoading ? 'Checking networks…' : networkError || 'Change network'}
+              {networkLoading
+                ? 'Checking networks…'
+                : networkError || (noOtherNetwork ? 'No other networks' : 'Change network')}
             </TextAction>
           ) : null}
         </View>
@@ -609,6 +659,7 @@ const SendWizardAmount = () => {
             priceImpact={priceImpact}
             showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}
+            via={target.isConversion && route.via ? getRouteName(route) : null}
           />
         </View>
       ) : null}
@@ -662,6 +713,12 @@ const SendWizardAmount = () => {
     </WizardScreen>
   );
 };
+
+// The routes for an Ethereum asset take several requests to the bridge.
+const NETWORK_LOOKUP_TIMEOUT_MS = 20000;
+
+// TextAction draws its icon in the label color; the spinner takes that color.
+const NetworkSpinner = ({color}) => <ActivityIndicator color={color} size="small" />;
 
 // Money entry keeps cents only.
 const FIAT_DECIMALS = 2;
