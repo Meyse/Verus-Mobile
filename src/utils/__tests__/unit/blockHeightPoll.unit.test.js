@@ -10,7 +10,12 @@ const mockState = {
 };
 
 jest.mock('react-redux', () => ({connect: () => component => component}));
-jest.mock('react-native-paper', () => ({Portal: 'Portal', List: {}, Text: 'Text', Badge: 'Badge'}));
+// The app theme module builds a Paper theme at import time, so the mock needs the MD2 bases.
+jest.mock('react-native-paper', () => ({
+  Portal: 'Portal', List: {}, Text: 'Text', Badge: 'Badge',
+  MD2LightTheme: {colors: {}}, MD2DarkTheme: {colors: {}}, configureFonts: () => ({}),
+  Provider: 'Provider', ThemeProvider: 'ThemeProvider',
+}));
 jest.mock('../../../store', () => ({__esModule: true, default: {getState: () => mockState}}));
 jest.mock('../../../styles', () => ({}));
 jest.mock('../../../images/customIcons', () => ({TransactionLogos: {}}));
