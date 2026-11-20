@@ -167,6 +167,20 @@ const SendWizardAdvanced = () => {
   const showPreconvert =
     (preconvert || advanced) && Boolean(data[SEND_MODAL_SHOW_IS_PRECONVERT]);
   const selfAddresses = selfOpen ? form.processSelfSuggestionPaths() : [];
+  // A currency error for a field that is not on screen shows above Continue.
+  const shownCurrencyFields = [
+    form.showConversionField && SEND_MODAL_CONVERTTO_FIELD,
+    form.showViaField && SEND_MODAL_VIA_FIELD,
+    form.showExportField && SEND_MODAL_EXPORTTO_FIELD,
+    showReceiveAs && SEND_MODAL_MAPPING_FIELD,
+  ].filter(Boolean);
+  const hiddenFieldError = [
+    SEND_MODAL_CONVERTTO_FIELD,
+    SEND_MODAL_VIA_FIELD,
+    SEND_MODAL_EXPORTTO_FIELD,
+    SEND_MODAL_MAPPING_FIELD,
+  ].filter(key => !shownCurrencyFields.includes(key)).map(key => form.formErrors[key]).find(Boolean);
+  const footerError = form.formErrors.form || hiddenFieldError;
 
   const pressSelf = () => {
     Keyboard.dismiss();
@@ -182,6 +196,8 @@ const SendWizardAdvanced = () => {
           autoCapitalize="none"
           autoCorrect={false}
           editable={!locked[key] && !preparing}
+          errorText={form.formErrors[key]}
+          invalid={Boolean(form.formErrors[key])}
           label={label}
           onChangeText={text => update(key, text)}
           returnKeyType="done"
@@ -338,8 +354,8 @@ const SendWizardAdvanced = () => {
                 <ErrorMessage style={styles.footerError}>
                   The balance didn’t load. Check your connection and try again.
                 </ErrorMessage>
-              ) : form.formErrors.form ? (
-                <ErrorMessage style={styles.footerError}>{form.formErrors.form}</ErrorMessage>
+              ) : footerError ? (
+                <ErrorMessage style={styles.footerError}>{footerError}</ErrorMessage>
               ) : null
             }
             bottomSpacing={keyboardVisible ? 8 : 24}

@@ -20,6 +20,7 @@ import { getSendCurrencyTransaction, SEND_CURRENCY_PARENT_FEE } from "./getSendC
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
 import { createAlert } from "../../../../../actions/actions/alert/dispatchers/alert";
+import { currencyNotFoundError, isCurrencyNotFoundError } from "../../../errors/currencyNotFound";
 import { getCurrencyTransferIntentContext, validateCurrencyTransferTag } from "./currencyTransferIntent";
 import {
   BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE,
@@ -255,7 +256,12 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const currRes = await getCurrency(systemId, iaddrOrName);
 
-      if (currRes.error) throw new Error("Couldn't get currency " + iaddrOrName);
+      if (currRes.error) {
+        const message = "Couldn't get currency " + iaddrOrName;
+        throw isCurrencyNotFoundError(currRes.error)
+          ? currencyNotFoundError(message, iaddrOrName)
+          : new Error(message);
+      }
       else {
         if (requestedCurrencyId && currRes.result.currencyid !== requestedCurrencyId) {
           throw new Error("Currency definition does not match the requested currency.");
@@ -659,7 +665,9 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       },
     }
   } catch (e) {
-    console.error(e)
+    // An unknown currency name is the user's input, not a fault: logging it as
+    // an error raises a development overlay that covers the next screens.
+    if (e?.currencyNotFound == null) console.error(e)
 
     let message = e.message;
 
@@ -699,7 +707,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
 
     return {
       err: true,
-      result: message
+      result: message,
+      ...(e?.currencyNotFound != null ? { notFoundCurrency: e.currencyNotFound } : {}),
     };
   }
 }

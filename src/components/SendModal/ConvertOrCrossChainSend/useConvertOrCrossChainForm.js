@@ -931,6 +931,23 @@ const useConvertOrCrossChainForm = ({
     return false;
   };
 
+  // The editable currency field that holds `name`, or "form" when none does
+  // (a locked field, an invoice, or a currency the form did not type).
+  const currencyFieldFor = name => {
+    const wanted = toLowerCaseCLocale(String(name).trim());
+    const key = [
+      SEND_MODAL_CONVERTTO_FIELD,
+      SEND_MODAL_VIA_FIELD,
+      SEND_MODAL_EXPORTTO_FIELD,
+      SEND_MODAL_MAPPING_FIELD,
+    ].find(field => {
+      const value = sendModal.data[field];
+      return typeof value === 'string' && toLowerCaseCLocale(value.trim()) === wanted;
+    });
+
+    return key == null || isInvoice || lockedInputs[key] ? "form" : key;
+  };
+
   const updateInvoiceFormData = (key, value) => {
     setFormErrors({});
     updateSendFormData(key, value);
@@ -1054,7 +1071,9 @@ const useConvertOrCrossChainForm = ({
       if (setModalHeight) setModalHeight(height >= 720 ? 696 : height - 24);
 
       if (res.err) {
-        throw new Error(res.result);
+        const error = new Error(res.result);
+        if (res.notFoundCurrency != null) error.notFoundCurrency = res.notFoundCurrency;
+        throw error;
       }
 
       const {
@@ -1101,6 +1120,14 @@ const useConvertOrCrossChainForm = ({
     } catch (e) {
       if (e?.formField) {
         showFormError(e.formField, e.formTitle, e.message);
+      } else if (e?.notFoundCurrency != null) {
+        // An unknown currency name: say so under the field that holds it.
+        const name = String(e.notFoundCurrency);
+        showFormError(
+          currencyFieldFor(name),
+          "Currency Not Found",
+          `Currency “${name.trim()}” was not found.`,
+        );
       } else if (/insufficient funds/i.test(e?.message || '')) {
         console.warn(e);
         showFormError(
