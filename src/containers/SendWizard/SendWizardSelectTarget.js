@@ -47,8 +47,6 @@ const SendWizardSelectTarget = () => {
   const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
   const sourceNetworkId =
     channel?.split('.')[2] || sourceCoin?.system_id || sourceCoin?.id;
-  // A launch counts its start block on the chain the pre-conversion is sent on.
-  const height = useChainHeight(sourceNetworkId);
 
   useEffect(() => {
     if (!sourceCoin || !channel) {
@@ -125,6 +123,9 @@ const SendWizardSelectTarget = () => {
   // A currency before its launch has its own section: it has no price yet, and
   // the funds wait until the launch.
   const prelaunch = filtered.filter(option => option.isPrelaunch);
+  // A launch counts its start block on the chain the pre-conversion is sent on.
+  // Read the height only when a pre-launch target is listed (PR 266 audit row 18).
+  const height = useChainHeight(prelaunch.length > 0 ? sourceNetworkId : null);
   const popular = filtered.filter(
     option => !option.isPrelaunch && isPopularTarget(option),
   );
