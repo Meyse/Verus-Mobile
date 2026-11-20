@@ -1,4 +1,5 @@
 import {getInfo} from '../api/channels/vrpc/requests/getInfo';
+import {API_SUCCESS} from '../constants/intervalConstants';
 
 // PR 266 review F3 (lead developer, 2026-11-20): the coin screen asks the
 // selected card's system for its block height once a minute. Balance and
@@ -43,6 +44,9 @@ export const createBlockHeightPoll = ({
   let stopped = false;
   let ticks = 0;
   let ticking = false;
+  // A height rise whose balance or history read did not succeed is read again
+  // on the next tick, even if the history read moved the height on.
+  let riseUnread = false;
 
   const pause = () => {
     clearInterval(timer);
@@ -61,7 +65,8 @@ export const createBlockHeightPoll = ({
       } catch (error) {
         // An unreachable server ends this tick. The next tick asks again.
       }
-      if (stopped || !Number.isSafeInteger(height)) return;
+      // The screen can be hidden or start its own read while getinfo runs.
+      if (stopped || !Number.isSafeInteger(height) || !canTick() || isBusy()) return;
 
       const known = observedHeights.get(channelId);
       const heightRose = known != null && height > known;
@@ -69,8 +74,9 @@ export const createBlockHeightPoll = ({
       // skipped read is tried again on the next tick.
       if (known == null) observedHeights.set(channelId, height);
 
-      if (heightRose) {
-        await update({balance: true, history: true});
+      if (heightRose || riseUnread) {
+        const results = await update({balance: true, history: true});
+        riseUnread = !Array.isArray(results) || results.some(result => result !== API_SUCCESS);
       } else if (hasPending() || needsHistory()) {
         await update({balance: false, history: true});
       }
@@ -97,7 +103,8 @@ export const createBlockHeightPoll = ({
   return {
     resume,
     pause,
-    // New balance or history content: the 5 minutes start again.
+    // New content, or a read that the user's navigation or pull started:
+    // the 5 minutes start again.
     noteDataChange: () => {
       // A change that a tick's own read brings is counted from after it.
       ticks = ticking ? -1 : 0;

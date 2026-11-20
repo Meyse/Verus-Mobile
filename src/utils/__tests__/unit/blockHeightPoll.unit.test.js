@@ -120,7 +120,7 @@ test('after 5 minutes without a pending transaction the poll stops until the dat
   expect(mockGetInfo).toHaveBeenCalledTimes(5);
   expect(mockRefreshCard).not.toHaveBeenCalled();
 
-  // A refresh that returns the same content does not start it again.
+  // A background refresh that returns the same content does not start it again.
   setProps({transactions: {results: [{txid: 'a', confirmed: true}]}});
   await minute();
   expect(mockGetInfo).toHaveBeenCalledTimes(5);
@@ -129,6 +129,47 @@ test('after 5 minutes without a pending transaction the poll stops until the dat
   setProps({balanceKey: '2:0:2'});
   for (let i = 0; i < 7; i++) await minute();
   expect(mockGetInfo).toHaveBeenCalledTimes(10);
+
+  // A pull reads the card: the poll starts again.
+  overview.forceUpdate();
+  for (let i = 0; i < 7; i++) await minute();
+  expect(mockGetInfo).toHaveBeenCalledTimes(15);
+});
+
+test('a height rise whose balance read failed is read again on the next tick', async () => {
+  mount(confirmed);
+  mockRefreshCard.mockClear();
+  // History succeeds and records the new height; the balance read fails.
+  mockRefreshCard.mockImplementationOnce(async () => {
+    noteObservedHeight(CHANNEL, height);
+    return ['error', 'success'];
+  });
+
+  height = 101;
+  await minute();
+  await minute();
+  expect(reads()).toEqual([
+    [API_GET_BALANCES, API_GET_TRANSACTIONS],
+    [API_GET_BALANCES, API_GET_TRANSACTIONS],
+  ]);
+
+  await minute();
+  expect(mockRefreshCard).toHaveBeenCalledTimes(2);
+});
+
+test('a tick whose getinfo returns after the app went to the background reads nothing', async () => {
+  mount(confirmed);
+  mockRefreshCard.mockClear();
+  let answer;
+  mockGetInfo.mockImplementationOnce(() => new Promise(resolve => {answer = resolve;}));
+
+  await minute();
+  expect(mockGetInfo).toHaveBeenCalledTimes(1);
+  overview.appActive = false;
+  answer({result: {longestchain: 101}});
+  await jest.advanceTimersByTimeAsync(0);
+
+  expect(mockRefreshCard).not.toHaveBeenCalled();
 });
 
 test('a pending transaction reads history each tick and keeps the poll alive', async () => {

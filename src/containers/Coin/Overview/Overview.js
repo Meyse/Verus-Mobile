@@ -692,6 +692,13 @@ class Overview extends Component {
       [API_GET_BALANCES, API_GET_TRANSACTIONS],
       {force: showRefreshIndicator},
     );
+    // F3: a card read that navigation or a pull started is a data update, so
+    // a stopped poll starts again. A visit within the expiry reads nothing.
+    Promise.resolve(activeCardRefresh).then(results => {
+      if (this._isMounted && Array.isArray(results) && results.includes(API_SUCCESS)) {
+        this.heightPoll?.noteDataChange();
+      }
+    }).catch(() => {});
     if (this.state.loading) {
       if (showRefreshIndicator && !this.state.refreshing) {
         this.setState({refreshing: true});
