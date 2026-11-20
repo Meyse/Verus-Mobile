@@ -600,8 +600,10 @@ The keypad edits decimal text through `editAmountInput`; it does not parse,
 round, or calculate funds. Keep the existing precision, quote, network, MAX,
 and fee-reserve rules in `SendWizardAmount`.
 
-- The 44-point context slot shows Change network only when an alternative is
-  available. It shows source network to destination network for a cross-chain
+- On a simple Send from a card that can convert (VRPC or Ethereum), the
+  44-point context slot always shows Change network. Pressing it loads the
+  networks; the line then reads "No other networks" when none remains. The
+  slot shows source network to destination network for a cross-chain
   route. A same-chain conversion shows no To line because the receive block
   names the target. A simple Send omits the default network name. On normal
   windows the slot keeps its height in every case.
