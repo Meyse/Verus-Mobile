@@ -22,7 +22,6 @@ import {
   getAddressUtxos,
   getInfo,
 } from '../api/channels/vrpc/callCreators';
-import {assertNoPendingSpend} from '../transactions/pendingSpendCheck';
 import {
   getFriendlyNameMap,
   getIdentity,
@@ -1496,13 +1495,6 @@ export const preflightSpendableKeyClaim = async ({
   }
 
   for (const system of claimPlan.systems) {
-    // Claims spend confirmed outputs only, and the signed batch is saved
-    // before broadcast. Refuse while an earlier spend from these addresses
-    // is unconfirmed, so a refused batch cannot block this claim.
-    await assertNoPendingSpend(system.systemId, [
-      system.claimAddress,
-      ...system.identities.map(identity => identity.identityAddress),
-    ]);
     const destinationAddress = destinationBySystem[system.systemId];
     const privateAddress = privateAddressBySystem[system.systemId];
     // Missing means the user opted out; explicit null means the wallet has no

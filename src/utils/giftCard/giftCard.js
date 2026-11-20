@@ -42,7 +42,6 @@ import {
   getTransaction,
 } from '../api/channels/vrpc/callCreators';
 import {getIdentity} from '../api/channels/verusid/callCreators';
-import {assertNoPendingSpend} from '../transactions/pendingSpendCheck';
 import {
   createUpdateIdentityTxWithUtxos,
   createUpdateIdentityWithCurrencyTransferTx,
@@ -2216,13 +2215,6 @@ export const preflightGiftCardFunding = async ({
     }
 
     const sourceAddress = getSourceAddress(sourceCoin, activeAccount);
-    // Funding spends confirmed outputs only, and the signed batch is saved
-    // before broadcast. Refuse while an earlier spend from these addresses
-    // is unconfirmed, so a refused batch cannot block this card.
-    await assertNoPendingSpend(group.systemId, [
-      sourceAddress,
-      ...group.identities.map(identity => identity.identityAddress),
-    ]);
     const destination = toTransferDestination(cardAddress);
     const fundOutputs = group.funds.map(fund => ({
       systemId: group.systemId,
