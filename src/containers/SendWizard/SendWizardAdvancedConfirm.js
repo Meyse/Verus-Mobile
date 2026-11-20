@@ -196,12 +196,15 @@ const SendWizardAdvancedConfirm = () => {
   const rows = [
     {label: facts.burn ? 'Burn output' : 'To', value: facts.recipient, copy: true, mono: !facts.recipient.includes('@')},
     {label: 'From', value: facts.source, copy: true, mono: true},
-    facts.convertTo ? {label: 'Convert to', value: facts.convertTo, copy: true} : null,
+    facts.convertTo
+      ? {label: facts.preconvert ? 'Preconvert to' : 'Convert to', value: facts.convertTo, copy: true}
+      : null,
     facts.isConversion && !facts.preconvert
       ? {label: 'Estimated to receive', value: facts.estimated || 'Estimate unavailable.'}
       : null,
     facts.toNetwork && review.networkName ? {label: 'From network', value: review.networkName} : null,
     facts.toNetwork ? {label: 'To network', value: facts.toNetwork, copy: true} : null,
+    facts.receiveAs ? {label: 'Receive as', value: facts.receiveAs, copy: true} : null,
     ...facts.alsoSent.map(item => ({
       label: 'Also sent',
       value: `${item.amount.toFixed()} ${item.name}`,

@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import {coinsToSats, satsToCoins, truncateDecimal} from '../../utils/math';
 import {ERC20, ETH} from '../../utils/constants/intervalConstants';
+import {ETH_CONTRACT_ADDRESS} from '../../utils/constants/web3Constants';
 
 // Upstream's slippage threshold on its Confirm (ConvertOrCrossChainSendConfirm).
 const SLIPPAGE_WARNING_THRESHOLD = 0.05;
@@ -12,8 +13,13 @@ const SLIPPAGE_WARNING_THRESHOLD = 0.05;
 export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate}) => {
   const {output, validation, names, deltas, source, estimate, submittedsats, converterdef} = preflight;
   const {fees, sent} = validation;
-  const {currency, satoshis, address, convertto, exportto, via, preconvert, burn} = output;
-  const nameMap = names instanceof Map ? names : new Map(Object.entries(names || {}));
+  const {currency, satoshis, address, convertto, exportto, via, preconvert, burn, mapto} = output;
+  const ethereum = coinObj.proto === ETH || coinObj.proto === ERC20;
+  // A copy: the prepared transaction keeps its own names.
+  const nameMap = new Map(names instanceof Map ? names : Object.entries(names || {}));
+  // The Ethereum preflight names the network's coin "ETH". On Sepolia the
+  // wallet calls it gETH, as the amount and the wizard's Confirm do.
+  if (ethereum && coinObj.network === 'sepolia') nameMap.set(ETH_CONTRACT_ADDRESS, 'gETH');
   const name = id => (nameMap.has(id) ? nameMap.get(id) : id);
 
   const sentAmount = satsToCoins(BigNumber(sent[currency] ? sent[currency] : 0));
@@ -58,7 +64,6 @@ export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate})
 
   const isConversion = convertto != null && convertto.length > 0;
   const isExport = exportto != null && exportto.length > 0;
-  const ethereum = coinObj.proto === ETH || coinObj.proto === ERC20;
   const estimated = estimate != null
     ? `${estimate.estimatedcurrencyout} ${name(convertto)}`
     : priceEstimate
@@ -103,6 +108,8 @@ export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate})
         ? '2-10 minutes'
         : '1-5 minutes',
     toNetwork: isExport ? name(exportto) : null,
+    // Only an Ethereum card sends "Receive as" (the bridge's mapping).
+    receiveAs: mapto != null && mapto.length > 0 ? name(mapto) : null,
     alsoSent: amounts(sent).filter(item => item.id !== currency),
     fees: amounts(fees),
     feesLabel: ethereum ? 'Maximum fees' : 'Fees',
