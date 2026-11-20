@@ -5,6 +5,12 @@ import {getAddressDeltas} from '../api/channels/vrpc/requests/getAddressDeltas';
 import {getAddressMempool} from '../api/channels/vrpc/requests/getAddressMempool';
 import {getDisplayInfo} from '../api/channels/vrpc/requests/getInfo';
 import {getTransaction} from '../api/channels/vrpc/requests/getTransaction';
+import {
+  SAVED_VRPC_HEIGHT,
+  getSavedVrpcResponse,
+  getSavedVrpcResponseKey,
+  saveVrpcResponse,
+} from '../asyncStore/cache/savedVrpcResponses';
 
 // Pre-launch facts change slowly. Short caches keep Home, the asset screen and
 // the wizard from asking the same server again while one person moves
@@ -71,8 +77,27 @@ export const getChainHeight = systemId =>
     const info = resultOf(await getDisplayInfo(systemId));
     const height = Number(info?.longestchain || info?.blocks);
     if (!Number.isFinite(height) || height <= 0) throw new Error('Block height unavailable.');
+    Promise.resolve()
+      .then(() => saveVrpcResponse(SAVED_VRPC_HEIGHT, lastHeightKey(systemId), {height}))
+      .catch(() => {});
     return height;
   });
+
+// The last height this app saw, of any age. It only proves that a currency
+// with a lower start block has launched. A block height is public chain data.
+const lastHeightKey = systemId =>
+  getSavedVrpcResponseKey(systemId, 'last-height', {prepare: () => ({method: 'getinfo'})});
+const getLastKnownHeight = async systemId => {
+  const known = peekChainHeight(systemId);
+  if (known != null) return known;
+  try {
+    const saved = await getSavedVrpcResponse(SAVED_VRPC_HEIGHT, lastHeightKey(systemId));
+    const height = Number(saved?.response?.height);
+    return Number.isFinite(height) && height > 0 ? height : null;
+  } catch (_) {
+    return null;
+  }
+};
 
 // Currency ID → {currencydefinition} for the given currencies of this system
 // that are still before their start block (PR 266 audit row 3). It reads each
@@ -93,7 +118,7 @@ export const getPrelaunchEntries = async (systemId, currencyIds) => {
     ),
   )).filter(Boolean);
   const startBlock = definition => Number(definition.startblock);
-  const known = peekChainHeight(systemId);
+  const known = await getLastKnownHeight(systemId);
   const height = definitions.some(definition =>
     Number.isFinite(startBlock(definition)) && startBlock(definition) > (known || 0))
     ? await getChainHeight(systemId)

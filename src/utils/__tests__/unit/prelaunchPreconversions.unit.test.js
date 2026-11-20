@@ -118,4 +118,30 @@ describe('getPrelaunchEntries', () => {
     expect(getDisplayInfo).toHaveBeenCalledTimes(1);
     expect(endpoint.listCurrencies).not.toHaveBeenCalled();
   });
+
+  it('uses the height saved before a restart to see that a currency launched', async () => {
+    const system = 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
+    const load = () => {
+      require('../../vrpc/vrpcInterface').default.getEndpoint.mockReturnValue({
+        getCurrencyDefinition: async id => ({result: {currencyid: id, startblock: id === A ? 2000 : 50}}),
+      });
+      const {getDisplayInfo} = require('../../api/channels/vrpc/requests/getInfo');
+      getDisplayInfo.mockResolvedValue({result: {longestchain: 1000}});
+      return {getDisplayInfo, ...require('../../preconversion/prelaunchData')};
+    };
+    let app = load();
+    await app.getPrelaunchEntries(system, [A]);
+    expect(app.getDisplayInfo).toHaveBeenCalledTimes(1);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const saved = await AsyncStorage.multiGet(await AsyncStorage.getAllKeys());
+    jest.resetModules();
+    await require('@react-native-async-storage/async-storage').multiSet(saved);
+    // The app loads the saved caches at start (initCache).
+    await require('../../asyncStore/cache/savedVrpcResponses').initSavedVrpcResponses();
+    app = load();
+    await expect(app.getPrelaunchEntries(system, [B])).resolves.toEqual(new Map());
+    expect(app.getDisplayInfo).not.toHaveBeenCalled();
+  });
 });
