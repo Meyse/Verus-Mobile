@@ -259,6 +259,59 @@ describe('account-scoped wallet initialization', () => {
     expect(mockRescanWallet).not.toHaveBeenCalled();
   });
 
+  it('lets a close wait for a running rescan, and refuses a rescan while the wallet closes', async () => {
+    const scope = {sessionScoped: true, accountHash: 'account-a', sessionEpoch: 7};
+    const open = accountState('account-a', 7);
+    open.channelStore_dlight_private.dlightSockets = {VRSC: true};
+    mockGetState.mockReturnValue(open);
+    const nativeRescan = deferred();
+    mockRescanWallet.mockReturnValueOnce(nativeRescan.promise);
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    const rescan = resyncDlightWallet(coinObj, scope);
+    await settle();
+    const teardown = closeDlightWallet(coinObj, false, {
+      sessionScope: scope,
+      ownerAccountHash: 'account-a',
+      allowRetryPrompt: false,
+    });
+    await settle();
+    expect(mockCloseWallet).not.toHaveBeenCalled();
+
+    // A second rescan while the close is pending is refused.
+    await expect(resyncDlightWallet(coinObj, scope)).rejects.toMatchObject({code: 'DLIGHT_WALLET_BUSY'});
+    expect(mockRescanWallet).toHaveBeenCalledTimes(1);
+
+    nativeRescan.resolve();
+    await rescan;
+    await teardown;
+    expect(mockCloseWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes and opens the wallet again when the rescan fails', async () => {
+    const scope = {sessionScoped: true, accountHash: 'account-a', sessionEpoch: 7};
+    const open = accountState('account-a', 7);
+    open.channelStore_dlight_private.dlightSockets = {VRSC: true};
+    const closed = {
+      ...open,
+      channelStore_dlight_private: {dlightSockets: {VRSC: false}, dlightSyncing: {}},
+    };
+    mockGetState.mockReturnValue(open);
+    mockCloseWallet.mockImplementation(async () => {
+      mockGetState.mockReturnValue(closed);
+    });
+    mockGetAddresses.mockResolvedValue({result: 'zs-account-a'});
+    mockRescanWallet.mockRejectedValueOnce(new Error('rewind failed'));
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    await expect(resyncDlightWallet(coinObj, scope)).rejects.toThrow();
+    for (let i = 0; i < 5; i += 1) await settle();
+    expect(mockCloseWallet).toHaveBeenCalledTimes(1);
+    expect(mockOpenWallet).toHaveBeenCalledTimes(1);
+    expect(mockEraseWallet).not.toHaveBeenCalled();
+  });
+
   it('tags successful address and channel actions with the captured account session', async () => {
     mockGetState.mockReturnValue(accountState('account-a', 7));
     mockGetAddresses.mockResolvedValueOnce({result: 'zs-account-a'});

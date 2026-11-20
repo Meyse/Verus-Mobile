@@ -51,12 +51,18 @@ if (globalThis[DLIGHT_LIFECYCLE_COORDINATOR_KEY] == null) {
     uncertainWalletTeardowns: new Set(),
   };
 }
+const dlightLifecycleCoordinator = globalThis[DLIGHT_LIFECYCLE_COORDINATOR_KEY];
 const {
   walletOperationGenerations,
   pendingNativeInitializations,
   pendingNativeTeardowns,
   uncertainWalletTeardowns,
-} = globalThis[DLIGHT_LIFECYCLE_COORDINATOR_KEY];
+} = dlightLifecycleCoordinator;
+// Native rescans from "Clear blockchain data" (F12). A close waits for them.
+if (dlightLifecycleCoordinator.pendingNativeRescans == null) {
+  dlightLifecycleCoordinator.pendingNativeRescans = new Map();
+}
+const {pendingNativeRescans} = dlightLifecycleCoordinator;
 
 const walletOperationKey = (accountHash, coinId) =>
   `${accountHash}:${coinId}`;
@@ -490,6 +496,20 @@ export const retryDlightWalletInitialization = async (coinObj, sessionScope) => 
   }
 };
 
+// After a failed rescan the native sync can stay stopped. Close the wallet
+// and open it again, so it syncs on from where it is.
+const restartAfterFailedRescan = (coinObj, sessionScope) => {
+  (async () => {
+    await closeDlightWallet(coinObj, false, {
+      sessionScope,
+      ownerAccountHash: sessionScope.accountHash,
+      allowRetryPrompt: false,
+    });
+    if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+    await initDlightWallet(coinObj, {sessionScope});
+  })().catch(cause => console.warn(makeDlightInitError(coinObj.id, cause)));
+};
+
 // F12 (PR 266): "Clear blockchain data". Rewinds an open private wallet to
 // its birthday, so it scans the chain again from there. The wallet stays open:
 // keys, addresses and funds are not touched. The native erase is not used: on
@@ -499,7 +519,40 @@ export const resyncDlightWallet = async (coinObj, sessionScope) => {
   const state = Store.getState();
   if (!sessionScopeIsCurrent(state, sessionScope)) return;
   if (state.channelStore_dlight_private?.dlightSockets?.[coinObj.id] !== true) return;
-  await rescanWallet(coinObj.id, sessionScope.accountHash);
+  const walletKey = walletOperationKey(sessionScope.accountHash, coinObj.id);
+  // While the wallet opens, closes or rescans, its native wallet can be gone.
+  // Android then throws outside the promise, so leave the wallet alone.
+  if (
+    pendingNativeTeardowns.has(walletKey) ||
+    uncertainWalletTeardowns.has(walletKey) ||
+    pendingNativeRescans.has(walletKey) ||
+    getPendingNativeInitializations(walletKey).length > 0
+  ) {
+    throw makeDlightInitBlockedError(
+      'DLIGHT_WALLET_BUSY',
+      coinObj.id,
+      sessionScope.accountHash,
+    );
+  }
+  const rescan = Promise.resolve().then(() =>
+    rescanWallet(coinObj.id, sessionScope.accountHash),
+  );
+  pendingNativeRescans.set(walletKey, rescan);
+  try {
+    await rescan;
+  } catch (cause) {
+    if (pendingNativeRescans.get(walletKey) === rescan) {
+      pendingNativeRescans.delete(walletKey);
+    }
+    if (sessionScopeIsCurrent(Store.getState(), sessionScope)) {
+      restartAfterFailedRescan(coinObj, sessionScope);
+    }
+    throw makeDlightInitError(coinObj.id, cause);
+  } finally {
+    if (pendingNativeRescans.get(walletKey) === rescan) {
+      pendingNativeRescans.delete(walletKey);
+    }
+  }
 };
 
 // Closes and optionally deletes a dlightWallet
@@ -620,6 +673,9 @@ export const closeDlightWallet = async (
     while (true) {
       try {
         const nativeClose = (async () => {
+          // A rescan restarts the native sync on iOS when it ends. Let it end
+          // first, so the close is the last operation on the wallet.
+          await pendingNativeRescans.get(nativeTeardownKey)?.catch(() => {});
           // A native initialize/open may resolve after Redux still reports the
           // socket as closed. Wait every captured native attempt, then make this
           // teardown's close/erase the final operation on the wallet alias.
