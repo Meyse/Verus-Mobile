@@ -270,8 +270,9 @@ const SignedInVerusIdDetails = () => {
   if (readGateRef.current == null) readGateRef.current = createHeightReadGate();
   const readKey = `${chain}:${iAddress}`;
 
-  // `prefetchedInfo` is the getinfo response a return already read.
-  const load = useCallback(async prefetchedInfo => {
+  // `prefetchedInfo` is the getinfo response a return already read. It is an
+  // option, so a press event (Try again) can never take its place.
+  const load = useCallback(async ({prefetchedInfo} = {}) => {
     const requestId = loadRequestIdRef.current + 1;
     loadRequestIdRef.current = requestId;
     const sessionScope = renderedSessionScopeRef.current;
@@ -360,7 +361,7 @@ const SignedInVerusIdDetails = () => {
       const infoResponse = await getInfo(systemId).catch(() => null);
       if (!screenMountedRef.current) return;
       if (gate.isDue(readKey, systemId, chainHeightOf(infoResponse?.result))) {
-        load(infoResponse);
+        load({prefetchedInfo: infoResponse});
       }
     });
 

@@ -522,6 +522,28 @@ describe('SignedInVerusIdDetails reads on return', () => {
 
     await act(async () => renderer.unmount());
   });
+
+  // Codex review: Try again passed its press event as the prefetched getinfo,
+  // so the retry skipped the height and lost a Locked state.
+  it('reads the height again when Try again is pressed', async () => {
+    mockGetIdentity.mockResolvedValueOnce({error: {code: -1, message: 'network timeout'}});
+    let renderer;
+    await act(async () => {
+      renderer = create(<SignedInVerusIdDetails />);
+    });
+    await flush();
+    mockGetInfo.mockClear();
+
+    const retry = renderer.root.findAll(
+      node => node.props?.accessibilityLabel === 'Try loading this VerusID again' && node.props.onPress,
+    )[0];
+    await act(async () => retry.props.onPress({nativeEvent: {}}));
+    await flush();
+
+    expect(mockGetInfo).toHaveBeenCalledTimes(1);
+    expect(mockGetIdentity).toHaveBeenCalledTimes(2);
+    await act(async () => renderer.unmount());
+  });
 });
 
 describe('SignedInVerusIdService READY row action', () => {
