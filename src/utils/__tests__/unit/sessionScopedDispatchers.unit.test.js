@@ -366,11 +366,14 @@ describe('account-scoped wallet initialization', () => {
     await expect(resyncDlightWallet(coinObj, scope)).rejects.toThrow();
     await settleAll();
     expect(mockOpenWallet).not.toHaveBeenCalled();
-    expect(
-      mockDispatch.mock.calls.some(
-        ([action]) => action.type === ERROR_DLIGHT_INIT && action.payload?.chainTicker === 'VRSC',
-      ),
-    ).toBe(true);
+    const initErrors = mockDispatch.mock.calls
+      .map(([action]) => action)
+      .filter(action => action.type === ERROR_DLIGHT_INIT);
+    expect(initErrors).toHaveLength(1);
+    expect(initErrors[0]).toMatchObject({
+      payload: {chainTicker: 'VRSC', error: expect.any(Error)},
+      meta: {accountHash: 'account-r', sessionEpoch: 3},
+    });
   });
 
   it('tags successful address and channel actions with the captured account session', async () => {
