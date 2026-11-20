@@ -86,4 +86,27 @@ describe('found asset lookups (F9)', () => {
     expect(mockResolve).toHaveBeenCalledTimes(2);
     expect(service.getUnreviewedNewAssetHoldings(mockState)).toHaveLength(3);
   });
+
+  it('starts no further lookups after Manage assets closes during a lookup', async () => {
+    balanceUpdate({iFoundOne: '5', iFoundTwo: '1', iFoundThree: '2'});
+    await settle();
+    let finishFirst;
+    mockResolve.mockImplementationOnce(({identifier}) => new Promise(resolve => {
+      finishFirst = () => resolve({
+        kind: 'pbaas',
+        currencyDefinition: {currencyid: identifier, fullyqualifiedname: identifier},
+      });
+    }));
+
+    const release = service.requestFoundAssetLookups();
+    await settle();
+    expect(mockResolve).toHaveBeenCalledTimes(1);
+
+    release();
+    finishFirst();
+    await settle();
+    await settle();
+    expect(mockResolve).toHaveBeenCalledTimes(1);
+    expect(service.foundAssetLookupsRunning()).toBe(false);
+  });
 });

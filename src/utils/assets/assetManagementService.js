@@ -488,6 +488,8 @@ const discoverAssets = async (context, job) => {
       // included: spam currencies can arrive too. They wait under "New assets
       // found" for the user (owner, 2026-10-26).
       if (store.getState().assetManagement.resolved[holding.key]) continue;
+      // Leaving Manage assets stops the lookups that have not started (F9).
+      if (lookupRequests === 0) break;
       if (lookups++ >= MAX_LOOKUPS_PER_PASS) break;
       const result = await resolveAssetIdentifier({
         activeCoins: [],
