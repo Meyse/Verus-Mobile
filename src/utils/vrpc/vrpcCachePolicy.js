@@ -17,9 +17,15 @@ export const VRPC_CACHE_MAX_AGE_MS = {
   getaddressbalance: 5000,
   getaddressdeltas: 10000,
   getaddressmempool: 10000,
-  listcurrencies: 600000,
+  // F11: currency lists are expensive. They are saved with the time of the
+  // request and asked again at most once per hour.
+  listcurrencies: 60 * 60 * 1000,
   getinfo: 1000,
 };
+
+// Saved with their request time in storage (savedVrpcResponses.js), so their
+// age also counts after a restart.
+export const SAVED_VRPC_REQUESTS = ['listcurrencies'];
 
 export const isVrpcResponseCacheable = command => {
   return CACHED_VRPC_REQUESTS.includes(command);
@@ -31,14 +37,19 @@ export const getVrpcCacheMaxAge = command => {
   );
 };
 
+// `maxAgeMs` lets a display-only caller accept an older answer. A time after
+// `now` (the clock moved back) never counts as fresh.
 export const shouldUseCachedVrpcResponse = ({
   command,
   lastNetworkResponseAt,
   now = Date.now(),
+  maxAgeMs = getVrpcCacheMaxAge(command),
 }) => {
+  const age = now - Number(lastNetworkResponseAt);
   return (
     isVrpcResponseCacheable(command) &&
     Number(lastNetworkResponseAt) > 0 &&
-    now - Number(lastNetworkResponseAt) < getVrpcCacheMaxAge(command)
+    age >= 0 &&
+    age < maxAgeMs
   );
 };

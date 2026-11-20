@@ -7,7 +7,14 @@ import {
   REMOVE_VRPC_ENDPOINT,
 } from "../constants/storeType";
 import { hashAccountId } from '../crypto/hash';
-import { getCachedVrpcResponse, getVrpcResponseCacheKey, setCachedVrpcResponse } from '../asyncStore/asyncStore';
+import {
+  getCachedVrpcResponse,
+  getSavedVrpcResponse,
+  getSavedVrpcResponseKey,
+  getVrpcResponseCacheKey,
+  saveVrpcResponse,
+  setCachedVrpcResponse,
+} from '../asyncStore/asyncStore';
 import {GetBlockHashRequest} from 'verus-typescript-primitives';
 import { coinsList } from '../CoinData/CoinsList';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
@@ -16,6 +23,7 @@ import { VRPC_API_KEYS, VRPC_API_APP_ID } from '../../../env/index';
 import { getUrlKey } from '../url';
 import {
   CACHED_VRPC_REQUESTS,
+  SAVED_VRPC_REQUESTS,
   VRPC_ADDRESS_CACHE_REQUESTS,
   DEFAULT_VRPC_CACHE_MAX_AGE_MS,
   VRPC_CACHE_MAX_AGE_MS,
@@ -114,7 +122,26 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     return this.request(new GetBlockHashRequest(this.chain, height));
   }
 
+  // A saved answer carries the time of its request, so a currency list read
+  // before a restart still counts until it is one hour old (F11).
+  async getSavedResponse(req) {
+    try {
+      const saved = await getSavedVrpcResponse(
+        getSavedVrpcResponseKey(this.chain, this.endpoint, req),
+      );
+      return saved != null && shouldUseCachedVrpcResponse({
+        command: req.cmd,
+        lastNetworkResponseAt: saved.savedAt,
+      }) ? saved.response : null;
+    } catch (error) {
+      console.log('Failed to get saved request:', error.message);
+      return null;
+    }
+  }
+
   async getCachedResponse(req, cacheId, generation = this.addressCacheGeneration) {
+    if (SAVED_VRPC_REQUESTS.includes(req.cmd)) return this.getSavedResponse(req);
+
     if (!shouldUseCachedVrpcResponse({
       command: req.cmd,
       lastNetworkResponseAt: this.getLastNetworkResponseTime(cacheId),
@@ -130,6 +157,17 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
   }
 
   async cacheResponse(req, cacheId, response, generation = this.addressCacheGeneration) {
+    if (SAVED_VRPC_REQUESTS.includes(req.cmd)) {
+      if (response.error == null) {
+        try {
+          await saveVrpcResponse(getSavedVrpcResponseKey(this.chain, this.endpoint, req), response);
+        } catch (error) {
+          console.log('Failed to save request:', error.message);
+        }
+      }
+      return response;
+    }
+
     if (isVrpcResponseCacheable(req.cmd) && response.error == null && this.addressRequestIsCurrent(req, generation)) {
       try {
         await setCachedVrpcResponse(this.chain, this.endpoint, req, response);
@@ -226,7 +264,12 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
 
     // Currency definitions share cache/in-flight reads with registration batches,
     // but a lone lookup still starts immediately without a collection timer.
-    if (this.requestBatcher.supportsRefresh(req.cmd) || req.cmd === 'getcurrency') {
+    // Callers that ask for the same currency list at once share one request.
+    if (
+      this.requestBatcher.supportsRefresh(req.cmd) ||
+      req.cmd === 'getcurrency' ||
+      SAVED_VRPC_REQUESTS.includes(req.cmd)
+    ) {
       if (!skipCache && this.pendingBatchRequests.has(cacheId)) {
         return this.pendingBatchRequests.get(cacheId);
       }

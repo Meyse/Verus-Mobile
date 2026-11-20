@@ -2,6 +2,7 @@ export * from './electrumVersions'
 export * from './blockHeaders'
 export * from './ethTxReceipts'
 export * from './vrpcResponseCache'
+export * from './savedVrpcResponses'
 
 import { 
   clearCachedVersions,
@@ -19,13 +20,18 @@ import {
   initVrpcResponseCache,
   clearCachedVrpcResponses
 } from './vrpcResponseCache'
+import {
+  initSavedVrpcResponses,
+  clearSavedVrpcResponses
+} from './savedVrpcResponses'
 
 export const initCache = () => {
   return Promise.all([
     initElectrumCache(),
     initHeaderCache(),
     initEthTxReceiptCache(),
-    initVrpcResponseCache()
+    initVrpcResponseCache(),
+    initSavedVrpcResponses()
   ]).catch((e) => {
     throw e;
   });
@@ -36,7 +42,8 @@ export const clearCache = () => {
     clearCachedVersions(),
     clearCachedHeaders(),
     clearCachedEthTxReceipts(),
-    clearCachedVrpcResponses()
+    clearCachedVrpcResponses(),
+    clearSavedVrpcResponses()
   ]).catch((e) => {
     throw e;
   });
