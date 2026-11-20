@@ -1,4 +1,4 @@
-import { getCurrency } from "./getCurrency";
+import { getCurrencyDefinition } from "./getCurrency";
 
 export const getCurrencyNameMap = async (coinObj, currencyDefinition) => {
   let names = {
@@ -15,7 +15,7 @@ export const getCurrencyNameMap = async (coinObj, currencyDefinition) => {
   for (const addr of iAddresses) {
     try {
       if (!names[addr]) {
-        const curr = await getCurrency(coinObj.system_id, addr);
+        const curr = await getCurrencyDefinition(coinObj.system_id, addr);
 
         names[addr] = curr.result.fullyqualifiedname;
       }

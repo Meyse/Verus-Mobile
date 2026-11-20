@@ -27,6 +27,29 @@ export const VRPC_CACHE_MAX_AGE_MS = {
 // age also counts after a restart.
 export const SAVED_VRPC_REQUESTS = ['listcurrencies'];
 
+// F10: a currency definition read only for its fixed fields (name, IDs,
+// systems, start block, fees, flags). These never change on chain. The fields
+// below change with each block, so a saved definition never keeps them: a
+// caller that needs the currency state must read it fresh.
+export const STATIC_CURRENCY_DEFINITION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CURRENCY_STATE_FIELDS = [
+  'bestheight',
+  'besttxid',
+  'besttxout',
+  'bestcurrencystate',
+  'lastconfirmedheight',
+  'lastconfirmedtxid',
+  'lastconfirmedtxout',
+  'lastconfirmedcurrencystate',
+];
+
+export const withoutCurrencyState = response => {
+  if (response?.result == null || typeof response.result !== 'object') return response;
+  const result = {...response.result};
+  CURRENCY_STATE_FIELDS.forEach(field => delete result[field]);
+  return {...response, result};
+};
+
 export const isVrpcResponseCacheable = command => {
   return CACHED_VRPC_REQUESTS.includes(command);
 };

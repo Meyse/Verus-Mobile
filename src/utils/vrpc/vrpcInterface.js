@@ -15,7 +15,7 @@ import {
   saveVrpcResponse,
   setCachedVrpcResponse,
 } from '../asyncStore/asyncStore';
-import {GetBlockHashRequest} from 'verus-typescript-primitives';
+import {GetBlockHashRequest, GetCurrencyRequest} from 'verus-typescript-primitives';
 import { coinsList } from '../CoinData/CoinsList';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
 import { CoinDirectory } from '../CoinData/CoinDirectory';
@@ -24,11 +24,13 @@ import { getUrlKey } from '../url';
 import {
   CACHED_VRPC_REQUESTS,
   SAVED_VRPC_REQUESTS,
+  STATIC_CURRENCY_DEFINITION_MAX_AGE_MS,
   VRPC_ADDRESS_CACHE_REQUESTS,
   DEFAULT_VRPC_CACHE_MAX_AGE_MS,
   VRPC_CACHE_MAX_AGE_MS,
   isVrpcResponseCacheable,
   shouldUseCachedVrpcResponse,
+  withoutCurrencyState,
 } from './vrpcCachePolicy';
 import {getManyUtxoFundRawTransactionError} from './fundRawTransactionError';
 import VrpcRequestBatcher from './vrpcRequestBatcher';
@@ -139,12 +141,18 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     }
   }
 
-  async getCachedResponse(req, cacheId, generation = this.addressCacheGeneration) {
+  async getCachedResponse(
+    req,
+    cacheId,
+    generation = this.addressCacheGeneration,
+    maxAgeMs = undefined,
+  ) {
     if (SAVED_VRPC_REQUESTS.includes(req.cmd)) return this.getSavedResponse(req);
 
     if (!shouldUseCachedVrpcResponse({
       command: req.cmd,
       lastNetworkResponseAt: this.getLastNetworkResponseTime(cacheId),
+      maxAgeMs,
     })) return null;
 
     try {
@@ -178,6 +186,53 @@ class CachedVerusdRpcInterface extends VerusdRpcInterface {
     }
 
     return response;
+  }
+
+  /**
+   * F10: a currency definition for its fixed fields only. The answer is saved
+   * for one day in public storage, per system (every server of a system has
+   * the same definitions). It never holds the currency state, so a caller
+   * cannot price or check a transaction with an old state by mistake.
+   * Use `getCurrency` when the state is needed.
+   */
+  async getCurrencyDefinition(currencyId) {
+    const req = new GetCurrencyRequest(this.chain, currencyId);
+    let key = null;
+    try {
+      key = getSavedVrpcResponseKey(this.chain, 'currency-definition', req);
+      const saved = await getSavedVrpcResponse(key);
+      if (saved != null && shouldUseCachedVrpcResponse({
+        command: req.cmd,
+        lastNetworkResponseAt: saved.savedAt,
+        maxAgeMs: STATIC_CURRENCY_DEFINITION_MAX_AGE_MS,
+      })) return saved.response;
+    } catch (error) {
+      console.log('Failed to get saved currency definition:', error.message);
+    }
+
+    const response = withoutCurrencyState(await this.request(req));
+    if (key != null && response?.error == null && response?.result?.currencyid) {
+      try {
+        await saveVrpcResponse(key, response);
+      } catch (error) {
+        console.log('Failed to save currency definition:', error.message);
+      }
+    }
+    return response;
+  }
+
+  /**
+   * F10: a read for display only (for example a countdown) that accepts an
+   * answer up to `maxAgeMs` old. It joins a running request, but it never
+   * starts a shared entry of its own, so a caller that needs a fresh answer
+   * never receives this older one.
+   */
+  async requestWithMaxAge(req, maxAgeMs) {
+    const cacheId = getVrpcResponseCacheKey(this.chain, this.endpoint, req);
+    if (this.pendingBatchRequests.has(cacheId)) return this.pendingBatchRequests.get(cacheId);
+    const generation = this.trackAddressRequest(req, cacheId);
+    const cached = await this.getCachedResponse(req, cacheId, generation, maxAgeMs);
+    return cached != null ? cached : this.request(req);
   }
 
   shareRead(cacheId, pending) {

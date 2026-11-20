@@ -3,7 +3,7 @@ import {RESERVE_TRANSFER_DESTINATION} from 'verus-typescript-primitives';
 import VrpcProvider from '../vrpc/vrpcInterface';
 import {getAddressDeltas} from '../api/channels/vrpc/requests/getAddressDeltas';
 import {getAddressMempool} from '../api/channels/vrpc/requests/getAddressMempool';
-import {getInfo} from '../api/channels/vrpc/requests/getInfo';
+import {getDisplayInfo} from '../api/channels/vrpc/requests/getInfo';
 import {getTransaction} from '../api/channels/vrpc/requests/getTransaction';
 
 // Pre-launch facts change slowly. Short caches keep Home, the asset screen and
@@ -62,19 +62,22 @@ export const getPrelaunchCurrencies = systemId =>
   });
 
 // Currency ID → name for the currencies a currency holds. Only `getcurrency`
-// returns these names; the pre-launch list does not.
+// returns these names; the pre-launch list does not. The names are fixed, so
+// the saved definition serves them (F10).
 const currencyNames = new Map();
 export const getCurrencyNames = (systemId, currencyId) =>
   remember(currencyNames, `${systemId}:${currencyId}`, Infinity, async () => {
-    const result = resultOf(await VrpcProvider.getEndpoint(systemId).getCurrency(currencyId));
+    const result = resultOf(await VrpcProvider.getEndpoint(systemId).getCurrencyDefinition(currencyId));
     return result?.currencynames && typeof result.currencynames === 'object'
       ? result.currencynames
       : {};
   });
 
+// For launch countdowns only. It can be up to one minute old (F10), so never
+// use it to build or check a transaction.
 export const getChainHeight = systemId =>
   remember(heights, systemId, HEIGHT_TTL, async () => {
-    const info = resultOf(await getInfo(systemId));
+    const info = resultOf(await getDisplayInfo(systemId));
     const height = Number(info?.longestchain || info?.blocks);
     if (!Number.isFinite(height) || height <= 0) throw new Error('Block height unavailable.');
     return height;
