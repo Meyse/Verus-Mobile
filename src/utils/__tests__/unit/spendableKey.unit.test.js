@@ -158,7 +158,6 @@ const mockFindCoinObj = jest.fn((key, _userName, useSystemId) => {
 const mockDeriveKeyPair = jest.fn();
 const mockGetAddressUtxos = jest.fn();
 const mockGetInfo = jest.fn();
-const mockGetAddressMempool = jest.fn();
 const mockGetTransaction = jest.fn();
 const mockSendRawTransaction = jest.fn();
 const mockGetCurrency = jest.fn();
@@ -236,8 +235,7 @@ jest.mock('../../keys', () => ({
 jest.mock('../../api/channels/vrpc/callCreators', () => ({
   getAddressUtxos: mockGetAddressUtxos,
   getInfo: mockGetInfo,
-  // The pending-spend check before a claim reads the address mempool.
-  getAddressMempool: mockGetAddressMempool,
+  // No getAddressMempool: claims must not read the mempool (PR 266 F4).
   getTransaction: mockGetTransaction,
   sendRawTransaction: mockSendRawTransaction,
 }));
@@ -404,7 +402,6 @@ const pbaasUtxo = makeUtxo({
 describe('spendable key claim utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetAddressMempool.mockResolvedValue({result: []});
     Object.keys(mockEndpoints).forEach(key => delete mockEndpoints[key]);
     Object.keys(mockTxInputsByHex).forEach(key => delete mockTxInputsByHex[key]);
     Object.keys(mockTxOutputsByHex).forEach(key => delete mockTxOutputsByHex[key]);
