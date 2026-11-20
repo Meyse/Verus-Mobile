@@ -81,7 +81,6 @@ import {
 } from '../../utils/constants/constants';
 import {useSendWizard} from './SendWizardContext';
 import {useInvoiceFlow} from './invoiceFlow';
-import {refreshSourceBalance} from './refreshSourceBalance';
 import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
   ErrorMessage,
@@ -637,7 +636,6 @@ const SendWizardConfirm = () => {
       submitted.current = true;
       invoiceFlow?.onPaymentSent?.(sentTxid);
       invoiceFlow?.onPaymentBroadcast?.();
-      void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
       navigation.reset({
         index: 0,

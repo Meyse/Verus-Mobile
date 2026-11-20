@@ -3,6 +3,7 @@ import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo } from
 import { satsToCoins } from "../../../../../utils/math";
 import { standardizeVrpcTxObj } from "../../../../../utils/standardization/standardizeTxObj";
 import {finiteBalance} from '../../../../../utils/assets/assetIdentity';
+import {noteObservedHeight} from '../../../../../utils/ledger/blockHeightPoll';
 
 export const updateVrpcBalances = async (coinObj, channelId, {vrpcRefresh} = {}) => {
   const [, iAddress, systemId] = channelId.split('.')
@@ -67,6 +68,9 @@ export const updateVrpcTransactions = async (coinObj, channelId, {vrpcRefresh} =
   const isNative = currencyId === systemId;
 
   if (deltasRes.error) throw new Error(deltasRes.error.message);
+
+  // The coin screen's block height poll compares new heights with this one.
+  noteObservedHeight(channelId, Number(infoRes?.result?.longestchain));
 
   let txs = deltasRes.result;
 

@@ -7,9 +7,6 @@ export const SPENT_INPUTS_NOT_SENT_MESSAGE =
   'Your previous transaction is not confirmed yet. Nothing new was sent. ' +
   'Wait for the next block, then check your transaction history before you send again.';
 
-export const PENDING_SPEND_MESSAGE =
-  'Your previous transaction is not confirmed yet. Wait for the next block, then try again.';
-
 // The node did not accept the transaction: an input is spent or unknown.
 export const isSpentInputsRefusal = message =>
   /\b(txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i
