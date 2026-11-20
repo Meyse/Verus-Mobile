@@ -285,7 +285,7 @@ const PriceRouteSheet = ({
                   styles.suggestionImpact,
                   {color: theme.colors.textSecondary},
                 ]}>
-                  Price impact {getImpactBadgeLabel(suggestion.impact)}
+                  {SLIPPAGE_LABEL} {getImpactBadgeLabel(suggestion.impact)}
                 </Text>
               </View>
               <MaterialCommunityIcons

@@ -415,11 +415,17 @@ const SendWizardAmount = () => {
     validAmount,
   ]);
 
+  // The market sample also costs an estimate, so it runs only for a route
+  // that gets one: one of the 30 oldest converters (F13).
+  const sampledRoute = !target?.routes?.length ||
+    pickEstimateRoutes(target.routes, preferredRouteKey)
+      .some(candidate => candidate.key === route?.key)
+    ? route : null;
   const priceImpact = usePriceImpact({
     channel,
     sourceCoin,
     target,
-    route,
+    route: sampledRoute,
     amount: cryptoAmount,
     output: validAmount ? state.estimate?.estimatedcurrencyout : null,
     rate,

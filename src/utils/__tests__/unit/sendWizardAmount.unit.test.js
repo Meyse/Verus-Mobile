@@ -29,7 +29,13 @@ jest.mock('../../../containers/SendWizard/components/WizardUI', () => ({
 jest.mock('../../../containers/SendWizard/components/AmountEstimate', () => 'AmountEstimate');
 jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'PriceRouteSheet');
 jest.mock('../../../containers/SendWizard/components/SelectionSheets', () => ({TargetNetworkSheet: 'TargetNetworkSheet'}));
-jest.mock('../../../containers/SendWizard/usePriceImpact', () => ({usePriceImpact: () => ({level: 'none'})}));
+// The F13 count runs the real hook, because its market sample is an estimate too.
+let mockRealPriceImpact = false;
+jest.mock('../../../containers/SendWizard/usePriceImpact', () => ({
+  usePriceImpact: (...args) => (mockRealPriceImpact
+    ? jest.requireActual('../../../containers/SendWizard/usePriceImpact').usePriceImpact(...args)
+    : {level: 'none'}),
+}));
 jest.mock('../../../containers/SendWizard/useReceivedPrice', () => ({useReceivedPrice: () => null}));
 // Network boundaries. Amount loads other networks only on Change network.
 jest.mock('../../api/channels/vrpc/requests/estimateConversion', () => ({estimateConversion: jest.fn()}));
@@ -397,12 +403,14 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
   const estimatedVias = () => estimateConversion.mock.calls.map(call => call[4]);
 
   beforeEach(() => {
+    mockRealPriceImpact = true;
     jest.useFakeTimers();
     jest.clearAllMocks();
     estimateConversion.mockImplementation(() =>
       Promise.resolve({result: {estimatedcurrencyout: 1}}));
   });
   afterEach(() => {
+    mockRealPriceImpact = false;
     if (view) act(() => view.unmount());
     view = null;
     jest.useRealTimers();
@@ -411,14 +419,19 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
   it('estimates the 30 oldest of 33 converters', async () => {
     const target = renderConvert();
     expect(target.routes).toHaveLength(33);
+    // The first route is b1, the youngest: it gets no market sample.
+    expect(target.routes[0].via).toBe('b1');
+    expect(estimateConversion).not.toHaveBeenCalled();
     await act(async () => {
       jest.advanceTimersByTime(300);
     });
-    expect(estimateConversion).toHaveBeenCalledTimes(30);
-    // b3 to b32 are the 30 oldest; b1, b2 (youngest) and bX (unknown) wait.
-    expect(estimatedVias().sort()).toEqual(
-      Array.from({length: 30}, (_, index) => `b${index + 3}`).sort(),
-    );
+    await act(async () => {});
+    // 30 route estimates, then 1 market sample on the chosen route (b32,
+    // the oldest, first of the equal estimates). No call for b1, b2 or bX.
+    expect(estimateConversion).toHaveBeenCalledTimes(31);
+    const expected = Array.from({length: 30}, (_, index) => `b${index + 3}`);
+    expect([...new Set(estimatedVias())].sort()).toEqual(expected.sort());
+    expect(estimatedVias().filter(via => via === 'b32')).toHaveLength(2);
   });
 
   it('keeps the estimate of a converter the user picks', async () => {
@@ -434,9 +447,11 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
     await act(async () => {
       jest.advanceTimersByTime(300);
     });
-    expect(estimateConversion).toHaveBeenCalledTimes(30);
-    expect(estimatedVias()).toContain('b1');
-    // The picked one takes the place of the youngest of the 30 (b3).
+    await act(async () => {});
+    // 30 route estimates with b1 in place of the youngest of the 30 (b3),
+    // plus 1 market sample for the newly picked route b1.
+    expect(estimateConversion).toHaveBeenCalledTimes(31);
+    expect(estimatedVias().filter(via => via === 'b1')).toHaveLength(2);
     expect(estimatedVias()).not.toContain('b3');
   });
 });
