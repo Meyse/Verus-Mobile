@@ -55,6 +55,23 @@ const hydrations = new Map();
 const discoveryJobs = new Map();
 let additionQueue = Promise.resolve();
 
+// F9 (PR 266): found currencies are looked up (`getcurrency`) only while a
+// screen that shows their names is open: Manage assets. Sign-in, Home and
+// balance updates only count them.
+let lookupRequests = 0;
+let lookupsRunning = false;
+const lookupListeners = new Set();
+const setLookupsRunning = running => {
+  if (lookupsRunning === running) return;
+  lookupsRunning = running;
+  lookupListeners.forEach(listener => listener());
+};
+export const subscribeFoundAssetLookups = listener => {
+  lookupListeners.add(listener);
+  return () => lookupListeners.delete(listener);
+};
+export const foundAssetLookupsRunning = () => lookupsRunning;
+
 export const captureAssetContext = () => {
   const state = store.getState();
   return {
@@ -288,19 +305,25 @@ export const currentAssetSnapshots = state => {
       Boolean(snapshot.testnet) === testnet));
 };
 
-export const getNewAssetHoldings = state => {
+// Currencies with funds on the wallet's addresses that are not in the wallet
+// and not removed, with their looked-up details (`result`) when known.
+export const getFoundAssetHoldings = state => {
   if (!state.assetManagement.ready) return [];
   const active = state.coins.activeCoinsForUser || [];
   return getPositiveVrpcHoldings(currentAssetSnapshots(state))
     .filter(holding => !active.some(coin => matchesVrpcHolding(coin, holding)))
     .filter(holding => !state.assetManagement.removed[holding.currencyId])
-    .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}))
-    .filter(holding => holding.result != null);
+    .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}));
 };
 
-// The found currencies Home still asks about.
+// The found currencies whose details are known, for Manage assets.
+export const getNewAssetHoldings = state =>
+  getFoundAssetHoldings(state).filter(holding => holding.result != null);
+
+// The found currencies Home still asks about. Home shows only how many there
+// are, so it needs no lookup (F9).
 export const getUnreviewedNewAssetHoldings = state =>
-  getNewAssetHoldings(state).filter(
+  getFoundAssetHoldings(state).filter(
     holding => !state.assetManagement.reviewed?.[holding.currencyId],
   );
 
@@ -448,6 +471,10 @@ const persistDiscovery = async context => {
 const discoverAssets = async (context, job) => {
   await loadAssetManagement(context);
   assertCurrent(context);
+  if (lookupRequests === 0) {
+    await persistDiscovery(context);
+    return;
+  }
   const holdings = getPositiveVrpcHoldings(currentAssetSnapshots(store.getState()));
   let lookups = 0;
   for (const holding of holdings) {
@@ -461,6 +488,8 @@ const discoverAssets = async (context, job) => {
       // included: spam currencies can arrive too. They wait under "New assets
       // found" for the user (owner, 2026-10-26).
       if (store.getState().assetManagement.resolved[holding.key]) continue;
+      // Leaving Manage assets stops the lookups that have not started (F9).
+      if (lookupRequests === 0) break;
       if (lookups++ >= MAX_LOOKUPS_PER_PASS) break;
       const result = await resolveAssetIdentifier({
         activeCoins: [],
@@ -500,13 +529,33 @@ export const scheduleAssetDiscovery = () => {
     try {
       do {
         job.pending = false;
+        setLookupsRunning(lookupRequests > 0);
         await discoverAssets(context, job);
       } while (job.pending && assetContextIsCurrent(context));
     } catch (_) {
       // Keep saved choices and last available data when storage/session is unavailable.
     } finally {
       job.running = false;
+      setLookupsRunning(false);
       if (!assetContextIsCurrent(context)) discoveryJobs.delete(key);
     }
   })();
+};
+
+// Manage assets calls this while it is open. It looks up the found currencies
+// now and after each balance update until the returned function runs.
+export const requestFoundAssetLookups = () => {
+  lookupRequests += 1;
+  scheduleAssetDiscovery();
+  // A pass that started without lookups runs again with them.
+  const context = captureAssetContext();
+  if (assetContextIsCurrent(context) && discoveryJobs.get(contextKey(context))?.running) {
+    setLookupsRunning(true);
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    lookupRequests = Math.max(0, lookupRequests - 1);
+  };
 };

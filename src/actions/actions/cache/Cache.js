@@ -5,16 +5,33 @@ import {
 import {
   clearDataCache
 } from '../../actionCreators';
+import Store from '../../../store';
+import {captureSessionScope} from '../updates/sessionRequests';
+import {DLIGHT_PRIVATE} from '../../../utils/constants/intervalConstants';
+import {resyncDlightWallet} from '../channels/dlight/dispatchers/LightWalletReduxManager';
 
-export const clearCacheData = (dispatch) => {
-  return new Promise((resolve) => {
-    clearCache()
-    .then((res) => {
-      dispatch(clearDataCache())
-      resolve()
-    })
-    .catch(e => {
-      throw e
-    })
-  })
-}
+// "Clear cache" (F12, PR 266): saved server responses, saved currency lists
+// and definitions, block headers and receipts. They load again when needed.
+// It never touches the private wallet's synced data and starts no resync.
+// A failure rejects, so the loading screen shows its error instead of waiting.
+export const clearCacheData = async (dispatch) => {
+  await clearCache();
+  dispatch(clearDataCache());
+};
+
+// The open private wallets of the signed-in profile.
+export const getResyncablePrivateCoins = state =>
+  (state.coins.activeCoinsForUser || []).filter(coin =>
+    (coin.compatible_channels || []).includes(DLIGHT_PRIVATE) &&
+    state.channelStore_dlight_private?.dlightSockets?.[coin.id] === true,
+  );
+
+// "Clear blockchain data" (F12): rewinds each open private wallet to its
+// birthday, so it scans the chain again from there.
+export const clearBlockchainData = async () => {
+  const state = Store.getState();
+  const sessionScope = captureSessionScope(state);
+  for (const coin of getResyncablePrivateCoins(state)) {
+    await resyncDlightWallet(coin, sessionScope);
+  }
+};

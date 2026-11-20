@@ -1,5 +1,6 @@
 import AppSwitch from '../../components/AppSwitch';
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {TouchableOpacity, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -16,9 +17,10 @@ import {
 } from '../../utils/assets/assetIdentity';
 import {getAssetPresentation, resolvedAssetCoin} from '../../utils/assets/assetPresentation';
 import {
-  addManagedAsset, assetContextIsCurrent, captureAssetContext,
-  getNewAssetHoldings, loadAssetManagement, removeManagedAsset, setAssetHomeVisibility,
-  restoreManagedAsset, setAssetOrder,
+  addManagedAsset, assetContextIsCurrent, captureAssetContext, foundAssetLookupsRunning,
+  getFoundAssetHoldings, getNewAssetHoldings, loadAssetManagement, removeManagedAsset,
+  requestFoundAssetLookups, setAssetHomeVisibility, restoreManagedAsset, setAssetOrder,
+  subscribeFoundAssetLookups,
 } from '../../utils/assets/assetManagementService';
 import {orderedAssetKeys} from '../../utils/assets/assetOrder';
 import AssetReorderList, {useReorderScroll} from './AssetReorderList';
@@ -42,6 +44,12 @@ const useAssetData = () => {
   const balances = useObjectSelector(state => state.ledger.balances);
   const showBalance = useObjectSelector(state => state.coins.showBalance);
   const discoveries = useObjectSelector(getNewAssetHoldings);
+  // Found currencies whose names are not looked up yet. This screen looks them
+  // up while it is open; Home only counts them (F9).
+  const unresolvedFound = useObjectSelector(state =>
+    getFoundAssetHoldings(state).filter(holding => holding.result == null).length);
+  const lookingUpFound = useSyncExternalStore(subscribeFoundAssetLookups, foundAssetLookupsRunning);
+  useFocusEffect(useCallback(() => requestFoundAssetLookups(), []));
   const removedAssets = useObjectSelector(getRemovedAssets);
   const data = useMemo(() => buildAssetManagerData({activeAccount, activeCoins,
     testAccount: isTestnetAccount(activeAccount)}), [activeAccount, activeCoins]);
@@ -53,7 +61,8 @@ const useAssetData = () => {
   useEffect(() => {
     loadAssetManagement().catch(() => {});
   }, []);
-  return {...data, orderKeys, activeAccount, cards, balances, management, discoveries, removedAssets, showBalance};
+  return {...data, orderKeys, activeAccount, cards, balances, management, discoveries,
+    loadingFound: lookingUpFound ? unresolvedFound : 0, removedAssets, showBalance};
 };
 
 const useAssetAction = () => {
@@ -218,6 +227,8 @@ const Manager = ({navigation}) => {
     presentation: getAssetPresentation(resolvedAssetCoin(holding.result), {systemId: holding.systemId}),
   })).filter(holding => matchesQuery(activeQuery, [...holding.presentation.searchTerms,
     holding.result.currencyDefinition.fullyqualifiedname])) : [];
+  // Rows for found currencies still being looked up. They have no name to search.
+  const loadingFound = activeFilter === 'all' && !activeQuery.trim() ? data.loadingFound : 0;
   // Drag handles show while the list shows every asset: the All tab without a search.
   const reorderable = activeFilter === 'all' && !activeQuery.trim() && assets.length >= 2;
   const [scroll, scrollEnabled] = useReorderScroll();
@@ -277,8 +288,8 @@ const Manager = ({navigation}) => {
               renderRow={(key, handle) => renderAsset(byKey.get(key), handle)} />;
           })()}
           {assets.length === 0 && removedAssets.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{activeQuery ? 'No matching assets' : activeFilter === 'hidden' ? 'No hidden assets' : activeFilter === 'home' ? 'No assets on Home' : 'No managed assets'}</Text></View> : null}
-          {discoveries.length > 0 ? <>
-            <SectionHeader title="New assets found" detail={String(discoveries.length)} styles={styles} />
+          {discoveries.length + loadingFound > 0 ? <>
+            <SectionHeader title="New assets found" detail={String(discoveries.length + loadingFound)} styles={styles} />
             {discoveries.map(holding => {
               const {name, ticker, networkLabel} = holding.presentation;
               return <View key={holding.key} style={styles.assetRow}>
@@ -293,6 +304,7 @@ const Manager = ({navigation}) => {
                 </TextAction>
               </View>;
             })}
+            {loadingFound > 0 ? <AssetLoadingRows count={loadingFound} accessibilityLabel="Loading found assets" styles={styles} /> : null}
           </> : null}
           {removedAssets.length > 0 ? <>
             <SectionHeader title="Removed assets" detail={String(removedAssets.length)} styles={styles} />

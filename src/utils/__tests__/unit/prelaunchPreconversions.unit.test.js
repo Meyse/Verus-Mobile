@@ -4,7 +4,7 @@
 jest.mock('../../vrpc/vrpcInterface', () => ({__esModule: true, default: {getEndpoint: jest.fn()}}));
 jest.mock('../../api/channels/vrpc/requests/getAddressDeltas', () => ({getAddressDeltas: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/getAddressMempool', () => ({getAddressMempool: jest.fn()}));
-jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: jest.fn()}));
+jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: jest.fn(), getDisplayInfo: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/getTransaction', () => ({getTransaction: jest.fn()}));
 
 const {RESERVE_TRANSFER_DESTINATION} = require('verus-typescript-primitives');
@@ -87,5 +87,61 @@ describe('getOwnPreconversions cache', () => {
     await getOwnPreconversions(SYSTEM, [OWN], targets(A, B));
     await getOwnPreconversions(SYSTEM, [OTHER_CARD, OWN], targets(B));
     expect(txCalls()).toBe(1);
+  });
+});
+
+// PR 266 audit row 3: Home and the coin screen decide "pre-launch" from each
+// held currency's saved definition and the block height, without the list of
+// all pre-launch currencies (listcurrencies).
+describe('getPrelaunchEntries', () => {
+  it('compares the start block with the height and reads no height for a launched currency', async () => {
+    const endpoint = {
+      listCurrencies: jest.fn(),
+      getCurrencyDefinition: jest.fn(async id => ({result: {
+        currencyid: id,
+        startblock: id === A ? 2000 : 50,
+        currencynames: {iVRSC: 'VRSC'},
+      }})),
+    };
+    require('../../vrpc/vrpcInterface').default.getEndpoint.mockReturnValue(endpoint);
+    const {getDisplayInfo} = require('../../api/channels/vrpc/requests/getInfo');
+    getDisplayInfo.mockResolvedValue({result: {longestchain: 1000}});
+    const {getPrelaunchEntries} = require('../../preconversion/prelaunchData');
+
+    const entries = await getPrelaunchEntries(SYSTEM, [A, B]);
+    expect([...entries.keys()]).toEqual([A]);
+    expect(entries.get(A).currencydefinition.currencynames).toEqual({iVRSC: 'VRSC'});
+    expect(getDisplayInfo).toHaveBeenCalledTimes(1);
+
+    // B started at block 50, below the known height: no new height read.
+    await expect(getPrelaunchEntries(SYSTEM, [B])).resolves.toEqual(new Map());
+    expect(getDisplayInfo).toHaveBeenCalledTimes(1);
+    expect(endpoint.listCurrencies).not.toHaveBeenCalled();
+  });
+
+  it('uses the height saved before a restart to see that a currency launched', async () => {
+    const system = 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq';
+    const load = () => {
+      require('../../vrpc/vrpcInterface').default.getEndpoint.mockReturnValue({
+        getCurrencyDefinition: async id => ({result: {currencyid: id, startblock: id === A ? 2000 : 50}}),
+      });
+      const {getDisplayInfo} = require('../../api/channels/vrpc/requests/getInfo');
+      getDisplayInfo.mockResolvedValue({result: {longestchain: 1000}});
+      return {getDisplayInfo, ...require('../../preconversion/prelaunchData')};
+    };
+    let app = load();
+    await app.getPrelaunchEntries(system, [A]);
+    expect(app.getDisplayInfo).toHaveBeenCalledTimes(1);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const saved = await AsyncStorage.multiGet(await AsyncStorage.getAllKeys());
+    jest.resetModules();
+    await require('@react-native-async-storage/async-storage').multiSet(saved);
+    // The app loads the saved caches at start (initCache).
+    await require('../../asyncStore/cache/savedVrpcResponses').initSavedVrpcResponses();
+    app = load();
+    await expect(app.getPrelaunchEntries(system, [B])).resolves.toEqual(new Map());
+    expect(app.getDisplayInfo).not.toHaveBeenCalled();
   });
 });

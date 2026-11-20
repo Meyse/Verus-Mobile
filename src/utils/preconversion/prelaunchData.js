@@ -3,18 +3,31 @@ import {RESERVE_TRANSFER_DESTINATION} from 'verus-typescript-primitives';
 import VrpcProvider from '../vrpc/vrpcInterface';
 import {getAddressDeltas} from '../api/channels/vrpc/requests/getAddressDeltas';
 import {getAddressMempool} from '../api/channels/vrpc/requests/getAddressMempool';
-import {getInfo} from '../api/channels/vrpc/requests/getInfo';
+import {getDisplayInfo} from '../api/channels/vrpc/requests/getInfo';
 import {getTransaction} from '../api/channels/vrpc/requests/getTransaction';
+import {
+  SAVED_VRPC_HEIGHT,
+  getSavedVrpcResponse,
+  getSavedVrpcResponseKey,
+  saveVrpcResponse,
+} from '../asyncStore/cache/savedVrpcResponses';
 
 // Pre-launch facts change slowly. Short caches keep Home, the asset screen and
 // the wizard from asking the same server again while one person moves
 // between them.
-const LIST_TTL = 60 * 1000;
 const HEIGHT_TTL = 30 * 1000;
 const FETCH_CONCURRENCY = 4;
 
-const lists = new Map();
 const heights = new Map();
+// "systemId:currencyId" → true (pre-launch) or false, from the last check.
+const prelaunchStates = new Map();
+// The own pre-conversions of the last asset-screen read, so Home can show
+// their total without reading them (audit row 3). The key holds the card
+// addresses, so another profile never sees them. Memory only: they link to
+// the wallet.
+const savedPreconversions = new Map();
+const preconversionKey = (systemId, currencyId, addresses) =>
+  `${systemId}:${currencyId}:${[...new Set(addresses || [])].sort().join(',')}`;
 // Decoded (unfiltered) transfers of confirmed transactions never change.
 const confirmedTransfers = new Map();
 const definitionHeights = new Map();
@@ -39,46 +52,85 @@ const remember = (cache, key, ttl, load) => {
 // The last loaded value, without a request, so a screen can draw its final
 // layout at once when another screen already loaded it.
 const peek = (cache, key) => cache.get(key)?.value;
-export const peekPrelaunchCurrencies = systemId => peek(lists, systemId);
 export const peekChainHeight = systemId => peek(heights, systemId);
+export const peekPrelaunchState = (systemId, currencyId) =>
+  prelaunchStates.has(`${systemId}:${currencyId}`)
+    ? prelaunchStates.get(`${systemId}:${currencyId}`)
+    : null;
+export const peekSavedPreconversions = (systemId, currencyId, addresses) =>
+  savedPreconversions.get(preconversionKey(systemId, currencyId, addresses)) ?? null;
+export const savePreconversions = (systemId, currencyId, addresses, preconversions) => {
+  if (preconversions == null) return;
+  savedPreconversions.set(preconversionKey(systemId, currencyId, addresses), preconversions);
+};
 
 const resultOf = response => {
   if (response?.error) throw new Error(response.error.message || 'Request failed.');
   return response?.result;
 };
 
-// Currency ID → {currencydefinition, bestcurrencystate} for every currency of
-// this system that is still before its start block.
-export const getPrelaunchCurrencies = systemId =>
-  remember(lists, systemId, LIST_TTL, async () => {
-    const result = resultOf(
-      await VrpcProvider.getEndpoint(systemId).listCurrencies({launchstate: 'prelaunch'}),
-    );
-    return new Map(
-      (result || [])
-        .filter(entry => entry?.currencydefinition?.currencyid)
-        .map(entry => [entry.currencydefinition.currencyid, entry]),
-    );
-  });
 
-// Currency ID → name for the currencies a currency holds. Only `getcurrency`
-// returns these names; the pre-launch list does not.
-const currencyNames = new Map();
-export const getCurrencyNames = (systemId, currencyId) =>
-  remember(currencyNames, `${systemId}:${currencyId}`, Infinity, async () => {
-    const result = resultOf(await VrpcProvider.getEndpoint(systemId).getCurrency(currencyId));
-    return result?.currencynames && typeof result.currencynames === 'object'
-      ? result.currencynames
-      : {};
-  });
-
+// For launch countdowns only. It can be up to one minute old (F10), so never
+// use it to build or check a transaction.
 export const getChainHeight = systemId =>
   remember(heights, systemId, HEIGHT_TTL, async () => {
-    const info = resultOf(await getInfo(systemId));
+    const info = resultOf(await getDisplayInfo(systemId));
     const height = Number(info?.longestchain || info?.blocks);
     if (!Number.isFinite(height) || height <= 0) throw new Error('Block height unavailable.');
+    Promise.resolve()
+      .then(() => saveVrpcResponse(SAVED_VRPC_HEIGHT, lastHeightKey(systemId), {height}))
+      .catch(() => {});
     return height;
   });
+
+// The last height this app saw, of any age. It only proves that a currency
+// with a lower start block has launched. A block height is public chain data.
+const lastHeightKey = systemId =>
+  getSavedVrpcResponseKey(systemId, 'last-height', {prepare: () => ({method: 'getinfo'})});
+const getLastKnownHeight = async systemId => {
+  const known = peekChainHeight(systemId);
+  if (known != null) return known;
+  try {
+    const saved = await getSavedVrpcResponse(SAVED_VRPC_HEIGHT, lastHeightKey(systemId));
+    const height = Number(saved?.response?.height);
+    return Number.isFinite(height) && height > 0 ? height : null;
+  } catch (_) {
+    return null;
+  }
+};
+
+// Currency ID → {currencydefinition} for the given currencies of this system
+// that are still before their start block (PR 266 audit row 3). It reads each
+// currency's saved definition (F10) and the block height, never the list of
+// all pre-launch currencies (`listcurrencies`). A start block at or below any
+// known height means launched: a launch never goes back, so an older height
+// is enough and no height is read. The definition has `currencynames`.
+export const getPrelaunchEntries = async (systemId, currencyIds) => {
+  const endpoint = VrpcProvider.getEndpoint(systemId);
+  const definitions = (await Promise.all(
+    [...new Set(currencyIds)].map(currencyId =>
+      endpoint.getCurrencyDefinition(currencyId)
+        .then(response => {
+          const result = resultOf(response);
+          return result?.currencyid === currencyId ? result : null;
+        })
+        .catch(() => null),
+    ),
+  )).filter(Boolean);
+  const startBlock = definition => Number(definition.startblock);
+  const known = await getLastKnownHeight(systemId);
+  const height = definitions.some(definition =>
+    Number.isFinite(startBlock(definition)) && startBlock(definition) > (known || 0))
+    ? await getChainHeight(systemId)
+    : known;
+  const entries = new Map();
+  definitions.forEach(definition => {
+    const prelaunch = Number.isFinite(startBlock(definition)) && startBlock(definition) > height;
+    prelaunchStates.set(`${systemId}:${definition.currencyid}`, prelaunch);
+    if (prelaunch) entries.set(definition.currencyid, {currencydefinition: definition});
+  });
+  return entries;
+};
 
 const reserveTransferAddress = RESERVE_TRANSFER_DESTINATION.getAddressString();
 

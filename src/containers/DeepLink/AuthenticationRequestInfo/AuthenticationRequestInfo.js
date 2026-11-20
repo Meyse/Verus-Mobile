@@ -69,7 +69,7 @@ import {
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
 import {
   getFriendlyNameMap,
-  getCurrency,
+  getCurrencyDefinition,
   getIdentity,
 } from '../../../utils/api/channels/verusid/callCreators';
 import {getSystemNameFromSystemId} from '../../../utils/CoinData/CoinData';
@@ -460,7 +460,7 @@ const AuthenticationRequestInfoContent = props => {
         }
 
         try {
-          const currencyRes = await getCurrency(defaultRootSystemId, systemId);
+          const currencyRes = await getCurrencyDefinition(defaultRootSystemId, systemId);
           if (!currencyRes.error && currencyRes.result?.fullyqualifiedname) {
             resolvedNames[systemId] = getDisplaySystemName(
               currencyRes.result.fullyqualifiedname,
