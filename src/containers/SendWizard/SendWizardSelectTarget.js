@@ -11,6 +11,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
+import TextAction from '../../components/TextAction';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
@@ -25,6 +26,7 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import {TargetNetworkSheet} from './components/SelectionSheets';
+import {openAdvancedForm} from './advancedForm';
 import {
   buildTargetOptions,
   getTargetLaunchDefinition,
@@ -36,7 +38,7 @@ const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const {state, setTarget} = useSendWizard();
-  const {sourceCoin, channel} = state;
+  const {sourceCoin, sourceSubWallet, channel} = state;
   const [paths, setPaths] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -273,6 +275,17 @@ const SendWizardSelectTarget = () => {
                 : 'No conversion routes available.'}
             </Text>
           ) : null}
+          {/* The unguided form for every value by hand (PR 266 feedback F7).
+              It stays reachable when the routes fail to load. */}
+          {sourceSubWallet ? (
+            <TextAction
+              accessibilityHint="Opens a form where you enter every value of the transfer"
+              onPress={() => openAdvancedForm(sourceCoin, sourceSubWallet)}
+              size="small"
+              style={styles.advancedForm}>
+              Advanced form
+            </TextAction>
+          ) : null}
         </ScrollView>
       )}
       <TargetNetworkSheet
@@ -302,6 +315,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   section: {marginBottom: 24},
+  advancedForm: {alignSelf: 'center'},
   sectionLabel: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 12,

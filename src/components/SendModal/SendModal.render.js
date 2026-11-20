@@ -24,6 +24,7 @@ import {
 } from '../../utils/constants/sendModal';
 import SemiModal from '../SemiModal';
 import {OnboardingThemeProvider} from '../../theme/onboarding';
+import {LegacyLightThemeProvider} from '../../theme/app/AppThemeProvider';
 import TraditionalCryptoSendForm from './TraditionalCryptoSend/TraditionalCryptoSendForm/TraditionalCryptoSendForm';
 import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 import {NavigationContainer} from '@react-navigation/native';
@@ -192,8 +193,16 @@ export const SendModalRender = function () {
     );
   }
 
+  // The advanced conversion form keeps its old white look; in dark mode its
+  // fields and text stay light-themed so they remain readable.
+  const LegacyTheme =
+    this.props.sendModal.type === CONVERT_OR_CROSS_CHAIN_SEND_MODAL
+      ? LegacyLightThemeProvider
+      : React.Fragment;
+
   return (
     <Portal>
+      <LegacyTheme>
       <NavigationContainer
         key={this.props.sendModal.requestId || 'send-modal-idle'}>
         <SemiModal
@@ -256,6 +265,7 @@ export const SendModalRender = function () {
           </SafeAreaView>
         </SemiModal>
       </NavigationContainer>
+      </LegacyTheme>
     </Portal>
   );
 };

@@ -5,6 +5,7 @@ import {
   configureFonts,
   MD2DarkTheme,
   MD2LightTheme,
+  ThemeProvider as PaperThemeProvider,
 } from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import Colors from '../../globals/colors';
@@ -85,6 +86,18 @@ const createPaperTheme = semanticTheme => {
     version: 2,
   };
 };
+
+// A legacy form on a fixed white surface keeps its light look in dark mode,
+// so its text stays readable.
+const legacyLightPaperTheme = createPaperTheme(
+  resolveOnboardingTheme(ONBOARDING_THEME_MODE.LIGHT),
+);
+
+export const LegacyLightThemeProvider = ({children}) => (
+  <OnboardingThemeProvider modeOverride={ONBOARDING_THEME_MODE.LIGHT}>
+    <PaperThemeProvider theme={legacyLightPaperTheme}>{children}</PaperThemeProvider>
+  </OnboardingThemeProvider>
+);
 
 const AppThemeProvider = ({children}) => {
   const systemColorScheme = useColorScheme();
