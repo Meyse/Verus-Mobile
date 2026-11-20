@@ -86,6 +86,7 @@ import {
   isTestnetAccount,
   uniqueAssets,
 } from '../../utils/assets/assetIdentity';
+import {shouldShowNoPriceCaption} from '../../utils/assets/homeNoPriceCaption';
 import {getShownBalance} from '../../utils/ledger/shownBalance';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {
@@ -140,12 +141,16 @@ const Home = () => {
   const showBalance = useSelector(state => state.coins.showBalance);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(null);
+  const [noPriceCaption, setNoPriceCaption] = useState(false);
   const [balanceAccountHash, setBalanceAccountHash] = useState(null);
   const [loading, setLoading] = useState(false);
   const refreshRun = useRef(0);
   const balanceErrors = useObjectSelector((state) =>
     extractErrorData(state, API_GET_BALANCES),
   );
+  // A price request that found no price stores an error, not a rate (a
+  // mainnet currency without a market). It still counts as an answer.
+  const rateErrors = useObjectSelector((state) => state.errors[API_GET_FIATPRICE] || {});
   const {isConnected} = useNetInfo();
   // Verus currencies on the wallet's addresses that are not in the wallet yet
   // and that the user has not reviewed or dismissed on Home.
@@ -272,10 +277,12 @@ const Home = () => {
   useEffect(() => {
     const totalBalances = getTotalBalances();
     setTotalFiatBalance(totalBalances.fiat);
+    setNoPriceCaption(totalBalances.noPriceData);
     setBalanceAccountHash(accountHash);
   }, [
     balances, ledgerBalances, assetManagement.snapshots, assetManagement.preferences,
     assetManagement.ready, displayCurrency, activeCoinsForUser, allSubWallets, rates, accountHash,
+    showBalance, rateErrors,
   ]);
 
   useEffect(() => {
@@ -356,6 +363,7 @@ const Home = () => {
   const getTotalBalances = () => {
     let _totalFiatBalance = BigNumber(0);
     let fiatComplete = true;
+    const holdings = [];
 
     uniqueAssets(activeCoinsForUser).filter(coin =>
       Boolean(coin.testnet) === isTestnetAccount(activeAccount)).forEach((coinObj) => {
@@ -368,6 +376,14 @@ const Home = () => {
 
       const rate = getRate(key, displayCurrency);
 
+      holdings.push({
+        balance: balance.total,
+        complete: balance.complete,
+        rate,
+        ratesLoaded: [WYRE_SERVICE, GENERAL].some(channel =>
+          rates[channel]?.[key] != null || rateErrors[channel]?.[key] != null),
+      });
+
       if (rate != null) {
         const price = BigNumber(rate);
         if (!balance.complete) fiatComplete = false;
@@ -378,6 +394,7 @@ const Home = () => {
     return {
       // The Show on Home choices are not known before the assets are ready.
       fiat: fiatComplete && assetManagement.ready ? _totalFiatBalance.toNumber() : null,
+      noPriceData: shouldShowNoPriceCaption({ready: assetManagement.ready, showBalance, holdings}),
     };
   };
 
@@ -686,6 +703,7 @@ const Home = () => {
       loading={loading}
       showBalance={showBalance}
       totalFiatBalance={balanceAccountHash === accountHash ? totalFiatBalance : null}
+      noPriceCaption={balanceAccountHash === accountHash && !loading && noPriceCaption}
       onToggleBalance={toggleBalance}
       onSelectDisplayCurrency={selectDisplayCurrency}
       onRefresh={refreshFromUser}
