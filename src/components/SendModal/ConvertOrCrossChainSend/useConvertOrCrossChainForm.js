@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import BigNumber from "bignumber.js";
 import { Alert, Animated, Dimensions } from "react-native";
 import { createAlert } from "../../../actions/actions/alert/dispatchers/alert";
-import { API_SEND, DLIGHT_PRIVATE, ERC20, ETH, VRPC } from "../../../utils/constants/intervalConstants";
+import { API_GET_ADDRESSES, API_SEND, DLIGHT_PRIVATE, ERC20, ETH, VRPC } from "../../../utils/constants/intervalConstants";
 import {
   SEND_MODAL_INVOICE_CONTEXT,
   SEND_MODAL_AMOUNT_FIELD,
@@ -26,7 +26,6 @@ import {
 import { coinsToSats, isNumber, satsToCoins } from "../../../utils/math";
 import { getConversionPaths } from "../../../utils/api/routers/getConversionPaths";
 import { getCurrency } from "../../../utils/api/channels/verusid/callCreators";
-import selectAddresses from "../../../selectors/address";
 import { DEST_ETH, DEST_ID, DEST_PKH, TransferDestination, fromBase58Check, toIAddress, toLowerCaseCLocale } from "verus-typescript-primitives";
 import { CoinDirectory } from "../../../utils/CoinData/CoinDirectory";
 import { ethers } from "ethers";
@@ -89,7 +88,6 @@ const useConvertOrCrossChainForm = ({
   };
   const allSubWallets = useObjectSelector(state => state.coinMenus.allSubWallets);
   const activeUser = useObjectSelector(state => state.authentication.activeAccount);
-  const addresses = useObjectSelector(state => selectAddresses(state));
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const addressBlocklist = useObjectSelector(selectAddressBlocklist);
   const networkName = useMemo(() => {
@@ -1143,18 +1141,19 @@ const useConvertOrCrossChainForm = ({
     if (selfUsesList) {
       handleFieldFocus(SEND_MODAL_TO_ADDRESS_FIELD);
     } else {
-      const addr = addresses.results[0]
-    
-      updateSendFormData(
-        SEND_MODAL_TO_ADDRESS_FIELD,
-        addr
-      );
+      // The source card's own first address. Upstream read the globally
+      // active coin, which can be another asset or none (PR 266 review).
+      const { coinObj, subWallet } = sendModal;
+      const addressChannel = subWallet?.api_channels?.[API_GET_ADDRESSES];
+      const addr = activeAccount?.keys?.[coinObj?.id]?.[addressChannel]?.addresses?.[0];
+
+      if (addr) updateSendFormData(SEND_MODAL_TO_ADDRESS_FIELD, addr);
+      else showFormError(destinationErrorField, "No address", "No address of this card was found.");
     }
   };
 
   return {
     activeAccount,
-    addresses,
     allSubWallets,
     amountErrorField,
     balanceError,

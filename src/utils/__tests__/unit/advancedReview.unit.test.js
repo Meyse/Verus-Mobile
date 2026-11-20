@@ -80,4 +80,15 @@ describe('getAdvancedReview', () => {
     expect(review.toNetwork).toBe('vETH');
     expect(review.estimated).toBeNull();
   });
+
+  it('names a currency whose controller can mint', () => {
+    const review = getAdvancedReview({
+      preflight: preflight({convertto: BRIDGE}, {converterdef: {proofprotocol: 2, fullyqualifiedname: 'Bridge.vETH'}}),
+      balances: {},
+      coinObj,
+      priceEstimate: null,
+    });
+    expect(review.centralized).toBe('Bridge.vETH');
+    expect(getAdvancedReview({preflight: preflight({}), balances: {}, coinObj, priceEstimate: null}).centralized).toBeNull();
+  });
 });

@@ -10,7 +10,7 @@ const SLIPPAGE_WARNING_THRESHOLD = 0.05;
 // and computed the same way. The Advanced form's Confirm draws them with the
 // wizard's rows (PR 266 pick ADV). Nothing here changes the transaction.
 export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate}) => {
-  const {output, validation, names, deltas, source, estimate, submittedsats} = preflight;
+  const {output, validation, names, deltas, source, estimate, submittedsats, converterdef} = preflight;
   const {fees, sent} = validation;
   const {currency, satoshis, address, convertto, exportto, via, preconvert, burn} = output;
   const nameMap = names instanceof Map ? names : new Map(Object.entries(names || {}));
@@ -87,6 +87,11 @@ export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate})
     convertToName: isConversion ? name(convertto) : null,
     estimated: isConversion ? estimated : null,
     highSlippage,
+    // A currency whose controller can mint (proof protocol 2).
+    centralized:
+      converterdef != null && converterdef.proofprotocol === 2
+        ? converterdef.fullyqualifiedname
+        : null,
     arrives:
       preconvert || burn === true
         ? null

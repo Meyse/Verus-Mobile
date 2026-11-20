@@ -100,13 +100,15 @@ const SendWizardAdvanced = () => {
   // over the screen the user left.
   const preparingRef = useRef(false);
   preparingRef.current = preparing;
-  useEffect(
-    () =>
-      navigation.addListener('beforeRemove', event => {
-        if (preparingRef.current) event.preventDefault();
-      }),
-    [navigation],
-  );
+  useEffect(() => {
+    const block = event => {
+      if (preparingRef.current) event.preventDefault();
+    };
+    const unsubscribes = [navigation, navigation.getParent?.()]
+      .filter(Boolean)
+      .map(target => target.addListener('beforeRemove', block));
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [navigation]);
 
   // Help of the old form: one info action beside Close.
   useLayoutEffect(() => {
@@ -392,9 +394,10 @@ const SelfAddressList = ({addresses, onClose, onSelect, visible}) => {
       {addresses.map(item => (
         <SelectionRow
           key={item.key}
-          accessibilityLabel={item.description}
-          title={shortAddress(item.description)}
-          titleMonospace
+          accessibilityLabel={`${item.title}, ${item.description}`}
+          title={item.title}
+          subtitle={shortAddress(item.description)}
+          subtitleMonospace
           onPress={() => dismissal.dismiss(() => onSelect(item))}
         />
       ))}

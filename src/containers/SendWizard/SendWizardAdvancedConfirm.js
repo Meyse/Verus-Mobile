@@ -1,4 +1,4 @@
-import React, {useCallback, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {BackHandler, Platform, StyleSheet, View} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useDispatch} from 'react-redux';
@@ -50,6 +50,20 @@ const SendWizardAdvancedConfirm = () => {
   const [sendError, setSendError] = useState(null);
   const [statusUnknown, setStatusUnknown] = useState(false);
   const inFlight = useRef(false);
+  const submitted = useRef(false);
+
+  // Nothing may leave a broadcast that is still running, as on the wizard's
+  // Confirm: this step and the whole wizard (the iOS swipe on the parent).
+  // The result replaces this step after `submitted` is set, so it passes.
+  useEffect(() => {
+    const blockWhileSending = event => {
+      if (inFlight.current && !submitted.current) event.preventDefault();
+    };
+    const unsubscribes = [navigation, navigation.getParent?.()]
+      .filter(Boolean)
+      .map(target => target.addListener('beforeRemove', blockWhileSending));
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [navigation]);
 
   const facts = useMemo(
     () =>
@@ -99,7 +113,7 @@ const SendWizardAdvancedConfirm = () => {
   const ticker = coinObj.display_ticker;
 
   const submit = async () => {
-    if (inFlight.current || statusUnknown) return;
+    if (inFlight.current || submitted.current || statusUnknown) return;
     inFlight.current = true;
     setSending(true);
     setSendError(null);
@@ -117,6 +131,7 @@ const SendWizardAdvancedConfirm = () => {
         error.ambiguousBroadcast = res.ambiguousBroadcast === true;
         throw error;
       }
+      submitted.current = true;
       const names = preflight.names;
       setAdvancedReview({
         ...review,
@@ -149,6 +164,10 @@ const SendWizardAdvancedConfirm = () => {
       : null,
     facts.highSlippage
       ? 'The estimate changed a lot because of low liquidity. Check the amount you receive.'
+      : null,
+    // The old form alerted it after preparing; this form shows it here.
+    facts.centralized
+      ? `${facts.centralized} is a centralized currency. Its controller, ${facts.centralized}@, can mint new supply.`
       : null,
     facts.burn
       ? `${facts.sentAmount.toFixed()} ${facts.currencyName} will be removed from circulation. The burn output address does not receive it, and this cannot be reversed.`

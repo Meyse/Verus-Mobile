@@ -40,6 +40,8 @@ const SendWizardSelectTarget = () => {
   const {state, setTarget} = useSendWizard();
   const {sourceCoin, sourceSubWallet, channel} = state;
   const openAdvancedForm = () => {
+    // A preset target that loads later must not take the user out of the form.
+    presetApplied.current = true;
     setPendingTarget(null);
     navigation.navigate('SendWizardAdvanced');
   };
