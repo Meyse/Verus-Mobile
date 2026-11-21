@@ -37,8 +37,10 @@ import {useLatestCallback} from '../../hooks/useLatestCallback';
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
 // The two sort buttons sit side by side, so they share no horizontal slop.
+// The line is right-aligned: the free room left of the icon widens its
+// 28-point button to a 44-point target.
 const SORT_HIT_SLOP = {top: 6, bottom: 6, left: 0, right: 8};
-const SORT_REVERSE_HIT_SLOP = {top: 6, bottom: 6, left: 0, right: 0};
+const SORT_REVERSE_HIT_SLOP = {top: 6, bottom: 6, left: 16, right: 0};
 const REVEAL_BALANCE_DURATION = 220;
 const CONCEAL_BALANCE_DURATION = 160;
 
