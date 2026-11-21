@@ -10,6 +10,9 @@ export const HOME_SORTS = [HOME_SORT_CUSTOM, HOME_SORT_BALANCE, HOME_SORT_NAME];
 // Saved values come from storage. A value that is not valid gives the default,
 // so a damaged entry never blocks the asset choices.
 export const readHomeSort = value => (HOME_SORTS.includes(value) ? value : HOME_SORT_CUSTOM);
+// The saved direction of the Home sort. Only a stored `true` reverses; a
+// missing or damaged value is "not reversed".
+export const readSortReversed = value => value === true;
 export const readAssetOrder = value => (Array.isArray(value)
   ? [...new Set(value.filter(key => typeof key === 'string' && key.length > 0))]
   : null);
@@ -71,14 +74,16 @@ const compareBalance = (a, b) => {
 
 // Home rows: items with `coin`, `presentation`, `balance` and `fiatValue`.
 // Ties keep "My order", so equal names or values never swap places.
-export const sortHomeAssets = (items, sort, orderKeys) => {
+// `reversed` gives the exact reverse of the list that the sort gives.
+export const sortHomeAssets = (items, sort, orderKeys, reversed = false) => {
   const index = new Map(orderKeys.map((key, place) => [key, place]));
   const place = item => index.get(assetKey(item.coin)) ?? Number.MAX_SAFE_INTEGER;
   const mode = readHomeSort(sort);
-  return [...items].sort((a, b) => {
+  const sorted = [...items].sort((a, b) => {
     const result = mode === HOME_SORT_BALANCE ? compareBalance(a, b)
       : mode === HOME_SORT_NAME ? compareNames(a, b)
         : 0;
     return result !== 0 ? result : place(a) - place(b);
   });
+  return readSortReversed(reversed) ? sorted.reverse() : sorted;
 };

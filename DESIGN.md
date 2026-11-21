@@ -314,15 +314,23 @@ card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
 a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
 cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
 coins take their own ticker (KMD). The short address never shortens below
-6…6. In choosers and the card picker, where a balance sits beside the title,
-" · <network>" moves to a second line when the title does not fit (testnet
-on most phones); on the asset screen stack it stays on one line and, in the
+6…6. In choosers and the card picker, where a balance sits beside the title
+(owner, 2026-11-21, phone feedback), the row shows the name alone on line 1
+(`CardTitle nameOnly`, filling the row width) and the network ticker on line 2
+under it, on every row, also for a VerusID name that carries its network
+("devphone.VRSCTEST@" over "VRSCTEST"; `networkTicker` of
+`getSubWalletCardTitle` always holds it). Line 2 is drawn like the ticker under
+the balance on the right (`SelectionRow subtitleLikeValueLabel`: `bodySm`,
+`textSecondary`; the card picker uses its own balance-ticker style), so both
+second lines sit on one row. A private card that still syncs reads
+"VRSCTEST · Syncing 12%". On the asset screen stack, Receive details and the
+Advanced form header the title stays "name · network" on one line and, in the
 rare case of too little room, takes a tail ellipsis. A name without a
 network part (a VerusID that carries it) keeps one line and uses the full
 width. The two parts align to the top on a shared line height, not to the
 baseline (Android). A VerusID name gives way with a middle ellipsis and keeps its @;
 then the network never shortens. No row has an address line; a private card
-that still syncs shows its sync status as the subtitle. Copy and the screen
+that still syncs shows its sync status after the network on line 2. Copy and the screen
 reader label keep the full address. Because each title names its network,
 the choosers have no network group titles; rows keep the network order
 (owner, 2026-11-19: "Remove group titles"; this replaces the group-title rule
@@ -965,7 +973,8 @@ owner's changes). The manual form for every value of a conversion, a
 pre-conversion, a cross-chain transfer or an off-chain send is a step of the
 Convert wizard (lead developer: every such value can be entered by hand).
 
-- Entry: "Advanced form", a `TextAction` (`small`) centered in a normal-flow
+- Entry: "Advanced form", a standard `TextAction` (default size, `labelMd`,
+  owner 2026-11-21) centered in a normal-flow
   `SafeBottomActionStack` under the Convert to list, on the page color, with
   no divider. The list scrolls under it and ends above it, in a
   `FadedScrollView` on the page color: the bottom fade shows only while more
@@ -1129,8 +1138,8 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   network, and never when the network repeats the row's own name (a native
   coin such as VRSCTEST, "Verus Testnet"). A gift currency row shows its amount
   without the ticker, because the row title names it. A card row in the asset
-  screen's "Choose an address" has one line and is 60 points high: its title
-  names the network (PR 266 review R8). Gift currency
+  screen's "Choose an address" is 60 points high: the name sits over the
+  network ticker (PR 266 review R8; owner, 2026-11-21). Gift currency
   and VerusID choices use the canonical `SelectionRow` at 56 points minimum;
   their title and value styles stay on the shared theme roles.
 - Below 7 items the address sheet grows past 76% when it must, up to 16 points
@@ -1841,12 +1850,17 @@ not move by itself.
   added-back asset goes to the end. A removed asset leaves no gap. A hidden
   asset keeps its place.
 - Under the notices, a 32-point right-aligned line names the current sort:
-  the Lucide `ArrowDownUp` icon, the sort name in `labelSm` and `ChevronDown`,
-  all 16 points and in `link`, with a 44-point target. It shows from two rows
-  on Home and scrolls with the rows.
-- It opens "Sort assets", a `SelectionSheet` with single-choice
+  two buttons (owner, 2026-11-21): the icon alone reverses the order of the rows
+  ("Reverse order", `selected` when reversed; Lucide `ArrowDownUp`, and
+  `ArrowUpDown` when reversed), and the sort name in `labelSm` with `ChevronDown`
+  opens "Sort assets". All 16 points and in `link`, each with a 44-point high
+  target and no shared slop. It shows from two rows on Home and scrolls with
+  the rows. Reversed is the exact reverse of the list that the sort gives; the
+  direction is saved with the sort as `sortReversed`, and choosing another sort
+  sets it back to normal. "My order" and Manage assets never change.
+- The name button opens "Sort assets", a `SelectionSheet` with single-choice
   `SelectionRow`s: "My order" ("Change it in Manage assets"), "Balance"
-  ("Rows move when balances change") and "Name". The current sort has the
+  (no subtitle, owner 2026-11-21) and "Name". The current sort has the
   success fill and check; other rows have no chevron. The choice applies after
   the sheet closes.
 - Balance keeps the earlier rule: funded assets first, then the higher money

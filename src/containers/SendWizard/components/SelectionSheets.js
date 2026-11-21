@@ -61,15 +61,19 @@ export const SourceCardSheet = ({
           address,
           coin: source.coin,
         });
-        const subtitle = syncing
-          ? formatSyncStatus(source.syncPercent)
-          : undefined;
+        // The line under the name: the network, then the sync state.
+        const subtitle = [
+          cardTitle.networkTicker,
+          syncing ? formatSyncStatus(source.syncPercent) : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
         const value = truncateDecimal(source.balance, 4);
         return (
           <SelectionRow
             key={source.card.id}
             accessibilityLabel={[
-              cardTitle.text,
+              cardTitle.name,
               subtitle,
               value,
               source.coin.display_ticker,
@@ -78,9 +82,10 @@ export const SourceCardSheet = ({
               .join(', ')}
             disabled={syncing}
             titleContent={
-              <CardTitle title={cardTitle} style={styles.rowTitle} wrap />
+              <CardTitle title={cardTitle} style={styles.rowTitle} nameOnly />
             }
-            subtitle={subtitle}
+            subtitle={subtitle || undefined}
+            subtitleLikeValueLabel
             selected={source.card.id === selectedId}
             value={value}
             valueLabel={source.coin.display_ticker}

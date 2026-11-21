@@ -145,6 +145,9 @@ export const getSubWalletCardTitle = (wallet, {address, coin} = {}) => {
     name,
     isAddress,
     network,
+    // Always the ticker, also when the name carries it (choosers show it
+    // under the name on every row).
+    networkTicker: ticker,
     text: network ? `${name} · ${network}` : name,
   };
 };

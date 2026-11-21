@@ -111,3 +111,42 @@ describe('Home asset order (R2)', () => {
       .toEqual([key('VRSCTEST'), key('Alpha'), key('zeta')]);
   });
 });
+
+describe('Home sort direction (owner, 2026-11-21)', () => {
+  const {readSortReversed} = require('../../assets/assetOrder');
+
+  it('reverses the exact list of each sort', () => {
+    const order = orderedAssetKeys([key('beta'), key('zeta')], COINS);
+    const rows = [
+      row(VRSC, 'Verus Testnet', 0, 0),
+      row(ZETA, 'zeta', 3, null),
+      row(ALPHA, 'Alpha', 1, 0.5),
+      row(BETA, 'beta', 2, 4),
+    ];
+    // Hand-worked: My order = beta, zeta, VRSCTEST, Alpha.
+    expect(names(sortHomeAssets(rows, HOME_SORT_CUSTOM, order, true)))
+      .toEqual(['Alpha', 'Verus Testnet', 'zeta', 'beta']);
+    // Balance = beta, Alpha, zeta, Verus Testnet.
+    expect(names(sortHomeAssets(rows, HOME_SORT_BALANCE, order, true)))
+      .toEqual(['Verus Testnet', 'zeta', 'Alpha', 'beta']);
+    // Name = Alpha, beta, Verus Testnet, zeta.
+    expect(names(sortHomeAssets(rows, HOME_SORT_NAME, order, true)))
+      .toEqual(['zeta', 'Verus Testnet', 'beta', 'Alpha']);
+    expect(names(sortHomeAssets(rows, HOME_SORT_NAME, order, false)))
+      .toEqual(['Alpha', 'beta', 'Verus Testnet', 'zeta']);
+  });
+
+  it('reads a missing or damaged saved direction as not reversed', () => {
+    expect(readSortReversed(true)).toBe(true);
+    expect(readSortReversed(undefined)).toBe(false);
+    expect(readSortReversed('true')).toBe(false);
+    expect(readSortReversed(1)).toBe(false);
+    const hydrate = payload => assetManagement(undefined, {
+      type: ASSETS_HYDRATED,
+      payload: {networkKey: 'n', preferences: {}, removed: {}, reviewed: {}, ...payload},
+    });
+    expect(hydrate({}).sortReversed).toBe(false);
+    expect(hydrate({sortReversed: 'yes'}).sortReversed).toBe(false);
+    expect(hydrate({sort: 'name', sortReversed: true}).sortReversed).toBe(true);
+  });
+});

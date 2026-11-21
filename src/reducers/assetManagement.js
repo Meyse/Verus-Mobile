@@ -6,7 +6,7 @@ import {
   SIGN_OUT_COMPLETE,
   UPDATE_SESSION_KEY,
 } from '../utils/constants/storeType';
-import {HOME_SORT_CUSTOM, readAssetOrder, readHomeSort} from '../utils/assets/assetOrder';
+import {HOME_SORT_CUSTOM, readAssetOrder, readHomeSort, readSortReversed} from '../utils/assets/assetOrder';
 
 export const ASSETS_HYDRATED = 'ASSETS_HYDRATED';
 export const ASSETS_HYDRATION_FAILED = 'ASSETS_HYDRATION_FAILED';
@@ -31,6 +31,8 @@ const initialState = () => ({
   order: null,
   // How Home sorts its rows: "My order", Balance or Name.
   sort: HOME_SORT_CUSTOM,
+  // The Home sort runs in reverse.
+  sortReversed: false,
   snapshots: {},
   resolved: {},
   revision: 0,
@@ -67,6 +69,7 @@ export const assetManagement = (state = initialState(), action) => {
         reviewed: action.payload.reviewed || {},
         order: readAssetOrder(action.payload.order),
         sort: readHomeSort(action.payload.sort),
+        sortReversed: readSortReversed(action.payload.sortReversed),
         resolved: {...(action.payload.resolved || {}), ...state.resolved},
         snapshots: {...(action.payload.snapshots || {}), ...state.snapshots},
       };
@@ -87,7 +90,11 @@ export const assetManagement = (state = initialState(), action) => {
     case ASSET_ORDER_SAVED:
       return {...state, order: action.payload.order};
     case ASSET_SORT_SAVED:
-      return {...state, sort: action.payload.sort};
+      return {
+        ...state,
+        sort: action.payload.sort,
+        sortReversed: readSortReversed(action.payload.sortReversed),
+      };
     case ASSET_DISCOVERY_SAVED:
       return {...state, persistedRevision: action.payload.revision};
     default:

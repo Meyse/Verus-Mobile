@@ -83,9 +83,11 @@ const ReceiveSubwalletSheet = ({
             <SelectionRow
               key={wallet.id}
               titleContent={
-                <CardTitle title={cardTitle} style={styles.rowTitle} wrap />
+                <CardTitle title={cardTitle} style={styles.rowTitle} nameOnly />
               }
-              accessibilityLabel={`Receive with ${cardTitle.text}, ${balance} ${coinObj.display_ticker}`}
+              subtitle={cardTitle.networkTicker || undefined}
+              subtitleLikeValueLabel
+              accessibilityLabel={`Receive with ${[cardTitle.name, cardTitle.networkTicker].filter(Boolean).join(', ')}, ${balance} ${coinObj.display_ticker}`}
               selected={
                 selectedId == null ? undefined : wallet.id === selectedId
               }
