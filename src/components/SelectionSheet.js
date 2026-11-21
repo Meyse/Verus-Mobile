@@ -113,7 +113,7 @@ export const SelectionRow = ({
               compact && styles.compactSubtitle,
               dense && styles.denseSubtitle,
               subtitleMonospace && styles.identifier,
-              subtitleLikeValueLabel && styles.valueLabel,
+              subtitleLikeValueLabel && styles.subtitleAsValueLabel,
             ]}>
             {subtitle}
           </Text>
