@@ -22,7 +22,7 @@ import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../constants/intervalConstants';
 import {removedAssetRecord} from './removedAssets';
-import {orderWithAddedAsset, readAssetOrder, readHomeSort} from './assetOrder';
+import {orderWithAddedAsset, readAssetOrder, readHomeSort, readSortReversed} from './assetOrder';
 import {resolvedAssetCoin} from './assetPresentation';
 import {
   loadAssetDiscoveryCache,
@@ -174,8 +174,8 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
 // the background (assetChoicesStorage.js); the user never waits for it.
 const changeChoices = (context, update, publish) => {
   assertCurrent(context);
-  const {preferences, removed, reviewed, order, sort} = store.getState().assetManagement;
-  publish(update({preferences, removed, reviewed, order, sort}));
+  const {preferences, removed, reviewed, order, sort, sortReversed} = store.getState().assetManagement;
+  publish(update({preferences, removed, reviewed, order, sort, sortReversed}));
   queueAssetChoicesChange(context.sessionScope.accountHash, context.networkKey, update);
 };
 
@@ -263,13 +263,29 @@ export const setAssetOrder = async (keys, context = captureAssetContext()) => {
     next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
 };
 
-// How Home sorts its rows. The choice stays with the asset choices.
+// How Home sorts its rows. The choice stays with the asset choices. Another
+// sort goes back to the normal direction; the current sort changes nothing.
 export const setHomeSort = async (sort, context = captureAssetContext()) => {
   await loadAssetManagement(context);
   const next = readHomeSort(sort);
   if (store.getState().assetManagement.sort === next) return;
-  changeChoices(context, current => ({...current, sort: next}),
-    published => dispatchForContext(context, ASSET_SORT_SAVED, {sort: published.sort}));
+  changeChoices(context, current => ({...current, sort: next, sortReversed: false}),
+    published => dispatchForContext(context, ASSET_SORT_SAVED, {
+      sort: published.sort,
+      sortReversed: published.sortReversed,
+    }));
+};
+
+// The reverse button of the Home sort. Saved as `sortReversed` beside `sort`.
+export const setHomeSortReversed = async (reversed, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  const next = readSortReversed(reversed);
+  if (readSortReversed(store.getState().assetManagement.sortReversed) === next) return;
+  changeChoices(context, current => ({...current, sortReversed: next}),
+    published => dispatchForContext(context, ASSET_SORT_SAVED, {
+      sort: published.sort,
+      sortReversed: published.sortReversed,
+    }));
 };
 
 // An asset that the wallet adds, or that the user adds back, goes to the end

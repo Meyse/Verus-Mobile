@@ -71,6 +71,8 @@ describe('card title', () => {
 
     expect(title.text).toBe('devphone.VRSCTEST@');
     expect(title.network).toBeNull();
+    // The ticker stays known for the choosers' network line.
+    expect(title.networkTicker).toBe('VRSCTEST');
   });
 
   it('names the private card "Private" with its network', () => {

@@ -300,7 +300,6 @@ const SendWizardSelectTarget = () => {
           <TextAction
             accessibilityHint="Opens a form where you enter every value of the transfer"
             onPress={openAdvancedForm}
-            size="small"
             style={styles.advancedForm}>
             Advanced form
           </TextAction>

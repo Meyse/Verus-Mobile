@@ -570,7 +570,7 @@ const CoinCardPickerSheet = ({
           ? item.identifier
           : item.cardTitle.name,
         item.type,
-        item.cardTitle.network,
+        item.cardTitle.networkTicker,
         item.balanceAccessibilityLabel,
         current ? 'Current address' : null,
       ]
@@ -599,7 +599,12 @@ const CoinCardPickerSheet = ({
               />
             </View>
             <View style={styles.identifierColumn}>
-              <CardTitle title={item.cardTitle} style={styles.identifier} wrap />
+              <CardTitle title={item.cardTitle} style={styles.identifier} nameOnly />
+              {item.cardTitle.networkTicker ? (
+                <Text numberOfLines={1} style={styles.networkLine}>
+                  {item.cardTitle.networkTicker}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.balanceColumn}>
               <PrivacyBlurredText
@@ -958,6 +963,13 @@ const createStyles = theme =>
       color: theme.colors.textPrimary,
       fontSize: 15,
       lineHeight: 20,
+      ...fontStyle('semiBold'),
+    },
+    networkLine: {
+      marginTop: 3,
+      color: theme.colors.textSubtle,
+      fontSize: 10,
+      lineHeight: 13,
       ...fontStyle('semiBold'),
     },
     balanceColumn: {

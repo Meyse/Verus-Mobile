@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {FlatList, RefreshControl} from 'react-native-gesture-handler';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import {ArrowDownUp, ChevronDown} from 'lucide-react-native';
+import {ArrowDownUp, ArrowUpDown, ChevronDown} from 'lucide-react-native';
 import BigNumber from 'bignumber.js';
 import {formatCurrency} from 'react-native-format-currency';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -36,7 +36,11 @@ import {useLatestCallback} from '../../hooks/useLatestCallback';
 
 const HEADER_DIVIDER_THRESHOLD = 1;
 const ICON_HIT_SLOP = {top: 10, bottom: 10, left: 10, right: 10};
-const SORT_HIT_SLOP = {top: 6, bottom: 6, left: 8, right: 8};
+// The two sort buttons sit side by side, so they share no horizontal slop.
+// The line is right-aligned: the free room left of the icon widens its
+// 28-point button to a 44-point target.
+const SORT_HIT_SLOP = {top: 6, bottom: 6, left: 0, right: 8};
+const SORT_REVERSE_HIT_SLOP = {top: 6, bottom: 6, left: 16, right: 0};
 const REVEAL_BALANCE_DURATION = 220;
 const CONCEAL_BALANCE_DURATION = 160;
 
@@ -334,11 +338,25 @@ export const HOME_SORT_LABELS = {
   [HOME_SORT_NAME]: 'Name',
 };
 
-// Opens "Sort assets". It names the current sort.
-const HomeSortControl = React.memo(({sort, theme, onPress}) => {
+// Two buttons. The icon reverses the order of the rows and shows the
+// direction; the sort name opens "Sort assets".
+const HomeSortControl = React.memo(({sort, sortReversed = false, theme, onPress, onReverse}) => {
   const label = HOME_SORT_LABELS[sort] || HOME_SORT_LABELS[HOME_SORT_CUSTOM];
+  const DirectionIcon = sortReversed ? ArrowUpDown : ArrowDownUp;
   return (
     <View style={styles.sortRow}>
+      <TouchableOpacity
+        activeOpacity={0.72}
+        accessibilityRole="button"
+        accessibilityLabel="Reverse order"
+        accessibilityState={{selected: Boolean(sortReversed)}}
+        hitSlop={SORT_REVERSE_HIT_SLOP}
+        onPress={onReverse}
+        style={styles.sortReverse}
+        testID="home-sort-reverse"
+      >
+        <DirectionIcon size={16} strokeWidth={2} color={theme.colors.link} />
+      </TouchableOpacity>
       <TouchableOpacity
         activeOpacity={0.72}
         accessibilityRole="button"
@@ -348,7 +366,6 @@ const HomeSortControl = React.memo(({sort, theme, onPress}) => {
         style={styles.sortControl}
         testID="home-sort-control"
       >
-        <ArrowDownUp size={16} strokeWidth={2} color={theme.colors.link} />
         <Text style={[theme.typography.labelSm, styles.sortLabel, {color: theme.colors.link}]}>{label}</Text>
         <ChevronDown size={16} strokeWidth={2} color={theme.colors.link} />
       </TouchableOpacity>
@@ -491,7 +508,9 @@ const SignedInWalletHome = ({
   onDismissFoundAssets,
   onDismissSyncNotice,
   sort = HOME_SORT_CUSTOM,
+  sortReversed = false,
   onSelectSort,
+  onReverseSort,
 }) => {
   const theme = useOnboardingTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -513,6 +532,7 @@ const SignedInWalletHome = ({
   const openSortSheet = useCallback(() => setSortOpen(true), []);
   const closeSortSheet = useCallback(() => setSortOpen(false), []);
   const selectSort = useLatestCallback(next => onSelectSort?.(next));
+  const reverseSort = useLatestCallback(() => onReverseSort?.());
   const pullToRefresh = useLatestCallback(() => onRefresh());
 
   const handleScroll = useCallback(event => {
@@ -561,10 +581,10 @@ const SignedInWalletHome = ({
         onRefresh={onRefresh}
         onReviewFoundAssets={onReviewFoundAssets}
       />
-      {sortable ? <HomeSortControl sort={sort} theme={theme} onPress={openSortSheet} /> : null}
+      {sortable ? <HomeSortControl sort={sort} sortReversed={sortReversed} theme={theme} onPress={openSortSheet} onReverse={reverseSort} /> : null}
     </>
   ), [homeNotice, loading, onDismissFoundAssets, onDismissSyncNotice, onReceive,
-    onRefresh, onReviewFoundAssets, sortable, sort, theme, openSortSheet]);
+    onRefresh, onReviewFoundAssets, sortable, sort, sortReversed, theme, openSortSheet, reverseSort]);
 
   const listEmpty = useMemo(() => (
     !assetsReady && !assetsLoadError ? (
@@ -669,6 +689,7 @@ const styles = StyleSheet.create({
   noticesShown: {marginBottom: 8},
   // A 32-point line above the rows; the hit slop keeps a 44-point target.
   sortRow: {flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginBottom: 4},
+  sortReverse: {height: 32, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 4},
   sortControl: {height: 32, flexDirection: 'row', alignItems: 'center', gap: 4},
   sortLabel: {marginLeft: 2},
   assetRow: {backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row'},

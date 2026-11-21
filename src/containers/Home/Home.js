@@ -57,6 +57,7 @@ import {
   getUnreviewedNewAssetHoldings,
   markFoundAssetsReviewed,
   setHomeSort,
+  setHomeSortReversed,
 } from '../../utils/assets/assetManagementService';
 import {orderedAssetKeys, sortHomeAssets} from '../../utils/assets/assetOrder';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
@@ -555,7 +556,7 @@ const Home = () => {
     // "My order" is the default, so a row never moves by itself (R2).
     const orderKeys = orderedAssetKeys(assetManagement.order, uniqueAssets(activeCoinsForUser)
       .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount)));
-    return sortHomeAssets(items, assetManagement.sort, orderKeys);
+    return sortHomeAssets(items, assetManagement.sort, orderKeys, assetManagement.sortReversed);
   }, [
     activeCoinsForUser,
     activeSubWallets,
@@ -696,6 +697,9 @@ const Home = () => {
   const selectSort = useLatestCallback(sort => {
     setHomeSort(sort).catch(error => console.warn(error?.message));
   });
+  const reverseSort = useLatestCallback(() => {
+    setHomeSortReversed(!assetManagement.sortReversed).catch(error => console.warn(error?.message));
+  });
 
   return (
     <SignedInWalletHome
@@ -727,7 +731,9 @@ const Home = () => {
       onDismissFoundAssets={dismissFoundAssets}
       onDismissSyncNotice={dismissSyncNotice}
       sort={assetManagement.sort}
+      sortReversed={assetManagement.sortReversed}
       onSelectSort={selectSort}
+      onReverseSort={reverseSort}
     />
   );
 };

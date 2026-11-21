@@ -136,7 +136,7 @@ export const DisplayCurrencySheet = ({
 // canonical selection sheet: success fill and check on the current sort.
 const SORT_OPTIONS = [
   {id: HOME_SORT_CUSTOM, title: 'My order', subtitle: 'Change it in Manage assets'},
-  {id: HOME_SORT_BALANCE, title: 'Balance', subtitle: 'Rows move when balances change'},
+  {id: HOME_SORT_BALANCE, title: 'Balance'},
   {id: HOME_SORT_NAME, title: 'Name'},
 ];
 

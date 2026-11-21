@@ -272,6 +272,20 @@ describe('asset choices storage (R17)', () => {
     expect(stored.networks[NETWORK].order).toEqual(['testnet:vrsc:iSystem:iCoinB', COIN_KEY]);
     expect(stored.networks[NETWORK].sort).toBe('name');
 
+    // Reversing is saved with the sort; another sort puts it back to normal.
+    await service.setHomeSortReversed(true);
+    await writesDone();
+    expect((await storedChoices()).networks[NETWORK].sortReversed).toBe(true);
+    await service.setHomeSort('name');
+    await writesDone();
+    expect((await storedChoices()).networks[NETWORK].sortReversed).toBe(true);
+    await service.setHomeSort('balance');
+    await writesDone();
+    expect((await storedChoices()).networks[NETWORK].sortReversed).toBe(false);
+    await service.setHomeSort('name');
+    await service.setHomeSortReversed(true);
+    await writesDone();
+
     // A restart, which also follows a sign-out, keeps both.
     await restart();
     await signIn();

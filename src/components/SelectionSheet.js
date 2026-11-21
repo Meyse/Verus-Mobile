@@ -33,6 +33,9 @@ export const SelectionRow = ({
   subtitle,
   titleMonospace,
   subtitleMonospace,
+  // Draws the subtitle like the value label on the right (no top margin), so
+  // the two second lines match.
+  subtitleLikeValueLabel = false,
   selected,
   onPress,
   value,
@@ -110,6 +113,7 @@ export const SelectionRow = ({
               compact && styles.compactSubtitle,
               dense && styles.denseSubtitle,
               subtitleMonospace && styles.identifier,
+              subtitleLikeValueLabel && styles.subtitleAsValueLabel,
             ]}>
             {subtitle}
           </Text>
