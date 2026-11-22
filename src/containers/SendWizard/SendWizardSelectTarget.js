@@ -1,18 +1,17 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
-import FadedScrollView from '../../components/FadedScrollView';
-import SafeBottomActionStack from '../../components/SafeBottomActionStack';
 import SkeletonLoader, {SkeletonRow} from '../../components/SkeletonLoader';
-import TextAction from '../../components/TextAction';
 import {fontStyle} from '../../globals/fonts';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {AssetCoinLogo} from '../../utils/CoinData/Graphics';
@@ -27,18 +26,22 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import {TargetNetworkSheet} from './components/SelectionSheets';
+import useAdvancedFormMenu from './components/useAdvancedFormMenu';
 import {
   buildTargetOptions,
   getTargetLaunchDefinition,
   isConversionChannel,
   isPopularTarget,
+  shouldShowAdvancedFormMenu,
 } from './wizardUtils';
 
 const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
-  const {state, setTarget} = useSendWizard();
-  const {sourceCoin, sourceSubWallet, channel} = state;
+  const insets = useSafeAreaInsets();
+  const {mode, state, setTarget} = useSendWizard();
+  const {sourceCoin, channel} = state;
+  // The Advanced form opens from the header's "More options" menu.
   const openAdvancedForm = () => {
     // A preset target that loads later must not take the user out of the form.
     presetApplied.current = true;
@@ -184,6 +187,15 @@ const SendWizardSelectTarget = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, conversionOptions, state.presetTargetId]);
 
+  const advancedFormSheet = useAdvancedFormMenu({
+    enabled: shouldShowAdvancedFormMenu({
+      mode,
+      routeName: 'SendWizardSelectTarget',
+      state,
+    }),
+    onOpenForm: openAdvancedForm,
+  });
+
   const renderOption = option => (
     <Pressable
       key={option.id}
@@ -253,11 +265,13 @@ const SendWizardSelectTarget = () => {
           </SkeletonLoader>
         </View>
       ) : (
-        <FadedScrollView
-          containerStyle={styles.listArea}
-          fadeBackgroundColor={theme.colors.background}
+        <ScrollView
+          style={styles.listArea}
           contentContainerStyle={[
             styles.content,
+            // The list ends above the home indicator, and keeps 32 points
+            // on a phone without one.
+            {paddingBottom: Math.max(32, insets.bottom + 16)},
             !searchable && styles.contentWithoutSearch,
           ]}>
           <ErrorMessage>{error}</ErrorMessage>
@@ -286,25 +300,9 @@ const SendWizardSelectTarget = () => {
                 : 'No conversion routes available.'}
             </Text>
           ) : null}
-        </FadedScrollView>
+        </ScrollView>
       )}
-      {/* The unguided form for every value by hand (PR 266 feedback F7). It
-          stays in a safe footer under the list in every state: loading,
-          empty, failed routes and a search without results (pick ADV). */}
-      {sourceSubWallet ? (
-        <SafeBottomActionStack
-          bottomSpacing={8}
-          horizontalSpacing={WIZARD_CONTENT_INSET}
-          safeAreaSpacing={0}
-          style={[styles.footer, {backgroundColor: theme.colors.background}]}>
-          <TextAction
-            accessibilityHint="Opens a form where you enter every value of the transfer"
-            onPress={openAdvancedForm}
-            style={styles.advancedForm}>
-            Advanced form
-          </TextAction>
-        </SafeBottomActionStack>
-      ) : null}
+      {advancedFormSheet}
       <TargetNetworkSheet
         target={pendingTarget}
         options={pendingTarget?.networkOptions || []}
@@ -332,10 +330,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   section: {marginBottom: 24},
-  advancedForm: {alignSelf: 'center'},
-  // The list scrolls under the footer and ends above it.
   listArea: {flex: 1},
-  footer: {flexShrink: 0, paddingTop: 4},
   sectionLabel: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 12,

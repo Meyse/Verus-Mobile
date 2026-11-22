@@ -47,6 +47,7 @@ import {
 import AmountEstimate from './components/AmountEstimate';
 import PriceRouteSheet from './components/PriceRouteSheet';
 import {TargetNetworkSheet} from './components/SelectionSheets';
+import useAdvancedFormMenu from './components/useAdvancedFormMenu';
 import {
   buildSendTarget,
   ADDRESS_TYPE,
@@ -56,6 +57,7 @@ import {
   isConversionChannel,
   pickEstimateRoutes,
   SEND_WIZARD_MODE,
+  shouldShowAdvancedFormMenu,
 } from './wizardUtils';
 
 const SendWizardAmount = () => {
@@ -96,6 +98,13 @@ const SendWizardAmount = () => {
   const amountInputRef = useRef(null);
   const decimalSeparator = useMemo(getAmountDecimalSeparator, []);
   const refocusAfterSheet = useCallback(() => amountInputRef.current?.focus(), []);
+
+  // Send only: "More options" holds the Advanced form. The form starts empty;
+  // an amount typed here is not carried over.
+  const advancedFormSheet = useAdvancedFormMenu({
+    enabled: shouldShowAdvancedFormMenu({mode, routeName: 'SendWizardAmount', state}),
+    onOpenForm: () => navigation.navigate('SendWizardAdvanced'),
+  });
 
   useFocusEffect(useCallback(() => {
     Keyboard.dismiss();
@@ -683,6 +692,7 @@ const SendWizardAmount = () => {
         onKeyPress={key => amountInputRef.current?.edit(key)}
         visible={focused && !routeSheetOpen && !networkSheetOpen}
       />
+      {advancedFormSheet}
       <PriceRouteSheet
         cryptoAmount={cryptoAmount}
         displayCurrency={displayCurrency}
