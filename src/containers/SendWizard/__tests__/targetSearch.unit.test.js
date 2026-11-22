@@ -92,4 +92,25 @@ describe('matchesTargetQuery', () => {
     expect(matchesTargetQuery(unnamed, '0xA0b8')).toBe(true);
     expect(matchesTargetQuery(unnamed, '0xa0b8')).toBe(false);
   });
+
+  it('ignores an upper-cased copy of an unnamed id on a grouped target', () => {
+    const id = 'iRbRuAmQ9TqmAiPU7S7Yh8kYZ4xLLDDEUr';
+    const upper = id.toUpperCase();
+    // Two networks, no name: grouping gives the group the upper-cased id as
+    // its id, name and ticker; each network keeps the real id.
+    const grouped = {
+      id: upper,
+      name: upper,
+      ticker: upper,
+      networkOptions: [
+        {id, name: id, ticker: upper, fullyqualifiedname: id, networkName: 'Verus'},
+        {id, name: upper, ticker: upper, fullyqualifiedname: id, networkName: 'Ethereum'},
+      ],
+    };
+    expect(matchesTargetQuery(grouped, 'EUR')).toBe(false);
+    expect(matchesTargetQuery(grouped, 'ddeur')).toBe(false);
+    expect(matchesTargetQuery(grouped, 'IRBRU')).toBe(false);
+    expect(matchesTargetQuery(grouped, 'iRbRu')).toBe(true);
+    expect(matchesTargetQuery(grouped, 'ethereum')).toBe(true);
+  });
 });

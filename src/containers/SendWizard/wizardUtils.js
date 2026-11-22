@@ -800,19 +800,19 @@ export const getFailedEstimateRow = ({estimateFailed, pickedRoute, routeCount, v
 // in any case. A currency id matches only from its start, in its own case, so
 // "EUR" no longer finds a currency whose id ends in "…DDEUr" (orchestrator
 // decision 2026-11-22). A name field that holds an address-shaped id (a
-// currency without a name falls back to its id) follows the id rule; a
-// grouped target's id is its ticker, which still matches as a name. Only
-// Convert to uses this.
+// currency without a name falls back to its id) follows the id rule, and a
+// copy of an address in another case (grouping upper-cases a fallback ticker)
+// matches nothing itself. A grouped target's id is its ticker, which still
+// matches as a name. Only Convert to uses this.
 const ID_SHAPE = /^(i[1-9A-HJ-NP-Za-km-z]{33}|0x[0-9a-fA-F]{40})$/;
 export const matchesTargetQuery = (option, query) => {
   const active = String(query || '').trim();
   if (!active) return true;
   const lower = active.toLowerCase();
   const networks = option?.networkOptions || [];
-  const ids = [option?.id, ...networks.map(network => network.id)]
-    .filter(value => value != null)
-    .map(String);
-  const names = [
+  const present = values => values.filter(value => value != null).map(String);
+  const idFields = present([option?.id, ...networks.map(network => network.id)]);
+  const nameFields = present([
     option?.name,
     option?.ticker,
     option?.fullyqualifiedname,
@@ -822,12 +822,16 @@ export const matchesTargetQuery = (option, query) => {
       network.fullyqualifiedname,
       network.networkName,
     ]),
-  ]
-    .filter(value => value != null)
-    .map(String);
-  const isId = value => ID_SHAPE.test(value);
-  return names.some(value => !isId(value) && value.toLowerCase().includes(lower)) ||
-    [...ids, ...names.filter(isId)].some(value => value.startsWith(active));
+  ]);
+  const isAddress = value => ID_SHAPE.test(value);
+  const addresses = new Set(
+    [...idFields, ...nameFields].filter(isAddress).map(value => value.toLowerCase()),
+  );
+  const isCopy = value => !isAddress(value) && addresses.has(value.toLowerCase());
+  const names = nameFields.filter(value => !isAddress(value) && !isCopy(value));
+  const ids = [...idFields, ...nameFields.filter(isAddress)].filter(value => !isCopy(value));
+  return names.some(value => value.toLowerCase().includes(lower)) ||
+    ids.some(value => value.startsWith(active));
 };
 
 export const POPULAR_TARGETS = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];
