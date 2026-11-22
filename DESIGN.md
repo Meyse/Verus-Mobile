@@ -973,14 +973,18 @@ owner's changes). The manual form for every value of a conversion, a
 pre-conversion, a cross-chain transfer or an off-chain send is a step of the
 Convert wizard (lead developer: every such value can be entered by hand).
 
-- Entry: "Advanced form", a standard `TextAction` (default size, `labelMd`,
-  owner 2026-11-21) centered in a normal-flow
-  `SafeBottomActionStack` under the Convert to list, on the page color, with
-  no divider. The list scrolls under it and ends above it, in a
-  `FadedScrollView` on the page color: the bottom fade shows only while more
-  rows remain below, with no chevron. It shows in every
-  state of the list: loading, no routes, failed routes, a search without
-  results.
+- Entry: "Advanced form" is the one row of the wizard header's "More options"
+  menu (owner, 2026-11-22). The header action is a 44-point `dots-horizontal`
+  (`MaterialCommunityIcons`, 24 points, `textPrimary`), left of Close, labelled
+  "More options". It opens `OptionsSheet` (the Sheet action rows of the VerusID
+  ⋯ menu, no title) with the row "Advanced form" (`tune-variant` icon); the
+  form opens after the sheet has closed. The action shows on Convert to
+  (Convert), in every state of the list, and on Amount (Send) for a plain send
+  on a conversion-capable card only: not with a scanned request, an invoice,
+  a pre-conversion or a fixed recipient. Convert's Amount and every other
+  step show none. No page content links to the form, so the Convert to list
+  is a plain scrolling list that ends above the home indicator. Opened from
+  Amount, Back returns to Amount; an amount typed there is not carried over.
 - The step: `SendWizardHeader` with "Advanced form", Back, Close and one
   44-point Info action (Lucide `Info`, 23 points, `textSubtle`) for the old
   form's Help. Then a read-only "Send from" block: the `labelMd` label, a
