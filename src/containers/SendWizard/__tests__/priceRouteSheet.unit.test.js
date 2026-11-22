@@ -146,6 +146,22 @@ describe('Price and route with many routes (R2 A)', () => {
     expect(best.props.title).toBe('Basket2');
   });
 
+  it('keeps Check 30 more routes when every checked estimate failed', () => {
+    // Orchestrator 2026-11-22: the row on Amount opens this sheet after a
+    // failed estimate; the next 30 must be one tap away.
+    const onCheckMore = jest.fn();
+    const failed = Array.from({length: 30}, (_, index) => index);
+    const view = render({total: 60, checked: 30, failed, onCheckMore});
+    expect(rows(view)).toHaveLength(30);
+    expect(texts(view)).toEqual(expect.arrayContaining([
+      'Check 30 more routes',
+      '30 of 60 routes checked',
+    ]));
+    const end = view.root.find(node => node.props.accessibilityLabel === 'Check 30 more routes. 30 of 60 routes checked');
+    act(() => end.props.onPress());
+    expect(onCheckMore).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the failure text for a checked route whose estimate failed', () => {
     const view = render({total: 40, checked: 30, failed: [3]});
     const subtitles = rows(view).map(node => node.props.subtitle);

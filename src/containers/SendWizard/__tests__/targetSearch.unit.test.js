@@ -67,4 +67,29 @@ describe('matchesTargetQuery', () => {
     expect(matchesTargetQuery(mapped, 'EUR')).toBe(false);
     expect(matchesTargetQuery(mapped, 'iRbRu')).toBe(true);
   });
+
+  it('keeps name matching for a grouped target whose id is its ticker', () => {
+    // A target on several networks uses its ticker as its id.
+    const usdc = {
+      id: 'USDC',
+      name: 'USDC',
+      ticker: 'USDC',
+      fullyqualifiedname: 'USDC',
+      networkOptions: [
+        {id: 'USDC', name: 'USDC', ticker: 'USDC', networkName: 'Verus'},
+        {id: 'USDC', name: 'USDC', ticker: 'USDC', networkName: 'Ethereum'},
+      ],
+    };
+    expect(matchesTargetQuery(usdc, 'sdc')).toBe(true);
+    expect(matchesTargetQuery(usdc, 'usdc')).toBe(true);
+    expect(matchesTargetQuery(usdc, 'USD')).toBe(true);
+  });
+
+  it('keeps the id rule for an Ethereum address in a name field', () => {
+    const address = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+    const unnamed = {id: address, name: address, ticker: 'T', fullyqualifiedname: address};
+    expect(matchesTargetQuery(unnamed, 'eb48')).toBe(false);
+    expect(matchesTargetQuery(unnamed, '0xA0b8')).toBe(true);
+    expect(matchesTargetQuery(unnamed, '0xa0b8')).toBe(false);
+  });
 });

@@ -797,12 +797,13 @@ export const getFailedEstimateRow = ({estimateFailed, pickedRoute, routeCount, v
     : null;
 
 // The "Convert to" search: names, tickers and network names match anywhere,
-// in any case. A currency id (an i-address) matches only from its start, in
-// its own case, so "EUR" no longer finds a currency whose id ends in "…DDEUr"
-// (orchestrator decision 2026-11-22). A name field that holds an id (a
-// currency without a name falls back to its id) follows the id rule. Only
+// in any case. A currency id matches only from its start, in its own case, so
+// "EUR" no longer finds a currency whose id ends in "…DDEUr" (orchestrator
+// decision 2026-11-22). A name field that holds an address-shaped id (a
+// currency without a name falls back to its id) follows the id rule; a
+// grouped target's id is its ticker, which still matches as a name. Only
 // Convert to uses this.
-const I_ADDRESS = /^i[1-9A-HJ-NP-Za-km-z]{33}$/;
+const ID_SHAPE = /^(i[1-9A-HJ-NP-Za-km-z]{33}|0x[0-9a-fA-F]{40})$/;
 export const matchesTargetQuery = (option, query) => {
   const active = String(query || '').trim();
   if (!active) return true;
@@ -824,7 +825,7 @@ export const matchesTargetQuery = (option, query) => {
   ]
     .filter(value => value != null)
     .map(String);
-  const isId = value => ids.includes(value) || I_ADDRESS.test(value);
+  const isId = value => ID_SHAPE.test(value);
   return names.some(value => !isId(value) && value.toLowerCase().includes(lower)) ||
     [...ids, ...names.filter(isId)].some(value => value.startsWith(active));
 };
