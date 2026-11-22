@@ -753,6 +753,10 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   and show "Route" after the price facts only when the route has a `via`.
   Preserve the full route name, including "Bridge.vETH". An Ethereum export
   adds Network fee last, with a skeleton while loading or "Fee unavailable."
+  The 32-point row is a minimum. On Android a fact value is never fitted to
+  width (that shrank text which fit, about 0.78x); a value too long for one line
+  wraps to a second line, right-aligned, so the number and unit stay readable and
+  nothing is ellipsized. iOS keeps the one-line 0.8 shrink (2026-11-22).
 - Only the basket list scrolls, in one shrinking `SheetScrollView`. It keeps
   the established measured bottom fade and centered chevron while more content
   remains below; short viewports use the established native indicator. Fitting
