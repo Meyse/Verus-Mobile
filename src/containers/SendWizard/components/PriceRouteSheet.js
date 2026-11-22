@@ -87,8 +87,13 @@ const PriceRouteSheet = ({
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
   // A checked route has an entry in `estimates`: its estimate, or null when
   // the estimate failed, which the row then says.
+  // In the order Amount checked them, so on equal estimates the badge goes to
+  // the route Amount chose (the one checked first).
   const allRoutes = target.routes || [];
-  const checkedRoutes = allRoutes.filter(item => item.key in estimates);
+  const routesByKey = Object.fromEntries(allRoutes.map(item => [item.key, item]));
+  const checkedRoutes = Object.keys(estimates)
+    .map(key => routesByKey[key])
+    .filter(Boolean);
   const checkState = getRouteCheckState(
     baskets ? 0 : allRoutes.length,
     checkedRoutes.length,

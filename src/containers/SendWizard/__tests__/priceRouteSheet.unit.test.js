@@ -119,6 +119,33 @@ describe('Price and route with many routes (R2 A)', () => {
     expect(texts(view).join(' ')).not.toMatch(/routes checked|more route/);
   });
 
+  it('gives the badge on equal estimates to the route checked first, as Amount does', () => {
+    // r2 was checked first (the oldest), r0 and r1 later; all give 10.
+    const target = {isConversion: true, ticker: 'EUR', routes: routes(3)};
+    const estimates = {r2: {estimatedcurrencyout: 10}, r0: {estimatedcurrencyout: 10}, r1: {estimatedcurrencyout: 10}};
+    let view;
+    act(() => {
+      view = create(
+        <PriceRouteSheet
+          cryptoAmount="1"
+          estimatedOutput={10}
+          estimates={estimates}
+          onCheckMore={jest.fn()}
+          onClose={jest.fn()}
+          onSelect={jest.fn()}
+          onUseSuggestion={jest.fn()}
+          priceImpact={{impact: null, level: 'none', loss: null, marketPrice: null, suggestion: null}}
+          route={target.routes[2]}
+          sourceCoin={{display_ticker: 'VRSC'}}
+          target={target}
+          visible
+        />,
+      );
+    });
+    const best = rows(view).find(node => node.props.badge);
+    expect(best.props.title).toBe('Basket2');
+  });
+
   it('keeps the failure text for a checked route whose estimate failed', () => {
     const view = render({total: 40, checked: 30, failed: [3]});
     const subtitles = rows(view).map(node => node.props.subtitle);
