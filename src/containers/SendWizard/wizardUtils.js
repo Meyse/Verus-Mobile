@@ -360,7 +360,10 @@ export const MAX_ESTIMATED_CONVERTERS = 30;
 // With more converters than the limit, the oldest ones get an estimate: the
 // lowest launch block first, a tie keeps the list order, an unknown launch
 // block goes last. A route the user picked always keeps its estimate, in
-// place of the youngest one.
+// place of the youngest one. "Check 30 more routes" in "Price and route"
+// raises the limit by 30 for the same amount (R2 option A, owner
+// 2026-11-22): the set then adds the next 30 oldest, so the routes already
+// checked keep their estimates and only the new ones are asked.
 export const pickEstimateRoutes = (
   routes,
   preferredKey = null,
@@ -385,6 +388,22 @@ export const pickEstimateRoutes = (
     oldest[oldest.length - 1] = preferred;
   }
   return oldest;
+};
+
+// The routes Amount estimates after `pages` batches: one batch per amount
+// pause, one more per tap on "Check 30 more routes".
+export const getEstimateLimit = pages =>
+  Math.max(1, pages) * MAX_ESTIMATED_CONVERTERS;
+
+// What "Price and route" says about routes not checked yet: how many remain,
+// how many the next tap checks, and the badge of the best checked route.
+export const getRouteCheckState = (routeCount, checkedCount) => {
+  const remaining = Math.max(0, (routeCount || 0) - (checkedCount || 0));
+  return {
+    remaining,
+    next: Math.min(MAX_ESTIMATED_CONVERTERS, remaining),
+    bestLabel: remaining > 0 ? 'Best so far' : 'Best price',
+  };
 };
 
 const buildRoute = (sourceCoin, sourceNetworkId, path) => {

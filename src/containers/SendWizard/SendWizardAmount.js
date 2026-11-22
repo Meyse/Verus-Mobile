@@ -35,7 +35,7 @@ import {coinsToSats, truncateDecimal} from '../../utils/math';
 import {getConversionPaths} from '../../utils/api/routers/getConversionPaths';
 import {useSendWizard} from './SendWizardContext';
 import {getWizardCryptoAmount} from './wizardAmount';
-import {compareRoutes, IMPACT_LEVEL} from './priceImpact';
+import {IMPACT_LEVEL} from './priceImpact';
 import {usePriceImpact} from './usePriceImpact';
 import {useReceivedPrice} from './useReceivedPrice';
 import {
@@ -52,6 +52,7 @@ import {
   buildSendTarget,
   ADDRESS_TYPE,
   getCurrencyDisplay,
+  getEstimateLimit,
   getRecipientAddressType,
   getRouteName,
   isConversionChannel,
@@ -313,131 +314,180 @@ const SendWizardAmount = () => {
   // would only guess (the daemon quotes as if the launch were now).
   const preconvert = Boolean(route?.preconvert);
 
-  // The request of the estimates on screen. The same amount, target and
-  // routes ask the node nothing again, for example after a route pick in
-  // "Price and route" (audit row 14).
-  const shownEstimates = useRef(null);
+  // The estimates for one amount pause: the same channel, source, target
+  // currency and amount. Amount asks each route once per pause, at most 30
+  // routes; more only after a tap on "Check 30 more routes" in "Price and
+  // route" (F13, and R2 option A, owner 2026-11-22). A route pick or a tap
+  // reuses what is known (audit row 14).
+  const sourceCurrency = sourceCoin?.currency_id || sourceCoin?.id;
+  const estimateBase = target?.isConversion && validAmount && !preconvert
+    ? JSON.stringify([channel, sourceCurrency, target.transactionCurrency, cryptoAmountValue])
+    : null;
+  const [estimatePages, setEstimatePages] = useState({base: null, pages: 1});
+  const pages = estimatePages.base === estimateBase ? estimatePages.pages : 1;
+  const estimateRoutes = useMemo(
+    () => (target?.routes?.length
+      ? pickEstimateRoutes(target.routes, preferredRouteKey, getEstimateLimit(pages))
+      : route ? [route] : []),
+    // The route stands in only for a target without routes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pages, preferredRouteKey, target, target?.routes?.length ? null : route],
+  );
+  const estimateKeys = estimateRoutes.map(candidate => candidate?.key).join('|');
+  const [checkingMore, setCheckingMore] = useState(false);
+  // Per amount pause: route key -> estimate (null when its estimate failed),
+  // and the keys asked but not answered yet. An answer bumps the version.
+  const knownEstimates = useRef({base: null, results: {}, pending: new Set()});
+  const [estimateVersion, setEstimateVersion] = useState(0);
   useEffect(() => {
-    if (!target?.isConversion || !validAmount || preconvert) {
-      shownEstimates.current = null;
+    if (!estimateBase) {
+      knownEstimates.current = {base: null, results: {}, pending: new Set()};
       setEstimate(null);
       setEstimateError(null);
       setEstimateLoading(false);
+      setCheckingMore(false);
       setRouteEstimates({});
       return undefined;
     }
+    if (knownEstimates.current.base !== estimateBase) {
+      knownEstimates.current = {base: estimateBase, results: {}, pending: new Set()};
+    }
+    const known = knownEstimates.current;
+    const pool = target?.routes?.length ? target.routes : estimateRoutes;
+    // Never more estimates in one pause than its batches allow: 30, plus 30
+    // per tap. The user's pick goes first, then the oldest.
+    const budget = getEstimateLimit(pages) -
+      Object.keys(known.results).length - known.pending.size;
+    const missing = estimateRoutes
+      .filter(candidate =>
+        !(candidate.key in known.results) && !known.pending.has(candidate.key))
+      .sort((first, second) =>
+        (second.key === preferredRouteKey) - (first.key === preferredRouteKey))
+      .slice(0, Math.max(0, budget));
+    missing.forEach(candidate => known.pending.add(candidate.key));
+    // The batch order first (oldest first), so equal estimates keep the
+    // oldest route as the best, as before.
+    const checked = [
+      ...estimateRoutes,
+      ...pool.filter(candidate => !estimateRoutes.includes(candidate)),
+    ].filter(candidate => candidate.key in known.results);
+    const waiting = known.pending.size > 0;
 
-    const routes = target.routes?.length
-      ? pickEstimateRoutes(target.routes, preferredRouteKey)
-      : [route];
-    const request = JSON.stringify([
-      channel,
-      sourceCoin.currency_id || sourceCoin.id,
-      target.transactionCurrency,
-      cryptoAmountValue,
-      routes.map(candidate => candidate?.key),
-    ]);
-    if (shownEstimates.current === request) return undefined;
+    if (checked.length) {
+      // The route chosen once its estimates are in: the user's pick, else the
+      // best known, else the current one. Its basket name shows only now. A
+      // tap on "Check 30 more routes" keeps this on screen while it checks.
+      const nextEstimates = Object.fromEntries(
+        checked.map(candidate => [candidate.key, known.results[candidate.key]]),
+      );
+      const best = checked.reduce((current, candidate) => {
+        const estimate = known.results[candidate.key];
+        return estimate && (!current || BigNumber(estimate.estimatedcurrencyout)
+          .isGreaterThan(known.results[current.key].estimatedcurrencyout))
+          ? candidate : current;
+      }, null);
+      const selectedRoute =
+        checked.find(candidate => candidate.key === preferredRouteKey) ||
+        best ||
+        route;
+      const selectedEstimate = known.results[selectedRoute?.key] || null;
 
-    let active = true;
-    shownEstimates.current = null;
-    setEstimate(null);
-    setRouteEstimates({});
-    setEstimateLoading(true);
-    setEstimateError(null);
-    const timeout = setTimeout(async () => {
-      try {
-        const results = await Promise.all(
-          routes.map(async candidate => {
-            try {
-              const result = await estimateConversion(
-                channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
-                sourceCoin.currency_id || sourceCoin.id,
-                target.transactionCurrency,
-                cryptoAmount,
-                candidate?.via,
-                Boolean(candidate?.preconvert),
-              );
-
-              if (result?.error) {
-                throw new Error(result.error.message || 'Estimate unavailable.');
-              }
-              const output = result?.result?.estimatedcurrencyout;
-              if (
-                output == null ||
-                !BigNumber(output).isFinite() ||
-                BigNumber(output).isNegative()
-              ) {
-                throw new Error('Estimate unavailable.');
-              }
-              return {estimate: result.result, route: candidate};
-            } catch (error) {
-              if (__DEV__) {
-                console.warn('Conversion estimate unavailable:', error.message);
-              }
-              return {estimate: null, route: candidate};
-            }
-          }),
-        );
-        if (!active) return;
-        const nextEstimates = Object.fromEntries(
-          results.map(item => [item.route.key, item.estimate]),
-        );
-        const available = results.filter(item => item.estimate != null);
-        const best = available.reduce(
-          (current, candidate) =>
-            !current ||
-            BigNumber(candidate.estimate.estimatedcurrencyout).isGreaterThan(
-              current.estimate.estimatedcurrencyout,
-            )
-              ? candidate
-              : current,
-          null,
-        );
-        const selectedRoute =
-          routes.find(candidate => candidate.key === preferredRouteKey) ||
-          best?.route ||
-          route;
-        const selectedEstimate = nextEstimates[selectedRoute?.key] || null;
-
-        setRouteEstimates(nextEstimates);
-        shownEstimates.current = request;
-        if (selectedRoute && selectedRoute.key !== route?.key) {
-          setRoute(selectedRoute);
-        }
-        setEstimate(selectedEstimate);
-        setEstimateError(selectedEstimate ? null : 'Estimate unavailable.');
-      } catch (error) {
-        if (!active) return;
-        setRouteEstimates({});
-        setEstimate(null);
-        setEstimateError('Estimate unavailable.');
-      } finally {
-        if (active) setEstimateLoading(false);
+      setRouteEstimates(nextEstimates);
+      if (selectedRoute && selectedRoute.key !== route?.key) {
+        setRoute(selectedRoute);
       }
-    }, 280);
+      setEstimate(selectedEstimate);
+      setEstimateError(selectedEstimate ? null : 'Estimate unavailable.');
+      setEstimateLoading(false);
+      setCheckingMore(waiting);
+    } else if (!waiting) {
+      // Nothing left to ask and no answer (cannot happen with routes).
+      setEstimate(null);
+      setRouteEstimates({});
+      setEstimateError('Estimate unavailable.');
+      setEstimateLoading(false);
+      setCheckingMore(false);
+    } else {
+      // A new amount: the skeleton until its estimates are in.
+      setEstimate(null);
+      setRouteEstimates({});
+      setEstimateError(null);
+      setEstimateLoading(true);
+      setCheckingMore(false);
+    }
+    if (!missing.length) return undefined;
+
+    let started = false;
+    const timer = setTimeout(async () => {
+      started = true;
+      const results = await Promise.all(
+        missing.map(async candidate => {
+          try {
+            const result = await estimateConversion(
+              channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id,
+              sourceCurrency,
+              target.transactionCurrency,
+              cryptoAmount,
+              candidate?.via,
+              Boolean(candidate?.preconvert),
+            );
+
+            if (result?.error) {
+              throw new Error(result.error.message || 'Estimate unavailable.');
+            }
+            const output = result?.result?.estimatedcurrencyout;
+            if (
+              output == null ||
+              !BigNumber(output).isFinite() ||
+              BigNumber(output).isNegative()
+            ) {
+              throw new Error('Estimate unavailable.');
+            }
+            return [candidate.key, result.result];
+          } catch (error) {
+            if (__DEV__) {
+              console.warn('Conversion estimate unavailable:', error.message);
+            }
+            return [candidate.key, null];
+          }
+        }),
+      );
+      // Answers for an older amount are dropped. Answers for this one are
+      // kept even when a route pick re-ran this effect meanwhile, so no route
+      // is asked twice.
+      if (knownEstimates.current !== known) return;
+      results.forEach(([key, estimate]) => {
+        known.results[key] = estimate;
+        known.pending.delete(key);
+      });
+      setEstimateVersion(version => version + 1);
+    }, checked.length ? 0 : 280);
 
     return () => {
-      active = false;
-      clearTimeout(timeout);
+      if (started) return;
+      clearTimeout(timer);
+      missing.forEach(candidate => known.pending.delete(candidate.key));
     };
+    // `route` is only the fallback; a route set from here must not ask again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    channel,
-    cryptoAmountValue,
-    preconvert,
+    estimateBase,
+    estimateKeys,
+    estimateVersion,
+    pages,
     preferredRouteKey,
     setEstimate,
     setRoute,
-    sourceCoin,
-    target,
-    validAmount,
   ]);
+  const checkMoreRoutes = () => {
+    if (!estimateBase || checkingMore || estimateLoading) return;
+    setEstimatePages({base: estimateBase, pages: pages + 1});
+  };
 
   // The market sample also costs an estimate, so it runs only for a route
-  // that gets one: one of the 30 oldest converters (F13).
-  const sampledRoute = !target?.routes?.length ||
-    pickEstimateRoutes(target.routes, preferredRouteKey)
-      .some(candidate => candidate.key === route?.key)
+  // that gets one (F13).
+  const sampledRoute = route && (route.key in routeEstimates ||
+    estimateRoutes.some(candidate => candidate.key === route.key))
     ? route : null;
   const priceImpact = usePriceImpact({
     channel,
@@ -551,11 +601,15 @@ const SendWizardAmount = () => {
         })[0]
       : null;
   const estimatedOutput = state.estimate?.estimatedcurrencyout;
+  // A route through a basket shows the row too, to name the basket under its
+  // label, also below 0.1% ("Details"; R3 option 1, owner 2026-11-22).
+  const viaName = target.isConversion && route.via ? getRouteName(route) : null;
   const showPriceRouteChip =
     !preconvert &&
     (target.isConversion || ethereumExport) &&
     (priceImpact.level !== IMPACT_LEVEL.NONE ||
-      compareRoutes(target.routes || [], routeEstimates).length > 1 ||
+      (target.routes || []).length > 1 ||
+      Boolean(viaName) ||
       ethereumExport);
   const receiveAmount = validAmount
     ? target.isConversion ? estimatedOutput : cryptoAmountValue
@@ -677,7 +731,10 @@ const SendWizardAmount = () => {
             priceImpact={priceImpact}
             showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}
-            via={target.isConversion && route.via ? getRouteName(route) : null}
+            // The name only with an estimate: the route chosen once the
+            // estimates arrived, never the first route before them.
+            via={receiveAmount != null && !emptyAmount ? viaName : null}
+            viaRoutes={Boolean(target.isConversion && target.routes?.some(candidate => candidate.via))}
           />
         </View>
       ) : null}
@@ -685,7 +742,7 @@ const SendWizardAmount = () => {
         bottomSpacing={smallDevice ? 8 : 16}
         // A scanned address the chosen network cannot reach waits for a
         // network that can (PR 266 review of P1).
-        disabled={!validAmount || estimateLoading || exportFeeLoading || insufficientExportFunds || scanNeedsNetwork}
+        disabled={!validAmount || estimateLoading || checkingMore || exportFeeLoading || insufficientExportFunds || scanNeedsNetwork}
         includeBottomInset={false}
         onPress={continueToRecipient}
         safeAreaSpacing={0}
@@ -709,7 +766,9 @@ const SendWizardAmount = () => {
         rate={rate}
         route={route}
         sourceCoin={sourceCoin}
+        checkingMore={checkingMore}
         estimates={routeEstimates}
+        onCheckMore={checkMoreRoutes}
         target={target}
         visible={routeSheetOpen}
         onClose={() => setRouteSheetOpen(false)}

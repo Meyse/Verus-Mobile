@@ -6,17 +6,22 @@ import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
 import {IMPACT_LEVEL} from '../priceImpact';
+import ViaLine from './ViaLine';
 import {FlatRow} from './WizardUI';
 import {
   formatEstimatedAmount,
   getImpactBadgeLabel,
   getImpactTone,
-  SLIPPAGE_LABEL,
+  getSlippageRowLabel,
   SLIPPAGE_LABEL_SHORT,
 } from './impactFormat';
 
 // The receive block stays above Continue. Only the name gives way to the
 // amount. A single-line middle ellipsis preserves the suffix on Android too.
+// `via` names the basket of the route chosen after the estimates arrived; it
+// shows under "Est. slippage" (R3 option 1, owner 2026-11-22). While the
+// estimate loads, `viaRoutes` (the target has basket routes) gives the
+// skeleton that row's 52-point height.
 const AmountEstimate = ({
   atLaunch = false,
   estimateLoading,
@@ -27,6 +32,7 @@ const AmountEstimate = ({
   showDetails,
   target,
   via = null,
+  viaRoutes = false,
 }) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
@@ -48,8 +54,19 @@ const AmountEstimate = ({
               <SkeletonBlock height={14} radius={4} width={80} />
             </View>
           </View>
-          <View style={[styles.skeletonImpact, {borderTopColor: colors.border}]}>
-            <SkeletonBlock height={18} radius={4} width={88} />
+          <View style={[
+            styles.skeletonImpact,
+            viaRoutes && styles.skeletonImpactVia,
+            {borderTopColor: colors.border},
+          ]}>
+            {viaRoutes ? (
+              <View style={styles.skeletonLabel}>
+                <SkeletonBlock height={14} radius={4} width={104} />
+                <SkeletonBlock height={12} radius={4} width={150} />
+              </View>
+            ) : (
+              <SkeletonBlock height={18} radius={4} width={88} />
+            )}
             <SkeletonBlock height={24} radius={12} width={54} />
           </View>
         </SkeletonLoader>
@@ -89,7 +106,8 @@ const AmountEstimate = ({
           {!atLaunch && estimatedOutput != null && showDetails ? (
             <View style={{borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth}}>
               <FlatRow
-                accessibilityLabel={`${SLIPPAGE_LABEL} ${chipLabel}. Opens price and route`}
+                accessibilityLabel={getSlippageRowLabel(chipLabel, via)}
+                detail={via ? <ViaLine name={via} /> : null}
                 label={SLIPPAGE_LABEL_SHORT}
                 onPress={onOpenDetails}>
                 <StatusBadge
@@ -101,22 +119,6 @@ const AmountEstimate = ({
           ) : null}
         </>
       )}
-      {/* The basket the conversion goes through, on the step where the user
-          can change it (PR 266 feedback F8). It stays while the estimate loads. */}
-      {via ? (
-        <View
-          accessible
-          accessibilityLabel={`Via ${via}`}
-          style={[styles.viaRow, {borderTopColor: colors.border}]}>
-          <Text style={[theme.typography.caption, {color: colors.textSecondary}]}>Via</Text>
-          <Text
-            ellipsizeMode="middle"
-            numberOfLines={1}
-            style={[theme.typography.labelSm, styles.viaName, {color: colors.textPrimary}]}>
-            {via}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 };
@@ -129,16 +131,6 @@ const styles = StyleSheet.create({
   amountColumn: {flexShrink: 0, alignItems: 'flex-end', gap: 2},
   receiveAmount: {fontSize: 17, lineHeight: 22, ...fontStyle('bold'), textAlign: 'right'},
   skeletonName: {flex: 1, marginHorizontal: 10, gap: 4},
-  // The 32-point fact row of "Price and route".
-  viaRow: {
-    minHeight: 32,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  viaName: {flexShrink: 1, textAlign: 'right'},
   skeletonImpact: {
     minHeight: 44,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -146,6 +138,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  skeletonImpactVia: {minHeight: 52},
+  skeletonLabel: {gap: 5},
 });
 
 export default AmountEstimate;

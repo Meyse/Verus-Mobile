@@ -57,6 +57,7 @@ const ConfirmFacts = ({
           lossText={impact.lossText}
           onPress={impact.onPress}
           pay={impact.pay}
+          via={impact.via}
         />
       ) : null}
       {exportFees ? (

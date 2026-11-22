@@ -6,6 +6,19 @@ without repeating the entire investigation.
 
 ## Current position
 
+- Scoped follow-up: **TX-1.CONVERT-VIA-1122** (owner picks, 2026-11-22: R3
+  option 1 without the route count, R2 option A) on
+  `claude/convert-via-row-1122` from `101371b9`: **Ready for device QA**. The
+  basket moves into the Est. slippage row as "via <basket>" under the label,
+  on Amount and Confirm; "Price and route" lists checked routes only and ends
+  in "Check 30 more routes".
+  - [x] `FlatRow detail` + `ViaLine`; Amount's separate "Via" row removed; no name before the estimate
+  - [x] Row for any basket route, also below 0.1% ("Details"); 52-point skeleton row for targets with basket routes
+  - [x] Confirm and Confirm preparing: same two-line row, no route count
+  - [x] At most 30 estimates per amount pause; "Check 30 more routes" checks the next 30 oldest; "Best so far"; picked route stays among the 30 (unit tests)
+  - [x] DESIGN.md rules
+  - [ ] Device QA: iOS and Android (`normal`, `small` 360 pt with a long amount and a 64-character name), light and dark; every slippage kind; 31- and 100-route sheet states through a Metro debugger probe
+
 - Scoped follow-up: **TX-1.ADV-MENU-1122** (owner pick, 2026-11-22) on
   `claude/adv-form-menu-1122` from `24d8ad8d`: **Device QA passed**. The
   Advanced form entry moves from the Convert to footer into the wizard
