@@ -17,7 +17,9 @@ without repeating the entire investigation.
   - [x] Confirm and Confirm preparing: same two-line row, no route count
   - [x] At most 30 estimates per amount pause; "Check 30 more routes" checks the next 30 oldest; "Best so far"; picked route stays among the 30 (unit tests)
   - [x] DESIGN.md rules
-  - [ ] Device QA: iOS and Android (`normal`, `small` 360 pt with a long amount and a 64-character name), light and dark; every slippage kind; 31- and 100-route sheet states through a Metro debugger probe
+  - [x] Failed estimate with 2+ routes keeps the row as "Details" and opens the sheet; via line only for the user's pick; one route: no row (orchestrator 2026-11-22, unit tests)
+  - [x] Convert to search: an id matches only as the full id or a case-sensitive prefix (orchestrator 2026-11-22, unit tests)
+  - [ ] Device QA: iOS and Android (`normal`, `small` 360 pt with a long amount and a 64-character name), light and dark; every slippage kind; failed estimate with 2+ routes; 31- and 100-route sheet states through a Metro debugger probe
 
 - Scoped follow-up: **TX-1.ADV-MENU-1122** (owner pick, 2026-11-22) on
   `claude/adv-form-menu-1122` from `24d8ad8d`: **Device QA passed**. The

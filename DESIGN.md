@@ -691,6 +691,16 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   also shows it, below 0.1% too ("Details"). Show it only with a receive
   estimate. The badge is percent only, neutral below 1%, warning from 1%, and
   danger from 5%. Unknown or below 0.1% reads "Details" in neutral.
+- A failed estimate (orchestrator decision, 2026-11-22): when the target has 2
+  or more routes and the estimate for the current amount failed (every checked
+  route, or the route the user picked), the row still shows as "Est. slippage"
+  with "Details" and the chevron, and opens "Price and route", so the user can
+  pick another route or "Check 30 more routes". Its "via <basket>" line shows
+  only when the user picked that route in the sheet; otherwise there is no via
+  line (the name would be a guess). The receive amount stays "—", the failure
+  text under the amount stays, and Continue is unchanged. A target with one
+  route keeps no row (`getFailedEstimateRow`). Screen readers hear "Estimated
+  slippage Details[, via <basket>]. Opens price and route".
 - Owner pick, 2026-11-22 (R3 option 1 "Via under the label", without the route
   count): the basket shows under the row's label as "via <basket>" (`ViaLine`:
   "via " in `caption` `textSecondary`, the name in `labelSm` `textPrimary`,
@@ -1149,6 +1159,10 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   whole list has 7 or more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24).
   Up to 6 rows fit on the smallest phones without scrolling. Count the list
   before the search, so the field does not disappear while the user types.
+  Convert to matches names, tickers and network names anywhere in any case; a
+  currency id (i-address) matches only when the query equals it or is a
+  case-sensitive prefix of it, so "EUR" does not find an id that ends in
+  "…DDEUr" (`matchesTargetQuery`, orchestrator decision 2026-11-22).
   Without the field, the first row or group title starts 24 points under the
   header. The Add asset list keeps its field: it searches the whole catalogue
   and takes a pasted identifier.
