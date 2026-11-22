@@ -32,6 +32,7 @@ import {
   getTargetLaunchDefinition,
   isConversionChannel,
   isPopularTarget,
+  matchesTargetQuery,
   shouldShowAdvancedFormMenu,
 } from './wizardUtils';
 
@@ -109,25 +110,9 @@ const SendWizardSelectTarget = () => {
   );
   const searchable = conversionOptions.length >= APP_SEARCH_MIN_ITEMS;
   const filtered = useMemo(() => {
-    const normalized = searchable ? query.trim().toLowerCase() : '';
-    if (!normalized) return conversionOptions;
-    return conversionOptions.filter(option =>
-      [
-        option.name,
-        option.ticker,
-        option.id,
-        option.fullyqualifiedname,
-        ...(option.networkOptions || []).flatMap(network => [
-          network.name,
-          network.ticker,
-          network.id,
-          network.fullyqualifiedname,
-          network.networkName,
-        ]),
-      ]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(normalized)),
-    );
+    const active = searchable ? query.trim() : '';
+    if (!active) return conversionOptions;
+    return conversionOptions.filter(option => matchesTargetQuery(option, active));
   }, [conversionOptions, query, searchable]);
   // A currency before its launch has its own section: it has no price yet, and
   // the funds wait until the launch.
