@@ -31,6 +31,11 @@ export const getImpactBadgeLabel = impact => `${formatImpact(impact)}%`;
 export const SLIPPAGE_LABEL = 'Estimated slippage';
 export const SLIPPAGE_LABEL_SHORT = 'Est. slippage';
 
+// The Est. slippage row's screen-reader label: the same facts as the row,
+// the badge and the basket under the label (R3 option 1, owner 2026-11-22).
+export const getSlippageRowLabel = (badge, via = null) =>
+  `${SLIPPAGE_LABEL} ${badge}${via ? `, via ${via}` : ''}. Opens price and route`;
+
 // What the impact costs the user. The display currency comes first when the
 // ledger holds a price for the asset the user pays with. Otherwise the amount
 // is counted in the asset the user receives, so it reads next to the receive

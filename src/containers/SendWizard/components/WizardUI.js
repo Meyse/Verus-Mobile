@@ -326,6 +326,9 @@ export const FlatRow = ({
   accessibilityLabel,
   children,
   copyValue,
+  // A line under the label, such as the basket on Est. slippage. The label
+  // column then takes the free width and the value keeps its own.
+  detail = null,
   divider = true,
   label,
   numberOfLines = 2,
@@ -337,18 +340,26 @@ export const FlatRow = ({
 }) => {
   const theme = useOnboardingTheme();
   const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {haptic: true});
+  const labelText = (
+    <Text
+      style={
+        strong
+          ? [theme.typography.titleRow, styles.flatLabelStrong, {color: theme.colors.textPrimary}]
+          : [styles.flatLabel, detail && styles.flatLabelWithDetail, {color: theme.colors.textSecondary}]
+      }>
+      {label}
+    </Text>
+  );
   const content = (
     <>
-      <Text
-        style={
-          strong
-            ? [theme.typography.titleRow, styles.flatLabelStrong, {color: theme.colors.textPrimary}]
-            : [styles.flatLabel, {color: theme.colors.textSecondary}]
-        }>
-        {label}
-      </Text>
-      <View style={styles.flatValueWrap}>
-        <CopyFeedback copied={copied} style={styles.flatCopyValue}>
+      {detail ? (
+        <View style={styles.flatLabelColumn}>
+          {labelText}
+          {detail}
+        </View>
+      ) : labelText}
+      <View style={[styles.flatValueWrap, detail && styles.flatValueWrapFixed]}>
+        <CopyFeedback copied={copied} style={[styles.flatCopyValue, detail && styles.flatValueWrapFixed]}>
           <View style={styles.flatValueContent}>
             {children || (
               <Text
@@ -381,6 +392,7 @@ export const FlatRow = ({
   );
   const rowStyle = [
     styles.flatRow,
+    detail && styles.flatRowWithDetail,
     {borderBottomColor: theme.colors.border},
     !divider && styles.flatRowNoDivider,
   ];
@@ -555,7 +567,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // Label over a detail line: 19 + 18 points of text in a 52-point row (R3
+  // option 1, owner 2026-11-22).
+  flatRowWithDetail: {minHeight: 52, paddingVertical: 7},
   flatRowNoDivider: {borderBottomWidth: 0},
+  flatLabelColumn: {flex: 1, minWidth: 0, marginRight: 8},
+  flatLabelWithDetail: {marginRight: 0},
+  flatValueWrapFixed: {flex: 0, flexShrink: 0},
   flatLabel: {fontSize: 14, lineHeight: 19, marginRight: 16, ...fontStyle('regular')},
   flatLabelStrong: {marginRight: 16},
   flatValueWrap: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},

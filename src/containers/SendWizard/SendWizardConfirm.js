@@ -906,6 +906,9 @@ const SendWizardConfirm = () => {
       }]
     : [];
   const refundCaption = preconvert ? 'Refunds also go here.' : null;
+  // The basket of a conversion's route, under "Est. slippage" (R3 option 1).
+  const viaName = target?.isConversion && !preconvert && route?.via
+    ? getRouteName(route) : null;
   // A tagged invoice says so where the payment is confirmed (PR 266 review
   // R10, option A). The tag itself is in "Invoice details".
   const factRows = invoice?.tag
@@ -931,6 +934,7 @@ const SendWizardConfirm = () => {
           recipientCaption={refundCaption}
           routeRows={factRows}
           showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
+          via={viaName}
           sourceCoin={sourceCoin}
           target={target}
         />
@@ -992,8 +996,9 @@ const SendWizardConfirm = () => {
         targetTicker: target?.ticker || '',
       })
     : {};
-  // The route is not on the connector (owner, 2026-10-22): the Price impact
-  // row opens "Price and route", which names it.
+  // The route is not on the connector (owner, 2026-10-22). The Est. slippage
+  // row names the basket under its label and opens "Price and route" (R3
+  // option 1, owner 2026-11-22).
   const connectorLines = unitPrice
     ? [`1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
     : [];
@@ -1118,6 +1123,7 @@ const SendWizardConfirm = () => {
                   lossText,
                   onPress: () => setPriceSheetOpen(true),
                   pay: payImpact,
+                  via: viaName,
                 }
               : null
           }

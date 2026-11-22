@@ -2,7 +2,8 @@
 // asset can hold. Expected values are worked by hand (long division, cut at
 // the asset's decimals), never by the code under test.
 let mockState;
-const mockNavigation = {navigate: jest.fn(), goBack: jest.fn()};
+// setOptions: the header's More options menu (useAdvancedFormMenu) sets it.
+const mockNavigation = {navigate: jest.fn(), goBack: jest.fn(), setOptions: jest.fn()};
 
 jest.mock('react-redux', () => require('../../../tests/helpers/mockReactRedux')({
   useSelector: (selector, equalityFn) => selector(mockState),
@@ -29,6 +30,9 @@ jest.mock('../../../containers/SendWizard/components/WizardUI', () => ({
 jest.mock('../../../containers/SendWizard/components/AmountEstimate', () => 'AmountEstimate');
 jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'PriceRouteSheet');
 jest.mock('../../../containers/SendWizard/components/SelectionSheets', () => ({TargetNetworkSheet: 'TargetNetworkSheet'}));
+// The header's More options menu has its own suite (advancedFormMenu); its
+// sheet needs a Paper Portal host that this render has not.
+jest.mock('../../../containers/SendWizard/components/useAdvancedFormMenu', () => () => null);
 // The F13 count runs the real hook, because its market sample is an estimate too.
 let mockRealPriceImpact = false;
 jest.mock('../../../containers/SendWizard/usePriceImpact', () => ({
@@ -356,6 +360,11 @@ describe('Send Amount step, network change on request (F5)', () => {
 // estimateconversion for the 30 oldest only. "Oldest" is the lowest launch
 // block (currencydefinition.startblock); the unknown one goes last.
 describe('Convert Amount step, 30 oldest converters (F13)', () => {
+  let wizard;
+  const Capture = () => {
+    wizard = useSendWizard();
+    return null;
+  };
   const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
   const {buildTargetOptions} = require('../../../containers/SendWizard/wizardUtils');
   const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', currency_id: 'iSource', system_id: 'iSystem'};
@@ -394,6 +403,7 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
             route: target.routes[0],
             amountInput: '1',
           }}>
+          <Capture />
           <SendWizardAmount />
         </SendWizardProvider>,
       );
@@ -416,16 +426,23 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
     jest.useRealTimers();
   });
 
+  // The answers land, then the chosen route's market sample runs.
+  const settle = async () => {
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    await act(async () => {});
+    await act(async () => {});
+  };
+  const sheet = () => view.root.findByType('PriceRouteSheet').props;
+
   it('estimates the 30 oldest of 33 converters', async () => {
     const target = renderConvert();
     expect(target.routes).toHaveLength(33);
     // The first route is b1, the youngest: it gets no market sample.
     expect(target.routes[0].via).toBe('b1');
     expect(estimateConversion).not.toHaveBeenCalled();
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-    });
-    await act(async () => {});
+    await settle();
     // 30 route estimates, then 1 market sample on the chosen route (b32,
     // the oldest, first of the equal estimates). No call for b1, b2 or bX.
     expect(estimateConversion).toHaveBeenCalledTimes(31);
@@ -434,25 +451,239 @@ describe('Convert Amount step, 30 oldest converters (F13)', () => {
     expect(estimatedVias().filter(via => via === 'b32')).toHaveLength(2);
   });
 
-  it('keeps the estimate of a converter the user picks', async () => {
+  // R2 option A (owner 2026-11-22): unchecked routes are not listed, so a
+  // route the user picks was checked first, here by a tap.
+  it('keeps the estimate of a converter the user picks when the amount changes', async () => {
     const target = renderConvert();
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-    });
-    estimateConversion.mockClear();
+    await settle();
+    act(() => sheet().onCheckMore());
+    await settle();
+    // The tap checks the 3 routes left: b2, b1 (by age), then bX (no block).
+    expect(Object.keys(sheet().estimates)).toHaveLength(33);
     const youngest = target.routes.find(route => route.via === 'b1');
-    act(() => {
-      view.root.findByType('PriceRouteSheet').props.onSelect(youngest);
-    });
+    act(() => sheet().onSelect(youngest));
+    await settle();
+    estimateConversion.mockClear();
+    act(() => wizard.setAmountDraft({amountInput: '2'}));
+    await settle();
+    // 30 route estimates with b1 in place of the youngest of the 30 (b3).
+    // The market sample is per route, so b1 asks none again.
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias()).toContain('b1');
+    expect(estimatedVias()).not.toContain('b3');
+    expect(estimatedVias()).not.toContain('b2');
+    expect(sheet().route.key).toBe(youngest.key);
+  });
+});
+
+// R2 option A (owner 2026-11-22): "Price and route" lists the checked routes
+// and ends in "Check 30 more routes". At most 30 estimates per amount pause;
+// 30 more only after a tap, the next oldest first.
+describe('Convert Amount step, Check 30 more routes (R2 A)', () => {
+  const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
+  const {buildTargetOptions, getRouteCheckState} = require('../../../containers/SendWizard/wizardUtils');
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', currency_id: 'iSource', system_id: 'iSystem'};
+  // 100 baskets in a mixed list order. Basket i has age rank (37 i) mod 100
+  // (a permutation, since 37 and 100 share no factor): rank 0 is the oldest.
+  const rank = index => (index * 37) % 100;
+  const baskets = Array.from({length: 100}, (_, index) => ({
+    currencyid: `c${index}`,
+    fullyqualifiedname: `Basket${index}`,
+    startblock: 1000 + 10 * rank(index),
+  }));
+  const viasOfRanks = (from, to) => baskets
+    .filter((_, index) => rank(index) >= from && rank(index) < to)
+    .map(basket => basket.currencyid)
+    .sort();
+  const destination = {currencyid: 'iTarget', fullyqualifiedname: 'Target', startblock: 5};
+  let view;
+  let wizard;
+  const Capture = () => {
+    wizard = useSendWizard();
+    return null;
+  };
+  const estimatedVias = () => estimateConversion.mock.calls.map(call => call[4]);
+  const sheet = () => view.root.findByType('PriceRouteSheet').props;
+  const settle = async () => {
     await act(async () => {
       jest.advanceTimersByTime(300);
     });
     await act(async () => {});
-    // 30 route estimates with b1 in place of the youngest of the 30 (b3),
-    // plus 1 market sample for the newly picked route b1.
+    await act(async () => {});
+  };
+
+  const renderConvert = () => {
+    const paths = {iTarget: baskets.map(via => ({destination, via, price: 1}))};
+    const target = buildTargetOptions(paths, VRSCTEST, false, 'iSystem')
+      .find(option => option.isConversion);
+    const card = {id: 'MAIN', api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iSystem'}};
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {bal: {VRSCTEST: {confirmed: '100', pending: '0', total: '100'}}}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="convert"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '100',
+            channel: card.api_channels.send,
+            target,
+            route: target.routes[0],
+            amountInput: '1',
+          }}>
+          <Capture />
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+    return target;
+  };
+
+  beforeEach(() => {
+    mockRealPriceImpact = true;
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    // The oldest basket gives the most, so the best route stays the oldest.
+    estimateConversion.mockImplementation((system, source, dest, amount, via) =>
+      Promise.resolve({result: {estimatedcurrencyout: 2 - rank(Number(via.slice(1))) / 1000}}));
+  });
+  afterEach(() => {
+    mockRealPriceImpact = false;
+    if (view) act(() => view.unmount());
+    view = null;
+    jest.useRealTimers();
+  });
+
+  it('checks the 30 oldest of 100 routes first', async () => {
+    const target = renderConvert();
+    // The first route in the list is the oldest (rank 0), so its market
+    // sample is the one extra call.
+    expect(rank(0)).toBe(0);
+    await settle();
     expect(estimateConversion).toHaveBeenCalledTimes(31);
-    expect(estimatedVias().filter(via => via === 'b1')).toHaveLength(2);
-    expect(estimatedVias()).not.toContain('b3');
+    expect([...new Set(estimatedVias())].sort()).toEqual(viasOfRanks(0, 30));
+    expect(Object.keys(sheet().estimates)).toHaveLength(30);
+    expect(sheet().target.routes).toHaveLength(target.routes.length);
+    expect(sheet().checkingMore).toBe(false);
+  });
+
+  it('checks the next 30 oldest after a tap, and only those', async () => {
+    renderConvert();
+    await settle();
+    estimateConversion.mockClear();
+    act(() => sheet().onCheckMore());
+    expect(sheet().checkingMore).toBe(true);
+    await settle();
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias().sort()).toEqual(viasOfRanks(30, 60));
+    expect(Object.keys(sheet().estimates)).toHaveLength(60);
+    expect(sheet().checkingMore).toBe(false);
+  });
+
+  it('goes back to the 30 oldest when the amount changes', async () => {
+    renderConvert();
+    await settle();
+    act(() => sheet().onCheckMore());
+    await settle();
+    estimateConversion.mockClear();
+    act(() => wizard.setAmountDraft({amountInput: '2'}));
+    await settle();
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias().sort()).toEqual(viasOfRanks(0, 30));
+    expect(Object.keys(sheet().estimates)).toHaveLength(30);
+  });
+
+  it('keeps a picked route among the 30 after an amount change', async () => {
+    const target = renderConvert();
+    await settle();
+    act(() => sheet().onCheckMore());
+    await settle();
+    const picked = target.routes.find(route => rank(Number(route.via.slice(1))) === 45);
+    act(() => sheet().onSelect(picked));
+    await settle();
+    estimateConversion.mockClear();
+    act(() => wizard.setAmountDraft({amountInput: '2'}));
+    await settle();
+    // Ranks 0 to 28 and the pick, in place of the youngest of the 30 (rank 29).
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias().sort()).toEqual([...viasOfRanks(0, 29), picked.via].sort());
+    expect(sheet().route.key).toBe(picked.key);
+  });
+
+  it('starts again at 30 on a return to an amount that had a tap', async () => {
+    renderConvert();
+    await settle();
+    act(() => sheet().onCheckMore());
+    await settle();
+    act(() => wizard.setAmountDraft({amountInput: '2'}));
+    await settle();
+    estimateConversion.mockClear();
+    act(() => wizard.setAmountDraft({amountInput: '1'}));
+    await settle();
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias().sort()).toEqual(viasOfRanks(0, 30));
+    expect(Object.keys(sheet().estimates)).toHaveLength(30);
+  });
+
+  it('asks no route twice when a route is picked while the next 30 are in flight', async () => {
+    const target = renderConvert();
+    await settle();
+    estimateConversion.mockClear();
+    act(() => sheet().onCheckMore());
+    // The batch starts: its 30 requests are out, their answers not yet in.
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(sheet().checkingMore).toBe(true);
+    const other = target.routes.find(route => rank(Number(route.via.slice(1))) === 5);
+    act(() => sheet().onSelect(other));
+    await settle();
+    // No repeat: the 30 once each, plus the market sample of the picked route.
+    expect(estimateConversion).toHaveBeenCalledTimes(31);
+    expect(estimatedVias().filter(via => via !== other.via).sort()).toEqual(viasOfRanks(30, 60));
+    expect(Object.keys(sheet().estimates)).toHaveLength(60);
+    expect(sheet().checkingMore).toBe(false);
+    expect(sheet().route.key).toBe(other.key);
+  });
+
+  it('asks no route twice when a route is picked before the next 30 start', async () => {
+    const target = renderConvert();
+    await settle();
+    estimateConversion.mockClear();
+    act(() => sheet().onCheckMore());
+    const other = target.routes.find(route => rank(Number(route.via.slice(1))) === 5);
+    act(() => sheet().onSelect(other));
+    await settle();
+    // 30 new routes once each, plus the market sample of the picked route.
+    expect(estimateConversion).toHaveBeenCalledTimes(31);
+    expect(estimatedVias().filter(via => via !== other.via).sort()).toEqual(viasOfRanks(30, 60));
+    expect(Object.keys(sheet().estimates)).toHaveLength(60);
+  });
+
+  it('names no basket before the estimate, then the chosen one', async () => {
+    const target = renderConvert();
+    // Start on a route that is not the best, as Convert to may.
+    const first = target.routes[1];
+    act(() => wizard.setRoute(first));
+    const estimate = () => view.root.findByType('AmountEstimate').props;
+    expect(estimate().via).toBeNull();
+    await settle();
+    // The oldest route (rank 0) gives the most.
+    expect(estimate().via).toBe('Basket0');
+    act(() => wizard.setAmountDraft({amountInput: ''}));
+    expect(estimate().via).toBeNull();
+  });
+
+  it('names the end row and the badge from the counts', () => {
+    expect(getRouteCheckState(100, 30)).toEqual({remaining: 70, next: 30, bestLabel: 'Best so far'});
+    expect(getRouteCheckState(100, 90)).toEqual({remaining: 10, next: 10, bestLabel: 'Best so far'});
+    expect(getRouteCheckState(31, 30)).toEqual({remaining: 1, next: 1, bestLabel: 'Best so far'});
+    expect(getRouteCheckState(100, 100)).toEqual({remaining: 0, next: 0, bestLabel: 'Best price'});
+    expect(getRouteCheckState(5, 5)).toEqual({remaining: 0, next: 0, bestLabel: 'Best price'});
   });
 });
 
@@ -533,5 +764,180 @@ describe('Convert Amount step, no repeated estimates (audit row 14)', () => {
     expect(estimateConversion).toHaveBeenCalledTimes(3);
     expect(sheet().route.key).toBe(other.key);
     expect(sheet().estimatedOutput).toBe(1);
+  });
+});
+
+// Orchestrator decision 2026-11-22: with 2 or more routes, a failed estimate
+// (all routes, or the route the user picked) keeps the Est. slippage row as
+// "Details", so "Price and route" stays reachable. Its via line names a
+// basket only when the user picked that route. One route: no row.
+describe('Convert Amount step, failed estimate keeps Price and route', () => {
+  const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
+  const {buildTargetOptions} = require('../../../containers/SendWizard/wizardUtils');
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', currency_id: 'iSource', system_id: 'iSystem'};
+  const destination = {currencyid: 'iTarget', fullyqualifiedname: 'Target', startblock: 5};
+  const basket = n => ({currencyid: `b${n}`, fullyqualifiedname: `Basket${n}`, startblock: 10 * n});
+  let view;
+  // Vias whose estimate fails; null stands for the direct route.
+  let failing;
+
+  const renderConvert = vias => {
+    const paths = {iTarget: vias.map(via => (via ? {destination, via, price: 1} : {destination, price: 1}))};
+    const target = buildTargetOptions(paths, VRSCTEST, false, 'iSystem')
+      .find(option => option.isConversion);
+    const card = {id: 'MAIN', api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iSystem'}};
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {bal: {VRSCTEST: {confirmed: '100', pending: '0', total: '100'}}}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="convert"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '100',
+            channel: card.api_channels.send,
+            target,
+            route: target.routes[0],
+            amountInput: '1',
+          }}>
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+    return target;
+  };
+  const settle = async () => {
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    await act(async () => {});
+  };
+  const estimate = () => view.root.findByType('AmountEstimate').props;
+  const sheet = () => view.root.findByType('PriceRouteSheet').props;
+  const errorText = () => view.root.findByType('ErrorMessage').props.children;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    failing = [];
+    estimateConversion.mockImplementation((system, source, dest, amount, via) =>
+      Promise.resolve(failing.includes(via ?? null)
+        ? {error: {message: 'no liquidity'}}
+        : {result: {estimatedcurrencyout: via === 'b1' ? 2 : 1}}));
+  });
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+    jest.useRealTimers();
+  });
+
+  it('keeps the row as Details, without a via line, when every route fails', async () => {
+    failing = ['b1', 'b2'];
+    const target = renderConvert([basket(1), basket(2)]);
+    // The current route is a basket route, so a via line would be a guess.
+    expect(target.routes[0].via).toBe('b1');
+    await settle();
+    expect(estimate().estimatedOutput == null).toBe(true);
+    expect(estimate().showDetails).toBe(true);
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBeNull();
+    // Today's failure text stays.
+    expect(errorText()).toBe('Estimate unavailable.');
+    expect(sheet().visible).toBe(false);
+    act(() => estimate().onOpenDetails());
+    expect(sheet().visible).toBe(true);
+    expect(Object.values(sheet().estimates)).toEqual([null, null]);
+  });
+
+  it('names the basket the user picked when its estimate fails', async () => {
+    failing = ['b2'];
+    const target = renderConvert([basket(1), basket(2)]);
+    await settle();
+    // b1 works: the normal row, with its basket.
+    expect(estimate().estimateFailed).toBe(false);
+    expect(estimate().via).toBe('Basket1');
+    const picked = target.routes.find(route => route.via === 'b2');
+    act(() => sheet().onSelect(picked));
+    await settle();
+    expect(sheet().route.key).toBe(picked.key);
+    expect(estimate().estimatedOutput == null).toBe(true);
+    expect(estimate().showDetails).toBe(true);
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBe('Basket2');
+    expect(errorText()).toBe('Estimate unavailable.');
+    act(() => estimate().onOpenDetails());
+    expect(sheet().visible).toBe(true);
+  });
+
+  it('keeps the user\'s basket when every route fails at the next amount', async () => {
+    const target = renderConvert([basket(1), basket(2)]);
+    await settle();
+    const picked = target.routes.find(route => route.via === 'b2');
+    act(() => sheet().onSelect(picked));
+    await settle();
+    failing = ['b1', 'b2'];
+    act(() => view.root.findByType('AmountInput').props.onChangeText('2'));
+    await settle();
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBe('Basket2');
+  });
+
+  it('shows no via line when the picked failed route is direct', async () => {
+    failing = [null];
+    const target = renderConvert([basket(1), null]);
+    await settle();
+    const direct = target.routes.find(route => !route.via);
+    expect(direct).toBeDefined();
+    act(() => sheet().onSelect(direct));
+    await settle();
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().showDetails).toBe(true);
+    expect(estimate().via).toBeNull();
+  });
+
+  it('reaches the next 30 routes when the first 30 all fail', async () => {
+    // b1 to b30 are the 30 oldest (start blocks 10 to 300), checked first.
+    failing = Array.from({length: 30}, (_, index) => `b${index + 1}`);
+    const vias = Array.from({length: 60}, (_, index) => basket(index + 1));
+    renderConvert(vias);
+    await settle();
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBeNull();
+    act(() => estimate().onOpenDetails());
+    expect(sheet().visible).toBe(true);
+    expect(Object.keys(sheet().estimates)).toHaveLength(30);
+    act(() => sheet().onCheckMore());
+    await settle();
+    expect(Object.keys(sheet().estimates)).toHaveLength(60);
+    // b31 to b60 answer 1 each; the first of them is chosen.
+    expect(estimate().estimateFailed).toBe(false);
+    expect(estimate().estimatedOutput).toBe(1);
+    expect(estimate().via).toBe('Basket31');
+    expect(errorText()).toBeNull();
+  });
+
+  it('leaves Continue as it was: a settled failed estimate does not change it', async () => {
+    failing = ['b1', 'b2'];
+    renderConvert([basket(1), basket(2)]);
+    await settle();
+    expect(estimate().estimateFailed).toBe(true);
+    // Unchanged from before the rule: Continue waits only while estimates
+    // load, not on a failed one.
+    expect(view.root.findByType('WizardFooter').props.disabled).toBe(false);
+  });
+
+  it('keeps no row when the only route fails', async () => {
+    failing = ['b1'];
+    const target = renderConvert([basket(1)]);
+    expect(target.routes).toHaveLength(1);
+    await settle();
+    expect(estimate().estimatedOutput == null).toBe(true);
+    expect(estimate().estimateFailed).toBe(false);
+    expect(estimate().via).toBeNull();
+    expect(errorText()).toBe('Estimate unavailable.');
   });
 });

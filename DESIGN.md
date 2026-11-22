@@ -687,9 +687,34 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   toggle under the input and the existing compact keypad layout.
 - Below the asset, a pressable `FlatRow` reads "Est. slippage", with a
   `StatusBadge` and chevron. Keep the existing doorway rule: impact at least
-  0.1%, more than one basket, or an Ethereum export. Show it only with a receive
+  0.1%, more than one basket, or an Ethereum export. A route through a basket
+  also shows it, below 0.1% too ("Details"). Show it only with a receive
   estimate. The badge is percent only, neutral below 1%, warning from 1%, and
   danger from 5%. Unknown or below 0.1% reads "Details" in neutral.
+- A failed estimate (orchestrator decision, 2026-11-22): when the target has 2
+  or more routes and the estimate for the current amount failed (every checked
+  route, or the route the user picked), the row still shows as "Est. slippage"
+  with "Details" and the chevron, and opens "Price and route", so the user can
+  pick another route or "Check 30 more routes". Its "via <basket>" line shows
+  only when the user picked that route in the sheet; otherwise there is no via
+  line (the name would be a guess). The receive amount stays "—", the failure
+  text under the amount stays, and Continue is unchanged. A target with one
+  route keeps no row (`getFailedEstimateRow`). Screen readers hear "Estimated
+  slippage Details[, via <basket>]. Opens price and route".
+- Owner pick, 2026-11-22 (R3 option 1 "Via under the label", without the route
+  count): the basket shows under the row's label as "via <basket>" (`ViaLine`:
+  "via " in `caption` `textSecondary`, the name in `labelSm` `textPrimary`,
+  one line, middle ellipsis, the name `route.viaFqn || route.via`). The row is
+  then 52 points (`FlatRow detail`); the label column takes the free width,
+  the badge and chevron keep theirs, and the receive amount never shrinks for
+  the name. "You receive" stays alone under the target name. A direct route
+  has no via line and no route count shows anywhere. The name shows only with
+  an estimate: the route chosen once the estimates arrived, never the first
+  route before them. While the estimate loads for a target with basket
+  routes, the skeleton row is 52 points (two text blocks and the badge). The
+  52-point row and its jump when the estimate arrives are accepted (owner).
+  Screen readers hear "Estimated slippage 0.1%, via SuperBASKET. Opens price
+  and route".
 - "Price and route" uses `BottomSheetModal` directly with the shared
   information-sheet styles in `src/styles/components/infoSheet.styles.js` and
   `titleSheetCompact` (18/24). The shell keeps its 24-point radius and 78% maximum height.
@@ -704,8 +729,23 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   deviation from the canonical 56-point minimum. Titles use `titleRowDense`
   (14/18), estimates use `captionDense` (12/16), and badge labels use
   `labelDense` (12/16). Show the basket name, estimated receive
-  amount or "Estimate unavailable.", a success "Best price" pill only on the
-  best basket, and the selected green check or unselected chevron.
+  amount, a success "Best price" pill only on the best basket, and the
+  selected green check or unselected chevron. Only routes that Amount checked
+  are listed; a checked route whose estimate failed reads "Estimate
+  unavailable." and sorts last.
+- Many routes, owner pick 2026-11-22 (R2 option A "Rest in one row"): Amount
+  asks at most 30 estimates per amount pause, the oldest routes first (lowest
+  basket start block, `pickEstimateRoutes`). When more routes exist, the list
+  ends in one row "Check 30 more routes" (or "Check 1 more route") over "30 of
+  100 routes checked", with the real counts: the dense row without fill, a
+  full 1-point `border` outline, the title in `link` and a 18-point Lucide
+  `RotateCw` in `link`. A tap checks the next 30 oldest, without closing the
+  sheet; the row then reads "Checking 30 routes…" in `textSecondary` without
+  the icon, and the list keeps its rows. The best row says "Best so far"
+  while unchecked routes remain, and "Best price" once all are checked. The
+  amount on Amount stays while it checks; Continue waits. A new amount starts
+  again at the 30 oldest; a route the user picked stays among them, in place
+  of the youngest.
 - Follow the baskets with single-line, non-tappable fact rows: Market price,
   Your price, and Estimated slippage. Labels sit left and values right, with hairline
   dividers. Their 32-point height and 13/18 `caption` text are an owner-approved
@@ -809,7 +849,12 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - The connector between the pay and receive nodes shows the unit price only. The route
   is behind the Est. slippage row, which opens "Price and route" with the price facts
   and the route (owner, 2026-10-22, so that Send and invoice Confirm match). The row
-  shows "Details" when the impact is unknown and the route has a basket.
+  shows "Details" when the impact is unknown and the route has a basket. A route
+  through a basket shows "via <basket>" under the row's label, as on Amount, with no
+  route count: Confirm cannot change the route (R3 option 1, owner 2026-11-22). The
+  preparing skeleton keeps the same two-line row. Below 0.1% the badge reads
+  "Details", as on Amount; the screen-reader label also reads the money shown
+  beside the badge.
 - A long receive label ("RSRG…LLck receives") wraps to a second line; it never runs
   into the amount.
 - A currency name keeps its full form where it names the currency. A Bridge is
@@ -837,10 +882,10 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
 - **Amount, conversions and Ethereum exports.** Follow the option B pinned
   receive block and "Price and route" sheet rules above. They replace the earlier
   A2 receive line. Market price and suggestion stay in Price and route. A route
-  through a basket also shows "Via <basket>" as a 32-point fact line (caption
-  label, `labelSm` value) at the end of the receive block, also while the
-  estimate loads (lead developer, PR 266 feedback F8, 2026-11-20). The
-  system still picks the basket with the most output. Name a basket by what it holds
+  through a basket names it under the Est. slippage label ("via <basket>",
+  R3 option 1, owner 2026-11-22). It replaces the 32-point "Via <basket>"
+  fact line of PR 266 feedback F8 (lead developer, 2026-11-20). The system
+  still picks the basket with the most output. Name a basket by what it holds
   (for example "VRSC-KMD-GOLD").
 - **Estimated slippage** is how far this conversion's price is below the market
   price. It is an estimate, so the label says so (lead developer, PR 266
@@ -1114,6 +1159,10 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   whole list has 7 or more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24).
   Up to 6 rows fit on the smallest phones without scrolling. Count the list
   before the search, so the field does not disappear while the user types.
+  Convert to matches names, tickers and network names anywhere in any case; a
+  currency id (i-address) matches only when the query equals it or is a
+  case-sensitive prefix of it, so "EUR" does not find an id that ends in
+  "…DDEUr" (`matchesTargetQuery`, orchestrator decision 2026-11-22).
   Without the field, the first row or group title starts 24 points under the
   header. The Add asset list keeps its field: it searches the whole catalogue
   and takes a pasted identifier.
