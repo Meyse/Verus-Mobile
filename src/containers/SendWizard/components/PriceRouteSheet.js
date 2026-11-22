@@ -38,6 +38,12 @@ import {
 } from './impactFormat';
 
 const FACT_ROW_HEIGHT = 32;
+// Android's fit-to-width shrinks text that already fits, so fact values keep
+// full size there and wrap to a second line (right-aligned) instead. iOS keeps
+// the one-line shrink.
+const FACT_VALUE_FIT_PROPS = Platform.OS === 'android'
+  ? {}
+  : {adjustsFontSizeToFit: true, minimumFontScale: 0.8, numberOfLines: 1};
 const SUGGESTION_ROW_HEIGHT = 48;
 const FACT_LIST_GAP = 8;
 const SHEET_HEIGHT_SHARE = 0.78;
@@ -276,9 +282,7 @@ const PriceRouteSheet = ({
                     </SkeletonLoader>
                   ) : (
                     <Text
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.8}
-                      numberOfLines={1}
+                      {...FACT_VALUE_FIT_PROPS}
                       style={[
                         fact.emphasis ? theme.typography.labelSm : theme.typography.caption,
                         styles.factValue,
@@ -396,7 +400,7 @@ const styles = StyleSheet.create({
   badge: {paddingHorizontal: 6, paddingVertical: 2},
   factsAfterBaskets: {marginTop: FACT_LIST_GAP, borderTopWidth: StyleSheet.hairlineWidth},
   fact: {
-    height: FACT_ROW_HEIGHT,
+    minHeight: FACT_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
