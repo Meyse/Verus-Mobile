@@ -7,7 +7,7 @@ without repeating the entire investigation.
 ## Current position
 
 - Scoped follow-up: **TX-1.ADV-MENU-1122** (owner pick, 2026-11-22) on
-  `claude/adv-form-menu-1122` from `24d8ad8d`: **Ready for device QA**. The
+  `claude/adv-form-menu-1122` from `24d8ad8d`: **Device QA passed**. The
   Advanced form entry moves from the Convert to footer into the wizard
   header's "More options" menu (`OptionsSheet`, shared with the VerusID ⋯
   menu), on Convert to (Convert) and Amount (Send, plain sends on
@@ -15,7 +15,7 @@ without repeating the entire investigation.
   - [x] Shared `OptionsSheet`; `useAdvancedFormMenu`; `shouldShowAdvancedFormMenu` (unit test)
   - [x] Footer and list fade removed from Convert to; bottom inset by `useSafeAreaInsets`
   - [x] DESIGN.md entry rule
-  - [ ] Device QA: iOS and Android, light and dark, home indicator and none, Back from the form to Amount and to Convert to
+  - [x] Device QA (2026-11-22): Android `normal` and `small` at `6e3cb5a9`, light and dark, every check passed; iOS 26 simulator at `6e3cb5a9`, then the amount cursor re-check at `ec942fa4`, passed. Not seen: a private card with funds; Android at `ec942fa4`.
 
 - Scoped follow-up: **TX-1.PR266-PICKS-1120** (owner picks on the PR 266
   performance report, 2026-11-20) on `claude/pr266-picks-1120` from
