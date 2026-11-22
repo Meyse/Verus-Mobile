@@ -36,8 +36,4 @@ describe('Advanced form entry in the header More options menu', () => {
   ])('is absent for Send with %s', (_name, extra) => {
     expect(show({state: {...plain, ...extra}})).toBe(false);
   });
-
-  it('is absent when conversion is disabled', () => {
-    expect(show({conversionDisabled: true})).toBe(false);
-  });
 });

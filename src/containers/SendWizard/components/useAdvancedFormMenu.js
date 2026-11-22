@@ -8,8 +8,9 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 // The wizard header's "More options" action and its sheet. The action sits
 // left of Close (the header's `rightAccessory`) and belongs to the screen that
 // calls this hook; the stack keeps options per screen. Returns the sheet to
-// render in the screen. `onOpenForm` runs after the sheet has closed.
-const useAdvancedFormMenu = ({enabled, onOpenForm}) => {
+// render in the screen. `onOpenForm` runs after the sheet has closed;
+// `onDismissed` runs when it closed with no choice (to give focus back).
+const useAdvancedFormMenu = ({enabled, onDismissed, onOpenForm}) => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const [visible, setVisible] = useState(false);
@@ -49,6 +50,7 @@ const useAdvancedFormMenu = ({enabled, onOpenForm}) => {
         },
       ]}
       onClose={() => setVisible(false)}
+      onDismissed={onDismissed}
       visible={visible}
     />
   ) : null;

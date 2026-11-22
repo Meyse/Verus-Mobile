@@ -824,14 +824,9 @@ export const getRouteName = route =>
 // The header "More options" menu holds the Advanced form. It is the
 // conversion / cross-chain form, so it needs a card on a conversion channel.
 // Convert opens it from "Convert to"; Send from "Amount", for a plain send
-// only: no scanned request, invoice, pre-conversion or fixed recipient.
-export const shouldShowAdvancedFormMenu = ({
-  conversionDisabled = false,
-  mode,
-  routeName,
-  state,
-}) => {
-  if (!state?.sourceSubWallet || conversionDisabled) return false;
+// only: no scanned request (a fixed recipient), invoice or pre-conversion.
+export const shouldShowAdvancedFormMenu = ({mode, routeName, state}) => {
+  if (!state?.sourceSubWallet) return false;
   if (mode === SEND_WIZARD_MODE.CONVERT) {
     return routeName === 'SendWizardSelectTarget';
   }
@@ -841,7 +836,6 @@ export const shouldShowAdvancedFormMenu = ({
     isConversionChannel(state.channel) &&
     !state.scanRequest &&
     !state.invoice &&
-    !state.route?.preconvert &&
-    !state.scanRequest?.address
+    !state.route?.preconvert
   );
 };

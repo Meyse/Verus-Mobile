@@ -103,6 +103,7 @@ const SendWizardAmount = () => {
   // an amount typed here is not carried over.
   const advancedFormSheet = useAdvancedFormMenu({
     enabled: shouldShowAdvancedFormMenu({mode, routeName: 'SendWizardAmount', state}),
+    onDismissed: refocusAfterSheet,
     onOpenForm: () => navigation.navigate('SendWizardAdvanced'),
   });
 

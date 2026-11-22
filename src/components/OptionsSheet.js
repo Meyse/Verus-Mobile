@@ -40,7 +40,8 @@ const OptionRow = ({danger, icon, label, onPress, styles, testID, theme}) => (
 );
 
 // actions: [{key, label, icon, danger, onPress, testID}]; title: an optional node.
-const OptionsSheet = ({actions = [], onClose, title = null, visible}) => {
+// onDismissed: runs after the sheet has closed with no action chosen.
+const OptionsSheet = ({actions = [], onClose, onDismissed, title = null, visible}) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSignedOutSheetStyles(theme), [theme]);
   const pendingActionRef = useRef(null);
@@ -57,6 +58,7 @@ const OptionsSheet = ({actions = [], onClose, title = null, visible}) => {
     pendingActionRef.current = null;
 
     if (typeof pendingAction === 'function') pendingAction();
+    else onDismissed?.();
   };
 
   return (
