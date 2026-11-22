@@ -102,6 +102,8 @@ const SendWizardAmount = () => {
   // Send only: "More options" holds the Advanced form. The form starts empty;
   // an amount typed here is not carried over.
   const advancedFormSheet = useAdvancedFormMenu({
+    // The amount field uses the app keypad, not the system keyboard.
+    dismissKeyboard: false,
     enabled: shouldShowAdvancedFormMenu({mode, routeName: 'SendWizardAmount', state}),
     onDismissed: refocusAfterSheet,
     onOpenForm: () => navigation.navigate('SendWizardAdvanced'),

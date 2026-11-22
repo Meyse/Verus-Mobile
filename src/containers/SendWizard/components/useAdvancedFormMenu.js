@@ -10,7 +10,15 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 // calls this hook; the stack keeps options per screen. Returns the sheet to
 // render in the screen. `onOpenForm` runs after the sheet has closed;
 // `onDismissed` runs when it closed with no choice (to give focus back).
-const useAdvancedFormMenu = ({enabled, onDismissed, onOpenForm}) => {
+// `dismissKeyboard: false` is for a step with no system keyboard: its field
+// keeps focus under the sheet, so the cursor is there when the sheet closes
+// (iOS does not give focus back to a field that was blurred first).
+const useAdvancedFormMenu = ({
+  dismissKeyboard = true,
+  enabled,
+  onDismissed,
+  onOpenForm,
+}) => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
   const [visible, setVisible] = useState(false);
@@ -23,7 +31,7 @@ const useAdvancedFormMenu = ({enabled, onDismissed, onOpenForm}) => {
           accessibilityRole="button"
           hitSlop={4}
           onPress={() => {
-            Keyboard.dismiss();
+            if (dismissKeyboard) Keyboard.dismiss();
             setVisible(true);
           }}
           style={styles.button}
@@ -36,7 +44,7 @@ const useAdvancedFormMenu = ({enabled, onDismissed, onOpenForm}) => {
         </Pressable>
       ) : undefined,
     });
-  }, [enabled, navigation, theme.colors.textPrimary]);
+  }, [dismissKeyboard, enabled, navigation, theme.colors.textPrimary]);
 
   return enabled ? (
     <OptionsSheet
