@@ -22,11 +22,14 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false, via = null}) 
   const showLoss =
     lossText != null &&
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
+  // As on Amount: below 0.1% the badge reads "Details" (DESIGN.md, F6).
+  const badgeLabel = impact == null || level === IMPACT_LEVEL.NONE
+    ? 'Details' : getImpactBadgeLabel(impact, pay);
 
   return (
     <FlatRow
       accessibilityLabel={getSlippageRowLabel(
-        impact == null ? 'Details' : getImpactBadgeLabel(impact, pay),
+        showLoss ? `${lossText}, ${badgeLabel}` : badgeLabel,
         via,
       )}
       copyValue={impact == null ? undefined : formatImpact(impact)}
@@ -49,7 +52,7 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false, via = null}) 
         </Text>
       ) : null}
       <StatusBadge
-        label={impact == null ? 'Details' : getImpactBadgeLabel(impact, pay)}
+        label={badgeLabel}
         tone={getImpactTone(level)}
       />
     </FlatRow>

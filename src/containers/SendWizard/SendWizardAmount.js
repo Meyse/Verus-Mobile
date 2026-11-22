@@ -54,6 +54,7 @@ import {
   getCurrencyDisplay,
   getEstimateLimit,
   getRecipientAddressType,
+  MAX_ESTIMATED_CONVERTERS,
   getRouteName,
   isConversionChannel,
   pickEstimateRoutes,
@@ -349,14 +350,18 @@ const SendWizardAmount = () => {
       setRouteEstimates({});
       return undefined;
     }
-    if (knownEstimates.current.base !== estimateBase) {
+    // A new pause starts at one batch, also on a return to an amount whose
+    // earlier pause had more (its answers are gone).
+    const newPause = knownEstimates.current.base !== estimateBase;
+    if (newPause) {
       knownEstimates.current = {base: estimateBase, results: {}, pending: new Set()};
+      if (pages !== 1) setEstimatePages({base: estimateBase, pages: 1});
     }
     const known = knownEstimates.current;
     const pool = target?.routes?.length ? target.routes : estimateRoutes;
     // Never more estimates in one pause than its batches allow: 30, plus 30
     // per tap. The user's pick goes first, then the oldest.
-    const budget = getEstimateLimit(pages) -
+    const budget = (newPause ? MAX_ESTIMATED_CONVERTERS : getEstimateLimit(pages)) -
       Object.keys(known.results).length - known.pending.size;
     const missing = estimateRoutes
       .filter(candidate =>
@@ -365,12 +370,12 @@ const SendWizardAmount = () => {
         (second.key === preferredRouteKey) - (first.key === preferredRouteKey))
       .slice(0, Math.max(0, budget));
     missing.forEach(candidate => known.pending.add(candidate.key));
-    // The batch order first (oldest first), so equal estimates keep the
-    // oldest route as the best, as before.
-    const checked = [
-      ...estimateRoutes,
-      ...pool.filter(candidate => !estimateRoutes.includes(candidate)),
-    ].filter(candidate => candidate.key in known.results);
+    // In the order the routes were checked (each batch oldest first), so on
+    // equal estimates the route found first stays the best, as before.
+    const poolByKey = Object.fromEntries(pool.map(candidate => [candidate.key, candidate]));
+    const checked = Object.keys(known.results)
+      .map(key => poolByKey[key])
+      .filter(Boolean);
     const waiting = known.pending.size > 0;
 
     if (checked.length) {

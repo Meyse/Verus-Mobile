@@ -613,7 +613,44 @@ describe('Convert Amount step, Check 30 more routes (R2 A)', () => {
     expect(sheet().route.key).toBe(picked.key);
   });
 
-  it('asks no route twice when a route is picked while more are checked', async () => {
+  it('starts again at 30 on a return to an amount that had a tap', async () => {
+    renderConvert();
+    await settle();
+    act(() => sheet().onCheckMore());
+    await settle();
+    act(() => wizard.setAmountDraft({amountInput: '2'}));
+    await settle();
+    estimateConversion.mockClear();
+    act(() => wizard.setAmountDraft({amountInput: '1'}));
+    await settle();
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimatedVias().sort()).toEqual(viasOfRanks(0, 30));
+    expect(Object.keys(sheet().estimates)).toHaveLength(30);
+  });
+
+  it('asks no route twice when a route is picked while the next 30 are in flight', async () => {
+    const target = renderConvert();
+    await settle();
+    estimateConversion.mockClear();
+    act(() => sheet().onCheckMore());
+    // The batch starts: its 30 requests are out, their answers not yet in.
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(sheet().checkingMore).toBe(true);
+    const other = target.routes.find(route => rank(Number(route.via.slice(1))) === 5);
+    act(() => sheet().onSelect(other));
+    await settle();
+    // No repeat: the 30 once each, plus the market sample of the picked route.
+    expect(estimateConversion).toHaveBeenCalledTimes(31);
+    expect(estimatedVias().filter(via => via !== other.via).sort()).toEqual(viasOfRanks(30, 60));
+    expect(Object.keys(sheet().estimates)).toHaveLength(60);
+    expect(sheet().checkingMore).toBe(false);
+    expect(sheet().route.key).toBe(other.key);
+  });
+
+  it('asks no route twice when a route is picked before the next 30 start', async () => {
     const target = renderConvert();
     await settle();
     estimateConversion.mockClear();

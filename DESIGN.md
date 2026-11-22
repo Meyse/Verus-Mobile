@@ -842,7 +842,9 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   shows "Details" when the impact is unknown and the route has a basket. A route
   through a basket shows "via <basket>" under the row's label, as on Amount, with no
   route count: Confirm cannot change the route (R3 option 1, owner 2026-11-22). The
-  preparing skeleton keeps the same two-line row.
+  preparing skeleton keeps the same two-line row. Below 0.1% the badge reads
+  "Details", as on Amount; the screen-reader label also reads the money shown
+  beside the badge.
 - A long receive label ("RSRG…LLck receives") wraps to a second line; it never runs
   into the amount.
 - A currency name keeps its full form where it names the currency. A Bridge is
