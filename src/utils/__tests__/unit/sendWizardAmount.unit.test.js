@@ -898,6 +898,38 @@ describe('Convert Amount step, failed estimate keeps Price and route', () => {
     expect(estimate().via).toBeNull();
   });
 
+  it('reaches the next 30 routes when the first 30 all fail', async () => {
+    // b1 to b30 are the 30 oldest (start blocks 10 to 300), checked first.
+    failing = Array.from({length: 30}, (_, index) => `b${index + 1}`);
+    const vias = Array.from({length: 60}, (_, index) => basket(index + 1));
+    renderConvert(vias);
+    await settle();
+    expect(estimateConversion).toHaveBeenCalledTimes(30);
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBeNull();
+    act(() => estimate().onOpenDetails());
+    expect(sheet().visible).toBe(true);
+    expect(Object.keys(sheet().estimates)).toHaveLength(30);
+    act(() => sheet().onCheckMore());
+    await settle();
+    expect(Object.keys(sheet().estimates)).toHaveLength(60);
+    // b31 to b60 answer 1 each; the first of them is chosen.
+    expect(estimate().estimateFailed).toBe(false);
+    expect(estimate().estimatedOutput).toBe(1);
+    expect(estimate().via).toBe('Basket31');
+    expect(errorText()).toBeNull();
+  });
+
+  it('leaves Continue as it was: a settled failed estimate does not change it', async () => {
+    failing = ['b1', 'b2'];
+    renderConvert([basket(1), basket(2)]);
+    await settle();
+    expect(estimate().estimateFailed).toBe(true);
+    // Unchanged from before the rule: Continue waits only while estimates
+    // load, not on a failed one.
+    expect(view.root.findByType('WizardFooter').props.disabled).toBe(false);
+  });
+
   it('keeps no row when the only route fails', async () => {
     failing = ['b1'];
     const target = renderConvert([basket(1)]);

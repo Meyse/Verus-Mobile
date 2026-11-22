@@ -53,4 +53,18 @@ describe('matchesTargetQuery', () => {
     expect(matchesTargetQuery(factory, '')).toBe(true);
     expect(matchesTargetQuery(factory, '   ')).toBe(true);
   });
+
+  it('keeps the id rule for an id that stands in for a missing name', () => {
+    const id = 'iRbRuAmQ9TqmAiPU7S7Yh8kYZ4xLLDDEUr';
+    // A destination with only its currency id: the name fields hold the id.
+    const unnamed = {id, name: id, ticker: 'TF', fullyqualifiedname: id};
+    expect(matchesTargetQuery(unnamed, 'EUR')).toBe(false);
+    expect(matchesTargetQuery(unnamed, 'ddeur')).toBe(false);
+    expect(matchesTargetQuery(unnamed, 'iRbRuA')).toBe(true);
+    expect(matchesTargetQuery(unnamed, 'tf')).toBe(true);
+    // A bridged id from another currency in the name field, same rule.
+    const mapped = {id: 'iOther', name: 'X', ticker: 'X', fullyqualifiedname: id};
+    expect(matchesTargetQuery(mapped, 'EUR')).toBe(false);
+    expect(matchesTargetQuery(mapped, 'iRbRu')).toBe(true);
+  });
 });

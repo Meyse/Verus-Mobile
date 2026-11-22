@@ -53,6 +53,8 @@ describe('Est. slippage row after a failed estimate', () => {
     expect(texts(view)).not.toContain('via ');
     expect(view.root.findByType('StatusBadge').props.label).toBe('Details');
     expect(view.root.findByType('StatusBadge').props.tone).toBe('neutral');
+    expect(view.root.findAll(node => node.type === 'MCIcon' && node.props.name === 'chevron-right'))
+      .toHaveLength(1);
     const [pressable] = row(view);
     expect(pressable.props.accessibilityLabel)
       .toBe('Estimated slippage Details. Opens price and route');
