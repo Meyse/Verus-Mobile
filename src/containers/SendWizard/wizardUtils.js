@@ -785,6 +785,42 @@ export const buildSendTarget = (
   return sourceOption;
 };
 
+// The Est. slippage row on Amount after a failed estimate (all checked
+// routes failed, or the route the user picked failed). With a choice of routes
+// (2 or more) the row stays, as "Details", so "Price and route" stays
+// reachable; its "via" line names the basket only when the user picked that
+// route. With one route there is no row. Returns null for no row, else
+// {via} (orchestrator decision 2026-11-22).
+export const getFailedEstimateRow = ({estimateFailed, pickedRoute, routeCount, viaName}) =>
+  estimateFailed && routeCount >= 2
+    ? {via: pickedRoute && viaName ? viaName : null}
+    : null;
+
+// The "Convert to" search: names, tickers and network names match anywhere,
+// in any case. A currency id (an i-address) matches only from its start, in
+// its own case, so "EUR" no longer finds a currency whose id ends in "…DDEUr"
+// (orchestrator decision 2026-11-22). Only Convert to uses this.
+export const matchesTargetQuery = (option, query) => {
+  const active = String(query || '').trim();
+  if (!active) return true;
+  const lower = active.toLowerCase();
+  const networks = option?.networkOptions || [];
+  const names = [
+    option?.name,
+    option?.ticker,
+    option?.fullyqualifiedname,
+    ...networks.flatMap(network => [
+      network.name,
+      network.ticker,
+      network.fullyqualifiedname,
+      network.networkName,
+    ]),
+  ];
+  const ids = [option?.id, ...networks.map(network => network.id)];
+  return names.some(value => value != null && String(value).toLowerCase().includes(lower)) ||
+    ids.some(value => value != null && String(value).startsWith(active));
+};
+
 export const POPULAR_TARGETS = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];
 
 export const isPopularTarget = target => {

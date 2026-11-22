@@ -21,9 +21,12 @@ import {
 // `via` names the basket of the route chosen after the estimates arrived; it
 // shows under "Est. slippage" (R3 option 1, owner 2026-11-22). While the
 // estimate loads, `viaRoutes` (the target has basket routes) gives the
-// skeleton that row's 52-point height.
+// skeleton that row's 52-point height. `estimateFailed`: the estimate failed
+// and the target has a choice of routes, so the row stays as "Details" and
+// still opens "Price and route" (orchestrator 2026-11-22).
 const AmountEstimate = ({
   atLaunch = false,
+  estimateFailed = false,
   estimateLoading,
   estimatedOutput,
   moneyValue,
@@ -36,7 +39,8 @@ const AmountEstimate = ({
 }) => {
   const theme = useOnboardingTheme();
   const {colors} = theme;
-  const quiet = priceImpact.impact == null || priceImpact.level === IMPACT_LEVEL.NONE;
+  const quiet = estimateFailed || priceImpact.impact == null ||
+    priceImpact.level === IMPACT_LEVEL.NONE;
   const chipLabel = quiet ? 'Details' : getImpactBadgeLabel(priceImpact.impact);
 
   return (
@@ -103,7 +107,7 @@ const AmountEstimate = ({
               ) : null}
             </View>
           </View>
-          {!atLaunch && estimatedOutput != null && showDetails ? (
+          {!atLaunch && (estimatedOutput != null || estimateFailed) && showDetails ? (
             <View style={{borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth}}>
               <FlatRow
                 accessibilityLabel={getSlippageRowLabel(chipLabel, via)}

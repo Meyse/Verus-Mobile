@@ -53,6 +53,7 @@ import {
   ADDRESS_TYPE,
   getCurrencyDisplay,
   getEstimateLimit,
+  getFailedEstimateRow,
   getRecipientAddressType,
   MAX_ESTIMATED_CONVERTERS,
   getRouteName,
@@ -619,6 +620,16 @@ const SendWizardAmount = () => {
   const receiveAmount = validAmount
     ? target.isConversion ? estimatedOutput : cryptoAmountValue
     : null;
+  // A failed estimate (all checked routes, or the route the user picked) keeps
+  // the row when the target has a choice of routes, so "Price and route" and
+  // "Check 30 more routes" stay reachable. The basket shows only when the user
+  // picked that route; otherwise it would be a guess (orchestrator 2026-11-22).
+  const failedRouteRow = getFailedEstimateRow({
+    estimateFailed: Boolean(estimateError) && !estimateLoading,
+    pickedRoute: route.key === preferredRouteKey,
+    routeCount: (target.routes || []).length,
+    viaName,
+  });
   const receiveMoneyValue = receiveAmount != null &&
     BigNumber(receiveAmount).isFinite() && BigNumber(receiveRate).isFinite() &&
     BigNumber(receiveRate).isGreaterThan(0)
@@ -729,6 +740,7 @@ const SendWizardAmount = () => {
         <View style={styles.estimateSlot}>
           <AmountEstimate
             atLaunch={preconvert}
+            estimateFailed={Boolean(failedRouteRow)}
             estimateLoading={validAmount && !emptyAmount && estimateLoading}
             estimatedOutput={emptyAmount ? null : receiveAmount}
             moneyValue={receiveMoneyValue}
@@ -737,8 +749,10 @@ const SendWizardAmount = () => {
             showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}
             // The name only with an estimate: the route chosen once the
-            // estimates arrived, never the first route before them.
-            via={receiveAmount != null && !emptyAmount ? viaName : null}
+            // estimates arrived, never the first route before them. After a
+            // failed estimate, only the route the user picked.
+            via={emptyAmount ? null : receiveAmount != null ? viaName
+              : failedRouteRow ? failedRouteRow.via : null}
             viaRoutes={Boolean(target.isConversion && target.routes?.some(candidate => candidate.via))}
           />
         </View>

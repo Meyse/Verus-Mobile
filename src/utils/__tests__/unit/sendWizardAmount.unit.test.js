@@ -766,3 +766,146 @@ describe('Convert Amount step, no repeated estimates (audit row 14)', () => {
     expect(sheet().estimatedOutput).toBe(1);
   });
 });
+
+// Orchestrator decision 2026-11-22: with 2 or more routes, a failed estimate
+// (all routes, or the route the user picked) keeps the Est. slippage row as
+// "Details", so "Price and route" stays reachable. Its via line names a
+// basket only when the user picked that route. One route: no row.
+describe('Convert Amount step, failed estimate keeps Price and route', () => {
+  const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
+  const {buildTargetOptions} = require('../../../containers/SendWizard/wizardUtils');
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', currency_id: 'iSource', system_id: 'iSystem'};
+  const destination = {currencyid: 'iTarget', fullyqualifiedname: 'Target', startblock: 5};
+  const basket = n => ({currencyid: `b${n}`, fullyqualifiedname: `Basket${n}`, startblock: 10 * n});
+  let view;
+  // Vias whose estimate fails; null stands for the direct route.
+  let failing;
+
+  const renderConvert = vias => {
+    const paths = {iTarget: vias.map(via => (via ? {destination, via, price: 1} : {destination, price: 1}))};
+    const target = buildTargetOptions(paths, VRSCTEST, false, 'iSystem')
+      .find(option => option.isConversion);
+    const card = {id: 'MAIN', api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iSystem'}};
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {bal: {VRSCTEST: {confirmed: '100', pending: '0', total: '100'}}}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="convert"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '100',
+            channel: card.api_channels.send,
+            target,
+            route: target.routes[0],
+            amountInput: '1',
+          }}>
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+    return target;
+  };
+  const settle = async () => {
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    await act(async () => {});
+  };
+  const estimate = () => view.root.findByType('AmountEstimate').props;
+  const sheet = () => view.root.findByType('PriceRouteSheet').props;
+  const errorText = () => view.root.findByType('ErrorMessage').props.children;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    failing = [];
+    estimateConversion.mockImplementation((system, source, dest, amount, via) =>
+      Promise.resolve(failing.includes(via ?? null)
+        ? {error: {message: 'no liquidity'}}
+        : {result: {estimatedcurrencyout: via === 'b1' ? 2 : 1}}));
+  });
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+    jest.useRealTimers();
+  });
+
+  it('keeps the row as Details, without a via line, when every route fails', async () => {
+    failing = ['b1', 'b2'];
+    const target = renderConvert([basket(1), basket(2)]);
+    // The current route is a basket route, so a via line would be a guess.
+    expect(target.routes[0].via).toBe('b1');
+    await settle();
+    expect(estimate().estimatedOutput == null).toBe(true);
+    expect(estimate().showDetails).toBe(true);
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBeNull();
+    // Today's failure text stays.
+    expect(errorText()).toBe('Estimate unavailable.');
+    expect(sheet().visible).toBe(false);
+    act(() => estimate().onOpenDetails());
+    expect(sheet().visible).toBe(true);
+    expect(Object.values(sheet().estimates)).toEqual([null, null]);
+  });
+
+  it('names the basket the user picked when its estimate fails', async () => {
+    failing = ['b2'];
+    const target = renderConvert([basket(1), basket(2)]);
+    await settle();
+    // b1 works: the normal row, with its basket.
+    expect(estimate().estimateFailed).toBe(false);
+    expect(estimate().via).toBe('Basket1');
+    const picked = target.routes.find(route => route.via === 'b2');
+    act(() => sheet().onSelect(picked));
+    await settle();
+    expect(sheet().route.key).toBe(picked.key);
+    expect(estimate().estimatedOutput == null).toBe(true);
+    expect(estimate().showDetails).toBe(true);
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBe('Basket2');
+    expect(errorText()).toBe('Estimate unavailable.');
+    act(() => estimate().onOpenDetails());
+    expect(sheet().visible).toBe(true);
+  });
+
+  it('keeps the user\'s basket when every route fails at the next amount', async () => {
+    const target = renderConvert([basket(1), basket(2)]);
+    await settle();
+    const picked = target.routes.find(route => route.via === 'b2');
+    act(() => sheet().onSelect(picked));
+    await settle();
+    failing = ['b1', 'b2'];
+    act(() => view.root.findByType('AmountInput').props.onChangeText('2'));
+    await settle();
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().via).toBe('Basket2');
+  });
+
+  it('shows no via line when the picked failed route is direct', async () => {
+    failing = [null];
+    const target = renderConvert([basket(1), null]);
+    await settle();
+    const direct = target.routes.find(route => !route.via);
+    expect(direct).toBeDefined();
+    act(() => sheet().onSelect(direct));
+    await settle();
+    expect(estimate().estimateFailed).toBe(true);
+    expect(estimate().showDetails).toBe(true);
+    expect(estimate().via).toBeNull();
+  });
+
+  it('keeps no row when the only route fails', async () => {
+    failing = ['b1'];
+    const target = renderConvert([basket(1)]);
+    expect(target.routes).toHaveLength(1);
+    await settle();
+    expect(estimate().estimatedOutput == null).toBe(true);
+    expect(estimate().estimateFailed).toBe(false);
+    expect(estimate().via).toBeNull();
+    expect(errorText()).toBe('Estimate unavailable.');
+  });
+});
