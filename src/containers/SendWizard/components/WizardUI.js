@@ -359,7 +359,7 @@ export const FlatRow = ({
         </View>
       ) : labelText}
       <View style={[styles.flatValueWrap, detail && styles.flatValueWrapFixed]}>
-        <CopyFeedback copied={copied} style={styles.flatCopyValue}>
+        <CopyFeedback copied={copied} style={[styles.flatCopyValue, detail && styles.flatValueWrapFixed]}>
           <View style={styles.flatValueContent}>
             {children || (
               <Text
