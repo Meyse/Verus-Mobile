@@ -10,7 +10,7 @@ import ViaLine from './ViaLine';
 import {FlatRow} from './WizardUI';
 import {
   formatEstimatedAmount,
-  getImpactBadgeLabel,
+  getImpactChipLabel,
   getImpactTone,
   getSlippageRowLabel,
   SLIPPAGE_LABEL_SHORT,
@@ -41,7 +41,7 @@ const AmountEstimate = ({
   const {colors} = theme;
   const quiet = estimateFailed || priceImpact.impact == null ||
     priceImpact.level === IMPACT_LEVEL.NONE;
-  const chipLabel = quiet ? 'Details' : getImpactBadgeLabel(priceImpact.impact);
+  const chipLabel = getImpactChipLabel(estimateFailed ? null : priceImpact.impact);
 
   return (
     <View style={[styles.estimate, {borderTopColor: colors.border}]}>

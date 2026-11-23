@@ -151,7 +151,7 @@ const PriceRouteSheet = ({
     {
       label: 'Your price',
       value: unitPrice
-        ? `1 ${sourceTicker} = ${formatUnitPrice(unitPrice)} ${target.ticker}`
+        ? `1 ${sourceTicker} ≈ ${formatUnitPrice(unitPrice)} ${target.ticker}`
         : null,
     },
     {

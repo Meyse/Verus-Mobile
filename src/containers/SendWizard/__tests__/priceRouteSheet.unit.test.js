@@ -34,6 +34,7 @@ jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'MCIcon');
 jest.mock('lucide-react-native', () => ({RotateCw: 'RotateCw'}));
 jest.mock('../../../hooks/useButtonHeight', () => ({useButtonHeight: () => 56}));
 
+const BigNumber = require('bignumber.js');
 const PriceRouteSheet = require('../components/PriceRouteSheet').default;
 
 const route = n => ({key: `r${n}`, via: `b${n}`, viaFqn: `Basket${n}`});
@@ -167,5 +168,39 @@ describe('Price and route with many routes (R2 A)', () => {
     const subtitles = rows(view).map(node => node.props.subtitle);
     expect(subtitles.filter(text => text === 'Estimate unavailable.')).toHaveLength(1);
     expect(subtitles[subtitles.length - 1]).toBe('Estimate unavailable.');
+  });
+});
+
+// Owner 2026-11-23: "Your price" is an estimate and reads "≈"; the market
+// price keeps "=".
+describe('Price and route facts', () => {
+  it('reads Your price with ≈ and Market price with =', () => {
+    const target = {isConversion: true, ticker: 'EUR', routes: routes(1)};
+    let view;
+    act(() => {
+      view = create(
+        <PriceRouteSheet
+          cryptoAmount={BigNumber(2)}
+          displayCurrency="USD"
+          estimatedOutput="19"
+          estimates={{}}
+          onClose={jest.fn()}
+          onSelect={jest.fn()}
+          onUseSuggestion={jest.fn()}
+          priceImpact={{
+            impact: BigNumber(5), level: 'danger', loss: BigNumber(0.1),
+            marketPrice: '10', suggestion: null,
+          }}
+          route={target.routes[0]}
+          sourceCoin={{display_ticker: 'VRSC'}}
+          target={target}
+          visible
+        />,
+      );
+    });
+    const all = texts(view);
+    expect(all).toContain('1 VRSC = 10 EUR');
+    expect(all).toContain('1 VRSC ≈ 9.5 EUR');
+    expect(all).not.toContain('1 VRSC = 9.5 EUR');
   });
 });

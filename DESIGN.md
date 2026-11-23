@@ -688,9 +688,10 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
 - Below the asset, a pressable `FlatRow` reads "Est. slippage", with a
   `StatusBadge` and chevron. Keep the existing doorway rule: impact at least
   0.1%, more than one basket, or an Ethereum export. A route through a basket
-  also shows it, below 0.1% too ("Details"). Show it only with a receive
-  estimate. The badge is percent only, neutral below 1%, warning from 1%, and
-  danger from 5%. Unknown or below 0.1% reads "Details" in neutral.
+  also shows it, below 0.1% too (the chip reads "<0.1%"). Show it only with a
+  receive estimate. The badge is percent only, neutral below 1%, warning from
+  1%, and danger from 5%. A known impact below 0.1% reads "<0.1%" in neutral
+  (owner 2026-11-23); only an unknown impact reads "Details" in neutral.
 - A failed estimate (orchestrator decision, 2026-11-22): when the target has 2
   or more routes and the estimate for the current amount failed (every checked
   route, or the route the user picked), the row still shows as "Est. slippage"
@@ -747,7 +748,9 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   again at the 30 oldest; a route the user picked stays among them, in place
   of the youngest.
 - Follow the baskets with single-line, non-tappable fact rows: Market price,
-  Your price, and Estimated slippage. Labels sit left and values right, with hairline
+  Your price, and Estimated slippage. Market price reads "1 X = N Y"; Your price
+  is an estimate and reads "1 X ≈ N Y" (owner 2026-11-23, also in the invoice
+  variant). Labels sit left and values right, with hairline
   dividers. Their 32-point height and 13/18 `caption` text are an owner-approved
   deviation from stacked information rows. Emphasized values use `labelSm`. Hide absent data. With one basket, omit the basket list
   and show "Route" after the price facts only when the route has a `via`.
@@ -857,7 +860,7 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   through a basket shows "via <basket>" under the row's label, as on Amount, with no
   route count: Confirm cannot change the route (R3 option 1, owner 2026-11-22). The
   preparing skeleton keeps the same two-line row. Below 0.1% the badge reads
-  "Details", as on Amount; the screen-reader label also reads the money shown
+  "<0.1%", as on Amount (owner 2026-11-23); the screen-reader label also reads the money shown
   beside the badge.
 - A long receive label ("RSRG…LLck receives") wraps to a second line; it never runs
   into the amount.
@@ -903,7 +906,10 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   warning, and 5% and up danger. There is no "None" value: below 0.1%, including
   zero or negative (the user's price is equal to or better than market), the
   value reads "<0.1%", with no money. The same rule applies to invoice pay mode.
-  This case adds no chip. A chip shown for another reason reads "Details".
+  This case adds no chip. A chip shown for another reason (a basket route)
+  still reads "<0.1%" when the impact is known; "Details" is only for an
+  unknown impact (owner 2026-11-23). One helper, `getImpactChipLabel` in
+  `impactFormat.js`, serves Amount, Confirm and invoice Pay with.
   For positive impact, the chip says the percent. The sheet shows the money
   and percent in Estimated slippage, with danger text from 5%, primary text from 1%,
   and secondary text below 1%. From 1%, a verified
