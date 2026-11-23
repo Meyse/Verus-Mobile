@@ -7,6 +7,7 @@ import PrivacyBlurredText from '../../../components/PrivacyBlurredText';
 import {fontStyle} from '../../../globals/fonts';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {AssetCoinLogo} from '../../../utils/CoinData/Graphics';
+import {EstimateInfoButton} from './EstimateInfo';
 
 const LOGO_SIZE = 40;
 const COMPACT_LOGO_SIZE = 32;
@@ -22,7 +23,9 @@ const COMPACT_LOGO_SIZE = 32;
 // smaller node that Confirm uses on small windows. When the wallet lowered the
 // amount to pay the fees, `enteredAmount` ("0.0134422 ETH") shows struck
 // through above the amount and `note` ("Lowered for fees") under the label
-// (owner, 2026-11-13, option B of the reduced-amount mockups).
+// (owner, 2026-11-13, option B of the reduced-amount mockups). `onInfo` puts
+// the "About this amount" glyph after the label (R4 option B). The glyph is its
+// own target, so the copy tap then covers the amount only, not the whole row.
 export const TransferNode = ({
   amount,
   coinId,
@@ -34,6 +37,7 @@ export const TransferNode = ({
   label,
   loading = false,
   note,
+  onInfo,
   ticker,
 }) => {
   const theme = useOnboardingTheme();
@@ -43,29 +47,35 @@ export const TransferNode = ({
     disabled: loading || hideAmounts,
     haptic: true,
   });
-  const Container = canCopy ? Pressable : View;
+  const withInfo = typeof onInfo === 'function';
+  const Container = canCopy && !withInfo ? Pressable : View;
+  const ValueContainer = canCopy && withInfo ? Pressable : View;
 
   return (
     <Container
-      accessible={canCopy || undefined}
-      {...copyProps}
+      accessible={canCopy && !withInfo ? true : undefined}
+      {...(withInfo ? {} : copyProps)}
       style={[styles.node, compact && styles.nodeCompact]}>
       <AssetCoinLogo coinId={coinId} size={compact ? COMPACT_LOGO_SIZE : LOGO_SIZE} />
-      <View style={styles.labelWrap}>
-        <Text
-          numberOfLines={2}
-          style={[theme.typography.bodySm, {color: colors.textSecondary}]}>
-          {label}
-        </Text>
+      <View style={[styles.labelWrap, withInfo && styles.labelWrapInfo]}>
+        <View style={styles.labelLine}>
+          <Text
+            numberOfLines={2}
+            style={[styles.labelText, theme.typography.bodySm, {color: colors.textSecondary}]}>
+            {label}
+          </Text>
+          {withInfo ? <EstimateInfoButton onPress={onInfo} /> : null}
+        </View>
         {note ? (
           <Text style={[theme.typography.caption, styles.note, {color: colors.warningText}]}>
             {note}
           </Text>
         ) : null}
       </View>
-      <View
-        accessible={hideAmounts || undefined}
+      <ValueContainer
+        accessible={hideAmounts || (canCopy && withInfo) || undefined}
         accessibilityLabel={hideAmounts ? 'Balance hidden' : undefined}
+        {...(withInfo ? copyProps : {})}
         style={styles.value}>
         <CopyFeedback copied={copied} contentStyle={styles.valueContent}>
           {loading ? (
@@ -118,7 +128,7 @@ export const TransferNode = ({
             </>
           )}
         </CopyFeedback>
-      </View>
+      </ValueContainer>
     </Container>
   );
 };
@@ -160,6 +170,9 @@ const styles = StyleSheet.create({
   valueContent: {alignItems: 'flex-end'},
   valueSkeleton: {alignSelf: 'flex-end'},
   amountRow: {flexDirection: 'row', alignItems: 'baseline', flexShrink: 1},
+  labelWrapInfo: {minHeight: 44},
+  labelLine: {flexDirection: 'row', alignItems: 'center'},
+  labelText: {flexShrink: 1},
   note: {...fontStyle('semiBold')},
   entered: {textDecorationLine: 'line-through'},
   connectorSkeleton: {alignSelf: 'flex-start'},

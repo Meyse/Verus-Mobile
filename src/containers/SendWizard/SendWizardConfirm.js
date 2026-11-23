@@ -32,6 +32,7 @@ import {
 import FeeBreakdownSheet, {BridgeNetworkFeeSheet} from './components/FeeBreakdownSheet';
 import {getLoweredFrom, loweredNodeProps} from './loweredAmount';
 import NetworkFeeSheet from './components/NetworkFeeSheet';
+import {EstimatedAmountSheet} from './components/EstimateInfo';
 import PriceRouteSheet from './components/PriceRouteSheet';
 import useNetworkFee from './useNetworkFee';
 import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind, previewNetworkFee} from './networkFeeUtils';
@@ -174,6 +175,7 @@ const SendWizardConfirm = () => {
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
+  const [estimateInfoOpen, setEstimateInfoOpen] = useState(false);
   const preflightSequence = useRef(0);
   // The node refused the prepared inputs as spent. The next slide prepares
   // again from the current confirmed outputs instead of sending these bytes.
@@ -1135,6 +1137,8 @@ const SendWizardConfirm = () => {
               label={
                 invoice ? `${shortAddress(recipientAddress, 4)} receives` : 'You receive'
               }
+              // An invoice fixes the amount the recipient gets: no estimate note.
+              onInfo={invoice ? undefined : () => setEstimateInfoOpen(true)}
               ticker={target.ticker}
             />
           </>
@@ -1267,6 +1271,10 @@ const SendWizardConfirm = () => {
           visible={priceSheetOpen}
         />
       ) : null}
+      <EstimatedAmountSheet
+        onClose={() => setEstimateInfoOpen(false)}
+        visible={estimateInfoOpen}
+      />
     </WizardScreen>
   );
 };

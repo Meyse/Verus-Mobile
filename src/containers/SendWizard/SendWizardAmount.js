@@ -45,6 +45,7 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import AmountEstimate from './components/AmountEstimate';
+import {EstimatedAmountSheet} from './components/EstimateInfo';
 import PriceRouteSheet from './components/PriceRouteSheet';
 import {TargetNetworkSheet} from './components/SelectionSheets';
 import useAdvancedFormMenu from './components/useAdvancedFormMenu';
@@ -89,6 +90,7 @@ const SendWizardAmount = () => {
   const [routeEstimates, setRouteEstimates] = useState({});
   const [preferredRouteKey, setPreferredRouteKey] = useState(null);
   const [routeSheetOpen, setRouteSheetOpen] = useState(false);
+  const [estimateInfoOpen, setEstimateInfoOpen] = useState(false);
   // Amount loads other networks only when the user presses Change network,
   // for a Send from Home and from a card alike (PR 266 F5 and P1).
   const [loadedNetworks, setLoadedNetworks] = useState(null);
@@ -745,6 +747,7 @@ const SendWizardAmount = () => {
             estimatedOutput={emptyAmount ? null : receiveAmount}
             moneyValue={receiveMoneyValue}
             onOpenDetails={() => setRouteSheetOpen(true)}
+            onOpenEstimateInfo={() => setEstimateInfoOpen(true)}
             priceImpact={priceImpact}
             showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}
@@ -769,7 +772,7 @@ const SendWizardAmount = () => {
       <AmountKeypad
         decimalSeparator={decimalSeparator}
         onKeyPress={key => amountInputRef.current?.edit(key)}
-        visible={focused && !routeSheetOpen && !networkSheetOpen}
+        visible={focused && !routeSheetOpen && !networkSheetOpen && !estimateInfoOpen}
       />
       {advancedFormSheet}
       <PriceRouteSheet
@@ -799,6 +802,11 @@ const SendWizardAmount = () => {
           setEstimateError(routeEstimates[nextRoute.key] ? null : 'Estimate unavailable.');
           setRouteSheetOpen(false);
         }}
+      />
+      <EstimatedAmountSheet
+        onClose={() => setEstimateInfoOpen(false)}
+        onClosed={refocusAfterSheet}
+        visible={estimateInfoOpen}
       />
       <TargetNetworkSheet
         selectedKey={route?.networkKey}

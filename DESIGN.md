@@ -716,6 +716,23 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   52-point row and its jump when the estimate arrives are accepted (owner).
   Screen readers hear "Estimated slippage 0.1%, via SuperBASKET. Opens price
   and route".
+- **Estimate info glyph** (owner Max, 2026-11-23, R4 option B). A 16-point
+  Lucide `Info` (stroke 2, `textSubtle`) directly after the label "You receive",
+  6 points after the text, on Amount (the line under the target name) and on
+  Confirm (the receive node). It shows only next to a shown estimate
+  ("≈ amount"): not while loading, after a failed estimate ("—"), for a
+  pre-conversion ("Price set at launch"), on a send or cross-chain send
+  without conversion, or on an invoice's fixed amount. The target is 44
+  points (hitSlop around the glyph), role button, label "About this amount";
+  it adds no height and 22 points of line width, and the amount never shrinks
+  for it. On Confirm the glyph is its own target, so the copy tap and long
+  press cover the amount only. It opens `EstimatedAmountSheet`, the standard
+  `InfoSheet` (title "Estimated amount", one `bodySm` `textSecondary`
+  paragraph, "Done"); one component for both steps. Copy: "The network sets
+  the final amount when it processes your conversion. All conversions through
+  the same basket in one block get the same price. Other conversions in that
+  block can move your amount up or down." 16 points is the only size of this
+  glyph; the 23-point `Info` stays for header actions.
 - "Price and route" uses `BottomSheetModal` directly with the shared
   information-sheet styles in `src/styles/components/infoSheet.styles.js` and
   `titleSheetCompact` (18/24). The shell keeps its 24-point radius and 78% maximum height.

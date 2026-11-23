@@ -29,6 +29,7 @@ jest.mock('../../../containers/SendWizard/components/WizardUI', () => ({
 }));
 jest.mock('../../../containers/SendWizard/components/AmountEstimate', () => 'AmountEstimate');
 jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'PriceRouteSheet');
+jest.mock('../../../containers/SendWizard/components/EstimateInfo', () => ({EstimatedAmountSheet: 'EstimatedAmountSheet'}));
 jest.mock('../../../containers/SendWizard/components/SelectionSheets', () => ({TargetNetworkSheet: 'TargetNetworkSheet'}));
 // The header's More options menu has its own suite (advancedFormMenu); its
 // sheet needs a Paper Portal host that this render has not.
