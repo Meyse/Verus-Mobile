@@ -161,6 +161,19 @@ describe('TransferNode glyph', () => {
     const hasGlyph = n => n.findAll(c => c.props.accessibilityLabel === 'About this amount').length > 0;
     while (!hasGlyph(unit)) unit = unit.parent;
     expect(unit.findAll(n => n.type === 'Text' && n.props.children === 'You')).toHaveLength(0);
+    // The unit sits in a wrapping row, and the label block cannot shrink below
+    // the unit's measured width (rounded up: 71.6 reads as 72).
+    const line = view.root.findAll(
+      n => typeof n.type === 'string' && StyleSheet.flatten(n.props.style || {}).flexWrap === 'wrap',
+    );
+    expect(line.length).toBeGreaterThan(0);
+    const measured = unit.findAll(n => typeof n.props.onLayout === 'function')[0];
+    act(() => measured.props.onLayout({nativeEvent: {layout: {width: 71.6}}}));
+    const block = view.root.findAll(
+      n => typeof n.type === 'string' && StyleSheet.flatten(n.props.style || {}).minWidth === 72,
+    );
+    expect(block.length).toBeGreaterThan(0);
+    expect(StyleSheet.flatten(block[0].props.style).flexShrink).toBe(100);
     const ticker = view.root.find(n => n.type === 'Text' && n.props.numberOfLines === 1 &&
       String(n.props.children).includes('DAI'));
     expect(StyleSheet.flatten(ticker.props.style).flexShrink).toBe(0);
@@ -170,6 +183,19 @@ describe('TransferNode glyph', () => {
     const plainTicker = plain.root.find(n => n.type === 'Text' && n.props.numberOfLines === 1 &&
       String(n.props.children).includes('DAI'));
     expect(StyleSheet.flatten(plainTicker.props.style).flexShrink).toBe(0);
+  });
+
+  it('is heard once as "You receive"; the glyph target stops at the word gap', () => {
+    const view = node({onInfo: jest.fn()});
+    const head = view.root.find(n => n.type === 'Text' && n.props.children === 'You');
+    expect(head.props.accessibilityLabel).toBe('You receive');
+    expect(StyleSheet.flatten(head.props.style).paddingRight).toBe(4);
+    const tail = view.root.find(n => n.type === 'Text' && n.props.children === 'receive');
+    expect(tail.props.accessible).toBe(false);
+    expect(tail.parent.parent.props.accessibilityElementsHidden).toBe(true);
+    expect(tail.parent.parent.props.importantForAccessibility).toBe('no-hide-descendants');
+    const glyph = view.root.find(n => n.props.accessibilityLabel === 'About this amount' && n.props.hitSlop);
+    expect(glyph.props.hitSlop).toEqual({top: 14, bottom: 14, left: 6, right: 22});
   });
 
   it('has no glyph without onInfo (invoice, pre-conversion, send)', () => {

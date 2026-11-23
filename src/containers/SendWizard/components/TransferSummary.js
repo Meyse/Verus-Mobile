@@ -11,6 +11,10 @@ import {EstimateInfoButton} from './EstimateInfo';
 
 const LOGO_SIZE = 40;
 const COMPACT_LOGO_SIZE = 32;
+// The glyph sits 6 points after the last word. Its left hit slop stops at that
+// gap, so a long press on the word's end copies and never opens the sheet; the
+// 8 points moved to the right keep the target 44 points wide.
+const GLYPH_HIT_SLOP = {top: 14, bottom: 14, left: 6, right: 22};
 
 // One end of a transfer: the asset logo, a short label ("You pay", "You
 // receive") and the amount. The recipient is not named here; Confirm lists it
@@ -86,6 +90,7 @@ export const TransferNode = ({
           <View style={styles.labelLine}>
             {labelHead ? (
               <Text
+                accessibilityLabel={label}
                 numberOfLines={1}
                 onLongPress={copyLongPress}
                 style={[labelStyle, styles.labelHead]}>
@@ -95,14 +100,21 @@ export const TransferNode = ({
             <View
               onLayout={event => setTailWidth(Math.ceil(event.nativeEvent.layout.width))}
               style={styles.labelTail}>
-              <Text
-                numberOfLines={1}
-                onLongPress={copyLongPress}
-                style={labelStyle}>
-                {labelTail}
-              </Text>
+              {/* The head carries the whole label for screen readers; the tail is
+                  hidden from them so the label is heard once. */}
+              <View
+                accessibilityElementsHidden={Boolean(labelHead)}
+                importantForAccessibility={labelHead ? 'no-hide-descendants' : 'auto'}>
+                <Text
+                  accessible={labelHead ? false : undefined}
+                  numberOfLines={1}
+                  onLongPress={copyLongPress}
+                  style={labelStyle}>
+                  {labelTail}
+                </Text>
+              </View>
               <View style={styles.glyphSlot}>
-                <EstimateInfoButton onPress={onInfo} />
+                <EstimateInfoButton hitSlop={GLYPH_HIT_SLOP} onPress={onInfo} />
               </View>
             </View>
           </View>
@@ -228,7 +240,8 @@ const styles = StyleSheet.create({
   amountRowInfo: {minWidth: 0, maxWidth: '100%'},
   amountInfo: {flexShrink: 1, minWidth: 0},
   labelLine: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end'},
-  labelHead: {marginRight: 4},
+  // The 4-point word gap is padding, so a long press in it still copies.
+  labelHead: {paddingRight: 4},
   labelTail: {flexDirection: 'row', alignItems: 'flex-end', flexShrink: 0},
   glyphSlot: {marginBottom: 2},
   note: {...fontStyle('semiBold')},
