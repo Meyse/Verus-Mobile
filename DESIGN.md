@@ -199,8 +199,10 @@ update approval, and VerusID registration and management. Keep selection,
 review, decryption, retry, and unknown-status actions as normal buttons.
 The slide stays locked until its handler's promise settles. Cancelled gestures
 never commit. Each handler must return its operation or set a synchronous guard.
-A short slide shows its action-specific hint in the label slot for three seconds
-and announces it for screen readers. A new slide clears the hint. A completed
+The label is centred on the whole track, not on the space beside the thumb
+(owner, 2026-11-23). A short slide shows its action-specific hint, for example
+"Slide all the way to send" without a final period (owner, 2026-11-23), in the
+label slot for three seconds and announces it for screen readers. A new slide clears the hint. A completed
 slide shows no hint. The footer does not move.
 
 ## Imagery
