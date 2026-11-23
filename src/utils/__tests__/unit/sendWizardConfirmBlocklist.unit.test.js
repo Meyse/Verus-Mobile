@@ -324,9 +324,10 @@ describe('Convert Confirm asks once more for the estimate after a fee-lowered am
     route: {key: 'direct', isCrossChain: false, addressType: 'verus'},
     ...getScanRequestFields({address: ALLOWED_R, amount: '109.4374', coinId: VRSC.id}),
   };
+  const BASKET = 'iBasket';
   const lowered = {
     submittedsats: '10943740000',
-    output: {currency: 'iVRSCTEST', convertto: KAIJU, satoshis: '10943705000'},
+    output: {currency: 'iVRSCTEST', convertto: KAIJU, via: BASKET, satoshis: '10943705000'},
   };
   // Notices sit in the footer's "above" slot, which the mocked footer does not render.
   const notices = () => {
@@ -355,7 +356,7 @@ describe('Convert Confirm asks once more for the estimate after a fee-lowered am
     });
     await openConfirm();
     expect(estimateConversion).toHaveBeenCalledTimes(1);
-    expect(estimateConversion).toHaveBeenCalledWith('iVRSCTEST', 'iVRSCTEST', KAIJU, 109.43705, undefined, undefined);
+    expect(estimateConversion).toHaveBeenCalledWith('iVRSCTEST', 'iVRSCTEST', KAIJU, 109.43705, BASKET, undefined);
     const nodes = view.root.findAllByType('TransferNode').map(node => node.props.amount);
     expect(nodes).toContain('≈ 3,694.0007');
     expect(notices()).not.toContain(WARNING);
@@ -367,5 +368,14 @@ describe('Convert Confirm asks once more for the estimate after a fee-lowered am
     expect(estimateConversion).toHaveBeenCalledTimes(1);
     expect(notices()).toContain(WARNING);
     expect(view.root.findAllByType('TransferNode').map(node => node.props.label)).not.toContain('You receive');
+  });
+
+  it('shows the warning when the second estimate is not a number', async () => {
+    estimateConversion.mockResolvedValue({
+      result: {estimatedcurrencyout: 'unknown', outputcurrencyid: KAIJU},
+    });
+    await openConfirm();
+    expect(estimateConversion).toHaveBeenCalledTimes(1);
+    expect(notices()).toContain(WARNING);
   });
 });

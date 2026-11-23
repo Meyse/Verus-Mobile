@@ -477,7 +477,11 @@ const SendWizardConfirm = () => {
             retry = null;
           }
           if (!active || request !== preflightSequence.current) return;
-          if (retry?.error == null && retry?.result?.outputcurrencyid === convertto) {
+          const retryOut = BigNumber(retry?.result?.estimatedcurrencyout);
+          if (
+            retry?.error == null && retry?.result?.outputcurrencyid === convertto &&
+            retryOut.isFinite() && !retryOut.isNegative()
+          ) {
             preflight = {...preflight, estimate: retry.result};
           }
         }
