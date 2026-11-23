@@ -25,6 +25,12 @@ export const getImpactTone = level =>
 // tier, "<0.1%" (PR 266 feedback F6).
 export const getImpactBadgeLabel = impact => `${formatImpact(impact)}%`;
 
+// The chip on the Est. slippage rows. A known impact always reads as a number,
+// below 0.1% too ("<0.1%", owner 2026-11-23). "Details" is only for an unknown
+// impact: no market sample, a failed estimate, or no impact yet.
+export const getImpactChipLabel = impact =>
+  impact == null ? 'Details' : getImpactBadgeLabel(impact);
+
 // Where the label goes (F6): the "Price and route" sheet, which explains the
 // price, and every screen-reader label use the long form. The one-line rows
 // on the steps (Amount, Confirm, invoice Pay with) use the short form.

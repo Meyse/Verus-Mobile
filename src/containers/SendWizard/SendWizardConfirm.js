@@ -1034,7 +1034,7 @@ const SendWizardConfirm = () => {
   // row names the basket under its label and opens "Price and route" (R3
   // option 1, owner 2026-11-22).
   const connectorLines = unitPrice
-    ? [`1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
+    ? [`1 ${sourceCoin?.display_ticker || ''} ≈ ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
     : [];
   const showImpact = showReceive && (impact != null || Boolean(route?.via));
   // Notices and errors stay above the slide. On a short screen they would

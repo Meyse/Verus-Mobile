@@ -4,7 +4,7 @@ import StatusBadge from '../../../components/StatusBadge';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {formatImpact, IMPACT_LEVEL} from '../priceImpact';
 import {
-  getImpactBadgeLabel,
+  getImpactChipLabel,
   getImpactTone,
   getSlippageRowLabel,
   SLIPPAGE_LABEL_SHORT,
@@ -17,14 +17,13 @@ import {FlatRow} from './WizardUI';
 // `onPress` opens "Price and route", where the route shows. `via` names the
 // basket under the label, as on Amount, without a route count: Confirm cannot
 // change the route (R3 option 1, owner 2026-11-22).
-const ImpactRow = ({impact, level, lossText, onPress, pay = false, via = null}) => {
+const ImpactRow = ({impact, level, lossText, onPress, via = null}) => {
   const theme = useOnboardingTheme();
   const showLoss =
     lossText != null &&
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
-  // As on Amount: below 0.1% the badge reads "Details" (DESIGN.md, F6).
-  const badgeLabel = impact == null || level === IMPACT_LEVEL.NONE
-    ? 'Details' : getImpactBadgeLabel(impact, pay);
+  // As on Amount: a known impact reads as a number, "Details" is unknown only.
+  const badgeLabel = getImpactChipLabel(impact);
 
   return (
     <FlatRow

@@ -27,7 +27,7 @@ import {SourceCardSheet} from '../../SendWizard/components/SelectionSheets';
 import {
   formatEstimatedAmount,
   getConversionPriceSummary,
-  getImpactBadgeLabel,
+  getImpactChipLabel,
   SLIPPAGE_LABEL,
 } from '../../SendWizard/components/impactFormat';
 import {
@@ -363,16 +363,13 @@ const InvoicePayWith = () => {
       ' · ',
     );
     // As on Send's Amount step: a chip when the impact is at least 0.1% or
-    // there is more than one basket; "Details" for unknown or non-positive impact.
+    // there is more than one basket; "<0.1%" below that, "Details" if unknown.
     const showChip =
       group.conversion &&
       !invoice.anyAmount &&
       (group.routes.length > 1 ||
         (impact != null && level !== IMPACT_LEVEL.NONE));
-    const chipLabel =
-      impact == null || impact.isLessThanOrEqualTo(0)
-        ? 'Details'
-        : getImpactBadgeLabel(impact, true);
+    const chipLabel = getImpactChipLabel(impact);
     const cost = invoice.anyAmount
       ? ''
       : formatCost(route.amount, ticker, group.conversion);

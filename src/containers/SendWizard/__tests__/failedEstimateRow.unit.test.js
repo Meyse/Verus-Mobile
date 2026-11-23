@@ -79,6 +79,25 @@ describe('Est. slippage row after a failed estimate', () => {
     expect(view.root.findByType('StatusBadge').props.tone).toBe('neutral');
   });
 
+  // Owner 2026-11-23: a known impact below 0.1% reads "<0.1%", not "Details".
+  it('reads "<0.1%" in neutral for a known impact below 0.1%', () => {
+    const BigNumber = require('bignumber.js');
+    const view = render({
+      estimatedOutput: '10',
+      priceImpact: {impact: BigNumber(0), level: 'none'},
+      via: 'Bridge.vETH',
+    });
+    expect(view.root.findByType('StatusBadge').props.label).toBe('<0.1%');
+    expect(view.root.findByType('StatusBadge').props.tone).toBe('neutral');
+    expect(row(view)[0].props.accessibilityLabel)
+      .toBe('Estimated slippage <0.1%, via Bridge.vETH. Opens price and route');
+  });
+
+  it('reads "Details" when the impact is unknown', () => {
+    const view = render({estimatedOutput: '10', via: 'Bridge.vETH'});
+    expect(view.root.findByType('StatusBadge').props.label).toBe('Details');
+  });
+
   it('shows no row for a failed estimate without a choice of routes', () => {
     const view = render({estimateFailed: false});
     expect(texts(view)).not.toContain('Est. slippage');
