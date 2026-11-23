@@ -48,12 +48,13 @@ export const isConversionChannel = channel =>
 
 // An Amount quote belongs to its original input. After a fee reduction, only
 // a fresh preflight estimate can describe what this transaction may receive.
+export const isAmountLoweredForFees = preflight =>
+  preflight?.submittedsats != null && preflight?.output?.satoshis != null &&
+  String(preflight.submittedsats) !== String(preflight.output.satoshis);
+
 export const getPreparedConversionEstimate = (preflight, estimate) => {
   if (preflight?.estimate) return preflight.estimate;
-  if (
-    preflight?.submittedsats != null && preflight?.output?.satoshis != null &&
-    String(preflight.submittedsats) !== String(preflight.output.satoshis)
-  ) return null;
+  if (isAmountLoweredForFees(preflight)) return null;
   return estimate;
 };
 
