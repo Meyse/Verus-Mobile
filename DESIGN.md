@@ -723,10 +723,13 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   ("≈ amount"): not while loading, after a failed estimate ("—"), for a
   pre-conversion ("Price set at launch"), on a send or cross-chain send
   without conversion, or on an invoice's fixed amount. The target is 44
-  points (hitSlop around the glyph), role button, label "About this amount";
-  it adds no height and 22 points of line width, and the amount never shrinks
-  for it. On Confirm the glyph is its own target, so the copy tap and long
-  press cover the amount only. It opens `EstimatedAmountSheet`, the standard
+  points (hitSlop around the glyph; on Amount 17 above and 11 below, so it stays
+  inside the 60-point receive row), role button, label "About this amount";
+  it adds no height and 22 points of line width. On Confirm the node keeps
+  "You receive" and the glyph on one line (about 100 points reserved), a long
+  ticker is cut first and the amount fits its width only after that. The glyph
+  is its own target, so the copy long press (and the accessibility copy action)
+  covers the amount, the logo and the label text, never the glyph. It opens `EstimatedAmountSheet`, the standard
   `InfoSheet` (title "Estimated amount", one `bodySm` `textSecondary`
   paragraph, "Done"); one component for both steps. Copy: "The network sets
   the final amount when it processes your conversion. All conversions through

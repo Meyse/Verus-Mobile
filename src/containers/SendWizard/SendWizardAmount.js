@@ -747,7 +747,10 @@ const SendWizardAmount = () => {
             estimatedOutput={emptyAmount ? null : receiveAmount}
             moneyValue={receiveMoneyValue}
             onOpenDetails={() => setRouteSheetOpen(true)}
-            onOpenEstimateInfo={() => setEstimateInfoOpen(true)}
+            // An estimate only: a conversion that is not a launch. An Ethereum
+            // export shows the entered amount, not an estimate.
+            onOpenEstimateInfo={target.isConversion && !preconvert
+              ? () => setEstimateInfoOpen(true) : undefined}
             priceImpact={priceImpact}
             showDetails={validAmount && !emptyAmount && showPriceRouteChip}
             target={target}

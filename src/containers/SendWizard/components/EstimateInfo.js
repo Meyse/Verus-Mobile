@@ -13,13 +13,15 @@ export const ESTIMATE_SHEET_BODY =
 // "You receive" on Confirm and on Amount, next to an estimated amount only.
 // The glyph adds 22 points of line width and no height; the 44-point touch
 // target is hitSlop around it. The host row must be at least 44 points high.
-export const EstimateInfoButton = ({onPress}) => {
+// A host whose glyph sits off-centre in its row passes `hitSlop` so the target
+// stays inside the row (Amount: 17 above, 11 below).
+export const EstimateInfoButton = ({hitSlop = 14, onPress}) => {
   const {colors} = useOnboardingTheme();
   return (
     <Pressable
       accessibilityLabel={ESTIMATE_INFO_LABEL}
       accessibilityRole="button"
-      hitSlop={14}
+      hitSlop={hitSlop}
       onPress={onPress}
       style={styles.button}>
       <Info color={colors.textSubtle} size={16} strokeWidth={2} />
@@ -28,10 +30,14 @@ export const EstimateInfoButton = ({onPress}) => {
 };
 
 // One sheet for both steps: the standard InfoSheet shell (title, text, Done).
-export const EstimatedAmountSheet = ({onClose, visible}) => {
+export const EstimatedAmountSheet = ({onClose, onClosed, visible}) => {
   const theme = useOnboardingTheme();
   return (
-    <InfoSheet title={ESTIMATE_SHEET_TITLE} visible={visible} onClose={onClose}>
+    <InfoSheet
+      title={ESTIMATE_SHEET_TITLE}
+      visible={visible}
+      onClose={onClose}
+      onClosed={onClosed}>
       <Text style={[theme.typography.bodySm, {color: theme.colors.textSecondary}]}>
         {ESTIMATE_SHEET_BODY}
       </Text>

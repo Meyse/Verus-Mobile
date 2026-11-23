@@ -25,6 +25,10 @@ import {
 // skeleton that row's 52-point height. `estimateFailed`: the estimate failed
 // and the target has a choice of routes, so the row stays as "Details" and
 // still opens "Price and route" (orchestrator 2026-11-22).
+// The receive row is 60 points high and the glyph sits at 33..49 in it, below
+// centre. A 44-point target inside the row, clear of "Est. slippage", is 16..60.
+const GLYPH_HIT_SLOP = {top: 17, bottom: 11, left: 14, right: 14};
+
 const AmountEstimate = ({
   atLaunch = false,
   estimateFailed = false,
@@ -97,7 +101,9 @@ const AmountEstimate = ({
                 <Text style={[styles.labelText, theme.typography.caption, {color: colors.textSecondary}]}>
                   You receive
                 </Text>
-                {showInfo ? <EstimateInfoButton onPress={onOpenEstimateInfo} /> : null}
+                {showInfo ? (
+                  <EstimateInfoButton hitSlop={GLYPH_HIT_SLOP} onPress={onOpenEstimateInfo} />
+                ) : null}
               </View>
             </View>
             <View style={styles.amountColumn}>

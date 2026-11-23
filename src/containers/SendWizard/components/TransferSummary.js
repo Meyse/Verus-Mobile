@@ -25,7 +25,10 @@ const COMPACT_LOGO_SIZE = 32;
 // through above the amount and `note` ("Lowered for fees") under the label
 // (owner, 2026-11-13, option B of the reduced-amount mockups). `onInfo` puts
 // the "About this amount" glyph after the label (R4 option B). The glyph is its
-// own target, so the copy tap then covers the amount only, not the whole row.
+// own target, so the copy long press then covers the logo, the label text and
+// the amount, not the whole row. That node keeps "You receive" and the glyph on
+// one line (about 100 points reserved); a long ticker is cut first, then the
+// amount fits its width.
 export const TransferNode = ({
   amount,
   coinId,
@@ -50,18 +53,27 @@ export const TransferNode = ({
   const withInfo = typeof onInfo === 'function';
   const Container = canCopy && !withInfo ? Pressable : View;
   const ValueContainer = canCopy && withInfo ? Pressable : View;
+  // With the glyph the node is no pressable, so the logo and the label copy on
+  // a long press by themselves; neither is an accessibility element of its own.
+  const copyLongPress = canCopy && withInfo ? copyProps.onLongPress : undefined;
+  const logo = (
+    <AssetCoinLogo coinId={coinId} size={compact ? COMPACT_LOGO_SIZE : LOGO_SIZE} />
+  );
 
   return (
     <Container
       accessible={canCopy && !withInfo ? true : undefined}
       {...(withInfo ? {} : copyProps)}
       style={[styles.node, compact && styles.nodeCompact]}>
-      <AssetCoinLogo coinId={coinId} size={compact ? COMPACT_LOGO_SIZE : LOGO_SIZE} />
+      {copyLongPress ? (
+        <Pressable accessible={false} onLongPress={copyLongPress}>{logo}</Pressable>
+      ) : logo}
       <View style={[styles.labelWrap, withInfo && styles.labelWrapInfo]}>
         <View style={styles.labelLine}>
           <Text
-            numberOfLines={2}
-            style={[styles.labelText, theme.typography.bodySm, {color: colors.textSecondary}]}>
+            numberOfLines={withInfo ? 1 : 2}
+            onLongPress={copyLongPress}
+            style={[styles.labelText, withInfo && styles.labelTextInfo, theme.typography.bodySm, {color: colors.textSecondary}]}>
             {label}
           </Text>
           {withInfo ? <EstimateInfoButton onPress={onInfo} /> : null}
@@ -76,7 +88,7 @@ export const TransferNode = ({
         accessible={hideAmounts || (canCopy && withInfo) || undefined}
         accessibilityLabel={hideAmounts ? 'Balance hidden' : undefined}
         {...(withInfo ? copyProps : {})}
-        style={styles.value}>
+        style={[styles.value, withInfo && styles.valueInfo]}>
         <CopyFeedback copied={copied} contentStyle={styles.valueContent}>
           {loading ? (
             <SkeletonLoader style={styles.valueSkeleton}>
@@ -107,13 +119,19 @@ export const TransferNode = ({
                   style={[
                     styles.amount,
                     (compact || String(amount).length > 11) && styles.amountLong,
+                    withInfo && styles.amountInfo,
                     {color: colors.textPrimary},
                   ]}>
                   {amount}
                 </AmountText>
                 <Text
                   numberOfLines={1}
-                  style={[styles.ticker, compact && styles.tickerCompact, {color: colors.textSecondary}]}>
+                  style={[
+                    styles.ticker,
+                    compact && styles.tickerCompact,
+                    withInfo && styles.tickerInfo,
+                    {color: colors.textSecondary},
+                  ]}>
                   {' '}
                   {ticker}
                 </Text>
@@ -170,7 +188,14 @@ const styles = StyleSheet.create({
   valueContent: {alignItems: 'flex-end'},
   valueSkeleton: {alignSelf: 'flex-end'},
   amountRow: {flexDirection: 'row', alignItems: 'baseline', flexShrink: 1},
-  labelWrapInfo: {minHeight: 44},
+  // With the glyph the label block keeps its natural width ("You receive" 78
+  // points + glyph 22) and the value column gives way: its ticker first, the
+  // amount (fit-to-width) only when the ticker is gone.
+  labelWrapInfo: {minHeight: 44, flexShrink: 0},
+  labelTextInfo: {flexShrink: 0},
+  valueInfo: {flexShrink: 1, minWidth: 0},
+  amountInfo: {flexShrink: 0.01},
+  tickerInfo: {flexShrink: 1, minWidth: 0},
   labelLine: {flexDirection: 'row', alignItems: 'center'},
   labelText: {flexShrink: 1},
   note: {...fontStyle('semiBold')},
