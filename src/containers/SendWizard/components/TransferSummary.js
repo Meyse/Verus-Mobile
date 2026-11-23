@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import CopyFeedback from '../../../components/CopyFeedback';
 import useCopyFeedback from '../../../hooks/useCopyFeedback';
@@ -26,9 +26,10 @@ const COMPACT_LOGO_SIZE = 32;
 // (owner, 2026-11-13, option B of the reduced-amount mockups). `onInfo` puts
 // the "About this amount" glyph after the label (R4 option B). The glyph is its
 // own target, so the copy long press then covers the logo, the label text and
-// the amount, not the whole row. That node keeps "You receive" and the glyph on
-// one line (about 100 points reserved); a long ticker is cut first, then the
-// amount fits its width.
+// the amount, not the whole row. The label wraps as without the glyph and the
+// glyph stays attached to its last word ("receive ⓘ"); when the value is too
+// wide for that, its amount fits to the width left (the glyph's width given
+// up, no more) and nothing overlaps.
 export const TransferNode = ({
   amount,
   coinId,
@@ -59,6 +60,13 @@ export const TransferNode = ({
   const logo = (
     <AssetCoinLogo coinId={coinId} size={compact ? COMPACT_LOGO_SIZE : LOGO_SIZE} />
   );
+  // The last word and the glyph are one unit that wraps together; the width of
+  // that unit is the least the label block may shrink to.
+  const [tailWidth, setTailWidth] = useState(0);
+  const split = String(label).lastIndexOf(' ') + 1;
+  const labelHead = String(label).slice(0, split).trimEnd();
+  const labelTail = String(label).slice(split);
+  const labelStyle = [theme.typography.bodySm, {color: colors.textSecondary}];
 
   return (
     <Container
@@ -68,16 +76,41 @@ export const TransferNode = ({
       {copyLongPress ? (
         <Pressable accessible={false} onLongPress={copyLongPress}>{logo}</Pressable>
       ) : logo}
-      <View style={[styles.labelWrap, withInfo && styles.labelWrapInfo]}>
-        <View style={styles.labelLine}>
-          <Text
-            numberOfLines={withInfo ? 1 : 2}
-            onLongPress={copyLongPress}
-            style={[styles.labelText, withInfo && styles.labelTextInfo, theme.typography.bodySm, {color: colors.textSecondary}]}>
+      <View
+        style={[
+          styles.labelWrap,
+          withInfo && styles.labelWrapInfo,
+          withInfo && tailWidth > 0 && {minWidth: tailWidth},
+        ]}>
+        {withInfo ? (
+          <View style={styles.labelLine}>
+            {labelHead ? (
+              <Text
+                numberOfLines={1}
+                onLongPress={copyLongPress}
+                style={[labelStyle, styles.labelHead]}>
+                {labelHead}
+              </Text>
+            ) : null}
+            <View
+              onLayout={event => setTailWidth(Math.ceil(event.nativeEvent.layout.width))}
+              style={styles.labelTail}>
+              <Text
+                numberOfLines={1}
+                onLongPress={copyLongPress}
+                style={labelStyle}>
+                {labelTail}
+              </Text>
+              <View style={styles.glyphSlot}>
+                <EstimateInfoButton onPress={onInfo} />
+              </View>
+            </View>
+          </View>
+        ) : (
+          <Text numberOfLines={2} style={labelStyle}>
             {label}
           </Text>
-          {withInfo ? <EstimateInfoButton onPress={onInfo} /> : null}
-        </View>
+        )}
         {note ? (
           <Text style={[theme.typography.caption, styles.note, {color: colors.warningText}]}>
             {note}
@@ -89,7 +122,10 @@ export const TransferNode = ({
         accessibilityLabel={hideAmounts ? 'Balance hidden' : undefined}
         {...(withInfo ? copyProps : {})}
         style={[styles.value, withInfo && styles.valueInfo]}>
-        <CopyFeedback copied={copied} contentStyle={styles.valueContent}>
+        <CopyFeedback
+          copied={copied}
+          contentStyle={styles.valueContent}
+          style={withInfo && styles.valueFeedbackInfo}>
           {loading ? (
             <SkeletonLoader style={styles.valueSkeleton}>
               <SkeletonBlock height={22} radius={6} width={112} />
@@ -110,7 +146,7 @@ export const TransferNode = ({
                   {enteredAmount}
                 </Text>
               ) : null}
-              <View style={styles.amountRow}>
+              <View style={[styles.amountRow, withInfo && styles.amountRowInfo]}>
                 <AmountText
                   {...(hideAmounts ? {hidden: true, blurRadius: 7, color: colors.textPrimary} : {})}
                   adjustsFontSizeToFit
@@ -126,12 +162,7 @@ export const TransferNode = ({
                 </AmountText>
                 <Text
                   numberOfLines={1}
-                  style={[
-                    styles.ticker,
-                    compact && styles.tickerCompact,
-                    withInfo && styles.tickerInfo,
-                    {color: colors.textSecondary},
-                  ]}>
+                  style={[styles.ticker, compact && styles.tickerCompact, {color: colors.textSecondary}]}>
                   {' '}
                   {ticker}
                 </Text>
@@ -188,16 +219,18 @@ const styles = StyleSheet.create({
   valueContent: {alignItems: 'flex-end'},
   valueSkeleton: {alignSelf: 'flex-end'},
   amountRow: {flexDirection: 'row', alignItems: 'baseline', flexShrink: 1},
-  // With the glyph the label block keeps its natural width ("You receive" 78
-  // points + glyph 22) and the value column gives way: its ticker first, the
-  // amount (fit-to-width) only when the ticker is gone.
-  labelWrapInfo: {minHeight: 44, flexShrink: 0},
-  labelTextInfo: {flexShrink: 0},
+  // With the glyph the label block gives way first (wraps) but never below its
+  // last word and the glyph; only then the value column gives up width, and its
+  // amount fits to what is left. The gap to the amount is the value's own 8.
+  labelWrapInfo: {marginRight: 0, flexShrink: 100},
   valueInfo: {flexShrink: 1, minWidth: 0},
-  amountInfo: {flexShrink: 0.01},
-  tickerInfo: {flexShrink: 1, minWidth: 0},
-  labelLine: {flexDirection: 'row', alignItems: 'center'},
-  labelText: {flexShrink: 1},
+  valueFeedbackInfo: {maxWidth: '100%'},
+  amountRowInfo: {minWidth: 0, maxWidth: '100%'},
+  amountInfo: {flexShrink: 1, minWidth: 0},
+  labelLine: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end'},
+  labelHead: {marginRight: 4},
+  labelTail: {flexDirection: 'row', alignItems: 'flex-end', flexShrink: 0},
+  glyphSlot: {marginBottom: 2},
   note: {...fontStyle('semiBold')},
   entered: {textDecorationLine: 'line-through'},
   connectorSkeleton: {alignSelf: 'flex-start'},

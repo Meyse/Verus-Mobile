@@ -143,20 +143,27 @@ describe('TransferNode glyph', () => {
     const logo = view.root.find(n => n.type === Pressable && n.props.accessible === false);
     longPress(logo);
     expect(spy).toHaveBeenCalledTimes(1);
-    const label = view.root.find(n => n.type === 'Text' && n.props.children === 'You receive');
-    act(() => label.props.onLongPress());
-    expect(spy).toHaveBeenCalledTimes(2);
+    const head = view.root.find(n => n.type === 'Text' && n.props.children === 'You');
+    act(() => head.props.onLongPress());
+    const tail = view.root.find(n => n.type === 'Text' && n.props.children === 'receive');
+    act(() => tail.props.onLongPress());
+    expect(spy).toHaveBeenCalledTimes(3);
     expect(spy).toHaveBeenLastCalledWith('5.34');
     spy.mockRestore();
   });
 
-  it('keeps "You receive" and the glyph on one line; the ticker gives way first', () => {
+  it('wraps the label as before and keeps the glyph with its last word', () => {
     const view = node({onInfo: jest.fn()});
-    const label = view.root.find(n => n.type === 'Text' && n.props.children === 'You receive');
-    expect(label.props.numberOfLines).toBe(1);
+    // "You" + "receive ⓘ": the last word and the glyph are one unit, so they
+    // wrap together; the label block gives way before the value does.
+    const tail = view.root.find(n => n.type === 'Text' && n.props.children === 'receive');
+    let unit = tail.parent;
+    const hasGlyph = n => n.findAll(c => c.props.accessibilityLabel === 'About this amount').length > 0;
+    while (!hasGlyph(unit)) unit = unit.parent;
+    expect(unit.findAll(n => n.type === 'Text' && n.props.children === 'You')).toHaveLength(0);
     const ticker = view.root.find(n => n.type === 'Text' && n.props.numberOfLines === 1 &&
       String(n.props.children).includes('DAI'));
-    expect(StyleSheet.flatten(ticker.props.style).flexShrink).toBe(1);
+    expect(StyleSheet.flatten(ticker.props.style).flexShrink).toBe(0);
     const plain = node({});
     const plainLabel = plain.root.find(n => n.type === 'Text' && n.props.children === 'You receive');
     expect(plainLabel.props.numberOfLines).toBe(2);

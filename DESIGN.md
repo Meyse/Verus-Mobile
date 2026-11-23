@@ -725,9 +725,15 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   without conversion, or on an invoice's fixed amount. The target is 44
   points (hitSlop around the glyph; on Amount 17 above and 11 below, so it stays
   inside the 60-point receive row), role button, label "About this amount";
-  it adds no height and 22 points of line width. On Confirm the node keeps
-  "You receive" and the glyph on one line (about 100 points reserved), a long
-  ticker is cut first and the amount fits its width only after that. The glyph
+  it adds no height and 22 points of line width. On Confirm the node wraps as
+  it does without the glyph: when "You receive", the glyph and the value fit on
+  one line they share it; when they do not, the label wraps ("You" / "receive")
+  and the glyph follows its last word ("receive ⓘ"; both are one unit that
+  wraps together). The label gives way first and never goes below that unit;
+  the value column then gives up the rest of the width (the glyph's width, no
+  more) and its amount fits to what is left. The ticker is never cut earlier
+  than without the glyph, the glyph is never covered, and the node is never
+  taller than without it. The glyph
   is its own target, so the copy long press (and the accessibility copy action)
   covers the amount, the logo and the label text, never the glyph. It opens `EstimatedAmountSheet`, the standard
   `InfoSheet` (title "Estimated amount", one `bodySm` `textSecondary`
