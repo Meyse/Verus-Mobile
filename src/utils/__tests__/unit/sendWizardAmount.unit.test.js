@@ -29,6 +29,7 @@ jest.mock('../../../containers/SendWizard/components/WizardUI', () => ({
 }));
 jest.mock('../../../containers/SendWizard/components/AmountEstimate', () => 'AmountEstimate');
 jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'PriceRouteSheet');
+jest.mock('../../../containers/SendWizard/components/EstimateInfo', () => ({EstimatedAmountSheet: 'EstimatedAmountSheet'}));
 jest.mock('../../../containers/SendWizard/components/SelectionSheets', () => ({TargetNetworkSheet: 'TargetNetworkSheet'}));
 // The header's More options menu has its own suite (advancedFormMenu); its
 // sheet needs a Paper Portal host that this render has not.
@@ -359,6 +360,50 @@ describe('Send Amount step, network change on request (F5)', () => {
 // F13 (PR 266 feedback 2026-11-20): with more than 30 converters, Amount asks
 // estimateconversion for the 30 oldest only. "Oldest" is the lowest launch
 // block (currencydefinition.startblock); the unknown one goes last.
+describe('Send Amount step, estimate info only for a conversion (R4 B)', () => {
+  const VRSCTEST = {id: 'VRSCTEST', proto: 'vrsc', decimals: 8, display_ticker: 'VRSCTEST', system_id: 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq'};
+  let view;
+
+  beforeEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    if (view) act(() => view.unmount());
+    view = null;
+  });
+
+  // A cross-chain Ethereum export shows the receive block with the entered
+  // amount, but it is not an estimate: no "About this amount" handler.
+  it('gives an Ethereum export without conversion no info handler', () => {
+    const card = {
+      id: 'MAIN',
+      api_channels: {get_balances: 'bal', send: 'vrpc.RAddress.iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq'},
+    };
+    mockState = {
+      settings: {generalWalletSettings: {displayCurrency: 'USD'}},
+      ledger: {rates: {}, balances: {bal: {VRSCTEST: {confirmed: '10', pending: '0', total: '10'}}}},
+    };
+    act(() => {
+      view = create(
+        <SendWizardProvider
+          mode="send"
+          initialState={{
+            sourceCoin: VRSCTEST,
+            sourceSubWallet: card,
+            sourceBalance: '10',
+            channel: card.api_channels.send,
+            amountInput: '1',
+            target: {id: 'VRSCTEST', isConversion: false, routes: []},
+            route: {key: 'bridge:eth', addressType: 'ethereum', isCrossChain: true},
+          }}>
+          <SendWizardAmount />
+        </SendWizardProvider>,
+      );
+    });
+    const estimate = view.root.findByType('AmountEstimate');
+    expect(estimate.props.estimatedOutput).not.toBeNull();
+    expect(estimate.props.onOpenEstimateInfo).toBeUndefined();
+  });
+});
+
 describe('Convert Amount step, 30 oldest converters (F13)', () => {
   let wizard;
   const Capture = () => {
@@ -671,6 +716,7 @@ describe('Convert Amount step, Check 30 more routes (R2 A)', () => {
     act(() => wizard.setRoute(first));
     const estimate = () => view.root.findByType('AmountEstimate').props;
     expect(estimate().via).toBeNull();
+    expect(typeof estimate().onOpenEstimateInfo).toBe('function');
     await settle();
     // The oldest route (rank 0) gives the most.
     expect(estimate().via).toBe('Basket0');

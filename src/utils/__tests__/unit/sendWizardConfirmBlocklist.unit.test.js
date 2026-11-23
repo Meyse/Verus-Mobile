@@ -46,6 +46,7 @@ jest.mock('../../../containers/SendWizard/components/FeeBreakdownSheet', () => (
 }));
 jest.mock('../../../containers/SendWizard/components/NetworkFeeSheet', () => 'NetworkFeeSheet');
 jest.mock('../../../containers/SendWizard/components/PriceRouteSheet', () => 'PriceRouteSheet');
+jest.mock('../../../containers/SendWizard/components/EstimateInfo', () => ({EstimatedAmountSheet: 'EstimatedAmountSheet'}));
 jest.mock('../../../containers/SendWizard/components/TransferSummary', () => ({
   TransferConnector: 'TransferConnector', TransferNode: 'TransferNode',
 }));
@@ -360,6 +361,18 @@ describe('Convert Confirm asks once more for the estimate after a fee-lowered am
     const nodes = view.root.findAllByType('TransferNode').map(node => node.props.amount);
     expect(nodes).toContain('≈ 3,694.0007');
     expect(notices()).not.toContain(WARNING);
+  });
+
+  // R4 option B: the "About this amount" glyph goes with an estimate only.
+  it('gives the estimated receive node the info action, and the pay node none', async () => {
+    estimateConversion.mockResolvedValue({
+      result: {estimatedcurrencyout: 3694.00077654, outputcurrencyid: KAIJU},
+    });
+    await openConfirm();
+    const byLabel = label => view.root.findAllByType('TransferNode')
+      .find(node => node.props.label === label);
+    expect(typeof byLabel('You receive').props.onInfo).toBe('function');
+    expect(byLabel('You pay').props.onInfo).toBeUndefined();
   });
 
   it('shows the warning when the second estimate fails too', async () => {
