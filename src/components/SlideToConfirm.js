@@ -38,7 +38,7 @@ export default function SlideToConfirm({
   const dragEpoch = useSharedValue(-1);
   const dragging = useSharedValue(false);
   const travel = Math.max(0, width - height);
-  const actionHint = hintProp ?? `${label.replace(/^Slide to /, 'Slide all the way to ')}.`;
+  const actionHint = hintProp ?? `${label.replace(/^Slide to /, 'Slide all the way to ')}`;
   const isFocused = useCallback(() => navigation.isFocused(), [navigation]);
   // Android ignores the View hitSlop for RNGH, so the gesture host itself is
   // 48 points high. Negative margins keep the layout at the track height.
@@ -237,7 +237,9 @@ export default function SlideToConfirm({
           pointerEvents="none"
           style={[
             styles.label,
-            !blocked && {paddingLeft: height + 4, paddingRight: 8},
+            // Equal insets keep the label centred on the whole track. The thumb
+            // never shifts it; a long label shrinks to fit.
+            !blocked && {paddingHorizontal: height + 4},
             labelStyle,
           ]}>
           <Text
