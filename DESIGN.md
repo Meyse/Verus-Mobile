@@ -853,7 +853,8 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   (`ConfirmPreparing`). What the user chose is real. The receive amount, price, fees and
   timing are skeletons. The button reads "Preparing…" and stays disabled. There is no
   separate loading screen and no loading text.
-- The connector between the pay and receive nodes shows the unit price only. The route
+- The connector between the pay and receive nodes shows the unit price only, as "1 X ≈ N Y":
+  an estimated price reads "≈" and "Market price" reads "=" (owner, 2026-11-23). The route
   is behind the Est. slippage row, which opens "Price and route" with the price facts
   and the route (owner, 2026-10-22, so that Send and invoice Confirm match). The row
   shows "Details" when the impact is unknown and the route has a basket. A route
