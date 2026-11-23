@@ -68,6 +68,7 @@ jest.mock('../../../actions/actionCreators', () => ({expireCoinData: jest.fn()})
 jest.mock('../../api/routers/preflightSend', () => ({preflightSend: jest.fn()}));
 jest.mock('../../api/routers/preflightConvertOrCrossChain', () => ({preflightConvertOrCrossChain: jest.fn()}));
 jest.mock('../../api/routers/sendConvertOrCrossChain', () => ({sendConvertOrCrossChain: jest.fn()}));
+jest.mock('../../api/channels/vrpc/requests/estimateConversion', () => ({estimateConversion: jest.fn()}));
 jest.mock('../../api/routers/send', () => ({send: jest.fn()}));
 jest.mock('../../api/routers/getIdentity', () => ({getIdentity: jest.fn()}));
 jest.mock('../../api/channels/verusid/requests/getIdentity', () => ({getIdentity: jest.fn()}));
@@ -77,6 +78,7 @@ const {Text} = require('react-native');
 const {act, create} = require('react-test-renderer');
 const {preflightSend} = require('../../api/routers/preflightSend');
 const {preflightConvertOrCrossChain} = require('../../api/routers/preflightConvertOrCrossChain');
+const {estimateConversion} = require('../../api/channels/vrpc/requests/estimateConversion');
 const {getIdentity: getIdentityForCard} = require('../../api/routers/getIdentity');
 const {getIdentity: getIdentityForPrivate} = require('../../api/channels/verusid/requests/getIdentity');
 const SendWizardConfirm = require('../../../containers/SendWizard/SendWizardConfirm').default;
@@ -303,5 +305,67 @@ describe('Send Confirm blocks a blocklisted recipient on every route', () => {
     expect(preflightSend).toHaveBeenCalledTimes(1);
     expect(preflightSend.mock.calls[0][2]).toBe(ALLOWED_R);
     expect(shownBlocked()).toBe(false);
+  });
+});
+
+/*
+  Convert at the maximum amount (worked example from the 2026-11-23 device
+  run): the card holds 109.4374 VRSCTEST and the fees are 0.00035, so the
+  transaction carries 109.43705 and the Amount quote no longer applies. The
+  preflight's own estimate failed once. Confirm asks once more for 109.43705
+  and shows what it gets (3694.00077654 Kaiju), or the warning if that fails.
+*/
+describe('Convert Confirm asks once more for the estimate after a fee-lowered amount', () => {
+  const WARNING = 'Could not calculate an estimated result for this conversion.';
+  const KAIJU = 'iKaiju';
+  const convertState = {
+    ...sourceOf(VRSC, vrpcCard),
+    target: {id: 'KAIJU', coinId: 'KAIJU', ticker: 'Kaiju', isConversion: true, convertToFqn: KAIJU},
+    route: {key: 'direct', isCrossChain: false, addressType: 'verus'},
+    ...getScanRequestFields({address: ALLOWED_R, amount: '109.4374', coinId: VRSC.id}),
+  };
+  const lowered = {
+    submittedsats: '10943740000',
+    output: {currency: 'iVRSCTEST', convertto: KAIJU, satoshis: '10943705000'},
+  };
+  // Notices sit in the footer's "above" slot, which the mocked footer does not render.
+  const notices = () => {
+    const found = [];
+    const walk = node => {
+      if (Array.isArray(node)) node.forEach(walk);
+      else if (node?.props) {
+        if (node.type === 'ConfirmNotice') found.push(node.props.children);
+        else walk(node.props.children);
+      }
+    };
+    view.root.findAllByType('WizardFooter').forEach(footer => walk(footer.props.above));
+    return found;
+  };
+  const openConfirm = async () => {
+    preflightConvertOrCrossChain.mockResolvedValue({err: false, result: lowered});
+    await render({
+      initialState: convertState,
+      steps: ({setAmount}) => setAmount('109.4374', '10943740000', null, '109.4374', false),
+    });
+  };
+
+  it('uses the second estimate and shows no warning', async () => {
+    estimateConversion.mockResolvedValue({
+      result: {estimatedcurrencyout: 3694.00077654, outputcurrencyid: KAIJU},
+    });
+    await openConfirm();
+    expect(estimateConversion).toHaveBeenCalledTimes(1);
+    expect(estimateConversion).toHaveBeenCalledWith('iVRSCTEST', 'iVRSCTEST', KAIJU, 109.43705, undefined, undefined);
+    const nodes = view.root.findAllByType('TransferNode').map(node => node.props.amount);
+    expect(nodes).toContain('≈ 3,694.0007');
+    expect(notices()).not.toContain(WARNING);
+  });
+
+  it('shows the warning when the second estimate fails too', async () => {
+    estimateConversion.mockResolvedValue({error: {code: -32603, message: 'Network error 429'}});
+    await openConfirm();
+    expect(estimateConversion).toHaveBeenCalledTimes(1);
+    expect(notices()).toContain(WARNING);
+    expect(view.root.findAllByType('TransferNode').map(node => node.props.label)).not.toContain('You receive');
   });
 });

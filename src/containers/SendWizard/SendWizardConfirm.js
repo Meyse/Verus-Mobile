@@ -56,6 +56,7 @@ import {getIdentity} from '../../utils/api/routers/getIdentity';
 import {addressIsBlocked, BLOCKED_ADDRESS_MESSAGE} from '../../utils/addressBlocklist';
 import {selectAddressBlocklist} from '../../selectors/settings';
 import {preflightConvertOrCrossChain} from '../../utils/api/routers/preflightConvertOrCrossChain';
+import {estimateConversion} from '../../utils/api/channels/vrpc/requests/estimateConversion';
 import {preflightSend} from '../../utils/api/routers/preflightSend';
 import {sendConvertOrCrossChain} from '../../utils/api/routers/sendConvertOrCrossChain';
 import {send} from '../../utils/api/routers/send';
@@ -95,6 +96,7 @@ import {
   getCurrencyDisplay,
   getDestinationNetwork,
   getPreparedConversionEstimate,
+  isAmountLoweredForFees,
   getRouteName,
   getTransactionId,
   isOwnChannelAddress,
@@ -450,7 +452,35 @@ const SendWizardConfirm = () => {
         if (result?.err || result?.error) {
           throw new Error(result.result || result.error?.message || 'Preflight failed.');
         }
-        const preflight = result?.result;
+        let preflight = result?.result;
+        // The preflight's own estimate can fail once, for example on the
+        // network. When it lowered the amount for fees, the Amount quote no
+        // longer applies, so ask once more for the lowered amount. Only the
+        // displayed estimate changes, not the prepared transaction.
+        if (
+          target.isConversion && !route.preconvert &&
+          channel?.split('.')[0] === 'vrpc' &&
+          preflight?.estimate == null && isAmountLoweredForFees(preflight)
+        ) {
+          const {currency, convertto, via, preconvert} = preflight.output;
+          let retry;
+          try {
+            retry = await estimateConversion(
+              channel.split('.')[2],
+              currency,
+              convertto,
+              satsToCoins(BigNumber(preflight.output.satoshis)).toNumber(),
+              via,
+              preconvert,
+            );
+          } catch (retryError) {
+            retry = null;
+          }
+          if (!active || request !== preflightSequence.current) return;
+          if (retry?.error == null && retry?.result?.outputcurrencyid === convertto) {
+            preflight = {...preflight, estimate: retry.result};
+          }
+        }
         // A VRPC send resolves a VerusID name inside its preflight.
         assertNotBlocked(preflight?.resolvedToAddress);
         const nextWarnings = [];
