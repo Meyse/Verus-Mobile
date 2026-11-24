@@ -276,7 +276,7 @@ const SendWizardConfirm = () => {
       })
     : null;
   const privateSource = isPrivateChannel(channel);
-  // The card as the asset screen names it, with its network (PR 266 review R8).
+  // The card as the asset screen names it, with its chain (PR 266 review R8, owner 2026-11-25).
   const fromLabel = !invoice && (privateSource || isVerusIdWallet(sourceSubWallet))
     ? getSubWalletCardTitleForAccount(sourceSubWallet, activeAccount, sourceCoin).text
     : null;

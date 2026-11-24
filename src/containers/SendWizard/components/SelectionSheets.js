@@ -48,7 +48,7 @@ export const SourceCardSheet = ({
       onClosed={dismissal.onClosed}>
       {sources.map(source => {
         // Name sources as the asset screen does: the short address, the
-        // VerusID name or "Private", then the network. No address line.
+        // VerusID name or "Private", then the chain words. No address line.
         // A private card that still syncs shows, but cannot be picked.
         const syncing = source.syncPercent != null;
         const address = getSubWalletDisplayIdentifier(
@@ -61,9 +61,9 @@ export const SourceCardSheet = ({
           address,
           coin: source.coin,
         });
-        // The line under the name: the network, then the sync state.
+        // The line under the name: the chain ("on Verus"), then the sync state.
         const subtitle = [
-          cardTitle.networkTicker,
+          cardTitle.chainLabel,
           syncing ? formatSyncStatus(source.syncPercent) : null,
         ]
           .filter(Boolean)
@@ -85,7 +85,7 @@ export const SourceCardSheet = ({
               <CardTitle title={cardTitle} style={styles.rowTitle} nameOnly />
             }
             subtitle={subtitle || undefined}
-            subtitleLikeValueLabel
+            subtitleChain
             selected={source.card.id === selectedId}
             value={value}
             valueLabel={source.coin.display_ticker}

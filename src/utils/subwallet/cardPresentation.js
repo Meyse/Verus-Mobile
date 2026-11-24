@@ -1,7 +1,11 @@
 import BigNumber from 'bignumber.js';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {coinsList} from '../CoinData/CoinsList';
-import {API_GET_ADDRESSES} from '../constants/intervalConstants';
+import {
+  API_GET_ADDRESSES,
+  IS_PBAAS,
+  IS_VERUS,
+} from '../constants/intervalConstants';
 import {getShownBalance} from '../ledger/shownBalance';
 
 export const isVerusIdWallet = wallet =>
@@ -92,23 +96,58 @@ export const truncateMiddle = (
 // A short address: the first and last 6 characters (owner, 2026-11-19).
 export const shortenAddress = address => truncateMiddle(address, 6, 6, '…');
 
-// The ticker of the network a card lives on. Electrum (".btc", ".kmd", ...)
-// and Ethereum cards have no network of their own, so they take their coin's
-// chain.
-export const getCardNetworkTicker = (wallet, coin) => {
-  const systemId = wallet?.network || coin?.system_id;
-  if (systemId === '.eth') return coin?.testnet ? 'gETH' : 'ETH';
-  if (typeof systemId === 'string' && systemId.startsWith('.')) {
-    return coin?.display_ticker || systemId.slice(1).toUpperCase();
-  }
+// The chain a card's funds are on, as the quiet words "on Verus" (owner,
+// 2026-11-25; it replaces the " · <ticker>" suffix of 2026-11-19). Only Verus
+// chains (VRSC, VRSCTEST and PBaaS chains) get one: an Ethereum, Bitcoin or
+// other Electrum card shows none, because its address already says the chain.
+// VRSC reads "Verus", VRSCTEST "Verus Testnet" and any other PBaaS chain its
+// short ticker ("vETH", "vARRR"), never a long display name.
+const isVerusChainCoin = networkCoin =>
+  Boolean(
+    networkCoin?.tags?.includes(IS_VERUS) ||
+      networkCoin?.tags?.includes(IS_PBAAS),
+  );
 
-  return getNetworkTicker(systemId);
+const getChainName = (systemId, networkCoin) => {
+  if (systemId === coinsList.VRSC.system_id) return 'Verus';
+  if (systemId === coinsList.VRSCTEST.system_id) return 'Verus Testnet';
+
+  return networkCoin?.display_ticker || getNetworkTicker(systemId) || null;
+};
+
+// Returns {name, ticker} of the Verus chain the card is on, or null.
+const getCardVerusChain = (wallet, coin) => {
+  const systemId = wallet?.network || coin?.system_id;
+  if (typeof systemId !== 'string' || systemId.length === 0) return null;
+  // Ethereum and Electrum systems (".eth", ".btc", ".kmd") are not Verus.
+  if (systemId.startsWith('.')) return null;
+
+  const networkCoin = getCoinForSystem(systemId);
+  const verusCard =
+    isVerusChainCoin(networkCoin) ||
+    isVerusIdWallet(wallet) ||
+    wallet?.id === 'PRIVATE_WALLET' ||
+    isVrpcWallet(wallet);
+  if (!verusCard) return null;
+
+  const name = getChainName(systemId, networkCoin);
+  if (!name) return null;
+
+  return {name, ticker: networkCoin?.display_ticker || name};
+};
+
+// "on Verus", or null for a card that is not on a Verus chain.
+export const getCardChainLabel = (wallet, coin) => {
+  const chain = getCardVerusChain(wallet, coin);
+
+  return chain ? `on ${chain.name}` : null;
 };
 
 // The card's name wherever the app names it (owner, 2026-11-19, PR 266 review
 // R8 option C with the owner's change): a transparent or other address card
 // shows its short address, a VerusID card its name, the private card
-// "Private". The network follows on every card: "RT7d8L…HcM3Wy · VRSC".
+// "Private". A card on a Verus chain adds "on Verus" as `chainLabel` (owner,
+// 2026-11-25); `text` joins both for one-line places and screen readers.
 const isShownAddress = value =>
   typeof value === 'string' && value.length > 0 && value !== '-';
 
@@ -130,25 +169,22 @@ export const getSubWalletCardTitle = (wallet, {address, coin} = {}) => {
       : isAddress
       ? shortenAddress(shownAddress)
       : type;
-  const ticker = getCardNetworkTicker(wallet, coin) || null;
-  // A VerusID name such as "devphone.VRSCTEST@" already names its network,
-  // so it shows no suffix (owner, 2026-11-19). A root "alice@" keeps it.
-  const nameCarriesNetwork =
+  const chain = getCardVerusChain(wallet, coin);
+  // A VerusID name such as "devphone.VRSCTEST@" already names its chain, so
+  // it gets no label (owner, 2026-11-25). A root "alice@" on Verus keeps it.
+  const nameCarriesChain =
+    chain != null &&
     type === 'VerusID' &&
-    ticker != null &&
     typeof name === 'string' &&
-    name.toLowerCase().endsWith(`.${ticker.toLowerCase()}@`);
-  const network = nameCarriesNetwork ? null : ticker;
+    name.toLowerCase().endsWith(`.${chain.ticker.toLowerCase()}@`);
+  const chainLabel = chain && !nameCarriesChain ? `on ${chain.name}` : null;
 
   return {
     type,
     name,
     isAddress,
-    network,
-    // Always the ticker, also when the name carries it (choosers show it
-    // under the name on every row).
-    networkTicker: ticker,
-    text: network ? `${name} · ${network}` : name,
+    chainLabel,
+    text: chainLabel ? `${name} ${chainLabel}` : name,
   };
 };
 

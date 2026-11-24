@@ -304,39 +304,49 @@ A source is a subwallet, which can expose more than one address. Gift cards and
 NFC cards keep their names. The internal Card/subwallet model and all selection behavior stay the same.
 
 Every chooser names a card as the asset screen does (owner, 2026-11-19, PR
-266 review R8 option C with the owner's change; it replaces the type titles of
-2026-11-12). `getSubWalletCardTitle` in `src/utils/subwallet/cardPresentation.js`
-makes the title and `src/components/CardTitle.js` draws it: a transparent or
-other address card shows its short address in monospace (the first 6
-characters, "…", the last 6), a VerusID card its name (no i-address), the
-private card "Private". Then " · " and the network's ticker follow on every
-card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
-"alice@ · VRSC", "Private · VRSCTEST". A VerusID name that already ends in
-".<network>@" carries its network and shows no suffix ("devphone.VRSCTEST@");
-a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
-cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
-coins take their own ticker (KMD). The short address never shortens below
-6…6. In choosers and the card picker, where a balance sits beside the title
-(owner, 2026-11-21, phone feedback), the row shows the name alone on line 1
-(`CardTitle nameOnly`, filling the row width) and the network ticker on line 2
-under it, on every row, also for a VerusID name that carries its network
-("devphone.VRSCTEST@" over "VRSCTEST"; `networkTicker` of
-`getSubWalletCardTitle` always holds it). Line 2 is drawn like the ticker under
-the balance on the right (`SelectionRow subtitleLikeValueLabel`: `bodySm`,
-`textSecondary`; the card picker uses its own balance-ticker style), so both
-second lines sit on one row. A private card that still syncs reads
-"VRSCTEST · Syncing 12%". On the asset screen stack, Receive details and the
-Advanced form header the title stays "name · network" on one line and, in the
-rare case of too little room, takes a tail ellipsis. A name without a
-network part (a VerusID that carries it) keeps one line and uses the full
-width. The two parts align to the top on a shared line height, not to the
-baseline (Android). A VerusID name gives way with a middle ellipsis and keeps its @;
-then the network never shortens. No row has an address line; a private card
-that still syncs shows its sync status after the network on line 2. Copy and the screen
-reader label keep the full address. Because each title names its network,
-the choosers have no network group titles; rows keep the network order
-(owner, 2026-11-19: "Remove group titles"; this replaces the group-title rule
-of 2026-11-12).
+266 review R8 option C; chain words by the owner, 2026-11-25).
+`getSubWalletCardTitle` in `src/utils/subwallet/cardPresentation.js` makes the
+title and `src/components/CardTitle.js` draws it. The name is a transparent or
+other address card's short address in monospace (the first 6 characters, "…",
+the last 6), a VerusID card's name (no i-address), or "Private". The short
+address never shortens below 6…6.
+
+A card on a Verus chain (VRSC, VRSCTEST or a PBaaS chain) adds the quiet words
+"on Verus" as `chainLabel`; `text` joins name and words ("RT7d8L…HcM3Wy on
+Verus"). The words name the chain: "Verus" for VRSC, "Verus Testnet" for
+VRSCTEST, the short ticker for any other PBaaS chain ("on vETH", "on vARRR"),
+never the ticker "VRSC" and never a long display name. Ethereum (ETH, gETH and
+ERC-20 cards), Bitcoin, BTCTEST and other Electrum cards have no label: their
+address already says the chain. A VerusID name that ends in ".<chain
+ticker>@" ("devphone.VRSCTEST@") has none either; a root name such as
+"alice@" on Verus reads "alice@ on Verus". The same words serve as the screen
+reader label; the old " · <ticker>" suffix is gone.
+
+Drawing, by place:
+
+- Asset cards (front card, strips and the open-sheet bar): `CardTitle
+  stacked`. Line 1 is the name; line 2 is the chain words in `captionDense`
+  (12/16), white at 86% on the card colour. A card without a label shows the
+  name alone, centred as before. The front card keeps its height; its amount
+  sits 2 points higher to make room.
+- Choosers and the card picker, where a balance sits beside the title: line 1
+  is the name alone (`CardTitle nameOnly`, filling the row width); line 2 is
+  the chain words, smaller and quieter than the unit on the right (`SelectionRow
+  subtitleChain`: `captionDense`, `textSecondary`; the card picker keeps its
+  own 10-point balance-ticker size for both). A row without a label has no
+  line 2. A private card that still syncs reads "on Verus · Syncing 12%".
+- One-line places (Receive details, the Advanced form header): "name on
+  Verus" with the chain words in `textSecondary` after a name in
+  `textPrimary`, never a " · " separator. A rare lack of room gives the chain
+  words a tail ellipsis; a VerusID name gives way with a middle ellipsis and
+  keeps its @.
+
+The two parts of a one-line title align to the top on a shared line height,
+not to the baseline (Android). No row has an address line. Copy and the screen
+reader label keep the full address. Because each title names its chain, the
+choosers have no network group titles; rows keep the network order (owner,
+2026-11-19: "Remove group titles"; this replaces the group-title rule of
+2026-11-12).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and

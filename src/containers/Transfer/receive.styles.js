@@ -181,7 +181,7 @@ export const createReceiveDetailsStyles = theme =>
     contextTitle: {flexShrink: 1},
     contextText: {
       flexShrink: 1,
-      color: theme.colors.textSecondary,
+      color: theme.colors.textPrimary,
       fontSize: 16,
       lineHeight: 22,
       ...fontStyle('regular'),

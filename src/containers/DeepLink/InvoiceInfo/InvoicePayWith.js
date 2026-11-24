@@ -46,7 +46,7 @@ import RequestCard from '../components/RequestReview/RequestCard';
 import OpenInAnotherWalletAction from '../components/RequestReview/OpenInAnotherWalletAction';
 
 // A source as the asset screen names it: the short address or VerusID name,
-// and the network (PR 266 review R8).
+// and "on Verus" for a Verus chain (PR 266 review R8, owner 2026-11-25).
 export const getPayFromLabel = (wallet, activeAccount, coin) =>
   getSubWalletCardTitleForAccount(wallet, activeAccount, coin).text;
 

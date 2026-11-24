@@ -24,8 +24,10 @@ const QUIET = 'rgba(255,255,255,0.86)';
 // the front card has no address line: the amount follows the title row.
 const FRONT_HEIGHT = 120;
 const FRONT_HEIGHT_COMPACT = 110;
-const HERO_TOP = 44;
-const HERO_TOP_COMPACT = 40;
+// The title takes two lines (name, "on Verus") on a card on a Verus chain, so
+// the amount sits 2 points higher than with a name alone (owner, 2026-11-25).
+const HERO_TOP = 42;
+const HERO_TOP_COMPACT = 38;
 
 const CardBalance = ({
   card,
@@ -263,6 +265,8 @@ const StackCard = ({
               </Text>
             ) : (
               <CardTitle
+                stacked
+                chainColor={QUIET}
                 title={card.cardTitle}
                 containerStyle={[
                   styles.title,
@@ -360,6 +364,8 @@ const StackCard = ({
               onPress={onCloseSheet}
               style={({pressed}) => [styles.bar, pressed && styles.pressed]}>
               <CardTitle
+                stacked
+                chainColor={QUIET}
                 title={card.cardTitle}
                 containerStyle={styles.title}
                 style={[theme.typography.titleRowCompact, {color: WHITE}]}
