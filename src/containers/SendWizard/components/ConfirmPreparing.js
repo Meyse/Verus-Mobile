@@ -6,6 +6,8 @@ import {useOnboardingTheme} from '../../../theme/onboarding';
 import {RecipientRow} from './ConfirmFacts';
 import {TransferConnector, TransferNode} from './TransferSummary';
 import {FlatRow, WIZARD_CONTENT_TOP_INSET} from './WizardUI';
+import {SLIPPAGE_LABEL_SHORT} from './impactFormat';
+import ViaLine from './ViaLine';
 
 const ValueSkeleton = ({width = 96}) => (
   <SkeletonLoader style={styles.valueSkeleton}>
@@ -33,6 +35,9 @@ const ConfirmPreparing = ({
   recipientCaption,
   routeRows = [],
   showPriceImpact,
+  // The basket the user's route goes through: chosen on Amount, so real
+  // while the review prepares (same row as Confirm, no jump).
+  via = null,
   sourceCoin,
   target,
 }) => {
@@ -84,7 +89,7 @@ const ConfirmPreparing = ({
           <FlatRow key={row.label} numberOfLines={0} {...row} />
         ))}
         {showPriceImpact ? (
-          <FlatRow label="Price impact">
+          <FlatRow detail={via ? <ViaLine name={via} /> : null} label={SLIPPAGE_LABEL_SHORT}>
             <ValueSkeleton width={120} />
           </FlatRow>
         ) : null}

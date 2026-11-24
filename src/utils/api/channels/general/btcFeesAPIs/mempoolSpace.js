@@ -4,7 +4,7 @@ import {validateBTCFeeRates} from './feeRates';
 export const getMempoolSpaceBTCFees = async (maximum, testnet = false) => {
   try {
     const response = await axios.get(
-      `https://mempool.space/${testnet ? 'testnet/' : ''}api/v1/fees/recommended`,
+      `https://mempool.space/${testnet ? 'testnet4/' : ''}api/v1/fees/recommended`,
       {timeout: 10000},
     );
     return validateBTCFeeRates({

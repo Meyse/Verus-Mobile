@@ -3,7 +3,7 @@ import {useSelector} from 'react-redux';
 import BigNumber from 'bignumber.js';
 import {API_GET_BALANCES} from '../../utils/constants/intervalConstants';
 import {coinsToSats} from '../../utils/math';
-import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
+import {getSendLimit} from '../../utils/subwallet/privateWallet';
 
 const initialWizardState = {
   sourceCoin: null,
@@ -34,12 +34,15 @@ const initialWizardState = {
   sourceIdentity: null,
   // The card a payment comes from, when the asset is on more than one.
   payFromLabel: null,
+  // What the From row copies: the full address or the VerusID name.
+  payFromCopyValue: null,
   // A currency to convert to, chosen before the wizard opened ("Pre-convert"
   // on a pre-launch asset). Convert to selects it once its routes load.
   presetTargetId: null,
-  // Send: the asset's networks, loaded once by Select asset ({networkOptions}).
-  sendNetworks: null,
   preflightResult: null,
+  // The Advanced form (PR 266 pick ADV): its prepared transaction
+  // ({preflight, balances, sendModal}) and, once sent, its result.
+  advancedReview: null,
   txResult: null,
   broadcastError: null,
 };
@@ -70,19 +73,14 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     ...(initialState || {}),
     amountInput: initialState?.amountInput ?? initialState?.amount ?? '',
   }));
-  // The private card spends only confirmed funds, as its preflight does.
-  // Funds that still confirm show apart on Amount.
+  // Available, MAX and the Amount limit are the confirmed balance on every
+  // channel (PR 266 review R13), the number Home and the asset screen show.
+  // No pending funds show on Amount.
   const balanceChannel = state.sourceSubWallet?.api_channels?.[API_GET_BALANCES];
-  const privateSource = isPrivateChannel(balanceChannel);
-  const sourceBalance = useSelector(ledgerState => {
-    const entry = ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id];
-    return (privateSource ? entry?.confirmed : entry?.total) ?? '0';
-  });
-  const sourcePending = useSelector(ledgerState =>
-    privateSource
-      ? ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]?.pending ?? null
-      : null,
+  const sourceSendLimit = useSelector(ledgerState =>
+    getSendLimit(ledgerState.ledger.balances[balanceChannel]?.[state.sourceCoin?.id]),
   );
+  const sourceBalance = sourceSendLimit;
 
   const setSource = useCallback((source, target = null, route = null) => {
     setState(current => {
@@ -201,6 +199,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
     setState(current => ({...current, broadcastError}));
   }, []);
 
+  const setAdvancedReview = useCallback(advancedReview => {
+    setState(current => ({...current, advancedReview}));
+  }, []);
+
   const reset = useCallback(() => setState({...initialWizardState}), []);
 
   const value = useMemo(
@@ -209,7 +211,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       state: {
         ...state,
         sourceBalance: String(sourceBalance),
-        sourcePending: sourcePending == null ? null : String(sourcePending),
+        sourceSendLimit,
       },
       setSource,
       setTarget,
@@ -223,6 +225,7 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setPreflight,
       setTxResult,
       setBroadcastError,
+      setAdvancedReview,
       reset,
     }),
     [
@@ -240,9 +243,10 @@ export const SendWizardProvider = ({children, initialState, mode}) => {
       setTarget,
       setTxResult,
       setBroadcastError,
+      setAdvancedReview,
       state,
       sourceBalance,
-      sourcePending,
+      sourceSendLimit,
     ],
   );
 

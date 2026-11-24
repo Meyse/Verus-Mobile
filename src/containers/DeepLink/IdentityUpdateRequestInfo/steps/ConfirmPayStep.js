@@ -37,6 +37,7 @@ import {
   requireIdentityFundingApproval,
   validateIdentityUpdateContext,
   submitReviewedIdentityUpdate,
+  IDENTITY_UPDATE_INPUTS_SPENT,
 } from '../../../../utils/identityUpdate/verifiedSubmission';
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { satsToCoins, truncateDecimal } from '../../../../utils/math';
@@ -61,6 +62,7 @@ import {PROFILE_SECURITY_SETTINGS_LABEL} from '../../../../utils/settings/settin
 import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
 import {EncryptedCredentialNote} from '../../../../components/VerusIdContentChangeCard';
 import {buildIdentityStateChange} from '../utils/buildIdentityStateChange';
+import {getShownBalance} from '../../../../utils/ledger/shownBalance';
 
 const IDENTITY_UPDATE_COMPLETION_SHEET_HEIGHT = 360;
 const COMPLETION_SHEET_STAGE = {
@@ -164,6 +166,10 @@ const getFeeErrorMessage = error => {
 // The update was not broadcast, or a step after the broadcast failed. A
 // broadcast update keeps its txid on the sheet.
 const getBroadcastError = (error, txid) => {
+  // The node refused the update because an input is already spent.
+  if (error?.code === IDENTITY_UPDATE_INPUTS_SPENT) {
+    return {title: 'Update not broadcast', message: error.message};
+  }
   if (error?.code === 'BROADCAST_UNKNOWN' || error?.submitted) {
     return {
       title: 'Delivery not confirmed',
@@ -441,7 +447,8 @@ const ConfirmPayStep = ({
         // Get balance for this wallet
         const balanceChannel = wallet.api_channels?.[API_GET_BALANCES];
         const balanceData = balanceChannel && allBalances[balanceChannel]?.[chainTicker];
-        const balance = balanceData?.total != null ? BigNumber(balanceData.total) : BigNumber(0);
+        const shown = getShownBalance(balanceData);
+        const balance = shown != null ? BigNumber(shown) : BigNumber(0);
 
         if (balance.isGreaterThan(0)) {
           sources.push({

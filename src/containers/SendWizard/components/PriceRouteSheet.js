@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {RotateCw} from 'lucide-react-native';
 import AppButton from '../../../components/AppButton';
 import BottomSheetModal from '../../../components/BottomSheetModal';
 import {SelectionRow} from '../../../components/SelectionSheet';
@@ -27,25 +28,36 @@ import {
   getUnitPrice,
   IMPACT_LEVEL,
 } from '../priceImpact';
-import {getRouteName} from '../wizardUtils';
+import {getRouteCheckState, getRouteName} from '../wizardUtils';
 import {
   formatEstimatedAmount,
   formatUnitPrice,
   getImpactBadgeLabel,
   getImpactLossText,
+  SLIPPAGE_LABEL,
 } from './impactFormat';
 
 const FACT_ROW_HEIGHT = 32;
+// Android's fit-to-width shrinks text that already fits, so fact values keep
+// full size there and wrap to a second line (right-aligned) instead. iOS keeps
+// the one-line shrink.
+const FACT_VALUE_FIT_PROPS = Platform.OS === 'android'
+  ? {}
+  : {adjustsFontSizeToFit: true, minimumFontScale: 0.8, numberOfLines: 1};
 const SUGGESTION_ROW_HEIGHT = 48;
 const FACT_LIST_GAP = 8;
 const SHEET_HEIGHT_SHARE = 0.78;
 
-// Send's Amount step opens it with every basket and the estimate for each. Confirm
+// Send's Amount step opens it with the routes it checked and the estimate for
+// each: routes not checked yet are not listed. When more remain, the list ends
+// in "Check 30 more routes" over "30 of 100 routes checked", and the best
+// row says "Best so far" (R2 option A, owner 2026-11-22). Confirm
 // opens it with no baskets: then it shows the price facts and the route. With
 // `pay` (a VerusPay invoice), the amount received is fixed: `baskets` comes
 // prepared with what each basket costs.
 const PriceRouteSheet = ({
   baskets,
+  checkingMore = false,
   cryptoAmount,
   displayCurrency,
   estimates = {},
@@ -55,6 +67,7 @@ const PriceRouteSheet = ({
   exportFeeLoading,
   hasExportFee,
   onClose,
+  onCheckMore,
   onClosed,
   onSelect,
   onUseSuggestion,
@@ -78,17 +91,32 @@ const PriceRouteSheet = ({
     [theme],
   );
   const dismissal = useSheetDismissal({visible, onClose, onClosed});
-  const rows = baskets || compareRoutes(target.routes || [], estimates).map(
+  // A checked route has an entry in `estimates`: its estimate, or null when
+  // the estimate failed, which the row then says.
+  // In the order Amount checked them, so on equal estimates the badge goes to
+  // the route Amount chose (the one checked first).
+  const allRoutes = target.routes || [];
+  const routesByKey = Object.fromEntries(allRoutes.map(item => [item.key, item]));
+  const checkedRoutes = Object.keys(estimates)
+    .map(key => routesByKey[key])
+    .filter(Boolean);
+  const checkState = getRouteCheckState(
+    baskets ? 0 : allRoutes.length,
+    checkedRoutes.length,
+  );
+  const rows = baskets || compareRoutes(checkedRoutes, estimates).map(
     ({route: item, output, isBest}) => ({
       route: item,
       subtitle: output
         ? `≈ ${formatEstimatedAmount(output)} ${target.ticker}`
         : 'Estimate unavailable.',
-      badgeLabel: isBest ? 'Best price' : null,
+      badgeLabel: isBest ? checkState.bestLabel : null,
       isBest,
     }),
   );
-  const hasChoice = rows.length > 1;
+  const showCheckMore = !baskets && Boolean(onCheckMore) &&
+    checkedRoutes.length > 0 && checkState.remaining > 0;
+  const hasChoice = rows.length > 1 || showCheckMore;
   const {impact, level, loss, marketPrice, suggestion} = priceImpact;
   const unitPrice = target.isConversion
     ? getUnitPrice(cryptoAmount, estimatedOutput)
@@ -123,11 +151,11 @@ const PriceRouteSheet = ({
     {
       label: 'Your price',
       value: unitPrice
-        ? `1 ${sourceTicker} = ${formatUnitPrice(unitPrice)} ${target.ticker}`
+        ? `1 ${sourceTicker} ≈ ${formatUnitPrice(unitPrice)} ${target.ticker}`
         : null,
     },
     {
-      label: 'Price impact',
+      label: SLIPPAGE_LABEL,
       value: difference
         ? lossText && level !== IMPACT_LEVEL.NONE
           ? `${lossText} (${difference})`
@@ -203,7 +231,7 @@ const PriceRouteSheet = ({
                   ].filter(Boolean).join(', ')}
                   badge={isBest ? (
                     <StatusBadge
-                      label="Best price"
+                      label={badgeLabel}
                       labelStyle={theme.typography.labelDense}
                       style={styles.badge}
                       tone={STATUS_BADGE_TONE.SUCCESS}
@@ -214,6 +242,15 @@ const PriceRouteSheet = ({
                 />
               );
             })}
+            {showCheckMore ? (
+              <CheckMoreRow
+                checked={checkedRoutes.length}
+                checking={checkingMore}
+                next={checkState.next}
+                onPress={onCheckMore}
+                total={allRoutes.length}
+              />
+            ) : null}
           </SheetScrollView>
         ) : null}
         <View style={styles.fixed}>
@@ -245,9 +282,7 @@ const PriceRouteSheet = ({
                     </SkeletonLoader>
                   ) : (
                     <Text
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.8}
-                      numberOfLines={1}
+                      {...FACT_VALUE_FIT_PROPS}
                       style={[
                         fact.emphasis ? theme.typography.labelSm : theme.typography.caption,
                         styles.factValue,
@@ -262,7 +297,7 @@ const PriceRouteSheet = ({
           ) : null}
           {showSuggestion ? (
             <Pressable
-              accessibilityLabel={`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead. Price impact ${getImpactBadgeLabel(suggestion.impact)}`}
+              accessibilityLabel={`Use ${truncateDecimal(suggestion.amount, 8)} ${sourceTicker} instead. ${SLIPPAGE_LABEL} ${getImpactBadgeLabel(suggestion.impact)}`}
               accessibilityRole="button"
               onPress={() => dismissal.dismiss(() => onUseSuggestion(suggestion.amount))}
               style={({pressed}) => [
@@ -284,7 +319,7 @@ const PriceRouteSheet = ({
                   styles.suggestionImpact,
                   {color: theme.colors.textSecondary},
                 ]}>
-                  Price impact {getImpactBadgeLabel(suggestion.impact)}
+                  {SLIPPAGE_LABEL} {getImpactBadgeLabel(suggestion.impact)}
                 </Text>
               </View>
               <MaterialCommunityIcons
@@ -308,6 +343,55 @@ const PriceRouteSheet = ({
   );
 };
 
+// The end of the list while routes remain unchecked. It looks like a route
+// row (SelectionRow compact dense) without fill, with a full outline and the
+// action in `link`; while it checks, the title says so and the list keeps its
+// rows. A tap checks the next 30 oldest routes.
+const CheckMoreRow = ({checked, checking, next, onPress, total}) => {
+  const theme = useOnboardingTheme();
+  const rowStyles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
+  const title = checking
+    ? `Checking ${next} ${next === 1 ? 'route' : 'routes'}…`
+    : `Check ${next} more ${next === 1 ? 'route' : 'routes'}`;
+  const count = `${checked} of ${total} routes checked`;
+  return (
+    <Pressable
+      accessibilityLabel={`${title}. ${count}`}
+      accessibilityRole="button"
+      accessibilityState={{busy: checking, disabled: checking}}
+      disabled={checking}
+      hitSlop={{top: 2, bottom: 2}}
+      onPress={onPress}
+      style={({pressed}) => [
+        rowStyles.row,
+        rowStyles.compactRow,
+        rowStyles.denseRow,
+        styles.checkMore,
+        {borderColor: theme.colors.border},
+        pressed && styles.pressed,
+      ]}>
+      <View style={rowStyles.copy}>
+        <Text
+          numberOfLines={1}
+          style={[
+            rowStyles.denseTitle,
+            {color: checking ? theme.colors.textSecondary : theme.colors.link},
+          ]}>
+          {title}
+        </Text>
+        <Text numberOfLines={1} style={[rowStyles.rowSubtitle, rowStyles.compactSubtitle, rowStyles.denseSubtitle]}>
+          {count}
+        </Text>
+      </View>
+      <View style={[rowStyles.indicator, rowStyles.compactIndicator]}>
+        {checking ? null : (
+          <RotateCw color={theme.colors.link} size={18} strokeWidth={2.2} />
+        )}
+      </View>
+    </Pressable>
+  );
+};
+
 const styles = StyleSheet.create({
   // SemiModal supplies 10 points by default. This sheet owns its 12-point top inset.
   shell: {paddingTop: 0},
@@ -316,7 +400,7 @@ const styles = StyleSheet.create({
   badge: {paddingHorizontal: 6, paddingVertical: 2},
   factsAfterBaskets: {marginTop: FACT_LIST_GAP, borderTopWidth: StyleSheet.hairlineWidth},
   fact: {
-    height: FACT_ROW_HEIGHT,
+    minHeight: FACT_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -329,6 +413,15 @@ const styles = StyleSheet.create({
   suggestionCopy: {flex: 1, marginRight: 8},
   suggestionImpact: {marginRight: 6},
   pressed: {opacity: 0.7},
+  // No fill and a full 1-point outline. The padding gives up that point, so
+  // the text lines up with the route rows.
+  checkMore: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    paddingLeft: 11,
+    paddingRight: 7,
+    paddingVertical: 4,
+  },
 });
 
 export default PriceRouteSheet;

@@ -10,7 +10,6 @@ import AlertAsync from 'react-native-alert-async';
 import {useDispatch} from 'react-redux';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
 import {switchTestnetEnvironment} from '../../../../actions/actions/testnetEnvironment';
-import { refreshTestnetPrices } from '../../../../actions/actions/wallet/dispatchers/general/updates';
 import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../../../theme/onboarding';
 import {MINIMUM_GAS_PRICE_GWEI} from '../../../../utils/constants/web3Constants';
@@ -139,7 +138,6 @@ const GeneralWalletSettings = () => {
 
     try {
       dispatch(await saveGeneralSettings({[key]: value}));
-      if (key === 'testnetPrices') refreshTestnetPrices();
     } catch (err) {
       // The row reverts to the stored value and shows a short error.
       setRowError(key, NOT_SAVED);
@@ -275,44 +273,32 @@ const GeneralWalletSettings = () => {
           />
         </SettingsSection>
 
-        {__DEV__ && (
+        {__DEV__ && hasPrivateTestnetEnvironment() && (
           <SettingsSection title="Developer">
-            {hasPrivateTestnetEnvironment() && (
-              <SettingsSwitchRow
-                accessibilityLabel="Private testnet"
-                busy={isSaving('testnetEnvironment')}
-                description="Use the private Verus API and bridge contract"
-                icon="flask-outline"
-                onValueChange={toggleTestnetEnvironment}
-                error={rowErrors.testnetEnvironment}
-                testID="settings.general.testnetEnvironment"
-                title={
-                  getTestnetEnvironment() === TESTNET_ENVIRONMENT_PRIVATE ? (
-                    <StatusBadge
-                      label="Private testnet"
-                      tone="warning"
-                      style={styles.privateBadge}
-                    />
-                  ) : (
-                    'Private testnet'
-                  )
-                }
-                value={
-                  displayedSetting('testnetEnvironment') ===
-                  TESTNET_ENVIRONMENT_PRIVATE
-                }
-              />
-            )}
             <SettingsSwitchRow
-              busy={isSaving('testnetPrices')}
-              description="Show on-chain prices for testnet coins"
-              icon="currency-usd"
+              accessibilityLabel="Private testnet"
+              busy={isSaving('testnetEnvironment')}
+              description="Use the private Verus API and bridge contract"
+              icon="flask-outline"
               last
-              onValueChange={(value) => persistSetting('testnetPrices', value)}
-              error={rowErrors.testnetPrices}
-              testID="settings.general.testnetPrices"
-              title="Testnet prices"
-              value={displayedSetting('testnetPrices') === true}
+              onValueChange={toggleTestnetEnvironment}
+              error={rowErrors.testnetEnvironment}
+              testID="settings.general.testnetEnvironment"
+              title={
+                getTestnetEnvironment() === TESTNET_ENVIRONMENT_PRIVATE ? (
+                  <StatusBadge
+                    label="Private testnet"
+                    tone="warning"
+                    style={styles.privateBadge}
+                  />
+                ) : (
+                  'Private testnet'
+                )
+              }
+              value={
+                displayedSetting('testnetEnvironment') ===
+                TESTNET_ENVIRONMENT_PRIVATE
+              }
             />
           </SettingsSection>
         )}

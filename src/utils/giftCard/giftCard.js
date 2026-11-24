@@ -37,7 +37,6 @@ import {
   getBlockHash,
   getAddressMempool,
   getAddressUtxos,
-  getMempoolUnspentUtxos,
   getInfo,
   getSpendableUtxos,
   getTransaction,
@@ -2052,15 +2051,9 @@ const getIdentityFundingInputPlan = async ({
     );
   }
 
-  const identityFunding = getIdentityFunding(identity, identityFundingByKey);
-  const identityUtxos = await getMempoolUnspentUtxos(
-    group.systemId,
-    [identity.identityAddress],
-    identityFunding.utxos || [],
-  );
   const identityFeeUtxos = getIdentityFeeUtxos(
     group.systemId,
-    {...identityFunding, utxos: identityUtxos},
+    getIdentityFunding(identity, identityFundingByKey),
     requiredFeeSats.plus(SPENDABLE_KEY_CLAIM_FEE_SATS),
     BigNumber(0),
     excludedUtxos,

@@ -133,27 +133,27 @@ export const modifyServiceStoredDataForUser = async (
   });
 };
 
-// Remove one migrated service entry without decrypting unrelated entries.
-// Use the existing service queue so concurrent service writes cannot restore it.
-export const removeServiceStoredDataForUser = (service, accountHash, requestContext) => {
-  const sessionScope = getOriginatingSessionScope(accountHash, requestContext);
-  if (sessionScope.accountHash !== accountHash) {
-    throw new Error("Service data account does not match its originating session.");
-  }
-  assertOriginatingSessionCurrent(sessionScope, requestContext);
-  return queueServiceStorageWrite(async () => {
-    assertOriginatingSessionCurrent(sessionScope, requestContext);
+// Change one entry with a password the caller read while the account was
+// signed in. The read-modify-write runs on the stored record inside the queue,
+// so it never uses stale Redux data, and it also completes when the account
+// signs out meanwhile. Redux gets the result while that account is active.
+export const modifyServiceEntryWithPasswordForUser = (
+  service,
+  accountHash,
+  password,
+  update,
+) =>
+  queueServiceStorageWrite(async () => {
     const stored = {...(await loadServiceStoredDataForUser(accountHash))};
-    assertOriginatingSessionCurrent(sessionScope, requestContext);
-    if (!Object.prototype.hasOwnProperty.call(stored, service)) return;
-    delete stored[service];
-    await saveEncryptedServiceStoredDataForUser(stored, accountHash, {
-      ...requestContext,
-      sessionScope,
-    });
-    assertOriginatingSessionCurrent(sessionScope, requestContext);
+    const nextData = update(decryptServiceData(stored[service], password, service));
+    stored[service] = await encryptkey(password, JSON.stringify(nextData));
+    await storeServiceStoredDataForUser(stored, accountHash);
+    const sessionScope = captureSessionScope(store.getState());
+    if (sessionScope.accountHash === accountHash) {
+      store.dispatch(scopeSessionAction(setServiceStored(stored), sessionScope));
+    }
+    return nextData;
   });
-};
 
 export const resetServicesStoredEncryptionForUser = async (
   accountHash,

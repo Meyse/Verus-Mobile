@@ -8,7 +8,7 @@ import {
   SET_WATCHED_VRPC_ADDRESSES,
 } from '../../utils/constants/storeType';
 import VrpcProvider from '../../utils/vrpc/vrpcInterface';
-import {activateChainLifecycle} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
+import {activateChainLifecycleForVrpcAddresses} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
 import {sessionActionIsCurrent, signOutCompletionWasAccepted} from '../../actions/actions/updates/sessionRequests';
 import {awaitSagaResourceSettlements, clearSagaResources} from './resourceOwnership';
 import {createEndpointLifecycle} from './endpointLifecycle';
@@ -81,5 +81,5 @@ function * refreshVrpcDependentState(action) {
     meta: action.meta,
   })
   if (!sessionActionIsCurrent(yield select(), action)) return;
-  yield call(activateChainLifecycle, coinObj, activeCoinsForUser)
+  yield call(activateChainLifecycleForVrpcAddresses, coinObj, activeCoinsForUser)
 }

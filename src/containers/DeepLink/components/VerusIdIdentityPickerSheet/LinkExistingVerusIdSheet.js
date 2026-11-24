@@ -15,6 +15,7 @@ import {Pencil, Plus} from 'lucide-react-native';
 import {fromBase58Check} from 'verus-typescript-primitives';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import AppButton from '../../../../components/AppButton';
+import AppStatusBadge from '../../../../components/StatusBadge';
 import AppSearchField, {
   APP_SEARCH_MIN_ITEMS,
 } from '../../../../components/AppSearchField';
@@ -217,6 +218,10 @@ const buildLinkedAddressSet = linkedIds => {
 
 const LinkExistingVerusIdSheet = ({
   active,
+  // The wallet's own Link VerusID links a VerusID of any status by hand, as
+  // upstream does. A request picker links to sign with it, so it keeps the
+  // active-only rule: a revoked VerusID cannot sign.
+  allowInactive = false,
   candidateListHeight = DEFAULT_CANDIDATE_LIST_HEIGHT,
   coinObj,
   initialManualValue = '',
@@ -565,16 +570,16 @@ const LinkExistingVerusIdSheet = ({
   }, [searchable]);
   useEffect(() => () => onSearchVisibleChangeRef.current?.(false), []);
 
-  // The automatic lookup finds every VerusID that can be linked, so the manual
-  // row shows only when the lookup failed or the chain has no identity index.
-  // The parent keeps the row's room while the row or the manual step shows.
-  const showManualRow = !loading && Boolean(errorMessage);
-  const needsManualRoom =
-    showManualRow || mode === LINK_EXISTING_VERUSID_SHEET_MODES.MANUAL;
+  // The automatic lookup lists only active VerusIDs that use this wallet's
+  // address, so it can leave out a VerusID the manual step can link (one that
+  // needs other signers, for example). The manual row shows whenever the
+  // lookup is not running (PR 266 review I1, 2026-11-19). The parent keeps
+  // the row's room also while the lookup runs, so the sheet height stays.
+  const showManualRow = !loading;
 
   useEffect(() => {
-    onManualRoomChangeRef.current?.(needsManualRoom);
-  }, [needsManualRoom]);
+    onManualRoomChangeRef.current?.(true);
+  }, []);
   useEffect(() => () => onManualRoomChangeRef.current?.(false), []);
 
   const filteredCandidates = useMemo(() => {
@@ -684,7 +689,7 @@ const LinkExistingVerusIdSheet = ({
       return 'Unable to link this VerusID.';
     }
 
-    if (candidate.status !== 'active') {
+    if (!allowInactive && candidate.status !== 'active') {
       return 'Only active VerusIDs can be linked.';
     }
 
@@ -1077,15 +1082,25 @@ const ManualReviewStep = ({
   theme,
 }) => {
   const sections = buildVerusIdSections(candidate?.identityResult, friendlyNames);
+  const revoked = candidate?.status === 'revoked';
 
   return (
     <View>
-      <Text
-        accessibilityRole="header"
-        numberOfLines={2}
-        style={styles.manualStepTitle}>
-        {candidate?.displayName}
-      </Text>
+      <View style={revoked ? styles.manualReviewTitleRow : undefined}>
+        <Text
+          accessibilityRole="header"
+          numberOfLines={2}
+          style={[styles.manualStepTitle, revoked && styles.manualReviewTitle]}>
+          {candidate?.displayName}
+        </Text>
+        {revoked ? <AppStatusBadge label="Revoked" tone="danger" /> : null}
+      </View>
+      {revoked ? (
+        <Text style={styles.manualReviewNote}>
+          This VerusID is revoked. Linking shows it in your wallet. It does not
+          recover it.
+        </Text>
+      ) : null}
       <View
         style={[
           styles.reviewFrame,
@@ -1273,6 +1288,21 @@ const createStyles = theme =>
       color: theme.colors.textPrimary,
       marginBottom: 10,
       ...theme.typography.titleSheet,
+    },
+    manualReviewTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10,
+    },
+    manualReviewTitle: {
+      flexShrink: 1,
+      marginBottom: 0,
+    },
+    manualReviewNote: {
+      ...theme.typography.bodySm,
+      color: theme.colors.textSecondary,
+      marginBottom: 12,
     },
     manualStepScrollFrame: {
       flexGrow: 0,

@@ -175,6 +175,34 @@ describe('profile creation submissions', () => {
     expect(mockFinishWalletSetup).toHaveBeenCalledTimes(1);
   });
 
+  // OS-2. Expected addresses: upstream 525aa859 deriveKeyPair for this
+  // phrase on VRSCTEST (electrum and ETH channels), run on 2026-11-18.
+  it('imports a 12-word phrase from the phrase editor as the exact phrase', async () => {
+    const phrase = `${'abandon '.repeat(11)}about`;
+    // The editor keeps empty slots in the saved text while the user types.
+    const slotText = `${phrase}${' '.repeat(12)}`;
+    mockCreateProfileFromSeed.mockResolvedValue({});
+    mount({setupPath: 'import', importMethod: 'seed'});
+    await enterNameAndPassword();
+
+    act(() => { find('ImportSeed').props.setImportedSeed(slotText); });
+    await act(async () => { await find('ImportSeed').props.onComplete(phrase); });
+
+    expect(mockCreateProfileFromSeed).toHaveBeenCalledTimes(1);
+    const {seed, includeDlightSeed} = mockCreateProfileFromSeed.mock.calls[0][0];
+    expect(seed).toBe(phrase);
+    expect(includeDlightSeed).toBe(false);
+
+    const {deriveKeyPair} = jest.requireActual('../../keys');
+    const {CoinDirectory} = jest.requireActual('../../CoinData/CoinDirectory');
+    const {ELECTRUM, ETH} = jest.requireActual('../../constants/intervalConstants');
+    const coin = CoinDirectory.getBasicCoinObj('VRSCTEST');
+    expect((await deriveKeyPair(seed, coin, ELECTRUM)).addresses[0])
+      .toBe('RFHG6jCuPmTZknnwPwjMWv67HRarPCtEFh');
+    expect((await deriveKeyPair(seed, coin, ETH)).addresses[0])
+      .toBe('0x3f824a4F474dfc10Cf25Ae7292C23aE7d925D6e6');
+  });
+
   it.each(['generated seed', 'text import', 'NFC import'])(
     'keeps the %s completion promise pending through profile creation',
     async path => {

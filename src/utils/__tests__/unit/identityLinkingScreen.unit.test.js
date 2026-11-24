@@ -251,3 +251,36 @@ test.each(['keys', 'network'])('changing wallet %s during a save starts fresh di
   expect(text(view.root)).not.toContain('VerusID linked to your wallet');
   expect(button(view, 'Link VerusIDs')).toBeUndefined();
 });
+
+// PR 266 review I1 (owner pick A, 2026-11-19): discovery lists only VerusIDs
+// this wallet can spend from alone, so manual entry stays in the footer.
+test('manual entry is in the footer with found rows, with none and after a failed lookup, not while loading', async () => {
+  const AppButton = require('../../../components/AppButton').default;
+  const manualButton = view => view.root.findByType(SafeBottomActionStack).findAllByType(AppButton)
+    .find(node => text(node) === 'Enter VerusID manually');
+  const hint = 'For VerusIDs that need other signers, or any VerusID by name or i-address.';
+
+  const pending = deferred();
+  mockApi.discoverLinkableIdentities.mockReturnValueOnce(pending.promise);
+  const nav = {...navigation(), navigate: jest.fn()};
+  const view = await mount({navigation: nav});
+  expect(manualButton(view)).toBeUndefined();
+  await act(async () => pending.resolve(rows));
+  expect(manualButton(view).props.variant).toBe('secondary');
+  expect(footerButton(view, 'Link VerusIDs')).toBeDefined();
+  expect(text(view.root.findByType(SafeBottomActionStack))).toContain(hint);
+  await act(async () => manualButton(view).props.onPress());
+  expect(nav.navigate).toHaveBeenCalledWith('Identity', {manualLinkChain: 'VRSC'});
+
+  mockApi.discoverLinkableIdentities.mockResolvedValueOnce([]);
+  const empty = await mount();
+  expect(manualButton(empty).props.variant).toBe('primary');
+  expect(footerButton(empty, 'Link VerusIDs')).toBeUndefined();
+  expect(text(empty.root)).toContain('To link a VerusID that needs other signers, enter it manually.');
+  expect(text(empty.root.findByType(SafeBottomActionStack))).not.toContain(hint);
+
+  mockApi.discoverLinkableIdentities.mockRejectedValueOnce(new Error('Network unavailable'));
+  const failed = await mount();
+  expect(button(failed, 'Try again')).toBeDefined();
+  expect(manualButton(failed).props.variant).toBe('secondary');
+});

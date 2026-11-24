@@ -361,7 +361,6 @@ const ReceivePaymentRequestFlow = ({
       try {
         await RNFS.writeFile(path, data, 'base64');
         await CameraRoll.save(path, {type: 'photo'});
-        await RNFS.unlink(path);
         if (savingRef.current !== saveToken) return;
         if (!isActiveRun(runId) || !mountedRef.current) return;
         qrSavedRef.current = true;
@@ -371,6 +370,10 @@ const ReceivePaymentRequestFlow = ({
         if (!isActiveRun(runId) || !mountedRef.current) return;
         setError('The QR image could not be saved. Try again.');
       } finally {
+        // The QR holds the receive address and amount. Never leave it in Caches.
+        try {
+          if (await RNFS.exists(path)) await RNFS.unlink(path);
+        } catch (_) {}
         if (savingRef.current === saveToken) savingRef.current = false;
       }
     });

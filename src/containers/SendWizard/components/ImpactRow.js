@@ -3,29 +3,37 @@ import {StyleSheet, Text} from 'react-native';
 import StatusBadge from '../../../components/StatusBadge';
 import {useOnboardingTheme} from '../../../theme/onboarding';
 import {formatImpact, IMPACT_LEVEL} from '../priceImpact';
-import {getImpactBadgeLabel, getImpactTone} from './impactFormat';
+import {
+  getImpactChipLabel,
+  getImpactTone,
+  getSlippageRowLabel,
+  SLIPPAGE_LABEL_SHORT,
+} from './impactFormat';
+import ViaLine from './ViaLine';
 import {FlatRow} from './WizardUI';
 
-// The Confirm row for price impact: what it costs in money when it matters,
+// The Confirm row for the estimated slippage: what it costs in money when it matters,
 // then the badge. "Details" stands in for an unknown impact, as on Amount.
-// `onPress` opens "Price and route", where the route shows.
-const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
+// `onPress` opens "Price and route", where the route shows. `via` names the
+// basket under the label, as on Amount, without a route count: Confirm cannot
+// change the route (R3 option 1, owner 2026-11-22).
+const ImpactRow = ({impact, level, lossText, onPress, via = null}) => {
   const theme = useOnboardingTheme();
   const showLoss =
     lossText != null &&
     (level === IMPACT_LEVEL.WARNING || level === IMPACT_LEVEL.DANGER);
+  // As on Amount: a known impact reads as a number, "Details" is unknown only.
+  const badgeLabel = getImpactChipLabel(impact);
 
   return (
     <FlatRow
-      accessibilityLabel={`Price impact ${impact == null ? 'Details' : getImpactBadgeLabel(impact)}. Opens price and route`}
-      copyValue={
-        impact == null
-          ? undefined
-          : impact.isLessThanOrEqualTo(0)
-          ? '0'
-          : formatImpact(impact)
-      }
-      label="Price impact"
+      accessibilityLabel={getSlippageRowLabel(
+        showLoss ? `${lossText}, ${badgeLabel}` : badgeLabel,
+        via,
+      )}
+      copyValue={impact == null ? undefined : formatImpact(impact)}
+      detail={via ? <ViaLine name={via} /> : null}
+      label={SLIPPAGE_LABEL_SHORT}
       onPress={onPress}>
       {showLoss ? (
         <Text
@@ -43,7 +51,7 @@ const ImpactRow = ({impact, level, lossText, onPress, pay = false}) => {
         </Text>
       ) : null}
       <StatusBadge
-        label={impact == null ? 'Details' : getImpactBadgeLabel(impact, pay)}
+        label={badgeLabel}
         tone={getImpactTone(level)}
       />
     </FlatRow>

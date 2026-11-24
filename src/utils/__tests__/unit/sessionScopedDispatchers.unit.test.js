@@ -4,6 +4,7 @@ const mockInitializeWallet = jest.fn();
 const mockOpenWallet = jest.fn();
 const mockCloseWallet = jest.fn();
 const mockEraseWallet = jest.fn();
+const mockRescanWallet = jest.fn();
 const mockGetAddresses = jest.fn();
 const mockRequestSeeds = jest.fn();
 const mockBlockchainQuitError = jest.fn();
@@ -25,6 +26,7 @@ jest.mock('../../api/channels/dlight/callCreators', () => ({
   getAddresses: mockGetAddresses,
   initializeWallet: mockInitializeWallet,
   openWallet: mockOpenWallet,
+  rescanWallet: mockRescanWallet,
 }));
 
 jest.mock('../../keys', () => ({
@@ -60,6 +62,7 @@ const {DLIGHT_PRIVATE} = require('../../constants/intervalConstants');
 const {
   closeDlightWallet,
   initDlightWallet,
+  resyncDlightWallet,
 } = require('../../../actions/actions/channels/dlight/dispatchers/LightWalletReduxManager');
 const {WyreApi} = require('../../services/WyreApi');
 
@@ -227,6 +230,150 @@ describe('account-scoped wallet initialization', () => {
         ([action]) => action.type === INIT_DLIGHT_CHANNEL_START,
       ),
     ).toBe(false);
+  });
+
+  // PR 266 F12: "Clear blockchain data" rewinds the open wallet to its
+  // birthday. It never closes or erases it: the native erase targets the
+  // mainnet database on Android and resolves early on iOS.
+  it('rescans an open private wallet of the current session, and nothing else', async () => {
+    const scope = {sessionScoped: true, accountHash: 'account-a', sessionEpoch: 7};
+    const open = accountState('account-a', 7);
+    open.channelStore_dlight_private.dlightSockets = {VRSC: true};
+    mockGetState.mockReturnValue(open);
+    mockRescanWallet.mockResolvedValue(undefined);
+
+    await resyncDlightWallet(coinObj, scope);
+    expect(mockRescanWallet).toHaveBeenCalledWith('VRSC', 'account-a');
+    expect(mockEraseWallet).not.toHaveBeenCalled();
+    expect(mockCloseWallet).not.toHaveBeenCalled();
+    expect(mockInitializeWallet).not.toHaveBeenCalled();
+
+    // A closed wallet, or a request from an earlier session, does nothing.
+    mockRescanWallet.mockClear();
+    await resyncDlightWallet(coinObj, {...scope, sessionEpoch: 6});
+    mockGetState.mockReturnValue({
+      ...open,
+      channelStore_dlight_private: {dlightSockets: {VRSC: false}, dlightSyncing: {}},
+    });
+    await resyncDlightWallet(coinObj, scope);
+    expect(mockRescanWallet).not.toHaveBeenCalled();
+  });
+
+  const rescanScope = {sessionScoped: true, accountHash: 'account-a', sessionEpoch: 7};
+  const openWalletState = () => {
+    const open = accountState('account-a', 7);
+    open.channelStore_dlight_private.dlightSockets = {VRSC: true};
+    return open;
+  };
+  const closedWalletState = open => ({
+    ...open,
+    channelStore_dlight_private: {dlightSockets: {VRSC: false}, dlightSyncing: {}},
+  });
+  const settleAll = async () => {
+    for (let i = 0; i < 5; i += 1) await new Promise(resolve => setTimeout(resolve, 0));
+  };
+  const closeOptions = {
+    sessionScope: rescanScope,
+    ownerAccountHash: 'account-a',
+    allowRetryPrompt: false,
+  };
+
+  it('lets a close wait for a running rescan', async () => {
+    mockGetState.mockReturnValue(openWalletState());
+    const nativeRescan = deferred();
+    mockRescanWallet.mockReturnValueOnce(nativeRescan.promise);
+
+    const rescan = resyncDlightWallet(coinObj, rescanScope);
+    await settleAll();
+    const teardown = closeDlightWallet(coinObj, false, closeOptions);
+    await settleAll();
+    expect(mockCloseWallet).not.toHaveBeenCalled();
+
+    nativeRescan.resolve();
+    await rescan;
+    await teardown;
+    expect(mockCloseWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a rescan while the wallet closes', async () => {
+    mockGetState.mockReturnValue(openWalletState());
+    const nativeClose = deferred();
+    mockCloseWallet.mockReturnValueOnce(nativeClose.promise);
+
+    const teardown = closeDlightWallet(coinObj, false, closeOptions);
+    await settleAll();
+    expect(mockCloseWallet).toHaveBeenCalledTimes(1);
+    await expect(resyncDlightWallet(coinObj, rescanScope))
+      .rejects.toMatchObject({code: 'DLIGHT_WALLET_BUSY'});
+    expect(mockRescanWallet).not.toHaveBeenCalled();
+
+    nativeClose.resolve();
+    await teardown;
+  });
+
+  it('closes and opens the wallet again when the rescan fails', async () => {
+    const open = openWalletState();
+    mockGetState.mockReturnValue(open);
+    mockCloseWallet.mockImplementation(async () => {
+      mockGetState.mockReturnValue(closedWalletState(open));
+    });
+    mockGetAddresses.mockResolvedValue({result: 'zs-account-a'});
+    mockRescanWallet.mockRejectedValueOnce(new Error('rewind failed'));
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(resyncDlightWallet(coinObj, rescanScope)).rejects.toThrow();
+    await settleAll();
+    expect(mockCloseWallet).toHaveBeenCalledTimes(1);
+    expect(mockOpenWallet).toHaveBeenCalledTimes(1);
+    expect(mockEraseWallet).not.toHaveBeenCalled();
+  });
+
+  it('gives up on a rescan that never settles, then reopens the wallet', async () => {
+    jest.useFakeTimers();
+    try {
+      const open = openWalletState();
+      mockGetState.mockReturnValue(open);
+      mockCloseWallet.mockImplementation(async () => {
+        mockGetState.mockReturnValue(closedWalletState(open));
+      });
+      mockGetAddresses.mockResolvedValue({result: 'zs-account-a'});
+      mockRescanWallet.mockReturnValueOnce(new Promise(() => {}));
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const rescan = resyncDlightWallet(coinObj, rescanScope);
+      const outcome = expect(rescan).rejects.toMatchObject({code: 'DLIGHT_RESCAN_TIMEOUT'});
+      await jest.advanceTimersByTimeAsync(20000);
+      await outcome;
+      await jest.advanceTimersByTimeAsync(100);
+      expect(mockCloseWallet).toHaveBeenCalledTimes(1);
+      expect(mockOpenWallet).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('publishes an init error when the recovery close fails, so the retry runs', async () => {
+    // Its own account: the failed close leaves this wallet marked uncertain.
+    const scope = {sessionScoped: true, accountHash: 'account-r', sessionEpoch: 3};
+    const open = accountState('account-r', 3);
+    open.channelStore_dlight_private.dlightSockets = {VRSC: true};
+    mockGetState.mockReturnValue(open);
+    mockCloseWallet.mockRejectedValue(new Error('close failed'));
+    mockRescanWallet.mockRejectedValueOnce(new Error('rewind failed'));
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(resyncDlightWallet(coinObj, scope)).rejects.toThrow();
+    await settleAll();
+    expect(mockOpenWallet).not.toHaveBeenCalled();
+    const initErrors = mockDispatch.mock.calls
+      .map(([action]) => action)
+      .filter(action => action.type === ERROR_DLIGHT_INIT);
+    expect(initErrors).toHaveLength(1);
+    expect(initErrors[0]).toMatchObject({
+      payload: {chainTicker: 'VRSC', error: expect.any(Error)},
+      meta: {accountHash: 'account-r', sessionEpoch: 3},
+    });
   });
 
   it('tags successful address and channel actions with the captured account session', async () => {

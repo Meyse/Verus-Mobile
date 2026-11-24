@@ -8,6 +8,8 @@ import {
   ASSET_DISCOVERY_SAVED,
   ASSET_REMOVALS_SAVED,
   ASSET_REVIEWS_SAVED,
+  ASSET_ORDER_SAVED,
+  ASSET_SORT_SAVED,
 } from '../../reducers/assetManagement';
 import {removeExistingCoin, setUserCoins} from '../../actions/actionCreators';
 import {refreshLifecyclesAfterAssetChange} from '../../actions/actions/intervals/dispatchers/lifecycleManager';
@@ -16,23 +18,23 @@ import {
   scopeSessionAction,
   sessionScopeIsCurrent,
 } from '../../actions/actions/updates/sessionRequests';
-import {removeServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
-import {requestServiceStoredData} from '../auth/authBox';
 import {CoinDirectory} from '../CoinData/CoinDirectory';
 import {addResolvedAsset, resolveAssetIdentifier} from '../CoinData/assetIdentifierService';
 import {API_GET_BALANCES} from '../constants/intervalConstants';
 import {removedAssetRecord} from './removedAssets';
+import {orderWithAddedAsset, readAssetOrder, readHomeSort, readSortReversed} from './assetOrder';
 import {resolvedAssetCoin} from './assetPresentation';
 import {
   loadAssetDiscoveryCache,
   saveAssetDiscoveryCache,
 } from './assetDiscoveryCache';
 import {
+  ASSET_CHOICES_SERVICE_ID,
+  choicesOnly,
+  choicesRecord,
   loadAssetChoices,
-  queueAssetChoicesWrite,
-  saveAssetChoices,
+  queueAssetChoicesChange,
   takeNewAssetChoices,
-  validateAssetChoices,
 } from './assetChoicesStorage';
 import {
   assetKey,
@@ -47,15 +49,28 @@ import {
   ethereumNetwork,
 } from './assetIdentity';
 
-const STORAGE_ID = 'wallet_asset_management';
 const RETRY_DELAY = 60000;
 const MAX_LOOKUPS_PER_PASS = 12;
 const hydrations = new Map();
 const discoveryJobs = new Map();
-// Retain legacy choices if migration cannot write/verify them. A later choice
-// write uses this complete record, never a failed or partial migration copy.
-const migrationFallbacks = new Map();
 let additionQueue = Promise.resolve();
+
+// F9 (PR 266): found currencies are looked up (`getcurrency`) only while a
+// screen that shows their names is open: Manage assets. Sign-in, Home and
+// balance updates only count them.
+let lookupRequests = 0;
+let lookupsRunning = false;
+const lookupListeners = new Set();
+const setLookupsRunning = running => {
+  if (lookupsRunning === running) return;
+  lookupsRunning = running;
+  lookupListeners.forEach(listener => listener());
+};
+export const subscribeFoundAssetLookups = listener => {
+  lookupListeners.add(listener);
+  return () => lookupListeners.delete(listener);
+};
+export const foundAssetLookupsRunning = () => lookupsRunning;
 
 export const captureAssetContext = () => {
   const state = store.getState();
@@ -89,15 +104,6 @@ const dispatchForContext = (context, type, payload) => {
   store.dispatch(scopeSessionAction({type, payload}, context.sessionScope));
 };
 
-// Choices and the discovery cache have separate plain storage records.
-const choicesOnly = ({snapshots, resolved, ...choices}) => choices;
-const choicesRecord = saved => ({
-  ...saved,
-  version: 1,
-  networks: Object.fromEntries(Object.entries(saved.networks || {})
-    .map(([networkKey, network]) => [networkKey, choicesOnly(network)])),
-});
-
 // Older builds kept the discovery cache inside the choices record. Copy it
 // out before the next choices write drops it there.
 const moveSavedDiscovery = async (saved, accountHash) => {
@@ -112,60 +118,9 @@ const moveSavedDiscovery = async (saved, accountHash) => {
   }
 };
 
-// The old encrypted entry, or none. A wallet made in this session has none.
-const hasLegacyChoices = () => store.getState().services.stored[STORAGE_ID] != null;
-
-const sessionFallback = context => {
-  const fallback = migrationFallbacks.get(context.sessionScope.accountHash);
-  return fallback?.sessionEpoch === context.sessionScope.sessionEpoch ? fallback.saved : null;
-};
-
-const loadStoredChoices = context => queueAssetChoicesWrite(
-  context.sessionScope.accountHash,
-  async () => {
-    assertCurrent(context);
-    const {accountHash, sessionEpoch} = context.sessionScope;
-    // Only an absent plain record starts a migration. A read error, an
-    // unreadable record or a future version fails hydration and keeps both
-    // records: the plain record can be newer than the old encrypted entry.
-    let saved = await loadAssetChoices(accountHash);
-    assertCurrent(context);
-    const fallback = sessionFallback(context);
-    if (!saved || fallback) {
-      const legacy = fallback || await requestServiceStoredData(STORAGE_ID);
-      assertCurrent(context);
-      validateAssetChoices(legacy, true);
-      await moveSavedDiscovery(legacy, accountHash);
-      assertCurrent(context);
-      saved = choicesRecord(legacy);
-      migrationFallbacks.set(accountHash, {sessionEpoch, saved});
-      try {
-        await saveAssetChoices(accountHash, saved);
-        assertCurrent(context);
-        const verified = await loadAssetChoices(accountHash);
-        assertCurrent(context);
-        if (JSON.stringify(verified) !== JSON.stringify(saved)) {
-          throw new Error('Asset preferences verification failed');
-        }
-        migrationFallbacks.delete(accountHash);
-      } catch (_) {
-        assertCurrent(context);
-        // Keep the encrypted entry and use the complete legacy data this
-        // session. Retry migration on the next hydration or choice write.
-        return saved;
-      }
-    }
-    if (store.getState().services.stored[STORAGE_ID] != null) {
-      try {
-        await removeServiceStoredDataForUser(STORAGE_ID, accountHash, context);
-      } catch (_) {
-        // A verified plain record wins even if encrypted cleanup fails.
-      }
-      assertCurrent(context);
-    }
-    return saved;
-  },
-);
+// The encrypted entry, or none. A wallet made in this session has none.
+const hasSavedChoices = () =>
+  store.getState().services.stored[ASSET_CHOICES_SERVICE_ID] != null;
 
 export const loadAssetManagement = async (context = captureAssetContext()) => {
   assertCurrent(context);
@@ -179,8 +134,10 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
       // Its first hydration reads no storage: during wallet setup each read
       // waits seconds, and Home's rows must be drawn when the coins fly in.
       const fresh = takeNewAssetChoices(context.sessionScope.accountHash) &&
-        !hasLegacyChoices();
-      const saved = fresh ? choicesRecord({}) : await loadStoredChoices(context);
+        !hasSavedChoices();
+      const saved = fresh
+        ? choicesRecord({})
+        : await loadAssetChoices(context.sessionScope.accountHash);
       assertCurrent(context);
       if (saved.version != null && saved.version !== 1) {
         throw new Error('Asset preferences version unavailable');
@@ -213,26 +170,13 @@ export const loadAssetManagement = async (context = captureAssetContext()) => {
   return loading;
 };
 
-const updateStoredAssets = (context, update) => {
+// The screen shows the change at once. The encrypted write runs after it in
+// the background (assetChoicesStorage.js); the user never waits for it.
+const changeChoices = (context, update, publish) => {
   assertCurrent(context);
-  return queueAssetChoicesWrite(context.sessionScope.accountHash, async () => {
-    assertCurrent(context);
-    const {accountHash} = context.sessionScope;
-    const saved = sessionFallback(context) ||
-      await loadAssetChoices(accountHash) ||
-      (hasLegacyChoices() ? null : choicesRecord({}));
-    assertCurrent(context);
-    validateAssetChoices(saved);
-    const networks = {
-      ...saved.networks,
-      [context.networkKey]: update(saved.networks?.[context.networkKey] || {}),
-    };
-    const next = choicesRecord({...saved, version: 1, networks});
-    await saveAssetChoices(accountHash, next);
-    migrationFallbacks.delete(accountHash);
-    assertCurrent(context);
-    return next;
-  });
+  const {preferences, removed, reviewed, order, sort, sortReversed} = store.getState().assetManagement;
+  publish(update({preferences, removed, reviewed, order, sort, sortReversed}));
+  queueAssetChoicesChange(context.sessionScope.accountHash, context.networkKey, update);
 };
 
 export const setAssetHomeVisibility = async (
@@ -244,32 +188,30 @@ export const setAssetHomeVisibility = async (
   assertCurrent(context);
   // The saved choice already says this, so there is nothing to write.
   if (isAssetShown(coin, store.getState().assetManagement.preferences) === shown) return;
-  const saved = await updateStoredAssets(context, current => ({
+  changeChoices(context, current => ({
     ...current,
     preferences: {
       ...current.preferences,
       [assetKey(coin)]: {hidden: !shown},
     },
+  }), next => dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
+    preferences: next.preferences,
   }));
-  dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
-    preferences: saved.networks[context.networkKey].preferences,
-  });
 };
 
-const setAssetRemoved = async (key, removed, context) => {
-  const saved = await updateStoredAssets(context, current => {
+const setAssetRemoved = (key, removed, context) => {
+  changeChoices(context, current => {
     const next = {...current.removed};
     if (removed) next[key] = removed;
     else delete next[key];
     return {...current, removed: next};
-  });
-  dispatchForContext(context, ASSET_REMOVALS_SAVED, {
-    removed: saved.networks[context.networkKey].removed,
-  });
+  }, next => dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+    removed: next.removed,
+  }));
 };
 
-const restoreAssetPreferences = async (coin, removedKey, context) => {
-  const saved = await updateStoredAssets(context, current => {
+const restoreAssetPreferences = (coin, removedKey, context) => {
+  changeChoices(context, current => {
     const removed = {...current.removed};
     delete removed[removedKey];
     return {
@@ -280,16 +222,15 @@ const restoreAssetPreferences = async (coin, removedKey, context) => {
         [assetKey(coin)]: {hidden: false},
       },
     };
-  });
-  // Publish only after storage succeeds. A failed write keeps the asset under
-  // Removed assets, even if activation succeeded; Add back can retry it there.
-  // Both changes come from one write, so the screens draw them once.
-  unstable_batchedUpdates(() => {
-    dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
-      preferences: saved.networks[context.networkKey].preferences,
-    });
-    dispatchForContext(context, ASSET_REMOVALS_SAVED, {
-      removed: saved.networks[context.networkKey].removed,
+  }, next => {
+    // Both changes come from one update, so the screens draw them once.
+    unstable_batchedUpdates(() => {
+      dispatchForContext(context, ASSET_PREFERENCES_SAVED, {
+        preferences: next.preferences,
+      });
+      dispatchForContext(context, ASSET_REMOVALS_SAVED, {
+        removed: next.removed,
+      });
     });
   });
 };
@@ -302,16 +243,72 @@ export const markFoundAssetsReviewed = async (
 ) => {
   if (!currencyIds?.length) return;
   await loadAssetManagement(context);
-  const saved = await updateStoredAssets(context, current => ({
+  changeChoices(context, current => ({
     ...current,
     reviewed: {
       ...current.reviewed,
       ...Object.fromEntries(currencyIds.map(id => [id, true])),
     },
+  }), next => dispatchForContext(context, ASSET_REVIEWS_SAVED, {
+    reviewed: next.reviewed,
   }));
-  dispatchForContext(context, ASSET_REVIEWS_SAVED, {
-    reviewed: saved.networks[context.networkKey].reviewed,
-  });
+};
+
+// "My order" (PR 266 review R2). The full list of the wallet's asset keys,
+// hidden assets included, so a hidden asset keeps its place.
+export const setAssetOrder = async (keys, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  const order = readAssetOrder(keys) || [];
+  changeChoices(context, current => ({...current, order}),
+    next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
+};
+
+// How Home sorts its rows. The choice stays with the asset choices. Another
+// sort goes back to the normal direction; the current sort changes nothing.
+export const setHomeSort = async (sort, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  const next = readHomeSort(sort);
+  if (store.getState().assetManagement.sort === next) return;
+  changeChoices(context, current => ({...current, sort: next, sortReversed: false}),
+    published => dispatchForContext(context, ASSET_SORT_SAVED, {
+      sort: published.sort,
+      sortReversed: published.sortReversed,
+    }));
+};
+
+// The reverse button of the Home sort. Saved as `sortReversed` beside `sort`.
+export const setHomeSortReversed = async (reversed, context = captureAssetContext()) => {
+  await loadAssetManagement(context);
+  const next = readSortReversed(reversed);
+  if (readSortReversed(store.getState().assetManagement.sortReversed) === next) return;
+  changeChoices(context, current => ({...current, sortReversed: next}),
+    published => dispatchForContext(context, ASSET_SORT_SAVED, {
+      sort: published.sort,
+      sortReversed: published.sortReversed,
+    }));
+};
+
+// An asset that the wallet adds, or that the user adds back, goes to the end
+// of "My order".
+const appendToOrder = (coin, context) => {
+  const key = assetKey(coin);
+  const coins = (store.getState().coins.activeCoinsForUser || [])
+    .filter(item => Boolean(item.testnet) === Boolean(coin.testnet));
+  changeChoices(context, current => ({
+    ...current,
+    order: orderWithAddedAsset(current.order, [...coins, coin], key),
+  }), next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
+};
+
+// A removed asset leaves "My order". Every later add, by any path, then puts
+// it at the end. A hidden asset is not removed and keeps its place.
+const dropFromOrder = (coin, context) => {
+  const key = assetKey(coin);
+  if (!(store.getState().assetManagement.order || []).includes(key)) return;
+  changeChoices(context, current => ({
+    ...current,
+    order: (current.order || []).filter(item => item !== key),
+  }), next => dispatchForContext(context, ASSET_ORDER_SAVED, {order: next.order}));
 };
 
 // Only consider channels still belonging to the current wallet's cards.
@@ -324,19 +321,25 @@ export const currentAssetSnapshots = state => {
       Boolean(snapshot.testnet) === testnet));
 };
 
-export const getNewAssetHoldings = state => {
+// Currencies with funds on the wallet's addresses that are not in the wallet
+// and not removed, with their looked-up details (`result`) when known.
+export const getFoundAssetHoldings = state => {
   if (!state.assetManagement.ready) return [];
   const active = state.coins.activeCoinsForUser || [];
   return getPositiveVrpcHoldings(currentAssetSnapshots(state))
     .filter(holding => !active.some(coin => matchesVrpcHolding(coin, holding)))
     .filter(holding => !state.assetManagement.removed[holding.currencyId])
-    .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}))
-    .filter(holding => holding.result != null);
+    .map(holding => ({...holding, result: state.assetManagement.resolved[holding.key]}));
 };
 
-// The found currencies Home still asks about.
+// The found currencies whose details are known, for Manage assets.
+export const getNewAssetHoldings = state =>
+  getFoundAssetHoldings(state).filter(holding => holding.result != null);
+
+// The found currencies Home still asks about. Home shows only how many there
+// are, so it needs no lookup (F9).
 export const getUnreviewedNewAssetHoldings = state =>
-  getNewAssetHoldings(state).filter(
+  getFoundAssetHoldings(state).filter(
     holding => !state.assetManagement.reviewed?.[holding.currencyId],
   );
 
@@ -366,8 +369,10 @@ export const addManagedAsset = ({
           item.currency_id?.toLowerCase() === result.canonicalAddress.toLowerCase());
     if (existing) {
       if (!automatic) {
-        if (wasRemoved) await restoreAssetPreferences(existing, removedKey, context);
-        else await setAssetHomeVisibility(existing, true, context);
+        if (wasRemoved) {
+          restoreAssetPreferences(existing, removedKey, context);
+          appendToOrder(existing, context);
+        } else await setAssetHomeVisibility(existing, true, context);
       }
       return existing;
     }
@@ -389,8 +394,9 @@ export const addManagedAsset = ({
       result: resolved,
     });
     assertCurrent(context);
+    appendToOrder(added, context);
     if (!automatic) {
-      if (wasRemoved) await restoreAssetPreferences(added, removedKey, context);
+      if (wasRemoved) restoreAssetPreferences(added, removedKey, context);
       else await setAssetHomeVisibility(added, true, context);
     }
     return added;
@@ -410,7 +416,8 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
     }
     // Mark it first, so a balance update during teardown cannot add it back.
     const key = removalKey(coin);
-    await setAssetRemoved(key, removedAssetRecord(coin), context);
+    setAssetRemoved(key, removedAssetRecord(coin), context);
+    dropFromOrder(coin, context);
     const nextCoins = await removeExistingCoin(
       coin.id,
       activeAccount.id,
@@ -430,7 +437,7 @@ export const removeManagedAsset = ({coin, context = captureAssetContext()}) => {
 // Keeps a found currency out of "New assets found" without adding it.
 export const ignoreAssetHolding = async (holding, context = captureAssetContext()) => {
   await loadAssetManagement(context);
-  await setAssetRemoved(holding.currencyId,
+  setAssetRemoved(holding.currencyId,
     removedAssetRecord(resolvedAssetCoin(holding.result), holding.systemId), context);
 };
 
@@ -480,6 +487,10 @@ const persistDiscovery = async context => {
 const discoverAssets = async (context, job) => {
   await loadAssetManagement(context);
   assertCurrent(context);
+  if (lookupRequests === 0) {
+    await persistDiscovery(context);
+    return;
+  }
   const holdings = getPositiveVrpcHoldings(currentAssetSnapshots(store.getState()));
   let lookups = 0;
   for (const holding of holdings) {
@@ -493,6 +504,8 @@ const discoverAssets = async (context, job) => {
       // included: spam currencies can arrive too. They wait under "New assets
       // found" for the user (owner, 2026-10-26).
       if (store.getState().assetManagement.resolved[holding.key]) continue;
+      // Leaving Manage assets stops the lookups that have not started (F9).
+      if (lookupRequests === 0) break;
       if (lookups++ >= MAX_LOOKUPS_PER_PASS) break;
       const result = await resolveAssetIdentifier({
         activeCoins: [],
@@ -532,13 +545,33 @@ export const scheduleAssetDiscovery = () => {
     try {
       do {
         job.pending = false;
+        setLookupsRunning(lookupRequests > 0);
         await discoverAssets(context, job);
       } while (job.pending && assetContextIsCurrent(context));
     } catch (_) {
       // Keep saved choices and last available data when storage/session is unavailable.
     } finally {
       job.running = false;
+      setLookupsRunning(false);
       if (!assetContextIsCurrent(context)) discoveryJobs.delete(key);
     }
   })();
+};
+
+// Manage assets calls this while it is open. It looks up the found currencies
+// now and after each balance update until the returned function runs.
+export const requestFoundAssetLookups = () => {
+  lookupRequests += 1;
+  scheduleAssetDiscovery();
+  // A pass that started without lookups runs again with them.
+  const context = captureAssetContext();
+  if (assetContextIsCurrent(context) && discoveryJobs.get(contextKey(context))?.running) {
+    setLookupsRunning(true);
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    lookupRequests = Math.max(0, lookupRequests - 1);
+  };
 };

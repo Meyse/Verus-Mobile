@@ -20,7 +20,6 @@ import {coinsToSats, satsToCoins} from '../math';
 import {
   getAddressDeltas,
   getAddressUtxos,
-  getMempoolUnspentUtxos,
   getInfo,
 } from '../api/channels/vrpc/callCreators';
 import {
@@ -1495,29 +1494,7 @@ export const preflightSpendableKeyClaim = async ({
     throw new Error(unsupportedIdentities[0].unsupportedReason);
   }
 
-  for (const plannedSystem of claimPlan.systems) {
-    // Recheck discovery inputs at funding time without changing observed balances.
-    const addresses = [
-      plannedSystem.claimAddress,
-      ...plannedSystem.identities.map(identity => identity.identityAddress),
-    ];
-    const unspentUtxos = await getMempoolUnspentUtxos(
-      plannedSystem.systemId,
-      addresses,
-      [
-        ...plannedSystem.utxos,
-        ...plannedSystem.identities.flatMap(identity => identity.utxos || []),
-      ],
-    );
-    const unspentKeys = new Set(unspentUtxos.map(utxoKey));
-    const system = {
-      ...plannedSystem,
-      utxos: plannedSystem.utxos.filter(utxo => unspentKeys.has(utxoKey(utxo))),
-      identities: plannedSystem.identities.map(identity => ({
-        ...identity,
-        utxos: (identity.utxos || []).filter(utxo => unspentKeys.has(utxoKey(utxo))),
-      })),
-    };
+  for (const system of claimPlan.systems) {
     const destinationAddress = destinationBySystem[system.systemId];
     const privateAddress = privateAddressBySystem[system.systemId];
     // Missing means the user opted out; explicit null means the wallet has no

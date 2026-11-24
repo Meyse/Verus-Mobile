@@ -15,10 +15,14 @@ import {
   extractLedgerData,
 } from '../../utils/ledger/extractLedgerData';
 import {truncateDecimal} from '../../utils/math';
+import {
+  formatPendingMark,
+  getPendingBalance,
+  getShownBalance,
+} from '../../utils/ledger/shownBalance';
 import {getCardColors} from '../../utils/subwallet/cardColors';
 import {
-  getLedgerTotal,
-  getNetworkTicker,
+  getSubWalletCardTitleForAccount,
   getSubWalletCardType,
   getSubWalletDisplayIdentifier,
 } from '../../utils/subwallet/cardPresentation';
@@ -84,7 +88,9 @@ export default function useAssetCardData() {
     };
     const cards = wallets.map(wallet => {
       const type = getSubWalletCardType(wallet);
-      const balance = getLedgerTotal(balances?.[wallet.id]);
+      // The card shows its confirmed balance. Funds that still confirm
+      // (Electrum, private card) show as one "+X pending" mark beside it.
+      const balance = getShownBalance(balances?.[wallet.id]);
       const hasError = Boolean(errors?.[wallet.id]);
       const syncStatus =
         isPrivateCard(wallet) && privateSync != null
@@ -101,13 +107,17 @@ export default function useAssetCardData() {
         ? '—'
         : truncateDecimal(balance, 8);
       const fiatText = hasError || syncStatus ? null : fiat(wallet, balance);
+      const pendingText =
+        hasError || syncStatus || balance == null
+          ? null
+          : formatPendingMark(getPendingBalance(balances?.[wallet.id]));
       const balanceLabel = hasError
         ? 'Connection error'
         : balance == null
         ? 'Balance unavailable'
         : !showBalance
         ? 'Balance hidden'
-        : [amountText, coin.display_ticker, fiatText, syncStatus]
+        : [amountText, coin.display_ticker, fiatText, syncStatus, pendingText]
             .filter(Boolean)
             .join(', ');
       return {
@@ -119,16 +129,18 @@ export default function useAssetCardData() {
         identifier,
         amountText,
         fiatText,
+        pendingText,
         balanceLabel,
-        title: type === 'VerusID' ? wallet.name : type,
+        // The short address (or VerusID name, or "Private") and the network
+        // (PR 266 review R8 option C, owner's change).
+        cardTitle: getSubWalletCardTitleForAccount(wallet, account, coin),
         colors: getCardColors(wallet, slots),
-        network:
-          wallet.network && wallet.network !== coin.system_id
-            ? getNetworkTicker(wallet.network)
-            : null,
       };
     });
     const total = sumCardBalances(cards);
+    // One card has no amount line; its mark sits in the top row instead.
+    const totalPendingText =
+      cards.length === 1 ? cards[0].pendingText : null;
     const totalFiat =
       cards
         .map(card => fiat(card.wallet, total))
@@ -169,6 +181,7 @@ export default function useAssetCardData() {
       showBalance,
       total,
       totalFiat,
+      totalPendingText,
       summary,
     };
   }, [

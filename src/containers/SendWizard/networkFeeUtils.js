@@ -14,7 +14,8 @@ export const networkFeeKind = (simpleSend, channel, coin) => {
   if (!simpleSend) return null;
   const parent = channel?.split('.')[0];
   if ([ETH, ERC20].includes(parent)) return 'eth';
-  return parent === ELECTRUM && coin?.id === 'BTC' && coin?.fee == null ? 'btc' : null;
+  return parent === ELECTRUM && ['BTC', 'TESTNET'].includes(coin?.id) && coin?.fee == null
+    ? 'btc' : null;
 };
 
 export const maxBTCFeeRate = coin => coin?.max_fee_rate_per_byte ?? DEFAULT_MAX_FEE_RATE_PER_BYTE;

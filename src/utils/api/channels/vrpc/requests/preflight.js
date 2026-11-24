@@ -1,5 +1,4 @@
 import BigNumber from "bignumber.js";
-import {transparentDustError} from '../../../../transactions/transparentDust';
 import { getAddressBalances } from "./getAddressBalances";
 import { coinsToSats, satsToCoins } from "../../../../math";
 import { DEST_ID, DEST_PKH, TransferDestination, fromBase58Check, toIAddress } from "verus-typescript-primitives";
@@ -7,7 +6,7 @@ import { Transaction, networks, smarttxs } from "@bitgo/utxo-lib";
 import { calculateCurrencyTransferFee } from "./calculateCurrencyTransferFee";
 import { getInfo } from "./getInfo";
 import { fundRawTransaction } from "./fundRawTransaction";
-import { getSpendableUtxosWithMempoolInfo } from "./getAddressUtxos";
+import { getAddressUtxos, getSpendableUtxos } from "./getAddressUtxos";
 import { getCurrency, getIdentity } from "../../verusid/callCreators";
 import { getSystemNameFromSystemId } from "../../../../CoinData/CoinData";
 import { estimateConversion } from "./estimateConversion";
@@ -21,6 +20,7 @@ import { getSendCurrencyTransaction, SEND_CURRENCY_PARENT_FEE } from "./getSendC
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
 import { createAlert } from "../../../../../actions/actions/alert/dispatchers/alert";
+import { lookupError, lookupErrorFields } from "../../../errors/lookupErrors";
 import { getCurrencyTransferIntentContext, validateCurrencyTransferTag } from "./currencyTransferIntent";
 import {
   BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE,
@@ -236,7 +236,9 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
   const currencyDefs = new Map();
   let nativeFeesPaid = BigNumber(0);
   let _feeamount;
-  let hasUnconfirmedIncoming = false;
+  // The amount and the confirmed balance of the sent currency, kept for the
+  // error text. Funding spends confirmed outputs only.
+  let confirmedFunds = null;
   delete output.bridgeprelaunch
 
   try {
@@ -254,7 +256,12 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const currRes = await getCurrency(systemId, iaddrOrName);
 
-      if (currRes.error) throw new Error("Couldn't get currency " + iaddrOrName);
+      if (currRes.error) {
+        throw lookupError("Couldn't get currency " + iaddrOrName, currRes.error, {
+          currencyName: iaddrOrName,
+          appendReason: true,
+        });
+      }
       else {
         if (requestedCurrencyId && currRes.result.currencyid !== requestedCurrencyId) {
           throw new Error("Currency definition does not match the requested currency.");
@@ -270,7 +277,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       
       const idRes = await getIdentity(systemId, iaddrOrName);
 
-      if (idRes.error) throw new Error("Couldn't get identity " + iaddrOrName);
+      if (idRes.error) throw lookupError("Couldn't get identity " + iaddrOrName, idRes.error, {appendReason: true});
       else {
         friendlyNames.set(
           idRes.result.identity.identityaddress,
@@ -395,14 +402,15 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       nativeFeesPaid = nativeFeesPaid.plus(BigNumber(_feeamount));
     }
 
-    // Also identify incoming funds before the balance check can report a
-    // shortfall. Own pending change is already included in the funding list.
-    const fundingUtxos = await getSpendableUtxosWithMempoolInfo(systemId, currency, [source]);
-    const utxoList = fundingUtxos.utxos;
-    hasUnconfirmedIncoming = fundingUtxos.hasUnconfirmedIncoming;
-
     const balanceRes = await getAddressBalances(systemId, [source]);
     if (balanceRes.error) throw new Error(balanceRes.error.message);
+
+    const confirmedCurrency = balanceRes.result.currencybalance?.[currency];
+    confirmedFunds = {
+      currency,
+      requested: BigNumber(output.satoshis),
+      confirmed: confirmedCurrency ? coinsToSats(BigNumber(confirmedCurrency)) : BigNumber(0),
+    };
 
     const balanceBn = balanceRes.result.currencybalance[systemId]
       ? coinsToSats(BigNumber(balanceRes.result.currencybalance[systemId]))
@@ -410,7 +418,7 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     const txSatsBn = BigNumber(output.satoshis);
 
     if (isNativeSend && (txSatsBn.plus(nativeFeesPaid)).isGreaterThan(balanceBn)) {
-      output.satoshis = balanceBn.minus(nativeFeesPaid).toString();
+      output.satoshis = txSatsBn.minus(nativeFeesPaid).toString();
       const newTxSatsBn = BigNumber(output.satoshis);
 
       if (
@@ -419,13 +427,6 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       ) {
         throw new Error('Insufficient funds.');
       }
-    }
-
-    // Check the final payment after fee subtraction. Invoice and request
-    // payments also use this builder, without the Amount screen.
-    if (isNativeSend && !convertto && !address.isETHAccount() && output.burn !== true && !output.mintnew) {
-      const dustError = transparentDustError(coinObj, channelId, satsToCoins(BigNumber(output.satoshis)));
-      if (dustError) throw new Error(dustError);
     }
 
     const infoRes = await getInfo(systemId);
@@ -445,7 +446,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
         if (VrpcProvider.isSystemIdActivated(exportto)) {
           const destIdRes = await getIdentity(exportto, iAddr);
 
-          if (destIdRes.error) throw new Error("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.");
+          // A lookup without an answer asks to check the connection instead.
+          if (destIdRes.error) throw lookupError("Unable to verify presence of " + addrName + "@ on destination network. It may need to be exported to the " + exportDefinition.fullyqualifiedname + " chain.", destIdRes.error);
         } else {
           // A Confirm row would be better; that needs SendWizard changes.
           createAlert(
@@ -533,6 +535,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
         );
       }
     }
+
+    const utxoList = await getSpendableUtxos(systemId, currency, [source]);
 
     const fundRes = await fundRawTransaction(
       systemId,
@@ -662,13 +666,27 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       },
     }
   } catch (e) {
-    console.error(e)
+    // An unknown currency name is the user's input, not a fault: logging it as
+    // an error raises a development overlay that covers the next screens.
+    if (e?.currencyNotFound == null) console.error(e)
 
     let message = e.message;
 
     if (message != null && typeof message === 'string' && message.includes('Insufficient funds')) {
-      if (hasUnconfirmedIncoming) {
-        message = 'Part of your balance is still being confirmed. Wait for the next block, then try again.';
+      if (
+        confirmedFunds?.currency === systemId &&
+        confirmedFunds.requested.isGreaterThan(confirmedFunds.confirmed) &&
+        confirmedFunds.confirmed.isGreaterThan(nativeFeesPaid)
+      ) {
+        // A native amount above what confirmed outputs can fund, for example
+        // while an incoming payment still confirms. Up to the confirmed
+        // balance the fee is taken from the amount, so that amount works.
+        // Token sends keep the fee text: their fee needs native funds.
+        const currencyName = friendlyNames.get(confirmedFunds.currency) || confirmedFunds.currency;
+
+        message = `Insufficient funds. You can send up to ${
+          satsToCoins(confirmedFunds.confirmed).toString()
+        } ${currencyName} now. Funds that are not confirmed yet can be sent after the next block.`;
       } else {
         const systemName = friendlyNames.has(systemId)
           ? friendlyNames.get(systemId)
@@ -690,7 +708,8 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
 
     return {
       err: true,
-      result: message
+      result: message,
+      ...lookupErrorFields(e),
     };
   }
 }

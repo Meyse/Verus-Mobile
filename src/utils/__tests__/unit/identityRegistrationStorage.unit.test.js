@@ -2,6 +2,10 @@ let mockStoredData;
 let mockState;
 const mockDispatch = jest.fn();
 const mockReconcile = jest.fn();
+const mockEstimate = jest.fn();
+const mockCheckFunds = jest.fn();
+let mockChainHeight = 100;
+const mockGetInfo = jest.fn(async () => ({result: {longestchain: mockChainHeight}}));
 
 jest.mock('../../../store', () => ({
   __esModule: true,
@@ -38,7 +42,12 @@ jest.mock('../../api/channels/verusid/callCreators', () => ({getIdentity: jest.f
 jest.mock('../../api/channels/vrpc/requests/verifyIdProvisioningResponse', () => ({verifyIdProvisioningResponse: jest.fn()}));
 jest.mock('../../CoinData/CoinsList', () => ({coinsList: {}}));
 jest.mock('../../keys', () => ({deriveKeyPair: jest.fn()}));
-jest.mock('../../identityRegistration/registration', () => ({reconcileRegistration: mockReconcile}));
+jest.mock('../../identityRegistration/registration', () => ({
+  reconcileRegistration: mockReconcile,
+  getRegistrationEstimate: mockEstimate,
+}));
+jest.mock('../../identityRegistration/funding', () => ({checkRegistrationFunds: mockCheckFunds}));
+jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: mockGetInfo}));
 jest.mock('../../identityRegistration/storage', () => {
   const codec = jest.requireActual('../../identityRegistration/storage');
   return {...codec, decodeRegistrationJob: jest.fn(codec.decodeRegistrationJob)};
@@ -675,6 +684,35 @@ describe('durable identity registration storage', () => {
     expect(data().registration_jobs).toBeUndefined();
   });
 
+  // PR 266 review F14: a registration that waits for funds during 5 minutes
+  // with one new block. Before: 5 funds checks (quote + fresh balance). After:
+  // 2 (the first refresh and the one after the block), and 1 getinfo each.
+  it('checks the funds of a waiting registration only after a new block', async () => {
+    mockState.coins = {activeCoinsForUser: []};
+    await saveRegistrationJob({...job(), status: 'commitment_confirmed'}, context());
+    mockReconcile.mockResolvedValue({status: 'commitment_confirmed'});
+    mockEstimate.mockResolvedValue({quote: {}});
+    mockCheckFunds.mockResolvedValue({status: 'short'});
+    mockChainHeight = 100;
+    const start = Date.now();
+    const now = jest.spyOn(Date, 'now');
+    try {
+      for (let minute = 0; minute < 5; minute++) {
+        now.mockReturnValue(start + minute * 61000);
+        if (minute === 3) mockChainHeight = 101;
+        await refreshRegistrationJobs(context());
+      }
+    } finally {
+      now.mockRestore();
+    }
+
+    expect(mockReconcile).toHaveBeenCalledTimes(5);
+    expect(mockEstimate).toHaveBeenCalledTimes(2);
+    expect(mockCheckFunds).toHaveBeenCalledTimes(2);
+    expect(mockGetInfo).toHaveBeenCalledTimes(5);
+    expect(storedJob('job-a').registrationProblem).toBe('insufficient_funds');
+  });
+
   it('clears reconciliation backoff with the registration collection', async () => {
     await saveRegistrationJob(job(), context());
     await refreshRegistrationJobs(context());
@@ -742,17 +780,19 @@ describe('durable identity registration storage', () => {
     });
   });
 
-  it.each(['current', 'historical'])('refuses to delete an unconfirmed %s signed registration', async source => {
+  // PR 266 review R7 option 2: the user may delete a signed registration
+  // after a warning that it can still confirm. Only the saved record goes.
+  it.each(['current', 'historical'])('deletes an unconfirmed %s signed registration after confirmation', async source => {
     const signedRegistration = job().commitment;
     const saved = await saveRegistrationJob({...job(), status: 'registration_prepared',
       registration: source === 'current' ? signedRegistration : {prepared: makePreparedRegistration()},
       previousRegistrations: source === 'historical' ? [signedRegistration] : [],
     }, context());
-    storeServiceStoredDataForUser.mockClear();
-    await expect(removeRegistrationJob(saved.id, saved.revision, context()))
-      .rejects.toMatchObject({code: 'REGISTRATION_NOT_DELETABLE'});
-    expect(storeServiceStoredDataForUser).not.toHaveBeenCalled();
-    expect(await getRegistrationJob(saved.id, context())).toEqual(saved);
+    await publishRegistrationJobs(context());
+    expect(lastSummary().payload.registrationJobs[saved.id].deletionKind).toBe('registration');
+    await removeRegistrationJob(saved.id, saved.revision, context());
+    expect(lastSummary().payload.registrationJobs[saved.id]).toBeUndefined();
+    await expect(getRegistrationJob(saved.id, context())).rejects.toThrow('not found');
   });
 
   it('rechecks the exact revision inside the queued deletion', async () => {

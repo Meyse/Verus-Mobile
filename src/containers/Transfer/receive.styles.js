@@ -178,6 +178,7 @@ export const createReceiveDetailsStyles = theme =>
       alignItems: 'center',
       alignSelf: 'flex-start',
     },
+    contextTitle: {flexShrink: 1},
     contextText: {
       flexShrink: 1,
       color: theme.colors.textSecondary,

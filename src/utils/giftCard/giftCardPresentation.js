@@ -65,6 +65,7 @@ const getConfirmedContents = card => {
         type: 'currency',
         value: String(currency.amount),
         label: currency.display?.name || currency.currencyId,
+        currencyId: currency.currencyId,
       });
     }
 
@@ -152,6 +153,7 @@ const getPendingContents = (card, activeCoinsForUser) => {
   const currencies = [...amounts.values()].map(item => ({
     type: 'currency',
     value: item.amount.toFixed(),
+    currencyId: item.currencyId,
     label: getCurrencyName(
       card,
       item.systemId,
@@ -207,6 +209,26 @@ export const getGiftCardContentText = content =>
   content.type === 'currency'
     ? `${content.value} ${content.label}`
     : content.value;
+
+// The card shows its first item large; the rest are "+ N more" on the card
+// and one row each in "Also included" on the detail screen (PR 266 review,
+// gift card option B, owner 2026-11-19). Pending items keep a pending mark.
+// An empty or claimed card has no list.
+export const getGiftCardIncludedRows = presentation => {
+  const primaryType = presentation?.primaryContent?.type;
+  if (primaryType !== 'currency' && primaryType !== 'identity') return [];
+
+  return [
+    ...(presentation.otherContents || []).map(content => ({
+      ...content,
+      pending: Boolean(presentation.contentsPending),
+    })),
+    ...(presentation.pendingExtras || []).map(content => ({
+      ...content,
+      pending: true,
+    })),
+  ];
+};
 
 export const getGiftCardPresentation = (card, {activeCoinsForUser} = {}) => {
   const status = getGiftCardDisplayStatus(card);

@@ -157,11 +157,35 @@ const RevokeIdentityForm = props => {
     setIdentitySheetVisible(true);
   }, []);
 
+  // A complete list that no longer holds the selected target replaces it, so a
+  // retry cannot leave an obsolete target in a locked single-target field. A
+  // partial or failed list does not prove that the target is gone.
+  useEffect(() => {
+    if (!selectedCandidate || identityDiscovery.status !== 'ready') return;
+
+    const stillListed = identityDiscovery.candidates.some(
+      candidate =>
+        candidate.identityAddress === selectedCandidate.identityAddress,
+    );
+
+    if (stillListed) return;
+
+    setSelectedCandidate(null);
+    props.updateSendFormData(SEND_MODAL_IDENTITY_TO_REVOKE_FIELD, '');
+  }, [
+    identityDiscovery.candidates,
+    identityDiscovery.status,
+    props.updateSendFormData,
+    selectedCandidate,
+  ]);
+
   useEffect(() => {
     if (!shouldAutoOpenIdentitySheet || manualEntry || selectedCandidate) return;
 
     const {candidates, status} = identityDiscovery;
 
+    // Only a complete result selects its single target. A partial result
+    // opens the sheet, so the user can retry or enter the target manually.
     if (status === 'ready' && candidates.length === 1) {
       chooseCandidate(candidates[0]);
       return;
@@ -169,6 +193,7 @@ const RevokeIdentityForm = props => {
 
     if (
       (status === 'ready' && candidates.length > 1) ||
+      status === 'partial' ||
       status === 'error' ||
       status === 'unsupported'
     ) {

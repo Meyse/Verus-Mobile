@@ -8,7 +8,7 @@ import {scopeSessionAction, sessionScopeIsCurrent} from '../../actions/actions/u
 import store from '../../store';
 import {sameAsset, ethereumNetwork} from '../assets/assetIdentity';
 import {
-  getCurrency,
+  getCurrencyDefinition,
   getCurrencyNameMap,
 } from '../api/channels/verusid/callCreators';
 import {ERC20} from '../constants/intervalConstants';
@@ -178,7 +178,7 @@ const resolvePbaasIdentifier = async ({
   let currencyResponse;
 
   try {
-    currencyResponse = await getCurrency(pbaasCoin.system_id, identifier);
+    currencyResponse = await getCurrencyDefinition(pbaasCoin.system_id, identifier);
   } catch (error) {
     const providerUnavailable =
       /endpoint|provider|connect/i.test(error?.message || '');
@@ -239,7 +239,7 @@ const resolvePbaasIdentifier = async ({
   }
 
   try {
-    const launchResponse = await getCurrency(
+    const launchResponse = await getCurrencyDefinition(
       pbaasCoin.system_id,
       currencyDefinition.launchsystemid || currencyDefinition.systemid,
     );

@@ -7,6 +7,7 @@ import { List, Card } from "react-native-paper";
 import { API_GET_BALANCES, IS_PBAAS } from "../../utils/constants/intervalConstants";
 import { satsToCoins, truncateDecimal } from "../../utils/math";
 import BigNumber from "bignumber.js";
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import Colors from "../../globals/colors";
 import { CoinDirectory } from "../../utils/CoinData/CoinDirectory";
 import { getCoinLogo } from "../../utils/CoinData/CoinData";
@@ -164,11 +165,11 @@ const FundSourceSelectList = ({
               [chainTicker]: prevCryptoBalances[chainTicker] ? {
                 ...prevCryptoBalances[chainTicker],
                 [wallet.id]: BigNumber(
-                  allBalances[wallet.api_channels[API_GET_BALANCES]][chainTicker].total
+                  getShownBalance(allBalances[wallet.api_channels[API_GET_BALANCES]][chainTicker])
                 )
               } : {
                 [wallet.id]: BigNumber(
-                  allBalances[wallet.api_channels[API_GET_BALANCES]][chainTicker].total
+                  getShownBalance(allBalances[wallet.api_channels[API_GET_BALANCES]][chainTicker])
                 )
               }
             }));

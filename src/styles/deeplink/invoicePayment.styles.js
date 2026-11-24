@@ -101,6 +101,11 @@ export default (theme, compact = false) =>
       backgroundColor: theme.colors.warningBackground,
       marginTop: 16,
     },
+    noticeTitle: {
+      ...theme.typography.labelSm,
+      color: theme.colors.textPrimary,
+      marginBottom: 4,
+    },
     footer: {paddingTop: 12, backgroundColor: theme.colors.background},
     sheet: {flexShrink: 1, padding: 20},
     sheetScroll: {flexShrink: 1, marginVertical: 12},

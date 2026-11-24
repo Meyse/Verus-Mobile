@@ -48,6 +48,12 @@ const FLOW_STEPS = {
   },
 };
 
+const ADVANCED_STEPS = {
+  SendWizardAdvanced: 'SendWizardAmount',
+  SendWizardAdvancedConfirm: 'SendWizardConfirm',
+  SendWizardAdvancedResult: 'SendWizardSuccess',
+};
+
 // A scanned recipient skips the Recipient step, so it does not count.
 export const getSendWizardProgress = (
   routeName,
@@ -56,6 +62,16 @@ export const getSendWizardProgress = (
   recipientFixed = false,
 ) => {
   if (routeName === 'SendWizardSuccess') return 1;
+  // The Advanced form takes the place of Amount and Recipient, and its
+  // Confirm the place of Confirm (PR 266 pick ADV).
+  if (ADVANCED_STEPS[routeName]) {
+    return getSendWizardProgress(
+      ADVANCED_STEPS[routeName],
+      mode,
+      hasInitialSource,
+      recipientFixed,
+    );
+  }
 
   const modeSteps = FLOW_STEPS[mode] || FLOW_STEPS[SEND_WIZARD_MODE.SEND];
   const flowSteps = hasInitialSource ? modeSteps.selected : modeSteps.manual;

@@ -20,7 +20,7 @@ import {fontStyle} from '../../globals/fonts';
 import {useObjectSelector} from '../../hooks/useObjectSelector';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import QrScanner from '../../utils/QrScanner/QrScanner';
-import {addressIsBlocked} from '../../utils/addressBlocklist';
+import {addressIsBlocked, BLOCKED_ADDRESS_MESSAGE} from '../../utils/addressBlocklist';
 import {selectAddressBlocklist} from '../../selectors/settings';
 import {
   I_ADDRESS_VERSION,
@@ -143,7 +143,7 @@ const SendWizardRecipient = () => {
     const address = input.trim();
     if (!address) return {valid: false, message: null};
     if (addressIsBlocked(address, blocklist)) {
-      return {valid: false, message: 'Sending to this address is blocked.'};
+      return {valid: false, message: BLOCKED_ADDRESS_MESSAGE};
     }
     // A private address, or "alice@:private", takes funds from the private
     // card only.
@@ -311,7 +311,10 @@ const SendWizardRecipient = () => {
       setError(validation.message || 'Enter a recipient.');
       return;
     }
-    if (needsIdentityCheck) {
+    // The check while typing already found this name: Continue asks the
+    // node again only without that result (audit row 13). Confirm resolves
+    // the name again before it builds the transaction.
+    if (needsIdentityCheck && currentIdentityCheck?.status !== 'valid') {
       const generation = ++lookup.current.generation;
       lookup.current.pending = true;
       setResolving(true);

@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSearchField, {APP_SEARCH_MIN_ITEMS} from '../../components/AppSearchField';
@@ -25,18 +26,29 @@ import {
   WizardScreen,
 } from './components/WizardUI';
 import {TargetNetworkSheet} from './components/SelectionSheets';
+import useAdvancedFormMenu from './components/useAdvancedFormMenu';
 import {
   buildTargetOptions,
   getTargetLaunchDefinition,
   isConversionChannel,
   isPopularTarget,
+  matchesTargetQuery,
+  shouldShowAdvancedFormMenu,
 } from './wizardUtils';
 
 const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
   const theme = useOnboardingTheme();
-  const {state, setTarget} = useSendWizard();
+  const insets = useSafeAreaInsets();
+  const {mode, state, setTarget} = useSendWizard();
   const {sourceCoin, channel} = state;
+  // The Advanced form opens from the header's "More options" menu.
+  const openAdvancedForm = () => {
+    // A preset target that loads later must not take the user out of the form.
+    presetApplied.current = true;
+    setPendingTarget(null);
+    navigation.navigate('SendWizardAdvanced');
+  };
   const [paths, setPaths] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,8 +57,6 @@ const SendWizardSelectTarget = () => {
   const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
   const sourceNetworkId =
     channel?.split('.')[2] || sourceCoin?.system_id || sourceCoin?.id;
-  // A launch counts its start block on the chain the pre-conversion is sent on.
-  const height = useChainHeight(sourceNetworkId);
 
   useEffect(() => {
     if (!sourceCoin || !channel) {
@@ -100,29 +110,16 @@ const SendWizardSelectTarget = () => {
   );
   const searchable = conversionOptions.length >= APP_SEARCH_MIN_ITEMS;
   const filtered = useMemo(() => {
-    const normalized = searchable ? query.trim().toLowerCase() : '';
-    if (!normalized) return conversionOptions;
-    return conversionOptions.filter(option =>
-      [
-        option.name,
-        option.ticker,
-        option.id,
-        option.fullyqualifiedname,
-        ...(option.networkOptions || []).flatMap(network => [
-          network.name,
-          network.ticker,
-          network.id,
-          network.fullyqualifiedname,
-          network.networkName,
-        ]),
-      ]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(normalized)),
-    );
+    const active = searchable ? query.trim() : '';
+    if (!active) return conversionOptions;
+    return conversionOptions.filter(option => matchesTargetQuery(option, active));
   }, [conversionOptions, query, searchable]);
   // A currency before its launch has its own section: it has no price yet, and
   // the funds wait until the launch.
   const prelaunch = filtered.filter(option => option.isPrelaunch);
+  // A launch counts its start block on the chain the pre-conversion is sent on.
+  // Read the height only when a pre-launch target is listed (PR 266 audit row 18).
+  const height = useChainHeight(prelaunch.length > 0 ? sourceNetworkId : null);
   const popular = filtered.filter(
     option => !option.isPrelaunch && isPopularTarget(option),
   );
@@ -174,6 +171,15 @@ const SendWizardSelectTarget = () => {
     // Runs once, when the routes have loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, conversionOptions, state.presetTargetId]);
+
+  const advancedFormSheet = useAdvancedFormMenu({
+    enabled: shouldShowAdvancedFormMenu({
+      mode,
+      routeName: 'SendWizardSelectTarget',
+      state,
+    }),
+    onOpenForm: openAdvancedForm,
+  });
 
   const renderOption = option => (
     <Pressable
@@ -236,15 +242,21 @@ const SendWizardSelectTarget = () => {
         />
       ) : null}
       {loading ? (
-        <SkeletonLoader accessibilityLabel="Loading transfer options" style={styles.skeleton}>
-          <SkeletonRow labelWidth="18%" valueWidth="78%" />
-          <SkeletonRow labelWidth="18%" valueWidth="66%" />
-          <SkeletonRow labelWidth="18%" valueWidth="72%" />
-        </SkeletonLoader>
+        <View style={styles.listArea}>
+          <SkeletonLoader accessibilityLabel="Loading transfer options" style={styles.skeleton}>
+            <SkeletonRow labelWidth="18%" valueWidth="78%" />
+            <SkeletonRow labelWidth="18%" valueWidth="66%" />
+            <SkeletonRow labelWidth="18%" valueWidth="72%" />
+          </SkeletonLoader>
+        </View>
       ) : (
         <ScrollView
+          style={styles.listArea}
           contentContainerStyle={[
             styles.content,
+            // The list ends above the home indicator, and keeps 32 points
+            // on a phone without one.
+            {paddingBottom: Math.max(32, insets.bottom + 16)},
             !searchable && styles.contentWithoutSearch,
           ]}>
           <ErrorMessage>{error}</ErrorMessage>
@@ -275,6 +287,7 @@ const SendWizardSelectTarget = () => {
           ) : null}
         </ScrollView>
       )}
+      {advancedFormSheet}
       <TargetNetworkSheet
         target={pendingTarget}
         options={pendingTarget?.networkOptions || []}
@@ -302,6 +315,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   section: {marginBottom: 24},
+  listArea: {flex: 1},
   sectionLabel: {
     paddingHorizontal: WIZARD_CONTENT_INSET,
     marginBottom: 12,

@@ -20,6 +20,10 @@ const mockReadRegistrationName = jest.fn();
 const mockGetRegistrationReferralInfo = jest.fn();
 const mockRegistrationReferralNamespace = jest.fn();
 const mockLoadRegistrationNamespaces = jest.fn();
+let mockChainHeight = 100;
+const mockFocusListeners = new Set();
+const mockGetInfo = jest.fn(async () => ({result: {longestchain: mockChainHeight}}));
+jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: (...args) => mockGetInfo(...args)}));
 jest.mock('../../identityRegistration', () => mockApi);
 jest.mock('../../identityRegistration/referrals', () => ({
   getRegistrationReferralInfo: (...args) => mockGetRegistrationReferralInfo(...args),
@@ -51,7 +55,17 @@ jest.mock('../../identityRegistration/funding', () => ({
 }));
 jest.mock('react-redux', () => require('../../../tests/helpers/mockReactRedux')({useSelector: selector => selector(mockState)}));
 jest.mock('@react-navigation/native', () => ({
-  useFocusEffect: callback => require('react').useEffect(callback, [callback]),
+  // Runs on mount and again on each `refocus()`, like a focused screen.
+  useFocusEffect: callback => {
+    const ReactModule = require('react');
+    const [focusCount, setFocusCount] = ReactModule.useState(0);
+    ReactModule.useEffect(() => {
+      const listener = () => setFocusCount(count => count + 1);
+      mockFocusListeners.add(listener);
+      return () => mockFocusListeners.delete(listener);
+    }, []);
+    ReactModule.useEffect(callback, [callback, focusCount]);
+  },
   useNavigation: () => ({isFocused: () => true, addListener: () => jest.fn(), getParent: () => undefined}),
 }));
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
@@ -188,6 +202,7 @@ const mount = async (Component, props = {}) => {
 };
 beforeEach(() => {
   jest.clearAllMocks();
+  mockChainHeight = 100;
   mockScrollTo.mockReset();
   mockPublishRegistrationJobs.mockReset().mockResolvedValue({});
   mockClearRegistrationJobs.mockReset().mockImplementation(async () => {
@@ -541,6 +556,61 @@ it('keeps passive status checks out of action loading and stops polling when rea
   await act(async () => { jest.advanceTimersByTime(60000); });
   expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(2);
   expect(view.root.findAllByType('ActivityIndicator')).toHaveLength(0);
+});
+
+// PR 266 review F14: a registration that waits for funds during 5 minutes
+// with one new block. Before: a quote and a fresh balance on each of the 15
+// polls. After: one getinfo per poll, and the funds check again only after the
+// block.
+it('re-checks short funds only after the block height rose', async () => {
+  jest.useFakeTimers();
+  mockChainHeight = 100;
+  setSavedReview({...review, status: 'commitment_confirmed'});
+  mockApi.reconcileRegistration.mockResolvedValue({...review, status: 'commitment_confirmed'});
+  mockCheckRegistrationFunds.mockResolvedValue({status: 'short', currencyId: 'chain', balance: '0.5', missing: '50010000'});
+  const view = await mount(IdentityRegistrationProgress);
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(1);
+  expect(textContent(view.root)).toContain('Add 0.5001 VRSC to it to continue.');
+  mockGetInfo.mockClear();
+
+  for (let poll = 1; poll <= 15; poll++) {
+    if (poll === 8) mockChainHeight = 101;
+    await advance(20000);
+  }
+
+  expect(mockGetInfo).toHaveBeenCalledTimes(15);
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(2);
+  expect(mockCheckRegistrationFunds).toHaveBeenCalledTimes(2);
+});
+
+// Codex review: a return to the progress screen re-ran the funds check in
+// the same block.
+it('does not re-check short funds on a return in the same block', async () => {
+  jest.useFakeTimers();
+  setSavedReview({...review, status: 'commitment_confirmed'});
+  mockApi.reconcileRegistration.mockResolvedValue({...review, status: 'commitment_confirmed'});
+  mockCheckRegistrationFunds.mockResolvedValue({status: 'short', currencyId: 'chain', balance: '0.5', missing: '50010000'});
+  // Each storage read returns a new object, as the real one does.
+  mockUpdateRegistrationUiState.mockImplementation(async (jobId, patch) => {
+    const saved = {...review, status: 'commitment_confirmed', ...patch};
+    mockApi.getRegistrationReview.mockImplementation(async () => ({...saved}));
+    mockApi.reconcileRegistration.mockImplementation(async () => ({...saved}));
+  });
+  const view = await mount(IdentityRegistrationProgress);
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(1);
+
+  const refocus = async () => act(async () => mockFocusListeners.forEach(listener => listener()));
+  await refocus();
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(1);
+  expect(textContent(view.root)).toContain('Add 0.5001 VRSC to it to continue.');
+
+  mockChainHeight = 101;
+  await refocus();
+  await act(async () => {});
+  expect(mockApi.getRegistrationEstimate).toHaveBeenCalledTimes(2);
 });
 
 it('aborts a passive check before a foreground action and ignores its stale result', async () => {
@@ -1192,6 +1262,38 @@ it.each([
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
 });
 
+// PR 266 review R7 option A: every saved row has a ⋯ menu with View progress
+// and Delete registration. Delete reads the full saved review first.
+it('deletes a saved registration from its row menu only after confirmation', async () => {
+  jest.useFakeTimers();
+  const navigation = makeNavigation();
+  const jobs = {saved: {id: 'saved', displayName: 'saved@', status: 'commitment_confirmed', deletionKind: 'commitment', createdAt: 1}};
+  setSavedReview({...review, jobId: 'saved', displayName: 'saved@', status: 'commitment_confirmed', deletionKind: 'commitment', commitmentFee: '10000'});
+  const view = await renderRows(jobs, navigation, 'In progress');
+  const openMenu = async () => {
+    await press(rowButton(view, 'More options for saved@'));
+    expect(textContent(view.root)).toContain('View progress');
+  };
+  await openMenu();
+  await press(rowButton(view, 'View progress'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(navigation.navigate).toHaveBeenLastCalledWith('IdentityRegistration', {
+    screen: 'IdentityRegistrationProgress', params: {jobId: 'saved'},
+  });
+  await openMenu();
+  await press(rowButton(view, 'Delete registration'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockApi.getRegistrationReview).toHaveBeenCalledWith('saved', expect.any(Object));
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  expect(sheet.props.visible).toBe(true);
+  expect(sheet.props.title).toBe('Delete saved@?');
+  expect(textContent(sheet)).toContain('Already paid0.0001 VRSC');
+  expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
+  await press(view.root.findAllByType(AppButton).find(node => node.props.children === 'Delete'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockApi.deleteRegistration).toHaveBeenCalledWith('saved', 'commitment', expect.any(Object));
+});
+
 it('returns from progress to saved registrations without creating or resubmitting a transaction', async () => {
   const goBack = jest.fn();
   const navigation = makeNavigation({getParent: () => ({goBack, reset: jest.fn()})});
@@ -1204,7 +1306,7 @@ it('returns from progress to saved registrations without creating or resubmittin
 });
 
 it.each([
-  ['draft', 'commitment_prepared', 'No payment has been sent.'],
+  ['draft', 'commitment_prepared', 'No payment was made.'],
 ])('deletes a %s from the home list only after confirmation', async (deletionKind, status, warning) => {
   jest.useFakeTimers();
   const goBack = jest.fn();
@@ -1247,25 +1349,54 @@ it('warns that the original paid commitment fee is lost forever before deleting 
   const view = await mount(IdentityRegistrationProgress, {navigation});
   await openDelete(view);
   expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
-  const message = view.root.findByType(AcknowledgeSheet).props.message;
-  expect(message).toContain('0.0002 VRSC commitment fee is lost');
-  expect(message).toContain('cannot finish this registration');
-  expect(message).not.toContain('0.0001');
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  expect(sheet.props.message).toContain('This payment does not come back.');
+  expect(sheet.props.message).toContain('cannot finish this registration');
+  expect(textContent(sheet)).toContain('Already paid0.0002 VRSC');
+  expect(textContent(sheet)).not.toContain('0.0001');
   await confirmDelete(view);
   expect(mockApi.deleteRegistration).toHaveBeenCalledWith('job', 'commitment', expect.any(Object));
   expect(goBack).toHaveBeenCalledTimes(1);
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 
-// Delete now lives only in the About sheet of the progress screen; saved
-// rows in the VerusID tab have no delete action.
-it.each(['registration_broadcast', 'registration_signed'])('never offers deletion for an unsettled signed registration (%s)', async status => {
+// A first payment that is signed or sent but not confirmed is not "already
+// paid": the sheet says it can still be paid (Codex review of R7, finding 1).
+it('does not call an unconfirmed first payment already paid', async () => {
   jest.useFakeTimers();
-  setSavedReview({...review, status, deletionKind: null});
-  const progress = await mount(IdentityRegistrationProgress);
-  await press(progress.root.findAll(node => node.props.accessibilityLabel === 'About this registration' && node.props.onPress)[0]);
-  expect(progress.root.findAllByType(TextAction).filter(node => node.props.children === 'Delete registration')).toHaveLength(0);
-  expect(mockApi.deleteRegistration).not.toHaveBeenCalled();
+  setSavedReview({...review, status: 'commitment_broadcast', deletionKind: 'commitment', commitmentFee: '10000', commitmentTxid: 'sent'});
+  const view = await mount(IdentityRegistrationProgress);
+  await openDelete(view);
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  expect(textContent(sheet)).toContain('Can still be paid0.0001 VRSC');
+  expect(textContent(sheet)).not.toContain('Already paid');
+  expect(sheet.props.message).toMatch(/^If it confirms, this payment does not come back\./);
+});
+
+// PR 266 review R7 option 2: a signed second payment can be deleted. The
+// sheet says that Delete does not stop it, with the amount and expiry block.
+it.each(['registration_broadcast', 'registration_signed'])('warns before deleting an unsettled signed registration (%s)', async status => {
+  jest.useFakeTimers();
+  const goBack = jest.fn();
+  const navigation = makeNavigation({getParent: () => ({goBack, reset: jest.fn()})});
+  setSavedReview({...review, status, stage: 'registration', deletionKind: 'registration', commitmentFee: '10000',
+    registrationCanStillConfirm: true, registrationExpiryHeight: 1284536, chainTicker: 'VRSC',
+    quote: {...review.quote, totalRequired: {[review.systemId]: '10000000000'}}});
+  const view = await mount(IdentityRegistrationProgress, {navigation});
+  await openDelete(view);
+  const sheet = view.root.findByType(AcknowledgeSheet);
+  const text = textContent(sheet);
+  expect(text).toContain('Delete does not stop the second payment');
+  expect(text).toContain('until block 1,284,536.');
+  expect(text).toContain('Already paid0.0001 VRSC');
+  expect(text).toContain('Can still be paid100 VRSC');
+  expect(sheet.props.message).toBe('If it confirms, the VerusID is created and 100 VRSC is spent. Add it with Link VerusID.');
+  expect(sheet.props.confirmLabel).toBe('Delete anyway');
+  expect(sheet.props.destructive).toBe(true);
+  await press(view.root.findAllByType(AppButton).find(node => node.props.children === 'Delete anyway'));
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  expect(mockApi.deleteRegistration).toHaveBeenCalledWith('job', 'registration', expect.any(Object));
+  expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 
 it('passes the deletion kind the user confirmed and keeps a changed registration when deletion is rejected', async () => {

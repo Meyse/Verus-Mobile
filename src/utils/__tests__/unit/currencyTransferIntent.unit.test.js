@@ -23,21 +23,17 @@ import {estimateConversion} from '../../api/channels/vrpc/requests/estimateConve
 import {getCurrency} from '../../api/channels/verusid/callCreators';
 
 jest.mock('../../api/channels/vrpc/requests/getAddressBalances', () => ({getAddressBalances: jest.fn()}));
-jest.mock('../../api/channels/vrpc/requests/getAddressUtxos', () => {
-  const getSpendableUtxos = jest.fn();
-  return {
-    getSpendableUtxos,
-    // Preflight reads the same spendable inputs with an empty mempool summary.
-    getSpendableUtxosWithMempoolInfo: jest.fn(async (...args) => ({
-      utxos: await getSpendableUtxos(...args),
-      mempoolSpentUtxoCount: 0,
-      hasUnconfirmedIncoming: false,
-    })),
-  };
-});
+jest.mock('../../api/channels/vrpc/requests/getAddressUtxos', () => ({
+  getAddressUtxos: jest.fn(),
+  getSpendableUtxos: jest.fn(),
+}));
 jest.mock('../../api/channels/vrpc/requests/getInfo', () => ({getInfo: jest.fn()}));
 jest.mock('../../api/channels/vrpc/requests/fundRawTransaction', () => ({fundRawTransaction: jest.fn()}));
-jest.mock('../../api/channels/vrpc/requests/getSendCurrencyTransaction', () => ({getSendCurrencyTransaction: jest.fn()}));
+jest.mock('../../api/channels/vrpc/requests/getSendCurrencyTransaction', () => ({
+  // Keep the real parent fee constant so balance checks see a real fee.
+  SEND_CURRENCY_PARENT_FEE: jest.requireActual('../../api/channels/vrpc/requests/getSendCurrencyTransaction').SEND_CURRENCY_PARENT_FEE,
+  getSendCurrencyTransaction: jest.fn(),
+}));
 jest.mock('../../api/channels/vrpc/requests/estimateConversion', () => ({estimateConversion: jest.fn()}));
 jest.mock('../../api/channels/verusid/callCreators', () => ({getCurrency: jest.fn(), getIdentity: jest.fn()}));
 jest.mock('../../CoinData/CoinData', () => ({getSystemNameFromSystemId: value => value}));
@@ -355,6 +351,82 @@ describe('RPC currency transfer intent validation', () => {
     for (const call of getSendCurrencyTransaction.mock.calls) {
       expect(call[10]).toEqual({preconvert: true, refundto: REFUND});
     }
+    expect(fundRawTransaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Upstream balance rules for a plain native VRPC send (review I5). Balance is
+// 5 VRSC and the parent fee is 0.0001 VRSC (10000 sats) in every case.
+describe('RPC native send balance rules', () => {
+  const plainSend = satoshis => ({currency: SYSTEM, satoshis, address: pkh(REFUND)});
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    getCurrency.mockImplementation(async (_system, id) => ({
+      result: {currencyid: id, fullyqualifiedname: id, ...definitions[id]},
+    }));
+    getInfo.mockResolvedValue({result: {longestchain: 100}});
+    getAddressBalances.mockResolvedValue({result: {currencybalance: {[SYSTEM]: 5}}});
+    getSpendableUtxos.mockResolvedValue([INPUT]);
+    fundRawTransaction.mockImplementation(async (_system, hex) => {
+      const tx = Transaction.fromHex(hex, networks.verus);
+      tx.addInput(Buffer.from(INPUT.txid, 'hex').reverse(), INPUT.outputIndex);
+      const change = INPUT.satoshis - tx.outs[0].value - 10000;
+      if (change > 0) tx.addOutput(address.toOutputScript(SOURCE, networks.verus), change);
+      return {result: {hex: tx.toHex()}};
+    });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('rejects an amount above the balance and prepares nothing', async () => {
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('600000000'));
+
+    expect(result.err).toBe(true);
+    expect(result.result).toMatch(/^Insufficient funds\./);
+    expect(fundRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('says how much confirmed funds can be sent when the amount is above them', async () => {
+    // 5 VRSC confirmed. The Amount screen may count an incoming payment that
+    // still confirms; funding spends confirmed outputs only.
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('600000000'));
+
+    expect(result.result).toBe(
+      `Insufficient funds. You can send up to 5 ${SYSTEM} now. Funds that are not confirmed yet can be sent after the next block.`,
+    );
+  });
+
+  it('keeps the fee text when the confirmed balance cannot pay the fee', async () => {
+    getAddressBalances.mockResolvedValue({result: {currencybalance: {[SYSTEM]: 0.00005}}});
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('600000000'));
+
+    expect(result.result).toMatch(/^Insufficient funds\. Ensure you have at least 0\.0001 /);
+  });
+
+  it('lowers a send of exactly the balance by the fee', async () => {
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('500000000'));
+
+    expect(result).toMatchObject({err: false, result: {
+      submittedsats: '500000000', output: {satoshis: '499990000'},
+    }});
+  });
+
+  it('lowers an amount inside the fee band by the whole fee', async () => {
+    // 4.99995 VRSC: amount fits the balance, amount plus fee does not.
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('499995000'));
+
+    expect(result).toMatchObject({err: false, result: {
+      submittedsats: '499995000', output: {satoshis: '499985000'},
+    }});
+  });
+
+  it('accepts a payment below 0.00000546', async () => {
+    // 0.000001 VRSC: the Verus network has no dust minimum.
+    const result = await preflightCurrencyTransfer(COIN, CHANNEL, ACCOUNT, plainSend('100'));
+
+    expect(result).toMatchObject({err: false, result: {output: {satoshis: '100'}}});
     expect(fundRawTransaction).toHaveBeenCalledTimes(1);
   });
 });

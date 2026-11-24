@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import {VRPC} from '../constants/intervalConstants';
+import {getShownBalance} from '../ledger/shownBalance';
 
 // A linked VerusID is a card on every active Verus/PBaaS asset, with the
 // channel `vrpc.<i-address>.<system>` (sagas/coins.js).
@@ -34,7 +35,7 @@ export const getVerusIdFunds = ({balances, cardsByCoin, coins = [], iAddress}) =
     if (entry == null) return;
 
     loaded = true;
-    const balance = BigNumber(entry.total ?? entry.confirmed ?? 0);
+    const balance = BigNumber(getShownBalance(entry) ?? 0);
 
     if (balance.isFinite() && balance.isGreaterThan(0)) {
       funds.push({balance, card, coin});

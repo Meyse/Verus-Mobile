@@ -56,7 +56,10 @@ import {
 import {
   getUnreviewedNewAssetHoldings,
   markFoundAssetsReviewed,
+  setHomeSort,
+  setHomeSortReversed,
 } from '../../utils/assets/assetManagementService';
+import {orderedAssetKeys, sortHomeAssets} from '../../utils/assets/assetOrder';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import {getOpeningSubWallet} from '../../utils/subwallet/getOpeningSubWallet';
 import {
@@ -73,9 +76,9 @@ import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { useLatestCallback } from '../../hooks/useLatestCallback';
 import {refreshRegistrationJobs} from '../../actions/actions/services/dispatchers/verusid/registration';
 import SignedInWalletHome from './SignedInWalletHome';
-import usePortfolioHistory from '../../utils/portfolioHistory/usePortfolioHistory';
 import {usePrelaunchAssets} from '../../utils/preconversion/usePrelaunch';
 import {getCurrencyDisplay} from '../SendWizard/wizardUtils';
 import {
@@ -84,6 +87,12 @@ import {
   isTestnetAccount,
   uniqueAssets,
 } from '../../utils/assets/assetIdentity';
+import {
+  getOpenPriceChannels,
+  isPriceSettled,
+  shouldShowNoPriceCaption,
+} from '../../utils/assets/homeNoPriceCaption';
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import {getAssetPresentation} from '../../utils/assets/assetPresentation';
 import {
   CONVERSION_DISABLED,
@@ -135,16 +144,21 @@ const Home = () => {
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
   const showBalance = useSelector(state => state.coins.showBalance);
-  const testnetPrices = useSelector(state => state.settings.generalWalletSettings.testnetPrices === true);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(null);
-  const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
+  const [noPriceCaption, setNoPriceCaption] = useState(false);
   const [balanceAccountHash, setBalanceAccountHash] = useState(null);
   const [loading, setLoading] = useState(false);
   const refreshRun = useRef(0);
   const balanceErrors = useObjectSelector((state) =>
     extractErrorData(state, API_GET_BALANCES),
   );
+  // A price request that found no price stores an error, not a rate (a
+  // mainnet currency without a market). It still counts as an answer.
+  const rateErrors = useObjectSelector((state) => state.errors[API_GET_FIATPRICE] || {});
+  // The channels each asset's price request asks. An asset with none never
+  // gets a rate or an error entry; it counts as having no price.
+  const priceChannels = useObjectSelector(getOpenPriceChannels);
   const {isConnected} = useNetInfo();
   // Verus currencies on the wallet's addresses that are not in the wallet yet
   // and that the user has not reviewed or dismissed on Home.
@@ -271,11 +285,12 @@ const Home = () => {
   useEffect(() => {
     const totalBalances = getTotalBalances();
     setTotalFiatBalance(totalBalances.fiat);
-    setTotalCryptoBalances(totalBalances.crypto);
+    setNoPriceCaption(totalBalances.noPriceData);
     setBalanceAccountHash(accountHash);
   }, [
     balances, ledgerBalances, assetManagement.snapshots, assetManagement.preferences,
     assetManagement.ready, displayCurrency, activeCoinsForUser, allSubWallets, rates, accountHash,
+    showBalance, rateErrors, priceChannels,
   ]);
 
   useEffect(() => {
@@ -356,19 +371,24 @@ const Home = () => {
   const getTotalBalances = () => {
     let _totalFiatBalance = BigNumber(0);
     let fiatComplete = true;
-    let coinBalances = {};
+    const holdings = [];
 
     uniqueAssets(activeCoinsForUser).filter(coin =>
       Boolean(coin.testnet) === isTestnetAccount(activeAccount)).forEach((coinObj) => {
       const key = coinObj.id;
-      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
-      coinBalances[key] = balance.total;
 
-      // The value record keeps the amount of a hidden asset. The total counts
-      // only the assets on Home.
+      // The total counts only the assets on Home.
       if (!isAssetShown(coinObj, assetManagement.preferences)) return;
 
+      const balance = getManagedAssetBalance(coinObj, allSubWallets[key], ledgerBalances, assetManagement.snapshots);
+
       const rate = getRate(key, displayCurrency);
+
+      holdings.push({
+        balance: balance.total,
+        rate,
+        priceSettled: isPriceSettled({coinId: key, priceChannels: priceChannels[key], rates, rateErrors}),
+      });
 
       if (rate != null) {
         const price = BigNumber(rate);
@@ -377,10 +397,12 @@ const Home = () => {
       }
     });
 
+    // The Show on Home choices are not known before the assets are ready.
+    const totalFinal = fiatComplete && assetManagement.ready;
+
     return {
-      // The Show on Home choices are not known before the assets are ready.
-      fiat: fiatComplete && assetManagement.ready ? _totalFiatBalance.toNumber() : null,
-      crypto: coinBalances,
+      fiat: totalFinal ? _totalFiatBalance.toNumber() : null,
+      noPriceData: shouldShowNoPriceCaption({ready: assetManagement.ready, showBalance, totalFinal, holdings}),
     };
   };
 
@@ -437,7 +459,7 @@ const Home = () => {
           .map(card => {
             const channel = card.api_channels?.[API_SEND];
             const hasBalance = BigNumber(
-              balances?.[coinObj.id]?.[card.id]?.total || 0,
+              getShownBalance(balances?.[coinObj.id]?.[card.id]) || 0,
             ).isGreaterThan(0);
             const compatible = card.compatible_apps.includes(sectionKey);
             const actionAvailable =
@@ -481,7 +503,7 @@ const Home = () => {
 
   const signedInAssets = useMemo(() => {
     if (!assetManagement.ready) return [];
-    return uniqueAssets(activeCoinsForUser)
+    const items = uniqueAssets(activeCoinsForUser)
       .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount) &&
         isAssetShown(coin, assetManagement.preferences))
       .map(coin => {
@@ -530,17 +552,11 @@ const Home = () => {
           preferredCard,
           statusDescription,
         };
-      })
-      .sort((a, b) => {
-        const fundedOrder = Number(b.balance?.isGreaterThan(0) || false) - Number(a.balance?.isGreaterThan(0) || false);
-        if (fundedOrder !== 0) return fundedOrder;
-        if (a.fiatValue != null && b.fiatValue != null && a.fiatValue !== b.fiatValue) {
-          return b.fiatValue - a.fiatValue;
-        }
-        if (a.fiatValue != null && b.fiatValue == null) return -1;
-        if (a.fiatValue == null && b.fiatValue != null) return 1;
-        return a.presentation.name.localeCompare(b.presentation.name);
       });
+    // "My order" is the default, so a row never moves by itself (R2).
+    const orderKeys = orderedAssetKeys(assetManagement.order, uniqueAssets(activeCoinsForUser)
+      .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount)));
+    return sortHomeAssets(items, assetManagement.sort, orderKeys, assetManagement.sortReversed);
   }, [
     activeCoinsForUser,
     activeSubWallets,
@@ -550,7 +566,6 @@ const Home = () => {
     balances,
     displayCurrency,
     rates,
-    totalCryptoBalances,
     activeAccount,
     assetManagement,
     ledgerBalances,
@@ -599,16 +614,17 @@ const Home = () => {
     if (prelaunchAssets.size > 0) return null;
 
     // Empty only when every transparent and VerusID card is known to hold 0,
-    // pending funds included, and hidden assets too. A private card that has
-    // not synced yet does not block it.
+    // pending funds included where the channel reports them (Electrum, the
+    // private card; a Verus balance has none), and hidden assets too. A
+    // private card that has not synced yet does not block it.
     const walletEmpty = uniqueAssets(activeCoinsForUser)
       .filter(coin => Boolean(coin.testnet) === isTestnetAccount(activeAccount))
       .every(coin => {
         const cards = allSubWallets[coin.id] || [];
         const privateCards = cards.filter(card => card.id === 'PRIVATE_WALLET');
         const otherCards = cards.filter(card => card.id !== 'PRIVATE_WALLET');
-        const others = getManagedAssetBalance(coin, otherCards, ledgerBalances, assetManagement.snapshots);
-        const privateBalance = getManagedAssetBalance(coin, privateCards, ledgerBalances, assetManagement.snapshots);
+        const others = getManagedAssetBalance(coin, otherCards, ledgerBalances, assetManagement.snapshots, {withPending: true});
+        const privateBalance = getManagedAssetBalance(coin, privateCards, ledgerBalances, assetManagement.snapshots, {withPending: true});
 
         return (
           (otherCards.length === 0 || (others.complete && others.total.isZero())) &&
@@ -644,27 +660,46 @@ const Home = () => {
     }
   }, [isConnected]);
 
-  // The chart draws the Home total, so it uses the same assets.
-  const shownCoins = useMemo(
-    () => activeCoinsForUser.filter(coin => isAssetShown(coin, assetManagement.preferences)),
-    [activeCoinsForUser, assetManagement.preferences],
-  );
-  const portfolioHistory = usePortfolioHistory({
-    account: activeAccount,
-    activeCoins: shownCoins,
-    balances: totalCryptoBalances,
-    total: balanceAccountHash === accountHash ? totalFiatBalance : null,
-    rates,
-    currency: displayCurrency,
-    ready: assetManagement.ready && balanceAccountHash === accountHash,
-    refreshing: loading,
-    testnetPrices,
-  });
-
   const mainNavigation = navigation.getParent()?.getParent();
   const receiveAvailable = actionSources('wallet-receive').length > 0;
   const sendAvailable = actionSources('wallet-send').length > 0;
   const convertAvailable = actionSources('wallet-convert').length > 0;
+
+  // Home renders again on each wallet update. Stable handlers and an unchanged
+  // notice object let the header and rows skip those renders.
+  const homeNoticeKey = homeNotice == null ? null : JSON.stringify(homeNotice);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the key stands for the notice values.
+  const stableHomeNotice = useMemo(() => homeNotice, [homeNoticeKey]);
+  const toggleBalance = useLatestCallback(() => dispatch({type: 'SET_BALANCE_SHOW'}));
+  const selectDisplayCurrency = useLatestCallback(setDisplayCurrencyFunc);
+  const refreshFromUser = useLatestCallback(forceUpdate);
+  const openAsset = useLatestCallback(openCoin);
+  const openReceive = useLatestCallback(() => (mainNavigation || navigation).navigate('ReceiveAssetsList'));
+  const openSend = useLatestCallback(() =>
+    (mainNavigation || navigation).navigate('SendWizard', {
+      mode: SEND_WIZARD_MODE.SEND,
+    }),
+  );
+  const openConvert = useLatestCallback(() =>
+    (mainNavigation || navigation).navigate('SendWizard', {
+      mode: SEND_WIZARD_MODE.CONVERT,
+    }),
+  );
+  const openManageAssets = useLatestCallback(() =>
+    (mainNavigation || navigation).navigate('ManageAssets'),
+  );
+  const reviewAndOpenFoundAssets = useLatestCallback(() => {
+    reviewFoundAssets();
+    (mainNavigation || navigation).navigate('ManageAssets');
+  });
+  const dismissFoundAssets = useLatestCallback(reviewFoundAssets);
+  const dismissSyncNotice = useLatestCallback(() => setSyncNoticeDismissed(true));
+  const selectSort = useLatestCallback(sort => {
+    setHomeSort(sort).catch(error => console.warn(error?.message));
+  });
+  const reverseSort = useLatestCallback(() => {
+    setHomeSortReversed(!assetManagement.sortReversed).catch(error => console.warn(error?.message));
+  });
 
   return (
     <SignedInWalletHome
@@ -674,39 +709,31 @@ const Home = () => {
         !isAssetShown(coin, assetManagement.preferences)).length}
       assetsReady={assetManagement.ready}
       assetsLoadError={assetManagement.loadError}
-      homeNotice={homeNotice}
+      homeNotice={stableHomeNotice}
       displayCurrency={displayCurrency}
       loading={loading}
       showBalance={showBalance}
       totalFiatBalance={balanceAccountHash === accountHash ? totalFiatBalance : null}
-      history={portfolioHistory}
-      onToggleBalance={() => dispatch({type: 'SET_BALANCE_SHOW'})}
-      onSelectDisplayCurrency={setDisplayCurrencyFunc}
-      onRefresh={forceUpdate}
-      onOpenAsset={openCoin}
+      // Offline, a failed price request says nothing about the price.
+      noPriceCaption={balanceAccountHash === accountHash && !loading && isConnected !== false && noPriceCaption}
+      onToggleBalance={toggleBalance}
+      onSelectDisplayCurrency={selectDisplayCurrency}
+      onRefresh={refreshFromUser}
+      onOpenAsset={openAsset}
       convertAvailable={convertAvailable}
       receiveAvailable={receiveAvailable}
       sendAvailable={sendAvailable}
-      onReceive={() => (mainNavigation || navigation).navigate('ReceiveAssetsList')}
-      onSend={() =>
-        (mainNavigation || navigation).navigate('SendWizard', {
-          mode: SEND_WIZARD_MODE.SEND,
-        })
-      }
-      onConvert={() =>
-        (mainNavigation || navigation).navigate('SendWizard', {
-          mode: SEND_WIZARD_MODE.CONVERT,
-        })
-      }
-      onManageAssets={() =>
-        (mainNavigation || navigation).navigate('ManageAssets')
-      }
-      onReviewFoundAssets={() => {
-        reviewFoundAssets();
-        (mainNavigation || navigation).navigate('ManageAssets');
-      }}
-      onDismissFoundAssets={reviewFoundAssets}
-      onDismissSyncNotice={() => setSyncNoticeDismissed(true)}
+      onReceive={openReceive}
+      onSend={openSend}
+      onConvert={openConvert}
+      onManageAssets={openManageAssets}
+      onReviewFoundAssets={reviewAndOpenFoundAssets}
+      onDismissFoundAssets={dismissFoundAssets}
+      onDismissSyncNotice={dismissSyncNotice}
+      sort={assetManagement.sort}
+      sortReversed={assetManagement.sortReversed}
+      onSelectSort={selectSort}
+      onReverseSort={reverseSort}
     />
   );
 };

@@ -1,6 +1,7 @@
 import {Buffer} from 'buffer';
 import {ethers} from 'ethers';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import {explorers} from '../../utils/CoinData/CoinData';
 import {
   I_ADDRESS_VERSION,
   R_ADDRESS_VERSION,
@@ -9,6 +10,7 @@ import {DEST_ETH, fromBase58Check} from 'verus-typescript-primitives';
 import {getEthereumAssetName} from '../../utils/assets/ethereumAssetName';
 import {VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT} from '../../utils/constants/web3Constants';
 import {getTestnetBridgeDelegator} from '../../utils/testnetEnvironment';
+import {IS_PBAAS, IS_PBAAS_ROOT} from '../../utils/constants/intervalConstants';
 
 const lookupCoin = id => {
   if (!id) return null;
@@ -46,12 +48,13 @@ export const isConversionChannel = channel =>
 
 // An Amount quote belongs to its original input. After a fee reduction, only
 // a fresh preflight estimate can describe what this transaction may receive.
+export const isAmountLoweredForFees = preflight =>
+  preflight?.submittedsats != null && preflight?.output?.satoshis != null &&
+  String(preflight.submittedsats) !== String(preflight.output.satoshis);
+
 export const getPreparedConversionEstimate = (preflight, estimate) => {
   if (preflight?.estimate) return preflight.estimate;
-  if (
-    preflight?.submittedsats != null && preflight?.output?.satoshis != null &&
-    String(preflight.submittedsats) !== String(preflight.output.satoshis)
-  ) return null;
+  if (isAmountLoweredForFees(preflight)) return null;
   return estimate;
 };
 
@@ -346,6 +349,64 @@ const getLaunchDefinition = definition =>
       )
     : null;
 
+const getStartBlock = definition => {
+  const block = Number(definition?.startblock);
+  return Number.isFinite(block) ? block : null;
+};
+
+// The node estimates a conversion for at most this many converters (PR 266
+// feedback F13).
+export const MAX_ESTIMATED_CONVERTERS = 30;
+
+// With more converters than the limit, the oldest ones get an estimate: the
+// lowest launch block first, a tie keeps the list order, an unknown launch
+// block goes last. A route the user picked always keeps its estimate, in
+// place of the youngest one. "Check 30 more routes" in "Price and route"
+// raises the limit by 30 for the same amount (R2 option A, owner
+// 2026-11-22): the set then adds the next 30 oldest, so the routes already
+// checked keep their estimates and only the new ones are asked.
+export const pickEstimateRoutes = (
+  routes,
+  preferredKey = null,
+  limit = MAX_ESTIMATED_CONVERTERS,
+) => {
+  const list = routes || [];
+  if (list.length <= limit) return list;
+  const age = route => route?.converterStartBlock ?? Infinity;
+  const oldest = list
+    .map((route, index) => ({route, index}))
+    .sort((first, second) =>
+      age(first.route) === age(second.route)
+        ? first.index - second.index
+        : age(first.route) - age(second.route),
+    )
+    .slice(0, limit)
+    .map(entry => entry.route);
+  const preferred = preferredKey == null
+    ? null
+    : list.find(route => route.key === preferredKey);
+  if (preferred && !oldest.includes(preferred)) {
+    oldest[oldest.length - 1] = preferred;
+  }
+  return oldest;
+};
+
+// The routes Amount estimates after `pages` batches: one batch per amount
+// pause, one more per tap on "Check 30 more routes".
+export const getEstimateLimit = pages =>
+  Math.max(1, pages) * MAX_ESTIMATED_CONVERTERS;
+
+// What "Price and route" says about routes not checked yet: how many remain,
+// how many the next tap checks, and the badge of the best checked route.
+export const getRouteCheckState = (routeCount, checkedCount) => {
+  const remaining = Math.max(0, (routeCount || 0) - (checkedCount || 0));
+  return {
+    remaining,
+    next: Math.min(MAX_ESTIMATED_CONVERTERS, remaining),
+    bestLabel: remaining > 0 ? 'Best so far' : 'Best price',
+  };
+};
+
 const buildRoute = (sourceCoin, sourceNetworkId, path) => {
   const exportTo = getDefinitionId(path?.exportto);
   const exportToFqn = getDefinitionName(path?.exportto);
@@ -378,6 +439,9 @@ const buildRoute = (sourceCoin, sourceNetworkId, path) => {
     viaFqn,
     mapTo,
     price: path?.price == null ? null : path.price,
+    // The launch block of the basket that converts (the via basket, or the
+    // destination itself). It ranks converters by age (F13).
+    converterStartBlock: getStartBlock(path?.via || path?.destination),
     preconvert,
     // A pre-conversion has no price yet. Its facts come from the definition.
     launchDefinition: preconvert ? getLaunchDefinition(path.destination) : null,
@@ -527,19 +591,14 @@ const groupConversionOptions = (options, sourceCoin, sourceNetworkId) => {
       deduplicatedNetworks[0];
     const canonicalDisplay = getCanonicalAssetDisplay(canonicalKey);
 
-    const verusNetwork = deduplicatedNetworks.find(
-      option => !String(option.coinId || '').startsWith('0x'),
-    );
-    // The system of the option whose coin id the group uses. A price lookup
-    // needs both.
-    const priceNetwork = verusNetwork?.coinId ? verusNetwork : preferredDisplay;
-
     return {
       id: canonicalKey,
       name: canonicalDisplay.name,
       ticker: canonicalDisplay.ticker,
-      coinId: priceNetwork.coinId,
-      systemId: priceNetwork.systemId || null,
+      coinId:
+        deduplicatedNetworks.find(
+          option => !String(option.coinId || '').startsWith('0x'),
+        )?.coinId || preferredDisplay.coinId,
       isConversion: true,
       isGrouped: true,
       networkOptions: deduplicatedNetworks,
@@ -591,9 +650,6 @@ export const buildTargetOptions = (
           ? null
           : getDefinitionName(destination) || bouncebackCurrency,
         coinId: display.coinId,
-        // The destination's own system: the on-chain price of a currency that
-        // is not in the coin directory is read there.
-        systemId: destination.systemid || null,
         name: display.name,
         ticker: display.ticker,
         isConversion: true,
@@ -626,6 +682,20 @@ const targetRoutes = target => [
 export const isPrelaunchTarget = target => {
   const routes = targetRoutes(target);
   return routes.length > 0 && routes.every(route => route.preconvert);
+};
+
+// A Send starts on the card's own network with the direct route, from Home
+// and from a card alike (PR 266 pick P1). Other networks load only when the
+// user presses Change network on Amount, so no route request runs before.
+export const getSameNetworkSend = (sourceCoin, channel) => {
+  if (!sourceCoin) return {target: null, route: null};
+  const sourceNetworkId =
+    channel?.split('.')[2] || sourceCoin.system_id || sourceCoin.id;
+  const target = buildSendTarget({}, sourceCoin, sourceNetworkId);
+  const route =
+    target.routes.find(candidate => !candidate.isCrossChain && !candidate.via) ||
+    target.routes[0];
+  return {target, route};
 };
 
 // The launch definition carried by a pre-launch target's routes.
@@ -716,6 +786,55 @@ export const buildSendTarget = (
   return sourceOption;
 };
 
+// The Est. slippage row on Amount after a failed estimate (all checked
+// routes failed, or the route the user picked failed). With a choice of routes
+// (2 or more) the row stays, as "Details", so "Price and route" stays
+// reachable; its "via" line names the basket only when the user picked that
+// route. With one route there is no row. Returns null for no row, else
+// {via} (orchestrator decision 2026-11-22).
+export const getFailedEstimateRow = ({estimateFailed, pickedRoute, routeCount, viaName}) =>
+  estimateFailed && routeCount >= 2
+    ? {via: pickedRoute && viaName ? viaName : null}
+    : null;
+
+// The "Convert to" search: names, tickers and network names match anywhere,
+// in any case. A currency id matches only from its start, in its own case, so
+// "EUR" no longer finds a currency whose id ends in "…DDEUr" (orchestrator
+// decision 2026-11-22). A name field that holds an address-shaped id (a
+// currency without a name falls back to its id) follows the id rule, and a
+// copy of an address in another case (grouping upper-cases a fallback ticker)
+// matches nothing itself. A grouped target's id is its ticker, which still
+// matches as a name. Only Convert to uses this.
+const ID_SHAPE = /^(i[1-9A-HJ-NP-Za-km-z]{33}|0x[0-9a-fA-F]{40})$/;
+export const matchesTargetQuery = (option, query) => {
+  const active = String(query || '').trim();
+  if (!active) return true;
+  const lower = active.toLowerCase();
+  const networks = option?.networkOptions || [];
+  const present = values => values.filter(value => value != null).map(String);
+  const idFields = present([option?.id, ...networks.map(network => network.id)]);
+  const nameFields = present([
+    option?.name,
+    option?.ticker,
+    option?.fullyqualifiedname,
+    ...networks.flatMap(network => [
+      network.name,
+      network.ticker,
+      network.fullyqualifiedname,
+      network.networkName,
+    ]),
+  ]);
+  const isAddress = value => ID_SHAPE.test(value);
+  const addresses = new Set(
+    [...idFields, ...nameFields].filter(isAddress).map(value => value.toLowerCase()),
+  );
+  const isCopy = value => !isAddress(value) && addresses.has(value.toLowerCase());
+  const names = nameFields.filter(value => !isAddress(value) && !isCopy(value));
+  const ids = [...idFields, ...nameFields.filter(isAddress)].filter(value => !isCopy(value));
+  return names.some(value => value.toLowerCase().includes(lower)) ||
+    ids.some(value => value.startsWith(active));
+};
+
 export const POPULAR_TARGETS = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];
 
 export const isPopularTarget = target => {
@@ -738,6 +857,29 @@ export const getTransactionId = result => {
   );
 };
 
+// The explorer page of a sent transaction, or null when its chain has no
+// explorer. A PBaaS currency's transaction lives on its system chain, so it
+// uses that chain's explorer, as the history sheet does (Overview.js).
+const ETHEREUM_EXPLORER_IDS = {homestead: 'ETH', sepolia: 'GETH'};
+export const getExplorerTxUrl = (coin, txid) => {
+  if (!coin?.id || !txid) return null;
+  let explorerId = coin.id;
+  if (coin.proto === 'erc20') {
+    // A token uses its Ethereum network's explorer. Listed tokens have no
+    // `network` and are mainnet; imported ones name their network.
+    const network = coin.network || (coin.testnet ? 'sepolia' : 'homestead');
+    explorerId = ETHEREUM_EXPLORER_IDS[network];
+  } else if (coin.system_id && coin.tags?.includes(IS_PBAAS) && !coin.tags.includes(IS_PBAAS_ROOT)) {
+    try {
+      explorerId = CoinDirectory.findSystemCoinObj(coin.id).id;
+    } catch (error) {
+      return null;
+    }
+  }
+  const base = explorers[explorerId];
+  return base ? `${base.replace(/\/$/, '')}/tx/${txid}` : null;
+};
+
 // The network a cross-chain transfer arrives on, named as the Network sheet
 // names it ("Ethereum", not "vETH").
 export const getDestinationNetwork = (route, fallback = '') =>
@@ -747,3 +889,22 @@ export const getDestinationNetwork = (route, fallback = '') =>
 // goes through. A route with no basket is "Direct".
 export const getRouteName = route =>
   route?.viaFqn || route?.via || 'Direct';
+
+// The header "More options" menu holds the Advanced form. It is the
+// conversion / cross-chain form, so it needs a card on a conversion channel.
+// Convert opens it from "Convert to"; Send from "Amount", for a plain send
+// only: no scanned request (a fixed recipient), invoice or pre-conversion.
+export const shouldShowAdvancedFormMenu = ({mode, routeName, state}) => {
+  if (!state?.sourceSubWallet) return false;
+  if (mode === SEND_WIZARD_MODE.CONVERT) {
+    return routeName === 'SendWizardSelectTarget';
+  }
+  return (
+    mode === SEND_WIZARD_MODE.SEND &&
+    routeName === 'SendWizardAmount' &&
+    isConversionChannel(state.channel) &&
+    !state.scanRequest &&
+    !state.invoice &&
+    !state.route?.preconvert
+  );
+};

@@ -1,6 +1,11 @@
-import {deleteBalanceRecord} from '../../utils/portfolioHistory/balanceRecord';
 import {deleteAssetDiscoveryCache} from '../../utils/assets/assetDiscoveryCache';
-import {deleteAssetChoices} from '../../utils/assets/assetChoicesStorage';
+import {
+  closeAssetChoices,
+  deleteAssetChoices,
+  forgetAssetChoices,
+  reopenAssetChoices,
+} from '../../utils/assets/assetChoicesStorage';
+import {deleteAccountWalletUiSettings} from './WalletSettings';
 import {
   setAccounts,
   signOut,
@@ -343,12 +348,17 @@ export const deleteProfile = async (account, dispatch) => {
     dlightSeed = null;
 
     if (!teardownError) {
-      const remainingAccounts = await deleteUser(account.accountHash);
+      // Stop asset choice writes and wait for one that runs, so no write can
+      // bring back service data of the deleted profile.
+      await closeAssetChoices(account.accountHash);
+      let remainingAccounts;
       try {
-        await deleteBalanceRecord(account.accountHash);
+        remainingAccounts = await deleteUser(account.accountHash);
       } catch (error) {
-        console.warn('Could not delete the local portfolio record.', error);
+        reopenAssetChoices(account.accountHash);
+        throw error;
       }
+      forgetAssetChoices(account.accountHash);
       try {
         await deleteAssetDiscoveryCache(account.accountHash);
       } catch (error) {
@@ -357,7 +367,12 @@ export const deleteProfile = async (account, dispatch) => {
       try {
         await deleteAssetChoices(account.accountHash);
       } catch (error) {
-        console.warn('Could not delete the local asset choices.', error);
+        console.warn('Could not delete the old plain asset choices.', error);
+      }
+      try {
+        await deleteAccountWalletUiSettings(account.accountHash);
+      } catch (error) {
+        console.warn('Could not delete the saved wallet display choices.', error);
       }
 
       try {

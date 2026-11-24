@@ -26,10 +26,16 @@ export const SelectionCheckbox = ({checked}) => {
 
 export const SelectionRow = ({
   title,
+  // A drawn title in place of the text, such as a card's CardTitle. Pass an
+  // accessibilityLabel with it.
+  titleContent,
   titleNumberOfLines,
   subtitle,
   titleMonospace,
   subtitleMonospace,
+  // Draws the subtitle like the value label on the right (no top margin), so
+  // the two second lines match.
+  subtitleLikeValueLabel = false,
   selected,
   onPress,
   value,
@@ -49,11 +55,16 @@ export const SelectionRow = ({
   // A completed choice keeps its value readable and has no selection control.
   readOnly = false,
   preserveSubtitle = false,
+  // 'outline' marks a single choice with the success fill and a full outline,
+  // without the check, so the value can use the indicator's width. The owner
+  // chose it for the namespace sheet only (PR 266 review R5, 2026-11-19).
+  selectionMark = 'check',
 }) => {
   const theme = useOnboardingTheme();
   const styles = useMemo(() => createSelectionSheetStyles(theme), [theme]);
   const isCheckbox = accessibilityRole === 'checkbox';
   const rowDisabled = disabled || readOnly;
+  const outlineMark = selectionMark === 'outline' && !isCheckbox;
   return (
     <TouchableOpacity
       accessibilityRole={accessibilityRole}
@@ -76,7 +87,9 @@ export const SelectionRow = ({
         styles.row,
         compact && styles.compactRow,
         dense && styles.denseRow,
+        outlineMark && styles.outlineMarkRow,
         selected && !isCheckbox && styles.selectedRow,
+        selected && outlineMark && styles.outlineMarkSelectedRow,
       ]}>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={[
@@ -84,12 +97,14 @@ export const SelectionRow = ({
         preserveSubtitle && styles.preservedCopy,
         readOnly ? styles.readOnlyContent : rowDisabled && styles.disabledContent,
       ]}>
-        <Text
-          ellipsizeMode="tail"
-          numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
-          style={[styles.rowTitle, compact && styles.compactTitle, dense && styles.denseTitle, titleMonospace && styles.identifier]}>
-          {title}
-        </Text>
+        {titleContent || (
+          <Text
+            ellipsizeMode="tail"
+            numberOfLines={titleNumberOfLines ?? (compact ? 1 : undefined)}
+            style={[styles.rowTitle, compact && styles.compactTitle, dense && styles.denseTitle, titleMonospace && styles.identifier]}>
+            {title}
+          </Text>
+        )}
         {subtitle ? (
           <Text
             numberOfLines={compact ? 1 : undefined}
@@ -98,6 +113,7 @@ export const SelectionRow = ({
               compact && styles.compactSubtitle,
               dense && styles.denseSubtitle,
               subtitleMonospace && styles.identifier,
+              subtitleLikeValueLabel && styles.subtitleAsValueLabel,
             ]}>
             {subtitle}
           </Text>
@@ -120,7 +136,7 @@ export const SelectionRow = ({
           )}
         </View>
       ) : null}
-      {!readOnly && (
+      {!readOnly && !outlineMark && (
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"

@@ -7,6 +7,11 @@ import {
 } from '../../../../../utils/constants/storeType';
 import {modifyServiceStoredDataForUser} from '../services';
 import {
+  createHeightReadGate,
+  ownBroadcastEpoch,
+  readChainHeight,
+} from '../../../../../utils/ledger/heightReadGate';
+import {
   registrationCommitmentFee,
   registrationDeletionKind,
 } from '../../../../../utils/identityRegistration/deletion';
@@ -436,6 +441,12 @@ export const removeRegistrationJob = async (jobId, expectedRevision, requestCont
 
 const reconciliationInFlight = new Set();
 const reconciliationChecks = new Map();
+// The funds check of a waiting registration (a quote and the payer balance)
+// runs again only when the block height rose, after an own transaction on its
+// system, or when the job's status changed (PR 266 review F14). The payer
+// balance is confirmed-only and the quote changes only with a block. The
+// reconciliation above it and the checks before a payment are unchanged.
+const fundsCheckGate = createHeightReadGate();
 
 // Foreground wallet/service refresh owns polling. No background timer or signing
 // permission survives a screen, account switch, or app termination.
@@ -464,6 +475,14 @@ export const refreshRegistrationJobs = async requestContext => {
       (reconciliationChecks.get(`${scopeKey}:${a.id}`)?.nextCheck || 0) -
       (reconciliationChecks.get(`${scopeKey}:${b.id}`)?.nextCheck || 0));
 
+    // One getinfo per system and refresh, only for a job that reaches the
+    // funds check.
+    const heights = {};
+    const heightOf = systemId => {
+      if (!(systemId in heights)) heights[systemId] = readChainHeight(systemId).then(read => read.height);
+      return heights[systemId];
+    };
+
     // Resolve at runtime because the orchestration layer also uses job storage.
     // Keep each refresh bounded when a profile contains many pending names.
     for (const job of candidates.slice(0, 4)) {
@@ -479,7 +498,12 @@ export const refreshRegistrationJobs = async requestContext => {
         assertRegistrationSession(context);
         if (['commitment_confirmed', 'registration_prepared', 'registration_expired'].includes(review?.status)) {
           const saved = await getRegistrationJob(job.id, context);
-          if (saved.status === review.status && saved.registrationProblem !== 'name_taken') {
+          const fundsKey = `${checkKey}:${saved.status}`;
+          const epoch = ownBroadcastEpoch(job.systemId);
+          const waiting = saved.status === review.status && saved.registrationProblem !== 'name_taken';
+          const height = waiting ? await heightOf(job.systemId) : null;
+          assertRegistrationSession(context);
+          if (waiting && fundsCheckGate.isDue(fundsKey, job.systemId, height)) {
             const {checkRegistrationFunds} = require('../../../../../utils/identityRegistration/funding');
             const estimate = await getRegistrationEstimate(job.id, context);
             const funds = await checkRegistrationFunds(estimate, store.getState().coins.activeCoinsForUser || [], context);
@@ -489,6 +513,7 @@ export const refreshRegistrationJobs = async requestContext => {
               if ((saved.registrationProblem || null) !== registrationProblem) {
                 await updateRegistrationUiState(job.id, {registrationProblem}, context, saved.revision);
               }
+              fundsCheckGate.note(fundsKey, job.systemId, height, epoch);
             }
           }
         }
@@ -520,5 +545,6 @@ export const refreshRegistrationJobs = async requestContext => {
     for (const key of reconciliationChecks.keys()) {
       if (!key.startsWith(`${scopeKey}:`)) reconciliationChecks.delete(key);
     }
+    fundsCheckGate.retain(key => key.startsWith(`${scopeKey}:`));
   }
 };

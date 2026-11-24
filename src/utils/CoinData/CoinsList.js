@@ -27,15 +27,6 @@ import {
   WALLET_APP_SEND,
 } from '../constants/apps';
 import Colors from "../../globals/colors";
-import { VRPC_API_KEYS } from '../../../env/index';
-import { getUrlKey } from '../url';
-
-const V2_TESTNET_RPC_ENDPOINT = 'https://v2api.verustest.net';
-const v2TestnetKey = VRPC_API_KEYS?.[getUrlKey(V2_TESTNET_RPC_ENDPOINT)];
-const hasV2TestnetKey =
-  typeof v2TestnetKey === 'string' &&
-  v2TestnetKey.length > 0 &&
-  v2TestnetKey !== 'V2API_API_KEY';
 
 export const VERUS_APPS = {
   wallet: {
@@ -111,8 +102,7 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsctest,
-    // V2 requires a signing key. Keep builds with no key or the placeholder on V1.
-    vrpc_endpoints: [hasV2TestnetKey ? V2_TESTNET_RPC_ENDPOINT : 'https://api.verustest.net'],
+    vrpc_endpoints: ['https://v2api.verustest.net'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',
@@ -322,7 +312,7 @@ export const coinsList = {
     alt_names: [],
     theme_color: "#081C45",
     icon_badge: null,
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: "vrsc",
     decimals: 8,
@@ -342,7 +332,7 @@ export const coinsList = {
     display_name: "Pure",
     alt_names: [],
     theme_color: "#484C52",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -360,7 +350,7 @@ export const coinsList = {
     display_name: "Kaiju",
     alt_names: [],
     theme_color: "#030a17",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -378,7 +368,7 @@ export const coinsList = {
     display_name: "Switch",
     alt_names: [],
     theme_color: "#132618",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -397,7 +387,7 @@ export const coinsList = {
     display_name: "Pirate Chain (PBaaS)",
     alt_names: [],
     theme_color: "#1d1d2c",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     vrpc_endpoints: ["https://vapi.piratechain.com/"],
@@ -419,7 +409,7 @@ export const coinsList = {
     display_name: "CHIPS",
     alt_names: [],
     theme_color: "#1f095e",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     vrpc_endpoints: ["https://api.chips.cash/"],
@@ -441,7 +431,7 @@ export const coinsList = {
     display_name: "vDEX",
     alt_names: [],
     theme_color: "#1d1d2c",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     vrpc_endpoints: ["https://api.vdex.to/"],
@@ -461,7 +451,7 @@ export const coinsList = {
     display_name: "Bridge.vARRR",
     alt_names: [],
     theme_color: "#1d1d2c",
-    compatible_channels: [VERUSID, VRPC, GENERAL],
+    compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -499,6 +489,25 @@ export const coinsList = {
     tags: [],
     proto: 'btc',
     decimals: DEFAULT_DECIMALS,
+  },
+  // Bitcoin testnet4 for Testnet profiles, so the BTC send and fee code can be
+  // tested with free coins. The id must be TESTNET: the Electrum code looks up
+  // the address network and the server list by the lower-case coin id.
+  TESTNET: {
+    id: 'TESTNET',
+    currency_id: '',
+    system_id: '.btc',
+    bitgojs_network_key: 'testnet',
+    display_ticker: 'BTCTEST',
+    display_name: 'Bitcoin Testnet4',
+    alt_names: [],
+    theme_color: '#F7931B',
+    website: 'https://bitcoin.org/en/',
+    compatible_channels: [ELECTRUM, GENERAL],
+    tags: [],
+    proto: 'btc',
+    decimals: DEFAULT_DECIMALS,
+    testnet: true,
   },
   ETH: {
     id: 'ETH',
@@ -1005,7 +1014,6 @@ export const coinsList = {
     rate_url_params: {coin_paprika: 'sushi-sushi'},
   },
   ["0xBc2738BA63882891094C99E59a02141Ca1A1C36a"]: {
-    price_currency_id: 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV',
     id: '0xBc2738BA63882891094C99E59a02141Ca1A1C36a',
     currency_id: '0xBc2738BA63882891094C99E59a02141Ca1A1C36a',
     system_id: '.eth',
@@ -1022,7 +1030,6 @@ export const coinsList = {
     proto: 'erc20',
   },
   ["0xE6052Dcc60573561ECef2D9A4C0FEA6d3aC5B9A2"]: {
-    price_currency_id: 'i3f7tSctFkiPpiedY8QR5Tep9p4qDVebDx',
     id: '0xE6052Dcc60573561ECef2D9A4C0FEA6d3aC5B9A2',
     currency_id: '0xE6052Dcc60573561ECef2D9A4C0FEA6d3aC5B9A2',
     system_id: '.eth',

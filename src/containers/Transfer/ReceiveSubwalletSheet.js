@@ -1,18 +1,15 @@
 import React, {useMemo} from 'react';
 import {useSelector} from 'react-redux';
 import {Text} from 'react-native';
-import SelectionSheet, {
-  SelectionGroup,
-  SelectionRow,
-} from '../../components/SelectionSheet';
+import SelectionSheet, {SelectionRow} from '../../components/SelectionSheet';
+import CardTitle from '../../components/CardTitle';
 import useSheetDismissal from '../../components/useSheetDismissal';
 import {createSelectionSheetStyles} from '../../styles';
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {
-  getSubWalletCardType,
+  getSubWalletCardTitle,
   getSubWalletDisplayIdentifier,
-  truncateMiddle,
 } from '../../utils/subwallet/cardPresentation';
 
 const getNetworkDetails = wallet => {
@@ -68,45 +65,36 @@ const ReceiveSubwalletSheet = ({
           No receiving address is available for this asset.
         </Text>
       ) : (
-        groups.map(group => {
-          const rows = group.wallets.map(wallet => {
-            const cardType = getSubWalletCardType(wallet);
-            const title = cardType === 'VerusID' ? wallet.name : cardType;
-            const privateAddress = cardType === 'Private'
-              ? getSubWalletDisplayIdentifier(
-                  wallet,
-                  activeAccount,
-                  coinObj.id,
-                  false,
-                )
-              : null;
-            const subtitle = cardType === 'Transparent'
-              ? wallet.name
-              : privateAddress && privateAddress !== '-'
-              ? truncateMiddle(privateAddress, 5, 5, '...')
-              : undefined;
-            const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
-            return (
-              <SelectionRow
-                key={wallet.id}
-                title={title}
-                titleNumberOfLines={cardType === 'VerusID' ? 1 : undefined}
-                subtitle={subtitle}
-                subtitleMonospace
-                accessibilityLabel={`Receive with ${title}${subtitle ? `, ${subtitle}` : ''}, ${balance} ${coinObj.display_ticker}`}
-                selected={
-                  selectedId == null ? undefined : wallet.id === selectedId
-                }
-                value={balance}
-                valueLabel={coinObj.display_ticker}
-                onPress={() => dismissal.dismiss(() => onSelect(wallet))}
-              />
-            );
+        // Rows keep the network order. Each title names its network (PR 266
+        // review R8), so the list has no network group titles.
+        groups.flatMap(group => group.wallets).map(wallet => {
+          const address = getSubWalletDisplayIdentifier(
+            wallet,
+            activeAccount,
+            coinObj.id,
+            false,
+          );
+          const cardTitle = getSubWalletCardTitle(wallet, {
+            address,
+            coin: coinObj,
           });
-          return groups.length === 1 ? rows : (
-            <SelectionGroup key={group.id} title={group.name}>
-              {rows}
-            </SelectionGroup>
+          const balance = Number(balanceMap[wallet.id] || 0).toFixed(4);
+          return (
+            <SelectionRow
+              key={wallet.id}
+              titleContent={
+                <CardTitle title={cardTitle} style={styles.rowTitle} nameOnly />
+              }
+              subtitle={cardTitle.networkTicker || undefined}
+              subtitleLikeValueLabel
+              accessibilityLabel={`Receive with ${[cardTitle.name, cardTitle.networkTicker].filter(Boolean).join(', ')}, ${balance} ${coinObj.display_ticker}`}
+              selected={
+                selectedId == null ? undefined : wallet.id === selectedId
+              }
+              value={balance}
+              valueLabel={coinObj.display_ticker}
+              onPress={() => dismissal.dismiss(() => onSelect(wallet))}
+            />
           );
         })
       )}

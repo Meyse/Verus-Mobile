@@ -46,7 +46,7 @@ import {
   SEND_MODAL_TO_ADDRESS_FIELD,
 } from '../../utils/constants/sendModal';
 import { SET_DEEPLINK_DATA } from '../../utils/constants/storeType';
-import { getCurrency } from '../../utils/api/channels/verusid/callCreators';
+import { getCurrencyDefinition } from '../../utils/api/channels/verusid/callCreators';
 import { CommonActions } from '@react-navigation/routers';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -108,6 +108,7 @@ const VerusPay = (props) => {
   );
   const activeAlert = useObjectSelector((state) => state.alert.active);
   const sendModal = useObjectSelector((state) => state.sendModal);
+  const nfcTapVisible = useSelector((state) => state.nfcTap.visible);
 
   const { containerStyle, acceptAddressOnly, channel, coinObj: propCoinObj, button, cameraDisabled } = props;
   const theme = useAppTheme();
@@ -230,7 +231,7 @@ const VerusPay = (props) => {
     }
     let name = null;
     try {
-      const response = await getCurrency(coin.system_id, system);
+      const response = await getCurrencyDefinition(coin.system_id, system);
       name = response.error ? null : response.result.fullyqualifiedname;
     } catch (e) {}
     return `This request is for ${coin.display_ticker} on ${
@@ -455,7 +456,7 @@ const VerusPay = (props) => {
     const subWallet = channel && !sourceSwitch ? channel : null;
 
     if (coinObj.tags.includes(IS_PBAAS) && system != null) {
-      const getCurrencyRes = await getCurrency(coinObj.system_id, system);
+      const getCurrencyRes = await getCurrencyDefinition(coinObj.system_id, system);
       if (getCurrencyRes.error)
         Alert.alert(
           'Network Warning',
@@ -547,7 +548,8 @@ const VerusPay = (props) => {
     !sheetVisible &&
     !subWalletSelectorOpen &&
     activeAlert == null &&
-    !sendModal.visible;
+    !sendModal.visible &&
+    !nfcTapVisible;
   const scanActions = showNfcClaim
     ? [{label: 'Scan NFC card', onPress: () => readDeeplinkFromNfc()}]
     : [];

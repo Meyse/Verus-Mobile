@@ -9,6 +9,11 @@ import {
   CURRENCY_NAMES,
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../../utils/constants/currencies';
+import {
+  HOME_SORT_BALANCE,
+  HOME_SORT_CUSTOM,
+  HOME_SORT_NAME,
+} from '../../../utils/assets/assetOrder';
 
 export const DisplayCurrencySheet = ({
   displayCurrency,
@@ -123,6 +128,36 @@ export const DisplayCurrencySheet = ({
       {!currencies.length ? (
         <Text style={styles.empty}>No matching currencies</Text>
       ) : null}
+    </SelectionSheet>
+  );
+};
+
+// "Sort assets" (PR 266 review R2, option B). Single-choice rows of the
+// canonical selection sheet: success fill and check on the current sort.
+const SORT_OPTIONS = [
+  {id: HOME_SORT_CUSTOM, title: 'My order', subtitle: 'Change it in Manage assets'},
+  {id: HOME_SORT_BALANCE, title: 'Balance'},
+  {id: HOME_SORT_NAME, title: 'Name'},
+];
+
+export const HomeSortSheet = ({onClose, onSelect, sort, visible}) => {
+  const dismissal = useSheetDismissal({visible, onClose});
+  return (
+    <SelectionSheet
+      title="Sort assets"
+      visible={visible}
+      onClose={dismissal.close}
+      onClosed={dismissal.onClosed}>
+      {SORT_OPTIONS.map(option => (
+        <SelectionRow
+          key={option.id}
+          title={option.title}
+          subtitle={option.subtitle}
+          selected={option.id === sort}
+          showChevron={false}
+          onPress={() => dismissal.dismiss(option.id === sort ? null : () => onSelect(option.id))}
+        />
+      ))}
     </SelectionSheet>
   );
 };

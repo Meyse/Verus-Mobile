@@ -8,7 +8,10 @@ import {editAmountInput} from '../utils/amountInput';
 // The custom keypad edits its text; it never parses or rounds the amount.
 // `compact` (small windows) draws the amount at 80% of `amountInput` (32/40)
 // and the unit in `titleRow`. The 20-point floor and maxLength are unchanged.
-const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = false, onChangeText, onUnitPress, unit, value}, ref) => {
+// A clear icon at the right edge empties the field; it shows only when there
+// is text (PR 266 review R3, option B). `maxDecimals` limits keypad entry, as
+// money entry keeps 2 decimals (R14).
+const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = false, maxDecimals, onChangeText, onUnitPress, unit, value}, ref) => {
   const theme = useOnboardingTheme();
   const nativeRef = useRef(null);
   const valueRef = useRef(value);
@@ -22,13 +25,24 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
     : theme.typography.amountInput.fontSize;
   // About 0.6 em per unit character: 12 at 20 points, 9.6 at 16 points.
   const unitRoom = Math.max(48, Math.ceil(unit.length * unitType.fontSize * 0.6)) + (onUnitPress ? 20 : 0);
+  // The amount stays centered, so the clear slot's width is kept free on both
+  // sides. A value too long for that room uses the full width and puts the
+  // clear icon on the unit line under it.
+  const entryWidth = Math.max(0, width - CLEAR_SLOT * 2);
   const fontSize = width > 0
-    ? Math.max(20, Math.min(maxFontSize, Math.floor((width - unitRoom - 8) / (Math.max(value.length, 1) * 0.64))))
+    ? Math.max(20, Math.min(maxFontSize, Math.floor((entryWidth - unitRoom - 8) / (Math.max(value.length, 1) * 0.64))))
     : maxFontSize;
   const maxLength = width > 0 ? Math.floor(width * 0.9 / (20 * 0.64)) : 23;
   const measuredWidth = textWidth || Math.max(32, (value.length || 1) * fontSize * 0.64);
-  const stacked = width > 0 && measuredWidth + unitRoom + 8 > width;
-  const inputWidth = Math.min(width || 320, Math.max(40, Math.ceil(measuredWidth) + 8));
+  const stacked = width > 0 && measuredWidth + unitRoom + 8 > entryWidth;
+  const wide = width > 0 && measuredWidth + 8 > entryWidth;
+  const inputWidth = Math.min((wide ? width : entryWidth) || 320, Math.max(40, Math.ceil(measuredWidth) + 8));
+  const lineHeight = fontSize + 8;
+  const showClear = value.length > 0 && !disabled;
+  // The clear slot is centered on the amount line, also when a stacked line
+  // is lower than the 48-point (compact 40) target.
+  const clearHeight = Math.max(compact ? 40 : 48, lineHeight);
+  const clearTop = stacked ? (lineHeight - clearHeight) / 2 : 0;
 
   useLayoutEffect(() => {
     if (valueRef.current === value) return;
@@ -41,7 +55,28 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
     setSelection(cursor);
   }, [value]);
 
+  const setCursor = cursor => {
+    selectionRef.current = cursor;
+    setSelection(cursor);
+  };
+
+  const clear = () => {
+    valueRef.current = '';
+    setCursor({start: 0, end: 0});
+    onChangeText('');
+    nativeRef.current?.focus();
+  };
+
   useImperativeHandle(ref, () => ({
+    // Put a value from the caller (such as a converted amount) in the field
+    // with all of it selected, so the next key replaces it. Call before the
+    // caller's own state update.
+    selectAll: next => {
+      valueRef.current = next;
+      const cursor = {start: 0, end: next.length};
+      selectionRef.current = cursor;
+      setSelection(cursor);
+    },
     focus: () => {
       // Android can put the cursor at the start when the field gets focus
       // again (Back from a later step). Keypad keys then type in front of
@@ -53,16 +88,16 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
     },
     edit: key => {
       if (disabled) return;
-      const next = editAmountInput(valueRef.current, selectionRef.current, key, decimalSeparator, maxLength);
+      const next = editAmountInput(valueRef.current, selectionRef.current, key, decimalSeparator, maxLength, maxDecimals ?? Infinity);
       valueRef.current = next.value;
       selectionRef.current = next.selection;
       setSelection(next.selection);
       onChangeText(next.value);
       nativeRef.current?.focus();
     },
-  }), [decimalSeparator, disabled, maxLength, onChangeText]);
+  }), [decimalSeparator, disabled, maxDecimals, maxLength, onChangeText]);
 
-  const amountType = [theme.typography.amountInput, {fontSize, lineHeight: fontSize + 8}];
+  const amountType = [theme.typography.amountInput, {fontSize, lineHeight}];
   return (
     <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={[styles.container, compact && styles.compact]}>
       <Text
@@ -114,15 +149,47 @@ const AmountInput = forwardRef(({compact = false, decimalSeparator, disabled = f
             ]} numberOfLines={1}>{unit}</Text>
             <MaterialCommunityIcons name="chevron-down" size={18} color={theme.colors.textSecondary} />
           </Pressable>
-        ) : <Text style={[
-          stacked ? theme.typography.labelMd : unitType,
-          styles.unit,
-          {color: theme.colors.textSecondary},
-        ]} numberOfLines={1}>{unit}</Text>}
+        ) : (
+          // A long value puts the clear icon on this line, so it gets the
+          // 44-point height of the unit button and the icon stays off the amount.
+          <View style={wide && showClear ? styles.unitLine : null}>
+            <Text style={[
+              stacked ? theme.typography.labelMd : unitType,
+              styles.unit,
+              {color: theme.colors.textSecondary},
+            ]} numberOfLines={1}>{unit}</Text>
+          </View>
+        )}
       </View>
+      {showClear ? (
+        <Pressable
+          accessibilityLabel="Clear amount"
+          accessibilityRole="button"
+          hitSlop={wide ? undefined : CLEAR_HIT_SLOP}
+          onPress={clear}
+          style={[
+            styles.clear,
+            wide ? styles.clearBelow : {top: clearTop, height: clearHeight},
+          ]}>
+          {({pressed}) => (
+            <MaterialCommunityIcons
+              color={theme.colors.textSecondary}
+              name="close-circle-outline"
+              size={22}
+              style={pressed && styles.pressed}
+            />
+          )}
+        </Pressable>
+      ) : null}
     </View>
   );
 });
+
+// 44 points wide at the right edge; hit slop keeps a 44-point target on the
+// 40-point compact line. On the unit line the target is 44 points high and
+// has no slop, so it never reaches the amount above it.
+const CLEAR_SLOT = 44;
+const CLEAR_HIT_SLOP = {top: 4, bottom: 4};
 
 const styles = StyleSheet.create({
   container: {width: '100%', minHeight: 48},
@@ -133,6 +200,10 @@ const styles = StyleSheet.create({
   input: {padding: 0, textAlign: 'center'},
   unit: {flexShrink: 0},
   unitAction: {flexShrink: 0, minWidth: 44, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2},
+  clear: {position: 'absolute', right: 0, width: CLEAR_SLOT, alignItems: 'center', justifyContent: 'center'},
+  clearBelow: {bottom: 0, height: 44},
+  unitLine: {minHeight: 44, justifyContent: 'center'},
+  pressed: {opacity: 0.72},
 });
 
 export default AmountInput;

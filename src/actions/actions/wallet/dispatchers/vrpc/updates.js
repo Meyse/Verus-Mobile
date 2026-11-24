@@ -3,31 +3,20 @@ import { getAddressBalances, getAddressDeltas, getAddressMempool, getInfo } from
 import { satsToCoins } from "../../../../../utils/math";
 import { standardizeVrpcTxObj } from "../../../../../utils/standardization/standardizeTxObj";
 import {finiteBalance} from '../../../../../utils/assets/assetIdentity';
+import {noteObservedHeight} from '../../../../../utils/ledger/blockHeightPoll';
 
 export const updateVrpcBalances = async (coinObj, channelId, {vrpcRefresh} = {}) => {
-  const [channelName, iAddress, systemId] = channelId.split('.')
+  const [, iAddress, systemId] = channelId.split('.')
 
   const currencyId = coinObj.currency_id
 
-  const readBalanceAndMempool = async fresh => {
-    const balanceRes = await (!fresh && vrpcRefresh ? vrpcRefresh.getBalance(channelId) : getAddressBalances(systemId, [iAddress], undefined, fresh));
-    if (balanceRes.error) throw new Error(balanceRes.error.message);
-
-    const mempool = await (!fresh && vrpcRefresh ? vrpcRefresh.getMempool(channelId) : getAddressMempool(systemId, [iAddress], false, 1, fresh));
-    if (mempool.error) throw new Error(mempool.error.message);
-    if (!Array.isArray(mempool.result)) throw new Error('Mempool response unavailable');
-
-    return [balanceRes, mempool];
-  };
-
-  let [res, mempoolRes] = await readBalanceAndMempool(false);
-
-  // The two answers are cached for different times. Right after a block, a new
-  // balance with an older mempool counts the same transaction twice. While the
-  // mempool lists anything, read both again, uncached and back to back.
-  if (mempoolRes.result.length > 0) {
-    [res, mempoolRes] = await readBalanceAndMempool(true);
-  }
+  // The balance is the confirmed chain balance, as upstream reads it: one
+  // getaddressbalance and no mempool read (owner, 2026-11-19, PR 266 review
+  // R13). Unconfirmed transactions show only as "Pending" history rows.
+  const res = await (vrpcRefresh
+    ? vrpcRefresh.getBalance(channelId)
+    : getAddressBalances(systemId, [iAddress]));
+  if (res.error) throw new Error(res.error.message);
 
   // A missing/malformed response is unavailable, not an empty wallet. Retain
   // the complete map for discovery on this exact address/system channel.
@@ -45,43 +34,16 @@ export const updateVrpcBalances = async (coinObj, channelId, {vrpcRefresh} = {})
   }
   currencies[systemId] = satsToCoins(nativeBalance).toString();
 
-  const confirmedBalance = currencies[currencyId] || '0';
-
-  // Native deltas are signed satoshis. Reserve deltas are signed coin amounts.
-  // Use satoshis for the system currency so currencyvalues cannot count it twice.
-  for (const delta of mempoolRes.result) {
-    if (delta?.satoshis == null || delta.satoshis === '' || typeof delta.satoshis === 'boolean' ||
-        !BigNumber(delta.satoshis).isFinite() ||
-        !BigNumber(delta.satoshis).isInteger()) {
-      throw new Error('Mempool balance unavailable');
-    }
-    const reserves = delta.currencyvalues || {};
-    if (typeof reserves !== 'object' || Array.isArray(reserves)) {
-      throw new Error('Mempool currency balance unavailable');
-    }
-    const changes = {...reserves, [systemId]: satsToCoins(BigNumber(delta.satoshis)).toString()};
-    for (const [id, value] of Object.entries(changes)) {
-      if (value == null || value === '' || typeof value === 'boolean' ||
-          !BigNumber(value).isFinite()) {
-        throw new Error('Mempool currency balance unavailable');
-      }
-      currencies[id] = BigNumber(currencies[id] || 0).plus(value).toString();
-    }
-  }
-  // Inconsistent chain/mempool snapshots must not replace a known balance.
-  if (Object.values(currencies).some(value => finiteBalance(value) == null)) {
-    throw new Error('Balance response inconsistent with mempool');
-  }
-  const totalBalance = currencies[currencyId] || '0';
+  const balance = currencies[currencyId] || '0';
 
   return {
     chainTicker: coinObj.id,
     channel: channelId,
     assetDiscovery: {systemId, address: iAddress, testnet: Boolean(coinObj.testnet), currencies},
     body: {
-      confirmed: confirmedBalance,
-      pending: BigNumber(totalBalance).minus(confirmedBalance).toString(),
-      total: totalBalance,
+      confirmed: balance,
+      pending: '0',
+      total: balance,
     },
   };
 }
@@ -106,6 +68,9 @@ export const updateVrpcTransactions = async (coinObj, channelId, {vrpcRefresh} =
   const isNative = currencyId === systemId;
 
   if (deltasRes.error) throw new Error(deltasRes.error.message);
+
+  // The coin screen's block height poll compares new heights with this one.
+  noteObservedHeight(channelId, Number(infoRes?.result?.longestchain));
 
   let txs = deltasRes.result;
 

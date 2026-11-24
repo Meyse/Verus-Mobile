@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, Keyboard, StyleSheet, View} from 'react-native';
+import {FlatList, Keyboard, StyleSheet, Text, View} from 'react-native';
 import {useSelector} from 'react-redux';
 import {useHeaderHeight} from '@react-navigation/elements';
 import {AtSign, CircleAlert} from 'lucide-react-native';
@@ -10,7 +10,6 @@ import InfoSheetSection, {InfoSheetTopic} from '../../../../../components/InfoSh
 import EmptyState from '../../../../../components/EmptyState';
 import KeyboardAvoidingForm from '../../../../../components/KeyboardAvoidingForm';
 import SafeBottomActionStack from '../../../../../components/SafeBottomActionStack';
-import SignedOutActionRow from '../../../../../components/SignedOutActionRow';
 import SkeletonLoader, {SkeletonBlock} from '../../../../../components/SkeletonLoader';
 import {SelectionRow} from '../../../../../components/SelectionSheet';
 import {useOnboardingSmallDeviceLayout} from '../../../../../hooks/useOnboardingSmallDeviceLayout';
@@ -23,6 +22,7 @@ import {captureIdentityLinkContext, discoverLinkableIdentities, linkSelectedIden
 import {ActionButton, Body, ManagementInfoButton, SelectionField, useManagementKeyboard, verusIdText} from '../IdentityManagement/ManagementComponents';
 import {ErrorMessage} from '../../../../SendWizard/components/WizardUI';
 
+const MANUAL_HINT = 'For VerusIDs that need other signers, or any VerusID by name or i-address.';
 const refreshMessage = 'Your VerusIDs were saved, but the wallet could not refresh. Try refreshing the wallet again.';
 const layout = StyleSheet.create({
   screen: {flex: 1},
@@ -32,6 +32,7 @@ const layout = StyleSheet.create({
   empty: {flex: 1, justifyContent: 'center'},
   footer: {paddingTop: 16},
   footerCompact: {paddingTop: 8},
+  manualHint: {textAlign: 'center', marginTop: -2},
 });
 
 export function LinkIdentitiesPage({ navigation, route }) {
@@ -285,7 +286,14 @@ export function LinkIdentitiesPage({ navigation, route }) {
     );
   };
 
-  const manual = () => navigation.navigate('Identity', {manualLinkChain: context?.chain || chain});
+  // Discovery lists only VerusIDs this wallet can spend from alone, so manual
+  // entry stays available in every state except while the lookup runs
+  // (PR 266 review I1, owner pick A, 2026-11-19). It is the main action only
+  // when the lookup found nothing; a failed lookup keeps Try again as the main action.
+  const manualChain = context?.chain || chain;
+  const manual = () => navigation.navigate('Identity', {manualLinkChain: manualChain});
+  const showManual = !loading && !!manualChain;
+  const manualIsPrimary = showManual && !rows.length && !pageError;
   return <KeyboardAvoidingForm style={[layout.screen, {backgroundColor: theme.colors.background}]} keyboardVerticalOffset={headerHeight}>
     <FlatList ref={list} data={visible} keyExtractor={row => row.identityAddress}
       contentContainerStyle={layout.list} keyboardShouldPersistTaps="handled"
@@ -308,7 +316,7 @@ export function LinkIdentitiesPage({ navigation, route }) {
       </SkeletonLoader> : <View style={layout.empty}><EmptyState icon={pageError ? CircleAlert : AtSign}
         title={pageError ? 'Unable to find VerusIDs' : query.trim() ? 'No matching VerusIDs' : 'No VerusIDs found'}
         message={pageError ? verusIdText(pageError.message) : query.trim() ? 'Try another name or VerusID address.'
-          : 'No VerusIDs this wallet can spend from were found on this network. Locked, revoked, and VerusIDs that need other signers are left out. Pull down to check again.'}
+          : 'No VerusIDs this wallet can spend from were found on this network. To link a VerusID that needs other signers, enter it manually.'}
         actionLabel={pageError && context ? 'Try again' : undefined} onAction={load} /></View>}
       renderItem={({item: row}) => <View>
         <SelectionRow title={row.displayName} selected={row.linked || selection.includes(row.identityAddress)}
@@ -320,11 +328,16 @@ export function LinkIdentitiesPage({ navigation, route }) {
     <SafeBottomActionStack horizontalSpacing={20} bottomSpacing={keyboardOpen ? 12 : smallDevice ? 30 : 48}
       includeBottomInset={!keyboardOpen} gap={10} style={[layout.footer, smallDevice && layout.footerCompact]}>
       {refreshPending.current && <ActionButton secondary disabled={busy || loading} onPress={load}>Refresh wallet</ActionButton>}
-      {!loading && !!pageError && !rows.length && <SignedOutActionRow label="Enter VerusID manually" onPress={manual} />}
       {(loading || rows.length > 0) && <AppButton loading={busy} disabled={busy || loading || (!done && !selectedRows.length)}
         onPress={done ? () => navigation.goBack() : submit}>
         {done ? 'Done' : selectedRows.length ? `Link ${selectedRows.length} ${selectedRows.length === 1 ? 'VerusID' : 'VerusIDs'}` : 'Link VerusIDs'}
       </AppButton>}
+      {showManual && <AppButton variant={manualIsPrimary ? 'primary' : 'secondary'} disabled={busy} onPress={manual}>
+        Enter VerusID manually
+      </AppButton>}
+      {showManual && !manualIsPrimary && <Text style={[theme.typography.caption, {color: theme.colors.textSecondary}, layout.manualHint]}>
+        {MANUAL_HINT}
+      </Text>}
     </SafeBottomActionStack>
     <InfoSheet title="About linking VerusIDs" visible={aboutVisible} onClose={() => setAboutVisible(false)}>
       <InfoSheetTopic title="Linking">Choose from VerusIDs this wallet can spend from. Linking adds a VerusID to your wallet. It does not change its ownership or cost a network fee.</InfoSheetTopic>

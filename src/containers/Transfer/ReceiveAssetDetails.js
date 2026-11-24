@@ -47,11 +47,10 @@ import {
 } from '../../utils/constants/intervalConstants';
 import {USD} from '../../utils/constants/currencies';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
-import {
-  getSubWalletCardType,
-  getSubWalletNetworkLabel,
-} from '../../utils/subwallet/cardPresentation';
+import {getSubWalletCardTitleForAccount} from '../../utils/subwallet/cardPresentation';
+import CardTitle from '../../components/CardTitle';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
+import {getShownBalance} from '../../utils/ledger/shownBalance';
 import ReceiveAddressSheet from './ReceiveAddressSheet';
 import ReceivePaymentRequestFlow from './ReceivePaymentRequestFlow';
 import ReceiveSubwalletSheet from './ReceiveSubwalletSheet';
@@ -211,16 +210,19 @@ const ReceiveAssetDetails = ({navigation, route}) => {
   const balanceMap = useMemo(
     () =>
       cards.reduce((result, card) => {
-        result[card.id] = balances[coinObj?.id]?.[card.id]?.total || 0;
+        result[card.id] = getShownBalance(balances[coinObj?.id]?.[card.id]) || 0;
         return result;
       }, {}),
     [balances, cards, coinObj?.id],
   );
-  const cardContextLabel = useMemo(() => {
-    if (!selectedCard) return '';
-    const networkName = getSubWalletNetworkLabel(selectedCard, coinObj);
-    return `${getSubWalletCardType(selectedCard)} · ${networkName}`;
-  }, [coinObj, selectedCard]);
+  // The card as the asset screen names it (PR 266 review R8).
+  const cardTitle = useMemo(
+    () =>
+      selectedCard
+        ? getSubWalletCardTitleForAccount(selectedCard, activeAccount, coinObj)
+        : null,
+    [activeAccount, coinObj, selectedCard],
+  );
   const requestContextKey = [
     coinObj?.id,
     selectedCard?.id,
@@ -377,11 +379,15 @@ const ReceiveAssetDetails = ({navigation, route}) => {
             </View>
             {cards.length > 1 ? (
               <TouchableOpacity
-                accessibilityLabel={`Choose an address. Current: ${getSubWalletCardType(selectedCard)} on ${getSubWalletNetworkLabel(selectedCard, coinObj)}`}
+                accessibilityLabel={`Choose an address. Current: ${cardTitle?.text || ''}`}
                 accessibilityRole="button"
                 onPress={openCardSheet}
                 style={styles.cardContext}>
-                <Text style={styles.contextText}>{cardContextLabel}</Text>
+                <CardTitle
+                  title={cardTitle}
+                  containerStyle={styles.contextTitle}
+                  style={styles.contextText}
+                />
                 <MaterialCommunityIcons
                   color={theme.colors.textSubtle}
                   name="chevron-down"
@@ -389,8 +395,15 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                 />
               </TouchableOpacity>
             ) : (
-              <View style={styles.cardContext}>
-                <Text style={styles.contextText}>{cardContextLabel}</Text>
+              <View
+                accessible
+                accessibilityLabel={cardTitle?.text}
+                style={styles.cardContext}>
+                <CardTitle
+                  title={cardTitle}
+                  containerStyle={styles.contextTitle}
+                  style={styles.contextText}
+                />
               </View>
             )}
           </View>

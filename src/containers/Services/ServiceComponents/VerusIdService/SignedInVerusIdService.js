@@ -33,6 +33,11 @@ import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
 import {getIdentity} from '../../../../utils/api/channels/verusid/callCreators';
 import {getInfo} from '../../../../utils/api/channels/vrpc/requests/getInfo';
+import {
+  chainHeightOf,
+  createHeightReadGate,
+  ownBroadcastEpoch,
+} from '../../../../utils/ledger/heightReadGate';
 import {API_GET_BALANCES} from '../../../../utils/constants/intervalConstants';
 import {extractLedgerData} from '../../../../utils/ledger/extractLedgerData';
 import {refreshWalletChannels} from '../../../../utils/ledger/refreshWalletChannels';
@@ -81,7 +86,7 @@ import LinkExistingVerusIdSheet, {
 } from '../../../DeepLink/components/VerusIdIdentityPickerSheet/LinkExistingVerusIdSheet';
 import {VERUSID_NETWORK_DEFAULT} from '../../../../../env/index';
 import VerusIdOptionsSheet from './VerusIdOptionsSheet';
-import RegistrationTabRows, {RegistrationGroupTitle} from './IdentityRegistration/RegistrationTabRows';
+import RegistrationTabRows, {RegistrationGroupTitle, useRegistrationRowMenu} from './IdentityRegistration/RegistrationTabRows';
 import RegistrationStorageNotice, {useRegistrationStorage} from './IdentityRegistration/RegistrationStorageNotice';
 import {registrationNoticeState} from '../../../../utils/identityRegistration/noticeState';
 import LinkVerusIdSheet from './LinkVerusIdSheet';
@@ -368,6 +373,8 @@ const SignedInVerusIdService = ({controller}) => {
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
   const registrationJobs = useObjectSelector(state => state.channelStore_verusid?.registrationJobs || {});
   const registrationStorage = useRegistrationStorage();
+  // One row menu for every registration group (PR 266 review R7).
+  const registrationMenu = useRegistrationRowMenu(controller.props.navigation);
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser);
   const cardsByCoin = useObjectSelector(state => extractDisplaySubWallets(state));
   const balances = useObjectSelector(state =>
@@ -410,7 +417,8 @@ const SignedInVerusIdService = ({controller}) => {
   const testnetOverrides = controller.props.activeAccount?.testnetOverrides || {};
   const identityNetwork = testnetOverrides[VERUSID_NETWORK_DEFAULT] || VERUSID_NETWORK_DEFAULT;
   const linkedIds = controller.state.linkedIds;
-  const loading = controller.props.loading || linkedIds == null;
+  // The skeleton shows only before the first read. A refresh keeps the rows.
+  const loading = linkedIds == null;
   const {linked, groups} = useMemo(
     () => normalizeIdentityItems(linkedIds, pendingIds, identityNetwork),
     [identityNetwork, linkedIds, pendingIds],
@@ -433,59 +441,110 @@ const SignedInVerusIdService = ({controller}) => {
         .catch(() => console.warn('Unable to refresh VerusID balances'));
     });
   }, [activeCoinsForUser, cardsByCoin, linkedKey]));
-  useEffect(() => {
-    if (!linkedKey) return undefined;
+  // The list reads a linked VerusID's status on the first focus, after the
+  // user's own transaction on its system, and on a focus after the system's
+  // block height rose (PR 266 review F14). A revoke, a lock change or an ended
+  // timelock only changes with a block, so a focus in the same block reads
+  // only the height (one getinfo per system). A change in the linked VerusIDs
+  // or the account reads the new ones.
+  const identityStateGate = useRef(null);
+  if (identityStateGate.current == null) identityStateGate.current = createHeightReadGate();
+  const identityStateGateAccount = useRef(renderedAccountHash);
+  useFocusEffect(useCallback(() => {
+    const gate = identityStateGate.current;
+    if (identityStateGateAccount.current !== renderedAccountHash) {
+      identityStateGateAccount.current = renderedAccountHash;
+      gate.clear();
+    }
+    if (!linkedKey) {
+      gate.clear();
+      // With no linked VerusIDs, forget every saved state, so a VerusID that is
+      // linked again cannot show an old badge after a failed read.
+      setIdentityStates(previous =>
+        Object.keys(previous).length ? {} : previous,
+      );
+      return undefined;
+    }
 
     let cancelled = false;
     const sessionScope = captureSessionScope(Store.getState(), renderedAccountHash);
     const chainInfoBySystem = {};
+    const linkedKeys = new Set(linked.map(item => `${item.chain}:${item.iAddress}`));
+    // An unlinked VerusID that is linked again reads again.
+    gate.retain(key => linkedKeys.has(key));
 
+    // Returns {state, note} after a read, null after a failed read and
+    // undefined when the shown state is still current.
     const loadState = async item => {
       try {
+        const key = `${item.chain}:${item.iAddress}`;
         const coinObj = CoinDirectory.getBasicCoinObj(item.chain);
         const systemId = coinObj.system_id;
+        const epoch = ownBroadcastEpoch(systemId);
+        // Never read, or read before an own transaction: read with the height.
+        const identityRead = gate.isDue(key, systemId, null)
+          ? getIdentity(systemId, item.iAddress)
+          : null;
 
         if (!(systemId in chainInfoBySystem)) {
           chainInfoBySystem[systemId] = getInfo(systemId).catch(() => null);
         }
 
-        const [response, infoResponse] = await Promise.all([
-          getIdentity(systemId, item.iAddress),
-          chainInfoBySystem[systemId],
-        ]);
+        const infoResponse = await chainInfoBySystem[systemId];
+        const chainInfo = infoResponse?.result || null;
+        const height = chainHeightOf(chainInfo);
+        // Same block and no own transaction: keep the shown state.
+        if (!identityRead && !gate.isDue(key, systemId, height)) return undefined;
+
+        const response = await (identityRead || getIdentity(systemId, item.iAddress));
 
         if (response?.error || !response?.result) return null;
 
-        return describeVerusIdState(
-          response.result.identity,
-          infoResponse?.result || null,
-          coinObj.seconds_per_block,
-          response.result.status,
-        ).state;
+        return {
+          state: describeVerusIdState(
+            response.result.identity,
+            chainInfo,
+            coinObj.seconds_per_block,
+            response.result.status,
+          ).state,
+          note: () => gate.note(key, systemId, height, epoch),
+        };
       } catch (e) {
         return null;
       }
     };
 
-    Promise.all(linked.map(loadState)).then(states => {
+    Promise.all(linked.map(loadState)).then(results => {
       if (cancelled || !sessionScopeIsCurrent(Store.getState(), sessionScope)) {
         return;
       }
 
-      const next = {};
-      linked.forEach((item, index) => {
-        if (states[index]) next[`${item.chain}:${item.iAddress}`] = states[index];
+      // Only a shown result counts as read for the gate.
+      results.forEach(result => result?.note());
+      // A failed or skipped read keeps the last known state, so a network
+      // error does not hide a Locked or Revoked badge. Unlinked VerusIDs drop
+      // out.
+      setIdentityStates(previous => {
+        const next = {};
+        linked.forEach((item, index) => {
+          const key = `${item.chain}:${item.iAddress}`;
+          const state = results[index]?.state || previous[key];
+          if (state) next[key] = state;
+        });
+        const previousKeys = Object.keys(previous);
+        const unchanged = previousKeys.length === Object.keys(next).length &&
+          previousKeys.every(key => previous[key] === next[key]);
+        return unchanged ? previous : next;
       });
-      setIdentityStates(next);
     });
 
     return () => {
       cancelled = true;
     };
     // Pending-request updates rebuild `linked`; only a change in the linked
-    // VerusIDs themselves (linkedKey) reloads their states.
+    // VerusIDs themselves (linkedKey) or a new focus reloads their states.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkedKey, renderedAccountHash]);
+  }, [linkedKey, renderedAccountHash]));
   const getAssetCountLabel = useCallback(
     item => {
       const {funds, loaded} = getVerusIdFunds({
@@ -652,10 +711,8 @@ const SignedInVerusIdService = ({controller}) => {
         throw new Error('Unable to link this VerusID.');
       }
 
-      if (candidate.status !== 'active') {
-        throw new Error('Only active VerusIDs can be linked.');
-      }
-
+      // Any status links by hand, as upstream: a revoked VerusID shows in the
+      // wallet with its badge (PR 266 review I1, owner, 2026-11-19).
       if (
         !candidate.primaryAddress ||
         !primaryAddresses.includes(candidate.primaryAddress)
@@ -961,6 +1018,7 @@ const SignedInVerusIdService = ({controller}) => {
       </View>
 
       <LinkVerusIdSheet target={registrationLink} onClose={() => setRegistrationLink(null)} />
+      {registrationMenu.sheets}
       {loading ? (
         <IdentityListSkeleton theme={theme} />
       ) : controller.state.loadError ? (
@@ -990,11 +1048,12 @@ const SignedInVerusIdService = ({controller}) => {
                 const count = pending.length + Object.values(registrationJobs).filter(job => job.status !== 'complete' && registrationNoticeState(job).group === title).length;
                 return count > 0 && <View key={title}>
                   <RegistrationGroupTitle title={title} count={count} />
-                  <RegistrationTabRows group={title} showHeading={false} jobs={registrationJobs} navigation={controller.props.navigation} onLink={setRegistrationLink} />
+                  <RegistrationTabRows group={title} showHeading={false} jobs={registrationJobs} navigation={controller.props.navigation} onLink={setRegistrationLink} menu={registrationMenu} />
                   {renderPendingGroup(title, pending, false)}
                 </View>;
               })}
-              <RegistrationGroupTitle title="Your VerusIDs" count={linked.length} />
+              {/* Pending-only wallets have no VerusID group to title. */}
+              {linked.length > 0 && <RegistrationGroupTitle title="Your VerusIDs" count={linked.length} />}
             </View>
           }
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
@@ -1053,6 +1112,7 @@ const SignedInVerusIdService = ({controller}) => {
             coinObj={CoinDirectory.findCoinObj(resolvedLinkNetwork)}
             initialManualValue={linkSheetInitialManualValue}
             initialMode={linkSheetMode}
+            allowInactive
             isCandidateAllowed={isLinkCandidateAllowed}
             linkedIds={linkedIds}
             onBusyChange={handleLinkSheetBusyChange}

@@ -22,6 +22,7 @@ import {useWizardFiat} from './useWizardFiat';
 import {getLoweredFrom, loweredNodeProps} from './loweredAmount';
 import {
   getDestinationNetwork,
+  getExplorerTxUrl,
   getPreparedConversionEstimate,
   getTransactionId,
   isOwnChannelAddress,
@@ -49,6 +50,9 @@ const SendWizardSuccess = () => {
   } = state;
   const {format: formatFiat} = useWizardFiat(sourceSubWallet);
   const txid = getTransactionId(txResult);
+  // The transaction is on the source chain. Upstream's result screen links it
+  // there too, only when the chain has an explorer (PR 266 review R4).
+  const explorerUrl = getExplorerTxUrl(sourceCoin, txid);
   const estimatedReceive = getPreparedConversionEstimate(
     preflightResult, estimate,
   )?.estimatedcurrencyout;
@@ -196,7 +200,7 @@ const SendWizardSuccess = () => {
         ) : null
       }
       title={title}
-      transactions={txid ? [{txid}] : []}
+      transactions={txid ? [explorerUrl ? {txid, explorerUrl} : {txid}] : []}
     />
   );
 };

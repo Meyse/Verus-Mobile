@@ -32,6 +32,7 @@ import {
 import FeeBreakdownSheet, {BridgeNetworkFeeSheet} from './components/FeeBreakdownSheet';
 import {getLoweredFrom, loweredNodeProps} from './loweredAmount';
 import NetworkFeeSheet from './components/NetworkFeeSheet';
+import {EstimatedAmountSheet} from './components/EstimateInfo';
 import PriceRouteSheet from './components/PriceRouteSheet';
 import useNetworkFee from './useNetworkFee';
 import {arrivalForFee, FEE_TIERS, formatFeeAmount, maxBTCFeeRate, networkFeeKind, previewNetworkFee} from './networkFeeUtils';
@@ -53,7 +54,10 @@ import {useOnboardingSmallDeviceLayout} from '../../hooks/useOnboardingSmallDevi
 import {useOnboardingTheme} from '../../theme/onboarding';
 import {expireCoinData} from '../../actions/actionCreators';
 import {getIdentity} from '../../utils/api/routers/getIdentity';
+import {addressIsBlocked, BLOCKED_ADDRESS_MESSAGE} from '../../utils/addressBlocklist';
+import {selectAddressBlocklist} from '../../selectors/settings';
 import {preflightConvertOrCrossChain} from '../../utils/api/routers/preflightConvertOrCrossChain';
+import {estimateConversion} from '../../utils/api/channels/vrpc/requests/estimateConversion';
 import {preflightSend} from '../../utils/api/routers/preflightSend';
 import {sendConvertOrCrossChain} from '../../utils/api/routers/sendConvertOrCrossChain';
 import {send} from '../../utils/api/routers/send';
@@ -79,7 +83,6 @@ import {
 } from '../../utils/constants/constants';
 import {useSendWizard} from './SendWizardContext';
 import {useInvoiceFlow} from './invoiceFlow';
-import {refreshSourceBalance} from './refreshSourceBalance';
 import {autoAddConversionAsset} from './autoAddConversionAsset';
 import {
   ErrorMessage,
@@ -94,6 +97,7 @@ import {
   getCurrencyDisplay,
   getDestinationNetwork,
   getPreparedConversionEstimate,
+  isAmountLoweredForFees,
   getRouteName,
   getTransactionId,
   isOwnChannelAddress,
@@ -101,7 +105,11 @@ import {
   shortAddress,
 } from './wizardUtils';
 import {isPrivateChannel} from '../../utils/subwallet/privateWallet';
-import {isVerusIdWallet} from '../../utils/subwallet/cardPresentation';
+import {
+  getSubWalletCardTitleForAccount,
+  getSubWalletDisplayIdentifier,
+  isVerusIdWallet,
+} from '../../utils/subwallet/cardPresentation';
 import {memoApplies, resolvePrivateCardDestination} from './privateSend';
 import {closeWizard} from './wizardNavigation';
 import {formatTransactionDate} from '../Coin/Overview/TransactionDetailsSheet';
@@ -111,22 +119,13 @@ import {
   OFFLINE_NOTHING_SENT_MESSAGE,
   isConnectionErrorMessage,
 } from '../../utils/network/connectionErrors';
+import {
+  getBroadcastRejectionMessage,
+  isRepeatedBroadcast,
+  rememberBroadcast,
+} from './broadcastRejection';
+import {SPENT_INPUTS_NOT_SENT_MESSAGE} from '../../utils/transactions/unconfirmedSpend';
 
-// A node rejection reads "<code>: <reason>" (for example
-// "16: bad-txns-failed-precheck") or names a bad-* rule.
-const NODE_REJECTION_PATTERN = /^-?\d+:\s|\bbad-[a-z-]+\b/i;
-
-// Apply only to explicit rejection responses, never transport/unknown outcomes.
-const getRejectionMessage = message =>
-  /\b(transaction already in block chain|txn-already-in-mempool|txn-already-known)\b/i.test(message)
-    ? 'The network already has this transaction. Check your transaction history before sending again.'
-    : /\b(txn-mempool-conflict|bad-txns-inputs-spent|missing inputs|bad-txns-inputs-missingorspent|bad-txns-inputs-missing)\b/i.test(message)
-      ? 'The available funds changed. Go back and review this transaction again.'
-      : isConnectionErrorMessage(message)
-        ? CONNECTION_FAILED_MESSAGE
-        : NODE_REJECTION_PATTERN.test(message)
-          ? 'The network rejected this transaction. Nothing was sent.'
-          : message;
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -157,6 +156,15 @@ const SendWizardConfirm = () => {
   const coinSettings = useObjectSelector(
     stateValue => stateValue.settings.coinSettings,
   );
+  // Every route to a payment passes this step: scanned requests and fixed
+  // invoices skip Recipient, so the blocklist is enforced here, before any
+  // preparation. A VerusID name is checked again once it resolves.
+  const addressBlocklist = useObjectSelector(selectAddressBlocklist);
+  const assertNotBlocked = useCallback(address => {
+    if (addressIsBlocked(address, addressBlocklist)) {
+      throw new Error(BLOCKED_ADDRESS_MESSAGE);
+    }
+  }, [addressBlocklist]);
   const [preflighting, setPreflighting] = useState(true);
   const [sending, setSending] = useState(false);
   const submissionInFlight = useRef(false);
@@ -167,7 +175,12 @@ const SendWizardConfirm = () => {
   const [warnings, setWarnings] = useState([]);
   const [feeSheetOpen, setFeeSheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
+  const [estimateInfoOpen, setEstimateInfoOpen] = useState(false);
   const preflightSequence = useRef(0);
+  // The node refused the prepared inputs as spent. The next slide prepares
+  // again from the current confirmed outputs instead of sending these bytes.
+  const refusedInputs = useRef(false);
+  const [prepareRound, setPrepareRound] = useState(0);
   const preparedParams = useRef(null);
   const lastReview = useRef(null);
   const generalWalletSettings = useObjectSelector(value => value.settings.generalWalletSettings);
@@ -180,7 +193,6 @@ const SendWizardConfirm = () => {
   const receivedPrice = useReceivedPrice(
     target?.isConversion ? target.coinId || target.id : null,
     sourceSubWallet?.api_channels?.[API_GET_FIATPRICE],
-    {systemId: target?.systemId, testnet: sourceCoin?.testnet},
   );
 
   // After "Status unknown" only Close leaves (owner, 2026-10-26): a step back
@@ -264,8 +276,16 @@ const SendWizardConfirm = () => {
       })
     : null;
   const privateSource = isPrivateChannel(channel);
+  // The card as the asset screen names it, with its network (PR 266 review R8).
   const fromLabel = !invoice && (privateSource || isVerusIdWallet(sourceSubWallet))
-    ? sourceSubWallet?.name : null;
+    ? getSubWalletCardTitleForAccount(sourceSubWallet, activeAccount, sourceCoin).text
+    : null;
+  // Copy gives the VerusID name or the full (private) address, not the title.
+  const fromCopyIdentifier = fromLabel
+    ? getSubWalletDisplayIdentifier(sourceSubWallet, activeAccount, sourceCoin?.id, false)
+    : null;
+  const fromCopyValue =
+    fromCopyIdentifier && fromCopyIdentifier !== '-' ? fromCopyIdentifier : fromLabel;
   // A memo travels inside a private output only. A scanned request's note
   // becomes the memo when it can travel there.
   const sendsMemo = simpleSend && memoApplies(channel, recipientAddress);
@@ -315,6 +335,7 @@ const SendWizardConfirm = () => {
       }
       destination = identityResult?.result?.identity?.identityaddress;
       if (!destination) throw new Error('This VerusID has no compatible destination.');
+      assertNotBlocked(destination);
     }
 
     if (ethers.isAddress(destination)) {
@@ -333,7 +354,7 @@ const SendWizardConfirm = () => {
         : null;
     if (type == null) throw new Error('Incompatible destination address type.');
     return new TransferDestination({destinationBytes: hash, type});
-  }, [activeAccount, channel, recipientAddress, sourceCoin]);
+  }, [activeAccount, assertNotBlocked, channel, recipientAddress, sourceCoin]);
 
   const conversionOutput = useMemo(
     () => ({
@@ -382,6 +403,12 @@ const SendWizardConfirm = () => {
       setPreflight(null);
       return undefined;
     }
+    if (addressIsBlocked(recipientAddress, addressBlocklist)) {
+      setPreflighting(false);
+      setError(BLOCKED_ADDRESS_MESSAGE);
+      setPreflight(null);
+      return undefined;
+    }
 
     let active = true;
     setPreflighting(true);
@@ -397,13 +424,18 @@ const SendWizardConfirm = () => {
 
     const run = async () => {
       try {
+        let simpleDestination = null;
+        if (simpleSend) {
+          simpleDestination = privateSource
+            ? await resolvePrivateCardDestination(sourceCoin, recipientAddress)
+            : recipientAddress;
+          assertNotBlocked(simpleDestination);
+        }
         const result = simpleSend
           ? await preflightSend(
               sourceCoin,
               activeAccount,
-              privateSource
-                ? await resolvePrivateCardDestination(sourceCoin, recipientAddress)
-                : recipientAddress,
+              simpleDestination,
               BigNumber(amount),
               channel,
               simpleSendParams,
@@ -422,7 +454,41 @@ const SendWizardConfirm = () => {
         if (result?.err || result?.error) {
           throw new Error(result.result || result.error?.message || 'Preflight failed.');
         }
-        const preflight = result?.result;
+        let preflight = result?.result;
+        // The preflight's own estimate can fail once, for example on the
+        // network. When it lowered the amount for fees, the Amount quote no
+        // longer applies, so ask once more for the lowered amount. Only the
+        // displayed estimate changes, not the prepared transaction.
+        if (
+          target.isConversion && !route.preconvert &&
+          channel?.split('.')[0] === 'vrpc' &&
+          preflight?.estimate == null && isAmountLoweredForFees(preflight)
+        ) {
+          const {currency, convertto, via, preconvert} = preflight.output;
+          let retry;
+          try {
+            retry = await estimateConversion(
+              channel.split('.')[2],
+              currency,
+              convertto,
+              satsToCoins(BigNumber(preflight.output.satoshis)).toNumber(),
+              via,
+              preconvert,
+            );
+          } catch (retryError) {
+            retry = null;
+          }
+          if (!active || request !== preflightSequence.current) return;
+          const retryOut = BigNumber(retry?.result?.estimatedcurrencyout);
+          if (
+            retry?.error == null && retry?.result?.outputcurrencyid === convertto &&
+            retryOut.isFinite() && !retryOut.isNegative()
+          ) {
+            preflight = {...preflight, estimate: retry.result};
+          }
+        }
+        // A VRPC send resolves a VerusID name inside its preflight.
+        assertNotBlocked(preflight?.resolvedToAddress);
         const nextWarnings = [];
 
         const preflightEstimate = preflight?.estimate;
@@ -487,7 +553,10 @@ const SendWizardConfirm = () => {
     };
   }, [
     activeAccount,
+    addressBlocklist,
+    assertNotBlocked,
     feeKind,
+    prepareRound,
     networkFee.loading,
     networkFee.error,
     reviewKey,
@@ -537,6 +606,11 @@ const SendWizardConfirm = () => {
       broadcastUnknown.current ||
       state.broadcastError
     ) return;
+    if (refusedInputs.current) {
+      refusedInputs.current = false;
+      setPrepareRound(round => round + 1);
+      return;
+    }
     submissionInFlight.current = true;
     setSending(true);
     setError(null);
@@ -583,11 +657,21 @@ const SendWizardConfirm = () => {
         throw rejection;
       }
 
+      const sentTxid = getTransactionId(result?.result);
+      // The node returned a transaction this app already sent: the same send
+      // was rebuilt before the next block. Nothing new left the wallet. Only
+      // VRPC returns the txid of these exact bytes; the private bridge reads
+      // its latest history entry instead.
+      const vrpcSend = String(channel || '').split('.')[0] === 'vrpc';
+      if (vrpcSend && isRepeatedBroadcast(sentTxid)) {
+        throw Object.assign(new Error('txn-already-known'), {rejected: true});
+      }
+      if (vrpcSend) rememberBroadcast(sentTxid);
+
       // Block stale slide callbacks before context and navigation update.
       submitted.current = true;
-      invoiceFlow?.onPaymentSent?.(getTransactionId(result?.result));
+      invoiceFlow?.onPaymentSent?.(sentTxid);
       invoiceFlow?.onPaymentBroadcast?.();
-      void refreshSourceBalance(sourceCoin, channel, activeAccount.accountHash);
       setTxResult(result?.result);
       navigation.reset({
         index: 0,
@@ -611,13 +695,13 @@ const SendWizardConfirm = () => {
       } else {
         // Electrum preserves an explicit rejection on the thrown error.
         const message = sendError.message || 'Transaction failed.';
-        setError(
-          sendError.rejected || sendError.ambiguousBroadcast === false
-            ? getRejectionMessage(message)
-            : isConnectionErrorMessage(message)
-              ? CONNECTION_FAILED_MESSAGE
-              : message,
-        );
+        const shown = sendError.rejected || sendError.ambiguousBroadcast === false
+          ? getBroadcastRejectionMessage(message)
+          : isConnectionErrorMessage(message)
+            ? CONNECTION_FAILED_MESSAGE
+            : message;
+        refusedInputs.current = shown === SPENT_INPUTS_NOT_SENT_MESSAGE;
+        setError(shown);
       }
     } finally {
       dispatch(expireCoinData(sourceCoin.id, API_GET_BALANCES));
@@ -798,9 +882,10 @@ const SendWizardConfirm = () => {
     route,
     sourceCoin?.display_name,
   );
-  const feeCurrencyId = feeKind === 'btc' ? 'BTC'
+  // A BTC fee is paid in the source coin: BTC, or BTCTEST on testnet4.
+  const feeCurrencyId = feeKind === 'btc' ? sourceCoin?.id
     : sourceCoin?.network === 'sepolia' ? 'GETH' : 'ETH';
-  const feeTicker = feeKind === 'btc' ? 'BTC'
+  const feeTicker = feeKind === 'btc' ? sourceCoin?.display_ticker
     : sourceCoin?.network === 'sepolia' ? 'gETH' : 'ETH';
   const likelyFee = preflightResult
     ? (feeKind === 'eth' ? preflightResult.likelyFee : preflightResult.fee)
@@ -857,6 +942,14 @@ const SendWizardConfirm = () => {
       }]
     : [];
   const refundCaption = preconvert ? 'Refunds also go here.' : null;
+  // The basket of a conversion's route, under "Est. slippage" (R3 option 1).
+  const viaName = target?.isConversion && !preconvert && route?.via
+    ? getRouteName(route) : null;
+  // A tagged invoice says so where the payment is confirmed (PR 266 review
+  // R10, option A). The tag itself is in "Invoice details".
+  const factRows = invoice?.tag
+    ? [...launchRows, {label: 'Tag', value: 'Public'}]
+    : launchRows;
 
   if (preflighting && (!feeKind || !reviewResult)) {
     const preparingReceive = Boolean(target?.isConversion);
@@ -875,8 +968,9 @@ const SendWizardConfirm = () => {
           exportFees={hasExportFees || Boolean(route?.isCrossChain && ['eth', 'erc20'].includes(sourceCoin?.proto))}
           recipient={recipientAddress}
           recipientCaption={refundCaption}
-          routeRows={launchRows}
+          routeRows={factRows}
           showPriceImpact={preparingReceive && Boolean(state.marketPrice)}
+          via={viaName}
           sourceCoin={sourceCoin}
           target={target}
         />
@@ -899,7 +993,8 @@ const SendWizardConfirm = () => {
     );
   }
 
-  if (error && !preflightResult && !feeKind) {
+  // A blocked address is final, so it takes the whole step on every network.
+  if (error && !preflightResult && (!feeKind || error === BLOCKED_ADDRESS_MESSAGE)) {
     return (
       <WizardScreen scroll={false}>
         <View style={styles.centeredState}>
@@ -937,10 +1032,11 @@ const SendWizardConfirm = () => {
         targetTicker: target?.ticker || '',
       })
     : {};
-  // The route is not on the connector (owner, 2026-10-22): the Price impact
-  // row opens "Price and route", which names it.
+  // The route is not on the connector (owner, 2026-10-22). The Est. slippage
+  // row names the basket under its label and opens "Price and route" (R3
+  // option 1, owner 2026-11-22).
   const connectorLines = unitPrice
-    ? [`1 ${sourceCoin?.display_ticker || ''} = ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
+    ? [`1 ${sourceCoin?.display_ticker || ''} ≈ ${formatUnitPrice(unitPrice)} ${target?.ticker || ''}`]
     : [];
   const showImpact = showReceive && (impact != null || Boolean(route?.via));
   // Notices and errors stay above the slide. On a short screen they would
@@ -1041,6 +1137,8 @@ const SendWizardConfirm = () => {
               label={
                 invoice ? `${shortAddress(recipientAddress, 4)} receives` : 'You receive'
               }
+              // An invoice fixes the amount the recipient gets: no estimate note.
+              onInfo={invoice ? undefined : () => setEstimateInfoOpen(true)}
               ticker={target.ticker}
             />
           </>
@@ -1063,6 +1161,7 @@ const SendWizardConfirm = () => {
                   lossText,
                   onPress: () => setPriceSheetOpen(true),
                   pay: payImpact,
+                  via: viaName,
                 }
               : null
           }
@@ -1072,7 +1171,7 @@ const SendWizardConfirm = () => {
           recipient={recipientAddress}
           recipientCaption={refundCaption}
           resolvedRecipient={resolvedRecipient}
-          routeRows={launchRows}
+          routeRows={factRows}
           leadingRows={
             invoice
               ? [
@@ -1084,12 +1183,12 @@ const SendWizardConfirm = () => {
                         onPress: invoiceFlow?.onOpenRequester,
                       }
                     : null,
-                  state.payFromLabel ? {label: 'From', value: state.payFromLabel, copyValue: state.payFromLabel} : null,
+                  state.payFromLabel ? {label: 'From', value: state.payFromLabel, copyValue: state.payFromCopyValue || state.payFromLabel} : null,
                   paidBefore?.txid
                     ? {label: 'Earlier payment', value: shortAddress(paidBefore.txid), copyValue: paidBefore.txid}
                     : null,
                 ].filter(Boolean)
-              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: fromLabel, numberOfLines: 0}] : []
+              : fromLabel ? [{label: 'From', value: fromLabel, copyValue: fromCopyValue, numberOfLines: 0}] : []
           }
           trailingRows={
             invoice
@@ -1172,6 +1271,10 @@ const SendWizardConfirm = () => {
           visible={priceSheetOpen}
         />
       ) : null}
+      <EstimatedAmountSheet
+        onClose={() => setEstimateInfoOpen(false)}
+        visible={estimateInfoOpen}
+      />
     </WizardScreen>
   );
 };

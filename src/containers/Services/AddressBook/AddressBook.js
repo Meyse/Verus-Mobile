@@ -72,7 +72,7 @@ const getRecordGroup = record => {
     address.startsWith('1') ||
     address.startsWith('3') ||
     metadata.includes('bitcoin') ||
-    /(^|\s)btc($|\s)/.test(metadata)
+    /(^|\s)btc(test)?($|\s)/.test(metadata)
   ) {
     return 'bitcoin';
   }
@@ -90,6 +90,8 @@ const getRecordTicker = record => {
   ) {
     return 'BTC';
   }
+  // The Bitcoin Testnet4 coin id is TESTNET; its ticker is BTCTEST.
+  if (record.asset === 'BTCTEST') return 'TESTNET';
   return (record.asset || record.network || 'VRSC').toUpperCase();
 };
 

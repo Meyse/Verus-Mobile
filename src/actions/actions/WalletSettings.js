@@ -13,6 +13,10 @@ import {
   normalizeSettings,
 } from '../../utils/settings/settingsDefaults';
 import store from '../../store/index'
+import {
+  WALLET_UI_SETTINGS_FIELDS,
+  removeWalletUiAccount,
+} from '../../utils/asyncStore/walletUiStorage'
 //TODO: Maybe dispatch from here instead of VerusMobile main file
 
 let generalSettingsSaveQueue = Promise.resolve()
@@ -109,7 +113,9 @@ export const saveGeneralSettings = (stateChanges) => {
       ...pendingStateChanges,
     })
 
-    await storeSettings({...settingsState, generalWalletSettings})
+    await storeSettings({...settingsState, generalWalletSettings}, {
+      walletUiRequired: WALLET_UI_SETTINGS_FIELDS.some((field) => field in pendingStateChanges),
+    })
     queuedGeneralSettingsChanges = {
       ...(queuedGeneralSettingsChanges || {}),
       ...pendingStateChanges,
@@ -127,4 +133,23 @@ export const saveGeneralSettings = (stateChanges) => {
       queuedGeneralSettingsChanges = null
     }
   })
+}
+
+/**
+ * Removes one profile from the per-account display choices (card stacks,
+ * VerusID card colors, last sign-in time) in Redux and in the saved record.
+ * The saved record is changed directly, so a profile that Redux does not hold
+ * (for example after a failed read) is removed too.
+ */
+export const deleteAccountWalletUiSettings = async (accountHash) => {
+  const settings = store.getState().settings
+  const generalWalletSettings = {...settings.generalWalletSettings}
+  WALLET_UI_SETTINGS_FIELDS.forEach((field) => {
+    const byAccount = generalWalletSettings[field]
+    if (byAccount == null || !Object.prototype.hasOwnProperty.call(byAccount, accountHash)) return
+    const {[accountHash]: _removed, ...rest} = byAccount
+    generalWalletSettings[field] = rest
+  })
+  store.dispatch(setAllSettings(normalizeSettings({...settings, generalWalletSettings})))
+  await removeWalletUiAccount(accountHash)
 }

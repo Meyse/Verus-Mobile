@@ -199,8 +199,10 @@ update approval, and VerusID registration and management. Keep selection,
 review, decryption, retry, and unknown-status actions as normal buttons.
 The slide stays locked until its handler's promise settles. Cancelled gestures
 never commit. Each handler must return its operation or set a synchronous guard.
-A short slide shows its action-specific hint in the label slot for three seconds
-and announces it for screen readers. A new slide clears the hint. A completed
+The label is centred on the whole track, not on the space beside the thumb
+(owner, 2026-11-23). A short slide shows its action-specific hint, for example
+"Slide all the way to send" without a final period (owner, 2026-11-23), in the
+label slot for three seconds and announces it for screen readers. A new slide clears the hint. A completed
 slide shows no hint. The footer does not move.
 
 ## Imagery
@@ -301,13 +303,40 @@ copy uses "address". Lists do not show a count of sources (owner, 2026-11-12).
 A source is a subwallet, which can expose more than one address. Gift cards and
 NFC cards keep their names. The internal Card/subwallet model and all selection behavior stay the same.
 
-Every address chooser names a source as Receive does: its type ("Transparent",
-"Private") with a transparent card's short R-address or a private card's short
-z-address as a monospace subtitle. A VerusID row shows its name only, with no
-i-address (owner, 2026-11-12). A VerusID row title keeps one line with a tail
-ellipsis; its accessibility label keeps the full name. Group titles name the network only
-when choices span two or more networks. A single-network chooser shows no group
-title (owner, 2026-11-12).
+Every chooser names a card as the asset screen does (owner, 2026-11-19, PR
+266 review R8 option C with the owner's change; it replaces the type titles of
+2026-11-12). `getSubWalletCardTitle` in `src/utils/subwallet/cardPresentation.js`
+makes the title and `src/components/CardTitle.js` draws it: a transparent or
+other address card shows its short address in monospace (the first 6
+characters, "…", the last 6), a VerusID card its name (no i-address), the
+private card "Private". Then " · " and the network's ticker follow on every
+card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
+"alice@ · VRSC", "Private · VRSCTEST". A VerusID name that already ends in
+".<network>@" carries its network and shows no suffix ("devphone.VRSCTEST@");
+a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
+cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
+coins take their own ticker (KMD). The short address never shortens below
+6…6. In choosers and the card picker, where a balance sits beside the title
+(owner, 2026-11-21, phone feedback), the row shows the name alone on line 1
+(`CardTitle nameOnly`, filling the row width) and the network ticker on line 2
+under it, on every row, also for a VerusID name that carries its network
+("devphone.VRSCTEST@" over "VRSCTEST"; `networkTicker` of
+`getSubWalletCardTitle` always holds it). Line 2 is drawn like the ticker under
+the balance on the right (`SelectionRow subtitleLikeValueLabel`: `bodySm`,
+`textSecondary`; the card picker uses its own balance-ticker style), so both
+second lines sit on one row. A private card that still syncs reads
+"VRSCTEST · Syncing 12%". On the asset screen stack, Receive details and the
+Advanced form header the title stays "name · network" on one line and, in the
+rare case of too little room, takes a tail ellipsis. A name without a
+network part (a VerusID that carries it) keeps one line and uses the full
+width. The two parts align to the top on a shared line height, not to the
+baseline (Android). A VerusID name gives way with a middle ellipsis and keeps its @;
+then the network never shortens. No row has an address line; a private card
+that still syncs shows its sync status after the network on line 2. Copy and the screen
+reader label keep the full address. Because each title names its network,
+the choosers have no network group titles; rows keep the network order
+(owner, 2026-11-19: "Remove group titles"; this replaces the group-title rule
+of 2026-11-12).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
@@ -340,12 +369,13 @@ network name and subtitles read "Receive as <ticker>". Do not add a "Default"
 badge or repeat "network" in a row. The owner approved this on 2026-10-18.
 The ticker is the asset's name on that network (owner, 2026-11-03): an
 Ethereum asset on Verus reads "Receive as vETH" or "Receive as DAI.vETH".
-Send asks for the network when the asset is picked, as Convert does for its
-target (owner, 2026-11-13). The picked row in Select asset shows a small
-spinner in place of its fiat value while the routes load, and the other rows
-ignore taps. The sheet opens only when two or more networks remain; it has no
-preselected row. Otherwise Amount opens on the same network. Amount reuses
-those routes and keeps Change network for a later change.
+Send starts on the card's own network, from Home and from a card alike
+(owner, PR 266 pick P1, 2026-11-20; it replaces the network step at the asset
+pick of 2026-11-13). Select asset makes no route request and has no network
+step. The networks load only when the user presses Change network on Amount
+(PR 266 F5); the sheet then opens when two or more networks remain. A scanned
+address that the card's network cannot reach loads them when Amount opens,
+and starts on the one other network that can reach it.
 
 ### Information
 
@@ -580,17 +610,37 @@ The keypad edits decimal text through `editAmountInput`; it does not parse,
 round, or calculate funds. Keep the existing precision, quote, network, MAX,
 and fee-reserve rules in `SendWizardAmount`.
 
-- The 44-point context slot shows Change network only when an alternative is
-  available. It shows source network to destination network for a cross-chain
+- On a simple Send from a card that can convert (VRPC or Ethereum), the
+  44-point context slot always shows Change network. Pressing it loads the
+  networks; the line then reads "No other networks" when none remains. The
+  slot shows source network to destination network for a cross-chain
   route. A same-chain conversion shows no To line because the receive block
   names the target. A simple Send omits the default network name. On normal
   windows the slot keeps its height in every case.
 - Put the amount and its current unit on one line. Keep 40-to-20-point amount
   sizing. A long amount can put its unit below it. The entry starts 48 points
   below the context on normal windows, or 8 points on compact windows.
+- Owner approval, 2026-11-19 (PR 266 review R3, option B): a clear icon sits
+  at the right edge of the amount line: `close-circle-outline`, 22 points, in
+  `textSecondary`, in a 44-point slot ("Clear amount"). It shows only when the
+  field has text. One tap empties the field and keeps the unit and the focus.
+  The amount stays centered, so the slot's width stays free on both sides. A
+  value too long for that room uses the full width, and the icon moves down to
+  the unit line; that line is then 44 points high, so the target never covers
+  the amount. `AmountInput` draws it for every user: Send, Convert, invoice
+  Amount and Build the gift.
+- Owner approval, 2026-11-19 (R14, option A): money entry starts empty, with
+  the "0" placeholder and no error; its chip reads "— <ticker>". Digits fill
+  the value from the left. The keypad refuses a third decimal
+  (`AmountInput maxDecimals`); pasted text with more decimals shows "Use no
+  more than 2 decimal places." A zero draft ("0", "0.0") shows no error, and
+  Continue stays off. The fiat switch keeps an empty or zero field empty. A
+  converted value is selected, so the first key replaces it.
 - Keep a 44-point fiat-mode action and a 48-point Available / MAX row. MAX uses
   `TextAction variant="chip"` in `link`. Missing
-  fiat rates show no action or empty slot. Private pending funds retain their caption.
+  fiat rates show no action or empty slot. Available and MAX are the confirmed
+  balance on every card, and no pending line shows under them (owner,
+  2026-11-19, PR 266 review R13).
 - Owner approval, 2026-11-13 (R7 option A, "tight top"): on windows of 667
   points or less, `AmountInput compact` draws the amount at 32/40 (80% of
   `amountInput`, same 20-point floor) and the unit in `titleRow`. An empty
@@ -627,23 +677,73 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   gives way with a single-line middle ellipsis on both platforms, preserving
   its ending. Accessibility retains the full name.
 - Group estimated amounts with thousands separators in display only. Under
-  the estimate, show money only when there is a finite positive price for
-  the received currency in the user's display currency: the ledger's, or the
-  ledger's price source for a target outside the wallet (`useReceivedPrice`;
-  owner, 2026-11-13). A target outside the coin directory gets the same
-  on-chain price from its currency id and system id: any basket or reserve
-  currency with a native or anchor route has a money value. Do not derive a
-  money price from the paid asset or from `usePriceImpact`'s small-trade crypto
-  ratio.
+  the estimate, show money only when the ledger holds a finite positive price
+  for the received currency in the user's display currency
+  (`useReceivedPrice`; owner, 2026-11-13). Removed 2026-11-20 (PR 266 F2): the
+  on-chain price for a target outside the wallet; no request is made. Do not
+  derive a money price from the paid asset or from `usePriceImpact`'s
+  small-trade crypto ratio.
 - Empty conversions show the asset row with "—", no money and no impact row.
   Loading uses one `SkeletonLoader` shaped like the final block. Pre-conversions
   show "Price set at launch", with no money or impact row. Keep the fiat/crypto
   toggle under the input and the existing compact keypad layout.
-- Below the asset, a pressable `FlatRow` reads "Price impact", with a
+- Below the asset, a pressable `FlatRow` reads "Est. slippage", with a
   `StatusBadge` and chevron. Keep the existing doorway rule: impact at least
-  0.1%, more than one basket, or an Ethereum export. Show it only with a receive
-  estimate. The badge is percent only, neutral below 1%, warning from 1%, and
-  danger from 5%. Unknown or below 0.1% reads "Details" in neutral.
+  0.1%, more than one basket, or an Ethereum export. A route through a basket
+  also shows it, below 0.1% too (the chip reads "<0.1%"). Show it only with a
+  receive estimate. The badge is percent only, neutral below 1%, warning from
+  1%, and danger from 5%. A known impact below 0.1% reads "<0.1%" in neutral
+  (owner 2026-11-23); only an unknown impact reads "Details" in neutral.
+- A failed estimate (orchestrator decision, 2026-11-22): when the target has 2
+  or more routes and the estimate for the current amount failed (every checked
+  route, or the route the user picked), the row still shows as "Est. slippage"
+  with "Details" and the chevron, and opens "Price and route", so the user can
+  pick another route or "Check 30 more routes". Its "via <basket>" line shows
+  only when the user picked that route in the sheet; otherwise there is no via
+  line (the name would be a guess). The receive amount stays "—", the failure
+  text under the amount stays, and Continue is unchanged. A target with one
+  route keeps no row (`getFailedEstimateRow`). Screen readers hear "Estimated
+  slippage Details[, via <basket>]. Opens price and route".
+- Owner pick, 2026-11-22 (R3 option 1 "Via under the label", without the route
+  count): the basket shows under the row's label as "via <basket>" (`ViaLine`:
+  "via " in `caption` `textSecondary`, the name in `labelSm` `textPrimary`,
+  one line, middle ellipsis, the name `route.viaFqn || route.via`). The row is
+  then 52 points (`FlatRow detail`); the label column takes the free width,
+  the badge and chevron keep theirs, and the receive amount never shrinks for
+  the name. "You receive" stays alone under the target name. A direct route
+  has no via line and no route count shows anywhere. The name shows only with
+  an estimate: the route chosen once the estimates arrived, never the first
+  route before them. While the estimate loads for a target with basket
+  routes, the skeleton row is 52 points (two text blocks and the badge). The
+  52-point row and its jump when the estimate arrives are accepted (owner).
+  Screen readers hear "Estimated slippage 0.1%, via SuperBASKET. Opens price
+  and route".
+- **Estimate info glyph** (owner Max, 2026-11-23, R4 option B). A 16-point
+  Lucide `Info` (stroke 2, `textSubtle`) directly after the label "You receive",
+  6 points after the text, on Amount (the line under the target name) and on
+  Confirm (the receive node). It shows only next to a shown estimate
+  ("≈ amount"): not while loading, after a failed estimate ("—"), for a
+  pre-conversion ("Price set at launch"), on a send or cross-chain send
+  without conversion, or on an invoice's fixed amount. The target is 44
+  points (hitSlop around the glyph; on Amount 17 above and 11 below, so it stays
+  inside the 60-point receive row), role button, label "About this amount";
+  it adds no height and 22 points of line width. On Confirm the node wraps as
+  it does without the glyph: when "You receive", the glyph and the value fit on
+  one line they share it; when they do not, the label wraps ("You" / "receive")
+  and the glyph follows its last word ("receive ⓘ"; both are one unit that
+  wraps together). The label gives way first and never goes below that unit;
+  the value column then gives up the rest of the width (the glyph's width, no
+  more) and its amount fits to what is left. The ticker is never cut earlier
+  than without the glyph, the glyph is never covered, and the node is never
+  taller than without it. The glyph
+  is its own target, so the copy long press (and the accessibility copy action)
+  covers the amount, the logo and the label text, never the glyph. It opens `EstimatedAmountSheet`, the standard
+  `InfoSheet` (title "Estimated amount", one `bodySm` `textSecondary`
+  paragraph, "Done"); one component for both steps. Copy: "The network sets
+  the final amount when it processes your conversion. All conversions through
+  the same basket in one block get the same price. Other conversions in that
+  block can move your amount up or down." 16 points is the only size of this
+  glyph; the 23-point `Info` stays for header actions.
 - "Price and route" uses `BottomSheetModal` directly with the shared
   information-sheet styles in `src/styles/components/infoSheet.styles.js` and
   `titleSheetCompact` (18/24). The shell keeps its 24-point radius and 78% maximum height.
@@ -658,15 +758,36 @@ Send/Convert Amount pins the received asset above Continue. Owner approval,
   deviation from the canonical 56-point minimum. Titles use `titleRowDense`
   (14/18), estimates use `captionDense` (12/16), and badge labels use
   `labelDense` (12/16). Show the basket name, estimated receive
-  amount or "Estimate unavailable.", a success "Best price" pill only on the
-  best basket, and the selected green check or unselected chevron.
+  amount, a success "Best price" pill only on the best basket, and the
+  selected green check or unselected chevron. Only routes that Amount checked
+  are listed; a checked route whose estimate failed reads "Estimate
+  unavailable." and sorts last.
+- Many routes, owner pick 2026-11-22 (R2 option A "Rest in one row"): Amount
+  asks at most 30 estimates per amount pause, the oldest routes first (lowest
+  basket start block, `pickEstimateRoutes`). When more routes exist, the list
+  ends in one row "Check 30 more routes" (or "Check 1 more route") over "30 of
+  100 routes checked", with the real counts: the dense row without fill, a
+  full 1-point `border` outline, the title in `link` and a 18-point Lucide
+  `RotateCw` in `link`. A tap checks the next 30 oldest, without closing the
+  sheet; the row then reads "Checking 30 routes…" in `textSecondary` without
+  the icon, and the list keeps its rows. The best row says "Best so far"
+  while unchecked routes remain, and "Best price" once all are checked. The
+  amount on Amount stays while it checks; Continue waits. A new amount starts
+  again at the 30 oldest; a route the user picked stays among them, in place
+  of the youngest.
 - Follow the baskets with single-line, non-tappable fact rows: Market price,
-  Your price, and Price impact. Labels sit left and values right, with hairline
+  Your price, and Estimated slippage. Market price reads "1 X = N Y"; Your price
+  is an estimate and reads "1 X ≈ N Y" (owner 2026-11-23, also in the invoice
+  variant). Labels sit left and values right, with hairline
   dividers. Their 32-point height and 13/18 `caption` text are an owner-approved
   deviation from stacked information rows. Emphasized values use `labelSm`. Hide absent data. With one basket, omit the basket list
   and show "Route" after the price facts only when the route has a `via`.
   Preserve the full route name, including "Bridge.vETH". An Ethereum export
   adds Network fee last, with a skeleton while loading or "Fee unavailable."
+  The 32-point row is a minimum. On Android a fact value is never fitted to
+  width (that shrank text which fit, about 0.78x); a value too long for one line
+  wraps to a second line, right-aligned, so the number and unit stay readable and
+  nothing is ellipsized. iOS keeps the one-line 0.8 shrink (2026-11-22).
 - Only the basket list scrolls, in one shrinking `SheetScrollView`. It keeps
   the established measured bottom fade and centered chevron while more content
   remains below; short viewports use the established native indicator. Fitting
@@ -685,9 +806,16 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
 - The Sent step has no header: no progress bar, no close button, no divider. Done
   leaves. Sent shows the pay and receive amounts and the transaction ID. It shows no
   "To" row and no "Arrives" row; the user saw both on Confirm.
+- Sent adds "View in explorer" under the transaction ID when the source chain
+  has an explorer (owner, 2026-11-19, PR 266 review R4 option A). It opens the
+  transaction on that explorer, as the history sheet does (`getExplorerTxUrl`).
+  An ERC-20 token uses the explorer of its Ethereum network (Etherscan or
+  Sepolia Etherscan). The private testnet has no explorer, so it shows no row. Confirm has no
+  link, because no transaction ID exists before the send.
 - Confirm shows the recipient once, in full, in the "To" row. The pay and receive nodes
   carry only the amounts ("You pay", "You receive"). Confirm has no "More details" row.
-- Send/Convert Confirm adds "From" only for a VerusID or Private source card. Under a
+- Send/Convert Confirm adds "From" only for a VerusID or Private source card,
+  with the card title ("alice@ · VRSC"); it copies the name. Under a
   recipient's VerusID name, show the prepared transaction's resolved address
   in the existing small monospace address style, in full. Never resolve a name
   again for display.
@@ -735,10 +863,9 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   ("≈ €6,98  12.15552225 VRSC"), in regular `textSecondary`, only when the
   ledger holds a price for every currency in that row. A positive value under
   one cent reads "< €0,01", never a zero.
-- The receive node's money uses the received currency's own price
-  (`useReceivedPrice`): the ledger's, or the ledger's price source for a
-  target that is not a wallet asset yet, also outside the coin directory.
-  Amount uses the same hook.
+- The receive node's money uses the received currency's own ledger price
+  (`useReceivedPrice`). Amount uses the same hook. A target without a ledger
+  price shows no money (PR 266 F2).
 - On windows of 667 points or less, Confirm uses compact nodes (owner,
   2026-11-13): 32-point logos, 17/24 amounts, 44-point nodes, a 24-point
   connector that keeps the unit price, a 16-point top inset and 16 points above
@@ -754,10 +881,16 @@ Send/Convert Confirm and Sent follow these rules (owner feedback, 2026-10-19):
   (`ConfirmPreparing`). What the user chose is real. The receive amount, price, fees and
   timing are skeletons. The button reads "Preparing…" and stays disabled. There is no
   separate loading screen and no loading text.
-- The connector between the pay and receive nodes shows the unit price only. The route
-  is behind the Price impact row, which opens "Price and route" with the price facts
+- The connector between the pay and receive nodes shows the unit price only, as "1 X ≈ N Y":
+  an estimated price reads "≈" and "Market price" reads "=" (owner, 2026-11-23). The route
+  is behind the Est. slippage row, which opens "Price and route" with the price facts
   and the route (owner, 2026-10-22, so that Send and invoice Confirm match). The row
-  shows "Details" when the impact is unknown and the route has a basket.
+  shows "Details" when the impact is unknown and the route has a basket. A route
+  through a basket shows "via <basket>" under the row's label, as on Amount, with no
+  route count: Confirm cannot change the route (R3 option 1, owner 2026-11-22). The
+  preparing skeleton keeps the same two-line row. Below 0.1% the badge reads
+  "<0.1%", as on Amount (owner 2026-11-23); the screen-reader label also reads the money shown
+  beside the badge.
 - A long receive label ("RSRG…LLck receives") wraps to a second line; it never runs
   into the amount.
 - A currency name keeps its full form where it names the currency. A Bridge is
@@ -784,22 +917,32 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
 
 - **Amount, conversions and Ethereum exports.** Follow the option B pinned
   receive block and "Price and route" sheet rules above. They replace the earlier
-  A2 receive line. Market price, suggestion and Via stay in Price and route. The
-  system still picks the basket with the most output. Name a basket by what it holds
+  A2 receive line. Market price and suggestion stay in Price and route. A route
+  through a basket names it under the Est. slippage label ("via <basket>",
+  R3 option 1, owner 2026-11-22). It replaces the 32-point "Via <basket>"
+  fact line of PR 266 feedback F8 (lead developer, 2026-11-20). The system
+  still picks the basket with the most output. Name a basket by what it holds
   (for example "VRSC-KMD-GOLD").
-- **Price impact** is how far this conversion's price is below the market price.
+- **Estimated slippage** is how far this conversion's price is below the market
+  price. It is an estimate, so the label says so (lead developer, PR 266
+  feedback F6, 2026-11-20; it replaces "Price impact", owner 2026-11-13).
+  Label rule: the "Price and route" sheet and every screen-reader label use
+  "Estimated slippage"; the one-line rows on the steps (Amount, Confirm,
+  Confirm while preparing, invoice Pay with) use "Est. slippage".
   The market price is the output per unit of a small sample trade (worth about
   one display-currency unit) on the same route, fetched once per route. Levels:
   under 0.1% adds no chip by itself; 0.1% to 1% uses neutral, 1% to 5%
-  warning, and 5% and up danger. For zero or negative impact (the user's price
-  is equal to or better than market), Price impact reads "None", with no percent
-  or money. The same rule applies to invoice pay mode (owner, 2026-10-27).
-  This case adds no chip. A chip shown for another reason reads "Details".
+  warning, and 5% and up danger. There is no "None" value: below 0.1%, including
+  zero or negative (the user's price is equal to or better than market), the
+  value reads "<0.1%", with no money. The same rule applies to invoice pay mode.
+  This case adds no chip. A chip shown for another reason (a basket route)
+  still reads "<0.1%" when the impact is known; "Details" is only for an
+  unknown impact (owner 2026-11-23). One helper, `getImpactChipLabel` in
+  `impactFormat.js`, serves Amount, Confirm and invoice Pay with.
   For positive impact, the chip says the percent. The sheet shows the money
-  and percent in Price impact, with danger text from 5%, primary text from 1%,
-  and secondary text below 1%. For 0 < impact < 0.1%, Price impact shows
-  "<0.1%" in both send and invoice modes (owner, 2026-11-13). From 1% impact, a verified
-  "Use <N> <SRC> instead | Price impact x.x%" action appears in the sheet while a warning
+  and percent in Estimated slippage, with danger text from 5%, primary text from 1%,
+  and secondary text below 1%. From 1%, a verified
+  "Use <N> <SRC> instead | Estimated slippage x.x%" action appears in the sheet while a warning
   or danger suggestion exists. Show the measured impact, never the one the
   suggestion formula aimed for. Say the money in what
   the user receives: the display currency when the ledger holds a
@@ -820,7 +963,7 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
   amount (compact nodes on small windows, see above); fiat captions appear only
   when a price is known. Then a flat
   list: "To" (full address in monospace) unless a short name is already in the
-  receive node, "Destination network" for cross-chain, "Price impact ›" (the money
+  receive node, "Destination network" for cross-chain, "Est. slippage ›" (the money
   when 1% or more, then the percent badge; it opens "Price and route"), "Fees ›", "Arrives", and "More
   details ›", which opens the "Transaction details" `InfoSheet` (To, Destination
   network, Route when a basket is used, From, Balance after). Fees and addresses wrap and never truncate. The footer stays
@@ -828,7 +971,8 @@ They stay flat: hairline rows, no cards, no capital-letter labels.
 - **Sent.** The header has no title and no back. The small animated check sits
   beside the 28/36 title. Then the same nodes ("You paid", "<recipient>
   receives"), flat rows ("To" when needed, "Destination" for a bridge,
-  "Arrives", "Transaction ID" with `CopyAction`), one caption, and Done.
+  "Arrives", "Transaction ID" with `CopyAction`, "View in explorer" when the
+  chain has one), one caption, and Done.
 
 ### Private card sends
 
@@ -850,8 +994,8 @@ screen did for the private (z) card.
   (`variant="card"`) "Syncing x%" in place of the fiat line, Send is off, and
   "Choose an address" shows the card dimmed with "Syncing x%" and no chevron.
 - Amount uses the private card's confirmed balance, as its preflight does.
-  Funds that still confirm add one caption under Available: "<amount> <ticker>
-  can be sent in about 10 minutes."
+  Funds that still confirm do not show on Amount (owner, 2026-11-19); the
+  asset screen shows them as "+X pending".
 - From the private card to a transparent address, Confirm shows one notice
   above the slide: "This address is transparent. The amount and the recipient will
   be public on the blockchain."
@@ -905,6 +1049,48 @@ All launch types use these screens.
   (`src/utils/preconversion/`): reserve transfers with `preconvert` from the
   wallet's addresses to a pre-launch currency, with a wallet address as the
   destination. They show on every device and after a restore.
+
+### Advanced form
+
+Owner pick, 2026-11-20 (PR 266 pick ADV, option A "Same page", with the
+owner's changes). The manual form for every value of a conversion, a
+pre-conversion, a cross-chain transfer or an off-chain send is a step of the
+Convert wizard (lead developer: every such value can be entered by hand).
+
+- Entry: "Advanced form" is the one row of the wizard header's "More options"
+  menu (owner, 2026-11-22). The header action is a 44-point `dots-horizontal`
+  (`MaterialCommunityIcons`, 24 points, `textPrimary`), left of Close, labelled
+  "More options". It opens `OptionsSheet` (the Sheet action rows of the VerusID
+  ⋯ menu, no title) with the row "Advanced form" (`tune-variant` icon); the
+  form opens after the sheet has closed. The action shows on Convert to
+  (Convert), in every state of the list, and on Amount (Send) for a plain send
+  on a conversion-capable card only: not with a scanned request, an invoice,
+  a pre-conversion or a fixed recipient. Convert's Amount and every other
+  step show none. No page content links to the form, so the Convert to list
+  is a plain scrolling list that ends above the home indicator. Opened from
+  Amount, Back returns to Amount; an amount typed there is not carried over.
+- The step: `SendWizardHeader` with "Advanced form", Back, Close and one
+  44-point Info action (Lucide `Info`, 23 points, `textSubtle`) for the old
+  form's Help. Then a read-only "Send from" block: the `labelMd` label, a
+  24-point `AssetCoinLogo` and the card title (`CardTitle`). Then labelled
+  outline fields: Address (`AppAddressInput`, with "Address book" and "Self"
+  as small `TextAction`s under it), Amount (the ticker and the MAX chip at its
+  end), Convert to ("Preconvert to" while preconvert is on), Via, Export to,
+  Receive as (Ethereum cards, without a Convert to), and the "Send as
+  preconvert" switch. Free text everywhere; no pickers and no Memo. Each
+  field keeps the condition of upstream's form. Errors show under their
+  field; other errors above Continue.
+- Keyboard: `KeyboardAvoidingForm` and the focused-field reveal of the
+  VerusID forms (`useVerusIdFormScroll`), so the focused field and Continue
+  stay in view on both platforms.
+- Confirm keeps the old Confirm's facts on the wizard's pay node, flat rows
+  and slide, because the wizard's own Confirm prepares its transaction from
+  a route: To, From, Convert to, Estimated to receive, From and To network,
+  Also sent, Fees, Conversion fee, Arrives, Balance after. The old form's
+  notes become notices above the slide, including the centralized-currency
+  warning (an exception to the wizard Confirm, which omits it). It sends the
+  prepared transaction once, without a second preflight. The result uses
+  `TransactionResult` with the To row.
 
 When a repeated stepped layout cannot use the existing composition, extract or
 extend a shared primitive instead of making another local near-copy.
@@ -1012,15 +1198,17 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   whole list has 7 or more items (`APP_SEARCH_MIN_ITEMS`; owner, 2026-10-24).
   Up to 6 rows fit on the smallest phones without scrolling. Count the list
   before the search, so the field does not disappear while the user types.
+  Convert to matches names, tickers and network names anywhere in any case; a
+  currency id (i-address) matches only when the query equals it or is a
+  case-sensitive prefix of it, so "EUR" does not find an id that ends in
+  "…DDEUr" (`matchesTargetQuery`, orchestrator decision 2026-11-22).
   Without the field, the first row or group title starts 24 points under the
   header. The Add asset list keeps its field: it searches the whole catalogue
   and takes a pasted identifier.
 - The same rule applies to these sheets and screens (owner, 2026-10-24):
   "Choose an address" (its All / Addresses / VerusIDs chips and its chain chips
   hide with the field), Link VerusID (the list of VerusIDs found for the wallet
-  address; the field stays hidden while the lookup runs; "Enter VerusID
-  manually" shows only when the lookup fails or the network has no identity
-  index, as in the revoke and recover picker (owner, 2026-10-26)), Saved
+  address; the field stays hidden while the lookup runs), Saved
   addresses in Send (the recipient step passes in the count of addresses that
   fit the send, so the field does not pop in when the sheet finishes loading),
   "Choose a currency" and "Choose VerusIDs" in Build the gift, the Address book
@@ -1041,8 +1229,9 @@ Select asset in Send and Convert, and Convert to (owner, 2026-10-24).
   2026-10-25). A row shows its network only when the list has more than one
   network, and never when the network repeats the row's own name (a native
   coin such as VRSCTEST, "Verus Testnet"). A gift currency row shows its amount
-  without the ticker, because the row title names it. A card row without the
-  network line has one line and is 60 points high (72 with it). Gift currency
+  without the ticker, because the row title names it. A card row in the asset
+  screen's "Choose an address" is 60 points high: the name sits over the
+  network ticker (PR 266 review R8; owner, 2026-11-21). Gift currency
   and VerusID choices use the canonical `SelectionRow` at 56 points minimum;
   their title and value styles stay on the shared theme roles.
 - Below 7 items the address sheet grows past 76% when it must, up to 16 points
@@ -1080,6 +1269,15 @@ of the mockup on 2026-10-21):
   currency on the wallet's addresses waits under "New assets found" (owner,
   2026-10-26). A conversion or pre-conversion the user makes still adds its
   target, and a scanned request still asks "Add <name>?".
+- "Your assets" is in "My order" (see [Home asset order](#home-asset-order)).
+  In the All tab without a search, each row starts with a drag handle: the
+  Lucide `GripVertical` at 20 points in `textSubtle`, in a 28-point slot that
+  is the row's full height. A drag lifts the row onto `surface`
+  (`surfaceRaised` in dark mode) with 16-point corners and an iOS shadow
+  (a hairline `borderStrong` outline on Android), and the other rows make
+  room. The list scrolls by itself near its edges. The new order saves on
+  release. Screen readers get "Move up" and "Move down" actions on the handle.
+  The On Home and Hidden tabs and a search show no handles.
 - Below 7 assets, the search field and the All / On Home / Hidden tabs are
   hidden, and "Your assets" starts 24 points under the header. The count
   includes "New assets found" and ignores the selected tab and the search text
@@ -1096,8 +1294,13 @@ the selected canonical setting pattern.
 Recovery secrets (`src/containers/DisplaySeed`) show QR codes again (owner
 request, 2026-10-22):
 
+- The derived keys are under "Private keys for other wallets", with one line:
+  "Verus Mobile restores your wallet from the recovery secrets above. Use a
+  private key here when another wallet app asks for one." (owner, 2026-11-19,
+  PR 266 review R24 option A). The Ethereum key does not come from the words
+  in the standard way, so another app can need the key itself.
 - A revealed recovery secret, and a revealed private or spending key under
-  Advanced private keys, has a QR action left of its `CopyAction`. It matches
+  Private keys for other wallets, has a QR action left of its `CopyAction`. It matches
   CopyAction: a 44-point target with the Lucide `QrCode` icon at 18 points in
   `textSubtle`. Values of 1,000 characters or more get no QR action.
 - The action opens `RecoverySecretQrSheet` on the acknowledgement sheet
@@ -1115,9 +1318,11 @@ request, 2026-10-22):
 
 ## Asset screen balances
 
-The owner revised the pending-balance rule on 2026-10-26. It applies
-to `SignedInAssetHeader` and the asset screen's "Choose an address" sheet
-(`CoinCardPickerSheet`).
+The owner set the balance rule on 2026-11-19 (PR 266 review R13). It
+replaces the 2026-10-26 rule that showed totals with funds that still confirm.
+It applies to `SignedInAssetHeader`, the card stack and the asset screen's
+"Choose an address" sheet (`CoinCardPickerSheet`); "Balances" below says where
+else it applies.
 
 Owner approval, 2026-11-03: Final (E-r4, variant 5) replaces the carousel
 with a card stack and a persistent transactions sheet. It applies to the asset
@@ -1164,22 +1369,26 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   the picker retains all live pins. Its limit note stays through unpins until
   the count falls below the limit.
 - Strips expose 52 points (48 compact), with 24-point corners (22 compact)
-  and 20-point padding. Show the VerusID name, preserving its final @ with a
-  middle ellipsis, or the card type. Titles use `titleRow`; amounts are
+  and 20-point padding. The title is the card title of the Selection rule
+  above (owner, 2026-11-19, PR 266 review R8): the short address, VerusID name
+  or "Private", then " · <network>". The VerusID name keeps its final @ with a
+  middle ellipsis. Titles use `titleRow` (`titleRowCompact` on compact
+  screens, so the 6…6 address fits a 360-point phone); amounts are
   15-point bold tabular; fiat is 12-point medium at 86% white. On a strip the
   sync badge sits 10 points left of the amount on one line; on the front card
   it takes the fiat line under the amount. Keep the existing connection-error
   copy. Pressed strips
   get a 12% dark overlay. Selection moves cards with a 400 ms transform;
   Reduce Motion uses a short fade.
-- The front card is 140 points high (126 compact). Its quiet 12-point line
-  shows the address in monospace, truncated 8...8, or "VerusID". Its top-right
-  `CopyAction` keeps a 44-point target and copies the existing identifier.
-  The amount is 32-point bold tabular (28 compact), and fiat uses `labelSm`
-  at 86% white. One card uses 74 points (70 compact) and omits its amount and
-  fiat because the top row shows the total. Show "<ticker> network" at the
-  right of the quiet line only when the card's network differs from the coin's
-  own system. VRSC on VRSC shows no network line.
+- The front card is 120 points high (110 compact). It has no address or
+  network line, because its title carries both (owner, 2026-11-19, PR 266
+  review R8; this replaces the 8...8 quiet line and the rule "VRSC on VRSC
+  shows no network"). Its top-right `CopyAction` keeps a 44-point target and
+  copies the full address or the VerusID name. The amount starts 44 points
+  from the top (40 compact), is 32-point bold tabular (28 compact), and fiat
+  uses `labelSm` at 86% white. One card is a single 52-point title row (48
+  compact) and omits its amount and fiat because the top row shows the total;
+  its sync badge sits in that row, left of the copy action.
 - Materials are flat two-stop SVG gradients, top left to bottom right, in both
   themes. Transparent and other address types use #2B5CC2/#2350A6; Private uses
   #2C3544/#1C2330. VerusIDs use Jewel, in this hue order (mid, then deep):
@@ -1245,16 +1454,34 @@ folds into a bar that names the selected card.
   Keep Overview's rows, details sheet, empty/error/loading states and channel
   refresh behavior.
 
-- Every card and the asset total show the card's total, the number Home adds
-  up: confirmed funds plus funds that still confirm. Read it with
-  `getLedgerTotal`; do not show the confirmed balance on these screens.
-- Do not show a separate pending amount under a card's amount or in "Choose a
-  card". The total already includes it; readers added the second amount again.
+- Every card and the asset total show the confirmed balance, the number Home
+  adds up. Read it with `getShownBalance` (`src/utils/ledger/shownBalance.js`).
+  A Verus balance is `getaddressbalance`, as upstream reads it, with no
+  mempool read; an unconfirmed Verus transaction shows only as a "Pending"
+  history row.
+- Funds that still confirm on an Electrum coin or the private card show as one
+  warning `StatusBadge` next to the confirmed number, in coin units with its
+  sign: "+0.5 pending" or "−0.0012 pending" (mockup B). On the front card it
+  follows the fiat line (`variant="card"`, 1/6-point padding). With one card,
+  the card has no amount line, so the mark sits under the asset name in the
+  top row. Strips, "Choose an address", a syncing card and hidden balances
+  show no mark. Verus coins and Ethereum have no pending value and no mark.
 - While the private card syncs, keep "Syncing x%" in place of its fiat line.
-- Send keeps its own rule: the private card sends only confirmed funds (see
-  Private card sends).
 - Home opens the card the user chose. Without an explicit choice, it opens a
   funded card. If no card holds funds, it keeps the existing default.
+
+## Balances
+
+Owner decision, 2026-11-19 (PR 266 review R13): every balance shows confirmed
+funds only, as upstream does. An unconfirmed payment must not look like money
+the user has.
+
+- Home (the total and every row), the asset screen, Send and
+  Convert (Available, MAX, the source lists), Receive, Manage assets, the
+  VerusID funds and every picker read one value: `getShownBalance`.
+- Home shows no pending mark for any coin. Amount shows no pending line.
+- Only the asset screen shows a pending mark, and only for Electrum coins and
+  the private card (see [Asset screen balances](#asset-screen-balances)).
 
 ## Bridged asset line
 
@@ -1467,9 +1694,20 @@ The detail screen shows one fixed card and says each fact once.
   short windows) and the unit 20 points. The card does not flip. It has
   no swipe hint, no "VERUS GIFT CARD" label, and no issued date.
 - On the card: the card name (17-point semibold) and the status badge on the
-  top row. The first content item is large at the bottom ("25 VRSC"), and the
-  other items follow on one line ("+ sam@"). An empty card shows "No contents
-  yet". A claimed card shows "Empty". A pending amount is dimmed.
+  top row. The first content item is large at the bottom ("25 VRSC"), and a
+  count of the other items follows ("+ 2 more"; owner, 2026-11-19, PR 266
+  review gift card option B). An empty card shows "No contents yet". A
+  claimed card shows "Empty". A pending amount is dimmed.
+- Also included: under the share tiles, the other items of the card, one row
+  each, under the title "Also included" (`labelSm`, `textSecondary`). A row is
+  50 points minimum with hairline dividers, as the facts below: a 28-point
+  logo (`AssetCoinLogo`) or, for a VerusID, a 28-point `surfaceMuted` disc
+  with a 16-point `AtSign`; the name in `labelMd`; the amount in `bodyMd`, or
+  "VerusID" in `bodySm` `textSecondary`. A pending item adds a warning
+  `StatusBadge` "Pending" before its value. The list is flat: items carry no
+  system. A card with one item, an empty card and a claimed card show no
+  list. This deliberately repeats nothing the card shows, because the card
+  shows only the first item and the count.
 - Status: one badge on the card. Ready uses the success pair, Pending uses the
   warning pair, and Not funded, Shared, and Claimed use the neutral pair. The
   card material is dark, so the badge uses the dark-mode success and warning
@@ -1490,9 +1728,9 @@ The detail screen shows one fixed card and says each fact once.
   closed without a send. Opening the sheet therefore marks the card Shared,
   because the link may have left through Copy. Keep this (user decision,
   2026-10-15). On iOS a dismissed sheet leaves the card unshared.
-- Facts: label/value rows with hairline dividers under the card, only for facts
-  the card does not show: Shared, Claimed by, Claimed, Claim protection, and
-  Created. Copyable values use `CopyAction`.
+- Facts: label/value rows with hairline dividers under the card and the
+  contents list, only for facts neither shows: Shared, Claimed by, Claimed,
+  Claim protection, and Created. Copyable values use `CopyAction`.
 - Pending: one "Funding transaction" row with the transaction ID in monospace
   and `CopyAction`, and one line: "Sharing unlocks after it confirms."
 - Actions: a bottom primary action appears only when the card is not funded
@@ -1591,8 +1829,7 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   `TransactionResult`; Retry unlink is primary and never sends again.
 - Link is a full page with the multi-select `SelectionRow` rule above,
   search from 7 items, skeleton loading, a counted Link action,
-  failed rows first and still selected,
-  and the existing manual-link fallback after discovery failure. The page header
+  and failed rows first and still selected. The page header
   info action keeps the upstream linking explanation and wallet addresses in an
   `InfoSheet`. Do not invent
   a filtered-out count. Keep network choice when several networks are available.
@@ -1600,6 +1837,30 @@ and `IdentityLinking/LinkIdentities.js` under `VerusIdService`.
   at full opacity and dim only its name to 0.6. The row is read-only. Keep the
   checkbox role, checked and disabled states, and `<name>. Already linked` label.
   Management and Link hide the tab bar while active.
+- Manual entry is always there (owner, 2026-11-19, PR 266 review I1 option A;
+  it replaces ID-1.MANUAL-ROW of 2026-10-26). The lookup lists only VerusIDs
+  this wallet can spend from alone, so it leaves out locked and revoked
+  VerusIDs and VerusIDs that need other signers. The Link footer shows "Enter
+  VerusID manually" as a secondary `AppButton` under the Link action, with the
+  `caption` line "For VerusIDs that need other signers, or any VerusID by name
+  or i-address." under it. It shows in every state except while the lookup
+  runs; while linking it is disabled. When the lookup found nothing, it is the
+  only and primary button, without the line, and the empty state reads "No
+  VerusIDs this wallet can spend from were found on this network. To link a
+  VerusID that needs other signers, enter it manually." A failed lookup keeps
+  Try again as the primary action. The link sheet (sign-in and app-encryption
+  pickers, and the VerusID tab) and the revoke and recover picker show their
+  "Enter VerusID manually" action row in every state except loading. On an
+  empty revoke or recover lookup, the field offers it under "Try automatic
+  lookup again", and a single found target stays tappable to open the list.
+- Manual entry checks what upstream checks: the VerusID exists and one of its
+  primary addresses is a wallet address. Signatures from other signers are not
+  needed to link. The wallet's own Link links any status: a revoked VerusID
+  shows the danger `StatusBadge` "Revoked" next to its name on the review step
+  and the line "This VerusID is revoked. Linking shows it in your wallet. It
+  does not recover it." Request pickers keep the active-only rule, because the
+  linked VerusID must sign the request. No text says that the wallet can spend
+  alone from a VerusID that needs other signers.
 
 ### New VerusID registration
 
@@ -1643,13 +1904,21 @@ The keyboard footer keeps compact amount rows without a referral price line.
   reset the default; Back and Continue keep an explicit choice. The row prices
   and Check details split explain the discount and referral payment.
 - The namespace segment opens `SelectionSheet`. Use `AppSearchField` from
-  seven items, success fill/check for selection and no unselected chevron.
+  seven items, no unselected chevron, and the success fill with a 1-point
+  `success` outline and no check for the selected row (`SelectionRow
+  selectionMark="outline"`; owner, 2026-11-19, PR 266 review R5). This sheet
+  only: the check took width from the price. The row keeps its selected
+  accessibility state.
   Hide unavailable namespaces and list the chain's own namespace first, then A–Z.
   Search can explain a permanently unavailable match. A partial check failure
   keeps one muted context line and Try again. Owner-approved V1 keeps the
   canonical rows and uses `quietValue`: bodySm/textSecondary for the price,
-  caption/textSubtle for its fiat line. Token prices show only the number;
-  zero reads Free. The root keeps its ticker. Use exact SDK prices and engine
+  caption/textSubtle for its fiat line. Owner, 2026-11-19 (PR 266 review R5
+  option A): one right-aligned `caption` heading "Price" above the rows; every
+  price shows its currency ("100 kbc", "100 VRSCTEST"), and a price of 0 reads
+  "0 <currency>", never "Free". One `caption` footnote follows the rows:
+  "Every VerusID also needs a network fee of at least 0.0001 <native coin>."
+  Row labels for screen readers read "Price <amount> <currency>". Use exact SDK prices and engine
   quotes. Fiat uses the display currency and existing cached ledger exchange
   rates. Hide it when the exchange rate is unavailable; do not fall back to USD.
 - Explanations use `InfoSheetTopic` in `InfoSheet`; transaction details use `InfoSheetSection`.
@@ -1658,22 +1927,38 @@ The keyboard footer keeps compact amount rows without a referral price line.
 
 ## Home value chart
 
-Home starts with a closed 48-point value strip (44 on compact windows). Its
-44-point range label and down chevron open the chart. A strip tap also opens it;
-a horizontal scrub does not. Open keeps the 124-point chart (108 compact) and
-range row, with an up-chevron toggle at its end. The phone remembers open or
-closed across accounts and restarts, without an opening animation on load.
-Height changes take 240 ms with the V2 ease-out curve. Redraw the line without
-scaling it; Reduce Motion is instant. During a closed-strip scrub, the date
-replaces the hero pill and the eye and plus fade out. Keep the existing chart
-tokens, loading skeletons, hidden balances, and day-one behavior.
+Removed 2026-11-20 (PR 266 F1, lead developer): Home has no value chart, chart strip or price history.
 
-The Home total and the chart count only the assets with "Show on Home" on
-(owner, 2026-11-16). The phone still records the amount of a hidden asset, so
-a hide or a show changes the whole line and makes no jump. The chart draws at
-once from the prices saved on the phone and replaces them when new prices
-arrive. Show the loading skeletons only when the phone has no saved prices for
-an asset on Home, or while the total is not known.
+## Home asset order
+
+The owner chose option B on 2026-11-19 (PR 266 review R2). A wallet list must
+not move by itself.
+
+- Home sorts its rows in "My order" by default. A balance or price change
+  never moves a row.
+- The user sets "My order" with drag handles in Manage assets. Without a saved
+  order, it is the order in which the assets were added to the phone. A new or
+  added-back asset goes to the end. A removed asset leaves no gap. A hidden
+  asset keeps its place.
+- Under the notices, a 32-point right-aligned line names the current sort:
+  two buttons (owner, 2026-11-21): the icon alone reverses the order of the rows
+  ("Reverse order", `selected` when reversed; Lucide `ArrowDownUp`, and
+  `ArrowUpDown` when reversed), and the sort name in `labelSm` with `ChevronDown`
+  opens "Sort assets". All 16 points and in `link`, each with a 44-point high
+  target and no shared slop. It shows from two rows on Home and scrolls with
+  the rows. Reversed is the exact reverse of the list that the sort gives; the
+  direction is saved with the sort as `sortReversed`, and choosing another sort
+  sets it back to normal. "My order" and Manage assets never change.
+- The name button opens "Sort assets", a `SelectionSheet` with single-choice
+  `SelectionRow`s: "My order" ("Change it in Manage assets"), "Balance"
+  (no subtitle, owner 2026-11-21) and "Name". The current sort has the
+  success fill and check; other rows have no chevron. The choice applies after
+  the sheet closes.
+- Balance keeps the earlier rule: funded assets first, then the higher money
+  value, then assets with a price, then the name. Name ignores case. Ties keep
+  "My order".
+- The order and the sort are asset choices: they are stored with them in the
+  profile's encrypted service data, per network (PR 266 review R22).
 
 ## Home notification card
 
@@ -1681,6 +1966,12 @@ The owner chose card A on 2026-10-22 (gap 5 mockups). On 2026-11-04, the owner
 chose look A of the notice-size mockups: the same layout, scaled down.
 A VerusID request
 (`NotificationWidget.js`) shows one card under the Home balance.
+
+Owner pick, 2026-11-19 (PR 266 review PF1, option A): the Home notice and the
+notification cards are the first part of the asset list header, above the
+sort line. They scroll away with the assets, so the assets and the Receive,
+Send and Convert bar stay reachable at any count. Every card stays. The gap
+under the balance stays 20 points, with 8 points below the cards.
 
 - `surfaceMuted` fill, 16-point corners, no border. Padding is 12 points at the
   top and bottom and 14 on the left. Right padding is 0 with a close target,
@@ -1765,7 +2056,8 @@ welcome card the same day (option D of the empty-Home mockups).
      for percent changes. Close hides it until the wallet opens again. Keep
      this dismissal in memory only.
   5. The wallet is empty: every transparent and VerusID card of every asset,
-     hidden ones too, is known to hold 0, pending funds included, and nothing
+     hidden ones too, is known to hold 0, pending funds included where the
+     channel reports them (Electrum, the private card), and nothing
      was found or pre-converted: "**Your wallet is empty.** Receive coins to
      start." with "Receive", which opens the Receive list. A private card that
      has not synced does not block it.
@@ -1866,8 +2158,9 @@ paper slip for Request ready on 2026-10-20.
   `close` icon in a 44-point target) leaves Receive in one tap: it also closes
   the "Receive assets" list when Receive opened from it (owner, 2026-10-26). A
   40-point asset logo sits beside `headlineMd`. Under the name, show only the
-  selected card type and its network. With several cards, that line opens
-  "Choose an address" and has a 44-point touch target.
+  selected card's title (the Selection rule above: "RT7d8L…HcM3Wy · VRSC").
+  With several cards, that line opens "Choose an address" and has a 44-point
+  touch target.
 - Center the QR and address group in the remaining space; scroll when needed.
   The QR tile stays white in both themes, with 16-point padding, a 20-point
   radius, and a 216-point QR (184 on small screens; on windows of 640 points
@@ -1879,9 +2172,8 @@ paper slip for Request ready on 2026-10-20.
   middle ellipsis; `CopyAction` is the copy path.
 - Show no supported-chain claim or repeated card/address metadata. The safe
   footer has Share address, then Request amount as a secondary action.
-- "Choose an address" titles each card by type ("Transparent", "Private") or by
-  its VerusID name, with a transparent card's short address as a monospace
-  subtitle, so the chooser matches the context line.
+- "Choose an address" titles each card with the same card title, so the
+  chooser matches the context line.
 - Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
   and 1, the Send 40/48 amount field (it shrinks to 20 points to keep the
   amount and its unit on one line) and conversion chip, and `FlatRow` for
@@ -1969,16 +2261,26 @@ steps and keep their own screens and alerts (owner decision, 2026-10-21).
   It reads the percent only (owner, 2026-11-13). The chip opens `PriceRouteSheet`
   in pay mode: every basket with
   its cost, cheapest first (only the best gets "Best price"), then Market price, Your
-  price and Price impact; a choice changes the row. A basket that is the requested
+  price and Estimated slippage; a choice changes the row. A basket that is the requested
   or the paying currency itself counts as "Direct". There is no "Use … instead"
   suggestion. A currency on several cards shows no source count and opens
   "Choose an address" (owner, 2026-11-12). The step is skipped when the invoice
   allows no conversion and one card can pay.
 - Confirm adds "Request from" (signed invoices only), "From" (only after a card
-  choice), "Expires" and "Invoice details". Its Price impact badge reads the percent only, and
+  choice; the card title, copying the full address or VerusID name), "Expires" and "Invoice details". Its Est. slippage badge reads the percent only, and
   the money is what the user pays on top of the market price. It always pays through the
-  currency-transfer path. Tagged invoices are not supported yet, so the payment
-  carries no invoice tag. It refuses a payment that the fee would shrink.
+  currency-transfer path, so the payment carries the invoice tag. It refuses a payment that the fee would shrink.
+- A tagged invoice says so (owner, 2026-11-19, PR 266 review R10 option A).
+  The request review (under the amount) and Pay with (under the slip) show one
+  notice with no tap: "Tagged invoice" in `labelSm`, then "This payment
+  carries a public tag. Anyone with the invoice or the tag can find it and see
+  which addresses paid. This lowers your privacy." It uses the invoice notice
+  box (`warningBackground`, 12-point corners, 16-point padding). Confirm adds
+  a "Tag | Public" row after To. "Invoice details" and the requester sheet show
+  "Tag" (the tag name, for a name tag) and "Tag address" (the X-address, with
+  `CopyAction`). An untagged invoice shows none of these. The payment comes
+  from a transparent address or a VerusID: the currency-transfer preflight has
+  no private channel, so "see which addresses paid" holds.
 - When this device already paid the invoice, Confirm shows one notice above
   the slide ("You paid this invoice on <date>. Paying again sends a second
   payment.") and an "Earlier payment" row with the short transaction ID. After a
