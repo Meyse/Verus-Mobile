@@ -337,6 +337,8 @@ export const FlatRow = ({
   strong = false,
   value,
   valueStyle,
+  // A long label wraps; the value keeps at least this width.
+  valueMinWidth,
 }) => {
   const theme = useOnboardingTheme();
   const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {haptic: true});
@@ -358,7 +360,7 @@ export const FlatRow = ({
           {detail}
         </View>
       ) : labelText}
-      <View style={[styles.flatValueWrap, detail && styles.flatValueWrapFixed]}>
+      <View style={[styles.flatValueWrap, detail && styles.flatValueWrapFixed, valueMinWidth != null && {minWidth: valueMinWidth}]}>
         <CopyFeedback copied={copied} style={[styles.flatCopyValue, detail && styles.flatValueWrapFixed]}>
           <View style={styles.flatValueContent}>
             {children || (
