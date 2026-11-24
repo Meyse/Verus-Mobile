@@ -220,7 +220,7 @@ const SendWizardAdvancedConfirm = () => {
         ? facts.fees.map(item => `${item.amount.toFixed()} ${item.name}`).join('\n')
         : `0 ${ticker}`,
     },
-    facts.conversionFee ? {label: 'Conversion fee', value: facts.conversionFee} : null,
+    facts.conversionFee ? {label: 'Conversion fee (taken from send amount)', value: facts.conversionFee} : null,
     facts.arrives ? {label: 'Arrives', value: `In ${facts.arrives}`} : null,
     facts.remaining.length
       ? {
