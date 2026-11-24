@@ -1181,7 +1181,6 @@ const useConvertOrCrossChainForm = ({
             : `Not enough ${coinObj.display_ticker} for this amount plus the network fee.`,
         );
       } else if (!showFundRawTransactionErrorAlert(e)) {
-        console.warn(e);
         // A refusal with a reason (from this app's checks or the node) shows
         // that reason, as upstream's form did. Only a request that got no
         // answer, or an error without a reason, asks to check the connection.
