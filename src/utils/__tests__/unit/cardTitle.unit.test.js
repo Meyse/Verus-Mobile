@@ -78,6 +78,26 @@ describe('card title', () => {
     expect(title.chainLabel).toBeNull();
   });
 
+  // An exported VerusID keeps its name on the other chain: the suffix is its
+  // parent, not the chain the card is on (owner question, 2026-11-25).
+  it('labels an exported VerusID by the chain the card is on', () => {
+    const vdex = 'iHog9UCTrn95qpUBFCZ7kKz7qWdMA8MQ6N';
+    const card = network => ({
+      id: `SUBWALLET_vrpc.iMax.${network}`,
+      channel: `vrpc.iMax.${network}`,
+      name: 'max.vDEX@',
+      network,
+    });
+
+    const onVerus = getSubWalletCardTitle(card(VRSC_SYSTEM), {
+      coin: coinsList.VRSC,
+    });
+    const onVdex = getSubWalletCardTitle(card(vdex), {coin: coinsList.VRSC});
+
+    expect(onVerus.text).toBe('max.vDEX@ on Verus');
+    expect(onVdex.chainLabel).toBeNull();
+  });
+
   it('names the private card "Private" with its chain', () => {
     const wallet = {
       id: 'PRIVATE_WALLET',
