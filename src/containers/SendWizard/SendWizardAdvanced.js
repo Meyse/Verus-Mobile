@@ -4,6 +4,7 @@ import {useNavigation} from '@react-navigation/native';
 import {useHeaderHeight} from '@react-navigation/elements';
 import {Info} from 'lucide-react-native';
 import AppAddressInput from '../../components/AppAddressInput';
+import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSwitch from '../../components/AppSwitch';
 import AppTextInput from '../../components/AppTextInput';
 import CardTitle from '../../components/CardTitle';
@@ -64,7 +65,7 @@ const SendWizardAdvanced = () => {
   const {state, setAdvancedReview} = useSendWizard();
   const {sourceCoin, sourceSubWallet} = state;
   const activeAccount = useObjectSelector(value => value.authentication.activeAccount);
-  const [data, setData] = useState(() => getAdvancedFormData(sourceCoin));
+  const [data, setData] = useState(() => getAdvancedFormData(sourceCoin, CONVERSION_DISABLED));
   const [preparing, setPreparing] = useState(false);
   const [selfOpen, setSelfOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
