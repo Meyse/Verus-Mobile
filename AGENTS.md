@@ -27,7 +27,7 @@ This file is a compact map for Codex-style agents working in Verus Mobile. Keep 
 - When creating agent-run QA reports, investigation logs, or other working notes that the user did not explicitly request as repository documentation, use a `*.local.md` filename. Keep these files local and never stage or commit them.
 - Read the relevant container, selector, reducer, and utility before editing behavior.
 - Do not guess wallet, transaction, address, PBaaS, VerusID, or key-management data shapes. Trace them from reducers, selectors, `CoinDirectory`, and channel handlers.
-- Treat private keys, seeds, addresses, identity records, balances, transactions, and QR/deeplink payloads as sensitive. Designated disposable test-only credentials may be used for QA under the exception below.
+- Treat private keys, seeds, addresses, identity records, balances, transactions, and QR/deeplink payloads as sensitive.
 - Preserve existing Redux action and interval-channel contracts unless the task explicitly changes them.
 - For legacy-only maintenance, preserve the existing React Native Paper, React Navigation, shared `Styles`, and `src/globals/colors.js` patterns. For new or intentionally redesigned UI, follow `DESIGN.md` and its semantic theme and canonical-component routes.
 - For reusable UI primitives or repeated screen patterns, prefer focused style modules under `src/styles/components/*.styles.js` exported from `src/styles/index.js`; keep one-off screen layout styles local with `StyleSheet.create`.
