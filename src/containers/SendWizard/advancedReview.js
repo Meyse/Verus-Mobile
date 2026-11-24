@@ -91,6 +91,9 @@ export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate})
       : null,
     convertToName: isConversion ? name(convertto) : null,
     estimated: isConversion ? estimated : null,
+    // A conversion (not a pre-conversion) with no estimate: the old form
+    // warned it, and so does the wizard's Confirm.
+    noEstimate: isConversion && !preconvert && estimated == null,
     highSlippage,
     // A currency whose controller can mint (proof protocol 2).
     centralized:

@@ -178,6 +178,9 @@ const SendWizardAdvancedConfirm = () => {
     facts.preconvert
       ? `${facts.convertToName} hasn’t launched yet. You receive the converted funds when it launches, or a refund if it does not.`
       : null,
+    facts.noEstimate
+      ? 'Could not calculate an estimated result for this conversion.'
+      : null,
     facts.highSlippage
       ? 'The estimate changed a lot because of low liquidity. Check the amount you receive.'
       : null,
