@@ -7,6 +7,7 @@ import {satsToCoins, truncateDecimal} from '../../utils/math';
 import {useSendWizard} from './SendWizardContext';
 import {TransferNode} from './components/TransferSummary';
 import {FlatRow} from './components/WizardUI';
+import {getAdvancedResultCaption} from './advancedReview';
 import {getExplorerTxUrl} from './wizardUtils';
 
 const MONOSPACE = Platform.select({ios: 'Menlo', default: 'monospace'});
@@ -69,9 +70,7 @@ const SendWizardAdvancedResult = () => {
         ) : null
       }
       caption={
-        output.convertto || output.exportto
-          ? 'Conversions and cross-chain transfers can take a few minutes to complete after they confirm.'
-          : 'You can follow the transaction from this Asset’s activity.'
+        getAdvancedResultCaption(output)
       }
       details={
         destination ? (

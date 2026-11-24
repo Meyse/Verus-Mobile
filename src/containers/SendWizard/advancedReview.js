@@ -123,3 +123,11 @@ export const getAdvancedReview = ({preflight, balances, coinObj, priceEstimate})
     remaining: amounts(remaining, true),
   };
 };
+
+// The caption of the result page. A burn gets upstream's explanation.
+export const getAdvancedResultCaption = output =>
+  output?.burn === true
+    ? 'The amount will be removed from circulation when the transaction is processed, reducing the currency’s total supply. The burn output address identifies the transaction but does not receive the amount.'
+    : output?.convertto || output?.exportto
+    ? 'Conversions and cross-chain transfers can take a few minutes to complete after they confirm.'
+    : 'You can follow the transaction from this Asset’s activity.';
