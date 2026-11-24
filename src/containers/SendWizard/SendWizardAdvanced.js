@@ -328,20 +328,28 @@ const SendWizardAdvanced = () => {
                     })
                   : null}
                 {showPreconvert ? (
-                  <View style={styles.switchRow}>
+                  <Pressable
+                    accessibilityLabel="Send as preconvert"
+                    accessibilityRole="switch"
+                    accessibilityState={{checked: preconvert, disabled: !advanced || preparing}}
+                    disabled={!advanced || preparing}
+                    onPress={() => update(SEND_MODAL_IS_PRECONVERT, !preconvert)}
+                    style={styles.switchRow}>
                     <Text style={[theme.typography.bodyMd, styles.switchLabel, {color: theme.colors.textPrimary}]}>
                       Send as preconvert
                     </Text>
-                    <View style={styles.switchSlot}>
+                    <View
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                      pointerEvents="none"
+                      style={styles.switchSlot}>
                       <AppSwitch
-                        accessibilityLabel="Send as preconvert"
                         color={theme.colors.success}
                         disabled={!advanced || preparing}
-                        onValueChange={value => update(SEND_MODAL_IS_PRECONVERT, value)}
                         value={preconvert}
                       />
                     </View>
-                  </View>
+                  </Pressable>
                 ) : null}
               </>
             )}
