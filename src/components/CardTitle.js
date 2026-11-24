@@ -13,7 +13,8 @@ const MONOSPACE_FONT = Platform.select({ios: 'Menlo', default: 'monospace'});
 // accessibility.
 //
 // Three layouts:
-// - default: one line, "name on Verus", the chain words in `chainColor`.
+// - default: "name on Verus", the chain words in `chainColor`; they wrap
+//   whole to a second line when the line is too short.
 // - `stacked` (asset cards): the chain words on a second line under the name,
 //   drawn in `captionDense` in `chainColor`.
 // - `nameOnly` (choosers): only the name shows, filling the line; the caller
@@ -78,15 +79,8 @@ const CardTitle = ({
       style={[styles.row, containerStyle]}>
       {nameText}
       {showChain ? (
-        <Text
-          ellipsizeMode="tail"
-          numberOfLines={1}
-          style={[
-            style,
-            title.isAddress ? styles.name : styles.chain,
-            {color: quiet},
-          ]}>
-          {` ${title.chainLabel}`}
+        <Text numberOfLines={1} style={[style, styles.chain, {color: quiet}]}>
+          {title.chainLabel}
         </Text>
       ) : null}
     </View>
@@ -94,7 +88,16 @@ const CardTitle = ({
 };
 
 const styles = StyleSheet.create({
-  row: {flexDirection: 'row', alignItems: 'flex-start', minWidth: 0},
+  // The chain words never shorten: when "name on Verus Testnet" does not fit
+  // one line (a 360-point Android phone, 2026-11-25), they wrap whole to a
+  // second line. The column gap stands in for the space between the parts.
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    columnGap: 5,
+    minWidth: 0,
+  },
   column: {minWidth: 0},
   name: {flexShrink: 1},
   fill: {flex: 1, minWidth: 0},
