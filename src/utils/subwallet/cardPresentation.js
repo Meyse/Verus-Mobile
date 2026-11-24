@@ -101,7 +101,7 @@ export const shortenAddress = address => truncateMiddle(address, 6, 6, '…');
 // chains (VRSC, VRSCTEST and PBaaS chains) get one: an Ethereum, Bitcoin or
 // other Electrum card shows none, because its address already says the chain.
 // VRSC reads "Verus", VRSCTEST "Verus Testnet" and any other PBaaS chain its
-// short ticker ("vETH", "vARRR"), never a long display name.
+// short ticker ("vDEX", "vARRR"), never a long display name.
 const isVerusChainCoin = networkCoin =>
   Boolean(
     networkCoin?.tags?.includes(IS_VERUS) ||
@@ -115,10 +115,30 @@ const getChainName = (systemId, networkCoin) => {
   return networkCoin?.display_ticker || getNetworkTicker(systemId) || null;
 };
 
+// A currency's "system" is not always a chain: the bridged ".vETH"
+// currencies (DAI.vETH, USDC.vETH, ...) name the vETH bridge as their
+// system, and vETH itself lives on Verus. Follow the systems up to one that
+// is its own system (VRSC, VRSCTEST, vDEX, vARRR, CHIPS): that is the chain
+// the funds are on (owner, 2026-11-25: there is no "on vETH").
+const resolveChainSystemId = systemId => {
+  let current = systemId;
+  for (let hop = 0; hop < 4; hop += 1) {
+    const systemCoin = getCoinForSystem(current);
+    const parent = systemCoin?.system_id;
+    if (!parent || parent === current) return current;
+    current = parent;
+  }
+
+  return current;
+};
+
 // Returns {name, ticker} of the Verus chain the card is on, or null.
 const getCardVerusChain = (wallet, coin) => {
-  const systemId = wallet?.network || coin?.system_id;
-  if (typeof systemId !== 'string' || systemId.length === 0) return null;
+  const rawSystemId = wallet?.network || coin?.system_id;
+  if (typeof rawSystemId !== 'string' || rawSystemId.length === 0) return null;
+  const systemId = rawSystemId.startsWith('.')
+    ? rawSystemId
+    : resolveChainSystemId(rawSystemId);
   // Ethereum and Electrum systems (".eth", ".btc", ".kmd") are not Verus.
   if (systemId.startsWith('.')) return null;
 

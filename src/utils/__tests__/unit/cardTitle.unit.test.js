@@ -118,9 +118,8 @@ describe('card title', () => {
     expect(title.chainLabel).toBeNull();
   });
 
-  it('names the cards of an asset on two networks apart', () => {
-    // The vETH system.
-    const other = 'i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X';
+  it('names the cards of an asset on two chains apart', () => {
+    const vdex = 'iHog9UCTrn95qpUBFCZ7kKz7qWdMA8MQ6N';
     const card = network => ({
       id: `SUBWALLET_vrpc.${ADDRESS}.${network}`,
       channel: `vrpc.${ADDRESS}.${network}`,
@@ -132,13 +131,34 @@ describe('card title', () => {
       address: ADDRESS,
       coin: coinsList.VRSC,
     });
-    const bridged = getSubWalletCardTitle(card(other), {
+    const other = getSubWalletCardTitle(card(vdex), {
       address: ADDRESS,
       coin: coinsList.VRSC,
     });
 
     expect(own.text).toBe('RT7d8L…HcM3Wy on Verus');
-    expect(bridged.text).toBe('RT7d8L…HcM3Wy on vETH');
+    expect(other.text).toBe('RT7d8L…HcM3Wy on vDEX');
+  });
+
+  // Owner, 2026-11-25: there is no "on vETH". A .vETH currency names the
+  // vETH bridge as its system, but its funds are on the Verus chain.
+  it('names a bridged .vETH currency card "on Verus", never "on vETH"', () => {
+    const dai = coinsList.iGBs4DWztRNvNEJBt4mqHszLxfKTNHTkhM;
+    const mainCard = {id: 'MAIN_WALLET', channel: 'vrpc', name: 'Main'};
+    const bridgeCard = {
+      id: `SUBWALLET_vrpc.${ADDRESS}.${dai.system_id}`,
+      channel: `vrpc.${ADDRESS}.${dai.system_id}`,
+      name: 'RT7d8...cM3Wy',
+      network: dai.system_id,
+    };
+
+    expect(
+      getSubWalletCardTitle(mainCard, {address: ADDRESS, coin: dai}).chainLabel,
+    ).toBe('on Verus');
+    expect(
+      getSubWalletCardTitle(bridgeCard, {address: ADDRESS, coin: dai})
+        .chainLabel,
+    ).toBe('on Verus');
   });
 
   it('names a VRSCTEST card "on Verus Testnet", never the ticker', () => {

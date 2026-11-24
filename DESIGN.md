@@ -314,7 +314,7 @@ address never shortens below 6…6.
 A card on a Verus chain (VRSC, VRSCTEST or a PBaaS chain) adds the quiet words
 "on Verus" as `chainLabel`; `text` joins name and words ("RT7d8L…HcM3Wy on
 Verus"). The words name the chain: "Verus" for VRSC, "Verus Testnet" for
-VRSCTEST, the short ticker for any other PBaaS chain ("on vETH", "on vARRR"),
+VRSCTEST, the short ticker for any other PBaaS chain ("on vDEX", "on vARRR"),
 never the ticker "VRSC" and never a long display name. Ethereum (ETH, gETH and
 ERC-20 cards), Bitcoin, BTCTEST and other Electrum cards have no label: their
 address already says the chain. A VerusID name that ends in ".<chain
