@@ -347,6 +347,7 @@ const SendWizardAdvanced = () => {
                       <AppSwitch
                         color={theme.colors.success}
                         disabled={!advanced || preparing}
+                        focusable={false}
                         value={preconvert}
                       />
                     </View>
