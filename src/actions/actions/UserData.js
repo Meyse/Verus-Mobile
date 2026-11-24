@@ -1,7 +1,6 @@
 import {deleteAssetDiscoveryCache} from '../../utils/assets/assetDiscoveryCache';
 import {
   closeAssetChoices,
-  deleteAssetChoices,
   forgetAssetChoices,
   reopenAssetChoices,
 } from '../../utils/assets/assetChoicesStorage';
@@ -363,11 +362,6 @@ export const deleteProfile = async (account, dispatch) => {
         await deleteAssetDiscoveryCache(account.accountHash);
       } catch (error) {
         console.warn('Could not delete the found-assets cache.', error);
-      }
-      try {
-        await deleteAssetChoices(account.accountHash);
-      } catch (error) {
-        console.warn('Could not delete the old plain asset choices.', error);
       }
       try {
         await deleteAccountWalletUiSettings(account.accountHash);
