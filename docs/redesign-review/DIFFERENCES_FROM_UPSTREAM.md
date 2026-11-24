@@ -137,7 +137,7 @@ How the upstream suites were updated:
 
 ## Jest status
 
-**Now (2026-11-24).** The unit suites ran once on the trial merge of the PR branch with `redesign` `c82b61e9` (that merge contains upstream `430268ad`), without the live-network folders `src/utils/__tests__/int` and `src/utils/__tests__/api`: 2979 of 2982 tests pass. The 3 failures are the 2 `identityRegistrationScreens` tests below and 1 `giftCard` test ("uses RPC-shaped expected IDs from funding history"). The `giftCard` test also failed on upstream `525aa859` in the run of 2026-11-16; it was not run on `430268ad`. The full suite with the live-network tests did not run after 2026-11-17.
+**Now (2026-11-24).** The unit suites ran on the merge of the PR branch with `redesign` `8d161296` (PR branch head `90d646a8`, which contains upstream `430268ad`), without the live-network folders `src/utils/__tests__/int` and `src/utils/__tests__/api`: 2978 of 2981 tests pass. The 3 failures are the 2 `identityRegistrationScreens` tests below and 1 `giftCard` test ("uses RPC-shaped expected IDs from funding history"). The `giftCard` test also failed on upstream `525aa859` in the run of 2026-11-16; it was not run on `430268ad`. The full suite with the live-network tests did not run after 2026-11-17.
 
 **Earlier full runs.** Full suite, same machine, `--maxWorkers=3`. Upstream ran on 2026-11-16. The PR branch ran three times on 2026-11-17, each time with the same result.
 
