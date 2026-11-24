@@ -178,6 +178,9 @@ const SendWizardAdvancedConfirm = () => {
     facts.preconvert
       ? `${facts.convertToName} hasn’t launched yet. You receive the converted funds when it launches, or a refund if it does not.`
       : null,
+    facts.noEstimate
+      ? 'Could not calculate an estimated result for this conversion.'
+      : null,
     facts.highSlippage
       ? 'The estimate changed a lot because of low liquidity. Check the amount you receive.'
       : null,
@@ -199,8 +202,8 @@ const SendWizardAdvancedConfirm = () => {
     facts.convertTo
       ? {label: facts.preconvert ? 'Preconvert to' : 'Convert to', value: facts.convertTo, copy: true}
       : null,
-    facts.isConversion && !facts.preconvert
-      ? {label: 'Estimated to receive', value: facts.estimated || 'Estimate unavailable'}
+    facts.isConversion && facts.estimated
+      ? {label: 'Estimated to receive', value: facts.estimated}
       : null,
     facts.toNetwork && review.networkName ? {label: 'From network', value: review.networkName} : null,
     facts.toNetwork ? {label: 'To network', value: facts.toNetwork, copy: true} : null,
@@ -217,7 +220,7 @@ const SendWizardAdvancedConfirm = () => {
         ? facts.fees.map(item => `${item.amount.toFixed()} ${item.name}`).join('\n')
         : `0 ${ticker}`,
     },
-    facts.conversionFee ? {label: 'Conversion fee', value: facts.conversionFee} : null,
+    facts.conversionFee ? {label: 'Conversion fee (taken from send amount)', value: facts.conversionFee, valueMinWidth: 132} : null,
     facts.arrives ? {label: 'Arrives', value: `In ${facts.arrives}`} : null,
     facts.remaining.length
       ? {
@@ -250,6 +253,7 @@ const SendWizardAdvancedConfirm = () => {
               label={row.label}
               numberOfLines={0}
               value={row.value}
+              valueMinWidth={row.valueMinWidth}
               valueStyle={row.mono ? styles.mono : undefined}
             />
           ))}

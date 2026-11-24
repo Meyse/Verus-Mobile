@@ -337,6 +337,8 @@ export const FlatRow = ({
   strong = false,
   value,
   valueStyle,
+  // A long label wraps; the value keeps at least this width.
+  valueMinWidth,
 }) => {
   const theme = useOnboardingTheme();
   const {copied, canCopy, copyProps} = useCopyFeedback(copyValue, {haptic: true});
@@ -358,7 +360,7 @@ export const FlatRow = ({
           {detail}
         </View>
       ) : labelText}
-      <View style={[styles.flatValueWrap, detail && styles.flatValueWrapFixed]}>
+      <View style={[styles.flatValueWrap, detail && styles.flatValueWrapFixed, valueMinWidth != null && {minWidth: valueMinWidth}]}>
         <CopyFeedback copied={copied} style={[styles.flatCopyValue, detail && styles.flatValueWrapFixed]}>
           <View style={styles.flatValueContent}>
             {children || (
@@ -574,7 +576,7 @@ const styles = StyleSheet.create({
   flatLabelColumn: {flex: 1, minWidth: 0, marginRight: 8},
   flatLabelWithDetail: {marginRight: 0},
   flatValueWrapFixed: {flex: 0, flexShrink: 0},
-  flatLabel: {fontSize: 14, lineHeight: 19, marginRight: 16, ...fontStyle('regular')},
+  flatLabel: {flexShrink: 1, fontSize: 14, lineHeight: 19, marginRight: 16, ...fontStyle('regular')},
   flatLabelStrong: {marginRight: 16},
   flatValueWrap: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end'},
   flatCopyValue: {flex: 1, minWidth: 0},

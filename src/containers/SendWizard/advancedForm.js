@@ -20,9 +20,10 @@ import {
 // The unguided form of the wallet before the redesign (PR 266 feedback F7):
 // the user enters every value of a conversion, a pre-conversion, a
 // cross-chain transfer or an off-chain send by hand. These are the fields of
-// upstream's "Advanced" choice on the Send tab (SendCoin.js). The wizard's
+// upstream's "Advanced" choice on the Send tab (SendCoin.js). With conversion
+// disabled, Convert to, Via and the pre-conversion switch are hidden, as there. The wizard's
 // Advanced form step (SendWizardAdvanced, PR 266 pick ADV) starts from them.
-export const getAdvancedFormData = coin => ({
+export const getAdvancedFormData = (coin, conversionDisabled = false) => ({
   [SEND_MODAL_TO_ADDRESS_FIELD]: '',
   [SEND_MODAL_AMOUNT_FIELD]: '',
   [SEND_MODAL_MEMO_FIELD]: '',
@@ -32,12 +33,12 @@ export const getAdvancedFormData = coin => ({
   [SEND_MODAL_MAPPING_FIELD]: '',
   [SEND_MODAL_PRICE_ESTIMATE]: null,
   [SEND_MODAL_IS_PRECONVERT]: false,
-  [SEND_MODAL_SHOW_CONVERTTO_FIELD]: true,
+  [SEND_MODAL_SHOW_CONVERTTO_FIELD]: !conversionDisabled,
   [SEND_MODAL_SHOW_EXPORTTO_FIELD]: true,
   [SEND_MODAL_SHOW_MAPPING_FIELD]: coin?.proto === 'erc20' || coin?.proto === 'eth',
-  [SEND_MODAL_SHOW_VIA_FIELD]: true,
+  [SEND_MODAL_SHOW_VIA_FIELD]: !conversionDisabled,
   [SEND_MODAL_ADVANCED_FORM]: true,
-  [SEND_MODAL_SHOW_IS_PRECONVERT]: true,
+  [SEND_MODAL_SHOW_IS_PRECONVERT]: !conversionDisabled,
   [SEND_MODAL_DISABLED_INPUTS]: {},
 });
 

@@ -4,6 +4,7 @@ import {useNavigation} from '@react-navigation/native';
 import {useHeaderHeight} from '@react-navigation/elements';
 import {Info} from 'lucide-react-native';
 import AppAddressInput from '../../components/AppAddressInput';
+import {CONVERSION_DISABLED} from '../../../env/index';
 import AppSwitch from '../../components/AppSwitch';
 import AppTextInput from '../../components/AppTextInput';
 import CardTitle from '../../components/CardTitle';
@@ -64,7 +65,7 @@ const SendWizardAdvanced = () => {
   const {state, setAdvancedReview} = useSendWizard();
   const {sourceCoin, sourceSubWallet} = state;
   const activeAccount = useObjectSelector(value => value.authentication.activeAccount);
-  const [data, setData] = useState(() => getAdvancedFormData(sourceCoin));
+  const [data, setData] = useState(() => getAdvancedFormData(sourceCoin, CONVERSION_DISABLED));
   const [preparing, setPreparing] = useState(false);
   const [selfOpen, setSelfOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -328,20 +329,29 @@ const SendWizardAdvanced = () => {
                     })
                   : null}
                 {showPreconvert ? (
-                  <View style={styles.switchRow}>
+                  <Pressable
+                    accessibilityLabel="Send as preconvert"
+                    accessibilityRole="switch"
+                    accessibilityState={{checked: preconvert, disabled: !advanced || preparing}}
+                    disabled={!advanced || preparing}
+                    onPress={() => update(SEND_MODAL_IS_PRECONVERT, !preconvert)}
+                    style={styles.switchRow}>
                     <Text style={[theme.typography.bodyMd, styles.switchLabel, {color: theme.colors.textPrimary}]}>
                       Send as preconvert
                     </Text>
-                    <View style={styles.switchSlot}>
+                    <View
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                      pointerEvents="none"
+                      style={styles.switchSlot}>
                       <AppSwitch
-                        accessibilityLabel="Send as preconvert"
                         color={theme.colors.success}
                         disabled={!advanced || preparing}
-                        onValueChange={value => update(SEND_MODAL_IS_PRECONVERT, value)}
+                        focusable={false}
                         value={preconvert}
                       />
                     </View>
-                  </View>
+                  </Pressable>
                 ) : null}
               </>
             )}
