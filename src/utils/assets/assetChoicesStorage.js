@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import store from '../../store';
 import {modifyServiceStoredDataForUser} from '../../actions/actions/services/dispatchers/services';
 import {captureSessionScope} from '../../actions/actions/updates/sessionRequests';
@@ -19,9 +18,6 @@ export const ASSET_CHOICES_SERVICE_ID = 'wallet_asset_management';
 const MAX_SESSION_ATTEMPTS = 3;
 const FINISH_TIMEOUT = 20000;
 
-// Builds from 2026-11-11 to 2026-11-19 kept the choices in this plain key.
-// The first unlock moves them into the encrypted entry, then deletes the key.
-const plainKey = accountHash => `assetChoices:v1:${accountHash}`;
 const isRecord = value => value != null && typeof value === 'object' && !Array.isArray(value);
 
 export const validateAssetChoices = (saved, legacy = false) => {
@@ -60,12 +56,11 @@ const applyChanges = (saved, changes) => {
 };
 
 // One writer for each profile. Its chain runs reads and writes one at a time,
-// so a read never sees a half-moved record and two writes never overlap.
+// so a read never sees a half-written record and two writes never overlap.
 const writers = new Map();
 const newWriter = () => ({
   tail: Promise.resolve(),
   changes: [],
-  migration: null,
   scheduled: null,
   closed: false,
 });
@@ -123,18 +118,6 @@ const writeEntry = async (accountHash, writer, update) => {
 const flush = async (accountHash, writer) => {
   // Signed out or deleted: keep the changes. Sign-in writes them.
   if (writer.closed || !ownerSignedIn(accountHash)) return;
-  const {migration} = writer;
-  if (migration) {
-    if (!migration.written) {
-      await writeEntry(accountHash, writer, () => migration.record);
-      migration.written = true;
-    }
-    // Delete the plain key only after the encrypted write is confirmed.
-    // Changes wait until it is gone: otherwise the next unlock moves the old
-    // plain record over them.
-    await AsyncStorage.removeItem(plainKey(accountHash));
-    if (writer.migration === migration) writer.migration = null;
-  }
   const batch = writer.changes.slice();
   if (batch.length === 0) return;
   // All changes that wait go into one write (K3).
@@ -157,7 +140,7 @@ const scheduleFlush = (accountHash, writer) => {
   return scheduled;
 };
 
-const hasWork = writer => writer.migration != null || writer.changes.length > 0;
+const hasWork = writer => writer.changes.length > 0;
 
 // Reads the saved choices of the signed-in profile. Changes that wait for a
 // write are applied on top, so a new read never shows an older choice.
@@ -165,21 +148,13 @@ export const loadAssetChoices = accountHash => {
   const writer = openWriter(accountHash);
   const loading = runInChain(writer, async () => {
     if (!ownerSignedIn(accountHash)) throw sessionChanged();
-    // Only an absent plain key reads the encrypted entry. A read error, an
-    // unreadable record or a future version fails and keeps both records.
-    const raw = await AsyncStorage.getItem(plainKey(accountHash));
-    let saved;
-    if (raw !== null) {
-      saved = choicesRecord(validateAssetChoices(JSON.parse(raw)));
-      if (!writer.migration) writer.migration = {record: saved, written: false};
-    } else {
-      saved = validateAssetChoices(
-        await requestServiceStoredData(ASSET_CHOICES_SERVICE_ID), true);
-    }
+    // A read error, an unreadable record or a future version fails.
+    const saved = validateAssetChoices(
+      await requestServiceStoredData(ASSET_CHOICES_SERVICE_ID), true);
     if (!ownerSignedIn(accountHash)) throw sessionChanged();
     return applyChanges(saved, writer.changes);
   });
-  // Move the plain record, or write changes that failed before.
+  // Write changes that failed before.
   loading.then(() => {
     if (hasWork(writer)) scheduleFlush(accountHash, writer);
   }, () => {});
@@ -251,7 +226,3 @@ export const markNewAssetChoices = accountHash => {
   writers.delete(accountHash);
 };
 export const takeNewAssetChoices = accountHash => newProfiles.delete(accountHash);
-
-// Deletes the plain key of builds from 2026-11-11 to 2026-11-19.
-export const deleteAssetChoices = accountHash =>
-  AsyncStorage.removeItem(plainKey(accountHash));

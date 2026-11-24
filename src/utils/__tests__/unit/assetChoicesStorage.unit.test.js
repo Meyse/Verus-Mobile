@@ -34,7 +34,6 @@ const PASSWORD = 'wallet-password';
 const SESSION_KEY = 'session-key';
 const CREDENTIAL = 'device-secure-storage-credential';
 const SERVICE_ID = 'wallet_asset_management';
-const PLAIN_KEY = `assetChoices:v1:${ACCOUNT}`;
 const ACTIVE_ACCOUNT = {
   id: 'Tester',
   accountHash: ACCOUNT,
@@ -170,39 +169,6 @@ describe('asset choices storage (R17)', () => {
     await signIn();
     expect(mockState.assetManagement.preferences[COIN_KEY]).toEqual({hidden: true});
     expect(mockState.assetManagement.removed.iCoinB).toEqual(expect.any(Object));
-  });
-
-  it('moves the plain choices of older builds and deletes the plain key after the write', async () => {
-    let {AsyncStorage, SecureStorage} = await restart();
-    const plainRecord = {
-      version: 1,
-      networks: {[NETWORK]: {
-        preferences: {[COIN_KEY]: {hidden: true}},
-        removed: {iCoinB: {name: 'CoinB'}},
-        reviewed: {iCoinC: true},
-      }},
-    };
-    await AsyncStorage.setItem(PLAIN_KEY, JSON.stringify(plainRecord));
-
-    // The app stops before the encrypted write ends: the writes fail here.
-    serviceWrites(SecureStorage).fail(true);
-    await signIn();
-    expect(mockState.assetManagement.removed.iCoinB).toEqual({name: 'CoinB'});
-    await writesDone();
-    expect(JSON.parse(await AsyncStorage.getItem(PLAIN_KEY))).toEqual(plainRecord);
-    expect(await storedChoices()).toBeNull();
-
-    // The next unlock moves the record and only then deletes the plain key.
-    ({AsyncStorage} = await restart());
-    await signIn();
-    await writesDone();
-    expect(await AsyncStorage.getItem(PLAIN_KEY)).toBeNull();
-    expect(await storedChoices()).toEqual(plainRecord);
-    await restart();
-    await signIn();
-    expect(mockState.assetManagement.preferences).toEqual({[COIN_KEY]: {hidden: true}});
-    expect(mockState.assetManagement.removed).toEqual({iCoinB: {name: 'CoinB'}});
-    expect(mockState.assetManagement.reviewed).toEqual({iCoinC: true});
   });
 
   it('shows quick choices at once and stores all of them in order', async () => {
