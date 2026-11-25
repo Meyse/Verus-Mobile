@@ -5,7 +5,7 @@ This guide is for the review of the UI redesign pull request into `ui-redesign`.
 - [LOGIC_CHANGES.md](LOGIC_CHANGES.md): every change outside pure UI, with code locations.
 - [DIFFERENCES_FROM_UPSTREAM.md](DIFFERENCES_FROM_UPSTREAM.md): every place where the PR replaces recent upstream work on purpose, the code that is upstream's again after review, the changed tests, and the Jest status.
 
-State described: the PR after the review rounds of 2026-11-17 to 2026-11-24 (`redesign` `c82b61e9` plus the R17 commit `e2e43572`), merged with upstream `430268ad`.
+State described: the PR after the review rounds of 2026-11-17 to 2026-11-25: `redesign` `c3e9d79b` (it contains the R17 commit `e2e43572`), merged with upstream `430268ad` in the PR branch candidate `6860da60`.
 
 ## 1. Summary
 
@@ -21,7 +21,7 @@ State described: the PR after the review rounds of 2026-11-17 to 2026-11-24 (`re
 - Not a rewrite of wallet logic. Key derivation, hashing, encryption algorithms, coin channels and the Redux store layout stay. Changes in those files are listed in [LOGIC_CHANGES.md](LOGIC_CHANGES.md).
 - No version change: app version, build number, bundle id, signing, React Native 0.77.3, the verus library versions, `VRPC_API_APP_ID` and the env values are the upstream values.
 - No feature flag. The redesigned UI is the only path. Legacy screen files remain in the repository; nothing mounts them (list in [section 4](#4-known-gaps-and-risks)).
-- Not fully green on Jest. Unit suites on the merged PR branch `90d646a8` (2026-11-24): 2978 of 2981 pass. The 3 failures are 2 tests of an upstream screen that the redesign replaced (`identityRegistrationScreens`) and 1 `giftCard` test that also failed on upstream. See [Jest status](DIFFERENCES_FROM_UPSTREAM.md#jest-status).
+- Not fully green on Jest. Unit suites on the merged PR branch `6860da60` (2026-11-25): 225 suites, 2986 tests, 2981 pass. The 5 failures are 2 tests of an upstream screen that the redesign replaced (`identityRegistrationScreens`), 1 `giftCard` test that also failed on upstream, and 2 time-outs in `deepLinkDispatcherLifecycle` that occurred only in the full run; that suite alone passes 15 of 15. See [Jest status](DIFFERENCES_FROM_UPSTREAM.md#jest-status).
 
 ### How to review it, in order
 
@@ -114,6 +114,8 @@ Each area follows the same order: what the user sees now, why it changed, main f
 
 **Try it.** Sign out. Switch the network caption. Create a wallet on Testnet and go through the backup check. Lock and unlock with password and with biometrics.
 
+Screenshots of 2026-11-16.
+
 | Login | Network picker | Unlock sheet | Other options |
 |---|---|---|---|
 | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/01-signed-out-login-light.png" width="200" alt="Login"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/02-signed-out-network-picker-light.png" width="200" alt="Network picker"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/03-signed-out-unlock-sheet-light.png" width="200" alt="Unlock sheet"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/04-signed-out-other-options-light.png" width="200" alt="Other options"> |
@@ -130,11 +132,15 @@ Each area follows the same order: what the user sees now, why it changed, main f
 
 **Try it.** Open Home on Testnet. Hide balances, restart, check the blur. Turn "Show on Home" off for one asset and check that the total equals the shown rows. Reorder assets in Manage assets. Add an asset by identifier, then remove it.
 
+Screenshots of 2026-11-25. The public testnet has no prices, so Home reads "$ 0.00" and "No price data", and each row reads "N/A".
+
+| Top | Top, dark |
+|---|---|
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/05-home-top-light.png" width="200" alt="Top"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/09-home-top-dark.png" width="200" alt="Top, dark"> |
+
 | End of asset list | Manage assets |
 |---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/07-home-asset-list-end-light.png" width="200" alt="End of asset list"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/08-home-manage-assets-light.png" width="200" alt="Manage assets"> |
-
-Screenshots of 2026-11-16. They show the earlier Home: no sort control, no "No price data" caption.
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/07-home-asset-list-end-light.png" width="200" alt="End of asset list"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/08-home-manage-assets-light.png" width="200" alt="Manage assets"> |
 
 ### 2.3 Asset detail and transactions
 
@@ -148,9 +154,11 @@ Screenshots of 2026-11-16. They show the earlier Home: no sort control, no "No p
 
 **Try it.** Open VRSCTEST from Home. Pin a card, switch cards, open a transaction. Send to yourself and watch the "Pending" row.
 
+Screenshots of 2026-11-25.
+
 | Top | Transactions | Transaction sheet | Transactions, dark |
 |---|---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/10-asset-detail-top-light.png" width="200" alt="Top"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/11-asset-detail-transactions-light.png" width="200" alt="Transactions"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/12-asset-detail-transaction-sheet-light.png" width="200" alt="Transaction sheet"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/13-asset-detail-transactions-dark.png" width="200" alt="Transactions, dark"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/10-asset-detail-top-light.png" width="200" alt="Top"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/11-asset-detail-transactions-light.png" width="200" alt="Transactions"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/12-asset-detail-transaction-sheet-light.png" width="200" alt="Transaction sheet"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/13-asset-detail-transactions-dark.png" width="200" alt="Transactions, dark"> |
 
 ### 2.4 Receive
 
@@ -164,17 +172,19 @@ Screenshots of 2026-11-16. They show the earlier Home: no sort control, no "No p
 
 **Try it.** Receive VRSCTEST, change the card, create a request with an amount and a note, scan the slip with a second wallet.
 
+Screenshots of 2026-11-25. The asset list reads "N/A" for fiat (no testnet prices, see 2.2).
+
 | Asset list | Card chooser | QR and address | Request amount |
 |---|---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/14-receive-asset-list-light.png" width="200" alt="Asset list"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/15-receive-card-chooser-light.png" width="200" alt="Card chooser"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/16-receive-qr-address-light.png" width="200" alt="QR and address"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/17-receive-request-amount-light.png" width="200" alt="Request amount"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/14-receive-asset-list-light.png" width="200" alt="Asset list"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/15-receive-card-chooser-light.png" width="200" alt="Card chooser"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/16-receive-qr-address-light.png" width="200" alt="QR and address"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/17-receive-request-amount-light.png" width="200" alt="Request amount"> |
 
 | Request ready |
 |---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/18-receive-request-ready-light.png" width="200" alt="Request ready"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/18-receive-request-ready-light.png" width="200" alt="Request ready"> |
 
 ### 2.5 Send and Convert
 
-**Now.** One wizard serves Send and Convert: select asset, Amount with an in-app keypad, fiat toggle and clear button, Recipient (address book, paste, scan, live check), Confirm, and a result screen with "View in explorer". Send from a card stays on the card's network until "Change network". Convert shows "Est. slippage" and "via <basket>"; it estimates up to 30 routes and offers "Check 30 more routes". Confirm shows "From", the resolved recipient, fees with money values, the slippage estimate for conversions, and a total; the user confirms with a slide. An amount above the balance is refused. When the amount fits but the fee does not, the fee comes off the amount, as upstream, and Confirm says so. "More options" in the header opens the Advanced form, where every value is entered by hand. Plain ETH, ERC-20 and BTC sends offer a network fee choice (slow, normal, fast, custom). Private (z) sends have a memo. Pre-launch currencies appear in Convert with a countdown. A broadcast that fails after it started shows "status unknown", not "not sent".
+**Now.** One wizard serves Send and Convert: select asset (an asset with more than one card, or with one card that still syncs, first opens a "Choose an address" sheet; Convert then asks for the target currency), Amount with an in-app keypad, fiat toggle and clear button, Recipient (address book, paste, scan, live check), Confirm, and a result screen with "View in explorer". Send from a card stays on the card's network until "Change network". Convert shows "Est. slippage" and "via <basket>"; it estimates up to 30 routes and offers "Check 30 more routes". Confirm shows the resolved recipient, a "From" row when the source is a VerusID or the private card, fees with money values, the slippage estimate for conversions, and a total; the user confirms with a slide. An amount above the balance is refused. When the amount fits but the fee does not, the fee comes off the amount, as upstream, and Confirm says so. "More options" in the header opens the Advanced form, where every value is entered by hand. Plain ETH, ERC-20 and BTC sends offer a network fee choice (slow, normal, fast, custom). Private (z) sends have a memo. Pre-launch currencies appear in Convert with a countdown. A broadcast that fails after it started shows "status unknown", not "not sent".
 
 **Why.** Upstream had a different send modal per channel (`TraditionalCryptoSend`, `ConvertOrCrossChainSend`, conversion, deposit, withdraw). The wizard gives one flow and one review order. Pre-conversions: a pre-conversion skips Recipient and goes to the card's own address, so a failed launch refunds the same address. Fee choice: approved by the design owner on 2026-10-20; bridge, conversion, Verus and legacy sends keep their old fee path. Network, slippage, route and Advanced form rules: F5-F8, F13 ([Review items](#review-items)).
 
@@ -184,23 +194,23 @@ Screenshots of 2026-11-16. They show the earlier Home: no sort control, no "No p
 
 **Try it.** Send VRSCTEST to another testnet address. Convert VRSCTEST through a basket. Type an amount above the balance (refused). Send an amount equal to the balance and read Confirm. Send twice in a row before a block: the second send says that nothing new was sent.
 
-Screenshots of 2026-11-16 and 2026-11-17. Amount, Confirm and the Convert screens show the earlier labels (no "Est. slippage", no via line, no header menu).
+Screenshots of 2026-11-25, except "Recipient, empty", "Recipient, filled" and "Fee sheet" (2026-11-16). The Confirm shot sends from a plain address, so it has no "From" row.
 
 | Select asset | Choose network | Choose address | Amount keypad |
 |---|---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/19-send-select-asset-light.png" width="200" alt="Select asset"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/48-send-choose-network-light.png" width="200" alt="Choose network"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/47-send-choose-address-light.png" width="200" alt="Choose address"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/21-send-amount-keypad-light.png" width="200" alt="Amount keypad"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/19-send-select-asset-light.png" width="200" alt="Select asset"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/48-send-choose-network-light.png" width="200" alt="Choose network"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/47-send-choose-address-light.png" width="200" alt="Choose address"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/21-send-amount-keypad-light.png" width="200" alt="Amount keypad"> |
 
 | Amount keypad, dark | Recipient, empty | Recipient, filled | Fee sheet |
 |---|---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/24-send-amount-keypad-dark.png" width="200" alt="Amount keypad, dark"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/20-send-recipient-light.png" width="200" alt="Recipient, empty"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/49-send-recipient-filled-light.png" width="200" alt="Recipient, filled"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/22-send-fee-sheet-light.png" width="200" alt="Fee sheet"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/24-send-amount-keypad-dark.png" width="200" alt="Amount keypad, dark"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/20-send-recipient-light.png" width="200" alt="Recipient, empty"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/49-send-recipient-filled-light.png" width="200" alt="Recipient, filled"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/22-send-fee-sheet-light.png" width="200" alt="Fee sheet"> |
 
 | Confirm | Convert: select asset | Convert: target list | Convert: amount, empty |
 |---|---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/23-send-confirm-light.png" width="200" alt="Confirm"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/25-convert-select-asset-light.png" width="200" alt="Convert: select asset"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/50-convert-to-list-light.png" width="200" alt="Convert: target list"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/26-convert-amount-light.png" width="200" alt="Convert: amount, empty"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/23-send-confirm-light.png" width="200" alt="Confirm"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/25-convert-select-asset-light.png" width="200" alt="Convert: select asset"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/50-convert-to-list-light.png" width="200" alt="Convert: target list"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/26-convert-amount-light.png" width="200" alt="Convert: amount, empty"> |
 
 | Convert: amount with estimate | Convert: recipient | Convert: send to self |
 |---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/51-convert-amount-estimate-light.png" width="200" alt="Convert: amount with estimate"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/52-convert-recipient-light.png" width="200" alt="Convert: recipient"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/53-convert-send-to-self-light.png" width="200" alt="Convert: send to self"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/51-convert-amount-estimate-light.png" width="200" alt="Convert: amount with estimate"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/52-convert-recipient-light.png" width="200" alt="Convert: recipient"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/53-convert-send-to-self-light.png" width="200" alt="Convert: send to self"> |
 
 ### 2.6 Requests and deep links
 
@@ -234,13 +244,15 @@ Both screenshots come from a real testnet request (content add, signed by a test
 
 **Try it.** On Testnet: open the VerusID tab, open a linked identity, Send from it, start "New VerusID" up to the first hold, link an identity, open Modify and go back before signing.
 
+Screenshots of 2026-11-16, except "Link VerusIDs" (2026-11-25).
+
 | List | List, dark | Add menu | VerusID page |
 |---|---|---|---|
 | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/32-verusid-list-light.png" width="200" alt="List"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/38-verusid-list-dark.png" width="200" alt="List, dark"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/57-verusid-add-menu-light.png" width="200" alt="Add menu"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/33-verusid-detail-top-light.png" width="200" alt="VerusID page"> |
 
 | About VerusID sheet | New VerusID, first step | Link VerusIDs |
 |---|---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/35-verusid-about-sheet-light.png" width="200" alt="About VerusID sheet"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/37-verusid-new-first-screen-light.png" width="200" alt="New VerusID, first step"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/36-verusid-link-page-light.png" width="200" alt="Link VerusIDs"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/35-verusid-about-sheet-light.png" width="200" alt="About VerusID sheet"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/37-verusid-new-first-screen-light.png" width="200" alt="New VerusID, first step"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/36-verusid-link-page-light.png" width="200" alt="Link VerusIDs"> |
 
 ### 2.8 Services and gift cards
 
@@ -254,6 +266,8 @@ Both screenshots come from a real testnet request (content add, signed by a test
 
 **Try it.** Create a testnet gift card with a small amount, share it, claim it with a second wallet.
 
+Screenshots of 2026-11-16.
+
 | Services | Gift cards, empty state | New gift card, first step | Gift card warning |
 |---|---|---|---|
 | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/28-services-home-light.png" width="200" alt="Services"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/29-services-gift-cards-light.png" width="200" alt="Gift cards, empty state"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/30-gift-card-create-first-step-light.png" width="200" alt="New gift card, first step"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/54-gift-card-secrets-warning-light.png" width="200" alt="Gift card warning"> |
@@ -266,13 +280,15 @@ Both screenshots come from a real testnet request (content add, signed by a test
 
 **Now.** The Scan tab opens a camera window with a torch. A scanned payment QR opens the Send wizard at Amount or Confirm with the invoice fields filled. An inactive asset in an invoice offers to add the asset. A `verus://` request opens the request review. Devices with NFC show "Scan NFC card"; the camera stops while the NFC read screen is open.
 
-**Why.** Reason not recorded beyond the design owner's approval of the camera window.
+**Why.** The design owner asked that the camera screens look better and fit into the app (2026-10-21); the camera window was the owner's pick.
 
 **Main files.** `src/containers/VerusPay/VerusPay.js`, `src/components/BarcodeReader/BarcodeReader.js`, `src/containers/SendWizard/scanRequest.js`, `src/utils/QrScanner/QrScanner.js`.
 
 **Not changed underneath.** QR parsing rules (`processVerusQr`); only error fields are added.
 
 **Try it.** Scan a Receive slip from a second wallet. Scan a request QR. Scan an invoice for an asset that is not active.
+
+Screenshot of 2026-11-16.
 
 | Scan on a simulator (no camera) |
 |---|
@@ -290,7 +306,7 @@ Both screenshots come from a real testnet request (content add, signed by a test
 
 **Try it.** Switch appearance with the phone in the other mode. Open recovery secrets and take a screenshot (Android blocks it). Change the display currency.
 
-The Network and storage screenshot shows one clear button (2026-11-16); the screen now has two.
+Screenshots of 2026-11-16, except "Network and storage" (2026-11-25). In that shot no private wallet is open, so only "Clear cache" shows.
 
 | Settings | Settings, dark | Security and recovery | General |
 |---|---|---|---|
@@ -298,7 +314,7 @@ The Network and storage screenshot shows one clear button (2026-11-16); the scre
 
 | Appearance | Network and storage |
 |---|---|
-| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/43-settings-appearance-light.png" width="200" alt="Appearance"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/45-settings-network-storage-light.png" width="200" alt="Network and storage"> |
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/c10ebe56dc93062c343a3a356fa47681c59af12e/screens/43-settings-appearance-light.png" width="200" alt="Appearance"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/45-settings-network-storage-light.png" width="200" alt="Network and storage"> |
 
 ### 2.11 Alerts and error messages
 
@@ -323,6 +339,12 @@ The Network and storage screenshot shows one clear button (2026-11-16); the scre
 **Safe areas and keyboard.** `react-native-safe-area-context` everywhere; bottom actions in `SafeBottomActionStack`; forms with bottom actions in `KeyboardAvoidingForm`. `pnpm check:safe-areas --changed` flags `SafeAreaView` from `react-native` and absolute bottom offsets.
 
 **Light and dark.** `Info.plist` no longer forces Light. Every redesigned screen is meant to work in both themes.
+
+Screenshots of 2026-11-25.
+
+| Home, light | Home, dark |
+|---|---|
+| <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/05-home-top-light.png" width="200" alt="Home, light"> | <img src="https://raw.githubusercontent.com/Meyse/Verus-Mobile/7441bda74dedba7cc88f1e627cc5d4cb6b75d2c0/screens/09-home-top-dark.png" width="200" alt="Home, dark"> |
 
 ## 3. Architecture notes
 
@@ -389,7 +411,7 @@ Both Android modules register in the existing `VerusKeepAwakePackage`.
 
 ## 4. Known gaps and risks
 
-1. **Jest is not fully green.** 3 unit tests fail: 2 tests of the upstream registration start screen, which the redesign does not have, and 1 `giftCard` test that also failed on upstream. The live CoinPaprika tests fail on both sides (rate-limited service). See [Jest status](DIFFERENCES_FROM_UPSTREAM.md#jest-status).
+1. **Jest is not fully green.** 5 unit tests fail in the full run: 2 tests of the upstream registration start screen, which the redesign does not have, 1 `giftCard` test that also failed on upstream, and 2 time-outs in `deepLinkDispatcherLifecycle` (that suite alone passes). The live CoinPaprika tests fail on both sides (rate-limited service). See [Jest status](DIFFERENCES_FROM_UPSTREAM.md#jest-status).
 2. **Legacy files stay unmounted.** For example `LegacyHomeTabScreens.js`, `SideMenu/`, `ProfileStackScreens/`, `Home/Home.render.js`, `Services/Services.render.js`, `Coin/DynamicHeader.js`, `SubWalletSelect/SubWalletSelectorModal.js`, legacy `SendCoin`, `ConvertCoin`, `ReceiveCoin`. They still compile and add review noise. Deleting them is not part of this PR.
 3. **Older button style still reachable in two places.** `LinkIdentityForm` (v1 login requests) and the `TraditionalCryptoSend` steps (older scan paths). See [DIFFERENCES_FROM_UPSTREAM.md](DIFFERENCES_FROM_UPSTREAM.md#decisions-by-the-design-owner).
 4. **Electrum follows upstream.** Electrum coin selection still spends unconfirmed outputs and keeps the 546 sat minimum. At 1 sat/vB, strict nodes refuse a BTC send because upstream's coin selection sizes an input one byte short. Both are upstream code; they are questions to the reviewer.
@@ -420,7 +442,7 @@ Only what a record shows is listed here. Source reading and device runs are kept
 
 ### Jest
 
-On 2026-11-24 the unit suites ran on the PR branch head `90d646a8` (this PR branch merged with `redesign` `8d161296` and upstream `430268ad`), without the live-network folders: 2978 of 2981 tests pass. The 3 failures are the 2 registration start screen tests and 1 `giftCard` test that also failed on upstream `525aa859` (2026-11-16).
+On 2026-11-25 the unit suites ran on the PR branch candidate `6860da60` (this PR branch merged with `redesign` `c3e9d79b` and upstream `430268ad`), all suites except the live-network folders `int` and `api`: 225 suites, 2986 tests, 2981 pass. The 5 failures are the 2 registration start screen tests, 1 `giftCard` test that also failed on upstream `525aa859` (2026-11-16), and 2 time-outs in `deepLinkDispatcherLifecycle` that occurred only in the full run; that suite alone passes 15 of 15.
 
 Earlier full runs: upstream ran on 2026-11-16: 2630 of 2773 pass. The PR branch ran three times at `263473d8` on 2026-11-17, each time with the same result: 2642 of 2813 pass. Compared per test name, 25 tests pass on upstream and fail here: 23 live CoinPaprika tests and 2 tests of the upstream registration start screen. No other unit test fails only here. 63 upstream test names are ported to the redesigned screens under new names, renamed to the intended behavior, or removed with removed behavior. Details per suite: [Jest status](DIFFERENCES_FROM_UPSTREAM.md#jest-status).
 
@@ -464,7 +486,7 @@ All device runs used the public VRSCTEST testnet (some also a private test chain
 - **PR branch as an app (2026-11-17).** iOS 26.5 Simulator, JavaScript from the PR branch at `5299beb0` (the same app code as `263473d8`), with the env values of this PR: no Ethereum keys, public testnet server. Passed: unlock; Home total; asset screen and transaction sheet; quick repeated taps on an asset row (one screen opens, no empty card chooser); Receive; Send up to Confirm; Convert entry; Manage assets; VerusID list and page; the options menu (Transfer and Modify open, the Unlink sheet opens and was cancelled, a quick second tap opens nothing more); the New VerusID name step; Services; Scan; Settings; lock and unlock; dark mode on Home, the asset screen and the VerusID page. A real identity update request opened, showed the Content step note above the content change, and was left without approval. Seen because the build has no Ethereum keys: the Home notice "Could not connect" and one toast "no runners?!" from the Ethereum provider on the Send Amount step.
 - **Round 1 review fixes (2026-11-18).** Android emulators (Pixel 9 size and 360x640, Android 16) and the iOS 26.5 Simulator, debug builds, VRSCTEST only. Passed: unlock to Home with the skeleton and no white page, light and dark; Add and Remove; asset Back; VerusID rows kept during a refresh; the signed legacy invoice header; an amount above the balance refused; a 0.1 VRSCTEST send confirmed; a 0.000001 VRSCTEST send accepted by the network; a mid-text edit of a custom RPC server; a paid invoice still marked after a restart; a storage scan that found no address, txid or balance in plain keys outside upstream's stores. The paid invoice and the real sends ran on Android only.
 - **Review rounds (2026-11-19 to 2026-11-24).** Android emulators (a normal phone and a 360x640 phone) and the iOS Simulator, debug builds, VRSCTEST and Sepolia only. Recorded passes: 2026-11-19, ETH and ERC-20 (USDC) sends on Sepolia with the fee choice on Android, 21 of 22 cases; R13 balance cases on Android and iOS, with the Bitcoin Testnet4 pending line; the Home order, VerusID and wallet changes on Android, light and dark. 2026-11-20: Advanced form sends and Send from Home on Android with real VRSCTEST sends, and a second send before the next block that showed "Nothing new was sent". 2026-11-21: Home sort and Receive chooser on Android, one real VRSCTEST send. 2026-11-22: the Advanced form header menu on Android and iOS. 2026-11-24: the Advanced form up to Confirm on Android and iOS; the parity set re-checked on Android only.
-- **Merged PR branch as an app (2026-11-24).** PR branch head `90d646a8`, debug builds, VRSCTEST only. iOS Simulator (one iPhone): 12 of 12 checks pass. Android emulators (412x923 dp and 360x640 dp, Android 16): 12 of 12 checks pass on both. Checks: start and unlock; Home in light and dark; the five tabs; a Home sort choice that stays after a full restart; asset screen and transaction details; Receive; one real send of 0.1 VRSCTEST (confirmed on iOS; from the larger Android phone); Convert up to Confirm (not sent); the Advanced form opens (not sent); VerusID tab and Link page; Settings; sign out and unlock. With the tracked env values (no V2 key), VRSCTEST shows "Could not connect": `v2api.verustest.net` needs a key and there is no fallback (I2). Both runs set a custom RPC server in the app to continue. Ethereum assets showed "Could not connect" (no provider keys in the tracked env).
+- **Merged PR branch as an app (2026-11-24).** PR branch head `90d646a8`, debug builds, VRSCTEST only. iOS Simulator (one iPhone): 12 of 12 checks pass. Android emulators (412x923 dp and 360x640 dp, Android 16): 12 of 12 checks pass on both. Checks: start and unlock; Home in light and dark; the five tabs; a Home sort choice that stays after a full restart; asset screen and transaction details; Receive; one real send of 0.1 VRSCTEST (confirmed on iOS; from the larger Android phone); Convert up to Confirm (not sent); the Advanced form opens (not sent); VerusID tab and Link page; Settings; sign out and unlock. With the tracked env values (no V2 key), VRSCTEST shows "Could not connect": `v2api.verustest.net` needs a key and there is no fallback (I2). Both runs set a custom RPC server in the app to continue. Ethereum assets showed "Could not connect" (no provider keys in the tracked env). This run was on the merged branch before the 7 commits of 2026-11-25 (chain words on the cards, Receive details, asset card sizes). Those 7 commits had their own runs on the iOS Simulator and on Android emulators on `redesign` on 2026-11-25 (merges `bed83651` and `c3e9d79b`). The merged branch with these 7 commits (`6860da60`) did not run as an app.
 - **Bitcoin Testnet4 (2026-11-19).** Real testnet4 sends ran. At 1 sat/vB a strict node refused a 1-input, 2-output send three times ("min relay fee not met, 225 < 226"); nothing was broadcast (upstream fee math, see section 4).
 - **Send on the PR branch.** The Send wizard ran twice to Confirm (0.01 VRSCTEST to a VerusID of the same wallet, fee 0.0001 VRSCTEST from the testnet server). The final slide was not done: the test tool could not drag on that day. No file under `src/containers/SendWizard`, `src/utils/api/channels` or `src/utils/web3` changed after `af256d5d`, the commit before the pull request was prepared.
 

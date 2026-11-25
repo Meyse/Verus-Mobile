@@ -3,7 +3,7 @@
 This file lists every place where the pull request deliberately differs from, or replaces, recent upstream work on `ui-redesign`. Nothing here is a merge accident. Each row says what the PR does and why, in the row itself. Commit hashes after the sentence are references only.
 
 - Base: `upstream/ui-redesign` at `430268ad` (includes the verus library update `6bc35178`). Facts in this file come from `git diff upstream/ui-redesign <PR head>`.
-- State described: the PR after the review rounds of 2026-11-17 to 2026-11-24 (`redesign` `c82b61e9` plus the R17 commit `e2e43572`). The PR keeps values that differ from `redesign` on purpose: the mainnet VRSC server, the env values and the package versions are the upstream values. This file gives the PR value.
+- State described: the PR after the review rounds of 2026-11-17 to 2026-11-25 (`redesign` `c3e9d79b`, which contains the R17 commit `e2e43572`; PR branch candidate `6860da60`). The PR keeps values that differ from `redesign` on purpose: the mainnet VRSC server, the env values and the package versions are the upstream values. This file gives the PR value.
 - Review IDs: `R` = review note, `I` = inline comment of 2026-11-17; `F` = performance feedback of 2026-11-20. "Owner" = the design owner of this PR.
 - Logic details: [LOGIC_CHANGES.md](LOGIC_CHANGES.md). Review guide: [README.md](README.md).
 
@@ -137,7 +137,7 @@ How the upstream suites were updated:
 
 ## Jest status
 
-**Now (2026-11-24).** The unit suites ran on the merge of the PR branch with `redesign` `8d161296` (PR branch head `90d646a8`, which contains upstream `430268ad`), without the live-network folders `src/utils/__tests__/int` and `src/utils/__tests__/api`: 2978 of 2981 tests pass. The 3 failures are the 2 `identityRegistrationScreens` tests below and 1 `giftCard` test ("uses RPC-shaped expected IDs from funding history"). The `giftCard` test also failed on upstream `525aa859` in the run of 2026-11-16; it was not run on `430268ad`. The full suite with the live-network tests did not run after 2026-11-17.
+**Now (2026-11-25).** The unit suites ran on the merge of the PR branch with `redesign` `c3e9d79b` (PR branch candidate `6860da60`, which contains upstream `430268ad`), all suites except the live-network folders `src/utils/__tests__/int` and `src/utils/__tests__/api`: 225 suites, 2986 tests, 2981 pass. The 5 failures are the 2 `identityRegistrationScreens` tests below, 1 `giftCard` test ("uses RPC-shaped expected IDs from funding history") and 2 time-outs in `deepLinkDispatcherLifecycle` that occurred only in the full run; that suite alone passes 15 of 15. The `giftCard` test also failed on upstream `525aa859` in the run of 2026-11-16; it was not run on `430268ad`. The full suite with the live-network tests did not run after 2026-11-17.
 
 **Earlier full runs.** Full suite, same machine, `--maxWorkers=3`. Upstream ran on 2026-11-16. The PR branch ran three times on 2026-11-17, each time with the same result.
 
