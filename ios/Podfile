@@ -1,5 +1,5 @@
-# Keep the existing native modules on the legacy architecture during this upgrade.
-ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+# Run on the React Native New Architecture (Fabric, TurboModules, bridgeless). Legacy native modules run through the interop layer.
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 
 def node_require(script)
   # Resolve script with node to allow for hoisting
@@ -124,7 +124,7 @@ target 'verusmobile' do
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => true,
-    :fabric_enabled => false,
+    :fabric_enabled => true,
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
