@@ -2193,7 +2193,7 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
 - Show no supported-chain claim or repeated card/address metadata. The safe
   footer has Share address, then Request amount as a secondary action.
 - "Choose an address" titles each card with the same card title, so the
-  chooser matches the context line.
+  chooser matches the address box.
 - Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
   and 1, the Send 40/48 amount field (it shrinks to 20 points to keep the
   amount and its unit on one line) and conversion chip, and `FlatRow` for
