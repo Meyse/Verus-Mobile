@@ -14,7 +14,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
 import IdentityStackScreens from '../IdentityStackScreens/IdentityStackScreens';
@@ -37,6 +37,7 @@ const isActionableIdentityStatus = (status) =>
 
 const HomeTabScreens = props => {
   const insets = useSafeAreaInsets();
+  const frame = useSafeAreaFrame();
   const dispatch = useDispatch();
   const pendingIds = useObjectSelector((state) => state.channelStore_verusid?.pendingIds || {});
   const [lastSeenPendingIdentityKey, setLastSeenPendingIdentityKey] = useState('');
@@ -70,6 +71,10 @@ const HomeTabScreens = props => {
   // React Navigation 6 padded the tab bar with the bottom inset minus 4 pt on iOS; v7 uses the full inset.
   const tabBarBottomPadding =
     Platform.OS === 'ios' ? Math.max(insets.bottom - 4, 0) : insets.bottom;
+  // On a wide frame (a tablet, or landscape) React Navigation puts each label beside its icon. The v6
+  // overrides below are for labels under the icons, so they apply only then. With the six tabs, this is
+  // the same test as @react-navigation/bottom-tabs (width >= 768, or wider than high).
+  const labelsBesideIcons = frame.width >= 768 || frame.width > frame.height;
 
   return (
     <HomeTabs.Navigator
@@ -83,8 +88,9 @@ const HomeTabScreens = props => {
           height: TAB_BAR_CONTENT_HEIGHT + tabBarBottomPadding,
           paddingBottom: tabBarBottomPadding,
         },
-        tabBarIconStyle: styles.tabIcon,
-        tabBarButton: renderTabButton,
+        ...(labelsBesideIcons
+          ? null
+          : {tabBarIconStyle: styles.tabIcon, tabBarButton: renderTabButton}),
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
