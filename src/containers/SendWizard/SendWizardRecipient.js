@@ -418,6 +418,7 @@ const SendWizardRecipient = () => {
           {/* Address Input */}
           <View style={styles.inputContainer}>
             <View
+              collapsable={false}
               style={[
                 styles.addressInputContainer,
                 inputFocused && styles.addressInputFocused,

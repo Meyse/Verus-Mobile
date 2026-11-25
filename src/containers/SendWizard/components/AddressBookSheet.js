@@ -110,6 +110,7 @@ const AddressBookSheet = ({
           {hasAddresses && (
             <View style={styles.searchContainer}>
               <View
+                collapsable={false}
                 style={[
                   styles.searchInputContainer,
                   searchFocused && styles.searchInputFocused,

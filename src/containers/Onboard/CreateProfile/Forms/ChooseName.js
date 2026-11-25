@@ -116,6 +116,7 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
               {"Profile name"}
             </Text>
             <View
+              collapsable={false}
               style={[
                 styles.inputContainer,
                 isFocused && styles.inputContainerFocused,

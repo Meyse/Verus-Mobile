@@ -224,6 +224,7 @@ const AddressBookEditSheet = ({
           <View style={styles.inputSection}>
             <Text style={styles.inputLabel}>Name</Text>
             <View
+              collapsable={false}
               style={[
                 styles.inputContainer,
                 labelFocused && styles.inputFocused,
@@ -255,6 +256,7 @@ const AddressBookEditSheet = ({
           <View style={styles.inputSection}>
             <Text style={styles.inputLabel}>Address</Text>
             <View
+              collapsable={false}
               style={[
                 styles.inputContainer,
                 addressFocused && styles.inputFocused,

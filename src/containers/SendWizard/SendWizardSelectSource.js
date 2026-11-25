@@ -363,6 +363,7 @@ const SendWizardSelectSource = () => {
       <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
         <Text style={styles.mainTitle}>Select asset to send or convert</Text>
         <View
+          collapsable={false}
           style={[
             styles.searchInputContainer,
             searchFocused && styles.searchInputFocused,

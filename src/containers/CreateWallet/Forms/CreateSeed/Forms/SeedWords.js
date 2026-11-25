@@ -208,6 +208,7 @@ export default function SeedWords({navigation, newSeed, onComplete, testProfile}
                           {`Word ${randomI + 1}`}
                         </Text>
                         <View
+                          collapsable={false}
                           style={[
                             styles.inputContainer,
                             focusedInput === index && styles.inputContainerFocused,

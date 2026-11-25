@@ -260,6 +260,7 @@ const AddressBook = () => {
         {/* Search bar - only show when 6+ addresses */}
         {hasAddresses && showFiltersAndSearch && (
           <View
+            collapsable={false}
             style={[
               styles.searchInputContainer,
               searchFocused && styles.searchInputFocused,

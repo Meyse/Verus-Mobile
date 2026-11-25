@@ -50,6 +50,7 @@ export default function ConfirmPassword({ password, navigation }) {
           <View style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>{'Password'}</Text>
             <View
+              collapsable={false}
               style={[
                 styles.inputContainer,
                 isFocused && styles.inputContainerFocused,
