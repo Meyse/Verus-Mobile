@@ -13,7 +13,7 @@ Compact map for coding agents in this repository. Keep it short.
 - Upstream is itself a fork of `https://github.com/VerusCoin/Verus-Mobile`. Call that repository "VerusCoin" or "Verus-Mobile", never "upstream".
 - Max has read-only access to upstream. Never push to the `upstream` remote. Changes reach upstream only through a pull request that Max authorizes.
 - Local `master` follows `upstream/master`. Do not commit work on `master`. Update it with `git fetch upstream` and `git merge --ff-only upstream/master`.
-- `origin` is Max's private repository `https://github.com/Meyse/valu-wallet`. It is not a GitHub fork. Its default branch `main` is the integration branch for Max's work.
+- `origin` is Max's public repository `https://github.com/Meyse/valu-wallet`. It is not a GitHub fork. Its default branch `main` is the integration branch for Max's work.
 - Start each task branch from `main`. To take new upstream work, merge `upstream/master` into `main`. Do not rebase shared branches.
 - Do not confuse this repository with `~/dev/Verus-Mobile` (Max's separate Verus Mobile redesign, where upstream means VerusCoin) or `~/dev/valu-mobile`.
 
