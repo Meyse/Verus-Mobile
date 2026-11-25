@@ -1,4 +1,4 @@
-import { NavigationActions } from "@react-navigation/compat";
+import { CommonActions } from "@react-navigation/native";
 import moment from "moment";
 import { Component } from "react"
 import { connect } from 'react-redux'
@@ -364,7 +364,7 @@ class PersonalPaymentMethodsEditBankAccount extends Component {
         );
       }
 
-      this.props.navigation.dispatch(NavigationActions.back());
+      this.props.navigation.dispatch(CommonActions.goBack());
     });
   }
 

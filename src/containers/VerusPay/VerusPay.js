@@ -44,7 +44,7 @@ import {
 } from '../../utils/constants/sendModal';
 import { SET_DEEPLINK_DATA } from '../../utils/constants/storeType';
 import { getCurrency } from '../../utils/api/channels/verusid/callCreators';
-import { CommonActions } from '@react-navigation/routers';
+import { CommonActions } from '@react-navigation/native';
 import { DEEPLINK_PROTOCOL_URL_STRING, GENERIC_REQUEST_DEEPLINK_VDXF_KEY, GenericRequest } from 'verus-typescript-primitives';
 import { useNavigation } from '@react-navigation/native';
 import { useObjectSelector } from '../../hooks/useObjectSelector';

@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { useEffect } from 'react';
 import { SMALL_DEVICE_HEGHT } from '../../utils/constants/constants';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { NavigationActions } from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 
 export default function RevokeRecoverSlider({ navigation, setIsRecovery }) {
   const {height} = Dimensions.get('window');
@@ -114,7 +114,7 @@ export default function RevokeRecoverSlider({ navigation, setIsRecovery }) {
           renderSlide(index, item.icon, item.text, item.title)
         }
         bottomButton={true}
-        onSkip={() => navigation.dispatch(NavigationActions.back())}
+        onSkip={() => navigation.dispatch(CommonActions.goBack())}
         data={[
           {
             key: 0,

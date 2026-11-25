@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { List, RadioButton, Divider, Paragraph } from 'react-native-paper'
 import Button from '../../../../components/Button'
-import { NavigationActions } from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 import { saveCoinSettings } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import { 
@@ -97,7 +97,7 @@ class CoinSettings extends Component {
   }
 
   back = () => {
-    this.props.navigation.dispatch(NavigationActions.back())
+    this.props.navigation.dispatch(CommonActions.goBack())
   }
 
   //TODO: Add more to this when more options are added

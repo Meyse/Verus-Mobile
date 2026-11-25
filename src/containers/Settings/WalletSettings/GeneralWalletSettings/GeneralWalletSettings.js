@@ -27,7 +27,7 @@ import Button from '../../../../components/Button';
 import ListSelectionModal from '../../../../components/ListSelectionModal/ListSelectionModal';
 import {saveGeneralSettings} from '../../../../actions/actionCreators';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
-import {NavigationActions} from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 import { ADDRESS_BLOCKLIST_FROM_WEBSERVER } from '../../../../utils/constants/constants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import { MINIMUM_GAS_PRICE_GWEI } from '../../../../utils/constants/web3Constants';
@@ -170,7 +170,7 @@ const WalletSettings = props => {
   };
 
   const back = () => {
-    props.navigation.dispatch(NavigationActions.back());
+    props.navigation.dispatch(CommonActions.goBack());
   };
 
   const validateFormData = () => {

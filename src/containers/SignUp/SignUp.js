@@ -11,7 +11,7 @@ import { Component } from "react"
 import { 
   Keyboard
 } from "react-native"
-import { NavigationActions } from '@react-navigation/compat'
+import { CommonActions } from '@react-navigation/native'
 import { addUser, disableSelectDefaultAccount } from '../../actions/actionCreators'
 import { connect } from 'react-redux'
 import AlertAsync from 'react-native-alert-async'
@@ -115,7 +115,7 @@ class SignUp extends Component {
   };
 
   cancel = () => {
-    this.props.navigation.dispatch(NavigationActions.back());
+    this.props.navigation.dispatch(CommonActions.goBack());
   };
 
   validateFormData = () => {
@@ -202,7 +202,7 @@ class SignUp extends Component {
             await this.addStartingCoins(this.state.userName)
 
             if (hadAccount) {
-              this.props.navigation.dispatch(NavigationActions.back());
+              this.props.navigation.dispatch(CommonActions.goBack());
             }
           })
           .catch((e) => {
@@ -238,7 +238,7 @@ class SignUp extends Component {
                     await this.addStartingCoins(this.state.userName)
 
                     if (hadAccount) {
-                      this.props.navigation.dispatch(NavigationActions.back());
+                      this.props.navigation.dispatch(CommonActions.goBack());
                     }
                   })
                   .catch((e) => {
