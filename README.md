@@ -36,7 +36,7 @@ THIS IS EXPERIMENTAL SOFTWARE AND IT IS PROVIDED "AS IS" AND ANY EXPRESSED OR IM
 
 ## Shared prerequisites
 
-The app uses React Native 0.77.3 with Hermes and the legacy React Native architecture. Keep the dependency patches in `patches/`: they retain the app's ENS/Verus behavior, random-number error handling, network-module and in-app-purchase compatibility, and Verus SDK packaging fixes. See the [dependency compatibility notes](tools/android/README.md#dependency-compatibility).
+The app uses React Native 0.81.6 and React 19.1.4 with Hermes and the New Architecture (Fabric, bridgeless). Keep the dependency patches in `patches/`: they retain the app's ENS/Verus behavior, random-number error handling, network-module and in-app-purchase compatibility, Verus SDK packaging fixes, and the default `allowFontScaling={false}` for `Text` and `TextInput`. See the [dependency compatibility notes](tools/android/README.md#dependency-compatibility).
 
 New mainnet profiles start with vUSDC on Verus, USDC on Ethereum, and Polygon in addition to the other starting assets. Test profiles use the corresponding testnet assets, including Polygon Amoy and its configured USDC token. Existing profiles are not automatically modified.
 
@@ -129,7 +129,7 @@ The GitLab jobs use frozen pnpm installs and check debug/release APK alignment. 
 
 ## iOS (macOS)
 
-The app now requires **iOS 15.1 or later**. Install full Xcode and select its command-line tools. React Native 0.77 requires Xcode 15.1 or newer; this migration uses Xcode 26.2. Install Ruby 3.4.1 (for example with rbenv), Bundler 2.6.2, and [rustup](https://rustup.rs/). Run the shared pnpm installation above first.
+The app now requires **iOS 15.1 or later**. Install full Xcode and select its command-line tools. React Native 0.81 requires Xcode 16.1 or newer and Node 20.19.4 or newer; the upgrade was built with Xcode 27.2. Install Ruby 3.4.1 (for example with rbenv), Bundler 2.6.2, and [rustup](https://rustup.rs/). Run the shared pnpm installation above first.
 
 Use the repository's Gemfile and lockfile for CocoaPods and its dependencies:
 

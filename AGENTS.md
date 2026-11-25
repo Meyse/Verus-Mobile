@@ -19,7 +19,7 @@ Compact map for coding agents in this repository. Keep it short.
 
 ## Stack facts
 
-- React Native 0.77.3, React 18.3.1, Hermes, New Architecture (`newArchEnabled=true`, `RCT_NEW_ARCH_ENABLED=1`, Fabric, bridgeless). Legacy native modules run through the interop layer. No Expo.
+- React Native 0.81.6, React 19.1.4, Hermes, New Architecture (`newArchEnabled=true`, `RCT_NEW_ARCH_ENABLED=1`, Fabric, bridgeless). Legacy native modules run through the interop layer. No Expo.
 - React Navigation 6 (JS stack, bottom tabs), React Native Paper 5, Reanimated 3, Redux.
 - Android: minSdk 24, compile and target SDK 36. Node 22 (`.nvmrc`), pnpm 12.6.0 through Corepack.
 - Keep the dependency patches in `patches/`. See `README.md` for build instructions.
