@@ -13,25 +13,27 @@ const WebSocket = require('ws');
 
 const metro = process.argv[2] || 'http://localhost:8081';
 
+// [key, module name, one method the module exports]. Under the New Architecture, legacy
+// modules are lazy interop objects with no enumerable keys, so the method is read by name.
 const MODULES = [
-  ['keychain', 'RNKeychainManager'],
-  ['verus', 'VerusLightClient'],
-  ['tcp', 'TcpSockets'],
-  ['udp', 'UdpSockets'],
-  ['randombytes', 'RNRandomBytes'],
-  ['os', 'RNOS'],
-  ['nfc', 'NfcManager'],
-  ['camera', 'CameraView'],
-  ['camera', 'CameraDevices'],
-  ['iap (iOS)', 'RNIapIos'],
-  ['iap (Android)', 'RNIapModule'],
-  ['app (Android)', 'VerusBiometricEnrollment'],
-  ['app', 'VerusKeepAwake'],
+  ['keychain', 'RNKeychainManager', 'getGenericPasswordForOptions'],
+  ['verus', 'VerusLightClient', 'start'],
+  ['tcp', 'TcpSockets', 'connect'],
+  ['udp', 'UdpSockets', 'createSocket'],
+  ['randombytes', 'RNRandomBytes', 'randomBytes'],
+  ['os', 'RNOS', null],
+  ['nfc', 'NfcManager', 'isSupported'],
+  ['camera', 'CameraView', 'requestCameraPermission'],
+  ['camera', 'CameraDevices', null],
+  ['iap (iOS)', 'RNIapIos', 'endConnection'],
+  ['iap (Android)', 'RNIapModule', 'initConnection'],
+  ['app (Android)', 'VerusBiometricEnrollment', 'getEnrollmentBoundCredentialStatus'],
+  ['app', 'VerusKeepAwake', 'activate'],
 ];
 
 const EXPRESSION = `(() => {
   const g = globalThis;
-  const names = ${JSON.stringify(MODULES.map(m => m[1]))};
+  const list = ${JSON.stringify(MODULES.map(m => [m[1], m[2]]))};
   const get = (n) => {
     let v = null;
     try { v = g.nativeModuleProxy ? g.nativeModuleProxy[n] : null; } catch (e) {}
@@ -41,11 +43,14 @@ const EXPRESSION = `(() => {
     return v;
   };
   const modules = {};
-  for (const n of names) {
+  for (const [n, method] of list) {
     const v = get(n);
+    if (!v) { modules[n] = null; continue; }
     let members = 0;
-    if (v) { try { members = Object.keys(v).length; } catch (e) {} }
-    modules[n] = v ? members : -1;
+    try { members = Object.keys(v).length; } catch (e) {}
+    let methodType = null;
+    if (method) { try { methodType = typeof v[method]; } catch (e) { methodType = 'error'; } }
+    modules[n] = { members, method, methodType };
   }
   return JSON.stringify({
     bridgeless: !!g.RN$Bridgeless,
@@ -87,7 +92,9 @@ function getJson(url) {
   console.log(`target: ${target.title} (${target.description || ''})`);
   console.log(`bridgeless=${data.bridgeless} fabric=${data.fabric} turboModuleProxy=${data.turboModuleProxy}`);
   for (const [key, name] of MODULES) {
-    const n = data.modules[name];
-    console.log(`${n >= 0 ? 'PRESENT' : 'MISSING'}  ${key.padEnd(14)} ${name}${n >= 0 ? ` (${n} members)` : ''}`);
+    const m = data.modules[name];
+    if (!m) { console.log(`MISSING  ${key.padEnd(14)} ${name}`); continue; }
+    const method = m.method ? `, ${m.method}: ${m.methodType}` : '';
+    console.log(`PRESENT  ${key.padEnd(14)} ${name} (${m.members} enumerable members${method})`);
   }
 })().catch(e => { console.error(`probe failed: ${e.message}`); process.exit(1); });
