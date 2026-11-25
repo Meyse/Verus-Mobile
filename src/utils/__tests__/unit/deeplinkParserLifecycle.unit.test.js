@@ -5,7 +5,6 @@ const mockPreferred = jest.fn();
 jest.mock('react-native', () => ({Alert: {alert: jest.fn()}, Linking: {openURL: jest.fn()},
   unstable_batchedUpdates: callback => callback()}));
 jest.mock('react-native-url-polyfill', () => ({URL: require('url').URL}));
-jest.mock('@react-navigation/drawer', () => ({createDrawerNavigator: () => ({Navigator: 'Drawer', Screen: 'Screen'})}));
 jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn()})}));
 jest.mock('../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager', () => ({closeOffRamp: jest.fn()}));
 jest.mock('../../../containers/SideMenu/SideMenu', () => 'SideMenu');

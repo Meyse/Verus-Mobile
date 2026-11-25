@@ -14,7 +14,6 @@ jest.mock('react-native-paper', () => ({Text: 'Text'}));
 jest.mock('react-native-safe-area-context', () => ({useSafeAreaInsets: () => ({bottom: 0})}));
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 jest.mock('@react-navigation/native', () => ({CommonActions: {reset: payload => ({type: 'RESET', ...payload})}}));
-jest.mock('@react-navigation/drawer', () => ({createDrawerNavigator: () => ({Navigator: 'Drawer', Screen: 'Screen'})}));
 jest.mock('../../../containers/SideMenu/SideMenu', () => 'SideMenu');
 jest.mock('../../../containers/RootStack/MainStackScreens/MainStackScreens', () => 'MainStack');
 jest.mock('react-redux', () => ({useSelector: selector => selector(mockState), useDispatch: () => mockDispatch,
