@@ -15,7 +15,9 @@ Branch `claude/rn-upgrade`, on top of `1e08b367`:
 | `810e5bb8` | Version upgrade. Remove the drawer and material-bottom-tabs packages. Jest transforms the ESM-only v7 packages. |
 | `cfbf964f` | Navigate audit fixes: keep the v6 result of each `navigate` call (see "Sites that needed a change"). |
 | `c3237164` | Renamed options, `HeaderBackButton` import, uppercase top-tab labels. |
-| (this commit) | `phase-3.md` and the navigation checks in `smoke-checklist.md`. |
+| `35fc59b1` | `phase-3.md` and the navigation checks in `smoke-checklist.md`. |
+| `10a265e5` | Keep the v6 header and tab bar geometry (see "Geometry kept from v6"). |
+| (this commit) | Device and Jest results; checklist wording for N05, N06, N13, N18. |
 
 ## Versions
 
@@ -210,15 +212,25 @@ Options checked that need no change: `headerBackTitle`, `headerMode: 'screen'`, 
 Theme: the app passes no `theme` to any `NavigationContainer`. The v7 default theme includes the new `fonts`
 key, so no theme change is needed. The header title style is the same as in v6.
 
-### Visual differences not changed (decision for Max)
+### Geometry kept from v6
 
-These come from the v7 bottom-tab defaults. Source comparison only; check them on the devices (N24):
+The iOS device check found three size changes from the v7 defaults. Phase 3 must not change the UI, so
+`10a265e5` restores the v6 values:
 
-- Tab item layout: v7 aligns the icon and label from the top (`justifyContent: 'flex-start'`, padding 5, a
-  31 × 28 icon box). v6 aligned them at the bottom. The icon and the label can move a few points.
-- iOS bar height: v7 adds the full bottom inset; v6 added the inset minus 4. On a phone with a home indicator the
-  bar is about 4 pt taller.
-- Top-tab label size: v7 uses 14 by default (v6 13). The three modals set `fontSize: 12`, so they do not change.
+| Change in v7 | v6 value kept by | Where |
+|---|---|---|
+| Stack header on iOS phones with a Dynamic Island: about 5.3 pt shorter (`getDefaultHeaderHeight` subtracts `5 + 1/PixelRatio` from the top inset). Header bottom on the iPhone 17 Pro: 106 → 100.5 pt. | `patches/@react-navigation+elements+2.9.46.patch`: 44 pt + top inset | All stack headers |
+| Stack header on Android: 64 dp (v6: 56 dp). | Same patch: 56 dp on Android | All stack headers |
+| Bottom tab bar: full bottom inset (v6: inset − 4 pt on iOS), icon and label aligned from the top of a padded tab (v6: label at the bottom, icon centred above it). Bar 4 pt taller, labels 5.3 pt higher. | `HomeTabScreens.js`: `tabBarStyle` height and `paddingBottom`, a `tabBarButton` with no padding and `justifyContent: 'flex-end'`, `tabBarIconStyle: { flex: 1 }` | Home tabs |
+
+The app is portrait-only and phone-only (`TARGETED_DEVICE_FAMILY = 1`), so the side-label tab layout does not
+occur. Top-tab label size: v7 uses 14 by default (v6 13). The three modals set `fontSize: 12`, so they do not
+change.
+
+Check on iOS (iPhone 17 Pro simulator, phase 3 JS with `10a265e5`): the tab bar area (y ≥ 760 pt) matches the
+phase 2 screenshot with 0 differing pixels (before the fix: 22,794). The Gift Cards header ends at 106.0 pt
+(phase 2: 106–107, 1x screenshot; before the fix: 101). Screenshots:
+`~/.cache/valu-wallet-upgrade/phase3/ios/geom/`.
 
 ## Jest
 
@@ -245,7 +257,9 @@ These come from the v7 bottom-tab defaults. Source comparison only; check them o
 
 Raw results: `~/.cache/valu-wallet-upgrade/logs/jest-phase3.json`.
 
-JEST (final run after the device checks): to be filled in.
+Final run at `10a265e5` (after the device checks): 197 suites, 29 failed (the same 29); tests 2561 passed,
+127 failed, 68 skipped. The only change from the run above is `coinpaprika` (90 failed, as in phase 2; live
+network). No new failing suite or test. Raw results: `~/.cache/valu-wallet-upgrade/logs/jest-phase3-geom.json`.
 
 ## Lint
 
@@ -253,19 +267,68 @@ Same as baseline: ESLint does not run (B1).
 
 ## iOS device results
 
-DEVICE_RESULTS_IOS
+iPhone 17 Pro simulator (iOS 26.5), the phase 2 Debug build (phase 3 changes no native code), JS served by Metro
+from each checkout. Phase 2 JS (`cb6385cc`) ran first as the reference, then phase 3 JS (`35fc59b1`).
+Result: **PASS**.
+
+| Check | Phase 3 JS | Same as phase 2 JS |
+|---|---|---|
+| M1 profile list (incl. `ValuBaseIOS`) | PASS | yes |
+| M2 password unlock, same address, balance 0.4596 | PASS | yes |
+| M3 Face ID | PASS | yes |
+| M4 testnet invoice payment | PASS, txid `a66a7ce2ea55bffe8c82afb1ade2e6f5ec611258840a451d137951b9a3f558e3` | yes (phase 2 JS paid `2e60bf61…`) |
+| N01–N06, N08, N12–N18, N21–N26 | PASS | yes |
+| N07 bell with the Services tab opened before | Notifications opens in the Wallet tab (phase 2: Services tab) | no: the documented `navigateByPath` tab rule |
+| N09–N11 | BLOCKED by B5 (send red box) | yes, same block |
+| N19–N20 | BLOCKED: testnet server error `getblock tip: Method not found` | yes, same block |
+| S02–S26 | PASS (S14 is B5; S25 N/A on testnet) | yes |
+
+Logs: no "was not handled by any navigator", no red box from navigation, and no React Navigation deprecation
+warning. The v6 `TabBarItem` key warning is gone. The core `SafeAreaView` deprecation warning shows as in phase 2
+(phase 4 item).
+
+Small differences seen (not defects): on the profile-name step reached with Back, the keyboard shows with the
+field focused (phase 2: not focused). The top-tab accessibility labels are now `Confirm` / `Result` (phase 2:
+`CONFIRM, CONFIRM`); the visible text is uppercase in both.
+
+Evidence: `~/.cache/valu-wallet-upgrade/phase3/ios/` (phase 2 references in `p2-ref/`), console log
+`~/.cache/valu-wallet-upgrade/logs/js-console-phase3-ios.log`.
 
 ## Android device results
 
-DEVICE_RESULTS_ANDROID
+Game PC slot s2, Pixel 9 (Android 16) and the small phone (360 × 640 dp), the phase 2 Debug build `1619eedf`
+(phase 3 changes no native code). Metro served phase 2 JS (`cb6385cc`) first, then phase 3 JS (`35fc59b1`), each
+from its own checkout with all patches applied. Result: **PASS**.
+
+| Check | Phase 3 JS | Same as phase 2 JS |
+|---|---|---|
+| M1 profile list ("QA Baseline Restore") | PASS | yes |
+| M2 password unlock, same address `RMSZ4…Pj9bW`, balance 0.4697 (after the 0.0101 phase 2 N17 payment) | PASS | yes |
+| M3 | N/A (no Face ID on the emulator) | — |
+| M4 testnet invoice payment | PASS, txid `3a9c29ba562eb4ff83300b748a61ed359e235c0a29d5dd103791f0cfd8f771a7` | yes (phase 2 JS paid `851c7c7f…3bf9`) |
+| N01–N05, N08, N12–N18, N21–N23, N25 | PASS | yes |
+| N06, N07 | N/A: no bell on testnet profiles | yes |
+| N09–N11, N19–N20 | BLOCKED (B5; testnet `getblock tip: Method not found`) | yes, same blocks |
+| N24 tab bar / header | see below | — |
+| N26 log check | clean | better: the v6 `TabBarItem` key warning is gone |
+| S02–S26 | PASS (S13 N/A, S14 is B5, S18/S21 BLOCKED as known, S25 iOS only) | yes |
+| Small phone: tab bar, onboarding Back steps | PASS | yes |
+
+Before `10a265e5`, Android showed the two v7 sizes: the stack header title 8 dp lower (64 dp header) and the
+tab-bar icon 2.7 dp lower; the back-arrow hit area grew from 30 to 48 dp. The Send / Convert top tabs were
+identical. No new log line; the known lines (B5, `sepolia` bridge delegator, a unique-key warning in
+`ConvertOrCrossChainSendConfirm`, non-serializable navigation params, `SafeAreaView` deprecation, require
+cycles) show in both versions. A re-check of `10a265e5` on the same phones follows in this file.
+
+Evidence (Game PC): `%USERPROFILE%\.cache\valu-wallet-upgrade\phase3\android\` (`p2-tabbar.png`,
+`p3-tabbar.png`, `p3-N09-send.png`).
 
 ## Open items
 
 Decisions for Max:
 
-1. Bottom-tab layout and the iOS bar height (see "Visual differences not changed"). Recommendation: compare
-   with the Figma design on the devices; restore the v6 values with `tabBarItemStyle` and `tabBarStyle` only if
-   the design wants the v6 look.
+1. v7 header and tab bar sizes. Phase 3 keeps the v6 sizes (see "Geometry kept from v6"). If the redesign wants
+   the v7 defaults, delete the `@react-navigation/elements` patch and the tab options in `HomeTabScreens.js`.
 2. Tab choice of `navigateByPath` (see "navigateByPath"). Recommendation: keep the new rule. It does not depend
    on which tabs the user opened before.
 
