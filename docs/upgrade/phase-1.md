@@ -13,10 +13,11 @@ Branch `claude/rn-upgrade`:
 | `5d58afc0` | The S02 probe reads one method of each module (bridgeless interop modules have no enumerable keys). |
 | `d4192233` | Fix P1-1 (below): `collapsable={false}` on 13 text-input containers in 12 files. JS only. |
 | `ad6a9b41` | Fix P1-2 (below): `MainApplication.getReactHost()` for bridgeless Android. |
+| `65b329ac` | Fix P1-3 (below): `react-native-verus` `initialize` returns `Unit` on Android. Patch file only. |
 
-No native module was changed, bumped or replaced. The only native source change is `MainApplication.java`
-(P1-2). The iOS build needed no source change (same workarounds as baseline: `LANG=en_US.UTF-8` for
-`pod install`, B4 `main.jsbundle`).
+No native module was bumped or replaced. The native source changes are `MainApplication.java` (P1-2) and one
+hunk in `patches/react-native-verus+0.6.10.patch` (P1-3). The iOS build needed no source change (same
+workarounds as baseline: `LANG=en_US.UTF-8` for `pod install`, B4 `main.jsbundle`).
 
 ## Profile migration (most important check)
 
@@ -35,7 +36,7 @@ legacy-module interop layer. None is a native TurboModule.
 | Module | Use | iOS | Android |
 |---|---|---|---|
 | `RNKeychainManager` (react-native-keychain) | keys, password, biometrics | Works through interop (S18-S22, M2, M3) | Works through interop (S18-S22, M2) |
-| `VerusLightClient` (react-native-verus) | shielded (Z) wallet, light-client sync, data encryption | Loads through interop; `start` is callable. Two interop warnings, see below. The smoke checks do not reach a shielded flow. | **Broken: MISSING (P1-3, open)** |
+| `VerusLightClient` (react-native-verus) | shielded (Z) wallet, light-client sync, data encryption | Works through interop. `initialize` runs and the synchronizer starts (light-client check below). Two interop warnings, see below. | Works through interop after fix P1-3. `initialize` runs and the synchronizer starts (light-client check below). |
 | `TcpSockets`, `UdpSockets` | electrum / network | Work through interop (balance and send) | Work through interop (balance and send) |
 | `RNRandomBytes` | seed entropy | Works through interop (S06 new seed) | Works through interop (S06) |
 | `NfcManager` | NFC backup import | Works through interop (S24 "not supported" on the simulator, as baseline) | Works through interop (S24) |
@@ -71,9 +72,7 @@ stacking context in both states, so the input does not move. The rendered UI doe
 Checked on iOS: profile name (`P1-1-name-focus-fixed.png`) and import seed words take focus and text on the first
 tap. The other 11 sites have the same structure and were not opened one by one.
 
-## Open defect (needs a decision)
-
-**P1-3: `VerusLightClient` is missing on Android under bridgeless.** The S02 probe on Android reports
+**P1-3: `VerusLightClient` is missing on Android under bridgeless.** The S02 probe on Android reported
 `MISSING verus VerusLightClient`. The JS lookup throws
 `TurboModuleInteropUtils$ParsingException … VerusLightClient.initialize(). Unsupported return class
 kotlinx.coroutines.Job`. In `react-native-verus` 0.6.10,
@@ -84,10 +83,38 @@ The other 22 methods return `Unit` (`getLatestNetworkHeight` uses `promise.wrap`
 Effect on Android: every call to the module fails. This covers the light-client (`dlight`) channel (private
 balance, private transactions, shielded send), shielded address derivation, and identity-data encryption
 (`src/utils/crypto/encryptCredentials.js`). Transparent VRSCTEST balance, send and signing do not use it and work.
-iOS is not affected: the module loads and `start` is callable.
-Proposed fix (not applied, because this module handles keys and funds): change `initialize` to a block body,
-`) { moduleScope.launch { … } }`, so it returns `Unit`. This changes no behaviour. It can go in the existing
-`patches/react-native-verus+0.6.10.patch` or in the `react-native-verus` repository.
+iOS is not affected. The legacy bridge did not show the defect, because it does not check the return type of a
+`@ReactMethod` when the module loads.
+Fix (`65b329ac`, approved by the orchestrator because this module handles keys and funds): `initialize` has a
+block body, `) { moduleScope.launch { … } }`, so it returns `Unit`. The coroutine and its work do not change. The
+hunk is in `patches/react-native-verus+0.6.10.patch`. A clean `CI=true corepack pnpm install --frozen-lockfile`
+applies all patches with a tick, and `VerusLightClientModule.kt` then has the block body.
+
+### Light-client check (both platforms)
+
+The check uses a VRSCTEST profile with a shielded seed ("Setup Z (Shielded Address) Seed", existing seed,
+then restart and unlock).
+
+| | iOS (`ValuP1IOS`) | Android (re-imported `QA Phase1 Three` seed, build `65b329ac`) |
+|---|---|---|
+| Module | Present. `initialize` is a function. | Present (S02 `PRESENT verus VerusLightClient`). `initialize`, `getInfo`, `getPrivateBalance`, `stop`, `rescan`, `getUnifiedAddress` are functions. No `ParsingException`. |
+| `initialize` runs | Yes. The native synchronizer gives the profile's `zs1…` address. | Yes. Logcat: `libzcashwalletsdk.so` loads, `Synchronizer.new` is called from `VerusLightClient$initialize$1` (`VerusLightClientModule.kt:116`), then `SdkSynchronizer.onReady(): Starting synchronizer…`. |
+| Channel | The app opens connections to `lightwalletd.verustest.net:8125`. `getInfo` times out. | The Verus Testnet coin shows a Private card, "Syncing - 0.00%", with a `zs1…` receive address. |
+| Sync | Does not finish | Does not finish (0.00% after 10 minutes) |
+
+Sync does not finish on either platform for an external reason: the TLS certificate of
+`lightwalletd.verustest.net:8125` expired on 2026-11-05. Android logs `LightWalletClient: Networking error:
+UNAVAILABLE` on each call, and `openssl` shows the expired certificate. A full sync check needs a renewed
+certificate or another lightwalletd host.
+
+Separate finding (Android, not verified): `refreshUtxos` logs `UnsatisfiedLinkError: No implementation found for
+RustBackend.listTransparentReceivers(String,int,int)`. The native library in `react-native-verus` seems to lack
+this JNI symbol. The New Architecture does not change JNI symbol lookup, so this is probably not a phase 1
+defect. The baseline Android run had no shielded wallet, so there is no baseline result to compare. Check it
+again when lightwalletd is reachable.
+
+Evidence: iOS `~/.cache/valu-wallet-upgrade/phase1/ios/P1-3-*`; Android
+`%USERPROFILE%\.cache\valu-wallet-upgrade\phase1\android\v7k2-*` and `S02-probe-v7k2.txt`.
 
 ## iOS smoke results (New Architecture)
 
@@ -126,7 +153,7 @@ logs stay on the PC: `%USERPROFILE%\.cache\valu-wallet-upgrade\phase1\android\`.
 | ID | Result | Notes |
 |---|---|---|
 | S01 | PASS | Run last, after uninstall and reinstall: "Get started" shows. This removed the baseline profiles from the emulator. |
-| S02 | FAIL (P1-3) | All modules present except `VerusLightClient`. `RNIapIos` missing (iOS only, expected). |
+| S02 | PASS after fix P1-3 | Build `ad6a9b41`: all modules present except `VerusLightClient`. Build `65b329ac`: all present. `RNIapIos` missing (iOS only, expected). |
 | S03-S06 | PASS | All text fields take focus and text on the first tap. |
 | S07-S10 | PASS | |
 | S11 | PASS | Live camera frame (permission was already granted). |

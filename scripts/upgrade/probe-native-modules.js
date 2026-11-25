@@ -17,7 +17,7 @@ const metro = process.argv[2] || 'http://localhost:8081';
 // modules are lazy interop objects with no enumerable keys, so the method is read by name.
 const MODULES = [
   ['keychain', 'RNKeychainManager', 'getGenericPasswordForOptions'],
-  ['verus', 'VerusLightClient', 'start'],
+  ['verus', 'VerusLightClient', 'initialize'],
   ['tcp', 'TcpSockets', 'connect'],
   ['udp', 'UdpSockets', 'createSocket'],
   ['randombytes', 'RNRandomBytes', 'randomBytes'],
