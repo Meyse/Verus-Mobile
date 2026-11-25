@@ -71,6 +71,9 @@ export const createSelectionSheetStyles = theme =>
     // A subtitle drawn as the value label: no top margin, so the two second
     // lines of a row sit at the same height.
     subtitleAsValueLabel: {...theme.typography.bodySm, color: theme.colors.textSecondary, marginTop: 0},
+    // The chain words under a card's name: 12/16, quieter than the unit on the
+    // right. The 2-point top margin centres the line on the unit's line.
+    subtitleAsChain: {...theme.typography.captionDense, color: theme.colors.textSecondary, marginTop: 2},
     quietValueText: {...theme.typography.bodySm, color: theme.colors.textSecondary},
     quietValueLabel: {...theme.typography.caption, color: theme.colors.textSubtle},
     indicator: {marginLeft: 10, width: 22, alignItems: 'center'},

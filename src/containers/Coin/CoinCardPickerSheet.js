@@ -189,8 +189,8 @@ const CoinCardPickerSheet = ({
         return {
           wallet,
           identifier,
-          // The card's title names its network too (PR 266 review R8), so
-          // rows have no network line.
+          // The title carries the chain words ("on Verus", owner, 2026-11-25),
+          // drawn on line 2 of the row.
           cardTitle: getSubWalletCardTitle(wallet, {address: identifier, coin}),
           verusId,
           type,
@@ -570,7 +570,7 @@ const CoinCardPickerSheet = ({
           ? item.identifier
           : item.cardTitle.name,
         item.type,
-        item.cardTitle.networkTicker,
+        item.cardTitle.chainLabel,
         item.balanceAccessibilityLabel,
         current ? 'Current address' : null,
       ]
@@ -600,9 +600,9 @@ const CoinCardPickerSheet = ({
             </View>
             <View style={styles.identifierColumn}>
               <CardTitle title={item.cardTitle} style={styles.identifier} nameOnly />
-              {item.cardTitle.networkTicker ? (
+              {item.cardTitle.chainLabel ? (
                 <Text numberOfLines={1} style={styles.networkLine}>
-                  {item.cardTitle.networkTicker}
+                  {item.cardTitle.chainLabel}
                 </Text>
               ) : null}
             </View>

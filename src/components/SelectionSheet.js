@@ -36,6 +36,10 @@ export const SelectionRow = ({
   // Draws the subtitle like the value label on the right (no top margin), so
   // the two second lines match.
   subtitleLikeValueLabel = false,
+  // Draws the subtitle as the quiet chain words ("on Verus", "on Verus ·
+  // Syncing 40%"): `captionDense`, smaller than the unit on the right (owner,
+  // 2026-11-25).
+  subtitleChain = false,
   selected,
   onPress,
   value,
@@ -114,6 +118,7 @@ export const SelectionRow = ({
               dense && styles.denseSubtitle,
               subtitleMonospace && styles.identifier,
               subtitleLikeValueLabel && styles.subtitleAsValueLabel,
+              subtitleChain && styles.subtitleAsChain,
             ]}>
             {subtitle}
           </Text>
