@@ -48,7 +48,6 @@ import {
 import {USD} from '../../utils/constants/currencies';
 import {extractLedgerData} from '../../utils/ledger/extractLedgerData';
 import {getSubWalletCardTitleForAccount} from '../../utils/subwallet/cardPresentation';
-import CardTitle from '../../components/CardTitle';
 import {extractDisplaySubWallets} from '../../utils/subwallet/extractSubWallets';
 import {getShownBalance} from '../../utils/ledger/shownBalance';
 import ReceiveAddressSheet from './ReceiveAddressSheet';
@@ -223,6 +222,9 @@ const ReceiveAssetDetails = ({navigation, route}) => {
         : null,
     [activeAccount, coinObj, selectedCard],
   );
+  const showTicker =
+    Boolean(coinObj?.display_ticker) &&
+    coinObj.display_ticker !== coinObj.display_name;
   const requestContextKey = [
     coinObj?.id,
     selectedCard?.id,
@@ -266,44 +268,78 @@ const ReceiveAssetDetails = ({navigation, route}) => {
 
   const addressLoading = activeAccount == null;
 
-  const renderAddressRow = () => (
-    <TouchableOpacity
-      accessibilityRole={addressRecords.length > 1 ? 'button' : undefined}
-      activeOpacity={addressRecords.length > 1 ? 0.7 : 1}
-      disabled={addressRecords.length <= 1}
-      onPress={openAddressSheet}
-      style={styles.addressRow}>
-      {address ? (
-        <>
-          <Text
-            ellipsizeMode="middle"
-            numberOfLines={1}
-            selectable={Platform.OS === 'ios'}
-            style={[styles.address, styles.identifier]}>
-            {address}
-          </Text>
-          <CopyAction
-            accessibilityLabel="Copy receive address"
-            value={address}
+  // One address box. Line 1 is the value, line 2 the card's chain words (none
+  // for Ethereum or Bitcoin cards). With 2+ cards the value area, its chain
+  // line and the chevron are one button that opens "Choose an address"; a
+  // thin divider then separates it from the copy target. With 1 card but
+  // several addresses the area opens the address sheet instead.
+  const renderAddressBox = ({value, mono, copyLabel, withPicker}) => {
+    const pickCard = withPicker && cards.length > 1;
+    const pickAddress = !pickCard && withPicker && addressRecords.length > 1;
+    const pressable = pickCard || pickAddress;
+    const chainLabel = withPicker ? cardTitle?.chainLabel : null;
+    const content = (
+      <>
+        <View style={styles.addressText}>
+          {value ? (
+            <Text
+              ellipsizeMode="middle"
+              numberOfLines={1}
+              selectable={Platform.OS === 'ios' && !pressable}
+              style={[styles.address, mono && styles.identifier]}>
+              {value}
+            </Text>
+          ) : (
+            // Missing data is a sentence, not a value: it reads as body copy
+            // that wraps fully and offers no copy affordance.
+            <Text style={styles.addressMissing}>No address is available.</Text>
+          )}
+          {chainLabel ? (
+            <Text numberOfLines={1} style={styles.chainLine}>
+              {chainLabel}
+            </Text>
+          ) : null}
+        </View>
+        {pressable ? (
+          <MaterialCommunityIcons
+            color={theme.colors.textSecondary}
+            name="chevron-down"
+            size={20}
           />
-        </>
-      ) : (
-        // Missing data is a sentence, not a value: it reads as body copy that
-        // wraps fully and offers no copy affordance. Only a real address gets
-        // the identifier treatment and the copy control.
-        <Text style={styles.addressMissing}>
-          No address is available.
-        </Text>
-      )}
-      {addressRecords.length > 1 ? (
-        <MaterialCommunityIcons
-          color={theme.colors.textSubtle}
-          name="chevron-down"
-          size={20}
-        />
-      ) : null}
-    </TouchableOpacity>
-  );
+        ) : null}
+      </>
+    );
+
+    return (
+      <View style={styles.addressRow}>
+        {pressable ? (
+          <TouchableOpacity
+            accessibilityLabel={
+              pickCard
+                ? `Choose an address. Current: ${cardTitle?.text || ''}`
+                : undefined
+            }
+            accessibilityRole="button"
+            onPress={pickCard ? openCardSheet : openAddressSheet}
+            style={styles.addressPicker}>
+            {content}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.addressPicker}>{content}</View>
+        )}
+        {value ? (
+          <>
+            {pressable ? <View style={styles.addressDivider} /> : null}
+            <CopyAction
+              accessibilityLabel={copyLabel}
+              color={theme.colors.textSecondary}
+              value={value}
+            />
+          </>
+        ) : null}
+      </View>
+    );
+  };
 
   if (!coinObj) {
     return (
@@ -375,37 +411,13 @@ const ReceiveAssetDetails = ({navigation, route}) => {
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <AssetCoinLogo coinId={coinObj.id} size={40} />
-              <Text style={styles.title}>{coinObj.display_name}</Text>
-            </View>
-            {cards.length > 1 ? (
-              <TouchableOpacity
-                accessibilityLabel={`Choose an address. Current: ${cardTitle?.text || ''}`}
-                accessibilityRole="button"
-                onPress={openCardSheet}
-                style={styles.cardContext}>
-                <CardTitle
-                  title={cardTitle}
-                  containerStyle={styles.contextTitle}
-                  style={styles.contextText}
-                />
-                <MaterialCommunityIcons
-                  color={theme.colors.textSubtle}
-                  name="chevron-down"
-                  size={20}
-                />
-              </TouchableOpacity>
-            ) : (
-              <View
-                accessible
-                accessibilityLabel={cardTitle?.text}
-                style={styles.cardContext}>
-                <CardTitle
-                  title={cardTitle}
-                  containerStyle={styles.contextTitle}
-                  style={styles.contextText}
-                />
+              <View style={styles.titleBlock}>
+                <Text style={styles.title}>{coinObj.display_name}</Text>
+                {showTicker ? (
+                  <Text style={styles.ticker}>{coinObj.display_ticker}</Text>
+                ) : null}
               </View>
-            )}
+            </View>
           </View>
           <View style={styles.receiveBody}>
             <View style={[styles.qrWrap, isTight && styles.qrWrapTight]}>
@@ -443,28 +455,31 @@ const ReceiveAssetDetails = ({navigation, route}) => {
                 {selectedCard.name?.endsWith('@') ? (
                   <>
                     <Text style={styles.label}>VerusID</Text>
-                    <View style={styles.addressRow}>
-                      <Text
-                        ellipsizeMode="middle"
-                        numberOfLines={1}
-                        selectable={Platform.OS === 'ios'}
-                        style={styles.address}>
-                        {selectedCard.name}
-                      </Text>
-                      <CopyAction
-                        accessibilityLabel="Copy VerusID"
-                        value={selectedCard.name}
-                      />
-                    </View>
+                    {renderAddressBox({
+                      value: selectedCard.name,
+                      mono: false,
+                      copyLabel: 'Copy VerusID',
+                      withPicker: true,
+                    })}
                     <Text style={[styles.label, {marginTop: 12}]}>i-Address</Text>
-                    {renderAddressRow()}
+                    {renderAddressBox({
+                      value: address,
+                      mono: true,
+                      copyLabel: 'Copy receive address',
+                      withPicker: false,
+                    })}
                   </>
                 ) : (
                   <>
                     <Text style={styles.label}>
                       {selectedAddressRecord?.label || 'Address'}
                     </Text>
-                    {renderAddressRow()}
+                    {renderAddressBox({
+                      value: address,
+                      mono: true,
+                      copyLabel: 'Copy receive address',
+                      withPicker: true,
+                    })}
                   </>
                 )}
               </>

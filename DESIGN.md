@@ -304,39 +304,50 @@ A source is a subwallet, which can expose more than one address. Gift cards and
 NFC cards keep their names. The internal Card/subwallet model and all selection behavior stay the same.
 
 Every chooser names a card as the asset screen does (owner, 2026-11-19, PR
-266 review R8 option C with the owner's change; it replaces the type titles of
-2026-11-12). `getSubWalletCardTitle` in `src/utils/subwallet/cardPresentation.js`
-makes the title and `src/components/CardTitle.js` draws it: a transparent or
-other address card shows its short address in monospace (the first 6
-characters, "…", the last 6), a VerusID card its name (no i-address), the
-private card "Private". Then " · " and the network's ticker follow on every
-card, also when the asset is on one network: "RT7d8L…HcM3Wy · VRSC",
-"alice@ · VRSC", "Private · VRSCTEST". A VerusID name that already ends in
-".<network>@" carries its network and shows no suffix ("devphone.VRSCTEST@");
-a root name on its own chain keeps it ("alice@ · VRSC"). Bitcoin and Ethereum
-cards take their chain's ticker (BTC, BTCTEST, ETH, gETH); other Electrum
-coins take their own ticker (KMD). The short address never shortens below
-6…6. In choosers and the card picker, where a balance sits beside the title
-(owner, 2026-11-21, phone feedback), the row shows the name alone on line 1
-(`CardTitle nameOnly`, filling the row width) and the network ticker on line 2
-under it, on every row, also for a VerusID name that carries its network
-("devphone.VRSCTEST@" over "VRSCTEST"; `networkTicker` of
-`getSubWalletCardTitle` always holds it). Line 2 is drawn like the ticker under
-the balance on the right (`SelectionRow subtitleLikeValueLabel`: `bodySm`,
-`textSecondary`; the card picker uses its own balance-ticker style), so both
-second lines sit on one row. A private card that still syncs reads
-"VRSCTEST · Syncing 12%". On the asset screen stack, Receive details and the
-Advanced form header the title stays "name · network" on one line and, in the
-rare case of too little room, takes a tail ellipsis. A name without a
-network part (a VerusID that carries it) keeps one line and uses the full
-width. The two parts align to the top on a shared line height, not to the
-baseline (Android). A VerusID name gives way with a middle ellipsis and keeps its @;
-then the network never shortens. No row has an address line; a private card
-that still syncs shows its sync status after the network on line 2. Copy and the screen
-reader label keep the full address. Because each title names its network,
-the choosers have no network group titles; rows keep the network order
-(owner, 2026-11-19: "Remove group titles"; this replaces the group-title rule
-of 2026-11-12).
+266 review R8 option C; chain words by the owner, 2026-11-25).
+`getSubWalletCardTitle` in `src/utils/subwallet/cardPresentation.js` makes the
+title and `src/components/CardTitle.js` draws it. The name is a transparent or
+other address card's short address in monospace (the first 6 characters, "…",
+the last 6), a VerusID card's name (no i-address), or "Private". The short
+address never shortens below 6…6.
+
+A card on a Verus chain (VRSC, VRSCTEST or a PBaaS chain) adds the quiet words
+"on Verus" as `chainLabel`; `text` joins name and words ("RT7d8L…HcM3Wy on
+Verus"). The words name the chain: "Verus" for VRSC, "Verus Testnet" for
+VRSCTEST, the short ticker for any other PBaaS chain ("on vDEX", "on vARRR"),
+never the ticker "VRSC" and never a long display name. Ethereum (ETH, gETH and
+ERC-20 cards), Bitcoin, BTCTEST and other Electrum cards have no label: their
+address already says the chain. A VerusID name that ends in ".<chain
+ticker>@" ("devphone.VRSCTEST@") has none either; a root name such as
+"alice@" on Verus reads "alice@ on Verus". The same words serve as the screen
+reader label; the old " · <ticker>" suffix is gone.
+
+Drawing, by place:
+
+- Asset cards (front card, strips and the open-sheet bar): `CardTitle
+  stacked`. Line 1 is the name; line 2 is the chain words in `captionDense`
+  (12/16), white at 86% on the card colour. A card without a label shows the
+  name alone, centred as before. The cards are sized for the two lines
+  (owner, 2026-11-25, chain-label canvas R5 option A "More room"): see the
+  strip and front-card sizes below.
+- Choosers and the card picker, where a balance sits beside the title: line 1
+  is the name alone (`CardTitle nameOnly`, filling the row width); line 2 is
+  the chain words, smaller and quieter than the unit on the right (`SelectionRow
+  subtitleChain`: `captionDense`, `textSecondary`; the card picker keeps its
+  own 10-point balance-ticker size for both). A row without a label has no
+  line 2. A private card that still syncs reads "on Verus · Syncing 12%".
+- One-line places (the Advanced form header): "name on
+  Verus" with the chain words in `textSecondary` after a name in
+  `textPrimary`, never a " · " separator. A rare lack of room gives the chain
+  words a tail ellipsis; a VerusID name gives way with a middle ellipsis and
+  keeps its @.
+
+The two parts of a one-line title align to the top on a shared line height,
+not to the baseline (Android). No row has an address line. Copy and the screen
+reader label keep the full address. Because each title names its chain, the
+choosers have no network group titles; rows keep the network order (owner,
+2026-11-19: "Remove group titles"; this replaces the group-title rule of
+2026-11-12).
 
 Simple transfer and Receive choices reuse `src/components/SelectionSheet.js`,
 `SelectionRow`, and `SelectionGroup`. They retain the canonical 76% shell and
@@ -1368,7 +1379,7 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   Above the layout's limit, the stack uses the first live pins in pin order;
   the picker retains all live pins. Its limit note stays through unpins until
   the count falls below the limit.
-- Strips expose 52 points (48 compact), with 24-point corners (22 compact)
+- Strips expose 60 points (56 compact; 52 and 48 before 2026-11-25), with 24-point corners (22 compact)
   and 20-point padding. The title is the card title of the Selection rule
   above (owner, 2026-11-19, PR 266 review R8): the short address, VerusID name
   or "Private", then " · <network>". The VerusID name keeps its final @ with a
@@ -1380,13 +1391,13 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   copy. Pressed strips
   get a 12% dark overlay. Selection moves cards with a 400 ms transform;
   Reduce Motion uses a short fade.
-- The front card is 120 points high (110 compact). It has no address or
+- The front card is 140 points high (128 compact). It has no address or
   network line, because its title carries both (owner, 2026-11-19, PR 266
   review R8; this replaces the 8...8 quiet line and the rule "VRSC on VRSC
   shows no network"). Its top-right `CopyAction` keeps a 44-point target and
-  copies the full address or the VerusID name. The amount starts 44 points
-  from the top (40 compact), is 32-point bold tabular (28 compact), and fiat
-  uses `labelSm` at 86% white. One card is a single 52-point title row (48
+  copies the full address or the VerusID name. The amount starts 60 points
+  from the top (56 compact), about 11 points under the chain line, is 32-point bold tabular (28 compact), and fiat
+  uses `labelSm` at 86% white. One card is a single 60-point title row (56
   compact) and omits its amount and fiat because the top row shows the total;
   its sync badge sits in that row, left of the copy action.
 - Materials are flat two-stop SVG gradients, top left to bottom right, in both
@@ -2157,10 +2168,19 @@ paper slip for Request ready on 2026-10-20.
   or options icon. Close (`HeaderCloseButton`: the Send wizard's 22-point
   `close` icon in a 44-point target) leaves Receive in one tap: it also closes
   the "Receive assets" list when Receive opened from it (owner, 2026-10-26). A
-  40-point asset logo sits beside `headlineMd`. Under the name, show only the
-  selected card's title (the Selection rule above: "RT7d8L…HcM3Wy · VRSC").
-  With several cards, that line opens "Choose an address" and has a 44-point
-  touch target.
+  40-point asset logo sits beside `headlineMd`, centred on the two-line title
+  block. Under the title sits the asset's ticker in `bodySm`, `textSecondary`
+  (hidden when it equals the title). There is no card line under the title
+  (owner, 2026-11-25, "Address box picks").
+- The address box says the address and the chain once. Line 1 is the full
+  address; line 2 is the card's `chainLabel` ("on Verus") in `captionDense`,
+  `textSecondary`, absent when the label is null (Ethereum, Bitcoin, a VerusID
+  that names its chain). With several cards the address area and a
+  `textSecondary` chevron are one button that opens "Choose an address"
+  (accessibility label "Choose an address. Current: <card title>"), then a 1-point
+  `borderStrong` divider, then `CopyAction` as its own 44-point target. With one
+  card there is no chevron or divider and the area is not pressable. On a
+  VerusID card the picker sits on the VerusID box; the i-Address box only copies.
 - Center the QR and address group in the remaining space; scroll when needed.
   The QR tile stays white in both themes, with 16-point padding, a 20-point
   radius, and a 216-point QR (184 on small screens; on windows of 640 points
@@ -2173,7 +2193,7 @@ paper slip for Request ready on 2026-10-20.
 - Show no supported-chain claim or repeated card/address metadata. The safe
   footer has Share address, then Request amount as a secondary action.
 - "Choose an address" titles each card with the same card title, so the
-  chooser matches the context line.
+  chooser matches the address box.
 - Request has one input step, then Request ready. Use `ProgressHeader` at 0.5
   and 1, the Send 40/48 amount field (it shrinks to 20 points to keep the
   amount and its unit on one line) and conversion chip, and `FlatRow` for
