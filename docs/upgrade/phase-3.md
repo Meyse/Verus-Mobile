@@ -318,7 +318,31 @@ Before `10a265e5`, Android showed the two v7 sizes: the stack header title 8 dp 
 tab-bar icon 2.7 dp lower; the back-arrow hit area grew from 30 to 48 dp. The Send / Convert top tabs were
 identical. No new log line; the known lines (B5, `sepolia` bridge delegator, a unique-key warning in
 `ConvertOrCrossChainSendConfirm`, non-serializable navigation params, `SafeAreaView` deprecation, require
-cycles) show in both versions. A re-check of `10a265e5` on the same phones follows in this file.
+cycles) show in both versions.
+
+Re-check of `10a265e5` on the same phones (uiautomator bounds, px at density 2.625):
+
+| Value | Phase 2 JS | Phase 3 JS (`35fc59b1`) | `10a265e5` |
+|---|---|---|---|
+| Tab bar | 2232–2424 | same | 2232–2424 |
+| Tab icon top | 2243 | 2250 | 2243 |
+| Tab label | 2317–2360 | +2 | 2317–2360 |
+| Coin screen title top | 331 | 352 | 331 |
+| Back arrow glyph top | 195 | 206 | 196 |
+| Back button touch area | 79 (30 dp) | 126 (48 dp) | 126 (48 dp) |
+
+The header and the tab bar match phase 2 again, on the small phone too. The one difference left is the back
+button's touch area: elements v2 makes it 48 dp. The drawn arrow is at the same place (1 px), so the screen
+looks the same; only the area that accepts a tap is larger. It is kept (it meets the Android 48 dp touch
+target). N01/N02 (small phone), N12 and N23 pass again; no fatal exception and no navigator error.
+
+The camera error `session/invalid-output-configuration` (red box, 10 times) showed once: the Scan tab was
+opened, then an invoice link. After a fresh start without the Scan tab, the invoice showed no error. Phase 2
+logged the same camera session error once (P2-2) and could not reproduce it. It is an open item for
+`react-native-vision-camera`, not a navigation change.
+
+Evidence (Game PC): `%USERPROFILE%\.cache\valu-wallet-upgrade\phase4\android\` (`p4-tabbar-compare.png`,
+`p4-coin.png`, `p4-small-tabbar-compare.png`, `logcat-normal-10a2.txt`).
 
 Evidence (Game PC): `%USERPROFILE%\.cache\valu-wallet-upgrade\phase3\android\` (`p2-tabbar.png`,
 `p3-tabbar.png`, `p3-N09-send.png`).
@@ -331,6 +355,9 @@ Decisions for Max:
    the v7 defaults, delete the `@react-navigation/elements` patch and the tab options in `HomeTabScreens.js`.
 2. Tab choice of `navigateByPath` (see "navigateByPath"). Recommendation: keep the new rule. It does not depend
    on which tabs the user opened before.
+
+3. Camera session error after Scan tab + invoice link on Android (P2-2, seen again in the `10a265e5` re-check).
+   Recommendation: check `react-native-vision-camera` session teardown when the Scan tab loses focus.
 
 Defects from before the upgrade (no change in this phase):
 
