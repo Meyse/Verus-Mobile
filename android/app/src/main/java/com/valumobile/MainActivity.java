@@ -1,5 +1,5 @@
 package com.valumobile;
-// Updated: Align getMainComponentName with JS app name in app.json ("verusmobile")
+// Updated: Align getMainComponentName with JS app name in app.json ("valumobile")
 
 import android.os.Bundle;
 
