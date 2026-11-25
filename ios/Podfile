@@ -141,7 +141,6 @@ target 'verusmobile' do
   pod 'MnemonicSwift', '~> 2.0.0'
   pod 'SwiftNIO', '2.40.0'
   pod 'CocoaAsyncSocket'
-  pod 'glog', :podspec => '../node_modules/react-native/third-party-podspecs/glog.podspec', :modular_headers => false
 
   post_install do |installer|
     react_native_post_install(

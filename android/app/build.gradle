@@ -1,8 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "com.facebook.react"
 
-import com.android.build.OutputFile
-
 def versionMajor = 1
 def versionMinor = 1
 def versionRevision = 1
@@ -122,7 +120,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = '17' }
 
     defaultConfig {
         applicationId "com.valumobile"
@@ -181,7 +178,7 @@ android {
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 
@@ -192,7 +189,7 @@ android {
             // https://developer.android.com/studio/build/configure-apk-splits.html
             // Example: versionCode 1 will generate 1001 for armeabi-v7a, 1002 for x86, etc.
             def versionCodes = ["armeabi-v7a": 1, "x86": 2, "arm64-v8a": 3, "x86_64": 4]
-            def abi = output.getFilter(OutputFile.ABI)
+            def abi = output.getFilter("ABI")
             if (abi != null) {  // null for the universal-debug, universal-release variants
                 output.versionCodeOverride =
                         defaultConfig.versionCode * 1000 + versionCodes.get(abi)
@@ -255,7 +252,7 @@ android.applicationVariants.all { variant ->
     def cleanTask = tasks.register("cleanReactNativeRes${capitalizedName}") {
         doLast {
             def resDir = file("${projectDir}/src/main/res")
-            def generatedResDir = file("${buildDir}/generated/res/react/${variant.name}")
+            def generatedResDir = layout.buildDirectory.dir("generated/res/react/${variant.name}").get().asFile
             if (generatedResDir.exists()) {
                 fileTree(generatedResDir).each { genFile ->
                     def relativePath = generatedResDir.toPath().relativize(genFile.toPath()).toString()

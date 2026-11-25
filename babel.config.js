@@ -5,7 +5,7 @@ module.exports = function (api) {
     plugins: [
       '@babel/plugin-transform-flow-strip-types',
       ['@babel/plugin-transform-private-methods', {loose: true}],
-      'react-native-reanimated/plugin',
+      'react-native-worklets/plugin',
     ],
   };
 };

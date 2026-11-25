@@ -5,59 +5,41 @@ import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeApplicationEntryPoint;
-import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.defaults.DefaultReactHost;
-import com.facebook.react.defaults.DefaultReactNativeHost;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
 
-  private final ReactNativeHost mReactNativeHost =
-      new DefaultReactNativeHost(this) {
-        @Override
-        public boolean getUseDeveloperSupport() {
-          return BuildConfig.DEBUG;
-        }
+  private ReactHost mReactHost;
 
-        @Override
-        protected List<ReactPackage> getPackages() {
-          @SuppressWarnings("UnnecessaryLocalVariable")
-          List<ReactPackage> packages = new PackageList(this).getPackages();
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // packages.add(new MyReactNativePackage());
-          packages.add(new VerusKeepAwakePackage());
-          packages.add(new VerusBiometricEnrollmentPackage());
-          return packages;
-        }
-
-        @Override
-        protected String getJSMainModuleName() {
-          return "index";
-        }
-
-        @Override
-        protected boolean isNewArchEnabled() {
-          return BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
-        }
-
-        // React Native 0.81 declares this as a Kotlin Boolean, which is a Java boolean.
-        @Override
-        protected boolean isHermesEnabled() {
-          return BuildConfig.IS_HERMES_ENABLED;
-        }
-      };
-
-  @Override
-  public ReactNativeHost getReactNativeHost() {
-    return mReactNativeHost;
-  }
-
-  // Bridgeless mode (New Architecture) starts the app through a ReactHost built from the host above.
+  // React Native 0.82+ runs only on the New Architecture (bridgeless). The app starts through a
+  // ReactHost; ReactNativeHost is no longer used (React Native 0.88 template).
   @Override
   public ReactHost getReactHost() {
-    // The third argument is the JS runtime factory; null selects Hermes.
-    return DefaultReactHost.getDefaultReactHost(getApplicationContext(), getReactNativeHost(), null);
+    if (mReactHost == null) {
+      List<ReactPackage> packages = new PackageList(this).getPackages();
+      // Packages that cannot be autolinked yet are added here.
+      packages.add(new VerusKeepAwakePackage());
+      packages.add(new VerusBiometricEnrollmentPackage());
+      // Arguments: context, packages, JS main module, bundle asset, bundle file, JS runtime
+      // (null selects Hermes), developer support, C++ packages, exception handler, bindings.
+      mReactHost =
+          DefaultReactHost.getDefaultReactHost(
+              getApplicationContext(),
+              packages,
+              "index",
+              "index.android.bundle",
+              null,
+              null,
+              BuildConfig.DEBUG,
+              java.util.Collections.emptyList(),
+              e -> {
+                throw new RuntimeException(e);
+              },
+              null);
+    }
+    return mReactHost;
   }
 
   @Override
