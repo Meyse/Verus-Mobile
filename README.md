@@ -36,7 +36,7 @@ THIS IS EXPERIMENTAL SOFTWARE AND IT IS PROVIDED "AS IS" AND ANY EXPRESSED OR IM
 
 ## Shared prerequisites
 
-The app uses React Native 0.81.6 and React 19.1.4 with Hermes and the New Architecture (Fabric, bridgeless). Keep the dependency patches in `patches/`: they retain the app's ENS/Verus behavior, random-number error handling, network-module and in-app-purchase compatibility, Verus SDK packaging fixes, and the default `allowFontScaling={false}` for `Text` and `TextInput`. See the [dependency compatibility notes](tools/android/README.md#dependency-compatibility).
+The app uses React Native 0.88.1 and React 19.3.1 with Hermes and the New Architecture (Fabric, bridgeless). Keep the dependency patches in `patches/`: they retain the app's ENS/Verus behavior, random-number error handling, network-module and in-app-purchase compatibility, Verus SDK packaging fixes, and the default `allowFontScaling={false}` for `Text` and `TextInput`. See the [dependency compatibility notes](tools/android/README.md#dependency-compatibility).
 
 New mainnet profiles start with vUSDC on Verus, USDC on Ethereum, and Polygon in addition to the other starting assets. Test profiles use the corresponding testnet assets, including Polygon Amoy and its configured USDC token. Existing profiles are not automatically modified.
 
@@ -65,12 +65,12 @@ Allow the install scripts to run; `--ignore-scripts` skips required native patch
 
 Install Android Studio, Java 17, Python 3, and these Android SDK components:
 
-- Android SDK Platform 36 and Build Tools 35.0.0.
-- NDK 27.0.12077973.
+- Android SDK Platform 37 and Build Tools 37.0.0.
+- NDK 27.1.12297006.
 - Platform Tools and an emulator system image, or a connected Android device.
 - Android SDK Platform 34 if building the existing wallet SDK locally as described below.
 
-Set `ANDROID_HOME` to your SDK directory and add its `platform-tools` and `emulator` directories to `PATH`. Set `JAVA_HOME` to Java 17. The project pins Gradle 8.10.2, Android Gradle Plugin 8.7.2 and Kotlin 2.0.21; use the checked-in Gradle wrapper. The minimum Android version is API 24, and the compile and target SDK are 36.
+Set `ANDROID_HOME` to your SDK directory and add its `platform-tools` and `emulator` directories to `PATH`. Set `JAVA_HOME` to Java 17. The project pins Gradle 9.4.1, Android Gradle Plugin 9.2.1 and Kotlin 2.2.0; use the checked-in Gradle wrapper. The minimum Android version is API 24, the compile SDK is 37 and the target SDK is 36.
 
 For macOS terminals, this example uses Android Studio's bundled Java 17. Check `java -version`; if your Android Studio bundles another version, point `JAVA_HOME` to an installed Java 17 JDK instead.
 
@@ -129,7 +129,7 @@ The GitLab jobs use frozen pnpm installs and check debug/release APK alignment. 
 
 ## iOS (macOS)
 
-The app now requires **iOS 15.1 or later**. Install full Xcode and select its command-line tools. React Native 0.81 requires Xcode 16.1 or newer and Node 20.19.4 or newer; the upgrade was built with Xcode 27.2. Install Ruby 3.4.1 (for example with rbenv), Bundler 2.6.2, and [rustup](https://rustup.rs/). Run the shared pnpm installation above first.
+The app now requires **iOS 15.1 or later**. Install full Xcode and select its command-line tools. React Native 0.88 requires Node 22.13 or newer; the upgrade was built with Xcode 27.2. CocoaPods installs the prebuilt React Native core by default. Install Ruby 3.4.1 (for example with rbenv), Bundler 2.6.2, and [rustup](https://rustup.rs/). Run the shared pnpm installation above first.
 
 Use the repository's Gemfile and lockfile for CocoaPods and its dependencies:
 
@@ -141,4 +141,4 @@ bundle install
 
 The Verus native module's preparation hook downloads its pinned wallet sources and builds the Rust/Swift XCFramework for devices and simulators on first installation. It installs the needed Rust targets through the SDK build scripts; allow additional time, network access and disk space for this step. Completed framework builds are reused on later installs.
 
-Open `ios/verusMobile.xcworkspace` in Xcode, select the app scheme and configure signing. Keep Metro running with `corepack pnpm start`, then build in Xcode or run `corepack pnpm ios`. The native project retains the legacy React Native architecture. If Xcode cannot find Node, set `NODE_BINARY` in the local, untracked `ios/.xcode.env.local` to the Node executable used for the pnpm installation.
+Open `ios/verusMobile.xcworkspace` in Xcode, select the app scheme and configure signing. Keep Metro running with `corepack pnpm start`, then build in Xcode or run `corepack pnpm ios`. The native project runs the New Architecture (bridgeless); legacy native modules run through the interop layer. If Xcode cannot find Node, set `NODE_BINARY` in the local, untracked `ios/.xcode.env.local` to the Node executable used for the pnpm installation.
