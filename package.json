@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "scripts": {
-    "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package",
+    "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package && node scripts/check-patches.js",
     "start-emulator": "node scripts/start-emulator.js",
     "stop-emulator": "node scripts/stop-emulator.js",
     "android": "react-native run-android",
