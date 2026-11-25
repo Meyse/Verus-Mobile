@@ -335,7 +335,7 @@ Drawing, by place:
   subtitleChain`: `captionDense`, `textSecondary`; the card picker keeps its
   own 10-point balance-ticker size for both). A row without a label has no
   line 2. A private card that still syncs reads "on Verus · Syncing 12%".
-- One-line places (Receive details, the Advanced form header): "name on
+- One-line places (the Advanced form header): "name on
   Verus" with the chain words in `textSecondary` after a name in
   `textPrimary`, never a " · " separator. A rare lack of room gives the chain
   words a tail ellipsis; a VerusID name gives way with a middle ellipsis and
@@ -2168,10 +2168,19 @@ paper slip for Request ready on 2026-10-20 (RX-2 in `UI_REDESIGN_PLAN.md`).
   or options icon. Close (`HeaderCloseButton`: the Send wizard's 22-point
   `close` icon in a 44-point target) leaves Receive in one tap: it also closes
   the "Receive assets" list when Receive opened from it (owner, 2026-10-26). A
-  40-point asset logo sits beside `headlineMd`. Under the name, show only the
-  selected card's title (the Selection rule above: "RT7d8L…HcM3Wy · VRSC").
-  With several cards, that line opens "Choose an address" and has a 44-point
-  touch target.
+  40-point asset logo sits beside `headlineMd`, centred on the two-line title
+  block. Under the title sits the asset's ticker in `bodySm`, `textSecondary`
+  (hidden when it equals the title). There is no card line under the title
+  (owner, 2026-11-25, "Address box picks").
+- The address box says the address and the chain once. Line 1 is the full
+  address; line 2 is the card's `chainLabel` ("on Verus") in `captionDense`,
+  `textSecondary`, absent when the label is null (Ethereum, Bitcoin, a VerusID
+  that names its chain). With several cards the address area and a
+  `textSecondary` chevron are one button that opens "Choose an address"
+  (accessibility label "Choose an address. Current: <card title>"), then a 1-point
+  `borderStrong` divider, then `CopyAction` as its own 44-point target. With one
+  card there is no chevron or divider and the area is not pressable. On a
+  VerusID card the picker sits on the VerusID box; the i-Address box only copies.
 - Center the QR and address group in the remaining space; scroll when needed.
   The QR tile stays white in both themes, with 16-point padding, a 20-point
   radius, and a 216-point QR (184 on small screens; on windows of 640 points
