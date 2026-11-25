@@ -3,9 +3,11 @@ package com.valumobile;
 import android.app.Application;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
+import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.defaults.DefaultReactHost;
 import com.facebook.react.defaults.DefaultReactNativeHost;
 import com.facebook.soloader.SoLoader;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
@@ -51,6 +53,12 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public ReactNativeHost getReactNativeHost() {
     return mReactNativeHost;
+  }
+
+  // Bridgeless mode (New Architecture) starts the app through a ReactHost built from the host above.
+  @Override
+  public ReactHost getReactHost() {
+    return DefaultReactHost.getDefaultReactHost(getApplicationContext(), getReactNativeHost());
   }
 
   @Override
