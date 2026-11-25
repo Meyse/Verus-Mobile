@@ -22,12 +22,16 @@ const WHITE = '#FFFFFF';
 const QUIET = 'rgba(255,255,255,0.86)';
 // The title row carries the card's name and network (PR 266 review R8), so
 // the front card has no address line: the amount follows the title row.
-const FRONT_HEIGHT = 120;
-const FRONT_HEIGHT_COMPACT = 110;
-// The title takes two lines (name, "on Verus") on a card on a Verus chain, so
-// the amount sits 2 points higher than with a name alone (owner, 2026-11-25).
-const HERO_TOP = 42;
-const HERO_TOP_COMPACT = 38;
+// A card title takes two lines (name, then "on Verus"), so each card has room
+// for them: 60 (compact 56) per back card and 140 (128) for the front card,
+// with the amount about 11 points under the chain line (owner, 2026-11-25,
+// canvas R5 option A "More room"; 52/120 and 48/110 felt cramped).
+const SLICE = 60;
+const SLICE_COMPACT = 56;
+const FRONT_HEIGHT = 140;
+const FRONT_HEIGHT_COMPACT = 128;
+const HERO_TOP = 60;
+const HERO_TOP_COMPACT = 56;
 
 const CardBalance = ({
   card,
@@ -141,7 +145,7 @@ const StackCard = ({
 }) => {
   const theme = useOnboardingTheme();
   const front = index === count - 1;
-  const slice = compact ? 48 : 52;
+  const slice = compact ? SLICE_COMPACT : SLICE;
   const radius = compact ? 22 : 24;
   // One card is a single title row: the top row already shows the total.
   const frontHeight = single
@@ -395,11 +399,11 @@ const AssetCardStack = props => {
   }, [asset.balances, asset.cards, asset.selected?.id, asset.stackPreferences, compact]);
   const single = asset.cards.length === 1;
   const height =
-    Math.max(0, items.length - 1) * (compact ? 48 : 52) +
+    Math.max(0, items.length - 1) * (compact ? SLICE_COMPACT : SLICE) +
     (single
       ? compact
-        ? 48
-        : 52
+        ? SLICE_COMPACT
+        : SLICE
       : compact
       ? FRONT_HEIGHT_COMPACT
       : FRONT_HEIGHT);

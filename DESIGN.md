@@ -327,8 +327,9 @@ Drawing, by place:
 - Asset cards (front card, strips and the open-sheet bar): `CardTitle
   stacked`. Line 1 is the name; line 2 is the chain words in `captionDense`
   (12/16), white at 86% on the card colour. A card without a label shows the
-  name alone, centred as before. The front card keeps its height; its amount
-  sits 2 points higher to make room.
+  name alone, centred as before. The cards are sized for the two lines
+  (owner, 2026-11-25, chain-label canvas R5 option A "More room"): see the
+  strip and front-card sizes below.
 - Choosers and the card picker, where a balance sits beside the title: line 1
   is the name alone (`CardTitle nameOnly`, filling the row width); line 2 is
   the chain words, smaller and quieter than the unit on the right (`SelectionRow
@@ -1378,7 +1379,7 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   Above the layout's limit, the stack uses the first live pins in pin order;
   the picker retains all live pins. Its limit note stays through unpins until
   the count falls below the limit.
-- Strips expose 52 points (48 compact), with 24-point corners (22 compact)
+- Strips expose 60 points (56 compact; 52 and 48 before 2026-11-25), with 24-point corners (22 compact)
   and 20-point padding. The title is the card title of the Selection rule
   above (owner, 2026-11-19, PR 266 review R8): the short address, VerusID name
   or "Private", then " · <network>". The VerusID name keeps its final @ with a
@@ -1390,13 +1391,13 @@ screen only. Other `SignedInActionBar` users keep their existing layout.
   copy. Pressed strips
   get a 12% dark overlay. Selection moves cards with a 400 ms transform;
   Reduce Motion uses a short fade.
-- The front card is 120 points high (110 compact). It has no address or
+- The front card is 140 points high (128 compact). It has no address or
   network line, because its title carries both (owner, 2026-11-19, PR 266
   review R8; this replaces the 8...8 quiet line and the rule "VRSC on VRSC
   shows no network"). Its top-right `CopyAction` keeps a 44-point target and
-  copies the full address or the VerusID name. The amount starts 44 points
-  from the top (40 compact), is 32-point bold tabular (28 compact), and fiat
-  uses `labelSm` at 86% white. One card is a single 52-point title row (48
+  copies the full address or the VerusID name. The amount starts 60 points
+  from the top (56 compact), about 11 points under the chain line, is 32-point bold tabular (28 compact), and fiat
+  uses `labelSm` at 86% white. One card is a single 60-point title row (56
   compact) and omits its amount and fiat because the top row shows the total;
   its sync badge sits in that row, left of the copy action.
 - Materials are flat two-stop SVG gradients, top left to bottom right, in both
