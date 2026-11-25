@@ -1,13 +1,14 @@
 // Updated invoice request UI to match DeepLink request styling.
 import React, {useState, useEffect} from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {Platform, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
 import { primitives } from "verusid-ts-client"
-import { Button, Portal, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
+import Button from '../../../components/Button';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { blocksToTime, satsToCoins, unixToDate } from '../../../utils/math';
 import { useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import GradientButton from '../../../components/GradientButton';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,6 +22,7 @@ import ListSelectionModal from '../../../components/ListSelectionModal/ListSelec
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import BigNumber from 'bignumber.js';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
+import { invoiceInfoStyles as styles } from '../../../styles';
 
 const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
   const Wrapper = onPress ? TouchableOpacity : View;
@@ -64,6 +66,12 @@ const InvoiceInfo = props => {
     chainInfo,
     acceptedSystemsDefinitions
   } = props;
+
+  const bottomNavigationInset = Math.max(
+    insets.bottom,
+    Platform.OS === 'android' ? 24 : 0,
+  );
+  const footerBottomPadding = 16 + bottomNavigationInset;
 
   const { fullyqualifiedname } = currencyDefinition;
   const [details, setDetails] = useState(new primitives.VerusPayInvoiceDetails());
@@ -154,7 +162,7 @@ const InvoiceInfo = props => {
   const [selectCurrencyModalProps, setSelectCurrencyModalProps] = useState(null);
   const [coinDetailsModalProps, setCoinDetailsModalProps] = useState(null);
 
-  handleContinue = () => {
+  const handleContinue = () => {
     if (signedIn) {
       props.navigation.navigate('InvoicePaymentConfiguration', props);
     } else {
@@ -302,27 +310,34 @@ const InvoiceInfo = props => {
   const isAnyAmount = details.acceptsAnyAmount() || amountDisplay == null;
   const heroAmount = isAnyAmount ? "Any Amount" : amountDisplay;
   const heroCurrency = fullyqualifiedname;
+  const isBurnChangePrice = details.isBurnChangePrice();
 
-  const destinationLabel = details.acceptsAnyDestination() || !destinationDisplay
-    ? 'Any destination'
-    : destinationDisplay;
+  const destinationLabel = isBurnChangePrice && details.acceptsAnyDestination()
+    ? 'Your own address'
+    : details.acceptsAnyDestination() || !destinationDisplay
+      ? 'Any destination'
+      : destinationDisplay;
 
   const detailRows = [];
   detailRows.push({
     key: 'destination',
     title: destinationLabel,
-    subtitle: 'Destination',
+    subtitle: isBurnChangePrice
+      ? 'Burn output address (does not receive the amount)'
+      : 'Destination',
     onPress: details.acceptsAnyDestination()
       ? null
       : () =>
           copyToClipboard(destinationDisplay, {
-            title: 'Destination copied',
+            title: isBurnChangePrice
+              ? 'Burn output address copied'
+              : 'Destination copied',
             message: `${destinationDisplay} copied to clipboard.`,
           }),
     rightIcon: details.acceptsAnyDestination() ? null : 'content-copy',
   });
 
-  if (details.acceptsConversion()) {
+  if (details.acceptsConversion() && !isBurnChangePrice) {
     detailRows.push({
       key: 'conversion',
       title: 'Conversion supported',
@@ -349,7 +364,9 @@ const InvoiceInfo = props => {
     detailRows.push({
       key: 'networks',
       title: acceptedSystemsLabel,
-      subtitle: 'Supported payment networks',
+      subtitle: isBurnChangePrice
+        ? 'Supported burn networks'
+        : 'Supported payment networks',
       onPress: () => openListSelectionModal(),
       rightIcon: 'information-outline',
     });
@@ -390,7 +407,11 @@ const InvoiceInfo = props => {
             searchPlaceholder="Search networks"
             onSelect={handleSupportedNetworkSelect}
             cancel={() => setIsListSelectionModalVisible(false)}
-            title="Supported Payment Networks"
+            title={
+              isBurnChangePrice
+                ? "Supported Burn Networks"
+                : "Supported Payment Networks"
+            }
             flexHeight={1}
           />
         )}
@@ -401,7 +422,9 @@ const InvoiceInfo = props => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>VerusPay invoice</Text>
+          <Text style={styles.mainTitle}>
+            {isBurnChangePrice ? 'VerusPay burn request' : 'VerusPay invoice'}
+          </Text>
         </View>
 
         {isSigned ? (
@@ -462,6 +485,27 @@ const InvoiceInfo = props => {
           <Text style={styles.heroCurrency}>{heroCurrency}</Text>
         </View>
 
+        {isBurnChangePrice ? (
+          <View style={styles.burnInfoCard}>
+            <View style={styles.burnInfoIconContainer}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={26}
+                color={Colors.verusGreenColor}
+              />
+            </View>
+            <View style={styles.burnInfoTextContainer}>
+              <Text style={styles.burnInfoTitle}>Burn payment</Text>
+              <Text style={styles.burnInfoSubtitle}>
+                Burning completes this payment by permanently removing the
+                selected currency from circulation, reducing total supply and
+                increasing scarcity for holders. The burn output address does
+                not receive the amount, and the transaction cannot be reversed.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
@@ -491,7 +535,7 @@ const InvoiceInfo = props => {
 
         <View style={{ height: 24 }} />
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
+      <View style={[styles.footer, {paddingBottom: footerBottomPadding}]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"
@@ -508,258 +552,12 @@ const InvoiceInfo = props => {
         </View>
         <View style={styles.ctaCol}>
           <GradientButton onPress={() => handleContinue()} style={styles.primaryCta}>
-            Continue
+            {isBurnChangePrice ? 'Review burn' : 'Continue'}
           </GradientButton>
         </View>
       </View>
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  header: {
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: -0.2,
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  requesterCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    zIndex: 2,
-  },
-  requesterHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  requesterIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  requesterTextContainer: {
-    flex: 1,
-  },
-  requesterLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  requesterName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1A1A1A',
-  },
-  requesterDetailsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chipContainer: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  chipText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
-  },
-  unsignedCard: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  unsignedIconContainer: {
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-  },
-  unsignedTextContainer: {
-    flex: 1,
-  },
-  unsignedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 4,
-  },
-  unsignedSubtitle: {
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  sectionHelper: {
-    fontSize: 12,
-    color: '#888',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-    marginTop: -4,
-  },
-  sectionContent: {
-    padding: 0,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  detailRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  detailRowPressable: {},
-  detailLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  detailTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1A1A1A',
-    marginBottom: 2,
-  },
-  detailSubtitle: {
-    fontSize: 12,
-    color: '#888',
-    lineHeight: 16,
-  },
-  emptyRow: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  emptyText: {
-    fontSize: 12,
-    color: '#888',
-  },
-  footer: {
-    backgroundColor: 'white',
-    width: '100%',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  ctaCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  secondaryCta: {
-    width: '100%',
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EBF6FF',
-    borderWidth: 0,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  secondaryCtaContent: {
-    height: 44,
-  },
-  secondaryCtaLabel: {
-    color: Colors.primaryColor,
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0,
-    textTransform: 'none',
-  },
-  primaryCta: {
-    width: '100%',
-    alignSelf: 'stretch',
-    height: 44,
-    borderRadius: 22,
-  },
-  heroContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-  },
-  heroAmount: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -1,
-    textAlign: 'center',
-  },
-  heroCurrency: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
-});
 
 export default InvoiceInfo;

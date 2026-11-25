@@ -1,24 +1,28 @@
-import { Cache } from "react-native-cache"
-//Cache library built on AsyncStorage
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {createPersistentCache} from './createPersistentCache';
 
 export const BLOCK_HEADER_CACHE_CAP = 1000
+const BLOCK_HEADER_CACHE_NAMESPACE = "block_header"
+const validBlockHeader = value => {
+  if (typeof value !== 'string') return false;
 
-const headerCache = new Cache({
-  namespace: "block_header",
-  policy: {
-      maxEntries: BLOCK_HEADER_CACHE_CAP
-  },
-  backend: AsyncStorage
-})
+  const parsed = JSON.parse(value);
+  return parsed != null && typeof parsed === 'object' && !Array.isArray(parsed);
+};
 
-export const initHeaderCache = () => {
-  return headerCache.initializeCache().catch(e => {
-    console.log("Error while initializing header cache")
-    throw e
-  })
-}
+const {
+  cache: headerCache,
+  initialize: initHeaderCache,
+  getAll: getHeaderCache,
+  clear: clearCachedHeaders,
+} = createPersistentCache({
+  namespace: BLOCK_HEADER_CACHE_NAMESPACE,
+  maxEntries: BLOCK_HEADER_CACHE_CAP,
+  validateValue: validBlockHeader,
+  name: 'header',
+  clearMessage: 'Clearing block header cache',
+});
+
+export {initHeaderCache, getHeaderCache, clearCachedHeaders};
 
 export const getCachedHeader = (blockHeight, coinID) => {
   let key = `${coinID}.${blockHeight}`
@@ -34,21 +38,6 @@ export const setCachedHeader = (headerObj, height, coinID) => {
 
   return headerCache.setItem(key, JSON.stringify(headerObj)).catch(e => {
     console.log("Error while setting header cache")
-    throw e
-  })
-}
-
-export const clearCachedHeaders = () => {
-  console.log("Clearing block header cache")
-  return headerCache.clearAll().catch(e => {
-    console.log("Error while clearing header cache")
-    throw e
-  })
-}
-
-export const getHeaderCache = () => {
-  return headerCache.getAll().catch(e => {
-    console.log("Error while getting all header cache")
     throw e
   })
 }

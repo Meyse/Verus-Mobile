@@ -18,7 +18,7 @@ export const getErc20CoinId = (address, network) => {
   if (ETH_NATIVE_NETWORKS.includes(network)) return address;
   return `${network}:${address}`;
 };
-import { getDefaultApps, getSystemNameFromSystemId } from "./CoinData";
+import { getDefaultApps, getSystemNameFromSystemId, identityApp } from "./CoinData";
 import { electrumServers } from './electrum/servers';
 import { ENABLE_VERUS_IDENTITIES } from '../../../env/index'
 import { VerusdRpcInterface } from "verusd-rpc-ts-client";
@@ -181,11 +181,13 @@ class _CoinDirectory {
     const coinObj = this.findSimpleCoinObj(key, userName, useSystemId);
     
     if (coinObj.proto === 'vrsc' && (coinObj.compatible_channels.includes(VRPC) || coinObj.compatible_channels.includes(VERUSID))) {
+      const users = coinObj.users;
       const systemObj = this.findSystemCoinObj(coinObj.id);
 
       coinObj.system_options = systemObj.pbaas_options;
       coinObj.vrpc_endpoints = systemObj.vrpc_endpoints;
       coinObj.seconds_per_block = systemObj.seconds_per_block;
+      coinObj.users = users;
     }
 
     return coinObj;

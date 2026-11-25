@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import BigNumber from "bignumber.js";
 import { Alert, ScrollView, View, TouchableWithoutFeedback, Keyboard, Dimensions } from "react-native";
-import { TextInput, Button, Text } from "react-native-paper";
+import { TextInput, Text } from "react-native-paper";
+import Button from "../../../Button";
 import { useSelector } from 'react-redux';
 import { traditionalCryptoSend, TraditionalCryptoSendFee } from "../../../../actions/actionDispatchers";
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
@@ -17,6 +18,7 @@ import { CoinDirectory } from "../../../../utils/CoinData/CoinDirectory";
 import { selectAddressBlocklist } from "../../../../selectors/settings";
 import { addressIsBlocked } from "../../../../utils/addressBlocklist";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
+import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 
 const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation }) => {
   const { height } = Dimensions.get("window");
@@ -222,7 +224,9 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
 
       navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, { txConfirmation: res });
     } catch (e) {
-      Alert.alert("Error", e.message);
+      if (!showFundRawTransactionErrorAlert(e)) {
+        Alert.alert("Error", e.message);
+      }
     }
 
     setLoading(false);

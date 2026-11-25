@@ -12,7 +12,8 @@ import {
   Keyboard,
   ActivityIndicator,
 } from "react-native";
-import { List, Button, RadioButton, Divider, Paragraph } from 'react-native-paper'
+import { List, RadioButton, Divider, Paragraph } from 'react-native-paper'
+import Button from '../../../../components/Button'
 import { NavigationActions } from '@react-navigation/compat';
 import { saveCoinSettings } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
@@ -57,7 +58,7 @@ class CoinSettings extends Component {
     this.validateFormData()
   }
 
-  static navigationOptions = ({ navigation }) => {
+  static navigationOptions = ({ route }) => {
     return {
       title: typeof(route.params)==='undefined' || 
       typeof(route.params.title) === 'undefined' ? 
@@ -193,4 +194,3 @@ const mapStateToProps = (state) => {
 };
 
 export default connect(mapStateToProps)(CoinSettings);
-

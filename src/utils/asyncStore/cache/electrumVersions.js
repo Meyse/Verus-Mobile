@@ -1,25 +1,25 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-import { Cache } from "react-native-cache"
-//Cache library built on AsyncStorage
+import {createPersistentCache} from './createPersistentCache';
 
 const ELECTRUM_SERVER_CACHE_CAP = 19
+const ELECTRUM_CACHE_NAMESPACE = "server_version"
+const validElectrumVersion = value =>
+  typeof value === 'number' && Number.isFinite(value);
 
-const versionCache = new Cache({
-  namespace: "server_version",
-  policy: {
-      maxEntries: ELECTRUM_SERVER_CACHE_CAP
-  },
-  backend: AsyncStorage
-})
+const {
+  cache: versionCache,
+  initialize: initElectrumCache,
+  getAll: getElectrumVersions,
+  clear: clearCachedVersions,
+} = createPersistentCache({
+  namespace: ELECTRUM_CACHE_NAMESPACE,
+  maxEntries: ELECTRUM_SERVER_CACHE_CAP,
+  validateValue: validElectrumVersion,
+  name: 'electrum',
+  clearMessage: 'Clearing electrum version cache',
+  getAllOperation: 'getting',
+});
 
-//Initialize electrum cache by loading from AsyncStorage
-export const initElectrumCache = () => {
-  return versionCache.initializeCache().catch(e => {
-    console.log("Error while initializing electrum cache")
-    throw e
-  })
-}
+export {initElectrumCache, getElectrumVersions, clearCachedVersions};
 
 //Store version numbers for each loaded electrum server
 //so we don't have to keep checking
@@ -29,24 +29,6 @@ export const setElectrumVersion = (server, version) => {
 
   return versionCache.setItem(serverCleaned, version).catch(e => {
     console.log("Error while setting electrum cache")
-    throw e
-  })
-}
-
-//Get electrum server versions, to be called
-//on startup and dispatched to redux store
-export const getElectrumVersions = () => {
-  return versionCache.getAll().catch(e => {
-    console.log("Error while getting electrum cache")
-    throw e
-  })
-}
-
-//Clear electrum version cache
-export const clearCachedVersions = () => {
-  console.log("Clearing electrum version cache")
-  return versionCache.clearAll().catch(e => {
-    console.log("Error while clearing electrum cache")
     throw e
   })
 }

@@ -69,6 +69,8 @@ const ValuAttestation = (props) => {
     const [loading, setLoading] = useState(true); // Start with loading true
     const [status, setStatus] = useState(null); // Start with null instead of empty string
     const [mainButtonText, setMainButtonText] = useState("Get Proof for $9.99");
+    // Backend switch: when the server reports payment is not required, the purchase step is skipped
+    const [paymentRequired, setPaymentRequired] = useState(true);
     const [appState, setAppState] = useState(AppState.currentState);
     const [identityChoiceModalVisible, setIdentityChoiceModalVisible] = useState(false);
     const [existingIdentityModalVisible, setExistingIdentityModalVisible] = useState(false);
@@ -226,8 +228,8 @@ const ValuAttestation = (props) => {
                 ],
                 { cancelable: false }
             );
+            throw error;
         }
-        throw error;
     };
 
     // Navigate to Attestations list (robust across nested navigators)
@@ -254,21 +256,20 @@ const ValuAttestation = (props) => {
         try {
             setLoading(true);
 
-            // Get the SumSub session URL with the selected identity
-            let urlReply;
+            // Get the SumSub session: the server returns the page URL and a one-time
+            // challenge whose message the wallet must sign (single use, 10 minutes)
+            const urlReply = await ValuProvider.startSumsubSession(identityInfo ? {
+                identityName: identityInfo.identityName,
+                isNew: !identityInfo.isExisting
+            } : {});
 
-            if (identityInfo) {
+            if (urlReply.success === false) {
+                throw new Error(urlReply.error);
+            }
 
-                urlReply = await ValuProvider.startSumsubSession({
-                    identityName: identityInfo.identityName,
-                    isNew: !identityInfo.isExisting
-                });
-
-                if (urlReply.success === false) {
-                    throw new Error(urlReply.error);
-                }
-            } else {
-                urlReply = { data: { url: ValuProvider.getSumSubURL() } }
+            const { url: sumsubUrl, challengeId, message } = urlReply.data || {};
+            if (!sumsubUrl || !challengeId || !message) {
+                throw new Error("The Valu server did not return a KYC session. Please try again later.");
             }
 
             // Create signature for authentication
@@ -276,7 +277,6 @@ const ValuAttestation = (props) => {
 
             const chainInfo = await getInfo(systemId);
             const height = chainInfo.result.longestchain;
-            const message = `Authentication request for ${identityInfo?.identityName || ''} at ${Date.now()}`;
             const messageHash = sha256(Buffer.from(message, 'utf-8'));
 
             // Sign the message using the identity address
@@ -286,10 +286,11 @@ const ValuAttestation = (props) => {
             const signature = await VerusIdInterface.signHashWithAddress(messageHash, wif);
 
             // Validate all required parameters are present
-            if (!signature || !message || !RAddress || !height || !coinObj?.system_id) {
+            if (!signature || !message || !challengeId || !RAddress || !height || !coinObj?.system_id) {
                 const missingParams = [];
                 if (!signature) missingParams.push('signature');
                 if (!message) missingParams.push('message');
+                if (!challengeId) missingParams.push('challenge');
                 if (!RAddress) missingParams.push('RAddress');
                 if (!height) missingParams.push('height');
                 if (!coinObj?.system_id) missingParams.push('systemId');
@@ -299,9 +300,11 @@ const ValuAttestation = (props) => {
             }
 
             // Append signature and related data to URL as query parameters
-            const url = new URL(urlReply.data.url);
+            // (URLSearchParams URL-encodes every value)
+            const url = new URL(sumsubUrl);
             url.searchParams.append('signature', signature);
             url.searchParams.append('message', message);
+            url.searchParams.append('challenge', challengeId);
             url.searchParams.append('RAddress', RAddress);
             url.searchParams.append('height', height.toString());
             url.searchParams.append('systemId', coinObj.system_id);
@@ -430,22 +433,20 @@ const ValuAttestation = (props) => {
 
         try {
 
-            const provisionRequest = new primitives.LoginConsentProvisioningRequest({
-                signing_address: activeAccount.keys[verusNetwork].vrpc.addresses[0],
-                challenge: new primitives.LoginConsentProvisioningChallenge({
-                    challenge_id: "i4c69dWkwS5XvuuuqbbA7J9W7kfSk2SnQm", //"name": "valuid.vrsc::attestation.session"
-                    created_at: Number((Date.now() / 1000).toFixed(0)),
-                    name: "Valu attestation session",
-                }),
-            });
-
-            const signedRequestReply = await signIdProvisioningRequest({ id: verusNetwork }, provisionRequest);
-            const reply = await ValuProvider.getAttestationPaymentStatus({ request: signedRequestReply.toBuffer().toString('base64') })
+            // Signs a server-issued challenge (POST /auth/challenge) with the wallet's R-address
+            const { reply, request: signedStatusRequest } = await ValuProvider.checkAttestationStatus();
 
             if (reply.success === false) {
                 throw new Error(reply.error);
             }
             let POLStatus = reply.data.status;
+            const flag = reply.data.paymentRequired ?? reply.data.payment_required;
+            const isPaymentRequired = !(flag === false || flag === 0 || flag === 'false');
+            setPaymentRequired(isPaymentRequired);
+
+            if (!isPaymentRequired && [VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_FAILED].includes(POLStatus)) {
+                POLStatus = VALU_POL_PAYMENT_RECEIVED;
+            }
 
             setMainButtonText(buttonMessages[POLStatus]);
             setValuReply(reply);
@@ -454,7 +455,7 @@ const ValuAttestation = (props) => {
             if (POLStatus === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY", () => {
-                        ValuProvider.retryAttestationPayment({ request: signedRequestReply.toBuffer().toString('base64') }).then((innerreply) => {
+                        ValuProvider.retryAttestationPayment({ request: signedStatusRequest }).then((innerreply) => {
                             setValuReply(innerreply);
                             setStatus(POLStatus);
                             Linking.openURL(innerreply.data.url)
@@ -777,10 +778,8 @@ const ValuAttestation = (props) => {
 
     const checkAccountCreationStatus = async () => {
 
-        // First, try to authenticate with registered user
-        const seed = (await requestSeeds())[VALU_SERVICE];
-        if (seed == null) throw new Error("No Valu seed present");
-        await ValuProvider.authenticate(seed, true);
+        // Make sure the wallet login has run for this network
+        await ValuProvider.authenticate();
         try {
             const authResult = await ValuProvider.authenticateRegisteredUser();
 
@@ -1121,7 +1120,7 @@ const ValuAttestation = (props) => {
             steps.forEach(s => s.state = 'done');
         }
 
-        return steps;
+        return paymentRequired ? steps : steps.filter(s => s.key !== 'purchase');
     };
 
     return (
@@ -1349,7 +1348,7 @@ const ValuAttestation = (props) => {
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
                                         <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>1</Text>
                                     </View>
-                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Choose or create your VerusID (included with the purchase).</Text>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>{paymentRequired ? "Choose or create your VerusID (included with the purchase)." : "Choose or create your VerusID."}</Text>
                                 </View>
 
                                 {/* Step 2 */}

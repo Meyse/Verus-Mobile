@@ -1,18 +1,66 @@
 import React from 'react';
 import { useEffect, useState } from "react"
 import { Keyboard, ScrollView, TouchableWithoutFeedback, View } from "react-native";
-import { Button, Checkbox, TextInput } from "react-native-paper";
-import { useSelector } from 'react-redux';
+import { Checkbox, TextInput } from "react-native-paper";
+import Button from "../../../Button";
+import { useDispatch, useSelector } from 'react-redux';
 import { initializeAccountData } from "../../../../actions/actionDispatchers";
-import AnimatedActivityIndicatorBox from "../../../AnimatedActivityIndicatorBox";
+import {setBiometry} from '../../../../actions/actionCreators';
+import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import Colors from '../../../../globals/colors';
 import styles from "../../../../styles";
 import { SEND_MODAL_FORM_STEP_FORM, SEND_MODAL_FORM_STEP_RESULT, SEND_MODAL_USER_TO_AUTHENTICATE } from "../../../../utils/constants/sendModal";
 import { getSupportedBiometryType } from '../../../../utils/keychain/keychain';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
-import { getBiometricPassword } from '../../../../utils/keychain/biometrics';
+import {
+  getBiometricPassword,
+  isBiometricPasswordUnavailableError,
+} from '../../../../utils/keychain/biometrics';
+import AnimatedActivityIndicatorBox from '../../../AnimatedActivityIndicatorBox';
+
+export const disableBiometryForUnavailableLogin = async (
+  error,
+  accountHash,
+  dispatch,
+) => {
+  if (!isBiometricPasswordUnavailableError(error)) return false;
+
+  dispatch(await setBiometry(accountHash, false));
+  return true;
+};
+
+export const resolveAuthenticationAccount = (
+  accounts,
+  routeAccount,
+  requestedAccountHash,
+) => {
+  const accountHash = routeAccount?.accountHash || requestedAccountHash;
+  return (
+    accounts.find(account => account.accountHash === accountHash) || routeAccount
+  );
+};
+
+const passwordValidationMessages = new Set([
+  'Incorrect password',
+  'Please select an existing user',
+  'Please enter a password',
+]);
+
+const loginFailureMessage = error => {
+  // Channel initialization wraps the underlying failure. Show its message,
+  // without serializing error objects that may contain protected account data.
+  const failures = Array.isArray(error?.failures) ? error.failures : [];
+  const cause = failures.find(failure =>
+    typeof failure?.message === 'string' && failure.message.trim(),
+  ) || error?.cause || error;
+
+  return typeof cause?.message === 'string' && cause.message.trim()
+    ? cause.message
+    : 'Unable to unlock this profile. Please try again.';
+};
 
 const AuthenticateUserPassword = props => {
+  const dispatch = useDispatch();
   const [password, setPassword] = useState("")
   const defaultAccount = useSelector(
     state => state.settings.generalWalletSettings.defaultAccount,
@@ -22,12 +70,11 @@ const AuthenticateUserPassword = props => {
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount)
   const data = useObjectSelector(state => state.sendModal.data)
   
-  const account =
-    props.route.params == null || props.route.params.account == null
-      ? accounts.find(
-          x => x.accountHash === data[SEND_MODAL_USER_TO_AUTHENTICATE],
-        )
-      : props.route.params.account;
+  const account = resolveAuthenticationAccount(
+    accounts,
+    props.route.params?.account,
+    data[SEND_MODAL_USER_TO_AUTHENTICATE],
+  );
   const defaultAccountSelected = account != null && defaultAccount === account.accountHash
   const [makeDefaultAccount, setMakeDefaultAccount] = useState(defaultAccountSelected)
 
@@ -52,7 +99,13 @@ const AuthenticateUserPassword = props => {
     } catch(e) {
       setInternalLoading(false);
       await props.setPreventExit(false);
-      console.warn(e)
+
+      // Password validation already displays its own alert. Initialization
+      // failures can roll back the session and unmount this form, so use the
+      // app-wide alert queue to keep their explanation visible after rollback.
+      if (!passwordValidationMessages.has(e?.message)) {
+        await createAlert('Unable to log in', loginFailureMessage(e));
+      }
     }
   }
 
@@ -75,7 +128,17 @@ const AuthenticateUserPassword = props => {
           await tryUnlockAccount(password);
         }
       } catch (e) {
-        console.error(e);
+        let disabled = false;
+        try {
+          disabled = await disableBiometryForUnavailableLogin(
+            e,
+            account.accountHash,
+            dispatch,
+          );
+        } catch (disableError) {
+          console.error(disableError);
+        }
+        if (!disabled) console.error(e);
       }
     }
   }
@@ -84,7 +147,7 @@ const AuthenticateUserPassword = props => {
     onMount();
   }, []);
 
-  goBack = () => {
+  const goBack = () => {
     Keyboard.dismiss();
     
     props.navigation.navigate(SEND_MODAL_FORM_STEP_FORM);

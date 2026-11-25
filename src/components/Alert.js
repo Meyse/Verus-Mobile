@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { SafeAreaView, ScrollView, Dimensions } from 'react-native';
-import { Button, Dialog, Portal, Text } from 'react-native-paper';
+import { Dialog, Portal, Text } from 'react-native-paper';
+import Button from './Button';
 import { connect } from 'react-redux';
 import Colors from '../globals/colors';
+import {resolveAlert} from '../actions/actions/alert/dispatchers/alert';
 
 const AlertModal = (props) => {
   const [modalShown, setModalShown] = React.useState(false);
@@ -24,8 +26,8 @@ const AlertModal = (props) => {
   const title = props.activeAlert.title;
   const description = props.activeAlert.message;
   const buttons = props.activeAlert.buttons;
-  const cancelable = props.activeAlert.options != null && props.activeAlert.cancelable;
-  const disabled = props.activeAlert.options != null && props.activeAlert.disabled;
+  const cancelable = props.activeAlert.options?.cancelable;
+  const disabled = props.activeAlert.options?.disabled;
 
   return (
     <Portal>
@@ -33,7 +35,7 @@ const AlertModal = (props) => {
         <Dialog
           dismissable={(!disabled && cancelable) === true}
           visible={modalShown}
-          onDismiss={cancelable ? cancel : () => { }}
+          onDismiss={() => resolveAlert(false)}
           style={{ maxHeight: '100%', marginBottom: 36 }}
         >
           <Dialog.Title>{title}</Dialog.Title>

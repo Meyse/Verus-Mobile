@@ -23,6 +23,7 @@ import {
 import BigNumber from 'bignumber.js';
 import Colors from './src/globals/colors';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 
 Text.defaultProps = Text.defaultProps || {};
 Text.defaultProps.allowFontScaling = false;
@@ -131,17 +132,19 @@ export default class App extends React.Component {
   render() {
     return (
       <GestureHandlerRootView style={{flex: 1}}>
-        <PaperProvider theme={theme}>
-          <Provider store={store}>
-            <View style={{flex: 1}}>
-            {/* Updated: Global translucent status bar on Android to match iOS behavior */}
-            {Platform.OS === 'android' && (
-              <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-            )}
-            <VerusMobile />
-            </View>
-          </Provider>
-        </PaperProvider>
+        <SafeAreaProvider>
+          <PaperProvider theme={theme}>
+            <Provider store={store}>
+              <View style={{flex: 1}}>
+                {/* Updated: Global translucent Android StatusBar to match iOS behavior */}
+                {Platform.OS === 'android' && (
+                  <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+                )}
+                <VerusMobile />
+              </View>
+            </Provider>
+          </PaperProvider>
+        </SafeAreaProvider>
       </GestureHandlerRootView>
     );
   }

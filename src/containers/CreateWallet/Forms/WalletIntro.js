@@ -10,7 +10,7 @@
 import React, { useState } from 'react';
 import {View, Dimensions, TouchableOpacity, Image, SafeAreaView, StyleSheet} from 'react-native';
 import {Text, IconButton, Button} from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
@@ -120,10 +120,7 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
         <Text style={{ textAlign: 'left', fontSize: 16, lineHeight: 22, color: '#555', marginBottom: 24 }}>
           {'Your wallet lives inside this profile. Create a new wallet or import one you already control.'}
         </Text>
-
         <View style={{ flex: 1 }} />
-
-        {/* Primary CTA - GradientButton */}
         <GradientButton
           onPress={() => createNewWalletSync()}
           disabled={loading}
@@ -131,8 +128,6 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
         >
           {'Create new wallet'}
         </GradientButton>
-
-        {/* Secondary CTA - matches Unlock.js styling */}
         <Button
           mode="contained"
           onPress={() => setImportSheetVisible(true)}
@@ -150,7 +145,6 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
           onClose={() => setImportSheetVisible(false)}
           onSelect={(route) => {
             setImportSheetVisible(false);
-            // Navigate to specific import screen directly; keep stack for sub-flows
             navigation.navigate('ImportWallet', { initialScreen: route, label: undefined });
           }}
         />

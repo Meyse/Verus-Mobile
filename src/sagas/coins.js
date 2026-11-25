@@ -1,4 +1,4 @@
-import {all, takeEvery, put, call} from 'redux-saga/effects';
+import {all, takeEvery, put, call, select} from 'redux-saga/effects';
 import store from '../store';
 import { requestServiceStoredData } from '../utils/auth/authBox';
 import { IS_PBAAS, PRE_DATA, VRPC } from '../utils/constants/intervalConstants';
@@ -12,12 +12,16 @@ import { getDefaultSubWallets } from '../utils/defaultSubWallets';
 import { getVerusIdCurrency } from '../utils/CoinData/CoinData';
 import { IS_PBAAS_CHAIN } from '../utils/constants/currencies';
 import { coinsList } from '../utils/CoinData/CoinsList';
+import {sessionActionIsCurrent} from '../actions/actions/updates/sessionRequests';
+import {convertFqnToDisplayFormat} from '../utils/fullyqualifiedname';
 
 export default function* setUserCoinsSaga() {
   yield all([takeEvery(SET_USER_COINS, handleFinishSetUserCoins)]);
 }
 
 function* handleFinishSetUserCoins(action) {
+  if (!sessionActionIsCurrent(yield select(), action)) return;
+
   let allSubWallets = {};
   let coinStatus = {};
   let allNewChannels = []
@@ -36,7 +40,7 @@ function* handleFinishSetUserCoins(action) {
       const dynamicChannelNames = {};
       const verusIdCurrency = getVerusIdCurrency(coinObj);
       
-      function setVrpcChannels(addresses, isVerusId) {
+      function setVrpcChannels(addresses) {
         const allSeenSystems = [coinObj.testnet ? coinsList.VRSCTEST.currency_id : coinsList.VRSC.currency_id];
         
         if (coinObj.tags.includes(IS_PBAAS)) {
@@ -54,8 +58,10 @@ function* handleFinishSetUserCoins(action) {
         return addresses.map((addr, index) => {
           return allSeenSystems.map(system => {
             const channelId = `${VRPC}.${addr}.${system}`;
-            dynamicChannelNames[channelId] = isVerusId ? 
-              linkedIds[verusIdCurrency][addr] : (addr.substring(0, 5) + "..." + addr.substring(addr.length - 5))
+            const linkedName = linkedIds[verusIdCurrency]?.[addr];
+            dynamicChannelNames[channelId] = linkedName != null
+              ? convertFqnToDisplayFormat(linkedName)
+              : (addr.substring(0, 5) + "..." + addr.substring(addr.length - 5));
       
             return channelId;
           })
@@ -63,11 +69,11 @@ function* handleFinishSetUserCoins(action) {
       }
 
       const verusIdChannels = linkedIds[verusIdCurrency]
-        ? setVrpcChannels(Object.keys(linkedIds[verusIdCurrency]), true)
+        ? setVrpcChannels(Object.keys(linkedIds[verusIdCurrency]))
         : [];
       
       const vrpcChannels = watchedAddresses[coinObj.id]
-        ? setVrpcChannels(Object.keys(watchedAddresses[coinObj.id]), false)
+        ? setVrpcChannels(Object.keys(watchedAddresses[coinObj.id]))
         : [];
       
       allNewChannels = [...(new Set([...verusIdChannels, ...vrpcChannels]))];
@@ -83,6 +89,8 @@ function* handleFinishSetUserCoins(action) {
     console.error(e);
   }
 
+  if (!sessionActionIsCurrent(yield select(), action)) return;
+
   yield put({
     type: SET_USER_COINS_COMPLETE,
     payload: {
@@ -90,11 +98,13 @@ function* handleFinishSetUserCoins(action) {
       status: coinStatus,
       activeCoinsForUser: action.payload.activeCoinsForUser,
     },
+    meta: action.meta,
   });
   yield put({
     type: LOG_NEW_CHANNELS,
     payload: {
       channels: allNewChannels
     },
+    meta: action.meta,
   });
 }

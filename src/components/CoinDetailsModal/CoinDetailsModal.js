@@ -15,15 +15,16 @@ import {
 import { CoinLogos, getCoinLogo } from '../../utils/CoinData/CoinData';
 import Styles from '../../styles/index'
 import Colors from '../../globals/colors';
-import { Button, Text } from "react-native-paper"
+import { Text } from "react-native-paper"
+import Button from "../Button"
 import SemiModal from "../SemiModal";
 import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
 import { addCoin, addKeypairs, removeExistingCoin, setUserCoins } from "../../actions/actionCreators";
 import { refreshActiveChainLifecycles } from "../../actions/actions/intervals/dispatchers/lifecycleManager";
 import { connect } from 'react-redux';
-import { clearAllCoinIntervals } from "../../actions/actionDispatchers";
 import { CommonActions } from '@react-navigation/native';
 import { openUrl } from "../../utils/linking";
+import {scopeSessionAction} from '../../actions/actions/updates/sessionRequests';
 
 class CoinDetailsModal extends Component {
   constructor(props) {
@@ -54,22 +55,28 @@ class CoinDetailsModal extends Component {
   }
 
   _handleRemoveCoin = () => {
+    const activeAccount = this.props.activeAccount;
+    const sessionScope = {
+      sessionScoped: true,
+      accountHash: activeAccount.accountHash,
+      sessionEpoch: this.props.sessionEpoch,
+    };
     this.setState({ 
       loading: true
     }, async () => {
       const removePromise = () => new Promise((resolve, reject) => {
         removeExistingCoin(
           this.props.data.id,
-          this.props.activeAccount.id,
+          activeAccount.id,
           this.props.dispatch,
-          false
+          false,
+          {sessionScope, ownerAccountHash: activeAccount.accountHash},
         )
           .then((res) => {
-            clearAllCoinIntervals(this.props.data.id);
             this.props.dispatch(
-              setUserCoins(
-                this.props.activeCoinList,
-                this.props.activeAccount.id
+              scopeSessionAction(
+                setUserCoins(res, activeAccount.id),
+                sessionScope,
               )
             );
             this.resetToScreen("AddCoin", "Add Coin")
@@ -97,32 +104,43 @@ class CoinDetailsModal extends Component {
 
   _handleAddCoin = async () => {
     this.setState({ loading: true });
+    const activeAccount = this.props.activeAccount;
+    const sessionScope = {
+      sessionScoped: true,
+      accountHash: activeAccount.accountHash,
+      sessionEpoch: this.props.sessionEpoch,
+    };
+    const requestContext = {sessionScope};
 
     try {
       this.props.dispatch(
         await addKeypairs(
           this.props.data,
-          this.props.activeAccount.keys,
-          this.props.activeAccount.keyDerivationVersion == null
+          activeAccount.keys,
+          activeAccount.keyDerivationVersion == null
             ? 0
-            : this.props.activeAccount.keyDerivationVersion
+            : activeAccount.keyDerivationVersion,
+          requestContext,
         )
       );
 
       const addCoinAction = await addCoin(
         this.props.data,
         this.props.activeCoinList,
-        this.props.activeAccount.id,
-        this.props.data.compatible_channels
+        activeAccount.id,
+        this.props.data.compatible_channels,
+        requestContext,
       )
 
       if (addCoinAction) {
         this.props.dispatch(addCoinAction);
         const setUserCoinsAction = setUserCoins(
-          this.props.activeCoinList,
-          this.props.activeAccount.id
+          addCoinAction.activeCoinList,
+          activeAccount.id,
         )
-        this.props.dispatch(setUserCoinsAction);
+        this.props.dispatch(
+          scopeSessionAction(setUserCoinsAction, sessionScope),
+        );
 
         refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser)
 
@@ -227,7 +245,7 @@ class CoinDetailsModal extends Component {
                     marginTop: 32,
                   }}
                 >
-                  {added ? "Remove Currency" : "Add Currency"}
+                  {added ? "Remove currency" : "Add currency"}
                 </Button>
               </TouchableOpacity>
             )}
@@ -238,4 +256,8 @@ class CoinDetailsModal extends Component {
   }
 }
 
-export default connect()(CoinDetailsModal);
+const mapStateToProps = state => ({
+  sessionEpoch: state.authentication.sessionEpoch,
+});
+
+export default connect(mapStateToProps)(CoinDetailsModal);

@@ -2,6 +2,7 @@ import { DLIGHT_PRIVATE } from '../../../../utils/constants/intervalConstants'
 import { getCoinObj } from '../../../../utils/CoinData/CoinData'
 import { dlightEnabled } from '../../../../utils/enabledChannels';
 import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
+import { beginSessionRequest } from '../../updates/sessionRequests';
 
 /**
  * Fetches the appropriate data from the store for the specified channel's type
@@ -22,7 +23,8 @@ export const updateLedgerValue = async (
   chainTicker,
   successType,
   errorType,
-  fetchChannels
+  fetchChannels,
+  requestContext,
 ) => {
   const activeUser = state.authentication.activeAccount;
   const coinObj = CoinDirectory.findCoinObj(chainTicker, activeUser.id);
@@ -36,14 +38,33 @@ export const updateLedgerValue = async (
       if (!channelMap[parentChannel] || (parentChannel === DLIGHT_PRIVATE && !dlightEnabled()))
         return;
 
+      const request = beginSessionRequest(
+        state,
+        dispatch,
+        `ledger:${successType}:${chainTicker}:${channelId}`,
+      );
+
       try {
         dispatch({
           type: successType,
-          payload: await channelMap[parentChannel](coinObj, channelId),
+          payload: await channelMap[parentChannel](coinObj, channelId, {
+            ...requestContext,
+            signal: request.signal,
+            requestId: request.meta.requestId,
+            accountHash: request.meta.accountHash,
+            sessionEpoch: request.meta.sessionEpoch,
+          }),
+          meta: request.meta,
         });
         channelsPassed.push(channelId);
       } catch (error) {
-        dispatch({ type: errorType, payload: { error: error.message, chainTicker, channel: channelId } });
+        dispatch({
+          type: errorType,
+          payload: { error: error.message, chainTicker, channel: channelId },
+          meta: request.meta,
+        });
+      } finally {
+        request.complete();
       }
     })
   );

@@ -18,14 +18,15 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { SafeAreaView, ScrollView, TouchableOpacity, View, StyleSheet, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { primitives } from 'verusid-ts-client';
-import { Button, Portal, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
+import Button from '../../../components/Button';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { getIdentity, getFriendlyNameMap } from '../../../utils/api/channels/verusid/callCreators';
 import { unixToDate } from '../../../utils/math';
 import { useDispatch, useSelector } from 'react-redux';
 import Colors from '../../../globals/colors';
-import { closeSendModal, openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import { openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import GradientButton from '../../../components/GradientButton';
@@ -36,6 +37,7 @@ import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { addCoin, addKeypairs, setUserCoins } from '../../../actions/actionCreators';
 import { refreshActiveChainLifecycles } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
+import {scopeSessionAction} from '../../../actions/actions/updates/sessionRequests';
 import { checkIfAttestationProvision as checkAttestationProvision } from '../../../utils/attestations/downloadAttestation';
 import { LOGIN_PERMISSION_TYPES, PERMISSION_STATUS } from '../../../utils/constants/loginPermissions';
 import { setPermissionAgreed } from '../../../actions/actions/deeplink/creators/passthroughData';
@@ -76,11 +78,27 @@ const LoginRequestInfo = props => {
   );
   
   // Component state
+  const [prevRootSystemAdded, setPrevRootSystemAdded] = useState(rootSystemAdded);
   const [permissions, setExtraPermissions] = useState(null);
   const [isAttestationProvision, setIsAttestationProvision] = useState(false);
   
   const dispatch = useDispatch()
   const isTestnet = activeAccount ? Object.keys(activeAccount.testnetOverrides).length > 0 : false;
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch,
+  );
+
+  let mainLoginMessage = '';
+
+  if (challenge.redirect_uris && challenge.redirect_uris.length > 0) {
+    mainLoginMessage = `${signerFqn} is requesting login with VerusID`
+  } else {
+    if (passthrough?.fqnToAutoLink) {
+      mainLoginMessage = `VerusID from ${signerFqn} now ready to link`
+    } else {
+      mainLoginMessage = `Would you like to request a VerusID from ${signerFqn}?`
+    }
+  }
 
   const getVerusId = async (chain, iAddrOrName) => {
     const identity = await getIdentity(CoinDirectory.getBasicCoinObj(chain).system_id, iAddrOrName);
@@ -112,11 +130,20 @@ const LoginRequestInfo = props => {
   }
 
   useEffect(() => {
-    if (signedIn && waitingForSignin) {
-      closeSendModal()
+    const rootSystemJustAdded = prevRootSystemAdded === false && rootSystemAdded === true;
+    setPrevRootSystemAdded(rootSystemAdded);
+
+    // Profile initialization loads coins before sign-in finishes. Resume once,
+    // after the authentication dialog has completed and closed.
+    if (
+      signedIn &&
+      sendModalType !== AUTHENTICATE_USER_SEND_MODAL &&
+      (waitingForSignin || rootSystemJustAdded)
+    ) {
+      setWaitingForSignin(false);
       handleContinue()
     }
-  }, [signedIn, waitingForSignin]);
+  }, [signedIn, waitingForSignin, rootSystemAdded, prevRootSystemAdded, sendModalType]);
 
   useEffect(() => {
     setReq(new primitives.LoginConsentRequest(deeplinkData))
@@ -290,6 +317,8 @@ const LoginRequestInfo = props => {
         // Process each subject item directly
         subject.forEach((subjectItem, index) => {
           const { vdxfkey } = subjectItem;
+          primitives.ATTESTATION_READ_REQUEST = {
+            vdxfid: "iNqLaiDJjcADGCvXcQZnPqwTqMXzQbDCFu"};
           console.log(`Processing subject item with vdxfkey: ${vdxfkey}`);
           let permissionData = null;
 
@@ -561,6 +590,12 @@ const LoginRequestInfo = props => {
 
   const addRootSystem = async () => {
     setLoading(true)
+    const sessionScope = {
+      sessionScoped: true,
+      accountHash: activeAccount.accountHash,
+      sessionEpoch,
+    };
+    const requestContext = {sessionScope};
 
     try {
       const fullCoinData = CoinDirectory.findCoinObj(chain_id)
@@ -572,6 +607,7 @@ const LoginRequestInfo = props => {
           activeAccount.keyDerivationVersion == null
             ? 0
             : activeAccount.keyDerivationVersion,
+          requestContext,
         ),
       );
 
@@ -580,17 +616,18 @@ const LoginRequestInfo = props => {
         activeCoinList,
         activeAccount.id,
         fullCoinData.compatible_channels,
+        requestContext,
       );
 
       if (addCoinAction) {
         dispatch(addCoinAction);
 
         const setUserCoinsAction = setUserCoins(
-          activeCoinList,
+          addCoinAction.activeCoinList,
           activeAccount.id,
         );
-        dispatch(setUserCoinsAction);
-
+        dispatch(scopeSessionAction(setUserCoinsAction, sessionScope));
+  
         refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser);
       } else {
         createAlert("Error", "Error adding coin")
@@ -645,7 +682,7 @@ const LoginRequestInfo = props => {
       }
       
       if (!rootSystemAdded) {
-        tryAddRootSystem()
+        return tryAddRootSystem()
       } else {
         props.navigation.navigate('LoginRequestIdentity', {});
       }

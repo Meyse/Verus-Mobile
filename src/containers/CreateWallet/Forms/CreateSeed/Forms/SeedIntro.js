@@ -8,8 +8,10 @@
   - 2026-01-26: Updated primary button to use GradientButton for consistency.
 */
 import React, {useState} from 'react';
-import {View, Dimensions, SafeAreaView, StyleSheet} from 'react-native';
-import {Text, Checkbox, Card} from 'react-native-paper';
+import {View, Dimensions, SafeAreaView} from 'react-native';
+import {Text, Paragraph, Checkbox, List, Card} from 'react-native-paper';
+import Button from '../../../../../components/Button';
+import {MnemonicSeed} from '../../../../../images/customIcons';
 import Colors from '../../../../../globals/colors';
 import GradientButton from '../../../../../components/GradientButton';
 import {SMALL_DEVICE_HEGHT} from '../../../../../utils/constants/constants';
@@ -136,7 +138,7 @@ export default function SeedIntro({navigation}) {
         <GradientButton
           onPress={() => navigation.navigate('SeedWords')}
           disabled={!userAgrees}
-          style={styles.continueButton}
+          style={{marginBottom: 24}}
         >
           {'Show words 1–8'}
         </GradientButton>
@@ -145,8 +147,3 @@ export default function SeedIntro({navigation}) {
   );
 }
 
-const styles = StyleSheet.create({
-  continueButton: {
-    marginBottom: 24,
-  },
-});

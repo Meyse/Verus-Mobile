@@ -22,8 +22,10 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import {Text, Card, Button} from 'react-native-paper';
+import {Text, TextInput, Checkbox, Card} from 'react-native-paper';
+import Button from '../../../../../components/Button';
 import GradientButton from '../../../../../components/GradientButton';
+import TallButton from '../../../../../components/LargerButton';
 import Colors from '../../../../../globals/colors';
 import {
   DEFAULT_SEED_PHRASE_LENGTH,

@@ -6,14 +6,19 @@ import {
   import { updateServiceDataValue } from "./UpdateServiceDataValue";
 
   import { checkVerusIdNotificationsForUpdates } from "./verusid/verusid";
-  
+  import {refreshRegistrationJobs} from './verusid/registration';
+
   const fetchChannels = () => {
     return {
-      [VERUSID]: (channelStore) =>
-        checkVerusIdNotificationsForUpdates(channelStore),
+      [VERUSID]: async (channelStore, requestContext) => {
+        await Promise.all([
+          checkVerusIdNotificationsForUpdates(requestContext),
+          refreshRegistrationJobs(requestContext),
+        ]);
+      },
     };
   };
-  
+
   export const updateServiceNotifications = (state, dispatch, channels) =>
     updateServiceDataValue(
       state,
@@ -23,4 +28,3 @@ import {
       ERROR_SERVICE_NOTIFICATIONS,
       fetchChannels
     );
-  

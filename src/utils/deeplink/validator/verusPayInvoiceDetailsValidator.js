@@ -5,13 +5,26 @@ import { getInfo } from "../../api/channels/vrpc/callCreators";
 import { blocksToTime } from "../../math";
 import { GenericRequest, VerusPayInvoiceDetails } from "verus-typescript-primitives/dist/vdxf/classes";
 import { getCurrency } from "../../api/channels/verusid/callCreators";
+import { validateVerusPayBurnChangePrice } from "../verusPayBurnChangePrice";
 
 /**
  * @param {GenericRequest} request
  * @param {number} detailIndex
  */
 export const validateVerusPayInvoiceVDXFObject = (request, detailIndex) => {
-  return validateVerusPayInvoiceDetails(request.getDetails(detailIndex).data);
+  const details = request.getDetails(detailIndex).data;
+
+  if (details.isTestnet() !== request.isTestnet()) {
+    throw new Error(
+      `Invoice details are for ${
+        details.isTestnet() ? "testnet" : "mainnet"
+      }, but the enclosing request is for ${
+        request.isTestnet() ? "testnet" : "mainnet"
+      }.`
+    );
+  }
+
+  return validateVerusPayInvoiceDetails(details);
 }
 
 /**
@@ -22,6 +35,10 @@ export const validateVerusPayInvoiceVDXFObject = (request, detailIndex) => {
  */
 export const validateVerusPayInvoiceDetails = async (details) => {
   if (!details) throw new Error("No invoice details found.")
+
+  if (details.isTagged() && (details.tag == null || !details.tag.isValid())) {
+    throw new Error("Invalid VerusPay invoice tag.")
+  }
 
   const acceptsAnyDestination = details.acceptsAnyDestination()
   const hasDestination = details.destination != null
@@ -43,6 +60,12 @@ export const validateVerusPayInvoiceDetails = async (details) => {
   const requestedCurrency = await getCurrency(coinObj.system_id, details.requestedcurrencyid)
   if (requestedCurrency.error) throw new Error(requestedCurrency.error.message)
 
+  validateVerusPayBurnChangePrice(
+    details,
+    requestedCurrency.result,
+    coinObj.system_id,
+  );
+
   if (details.isPreconvert()) {
     if (chainInfo.result.longestchain - requestedCurrency.result.startblock >= 0) {
       throw new Error("Destination currency must be in preconvert to pay preconvert invoice.")
@@ -53,10 +76,6 @@ export const validateVerusPayInvoiceDetails = async (details) => {
     const age = (details.expiryheight.toNumber() - chainInfo.result.longestchain) * -1
     
     throw new Error(`This invoice is expired (expired for approx. ${blocksToTime(age)}).`,)
-  }
-
-  if (details.isTagged()) {
-    throw new Error("Tagged invoices not yet supported.")
   }
 
   if (!acceptsAnyDestination && hasDestination && details.destinationIsSaplingPaymentAddress()) {

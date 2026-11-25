@@ -24,10 +24,12 @@ import {
 } from 'react-native';
 import {
   Text,
-  Button,
-  Card,
+  Paragraph,
+  TextInput,
   Chip,
+  Card,
 } from 'react-native-paper';
+import Button from '../../../../../components/Button';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import GradientButton from '../../../../../components/GradientButton';
 import Colors from '../../../../../globals/colors';

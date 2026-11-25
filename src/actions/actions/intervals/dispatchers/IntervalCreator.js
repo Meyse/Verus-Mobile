@@ -17,13 +17,31 @@ import {
   CHANNELS,
   VRPC,
   PRE_DATA,
-  DEFAULT_INTERVAL_CHANNELS
+  DEFAULT_INTERVAL_CHANNELS,
+  API_GET_BALANCES,
+  API_GET_TRANSACTIONS,
 } from "../../../../utils/constants/intervalConstants";
 import Store from '../../../../store/index'
 import { clearServiceUpdateExpiredIntervalId, setServiceUpdateExpiredIntervalId } from '../../updateManager';
 import { conditionallyUpdateService } from '../../services/dispatchers/updates';
 import { SET_ADDRESSES } from '../../../../utils/constants/storeType';
 import { getSystemNameFromSystemId, getVerusIdCurrency } from '../../../../utils/CoinData/CoinData';
+import {
+  captureSessionScope,
+  scopeSessionAction,
+  sessionScopeIsCurrent,
+} from '../../updates/sessionRequests';
+import {
+  createWalletRefreshInterval,
+  clearWalletRefreshInterval,
+} from './walletRefreshIntervals';
+
+const isSharedWalletUpdate = updateId =>
+  updateId === API_GET_BALANCES || updateId === API_GET_TRANSACTIONS;
+
+const clearCoinUpdateInterval = handle => {
+  if (!clearWalletRefreshInterval(handle)) clearInterval(handle);
+};
 //TODO: If app is ever used in any server side rendering scenario, switch store
 //to a function parameter on all of these functions rather than an import
 
@@ -34,18 +52,42 @@ import { getSystemNameFromSystemId, getVerusIdCurrency } from '../../../../utils
  * @param {String} updateId Name of API call
  * @param {Function} onComplete (Optional) Function to execute on timeout completion
  */
-export const createCoinExpireTimeout = (timeout, chainTicker, updateId, onComplete) => {
+export const createCoinExpireTimeout = (
+  timeout,
+  chainTicker,
+  updateId,
+  onComplete,
+  requestedSessionScope,
+) => {
+  const sessionScope = requestedSessionScope || captureSessionScope(Store.getState());
+
+  if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+
   if (timeout !== ALWAYS_ACTIVATED && timeout !== NEVER_ACTIVATED) {
     const timeoutId = setTimeout(() => {
-      Store.dispatch(expireCoinData(chainTicker, updateId))
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+
+      Store.dispatch(
+        scopeSessionAction(expireCoinData(chainTicker, updateId), sessionScope),
+      )
       //console.log(`${updateId} expired for ${chainTicker}`)
       if (onComplete != null) onComplete(Store.getState(), Store.dispatch, chainTicker) 
     }, timeout);
     //console.log(`${updateId} expire timeout set to ${timeout} with id ${timeoutId}`)
     
-    Store.dispatch(setCoinExpireTimeoutId(chainTicker, updateId, timeoutId))
+    Store.dispatch(
+      scopeSessionAction(
+        setCoinExpireTimeoutId(chainTicker, updateId, timeoutId),
+        sessionScope,
+      ),
+    )
   } else {
-    Store.dispatch(clearCoinExpireTimeoutId(chainTicker, updateId))
+    Store.dispatch(
+      scopeSessionAction(
+        clearCoinExpireTimeoutId(chainTicker, updateId),
+        sessionScope,
+      ),
+    )
   }
 }
 
@@ -55,16 +97,33 @@ export const createCoinExpireTimeout = (timeout, chainTicker, updateId, onComple
  * @param {String} updateId Name of API call
  * @param {Function} onComplete (Optional) Function to execute on timeout completion
  */
- export const createServiceExpireTimeout = (timeout, updateId, onComplete) => {
+ export const createServiceExpireTimeout = (
+  timeout,
+  updateId,
+  onComplete,
+  requestedSessionScope,
+) => {
+  const sessionScope = requestedSessionScope || captureSessionScope(Store.getState());
+
+  if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+
   if (timeout !== ALWAYS_ACTIVATED && timeout !== NEVER_ACTIVATED) {
     const timeoutId = setTimeout(() => {
-      Store.dispatch(expireServiceData(updateId))
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+
+      Store.dispatch(
+        scopeSessionAction(expireServiceData(updateId), sessionScope),
+      )
       if (onComplete != null) onComplete(Store.getState(), Store.dispatch) 
     }, timeout);
     
-    Store.dispatch(setServiceExpireTimeoutId(updateId, timeoutId))
+    Store.dispatch(
+      scopeSessionAction(setServiceExpireTimeoutId(updateId, timeoutId), sessionScope),
+    )
   } else {
-    Store.dispatch(clearServiceExpireTimeoutId(updateId))
+    Store.dispatch(
+      scopeSessionAction(clearServiceExpireTimeoutId(updateId), sessionScope),
+    )
   }
 }
 
@@ -77,14 +136,31 @@ export const createCoinExpireTimeout = (timeout, chainTicker, updateId, onComple
  * @param {Function} onComplete (Optional) Function to execute on interval completion (every interval)
  */
 export const createCoinUpdateExpiredInterval = (interval, chainTicker, updateId, onComplete) => {
+  const sessionScope = captureSessionScope(Store.getState());
+
   if (interval !== ALWAYS_ACTIVATED && interval !== NEVER_ACTIVATED) {
+    if (isSharedWalletUpdate(updateId)) {
+      const handle = createWalletRefreshInterval(
+        interval, chainTicker, updateId, onComplete, sessionScope,
+      );
+
+      Store.dispatch(scopeSessionAction(
+        setCoinUpdateExpiredIntervalId(chainTicker, updateId, handle),
+        sessionScope,
+      ));
+      return;
+    }
+
     //console.log(`${updateId} update expired interval set to ${interval}`)
     const intervalAction = async () => {
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+
       const state = Store.getState()
     
       await conditionallyUpdateWallet(state, Store.dispatch, chainTicker, updateId)
       //console.log(`Call to ${updateId} for ${chainTicker} in ${mode} mode completed with status: ${updateStatus}`)
 
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
       if (onComplete != null) onComplete(state, Store.dispatch, chainTicker) 
     }
 
@@ -105,12 +181,17 @@ export const createCoinUpdateExpiredInterval = (interval, chainTicker, updateId,
  * @param {Function} onComplete (Optional) Function to execute on interval completion (every interval)
  */
  export const createServiceUpdateExpiredInterval = (interval, updateId, onComplete) => {
+  const sessionScope = captureSessionScope(Store.getState());
+
   if (interval !== ALWAYS_ACTIVATED && interval !== NEVER_ACTIVATED) {
     const intervalAction = async () => {
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
+
       const state = Store.getState()
     
       await conditionallyUpdateService(state, Store.dispatch, updateId)
 
+      if (!sessionScopeIsCurrent(Store.getState(), sessionScope)) return;
       if (onComplete != null) onComplete(state, Store.dispatch) 
     }
 
@@ -127,14 +208,61 @@ export const createCoinUpdateExpiredInterval = (interval, chainTicker, updateId,
  * Clears all running api intervals for a chain ticker
  * @param {String} chainTicker Ticker of chain to clear intervals for
  */
-export const clearAllCoinIntervals = (chainTicker) => {
-  const intervalData = Store.getState().updates.coinUpdateIntervals[chainTicker]
+export const captureLifecycleIntervalIds = (state = Store.getState()) => {
+  const coinUpdateIntervals = {};
+
+  for (const chainTicker in state.updates.coinUpdateIntervals || {}) {
+    coinUpdateIntervals[chainTicker] = {};
+
+    for (const updateType in state.updates.coinUpdateIntervals[chainTicker] || {}) {
+      const interval = state.updates.coinUpdateIntervals[chainTicker][updateType];
+      coinUpdateIntervals[chainTicker][updateType] = {
+        expire_id: interval?.expire_id,
+        update_expired_id: interval?.update_expired_id,
+      };
+    }
+  }
+
+  const serviceUpdateIntervals = {};
+
+  for (const updateType in state.updates.serviceUpdateIntervals || {}) {
+    const interval = state.updates.serviceUpdateIntervals[updateType];
+    serviceUpdateIntervals[updateType] = {
+      expire_id: interval?.expire_id,
+      update_expired_id: interval?.update_expired_id,
+    };
+  }
+
+  return {coinUpdateIntervals, serviceUpdateIntervals};
+};
+
+export const clearAllCoinIntervals = (
+  chainTicker,
+  capturedIntervalData,
+  sessionScope,
+) => {
+  const intervalData = capturedIntervalData ||
+    Store.getState().updates.coinUpdateIntervals[chainTicker] || {}
 
   for (let updateType in intervalData) { 
     clearTimeout(intervalData[updateType].expire_id)
-    Store.dispatch(clearCoinExpireTimeoutId(chainTicker, updateType))
-    clearInterval(intervalData[updateType].update_expired_id)
-    Store.dispatch(clearCoinUpdateExpiredIntervalId(chainTicker, updateType))
+    clearCoinUpdateInterval(intervalData[updateType].update_expired_id)
+
+    const clearExpireAction = clearCoinExpireTimeoutId(chainTicker, updateType);
+    const clearUpdateAction = clearCoinUpdateExpiredIntervalId(
+      chainTicker,
+      updateType,
+    );
+    Store.dispatch(
+      sessionScope == null
+        ? clearExpireAction
+        : scopeSessionAction(clearExpireAction, sessionScope),
+    )
+    Store.dispatch(
+      sessionScope == null
+        ? clearUpdateAction
+        : scopeSessionAction(clearUpdateAction, sessionScope),
+    )
   }
 }
 
@@ -142,14 +270,29 @@ export const clearAllCoinIntervals = (chainTicker) => {
  * Clears all running api intervals for a chain ticker
  * @param {String} chainTicker Ticker of chain to clear intervals for
  */
- export const clearAllServiceIntervals = () => {
-  const intervalData = Store.getState().updates.serviceUpdateIntervals
+ export const clearAllServiceIntervals = (
+  capturedIntervalData,
+  sessionScope,
+) => {
+  const intervalData = capturedIntervalData ||
+    Store.getState().updates.serviceUpdateIntervals || {}
 
   for (let updateType in intervalData) { 
     clearTimeout(intervalData[updateType].expire_id)
-    Store.dispatch(clearServiceExpireTimeoutId(updateType))
     clearInterval(intervalData[updateType].update_expired_id)
-    Store.dispatch(clearServiceUpdateExpiredIntervalId(updateType))
+
+    const clearExpireAction = clearServiceExpireTimeoutId(updateType);
+    const clearUpdateAction = clearServiceUpdateExpiredIntervalId(updateType);
+    Store.dispatch(
+      sessionScope == null
+        ? clearExpireAction
+        : scopeSessionAction(clearExpireAction, sessionScope),
+    )
+    Store.dispatch(
+      sessionScope == null
+        ? clearUpdateAction
+        : scopeSessionAction(clearUpdateAction, sessionScope),
+    )
   }
 }
 
@@ -165,6 +308,7 @@ export const clearAllCoinIntervals = (chainTicker) => {
 export const refreshCoinIntervals = (coinObj, onCompletes, updateParams, allSeenSystems = []) => {
   const state = Store.getState()
   const chainTicker = coinObj.id
+  const chainStatus = state.coins.status[chainTicker] == null ? PRE_DATA : state.coins.status[chainTicker]
   const vrpcSupported = coinObj.compatible_channels.includes(VRPC)
 
   // TODO: Channel manual enabling/disabling
@@ -195,7 +339,7 @@ export const refreshCoinIntervals = (coinObj, onCompletes, updateParams, allSeen
   if (!coinObj) throw new Error(`${chainTicker} is not added for current user. Coins must be added to be used.`)
   
   const updateDataAction = generateUpdateCoinDataAction(
-    PRE_DATA,
+    chainStatus,
     chainTicker,
     coinObj.tags,
     [...DEFAULT_INTERVAL_CHANNELS, ...verusIdChannels, ...vrpcChannels],
@@ -211,7 +355,7 @@ export const refreshCoinIntervals = (coinObj, onCompletes, updateParams, allSeen
 
     for (let updateId in oldIntervalData) {
       clearTimeout(oldIntervalData[updateId].expire_id)
-      clearInterval(oldIntervalData[updateId].update_expired_id)
+      clearCoinUpdateInterval(oldIntervalData[updateId].update_expired_id)
     }
   }
 
@@ -222,7 +366,9 @@ export const refreshCoinIntervals = (coinObj, onCompletes, updateParams, allSeen
     if (newTrackingData[updateId].channels.length > 0) {
       const updateExpiredInterval = newIntervalData[updateId].update_expired_interval
       const antiCollisionOffsetMargin = (updateExpiredInterval * 0.30)
-      const antiCollisionOffset = Math.floor(
+      // Address reads should meet on one refresh cycle. Keep jitter only for
+      // unrelated polling, which does not participate in the explicit batch.
+      const antiCollisionOffset = isSharedWalletUpdate(updateId) ? 0 : Math.floor(
         Math.random() * ((antiCollisionOffsetMargin * 0.5) - 1) * (Math.random() > 0.5 ? 1 : -1)
       );
 

@@ -115,7 +115,7 @@ export const coinsList = {
     theme_color: '#232323',
     website: 'https://verus.io',
     fee: 10000,
-    compatible_channels: [DLIGHT_PRIVATE, VERUSID, VRPC],
+    compatible_channels: [DLIGHT_PRIVATE, VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsctest,

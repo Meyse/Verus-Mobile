@@ -9,8 +9,8 @@
 */
 
 import React, { Component } from "react";
-import { CommonActions } from '@react-navigation/native';
-import { Divider, List, Portal } from "react-native-paper"
+import {resetToScreen} from '../../../utils/navigation/resetToScreen';
+import { ActivityIndicator, Divider, List, Portal } from "react-native-paper"
 import { 
   View,
   TouchableOpacity,
@@ -66,6 +66,7 @@ class ProfileSettings extends Component {
       },
       privateSeedModalOpen: false,
       keyDerivationVersionModalOpen: false,
+      checkingNfcBackupSeed: false,
       onPasswordCorrect: () => {},
     };
 
@@ -96,27 +97,7 @@ class ProfileSettings extends Component {
   };
 
   resetToScreen = (route, title, data, fullReset) => {
-    let resetAction
-
-    if (fullReset) {
-      resetAction = CommonActions.reset({
-        index: 0, // <-- currect active route from actions array
-        routes: [
-          { name: route, params: { data: data } },
-        ],
-      })
-    } else {
-      resetAction = CommonActions.reset({
-        index: 1, // <-- currect active route from actions array
-        routes: [
-          { name: "Home" },
-          { name: route, params: { title: title, data: data } },
-        ],
-      })
-    }
-
-    this.props.navigation?.closeDrawer?.();
-    this.props.navigation.dispatch(resetAction)
+    resetToScreen(this.props.navigation, route, title, data, fullReset);
   }
 
   toggleBiometry = async (passwordCheck) => {
@@ -207,6 +188,11 @@ class ProfileSettings extends Component {
   }
 
   setUserKeyDerivationVersion = async (keyDerivationVersion) => {
+    const sessionScope = {
+      sessionScoped: true,
+      accountHash: this.props.activeAccount?.accountHash || null,
+      sessionEpoch: this.props.sessionEpoch,
+    };
     if (
       keyDerivationVersion !== this.props.activeAccount.keyDerivationVersion &&
       (await this.canSetUserKeyDerivationVersion())
@@ -226,7 +212,7 @@ class ProfileSettings extends Component {
             // TODO: Find a more elegant solution
             return new Promise((resolve, reject) => {
               setTimeout(() => {
-                this.props.dispatch(signOut());
+                this.props.dispatch(signOut(sessionScope));
                 resolve();
               }, 1000);
             });
@@ -374,6 +360,26 @@ class ProfileSettings extends Component {
     );
   }
 
+  canBackupCurrentProfileToNfc = () => {
+    return createAlert(
+      "Backup profile to NFC?",
+      "This will write an NFC wallet backup for your current profile seed. If you manually setup your Z seed to be different from your main profile seed, this process will not backup your Z seed.\n\n" +
+        "If you choose an unencrypted backup on the next screen, anyone with the NFC card can access this wallet. Keep the card secure.\n\n" +
+        "Would you like to proceed?",
+      [
+        {
+          text: "No",
+          onPress: () => resolveAlert(false),
+          style: "cancel",
+        },
+        { text: "Yes", onPress: () => resolveAlert(true) },
+      ],
+      {
+        cancelable: false,
+      }
+    );
+  }
+
   is24WordMnemonic = (seed) => {
     if (seed == null || typeof seed !== "string") return false;
     const wordCount = seed.trim().split(/\s+/g).length;
@@ -397,6 +403,48 @@ class ProfileSettings extends Component {
     }
 
     this.setState({ privateSeedModalOpen: true });
+  }
+
+  startNfcBackup = async (passwordCheck) => {
+    if (!passwordCheck.valid) {
+      createAlert("Authentication Error", "Incorrect password");
+      return;
+    }
+
+    const { activeAccount } = this.props;
+    const { id } = activeAccount;
+
+    this.closePasswordDialog(async () => {
+      this.setState({ checkingNfcBackupSeed: true });
+
+      try {
+        const seeds = await checkPinForUser(passwordCheck.password, id);
+        const primarySeed = seeds[ELECTRUM];
+
+        if (!this.is24WordMnemonic(primarySeed)) {
+          createAlert(
+            "NFC Backup Unavailable",
+            "The current profile primary seed is not a valid 24 word mnemonic and cannot be written as an NFC wallet backup.",
+          );
+          return;
+        }
+
+        this.props.navigation.navigate("NfcBackup");
+      } catch (e) {
+        createAlert(
+          "Error",
+          e.message || "Unable to check whether this profile can be backed up.",
+        );
+      } finally {
+        this.setState({ checkingNfcBackupSeed: false });
+      }
+    });
+  }
+
+  openNfcBackup = async () => {
+    if (await this.canBackupCurrentProfileToNfc()) {
+      this.openPasswordCheck(this.startNfcBackup);
+    }
   }
 
   openPasswordCheck = (onPasswordCorrect) =>
@@ -557,6 +605,24 @@ class ProfileSettings extends Component {
           allowBiometry={true}
         />
         <List.Subheader>{"Profile Actions"}</List.Subheader>
+        <TouchableOpacity
+          onPress={this.openNfcBackup}
+          disabled={this.state.checkingNfcBackupSeed}
+        >
+          <Divider />
+          <List.Item
+            title={"Backup Current Profile to NFC"}
+            description={"Requires a 24-word mnemonic seed"}
+            left={(props) => <List.Icon {...props} icon={"credit-card-wireless"} />}
+            right={(props) =>
+              this.state.checkingNfcBackupSeed ? (
+                <ActivityIndicator {...props} size="small" />
+              ) : (
+                <List.Icon {...props} icon={"chevron-right"} />
+              )
+            }
+          />
+        </TouchableOpacity>
         {ENABLE_DLIGHT && (
           <TouchableOpacity
             onPress={this.handleZSeedSetup}
@@ -622,6 +688,7 @@ const mapStateToProps = state => {
   return {
     testAccount: Object.keys(state.authentication.activeAccount.testnetOverrides).length > 0,
     activeAccount: state.authentication.activeAccount,
+    sessionEpoch: state.authentication.sessionEpoch,
     showHideSeedCorruptionSetting: state.authentication.showHideSeedCorruptionSetting,
     wyreEnabled:
       state.authentication.activeAccount != null &&

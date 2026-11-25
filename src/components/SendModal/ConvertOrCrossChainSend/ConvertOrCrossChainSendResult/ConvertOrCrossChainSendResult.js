@@ -4,7 +4,8 @@ import { openOffRamp } from "../../../../actions/actions/channels/valu/dispatche
 import { explorers } from "../../../../utils/CoinData/CoinData";
 import { openUrl } from "../../../../utils/linking";
 import { ScrollView, View, TouchableOpacity } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
+import Button from "../../../Button";
 import Colors from "../../../../globals/colors";
 import Styles from "../../../../styles";
 import { copyToClipboard } from "../../../../utils/clipboard/clipboard";
@@ -59,6 +60,7 @@ const ConvertOrCrossChainSendResult = (props) => {
   }, [])
 
   const { txid, output, destination } = params;
+  const isBurnChangePrice = output?.burn === true;
 
   return (
     <ScrollView
@@ -80,7 +82,13 @@ const ConvertOrCrossChainSendResult = (props) => {
             fontSize: 20,
             color: Colors.verusDarkGray,
           }}>
-          {output.convertto ? "Conversion initiated" : output.exportto ? "Off-chain send initiated" : "Send initiated"}
+          {isBurnChangePrice
+            ? "Currency burn initiated"
+            : output.convertto
+              ? "Conversion initiated"
+              : output.exportto
+                ? "Off-chain send initiated"
+                : "Send initiated"}
         </Text>
       </TouchableOpacity>
       <View style={{ paddingVertical: 16 }}>
@@ -93,7 +101,9 @@ const ConvertOrCrossChainSendResult = (props) => {
       <TouchableOpacity
         onPress={() =>
           copyToClipboard(destination, {
-            title: 'Destination copied',
+            title: isBurnChangePrice
+              ? 'Burn output address copied'
+              : 'Destination copied',
             message: `${destination} copied to clipboard.`,
           })
         }
@@ -107,7 +117,7 @@ const ConvertOrCrossChainSendResult = (props) => {
             fontSize: 20,
             color: Colors.verusDarkGray,
           }}>
-          {'to '}
+          {isBurnChangePrice ? 'burn output: ' : 'to '}
           <Text style={{ color: Colors.basicButtonColor, textAlign: 'center' }}>
             {destination}
           </Text>
@@ -120,7 +130,9 @@ const ConvertOrCrossChainSendResult = (props) => {
             fontSize: 20,
             color: Colors.verusDarkGray,
           }}>
-          {'Track its status under the Overview tab. It may take a time to arrive even after it is confirmed as sent.'}
+          {isBurnChangePrice
+            ? 'The amount will be removed from circulation when the transaction is processed, reducing the currency\'s total supply. The burn output address identifies the transaction but does not receive the amount.'
+            : 'Track its status under the Overview tab. It may take a time to arrive even after it is confirmed as sent.'}
         </Text>
       </View>
       <View

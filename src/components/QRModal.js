@@ -18,7 +18,8 @@ import Modal from '../components/Modal'
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import QRCode from 'react-native-qrcode-svg'
 import AlertAsync from "react-native-alert-async"
-import { Button, IconButton, Text } from "react-native-paper"
+import { IconButton, Text } from "react-native-paper"
+import Button from "./Button"
 import RNFS from "react-native-fs"
 //import Share from 'react-native-share';
 import Colors from '../globals/colors';
@@ -51,7 +52,11 @@ class QRModal extends Component {
   }
 
   saveQRToDisk = () => {
-    const fileName = this.props.showingAddress ? (this.props.qrString ? this.props.qrString : "UnknownQRString") : ("VerusPayQR" + Date.now().toString());
+    const fileName = this.props.fileName
+      ? this.props.fileName
+      : this.props.showingAddress
+        ? (this.props.qrString ? this.props.qrString : "UnknownQRString")
+        : ("VerusPayQR" + Date.now().toString());
 
     this.QRCodeRef.toDataURL((data) => {
       RNFS.writeFile(RNFS.CachesDirectoryPath+`/${fileName}.png`, data, 'base64')
@@ -89,7 +94,11 @@ class QRModal extends Component {
   }
 
   requestShareQR = () => {
-    const fileName = this.props.showingAddress ? (this.props.qrString ? this.props.qrString : "UnknownQRString") : ("VerusPayQR" + Date.now().toString());
+    const fileName = this.props.fileName
+      ? this.props.fileName
+      : this.props.showingAddress
+        ? (this.props.qrString ? this.props.qrString : "UnknownQRString")
+        : ("VerusPayQR" + Date.now().toString());
 
     // this.setState({ sharePressed: true },
     // () => {
@@ -137,7 +146,13 @@ class QRModal extends Component {
           contentContainerStyle={Styles.centerContainer}
         >
           <View style={Styles.headerContainer}>
-            <Text style={Styles.centralHeader}>{this.props.showingAddress ? "Address QR" : "VerusPay Invoice"}</Text>
+            <Text style={Styles.centralHeader}>
+              {this.props.title
+                ? this.props.title
+                : this.props.showingAddress
+                  ? "Address QR"
+                  : "VerusPay Invoice"}
+            </Text>
           </View>
           <View style={Styles.standardWidthFlexGrowCenterBlock}>
             <Text
@@ -146,7 +161,11 @@ class QRModal extends Component {
                 ...Styles.fullWidthSpaceBetweenCenterBlock,
               }}
             >
-              {this.props.showingAddress ? (this.props.qrString ? this.props.qrString : "-") : "Scan this QR code with VerusPay"}
+              {this.props.description
+                ? this.props.description
+                : this.props.showingAddress
+                  ? (this.props.qrString ? this.props.qrString : "-")
+                  : "Scan this QR code with VerusPay"}
             </Text>
             <View style={Styles.fullWidthAlignCenter}>
               <QRCode

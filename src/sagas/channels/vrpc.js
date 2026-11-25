@@ -1,42 +1,57 @@
-import { all, takeEvery, takeLatest, call, put } from "redux-saga/effects";
+import {all, takeEvery, takeLatest, call, put, select} from 'redux-saga/effects';
 import {
   INIT_VRPC_CHANNEL_START,
   CLOSE_VRPC_CHANNEL,
   SIGN_OUT_COMPLETE,
   INIT_VRPC_CHANNEL_FINISH,
   SET_WATCHED_VRPC_ADDRESSES,
-} from "../../utils/constants/storeType";
+} from '../../utils/constants/storeType';
 import VrpcProvider from '../../utils/vrpc/vrpcInterface';
+import {signOutCompletionWasAccepted} from '../../actions/actions/updates/sessionRequests';
+import {awaitSagaResourceSettlements, clearSagaResources} from './resourceOwnership';
+import {createEndpointLifecycle} from './endpointLifecycle';
+
+const lifecycle = createEndpointLifecycle(
+  () => VrpcProvider,
+  'vrpc',
+  'Account changed while the VRPC wallet was being closed.',
+  handleFinishVrpcInit,
+);
+
+function* handleVrpcChannelInitSafely(action) {
+  yield* lifecycle.initializeSafely(action);
+}
+
+export function* handleVrpcChannelClose(action) {
+  yield* lifecycle.close(action);
+}
 
 export default function * vrpcSaga() {
   yield all([
-    takeEvery(INIT_VRPC_CHANNEL_START, handleVrpcChannelInit),
+    takeEvery(INIT_VRPC_CHANNEL_START, handleVrpcChannelInitSafely),
     takeEvery(CLOSE_VRPC_CHANNEL, handleVrpcChannelClose),
-    takeLatest(SIGN_OUT_COMPLETE, handleSignOut)
+    takeLatest(SIGN_OUT_COMPLETE, handleSignOutSafely)
   ]);
 }
 
-function * handleVrpcChannelInit(action) {
-  yield call(VrpcProvider.initEndpoint, action.payload.systemId, action.payload.endpointAddress)
-  yield call(handleFinishVrpcInit, action)
+function * handleSignOut(action) {
+  if (!signOutCompletionWasAccepted(yield select(), action)) return;
+  yield call(awaitSagaResourceSettlements, 'vrpc:');
+  if (!signOutCompletionWasAccepted(yield select(), action)) return;
+  clearSagaResources('vrpc:');
+  yield call(VrpcProvider.deleteAllEndpoints);
+  yield call(VrpcProvider.addDefaultEndpoints);
 }
 
-function* handleVrpcChannelClose(action) {
-  VrpcProvider.deleteEndpoint(
-    action.payload.systemId,
-    action.payload.endpointAddress,
-  );
-}
-
-function * handleSignOut() {
-  VrpcProvider.deleteAllEndpoints();
-  
-  setImmediate(() => {
-    VrpcProvider.addDefaultEndpoints();
-  })
+function* handleSignOutSafely(action) {
+  try {
+    yield call(handleSignOut, action);
+  } catch (error) {
+    console.warn(error);
+  }
 }
 
 function * handleFinishVrpcInit(action) {
-  yield put({type: SET_WATCHED_VRPC_ADDRESSES, payload: action.payload})
-  yield put({type: INIT_VRPC_CHANNEL_FINISH, payload: action.payload})
+  yield put({type: SET_WATCHED_VRPC_ADDRESSES, payload: action.payload, meta: action.meta})
+  yield put({type: INIT_VRPC_CHANNEL_FINISH, payload: action.payload, meta: action.meta})
 }

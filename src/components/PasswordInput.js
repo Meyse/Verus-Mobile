@@ -14,9 +14,12 @@ export default class PasswordInput extends Component {
           autoCapitalize={"none"}
           autoCorrect={false}
           autoComplete="off"
+          importantForAutofill="no"
+          textContentType="none"
           secureTextEntry={true}
           containerStyle={Styles.passwordInputContainer}
           errorMessage={this.props.errorMessage}
+          renderErrorMessage={false}
           clearTextOnFocus
           ref={this.props.reference}
           value={this.props.value}

@@ -18,7 +18,7 @@ const VerusIdWidget = () => {
   const containerHeight = 108;
 
   return (
-    <View style={[styles.container, { minHeight: containerHeight }]}> 
+    <View style={[styles.container, {minHeight: containerHeight}]}>
       <View style={styles.background} pointerEvents="none">
         <Svg width={containerWidth} height={containerHeight}>
           <Defs>
@@ -54,9 +54,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  background: {...StyleSheet.absoluteFillObject},
   title: {
     fontSize: 20,
     fontWeight: '700',

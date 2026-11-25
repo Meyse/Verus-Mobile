@@ -164,7 +164,7 @@ export const DEVICE_WINDOW_WIDTH = Dimensions.get('window').width;
 export const DEVICE_WINDOW_HEIGHT = Dimensions.get('window').height;
 
 // Init
-export const START_COINS = ["VRSC", "BTC", "ETH", "i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd"]
+export const START_COINS = ["VRSC", "BTC", "ETH", "MATIC", "i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd"]
 export const START_ERC20_TOKENS = [
   { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', network: 'homestead', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
 ];
@@ -174,6 +174,7 @@ export const START_ERC20_TOKENS_TESTNET = [
 export const TEST_PROFILE_OVERRIDES = {
   ['VRSC']: 'VRSCTEST',
   ['ETH']: 'GETH',
+  ['MATIC']: 'MATIC_AMOY',
   ['i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd']: 'iFMqivtShssEpViJbVtqVz53rsXvjqndQn',
 };
 
@@ -199,7 +200,7 @@ export const IADDRESS_VERSION = 102
 
 // Deep links
 export const CALLBACK_HOST = 'x-callback-url'
-export const SUPPORTED_DLS = [primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid, primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid/*, primitives.IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid */]
+export const SUPPORTED_DLS = [primitives.LOGIN_CONSENT_REQUEST_VDXF_KEY.vdxfid, primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid]
 
 // Komodo
 export const KOMODO_ENDOFERA = 7777777;
@@ -230,4 +231,5 @@ export const MIN_PASS_SCORE = 65
 export const PASS_SCORE_LIMIT = 100
 
 export const VRSC_SAPLING_ACTIVATION_HEIGHT = 227520;
+export const PBAAS_SAPLING_ACTIVATION_HEIGHT = 1;
 export const MAX_SEED_CHARS_FOR_QR_DISPLAY = 1000

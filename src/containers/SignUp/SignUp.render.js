@@ -11,7 +11,8 @@ import {
   SafeAreaView,
   KeyboardAvoidingView
 } from "react-native";
-import { TextInput, Button, Checkbox, Portal } from "react-native-paper";
+import { TextInput, Checkbox, Portal } from "react-native-paper";
+import Button from "../../components/Button";
 import SetupSeedModal from "../../components/SetupSeedModal/SetupSeedModal";
 import Styles from "../../styles/index";
 import Colors from "../../globals/colors";
@@ -21,6 +22,12 @@ import {
 } from "../../utils/constants/intervalConstants";
 import { ENABLE_DLIGHT } from "../../../env/index";
 import { canEnableBiometry } from "../../actions/actions/channels/dlight/dispatchers/AlertManager";
+
+const passwordAutofillProps = {
+  autoComplete: "off",
+  importantForAutofill: "no",
+  textContentType: "none",
+};
 
 export const SignUpRender = function() {
   return (
@@ -135,10 +142,11 @@ export const SignUpRender = function() {
                       selectionColor={Colors.primaryColor}
                       render={(props) => (
                         <NativeTextInput
+                          {...props}
                           autoCapitalize={"none"}
                           autoCorrect={false}
+                          {...passwordAutofillProps}
                           secureTextEntry={true}
-                          {...props}
                         />
                       )}
                       error={this.state.errors.pin}
@@ -158,10 +166,11 @@ export const SignUpRender = function() {
                       mode="outlined"
                       render={(props) => (
                         <NativeTextInput
+                          {...props}
                           autoCapitalize={"none"}
                           autoCorrect={false}
+                          {...passwordAutofillProps}
                           secureTextEntry={true}
-                          {...props}
                         />
                       )}
                       error={this.state.errors.confirmPin}
@@ -212,7 +221,7 @@ export const SignUpRender = function() {
               buttonColor={Colors.verusGreenColor}
               textColor={Colors.secondaryColor}
             >
-              {"Add Profile"}
+              {"Add profile"}
             </Button>
           </View>
         </View>

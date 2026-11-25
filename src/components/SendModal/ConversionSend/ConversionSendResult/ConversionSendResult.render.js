@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, View, TouchableOpacity } from "react-native";
-import { Button, List, Divider, Text } from "react-native-paper";
+import { List, Divider, Text } from "react-native-paper";
+import Button from "../../../Button";
 import Colors from "../../../../globals/colors";
 import Styles from "../../../../styles";
 import { copyToClipboard } from "../../../../utils/clipboard/clipboard";
@@ -22,9 +23,9 @@ export const ConversionSendSuccessRender = function () {
       }}>
       <TouchableOpacity
         onPress={() =>
-          copyToClipboard(finalTxAmount, {
+          copyToClipboard(valueSent, {
             title: 'Amount copied',
-            message: `${finalTxAmount} copied to clipboard.`,
+            message: `${valueSent} copied to clipboard.`,
           })
         }
         style={{
@@ -42,7 +43,7 @@ export const ConversionSendSuccessRender = function () {
             style={{
               color: Colors.basicButtonColor,
               textAlign: 'center',
-            }}>{`${finalTxAmount} ${coinObj.id}`}</Text>
+            }}>{`${valueSent} ${fromCurrency}`}</Text>
           {' sent'}
         </Text>
       </TouchableOpacity>
@@ -92,20 +93,10 @@ export const ConversionSendSuccessRender = function () {
           flexDirection: 'row',
           justifyContent: 'space-evenly',
         }}>
-        {explorers[coinObj.id] != null && (
-          <Button
-            textColor={Colors.primaryColor}
-            style={{width: 148}}
-            labelStyle={{fontSize: 18}}
-            onPress={() => this.openExplorer()}>
-            Details
-          </Button>
-        )}
         <Button
           buttonColor={Colors.verusGreenColor}
           textColor={Colors.secondaryColor}
           style={{width: 148}}
-          labelStyle={{fontSize: 18}}
           onPress={() => this.finishSend()}>
           Done
         </Button>

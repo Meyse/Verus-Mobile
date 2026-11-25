@@ -1,4 +1,4 @@
-import { DefinedKey, IdentityUpdateRequestOrdinalVDXFObject, GenericRequest, GenericResponse, DATA_TYPE_DEFINEDKEY, fqnToAddress, toIAddress, getDataKey } from "verus-typescript-primitives";
+import { DefinedKey, IdentityUpdateRequestOrdinalVDXFObject, GenericRequest, GenericResponse, DATA_TYPE_DEFINEDKEY, IDENTITY_CREDENTIAL, fqnToAddress, toIAddress, getDataKey } from "verus-typescript-primitives";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
 import { getSignatureInfo } from "../../api/channels/vrpc/requests/getSignatureInfo";
@@ -11,6 +11,10 @@ import { createUpdateIdentityTx, getUpdatableIdentity } from "../../api/channels
 import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
 import { capitalizeString } from "../../stringUtils";
 import { getKnownVDXFKeyName } from "../../vdxf/vdxfTypeLabels";
+import {createLocalIdentityUploadCrypto} from '../../identityUpdate/localUploadCrypto';
+import {identityToDisplayJson} from '../../identityUpdate/identityDisplay';
+import {cloneIdentityUpdateRequest} from '../../identityUpdate/cloneRequest';
+import {assertIdentityUpdateRequestConstraints} from '../validator/identityUpdateRequestValidator';
 
 /**
  * @param {GenericRequest} request
@@ -31,7 +35,7 @@ import { getKnownVDXFKeyName } from "../../vdxf/vdxfTypeLabels";
  *    friendlyNames: any;
  *    cmmDataKeys: any;
  *    subjectIdTxHex: string;
- *    updateIdTxHex: string;
+ *    identityPreviewPrepared: boolean;
  *  }
  *  response: GenericResponse;
  *  handledIndices: Array<number>;
@@ -47,7 +51,7 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
   if (!(details instanceof IdentityUpdateRequestOrdinalVDXFObject)) throw new Error("Identity update request details not found at specified index");
 
   const rootSystem = request.isTestnet() ? 'VRSCTEST' : 'VRSC';
-  const requestDetails = details.data;
+  const requestDetails = cloneIdentityUpdateRequest(details.data, rootSystem);
   const requestSystem = requestDetails.containsSystem()
     ? requestDetails.systemID.toAddress()
     : rootSystem;
@@ -57,15 +61,25 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
 
   const chainInfo = await getInfo(coinObj.system_id);
   if (chainInfo.error) throw new Error(chainInfo.error.message);
+  assertIdentityUpdateRequestConstraints(requestDetails, {
+    systemId: coinObj.system_id,
+    isTestnet: request.isTestnet(),
+    height: chainInfo.result.blocks,
+    chainId: chainInfo.result.chainid,
+  });
 
   const identityAddress = requestDetails.getIdentityAddress(request.isTestnet());
   const subjectIdentityRes = await getIdentity(coinObj.system_id, identityAddress);
   if (subjectIdentityRes.error) throw new Error(subjectIdentityRes.error.message);
 
-  const subjectIdentity = subjectIdentityRes.result;
-  const updatableIdentity = await getUpdatableIdentity(coinObj.system_id, subjectIdentity);
+  const updatableIdentity = await getUpdatableIdentity(coinObj.system_id, subjectIdentityRes.result);
   const subjectIdClass = updatableIdentity.identity;
   const subjectIdTxHex = updatableIdentity.tx;
+  // Review control changes against the same identity used to prepare the update.
+  const subjectIdentity = {
+    ...subjectIdentityRes.result,
+    identity: identityToDisplayJson(subjectIdClass),
+  };
 
   if (requestDetails.identity.containsFlags && requestDetails.identity.containsFlags()) {
     if (subjectIdClass.hasActiveCurrency() !== requestDetails.identity.hasActiveCurrency()) {
@@ -97,11 +111,6 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
       ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
       [subjectIdentity.identity.identityaddress]: subjectIdentity.fullyqualifiedname
     };
-  }
-
-  if (requestDetails.expires() && requestDetails.expiryHeight.toNumber() - chainInfo.result.longestchain < 0) {
-    const age = (requestDetails.expiryHeight.toNumber() - chainInfo.result.longestchain) * -1;
-    throw new Error(`This request is expired (expired for approx. ${age} blocks).`);
   }
 
   let cmmDataKeys = {};
@@ -184,16 +193,80 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
     }
   }
 
-  const updateIdentityTx = await createUpdateIdentityTx(
-    coinObj.system_id,
-    requestDetails,
-    subjectIdClass.getIdentityAddress(),
-    subjectIdTxHex,
-    subjectIdentity.blockheight,
-    false,
-    undefined,
-    request.isTestnet()
+  // Detect encrypted credential keys in contentMultiMap
+  const partialIdentity = requestDetails.identity;
+  const hasEncryptedKeys = !!(
+    partialIdentity.containsContentMultiMap() &&
+    partialIdentity.contentMultiMap.kvContent.hasAddress(IDENTITY_CREDENTIAL.vdxfid)
   );
+
+  // Credential encryption via signDataMap is not supported on mobile
+  if (requestDetails.containsSignData()) {
+    if (requestDetails.signDataMap.hasAddress(IDENTITY_CREDENTIAL.vdxfid)) {
+      throw new Error('Encrypted credentials in signDataMap are not supported on mobile');
+    }
+  }
+
+  // Credentials retain their separate review and local encryption flow. Upload
+  // construction is local too; no plaintext is sent to daemon builders.
+  let identityUpdates;
+  let identityPreviewPrepared = false;
+
+  if (hasEncryptedKeys) {
+    // Overlay the partial identity fields onto the current on-chain identity
+    // to produce the merged view for the review UI.
+    const baseJson = identityToDisplayJson(subjectIdClass);
+    const partialJson = identityToDisplayJson(requestDetails.identity);
+    identityUpdates = { ...baseJson, ...partialJson, contentmultimap: partialJson.contentmultimap || {} };
+  } else {
+    let crypto;
+    try {
+      crypto = requestDetails.signDataMap?.size
+        ? await createLocalIdentityUploadCrypto({
+          systemId: coinObj.system_id, request: requestDetails,
+        })
+        : undefined;
+      const updateIdentityTx = await createUpdateIdentityTx(
+        coinObj.system_id,
+        requestDetails,
+        subjectIdClass.getIdentityAddress(),
+        subjectIdTxHex,
+        subjectIdentity.blockheight,
+        false,
+        request.isTestnet(),
+        crypto,
+        chainInfo.result.blocks,
+      );
+      identityUpdates = identityToDisplayJson(updateIdentityTx.identity);
+      identityPreviewPrepared = true;
+    } finally {
+      crypto?.dispose();
+    }
+  }
+
+  // getidentity contains only the latest transaction's CMM operations. Review
+  // additions/removals against accumulated content, without using it to build a tx.
+  let displaySubjectIdentity = subjectIdentity;
+  const hasCmmUpdates = (
+    partialIdentity.containsContentMultiMap() &&
+    Array.from(partialIdentity.contentMultiMap.kvContent.entries()).some(([, values]) => values.length > 0)
+  ) || (requestDetails.containsSignData() && requestDetails.signDataMap.size > 0);
+  if (hasCmmUpdates) {
+    const contentRes = await getIdentityContent(
+      coinObj.system_id, identityAddress, 0, subjectIdentity.blockheight,
+    );
+    if (contentRes.error) throw new Error(contentRes.error.message);
+    if (contentRes.result.identity.identityaddress !== identityAddress) {
+      throw new Error('Identity content does not match the identity being updated');
+    }
+    displaySubjectIdentity = {
+      ...subjectIdentity,
+      identity: {
+        ...subjectIdentity.identity,
+        contentmultimap: contentRes.result.identity.contentmultimap || {},
+      },
+    };
+  }
 
   const signerSystemID = request.signature.systemID.toIAddress();
   const signerSystemName = getSystemNameFromSystemId(signerSystemID);
@@ -229,14 +302,15 @@ export const handleIdentityUpdateRequestDetailsVDXFObject = async (request, resp
       signerSystemID,
       signerSystemName,
       signerIdentityID,
-      subjectIdentity,
-      identityUpdates: updateIdentityTx.identity.toJson(),
-      updateIdTxHex: updateIdentityTx.hex,
+      subjectIdentity: displaySubjectIdentity,
+      identityUpdates,
+      identityPreviewPrepared,
       coinObj,
       chainInfo: chainInfo.result,
       friendlyNames,
       cmmDataKeys,
       subjectIdTxHex,
+      hasEncryptedKeys,
     },
     response,
     handledIndices: []
