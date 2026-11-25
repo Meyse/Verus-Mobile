@@ -332,7 +332,10 @@ export default function SeedWords({navigation, newSeed, onComplete, testProfile}
                         wordGuesses[1].length === 0 ||
                         wordGuesses[2].length === 0)
                     }
-                    style={formStep > 0 ? styles.primaryButtonFlex : styles.primaryButton}
+                    // Keep flex: 1 in both states. In a row, a single flex: 1 child fills the row like
+                    // width: '100%'. React Native 0.81 keeps the old width when one update replaces
+                    // width with flex, so Back was squeezed and Next ran off the screen.
+                    style={styles.primaryButtonFlex}
                   >
                     {isAtEnd ? 'Complete' : 'Next'}
                   </GradientButton>
@@ -378,9 +381,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#000',
-  },
-  primaryButton: {
-    width: '100%',
   },
   primaryButtonFlex: {
     flex: 1,
