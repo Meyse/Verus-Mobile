@@ -41,8 +41,9 @@ public class MainApplication extends Application implements ReactApplication {
           return BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
         }
 
+        // React Native 0.81 declares this as a Kotlin Boolean, which is a Java boolean.
         @Override
-        protected Boolean isHermesEnabled() {
+        protected boolean isHermesEnabled() {
           return BuildConfig.IS_HERMES_ENABLED;
         }
       };
