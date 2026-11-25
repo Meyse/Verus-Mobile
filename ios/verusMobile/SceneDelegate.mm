@@ -91,12 +91,16 @@
         interfaceOrientation:(UIInterfaceOrientation)previousInterfaceOrientation
              traitCollection:(UITraitCollection *)previousTraitCollection
 {
-  // Preserve RCTAppDelegate's dimension-change notification for React Native.
-  [(id<UIWindowSceneDelegate>)UIApplication.sharedApplication.delegate
-                  windowScene:windowScene
-      didUpdateCoordinateSpace:previousCoordinateSpace
-          interfaceOrientation:previousInterfaceOrientation
-               traitCollection:previousTraitCollection];
+  // React Native 0.77's RCTAppDelegate posted its dimension-change notification here. From 0.81,
+  // RCTAppDelegate has no such method (RCTDeviceInfo observes the window frame itself), and an
+  // unguarded call crashes at launch with "unrecognized selector".
+  id<UIWindowSceneDelegate> appDelegate = (id<UIWindowSceneDelegate>)UIApplication.sharedApplication.delegate;
+  if ([appDelegate respondsToSelector:_cmd]) {
+    [appDelegate windowScene:windowScene
+        didUpdateCoordinateSpace:previousCoordinateSpace
+            interfaceOrientation:previousInterfaceOrientation
+                 traitCollection:previousTraitCollection];
+  }
 }
 
 @end
