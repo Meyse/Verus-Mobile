@@ -10,9 +10,11 @@
     Services uses "compass", Scan uses "maximize" (scanning frame corners).
 */
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { PlatformPressable } from '@react-navigation/elements';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
 import IdentityStackScreens from '../IdentityStackScreens/IdentityStackScreens';
@@ -34,6 +36,7 @@ const isActionableIdentityStatus = (status) =>
   status === NOTIFICATION_TYPE_VERUSID_READY || status === NOTIFICATION_TYPE_VERUSID_ERROR;
 
 const HomeTabScreens = props => {
+  const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const pendingIds = useObjectSelector((state) => state.channelStore_verusid?.pendingIds || {});
   const [lastSeenPendingIdentityKey, setLastSeenPendingIdentityKey] = useState('');
@@ -64,6 +67,10 @@ const HomeTabScreens = props => {
   const hasUnseenIdentityPending =
     pendingIdentityMeta.count > 0 && pendingIdentityMeta.key !== lastSeenPendingIdentityKey;
 
+  // React Navigation 6 padded the tab bar with the bottom inset minus 4 pt on iOS; v7 uses the full inset.
+  const tabBarBottomPadding =
+    Platform.OS === 'ios' ? Math.max(insets.bottom - 4, 0) : insets.bottom;
+
   return (
     <HomeTabs.Navigator
       screenOptions={{
@@ -73,7 +80,11 @@ const HomeTabScreens = props => {
         tabBarStyle: {
           backgroundColor: Colors.secondaryColor,
           borderTopColor: 'transparent',
+          height: TAB_BAR_CONTENT_HEIGHT + tabBarBottomPadding,
+          paddingBottom: tabBarBottomPadding,
         },
+        tabBarIconStyle: styles.tabIcon,
+        tabBarButton: renderTabButton,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
@@ -161,7 +172,22 @@ const HomeTabScreens = props => {
   );
 };
 
+// React Navigation 7 changed the tab bar layout. These values keep the React Navigation 6 look:
+// a 49 pt bar, the label at the bottom of the tab, and the icon centred in the space above it.
+const TAB_BAR_CONTENT_HEIGHT = 49;
+
+const renderTabButton = props => (
+  <PlatformPressable {...props} style={[props.style, styles.tabButton]} />
+);
+
 const styles = StyleSheet.create({
+  tabButton: {
+    padding: 0,
+    justifyContent: 'flex-end',
+  },
+  tabIcon: {
+    flex: 1,
+  },
   identityIconWrap: {
     width: 24,
     height: 24,
