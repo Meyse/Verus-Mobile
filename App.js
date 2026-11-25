@@ -16,19 +16,13 @@ import {
   configureFonts,
   MD2LightTheme
 } from 'react-native-paper';
-import {
-  Text,
-  TextInput
-} from 'react-native';
 import BigNumber from 'bignumber.js';
 import Colors from './src/globals/colors';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
-Text.defaultProps = Text.defaultProps || {};
-Text.defaultProps.allowFontScaling = false;
-TextInput.defaultProps = Text.defaultProps || {};
-TextInput.defaultProps.allowFontScaling = false;
+// Text and TextInput default to allowFontScaling={false}. React 19 ignores defaultProps on
+// function components, so patches/react-native+0.81.6.patch sets that default in React Native.
 
 BigNumber.set({ EXPONENTIAL_AT: 1000000, ROUNDING_MODE: BigNumber.ROUND_FLOOR });
 

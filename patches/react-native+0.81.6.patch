@@ -1,0 +1,33 @@
+diff --git a/node_modules/react-native/Libraries/Text/Text.js b/node_modules/react-native/Libraries/Text/Text.js
+--- a/node_modules/react-native/Libraries/Text/Text.js
++++ b/node_modules/react-native/Libraries/Text/Text.js
+@@ -250,7 +250,7 @@
+           accessibilityLabel: _accessibilityLabel,
+           accessibilityState: _accessibilityState,
+           accessible: _accessible,
+-          allowFontScaling: allowFontScaling !== false,
++          allowFontScaling: allowFontScaling === true,
+           disabled: _disabled,
+           ellipsizeMode: ellipsizeMode ?? 'tail',
+           nativeID: _nativeID,
+@@ -283,7 +283,7 @@
+         accessibilityLabel={_accessibilityLabel}
+         accessibilityState={_accessibilityState}
+         accessible={_accessible}
+-        allowFontScaling={allowFontScaling !== false}
++        allowFontScaling={allowFontScaling === true}
+         disabled={_disabled}
+         ellipsizeMode={ellipsizeMode ?? 'tail'}
+         nativeID={_nativeID}
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+--- a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+@@ -884,7 +884,7 @@
+   ...props: React.ElementConfig<typeof InternalTextInput>
+ ) = function TextInput({
+   ref: forwardedRef,
+-  allowFontScaling = true,
++  allowFontScaling = false,
+   rejectResponderTermination = true,
+   underlineColorAndroid = 'transparent',
+   autoComplete,
