@@ -132,6 +132,10 @@ target 'verusmobile' do
   # RuntimeApple shares ReactCommon's header directory. Generating another
   # module map for it under use_modular_headers! redefines ReactCommon.
   pod 'React-RuntimeApple', :path => "#{config[:reactNativePath]}/ReactCommon/react/runtime/platform/ios", :modular_headers => false
+  # React Native 0.81: React-jsitooling defines the react_runtime module itself (same header
+  # directory, react/runtime). A second module map for RuntimeCore under use_modular_headers!
+  # redefines that module.
+  pod 'React-RuntimeCore', :path => "#{config[:reactNativePath]}/ReactCommon/react/runtime", :modular_headers => false
 
   # Pods for Verus-Mobile
   pod 'MnemonicSwift', '~> 2.0.0'
