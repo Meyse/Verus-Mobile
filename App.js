@@ -11,13 +11,9 @@ import { View, Keyboard, Platform, StatusBar } from 'react-native';
 import VerusMobile from './src/VerusMobile';
 import store from './src/store';
 import {Provider} from 'react-redux';
-import {
-  Provider as PaperProvider,
-  configureFonts,
-  MD2LightTheme
-} from 'react-native-paper';
+import {Provider as PaperProvider} from 'react-native-paper';
 import BigNumber from 'bignumber.js';
-import Colors from './src/globals/colors';
+import theme from './src/globals/paperTheme';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
@@ -25,74 +21,6 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 // function components, so patches/react-native+0.88.1.patch sets that default in React Native.
 
 BigNumber.set({ EXPONENTIAL_AT: 1000000, ROUNDING_MODE: BigNumber.ROUND_FLOOR });
-
-const fontConfig = {
-  default: {
-    regular: {
-      fontFamily: 'SourceSansPro-Regular',
-      fontWeight: 'normal',
-    },
-    medium: {
-      fontFamily: 'SourceSansPro-SemiBold',
-      fontWeight: 'normal',
-    },
-    light: {
-      fontFamily: 'SourceSansPro-Light',
-      fontWeight: 'normal',
-    },
-    thin: {
-      fontFamily: 'SourceSansPro-ExtraLight',
-      fontWeight: 'normal',
-    },
-  },
-  ios: {
-    regular: {
-      fontFamily: 'SourceSansPro-Regular',
-      fontWeight: 'normal',
-    },
-    medium: {
-      fontFamily: 'SourceSansPro-SemiBold',
-      fontWeight: 'normal',
-    },
-    light: {
-      fontFamily: 'SourceSansPro-Light',
-      fontWeight: 'normal',
-    },
-    thin: {
-      fontFamily: 'SourceSansPro-ExtraLight',
-      fontWeight: 'normal',
-    },
-  },
-  android: {
-    regular: {
-      fontFamily: 'SourceSansPro-Regular',
-      fontWeight: 'normal',
-    },
-    medium: {
-      fontFamily: 'SourceSansPro-SemiBold',
-      fontWeight: 'normal',
-    },
-    light: {
-      fontFamily: 'SourceSansPro-Light',
-      fontWeight: 'normal',
-    },
-    thin: {
-      fontFamily: 'SourceSansPro-ExtraLight',
-      fontWeight: 'normal',
-    },
-  },
-};
-
-const theme = {
-  ...MD2LightTheme,
-  colors: {
-    ...MD2LightTheme.colors,
-    primary: Colors.primaryColor,
-    accent: Colors.verusGreenColor,
-  },
-  fonts: configureFonts(fontConfig),
-  version: 2
-};
 
 export default class App extends React.Component {
   state = {
