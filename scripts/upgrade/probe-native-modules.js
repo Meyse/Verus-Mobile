@@ -5,6 +5,8 @@
   and reports, for each native module the wallet uses, whether JS can reach it and how
   many members it exposes. It also reports the architecture the app runs on.
   It only reads module presence. It calls no module method.
+  It exits with 1 when a key or funds module is missing, or when a module does not
+  expose its method as a function.
 
   Usage: node scripts/upgrade/probe-native-modules.js [metroUrl]   (default http://localhost:8081)
 */
@@ -30,6 +32,9 @@ const MODULES = [
   ['app (Android)', 'VerusBiometricEnrollment', 'getEnrollmentBoundCredentialStatus'],
   ['app', 'VerusKeepAwake', 'activate'],
 ];
+
+// The wallet cannot work without these, on both platforms.
+const REQUIRED = ['RNKeychainManager', 'VerusLightClient', 'TcpSockets', 'UdpSockets', 'RNRandomBytes'];
 
 const EXPRESSION = `(() => {
   const g = globalThis;
@@ -76,7 +81,8 @@ function getJson(url) {
   const targets = await getJson(`${metro}/json/list`);
   const target = targets.find(t => t.webSocketDebuggerUrl && /React Native|Hermes/i.test(`${t.title} ${t.description}`)) || targets[0];
   if (!target) throw new Error('No inspector target. Is the app running against this Metro?');
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  // Metro 0.87 and newer refuse a debugger connection without a local Origin header.
+  const ws = new WebSocket(target.webSocketDebuggerUrl, {headers: {Origin: new URL(metro).origin}});
   await new Promise((res, rej) => { ws.on('open', res); ws.on('error', rej); });
   const result = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Runtime.evaluate timed out')), 15000);
@@ -91,10 +97,19 @@ function getJson(url) {
   const data = JSON.parse(result.result.result.value);
   console.log(`target: ${target.title} (${target.description || ''})`);
   console.log(`bridgeless=${data.bridgeless} fabric=${data.fabric} turboModuleProxy=${data.turboModuleProxy}`);
+  let failed = false;
   for (const [key, name] of MODULES) {
     const m = data.modules[name];
-    if (!m) { console.log(`MISSING  ${key.padEnd(14)} ${name}`); continue; }
+    if (!m) {
+      const required = REQUIRED.includes(name);
+      if (required) failed = true;
+      console.log(`MISSING  ${key.padEnd(14)} ${name}${required ? ' (required)' : ''}`);
+      continue;
+    }
     const method = m.method ? `, ${m.method}: ${m.methodType}` : '';
-    console.log(`PRESENT  ${key.padEnd(14)} ${name} (${m.members} enumerable members${method})`);
+    const broken = m.method && m.methodType !== 'function';
+    if (broken) failed = true;
+    console.log(`${broken ? 'BROKEN ' : 'PRESENT'}  ${key.padEnd(14)} ${name} (${m.members} enumerable members${method})`);
   }
+  if (failed) process.exit(1);
 })().catch(e => { console.error(`probe failed: ${e.message}`); process.exit(1); });
