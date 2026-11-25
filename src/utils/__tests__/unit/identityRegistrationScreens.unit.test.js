@@ -21,7 +21,18 @@ jest.mock('../../../actions/actions/services/dispatchers/verusid/registration', 
   publishRegistrationJobs: (...args) => mockPublishRegistrationJobs(...args),
   clearRegistrationJobs: (...args) => mockClearRegistrationJobs(...args),
 }));
-jest.mock('react-redux', () => ({useSelector: selector => selector(mockState)}));
+// Like the real store, the selector mock re-renders its component when the mocked state changes.
+const mockStoreListeners = new Set();
+const mockStoreChanged = () => mockStoreListeners.forEach(listener => listener());
+jest.mock('react-redux', () => ({useSelector: selector => {
+  const React = require('react');
+  const [, forceRender] = React.useReducer(count => count + 1, 0);
+  React.useEffect(() => {
+    mockStoreListeners.add(forceRender);
+    return () => mockStoreListeners.delete(forceRender);
+  }, []);
+  return selector(mockState);
+}}));
 jest.mock('@react-navigation/native', () => ({useFocusEffect: callback => require('react').useEffect(callback, [callback])}));
 jest.mock('@react-navigation/elements', () => ({useHeaderHeight: () => 96}));
 jest.mock('react-native', () => ({
@@ -101,6 +112,7 @@ beforeEach(() => {
   mockPublishRegistrationJobs.mockReset().mockResolvedValue({});
   mockClearRegistrationJobs.mockReset().mockImplementation(async () => {
     mockState.channelStore_verusid.registrationJobs = {};
+    mockStoreChanged();
   });
   mockGetRegistrationReferralInfo.mockReset().mockResolvedValue({
     discount: '2000000000', reward: '2000000000', currencyID: 'chain', currencyName: 'VRSC', enabled: true,
@@ -252,6 +264,7 @@ it('clears registrations only after confirmation and shows the fresh state only 
   mockClearRegistrationJobs.mockImplementationOnce(() => new Promise(resolve => {
     finishClear = () => {
       mockState.channelStore_verusid.registrationJobs = {};
+      mockStoreChanged();
       resolve();
     };
   }));
@@ -1081,7 +1094,7 @@ it.each([
   ['completed', 'complete', 'Your identity stays registered'],
 ])('deletes a %s from the home list only after confirmation', async (deletionKind, status, warning) => {
   mockState.channelStore_verusid.registrationJobs.saved = {id: 'saved', displayName: 'saved@', status, deletionKind, createdAt: 1};
-  mockApi.deleteRegistration.mockImplementation(async () => { delete mockState.channelStore_verusid.registrationJobs.saved; });
+  mockApi.deleteRegistration.mockImplementation(async () => { delete mockState.channelStore_verusid.registrationJobs.saved; mockStoreChanged(); });
   const view = await mount(IdentityRegistrationStart);
   if (deletionKind === 'completed') await press(button(view, 'Completed (1)'));
   await press(view.root.findByProps({accessibilityLabel: 'Delete saved registration for saved@'}));

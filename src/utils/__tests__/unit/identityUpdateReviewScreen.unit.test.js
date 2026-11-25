@@ -13,6 +13,14 @@ jest.mock('../../../styles', () => ({
 
 const React = require('react');
 const {act, create} = require('react-test-renderer');
+// React 19's test renderer has no synchronous legacy root: a tree renders only inside act().
+const createInAct = (...args) => {
+  let renderer;
+  act(() => {
+    renderer = create(...args);
+  });
+  return renderer;
+};
 const {Text} = require('react-native-paper');
 const ReviewStep = require('../../../containers/DeepLink/IdentityUpdateRequestInfo/steps/ReviewStep').default;
 const styles = require('../../../styles/deeplink/identityUpdateRequestInfo.styles').default;
@@ -24,7 +32,7 @@ const renderedText = renderer => renderer.root.findAllByType('Text')
   .map(node => node.children.filter(child => typeof child === 'string' || typeof child === 'number').join(''))
   .join('\n');
 const flattenStyle = style => Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
-const render = overrides => create(
+const render = overrides => createInAct(
   <ReviewStep
     signerFqn="requester@"
     signerIdentityID="iRequester"

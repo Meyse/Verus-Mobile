@@ -21,6 +21,14 @@ jest.mock(
 
 const React = require('react');
 const {act, create} = require('react-test-renderer');
+// React 19's test renderer has no synchronous legacy root: a tree renders only inside act().
+const createInAct = (...args) => {
+  let renderer;
+  act(() => {
+    renderer = create(...args);
+  });
+  return renderer;
+};
 const HighRiskStep = require('../../../containers/DeepLink/IdentityUpdateRequestInfo/steps/HighRiskStep').default;
 const IdentityStateChangeCard = require('../../../containers/DeepLink/IdentityUpdateRequestInfo/components/IdentityStateChangeCard').default;
 const {buildIdentityStateChange} = require('../../../containers/DeepLink/IdentityUpdateRequestInfo/utils/buildIdentityStateChange');
@@ -50,7 +58,7 @@ const getText = node => {
 const normalizeText = text => text.replace(/\s+/g, ' ').trim();
 const renderedText = renderer => normalizeText(getText(renderer.toJSON()));
 
-const renderHighRisk = overrides => create(
+const renderHighRisk = overrides => createInAct(
   <HighRiskStep
     highRiskChanges={[change]}
     identityStateChange={change}
@@ -69,7 +77,7 @@ describe('identity lock change review', () => {
       chainHeight: 100,
       secondsPerBlock: 60,
     });
-    const renderer = create(<IdentityStateChangeCard change={lockChange} detailed={detailed} />);
+    const renderer = createInAct(<IdentityStateChangeCard change={lockChange} detailed={detailed} />);
     const warning = renderer.root.findAllByType('Text').find(node =>
       typeof node.props.children === 'string' && node.props.children.startsWith('Spending from this identity'),
     ).props.children;
@@ -81,7 +89,7 @@ describe('identity lock change review', () => {
 
   it('shows before/after values, including zero, in the compact review card', () => {
     for (const reviewedChange of [change, clearedTimelockChange]) {
-      const renderer = create(<IdentityStateChangeCard change={reviewedChange} />);
+      const renderer = createInAct(<IdentityStateChangeCard change={reviewedChange} />);
       const text = renderedText(renderer);
 
       expect(text).toContain('Current');
