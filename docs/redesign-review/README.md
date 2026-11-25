@@ -52,7 +52,7 @@ One row per item of the review of 2026-11-17 (R1-R25, I1-I7), the code review of
 | R5 | Each namespace price names its currency, under one "Price" heading; no "Free". | `RegistrationDesign.js` | As asked. |
 | R6 | A VerusID list refresh keeps the rows; the loader shows only before the first list. | `SignedInVerusIdService.js` | As asked. |
 | R7 | Every pending registration can be deleted from its row menu; a signed one warns that the second payment can still confirm. | `deletion.js`, `RegistrationDeleteSheet.js` | As asked. |
-| R8 | Every card title carries its network; choosers show the network on its own line. | `cardPresentation.js`, `CardTitle.js` | As asked. |
+| R8 | A card on a Verus or PBaaS chain names its chain in quiet words ("on Verus", "on Verus Testnet", "on vDEX"); a bridged `.vETH` currency reads "on Verus". Ethereum and Bitcoin cards and a VerusID name that ends in its chain have no label. Asset cards and choosers show the words on a second line. | `cardPresentation.js`, `CardTitle.js` | As asked. The words are the owner's choice (2026-11-25). |
 | R9 | No white page on the way back to Home: the root screen does not freeze, and Home shows its skeleton at once. | `RootStackScreens.js`, `SignedInWalletHome.js` | As asked. Seen in debug builds only. |
 | R10 | Tagged invoices show "This lowers your privacy" on Review and Pay with, and "Tag \| Public" on Confirm. | `InvoicePaymentParts.js`, `SendWizardConfirm.js` | As asked. |
 | R11, RQ-1 | A verified legacy invoice shows its signer in the header. | `useRequestRequester.js`, `InvoiceInfo.js` | As asked. The reviewer's own link does not verify with the libraries of this PR. |
@@ -106,7 +106,7 @@ Each area follows the same order: what the user sees now, why it changed, main f
 
 **Now.** Landing and Login show a muted background video. Login lists wallets with an avatar and sorts them by last opened; there is no "default wallet". A network caption (Mainnet or Testnet) under the title opens a picker, and the app remembers the last network. Unlock is a sheet with password or biometrics. "Other options" holds import, recovery and "Claim from NFC card". New wallet setup is a stepped flow with the step title in the header, an avatar picker, a backup check with word chips, and one setup screen that shows progress while keys and assets are prepared.
 
-**Why.** "Claim from NFC card" returns: an earlier signed-out redesign had removed both upstream NFC entries, so a gift card on an NFC card could not be claimed with the app alone (iOS does not open `verus://` links from tags). Reason for removing the default wallet: not recorded.
+**Why.** "Claim from NFC card" returns: an earlier signed-out redesign had removed both upstream NFC entries, so a gift card on an NFC card could not be claimed with the app alone (iOS does not open `verus://` links from tags). The default wallet is gone because the wallet list already shows when each wallet was last opened; a default star and an auto-open added nothing (owner, 2026-07-17).
 
 **Main files.** `src/containers/Onboard/`, `src/containers/Login/components/ChooseWalletSheet.js`, `UnlockWalletSheet.js`, `OtherOptionsSheet.js`, `src/components/SignedOutNetworkSelector.js`, `WelcomeBackgroundVideo.js`, `src/components/WalletSetup/WalletSetupOverlay.js`, `src/hooks/useSignedOutNetwork.js`, `src/hooks/useOnboardingSmallDeviceLayout.js`, `src/styles/components/signedOutFlow.styles.js`.
 
@@ -138,7 +138,7 @@ Screenshots of 2026-11-16. They show the earlier Home: no sort control, no "No p
 
 ### 2.3 Asset detail and transactions
 
-**Now.** The asset screen has one top row (back, logo, name, total), a stack of address cards (main, VerusID, private) with up to three pinned cards and the last used card, icon actions (Receive, Send, Convert), and a transactions sheet that stays open under the cards. Each row opens a transaction details sheet (amount, fee, recipient, status, copy). Cards and the total show confirmed funds only, as upstream (R13); an unconfirmed transaction shows as a "Pending" row and badge. Each card title carries its network (R8). On the coin screen, one `getinfo` per 60 s decides when balance and history are read again (F3). Bitcoin-type coins and the private card add "+X pending" next to the confirmed number on the asset screen only. Bridged assets show their origin. Pre-conversions show in their own panel.
+**Now.** The asset screen has one top row (back, logo, name, total), a stack of address cards (main, VerusID, private) with up to three pinned cards and the last used card, icon actions (Receive, Send, Convert), and a transactions sheet that stays open under the cards. Each row opens a transaction details sheet (amount, fee, recipient, status, copy). Cards and the total show confirmed funds only, as upstream (R13); an unconfirmed transaction shows as a "Pending" row and badge. A card on a Verus or PBaaS chain shows the chain under its name ("on Verus", R8); the cards are sized for the two lines. On the coin screen, one `getinfo` per 60 s decides when balance and history are read again (F3). Bitcoin-type coins and the private card add "+X pending" next to the confirmed number on the asset screen only. Bridged assets show their origin. Pre-conversions show in their own panel.
 
 **Why.** The design goal is to make address cards first-class: each card shows balance, status and network, and the history follows the selected card. Upstream showed a carousel and a separate details modal (`TxDetailsModal`, now replaced by `TransactionDetailsSheet`).
 
@@ -154,7 +154,7 @@ Screenshots of 2026-11-16. They show the earlier Home: no sort control, no "No p
 
 ### 2.4 Receive
 
-**Now.** Receive starts with an asset list, then one asset screen: the selected card and network, a QR code on a white tile, the address with copy and share, and "Request amount". A payment request is one step (amount, optional note, accepted conversions) and ends on a slip with the QR code and the address or VerusID name.
+**Now.** Receive starts with an asset list, then one asset screen: the asset name with its ticker under it, a QR code on a white tile, an address box, Share and "Request amount". The address box shows the address once, the card's chain line ("on Verus") and copy; with several cards it opens the card picker. A payment request is one step (amount, optional note, accepted conversions) and ends on a slip with the QR code and the address or VerusID name.
 
 **Why.** The card chooser was titled "Choose address" although it chooses a card, and the screen claimed support for chains that the selected card did not cover. The payment request link used the deprecated VerusPay v3 invoice; it is now a `GenericRequest` link ([LOGIC_CHANGES.md](LOGIC_CHANGES.md#request-validation), request 1).
 
@@ -282,7 +282,7 @@ Both screenshots come from a real testnet request (content add, signed by a test
 
 **Now.** Settings is a tab. The root shows the wallet (name and avatar, "Wallet appearance") and five groups: Security & recovery (password, biometrics, recovery secrets with screenshot protection on Android, keychain encryption), General, Appearance (System, Light, Dark), Network & storage ("Clear cache" and, with a private wallet open, "Clear blockchain data"), App information. Choices open sheets, not native pickers. A failed save shows on its row. Editing a text field in a sheet keeps the cursor in place. The address blocklist screen and routes are hidden; the blocklist itself still loads at sign-in and still blocks sends (`6dc800a9`: "Keep login refresh and send checks intact").
 
-**Why.** Native alerts and pickers were replaced so that results and errors show on the screen where they happen (`525aef5c`). Review R12: the cursor jumped while the user edited a custom RPC server (`0ccc199f`, `8596afae`). F12: a cache clear must not force a private wallet resync. Reason for hiding the blocklist screen: not recorded.
+**Why.** Native alerts and pickers were replaced so that results and errors show on the screen where they happen (`525aef5c`). Review R12: the cursor jumped while the user edited a custom RPC server (`0ccc199f`, `8596afae`). F12: a cache clear must not force a private wallet resync. The blocklist screen is hidden because the upstream lead developer asked that users neither see nor change the list (owner, 2026-11-11); the download at sign-in and the check at send stay.
 
 **Main files.** `src/containers/RootStack/SettingsStackScreens/SettingsStackScreens.js`, `src/containers/Settings/components/` (`SettingsScaffold.js`, `SettingsFieldSheet.js`, `WalletAppearanceSheet.js`), `src/containers/Settings/`, `src/containers/DisplaySeed/DisplaySeed.js`, `src/components/RecoverySecretsPrivacyGuard.js`.
 
@@ -374,7 +374,7 @@ All in `src/components/` unless noted. Style modules are in `src/styles/componen
 | `PrivacyBlurredText` (view) | iOS, Android | Draws text blurred for hidden balances. | `src/components/PrivacyBlurredText.js` |
 | `VerusScreenSecurity` | iOS, Android | Android: `FLAG_SECURE` while recovery secrets show. iOS: reports screen capture state. | `RecoverySecretsPrivacyGuard.js` |
 | `MainActivity.observeKeyboardResize` | Android | Sends a second `keyboardDidShow` when the keyboard height changes (Gboard number pad). | `KeyboardAvoidingForm.js`, keyboard listener |
-| `VerusRootViewController` | iOS | Posts the appearance-change notification. Reason not recorded; may duplicate React Native. | `AppDelegate.mm` |
+| `VerusRootViewController` | iOS | Posts the appearance-change notification. Added because the gift card QR screen did not follow a change of appearance (2026-07-28); may duplicate React Native. | `AppDelegate.mm` |
 
 Both Android modules register in the existing `VerusKeepAwakePackage`.
 
