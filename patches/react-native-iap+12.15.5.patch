@@ -36,3 +36,16 @@ diff --git a/node_modules/react-native-iap/android/src/main/java/com/dooboolab/r
 -    }
 +    this.reject(code ?: "EUNSPECIFIED", message, throwable)
  }
+diff --git a/node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt b/node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt
+--- a/node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt
++++ b/node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt
+@@ -457,7 +457,8 @@
+         isOfferPersonalized: Boolean, // New parameter in V5
+         promise: Promise,
+     ) {
+-        val activity = currentActivity
++        // React Native 0.81: getCurrentActivity() is a Kotlin function, no longer a Java getter.
++        val activity = getCurrentActivity()
+         if (activity == null) {
+             promise.safeReject(PromiseUtils.E_UNKNOWN, "getCurrentActivity returned null")
+             return
