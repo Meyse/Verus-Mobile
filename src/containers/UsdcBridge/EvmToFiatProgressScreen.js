@@ -102,7 +102,7 @@ const EvmToFiatProgressScreen = () => {
   );
 
   const handleDone = useCallback(
-    () => navigation.navigate('Wallets'),
+    () => navigation.navigate('Wallets', undefined, { pop: true }),
     [navigation],
   );
 

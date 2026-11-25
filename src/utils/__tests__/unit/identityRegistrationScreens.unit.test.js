@@ -533,7 +533,7 @@ it('saves a payment review for later without approving either payment', async ()
   const navigation = {navigate: jest.fn(), replace: jest.fn()};
   const view = await mount(IdentityCommitmentReview, {navigation});
   await press(button(view, 'Save for later'));
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
   expect(mockApi.approveCommitment).not.toHaveBeenCalled();
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
 });
@@ -803,7 +803,7 @@ it('offers to link a confirmed identity and links only after explicit confirmati
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledWith('job', expect.any(Object));
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
   expect(mockApi.approveCommitment).not.toHaveBeenCalled();
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
 });
 
 it('stops passive polling after registration is ready to link and accepts confirmation once', async () => {
@@ -830,7 +830,7 @@ it('stops passive polling after registration is ready to link and accepts confir
   expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(initialChecks);
   await act(async () => mockAlert.mock.calls[1][2].find(action => action.text === 'Link identity').onPress());
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledTimes(1);
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
 });
 
 it('keeps the full cost estimate visible when the wallet needs more funding', async () => {
@@ -1084,7 +1084,7 @@ it('returns from progress to saved registrations without creating or resubmittin
   setSavedReview({...review, status: 'commitment_broadcast', commitmentTxid: 'sent'});
   const view = await mount(IdentityRegistrationProgress, {navigation});
   await press(button(view, 'Done for now'));
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
   expect(mockApi.prepareCommitment).not.toHaveBeenCalled();
 });
@@ -1122,7 +1122,7 @@ it('warns that the original paid commitment fee is lost forever before deleting 
   expect(mockAlert.mock.calls[0][1]).not.toContain('0.0001');
   await act(async () => mockAlert.mock.calls[0][2].find(action => action.text === 'Delete').onPress());
   expect(mockApi.deleteRegistration).toHaveBeenCalledWith('job', 'commitment', expect.any(Object));
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 

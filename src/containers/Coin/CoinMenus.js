@@ -260,7 +260,7 @@ const CoinMenus = () => {
     navigation.navigate("Home", {
       screen: "ServicesHome",
       initial: false,
-    });
+    }, { pop: true });
   }, [navigation]);
 
   const handleSendPress = useCallback(() => {

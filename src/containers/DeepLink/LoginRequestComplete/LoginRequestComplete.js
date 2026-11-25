@@ -14,6 +14,7 @@ import {URL} from 'react-native-url-polyfill';
 import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import { useDispatch, useSelector } from 'react-redux';
 import { resetDeeplinkData } from '../../../actions/actionCreators';
+import { navigateByPath } from '../../../utils/navigation/navigateByPath';
 
 
 const LoginRequestComplete = props => {
@@ -78,7 +79,8 @@ const LoginRequestComplete = props => {
       const returnedData = await tryRedirect();
       if (fromService) {
         // Only return to services, default is main home screen.
-        props.navigation.navigate("ServicesHome", { screen: fromService, params: { data: returnedData.data }});
+        // ServicesHome is a Home tab, below the DeepLink stack.
+        navigateByPath(props.navigation, ['SignedInStack', 'Home', 'ServicesHome'], { screen: fromService, params: { data: returnedData.data }});
         dispatch(resetDeeplinkData());
       } else {
         cancel();

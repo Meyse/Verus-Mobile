@@ -25,6 +25,7 @@ import Colors from '../../globals/colors';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
+import {getHomeTabFor, navigateByPath} from './navigateByPath';
 
 const Header = () => {
   const navigation = useNavigation(); // Use the hook here
@@ -63,7 +64,9 @@ const Header = () => {
   }, [notifications, acchash]);
 
   const handleNotificationPress = () => {
-    navigation.navigate('Notifications');
+    // Only the Wallet and Services tab stacks have Notifications. The bell also
+    // shows in other stacks, where v6 found the route in a child navigator.
+    navigateByPath(navigation, ['SignedInStack', 'Home', getHomeTabFor(navigation), 'Notifications']);
   };
 
   return (

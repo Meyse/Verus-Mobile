@@ -347,7 +347,7 @@ const SendWizardSuccess = () => {
       });
       return;
     }
-    navigation.navigate('Home', { screen: 'WalletHome' });
+    navigation.navigate('Home', { screen: 'WalletHome' }, { pop: true });
   }, [navigation]);
 
   return (

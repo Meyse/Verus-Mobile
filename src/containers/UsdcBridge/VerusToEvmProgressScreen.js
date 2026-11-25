@@ -119,7 +119,7 @@ const VerusToEvmProgressScreen = () => {
   }, [navigation, vUsdcCoinId, evmCoinId]);
 
   const handleDone = useCallback(
-    () => navigation.navigate('Wallets'),
+    () => navigation.navigate('Wallets', undefined, { pop: true }),
     [navigation],
   );
 

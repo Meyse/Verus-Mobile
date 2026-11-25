@@ -199,7 +199,7 @@ it.each(['new URL', 'same URL', 'sign-out'])('does not consume a newer request w
       await act(async () => {pending.resolve(null); await flush();});
       expect(store.getState().deeplink).toMatchObject({url: null, data: Buffer.from(url).toString('hex')});
       expect(navigation.navigate).toHaveBeenCalledTimes(1);
-      expect(navigation.navigate).toHaveBeenCalledWith('DeepLink', {screen: 'VerifyDeepLink'});
+      expect(navigation.navigate).toHaveBeenCalledWith('DeepLink', {screen: 'VerifyDeepLink', pop: true}, {pop: true});
     }
   } finally {
     if (view) act(() => view.unmount());

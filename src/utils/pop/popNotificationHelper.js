@@ -209,9 +209,11 @@ export const createGetSponsoredAttestationNavigationCallback = (navigation) => {
           screen: 'Service',
           params: {
             service: 'attestation_service'
-          }
-        }
-      });
+          },
+          pop: true,
+        },
+        pop: true,
+      }, { pop: true });
       return;
     }
     
@@ -219,8 +221,10 @@ export const createGetSponsoredAttestationNavigationCallback = (navigation) => {
     navigation.navigate('Home', {
       screen: 'ServicesHome',
       params: {
-        screen: 'GetSponsoredAttestation'
-      }
-    });
+        screen: 'GetSponsoredAttestation',
+        pop: true,
+      },
+      pop: true,
+    }, { pop: true });
   };
 };

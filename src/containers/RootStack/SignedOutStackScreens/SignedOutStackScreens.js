@@ -34,7 +34,8 @@ const SignedOutStackScreens = props => {
     if (deeplinkId != null && deeplinkUrl != null && !parsingUrl &&
         current.requestId === requestId && current.url === deeplinkUrl && !current.parsingUrl) {
       dispatch(setDeeplinkUrl(null));
-      props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
+      // pop: React Navigation 7 pushes a second VerifyDeepLink without it; v6 went back.
+      props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink', pop: true}, {pop: true});
     }
   }, [deeplinkId, deeplinkUrl, parsingUrl, requestId, store]);
 

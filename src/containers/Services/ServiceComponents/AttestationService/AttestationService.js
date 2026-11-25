@@ -9,6 +9,7 @@ import { ATTESTATIONS_PROVISIONED } from "../../../../utils/constants/attestatio
 import { requestAttestationData } from "../../../../utils/auth/authBox";
 import { modifyAttestationDataForUser, replaceAttestationDataForUser } from "../../../../actions/actions/attestations/dispatchers/attestations";
 import { setAttestationData } from "../../../../actions/actions/attestations/creators/attestations";
+import { navigateByPath } from "../../../../utils/navigation/navigateByPath";
 
 class AttestationService extends Component {
   constructor(props) {
@@ -90,7 +91,8 @@ class AttestationService extends Component {
   }
 
   viewDetails = (attestation) => {
-    this.props.navigation.navigate("ViewAttestation", {attestation}); 
+    // The Wallet tab stack also shows Service, but it has no ViewAttestation.
+    navigateByPath(this.props.navigation, ['ServicesHome', 'ViewAttestation'], {attestation});
   }
 
   showDeleteModal = (attestation) => {
