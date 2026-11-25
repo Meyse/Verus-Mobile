@@ -66,7 +66,7 @@ const ServicesStackScreens = props => {
           title: 'Link identities',
           headerStyle: {backgroundColor: '#fff'},
           headerTitleStyle: {fontSize: 17, fontWeight: '600', color: '#172033'},
-          headerTintColor: '#3165d4', headerShadowVisible: false, headerBackTitleVisible: false,
+          headerTintColor: '#3165d4', headerShadowVisible: false, headerBackButtonDisplayMode: 'minimal',
           headerRight: () => null,
         }}
       />
@@ -157,7 +157,7 @@ const ServicesStackScreens = props => {
         component={NotificationScreen}
         options={{
           title: "Notifications",
-          headerBackTitleVisible: false,
+          headerBackButtonDisplayMode: 'minimal',
           headerBackTitle: '',
         }}
       />

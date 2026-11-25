@@ -230,7 +230,9 @@ export const SendModalInnerAreaRender = function () {
         tabBarPressColor: "transparent",
         tabBarPressOpacity: 1,
         tabBarLabelStyle: {
-          fontSize: 12
+          fontSize: 12,
+          // React Navigation 7 no longer sets uppercase labels. Keep the v6 look.
+          textTransform: 'uppercase',
         },
         lazy: true,
         lazyPlaceholder: () => <AnimatedActivityIndicatorBox />
