@@ -22,7 +22,7 @@ import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
 // Text and TextInput default to allowFontScaling={false}. React 19 ignores defaultProps on
-// function components, so patches/react-native+0.81.6.patch sets that default in React Native.
+// function components, so patches/react-native+0.88.1.patch sets that default in React Native.
 
 BigNumber.set({ EXPONENTIAL_AT: 1000000, ROUNDING_MODE: BigNumber.ROUND_FLOOR });
 
@@ -130,10 +130,9 @@ export default class App extends React.Component {
           <PaperProvider theme={theme}>
             <Provider store={store}>
               <View style={{flex: 1}}>
-                {/* Updated: Global translucent Android StatusBar to match iOS behavior */}
-                {Platform.OS === 'android' && (
-                  <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-                )}
+                {/* Android draws under a transparent status bar; MainActivity sets that up
+                    (React Native 0.87 removed StatusBar translucent and backgroundColor). */}
+                {Platform.OS === 'android' && <StatusBar barStyle="dark-content" />}
                 <VerusMobile />
               </View>
             </Provider>

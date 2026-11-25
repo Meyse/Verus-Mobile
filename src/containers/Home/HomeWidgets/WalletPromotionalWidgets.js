@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   cardBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   cardImage: {
     width: '100%',

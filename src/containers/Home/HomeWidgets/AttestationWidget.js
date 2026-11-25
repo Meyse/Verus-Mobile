@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     borderColor: '#F0F0F0',
   },
   background: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   textContainer: {
     gap: 2,

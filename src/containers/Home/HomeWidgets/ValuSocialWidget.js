@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a2e',
   },
   background: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 16,
     overflow: 'hidden',
   },
