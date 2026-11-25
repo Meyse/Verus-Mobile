@@ -22,6 +22,7 @@
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Dimensions, Clipboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { navigateByPath } from '../../utils/navigation/navigateByPath';
 import { useSelector } from 'react-redux';
 import { Text, Button } from 'react-native-paper';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
@@ -335,9 +336,7 @@ const SendWizardRecipient = () => {
   const handleManageAddressBook = useCallback(() => {
     setAddressBookSheetVisible(false);
     // Navigate to the Services stack's AddressBook screen
-    navigation.navigate('ServicesHome', {
-      screen: 'AddressBook',
-    });
+    navigateByPath(navigation, ['Home', 'ServicesHome', 'AddressBook']);
   }, [navigation]);
 
   const handleSaveNewAddress = useCallback(async (data) => {
@@ -418,6 +417,7 @@ const SendWizardRecipient = () => {
           {/* Address Input */}
           <View style={styles.inputContainer}>
             <View
+              collapsable={false}
               style={[
                 styles.addressInputContainer,
                 inputFocused && styles.addressInputFocused,

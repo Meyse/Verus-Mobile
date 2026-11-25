@@ -45,6 +45,7 @@ export const LinkIdentityFormRender = ({
         )}
         <View style={Styles.wideBlock}>
           <View
+            collapsable={false}
             style={[
               styles.inputContainer,
               isFocused && styles.inputContainerFocused,

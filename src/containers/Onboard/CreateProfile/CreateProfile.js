@@ -71,11 +71,11 @@ export default function CreateProfileStackScreens(props) {
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <ChooseName
             profileName={profileName}
             setProfileName={setProfileName}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>
@@ -84,11 +84,11 @@ export default function CreateProfileStackScreens(props) {
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <CreatePassword
             password={password}
             setPassword={setPassword}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>
@@ -97,11 +97,11 @@ export default function CreateProfileStackScreens(props) {
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <ConfirmPassword
             password={password}
             setPassword={setPassword}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>
@@ -110,11 +110,11 @@ export default function CreateProfileStackScreens(props) {
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <UseBiometrics
             useBiometrics={useBiometrics}
             setUseBiometrics={setUseBiometrics}
-            navigation={props.navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateProfileStack.Screen>

@@ -23,7 +23,7 @@ import {
   setUserCoins, 
   addKeypairs,
  } from '../../actions/actionCreators';
-import { NavigationActions } from '@react-navigation/compat'
+import { CommonActions } from '@react-navigation/native'
 import Styles from '../../styles/index'
 import { refreshActiveChainLifecycles } from "../../actions/actions/intervals/dispatchers/lifecycleManager";
 import Colors from "../../globals/colors";
@@ -60,7 +60,7 @@ class CoinDetails extends Component {
   }
 
   goBack = () => {
-    this.props.navigation.dispatch(NavigationActions.back())
+    this.props.navigation.dispatch(CommonActions.goBack())
   }
 
   _handleAddCoin = async () => {

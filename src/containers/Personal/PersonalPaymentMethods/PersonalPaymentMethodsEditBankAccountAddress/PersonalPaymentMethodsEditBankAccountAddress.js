@@ -1,4 +1,4 @@
-import { NavigationActions } from "@react-navigation/compat";
+import { CommonActions } from "@react-navigation/native";
 import { Component } from "react"
 import { connect } from 'react-redux'
 import { modifyPersonalDataForUser } from "../../../../actions/actionDispatchers";
@@ -97,7 +97,7 @@ class PersonalPaymentMethodsEditBankAccountAddress extends Component {
         ...this.state.bankAccount,
         [PERSONAL_BANK_BENEFICIARY_PHYSICAL_ADDRESS]: address
       }
-    }, () => this.updateBankAccount(() => this.props.navigation.dispatch(NavigationActions.back())))
+    }, () => this.updateBankAccount(() => this.props.navigation.dispatch(CommonActions.goBack())))
   }
 
   render() {

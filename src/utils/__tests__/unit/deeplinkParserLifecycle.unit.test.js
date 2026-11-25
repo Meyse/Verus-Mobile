@@ -5,7 +5,6 @@ const mockPreferred = jest.fn();
 jest.mock('react-native', () => ({Alert: {alert: jest.fn()}, Linking: {openURL: jest.fn()},
   unstable_batchedUpdates: callback => callback()}));
 jest.mock('react-native-url-polyfill', () => ({URL: require('url').URL}));
-jest.mock('@react-navigation/drawer', () => ({createDrawerNavigator: () => ({Navigator: 'Drawer', Screen: 'Screen'})}));
 jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn()})}));
 jest.mock('../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager', () => ({closeOffRamp: jest.fn()}));
 jest.mock('../../../containers/SideMenu/SideMenu', () => 'SideMenu');
@@ -200,7 +199,7 @@ it.each(['new URL', 'same URL', 'sign-out'])('does not consume a newer request w
       await act(async () => {pending.resolve(null); await flush();});
       expect(store.getState().deeplink).toMatchObject({url: null, data: Buffer.from(url).toString('hex')});
       expect(navigation.navigate).toHaveBeenCalledTimes(1);
-      expect(navigation.navigate).toHaveBeenCalledWith('DeepLink', {screen: 'VerifyDeepLink'});
+      expect(navigation.navigate).toHaveBeenCalledWith('DeepLink', {screen: 'VerifyDeepLink', pop: true}, {pop: true});
     }
   } finally {
     if (view) act(() => view.unmount());

@@ -87,7 +87,7 @@ class ValuChooseIdentity extends Component {
             this.props.navigation.navigate(returnScreen, { 
                 chosenIdentity: fqn,
                 continueFlow: true 
-            });
+            }, { pop: true });
             
         } catch (error) {
             console.error("Error checking identity availability in Choose:", error?.message ? error.message : error);

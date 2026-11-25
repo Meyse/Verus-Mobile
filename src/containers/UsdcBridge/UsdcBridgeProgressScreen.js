@@ -128,7 +128,7 @@ const UsdcBridgeProgressScreen = () => {
   }, [navigation, usdcCoinId]);
 
   const handleDone = useCallback(() => {
-    navigation.navigate('Wallets');
+    navigation.navigate('Wallets', undefined, { pop: true });
   }, [navigation]);
 
   return (

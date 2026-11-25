@@ -16,7 +16,7 @@ import {
   Alert,
   ScrollView, 
 } from "react-native";
-import { NavigationActions } from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 import { Input } from 'react-native-elements'
 import { checkPinForUser } from '../../../../utils/asyncStore/asyncStore'
 import { connect } from 'react-redux';
@@ -46,7 +46,7 @@ class RecoverSeed extends Component {
   }
 
   cancel = () => {
-    this.props.navigation.dispatch(NavigationActions.back())
+    this.props.navigation.dispatch(CommonActions.goBack())
   }
 
   canShowSeed = () => {

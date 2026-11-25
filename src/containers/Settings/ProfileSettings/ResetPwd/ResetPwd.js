@@ -16,7 +16,7 @@ import {
   Keyboard,
   TextInput as NativeTextInput
 } from "react-native";
-import { NavigationActions } from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 import { resetPwd, signOut } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import AlertAsync from "react-native-alert-async";
@@ -59,7 +59,7 @@ export class ResetPwd extends Component {
   }
 
   cancel = () => {
-    this.props.navigation.dispatch(NavigationActions.back())
+    this.props.navigation.dispatch(CommonActions.goBack())
   }
 
   onSuccess = () => {

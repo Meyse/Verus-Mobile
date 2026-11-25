@@ -888,6 +888,7 @@ const SendWizardSelectTarget = () => {
       <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
         <Text style={styles.mainTitle}>What should the recipient receive?</Text>
         <View
+          collapsable={false}
           style={[
             styles.searchInputContainer,
             searchFocused && styles.searchInputFocused,

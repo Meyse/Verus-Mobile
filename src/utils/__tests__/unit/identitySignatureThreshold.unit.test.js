@@ -35,6 +35,14 @@ jest.mock('../../clipboard/clipboard', () => ({copyToClipboard: jest.fn()}));
 
 const React = require('react');
 const {act, create} = require('react-test-renderer');
+// React 19's test renderer has no synchronous legacy root: a tree renders only inside act().
+const createInAct = (...args) => {
+  let renderer;
+  act(() => {
+    renderer = create(...args);
+  });
+  return renderer;
+};
 const IdentityUpdateRequestInfo = require('../../../containers/DeepLink/IdentityUpdateRequestInfo/IdentityUpdateRequestInfo').default;
 const {ContentMultiMapRemoveKey, DataStringKey, GenericRequest, IDENTITY_CREDENTIAL, IdentityUpdateRequestDetails, IdentityUpdateRequestOrdinalVDXFObject, KvMap, PartialIdentity, PartialSignData} = require('verus-typescript-primitives');
 const {VERUSID_CMM_INFO, VERUSID_CMM_DATA} = require('../../constants/verusidObjectData');
@@ -104,7 +112,7 @@ describe('private address removal review', () => {
     });
     const review = renderer.root.findByType('ReviewStep');
     expect(review.props.highRiskCount).toBe(1);
-    const content = create(<ContentStep {...review.findByType('ContentStep').props} />);
+    const content = createInAct(<ContentStep {...review.findByType('ContentStep').props} />);
     expect(renderedText(content)).toContain(privateAddress);
     expect(renderedText(content)).toContain('No private address (removed)');
     content.unmount();
@@ -138,7 +146,7 @@ describe('private address removal review', () => {
   it.each([undefined, 'zsPreviousAddress'])('keeps additions and replacements visible (current: %s)', previous => {
     const renderer = renderRequest({privateaddress: privateAddress}, {...currentIdentity, privateaddress: previous});
     expect(renderer.root.findByType('ReviewStep').props.highRiskCount).toBe(1);
-    const content = create(<ContentStep {...renderer.root.findByType('ContentStep').props} />);
+    const content = createInAct(<ContentStep {...renderer.root.findByType('ContentStep').props} />);
     expect(renderedText(content)).toContain(privateAddress);
     expect(renderedText(content)).not.toContain('No private address (removed)');
     content.unmount();

@@ -239,6 +239,7 @@ const ValuAttestation = (props) => {
             parentNav.navigate('ServicesHome', {
                 screen: 'Service',
                 params: { service: ATTESTATION_SERVICE_ID },
+                pop: true,
             });
             return;
         }

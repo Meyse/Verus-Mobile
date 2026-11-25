@@ -1,5 +1,5 @@
 import DelayedAlert from '../../../utils/delayedAlert';
-import { NavigationActions } from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 
 import { WYRE_URL } from '../../../utils/constants/constants';
 
@@ -127,7 +127,7 @@ export const putWyreAccountField = (params, navigation, onSuccess) => async (dis
     if (onSuccess) {
         return onSuccess()
     }
-    return navigation.dispatch(NavigationActions.back());
+    return navigation.dispatch(CommonActions.goBack());
 };
 
 export const uploadWyreAccountDocument = (field, uri, type, onSuccess) => async (dispatch, getState) => {
@@ -185,7 +185,7 @@ export const createWyreAccountPaymentMethod = (token, navigation) => async (disp
         DelayedAlert('Failed creating Wyre payment method');
     }
     dispatch(putWyreAccountResponse({}));
-    navigation.dispatch(NavigationActions.back());
+    navigation.dispatch(CommonActions.goBack());
 };
 
 export const sendTransaction = (_, fromCurr, fromVal, toCurr, navigation) => async (dispatch, getState) => {
@@ -234,7 +234,7 @@ export const sendTransaction = (_, fromCurr, fromVal, toCurr, navigation) => asy
         }
 
         DelayedAlert('Payment Success');
-        navigation.dispatch(NavigationActions.back());
+        navigation.dispatch(CommonActions.goBack());
     } catch (error) {
         dispatch(createWyrePaymentResponse());
         DelayedAlert('Failed to create Wyre Transfer');

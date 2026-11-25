@@ -111,7 +111,7 @@ const ProfileStackScreens = props => {
         component={NotificationScreen}
         options={{
           title: "Notifications",
-          headerBackTitleVisible: false,
+          headerBackButtonDisplayMode: 'minimal',
           headerBackTitle: '',
         }}
       />

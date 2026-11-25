@@ -14,7 +14,7 @@ export default function IdentityManagementNavigator() {
       ...defaultHeaderOptions(props),
       headerStyle: {backgroundColor: '#fff'},
       headerTitleStyle: {fontSize: 17, fontWeight: '600', color: '#172033'},
-      headerTintColor: '#3165d4', headerShadowVisible: false, headerBackTitleVisible: false,
+      headerTintColor: '#3165d4', headerShadowVisible: false, headerBackButtonDisplayMode: 'minimal',
       headerRight: () => null,
     })}>
       <Stack.Screen name="IdentityModify" component={IdentityModify} options={{title: 'Modify identity'}} />

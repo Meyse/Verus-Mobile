@@ -9,6 +9,7 @@ import { setDeeplinkUrl } from '../../../actions/actionCreators';
 import { closeOffRamp } from '../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager';
 import { VALU_SERVICE_ID } from '../../../utils/constants/services';
 import { useNavigation } from '@react-navigation/native';
+import { getHomeTabFor, navigateByPath } from '../../../utils/navigation/navigateByPath';
 
 const SignedInStackScreens = props => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -27,7 +28,8 @@ const SignedInStackScreens = props => {
     if (deeplinkId != null && deeplinkUrl != null && !parsingUrl &&
         current.requestId === requestId && current.url === deeplinkUrl && !current.parsingUrl) {
       dispatch(setDeeplinkUrl(null))  
-      props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink'});
+      // pop: React Navigation 7 pushes a second VerifyDeepLink without it; v6 went back.
+      props.navigation.navigate('DeepLink', {screen: 'VerifyDeepLink', pop: true}, {pop: true});
     }
   }, [deeplinkId, deeplinkUrl, parsingUrl, requestId, store]);
 
@@ -37,7 +39,8 @@ const SignedInStackScreens = props => {
       new Promise(resolve => setTimeout(resolve, 3000))
         .then(() => {
           console.log(" props.navigation.navigate('Service',");
-          navigation.navigate('Service', {
+          // Service is in the Wallet and Services tab stacks, below this navigator.
+          navigateByPath(navigation, ['SignedInStack', 'Home', getHomeTabFor(navigation), 'Service'], {
             service: VALU_SERVICE_ID,
             subScreen: 'ValuOffRampReview'
           });

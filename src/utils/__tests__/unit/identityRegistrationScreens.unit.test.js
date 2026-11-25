@@ -21,7 +21,18 @@ jest.mock('../../../actions/actions/services/dispatchers/verusid/registration', 
   publishRegistrationJobs: (...args) => mockPublishRegistrationJobs(...args),
   clearRegistrationJobs: (...args) => mockClearRegistrationJobs(...args),
 }));
-jest.mock('react-redux', () => ({useSelector: selector => selector(mockState)}));
+// Like the real store, the selector mock re-renders its component when the mocked state changes.
+const mockStoreListeners = new Set();
+const mockStoreChanged = () => mockStoreListeners.forEach(listener => listener());
+jest.mock('react-redux', () => ({useSelector: selector => {
+  const React = require('react');
+  const [, forceRender] = React.useReducer(count => count + 1, 0);
+  React.useEffect(() => {
+    mockStoreListeners.add(forceRender);
+    return () => mockStoreListeners.delete(forceRender);
+  }, []);
+  return selector(mockState);
+}}));
 jest.mock('@react-navigation/native', () => ({useFocusEffect: callback => require('react').useEffect(callback, [callback])}));
 jest.mock('@react-navigation/elements', () => ({useHeaderHeight: () => 96}));
 jest.mock('react-native', () => ({
@@ -101,6 +112,7 @@ beforeEach(() => {
   mockPublishRegistrationJobs.mockReset().mockResolvedValue({});
   mockClearRegistrationJobs.mockReset().mockImplementation(async () => {
     mockState.channelStore_verusid.registrationJobs = {};
+    mockStoreChanged();
   });
   mockGetRegistrationReferralInfo.mockReset().mockResolvedValue({
     discount: '2000000000', reward: '2000000000', currencyID: 'chain', currencyName: 'VRSC', enabled: true,
@@ -252,6 +264,7 @@ it('clears registrations only after confirmation and shows the fresh state only 
   mockClearRegistrationJobs.mockImplementationOnce(() => new Promise(resolve => {
     finishClear = () => {
       mockState.channelStore_verusid.registrationJobs = {};
+      mockStoreChanged();
       resolve();
     };
   }));
@@ -520,7 +533,7 @@ it('saves a payment review for later without approving either payment', async ()
   const navigation = {navigate: jest.fn(), replace: jest.fn()};
   const view = await mount(IdentityCommitmentReview, {navigation});
   await press(button(view, 'Save for later'));
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
   expect(mockApi.approveCommitment).not.toHaveBeenCalled();
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
 });
@@ -790,7 +803,7 @@ it('offers to link a confirmed identity and links only after explicit confirmati
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledWith('job', expect.any(Object));
   expect(mockApi.approveRegistration).not.toHaveBeenCalled();
   expect(mockApi.approveCommitment).not.toHaveBeenCalled();
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
 });
 
 it('stops passive polling after registration is ready to link and accepts confirmation once', async () => {
@@ -817,7 +830,7 @@ it('stops passive polling after registration is ready to link and accepts confir
   expect(mockApi.reconcileRegistration).toHaveBeenCalledTimes(initialChecks);
   await act(async () => mockAlert.mock.calls[1][2].find(action => action.text === 'Link identity').onPress());
   expect(mockApi.linkRegisteredIdentity).toHaveBeenCalledTimes(1);
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
 });
 
 it('keeps the full cost estimate visible when the wallet needs more funding', async () => {
@@ -1071,7 +1084,7 @@ it('returns from progress to saved registrations without creating or resubmittin
   setSavedReview({...review, status: 'commitment_broadcast', commitmentTxid: 'sent'});
   const view = await mount(IdentityRegistrationProgress, {navigation});
   await press(button(view, 'Done for now'));
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
   expect(mockApi.prepareCommitment).not.toHaveBeenCalled();
 });
@@ -1081,7 +1094,7 @@ it.each([
   ['completed', 'complete', 'Your identity stays registered'],
 ])('deletes a %s from the home list only after confirmation', async (deletionKind, status, warning) => {
   mockState.channelStore_verusid.registrationJobs.saved = {id: 'saved', displayName: 'saved@', status, deletionKind, createdAt: 1};
-  mockApi.deleteRegistration.mockImplementation(async () => { delete mockState.channelStore_verusid.registrationJobs.saved; });
+  mockApi.deleteRegistration.mockImplementation(async () => { delete mockState.channelStore_verusid.registrationJobs.saved; mockStoreChanged(); });
   const view = await mount(IdentityRegistrationStart);
   if (deletionKind === 'completed') await press(button(view, 'Completed (1)'));
   await press(view.root.findByProps({accessibilityLabel: 'Delete saved registration for saved@'}));
@@ -1109,7 +1122,7 @@ it('warns that the original paid commitment fee is lost forever before deleting 
   expect(mockAlert.mock.calls[0][1]).not.toContain('0.0001');
   await act(async () => mockAlert.mock.calls[0][2].find(action => action.text === 'Delete').onPress());
   expect(mockApi.deleteRegistration).toHaveBeenCalledWith('job', 'commitment', expect.any(Object));
-  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart');
+  expect(navigation.navigate).toHaveBeenCalledWith('IdentityRegistrationStart', undefined, {pop: true});
   expect(mockApi.retryBroadcast).not.toHaveBeenCalled();
 });
 

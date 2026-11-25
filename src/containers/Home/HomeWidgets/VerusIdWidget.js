@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
-  background: {...StyleSheet.absoluteFillObject},
+  background: {...StyleSheet.absoluteFill},
   title: {
     fontSize: 20,
     fontWeight: '700',

@@ -10,7 +10,6 @@ import {
   View, 
   ScrollView, 
 } from "react-native";
-import { NavigationActions } from '@react-navigation/compat';
 import { connect } from 'react-redux';
 import QRCode from 'react-native-qrcode-svg';
 import Styles from '../../styles/index'
@@ -100,7 +99,7 @@ class DisplaySeed extends Component {
   };
 
   back = () => {
-    this.props.navigation.dispatch(NavigationActions.back());
+    this.props.navigation.dispatch(CommonActions.goBack());
   };
 
   toggleDerived = async (key, coinObj) => {

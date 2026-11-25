@@ -1,4 +1,4 @@
-import { HeaderBackButton } from "@react-navigation/stack";
+import { HeaderBackButton } from "@react-navigation/elements";
 import React from "react"
 import Colors from "../../globals/colors";
 

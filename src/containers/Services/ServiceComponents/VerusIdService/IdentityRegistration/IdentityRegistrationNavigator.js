@@ -18,7 +18,7 @@ export default function IdentityRegistrationNavigator() {
       ...defaultHeaderOptions(props),
       headerStyle: {backgroundColor: '#fff'},
       headerTitleStyle: {fontSize: 17, fontWeight: '600', color: '#172033'},
-      headerTintColor: '#3165d4', headerShadowVisible: false, headerBackTitleVisible: false,
+      headerTintColor: '#3165d4', headerShadowVisible: false, headerBackButtonDisplayMode: 'minimal',
       headerRight: () => null,
     })}>
       <Stack.Screen name="IdentityRegistrationStart" component={IdentityRegistrationStart} options={{title: 'VerusID'}} />

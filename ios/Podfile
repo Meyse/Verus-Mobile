@@ -1,5 +1,5 @@
-# Keep the existing native modules on the legacy architecture during this upgrade.
-ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+# Run on the React Native New Architecture (Fabric, TurboModules, bridgeless). Legacy native modules run through the interop layer.
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 
 def node_require(script)
   # Resolve script with node to allow for hoisting
@@ -124,7 +124,7 @@ target 'verusmobile' do
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => true,
-    :fabric_enabled => false,
+    :fabric_enabled => true,
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
@@ -132,12 +132,15 @@ target 'verusmobile' do
   # RuntimeApple shares ReactCommon's header directory. Generating another
   # module map for it under use_modular_headers! redefines ReactCommon.
   pod 'React-RuntimeApple', :path => "#{config[:reactNativePath]}/ReactCommon/react/runtime/platform/ios", :modular_headers => false
+  # React Native 0.81: React-jsitooling defines the react_runtime module itself (same header
+  # directory, react/runtime). A second module map for RuntimeCore under use_modular_headers!
+  # redefines that module.
+  pod 'React-RuntimeCore', :path => "#{config[:reactNativePath]}/ReactCommon/react/runtime", :modular_headers => false
 
   # Pods for Verus-Mobile
   pod 'MnemonicSwift', '~> 2.0.0'
   pod 'SwiftNIO', '2.40.0'
   pod 'CocoaAsyncSocket'
-  pod 'glog', :podspec => '../node_modules/react-native/third-party-podspecs/glog.podspec', :modular_headers => false
 
   post_install do |installer|
     react_native_post_install(

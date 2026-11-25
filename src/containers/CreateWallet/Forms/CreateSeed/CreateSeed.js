@@ -12,9 +12,9 @@ export default function CreateSeedStackScreens({ navigation, newSeed, onComplete
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <SeedIntro
-            navigation={navigation}
+            navigation={stackNavigation}
           />
         )}
       </CreateSeedStack.Screen>
@@ -23,9 +23,9 @@ export default function CreateSeedStackScreens({ navigation, newSeed, onComplete
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <SeedWords
-            navigation={navigation}
+            navigation={stackNavigation}
             newSeed={newSeed}
             onComplete={onComplete}
             testProfile={testProfile}

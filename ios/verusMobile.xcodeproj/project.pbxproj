@@ -11,7 +11,6 @@
 		109401ED0047E708684D1C4B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1830A8C7872F661991DE7934 /* PrivacyInfo.xcprivacy */; };
 		11D3A4425840432AADAC830C /* SourceSansPro-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E7CAC9CBB65F47A6B883FBD2 /* SourceSansPro-SemiBold.ttf */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
-		4EAB00012F3A000100000001 /* SceneDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4EAB00032F3A000100000001 /* SceneDelegate.mm */; };
 		13B07FBD1A68108700A75B9A /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB11A68108700A75B9A /* LaunchScreen.xib */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
@@ -20,7 +19,7 @@
 		2D02E4BD1E0B4A84006451C7 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2D02E4BF1E0B4AB3006451C7 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		2D096AA5ABC545E7B4421AA6 /* SourceSansPro-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C37976CFD29D43DEBE8AB634 /* SourceSansPro-Bold.ttf */; };
-		2DCD954D1E0B4F2C00145EB5 /* verusmobileTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* verusmobileTests.m */; };
+		2DCD954D1E0B4F2C00145EB5 /* verusMobileTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* verusMobileTests.m */; };
 		4D8F8BC85DF4453FBF0515FE /* SourceSansPro-SemiBoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1BBB92052F164D6388DFCB56 /* SourceSansPro-SemiBoldItalic.ttf */; };
 		4E4D0A66241530330069A5A7 /* sapling-output.params in Resources */ = {isa = PBXBuildFile; fileRef = 4E4D0A6424152FE90069A5A7 /* sapling-output.params */; };
 		4E4D0A67241530350069A5A7 /* sapling-spend.params in Resources */ = {isa = PBXBuildFile; fileRef = 4E4D0A6524152FF00069A5A7 /* sapling-spend.params */; };
@@ -28,6 +27,7 @@
 		4E9EA99B23BB63A800B9FA10 /* main.jsbundle in Resources */ = {isa = PBXBuildFile; fileRef = 008F07F21AC5B25A0029DE68 /* main.jsbundle */; };
 		4E9EA99D23BB985300B9FA10 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 4E9EA99C23BB985200B9FA10 /* assets */; };
 		4EAA00012F3A000100000001 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
+		4EAB00012F3A000100000001 /* SceneDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4EAB00032F3A000100000001 /* SceneDelegate.mm */; };
 		4EAC77502411690900A7D427 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5E192C160435467282AA50EC /* SourceSansPro-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3D75763453624C50830E810F /* SourceSansPro-LightItalic.ttf */; };
 		7575623222F346C1998DBA73 /* SourceSansPro-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */; };
@@ -76,12 +76,10 @@
 /* Begin PBXFileReference section */
 		008F07F21AC5B25A0029DE68 /* main.jsbundle */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = main.jsbundle; sourceTree = "<group>"; };
 		00E356F11AD99517003FC87E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		00E356F21AD99517003FC87E /* verusmobileTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = verusMobileTests.m; sourceTree = "<group>"; };
+		00E356F21AD99517003FC87E /* verusMobileTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = verusMobileTests.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* verusmobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = verusmobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FAF1A68108700A75B9A /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppDelegate.h; path = verusMobile/AppDelegate.h; sourceTree = "<group>"; };
 		13B07FB01A68108700A75B9A /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = AppDelegate.mm; path = verusMobile/AppDelegate.mm; sourceTree = "<group>"; };
-		4EAB00022F3A000100000001 /* SceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SceneDelegate.h; path = verusMobile/SceneDelegate.h; sourceTree = "<group>"; };
-		4EAB00032F3A000100000001 /* SceneDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = SceneDelegate.mm; path = verusMobile/SceneDelegate.mm; sourceTree = "<group>"; };
 		13B07FB21A68108700A75B9A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/LaunchScreen.xib; sourceTree = "<group>"; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = verusMobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = verusMobile/Info.plist; sourceTree = "<group>"; };
@@ -138,6 +136,8 @@
 		4E9EA98923BA7F7E00B9FA10 /* RNPermissionHandlerReminders.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RNPermissionHandlerReminders.h; path = "../node_modules/react-native-permissions/ios/Reminders/RNPermissionHandlerReminders.h"; sourceTree = "<group>"; };
 		4E9EA98A23BA7F7E00B9FA10 /* RNPermissionHandlerReminders.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RNPermissionHandlerReminders.m; path = "../node_modules/react-native-permissions/ios/Reminders/RNPermissionHandlerReminders.m"; sourceTree = "<group>"; };
 		4E9EA99C23BB985200B9FA10 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = "<group>"; };
+		4EAB00022F3A000100000001 /* SceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SceneDelegate.h; path = verusMobile/SceneDelegate.h; sourceTree = "<group>"; };
+		4EAB00032F3A000100000001 /* SceneDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = SceneDelegate.mm; path = verusMobile/SceneDelegate.mm; sourceTree = "<group>"; };
 		836BDD9D2F33DE7B0048B1FC /* storekit.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = storekit.storekit; sourceTree = "<group>"; };
 		AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-BoldItalic.ttf"; path = "../assets/fonts/SourceSansPro-BoldItalic.ttf"; sourceTree = "<group>"; };
 		C37976CFD29D43DEBE8AB634 /* SourceSansPro-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-Bold.ttf"; path = "../assets/fonts/SourceSansPro-Bold.ttf"; sourceTree = "<group>"; };
@@ -178,10 +178,10 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		00E356EF1AD99517003FC87E /* verusmobileTests */ = {
+		00E356EF1AD99517003FC87E /* verusMobileTests */ = {
 			isa = PBXGroup;
 			children = (
-				00E356F21AD99517003FC87E /* verusmobileTests.m */,
+				00E356F21AD99517003FC87E /* verusMobileTests.m */,
 				00E356F01AD99517003FC87E /* Supporting Files */,
 			);
 			path = verusMobileTests;
@@ -203,8 +203,6 @@
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
 				4EAB00022F3A000100000001 /* SceneDelegate.h */,
 				4EAB00032F3A000100000001 /* SceneDelegate.mm */,
-				4EAA00022F3A000100000001 /* VerusKeepAwake.h */,
-				4EAA00032F3A000100000001 /* VerusKeepAwake.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB11A68108700A75B9A /* LaunchScreen.xib */,
@@ -301,7 +299,7 @@
 				4E9EA94F23BA790200B9FA10 /* Permissions */,
 				13B07FAE1A68108700A75B9A /* verusmobile */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
-				00E356EF1AD99517003FC87E /* verusmobileTests */,
+				00E356EF1AD99517003FC87E /* verusMobileTests */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				9FA1689132444214AF5B6A83 /* Resources */,
@@ -586,11 +584,15 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-verusmobile/Pods-verusmobile-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -604,7 +606,6 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-verusmobile/Pods-verusmobile-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNPermissions/RNPermissionsPrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
@@ -627,12 +628,11 @@
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/Octicons.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/SimpleLineIcons.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/Zocial.ttf",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNWorklets/RNWorklets_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/SQLite.swift/SQLite.swift.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/SwiftProtobuf/SwiftProtobuf.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-ios/LottiePrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-react-native/Lottie_React_Native_Privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/react-native-verus/zcash-mainnet.bundle",
@@ -640,7 +640,6 @@
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNPermissionsPrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
@@ -663,12 +662,11 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Octicons.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SimpleLineIcons.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Zocial.ttf",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNWorklets_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SQLite.swift.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SwiftProtobuf.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LottiePrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Lottie_React_Native_Privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/zcash-mainnet.bundle",
@@ -707,7 +705,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2DCD954D1E0B4F2C00145EB5 /* verusmobileTests.m in Sources */,
+				2DCD954D1E0B4F2C00145EB5 /* verusMobileTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1045,10 +1043,19 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					" ",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -1103,10 +1110,19 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					" ",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

@@ -1,4 +1,4 @@
-import { NavigationActions } from "@react-navigation/compat";
+import { CommonActions } from "@react-navigation/native";
 import { Component } from "react"
 import { connect } from 'react-redux'
 import { modifyPersonalDataForUser } from "../../../../actions/actionDispatchers";
@@ -137,7 +137,7 @@ class PersonalLocationsEditAddress extends Component {
         );
       }
 
-      this.props.navigation.dispatch(NavigationActions.back())
+      this.props.navigation.dispatch(CommonActions.goBack())
     })
   }
 

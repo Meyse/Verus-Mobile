@@ -41,3 +41,26 @@ diff --git a/node_modules/react-native-verus/scripts/prepack.ts b/node_modules/r
    writeFileSync(stampFile, hash)
  }
  
+diff --git a/node_modules/react-native-verus/android/src/main/java/com/verusmobile/veruslightclient/VerusLightClientModule.kt b/node_modules/react-native-verus/android/src/main/java/com/verusmobile/veruslightclient/VerusLightClientModule.kt
+--- a/node_modules/react-native-verus/android/src/main/java/com/verusmobile/veruslightclient/VerusLightClientModule.kt
++++ b/node_modules/react-native-verus/android/src/main/java/com/verusmobile/veruslightclient/VerusLightClientModule.kt
+@@ -79,7 +79,10 @@
+         defaultPort: Int = 8120,
+         newWallet: Boolean,
+         promise: Promise,
+-    ) = moduleScope.launch {
++    ) {
++        // Return Unit, not the Job from launch: the New Architecture interop layer rejects the
++        // whole module when a @ReactMethod returns a non-void type.
++        moduleScope.launch {
+         try {
+             val ready = CompletableDeferred<Unit>()
+             initializationJobs[alias]?.cancel() // cancel stale latch if any
+@@ -225,6 +228,7 @@
+             promise.reject("INIT_ERROR", t.localizedMessage, t)
+         }
+     }
++    }
+ 
+     @ReactMethod
+     fun getInfo(alias: String, promise: Promise) {

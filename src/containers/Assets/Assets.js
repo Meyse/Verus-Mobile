@@ -163,7 +163,7 @@ const Assets = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerBackTitleVisible: false,
+      headerBackButtonDisplayMode: 'minimal',
       headerBackTitle: '',
     });
   }, [navigation]);

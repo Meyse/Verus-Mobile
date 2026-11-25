@@ -1,0 +1,47 @@
+diff --git a/node_modules/react-native-image-picker/react-native-image-picker.podspec b/node_modules/react-native-image-picker/react-native-image-picker.podspec
+--- a/node_modules/react-native-image-picker/react-native-image-picker.podspec
++++ b/node_modules/react-native-image-picker/react-native-image-picker.podspec
+@@ -14,26 +14,9 @@
+ 
+   s.source       = { :git => "https://github.com/react-native-image-picker/react-native-image-picker.git", :tag => "v#{s.version}" }
+   s.source_files  = "ios/*.{h,m,mm}"
+-  s.pod_target_xcconfig = { 'OTHER_CPLUSPLUSFLAGS' => '-fcxx-modules' }
+-
+-  if ENV['RCT_NEW_ARCH_ENABLED'] == '1'
+-    folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
+-
+-    s.pod_target_xcconfig = {
+-      'HEADER_SEARCH_PATHS' => '"$(PODS_ROOT)/boost" "$(PODS_ROOT)/boost-for-react-native" "$(PODS_ROOT)/RCT-Folly"',
+-      'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17'
+-    }
+-
+-    s.compiler_flags  = folly_compiler_flags + ' -DRN_FABRIC_ENABLED -fmodules -fcxx-modules'
+-
+-    s.dependency "React"
+-    s.dependency "React-RCTFabric" # This is for fabric component
+-    s.dependency "React-Codegen"
+-    s.dependency "RCT-Folly"
+-    s.dependency "RCTRequired"
+-    s.dependency "RCTTypeSafety"
+-    s.dependency "ReactCommon/turbomodule/core"
+-  else
+-    s.dependency "React-Core"
+-  end
++  # Valu Wallet: build the legacy bridge module, as with React Native 0.81 (it runs through the
++  # New Architecture interop layer). The 5.7.0 TurboModule path does not compile: its .m files
++  # include the C++ spec header. The old explicit New Architecture setup (-fcxx-modules,
++  # RCT-Folly, React-Codegen) does not build against the React Native 0.88 prebuilt core.
++  s.dependency "React-Core"
+ end
+diff --git a/node_modules/react-native-image-picker/ios/ImagePickerManager.mm b/node_modules/react-native-image-picker/ios/ImagePickerManager.mm
+--- a/node_modules/react-native-image-picker/ios/ImagePickerManager.mm
++++ b/node_modules/react-native-image-picker/ios/ImagePickerManager.mm
+@@ -5,7 +5,7 @@
+ #import <Photos/Photos.h>
+ #import <PhotosUI/PhotosUI.h>
+ 
+-@import MobileCoreServices;
++#import <MobileCoreServices/MobileCoreServices.h>
+ 
+ @interface ImagePickerManager ()
+ 

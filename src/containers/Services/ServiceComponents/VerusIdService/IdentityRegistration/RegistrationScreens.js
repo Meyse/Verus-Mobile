@@ -637,7 +637,7 @@ const PaymentReview = ({navigation, route, stage}) => {
       </View>
       <RegistrationDetails review={review} />
       {!!error && <ActionButton secondary disabled={busy} onPress={() => refresh()}>Refresh review</ActionButton>}
-      <ActionButton secondary disabled={busy} onPress={() => navigation.navigate('IdentityRegistrationStart')}>Save for later</ActionButton>
+      <ActionButton secondary disabled={busy} onPress={() => navigation.navigate('IdentityRegistrationStart', undefined, {pop: true})}>Save for later</ActionButton>
     </>}
   </RegistrationPage>;
 };
@@ -799,7 +799,7 @@ export function IdentityRegistrationProgress({navigation, route}) {
       ], {cancelable: true, onDismiss: closePrompt});
   };
 
-  const openOverview = () => navigation.navigate('IdentityRegistrationStart');
+  const openOverview = () => navigation.navigate('IdentityRegistrationStart', undefined, {pop: true});
   const openLinkedIdentities = () => {
     const parent = navigation.getParent();
     // The registration flow is mounted in both the Identity tab and the Services stack.

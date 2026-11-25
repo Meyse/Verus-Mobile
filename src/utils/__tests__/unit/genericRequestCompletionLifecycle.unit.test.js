@@ -14,7 +14,6 @@ jest.mock('react-native-paper', () => ({Text: 'Text'}));
 jest.mock('react-native-safe-area-context', () => ({useSafeAreaInsets: () => ({bottom: 0})}));
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 jest.mock('@react-navigation/native', () => ({CommonActions: {reset: payload => ({type: 'RESET', ...payload})}}));
-jest.mock('@react-navigation/drawer', () => ({createDrawerNavigator: () => ({Navigator: 'Drawer', Screen: 'Screen'})}));
 jest.mock('../../../containers/SideMenu/SideMenu', () => 'SideMenu');
 jest.mock('../../../containers/RootStack/MainStackScreens/MainStackScreens', () => 'MainStack');
 jest.mock('react-redux', () => ({useSelector: selector => selector(mockState), useDispatch: () => mockDispatch,
@@ -223,11 +222,11 @@ it('waits for replacement URL parsing, then returns the nested stack to verifica
   }), childOptions);
   root.routes[root.index].state = child;
   const {view, complete} = mount();
-  const navigation = {navigate: jest.fn((name, params) => {
-    root = rootRouter.getStateForAction(root, CommonActions.navigate(name, params), rootOptions);
-    // React Navigation passes a nested screen target to the child router.
+  const navigation = {navigate: jest.fn((name, params, options) => {
+    root = rootRouter.getStateForAction(root, CommonActions.navigate(name, params, options), rootOptions);
+    // React Navigation passes a nested screen target, with its pop option, to the child router.
     const target = root.routes[root.index].params;
-    child = childRouter.getStateForAction(child, CommonActions.navigate(target.screen, target.params), childOptions);
+    child = childRouter.getStateForAction(child, CommonActions.navigate(target.screen, target.params, {pop: target.pop}), childOptions);
     root.routes[root.index].state = child;
   })};
 
@@ -240,7 +239,7 @@ it('waits for replacement URL parsing, then returns the nested stack to verifica
 
   mockState.deeplink = {...mockState.deeplink, data: 'cc', requestId: 2, parsingUrl: false};
   await act(async () => stack.update(<SignedInStack navigation={navigation} />));
-  expect(navigation.navigate).toHaveBeenCalledWith('DeepLink', {screen: 'VerifyDeepLink'});
+  expect(navigation.navigate).toHaveBeenCalledWith('DeepLink', {screen: 'VerifyDeepLink', pop: true}, {pop: true});
   expect(child.routes.map(route => route.name)).toEqual(['VerifyDeepLink']);
   expect(mockState.deeplink).toMatchObject({data: 'cc', requestId: 2, url: null});
 

@@ -293,6 +293,7 @@ export default function ImportSeed({
           </Text>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <View
+              collapsable={false}
               style={[
                 styles.inputContainer,
                 isFocused && styles.inputContainerFocused,

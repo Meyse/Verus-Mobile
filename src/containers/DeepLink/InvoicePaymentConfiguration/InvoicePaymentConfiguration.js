@@ -34,7 +34,6 @@ import { usePrevious } from '../../../hooks/usePrevious';
 import { conditionallyUpdateWallet } from '../../../actions/actionDispatchers';
 import store from '../../../store';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
-import { NavigationActions } from '@react-navigation/compat';
 import { getVerusPayInvoicePaymentDestination } from '../../../utils/deeplink/verusPayBurnChangePrice';
 
 const InvoicePaymentConfiguration = props => {

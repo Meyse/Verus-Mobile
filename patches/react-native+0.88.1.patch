@@ -1,0 +1,24 @@
+diff --git a/node_modules/react-native/Libraries/Text/Text.js b/node_modules/react-native/Libraries/Text/Text.js
+--- a/node_modules/react-native/Libraries/Text/Text.js
++++ b/node_modules/react-native/Libraries/Text/Text.js
+@@ -284,7 +284,7 @@
+   let nativeText = null;
+ 
+   processedProps.accessible = _accessible;
+-  processedProps.allowFontScaling = allowFontScaling !== false;
++  processedProps.allowFontScaling = allowFontScaling === true;
+   processedProps.disabled = _disabled;
+   processedProps.ellipsizeMode = ellipsizeMode ?? 'tail';
+   processedProps.children = children;
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+--- a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+@@ -909,7 +909,7 @@
+   ...props: React.ElementConfig<typeof InternalTextInput>
+ ) = function TextInput({
+   ref: forwardedRef,
+-  allowFontScaling = true,
++  allowFontScaling = false,
+   rejectResponderTermination = true,
+   underlineColorAndroid = 'transparent',
+   autoComplete,

@@ -27,9 +27,9 @@ export default function CreateWalletStackScreens({ navigation, createProfile }) 
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <WalletIntro
-            navigation={navigation}
+            navigation={stackNavigation}
             newSeed={newSeed}
             setNewSeed={setNewSeed}
             setTestProfile={setTestProfile}

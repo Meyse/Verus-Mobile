@@ -644,7 +644,7 @@ const ReceiveAssetDetails = () => {
 
       <View style={styles.footerContainer}>
         <GradientButton
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('Home', undefined, {pop: true})}
         >
           {'Done'}
         </GradientButton>

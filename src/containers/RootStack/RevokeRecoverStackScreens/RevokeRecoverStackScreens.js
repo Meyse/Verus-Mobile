@@ -4,7 +4,7 @@ import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import RevokeRecoverSlider from '../../RevokeRecover/RevokeRecoverSlider';
 import ImportWalletStackScreens from '../../CreateWallet/Forms/ImportWallet/ImportWallet';
 import RevokeRecoverIdentityForm from '../../RevokeRecover/RevokeRecoverIdentityForm';
-import { NavigationActions } from '@react-navigation/compat';
+import { CommonActions } from '@react-navigation/native';
 
 const RevokeRecoverStack = createStackNavigator();
 
@@ -12,12 +12,14 @@ const RevokeRecoverStackScreens = props => {
   const [importedSeed, setImportedSeed] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
 
-  const exitRevokeRecover = () => props.navigation.dispatch(NavigationActions.back())
+  const exitRevokeRecover = () => props.navigation.dispatch(CommonActions.goBack())
 
-  const completeImport = seed => {
+  // React Navigation 7 does not search child navigators for a route name.
+  // Navigate with the RevokeRecover stack navigation, which owns IdentityForm.
+  const completeImport = (seed, stackNavigation) => {
     if (seed != null) setImportedSeed(seed);
 
-    props.navigation.navigate("IdentityForm");
+    stackNavigation.navigate("IdentityForm");
   };
 
   return (
@@ -30,9 +32,9 @@ const RevokeRecoverStackScreens = props => {
           headerShown: false,
         }}
       >
-        {() => (
+        {({navigation: stackNavigation}) => (
           <RevokeRecoverSlider
-            navigation={props.navigation}
+            navigation={stackNavigation}
             setIsRecovery={setIsRecovery}
           />
         )}
@@ -43,12 +45,12 @@ const RevokeRecoverStackScreens = props => {
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {({navigation: stackNavigation}) => (
           <ImportWalletStackScreens
             navigation={props.navigation}
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
-            onComplete={completeImport}
+            onComplete={seed => completeImport(seed, stackNavigation)}
             label={`Import ${isRecovery ? "Recovery" : "Revocation"} Seed or Key`}
           />
         )}

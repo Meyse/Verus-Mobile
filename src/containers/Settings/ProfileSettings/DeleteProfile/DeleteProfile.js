@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { TextInput, Checkbox } from 'react-native-paper'
 import Button from '../../../../components/Button'
-import { NavigationActions } from '@react-navigation/compat';
 import { CommonActions } from '@react-navigation/native';
 import { deleteProfile, setBiometry } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
@@ -51,7 +50,7 @@ class DeleteProfile extends Component {
   }
 
   cancel = () => {
-    this.props.navigation.dispatch(NavigationActions.back())
+    this.props.navigation.dispatch(CommonActions.goBack())
   }
 
   canDelete = () => {

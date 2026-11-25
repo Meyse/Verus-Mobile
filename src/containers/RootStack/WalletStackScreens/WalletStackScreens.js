@@ -53,39 +53,39 @@ const WalletStackScreens = props => {
         component={NotificationScreen}
         options={{
           title: "Notifications",
-          headerBackTitleVisible: false,
+          headerBackButtonDisplayMode: 'minimal',
           headerBackTitle: '',
         }}
       />
       <WalletStack.Screen
         name="UsdcBridgeScreen"
         component={UsdcBridgeScreen}
-        options={{ title: 'Bridge USDC to Verus', headerBackTitleVisible: false }}
+        options={{ title: 'Bridge USDC to Verus', headerBackButtonDisplayMode: 'minimal' }}
       />
       <WalletStack.Screen
         name="UsdcBridgeProgressScreen"
         component={UsdcBridgeProgressScreen}
-        options={{ title: 'Bridge in Progress', headerBackTitleVisible: false }}
+        options={{ title: 'Bridge in Progress', headerBackButtonDisplayMode: 'minimal' }}
       />
       <WalletStack.Screen
         name="VerusToEvmScreen"
         component={VerusToEvmScreen}
-        options={{ title: 'Bridge vUSDC to Polygon', headerBackTitleVisible: false }}
+        options={{ title: 'Bridge vUSDC to Polygon', headerBackButtonDisplayMode: 'minimal' }}
       />
       <WalletStack.Screen
         name="VerusToEvmProgressScreen"
         component={VerusToEvmProgressScreen}
-        options={{ title: 'Bridge to Polygon: Progress', headerBackTitleVisible: false }}
+        options={{ title: 'Bridge to Polygon: Progress', headerBackButtonDisplayMode: 'minimal' }}
       />
       <WalletStack.Screen
         name="EvmToFiatScreen"
         component={EvmToFiatScreen}
-        options={{ title: 'Cash Out USDC', headerBackTitleVisible: false }}
+        options={{ title: 'Cash Out USDC', headerBackButtonDisplayMode: 'minimal' }}
       />
       <WalletStack.Screen
         name="EvmToFiatProgressScreen"
         component={EvmToFiatProgressScreen}
-        options={{ title: 'Cashout Progress', headerBackTitleVisible: false }}
+        options={{ title: 'Cashout Progress', headerBackButtonDisplayMode: 'minimal' }}
       />
     </WalletStack.Navigator>
   );
