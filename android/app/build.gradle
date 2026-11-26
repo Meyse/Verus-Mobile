@@ -4,7 +4,7 @@ apply plugin: "com.facebook.react"
 def versionMajor = 1
 def versionMinor = 1
 def versionRevision = 1
-def versionBuild = 0
+def versionBuild = 1
 
 def keystorePropertiesFile = rootProject.file("keystore.properties");
 
