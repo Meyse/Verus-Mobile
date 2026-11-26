@@ -230,8 +230,8 @@ importers:
         specifier: 1.17.0
         version: 1.17.0(react-native-svg@15.12.1(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1))(react-native@0.77.3(@babel/core@7.29.7)(@react-native-community/cli@15.0.1(typescript@5.8.3))(@types/react@18.2.8)(react@18.3.1))(react@18.3.1)
       moment:
-        specifier: 2.29.4
-        version: 2.29.4
+        specifier: 2.31.0
+        version: 2.31.0
       normalizr:
         specifier: 3.6.0
         version: 3.6.0
@@ -4000,8 +4000,8 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  moment@2.29.4:
-    resolution: {integrity: sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==}
+  moment@2.31.0:
+    resolution: {integrity: sha512-0acOTfMiWOheYS4eoWb80yYMb/JLvVv9SHbs2PehaDzfUG0Bw855SKyk0IKTnPGa5+U2bmi3W68l1+sGLX/pvw==}
 
   ms@2.0.0:
     resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
@@ -10114,7 +10114,7 @@ snapshots:
 
   mkdirp@1.0.4: {}
 
-  moment@2.29.4: {}
+  moment@2.31.0: {}
 
   ms@2.0.0: {}
 
