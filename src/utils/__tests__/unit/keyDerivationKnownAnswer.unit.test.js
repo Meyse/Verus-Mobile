@@ -28,8 +28,79 @@ const path = require('path');
 const pbkdf2 = require('pbkdf2');
 const bip39 = require('bip39');
 
-const packageDir = name => path.dirname(require.resolve(`${name}/package.json`));
-const readManifest = name => jest.requireActual(`${name}/package.json`);
+const REPO_ROOT = path.resolve(__dirname, '../../../..');
+const fromRepo = file => path.join(REPO_ROOT, file);
+
+// Resolve an import the way the app bundle does: Metro's own resolver (the
+// copy `metro` loads), the repo metro.config.js resolveRequest hook, main
+// fields and extensions, and the real file system. Returns the file path.
+const metroResolve = async (originFile, moduleName, platform) => {
+  const fs = jest.requireActual('fs');
+  const metroDir = path.dirname(require.resolve('metro/package.json'));
+  const resolverPath = require.resolve('metro-resolver', {paths: [metroDir]});
+  const {resolve} = jest.requireActual(resolverPath);
+  const createDefaultContext = jest.requireActual(
+    path.join(path.dirname(resolverPath), 'createDefaultContext'),
+  );
+  const {resolver} = await require('../../../../metro.config.js');
+
+  const lookup = filePath => {
+    try {
+      const stat = fs.statSync(filePath);
+      return {exists: true, type: stat.isDirectory() ? 'd' : 'f', realPath: fs.realpathSync(filePath)};
+    } catch (error) {
+      return {exists: false};
+    }
+  };
+  const getPackage = file => {
+    try {
+      return JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+      return null;
+    }
+  };
+  const getPackageForModule = modulePath => {
+    for (let dir = path.dirname(modulePath); dir !== path.dirname(dir); dir = path.dirname(dir)) {
+      const packageJson = getPackage(path.join(dir, 'package.json'));
+      if (packageJson != null) {
+        return {packageJson, rootPath: dir, packageRelativePath: path.relative(dir, modulePath)};
+      }
+    }
+    return null;
+  };
+
+  const context = createDefaultContext(
+    {
+      allowHaste: false,
+      assetExts: new Set(resolver.assetExts),
+      customResolverOptions: {},
+      disableHierarchicalLookup: resolver.disableHierarchicalLookup,
+      doesFileExist: file => lookup(file).type === 'f',
+      extraNodeModules: resolver.extraNodeModules,
+      fileSystemLookup: lookup,
+      getPackage,
+      getPackageForModule,
+      isESMImport: false,
+      mainFields: resolver.resolverMainFields,
+      nodeModulesPaths: resolver.nodeModulesPaths,
+      originModulePath: originFile,
+      preferNativePlatform: true,
+      resolveAsset: () => null,
+      resolveHasteModule: () => null,
+      resolveHastePackage: () => null,
+      resolveRequest: resolver.resolveRequest,
+      sourceExts: resolver.sourceExts,
+      unstable_conditionNames: resolver.unstable_conditionNames,
+      unstable_conditionsByPlatform: resolver.unstable_conditionsByPlatform,
+      unstable_enablePackageExports: resolver.unstable_enablePackageExports,
+      unstable_logWarning: () => {},
+    },
+    null,
+  );
+  const resolution = resolve(context, moduleName, platform);
+  expect(resolution.type).toBe('sourceFile');
+  return fs.realpathSync(resolution.filePath);
+};
 
 const ascii = value => Buffer.from(value, 'ascii');
 const hex = value => value.replace(/\s+/g, '');
@@ -120,44 +191,30 @@ const TREZOR_ENGLISH = [
 
 describe('key derivation known answers', () => {
   describe('module path matches what Metro bundles', () => {
-    it('the repo Metro config resolves package browser fields before main', async () => {
-      const config = await require('../../../../metro.config.js');
-      const fields = config.resolver.resolverMainFields;
-      expect(fields).toContain('browser');
-      expect(fields.indexOf('browser')).toBeLessThan(fields.indexOf('main'));
-      // A react-native field ahead of browser would win; these packages have none.
-      for (const name of ['pbkdf2', 'create-hash', 'bip39']) {
-        expect(readManifest(name)['react-native']).toBeUndefined();
-        expect(readManifest(name).exports).toBeUndefined();
-      }
+    // [importing file, import specifier, file the Jest mocks above load]
+    const BUNDLE_EDGES = [
+      ['src/utils/services/WyreService.js', 'bip39', 'node_modules/bip39/src/index.js'],
+      ['node_modules/bip39/src/index.js', 'pbkdf2', 'node_modules/pbkdf2/browser.js'],
+      ['node_modules/bip39/src/index.js', 'create-hash', 'node_modules/create-hash/browser.js'],
+      ['node_modules/pbkdf2/browser.js', './lib/sync', 'node_modules/pbkdf2/lib/sync-browser.js'],
+      ['node_modules/pbkdf2/browser.js', './lib/async', 'node_modules/pbkdf2/lib/async.js'],
+      ['node_modules/pbkdf2/lib/async.js', './sync', 'node_modules/pbkdf2/lib/sync-browser.js'],
+    ];
+    const cases = ['ios', 'android'].flatMap(platform =>
+      BUNDLE_EDGES.map(([origin, name, expected]) => [platform, origin, name, expected]),
+    );
+
+    it.each(cases)('%s: %s imports %s as %s', async (platform, origin, name, expected) => {
+      expect(await metroResolve(fromRepo(origin), name, platform)).toBe(fromRepo(expected));
     });
 
-    it('the repo resolveRequest hook leaves pbkdf2 and create-hash to Metro', async () => {
-      const config = await require('../../../../metro.config.js');
-      const passThrough = {type: 'sourceFile', filePath: 'metro-default'};
-      const context = {resolveRequest: jest.fn(() => passThrough)};
-      for (const name of ['pbkdf2', 'create-hash', 'bip39']) {
-        expect(config.resolver.resolveRequest(context, name, 'ios')).toBe(passThrough);
-        expect(config.resolver.resolveRequest(context, name, 'android')).toBe(passThrough);
-      }
-    });
-
-    it('the package browser maps point at the files mocked here', () => {
-      expect(readManifest('pbkdf2').browser).toEqual(
-        expect.objectContaining({
-          './index.js': './browser.js',
-          './lib/sync.js': './lib/sync-browser.js',
-        }),
+    it('the Jest mocks load those same files', () => {
+      expect(require.resolve('bip39')).toBe(fromRepo('node_modules/bip39/src/index.js'));
+      expect(require.resolve('pbkdf2/browser')).toBe(fromRepo('node_modules/pbkdf2/browser.js'));
+      expect(require.resolve('pbkdf2/lib/sync-browser')).toBe(
+        fromRepo('node_modules/pbkdf2/lib/sync-browser.js'),
       );
-      expect(readManifest('create-hash').browser).toBe('browser.js');
-      // The app bip39 imports the same hoisted copies that are mocked here.
-      const fromBip39 = name =>
-        require.resolve(`${name}/package.json`, {paths: [packageDir('bip39')]});
-      expect(fromBip39('pbkdf2')).toBe(require.resolve('pbkdf2/package.json'));
-      expect(fromBip39('create-hash')).toBe(require.resolve('create-hash/package.json'));
-    });
-
-    it('Jest runs the pure JS pbkdf2 and create-hash, not Node native crypto', () => {
+      expect(require.resolve('create-hash/browser')).toBe(fromRepo('node_modules/create-hash/browser.js'));
       expect(pbkdf2.pbkdf2Sync).toBe(jest.requireActual('pbkdf2/lib/sync-browser'));
       expect(require('create-hash')).toBe(jest.requireActual('create-hash/browser'));
       expect(require('create-hash')).not.toBe(require('crypto').createHash);
