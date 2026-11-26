@@ -9,20 +9,27 @@
  *   (github.com/trezor/python-mnemonic, vectors.json, "english" list,
  *   passphrase "TREZOR"). These phrases are public test values.
  *
- * Module path: Metro resolves `pbkdf2` through its package.json `browser`
- * field (`@react-native/metro-config` uses resolverMainFields
- * react-native, browser, main), so the app runs `pbkdf2/browser.js` and
- * `lib/sync-browser.js`, the pure JS implementation. Jest does not read the
- * `browser` field and would use Node's native crypto instead, so the two
- * mocks below point Jest at the same files the app bundles. The app's
- * `bip39` (the VerusCoin fork) then derives seeds through that code.
+ * Module path: Metro resolves `pbkdf2` and `create-hash` through their
+ * package.json `browser` field (`@react-native/metro-config` uses
+ * resolverMainFields react-native, browser, main), so the app runs
+ * `pbkdf2/browser.js`, `pbkdf2/lib/sync-browser.js` and
+ * `create-hash/browser.js`, the pure JS implementations. Jest does not read
+ * the `browser` field and would use Node's native crypto instead, so the
+ * mocks below point Jest at the same files the app bundles. The first test
+ * block checks that the repo Metro config still picks those files. The
+ * app's `bip39` (the VerusCoin fork) then derives seeds through that code.
  */
 
 jest.mock('pbkdf2', () => jest.requireActual('pbkdf2/browser'));
 jest.mock('pbkdf2/lib/sync', () => jest.requireActual('pbkdf2/lib/sync-browser'));
+jest.mock('create-hash', () => jest.requireActual('create-hash/browser'));
 
+const path = require('path');
 const pbkdf2 = require('pbkdf2');
 const bip39 = require('bip39');
+
+const packageDir = name => path.dirname(require.resolve(`${name}/package.json`));
+const readManifest = name => jest.requireActual(`${name}/package.json`);
 
 const ascii = value => Buffer.from(value, 'ascii');
 const hex = value => value.replace(/\s+/g, '');
@@ -112,8 +119,49 @@ const TREZOR_ENGLISH = [
 ];
 
 describe('key derivation known answers', () => {
-  it('uses the pure JS pbkdf2 that Metro bundles, not Node native crypto', () => {
-    expect(pbkdf2.pbkdf2Sync).toBe(jest.requireActual('pbkdf2/lib/sync-browser'));
+  describe('module path matches what Metro bundles', () => {
+    it('the repo Metro config resolves package browser fields before main', async () => {
+      const config = await require('../../../../metro.config.js');
+      const fields = config.resolver.resolverMainFields;
+      expect(fields).toContain('browser');
+      expect(fields.indexOf('browser')).toBeLessThan(fields.indexOf('main'));
+      // A react-native field ahead of browser would win; these packages have none.
+      for (const name of ['pbkdf2', 'create-hash', 'bip39']) {
+        expect(readManifest(name)['react-native']).toBeUndefined();
+        expect(readManifest(name).exports).toBeUndefined();
+      }
+    });
+
+    it('the repo resolveRequest hook leaves pbkdf2 and create-hash to Metro', async () => {
+      const config = await require('../../../../metro.config.js');
+      const passThrough = {type: 'sourceFile', filePath: 'metro-default'};
+      const context = {resolveRequest: jest.fn(() => passThrough)};
+      for (const name of ['pbkdf2', 'create-hash', 'bip39']) {
+        expect(config.resolver.resolveRequest(context, name, 'ios')).toBe(passThrough);
+        expect(config.resolver.resolveRequest(context, name, 'android')).toBe(passThrough);
+      }
+    });
+
+    it('the package browser maps point at the files mocked here', () => {
+      expect(readManifest('pbkdf2').browser).toEqual(
+        expect.objectContaining({
+          './index.js': './browser.js',
+          './lib/sync.js': './lib/sync-browser.js',
+        }),
+      );
+      expect(readManifest('create-hash').browser).toBe('browser.js');
+      // The app bip39 imports the same hoisted copies that are mocked here.
+      const fromBip39 = name =>
+        require.resolve(`${name}/package.json`, {paths: [packageDir('bip39')]});
+      expect(fromBip39('pbkdf2')).toBe(require.resolve('pbkdf2/package.json'));
+      expect(fromBip39('create-hash')).toBe(require.resolve('create-hash/package.json'));
+    });
+
+    it('Jest runs the pure JS pbkdf2 and create-hash, not Node native crypto', () => {
+      expect(pbkdf2.pbkdf2Sync).toBe(jest.requireActual('pbkdf2/lib/sync-browser'));
+      expect(require('create-hash')).toBe(jest.requireActual('create-hash/browser'));
+      expect(require('create-hash')).not.toBe(require('crypto').createHash);
+    });
   });
 
   describe('PBKDF2-HMAC-SHA1, RFC 6070', () => {
@@ -139,13 +187,19 @@ describe('key derivation known answers', () => {
   });
 
   describe('BIP39 phrase to seed through the app bip39, Trezor vectors', () => {
+    afterEach(() => jest.restoreAllMocks());
+
     it.each(TREZOR_ENGLISH)('entropy %s: mnemonicToSeedSync', (entropy, mnemonic, seed) => {
+      const spy = jest.spyOn(pbkdf2, 'pbkdf2Sync');
       expect(bip39.mnemonicToSeedSync(mnemonic, TREZOR_PASSPHRASE).toString('hex')).toBe(seed);
+      expect(spy).toHaveBeenCalledTimes(1);
     });
 
     it.each(TREZOR_ENGLISH)('entropy %s: mnemonicToSeed', async (entropy, mnemonic, seed) => {
+      const spy = jest.spyOn(pbkdf2, 'pbkdf2');
       const derived = await bip39.mnemonicToSeed(mnemonic, TREZOR_PASSPHRASE);
       expect(derived.toString('hex')).toBe(seed);
+      expect(spy).toHaveBeenCalledTimes(1);
     });
 
     it.each(TREZOR_ENGLISH)('entropy %s: entropy and phrase round trip', (entropy, mnemonic) => {
